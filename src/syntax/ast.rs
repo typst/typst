@@ -112,19 +112,19 @@ pub enum Expr {
     Enum(EnumItem),
     /// An item in a term list: `/ Term: Details`.
     Term(TermItem),
-    /// A math formula: `$x$`, `$ x^2 $`.
-    Formula(Formula),
-    /// A math formula: `$x$`, `$ x^2 $`.
+    /// A mathematical equation: `$x$`, `$ x^2 $`.
+    Equation(Equation),
+    /// The contents of a mathematical equation: `x^2 + 1`.
     Math(Math),
-    /// An identifier in a math formula: `pi`.
+    /// An identifier in math: `pi`.
     MathIdent(MathIdent),
-    /// An alignment point in a math formula: `&`.
+    /// An alignment point in math: `&`.
     MathAlignPoint(MathAlignPoint),
-    /// Matched delimiters surrounding math in a formula: `[x + y]`.
+    /// Matched delimiters in math: `[x + y]`.
     MathDelimited(MathDelimited),
-    /// A base with optional attachments in a formula: `a_1^2`.
+    /// A base with optional attachments in math: `a_1^2`.
     MathAttach(MathAttach),
-    /// A fraction in a math formula: `x/2`.
+    /// A fraction in math: `x/2`.
     MathFrac(MathFrac),
     /// An identifier: `left`.
     Ident(Ident),
@@ -214,7 +214,7 @@ impl AstNode for Expr {
             SyntaxKind::ListItem => node.cast().map(Self::List),
             SyntaxKind::EnumItem => node.cast().map(Self::Enum),
             SyntaxKind::TermItem => node.cast().map(Self::Term),
-            SyntaxKind::Formula => node.cast().map(Self::Formula),
+            SyntaxKind::Equation => node.cast().map(Self::Equation),
             SyntaxKind::Math => node.cast().map(Self::Math),
             SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
             SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
@@ -273,7 +273,7 @@ impl AstNode for Expr {
             Self::List(v) => v.as_untyped(),
             Self::Enum(v) => v.as_untyped(),
             Self::Term(v) => v.as_untyped(),
-            Self::Formula(v) => v.as_untyped(),
+            Self::Equation(v) => v.as_untyped(),
             Self::Math(v) => v.as_untyped(),
             Self::MathIdent(v) => v.as_untyped(),
             Self::MathAlignPoint(v) => v.as_untyped(),
@@ -696,17 +696,17 @@ impl TermItem {
 }
 
 node! {
-    /// A math formula: `$x$`, `$ x^2 $`.
-    Formula
+    /// A mathemathical equation: `$x$`, `$ x^2 $`.
+    Equation
 }
 
-impl Formula {
+impl Equation {
     /// The contained math.
     pub fn body(&self) -> Math {
         self.0.cast_first_match().unwrap_or_default()
     }
 
-    /// Whether the formula should be displayed as a separate block.
+    /// Whether the equation should be displayed as a separate block.
     pub fn block(&self) -> bool {
         let is_space = |node: Option<&SyntaxNode>| {
             node.map(SyntaxNode::kind) == Some(SyntaxKind::Space)
@@ -716,7 +716,7 @@ impl Formula {
 }
 
 node! {
-    /// Math markup.
+    /// The contents of a mathematical equation: `x^2 + 1`.
     Math
 }
 
@@ -728,7 +728,7 @@ impl Math {
 }
 
 node! {
-    /// An identifier in a math formula: `pi`.
+    /// An identifier in math: `pi`.
     MathIdent
 }
 
@@ -758,12 +758,12 @@ impl Deref for MathIdent {
 }
 
 node! {
-    /// An alignment point in a formula: `&`.
+    /// An alignment point in math: `&`.
     MathAlignPoint
 }
 
 node! {
-    /// Matched delimiters surrounding math in a formula: `[x + y]`.
+    /// Matched delimiters in math: `[x + y]`.
     MathDelimited
 }
 
@@ -785,7 +785,7 @@ impl MathDelimited {
 }
 
 node! {
-    /// A base with optional attachments in a formula: `a_1^2`.
+    /// A base with optional attachments in math: `a_1^2`.
     MathAttach
 }
 
@@ -813,7 +813,7 @@ impl MathAttach {
 }
 
 node! {
-    /// A fraction in a formula: `x/2`
+    /// A fraction in math: `x/2`
     MathFrac
 }
 

@@ -77,18 +77,18 @@ pub struct LangItems {
     pub enum_item: fn(number: Option<NonZeroUsize>, body: Content) -> Content,
     /// An item in a term list: `/ Term: Details`.
     pub term_item: fn(term: Content, description: Content) -> Content,
-    /// A mathematical formula: `$x$`, `$ x^2 $`.
-    pub formula: fn(body: Content, block: bool) -> Content,
-    /// An alignment point in a formula: `&`.
+    /// A mathematical equation: `$x$`, `$ x^2 $`.
+    pub equation: fn(body: Content, block: bool) -> Content,
+    /// An alignment point in math: `&`.
     pub math_align_point: fn() -> Content,
-    /// Matched delimiters surrounding math in a formula: `[x + y]`.
+    /// Matched delimiters in math: `[x + y]`.
     pub math_delimited: fn(open: Content, body: Content, close: Content) -> Content,
-    /// A base with optional attachments in a formula: `a_1^2`.
+    /// A base with optional attachments in math: `a_1^2`.
     pub math_attach:
         fn(base: Content, bottom: Option<Content>, top: Option<Content>) -> Content,
     /// A base with an accent: `arrow(x)`.
     pub math_accent: fn(base: Content, accent: char) -> Content,
-    /// A fraction in a formula: `x/2`.
+    /// A fraction in math: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
     /// Dispatch a method on a library value.
     pub library_method: fn(
@@ -126,7 +126,7 @@ impl Hash for LangItems {
         self.list_item.hash(state);
         self.enum_item.hash(state);
         self.term_item.hash(state);
-        self.formula.hash(state);
+        self.equation.hash(state);
         self.math_align_point.hash(state);
         self.math_delimited.hash(state);
         self.math_attach.hash(state);

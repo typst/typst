@@ -47,7 +47,7 @@ use crate::text::{
 /// Create a module with all math definitions.
 pub fn module() -> Module {
     let mut math = Scope::deduplicating();
-    math.define("formula", FormulaNode::id());
+    math.define("equation", EquationNode::id());
     math.define("text", TextNode::id());
 
     // Grouping.
@@ -106,7 +106,7 @@ pub fn module() -> Module {
     Module::new("math").with_scope(math)
 }
 
-/// A mathematical formula.
+/// A mathematical equation.
 ///
 /// Can be displayed inline with text or as a separate block.
 ///
@@ -125,25 +125,25 @@ pub fn module() -> Module {
 ///
 /// ## Syntax
 /// This function also has dedicated syntax: Write mathematical markup within
-/// dollar signs to create a formula. Starting and ending the formula with at
+/// dollar signs to create an equation. Starting and ending the equation with at
 /// least one space lifts it into a separate block that is centered
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
 ///
-/// Display: Formula
+/// Display: Equation
 /// Category: math
 #[node(Show, Finalize, Layout, LayoutMath)]
-pub struct FormulaNode {
-    /// Whether the formula is displayed as a separate block.
+pub struct EquationNode {
+    /// Whether the equation is displayed as a separate block.
     #[default(false)]
     pub block: bool,
 
-    /// The content of the formula.
+    /// The contents of the equation.
     #[required]
     pub body: Content,
 }
 
-impl Show for FormulaNode {
+impl Show for EquationNode {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(NodeId::of::<Self>()));
         if self.block(styles) {
@@ -153,7 +153,7 @@ impl Show for FormulaNode {
     }
 }
 
-impl Finalize for FormulaNode {
+impl Finalize for EquationNode {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         realized
             .styled(TextNode::set_weight(FontWeight::from_number(450)))
@@ -163,7 +163,7 @@ impl Finalize for FormulaNode {
     }
 }
 
-impl Layout for FormulaNode {
+impl Layout for EquationNode {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -209,7 +209,7 @@ pub trait LayoutMath {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()>;
 }
 
-impl LayoutMath for FormulaNode {
+impl LayoutMath for EquationNode {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }

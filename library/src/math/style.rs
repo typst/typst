@@ -11,7 +11,7 @@ use super::*;
 /// Category: math
 #[node(LayoutMath)]
 pub struct BoldNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -36,7 +36,7 @@ impl LayoutMath for BoldNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct UprightNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -58,7 +58,7 @@ impl LayoutMath for UprightNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct ItalicNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -80,7 +80,7 @@ impl LayoutMath for ItalicNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct SerifNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -105,7 +105,7 @@ impl LayoutMath for SerifNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct SansNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -130,7 +130,7 @@ impl LayoutMath for SansNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct CalNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -155,7 +155,7 @@ impl LayoutMath for CalNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct FrakNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -180,7 +180,7 @@ impl LayoutMath for FrakNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct MonoNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -210,7 +210,7 @@ impl LayoutMath for MonoNode {
 /// Category: math
 #[node(LayoutMath)]
 pub struct BbNode {
-    /// The piece of formula to style.
+    /// The content to style.
     #[required]
     pub body: Content,
 }
@@ -224,7 +224,7 @@ impl LayoutMath for BbNode {
     }
 }
 
-/// Text properties in a formula.
+/// Text properties in math.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct MathStyle {
     /// The style variant to select.
@@ -298,7 +298,7 @@ impl MathStyle {
     }
 }
 
-/// The size of elements in a formula.
+/// The size of elements in an equation.
 ///
 /// See the TeXbook p. 141.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]

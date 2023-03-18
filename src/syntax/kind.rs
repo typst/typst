@@ -56,18 +56,18 @@ pub enum SyntaxKind {
     TermItem,
     /// Introduces a term item: `/`.
     TermMarker,
-    /// A mathematical formula: `$x$`, `$ x^2 $`.
-    Formula,
+    /// A mathematical equation: `$x$`, `$ x^2 $`.
+    Equation,
 
-    /// Mathematical markup.
+    /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
     /// An identifier in math: `pi`.
     MathIdent,
     /// An alignment point in math: `&`.
     MathAlignPoint,
-    /// Matched delimiters surrounding math in a formula: `[x + y]`.
+    /// Matched delimiters in math: `[x + y]`.
     MathDelimited,
-    /// A base with optional attachments in a formula: `a_1^2`.
+    /// A base with optional attachments in math: `a_1^2`.
     MathAttach,
     /// A fraction in math: `x/2`.
     MathFrac,
@@ -100,7 +100,7 @@ pub enum SyntaxKind {
     Star,
     /// Toggles emphasized text and indicates a subscript in math: `_`.
     Underscore,
-    /// Starts and ends a math formula: `$`.
+    /// Starts and ends a mathematical equation: `$`.
     Dollar,
     /// The unary plus and binary addition operator: `+`.
     Plus,
@@ -342,7 +342,7 @@ impl SyntaxKind {
             Self::EnumMarker => "enum marker",
             Self::TermItem => "term list item",
             Self::TermMarker => "term marker",
-            Self::Formula => "math formula",
+            Self::Equation => "equation",
             Self::Math => "math",
             Self::MathIdent => "math identifier",
             Self::MathAlignPoint => "math alignment point",

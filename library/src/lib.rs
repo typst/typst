@@ -211,7 +211,7 @@ fn items() -> LangItems {
             node.pack()
         },
         term_item: |term, description| layout::TermItem::new(term, description).pack(),
-        formula: |body, block| math::FormulaNode::new(body).with_block(block).pack(),
+        equation: |body, block| math::EquationNode::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointNode::new().pack(),
         math_delimited: |open, body, close| math::LrNode::new(open + body + close).pack(),
         math_attach: |base, bottom, top| {

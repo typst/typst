@@ -27,7 +27,7 @@
     "overbracket",
   ]
   description: |
-    Delimiters above or below parts of a formula.
+    Delimiters above or below parts of an equation.
 
     The braces and brackets further allow you to add an optional annotation
     below or above themselves.
@@ -44,7 +44,7 @@
     Subscript, superscripts, and limits.
 
     The `attach` function backs the `[$a_b^c$]` syntax that adds top and bottom
-    attachments to a part of a formula. Attachments can be displayed either as
+    attachments to a part of an equation. Attachments can be displayed either as
     sub/superscripts, or limits. Typst automatically decides which is more
     suitable depending on the base, but you can also control this manually with
     the `scripts` and `limits` functions.

@@ -7,7 +7,7 @@ use typst::model::StyledNode;
 
 use super::{BoxNode, HNode, Sizing, Spacing};
 use crate::layout::AlignNode;
-use crate::math::FormulaNode;
+use crate::math::EquationNode;
 use crate::prelude::*;
 use crate::text::{
     shape, LinebreakNode, Quoter, Quotes, ShapedText, SmartQuoteNode, SpaceNode, TextNode,
@@ -324,8 +324,8 @@ enum Segment<'a> {
     Text(usize),
     /// Horizontal spacing between other segments.
     Spacing(Spacing),
-    /// A math formula.
-    Formula(&'a FormulaNode),
+    /// A mathematical equation.
+    Equation(&'a EquationNode),
     /// A box with arbitrary content.
     Box(&'a BoxNode, bool),
     /// Metadata.
@@ -339,7 +339,7 @@ impl Segment<'_> {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
             Self::Box(_, true) => SPACING_REPLACE.len_utf8(),
-            Self::Formula(_) | Self::Box(_, _) | Self::Meta => NODE_REPLACE.len_utf8(),
+            Self::Equation(_) | Self::Box(_, _) | Self::Meta => NODE_REPLACE.len_utf8(),
         }
     }
 }
@@ -597,9 +597,9 @@ fn collect<'a>(
                 full.push(if node.double(styles) { '"' } else { '\'' });
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(node) = child.to::<FormulaNode>() {
+        } else if let Some(node) = child.to::<EquationNode>() {
             full.push(NODE_REPLACE);
-            Segment::Formula(node)
+            Segment::Equation(node)
         } else if let Some(node) = child.to::<BoxNode>() {
             let frac = node.width(styles).is_fractional();
             full.push(if frac { SPACING_REPLACE } else { NODE_REPLACE });
@@ -671,9 +671,9 @@ fn prepare<'a>(
                     items.push(Item::Fractional(v, None));
                 }
             },
-            Segment::Formula(formula) => {
+            Segment::Equation(equation) => {
                 let pod = Regions::one(region, Axes::splat(false));
-                let mut frame = formula.layout(vt, styles, pod)?.into_frame();
+                let mut frame = equation.layout(vt, styles, pod)?.into_frame();
                 frame.translate(Point::with_y(TextNode::baseline_in(styles)));
                 items.push(Item::Frame(frame));
             }

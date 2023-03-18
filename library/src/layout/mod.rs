@@ -50,7 +50,7 @@ use typst::diag::SourceResult;
 use typst::eval::Tracer;
 use typst::model::{applicable, realize, SequenceNode, StyleVecBuilder, StyledNode};
 
-use crate::math::{FormulaNode, LayoutMath};
+use crate::math::{EquationNode, LayoutMath};
 use crate::meta::DocumentNode;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
@@ -245,9 +245,9 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         mut content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        if content.can::<dyn LayoutMath>() && !content.is::<FormulaNode>() {
+        if content.can::<dyn LayoutMath>() && !content.is::<EquationNode>() {
             content =
-                self.scratch.content.alloc(FormulaNode::new(content.clone()).pack());
+                self.scratch.content.alloc(EquationNode::new(content.clone()).pack());
         }
 
         if let Some(styled) = content.to::<StyledNode>() {
@@ -491,7 +491,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<HNode>()
             || content.is::<LinebreakNode>()
             || content.is::<SmartQuoteNode>()
-            || content.to::<FormulaNode>().map_or(false, |node| !node.block(styles))
+            || content.to::<EquationNode>().map_or(false, |node| !node.block(styles))
             || content.is::<BoxNode>()
         {
             self.0.push(content.clone(), styles);

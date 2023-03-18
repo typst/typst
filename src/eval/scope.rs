@@ -45,7 +45,7 @@ impl<'a> Scopes<'a> {
             .ok_or("unknown variable")?)
     }
 
-    /// Try to access a variable immutably from within a math formula.
+    /// Try to access a variable immutably in math.
     pub fn get_in_math(&self, var: &str) -> StrResult<&Value> {
         Ok(std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())

@@ -237,13 +237,13 @@ fn markup_completions(ctx: &mut CompletionContext) {
     ctx.snippet_completion(
         "math (inline)",
         "$${x}$",
-        "Inserts an inline-level mathematical formula.",
+        "Inserts an inline-level mathematical equation.",
     );
 
     ctx.snippet_completion(
         "math (block)",
         "$ ${sum_x^2} $",
-        "Inserts a block-level mathematical formula.",
+        "Inserts a block-level mathematical equation.",
     );
 }
 
@@ -251,7 +251,7 @@ fn markup_completions(ctx: &mut CompletionContext) {
 fn complete_math(ctx: &mut CompletionContext) -> bool {
     if !matches!(
         ctx.leaf.parent_kind(),
-        Some(SyntaxKind::Formula)
+        Some(SyntaxKind::Equation)
             | Some(SyntaxKind::Math)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
@@ -935,10 +935,10 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for all font families.
     fn font_completions(&mut self) {
-        let formula = self.before[self.cursor.saturating_sub(25)..].contains("formula");
+        let equation = self.before[self.cursor.saturating_sub(25)..].contains("equation");
         for (family, iter) in self.world.book().families() {
             let detail = summarize_font_family(iter);
-            if !formula || family.contains("Math") {
+            if !equation || family.contains("Math") {
                 self.value_completion(
                     None,
                     &Value::Str(family.into()),
@@ -1121,7 +1121,7 @@ impl<'a> CompletionContext<'a> {
 
         let in_math = matches!(
             self.leaf.parent_kind(),
-            Some(SyntaxKind::Formula)
+            Some(SyntaxKind::Equation)
                 | Some(SyntaxKind::Math)
                 | Some(SyntaxKind::MathFrac)
                 | Some(SyntaxKind::MathAttach)

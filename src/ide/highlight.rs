@@ -27,9 +27,9 @@ pub enum Tag {
     ListMarker,
     /// A term in a term list.
     ListTerm,
-    /// The delimiters of a math formula.
+    /// The delimiters of an equation.
     MathDelimiter,
-    /// An operator with special meaning in a math formula.
+    /// An operator with special meaning in an equation.
     MathOperator,
     /// A keyword.
     Keyword,
@@ -138,7 +138,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::EnumMarker => Some(Tag::ListMarker),
         SyntaxKind::TermItem => None,
         SyntaxKind::TermMarker => Some(Tag::ListMarker),
-        SyntaxKind::Formula => None,
+        SyntaxKind::Equation => None,
 
         SyntaxKind::Math => None,
         SyntaxKind::MathIdent => highlight_ident(node),

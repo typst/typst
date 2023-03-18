@@ -49,8 +49,8 @@ Let's disect what's going on:
 - We insert a heading with the `= Heading` syntax. One equals sign creates a top
   level heading, two create a subheading and so on.
 
-- [Math formulas][math] are enclosed in dollar signs. By adding extra spaces
-  around the contents of a formula, we can put it into a separate block.
+- [Mathematical equations][math] are enclosed in dollar signs. By adding extra
+  spaces around the contents of a equation, we can put it into a separate block.
   Multi-letter identifiers are interpreted as Typst definitions and functions
   unless put into quotes. This way, we don't need backslashes for things like
   `floor` and `sqrt`. And `phi.alt` applies the `alt` modifier to the `phi` to

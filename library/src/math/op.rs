@@ -2,7 +2,7 @@ use typst::eval::Scope;
 
 use super::*;
 
-/// A text operator in a math formula.
+/// A text operator in an equation.
 ///
 /// ## Example
 /// ```example

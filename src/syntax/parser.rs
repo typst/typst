@@ -114,7 +114,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         SyntaxKind::EnumMarker if *at_start => enum_item(p),
         SyntaxKind::TermMarker if *at_start => term_item(p),
         SyntaxKind::RefMarker => reference(p),
-        SyntaxKind::Dollar => formula(p),
+        SyntaxKind::Dollar => equation(p),
 
         SyntaxKind::LeftBracket
         | SyntaxKind::RightBracket
@@ -213,14 +213,14 @@ fn whitespace_line(p: &mut Parser) {
     }
 }
 
-fn formula(p: &mut Parser) {
+fn equation(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Math);
     p.assert(SyntaxKind::Dollar);
     math(p, |kind| kind == SyntaxKind::Dollar);
     p.expect(SyntaxKind::Dollar);
     p.exit();
-    p.wrap(m, SyntaxKind::Formula);
+    p.wrap(m, SyntaxKind::Equation);
 }
 
 fn math(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
@@ -631,7 +631,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
         SyntaxKind::LeftParen => with_paren(p),
-        SyntaxKind::Dollar => formula(p),
+        SyntaxKind::Dollar => equation(p),
         SyntaxKind::Let => let_binding(p),
         SyntaxKind::Set => set_rule(p),
         SyntaxKind::Show => show_rule(p),

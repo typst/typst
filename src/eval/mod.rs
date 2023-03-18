@@ -426,7 +426,7 @@ impl Eval for ast::Expr {
             Self::List(v) => v.eval(vm).map(Value::Content),
             Self::Enum(v) => v.eval(vm).map(Value::Content),
             Self::Term(v) => v.eval(vm).map(Value::Content),
-            Self::Formula(v) => v.eval(vm).map(Value::Content),
+            Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
@@ -626,13 +626,13 @@ impl Eval for ast::TermItem {
     }
 }
 
-impl Eval for ast::Formula {
+impl Eval for ast::Equation {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let body = self.body().eval(vm)?;
         let block = self.block();
-        Ok((vm.items.formula)(body, block))
+        Ok((vm.items.equation)(body, block))
     }
 }
 

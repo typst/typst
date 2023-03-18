@@ -1,6 +1,6 @@
 // Integrated test for content fields.
 
-#let compute(formula, ..vars) = {
+#let compute(equation, ..vars) = {
   let vars = vars.named()
   let f(node) = {
     let func = node.func()
@@ -28,14 +28,14 @@
         .fold(0, (sum, v) => sum + v)
     }
   }
-  let result = f(formula.body)
+  let result = f(equation.body)
   [With ]
   vars
     .pairs()
     .map(p => $#p.first() = #p.last()$)
     .join(", ", last: " and ")
   [ we have:]
-  $ formula = result $
+  $ equation = result $
 }
 
 #compute($x y + y^2$, x: 2, y: 3)

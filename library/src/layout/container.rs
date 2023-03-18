@@ -261,7 +261,7 @@ pub struct BlockNode {
     ///
     /// ```example
     /// #set align(center)
-    /// #show math.formula: set block(above: 8pt, below: 16pt)
+    /// #show math.equation: set block(above: 8pt, below: 16pt)
     ///
     /// This sum of $x$ and $y$:
     /// $ x + y = z $

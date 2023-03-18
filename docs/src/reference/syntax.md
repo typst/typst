@@ -40,10 +40,11 @@ more about their syntax and usage.
 
 ## Math mode { #math }
 Math mode is a special markup mode that is used to typeset mathematical
-formulas. It is entered by wrapping a formula in `[$]` characters. The formula
-will be typeset into its own block if it starts and ends with at least one space
-(e.g. `[$ x^2 $]`). Inline math can be produced by omitting the whitespace (e.g.
-`[$x^2$]`). An overview over the syntax specific to math mode follows:
+formulas. It is entered by wrapping an equation in `[$]` characters. The
+equation will be typeset into its own block if it starts and ends with at least
+one space (e.g. `[$ x^2 $]`). Inline math can be produced by omitting the
+whitespace (e.g. `[$x^2$]`). An overview over the syntax specific to math mode
+follows:
 
 | Name                   | Example                  | See                      |
 | ---------------------- | ------------------------ | ------------------------ |
