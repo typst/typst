@@ -1504,17 +1504,25 @@ impl Closure {
     }
 
     /// The parameter bindings.
-    pub fn params(&self) -> impl DoubleEndedIterator<Item = Param> + '_ {
-        self.0
-            .children()
-            .find(|x| x.kind() == SyntaxKind::Params)
-            .map_or([].iter(), |params| params.children())
-            .filter_map(SyntaxNode::cast)
+    pub fn params(&self) -> Params {
+        self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The body of the closure.
     pub fn body(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
+    }
+}
+
+node! {
+    /// A closure's parameters: `(x, y)`.
+    Params
+}
+
+impl Params {
+    /// The parameter bindings.
+    pub fn children(&self) -> impl DoubleEndedIterator<Item = Param> + '_ {
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 }
 

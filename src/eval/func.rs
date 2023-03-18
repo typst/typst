@@ -20,7 +20,12 @@ use crate::World;
 
 /// An evaluatable function.
 #[derive(Clone, Hash)]
-pub struct Func(Arc<Prehashed<Repr>>, Span);
+pub struct Func {
+    /// The internal representation.
+    repr: Arc<Prehashed<Repr>>,
+    /// The span with which errors are reported when this function is called.
+    span: Span,
+}
 
 /// The different kinds of function representations.
 #[derive(Hash)]
@@ -38,7 +43,7 @@ enum Repr {
 impl Func {
     /// The name of the function.
     pub fn name(&self) -> Option<&str> {
-        match &**self.0 {
+        match &**self.repr {
             Repr::Native(native) => Some(native.info.name),
             Repr::Node(node) => Some(node.info.name),
             Repr::Closure(closure) => closure.name.as_deref(),
@@ -48,7 +53,7 @@ impl Func {
 
     /// Extract details the function.
     pub fn info(&self) -> Option<&FuncInfo> {
-        match &**self.0 {
+        match &**self.repr {
             Repr::Native(native) => Some(&native.info),
             Repr::Node(node) => Some(&node.info),
             Repr::With(func, _) => func.info(),
@@ -58,20 +63,20 @@ impl Func {
 
     /// The function's span.
     pub fn span(&self) -> Span {
-        self.1
+        self.span
     }
 
     /// Attach a span to this function if it doesn't already have one.
     pub fn spanned(mut self, span: Span) -> Self {
-        if self.1.is_detached() {
-            self.1 = span;
+        if self.span.is_detached() {
+            self.span = span;
         }
         self
     }
 
     /// The number of positional arguments this function takes, if known.
     pub fn argc(&self) -> Option<usize> {
-        match &**self.0 {
+        match &**self.repr {
             Repr::Closure(closure) => closure.argc(),
             Repr::With(wrapped, applied) => Some(wrapped.argc()?.saturating_sub(
                 applied.items.iter().filter(|arg| arg.name.is_none()).count(),
@@ -82,7 +87,7 @@ impl Func {
 
     /// Call the function with the given arguments.
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
-        match &**self.0 {
+        match &**self.repr {
             Repr::Native(native) => {
                 let value = (native.func)(vm, &mut args)?;
                 args.finish()?;
@@ -133,8 +138,11 @@ impl Func {
 
     /// Apply the given arguments to the function.
     pub fn with(self, args: Args) -> Self {
-        let span = self.1;
-        Self(Arc::new(Prehashed::new(Repr::With(self, args))), span)
+        let span = self.span;
+        Self {
+            repr: Arc::new(Prehashed::new(Repr::With(self, args))),
+            span,
+        }
     }
 
     /// Create a selector for this function's node type, filtering by node's
@@ -147,7 +155,7 @@ impl Func {
 
     /// The node id of this function if it is an element function.
     pub fn id(&self) -> Option<NodeId> {
-        match **self.0 {
+        match **self.repr {
             Repr::Node(id) => Some(id),
             _ => None,
         }
@@ -155,7 +163,7 @@ impl Func {
 
     /// Execute the function's set rule and return the resulting style map.
     pub fn set(&self, mut args: Args) -> SourceResult<StyleMap> {
-        Ok(match &**self.0 {
+        Ok(match &**self.repr {
             Repr::Node(node) => {
                 let styles = (node.set)(&mut args)?;
                 args.finish()?;
@@ -190,13 +198,16 @@ impl Debug for Func {
 
 impl PartialEq for Func {
     fn eq(&self, other: &Self) -> bool {
-        hash128(&self.0) == hash128(&other.0)
+        hash128(&self.repr) == hash128(&other.repr)
     }
 }
 
 impl From<Repr> for Func {
     fn from(repr: Repr) -> Self {
-        Self(Arc::new(Prehashed::new(repr)), Span::detached())
+        Self {
+            repr: Arc::new(Prehashed::new(repr)),
+            span: Span::detached(),
+        }
     }
 }
 
@@ -318,7 +329,7 @@ impl Closure {
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
-        let closure = match &**this.0 {
+        let closure = match &**this.repr {
             Repr::Closure(closure) => closure,
             _ => panic!("`this` must be a closure"),
         };
@@ -436,7 +447,7 @@ impl<'a> CapturesVisitor<'a> {
             // body is evaluated. Care must be taken so that the default values
             // of named parameters cannot access previous parameter bindings.
             Some(ast::Expr::Closure(expr)) => {
-                for param in expr.params() {
+                for param in expr.params().children() {
                     if let ast::Param::Named(named) = param {
                         self.visit(named.expr().as_untyped());
                     }
@@ -447,7 +458,7 @@ impl<'a> CapturesVisitor<'a> {
                     self.bind(name);
                 }
 
-                for param in expr.params() {
+                for param in expr.params().children() {
                     match param {
                         ast::Param::Pos(ident) => self.bind(ident),
                         ast::Param::Named(named) => self.bind(named.name()),

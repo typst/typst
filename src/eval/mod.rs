@@ -158,7 +158,7 @@ pub fn eval_code_str(
 /// virtual machine is created for each module evaluation and function call.
 pub struct Vm<'a> {
     /// The underlying virtual typesetter.
-    vt: Vt<'a>,
+    pub vt: Vt<'a>,
     /// The language items.
     items: LangItems,
     /// The route of source ids the VM took to reach its current location.
@@ -1153,7 +1153,7 @@ impl Eval for ast::Closure {
         let mut sink = None;
 
         // Collect parameters and an optional sink parameter.
-        for param in self.params() {
+        for param in self.params().children() {
             match param {
                 ast::Param::Pos(name) => {
                     params.push((name, None));
@@ -1180,7 +1180,7 @@ impl Eval for ast::Closure {
             body: self.body(),
         };
 
-        Ok(Value::Func(Func::from(closure).spanned(self.span())))
+        Ok(Value::Func(Func::from(closure).spanned(self.params().span())))
     }
 }
 
