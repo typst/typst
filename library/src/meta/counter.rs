@@ -277,8 +277,8 @@ impl Counter {
             if is_page {
                 let page = introspector.page(id);
                 let delta = page.get() - prev_page.get();
-                if let Some(delta) = NonZeroUsize::new(delta) {
-                    state.step(delta);
+                if delta > 0 {
+                    state.step(NonZeroUsize::ONE, delta);
                 }
                 prev_page = page;
             }
@@ -354,7 +354,7 @@ impl CounterState {
     pub fn update(&mut self, vt: &mut Vt, update: CounterUpdate) -> SourceResult<()> {
         match update {
             CounterUpdate::Set(state) => *self = state,
-            CounterUpdate::Step(level) => self.step(level),
+            CounterUpdate::Step(level) => self.step(level, 1),
             CounterUpdate::Func(func) => {
                 *self = func
                     .call_vt(vt, self.0.iter().copied().map(Into::into))?
@@ -365,12 +365,12 @@ impl CounterState {
         Ok(())
     }
 
-    /// Advance the top level number by the specified amount.
-    pub fn step(&mut self, level: NonZeroUsize) {
+    /// Advance the number of the given level by the specified amount.
+    pub fn step(&mut self, level: NonZeroUsize, by: usize) {
         let level = level.get();
 
         if self.0.len() >= level {
-            self.0[level - 1] = self.0[level - 1].saturating_add(1);
+            self.0[level - 1] = self.0[level - 1].saturating_add(by);
             self.0.truncate(level);
         }
 
