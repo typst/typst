@@ -39,6 +39,9 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HNode, ParNode, Spacing};
+use crate::meta::{
+    Count, Counter, CounterAction, CounterNode, CounterUpdate, LocalName, Numbering,
+};
 use crate::prelude::*;
 use crate::text::{
     families, variant, FontFamily, FontList, LinebreakNode, SpaceNode, TextNode, TextSize,
@@ -132,15 +135,35 @@ pub fn module() -> Module {
 ///
 /// Display: Equation
 /// Category: math
-#[node(Show, Finalize, Layout, LayoutMath)]
+#[node(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName)]
 pub struct EquationNode {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
     pub block: bool,
 
+    /// How to [number]($func/numbering) block-level equations.
+    ///
+    /// ```example
+    /// #set math.equation(numbering: "(1)")
+    ///
+    /// We define:
+    /// $ phi.alt := (1 + sqrt(5)) / 2 $ <ratio>
+    ///
+    /// With @ratio, we get:
+    /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
+    /// ```
+    pub numbering: Option<Numbering>,
+
     /// The contents of the equation.
     #[required]
     pub body: Content,
+}
+
+impl Synthesize for EquationNode {
+    fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
+        self.push_block(self.block(styles));
+        self.push_numbering(self.numbering(styles));
+    }
 }
 
 impl Show for EquationNode {
@@ -170,6 +193,8 @@ impl Layout for EquationNode {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        const NUMBER_GUTTER: Em = Em::new(0.5);
+
         let block = self.block(styles);
 
         // Find a math font.
@@ -189,7 +214,34 @@ impl Layout for EquationNode {
         let mut ctx = MathContext::new(vt, styles, regions, &font, block);
         let mut frame = ctx.layout_frame(self)?;
 
-        if !block {
+        if block {
+            if let Some(numbering) = self.numbering(styles) {
+                let pod = Regions::one(regions.base(), Axes::splat(false));
+                let counter = CounterNode::new(
+                    Counter::of(Self::id()),
+                    CounterAction::Get(numbering),
+                );
+
+                let sub = counter.pack().layout(vt, styles, pod)?.into_frame();
+                let width = if regions.size.x.is_finite() {
+                    regions.size.x
+                } else {
+                    frame.width() + 2.0 * (sub.width() + NUMBER_GUTTER.resolve(styles))
+                };
+
+                let height = frame.height().max(sub.height());
+                frame.resize(Size::new(width, height), Align::CENTER_HORIZON);
+
+                let x = if TextNode::dir_in(styles).is_positive() {
+                    frame.width() - sub.width()
+                } else {
+                    Abs::zero()
+                };
+                let y = (frame.height() - sub.height()) / 2.0;
+
+                frame.push_frame(Point::new(x, y), sub)
+            }
+        } else {
             let slack = ParNode::leading_in(styles) * 0.7;
             let top_edge = TextNode::top_edge_in(styles).resolve(styles, font.metrics());
             let bottom_edge =
@@ -202,6 +254,23 @@ impl Layout for EquationNode {
         }
 
         Ok(Fragment::frame(frame))
+    }
+}
+
+impl Count for EquationNode {
+    fn update(&self) -> Option<CounterUpdate> {
+        (self.block(StyleChain::default())
+            && self.numbering(StyleChain::default()).is_some())
+        .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+    }
+}
+
+impl LocalName for EquationNode {
+    fn local_name(&self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::GERMAN => "Gleichung",
+            Lang::ENGLISH | _ => "Equation",
+        }
     }
 }
 
