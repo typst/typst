@@ -8,16 +8,27 @@ use crate::eval::cast_from_value;
 use crate::geom::{Point, Transform};
 use crate::util::NonZeroExt;
 
-/// Stably identifies a location in the document across multiple layout passes.
+/// Stably identifies an element in the document across multiple layout passes.
 ///
 /// This struct is created by [`StabilityProvider::locate`].
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Location(u128, usize, usize);
+pub struct Location {
+    /// The hash of the element.
+    hash: u128,
+    /// An unique number among elements with the same hash. This is the reason
+    /// we need a mutable `StabilityProvider` everywhere.
+    disambiguator: usize,
+    /// A synthetic location created from another one. This is used for example
+    /// in bibliography management to create individual linkable locations for
+    /// reference entries from the bibliography's location.
+    variant: usize,
+}
 
 impl Location {
     /// Produce a variant of this location.
-    pub fn variant(self, n: usize) -> Self {
-        Self(self.0, self.1, n)
+    pub fn variant(mut self, n: usize) -> Self {
+        self.variant = n;
+        self
     }
 }
 
@@ -49,9 +60,9 @@ impl StabilityProvider {
 impl StabilityProvider {
     /// Produce a stable identifier for this call site.
     pub fn locate(&mut self, hash: u128) -> Location {
-        let count = self.hashes.iter().filter(|&&prev| prev == hash).count();
+        let disambiguator = self.hashes.iter().filter(|&&prev| prev == hash).count();
         self.hashes.push(hash);
-        Location(hash, count, 0)
+        Location { hash, disambiguator, variant: 0 }
     }
 
     /// Create a checkpoint of the state that can be restored.
