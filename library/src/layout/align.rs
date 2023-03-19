@@ -14,8 +14,8 @@ use crate::prelude::*;
 ///
 /// Display: Align
 /// Category: layout
-#[node(Show)]
-pub struct AlignNode {
+#[element(Show)]
+pub struct AlignElem {
     /// The alignment along both axes.
     ///
     /// Possible values for horizontal alignments are:
@@ -57,7 +57,7 @@ pub struct AlignNode {
     pub body: Content,
 }
 
-impl Show for AlignNode {
+impl Show for AlignElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self
             .body()

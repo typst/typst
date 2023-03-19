@@ -94,10 +94,10 @@ items into a list that we want to layout, we don't realize the content within
 the list items just yet. This only happens lazily once the list items are
 layouted.
 
-When we a have realized the content into a layoutable
-node, we can then layout it into _regions,_ which describe the space into which
-the content shall be layouted. Within these, a node is free to layout itself
-as it sees fit, returning one `Frame` per region it wants to occupy.
+When we a have realized the content into a layoutable element, we can then
+layout it into _regions,_ which describe the space into which the content shall
+be layouted. Within these, an element is free to layout itself as it sees fit,
+returning one `Frame` per region it wants to occupy.
 
 **Introspection:**
 How content layouts (and realizes) may depend on how _it itself_ is layouted
@@ -108,9 +108,9 @@ introspections stabilize after one or two iterations. However, some may never
 stabilize, so we give up after five attempts.
 
 **Incremental:**
-Layout caching happens at the granularity of a node. This is important because
-overall layout is the most expensive compilation phase, so we want to reuse as
-much as possible.
+Layout caching happens at the granularity of the element. This is important
+because overall layout is the most expensive compilation phase, so we want to
+reuse as much as possible.
 
 
 ## Export

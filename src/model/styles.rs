@@ -1,25 +1,26 @@
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
+use std::mem;
 
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use super::{Content, Label, Node, NodeId, Vt};
+use super::{Content, ElemFunc, Element, Label, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
 use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value, Vm};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
-/// A map of style properties.
-#[derive(Default, Clone, Hash)]
-pub struct StyleMap(Vec<Style>);
+/// A list of style properties.
+#[derive(Default, PartialEq, Clone, Hash)]
+pub struct Styles(EcoVec<Style>);
 
-impl StyleMap {
-    /// Create a new, empty style map.
+impl Styles {
+    /// Create a new, empty style list.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Whether this map contains no styles.
+    /// Whether this contains no styles.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -39,13 +40,25 @@ impl StyleMap {
     }
 
     /// Apply outer styles. Like [`chain`](StyleChain::chain), but in-place.
-    pub fn apply(&mut self, outer: Self) {
-        self.0.splice(0..0, outer.0.iter().cloned());
+    pub fn apply(&mut self, mut outer: Self) {
+        outer.0.extend(mem::take(self).0.into_iter());
+        *self = outer;
+    }
+
+    /// Apply one outer styles. Like [`chain_one`](StyleChain::chain_one), but
+    /// in-place.
+    pub fn apply_one(&mut self, outer: Style) {
+        self.0.insert(0, outer);
+    }
+
+    /// Apply a slice of outer styles.
+    pub fn apply_slice(&mut self, outer: &[Style]) {
+        self.0 = outer.iter().cloned().chain(mem::take(self).0.into_iter()).collect();
     }
 
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
-        for entry in &mut self.0 {
+        for entry in self.0.make_mut() {
             if let Style::Property(property) = entry {
                 property.span = Some(span);
             }
@@ -53,37 +66,31 @@ impl StyleMap {
         self
     }
 
-    /// Returns `Some(_)` with an optional span if this map contains styles for
-    /// the given `node`.
-    pub fn interruption<T: Node>(&self) -> Option<Option<Span>> {
-        let node = NodeId::of::<T>();
+    /// Returns `Some(_)` with an optional span if this list contains
+    /// styles for the given element.
+    pub fn interruption<T: Element>(&self) -> Option<Option<Span>> {
+        let func = T::func();
         self.0.iter().find_map(|entry| match entry {
-            Style::Property(property) => property.is_of(node).then(|| property.span),
-            Style::Recipe(recipe) => recipe.is_of(node).then(|| Some(recipe.span)),
+            Style::Property(property) => property.is_of(func).then(|| property.span),
+            Style::Recipe(recipe) => recipe.is_of(func).then(|| Some(recipe.span)),
         })
     }
 }
 
-impl From<Style> for StyleMap {
+impl From<Style> for Styles {
     fn from(entry: Style) -> Self {
-        Self(vec![entry])
+        Self(eco_vec![entry])
     }
 }
 
-impl PartialEq for StyleMap {
-    fn eq(&self, other: &Self) -> bool {
-        crate::util::hash128(self) == crate::util::hash128(other)
-    }
-}
-
-impl Debug for StyleMap {
+impl Debug for Styles {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("..")
     }
 }
 
 /// A single style property or recipe.
-#[derive(Clone, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum Style {
     /// A style property originating from a set rule or constructor.
     Property(Property),
@@ -124,11 +131,17 @@ impl From<Property> for Style {
     }
 }
 
+impl From<Recipe> for Style {
+    fn from(recipe: Recipe) -> Self {
+        Self::Recipe(recipe)
+    }
+}
+
 /// A style property originating from a set rule or constructor.
-#[derive(Clone, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct Property {
-    /// The id of the node the property belongs to.
-    node: NodeId,
+    /// The element the property belongs to.
+    element: ElemFunc,
     /// The property's name.
     name: EcoString,
     /// The property's value.
@@ -139,44 +152,44 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new(node: NodeId, name: EcoString, value: Value) -> Self {
-        Self { node, name, value, span: None }
+    pub fn new(element: ElemFunc, name: EcoString, value: Value) -> Self {
+        Self { element, name, value, span: None }
     }
 
     /// Whether this property is the given one.
-    pub fn is(&self, node: NodeId, name: &str) -> bool {
-        self.node == node && self.name == name
+    pub fn is(&self, element: ElemFunc, name: &str) -> bool {
+        self.element == element && self.name == name
     }
 
-    /// Whether this property belongs to the node with the given id.
-    pub fn is_of(&self, node: NodeId) -> bool {
-        self.node == node
+    /// Whether this property belongs to the given element.
+    pub fn is_of(&self, element: ElemFunc) -> bool {
+        self.element == element
     }
 }
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "set {}({}: {:?})", self.node.name, self.name, self.value)?;
+        write!(f, "set {}({}: {:?})", self.element.name(), self.name, self.value)?;
         Ok(())
     }
 }
 
 /// A show rule recipe.
-#[derive(Clone, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct Recipe {
     /// The span errors are reported with.
     pub span: Span,
-    /// Determines whether the recipe applies to a node.
+    /// Determines whether the recipe applies to an element.
     pub selector: Option<Selector>,
     /// The transformation to perform on the match.
     pub transform: Transform,
 }
 
 impl Recipe {
-    /// Whether this recipe is for the given node.
-    pub fn is_of(&self, node: NodeId) -> bool {
+    /// Whether this recipe is for the given type of element.
+    pub fn is_of(&self, element: ElemFunc) -> bool {
         match self.selector {
-            Some(Selector::Node(id, _)) => id == node,
+            Some(Selector::Elem(own, _)) => own == element,
             _ => false,
         }
     }
@@ -197,7 +210,7 @@ impl Recipe {
                 let mut result = func.call_vm(vm, args);
                 // For selector-less show rules, a tracepoint makes no sense.
                 if self.selector.is_some() {
-                    let point = || Tracepoint::Show(content.id().name.into());
+                    let point = || Tracepoint::Show(content.func().name().into());
                     result = result.trace(vm.world(), point, content.span());
                 }
                 Ok(result?.display())
@@ -213,7 +226,7 @@ impl Recipe {
             Transform::Func(func) => {
                 let mut result = func.call_vt(vt, [Value::Content(content.clone())]);
                 if self.selector.is_some() {
-                    let point = || Tracepoint::Show(content.id().name.into());
+                    let point = || Tracepoint::Show(content.func().name().into());
                     result = result.trace(vt.world, point, content.span());
                 }
                 Ok(result?.display())
@@ -238,25 +251,20 @@ impl Debug for Recipe {
 /// A selector in a show rule.
 #[derive(Clone, PartialEq, Hash)]
 pub enum Selector {
-    /// Matches a specific type of node.
+    /// Matches a specific type of element.
     ///
-    /// If there is a dictionary, only nodes with the fields from the
+    /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
-    Node(NodeId, Option<Dict>),
-    /// Matches nodes with a specific label.
+    Elem(ElemFunc, Option<Dict>),
+    /// Matches elements with a specific label.
     Label(Label),
-    /// Matches text nodes through a regular expression.
+    /// Matches text elements through a regular expression.
     Regex(Regex),
     /// Matches if any of the subselectors match.
     Any(EcoVec<Self>),
 }
 
 impl Selector {
-    /// Define a simple node selector.
-    pub fn node<T: Node>() -> Self {
-        Self::Node(NodeId::of::<T>(), None)
-    }
-
     /// Define a simple text selector.
     pub fn text(text: &str) -> Self {
         Self::Regex(Regex::new(&regex::escape(text)).unwrap())
@@ -265,16 +273,16 @@ impl Selector {
     /// Whether the selector matches for the target.
     pub fn matches(&self, target: &Content) -> bool {
         match self {
-            Self::Node(id, dict) => {
-                target.id() == *id
+            Self::Elem(element, dict) => {
+                target.func() == *element
                     && dict
                         .iter()
                         .flat_map(|dict| dict.iter())
-                        .all(|(name, value)| target.field(name) == Some(value))
+                        .all(|(name, value)| target.field_ref(name) == Some(value))
             }
             Self::Label(label) => target.label() == Some(label),
             Self::Regex(regex) => {
-                target.id() == item!(text_id)
+                target.func() == item!(text_func)
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
             Self::Any(selectors) => selectors.iter().any(|sel| sel.matches(target)),
@@ -285,8 +293,8 @@ impl Selector {
 impl Debug for Selector {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::Node(node, dict) => {
-                f.write_str(node.name)?;
+            Self::Elem(elem, dict) => {
+                f.write_str(elem.name())?;
                 if let Some(dict) = dict {
                     f.write_str(".where")?;
                     dict.fmt(f)?;
@@ -307,21 +315,24 @@ impl Debug for Selector {
 
 cast_from_value! {
     Selector: "selector",
-    text: EcoString => Self::text(&text),
+    func: Func => func
+        .element()
+        .ok_or("only element functions can be used as selectors")?
+        .select(),
     label: Label => Self::Label(label),
-    func: Func => func.select(None)?,
+    text: EcoString => Self::text(&text),
     regex: Regex => Self::Regex(regex),
 }
 
 /// A show rule transformation that can be applied to a match.
-#[derive(Clone, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum Transform {
     /// Replacement content.
     Content(Content),
     /// A function to apply to the match.
     Func(Func),
     /// Apply styles to the content.
-    Style(StyleMap),
+    Style(Styles),
 }
 
 impl Debug for Transform {
@@ -340,11 +351,11 @@ cast_from_value! {
     func: Func => Self::Func(func),
 }
 
-/// A chain of style maps, similar to a linked list.
+/// A chain of styles, similar to a linked list.
 ///
-/// A style chain allows to combine properties from multiple style maps in a
-/// node hierarchy in a non-allocating way. Rather than eagerly merging the
-/// maps, each access walks the hierarchy from the innermost to the outermost
+/// A style chain allows to combine properties from multiple style lists in a
+/// element hierarchy in a non-allocating way. Rather than eagerly merging the
+/// lists, each access walks the hierarchy from the innermost to the outermost
 /// map, trying to find a match and then folding it with matches further up the
 /// chain.
 #[derive(Default, Clone, Copy, Hash)]
@@ -356,21 +367,21 @@ pub struct StyleChain<'a> {
 }
 
 impl<'a> StyleChain<'a> {
-    /// Start a new style chain with a root map.
-    pub fn new(root: &'a StyleMap) -> Self {
+    /// Start a new style chain with root styles.
+    pub fn new(root: &'a Styles) -> Self {
         Self { head: &root.0, tail: None }
     }
 
-    /// Make the given map the first link of this chain.
+    /// Make the given style list the first link of this chain.
     ///
-    /// The resulting style chain contains styles from `map` as well as
-    /// `self`. The ones from `map` take precedence over the ones from
-    /// `self`. For folded properties `map` contributes the inner value.
-    pub fn chain<'b>(&'b self, map: &'b StyleMap) -> StyleChain<'b> {
-        if map.is_empty() {
+    /// The resulting style chain contains styles from `local` as well as
+    /// `self`. The ones from `local` take precedence over the ones from
+    /// `self`. For folded properties `local` contributes the inner value.
+    pub fn chain<'b>(&'b self, local: &'b Styles) -> StyleChain<'b> {
+        if local.is_empty() {
             *self
         } else {
-            StyleChain { head: &map.0, tail: Some(self) }
+            StyleChain { head: &local.0, tail: Some(self) }
         }
     }
 
@@ -385,12 +396,12 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get<T: Cast>(
         self,
-        node: NodeId,
+        func: ElemFunc,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T,
     ) -> T {
-        self.properties::<T>(node, name, inherent)
+        self.properties::<T>(func, name, inherent)
             .next()
             .unwrap_or_else(default)
     }
@@ -398,18 +409,18 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve<T: Cast + Resolve>(
         self,
-        node: NodeId,
+        func: ElemFunc,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T,
     ) -> T::Output {
-        self.get(node, name, inherent, default).resolve(self)
+        self.get(func, name, inherent, default).resolve(self)
     }
 
     /// Cast the first value for the given property in the chain.
     pub fn get_fold<T: Cast + Fold>(
         self,
-        node: NodeId,
+        func: ElemFunc,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T::Output,
@@ -424,13 +435,13 @@ impl<'a> StyleChain<'a> {
                 .map(|value| value.fold(next(values, styles, default)))
                 .unwrap_or_else(|| default())
         }
-        next(self.properties::<T>(node, name, inherent), self, &default)
+        next(self.properties::<T>(func, name, inherent), self, &default)
     }
 
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve_fold<T>(
         self,
-        node: NodeId,
+        func: ElemFunc,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> <T::Output as Fold>::Output,
@@ -453,7 +464,7 @@ impl<'a> StyleChain<'a> {
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
                 .unwrap_or_else(|| default())
         }
-        next(self.properties::<T>(node, name, inherent), self, &default)
+        next(self.properties::<T>(func, name, inherent), self, &default)
     }
 
     /// Iterate over all style recipes in the chain.
@@ -464,7 +475,7 @@ impl<'a> StyleChain<'a> {
     /// Iterate over all values for the given property in the chain.
     pub fn properties<T: Cast + 'a>(
         self,
-        node: NodeId,
+        func: ElemFunc,
         name: &'a str,
         inherent: Option<Value>,
     ) -> impl Iterator<Item = T> + '_ {
@@ -473,21 +484,21 @@ impl<'a> StyleChain<'a> {
             .chain(
                 self.entries()
                     .filter_map(Style::property)
-                    .filter(move |property| property.is(node, name))
+                    .filter(move |property| property.is(func, name))
                     .map(|property| property.value.clone()),
             )
             .map(move |value| {
-                value
-                    .cast()
-                    .unwrap_or_else(|err| panic!("{} (for {}.{})", err, node.name, name))
+                value.cast().unwrap_or_else(|err| {
+                    panic!("{} (for {}.{})", err, func.name(), name)
+                })
             })
     }
 
     /// Convert to a style map.
-    pub fn to_map(self) -> StyleMap {
-        let mut suffix = StyleMap::new();
+    pub fn to_map(self) -> Styles {
+        let mut suffix = Styles::new();
         for link in self.links() {
-            suffix.0.splice(0..0, link.iter().cloned());
+            suffix.apply_slice(link);
         }
         suffix
     }
@@ -502,13 +513,13 @@ impl<'a> StyleChain<'a> {
         Links(Some(self))
     }
 
-    /// Build a style map from the suffix (all links beyond the `len`) of the
+    /// Build owned styles from the suffix (all links beyond the `len`) of the
     /// chain.
-    fn suffix(self, len: usize) -> StyleMap {
-        let mut suffix = StyleMap::new();
+    fn suffix(self, len: usize) -> Styles {
+        let mut suffix = Styles::new();
         let take = self.links().count().saturating_sub(len);
         for link in self.links().take(take) {
-            suffix.0.splice(0..0, link.iter().cloned());
+            suffix.apply_slice(link);
         }
         suffix
     }
@@ -516,6 +527,16 @@ impl<'a> StyleChain<'a> {
     /// Remove the last link from the chain.
     fn pop(&mut self) {
         *self = self.tail.copied().unwrap_or_default();
+    }
+
+    /// Whether two style chains contain the same pointers.
+    fn ptr_eq(self, other: Self) -> bool {
+        std::ptr::eq(self.head, other.head)
+            && match (self.tail, other.tail) {
+                (Some(a), Some(b)) => std::ptr::eq(a, b),
+                (None, None) => true,
+                _ => false,
+            }
     }
 }
 
@@ -530,7 +551,7 @@ impl Debug for StyleChain<'_> {
 
 impl PartialEq for StyleChain<'_> {
     fn eq(&self, other: &Self) -> bool {
-        crate::util::hash128(self) == crate::util::hash128(other)
+        self.ptr_eq(*other) || crate::util::hash128(self) == crate::util::hash128(other)
     }
 }
 
@@ -574,7 +595,7 @@ impl<'a> Iterator for Links<'a> {
 #[derive(Clone, Hash)]
 pub struct StyleVec<T> {
     items: Vec<T>,
-    maps: Vec<(StyleMap, usize)>,
+    styles: Vec<(Styles, usize)>,
 }
 
 impl<T> StyleVec<T> {
@@ -588,14 +609,14 @@ impl<T> StyleVec<T> {
         self.items.len()
     }
 
-    /// Insert an element in the front. The element will share the style of the
-    /// current first element.
+    /// Insert an item in the front. The item will share the style of the
+    /// current first item.
     ///
     /// This method has no effect if the vector is empty.
     pub fn push_front(&mut self, item: T) {
-        if !self.maps.is_empty() {
+        if !self.styles.is_empty() {
             self.items.insert(0, item);
-            self.maps[0].1 += 1;
+            self.styles[0].1 += 1;
         }
     }
 
@@ -606,14 +627,14 @@ impl<T> StyleVec<T> {
     {
         StyleVec {
             items: self.items.iter().map(f).collect(),
-            maps: self.maps.clone(),
+            styles: self.styles.clone(),
         }
     }
 
-    /// Iterate over references to the contained items and associated style maps.
-    pub fn iter(&self) -> impl Iterator<Item = (&T, &StyleMap)> + '_ {
+    /// Iterate over references to the contained items and associated styles.
+    pub fn iter(&self) -> impl Iterator<Item = (&T, &Styles)> + '_ {
         self.items().zip(
-            self.maps
+            self.styles
                 .iter()
                 .flat_map(|(map, count)| iter::repeat(map).take(*count)),
         )
@@ -624,13 +645,13 @@ impl<T> StyleVec<T> {
         self.items.iter()
     }
 
-    /// Iterate over the contained maps. Note that zipping this with `items()`
-    /// does not yield the same result as calling `iter()` because this method
-    /// only returns maps once that are shared by consecutive items. This method
-    /// is designed for use cases where you want to check, for example, whether
-    /// any of the maps fulfills a specific property.
-    pub fn styles(&self) -> impl Iterator<Item = &StyleMap> {
-        self.maps.iter().map(|(map, _)| map)
+    /// Iterate over the contained style lists. Note that zipping this with
+    /// `items()` does not yield the same result as calling `iter()` because
+    /// this method only returns lists once that are shared by consecutive
+    /// items. This method is designed for use cases where you want to check,
+    /// for example, whether any of the lists fulfills a specific property.
+    pub fn styles(&self) -> impl Iterator<Item = &Styles> {
+        self.styles.iter().map(|(map, _)| map)
     }
 }
 
@@ -639,35 +660,35 @@ impl StyleVec<Content> {
         self.items
             .into_iter()
             .zip(
-                self.maps
+                self.styles
                     .iter()
                     .flat_map(|(map, count)| iter::repeat(map).take(*count)),
             )
-            .map(|(content, map)| content.styled_with_map(map.clone()))
+            .map(|(content, styles)| content.styled_with_map(styles.clone()))
             .collect()
     }
 }
 
 impl<T> Default for StyleVec<T> {
     fn default() -> Self {
-        Self { items: vec![], maps: vec![] }
+        Self { items: vec![], styles: vec![] }
     }
 }
 
 impl<T> FromIterator<T> for StyleVec<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let items: Vec<_> = iter.into_iter().collect();
-        let maps = vec![(StyleMap::new(), items.len())];
-        Self { items, maps }
+        let styles = vec![(Styles::new(), items.len())];
+        Self { items, styles }
     }
 }
 
 impl<T: Debug> Debug for StyleVec<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_list()
-            .entries(self.iter().map(|(item, map)| {
+            .entries(self.iter().map(|(item, styles)| {
                 crate::util::debug(|f| {
-                    map.fmt(f)?;
+                    styles.fmt(f)?;
                     item.fmt(f)
                 })
             }))
@@ -708,7 +729,7 @@ impl<'a, T> StyleVecBuilder<'a, T> {
     }
 
     /// Iterate over the contained items.
-    pub fn items(&self) -> std::slice::Iter<'_, T> {
+    pub fn elems(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()
     }
 
@@ -743,13 +764,13 @@ impl<'a, T> StyleVecBuilder<'a, T> {
             }
         }
 
-        let maps = self
+        let styles = self
             .chains
             .into_iter()
             .map(|(chain, count)| (chain.suffix(shared), count))
             .collect();
 
-        (StyleVec { items: self.items, maps }, trunk)
+        (StyleVec { items: self.items, styles }, trunk)
     }
 }
 

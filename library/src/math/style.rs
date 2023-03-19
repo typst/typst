@@ -9,20 +9,13 @@ use super::*;
 ///
 /// Display: Bold
 /// Category: math
-#[node(LayoutMath)]
-pub struct BoldNode {
+/// Returns: content
+#[func]
+pub fn bold(
     /// The content to style.
-    #[required]
-    pub body: Content,
-}
-
-impl LayoutMath for BoldNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_bold(true));
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body).with_bold(Some(true)).pack().into()
 }
 
 /// Upright (non-italic) font style in math.
@@ -34,20 +27,13 @@ impl LayoutMath for BoldNode {
 ///
 /// Display: Upright
 /// Category: math
-#[node(LayoutMath)]
-pub struct UprightNode {
+/// Returns: content
+#[func]
+pub fn upright(
     /// The content to style.
-    #[required]
-    pub body: Content,
-}
-
-impl LayoutMath for UprightNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_italic(false));
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body).with_italic(Some(false)).pack().into()
 }
 
 /// Italic font style in math.
@@ -56,42 +42,30 @@ impl LayoutMath for UprightNode {
 ///
 /// Display: Italic
 /// Category: math
-#[node(LayoutMath)]
-pub struct ItalicNode {
+/// Returns: content
+#[func]
+pub fn italic(
     /// The content to style.
-    #[required]
-    pub body: Content,
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body).with_italic(Some(true)).pack().into()
 }
-
-impl LayoutMath for ItalicNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_italic(true));
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
-}
-
 /// Serif (roman) font style in math.
 ///
 /// This is already the default.
 ///
 /// Display: Serif
 /// Category: math
-#[node(LayoutMath)]
-pub struct SerifNode {
+/// Returns: content
+#[func]
+pub fn serif(
     /// The content to style.
-    #[required]
-    pub body: Content,
-}
-
-impl LayoutMath for SerifNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_variant(MathVariant::Serif));
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_variant(Some(MathVariant::Serif))
+        .pack()
+        .into()
 }
 
 /// Sans-serif font style in math.
@@ -103,20 +77,16 @@ impl LayoutMath for SerifNode {
 ///
 /// Display: Sans-serif
 /// Category: math
-#[node(LayoutMath)]
-pub struct SansNode {
+/// Returns: content
+#[func]
+pub fn sans(
     /// The content to style.
-    #[required]
-    pub body: Content,
-}
-
-impl LayoutMath for SansNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_variant(MathVariant::Sans));
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_variant(Some(MathVariant::Sans))
+        .pack()
+        .into()
 }
 
 /// Calligraphic font style in math.
@@ -128,20 +98,16 @@ impl LayoutMath for SansNode {
 ///
 /// Display: Calligraphic
 /// Category: math
-#[node(LayoutMath)]
-pub struct CalNode {
+/// Returns: content
+#[func]
+pub fn cal(
     /// The content to style.
-    #[required]
-    pub body: Content,
-}
-
-impl LayoutMath for CalNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_variant(MathVariant::Cal));
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_variant(Some(MathVariant::Cal))
+        .pack()
+        .into()
 }
 
 /// Fraktur font style in math.
@@ -153,20 +119,16 @@ impl LayoutMath for CalNode {
 ///
 /// Display: Fraktur
 /// Category: math
-#[node(LayoutMath)]
-pub struct FrakNode {
+/// Returns: content
+#[func]
+pub fn frak(
     /// The content to style.
-    #[required]
-    pub body: Content,
-}
-
-impl LayoutMath for FrakNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_variant(MathVariant::Frak));
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_variant(Some(MathVariant::Frak))
+        .pack()
+        .into()
 }
 
 /// Monospace font style in math.
@@ -178,20 +140,16 @@ impl LayoutMath for FrakNode {
 ///
 /// Display: Monospace
 /// Category: math
-#[node(LayoutMath)]
-pub struct MonoNode {
+/// Returns: content
+#[func]
+pub fn mono(
     /// The content to style.
-    #[required]
-    pub body: Content,
-}
-
-impl LayoutMath for MonoNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_variant(MathVariant::Mono));
-        self.body().layout_math(ctx)?;
-        ctx.unstyle();
-        Ok(())
-    }
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_variant(Some(MathVariant::Mono))
+        .pack()
+        .into()
 }
 
 /// Blackboard bold (double-struck) font style in math.
@@ -208,16 +166,51 @@ impl LayoutMath for MonoNode {
 ///
 /// Display: Blackboard Bold
 /// Category: math
-#[node(LayoutMath)]
-pub struct BbNode {
+/// Returns: content
+#[func]
+pub fn bb(
+    /// The content to style.
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_variant(Some(MathVariant::Bb))
+        .pack()
+        .into()
+}
+
+/// A font variant in math.
+///
+/// Display: Bold
+/// Category: math
+#[element(LayoutMath)]
+pub struct MathStyleElem {
     /// The content to style.
     #[required]
     pub body: Content,
+
+    /// The variant to select.
+    pub variant: Option<MathVariant>,
+
+    /// Whether to use bold glyphs.
+    pub bold: Option<bool>,
+
+    /// Whether to use italic glyphs.
+    pub italic: Option<bool>,
 }
 
-impl LayoutMath for BbNode {
+impl LayoutMath for MathStyleElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        ctx.style(ctx.style.with_variant(MathVariant::Bb));
+        let mut style = ctx.style;
+        if let Some(variant) = self.variant(StyleChain::default()) {
+            style = style.with_variant(variant);
+        }
+        if let Some(bold) = self.bold(StyleChain::default()) {
+            style = style.with_bold(bold);
+        }
+        if let Some(italic) = self.italic(StyleChain::default()) {
+            style = style.with_italic(italic);
+        }
+        ctx.style(style);
         self.body().layout_math(ctx)?;
         ctx.unstyle();
         Ok(())
@@ -324,7 +317,7 @@ impl MathSize {
 }
 
 /// A mathematical style variant, as defined by Unicode.
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Cast)]
 pub enum MathVariant {
     Serif,
     Sans,

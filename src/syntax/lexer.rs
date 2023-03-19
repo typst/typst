@@ -473,7 +473,7 @@ impl Lexer<'_> {
 
             c if is_id_start(c) => self.ident(start),
 
-            _ => self.error("not valid here"),
+            _ => self.error("this character is not valid in code"),
         }
     }
 
@@ -634,7 +634,7 @@ fn count_newlines(text: &str) -> usize {
     newlines
 }
 
-/// Whether a string is a valid unicode identifier.
+/// Whether a string is a valid Typst identifier.
 ///
 /// In addition to what is specified in the [Unicode Standard][uax31], we allow:
 /// - `_` as a starting character,
@@ -651,13 +651,13 @@ pub fn is_ident(string: &str) -> bool {
 
 /// Whether a character can start an identifier.
 #[inline]
-pub fn is_id_start(c: char) -> bool {
+pub(crate) fn is_id_start(c: char) -> bool {
     c.is_xid_start() || c == '_'
 }
 
 /// Whether a character can continue an identifier.
 #[inline]
-pub fn is_id_continue(c: char) -> bool {
+pub(crate) fn is_id_continue(c: char) -> bool {
     c.is_xid_continue() || c == '_' || c == '-'
 }
 

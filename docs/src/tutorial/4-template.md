@@ -206,11 +206,12 @@ from the dictionary, we use the [field access syntax]($scripting/#fields).
 
 We still have to provide an argument to the grid for each author: Here is where
 the array's [`map` method]($type/array.map) comes in handy. It takes a function
-as an argument that gets called with each element of the array. We pass it a
+as an argument that gets called with each item of the array. We pass it a
 function that formats the details for each author and returns a new array
 containing content values. We've now got one array of values that we'd like to
-use as multiple arguments for the grid. We can do that by using the
-[`spread` operator]($type/arguments). It takes an array and applies each of its elements as a separate argument to the function.
+use as multiple arguments for the grid. We can do that by using the [`spread`
+operator]($type/arguments). It takes an array and applies each of its items as a
+separate argument to the function.
 
 The resulting template function looks like this:
 

@@ -8,14 +8,12 @@ use comemo::{Prehashed, Track, Tracked, TrackedMut};
 use once_cell::sync::Lazy;
 
 use super::{
-    cast_to_value, Args, CastInfo, Dict, Eval, Flow, Route, Scope, Scopes, Tracer, Value,
-    Vm,
+    cast_to_value, Args, CastInfo, Eval, Flow, Route, Scope, Scopes, Tracer, Value, Vm,
 };
-use crate::diag::{bail, SourceResult, StrResult};
-use crate::model::{Introspector, NodeId, Selector, StabilityProvider, StyleMap, Vt};
+use crate::diag::{bail, SourceResult};
+use crate::model::{ElemFunc, Introspector, StabilityProvider, Vt};
 use crate::syntax::ast::{self, AstNode, Expr, Ident};
 use crate::syntax::{SourceId, Span, SyntaxNode};
-use crate::util::hash128;
 use crate::World;
 
 /// An evaluatable function.
@@ -32,8 +30,8 @@ pub struct Func {
 enum Repr {
     /// A native Rust function.
     Native(NativeFunc),
-    /// A function for a node.
-    Node(NodeId),
+    /// A function for an element.
+    Elem(ElemFunc),
     /// A user-defined closure.
     Closure(Closure),
     /// A nested function with pre-applied arguments.
@@ -45,7 +43,7 @@ impl Func {
     pub fn name(&self) -> Option<&str> {
         match &**self.repr {
             Repr::Native(native) => Some(native.info.name),
-            Repr::Node(node) => Some(node.info.name),
+            Repr::Elem(func) => Some(func.info().name),
             Repr::Closure(closure) => closure.name.as_deref(),
             Repr::With(func, _) => func.name(),
         }
@@ -55,7 +53,7 @@ impl Func {
     pub fn info(&self) -> Option<&FuncInfo> {
         match &**self.repr {
             Repr::Native(native) => Some(&native.info),
-            Repr::Node(node) => Some(&node.info),
+            Repr::Elem(func) => Some(func.info()),
             Repr::With(func, _) => func.info(),
             _ => None,
         }
@@ -93,8 +91,8 @@ impl Func {
                 args.finish()?;
                 Ok(value)
             }
-            Repr::Node(node) => {
-                let value = (node.construct)(vm, &mut args)?;
+            Repr::Elem(func) => {
+                let value = func.construct(vm, &mut args)?;
                 args.finish()?;
                 Ok(Value::Content(value))
             }
@@ -145,45 +143,12 @@ impl Func {
         }
     }
 
-    /// Create a selector for this function's node type, filtering by node's
-    /// whose [fields](super::Content::field) match the given arguments.
-    pub fn where_(self, args: &mut Args) -> StrResult<Selector> {
-        let fields = args.to_named();
-        args.items.retain(|arg| arg.name.is_none());
-        self.select(Some(fields))
-    }
-
-    /// The node id of this function if it is an element function.
-    pub fn id(&self) -> Option<NodeId> {
+    /// Extract the element function, if it is one.
+    pub fn element(&self) -> Option<ElemFunc> {
         match **self.repr {
-            Repr::Node(id) => Some(id),
+            Repr::Elem(func) => Some(func),
             _ => None,
         }
-    }
-
-    /// Execute the function's set rule and return the resulting style map.
-    pub fn set(&self, mut args: Args) -> SourceResult<StyleMap> {
-        Ok(match &**self.repr {
-            Repr::Node(node) => {
-                let styles = (node.set)(&mut args)?;
-                args.finish()?;
-                styles
-            }
-            _ => StyleMap::new(),
-        })
-    }
-
-    /// Create a selector for this function's node type.
-    pub fn select(&self, fields: Option<Dict>) -> StrResult<Selector> {
-        let Some(id) = self.id() else {
-            return Err("this function is not selectable".into());
-        };
-
-        if id == item!(text_id) {
-            Err("to select text, please use a string or regex instead")?;
-        }
-
-        Ok(Selector::Node(id, fields))
     }
 }
 
@@ -198,7 +163,7 @@ impl Debug for Func {
 
 impl PartialEq for Func {
     fn eq(&self, other: &Self) -> bool {
-        hash128(&self.repr) == hash128(&other.repr)
+        self.repr == other.repr
     }
 }
 
@@ -211,13 +176,13 @@ impl From<Repr> for Func {
     }
 }
 
-impl From<NodeId> for Func {
-    fn from(id: NodeId) -> Self {
-        Repr::Node(id).into()
+impl From<ElemFunc> for Func {
+    fn from(func: ElemFunc) -> Self {
+        Repr::Elem(func).into()
     }
 }
 
-/// A native Rust function.
+/// A Typst function defined by a native Rust function.
 pub struct NativeFunc {
     /// The function's implementation.
     pub func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,

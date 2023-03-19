@@ -21,8 +21,8 @@ use crate::prelude::*;
 ///
 /// Display: Spacing (H)
 /// Category: layout
-#[node(Behave)]
-pub struct HNode {
+#[element(Behave)]
+pub struct HElem {
     /// How much spacing to insert.
     #[required]
     pub amount: Spacing,
@@ -45,7 +45,7 @@ pub struct HNode {
     pub weak: bool,
 }
 
-impl Behave for HNode {
+impl Behave for HElem {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
@@ -85,8 +85,8 @@ impl Behave for HNode {
 ///
 /// Display: Spacing (V)
 /// Category: layout
-#[node(Behave)]
-pub struct VNode {
+#[element(Behave)]
+pub struct VElem {
     /// How much spacing to insert.
     #[required]
     pub amount: Spacing,
@@ -107,13 +107,13 @@ pub struct VNode {
     #[external]
     pub weak: bool,
 
-    /// The node's weakness level, see also [`Behaviour`].
+    /// The elements's weakness level, see also [`Behaviour`].
     #[internal]
     #[parse(args.named("weak")?.map(|v: bool| v as usize))]
     pub weakness: usize,
 }
 
-impl VNode {
+impl VElem {
     /// Normal strong spacing.
     pub fn strong(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(0)
@@ -129,18 +129,18 @@ impl VNode {
         Self::new(amount).with_weakness(2)
     }
 
-    /// Weak spacing with BlockNode::ABOVE/BELOW weakness.
+    /// Weak spacing with BlockElem::ABOVE/BELOW weakness.
     pub fn block_around(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(3)
     }
 
-    /// Weak spacing with BlockNode::SPACING weakness.
+    /// Weak spacing with BlockElem::SPACING weakness.
     pub fn block_spacing(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(4)
     }
 }
 
-impl Behave for VNode {
+impl Behave for VElem {
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
@@ -158,8 +158,8 @@ impl Behave for VNode {
 }
 
 cast_from_value! {
-    VNode,
-    v: Content => v.to::<Self>().cloned().ok_or("expected vnode")?,
+    VElem,
+    v: Content => v.to::<Self>().cloned().ok_or("expected `v` element")?,
 }
 
 /// Kinds of spacing.

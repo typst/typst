@@ -1,4 +1,4 @@
-use super::VNode;
+use super::VElem;
 use crate::layout::Spacing;
 use crate::prelude::*;
 
@@ -21,8 +21,8 @@ use crate::prelude::*;
 ///
 /// Display: Box
 /// Category: layout
-#[node(Layout)]
-pub struct BoxNode {
+#[element(Layout)]
+pub struct BoxElem {
     /// The width of the box.
     ///
     /// Boxes can have [fractional]($type/fraction) widths, as the example
@@ -93,7 +93,7 @@ pub struct BoxNode {
     pub body: Option<Content>,
 }
 
-impl Layout for BoxNode {
+impl Layout for BoxElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -183,8 +183,8 @@ impl Layout for BoxNode {
 ///
 /// Display: Block
 /// Category: layout
-#[node(Layout)]
-pub struct BlockNode {
+#[element(Layout)]
+pub struct BlockElem {
     /// The block's width.
     ///
     /// ```example
@@ -278,11 +278,11 @@ pub struct BlockNode {
     #[parse(
         let spacing = args.named("spacing")?;
         args.named("above")?
-            .map(VNode::block_around)
-            .or_else(|| spacing.map(VNode::block_spacing))
+            .map(VElem::block_around)
+            .or_else(|| spacing.map(VElem::block_spacing))
     )]
-    #[default(VNode::block_spacing(Em::new(1.2).into()))]
-    pub above: VNode,
+    #[default(VElem::block_spacing(Em::new(1.2).into()))]
+    pub above: VElem,
 
     /// The spacing between this block and its successor. Takes precedence
     /// over `spacing`.
@@ -290,11 +290,11 @@ pub struct BlockNode {
     /// The default value is `{1.2em}`.
     #[parse(
         args.named("below")?
-            .map(VNode::block_around)
-            .or_else(|| spacing.map(VNode::block_spacing))
+            .map(VElem::block_around)
+            .or_else(|| spacing.map(VElem::block_spacing))
     )]
-    #[default(VNode::block_spacing(Em::new(1.2).into()))]
-    pub below: VNode,
+    #[default(VElem::block_spacing(Em::new(1.2).into()))]
+    pub below: VElem,
 
     /// The contents of the block.
     #[positional]
@@ -308,7 +308,7 @@ pub struct BlockNode {
     pub sticky: bool,
 }
 
-impl Layout for BlockNode {
+impl Layout for BlockElem {
     fn layout(
         &self,
         vt: &mut Vt,

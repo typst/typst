@@ -1,6 +1,6 @@
-use super::{BibliographyNode, CiteNode, Counter, LocalName, Numbering};
+use super::{BibliographyElem, CiteElem, Counter, LocalName, Numbering};
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::TextElem;
 
 /// A reference to a label.
 ///
@@ -35,8 +35,8 @@ use crate::text::TextNode;
 ///
 /// Display: Reference
 /// Category: meta
-#[node(Locatable, Show)]
-pub struct RefNode {
+#[element(Locatable, Show)]
+pub struct RefElem {
     /// The target label that should be referenced.
     #[required]
     pub target: Label,
@@ -63,7 +63,7 @@ pub struct RefNode {
     pub supplement: Smart<Option<Supplement>>,
 }
 
-impl Show for RefNode {
+impl Show for RefElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
@@ -72,7 +72,7 @@ impl Show for RefNode {
         let target = self.target();
         let matches = vt.introspector.query(Selector::Label(self.target()));
 
-        if BibliographyNode::has(vt, &target.0) {
+        if BibliographyElem::has(vt, &target.0) {
             if !matches.is_empty() {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
@@ -80,7 +80,7 @@ impl Show for RefNode {
             return self.to_citation(styles).show(vt, styles);
         }
 
-        let [node] = matches.as_slice() else {
+        let [elem] = matches.as_slice() else {
             bail!(self.span(), if matches.is_empty() {
                 "label does not exist in the document"
             } else {
@@ -88,50 +88,50 @@ impl Show for RefNode {
             });
         };
 
-        if !node.can::<dyn Locatable>() {
-            bail!(self.span(), "cannot reference {}", node.id().name);
+        if !elem.can::<dyn Locatable>() {
+            bail!(self.span(), "cannot reference {}", elem.func().name());
         }
 
         let supplement = self.supplement(styles);
         let mut supplement = match supplement {
-            Smart::Auto => node
+            Smart::Auto => elem
                 .with::<dyn LocalName>()
-                .map(|node| node.local_name(TextNode::lang_in(styles)))
-                .map(TextNode::packed)
+                .map(|elem| elem.local_name(TextElem::lang_in(styles)))
+                .map(TextElem::packed)
                 .unwrap_or_default(),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             Smart::Custom(Some(Supplement::Func(func))) => {
-                func.call_vt(vt, [node.clone().into()])?.display()
+                func.call_vt(vt, [elem.clone().into()])?.display()
             }
         };
 
         if !supplement.is_empty() {
-            supplement += TextNode::packed('\u{a0}');
+            supplement += TextElem::packed('\u{a0}');
         }
 
-        let Some(numbering) = node.cast_field::<Numbering>("numbering") else {
+        let Some(numbering) = elem.cast_field::<Numbering>("numbering") else {
             bail!(self.span(), "only numbered elements can be referenced");
         };
 
-        let numbers = Counter::of(node.id())
-            .at(vt, node.stable_id().unwrap())?
+        let numbers = Counter::of(elem.func())
+            .at(vt, elem.location().unwrap())?
             .display(vt, &numbering.trimmed())?;
 
-        Ok((supplement + numbers).linked(Link::Node(node.stable_id().unwrap())))
+        Ok((supplement + numbers).linked(Destination::Location(elem.location().unwrap())))
     }
 }
 
-impl RefNode {
+impl RefElem {
     /// Turn the rference into a citation.
-    pub fn to_citation(&self, styles: StyleChain) -> CiteNode {
-        let mut node = CiteNode::new(vec![self.target().0]);
-        node.push_supplement(match self.supplement(styles) {
+    pub fn to_citation(&self, styles: StyleChain) -> CiteElem {
+        let mut elem = CiteElem::new(vec![self.target().0]);
+        elem.push_supplement(match self.supplement(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         });
-        node.0.set_stable_id(self.0.stable_id().unwrap());
-        node
+        elem.0.set_location(self.0.location().unwrap());
+        elem
     }
 }
 

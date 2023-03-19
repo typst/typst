@@ -81,6 +81,11 @@ pub fn analyze_import(
 }
 
 /// Find all labels and details for them.
+///
+/// Returns:
+/// - All labels and descriptions for them, if available
+/// - A split offset: All labels before this offset belong to nodes, all after
+///   belong to a bibliography.
 pub fn analyze_labels(
     world: &(dyn World + 'static),
     frames: &[Frame],
@@ -90,16 +95,16 @@ pub fn analyze_labels(
     let items = &world.library().items;
 
     // Labels in the document.
-    for node in introspector.all() {
-        let Some(label) = node.label() else { continue };
-        let details = node
+    for elem in introspector.all() {
+        let Some(label) = elem.label() else { continue };
+        let details = elem
             .field("caption")
-            .or_else(|| node.field("body"))
+            .or_else(|| elem.field("body"))
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),
                 _ => None,
             })
-            .and_then(|content| (items.text_str)(content));
+            .and_then(|content| (items.text_str)(&content));
         output.push((label.clone(), details));
     }
 

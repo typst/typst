@@ -5,8 +5,8 @@ extern crate proc_macro;
 #[macro_use]
 mod util;
 mod castable;
+mod element;
 mod func;
-mod node;
 mod symbols;
 
 use proc_macro::TokenStream as BoundaryStream;
@@ -26,11 +26,11 @@ pub fn func(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     func::func(item).unwrap_or_else(|err| err.to_compile_error()).into()
 }
 
-/// Implement `Node` for a struct.
+/// Turns a struct into an element.
 #[proc_macro_attribute]
-pub fn node(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+pub fn element(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemStruct);
-    node::node(stream.into(), item)
+    element::element(stream.into(), item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }

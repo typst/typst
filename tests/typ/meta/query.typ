@@ -47,10 +47,10 @@
   for it in elements [
     Figure
     #numbering(it.numbering,
-      ..counter(figure).at(it.id())):
+      ..counter(figure).at(it.location())):
     #it.caption
     #box(width: 1fr, repeat[.])
-    #counter(page).at(it.id()).first() \
+    #counter(page).at(it.location()).first() \
   ]
 })
 

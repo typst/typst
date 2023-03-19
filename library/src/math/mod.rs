@@ -31,69 +31,69 @@ pub use self::underover::*;
 use ttf_parser::{GlyphId, Rect};
 use typst::eval::{Module, Scope};
 use typst::font::{Font, FontWeight};
-use typst::model::{Guard, SequenceNode, StyledNode};
+use typst::model::Guard;
 use unicode_math_class::MathClass;
 
 use self::ctx::*;
 use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
-use crate::layout::{HNode, ParNode, Spacing};
+use crate::layout::{HElem, ParElem, Spacing};
 use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::{
-    families, variant, FontFamily, FontList, LinebreakNode, SpaceNode, TextNode, TextSize,
+    families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
 };
 
 /// Create a module with all math definitions.
 pub fn module() -> Module {
     let mut math = Scope::deduplicating();
-    math.define("equation", EquationNode::id());
-    math.define("text", TextNode::id());
+    math.define("equation", EquationElem::func());
+    math.define("text", TextElem::func());
 
     // Grouping.
-    math.define("lr", LrNode::id());
+    math.define("lr", LrElem::func());
     math.define("abs", abs);
     math.define("norm", norm);
     math.define("floor", floor);
     math.define("ceil", ceil);
 
     // Attachments and accents.
-    math.define("attach", AttachNode::id());
-    math.define("scripts", ScriptsNode::id());
-    math.define("limits", LimitsNode::id());
-    math.define("accent", AccentNode::id());
-    math.define("underline", UnderlineNode::id());
-    math.define("overline", OverlineNode::id());
-    math.define("underbrace", UnderbraceNode::id());
-    math.define("overbrace", OverbraceNode::id());
-    math.define("underbracket", UnderbracketNode::id());
-    math.define("overbracket", OverbracketNode::id());
+    math.define("attach", AttachElem::func());
+    math.define("scripts", ScriptsElem::func());
+    math.define("limits", LimitsElem::func());
+    math.define("accent", AccentElem::func());
+    math.define("underline", UnderlineElem::func());
+    math.define("overline", OverlineElem::func());
+    math.define("underbrace", UnderbraceElem::func());
+    math.define("overbrace", OverbraceElem::func());
+    math.define("underbracket", UnderbracketElem::func());
+    math.define("overbracket", OverbracketElem::func());
 
     // Fractions and matrix-likes.
-    math.define("frac", FracNode::id());
-    math.define("binom", BinomNode::id());
-    math.define("vec", VecNode::id());
-    math.define("mat", MatNode::id());
-    math.define("cases", CasesNode::id());
+    math.define("frac", FracElem::func());
+    math.define("binom", BinomElem::func());
+    math.define("vec", VecElem::func());
+    math.define("mat", MatElem::func());
+    math.define("cases", CasesElem::func());
 
     // Roots.
-    math.define("sqrt", SqrtNode::id());
-    math.define("root", RootNode::id());
+    math.define("sqrt", sqrt);
+    math.define("root", RootElem::func());
 
     // Styles.
-    math.define("upright", UprightNode::id());
-    math.define("bold", BoldNode::id());
-    math.define("italic", ItalicNode::id());
-    math.define("serif", SerifNode::id());
-    math.define("sans", SansNode::id());
-    math.define("cal", CalNode::id());
-    math.define("frak", FrakNode::id());
-    math.define("mono", MonoNode::id());
-    math.define("bb", BbNode::id());
+    math.define("upright", upright);
+    math.define("bold", bold);
+    math.define("italic", italic);
+    math.define("serif", serif);
+    math.define("sans", sans);
+    math.define("cal", cal);
+    math.define("frak", frak);
+    math.define("mono", mono);
+    math.define("bb", bb);
 
     // Text operators.
-    math.define("op", OpNode::id());
+    math.define("op", OpElem::func());
     op::define(&mut math);
 
     // Spacings.
@@ -133,8 +133,8 @@ pub fn module() -> Module {
 ///
 /// Display: Equation
 /// Category: math
-#[node(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName)]
-pub struct EquationNode {
+#[element(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName)]
+pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
     pub block: bool,
@@ -157,16 +157,16 @@ pub struct EquationNode {
     pub body: Content,
 }
 
-impl Synthesize for EquationNode {
+impl Synthesize for EquationElem {
     fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
         self.push_block(self.block(styles));
         self.push_numbering(self.numbering(styles));
     }
 }
 
-impl Show for EquationNode {
+impl Show for EquationElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.clone().pack().guarded(Guard::Base(NodeId::of::<Self>()));
+        let mut realized = self.clone().pack().guarded(Guard::Base(Self::func()));
         if self.block(styles) {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
@@ -174,17 +174,17 @@ impl Show for EquationNode {
     }
 }
 
-impl Finalize for EquationNode {
+impl Finalize for EquationElem {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         realized
-            .styled(TextNode::set_weight(FontWeight::from_number(450)))
-            .styled(TextNode::set_font(FontList(vec![FontFamily::new(
+            .styled(TextElem::set_weight(FontWeight::from_number(450)))
+            .styled(TextElem::set_font(FontList(vec![FontFamily::new(
                 "New Computer Modern Math",
             )])))
     }
 }
 
-impl Layout for EquationNode {
+impl Layout for EquationElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -215,7 +215,7 @@ impl Layout for EquationNode {
         if block {
             if let Some(numbering) = self.numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = Counter::of(Self::id())
+                let counter = Counter::of(Self::func())
                     .display(numbering, false)
                     .layout(vt, styles, pod)?
                     .into_frame();
@@ -230,7 +230,7 @@ impl Layout for EquationNode {
                 let height = frame.height().max(counter.height());
                 frame.resize(Size::new(width, height), Align::CENTER_HORIZON);
 
-                let x = if TextNode::dir_in(styles).is_positive() {
+                let x = if TextElem::dir_in(styles).is_positive() {
                     frame.width() - counter.width()
                 } else {
                     Abs::zero()
@@ -240,10 +240,10 @@ impl Layout for EquationNode {
                 frame.push_frame(Point::new(x, y), counter)
             }
         } else {
-            let slack = ParNode::leading_in(styles) * 0.7;
-            let top_edge = TextNode::top_edge_in(styles).resolve(styles, font.metrics());
+            let slack = ParElem::leading_in(styles) * 0.7;
+            let top_edge = TextElem::top_edge_in(styles).resolve(styles, font.metrics());
             let bottom_edge =
-                -TextNode::bottom_edge_in(styles).resolve(styles, font.metrics());
+                -TextElem::bottom_edge_in(styles).resolve(styles, font.metrics());
 
             let ascent = top_edge.max(frame.ascent() - slack);
             let descent = bottom_edge.max(frame.descent() - slack);
@@ -255,7 +255,7 @@ impl Layout for EquationNode {
     }
 }
 
-impl Count for EquationNode {
+impl Count for EquationElem {
     fn update(&self) -> Option<CounterUpdate> {
         (self.block(StyleChain::default())
             && self.numbering(StyleChain::default()).is_some())
@@ -263,7 +263,7 @@ impl Count for EquationNode {
     }
 }
 
-impl LocalName for EquationNode {
+impl LocalName for EquationElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Gleichung",
@@ -276,7 +276,7 @@ pub trait LayoutMath {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()>;
 }
 
-impl LayoutMath for EquationNode {
+impl LayoutMath for EquationElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
@@ -284,45 +284,44 @@ impl LayoutMath for EquationNode {
 
 impl LayoutMath for Content {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        if let Some(node) = self.to::<SequenceNode>() {
-            for child in node.children() {
+        if let Some(children) = self.to_sequence() {
+            for child in children {
                 child.layout_math(ctx)?;
             }
             return Ok(());
         }
 
-        if let Some(styled) = self.to::<StyledNode>() {
-            let map = styled.styles();
-            if TextNode::font_in(ctx.styles().chain(&map))
-                != TextNode::font_in(ctx.styles())
+        if let Some((elem, styles)) = self.to_styled() {
+            if TextElem::font_in(ctx.styles().chain(&styles))
+                != TextElem::font_in(ctx.styles())
             {
                 let frame = ctx.layout_content(self)?;
                 ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
                 return Ok(());
             }
 
-            let prev_map = std::mem::replace(&mut ctx.map, map);
+            let prev_map = std::mem::replace(&mut ctx.local, styles.clone());
             let prev_size = ctx.size;
-            ctx.map.apply(prev_map.clone());
-            ctx.size = TextNode::size_in(ctx.styles());
-            styled.body().layout_math(ctx)?;
+            ctx.local.apply(prev_map.clone());
+            ctx.size = TextElem::size_in(ctx.styles());
+            elem.layout_math(ctx)?;
             ctx.size = prev_size;
-            ctx.map = prev_map;
+            ctx.local = prev_map;
             return Ok(());
         }
 
-        if self.is::<SpaceNode>() {
+        if self.is::<SpaceElem>() {
             ctx.push(MathFragment::Space(ctx.space_width.scaled(ctx)));
             return Ok(());
         }
 
-        if self.is::<LinebreakNode>() {
+        if self.is::<LinebreakElem>() {
             ctx.push(MathFragment::Linebreak);
             return Ok(());
         }
 
-        if let Some(node) = self.to::<HNode>() {
-            if let Spacing::Rel(rel) = node.amount() {
+        if let Some(elem) = self.to::<HElem>() {
+            if let Spacing::Rel(rel) = elem.amount() {
                 if rel.rel.is_zero() {
                     ctx.push(MathFragment::Spacing(rel.abs.resolve(ctx.styles())));
                 }
@@ -330,13 +329,13 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
-        if let Some(node) = self.to::<TextNode>() {
-            ctx.layout_text(node)?;
+        if let Some(elem) = self.to::<TextElem>() {
+            ctx.layout_text(elem)?;
             return Ok(());
         }
 
-        if let Some(node) = self.with::<dyn LayoutMath>() {
-            return node.layout_math(ctx);
+        if let Some(elem) = self.with::<dyn LayoutMath>() {
+            return elem.layout_math(ctx);
         }
 
         let mut frame = ctx.layout_content(self)?;

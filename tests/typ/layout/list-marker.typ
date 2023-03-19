@@ -30,5 +30,5 @@
 - a bad marker
 
 ---
-// Error: 19-21 must contain at least one marker
+// Error: 19-21 array must contain at least one marker
 #set list(marker: ())

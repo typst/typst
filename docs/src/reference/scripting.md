@@ -138,7 +138,7 @@ For loops can iterate over a variety of collections:
 - `{for value in array {..}}` \
   `{for index, value in array {..}}`\
   Iterates over the items in the [array]($type/array). Can also provide the
-  index of each element.
+  index of each item.
 
 - `{for value in dict {..}}` \
   `{for key, value in dict {..}}` \

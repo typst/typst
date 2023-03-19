@@ -181,8 +181,8 @@ impl GlyphFragment {
             id,
             c,
             font: ctx.font.clone(),
-            lang: TextNode::lang_in(ctx.styles()),
-            fill: TextNode::fill_in(ctx.styles()),
+            lang: TextElem::lang_in(ctx.styles()),
+            fill: TextElem::fill_in(ctx.styles()),
             style: ctx.style,
             font_size: ctx.size,
             width,
@@ -215,7 +215,7 @@ impl GlyphFragment {
     }
 
     pub fn to_frame(&self) -> Frame {
-        let text = Text {
+        let item = TextItem {
             font: self.font.clone(),
             size: self.font_size,
             fill: self.fill,
@@ -232,7 +232,7 @@ impl GlyphFragment {
         let size = Size::new(self.width, self.ascent + self.descent);
         let mut frame = Frame::new(size);
         frame.set_baseline(self.ascent);
-        frame.push(Point::with_y(self.ascent), Element::Text(text));
+        frame.push(Point::with_y(self.ascent), FrameItem::Text(item));
         frame
     }
 }

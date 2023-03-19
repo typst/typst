@@ -1,6 +1,4 @@
-use typst::model::StyledNode;
-
-use crate::layout::{LayoutRoot, PageNode};
+use crate::layout::{LayoutRoot, PageElem};
 use crate::prelude::*;
 
 /// The root element of a document and its metadata.
@@ -14,8 +12,8 @@ use crate::prelude::*;
 ///
 /// Display: Document
 /// Category: meta
-#[node(LayoutRoot)]
-pub struct DocumentNode {
+#[element(LayoutRoot)]
+pub struct DocumentElem {
     /// The document's title. This is often rendered as the title of the
     /// PDF viewer window.
     pub title: Option<EcoString>,
@@ -29,22 +27,20 @@ pub struct DocumentNode {
     pub children: Vec<Content>,
 }
 
-impl LayoutRoot for DocumentNode {
+impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
         let mut pages = vec![];
 
-        for mut child in self.children() {
-            let map;
+        for mut child in &self.children() {
             let outer = styles;
-            let mut styles = outer;
-            if let Some(node) = child.to::<StyledNode>() {
-                map = node.styles();
-                styles = outer.chain(&map);
-                child = node.body();
+            let mut styles = styles;
+            if let Some((elem, local)) = child.to_styled() {
+                styles = outer.chain(local);
+                child = elem;
             }
 
-            if let Some(page) = child.to::<PageNode>() {
+            if let Some(page) = child.to::<PageElem>() {
                 let fragment = page.layout(vt, styles)?;
                 pages.extend(fragment);
             } else {

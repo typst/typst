@@ -14,8 +14,8 @@ pub struct Regions<'a> {
     /// The height of the final region that is repeated once the backlog is
     /// drained. The width is the same for all regions.
     pub last: Option<Abs>,
-    /// Whether nodes should expand to fill the regions instead of shrinking to
-    /// fit the content.
+    /// Whether elements should expand to fill the regions instead of shrinking
+    /// to fit the content.
     pub expand: Axes<bool>,
 }
 

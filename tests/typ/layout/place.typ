@@ -7,7 +7,7 @@
 = Placement
 #place(right, image("/tiger.jpg", width: 1.8cm))
 Hi there. This is \
-a placed node. \
+a placed element. \
 Unfortunately, \
 the line breaks still had to be inserted manually.
 
@@ -25,7 +25,7 @@ the line breaks still had to be inserted manually.
 )
 
 ---
-// Test how the placed node interacts with paragraph spacing around it.
+// Test how the placed element interacts with paragraph spacing around it.
 #set page("a8", height: 60pt)
 
 First

@@ -29,12 +29,13 @@ pub use self::cast::*;
 pub use self::dict::*;
 pub use self::func::*;
 pub use self::library::*;
-pub use self::methods::*;
 pub use self::module::*;
 pub use self::scope::*;
 pub use self::str::*;
 pub use self::symbol::*;
 pub use self::value::*;
+
+pub(crate) use self::methods::methods_on;
 
 use std::collections::BTreeMap;
 use std::mem;
@@ -47,11 +48,10 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
-use crate::model::Introspector;
-use crate::model::StabilityProvider;
-use crate::model::Unlabellable;
-use crate::model::Vt;
-use crate::model::{Content, Label, Recipe, Selector, StyleMap, Transform};
+use crate::model::{
+    Content, Introspector, Label, Recipe, Selector, StabilityProvider, Styles, Transform,
+    Unlabellable, Vt,
+};
 use crate::syntax::ast::AstNode;
 use crate::syntax::{
     ast, parse_code, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode,
@@ -114,12 +114,12 @@ pub fn eval(
 ///
 /// Everything in the output is associated with the given `span`.
 #[comemo::memoize]
-pub fn eval_code_str(
+pub fn eval_string(
     world: Tracked<dyn World>,
-    text: &str,
+    code: &str,
     span: Span,
 ) -> SourceResult<Value> {
-    let mut root = parse_code(text);
+    let mut root = parse_code(code);
     root.synthesize(span);
 
     let errors = root.errors();
@@ -290,7 +290,7 @@ impl Route {
     }
 }
 
-/// Traces which values existed for the expression with the given span.
+/// Traces which values existed for the expression at a span.
 #[derive(Default, Clone)]
 pub struct Tracer {
     span: Option<Span>,
@@ -377,10 +377,10 @@ fn eval_markup(
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {
-                    if let Some(node) =
+                    if let Some(elem) =
                         seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
                     {
-                        *node = mem::take(node).labelled(label);
+                        *elem = mem::take(elem).labelled(label);
                     }
                 }
                 value => seq.push(value.display().spanned(expr.span())),
@@ -643,7 +643,7 @@ impl Eval for ast::Math {
         Ok(Content::sequence(
             self.exprs()
                 .map(|expr| expr.eval_display(vm))
-                .collect::<SourceResult<_>>()?,
+                .collect::<SourceResult<Vec<_>>>()?,
         ))
     }
 }
@@ -1049,7 +1049,7 @@ impl Eval for ast::FuncCall {
         if in_math && !matches!(callee, Value::Func(_)) {
             if let Value::Symbol(sym) = &callee {
                 let c = sym.get();
-                if let Some(accent) = combining_accent(c) {
+                if let Some(accent) = Symbol::combining_accent(c) {
                     let base = args.expect("base")?;
                     args.finish()?;
                     return Ok(Value::Content((vm.items.math_accent)(base, accent)));
@@ -1198,17 +1198,25 @@ impl Eval for ast::LetBinding {
 }
 
 impl Eval for ast::SetRule {
-    type Output = StyleMap;
+    type Output = Styles;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if let Some(condition) = self.condition() {
             if !condition.eval(vm)?.cast::<bool>().at(condition.span())? {
-                return Ok(StyleMap::new());
+                return Ok(Styles::new());
             }
         }
 
         let target = self.target();
-        let target = target.eval(vm)?.cast::<Func>().at(target.span())?;
+        let target = target
+            .eval(vm)?
+            .cast::<Func>()
+            .and_then(|func| {
+                func.element().ok_or_else(|| {
+                    "only element functions can be used in set rules".into()
+                })
+            })
+            .at(target.span())?;
         let args = self.args().eval(vm)?;
         Ok(target.set(args)?.spanned(self.span()))
     }

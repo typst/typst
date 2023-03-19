@@ -51,5 +51,5 @@ Lריווח #h(1cm) R
 // Test setting a vertical direction.
 // Ref: false
 
-// Error: 16-19 must be horizontal
+// Error: 16-19 text direction must be horizontal
 #set text(dir: ttb)

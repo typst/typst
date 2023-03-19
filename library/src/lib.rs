@@ -13,7 +13,7 @@ pub mod visualize;
 use typst::diag::At;
 use typst::eval::{LangItems, Library, Module, Scope};
 use typst::geom::{Align, Color, Dir, GenAlign, Smart};
-use typst::model::{Node, NodeId, StyleMap};
+use typst::model::{Element, Styles};
 
 use self::layout::LayoutRoot;
 
@@ -30,69 +30,69 @@ fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 
     // Text.
-    global.define("text", text::TextNode::id());
-    global.define("linebreak", text::LinebreakNode::id());
-    global.define("smartquote", text::SmartQuoteNode::id());
-    global.define("strong", text::StrongNode::id());
-    global.define("emph", text::EmphNode::id());
+    global.define("text", text::TextElem::func());
+    global.define("linebreak", text::LinebreakElem::func());
+    global.define("smartquote", text::SmartQuoteElem::func());
+    global.define("strong", text::StrongElem::func());
+    global.define("emph", text::EmphElem::func());
     global.define("lower", text::lower);
     global.define("upper", text::upper);
     global.define("smallcaps", text::smallcaps);
-    global.define("sub", text::SubNode::id());
-    global.define("super", text::SuperNode::id());
-    global.define("underline", text::UnderlineNode::id());
-    global.define("strike", text::StrikeNode::id());
-    global.define("overline", text::OverlineNode::id());
-    global.define("raw", text::RawNode::id());
+    global.define("sub", text::SubElem::func());
+    global.define("super", text::SuperElem::func());
+    global.define("underline", text::UnderlineElem::func());
+    global.define("strike", text::StrikeElem::func());
+    global.define("overline", text::OverlineElem::func());
+    global.define("raw", text::RawElem::func());
     global.define("lorem", text::lorem);
 
     // Math.
     global.define("math", math);
 
     // Layout.
-    global.define("page", layout::PageNode::id());
-    global.define("pagebreak", layout::PagebreakNode::id());
-    global.define("v", layout::VNode::id());
-    global.define("par", layout::ParNode::id());
-    global.define("parbreak", layout::ParbreakNode::id());
-    global.define("h", layout::HNode::id());
-    global.define("box", layout::BoxNode::id());
-    global.define("block", layout::BlockNode::id());
-    global.define("list", layout::ListNode::id());
-    global.define("enum", layout::EnumNode::id());
-    global.define("terms", layout::TermsNode::id());
-    global.define("table", layout::TableNode::id());
-    global.define("stack", layout::StackNode::id());
-    global.define("grid", layout::GridNode::id());
-    global.define("columns", layout::ColumnsNode::id());
-    global.define("colbreak", layout::ColbreakNode::id());
-    global.define("place", layout::PlaceNode::id());
-    global.define("align", layout::AlignNode::id());
-    global.define("pad", layout::PadNode::id());
-    global.define("repeat", layout::RepeatNode::id());
-    global.define("move", layout::MoveNode::id());
-    global.define("scale", layout::ScaleNode::id());
-    global.define("rotate", layout::RotateNode::id());
-    global.define("hide", layout::HideNode::id());
+    global.define("page", layout::PageElem::func());
+    global.define("pagebreak", layout::PagebreakElem::func());
+    global.define("v", layout::VElem::func());
+    global.define("par", layout::ParElem::func());
+    global.define("parbreak", layout::ParbreakElem::func());
+    global.define("h", layout::HElem::func());
+    global.define("box", layout::BoxElem::func());
+    global.define("block", layout::BlockElem::func());
+    global.define("list", layout::ListElem::func());
+    global.define("enum", layout::EnumElem::func());
+    global.define("terms", layout::TermsElem::func());
+    global.define("table", layout::TableElem::func());
+    global.define("stack", layout::StackElem::func());
+    global.define("grid", layout::GridElem::func());
+    global.define("columns", layout::ColumnsElem::func());
+    global.define("colbreak", layout::ColbreakElem::func());
+    global.define("place", layout::PlaceElem::func());
+    global.define("align", layout::AlignElem::func());
+    global.define("pad", layout::PadElem::func());
+    global.define("repeat", layout::RepeatElem::func());
+    global.define("move", layout::MoveElem::func());
+    global.define("scale", layout::ScaleElem::func());
+    global.define("rotate", layout::RotateElem::func());
+    global.define("hide", layout::HideElem::func());
     global.define("measure", layout::measure);
 
     // Visualize.
-    global.define("image", visualize::ImageNode::id());
-    global.define("line", visualize::LineNode::id());
-    global.define("rect", visualize::RectNode::id());
-    global.define("square", visualize::SquareNode::id());
-    global.define("ellipse", visualize::EllipseNode::id());
-    global.define("circle", visualize::CircleNode::id());
+    global.define("image", visualize::ImageElem::func());
+    global.define("line", visualize::LineElem::func());
+    global.define("rect", visualize::RectElem::func());
+    global.define("square", visualize::SquareElem::func());
+    global.define("ellipse", visualize::EllipseElem::func());
+    global.define("circle", visualize::CircleElem::func());
 
     // Meta.
-    global.define("document", meta::DocumentNode::id());
-    global.define("ref", meta::RefNode::id());
-    global.define("link", meta::LinkNode::id());
-    global.define("outline", meta::OutlineNode::id());
-    global.define("heading", meta::HeadingNode::id());
-    global.define("figure", meta::FigureNode::id());
-    global.define("cite", meta::CiteNode::id());
-    global.define("bibliography", meta::BibliographyNode::id());
+    global.define("document", meta::DocumentElem::func());
+    global.define("ref", meta::RefElem::func());
+    global.define("link", meta::LinkElem::func());
+    global.define("outline", meta::OutlineElem::func());
+    global.define("heading", meta::HeadingElem::func());
+    global.define("figure", meta::FigureElem::func());
+    global.define("cite", meta::CiteElem::func());
+    global.define("bibliography", meta::BibliographyElem::func());
     global.define("locate", meta::locate);
     global.define("style", meta::style);
     global.define("counter", meta::counter);
@@ -166,71 +166,71 @@ fn global(math: Module, calc: Module) -> Module {
 }
 
 /// Construct the standard style map.
-fn styles() -> StyleMap {
-    StyleMap::new()
+fn styles() -> Styles {
+    Styles::new()
 }
 
 /// Construct the standard lang item mapping.
 fn items() -> LangItems {
     LangItems {
         layout: |world, content, styles| content.layout_root(world, styles),
-        em: text::TextNode::size_in,
-        dir: text::TextNode::dir_in,
-        space: || text::SpaceNode::new().pack(),
-        linebreak: || text::LinebreakNode::new().pack(),
-        text: |text| text::TextNode::new(text).pack(),
-        text_id: NodeId::of::<text::TextNode>(),
-        text_str: |content| Some(content.to::<text::TextNode>()?.text()),
-        smart_quote: |double| text::SmartQuoteNode::new().with_double(double).pack(),
-        parbreak: || layout::ParbreakNode::new().pack(),
-        strong: |body| text::StrongNode::new(body).pack(),
-        emph: |body| text::EmphNode::new(body).pack(),
+        em: text::TextElem::size_in,
+        dir: text::TextElem::dir_in,
+        space: || text::SpaceElem::new().pack(),
+        linebreak: || text::LinebreakElem::new().pack(),
+        text: |text| text::TextElem::new(text).pack(),
+        text_func: text::TextElem::func(),
+        text_str: |content| Some(content.to::<text::TextElem>()?.text()),
+        smart_quote: |double| text::SmartQuoteElem::new().with_double(double).pack(),
+        parbreak: || layout::ParbreakElem::new().pack(),
+        strong: |body| text::StrongElem::new(body).pack(),
+        emph: |body| text::EmphElem::new(body).pack(),
         raw: |text, lang, block| {
-            let mut node = text::RawNode::new(text).with_block(block);
+            let mut elem = text::RawElem::new(text).with_block(block);
             if let Some(lang) = lang {
-                node.push_lang(Some(lang));
+                elem.push_lang(Some(lang));
             }
-            node.pack()
+            elem.pack()
         },
-        raw_languages: text::RawNode::languages,
-        link: |url| meta::LinkNode::from_url(url).pack(),
+        raw_languages: text::RawElem::languages,
+        link: |url| meta::LinkElem::from_url(url).pack(),
         reference: |target, supplement| {
-            let mut node = meta::RefNode::new(target);
+            let mut elem = meta::RefElem::new(target);
             if let Some(supplement) = supplement {
-                node.push_supplement(Smart::Custom(Some(meta::Supplement::Content(
+                elem.push_supplement(Smart::Custom(Some(meta::Supplement::Content(
                     supplement,
                 ))));
             }
-            node.pack()
+            elem.pack()
         },
-        bibliography_keys: meta::BibliographyNode::keys,
-        heading: |level, title| meta::HeadingNode::new(title).with_level(level).pack(),
+        bibliography_keys: meta::BibliographyElem::keys,
+        heading: |level, title| meta::HeadingElem::new(title).with_level(level).pack(),
         list_item: |body| layout::ListItem::new(body).pack(),
         enum_item: |number, body| {
-            let mut node = layout::EnumItem::new(body);
+            let mut elem = layout::EnumItem::new(body);
             if let Some(number) = number {
-                node.push_number(Some(number));
+                elem.push_number(Some(number));
             }
-            node.pack()
+            elem.pack()
         },
         term_item: |term, description| layout::TermItem::new(term, description).pack(),
-        equation: |body, block| math::EquationNode::new(body).with_block(block).pack(),
-        math_align_point: || math::AlignPointNode::new().pack(),
-        math_delimited: |open, body, close| math::LrNode::new(open + body + close).pack(),
+        equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
+        math_align_point: || math::AlignPointElem::new().pack(),
+        math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),
         math_attach: |base, bottom, top| {
-            let mut node = math::AttachNode::new(base);
+            let mut elem = math::AttachElem::new(base);
             if let Some(bottom) = bottom {
-                node.push_bottom(Some(bottom));
+                elem.push_bottom(Some(bottom));
             }
             if let Some(top) = top {
-                node.push_top(Some(top));
+                elem.push_top(Some(top));
             }
-            node.pack()
+            elem.pack()
         },
         math_accent: |base, accent| {
-            math::AccentNode::new(base, math::Accent::new(accent)).pack()
+            math::AccentElem::new(base, math::Accent::new(accent)).pack()
         },
-        math_frac: |num, denom| math::FracNode::new(num, denom).pack(),
+        math_frac: |num, denom| math::FracElem::new(num, denom).pack(),
         library_method: |vm, dynamic, method, args, span| {
             if let Some(counter) = dynamic.downcast::<meta::Counter>().cloned() {
                 counter.call_method(vm, method, args, span)

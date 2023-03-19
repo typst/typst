@@ -134,5 +134,5 @@ pub fn eval(
     source: Spanned<String>,
 ) -> Value {
     let Spanned { v: text, span } = source;
-    typst::eval::eval_code_str(vm.world(), &text, span)?
+    typst::eval::eval_string(vm.world(), &text, span)?
 }

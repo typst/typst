@@ -6,7 +6,7 @@ use smallvec::{smallvec, SmallVec};
 use typst::eval::Tracer;
 
 use super::{Numbering, NumberingPattern};
-use crate::layout::PageNode;
+use crate::layout::PageElem;
 use crate::prelude::*;
 
 /// Count through pages, elements, and more.
@@ -32,9 +32,9 @@ impl Counter {
         Self(key)
     }
 
-    /// The counter for the given node.
-    pub fn of(id: NodeId) -> Self {
-        Self::new(CounterKey::Selector(Selector::Node(id, None)))
+    /// The counter for the given element.
+    pub fn of(func: ElemFunc) -> Self {
+        Self::new(CounterKey::Selector(Selector::Elem(func, None)))
     }
 
     /// Call a method on counter.
@@ -69,23 +69,23 @@ impl Counter {
 
     /// Display the current value of the counter.
     pub fn display(self, numbering: Numbering, both: bool) -> Content {
-        DisplayNode::new(self, numbering, both).pack()
+        DisplayElem::new(self, numbering, both).pack()
     }
 
     /// Get the value of the state at the given location.
-    pub fn at(&self, vt: &mut Vt, id: StableId) -> SourceResult<CounterState> {
+    pub fn at(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), id).len();
+        let offset = vt.introspector.query_before(self.selector(), location).len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
-            let delta = vt.introspector.page(id).get() - page.get();
+            let delta = vt.introspector.page(location).get() - page.get();
             state.step(NonZeroUsize::ONE, delta);
         }
         Ok(state)
     }
 
     /// Get the value of the state at the final location.
-    pub fn final_(&self, vt: &mut Vt, _: StableId) -> SourceResult<CounterState> {
+    pub fn final_(&self, vt: &mut Vt, _: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
         let (mut state, page) = sequence.last().unwrap().clone();
         if self.is_page() {
@@ -96,13 +96,13 @@ impl Counter {
     }
 
     /// Get the current and final value of the state combined in one state.
-    pub fn both(&self, vt: &mut Vt, id: StableId) -> SourceResult<CounterState> {
+    pub fn both(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), id).len();
+        let offset = vt.introspector.query_before(self.selector(), location).len();
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if self.is_page() {
-            let at_delta = vt.introspector.page(id).get() - at_page.get();
+            let at_delta = vt.introspector.page(location).get() - at_page.get();
             at_state.step(NonZeroUsize::ONE, at_delta);
             let final_delta = vt.introspector.pages().get() - final_page.get();
             final_state.step(NonZeroUsize::ONE, final_delta);
@@ -112,7 +112,7 @@ impl Counter {
 
     /// Produce content that performs a state update.
     pub fn update(self, update: CounterUpdate) -> Content {
-        UpdateNode::new(self, update).pack()
+        UpdateElem::new(self, update).pack()
     }
 
     /// Produce the whole sequence of counter states.
@@ -148,11 +148,11 @@ impl Counter {
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
-        for node in introspector.query(self.selector()) {
+        for elem in introspector.query(self.selector()) {
             if self.is_page() {
-                let id = node.stable_id().unwrap();
+                let location = elem.location().unwrap();
                 let prev = page;
-                page = introspector.page(id);
+                page = introspector.page(location);
 
                 let delta = page.get() - prev.get();
                 if delta > 0 {
@@ -160,9 +160,9 @@ impl Counter {
                 }
             }
 
-            if let Some(update) = match node.to::<UpdateNode>() {
-                Some(node) => Some(node.update()),
-                None => match node.with::<dyn Count>() {
+            if let Some(update) = match elem.to::<UpdateElem>() {
+                Some(elem) => Some(elem.update()),
+                None => match elem.with::<dyn Count>() {
                     Some(countable) => countable.update(),
                     None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
                 },
@@ -178,10 +178,8 @@ impl Counter {
 
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
-        let mut selector = Selector::Node(
-            NodeId::of::<UpdateNode>(),
-            Some(dict! { "counter" => self.clone() }),
-        );
+        let mut selector =
+            Selector::Elem(UpdateElem::func(), Some(dict! { "counter" => self.clone() }));
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Any(eco_vec![selector, key.clone()]);
@@ -224,20 +222,16 @@ cast_from_value! {
     CounterKey,
     v: Str => Self::Str(v),
     label: Label => Self::Selector(Selector::Label(label)),
-    func: Func => {
-        let Some(id) = func.id() else {
-            return Err("this function is not selectable".into());
-        };
-
-        if id == NodeId::of::<PageNode>() {
+    element: ElemFunc => {
+        if element == PageElem::func() {
             return Ok(Self::Page);
         }
 
-        if !Content::new(id).can::<dyn Locatable>() {
-            Err(eco_format!("cannot count through {}s", id.name))?;
+        if !Content::new(element).can::<dyn Locatable>() {
+            Err(eco_format!("cannot count through {}s", element.name()))?;
         }
 
-        Self::Selector(Selector::Node(id, None))
+        Self::Selector(Selector::Elem(element, None))
     }
 }
 
@@ -274,9 +268,9 @@ cast_from_value! {
     v: Func => Self::Func(v),
 }
 
-/// Nodes that have special counting behaviour.
+/// Elements that have special counting behaviour.
 pub trait Count {
-    /// Get the counter update for this node.
+    /// Get the counter update for this element.
     fn update(&self) -> Option<CounterUpdate>;
 }
 
@@ -342,8 +336,8 @@ cast_to_value! {
 ///
 /// Display: State
 /// Category: special
-#[node(Locatable, Show)]
-struct DisplayNode {
+#[element(Locatable, Show)]
+struct DisplayElem {
     /// The counter.
     #[required]
     counter: Counter,
@@ -357,12 +351,16 @@ struct DisplayNode {
     both: bool,
 }
 
-impl Show for DisplayNode {
+impl Show for DisplayElem {
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        let id = self.0.stable_id().unwrap();
+        let location = self.0.location().unwrap();
         let counter = self.counter();
         let numbering = self.numbering();
-        let state = if self.both() { counter.both(vt, id) } else { counter.at(vt, id) }?;
+        let state = if self.both() {
+            counter.both(vt, location)?
+        } else {
+            counter.at(vt, location)?
+        };
         state.display(vt, &numbering)
     }
 }
@@ -371,8 +369,8 @@ impl Show for DisplayNode {
 ///
 /// Display: State
 /// Category: special
-#[node(Locatable, Show)]
-struct UpdateNode {
+#[element(Locatable, Show)]
+struct UpdateElem {
     /// The counter.
     #[required]
     counter: Counter,
@@ -382,7 +380,7 @@ struct UpdateNode {
     update: CounterUpdate,
 }
 
-impl Show for UpdateNode {
+impl Show for UpdateElem {
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }

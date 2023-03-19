@@ -4,7 +4,7 @@ use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
-use crate::doc::{Destination, Element, Frame, Group, Link, Meta, Text};
+use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
@@ -110,29 +110,32 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
     page_writer.contents(content_id);
 
     let mut annotations = page_writer.annotations();
-    for (link, rect) in page.links {
+    for (dest, rect) in page.links {
         let mut annotation = annotations.push();
         annotation.subtype(AnnotationType::Link).rect(rect);
         annotation.border(0.0, 0.0, 0.0, None);
-        match link.resolve(|| &ctx.introspector) {
+
+        let pos = match dest {
             Destination::Url(uri) => {
                 annotation
                     .action()
                     .action_type(ActionType::Uri)
                     .uri(Str(uri.as_bytes()));
+                continue;
             }
-            Destination::Internal(loc) => {
-                let index = loc.page.get() - 1;
-                let y = (loc.pos.y - Abs::pt(10.0)).max(Abs::zero());
-                if let Some(&height) = ctx.page_heights.get(index) {
-                    annotation
-                        .action()
-                        .action_type(ActionType::GoTo)
-                        .destination_direct()
-                        .page(ctx.page_refs[index])
-                        .xyz(loc.pos.x.to_f32(), height - y.to_f32(), None);
-                }
-            }
+            Destination::Position(pos) => pos,
+            Destination::Location(loc) => ctx.introspector.position(loc),
+        };
+
+        let index = pos.page.get() - 1;
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+        if let Some(&height) = ctx.page_heights.get(index) {
+            annotation
+                .action()
+                .action_type(ActionType::GoTo)
+                .destination_direct()
+                .page(ctx.page_refs[index])
+                .xyz(pos.point.x.to_f32(), height - y.to_f32(), None);
         }
     }
 
@@ -153,7 +156,7 @@ pub struct Page {
     /// The page's content stream.
     pub content: Content,
     /// Links in the PDF coordinate system.
-    pub links: Vec<(Link, Rect)>,
+    pub links: Vec<(Destination, Rect)>,
 }
 
 /// An exporter for the contents of a single PDF page.
@@ -164,7 +167,7 @@ struct PageContext<'a, 'b> {
     state: State,
     saves: Vec<State>,
     bottom: f32,
-    links: Vec<(Link, Rect)>,
+    links: Vec<(Destination, Rect)>,
 }
 
 /// A simulated graphics state used to deduplicate graphics state changes and
@@ -283,17 +286,17 @@ impl PageContext<'_, '_> {
 
 /// Encode a frame into the content stream.
 fn write_frame(ctx: &mut PageContext, frame: &Frame) {
-    for &(pos, ref element) in frame.elements() {
+    for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
-        match element {
-            Element::Group(group) => write_group(ctx, pos, group),
-            Element::Text(text) => write_text(ctx, x, y, text),
-            Element::Shape(shape, _) => write_shape(ctx, x, y, shape),
-            Element::Image(image, size, _) => write_image(ctx, x, y, image, *size),
-            Element::Meta(meta, size) => match meta {
-                Meta::Link(link) => write_link(ctx, pos, link, *size),
-                Meta::Node(_) => {}
+        match item {
+            FrameItem::Group(group) => write_group(ctx, pos, group),
+            FrameItem::Text(text) => write_text(ctx, x, y, text),
+            FrameItem::Shape(shape, _) => write_shape(ctx, x, y, shape),
+            FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
+            FrameItem::Meta(meta, size) => match meta {
+                Meta::Link(dest) => write_link(ctx, pos, dest, *size),
+                Meta::Elem(_) => {}
                 Meta::Hide => {}
             },
         }
@@ -301,7 +304,7 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
 }
 
 /// Encode a group into the content stream.
-fn write_group(ctx: &mut PageContext, pos: Point, group: &Group) {
+fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
     let translation = Transform::translate(pos.x, pos.y);
 
     ctx.save_state();
@@ -324,7 +327,7 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &Group) {
 }
 
 /// Encode a text run into the content stream.
-fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &Text) {
+fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
     *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
     ctx.parent
         .glyph_sets
@@ -422,13 +425,13 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
 fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
     for elem in &path.0 {
         match elem {
-            geom::PathElement::MoveTo(p) => {
+            geom::PathItem::MoveTo(p) => {
                 ctx.content.move_to(x + p.x.to_f32(), y + p.y.to_f32())
             }
-            geom::PathElement::LineTo(p) => {
+            geom::PathItem::LineTo(p) => {
                 ctx.content.line_to(x + p.x.to_f32(), y + p.y.to_f32())
             }
-            geom::PathElement::CubicTo(p1, p2, p3) => ctx.content.cubic_to(
+            geom::PathItem::CubicTo(p1, p2, p3) => ctx.content.cubic_to(
                 x + p1.x.to_f32(),
                 y + p1.y.to_f32(),
                 x + p2.x.to_f32(),
@@ -436,7 +439,7 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
                 x + p3.x.to_f32(),
                 y + p3.y.to_f32(),
             ),
-            geom::PathElement::ClosePath => ctx.content.close_path(),
+            geom::PathItem::ClosePath => ctx.content.close_path(),
         };
     }
 }
@@ -454,7 +457,7 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
 }
 
 /// Save a link for later writing in the annotations dictionary.
-fn write_link(ctx: &mut PageContext, pos: Point, link: &Link, size: Size) {
+fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size) {
     let mut min_x = Abs::inf();
     let mut min_y = Abs::inf();
     let mut max_x = -Abs::inf();
@@ -480,5 +483,5 @@ fn write_link(ctx: &mut PageContext, pos: Point, link: &Link, size: Size) {
     let y2 = min_y.to_f32();
     let rect = Rect::new(x1, y1, x2, y2);
 
-    ctx.links.push((link.clone(), rect));
+    ctx.links.push((dest.clone(), rect));
 }

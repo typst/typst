@@ -1,7 +1,6 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
 
-use ecow::EcoVec;
 use typst::eval::Regex;
 
 use crate::prelude::*;
@@ -173,12 +172,12 @@ cast_from_value! {
     Component,
     v: i64 => match v {
         0 ..= 255 => Self(v as u8),
-        _ => Err("must be between 0 and 255")?,
+        _ => Err("number must be between 0 and 255")?,
     },
     v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
     } else {
-        Err("must be between 0% and 100%")?
+        Err("ratio must be between 0% and 100%")?
     },
 }
 
@@ -220,7 +219,7 @@ cast_from_value! {
     v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
     } else {
-        Err("must be between 0% and 100%")?
+        Err("ratio must be between 0% and 100%")?
     },
 }
 
@@ -258,14 +257,14 @@ pub fn symbol(
     #[variadic]
     variants: Vec<Spanned<Variant>>,
 ) -> Value {
-    let mut list = EcoVec::new();
+    let mut list = Vec::new();
     for Spanned { v, span } in variants {
         if list.iter().any(|(prev, _)| &v.0 == prev) {
             bail!(span, "duplicate variant");
         }
         list.push((v.0, v.1));
     }
-    Value::Symbol(Symbol::runtime(list))
+    Value::Symbol(Symbol::runtime(list.into_boxed_slice()))
 }
 
 /// A value that can be cast to a symbol.

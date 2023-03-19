@@ -10,7 +10,7 @@ use super::{Args, Dynamic, Module, Value, Vm};
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
-use crate::model::{Content, Introspector, Label, NodeId, StyleChain, StyleMap, Vt};
+use crate::model::{Content, ElemFunc, Introspector, Label, StyleChain, Styles, Vt};
 use crate::syntax::Span;
 use crate::util::hash128;
 use crate::World;
@@ -23,7 +23,7 @@ pub struct Library {
     /// The scope containing definitions available in math mode.
     pub math: Module,
     /// The default properties for page size, font selection and so on.
-    pub styles: StyleMap,
+    pub styles: Styles,
     /// Defines which standard library items fulfill which syntactical roles.
     pub items: LangItems,
 }
@@ -44,9 +44,9 @@ pub struct LangItems {
     pub linebreak: fn() -> Content,
     /// Plain text without markup.
     pub text: fn(text: EcoString) -> Content,
-    /// The id of the text node.
-    pub text_id: NodeId,
-    /// Get the string if this is a text node.
+    /// The text function.
+    pub text_func: ElemFunc,
+    /// Get the string if this is a text element.
     pub text_str: fn(&Content) -> Option<EcoString>,
     /// A smart quote: `'` or `"`.
     pub smart_quote: fn(double: bool) -> Content,
@@ -114,7 +114,7 @@ impl Hash for LangItems {
         self.space.hash(state);
         self.linebreak.hash(state);
         self.text.hash(state);
-        self.text_id.hash(state);
+        self.text_func.hash(state);
         (self.text_str as usize).hash(state);
         self.smart_quote.hash(state);
         self.parbreak.hash(state);
@@ -140,13 +140,15 @@ impl Hash for LangItems {
 #[doc(hidden)]
 pub static LANG_ITEMS: OnceCell<LangItems> = OnceCell::new();
 
-/// Set the lang items. This is a hack :(
+/// Set the lang items.
 ///
-/// Passing the lang items everywhere they are needed (especially the text node
-/// related things) is very painful. By storing them globally, in theory, we
-/// break incremental, but only when different sets of lang items are used in
-/// the same program. For this reason, if this function is called multiple
-/// times, the items must be the same.
+/// This is a hack :(
+///
+/// Passing the lang items everywhere they are needed (especially text related
+/// things) is very painful. By storing them globally, in theory, we break
+/// incremental, but only when different sets of lang items are used in the same
+/// program. For this reason, if this function is called multiple times, the
+/// items must be the same (and this is enforced).
 pub fn set_lang_items(items: LangItems) {
     if let Err(items) = LANG_ITEMS.set(items) {
         let first = hash128(LANG_ITEMS.get().unwrap());

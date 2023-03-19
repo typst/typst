@@ -24,8 +24,8 @@ use crate::prelude::*;
 ///
 /// Display: Smart Quote
 /// Category: text
-#[node]
-pub struct SmartQuoteNode {
+#[element]
+pub struct SmartQuoteElem {
     /// Whether this should be a double quote.
     #[default(true)]
     pub double: bool,

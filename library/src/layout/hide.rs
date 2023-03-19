@@ -15,15 +15,15 @@ use crate::prelude::*;
 ///
 /// Display: Hide
 /// Category: layout
-#[node(Show)]
-pub struct HideNode {
+#[element(Show)]
+pub struct HideElem {
     /// The content to hide.
     #[required]
     pub body: Content,
 }
 
-impl Show for HideNode {
+impl Show for HideElem {
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(MetaNode::set_data(vec![Meta::Hide])))
+        Ok(self.body().styled(MetaElem::set_data(vec![Meta::Hide])))
     }
 }

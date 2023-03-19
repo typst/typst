@@ -993,7 +993,7 @@ const EMOJI: &[(&'static str, Symbol)] = symbols! {
     piano: '🎹',
     pick: '⛏',
     pie: '🥧',
-    pig: ['🐖', face: '🐷', node: '🐽'],
+    pig: ['🐖', face: '🐷', nose: '🐽'],
     pill: '💊',
     pin: ['📌', round: '📍'],
     pinata: '🪅',

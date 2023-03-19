@@ -11,24 +11,24 @@ pub fn query(
     target: Target,
     /// The location.
     #[external]
-    location: StableId,
+    location: Location,
     /// The location before which to query.
     #[named]
     #[external]
-    before: StableId,
+    before: Location,
     /// The location after which to query.
     #[named]
     #[external]
-    after: StableId,
+    after: Location,
 ) -> Value {
     let selector = target.0;
     let introspector = vm.vt.introspector;
-    let elements = if let Some(id) = args.named("before")? {
-        introspector.query_before(selector, id)
-    } else if let Some(id) = args.named("after")? {
-        introspector.query_after(selector, id)
+    let elements = if let Some(location) = args.named("before")? {
+        introspector.query_before(selector, location)
+    } else if let Some(location) = args.named("after")? {
+        introspector.query_after(selector, location)
     } else {
-        let _: StableId = args.expect("id")?;
+        let _: Location = args.expect("location")?;
         introspector.query(selector)
     };
     elements.into()
@@ -40,15 +40,11 @@ struct Target(Selector);
 cast_from_value! {
     Target,
     label: Label => Self(Selector::Label(label)),
-    func: Func => {
-        let Some(id) = func.id() else {
-            return Err("this function is not selectable".into());
-        };
-
-        if !Content::new(id).can::<dyn Locatable>() {
-            Err(eco_format!("cannot query for {}s", id.name))?;
+    element: ElemFunc => {
+        if !Content::new(element).can::<dyn Locatable>() {
+            Err(eco_format!("cannot query for {}s", element.name()))?;
         }
 
-        Self(Selector::Node(id, None))
+        Self(Selector::Elem(element, None))
     }
 }

@@ -1,4 +1,4 @@
-// Test node functions.
+// Test constructors.
 
 ---
 // Ensure that constructor styles aren't passed down the tree.

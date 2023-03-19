@@ -50,14 +50,14 @@ use std::mem;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::eval::Tracer;
-use typst::model::{applicable, realize, SequenceNode, StyleVecBuilder, StyledNode};
+use typst::model::{applicable, realize, StyleVecBuilder};
 
-use crate::math::{EquationNode, LayoutMath};
-use crate::meta::DocumentNode;
+use crate::math::{EquationElem, LayoutMath};
+use crate::meta::DocumentElem;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
-use crate::text::{LinebreakNode, SmartQuoteNode, SpaceNode, TextNode};
-use crate::visualize::{CircleNode, EllipseNode, ImageNode, RectNode, SquareNode};
+use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
+use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
 
 /// Root-level layout.
 pub trait LayoutRoot {
@@ -69,7 +69,7 @@ impl LayoutRoot for Content {
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
         #[comemo::memoize]
         fn cached(
-            node: &Content,
+            content: &Content,
             world: Tracked<dyn World>,
             tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
@@ -78,7 +78,7 @@ impl LayoutRoot for Content {
         ) -> SourceResult<Document> {
             let mut vt = Vt { world, tracer, provider, introspector };
             let scratch = Scratch::default();
-            let (realized, styles) = realize_root(&mut vt, &scratch, node, styles)?;
+            let (realized, styles) = realize_root(&mut vt, &scratch, content, styles)?;
             realized
                 .with::<dyn LayoutRoot>()
                 .unwrap()
@@ -108,8 +108,8 @@ pub trait Layout {
 
     /// Layout without side effects.
     ///
-    /// This node must be layouted again in the same order for the results to be
-    /// valid.
+    /// This element must be layouted again in the same order for the results to
+    /// be valid.
     fn measure(
         &self,
         vt: &mut Vt,
@@ -132,7 +132,7 @@ impl Layout for Content {
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
         fn cached(
-            node: &Content,
+            content: &Content,
             world: Tracked<dyn World>,
             tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
@@ -142,7 +142,7 @@ impl Layout for Content {
         ) -> SourceResult<Fragment> {
             let mut vt = Vt { world, tracer, provider, introspector };
             let scratch = Scratch::default();
-            let (realized, styles) = realize_block(&mut vt, &scratch, node, styles)?;
+            let (realized, styles) = realize_block(&mut vt, &scratch, content, styles)?;
             realized
                 .with::<dyn Layout>()
                 .unwrap()
@@ -161,7 +161,7 @@ impl Layout for Content {
     }
 }
 
-/// Realize into a node that is capable of root-level layout.
+/// Realize into an element that is capable of root-level layout.
 fn realize_root<'a>(
     vt: &mut Vt,
     scratch: &'a Scratch<'a>,
@@ -176,10 +176,10 @@ fn realize_root<'a>(
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles))?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
-    Ok((DocumentNode::new(pages.to_vec()).pack(), shared))
+    Ok((DocumentElem::new(pages.to_vec()).pack(), shared))
 }
 
-/// Realize into a node that is capable of block-level layout.
+/// Realize into an element that is capable of block-level layout.
 fn realize_block<'a>(
     vt: &mut Vt,
     scratch: &'a Scratch<'a>,
@@ -187,11 +187,11 @@ fn realize_block<'a>(
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
     if content.can::<dyn Layout>()
-        && !content.is::<RectNode>()
-        && !content.is::<SquareNode>()
-        && !content.is::<EllipseNode>()
-        && !content.is::<CircleNode>()
-        && !content.is::<ImageNode>()
+        && !content.is::<RectElem>()
+        && !content.is::<SquareElem>()
+        && !content.is::<EllipseElem>()
+        && !content.is::<CircleElem>()
+        && !content.is::<ImageElem>()
         && !applicable(content, styles)
     {
         return Ok((content.clone(), styles));
@@ -201,10 +201,10 @@ fn realize_block<'a>(
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
-    Ok((FlowNode::new(children.to_vec()).pack(), shared))
+    Ok((FlowElem::new(children.to_vec()).pack(), shared))
 }
 
-/// Builds a document or a flow node from content.
+/// Builds a document or a flow element from content.
 struct Builder<'a, 'v, 't> {
     /// The virtual typesetter.
     vt: &'v mut Vt<'t>,
@@ -227,7 +227,6 @@ struct Scratch<'a> {
     styles: Arena<StyleChain<'a>>,
     /// An arena where intermediate content resulting from show rules is stored.
     content: Arena<Content>,
-    maps: Arena<StyleMap>,
 }
 
 impl<'a, 'v, 't> Builder<'a, 'v, 't> {
@@ -247,19 +246,18 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         mut content: &'a Content,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        if content.can::<dyn LayoutMath>() && !content.is::<EquationNode>() {
+        if content.can::<dyn LayoutMath>() && !content.is::<EquationElem>() {
             content =
-                self.scratch.content.alloc(EquationNode::new(content.clone()).pack());
+                self.scratch.content.alloc(EquationElem::new(content.clone()).pack());
         }
 
-        if let Some(styled) = content.to::<StyledNode>() {
-            return self.styled(styled, styles);
+        if let Some((elem, local)) = content.to_styled() {
+            return self.styled(elem, local, styles);
         }
 
-        if let Some(seq) = content.to::<SequenceNode>() {
-            for sub in seq.children() {
-                let stored = self.scratch.content.alloc(sub);
-                self.accept(stored, styles)?;
+        if let Some(children) = content.to_sequence() {
+            for elem in children {
+                self.accept(elem, styles)?;
             }
             return Ok(());
         }
@@ -290,7 +288,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
 
         let keep = content
-            .to::<PagebreakNode>()
+            .to::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
         self.interrupt_page(keep.then(|| styles))?;
@@ -301,52 +299,55 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             }
         }
 
-        bail!(content.span(), "not allowed here");
+        if content.is::<PagebreakElem>() {
+            bail!(content.span(), "pagebreaks are not allowed inside of containers");
+        } else {
+            bail!(content.span(), "{} is not allowed here", content.func().name());
+        }
     }
 
     fn styled(
         &mut self,
-        styled: &'a StyledNode,
+        elem: &'a Content,
+        map: &'a Styles,
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
-        let map = self.scratch.maps.alloc(styled.styles());
         let stored = self.scratch.styles.alloc(styles);
-        let content = self.scratch.content.alloc(styled.body());
         let styles = stored.chain(map);
         self.interrupt_style(&map, None)?;
-        self.accept(content, styles)?;
+        self.accept(elem, styles)?;
         self.interrupt_style(map, Some(styles))?;
         Ok(())
     }
 
     fn interrupt_style(
         &mut self,
-        map: &StyleMap,
-        styles: Option<StyleChain<'a>>,
+        local: &Styles,
+        outer: Option<StyleChain<'a>>,
     ) -> SourceResult<()> {
-        if let Some(Some(span)) = map.interruption::<DocumentNode>() {
+        if let Some(Some(span)) = local.interruption::<DocumentElem>() {
             if self.doc.is_none() {
-                bail!(span, "not allowed here");
+                bail!(span, "document set rules are not allowed inside of containers");
             }
-            if styles.is_none()
+            if outer.is_none()
                 && (!self.flow.0.is_empty()
                     || !self.par.0.is_empty()
                     || !self.list.items.is_empty())
             {
-                bail!(span, "must appear before any content");
+                bail!(span, "document set rules must appear before any content");
             }
-        } else if let Some(Some(span)) = map.interruption::<PageNode>() {
+        } else if let Some(Some(span)) = local.interruption::<PageElem>() {
             if self.doc.is_none() {
-                bail!(span, "not allowed here");
+                bail!(span, "page configuration is not allowed inside of containers");
             }
-            self.interrupt_page(styles)?;
-        } else if map.interruption::<ParNode>().is_some()
-            || map.interruption::<AlignNode>().is_some()
+            self.interrupt_page(outer)?;
+        } else if local.interruption::<ParElem>().is_some()
+            || local.interruption::<AlignElem>().is_some()
         {
             self.interrupt_par()?;
-        } else if map.interruption::<ListNode>().is_some()
-            || map.interruption::<EnumNode>().is_some()
-            || map.interruption::<TermsNode>().is_some()
+        } else if local.interruption::<ListElem>().is_some()
+            || local.interruption::<EnumElem>().is_some()
+            || local.interruption::<TermsElem>().is_some()
         {
             self.interrupt_list()?;
         }
@@ -387,7 +388,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             } else {
                 shared
             };
-            let page = PageNode::new(FlowNode::new(flow.to_vec()).pack()).pack();
+            let page = PageElem::new(FlowElem::new(flow.to_vec()).pack()).pack();
             let stored = self.scratch.content.alloc(page);
             self.accept(stored, styles)?;
         }
@@ -405,12 +406,12 @@ struct DocBuilder<'a> {
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
-        if let Some(pagebreak) = content.to::<PagebreakNode>() {
+        if let Some(pagebreak) = content.to::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
             return true;
         }
 
-        if content.is::<PageNode>() {
+        if content.is::<PageElem>() {
             self.pages.push(content.clone(), styles);
             self.keep_next = false;
             return true;
@@ -432,7 +433,7 @@ struct FlowBuilder<'a>(BehavedBuilder<'a>, bool);
 
 impl<'a> FlowBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if content.is::<ParbreakNode>() {
+        if content.is::<ParbreakElem>() {
             self.1 = true;
             return true;
         }
@@ -440,33 +441,33 @@ impl<'a> FlowBuilder<'a> {
         let last_was_parbreak = self.1;
         self.1 = false;
 
-        if content.is::<VNode>()
-            || content.is::<ColbreakNode>()
-            || content.is::<MetaNode>()
+        if content.is::<VElem>()
+            || content.is::<ColbreakElem>()
+            || content.is::<MetaElem>()
         {
             self.0.push(content.clone(), styles);
             return true;
         }
 
-        if content.can::<dyn Layout>() || content.is::<ParNode>() {
-            let is_tight_list = if let Some(node) = content.to::<ListNode>() {
-                node.tight(styles)
-            } else if let Some(node) = content.to::<EnumNode>() {
-                node.tight(styles)
-            } else if let Some(node) = content.to::<TermsNode>() {
-                node.tight(styles)
+        if content.can::<dyn Layout>() || content.is::<ParElem>() {
+            let is_tight_list = if let Some(elem) = content.to::<ListElem>() {
+                elem.tight(styles)
+            } else if let Some(elem) = content.to::<EnumElem>() {
+                elem.tight(styles)
+            } else if let Some(elem) = content.to::<TermsElem>() {
+                elem.tight(styles)
             } else {
                 false
             };
 
             if !last_was_parbreak && is_tight_list {
-                let leading = ParNode::leading_in(styles);
-                let spacing = VNode::list_attach(leading.into());
+                let leading = ParElem::leading_in(styles);
+                let spacing = VElem::list_attach(leading.into());
                 self.0.push(spacing.pack(), styles);
             }
 
-            let above = BlockNode::above_in(styles);
-            let below = BlockNode::below_in(styles);
+            let above = BlockElem::above_in(styles);
+            let below = BlockElem::below_in(styles);
             self.0.push(above.clone().pack(), styles);
             self.0.push(content.clone(), styles);
             self.0.push(below.clone().pack(), styles);
@@ -483,18 +484,18 @@ struct ParBuilder<'a>(BehavedBuilder<'a>);
 
 impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
-        if content.is::<MetaNode>() {
+        if content.is::<MetaElem>() {
             if !self.0.is_basically_empty() {
                 self.0.push(content.clone(), styles);
                 return true;
             }
-        } else if content.is::<SpaceNode>()
-            || content.is::<TextNode>()
-            || content.is::<HNode>()
-            || content.is::<LinebreakNode>()
-            || content.is::<SmartQuoteNode>()
-            || content.to::<EquationNode>().map_or(false, |node| !node.block(styles))
-            || content.is::<BoxNode>()
+        } else if content.is::<SpaceElem>()
+            || content.is::<TextElem>()
+            || content.is::<HElem>()
+            || content.is::<LinebreakElem>()
+            || content.is::<SmartQuoteElem>()
+            || content.to::<EquationElem>().map_or(false, |elem| !elem.block(styles))
+            || content.is::<BoxElem>()
         {
             self.0.push(content.clone(), styles);
             return true;
@@ -505,7 +506,7 @@ impl<'a> ParBuilder<'a> {
 
     fn finish(self) -> (Content, StyleChain<'a>) {
         let (children, shared) = self.0.finish();
-        (ParNode::new(children.to_vec()).pack(), shared)
+        (ParElem::new(children.to_vec()).pack(), shared)
     }
 }
 
@@ -522,7 +523,7 @@ struct ListBuilder<'a> {
 impl<'a> ListBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if !self.items.is_empty()
-            && (content.is::<SpaceNode>() || content.is::<ParbreakNode>())
+            && (content.is::<SpaceElem>() || content.is::<ParbreakElem>())
         {
             self.staged.push((content, styles));
             return true;
@@ -533,12 +534,12 @@ impl<'a> ListBuilder<'a> {
             || content.is::<TermItem>())
             && self
                 .items
-                .items()
+                .elems()
                 .next()
-                .map_or(true, |first| first.id() == content.id())
+                .map_or(true, |first| first.func() == content.func())
         {
             self.items.push(content.clone(), styles);
-            self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakNode>());
+            self.tight &= self.staged.drain(..).all(|(t, _)| !t.is::<ParbreakElem>());
             return true;
         }
 
@@ -549,39 +550,39 @@ impl<'a> ListBuilder<'a> {
         let (items, shared) = self.items.finish();
         let item = items.items().next().unwrap();
         let output = if item.is::<ListItem>() {
-            ListNode::new(
+            ListElem::new(
                 items
                     .iter()
-                    .map(|(item, map)| {
+                    .map(|(item, local)| {
                         let item = item.to::<ListItem>().unwrap();
-                        item.clone().with_body(item.body().styled_with_map(map.clone()))
+                        item.clone().with_body(item.body().styled_with_map(local.clone()))
                     })
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
             .pack()
         } else if item.is::<EnumItem>() {
-            EnumNode::new(
+            EnumElem::new(
                 items
                     .iter()
-                    .map(|(item, map)| {
+                    .map(|(item, local)| {
                         let item = item.to::<EnumItem>().unwrap();
-                        item.clone().with_body(item.body().styled_with_map(map.clone()))
+                        item.clone().with_body(item.body().styled_with_map(local.clone()))
                     })
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
             .pack()
         } else if item.is::<TermItem>() {
-            TermsNode::new(
+            TermsElem::new(
                 items
                     .iter()
-                    .map(|(item, map)| {
+                    .map(|(item, local)| {
                         let item = item.to::<TermItem>().unwrap();
                         item.clone()
-                            .with_term(item.term().styled_with_map(map.clone()))
+                            .with_term(item.term().styled_with_map(local.clone()))
                             .with_description(
-                                item.description().styled_with_map(map.clone()),
+                                item.description().styled_with_map(local.clone()),
                             )
                     })
                     .collect::<Vec<_>>(),

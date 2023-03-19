@@ -1,20 +1,20 @@
-use super::TextNode;
+use super::TextElem;
 use crate::prelude::*;
 
 /// A text space.
 ///
 /// Display: Space
 /// Category: text
-#[node(Unlabellable, Behave)]
-pub struct SpaceNode {}
+#[element(Unlabellable, Behave)]
+pub struct SpaceElem {}
 
-impl Behave for SpaceNode {
+impl Behave for SpaceElem {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Weak(2)
     }
 }
 
-impl Unlabellable for SpaceNode {}
+impl Unlabellable for SpaceElem {}
 
 /// Inserts a line break.
 ///
@@ -36,8 +36,8 @@ impl Unlabellable for SpaceNode {}
 ///
 /// Display: Line Break
 /// Category: text
-#[node(Behave)]
-pub struct LinebreakNode {
+#[element(Behave)]
+pub struct LinebreakElem {
     /// Whether to justify the line before the break.
     ///
     /// This is useful if you found a better line break opportunity in your
@@ -55,7 +55,7 @@ pub struct LinebreakNode {
     pub justify: bool,
 }
 
-impl Behave for LinebreakNode {
+impl Behave for LinebreakElem {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Destructive
     }
@@ -82,8 +82,8 @@ impl Behave for LinebreakNode {
 ///
 /// Display: Strong Emphasis
 /// Category: text
-#[node(Show)]
-pub struct StrongNode {
+#[element(Show)]
+pub struct StrongElem {
     /// The delta to apply on the font weight.
     ///
     /// ```example
@@ -98,9 +98,9 @@ pub struct StrongNode {
     pub body: Content,
 }
 
-impl Show for StrongNode {
+impl Show for StrongElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextNode::set_delta(Delta(self.delta(styles)))))
+        Ok(self.body().styled(TextElem::set_delta(Delta(self.delta(styles)))))
     }
 }
 
@@ -151,16 +151,16 @@ impl Fold for Delta {
 ///
 /// Display: Emphasis
 /// Category: text
-#[node(Show)]
-pub struct EmphNode {
+#[element(Show)]
+pub struct EmphElem {
     /// The content to emphasize.
     #[required]
     pub body: Content,
 }
 
-impl Show for EmphNode {
+impl Show for EmphElem {
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextNode::set_emph(Toggle)))
+        Ok(self.body().styled(TextElem::set_emph(Toggle)))
     }
 }
 
@@ -229,7 +229,7 @@ pub fn upper(
 fn case(text: ToCase, case: Case) -> Value {
     match text {
         ToCase::Str(v) => Value::Str(case.apply(&v).into()),
-        ToCase::Content(v) => Value::Content(v.styled(TextNode::set_case(Some(case)))),
+        ToCase::Content(v) => Value::Content(v.styled(TextElem::set_case(Some(case)))),
     }
 }
 
@@ -295,7 +295,7 @@ pub fn smallcaps(
     /// The text to display to small capitals.
     body: Content,
 ) -> Value {
-    Value::Content(body.styled(TextNode::set_smallcaps(true)))
+    Value::Content(body.styled(TextElem::set_smallcaps(true)))
 }
 
 /// Create blind text.

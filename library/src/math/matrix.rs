@@ -16,8 +16,8 @@ const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 ///
 /// Display: Vector
 /// Category: math
-#[node(LayoutMath)]
-pub struct VecNode {
+#[element(LayoutMath)]
+pub struct VecElem {
     /// The delimiter to use.
     ///
     /// ```example
@@ -32,7 +32,7 @@ pub struct VecNode {
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for VecNode {
+impl LayoutMath for VecElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Center)?;
@@ -68,8 +68,8 @@ impl LayoutMath for VecNode {
 ///
 /// Display: Matrix
 /// Category: math
-#[node(LayoutMath)]
-pub struct MatNode {
+#[element(LayoutMath)]
+pub struct MatElem {
     /// The delimiter to use.
     ///
     /// ```example
@@ -114,7 +114,7 @@ pub struct MatNode {
     pub rows: Vec<Vec<Content>>,
 }
 
-impl LayoutMath for MatNode {
+impl LayoutMath for MatElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_mat_body(ctx, &self.rows())?;
@@ -144,8 +144,8 @@ impl LayoutMath for MatNode {
 ///
 /// Display: Cases
 /// Category: math
-#[node(LayoutMath)]
-pub struct CasesNode {
+#[element(LayoutMath)]
+pub struct CasesElem {
     /// The delimiter to use.
     ///
     /// ```example
@@ -160,7 +160,7 @@ pub struct CasesNode {
     pub children: Vec<Content>,
 }
 
-impl LayoutMath for CasesNode {
+impl LayoutMath for CasesElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Left)?;
@@ -221,8 +221,8 @@ fn layout_vec_body(
     let gap = ROW_GAP.scaled(ctx);
     ctx.style(ctx.style.for_denominator());
     let mut flat = vec![];
-    for element in column {
-        flat.push(ctx.layout_row(element)?);
+    for child in column {
+        flat.push(ctx.layout_row(child)?);
     }
     ctx.unstyle();
     Ok(stack(ctx, flat, align, gap, 0))

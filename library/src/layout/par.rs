@@ -3,17 +3,15 @@ use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 use xi_unicode::LineBreakIterator;
 
-use typst::model::StyledNode;
-
-use super::{BoxNode, HNode, Sizing, Spacing};
-use crate::layout::AlignNode;
-use crate::math::EquationNode;
+use super::{BoxElem, HElem, Sizing, Spacing};
+use crate::layout::AlignElem;
+use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
-    shape, LinebreakNode, Quoter, Quotes, ShapedText, SmartQuoteNode, SpaceNode, TextNode,
+    shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartQuoteElem, SpaceElem, TextElem,
 };
 
-/// Arrange text, spacing and inline-level nodes into a paragraph.
+/// Arrange text, spacing and inline-level elements into a paragraph.
 ///
 /// Although this function is primarily used in set rules to affect paragraph
 /// properties, it can also be used to explicitly render its argument onto a
@@ -38,8 +36,8 @@ use crate::text::{
 ///
 /// Display: Paragraph
 /// Category: layout
-#[node(Construct)]
-pub struct ParNode {
+#[element(Construct)]
+pub struct ParElem {
     /// The spacing between lines.
     ///
     /// The default value is `{0.65em}`.
@@ -110,22 +108,22 @@ pub struct ParNode {
     pub children: Vec<Content>,
 }
 
-impl Construct for ParNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
+impl Construct for ParElem {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
-        // node. Instead, it just ensures that the passed content lives in a
+        // element. Instead, it just ensures that the passed content lives in a
         // separate paragraph and styles it.
         let styles = Self::set(args)?;
         let body = args.expect::<Content>("body")?;
-        Ok(Content::sequence(vec![
-            ParbreakNode::new().pack(),
+        Ok(Content::sequence([
+            ParbreakElem::new().pack(),
             body.styled_with_map(styles),
-            ParbreakNode::new().pack(),
+            ParbreakElem::new().pack(),
         ]))
     }
 }
 
-impl ParNode {
+impl ParElem {
     /// Layout the paragraph into a collection of lines.
     pub fn layout(
         &self,
@@ -137,7 +135,7 @@ impl ParNode {
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
         fn cached(
-            par: &ParNode,
+            par: &ParElem,
             world: Tracked<dyn World>,
             tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
@@ -179,26 +177,6 @@ impl ParNode {
     }
 }
 
-/// A horizontal alignment.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct HorizontalAlign(pub GenAlign);
-
-cast_from_value! {
-    HorizontalAlign,
-    align: GenAlign => match align.axis() {
-        Axis::X => Self(align),
-        Axis::Y => Err("must be horizontal")?,
-    },
-}
-
-impl Resolve for HorizontalAlign {
-    type Output = Align;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        self.0.resolve(styles)
-    }
-}
-
 /// How to determine line breaks in a paragraph.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum Linebreaks {
@@ -232,10 +210,10 @@ pub enum Linebreaks {
 ///
 /// Display: Paragraph Break
 /// Category: layout
-#[node(Unlabellable)]
-pub struct ParbreakNode {}
+#[element(Unlabellable)]
+pub struct ParbreakElem {}
 
-impl Unlabellable for ParbreakNode {}
+impl Unlabellable for ParbreakElem {}
 
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;
@@ -243,7 +221,7 @@ type Range = std::ops::Range<usize>;
 // The characters by which spacing, inline content and pins are replaced in the
 // paragraph's full text.
 const SPACING_REPLACE: char = ' '; // Space
-const NODE_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
+const OBJ_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
 
 /// A paragraph representation in which children are already layouted and text
 /// is already preshaped.
@@ -254,7 +232,7 @@ const NODE_REPLACE: char = '\u{FFFC}'; // Object Replacement Character
 struct Preparation<'a> {
     /// Bidirectional text embedding levels for the paragraph.
     bidi: BidiInfo<'a>,
-    /// Text runs, spacing and layouted nodes.
+    /// Text runs, spacing and layouted elements.
     items: Vec<Item<'a>>,
     /// The span mapper.
     spans: SpanMapper,
@@ -325,9 +303,9 @@ enum Segment<'a> {
     /// Horizontal spacing between other segments.
     Spacing(Spacing),
     /// A mathematical equation.
-    Equation(&'a EquationNode),
+    Equation(&'a EquationElem),
     /// A box with arbitrary content.
-    Box(&'a BoxNode, bool),
+    Box(&'a BoxElem, bool),
     /// Metadata.
     Meta,
 }
@@ -339,7 +317,7 @@ impl Segment<'_> {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
             Self::Box(_, true) => SPACING_REPLACE.len_utf8(),
-            Self::Equation(_) | Self::Box(_, _) | Self::Meta => NODE_REPLACE.len_utf8(),
+            Self::Equation(_) | Self::Box(_, _) | Self::Meta => OBJ_REPLACE.len_utf8(),
         }
     }
 }
@@ -352,7 +330,7 @@ enum Item<'a> {
     /// Absolute spacing between other items.
     Absolute(Abs),
     /// Fractional spacing between other items.
-    Fractional(Fr, Option<(&'a BoxNode, StyleChain<'a>)>),
+    Fractional(Fr, Option<(&'a BoxElem, StyleChain<'a>)>),
     /// Layouted inline-level content.
     Frame(Frame),
 }
@@ -371,7 +349,7 @@ impl<'a> Item<'a> {
         match self {
             Self::Text(shaped) => shaped.text.len(),
             Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
-            Self::Frame(_) => NODE_REPLACE.len_utf8(),
+            Self::Frame(_) => OBJ_REPLACE.len_utf8(),
         }
     }
 
@@ -520,7 +498,7 @@ fn collect<'a>(
     let mut iter = children.iter().peekable();
 
     if consecutive {
-        let first_line_indent = ParNode::first_line_indent_in(*styles);
+        let first_line_indent = ParElem::first_line_indent_in(*styles);
         if !first_line_indent.is_zero()
             && children
                 .iter()
@@ -529,7 +507,7 @@ fn collect<'a>(
                         behaved.behaviour() == Behaviour::Ignorant
                     }) {
                         None
-                    } else if child.is::<TextNode>() || child.is::<SmartQuoteNode>() {
+                    } else if child.is::<TextElem>() || child.is::<SmartQuoteElem>() {
                         Some(true)
                     } else {
                         Some(false)
@@ -542,7 +520,7 @@ fn collect<'a>(
         }
     }
 
-    let hang = ParNode::hanging_indent_in(*styles);
+    let hang = ParElem::hanging_indent_in(*styles);
     if !hang.is_zero() {
         full.push(SPACING_REPLACE);
         segments.push((Segment::Spacing((-hang).into()), *styles));
@@ -551,61 +529,61 @@ fn collect<'a>(
     while let Some(mut child) = iter.next() {
         let outer = styles;
         let mut styles = *styles;
-        if let Some(node) = child.to::<StyledNode>() {
-            child = Box::leak(Box::new(node.body()));
-            styles = outer.chain(Box::leak(Box::new(node.styles())));
+        if let Some((elem, local)) = child.to_styled() {
+            child = elem;
+            styles = outer.chain(local);
         }
 
-        let segment = if child.is::<SpaceNode>() {
+        let segment = if child.is::<SpaceElem>() {
             full.push(' ');
             Segment::Text(1)
-        } else if let Some(node) = child.to::<TextNode>() {
+        } else if let Some(elem) = child.to::<TextElem>() {
             let prev = full.len();
-            if let Some(case) = TextNode::case_in(styles) {
-                full.push_str(&case.apply(&node.text()));
+            if let Some(case) = TextElem::case_in(styles) {
+                full.push_str(&case.apply(&elem.text()));
             } else {
-                full.push_str(&node.text());
+                full.push_str(&elem.text());
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(node) = child.to::<HNode>() {
+        } else if let Some(elem) = child.to::<HElem>() {
             full.push(SPACING_REPLACE);
-            Segment::Spacing(node.amount())
-        } else if let Some(node) = child.to::<LinebreakNode>() {
-            let c = if node.justify(styles) { '\u{2028}' } else { '\n' };
+            Segment::Spacing(elem.amount())
+        } else if let Some(elem) = child.to::<LinebreakElem>() {
+            let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
             Segment::Text(c.len_utf8())
-        } else if let Some(node) = child.to::<SmartQuoteNode>() {
+        } else if let Some(elem) = child.to::<SmartQuoteElem>() {
             let prev = full.len();
-            if SmartQuoteNode::enabled_in(styles) {
-                let lang = TextNode::lang_in(styles);
-                let region = TextNode::region_in(styles);
+            if SmartQuoteElem::enabled_in(styles) {
+                let lang = TextElem::lang_in(styles);
+                let region = TextElem::region_in(styles);
                 let quotes = Quotes::from_lang(lang, region);
                 let peeked = iter.peek().and_then(|child| {
-                    if let Some(node) = child.to::<TextNode>() {
-                        node.text().chars().next()
-                    } else if child.is::<SmartQuoteNode>() {
+                    if let Some(elem) = child.to::<TextElem>() {
+                        elem.text().chars().next()
+                    } else if child.is::<SmartQuoteElem>() {
                         Some('"')
-                    } else if child.is::<SpaceNode>() || child.is::<HNode>() {
+                    } else if child.is::<SpaceElem>() || child.is::<HElem>() {
                         Some(SPACING_REPLACE)
                     } else {
-                        Some(NODE_REPLACE)
+                        Some(OBJ_REPLACE)
                     }
                 });
 
-                full.push_str(quoter.quote(&quotes, node.double(styles), peeked));
+                full.push_str(quoter.quote(&quotes, elem.double(styles), peeked));
             } else {
-                full.push(if node.double(styles) { '"' } else { '\'' });
+                full.push(if elem.double(styles) { '"' } else { '\'' });
             }
             Segment::Text(full.len() - prev)
-        } else if let Some(node) = child.to::<EquationNode>() {
-            full.push(NODE_REPLACE);
-            Segment::Equation(node)
-        } else if let Some(node) = child.to::<BoxNode>() {
-            let frac = node.width(styles).is_fractional();
-            full.push(if frac { SPACING_REPLACE } else { NODE_REPLACE });
-            Segment::Box(node, frac)
-        } else if child.is::<MetaNode>() {
-            full.push(NODE_REPLACE);
+        } else if let Some(elem) = child.to::<EquationElem>() {
+            full.push(OBJ_REPLACE);
+            Segment::Equation(elem)
+        } else if let Some(elem) = child.to::<BoxElem>() {
+            let frac = elem.width(styles).is_fractional();
+            full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
+            Segment::Box(elem, frac)
+        } else if child.is::<MetaElem>() {
+            full.push(OBJ_REPLACE);
             Segment::Meta
         } else {
             bail!(child.span(), "unexpected paragraph child");
@@ -645,7 +623,7 @@ fn prepare<'a>(
 ) -> SourceResult<Preparation<'a>> {
     let bidi = BidiInfo::new(
         text,
-        match TextNode::dir_in(styles) {
+        match TextElem::dir_in(styles) {
             Dir::LTR => Some(BidiLevel::ltr()),
             Dir::RTL => Some(BidiLevel::rtl()),
             _ => None,
@@ -674,16 +652,16 @@ fn prepare<'a>(
             Segment::Equation(equation) => {
                 let pod = Regions::one(region, Axes::splat(false));
                 let mut frame = equation.layout(vt, styles, pod)?.into_frame();
-                frame.translate(Point::with_y(TextNode::baseline_in(styles)));
+                frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                 items.push(Item::Frame(frame));
             }
-            Segment::Box(node, _) => {
-                if let Sizing::Fr(v) = node.width(styles) {
-                    items.push(Item::Fractional(v, Some((node, styles))));
+            Segment::Box(elem, _) => {
+                if let Sizing::Fr(v) = elem.width(styles) {
+                    items.push(Item::Fractional(v, Some((elem, styles))));
                 } else {
                     let pod = Regions::one(region, Axes::splat(false));
-                    let mut frame = node.layout(vt, styles, pod)?.into_frame();
-                    frame.translate(Point::with_y(TextNode::baseline_in(styles)));
+                    let mut frame = elem.layout(vt, styles, pod)?.into_frame();
+                    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                     items.push(Item::Frame(frame));
                 }
             }
@@ -702,11 +680,11 @@ fn prepare<'a>(
         items,
         spans,
         styles,
-        hyphenate: shared_get(styles, children, TextNode::hyphenate_in),
-        lang: shared_get(styles, children, TextNode::lang_in),
-        align: AlignNode::alignment_in(styles).x.resolve(styles),
-        justify: ParNode::justify_in(styles),
-        hang: ParNode::hanging_indent_in(styles),
+        hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
+        lang: shared_get(styles, children, TextElem::lang_in),
+        align: AlignElem::alignment_in(styles).x.resolve(styles),
+        justify: ParElem::justify_in(styles),
+        hang: ParElem::hanging_indent_in(styles),
     })
 }
 
@@ -775,15 +753,15 @@ fn shared_get<'a, T: PartialEq>(
     let value = getter(styles);
     children
         .iter()
-        .filter_map(|child| child.to::<StyledNode>())
-        .all(|node| getter(styles.chain(&node.styles())) == value)
+        .filter_map(|child| child.to_styled())
+        .all(|(_, local)| getter(styles.chain(&local)) == value)
         .then(|| value)
 }
 
 /// Find suitable linebreaks.
 fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
-    let linebreaks = ParNode::linebreaks_in(p.styles).unwrap_or_else(|| {
-        if ParNode::justify_in(p.styles) {
+    let linebreaks = ParElem::linebreaks_in(p.styles).unwrap_or_else(|| {
+        if ParElem::justify_in(p.styles) {
             Linebreaks::Optimized
         } else {
             Linebreaks::Simple
@@ -881,7 +859,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
         line: line(vt, p, 0..0, false, false),
     }];
 
-    let em = TextNode::size_in(p.styles);
+    let em = TextElem::size_in(p.styles);
 
     for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();
@@ -1046,7 +1024,7 @@ impl Breakpoints<'_> {
             .hyphenate
             .or_else(|| {
                 let shaped = self.p.find(offset)?.text()?;
-                Some(TextNode::hyphenate_in(shaped.styles))
+                Some(TextElem::hyphenate_in(shaped.styles))
             })
             .unwrap_or(false)
     }
@@ -1055,7 +1033,7 @@ impl Breakpoints<'_> {
     fn lang(&self, offset: usize) -> Option<hypher::Lang> {
         let lang = self.p.lang.or_else(|| {
             let shaped = self.p.find(offset)?.text()?;
-            Some(TextNode::lang_in(shaped.styles))
+            Some(TextElem::lang_in(shaped.styles))
         })?;
 
         let bytes = lang.as_str().as_bytes().try_into().ok()?;
@@ -1196,7 +1174,7 @@ fn finalize(
         .collect::<SourceResult<_>>()?;
 
     // Prevent orphans.
-    let leading = ParNode::leading_in(p.styles);
+    let leading = ParElem::leading_in(p.styles);
     if frames.len() >= 2 && !frames[1].is_empty() {
         let second = frames.remove(1);
         let first = &mut frames[0];
@@ -1243,7 +1221,7 @@ fn commit(
     if let Some(Item::Text(text)) = reordered.first() {
         if let Some(glyph) = text.glyphs.first() {
             if !text.dir.is_positive()
-                && TextNode::overhang_in(text.styles)
+                && TextElem::overhang_in(text.styles)
                 && (reordered.len() > 1 || text.glyphs.len() > 1)
             {
                 let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
@@ -1257,7 +1235,7 @@ fn commit(
     if let Some(Item::Text(text)) = reordered.last() {
         if let Some(glyph) = text.glyphs.last() {
             if text.dir.is_positive()
-                && TextNode::overhang_in(text.styles)
+                && TextElem::overhang_in(text.styles)
                 && (reordered.len() > 1 || text.glyphs.len() > 1)
             {
                 let amount = overhang(glyph.c) * glyph.x_advance.at(text.size);
@@ -1295,13 +1273,13 @@ fn commit(
             Item::Absolute(v) => {
                 offset += *v;
             }
-            Item::Fractional(v, node) => {
+            Item::Fractional(v, elem) => {
                 let amount = v.share(fr, remaining);
-                if let Some((node, styles)) = node {
+                if let Some((elem, styles)) = elem {
                     let region = Size::new(amount, full);
                     let pod = Regions::one(region, Axes::new(true, false));
-                    let mut frame = node.layout(vt, *styles, pod)?.into_frame();
-                    frame.translate(Point::with_y(TextNode::baseline_in(*styles)));
+                    let mut frame = elem.layout(vt, *styles, pod)?.into_frame();
+                    frame.translate(Point::with_y(TextElem::baseline_in(*styles)));
                     push(&mut offset, frame);
                 } else {
                     offset += amount;

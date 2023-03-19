@@ -23,8 +23,8 @@ use crate::prelude::*;
 ///
 /// Display: Move
 /// Category: layout
-#[node(Layout)]
-pub struct MoveNode {
+#[element(Layout)]
+pub struct MoveElem {
     /// The horizontal displacement of the content.
     pub dx: Rel<Length>,
 
@@ -36,7 +36,7 @@ pub struct MoveNode {
     pub body: Content,
 }
 
-impl Layout for MoveNode {
+impl Layout for MoveElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -69,8 +69,8 @@ impl Layout for MoveNode {
 ///
 /// Display: Rotate
 /// Category: layout
-#[node(Layout)]
-pub struct RotateNode {
+#[element(Layout)]
+pub struct RotateElem {
     /// The amount of rotation.
     ///
     /// ```example
@@ -104,7 +104,7 @@ pub struct RotateNode {
     pub body: Content,
 }
 
-impl Layout for RotateNode {
+impl Layout for RotateElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -137,8 +137,8 @@ impl Layout for RotateNode {
 ///
 /// Display: Scale
 /// Category: layout
-#[node(Layout)]
-pub struct ScaleNode {
+#[element(Layout)]
+pub struct ScaleElem {
     /// The horizontal scaling factor.
     ///
     /// The body will be mirrored horizontally if the parameter is negative.
@@ -172,7 +172,7 @@ pub struct ScaleNode {
     pub body: Content,
 }
 
-impl Layout for ScaleNode {
+impl Layout for ScaleElem {
     fn layout(
         &self,
         vt: &mut Vt,

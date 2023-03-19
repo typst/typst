@@ -1,14 +1,15 @@
-//! Node interaction.
+//! Element interaction.
 
 use typst::model::{Behave, Behaviour, Content, StyleChain, StyleVec, StyleVecBuilder};
 
-/// A wrapper around a [`StyleVecBuilder`] that allows items to interact.
+/// A wrapper around a [`StyleVecBuilder`] that allows elements to interact.
 #[derive(Debug)]
 pub struct BehavedBuilder<'a> {
     /// The internal builder.
     builder: StyleVecBuilder<'a, Content>,
-    /// Staged weak and ignorant items that we can't yet commit to the builder.
-    /// The option is `Some(_)` for weak items and `None` for ignorant items.
+    /// Staged weak and ignorant elements that we can't yet commit to the
+    /// builder. The option is `Some(_)` for weak elements and `None` for
+    /// ignorant elements.
     staged: Vec<(Content, Behaviour, StyleChain<'a>)>,
     /// What the last non-ignorant item was.
     last: Behaviour,
@@ -29,7 +30,7 @@ impl<'a> BehavedBuilder<'a> {
         self.builder.is_empty() && self.staged.is_empty()
     }
 
-    /// Whether the builder is empty except for some weak items that will
+    /// Whether the builder is empty except for some weak elements that will
     /// probably collapse.
     pub fn is_basically_empty(&self) -> bool {
         self.builder.is_empty()
@@ -40,15 +41,15 @@ impl<'a> BehavedBuilder<'a> {
     }
 
     /// Push an item into the sequence.
-    pub fn push(&mut self, item: Content, styles: StyleChain<'a>) {
-        let interaction = item
+    pub fn push(&mut self, elem: Content, styles: StyleChain<'a>) {
+        let interaction = elem
             .with::<dyn Behave>()
             .map_or(Behaviour::Supportive, Behave::behaviour);
 
         match interaction {
             Behaviour::Weak(level) => {
                 if matches!(self.last, Behaviour::Weak(_)) {
-                    let item = item.with::<dyn Behave>().unwrap();
+                    let item = elem.with::<dyn Behave>().unwrap();
                     let i = self.staged.iter().position(|prev| {
                         let Behaviour::Weak(prev_level) = prev.1 else { return false };
                         level < prev_level
@@ -59,29 +60,29 @@ impl<'a> BehavedBuilder<'a> {
                 }
 
                 if self.last != Behaviour::Destructive {
-                    self.staged.push((item, interaction, styles));
+                    self.staged.push((elem, interaction, styles));
                     self.last = interaction;
                 }
             }
             Behaviour::Supportive => {
                 self.flush(true);
-                self.builder.push(item, styles);
+                self.builder.push(elem, styles);
                 self.last = interaction;
             }
             Behaviour::Destructive => {
                 self.flush(false);
-                self.builder.push(item, styles);
+                self.builder.push(elem, styles);
                 self.last = interaction;
             }
             Behaviour::Ignorant => {
-                self.staged.push((item, interaction, styles));
+                self.staged.push((elem, interaction, styles));
             }
         }
     }
 
-    /// Iterate over the contained items.
-    pub fn items(&self) -> impl DoubleEndedIterator<Item = &Content> {
-        self.builder.items().chain(self.staged.iter().map(|(item, ..)| item))
+    /// Iterate over the contained elements.
+    pub fn elems(&self) -> impl DoubleEndedIterator<Item = &Content> {
+        self.builder.elems().chain(self.staged.iter().map(|(item, ..)| item))
     }
 
     /// Return the finish style vec and the common prefix chain.
@@ -90,7 +91,7 @@ impl<'a> BehavedBuilder<'a> {
         self.builder.finish()
     }
 
-    /// Push the staged items, filtering out weak items if `supportive` is
+    /// Push the staged elements, filtering out weak elements if `supportive` is
     /// false.
     fn flush(&mut self, supportive: bool) {
         for (item, interaction, styles) in self.staged.drain(..) {

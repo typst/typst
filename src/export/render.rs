@@ -9,9 +9,9 @@ use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::FitTo;
 
-use crate::doc::{Element, Frame, Group, Meta, Text};
+use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::geom::{
-    self, Abs, Color, Geometry, Paint, PathElement, Shape, Size, Stroke, Transform,
+    self, Abs, Color, Geometry, Paint, PathItem, Shape, Size, Stroke, Transform,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -33,34 +33,34 @@ pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     canvas
 }
 
-/// Render all elements in a frame into the canvas.
+/// Render a frame into the canvas.
 fn render_frame(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
     frame: &Frame,
 ) {
-    for (pos, element) in frame.elements() {
+    for (pos, item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
         let ts = ts.pre_translate(x, y);
 
-        match element {
-            Element::Group(group) => {
+        match item {
+            FrameItem::Group(group) => {
                 render_group(canvas, ts, mask, group);
             }
-            Element::Text(text) => {
+            FrameItem::Text(text) => {
                 render_text(canvas, ts, mask, text);
             }
-            Element::Shape(shape, _) => {
+            FrameItem::Shape(shape, _) => {
                 render_shape(canvas, ts, mask, shape);
             }
-            Element::Image(image, size, _) => {
+            FrameItem::Image(image, size, _) => {
                 render_image(canvas, ts, mask, image, *size);
             }
-            Element::Meta(meta, _) => match meta {
+            FrameItem::Meta(meta, _) => match meta {
                 Meta::Link(_) => {}
-                Meta::Node(_) => {}
+                Meta::Elem(_) => {}
                 Meta::Hide => {}
             },
         }
@@ -72,7 +72,7 @@ fn render_group(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    group: &Group,
+    group: &GroupItem,
 ) {
     let ts = ts.pre_concat(group.transform.into());
 
@@ -114,7 +114,7 @@ fn render_text(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    text: &Text,
+    text: &TextItem,
 ) {
     let mut x = 0.0;
     for glyph in &text.glyphs {
@@ -135,7 +135,7 @@ fn render_svg_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     _: Option<&sk::ClipMask>,
-    text: &Text,
+    text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
     let mut data = text.font.ttf().glyph_svg_image(id)?;
@@ -184,7 +184,7 @@ fn render_bitmap_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    text: &Text,
+    text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
     let size = text.size.to_f32();
@@ -208,7 +208,7 @@ fn render_outline_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
     mask: Option<&sk::ClipMask>,
-    text: &Text,
+    text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
     let ppem = text.size.to_f32() * ts.sy;
@@ -326,13 +326,13 @@ fn convert_path(path: &geom::Path) -> Option<sk::Path> {
     let mut builder = sk::PathBuilder::new();
     for elem in &path.0 {
         match elem {
-            PathElement::MoveTo(p) => {
+            PathItem::MoveTo(p) => {
                 builder.move_to(p.x.to_f32(), p.y.to_f32());
             }
-            PathElement::LineTo(p) => {
+            PathItem::LineTo(p) => {
                 builder.line_to(p.x.to_f32(), p.y.to_f32());
             }
-            PathElement::CubicTo(p1, p2, p3) => {
+            PathItem::CubicTo(p1, p2, p3) => {
                 builder.cubic_to(
                     p1.x.to_f32(),
                     p1.y.to_f32(),
@@ -342,7 +342,7 @@ fn convert_path(path: &geom::Path) -> Option<sk::Path> {
                     p3.y.to_f32(),
                 );
             }
-            PathElement::ClosePath => {
+            PathItem::ClosePath => {
                 builder.close();
             }
         };

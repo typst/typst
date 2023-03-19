@@ -18,8 +18,8 @@ use crate::prelude::*;
 ///
 /// Display: Rectangle
 /// Category: visualize
-#[node(Layout)]
-pub struct RectNode {
+#[element(Layout)]
+pub struct RectElem {
     /// The rectangle's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
 
@@ -139,7 +139,7 @@ pub struct RectNode {
     pub body: Option<Content>,
 }
 
-impl Layout for RectNode {
+impl Layout for RectElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -179,8 +179,8 @@ impl Layout for RectNode {
 ///
 /// Display: Square
 /// Category: visualize
-#[node(Layout)]
-pub struct SquareNode {
+#[element(Layout)]
+pub struct SquareElem {
     /// The square's side length. This is mutually exclusive with `width` and
     /// `height`.
     #[external]
@@ -249,7 +249,7 @@ pub struct SquareNode {
     pub body: Option<Content>,
 }
 
-impl Layout for SquareNode {
+impl Layout for SquareElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -290,8 +290,8 @@ impl Layout for SquareNode {
 ///
 /// Display: Ellipse
 /// Category: visualize
-#[node(Layout)]
-pub struct EllipseNode {
+#[element(Layout)]
+pub struct EllipseElem {
     /// The ellipse's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
 
@@ -331,7 +331,7 @@ pub struct EllipseNode {
     pub body: Option<Content>,
 }
 
-impl Layout for EllipseNode {
+impl Layout for EllipseElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -372,8 +372,8 @@ impl Layout for EllipseNode {
 ///
 /// Display: Circle
 /// Category: visualize
-#[node(Layout)]
-pub struct CircleNode {
+#[element(Layout)]
+pub struct CircleElem {
     /// The circle's radius. This is mutually exclusive with `width` and
     /// `height`.
     #[external]
@@ -438,7 +438,7 @@ pub struct CircleNode {
     pub body: Option<Content>,
 }
 
-impl Layout for CircleNode {
+impl Layout for CircleElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -529,7 +529,7 @@ fn layout(
             let size = frame.size() + outset.sum_by_axis();
             let pos = Point::new(-outset.left, -outset.top);
             let shape = ellipse(size, fill, stroke.left);
-            frame.prepend(pos, Element::Shape(shape, span));
+            frame.prepend(pos, FrameItem::Shape(shape, span));
         } else {
             frame.fill_and_stroke(fill, stroke, outset, radius, span);
         }

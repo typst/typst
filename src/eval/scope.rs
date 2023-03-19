@@ -163,7 +163,9 @@ impl Slot {
     fn write(&mut self) -> StrResult<&mut Value> {
         match self.kind {
             Kind::Normal => Ok(&mut self.value),
-            Kind::Captured => Err("cannot mutate a captured variable")?,
+            Kind::Captured => {
+                Err("variables from outside the function are read-only and cannot be modified")?
+            }
         }
     }
 }

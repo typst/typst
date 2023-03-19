@@ -19,23 +19,23 @@ What's up?
 ---
 Hello
 
-// Error: 2-30 must appear before any content
+// Error: 2-30 document set rules must appear before any content
 #set document(title: "Hello")
 
 ---
 #box[
-  // Error: 4-32 not allowed here
+  // Error: 4-32 document set rules are not allowed inside of containers
   #set document(title: "Hello")
 ]
 
 ---
 #box[
-  // Error: 4-18 not allowed here
+  // Error: 4-18 page configuration is not allowed inside of containers
   #set page("a4")
 ]
 
 ---
 #box[
-  // Error: 4-15 not allowed here
+  // Error: 4-15 pagebreaks are not allowed inside of containers
   #pagebreak()
 ]

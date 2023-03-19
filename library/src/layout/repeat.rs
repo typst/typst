@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-use super::AlignNode;
+use super::AlignElem;
 
 /// Repeats content to the available space.
 ///
@@ -23,14 +23,14 @@ use super::AlignNode;
 ///
 /// Display: Repeat
 /// Category: layout
-#[node(Layout)]
-pub struct RepeatNode {
+#[element(Layout)]
+pub struct RepeatElem {
     /// The content to repeat.
     #[required]
     pub body: Content,
 }
 
-impl Layout for RepeatNode {
+impl Layout for RepeatElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -39,7 +39,7 @@ impl Layout for RepeatNode {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.size, Axes::new(false, false));
         let piece = self.body().layout(vt, styles, pod)?.into_frame();
-        let align = AlignNode::alignment_in(styles).x.resolve(styles);
+        let align = AlignElem::alignment_in(styles).x.resolve(styles);
 
         let fill = regions.size.x;
         let width = piece.width();

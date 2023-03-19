@@ -1,7 +1,7 @@
-use super::{Counter, HeadingNode, LocalName};
-use crate::layout::{BoxNode, HNode, HideNode, ParbreakNode, RepeatNode};
+use super::{Counter, HeadingElem, LocalName};
+use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
-use crate::text::{LinebreakNode, SpaceNode, TextNode};
+use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
 /// A section outline / table of contents.
 ///
@@ -22,8 +22,8 @@ use crate::text::{LinebreakNode, SpaceNode, TextNode};
 ///
 /// Display: Outline
 /// Category: meta
-#[node(Show, LocalName)]
-pub struct OutlineNode {
+#[element(Show, LocalName)]
+pub struct OutlineElem {
     /// The title of the outline.
     ///
     /// - When set to `{auto}`, an appropriate title for the [text
@@ -65,21 +65,21 @@ pub struct OutlineNode {
     ///
     /// = A New Beginning
     /// ```
-    #[default(Some(RepeatNode::new(TextNode::packed(".")).pack()))]
+    #[default(Some(RepeatElem::new(TextElem::packed(".")).pack()))]
     pub fill: Option<Content>,
 }
 
-impl Show for OutlineNode {
+impl Show for OutlineElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut seq = vec![ParbreakNode::new().pack()];
+        let mut seq = vec![ParbreakElem::new().pack()];
         if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {
-                TextNode::packed(self.local_name(TextNode::lang_in(styles)))
+                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
                     .spanned(self.span())
             });
 
             seq.push(
-                HeadingNode::new(title)
+                HeadingElem::new(title)
                     .with_level(NonZeroUsize::ONE)
                     .with_numbering(None)
                     .with_outlined(false)
@@ -90,15 +90,15 @@ impl Show for OutlineNode {
         let indent = self.indent(styles);
         let depth = self.depth(styles);
 
-        let mut ancestors: Vec<&HeadingNode> = vec![];
-        let nodes = vt.introspector.query(Selector::Node(
-            NodeId::of::<HeadingNode>(),
+        let mut ancestors: Vec<&HeadingElem> = vec![];
+        let elems = vt.introspector.query(Selector::Elem(
+            HeadingElem::func(),
             Some(dict! { "outlined" => true }),
         ));
 
-        for node in &nodes {
-            let heading = node.to::<HeadingNode>().unwrap();
-            let stable_id = heading.0.stable_id().unwrap();
+        for elem in &elems {
+            let heading = elem.to::<HeadingElem>().unwrap();
+            let location = heading.0.location().unwrap();
             if !heading.outlined(StyleChain::default()) {
                 continue;
             }
@@ -120,60 +120,60 @@ impl Show for OutlineNode {
                 let mut hidden = Content::empty();
                 for ancestor in &ancestors {
                     if let Some(numbering) = ancestor.numbering(StyleChain::default()) {
-                        let numbers = Counter::of(HeadingNode::id())
-                            .at(vt, ancestor.0.stable_id().unwrap())?
+                        let numbers = Counter::of(HeadingElem::func())
+                            .at(vt, ancestor.0.location().unwrap())?
                             .display(vt, &numbering)?;
-                        hidden += numbers + SpaceNode::new().pack();
+                        hidden += numbers + SpaceElem::new().pack();
                     };
                 }
 
                 if !ancestors.is_empty() {
-                    seq.push(HideNode::new(hidden).pack());
-                    seq.push(SpaceNode::new().pack());
+                    seq.push(HideElem::new(hidden).pack());
+                    seq.push(SpaceElem::new().pack());
                 }
             }
 
             // Format the numbering.
             let mut start = heading.body();
             if let Some(numbering) = heading.numbering(StyleChain::default()) {
-                let numbers = Counter::of(HeadingNode::id())
-                    .at(vt, stable_id)?
+                let numbers = Counter::of(HeadingElem::func())
+                    .at(vt, location)?
                     .display(vt, &numbering)?;
-                start = numbers + SpaceNode::new().pack() + start;
+                start = numbers + SpaceElem::new().pack() + start;
             };
 
             // Add the numbering and section name.
-            seq.push(start.linked(Link::Node(stable_id)));
+            seq.push(start.linked(Destination::Location(location)));
 
             // Add filler symbols between the section name and page number.
             if let Some(filler) = self.fill(styles) {
-                seq.push(SpaceNode::new().pack());
+                seq.push(SpaceElem::new().pack());
                 seq.push(
-                    BoxNode::new()
+                    BoxElem::new()
                         .with_body(Some(filler.clone()))
                         .with_width(Fr::one().into())
                         .pack(),
                 );
-                seq.push(SpaceNode::new().pack());
+                seq.push(SpaceElem::new().pack());
             } else {
-                seq.push(HNode::new(Fr::one().into()).pack());
+                seq.push(HElem::new(Fr::one().into()).pack());
             }
 
             // Add the page number and linebreak.
-            let page = vt.introspector.page(stable_id);
-            let end = TextNode::packed(eco_format!("{page}"));
-            seq.push(end.linked(Link::Node(stable_id)));
-            seq.push(LinebreakNode::new().pack());
+            let page = vt.introspector.page(location);
+            let end = TextElem::packed(eco_format!("{page}"));
+            seq.push(end.linked(Destination::Location(location)));
+            seq.push(LinebreakElem::new().pack());
             ancestors.push(heading);
         }
 
-        seq.push(ParbreakNode::new().pack());
+        seq.push(ParbreakElem::new().pack());
 
         Ok(Content::sequence(seq))
     }
 }
 
-impl LocalName for OutlineNode {
+impl LocalName for OutlineElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Inhaltsverzeichnis",

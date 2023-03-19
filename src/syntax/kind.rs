@@ -4,11 +4,7 @@
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(u8)]
 pub enum SyntaxKind {
-    /// Markup of which all lines must have a minimal indentation.
-    ///
-    /// Notably, the number does not determine in which column the markup
-    /// started, but to the right of which column all markup elements must be,
-    /// so it is zero except inside indent-aware constructs like lists.
+    /// Markup.
     Markup,
     /// Plain text without markup.
     Text,

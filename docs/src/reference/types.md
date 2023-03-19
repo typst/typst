@@ -420,7 +420,7 @@ A sequence of values.
 You can construct an array by enclosing a comma-separated sequence of values
 in parentheses. The values do not have to be of the same type.
 
-You can access and update array elements with the `.at()` method. Indices are
+You can access and update array items with the `.at()` method. Indices are
 zero-based and negative indices wrap around to the end of the array. You can
 iterate over an array using a [for loop]($scripting/#loops).
 Arrays can be added together with the `+` operator,
@@ -453,26 +453,26 @@ The number of values in the array.
 - returns: integer
 
 ### first()
-Returns the first element in the array.
+Returns the first item in the array.
 May be used on the left-hand side of an assignment.
 Fails with an error if the array is empty.
 
 - returns: any
 
 ### last()
-Returns the last element in the array.
+Returns the last item in the array.
 May be used on the left-hand side of an assignment.
 Fails with an error if the array is empty.
 
 - returns: any
 
 ### at()
-Returns the element at the specified index in the array.
+Returns the item at the specified index in the array.
 May be used on the left-hand side of an assignment.
 Fails with an error if the index is out of bounds.
 
 - index: integer (positional, required)
-  The index at which to retrieve the element.
+  The index at which to retrieve the item.
 - returns: any
 
 ### push()
@@ -482,7 +482,7 @@ Add a value to the end of the array.
   The value to insert at the end of the array.
 
 ### pop()
-Remove the last element from the array and return it.
+Remove the last item from the array and return it.
 Fails with an error if the array is empty.
 
 - returns: any
@@ -493,7 +493,7 @@ Insert a value into the array at the specified index.
 Fails with an error if the index is out of bounds.
 
 - index: integer (positional, required)
-  The index at which to insert the element.
+  The index at which to insert the item.
 - value: any (positional, required)
   The value to insert into the array.
 
@@ -501,7 +501,7 @@ Fails with an error if the index is out of bounds.
 Remove the value at the specified index from the array and return it.
 
 - index: integer (positional, required)
-  The index at which to remove the element.
+  The index at which to remove the item.
 - returns: any
 
 ### slice()
@@ -514,7 +514,7 @@ Fails with an error if the start or index is out of bounds.
   The end index (exclusive). If omitted, the whole slice until the end of the
   array is extracted.
 - count: integer (named)
-  The number of elements to extract. This is equivalent to passing `start +
+  The number of items to extract. This is equivalent to passing `start +
   count` as the `end` position. Mutually exclusive with `end`.
 - returns: array
 
@@ -529,59 +529,59 @@ of `{(1, 2, 3).contains(2)}`.
 - returns: boolean
 
 ### find()
-Searches for an element for which the given function returns `{true}` and
+Searches for an item for which the given function returns `{true}` and
 returns the first match or `{none}` if there is no match.
 
 - searcher: function (positional, required)
-  The function to apply to each element. Must return a boolean.
+  The function to apply to each item. Must return a boolean.
 - returns: any or none
 
 ### position()
-Searches for an element for which the given function returns `{true}` and
+Searches for an item for which the given function returns `{true}` and
 returns the index of the first match or `{none}` if there is no match.
 
 - searcher: function (positional, required)
-  The function to apply to each element. Must return a boolean.
+  The function to apply to each item. Must return a boolean.
 - returns: integer or none
 
 ### filter()
-Produces a new array with only the elements from the original one for which the
+Produces a new array with only the items from the original one for which the
 given function returns true.
 
 - test: function (positional, required)
-  The function to apply to each element. Must return a boolean.
+  The function to apply to each item. Must return a boolean.
 - returns: array
 
 ### map()
-Produces a new array in which all elements from the original one were
+Produces a new array in which all items from the original one were
 transformed with the given function.
 
 - mapper: function (positional, required)
-  The function to apply to each element.
+  The function to apply to each item.
 - returns: array
 
 ### fold()
-Folds all elements into a single value using an accumulator function.
+Folds all items into a single value using an accumulator function.
 
 - init: any (positional, required)
   The initial value to start with.
 - folder: function (positional, required)
   The folding function. Must have two parameters: One for the accumulated value
-  and one for an element.
+  and one for an item.
 - returns: any
 
 ### any()
-Whether the given function returns `{true}` for any element in the array.
+Whether the given function returns `{true}` for any item in the array.
 
 - test: function (positional, required)
-  The function to apply to each element. Must return a boolean.
+  The function to apply to each item. Must return a boolean.
 - returns: boolean
 
 ### all()
-Whether the given function returns `{true}` for all elements in the array.
+Whether the given function returns `{true}` for all items in the array.
 
 - test: function (positional, required)
-  The function to apply to each element. Must return a boolean.
+  The function to apply to each item. Must return a boolean.
 - returns: boolean
 
 ### flatten()
@@ -590,21 +590,21 @@ Combine all nested arrays into a single flat one.
 - returns: array
 
 ### rev()
-Return a new array with the same elements, but in reverse order.
+Return a new array with the same items, but in reverse order.
 
 - returns: array
 
 ### join()
-Combine all elements in the array into one.
+Combine all items in the array into one.
 
 - separator: any (positional)
-  A value to insert between each element of the array.
+  A value to insert between each item of the array.
 - last: any (named)
-  An alternative separator between the last two elements
+  An alternative separator between the last two items
 - returns: any
 
 ### sorted()
-Return a new array with the same elements, but sorted.
+Return a new array with the same items, but sorted.
 
 - returns: array
 
@@ -658,7 +658,7 @@ present in the dictionary.
 Fails with an error if the key is not part of the dictionary.
 
 - index: integer (positional, required)
-  The index at which to retrieve the element.
+  The index at which to retrieve the item.
 - returns: any
 
 ### insert()

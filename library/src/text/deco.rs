@@ -1,7 +1,7 @@
 use kurbo::{BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
 
-use super::TextNode;
+use super::TextElem;
 use crate::prelude::*;
 
 /// Underline text.
@@ -13,8 +13,8 @@ use crate::prelude::*;
 ///
 /// Display: Underline
 /// Category: text
-#[node(Show)]
-pub struct UnderlineNode {
+#[element(Show)]
+pub struct UnderlineElem {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -65,9 +65,9 @@ pub struct UnderlineNode {
     pub body: Content,
 }
 
-impl Show for UnderlineNode {
+impl Show for UnderlineElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextNode::set_deco(Decoration {
+        Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Underline,
             stroke: self.stroke(styles).unwrap_or_default(),
             offset: self.offset(styles),
@@ -86,8 +86,8 @@ impl Show for UnderlineNode {
 ///
 /// Display: Overline
 /// Category: text
-#[node(Show)]
-pub struct OverlineNode {
+#[element(Show)]
+pub struct OverlineElem {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -144,9 +144,9 @@ pub struct OverlineNode {
     pub body: Content,
 }
 
-impl Show for OverlineNode {
+impl Show for OverlineElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextNode::set_deco(Decoration {
+        Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Overline,
             stroke: self.stroke(styles).unwrap_or_default(),
             offset: self.offset(styles),
@@ -165,8 +165,8 @@ impl Show for OverlineNode {
 ///
 /// Display: Strikethrough
 /// Category: text
-#[node(Show)]
-pub struct StrikeNode {
+#[element(Show)]
+pub struct StrikeElem {
     /// How to stroke the line. The text color and thickness are read from the
     /// font tables if `{auto}`.
     ///
@@ -208,9 +208,9 @@ pub struct StrikeNode {
     pub body: Content,
 }
 
-impl Show for StrikeNode {
+impl Show for StrikeElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body().styled(TextNode::set_deco(Decoration {
+        Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Strikethrough,
             stroke: self.stroke(styles).unwrap_or_default(),
             offset: self.offset(styles),
@@ -255,7 +255,7 @@ pub enum DecoLine {
 pub(super) fn decorate(
     frame: &mut Frame,
     deco: &Decoration,
-    text: &Text,
+    text: &TextItem,
     shift: Abs,
     pos: Point,
     width: Abs,
@@ -285,7 +285,7 @@ pub(super) fn decorate(
 
         if target.x >= min_width || !deco.evade {
             let shape = Geometry::Line(target).stroked(stroke);
-            frame.push(origin, Element::Shape(shape, Span::detached()));
+            frame.push(origin, FrameItem::Shape(shape, Span::detached()));
         }
     };
 

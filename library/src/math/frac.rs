@@ -19,8 +19,8 @@ const FRAC_AROUND: Em = Em::new(0.1);
 ///
 /// Display: Fraction
 /// Category: math
-#[node(LayoutMath)]
-pub struct FracNode {
+#[element(LayoutMath)]
+pub struct FracElem {
     /// The fraction's numerator.
     #[required]
     pub num: Content,
@@ -30,7 +30,7 @@ pub struct FracNode {
     pub denom: Content,
 }
 
-impl LayoutMath for FracNode {
+impl LayoutMath for FracElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.num(), &self.denom(), false, self.span())
     }
@@ -45,8 +45,8 @@ impl LayoutMath for FracNode {
 ///
 /// Display: Binomial
 /// Category: math
-#[node(LayoutMath)]
-pub struct BinomNode {
+#[element(LayoutMath)]
+pub struct BinomElem {
     /// The binomial's upper index.
     #[required]
     pub upper: Content,
@@ -56,7 +56,7 @@ pub struct BinomNode {
     pub lower: Content,
 }
 
-impl LayoutMath for BinomNode {
+impl LayoutMath for BinomElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.upper(), &self.lower(), true, self.span())
     }
@@ -132,9 +132,9 @@ fn layout(
     } else {
         frame.push(
             line_pos,
-            Element::Shape(
+            FrameItem::Shape(
                 Geometry::Line(Point::with_x(line_width)).stroked(Stroke {
-                    paint: TextNode::fill_in(ctx.styles()),
+                    paint: TextElem::fill_in(ctx.styles()),
                     thickness,
                 }),
                 span,

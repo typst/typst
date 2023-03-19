@@ -13,9 +13,9 @@
 }
 
 ---
-// Test field on node.
-#show list: node => {
-  test(node.children.len(), 3)
+// Test fields on elements.
+#show list: it => {
+  test(it.children.len(), 3)
 }
 
 - A
@@ -31,8 +31,8 @@
 #false.ok
 
 ---
-// Error: 29-32 content does not contain field "fun"
-#show heading: node => node.fun
+// Error: 25-28 content does not contain field "fun"
+#show heading: it => it.fun
 = A
 
 ---

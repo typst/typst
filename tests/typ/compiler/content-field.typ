@@ -2,10 +2,10 @@
 
 #let compute(equation, ..vars) = {
   let vars = vars.named()
-  let f(node) = {
-    let func = node.func()
+  let f(elem) = {
+    let func = elem.func()
     if func == text {
-      let text = node.text
+      let text = elem.text
       if regex("^\d+$") in text {
         int(text)
       } else if text in vars {
@@ -14,13 +14,13 @@
         panic("unknown math variable: " + text)
       }
     } else if func == math.attach {
-      let value = f(node.base)
-      if node.has("top") {
-        value = calc.pow(value, f(node.top))
+      let value = f(elem.base)
+      if elem.has("top") {
+        value = calc.pow(value, f(elem.top))
       }
       value
-    } else if node.has("children") {
-      node
+    } else if elem.has("children") {
+      elem
         .children
         .filter(v => v != [ ])
         .split[+]

@@ -1,6 +1,8 @@
 use std::num::NonZeroUsize;
 
-use crate::doc::{Destination, Element, Frame, Location, Meta};
+use ecow::EcoString;
+
+use crate::doc::{Destination, Frame, FrameItem, Meta, Position};
 use crate::geom::{Geometry, Point, Size};
 use crate::model::Introspector;
 use crate::syntax::{LinkedNode, Source, SourceId, Span, SyntaxKind};
@@ -11,8 +13,10 @@ use crate::World;
 pub enum Jump {
     /// Jump to a position in a source file.
     Source(SourceId, usize),
-    /// Jump to position in the output or to an external URL.
-    Dest(Destination),
+    /// Jump to an external URL.
+    Url(EcoString),
+    /// Jump to a point on a page.
+    Position(Position),
 }
 
 impl Jump {
@@ -32,20 +36,27 @@ pub fn jump_from_click(
 ) -> Option<Jump> {
     let mut introspector = None;
 
-    // Prefer metadata.
-    for (pos, element) in frame.elements() {
-        if let Element::Meta(Meta::Link(link), size) = element {
+    // Try to find a link first.
+    for (pos, item) in frame.items() {
+        if let FrameItem::Meta(Meta::Link(dest), size) = item {
             if is_in_rect(*pos, *size, click) {
-                return Some(Jump::Dest(link.resolve(|| {
-                    introspector.get_or_insert_with(|| Introspector::new(frames))
-                })));
+                return Some(match dest {
+                    Destination::Url(url) => Jump::Url(url.clone()),
+                    Destination::Position(pos) => Jump::Position(*pos),
+                    Destination::Location(loc) => Jump::Position(
+                        introspector
+                            .get_or_insert_with(|| Introspector::new(frames))
+                            .position(*loc),
+                    ),
+                });
             }
         }
     }
 
-    for (mut pos, element) in frame.elements().rev() {
-        match element {
-            Element::Group(group) => {
+    // If there's no link, search for a jump target.
+    for (mut pos, item) in frame.items().rev() {
+        match item {
+            FrameItem::Group(group) => {
                 // TODO: Handle transformation.
                 if let Some(span) =
                     jump_from_click(world, frames, &group.frame, click - pos)
@@ -54,7 +65,7 @@ pub fn jump_from_click(
                 }
             }
 
-            Element::Text(text) => {
+            FrameItem::Text(text) => {
                 for glyph in &text.glyphs {
                     if glyph.span.is_detached() {
                         continue;
@@ -85,14 +96,14 @@ pub fn jump_from_click(
                 }
             }
 
-            Element::Shape(shape, span) => {
+            FrameItem::Shape(shape, span) => {
                 let Geometry::Rect(size) = shape.geometry else { continue };
                 if is_in_rect(pos, size, click) {
                     return Some(Jump::from_span(world, *span));
                 }
             }
 
-            Element::Image(_, size, span) if is_in_rect(pos, *size, click) => {
+            FrameItem::Image(_, size, span) if is_in_rect(pos, *size, click) => {
                 return Some(Jump::from_span(world, *span));
             }
 
@@ -108,7 +119,7 @@ pub fn jump_from_cursor(
     frames: &[Frame],
     source: &Source,
     cursor: usize,
-) -> Option<Location> {
+) -> Option<Position> {
     let node = LinkedNode::new(source.root()).leaf_at(cursor)?;
     if node.kind() != SyntaxKind::Text {
         return None;
@@ -117,7 +128,10 @@ pub fn jump_from_cursor(
     let span = node.span();
     for (i, frame) in frames.iter().enumerate() {
         if let Some(pos) = find_in_frame(frame, span) {
-            return Some(Location { page: NonZeroUsize::new(i + 1).unwrap(), pos });
+            return Some(Position {
+                page: NonZeroUsize::new(i + 1).unwrap(),
+                point: pos,
+            });
         }
     }
 
@@ -126,15 +140,15 @@ pub fn jump_from_cursor(
 
 /// Find the position of a span in a frame.
 fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
-    for (mut pos, element) in frame.elements() {
-        if let Element::Group(group) = element {
+    for (mut pos, item) in frame.items() {
+        if let FrameItem::Group(group) = item {
             // TODO: Handle transformation.
             if let Some(point) = find_in_frame(&group.frame, span) {
                 return Some(point + pos);
             }
         }
 
-        if let Element::Text(text) = element {
+        if let FrameItem::Text(text) = item {
             for glyph in &text.glyphs {
                 if glyph.span == span {
                     return Some(pos);

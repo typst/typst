@@ -1,24 +1,22 @@
-use typst::model::StyledNode;
-
-use super::{AlignNode, BlockNode, ColbreakNode, ParNode, PlaceNode, Spacing, VNode};
+use super::{AlignElem, BlockElem, ColbreakElem, ParElem, PlaceElem, Spacing, VElem};
 use crate::prelude::*;
-use crate::visualize::{CircleNode, EllipseNode, ImageNode, RectNode, SquareNode};
+use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
 
-/// Arrange spacing, paragraphs and block-level nodes into a flow.
+/// Arrange spacing, paragraphs and block-level elements into a flow.
 ///
-/// This node is responsible for layouting both the top-level content flow and
+/// This element is responsible for layouting both the top-level content flow and
 /// the contents of boxes.
 ///
 /// Display: Flow
 /// Category: layout
-#[node(Layout)]
-pub struct FlowNode {
+#[element(Layout)]
+pub struct FlowElem {
     /// The children that will be arranges into a flow.
     #[variadic]
     pub children: Vec<Content>,
 }
 
-impl Layout for FlowNode {
+impl Layout for FlowElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -27,29 +25,27 @@ impl Layout for FlowNode {
     ) -> SourceResult<Fragment> {
         let mut layouter = FlowLayouter::new(regions);
 
-        for mut child in self.children() {
-            let map;
+        for mut child in &self.children() {
             let outer = styles;
-            let mut styles = outer;
-            if let Some(node) = child.to::<StyledNode>() {
-                map = node.styles();
+            let mut styles = styles;
+            if let Some((elem, map)) = child.to_styled() {
+                child = elem;
                 styles = outer.chain(&map);
-                child = node.body();
             }
 
-            if let Some(node) = child.to::<VNode>() {
-                layouter.layout_spacing(node, styles);
-            } else if let Some(node) = child.to::<ParNode>() {
-                layouter.layout_par(vt, node, styles)?;
-            } else if child.is::<RectNode>()
-                || child.is::<SquareNode>()
-                || child.is::<EllipseNode>()
-                || child.is::<CircleNode>()
-                || child.is::<ImageNode>()
+            if let Some(elem) = child.to::<VElem>() {
+                layouter.layout_spacing(elem, styles);
+            } else if let Some(elem) = child.to::<ParElem>() {
+                layouter.layout_par(vt, elem, styles)?;
+            } else if child.is::<RectElem>()
+                || child.is::<SquareElem>()
+                || child.is::<EllipseElem>()
+                || child.is::<CircleElem>()
+                || child.is::<ImageElem>()
             {
                 let layoutable = child.with::<dyn Layout>().unwrap();
                 layouter.layout_single(vt, layoutable, styles)?;
-            } else if child.is::<MetaNode>() {
+            } else if child.is::<MetaElem>() {
                 let mut frame = Frame::new(Size::zero());
                 frame.meta(styles, true);
                 layouter.items.push(FlowItem::Frame(
@@ -59,7 +55,7 @@ impl Layout for FlowNode {
                 ));
             } else if child.can::<dyn Layout>() {
                 layouter.layout_multiple(vt, &child, styles)?;
-            } else if child.is::<ColbreakNode>() {
+            } else if child.is::<ColbreakElem>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {
                     layouter.finish_region();
@@ -122,13 +118,13 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout vertical spacing.
-    fn layout_spacing(&mut self, node: &VNode, styles: StyleChain) {
-        self.layout_item(match node.amount() {
-            Spacing::Rel(v) => FlowItem::Absolute(
-                v.resolve(styles).relative_to(self.initial.y),
-                node.weakness(styles) > 0,
+    fn layout_spacing(&mut self, v: &VElem, styles: StyleChain) {
+        self.layout_item(match v.amount() {
+            Spacing::Rel(rel) => FlowItem::Absolute(
+                rel.resolve(styles).relative_to(self.initial.y),
+                v.weakness(styles) > 0,
             ),
-            Spacing::Fr(v) => FlowItem::Fractional(v),
+            Spacing::Fr(fr) => FlowItem::Fractional(fr),
         });
     }
 
@@ -136,11 +132,11 @@ impl<'a> FlowLayouter<'a> {
     fn layout_par(
         &mut self,
         vt: &mut Vt,
-        par: &ParNode,
+        par: &ParElem,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = AlignNode::alignment_in(styles).resolve(styles);
-        let leading = ParNode::leading_in(styles);
+        let aligns = AlignElem::alignment_in(styles).resolve(styles);
+        let leading = ParElem::leading_in(styles);
         let consecutive = self.last_was_par;
         let frames = par
             .layout(vt, styles, consecutive, self.regions.base(), self.regions.expand.x)?
@@ -185,8 +181,8 @@ impl<'a> FlowLayouter<'a> {
         content: &dyn Layout,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = AlignNode::alignment_in(styles).resolve(styles);
-        let sticky = BlockNode::sticky_in(styles);
+        let aligns = AlignElem::alignment_in(styles).resolve(styles);
+        let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
         let frame = content.layout(vt, styles, pod)?.into_frame();
         self.layout_item(FlowItem::Frame(frame, aligns, sticky));
@@ -201,9 +197,9 @@ impl<'a> FlowLayouter<'a> {
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Placed nodes that are out of flow produce placed items which aren't
-        // aligned later.
-        if let Some(placed) = block.to::<PlaceNode>() {
+        // Placed elements that are out of flow produce placed items which
+        // aren't aligned later.
+        if let Some(placed) = block.to::<PlaceElem>() {
             if placed.out_of_flow(styles) {
                 let frame = block.layout(vt, styles, self.regions)?.into_frame();
                 self.layout_item(FlowItem::Placed(frame));
@@ -212,17 +208,17 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let aligns = if let Some(align) = block.to::<AlignNode>() {
+        let aligns = if let Some(align) = block.to::<AlignElem>() {
             align.alignment(styles)
-        } else if let Some(styled) = block.to::<StyledNode>() {
-            AlignNode::alignment_in(styles.chain(&styled.styles()))
+        } else if let Some((_, local)) = block.to_styled() {
+            AlignElem::alignment_in(styles.chain(local))
         } else {
-            AlignNode::alignment_in(styles)
+            AlignElem::alignment_in(styles)
         }
         .resolve(styles);
 
         // Layout the block itself.
-        let sticky = BlockNode::sticky_in(styles);
+        let sticky = BlockElem::sticky_in(styles);
         let fragment = block.layout(vt, styles, self.regions)?;
         for (i, frame) in fragment.into_iter().enumerate() {
             if i > 0 {

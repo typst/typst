@@ -13,14 +13,14 @@ const BRACKET_GAP: Em = Em::new(0.25);
 ///
 /// Display: Underline
 /// Category: math
-#[node(LayoutMath)]
-pub struct UnderlineNode {
+#[element(LayoutMath)]
+pub struct UnderlineElem {
     /// The content above the line.
     #[required]
     pub body: Content,
 }
 
-impl LayoutMath for UnderlineNode {
+impl LayoutMath for UnderlineElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false, self.span())
     }
@@ -35,14 +35,14 @@ impl LayoutMath for UnderlineNode {
 ///
 /// Display: Overline
 /// Category: math
-#[node(LayoutMath)]
-pub struct OverlineNode {
+#[element(LayoutMath)]
+pub struct OverlineElem {
     /// The content below the line.
     #[required]
     pub body: Content,
 }
 
-impl LayoutMath for OverlineNode {
+impl LayoutMath for OverlineElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true, self.span())
     }
@@ -57,8 +57,8 @@ impl LayoutMath for OverlineNode {
 ///
 /// Display: Underbrace
 /// Category: math
-#[node(LayoutMath)]
-pub struct UnderbraceNode {
+#[element(LayoutMath)]
+pub struct UnderbraceElem {
     /// The content above the brace.
     #[required]
     pub body: Content,
@@ -68,7 +68,7 @@ pub struct UnderbraceNode {
     pub annotation: Option<Content>,
 }
 
-impl LayoutMath for UnderbraceNode {
+impl LayoutMath for UnderbraceElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -91,8 +91,8 @@ impl LayoutMath for UnderbraceNode {
 ///
 /// Display: Overbrace
 /// Category: math
-#[node(LayoutMath)]
-pub struct OverbraceNode {
+#[element(LayoutMath)]
+pub struct OverbraceElem {
     /// The content below the brace.
     #[required]
     pub body: Content,
@@ -102,7 +102,7 @@ pub struct OverbraceNode {
     pub annotation: Option<Content>,
 }
 
-impl LayoutMath for OverbraceNode {
+impl LayoutMath for OverbraceElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -125,8 +125,8 @@ impl LayoutMath for OverbraceNode {
 ///
 /// Display: Underbracket
 /// Category: math
-#[node(LayoutMath)]
-pub struct UnderbracketNode {
+#[element(LayoutMath)]
+pub struct UnderbracketElem {
     /// The content above the bracket.
     #[required]
     pub body: Content,
@@ -136,7 +136,7 @@ pub struct UnderbracketNode {
     pub annotation: Option<Content>,
 }
 
-impl LayoutMath for UnderbracketNode {
+impl LayoutMath for UnderbracketElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -159,8 +159,8 @@ impl LayoutMath for UnderbracketNode {
 ///
 /// Display: Overbracket
 /// Category: math
-#[node(LayoutMath)]
-pub struct OverbracketNode {
+#[element(LayoutMath)]
+pub struct OverbracketElem {
     /// The content below the bracket.
     #[required]
     pub body: Content,
@@ -170,7 +170,7 @@ pub struct OverbracketNode {
     pub annotation: Option<Content>,
 }
 
-impl LayoutMath for OverbracketNode {
+impl LayoutMath for OverbracketElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,

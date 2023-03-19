@@ -1,8 +1,8 @@
 //! Extension traits.
 
-use crate::layout::{AlignNode, MoveNode, PadNode};
+use crate::layout::{AlignElem, MoveElem, PadElem};
 use crate::prelude::*;
-use crate::text::{EmphNode, FontFamily, FontList, StrongNode, TextNode, UnderlineNode};
+use crate::text::{EmphElem, FontFamily, FontList, StrongElem, TextElem, UnderlineElem};
 
 /// Additional methods on content.
 pub trait ContentExt {
@@ -16,7 +16,7 @@ pub trait ContentExt {
     fn underlined(self) -> Self;
 
     /// Link the content somewhere.
-    fn linked(self, link: Link) -> Self;
+    fn linked(self, dest: Destination) -> Self;
 
     /// Set alignments for this content.
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self;
@@ -30,27 +30,27 @@ pub trait ContentExt {
 
 impl ContentExt for Content {
     fn strong(self) -> Self {
-        StrongNode::new(self).pack()
+        StrongElem::new(self).pack()
     }
 
     fn emph(self) -> Self {
-        EmphNode::new(self).pack()
+        EmphElem::new(self).pack()
     }
 
     fn underlined(self) -> Self {
-        UnderlineNode::new(self).pack()
+        UnderlineElem::new(self).pack()
     }
 
-    fn linked(self, link: Link) -> Self {
-        self.styled(MetaNode::set_data(vec![Meta::Link(link)]))
+    fn linked(self, dest: Destination) -> Self {
+        self.styled(MetaElem::set_data(vec![Meta::Link(dest)]))
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {
-        self.styled(AlignNode::set_alignment(aligns))
+        self.styled(AlignElem::set_alignment(aligns))
     }
 
     fn padded(self, padding: Sides<Rel<Length>>) -> Self {
-        PadNode::new(self)
+        PadElem::new(self)
             .with_left(padding.left)
             .with_top(padding.top)
             .with_right(padding.right)
@@ -59,22 +59,22 @@ impl ContentExt for Content {
     }
 
     fn moved(self, delta: Axes<Rel<Length>>) -> Self {
-        MoveNode::new(self).with_dx(delta.x).with_dy(delta.y).pack()
+        MoveElem::new(self).with_dx(delta.x).with_dy(delta.y).pack()
     }
 }
 
-/// Additional methods for style maps.
-pub trait StyleMapExt {
+/// Additional methods for style lists.
+pub trait StylesExt {
     /// Set a font family composed of a preferred family and existing families
     /// from a style chain.
     fn set_family(&mut self, preferred: FontFamily, existing: StyleChain);
 }
 
-impl StyleMapExt for StyleMap {
+impl StylesExt for Styles {
     fn set_family(&mut self, preferred: FontFamily, existing: StyleChain) {
-        self.set(TextNode::set_font(FontList(
+        self.set(TextElem::set_font(FontList(
             std::iter::once(preferred)
-                .chain(TextNode::font_in(existing))
+                .chain(TextElem::font_in(existing))
                 .collect(),
         )));
     }

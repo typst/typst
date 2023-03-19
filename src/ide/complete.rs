@@ -373,7 +373,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
         Value::Content(content) => {
             for (name, value) in content.fields() {
-                ctx.value_completion(Some(name.clone()), value, false, None);
+                ctx.value_completion(Some(name.clone()), &value, false, None);
             }
         }
         Value::Dict(dict) => {
@@ -509,7 +509,7 @@ fn set_rule_completions(ctx: &mut CompletionContext) {
 fn show_rule_selector_completions(ctx: &mut CompletionContext) {
     ctx.scope_completions(
         false,
-        |value| matches!(value, Value::Func(func) if func.select(None).is_ok()),
+        |value| matches!(value, Value::Func(func) if func.element().is_some()),
     );
 
     ctx.enrich("", ": ");

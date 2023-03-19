@@ -12,15 +12,15 @@ use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult};
-use typst::doc::{Document, Element, Frame, Meta};
+use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{func, Library, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Sides, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
 use typst::util::{Buffer, PathExt};
 use typst::World;
-use typst_library::layout::PageNode;
-use typst_library::text::{TextNode, TextSize};
+use typst_library::layout::PageElem;
+use typst_library::text::{TextElem, TextSize};
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
@@ -179,12 +179,12 @@ fn library() -> Library {
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so
     // that it multiplies to nice round numbers.
     lib.styles
-        .set(PageNode::set_width(Smart::Custom(Abs::pt(120.0).into())));
-    lib.styles.set(PageNode::set_height(Smart::Auto));
-    lib.styles.set(PageNode::set_margin(Sides::splat(Some(Smart::Custom(
+        .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
+    lib.styles.set(PageElem::set_height(Smart::Auto));
+    lib.styles.set(PageElem::set_margin(Sides::splat(Some(Smart::Custom(
         Abs::pt(10.0).into(),
     )))));
-    lib.styles.set(TextNode::set_size(TextSize(Abs::pt(10.0).into())));
+    lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define("test", test);
@@ -732,14 +732,14 @@ fn render(frames: &[Frame]) -> sk::Pixmap {
 
 /// Draw extra boxes for links so we can see whether they are there.
 fn render_links(canvas: &mut sk::Pixmap, ts: sk::Transform, frame: &Frame) {
-    for (pos, element) in frame.elements() {
+    for (pos, item) in frame.items() {
         let ts = ts.pre_translate(pos.x.to_pt() as f32, pos.y.to_pt() as f32);
-        match *element {
-            Element::Group(ref group) => {
+        match *item {
+            FrameItem::Group(ref group) => {
                 let ts = ts.pre_concat(group.transform.into());
                 render_links(canvas, ts, &group.frame);
             }
-            Element::Meta(Meta::Link(_), size) => {
+            FrameItem::Meta(Meta::Link(_), size) => {
                 let w = size.x.to_pt() as f32;
                 let h = size.y.to_pt() as f32;
                 let rect = sk::Rect::from_xywh(0.0, 0.0, w, h).unwrap();

@@ -1,7 +1,7 @@
 use std::ptr;
 use std::str::FromStr;
 
-use super::{AlignNode, ColumnsNode};
+use super::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, Numbering};
 use crate::prelude::*;
 
@@ -24,8 +24,8 @@ use crate::prelude::*;
 ///
 /// Display: Page
 /// Category: layout
-#[node]
-pub struct PageNode {
+#[element]
+pub struct PageElem {
     /// A standard paper size to set width and height. When this is not
     /// specified, Typst defaults to `{"a4"}` paper.
     #[external]
@@ -270,7 +270,7 @@ pub struct PageNode {
     pub body: Content,
 }
 
-impl PageNode {
+impl PageElem {
     /// Layout the page run into a sequence of frames, one per page.
     pub fn layout(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Fragment> {
         // When one of the lengths is infinite the page fits its content along
@@ -296,7 +296,7 @@ impl PageNode {
         // Realize columns.
         let columns = self.columns(styles);
         if columns.get() > 1 {
-            child = ColumnsNode::new(child).with_count(columns).pack();
+            child = ColumnsElem::new(child).with_count(columns).pack();
         }
 
         // Realize margins.
@@ -356,7 +356,7 @@ impl PageNode {
                 let pod = Regions::one(area, Axes::splat(true));
                 let sub = content
                     .clone()
-                    .styled(AlignNode::set_alignment(align))
+                    .styled(AlignElem::set_alignment(align))
                     .layout(vt, styles, pod)?
                     .into_frame();
                 if ptr::eq(marginal, &header) || ptr::eq(marginal, &background) {
@@ -387,8 +387,8 @@ impl PageNode {
 ///
 /// Display: Page Break
 /// Category: layout
-#[node]
-pub struct PagebreakNode {
+#[element]
+pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
     /// empty.
     #[default(false)]
@@ -467,7 +467,7 @@ macro_rules! papers {
             fn from_str(name: &str) -> Result<Self, Self::Err> {
                 match name.to_lowercase().as_str() {
                     $($pat => Ok(Self::$var),)*
-                    _ => Err("invalid paper name"),
+                    _ => Err("unknown paper size"),
                 }
             }
         }

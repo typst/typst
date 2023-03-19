@@ -1,4 +1,4 @@
-use crate::layout::{AlignNode, GridLayouter, TrackSizings};
+use crate::layout::{AlignElem, GridLayouter, TrackSizings};
 use crate::meta::LocalName;
 use crate::prelude::*;
 
@@ -32,8 +32,8 @@ use crate::prelude::*;
 ///
 /// Display: Table
 /// Category: layout
-#[node(Layout, LocalName)]
-pub struct TableNode {
+#[element(Layout, LocalName)]
+pub struct TableElem {
     /// Defines the column sizes. See the [grid documentation]($func/grid) for
     /// more information on track sizing.
     pub columns: TrackSizings,
@@ -109,7 +109,7 @@ pub struct TableNode {
     pub children: Vec<Content>,
 }
 
-impl Layout for TableNode {
+impl Layout for TableElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -132,7 +132,7 @@ impl Layout for TableNode {
                 let x = i % cols;
                 let y = i / cols;
                 if let Smart::Custom(alignment) = align.resolve(vt, x, y)? {
-                    child = child.styled(AlignNode::set_alignment(alignment));
+                    child = child.styled(AlignElem::set_alignment(alignment));
                 }
 
                 Ok(child)
@@ -168,7 +168,7 @@ impl Layout for TableNode {
                     let hline = Geometry::Line(target).stroked(stroke);
                     frame.prepend(
                         Point::new(-half, offset),
-                        Element::Shape(hline, self.span()),
+                        FrameItem::Shape(hline, self.span()),
                     );
                 }
 
@@ -178,7 +178,7 @@ impl Layout for TableNode {
                     let vline = Geometry::Line(target).stroked(stroke);
                     frame.prepend(
                         Point::new(offset, -half),
-                        Element::Shape(vline, self.span()),
+                        FrameItem::Shape(vline, self.span()),
                     );
                 }
             }
@@ -192,7 +192,7 @@ impl Layout for TableNode {
                         let pos = Point::new(dx, dy);
                         let size = Size::new(col, row.height);
                         let rect = Geometry::Rect(size).filled(fill);
-                        frame.prepend(pos, Element::Shape(rect, self.span()));
+                        frame.prepend(pos, FrameItem::Shape(rect, self.span()));
                     }
                     dy += row.height;
                 }
@@ -271,7 +271,7 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
     }
 }
 
-impl LocalName for TableNode {
+impl LocalName for TableElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Tabelle",

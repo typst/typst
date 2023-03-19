@@ -47,7 +47,7 @@ fi vs. #text(features: (liga: 0))[No fi]
 #set text(stylistic-set: false)
 
 ---
-// Error: 26-28 must be between 1 and 20
+// Error: 26-28 stylistic set must be between 1 and 20
 #set text(stylistic-set: 25)
 
 ---

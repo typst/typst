@@ -14,7 +14,7 @@ use crate::geom::{
     Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
 };
 use crate::image::Image;
-use crate::model::{Content, Introspector, MetaNode, StableId, StyleChain};
+use crate::model::{Content, Location, MetaElem, StyleChain};
 use crate::syntax::Span;
 
 /// A finished document with metadata and page frames.
@@ -28,7 +28,7 @@ pub struct Document {
     pub author: Vec<EcoString>,
 }
 
-/// A finished layout with elements at fixed positions.
+/// A finished layout with items at fixed positions.
 #[derive(Default, Clone, Hash)]
 pub struct Frame {
     /// The size of the frame.
@@ -36,8 +36,8 @@ pub struct Frame {
     /// The baseline of the frame measured from the top. If this is `None`, the
     /// frame's implicit baseline is at the bottom.
     baseline: Option<Abs>,
-    /// The elements composing this layout.
-    elements: Arc<Vec<(Point, Element)>>,
+    /// The items composing this layout.
+    items: Arc<Vec<(Point, FrameItem)>>,
 }
 
 /// Constructor, accessors and setters.
@@ -48,12 +48,12 @@ impl Frame {
     #[track_caller]
     pub fn new(size: Size) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: None, elements: Arc::new(vec![]) }
+        Self { size, baseline: None, items: Arc::new(vec![]) }
     }
 
-    /// Whether the frame contains no elements.
+    /// Whether the frame contains no items.
     pub fn is_empty(&self) -> bool {
-        self.elements.is_empty()
+        self.items.is_empty()
     }
 
     /// The size of the frame.
@@ -109,23 +109,23 @@ impl Frame {
         self.size.y - self.baseline()
     }
 
-    /// An iterator over the elements inside this frame alongside their
-    /// positions relative to the top-left of the frame.
-    pub fn elements(&self) -> std::slice::Iter<'_, (Point, Element)> {
-        self.elements.iter()
+    /// An iterator over the items inside this frame alongside their positions
+    /// relative to the top-left of the frame.
+    pub fn items(&self) -> std::slice::Iter<'_, (Point, FrameItem)> {
+        self.items.iter()
     }
 
-    /// Recover the text inside of the frame and its children.
+    /// Approximately recover the text inside of the frame and its children.
     pub fn text(&self) -> EcoString {
         let mut text = EcoString::new();
-        for (_, element) in self.elements() {
-            match element {
-                Element::Text(element) => {
-                    for glyph in &element.glyphs {
+        for (_, item) in self.items() {
+            match item {
+                FrameItem::Text(item) => {
+                    for glyph in &item.glyphs {
                         text.push(glyph.c);
                     }
                 }
-                Element::Group(group) => text.push_str(&group.frame.text()),
+                FrameItem::Group(group) => text.push_str(&group.frame.text()),
                 _ => {}
             }
         }
@@ -133,53 +133,53 @@ impl Frame {
     }
 }
 
-/// Insert elements and subframes.
+/// Insert items and subframes.
 impl Frame {
     /// The layer the next item will be added on. This corresponds to the number
-    /// of elements in the frame.
+    /// of items in the frame.
     pub fn layer(&self) -> usize {
-        self.elements.len()
+        self.items.len()
     }
 
-    /// Add an element at a position in the foreground.
-    pub fn push(&mut self, pos: Point, element: Element) {
-        Arc::make_mut(&mut self.elements).push((pos, element));
+    /// Add an item at a position in the foreground.
+    pub fn push(&mut self, pos: Point, item: FrameItem) {
+        Arc::make_mut(&mut self.items).push((pos, item));
     }
 
     /// Add a frame at a position in the foreground.
     ///
     /// Automatically decides whether to inline the frame or to include it as a
-    /// group based on the number of elements in it.
+    /// group based on the number of items in it.
     pub fn push_frame(&mut self, pos: Point, frame: Frame) {
         if self.should_inline(&frame) {
             self.inline(self.layer(), pos, frame);
         } else {
-            self.push(pos, Element::Group(Group::new(frame)));
+            self.push(pos, FrameItem::Group(GroupItem::new(frame)));
         }
     }
 
-    /// Insert an element at the given layer in the frame.
+    /// Insert an item at the given layer in the frame.
     ///
     /// This panics if the layer is greater than the number of layers present.
     #[track_caller]
-    pub fn insert(&mut self, layer: usize, pos: Point, element: Element) {
-        Arc::make_mut(&mut self.elements).insert(layer, (pos, element));
+    pub fn insert(&mut self, layer: usize, pos: Point, items: FrameItem) {
+        Arc::make_mut(&mut self.items).insert(layer, (pos, items));
     }
 
-    /// Add an element at a position in the background.
-    pub fn prepend(&mut self, pos: Point, element: Element) {
-        Arc::make_mut(&mut self.elements).insert(0, (pos, element));
+    /// Add an item at a position in the background.
+    pub fn prepend(&mut self, pos: Point, item: FrameItem) {
+        Arc::make_mut(&mut self.items).insert(0, (pos, item));
     }
 
-    /// Add multiple elements at a position in the background.
+    /// Add multiple items at a position in the background.
     ///
-    /// The first element in the iterator will be the one that is most in the
+    /// The first item in the iterator will be the one that is most in the
     /// background.
-    pub fn prepend_multiple<I>(&mut self, elements: I)
+    pub fn prepend_multiple<I>(&mut self, items: I)
     where
-        I: IntoIterator<Item = (Point, Element)>,
+        I: IntoIterator<Item = (Point, FrameItem)>,
     {
-        Arc::make_mut(&mut self.elements).splice(0..0, elements);
+        Arc::make_mut(&mut self.items).splice(0..0, items);
     }
 
     /// Add a frame at a position in the background.
@@ -187,31 +187,31 @@ impl Frame {
         if self.should_inline(&frame) {
             self.inline(0, pos, frame);
         } else {
-            self.prepend(pos, Element::Group(Group::new(frame)));
+            self.prepend(pos, FrameItem::Group(GroupItem::new(frame)));
         }
     }
 
     /// Whether the given frame should be inlined.
     fn should_inline(&self, frame: &Frame) -> bool {
-        self.elements.is_empty() || frame.elements.len() <= 5
+        self.items.is_empty() || frame.items.len() <= 5
     }
 
     /// Inline a frame at the given layer.
     fn inline(&mut self, layer: usize, pos: Point, frame: Frame) {
-        // Try to just reuse the elements.
-        if pos.is_zero() && self.elements.is_empty() {
-            self.elements = frame.elements;
+        // Try to just reuse the items.
+        if pos.is_zero() && self.items.is_empty() {
+            self.items = frame.items;
             return;
         }
 
-        // Try to transfer the elements without adjusting the position.
-        // Also try to reuse the elements if the Arc isn't shared.
+        // Try to transfer the items without adjusting the position.
+        // Also try to reuse the items if the Arc isn't shared.
         let range = layer..layer;
         if pos.is_zero() {
-            let sink = Arc::make_mut(&mut self.elements);
-            match Arc::try_unwrap(frame.elements) {
-                Ok(elements) => {
-                    sink.splice(range, elements);
+            let sink = Arc::make_mut(&mut self.items);
+            match Arc::try_unwrap(frame.items) {
+                Ok(items) => {
+                    sink.splice(range, items);
                 }
                 Err(arc) => {
                     sink.splice(range, arc.iter().cloned());
@@ -220,12 +220,12 @@ impl Frame {
             return;
         }
 
-        // We must adjust the element positions.
-        // But still try to reuse the elements if the Arc isn't shared.
-        let sink = Arc::make_mut(&mut self.elements);
-        match Arc::try_unwrap(frame.elements) {
-            Ok(elements) => {
-                sink.splice(range, elements.into_iter().map(|(p, e)| (p + pos, e)));
+        // We have to adjust the item positions.
+        // But still try to reuse the items if the Arc isn't shared.
+        let sink = Arc::make_mut(&mut self.items);
+        match Arc::try_unwrap(frame.items) {
+            Ok(items) => {
+                sink.splice(range, items.into_iter().map(|(p, e)| (p + pos, e)));
             }
             Err(arc) => {
                 sink.splice(range, arc.iter().cloned().map(|(p, e)| (p + pos, e)));
@@ -236,12 +236,12 @@ impl Frame {
 
 /// Modify the frame.
 impl Frame {
-    /// Remove all elements from the frame.
+    /// Remove all items from the frame.
     pub fn clear(&mut self) {
-        if Arc::strong_count(&self.elements) == 1 {
-            Arc::make_mut(&mut self.elements).clear();
+        if Arc::strong_count(&self.items) == 1 {
+            Arc::make_mut(&mut self.items).clear();
         } else {
-            self.elements = Arc::new(vec![]);
+            self.items = Arc::new(vec![]);
         }
     }
 
@@ -264,7 +264,7 @@ impl Frame {
             if let Some(baseline) = &mut self.baseline {
                 *baseline += offset.y;
             }
-            for (point, _) in Arc::make_mut(&mut self.elements) {
+            for (point, _) in Arc::make_mut(&mut self.items) {
                 *point += offset;
             }
         }
@@ -273,12 +273,12 @@ impl Frame {
     /// Attach the metadata from this style chain to the frame.
     pub fn meta(&mut self, styles: StyleChain, force: bool) {
         if force || !self.is_empty() {
-            for meta in MetaNode::data_in(styles) {
+            for meta in MetaElem::data_in(styles) {
                 if matches!(meta, Meta::Hide) {
                     self.clear();
                     break;
                 }
-                self.prepend(Point::zero(), Element::Meta(meta, self.size));
+                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
             }
         }
     }
@@ -287,7 +287,7 @@ impl Frame {
     pub fn fill(&mut self, fill: Paint) {
         self.prepend(
             Point::zero(),
-            Element::Shape(Geometry::Rect(self.size()).filled(fill), Span::detached()),
+            FrameItem::Shape(Geometry::Rect(self.size()).filled(fill), Span::detached()),
         );
     }
 
@@ -307,7 +307,7 @@ impl Frame {
         self.prepend_multiple(
             rounded_rect(size, radius, fill, stroke)
                 .into_iter()
-                .map(|x| (pos, Element::Shape(x, span))),
+                .map(|x| (pos, FrameItem::Shape(x, span))),
         )
     }
 
@@ -328,13 +328,13 @@ impl Frame {
     /// Wrap the frame's contents in a group and modify that group with `f`.
     fn group<F>(&mut self, f: F)
     where
-        F: FnOnce(&mut Group),
+        F: FnOnce(&mut GroupItem),
     {
         let mut wrapper = Frame::new(self.size);
         wrapper.baseline = self.baseline;
-        let mut group = Group::new(std::mem::take(self));
+        let mut group = GroupItem::new(std::mem::take(self));
         f(&mut group);
-        wrapper.push(Point::zero(), Element::Group(group));
+        wrapper.push(Point::zero(), FrameItem::Group(group));
         *self = wrapper;
     }
 }
@@ -346,7 +346,7 @@ impl Frame {
         self.insert(
             0,
             Point::zero(),
-            Element::Shape(
+            FrameItem::Shape(
                 Geometry::Rect(self.size)
                     .filled(RgbaColor { a: 100, ..Color::TEAL.to_rgba() }.into()),
                 Span::detached(),
@@ -355,7 +355,7 @@ impl Frame {
         self.insert(
             1,
             Point::with_y(self.baseline()),
-            Element::Shape(
+            FrameItem::Shape(
                 Geometry::Line(Point::with_x(self.size.x)).stroked(Stroke {
                     paint: Color::RED.into(),
                     thickness: Abs::pt(1.0),
@@ -371,7 +371,7 @@ impl Frame {
         let radius = Abs::pt(2.0);
         self.push(
             pos - Point::splat(radius),
-            Element::Shape(
+            FrameItem::Shape(
                 geom::ellipse(Size::splat(2.0 * radius), Some(Color::GREEN.into()), None),
                 Span::detached(),
             ),
@@ -382,7 +382,7 @@ impl Frame {
     pub fn mark_line(&mut self, y: Abs) {
         self.push(
             Point::with_y(y),
-            Element::Shape(
+            FrameItem::Shape(
                 Geometry::Line(Point::with_x(self.size.x)).stroked(Stroke {
                     paint: Color::GREEN.into(),
                     thickness: Abs::pt(1.0),
@@ -397,18 +397,18 @@ impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Frame ")?;
         f.debug_list()
-            .entries(self.elements.iter().map(|(_, element)| element))
+            .entries(self.items.iter().map(|(_, item)| item))
             .finish()
     }
 }
 
 /// The building block frames are composed of.
 #[derive(Clone, Hash)]
-pub enum Element {
-    /// A group of elements.
-    Group(Group),
+pub enum FrameItem {
+    /// A subframe with optional transformation and clipping.
+    Group(GroupItem),
     /// A run of shaped text.
-    Text(Text),
+    Text(TextItem),
     /// A geometric shape with optional fill and stroke.
     Shape(Shape, Span),
     /// An image and its size.
@@ -417,7 +417,7 @@ pub enum Element {
     Meta(Meta, Size),
 }
 
-impl Debug for Element {
+impl Debug for FrameItem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Group(group) => group.fmt(f),
@@ -429,9 +429,9 @@ impl Debug for Element {
     }
 }
 
-/// A group of elements with optional clipping.
+/// A subframe with optional transformation and clipping.
 #[derive(Clone, Hash)]
-pub struct Group {
+pub struct GroupItem {
     /// The group's frame.
     pub frame: Frame,
     /// A transformation to apply to the group.
@@ -440,7 +440,7 @@ pub struct Group {
     pub clips: bool,
 }
 
-impl Group {
+impl GroupItem {
     /// Create a new group with default settings.
     pub fn new(frame: Frame) -> Self {
         Self {
@@ -451,7 +451,7 @@ impl Group {
     }
 }
 
-impl Debug for Group {
+impl Debug for GroupItem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Group ")?;
         self.frame.fmt(f)
@@ -460,7 +460,7 @@ impl Debug for Group {
 
 /// A run of shaped text.
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Text {
+pub struct TextItem {
     /// The font the glyphs are contained in.
     pub font: Font,
     /// The font size.
@@ -473,14 +473,14 @@ pub struct Text {
     pub glyphs: Vec<Glyph>,
 }
 
-impl Text {
+impl TextItem {
     /// The width of the text run.
     pub fn width(&self) -> Abs {
         self.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size)
     }
 }
 
-impl Debug for Text {
+impl Debug for TextItem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         // This is only a rough approxmiation of the source text.
         f.write_str("Text(\"")?;
@@ -595,97 +595,73 @@ cast_to_value! {
 }
 
 /// Meta information that isn't visible or renderable.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum Meta {
-    /// Indicates that the content should be hidden.
+    /// An internal or external link to a destination.
+    Link(Destination),
+    /// An identifiable element that produces something within the area this
+    /// metadata is attached to.
+    Elem(Content),
+    /// Indicates that content should be hidden. This variant doesn't appear
+    /// in the final frames as it is removed alongside the content that should
+    /// be hidden.
     Hide,
-    /// An internal or external link.
-    Link(Link),
-    /// An identifiable piece of content that produces something within the
-    /// area this metadata is attached to.
-    Node(Content),
 }
 
 cast_from_value! {
     Meta: "meta",
 }
 
-impl PartialEq for Meta {
-    fn eq(&self, other: &Self) -> bool {
-        crate::util::hash128(self) == crate::util::hash128(other)
-    }
-}
-
-/// A possibly unresolved link.
-#[derive(Debug, Clone, Hash)]
-pub enum Link {
-    /// A fully resolved.
-    Dest(Destination),
-    /// An unresolved link to a node.
-    Node(StableId),
-}
-
-impl Link {
-    /// Resolve a destination.
-    ///
-    /// Needs to lazily provide an introspector.
-    pub fn resolve<'a>(
-        &self,
-        introspector: impl FnOnce() -> &'a Introspector,
-    ) -> Destination {
-        match self {
-            Self::Dest(dest) => dest.clone(),
-            Self::Node(id) => Destination::Internal(introspector().location(*id)),
-        }
-    }
-}
-
 /// A link destination.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Destination {
-    /// A link to a point on a page.
-    Internal(Location),
     /// A link to a URL.
     Url(EcoString),
+    /// A link to a point on a page.
+    Position(Position),
+    /// An unresolved link to a location in the document.
+    Location(Location),
 }
 
 cast_from_value! {
     Destination,
-    loc: Location => Self::Internal(loc),
-    string: EcoString => Self::Url(string),
+    v: EcoString => Self::Url(v),
+    v: Position => Self::Position(v),
+    v: Location => Self::Location(v),
 }
 
 cast_to_value! {
     v: Destination => match v {
-        Destination::Internal(loc) => loc.into(),
-        Destination::Url(url) => url.into(),
+        Destination::Url(v) => v.into(),
+        Destination::Position(v) => v.into(),
+        Destination::Location(v) => v.into(),
     }
 }
 
-/// A physical location in a document.
+/// A physical position in a document.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Location {
+pub struct Position {
     /// The page, starting at 1.
     pub page: NonZeroUsize,
     /// The exact coordinates on the page (from the top left, as usual).
-    pub pos: Point,
+    pub point: Point,
 }
 
 cast_from_value! {
-    Location,
+    Position,
     mut dict: Dict => {
         let page = dict.take("page")?.cast()?;
         let x: Length = dict.take("x")?.cast()?;
         let y: Length = dict.take("y")?.cast()?;
         dict.finish(&["page", "x", "y"])?;
-        Self { page, pos: Point::new(x.abs, y.abs) }
+        Self { page, point: Point::new(x.abs, y.abs) }
     },
 }
 
 cast_to_value! {
-    v: Location => Value::Dict(dict! {
+    v: Position => Value::Dict(dict! {
         "page" => Value::Int(v.page.get() as i64),
-        "x" => Value::Length(v.pos.x.into()),
-        "y" => Value::Length(v.pos.y.into()),
+        "x" => Value::Length(v.point.x.into()),
+        "y" => Value::Length(v.point.y.into()),
     })
 }

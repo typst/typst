@@ -4,7 +4,7 @@ use ecow::EcoString;
 
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
-use crate::model::StableId;
+use crate::model::Location;
 use crate::syntax::Span;
 
 /// Call a method on a value.
@@ -71,12 +71,12 @@ pub fn call(
         },
 
         Value::Content(content) => match method {
-            "func" => Value::Func(content.id().into()),
+            "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
             "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?.clone(),
-            "id" => content
-                .stable_id()
-                .ok_or("this method can only be called on content returned by query()")
+            "location" => content
+                .location()
+                .ok_or("this method can only be called on content returned by query(..)")
                 .at(span)?
                 .into(),
             _ => return missing(),
@@ -130,7 +130,16 @@ pub fn call(
 
         Value::Func(func) => match method {
             "with" => Value::Func(func.with(args.take())),
-            "where" => Value::dynamic(func.where_(&mut args).at(span)?),
+            "where" => {
+                let fields = args.to_named();
+                args.items.retain(|arg| arg.name.is_none());
+                Value::dynamic(
+                    func.element()
+                        .ok_or("`where()` can only be called on element functions")
+                        .at(span)?
+                        .where_(fields),
+                )
+            }
             _ => return missing(),
         },
 
@@ -141,10 +150,10 @@ pub fn call(
         },
 
         Value::Dyn(dynamic) => {
-            if let Some(&id) = dynamic.downcast::<StableId>() {
+            if let Some(&location) = dynamic.downcast::<Location>() {
                 match method {
-                    "page" => vm.vt.introspector.page(id).into(),
-                    "location" => vm.vt.introspector.location(id).into(),
+                    "page" => vm.vt.introspector.page(location).into(),
+                    "position" => vm.vt.introspector.position(location).into(),
                     _ => return missing(),
                 }
             } else {
@@ -263,7 +272,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
-        "content" => &[("func", false), ("has", true), ("at", true), ("id", false)],
+        "content" => &[("func", false), ("has", true), ("at", true), ("location", false)],
         "array" => &[
             ("all", true),
             ("any", true),
@@ -299,7 +308,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         ],
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
-        "stable id" => &[("page", false), ("location", false)],
+        "location" => &[("page", false), ("position", false)],
         "counter" => &[
             ("display", true),
             ("at", true),

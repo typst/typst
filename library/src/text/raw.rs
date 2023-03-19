@@ -3,9 +3,9 @@ use syntect::highlighting as synt;
 use typst::syntax::{self, LinkedNode};
 
 use super::{
-    FontFamily, FontList, Hyphenate, LinebreakNode, SmartQuoteNode, TextNode, TextSize,
+    FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
 };
-use crate::layout::BlockNode;
+use crate::layout::BlockElem;
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
@@ -35,8 +35,8 @@ use crate::prelude::*;
 ///
 /// Display: Raw Text / Code
 /// Category: text
-#[node(Synthesize, Show, Finalize)]
-pub struct RawNode {
+#[element(Synthesize, Show, Finalize)]
+pub struct RawElem {
     /// The raw text.
     ///
     /// You can also use raw blocks creatively to create custom syntaxes for
@@ -103,7 +103,7 @@ pub struct RawNode {
     pub lang: Option<EcoString>,
 }
 
-impl RawNode {
+impl RawElem {
     /// The supported language names and tags.
     pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
         SYNTAXES
@@ -120,13 +120,13 @@ impl RawNode {
     }
 }
 
-impl Synthesize for RawNode {
+impl Synthesize for RawElem {
     fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
         self.push_lang(self.lang(styles));
     }
 }
 
-impl Show for RawNode {
+impl Show for RawElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
@@ -162,7 +162,7 @@ impl Show for RawNode {
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
             for (i, line) in text.lines().enumerate() {
                 if i != 0 {
-                    seq.push(LinebreakNode::new().pack());
+                    seq.push(LinebreakElem::new().pack());
                 }
 
                 for (style, piece) in
@@ -174,26 +174,27 @@ impl Show for RawNode {
 
             Content::sequence(seq)
         } else {
-            TextNode::packed(text)
+            TextElem::packed(text)
         };
 
         if self.block(styles) {
-            realized = BlockNode::new().with_body(Some(realized)).pack();
+            realized = BlockElem::new().with_body(Some(realized)).pack();
         }
 
         Ok(realized)
     }
 }
 
-impl Finalize for RawNode {
+impl Finalize for RawElem {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
-        let mut map = StyleMap::new();
-        map.set(TextNode::set_overhang(false));
-        map.set(TextNode::set_hyphenate(Hyphenate(Smart::Custom(false))));
-        map.set(TextNode::set_size(TextSize(Em::new(0.8).into())));
-        map.set(TextNode::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
-        map.set(SmartQuoteNode::set_enabled(false));
-        realized.styled_with_map(map)
+        let mut styles = Styles::new();
+        styles.set(TextElem::set_overhang(false));
+        styles.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
+        styles.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
+        styles
+            .set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
+        styles.set(SmartQuoteElem::set_enabled(false));
+        realized.styled_with_map(styles)
     }
 }
 
@@ -224,11 +225,11 @@ fn highlight_themed<F>(
 
 /// Style a piece of text with a syntect style.
 fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
-    let mut body = TextNode::packed(piece);
+    let mut body = TextElem::packed(piece);
 
     let paint = to_typst(style.foreground).into();
     if paint != foreground {
-        body = body.styled(TextNode::set_fill(paint));
+        body = body.styled(TextElem::set_fill(paint));
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {

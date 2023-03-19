@@ -13,6 +13,7 @@ use super::{
 };
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
+use crate::model::Styles;
 use crate::syntax::{ast, Span};
 
 /// A computational value.
@@ -48,6 +49,8 @@ pub enum Value {
     Label(Label),
     /// A content value: `[*Hi* there]`.
     Content(Content),
+    // Content styles.
+    Styles(Styles),
     /// An array of values: `(1, "hi", 12cm)`.
     Array(Array),
     /// A dictionary value: `(color: #f79143, pattern: dashed)`.
@@ -101,6 +104,7 @@ impl Value {
             Self::Str(_) => Str::TYPE_NAME,
             Self::Label(_) => Label::TYPE_NAME,
             Self::Content(_) => Content::TYPE_NAME,
+            Self::Styles(_) => Styles::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
             Self::Dict(_) => Dict::TYPE_NAME,
             Self::Func(_) => Func::TYPE_NAME,
@@ -120,7 +124,7 @@ impl Value {
         match self {
             Self::Symbol(symbol) => symbol.clone().modified(&field).map(Self::Symbol),
             Self::Dict(dict) => dict.at(&field).cloned(),
-            Self::Content(content) => content.at(&field).cloned(),
+            Self::Content(content) => content.at(&field),
             Self::Module(module) => module.get(&field).cloned(),
             v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
         }
@@ -188,6 +192,7 @@ impl Debug for Value {
             Self::Str(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
             Self::Content(v) => Debug::fmt(v, f),
+            Self::Styles(v) => Debug::fmt(v, f),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
             Self::Func(v) => Debug::fmt(v, f),
@@ -229,6 +234,7 @@ impl Hash for Value {
             Self::Str(v) => v.hash(state),
             Self::Label(v) => v.hash(state),
             Self::Content(v) => v.hash(state),
+            Self::Styles(v) => v.hash(state),
             Self::Array(v) => v.hash(state),
             Self::Dict(v) => v.hash(state),
             Self::Func(v) => v.hash(state),
@@ -400,6 +406,7 @@ primitive! { Content: "content",
     Symbol(v) => item!(text)(v.get().into()),
     Str(v) => item!(text)(v.into())
 }
+primitive! { Styles: "styles", Styles }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Func: "function", Func }

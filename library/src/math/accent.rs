@@ -1,5 +1,3 @@
-use typst::eval::combining_accent;
-
 use super::*;
 
 /// How much the accent can be shorter than the base.
@@ -16,8 +14,8 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 ///
 /// Display: Accent
 /// Category: math
-#[node(LayoutMath)]
-pub struct AccentNode {
+#[element(LayoutMath)]
+pub struct AccentElem {
     /// The base to which the accent is applied.
     /// May consist of multiple letters.
     ///
@@ -50,7 +48,7 @@ pub struct AccentNode {
     pub accent: Accent,
 }
 
-impl LayoutMath for AccentNode {
+impl LayoutMath for AccentElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.style(ctx.style.with_cramped(true));
         let base = ctx.layout_fragment(&self.base())?;
@@ -116,15 +114,15 @@ pub struct Accent(char);
 impl Accent {
     /// Normalize a character into an accent.
     pub fn new(c: char) -> Self {
-        Self(combining_accent(c).unwrap_or(c))
+        Self(Symbol::combining_accent(c).unwrap_or(c))
     }
 }
 
 cast_from_value! {
     Accent,
     v: char => Self::new(v),
-    v: Content => match v.to::<TextNode>() {
-        Some(node) => Value::Str(node.text().into()).cast()?,
+    v: Content => match v.to::<TextElem>() {
+        Some(elem) => Value::Str(elem.text().into()).cast()?,
         None => Err("expected text")?,
     },
 }

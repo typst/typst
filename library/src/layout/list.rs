@@ -1,6 +1,6 @@
-use crate::layout::{BlockNode, ParNode, Sizing, Spacing};
+use crate::layout::{BlockElem, ParElem, Sizing, Spacing};
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::TextElem;
 
 use super::GridLayouter;
 
@@ -36,8 +36,8 @@ use super::GridLayouter;
 ///
 /// Display: Bullet List
 /// Category: layout
-#[node(Layout)]
-pub struct ListNode {
+#[element(Layout)]
+pub struct ListElem {
     /// If this is `{false}`, the items are spaced apart with [list
     /// spacing]($func/list.spacing). If it is `{true}`, they use normal
     /// [leading]($func/par.leading) instead. This makes the list more compact,
@@ -111,7 +111,7 @@ pub struct ListNode {
     depth: Depth,
 }
 
-impl Layout for ListNode {
+impl Layout for ListElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -121,10 +121,10 @@ impl Layout for ListNode {
         let indent = self.indent(styles);
         let body_indent = self.body_indent(styles);
         let gutter = if self.tight(styles) {
-            ParNode::leading_in(styles).into()
+            ParElem::leading_in(styles).into()
         } else {
             self.spacing(styles)
-                .unwrap_or_else(|| BlockNode::below_in(styles).amount())
+                .unwrap_or_else(|| BlockElem::below_in(styles).amount())
         };
 
         let depth = self.depth(styles);
@@ -160,7 +160,7 @@ impl Layout for ListNode {
 ///
 /// Display: Bullet List Item
 /// Category: layout
-#[node]
+#[element]
 pub struct ListItem {
     /// The item's body.
     #[required]
@@ -187,7 +187,7 @@ impl ListMarker {
                 .get(depth)
                 .or(list.last())
                 .cloned()
-                .unwrap_or_else(|| TextNode::packed('•')),
+                .unwrap_or_else(|| TextElem::packed('•')),
             Self::Func(func) => func.call_vt(vt, [Value::Int(depth as i64)])?.display(),
         })
     }
@@ -198,7 +198,7 @@ cast_from_value! {
     v: Content => Self::Content(vec![v]),
     array: Array => {
         if array.len() == 0 {
-            Err("must contain at least one marker")?;
+            Err("array must contain at least one marker")?;
         }
         Self::Content(array.into_iter().map(Value::display).collect())
     },

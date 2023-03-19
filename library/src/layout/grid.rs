@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::TextElem;
 
 use super::Sizing;
 
@@ -61,8 +61,8 @@ use super::Sizing;
 ///
 /// Display: Grid
 /// Category: layout
-#[node(Layout)]
-pub struct GridNode {
+#[element(Layout)]
+pub struct GridElem {
     /// Defines the column sizes.
     ///
     /// Either specify a track size array or provide an integer to create a grid
@@ -101,7 +101,7 @@ pub struct GridNode {
     pub children: Vec<Content>,
 }
 
-impl Layout for GridNode {
+impl Layout for GridElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -257,7 +257,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         }
 
         // Reverse for RTL.
-        let is_rtl = TextNode::dir_in(styles) == Dir::RTL;
+        let is_rtl = TextElem::dir_in(styles) == Dir::RTL;
         if is_rtl {
             cols.reverse();
         }

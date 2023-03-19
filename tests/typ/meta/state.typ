@@ -10,9 +10,9 @@ $ 2 + 3 $
 #s.update(double)
 
 Is: #s.display(),
-Was: #locate(id => {
-  let it = query(math.equation, id).first()
-  s.at(it.id())
+Was: #locate(location => {
+  let it = query(math.equation, location).first()
+  s.at(it.location())
 }).
 
 ---

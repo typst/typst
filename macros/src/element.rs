@@ -1,12 +1,12 @@
 use super::*;
 
-/// Expand the `#[node]` macro.
-pub fn node(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
-    let node = prepare(stream, &body)?;
-    Ok(create(&node))
+/// Expand the `#[element]` macro.
+pub fn element(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
+    let element = prepare(stream, &body)?;
+    Ok(create(&element))
 }
 
-struct Node {
+struct Elem {
     name: String,
     display: String,
     category: String,
@@ -65,8 +65,8 @@ impl Parse for FieldParser {
     }
 }
 
-/// Preprocess the node's definition.
-fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
+/// Preprocess the element's definition.
+fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     let syn::Fields::Named(named) = &body.fields else {
         bail!(body, "expected named fields");
     };
@@ -143,8 +143,8 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
     let display = meta_line(&mut lines, "Display")?.into();
     let docs = lines.join("\n").trim().into();
 
-    let node = Node {
-        name: body.ident.to_string().trim_end_matches("Node").to_lowercase(),
+    let element = Elem {
+        name: body.ident.to_string().trim_end_matches("Elem").to_lowercase(),
         display,
         category,
         docs,
@@ -155,17 +155,17 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Node> {
     };
 
     validate_attrs(&body.attrs)?;
-    Ok(node)
+    Ok(element)
 }
 
-/// Produce the node's definition.
-fn create(node: &Node) -> TokenStream {
-    let Node { vis, ident, docs, .. } = node;
-    let all = node.fields.iter().filter(|field| !field.external);
+/// Produce the element's definition.
+fn create(element: &Elem) -> TokenStream {
+    let Elem { vis, ident, docs, .. } = element;
+    let all = element.fields.iter().filter(|field| !field.external);
     let settable = all.clone().filter(|field| !field.synthesized && field.settable());
 
     // Inherent methods and functions.
-    let new = create_new_func(node);
+    let new = create_new_func(element);
     let field_methods = all.clone().map(create_field_method);
     let field_in_methods = settable.clone().map(create_field_in_method);
     let with_field_methods = all.clone().map(create_with_field_method);
@@ -173,14 +173,14 @@ fn create(node: &Node) -> TokenStream {
     let field_style_methods = settable.map(create_set_field_method);
 
     // Trait implementations.
-    let node_impl = create_node_impl(node);
-    let construct_impl = node
+    let element_impl = create_pack_impl(element);
+    let construct_impl = element
         .capable
         .iter()
         .all(|capability| capability != "Construct")
-        .then(|| create_construct_impl(node));
-    let set_impl = create_set_impl(node);
-    let locatable_impl = node
+        .then(|| create_construct_impl(element));
+    let set_impl = create_set_impl(element);
+    let locatable_impl = element
         .capable
         .iter()
         .any(|capability| capability == "Locatable")
@@ -200,13 +200,13 @@ fn create(node: &Node) -> TokenStream {
             #(#push_field_methods)*
             #(#field_style_methods)*
 
-            /// The node's span.
+            /// The element's span.
             pub fn span(&self) -> ::typst::syntax::Span {
                 self.0.span()
             }
         }
 
-        #node_impl
+        #element_impl
         #construct_impl
         #set_impl
         #locatable_impl
@@ -219,9 +219,9 @@ fn create(node: &Node) -> TokenStream {
     }
 }
 
-/// Create the `new` function for the node.
-fn create_new_func(node: &Node) -> TokenStream {
-    let relevant = node
+/// Create the `new` function for the element.
+fn create_new_func(element: &Elem) -> TokenStream {
+    let relevant = element
         .fields
         .iter()
         .filter(|field| !field.external && !field.synthesized && field.inherent());
@@ -232,9 +232,11 @@ fn create_new_func(node: &Node) -> TokenStream {
         quote! { .#with_ident(#ident) }
     });
     quote! {
-        /// Create a new node.
+        /// Create a new element.
         pub fn new(#(#params),*) -> Self {
-            Self(::typst::model::Content::new(<Self as ::typst::model::Node>::id()))
+            Self(::typst::model::Content::new(
+                <Self as ::typst::model::Element>::func()
+            ))
             #(#builder_calls)*
         }
     }
@@ -252,8 +254,7 @@ fn create_field_method(field: &Field) -> TokenStream {
             }
         }
     } else {
-        let access =
-            create_style_chain_access(field, quote! { self.0.field(#name).cloned() });
+        let access = create_style_chain_access(field, quote! { self.0.field(#name) });
         quote! {
             #[doc = #docs]
             #vis fn #ident(&self, styles: ::typst::model::StyleChain) -> #output {
@@ -288,7 +289,7 @@ fn create_style_chain_access(field: &Field, inherent: TokenStream) -> TokenStrea
 
     quote! {
         styles.#getter::<#ty>(
-            ::typst::model::NodeId::of::<Self>(),
+            <Self as ::typst::model::Element>::func(),
             #name,
             #inherent,
             || #default,
@@ -328,7 +329,7 @@ fn create_set_field_method(field: &Field) -> TokenStream {
         #[doc = #doc]
         #vis fn #set_ident(#ident: #ty) -> ::typst::model::Style {
             ::typst::model::Style::Property(::typst::model::Property::new(
-                ::typst::model::NodeId::of::<Self>(),
+                <Self as ::typst::model::Element>::func(),
                 #name.into(),
                 #ident.into()
             ))
@@ -336,19 +337,30 @@ fn create_set_field_method(field: &Field) -> TokenStream {
     }
 }
 
-/// Create the node's `Node` implementation.
-fn create_node_impl(node: &Node) -> TokenStream {
-    let Node { ident, name, display, category, docs, .. } = node;
-    let vtable_func = create_vtable_func(node);
-    let infos = node
+/// Create the element's `Pack` implementation.
+fn create_pack_impl(element: &Elem) -> TokenStream {
+    let Elem { ident, name, display, category, docs, .. } = element;
+    let vtable_func = create_vtable_func(element);
+    let infos = element
         .fields
         .iter()
         .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
     quote! {
-        impl ::typst::model::Node for #ident {
-            fn id() -> ::typst::model::NodeId {
-                static META: ::typst::model::NodeMeta = ::typst::model::NodeMeta {
+        impl ::typst::model::Element for #ident {
+            fn pack(self) -> ::typst::model::Content {
+                self.0
+            }
+
+            fn unpack(content: &::typst::model::Content) -> ::std::option::Option<&Self> {
+                // Safety: Elements are #[repr(transparent)].
+                content.is::<Self>().then(|| unsafe {
+                    ::std::mem::transmute(content)
+                })
+            }
+
+            fn func() -> ::typst::model::ElemFunc {
+                static NATIVE: ::typst::model::NativeElemFunc = ::typst::model::NativeElemFunc {
                     name: #name,
                     vtable: #vtable_func,
                     construct: <#ident as ::typst::model::Construct>::construct,
@@ -362,20 +374,16 @@ fn create_node_impl(node: &Node) -> TokenStream {
                         category: #category,
                     }),
                 };
-                ::typst::model::NodeId(&META)
-            }
-
-            fn pack(self) -> ::typst::model::Content {
-                self.0
+                (&NATIVE).into()
             }
         }
     }
 }
 
-/// Create the node's casting vtable.
-fn create_vtable_func(node: &Node) -> TokenStream {
-    let ident = &node.ident;
-    let relevant = node.capable.iter().filter(|&ident| ident != "Construct");
+/// Create the element's casting vtable.
+fn create_vtable_func(element: &Elem) -> TokenStream {
+    let ident = &element.ident;
+    let relevant = element.capable.iter().filter(|&ident| ident != "Construct");
     let checks = relevant.map(|capability| {
         quote! {
             if id == ::std::any::TypeId::of::<dyn #capability>() {
@@ -388,7 +396,9 @@ fn create_vtable_func(node: &Node) -> TokenStream {
 
     quote! {
         |id| {
-            let null = Self(::typst::model::Content::new(<#ident as ::typst::model::Node>::id()));
+            let null = Self(::typst::model::Content::new(
+                <#ident as ::typst::model::Element>::func()
+            ));
             #(#checks)*
             None
         }
@@ -421,10 +431,10 @@ fn create_param_info(field: &Field) -> TokenStream {
     }
 }
 
-/// Create the node's `Construct` implementation.
-fn create_construct_impl(node: &Node) -> TokenStream {
-    let ident = &node.ident;
-    let handlers = node
+/// Create the element's `Construct` implementation.
+fn create_construct_impl(element: &Elem) -> TokenStream {
+    let ident = &element.ident;
+    let handlers = element
         .fields
         .iter()
         .filter(|field| {
@@ -439,13 +449,13 @@ fn create_construct_impl(node: &Node) -> TokenStream {
                 quote! {
                     #prefix
                     if let Some(value) = #value {
-                        node.#push_ident(value);
+                        element.#push_ident(value);
                     }
                 }
             } else {
                 quote! {
                     #prefix
-                    node.#push_ident(#value);
+                    element.#push_ident(#value);
                 }
             }
         });
@@ -453,21 +463,23 @@ fn create_construct_impl(node: &Node) -> TokenStream {
     quote! {
         impl ::typst::model::Construct for #ident {
             fn construct(
-                vm: &::typst::eval::Vm,
+                vm: &mut ::typst::eval::Vm,
                 args: &mut ::typst::eval::Args,
             ) -> ::typst::diag::SourceResult<::typst::model::Content> {
-                let mut node = Self(::typst::model::Content::new(<Self as ::typst::model::Node>::id()));
+                let mut element = Self(::typst::model::Content::new(
+                    <Self as ::typst::model::Element>::func()
+                ));
                 #(#handlers)*
-                Ok(node.0)
+                Ok(element.0)
             }
         }
     }
 }
 
-/// Create the node's `Set` implementation.
-fn create_set_impl(node: &Node) -> TokenStream {
-    let ident = &node.ident;
-    let handlers = node
+/// Create the element's `Set` implementation.
+fn create_set_impl(element: &Elem) -> TokenStream {
+    let ident = &element.ident;
+    let handlers = element
         .fields
         .iter()
         .filter(|field| {
@@ -491,8 +503,8 @@ fn create_set_impl(node: &Node) -> TokenStream {
         impl ::typst::model::Set for #ident {
             fn set(
                 args: &mut ::typst::eval::Args,
-            ) -> ::typst::diag::SourceResult<::typst::model::StyleMap> {
-                let mut styles = ::typst::model::StyleMap::new();
+            ) -> ::typst::diag::SourceResult<::typst::model::Styles> {
+                let mut styles = ::typst::model::Styles::new();
                 #(#handlers)*
                 Ok(styles)
             }

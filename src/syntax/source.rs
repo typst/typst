@@ -9,7 +9,8 @@ use comemo::Prehashed;
 use unscanny::Scanner;
 
 use super::ast::Markup;
-use super::{is_newline, parse, reparse, LinkedNode, Span, SyntaxNode};
+use super::reparser::reparse;
+use super::{is_newline, parse, LinkedNode, Span, SyntaxNode};
 use crate::diag::SourceResult;
 use crate::util::{PathExt, StrExt};
 

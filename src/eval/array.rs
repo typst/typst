@@ -137,7 +137,7 @@ impl Array {
         self.0.contains(value)
     }
 
-    /// Return the first matching element.
+    /// Return the first matching item.
     pub fn find(&self, vm: &mut Vm, func: Func) -> SourceResult<Option<Value>> {
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
@@ -148,7 +148,7 @@ impl Array {
         Ok(None)
     }
 
-    /// Return the index of the first matching element.
+    /// Return the index of the first matching item.
     pub fn position(&self, vm: &mut Vm, func: Func) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
             let args = Args::new(func.span(), [item.clone()]);
@@ -160,8 +160,8 @@ impl Array {
         Ok(None)
     }
 
-    /// Return a new array with only those elements for which the function
-    /// returns true.
+    /// Return a new array with only those items for which the function returns
+    /// true.
     pub fn filter(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
         let mut kept = EcoVec::new();
         for item in self.iter() {
@@ -189,7 +189,7 @@ impl Array {
             .collect()
     }
 
-    /// Fold all of the array's elements into one with a function.
+    /// Fold all of the array's items into one with a function.
     pub fn fold(&self, vm: &mut Vm, init: Value, func: Func) -> SourceResult<Value> {
         let mut acc = init;
         for item in self.iter() {
@@ -199,7 +199,7 @@ impl Array {
         Ok(acc)
     }
 
-    /// Whether any element matches.
+    /// Whether any item matches.
     pub fn any(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
@@ -211,7 +211,7 @@ impl Array {
         Ok(false)
     }
 
-    /// Whether all elements match.
+    /// Whether all items match.
     pub fn all(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);

@@ -1,4 +1,4 @@
-use crate::layout::AlignNode;
+use crate::layout::AlignElem;
 
 use super::*;
 
@@ -103,7 +103,7 @@ impl MathRow {
 
     pub fn to_frame(self, ctx: &MathContext) -> Frame {
         let styles = ctx.styles();
-        let align = AlignNode::alignment_in(styles).x.resolve(styles);
+        let align = AlignElem::alignment_in(styles).x.resolve(styles);
         self.to_aligned_frame(ctx, &[], align)
     }
 
@@ -124,7 +124,7 @@ impl MathRow {
         if self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
             let fragments: Vec<_> = std::mem::take(&mut self.0);
             let leading = if ctx.style.size >= MathSize::Text {
-                ParNode::leading_in(ctx.styles())
+                ParElem::leading_in(ctx.styles())
             } else {
                 TIGHT_LEADING.scaled(ctx)
             };

@@ -10,7 +10,7 @@ pub fn measure(
     /// The content whose size to measure.
     content: Content,
     /// The styles with which to layout the content.
-    styles: StyleMap,
+    styles: Styles,
 ) -> Value {
     let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
     let styles = StyleChain::new(&styles);

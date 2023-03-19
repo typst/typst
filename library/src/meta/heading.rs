@@ -1,10 +1,10 @@
 use typst::font::FontWeight;
 
 use super::{Counter, CounterUpdate, LocalName, Numbering};
-use crate::layout::{BlockNode, HNode, VNode};
+use crate::layout::{BlockElem, HElem, VElem};
 use crate::meta::Count;
 use crate::prelude::*;
-use crate::text::{TextNode, TextSize};
+use crate::text::{TextElem, TextSize};
 
 /// A section heading.
 ///
@@ -41,8 +41,8 @@ use crate::text::{TextNode, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[node(Locatable, Synthesize, Count, Show, Finalize, LocalName)]
-pub struct HeadingNode {
+#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName)]
+pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
     pub level: NonZeroUsize,
@@ -79,7 +79,7 @@ pub struct HeadingNode {
     pub body: Content,
 }
 
-impl Synthesize for HeadingNode {
+impl Synthesize for HeadingElem {
     fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
         self.push_level(self.level(styles));
         self.push_numbering(self.numbering(styles));
@@ -87,20 +87,21 @@ impl Synthesize for HeadingNode {
     }
 }
 
-impl Show for HeadingNode {
+impl Show for HeadingElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {
-            realized =
-                Counter::of(Self::id()).display(numbering, false).spanned(self.span())
-                    + HNode::new(Em::new(0.3).into()).with_weak(true).pack()
-                    + realized;
+            realized = Counter::of(Self::func())
+                .display(numbering, false)
+                .spanned(self.span())
+                + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
+                + realized;
         }
-        Ok(BlockNode::new().with_body(Some(realized)).pack())
+        Ok(BlockElem::new().with_body(Some(realized)).pack())
     }
 }
 
-impl Finalize for HeadingNode {
+impl Finalize for HeadingElem {
     fn finalize(&self, realized: Content, styles: StyleChain) -> Content {
         let level = self.level(styles).get();
         let scale = match level {
@@ -113,17 +114,17 @@ impl Finalize for HeadingNode {
         let above = Em::new(if level == 1 { 1.8 } else { 1.44 }) / scale;
         let below = Em::new(0.75) / scale;
 
-        let mut map = StyleMap::new();
-        map.set(TextNode::set_size(TextSize(size.into())));
-        map.set(TextNode::set_weight(FontWeight::BOLD));
-        map.set(BlockNode::set_above(VNode::block_around(above.into())));
-        map.set(BlockNode::set_below(VNode::block_around(below.into())));
-        map.set(BlockNode::set_sticky(true));
-        realized.styled_with_map(map)
+        let mut styles = Styles::new();
+        styles.set(TextElem::set_size(TextSize(size.into())));
+        styles.set(TextElem::set_weight(FontWeight::BOLD));
+        styles.set(BlockElem::set_above(VElem::block_around(above.into())));
+        styles.set(BlockElem::set_below(VElem::block_around(below.into())));
+        styles.set(BlockElem::set_sticky(true));
+        realized.styled_with_map(styles)
     }
 }
 
-impl Count for HeadingNode {
+impl Count for HeadingElem {
     fn update(&self) -> Option<CounterUpdate> {
         self.numbering(StyleChain::default())
             .is_some()
@@ -132,11 +133,11 @@ impl Count for HeadingNode {
 }
 
 cast_from_value! {
-    HeadingNode,
+    HeadingElem,
     v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
 }
 
-impl LocalName for HeadingNode {
+impl LocalName for HeadingElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Abschnitt",

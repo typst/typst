@@ -1,4 +1,4 @@
-// Test node show rules.
+// Test show rules.
 
 ---
 // Override lists.
@@ -83,12 +83,12 @@ Another text.
 = Heading
 
 ---
-// Error: 7-12 this function is not selectable
-#show upper: it => {}
+#show text: none
+Hey
 
 ---
-// Error: 7-11 to select text, please use a string or regex instead
-#show text: it => {}
+// Error: 7-12 only element functions can be used as selectors
+#show upper: it => {}
 
 ---
 // Error: 16-20 expected content or function, found integer
@@ -96,7 +96,7 @@ Another text.
 = Heading
 
 ---
-// Error: 7-10 expected string, label, function, regular expression, or selector, found color
+// Error: 7-10 expected function, label, string, regular expression, or selector, found color
 #show red: []
 
 ---

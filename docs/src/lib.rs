@@ -18,7 +18,7 @@ use typst::doc::Frame;
 use typst::eval::{CastInfo, Func, FuncInfo, Library, Module, ParamInfo, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Sides, Smart};
-use typst_library::layout::PageNode;
+use typst_library::layout::PageElem;
 use unscanny::Scanner;
 
 static SRC: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src");
@@ -40,9 +40,9 @@ static FONTS: Lazy<(Prehashed<FontBook>, Vec<Font>)> = Lazy::new(|| {
 static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
     let mut lib = typst_library::build();
     lib.styles
-        .set(PageNode::set_width(Smart::Custom(Abs::pt(240.0).into())));
-    lib.styles.set(PageNode::set_height(Smart::Auto));
-    lib.styles.set(PageNode::set_margin(Sides::splat(Some(Smart::Custom(
+        .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
+    lib.styles.set(PageElem::set_height(Smart::Auto));
+    lib.styles.set(PageElem::set_margin(Sides::splat(Some(Smart::Custom(
         Abs::pt(15.0).into(),
     )))));
     typst::eval::set_lang_items(lib.items.clone());
@@ -299,8 +299,8 @@ pub struct FuncModel {
     pub name: &'static str,
     pub display: &'static str,
     pub oneliner: &'static str,
-    pub details: Html,
     pub showable: bool,
+    pub details: Html,
     pub params: Vec<ParamModel>,
     pub returns: Vec<&'static str>,
 }
@@ -336,8 +336,8 @@ fn func_model(resolver: &dyn Resolver, func: &Func, info: &FuncInfo) -> FuncMode
         name: info.name.into(),
         display: info.display,
         oneliner: oneliner(info.docs),
+        showable: func.element().is_some(),
         details: Html::markdown(resolver, info.docs),
-        showable: func.select(None).is_ok() && info.category != "math",
         params: info.params.iter().map(|param| param_model(resolver, param)).collect(),
         returns: info.returns.clone(),
     }
@@ -632,7 +632,7 @@ fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
                     .find(|&(_, x)| x == c)
                     .map(|(s, _)| s),
                 codepoint: c as u32,
-                accent: typst::eval::combining_accent(c).is_some(),
+                accent: typst::eval::Symbol::combining_accent(c).is_some(),
                 unicode_name: unicode_names2::name(c)
                     .map(|s| s.to_string().to_title_case()),
                 alternates: symbol

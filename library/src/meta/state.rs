@@ -52,25 +52,25 @@ impl State {
 
     /// Display the current value of the state.
     pub fn display(self, func: Option<Func>) -> Content {
-        DisplayNode::new(self, func).pack()
+        DisplayElem::new(self, func).pack()
     }
 
     /// Get the value of the state at the given location.
-    pub fn at(self, vt: &mut Vt, id: StableId) -> SourceResult<Value> {
+    pub fn at(self, vt: &mut Vt, location: Location) -> SourceResult<Value> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), id).len();
+        let offset = vt.introspector.query_before(self.selector(), location).len();
         Ok(sequence[offset].clone())
     }
 
     /// Get the value of the state at the final location.
-    pub fn final_(self, vt: &mut Vt, _: StableId) -> SourceResult<Value> {
+    pub fn final_(self, vt: &mut Vt, _: Location) -> SourceResult<Value> {
         let sequence = self.sequence(vt)?;
         Ok(sequence.last().unwrap().clone())
     }
 
     /// Produce content that performs a state update.
     pub fn update(self, update: StateUpdate) -> Content {
-        UpdateNode::new(self, update).pack()
+        UpdateElem::new(self, update).pack()
     }
 
     /// Produce the whole sequence of states.
@@ -99,9 +99,9 @@ impl State {
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];
 
-        for node in introspector.query(self.selector()) {
-            let node = node.to::<UpdateNode>().unwrap();
-            match node.update() {
+        for elem in introspector.query(self.selector()) {
+            let elem = elem.to::<UpdateElem>().unwrap();
+            match elem.update() {
                 StateUpdate::Set(value) => state = value,
                 StateUpdate::Func(func) => state = func.call_vt(&mut vt, [state])?,
             }
@@ -113,10 +113,7 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        Selector::Node(
-            NodeId::of::<UpdateNode>(),
-            Some(dict! { "state" => self.clone() }),
-        )
+        Selector::Elem(UpdateElem::func(), Some(dict! { "state" => self.clone() }))
     }
 }
 
@@ -159,8 +156,8 @@ cast_from_value! {
 ///
 /// Display: State
 /// Category: special
-#[node(Locatable, Show)]
-struct DisplayNode {
+#[element(Locatable, Show)]
+struct DisplayElem {
     /// The state.
     #[required]
     state: State,
@@ -170,10 +167,10 @@ struct DisplayNode {
     func: Option<Func>,
 }
 
-impl Show for DisplayNode {
+impl Show for DisplayElem {
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        let id = self.0.stable_id().unwrap();
-        let value = self.state().at(vt, id)?;
+        let location = self.0.location().unwrap();
+        let value = self.state().at(vt, location)?;
         Ok(match self.func() {
             Some(func) => func.call_vt(vt, [value])?.display(),
             None => value.display(),
@@ -185,8 +182,8 @@ impl Show for DisplayNode {
 ///
 /// Display: State
 /// Category: special
-#[node(Locatable, Show)]
-struct UpdateNode {
+#[element(Locatable, Show)]
+struct UpdateElem {
     /// The state.
     #[required]
     state: State,
@@ -196,7 +193,7 @@ struct UpdateNode {
     update: StateUpdate,
 }
 
-impl Show for UpdateNode {
+impl Show for UpdateElem {
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }

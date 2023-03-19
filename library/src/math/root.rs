@@ -9,17 +9,13 @@ use super::*;
 ///
 /// Display: Square Root
 /// Category: math
-#[node(LayoutMath)]
-pub struct SqrtNode {
+/// Returns: content
+#[func]
+pub fn sqrt(
     /// The expression to take the square root of.
-    #[required]
-    pub radicand: Content,
-}
-
-impl LayoutMath for SqrtNode {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, None, &self.radicand(), self.span())
-    }
+    radicand: Content,
+) -> Value {
+    RootElem::new(radicand).pack().into()
 }
 
 /// A general root.
@@ -31,20 +27,20 @@ impl LayoutMath for SqrtNode {
 ///
 /// Display: Root
 /// Category: math
-#[node(LayoutMath)]
-pub struct RootNode {
+#[element(LayoutMath)]
+pub struct RootElem {
     /// Which root of the radicand to take.
-    #[required]
-    index: Content,
+    #[positional]
+    index: Option<Content>,
 
     /// The expression to take the root of.
     #[required]
     radicand: Content,
 }
 
-impl LayoutMath for RootNode {
+impl LayoutMath for RootElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, Some(&self.index()), &self.radicand(), self.span())
+        layout(ctx, self.index(ctx.styles()).as_ref(), &self.radicand(), self.span())
     }
 }
 
@@ -88,7 +84,7 @@ fn layout(
     // Layout the index.
     // Script-script style looks too small, we use Script style instead.
     ctx.style(ctx.style.with_size(MathSize::Script));
-    let index = index.map(|node| ctx.layout_frame(node)).transpose()?;
+    let index = index.map(|elem| ctx.layout_frame(elem)).transpose()?;
     ctx.unstyle();
 
     let gap = gap.max((sqrt.height() - radicand.height() - thickness) / 2.0);
@@ -124,9 +120,9 @@ fn layout(
     frame.push_frame(sqrt_pos, sqrt);
     frame.push(
         line_pos,
-        Element::Shape(
+        FrameItem::Shape(
             Geometry::Line(Point::with_x(radicand.width()))
-                .stroked(Stroke { paint: TextNode::fill_in(ctx.styles()), thickness }),
+                .stroked(Stroke { paint: TextElem::fill_in(ctx.styles()), thickness }),
             span,
         ),
     );
@@ -139,15 +135,15 @@ fn layout(
 
 /// Select a precomposed radical, if the font has it.
 fn precomposed(ctx: &MathContext, index: Option<&Content>, target: Abs) -> Option<Frame> {
-    let node = index?.to::<TextNode>()?;
-    let c = match node.text().as_str() {
+    let elem = index?.to::<TextElem>()?;
+    let c = match elem.text().as_str() {
         "3" => '∛',
         "4" => '∜',
         _ => return None,
     };
 
     ctx.ttf.glyph_index(c)?;
-    let glyph = GlyphFragment::new(ctx, c, node.span());
+    let glyph = GlyphFragment::new(ctx, c, elem.span());
     let variant = glyph.stretch_vertical(ctx, target, Abs::zero()).frame;
     if variant.height() < target {
         return None;

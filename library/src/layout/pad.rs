@@ -17,8 +17,8 @@ use crate::prelude::*;
 ///
 /// Display: Padding
 /// Category: layout
-#[node(Layout)]
-pub struct PadNode {
+#[element(Layout)]
+pub struct PadElem {
     /// The padding at the left side.
     #[parse(
         let all = args.named("rest")?.or(args.find()?);
@@ -59,7 +59,7 @@ pub struct PadNode {
     pub body: Content,
 }
 
-impl Layout for PadNode {
+impl Layout for PadElem {
     fn layout(
         &self,
         vt: &mut Vt,

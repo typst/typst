@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::TextElem;
 
 /// Separate a region into multiple equally sized columns.
 ///
@@ -32,8 +32,8 @@ use crate::text::TextNode;
 ///
 /// Display: Columns
 /// Category: layout
-#[node(Layout)]
-pub struct ColumnsNode {
+#[element(Layout)]
+pub struct ColumnsElem {
     /// The number of columns.
     #[positional]
     #[default(NonZeroUsize::new(2).unwrap())]
@@ -49,7 +49,7 @@ pub struct ColumnsNode {
     pub body: Content,
 }
 
-impl Layout for ColumnsNode {
+impl Layout for ColumnsElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -88,7 +88,7 @@ impl Layout for ColumnsNode {
         let mut frames = body.layout(vt, styles, pod)?.into_iter();
         let mut finished = vec![];
 
-        let dir = TextNode::dir_in(styles);
+        let dir = TextElem::dir_in(styles);
         let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
 
         // Stitch together the columns for each region.
@@ -151,15 +151,15 @@ impl Layout for ColumnsNode {
 ///
 /// Display: Column Break
 /// Category: layout
-#[node(Behave)]
-pub struct ColbreakNode {
+#[element(Behave)]
+pub struct ColbreakElem {
     /// If `{true}`, the column break is skipped if the current column is
     /// already empty.
     #[default(false)]
     pub weak: bool,
 }
 
-impl Behave for ColbreakNode {
+impl Behave for ColbreakElem {
     fn behaviour(&self) -> Behaviour {
         if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)

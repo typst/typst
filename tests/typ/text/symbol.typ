@@ -14,5 +14,5 @@
 #sym.arrow.r;this and this#sym.arrow.l;
 
 ---
-// Error: 13-20 unknown modifier
+// Error: 13-20 unknown symbol modifier
 #emoji.face.garbage

@@ -236,7 +236,7 @@ impl FromStr for RgbaColor {
     fn from_str(hex_str: &str) -> Result<Self, Self::Err> {
         let hex_str = hex_str.strip_prefix('#').unwrap_or(hex_str);
         if hex_str.chars().any(|c| !c.is_ascii_hexdigit()) {
-            return Err("string contains non-hexadecimal letters");
+            return Err("color string contains non-hexadecimal letters");
         }
 
         let len = hex_str.len();
@@ -244,7 +244,7 @@ impl FromStr for RgbaColor {
         let short = len == 3 || len == 4;
         let alpha = len == 4 || len == 8;
         if !long && !short {
-            return Err("string has wrong length");
+            return Err("color string has wrong length");
         }
 
         let mut values: [u8; 4] = [u8::MAX; 4];
@@ -406,10 +406,10 @@ mod tests {
             assert_eq!(RgbaColor::from_str(hex), Err(message));
         }
 
-        test("a5", "string has wrong length");
-        test("12345", "string has wrong length");
-        test("f075ff011", "string has wrong length");
-        test("hmmm", "string contains non-hexadecimal letters");
-        test("14B2AH", "string contains non-hexadecimal letters");
+        test("a5", "color string has wrong length");
+        test("12345", "color string has wrong length");
+        test("f075ff011", "color string has wrong length");
+        test("hmmm", "color string contains non-hexadecimal letters");
+        test("14B2AH", "color string contains non-hexadecimal letters");
     }
 }

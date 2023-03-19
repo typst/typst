@@ -2,11 +2,11 @@ use super::*;
 
 /// A bezier path.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
-pub struct Path(pub Vec<PathElement>);
+pub struct Path(pub Vec<PathItem>);
 
-/// An element in a bezier path.
+/// An item in a bezier path.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum PathElement {
+pub enum PathItem {
     MoveTo(Point),
     LineTo(Point),
     CubicTo(Point, Point, Point),
@@ -32,23 +32,23 @@ impl Path {
         path
     }
 
-    /// Push a [`MoveTo`](PathElement::MoveTo) element.
+    /// Push a [`MoveTo`](PathItem::MoveTo) item.
     pub fn move_to(&mut self, p: Point) {
-        self.0.push(PathElement::MoveTo(p));
+        self.0.push(PathItem::MoveTo(p));
     }
 
-    /// Push a [`LineTo`](PathElement::LineTo) element.
+    /// Push a [`LineTo`](PathItem::LineTo) item.
     pub fn line_to(&mut self, p: Point) {
-        self.0.push(PathElement::LineTo(p));
+        self.0.push(PathItem::LineTo(p));
     }
 
-    /// Push a [`CubicTo`](PathElement::CubicTo) element.
+    /// Push a [`CubicTo`](PathItem::CubicTo) item.
     pub fn cubic_to(&mut self, p1: Point, p2: Point, p3: Point) {
-        self.0.push(PathElement::CubicTo(p1, p2, p3));
+        self.0.push(PathItem::CubicTo(p1, p2, p3));
     }
 
-    /// Push a [`ClosePath`](PathElement::ClosePath) element.
+    /// Push a [`ClosePath`](PathItem::ClosePath) item.
     pub fn close_path(&mut self) {
-        self.0.push(PathElement::ClosePath);
+        self.0.push(PathItem::ClosePath);
     }
 }

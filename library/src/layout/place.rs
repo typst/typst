@@ -23,8 +23,8 @@ use crate::prelude::*;
 ///
 /// Display: Place
 /// Category: layout
-#[node(Layout, Behave)]
-pub struct PlaceNode {
+#[element(Layout, Behave)]
+pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
     /// When an axis of the page is `{auto}` sized, all alignments relative to that
@@ -53,7 +53,7 @@ pub struct PlaceNode {
     pub body: Content,
 }
 
-impl Layout for PlaceNode {
+impl Layout for PlaceElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -86,16 +86,16 @@ impl Layout for PlaceNode {
     }
 }
 
-impl PlaceNode {
-    /// Whether this node wants to be placed relative to its its parent's base
-    /// origin. Instead of relative to the parent's current flow/cursor
+impl PlaceElem {
+    /// Whether this element wants to be placed relative to its its parent's
+    /// base origin. Instead of relative to the parent's current flow/cursor
     /// position.
     pub fn out_of_flow(&self, styles: StyleChain) -> bool {
         self.alignment(styles).y.is_some()
     }
 }
 
-impl Behave for PlaceNode {
+impl Behave for PlaceElem {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Ignorant
     }

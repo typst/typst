@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use crate::text::{Hyphenate, TextNode};
+use crate::text::{Hyphenate, TextElem};
 
 /// Link to a URL or another location in the document.
 ///
@@ -25,19 +25,20 @@ use crate::text::{Hyphenate, TextNode};
 ///
 /// Display: Link
 /// Category: meta
-#[node(Show, Finalize)]
-pub struct LinkNode {
+#[element(Show, Finalize)]
+pub struct LinkElem {
     /// The destination the link points to.
     ///
-    /// - To link to web pages, `dest` should be a valid URL string. If the URL is
-    ///   in the `mailto:` or `tel:` scheme and the `body` parameter is omitted,
-    ///   the email address or phone number will be the link's body, without the
-    ///   scheme.
+    /// - To link to web pages, `dest` should be a valid URL string. If the URL
+    ///   is in the `mailto:` or `tel:` scheme and the `body` parameter is
+    ///   omitted, the email address or phone number will be the link's body,
+    ///   without the scheme.
     ///
-    /// - To link to another part of the document, `dest` must contain a
-    ///   dictionary with a `page` key of type `integer` and `x` and `y`
-    ///   coordinates of type `length`. Pages are counted from one, and the
-    ///   coordinates are relative to the page's top left corner.
+    /// - To link to another part of the document, `dest` can take one of two
+    ///   forms: A [`location`]($func/locate) or a dictionary with a `page` key
+    ///   of type `integer` and `x` and `y` coordinates of type `length`. Pages
+    ///   are counted from one, and the coordinates are relative to the page's
+    ///   top left corner.
     ///
     /// ```example
     /// #link("mailto:hello@typst.app") \
@@ -45,7 +46,6 @@ pub struct LinkNode {
     ///   Go to top
     /// ]
     /// ```
-    ///
     #[required]
     #[parse(
         let dest = args.expect::<Destination>("destination")?;
@@ -64,30 +64,30 @@ pub struct LinkNode {
             Some(body) => body,
             None => body_from_url(url),
         },
-        Destination::Internal(_) => args.expect("body")?,
+        _ => args.expect("body")?,
     })]
     pub body: Content,
 }
 
-impl LinkNode {
-    /// Create a link node from a URL with its bare text.
+impl LinkElem {
+    /// Create a link element from a URL with its bare text.
     pub fn from_url(url: EcoString) -> Self {
         let body = body_from_url(&url);
         Self::new(Destination::Url(url), body)
     }
 }
 
-impl Show for LinkNode {
+impl Show for LinkElem {
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body())
     }
 }
 
-impl Finalize for LinkNode {
+impl Finalize for LinkElem {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         realized
-            .linked(Link::Dest(self.dest()))
-            .styled(TextNode::set_hyphenate(Hyphenate(Smart::Custom(false))))
+            .linked(self.dest())
+            .styled(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))))
     }
 }
 
@@ -97,5 +97,5 @@ fn body_from_url(url: &EcoString) -> Content {
         text = text.trim_start_matches(prefix);
     }
     let shorter = text.len() < url.len();
-    TextNode::packed(if shorter { text.into() } else { url.clone() })
+    TextElem::packed(if shorter { text.into() } else { url.clone() })
 }

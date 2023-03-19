@@ -19,7 +19,7 @@ Hi #box(pad(left: 10pt)[A]) there
 #pad(left: 10pt, right: 10pt)[PL #h(1fr) PR]
 
 ---
-// Test that the pad node doesn't consume the whole region.
+// Test that the pad element doesn't consume the whole region.
 #set page(height: 6cm)
 #align(left)[Before]
 #pad(10pt, image("/tiger.jpg"))

@@ -11,8 +11,8 @@ use crate::prelude::*;
 ///
 /// Display: Line
 /// Category: visualize
-#[node(Layout)]
-pub struct LineNode {
+#[element(Layout)]
+pub struct LineElem {
     /// The start point of the line.
     ///
     /// Must be an array of exactly two relative lengths.
@@ -49,7 +49,7 @@ pub struct LineNode {
     pub stroke: PartialStroke,
 }
 
-impl Layout for LineNode {
+impl Layout for LineElem {
     fn layout(
         &self,
         _: &mut Vt,
@@ -76,7 +76,7 @@ impl Layout for LineNode {
 
         let mut frame = Frame::new(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
-        frame.push(start.to_point(), Element::Shape(shape, self.span()));
+        frame.push(start.to_point(), FrameItem::Shape(shape, self.span()));
         Ok(Fragment::frame(frame))
     }
 }

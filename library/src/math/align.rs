@@ -4,10 +4,10 @@ use super::*;
 ///
 /// Display: Alignment Point
 /// Category: math
-#[node(LayoutMath)]
-pub struct AlignPointNode {}
+#[element(LayoutMath)]
+pub struct AlignPointElem {}
 
-impl LayoutMath for AlignPointNode {
+impl LayoutMath for AlignPointElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.push(MathFragment::Align);
         Ok(())

@@ -10,28 +10,28 @@ pub fn locate(
     /// The function to call with the location.
     func: Func,
 ) -> Value {
-    LocateNode::new(func).pack().into()
+    LocateElem::new(func).pack().into()
 }
 
 /// Executes a `locate` call.
 ///
 /// Display: Styled
 /// Category: special
-#[node(Locatable, Show)]
-struct LocateNode {
+#[element(Locatable, Show)]
+struct LocateElem {
     /// The function to call with the location.
     #[required]
     func: Func,
 }
 
-impl Show for LocateNode {
+impl Show for LocateElem {
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
         }
 
-        let id = self.0.stable_id().unwrap();
-        Ok(self.func().call_vt(vt, [id.into()])?.display())
+        let location = self.0.location().unwrap();
+        Ok(self.func().call_vt(vt, [location.into()])?.display())
     }
 }
 
@@ -45,21 +45,21 @@ pub fn style(
     /// The function to call with the styles.
     func: Func,
 ) -> Value {
-    StyleNode::new(func).pack().into()
+    StyleElem::new(func).pack().into()
 }
 
 /// Executes a style access.
 ///
 /// Display: Style
 /// Category: special
-#[node(Show)]
-struct StyleNode {
+#[element(Show)]
+struct StyleElem {
     /// The function to call with the styles.
     #[required]
     func: Func,
 }
 
-impl Show for StyleNode {
+impl Show for StyleElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.func().call_vt(vt, [styles.to_map().into()])?.display())
     }

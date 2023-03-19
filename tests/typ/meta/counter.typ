@@ -41,7 +41,7 @@ In #counter(heading).display().
 
 At Beta, it was #locate(loc => {
   let it = query(heading, loc).find(it => it.body == [Beta])
-  numbering(it.numbering, ..counter(heading).at(it.id()))
+  numbering(it.numbering, ..counter(heading).at(it.location()))
 })
 
 ---

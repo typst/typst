@@ -1,7 +1,7 @@
-use super::{HNode, VNode};
-use crate::layout::{BlockNode, ParNode, Spacing};
+use super::{HElem, VElem};
+use crate::layout::{BlockElem, ParElem, Spacing};
 use crate::prelude::*;
-use crate::text::{SpaceNode, TextNode};
+use crate::text::{SpaceElem, TextElem};
 
 /// A list of terms and their descriptions.
 ///
@@ -22,8 +22,8 @@ use crate::text::{SpaceNode, TextNode};
 ///
 /// Display: Term List
 /// Category: layout
-#[node(Layout)]
-pub struct TermsNode {
+#[element(Layout)]
+pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with [term list
     /// spacing]($func/terms.spacing). If it is `{true}`, they use normal
     /// [leading]($func/par.leading) instead. This makes the term list more
@@ -76,7 +76,7 @@ pub struct TermsNode {
     pub children: Vec<TermItem>,
 }
 
-impl Layout for TermsNode {
+impl Layout for TermsElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -86,27 +86,27 @@ impl Layout for TermsNode {
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
         let gutter = if self.tight(styles) {
-            ParNode::leading_in(styles).into()
+            ParElem::leading_in(styles).into()
         } else {
             self.spacing(styles)
-                .unwrap_or_else(|| BlockNode::below_in(styles).amount())
+                .unwrap_or_else(|| BlockElem::below_in(styles).amount())
         };
 
         let mut seq = vec![];
         for (i, child) in self.children().into_iter().enumerate() {
             if i > 0 {
-                seq.push(VNode::new(gutter).with_weakness(1).pack());
+                seq.push(VElem::new(gutter).with_weakness(1).pack());
             }
             if indent.is_zero() {
-                seq.push(HNode::new(indent.into()).pack());
+                seq.push(HElem::new(indent.into()).pack());
             }
-            seq.push((child.term() + TextNode::packed(':')).strong());
-            seq.push(SpaceNode::new().pack());
+            seq.push((child.term() + TextElem::packed(':')).strong());
+            seq.push(SpaceElem::new().pack());
             seq.push(child.description());
         }
 
         Content::sequence(seq)
-            .styled(ParNode::set_hanging_indent(hanging_indent + indent))
+            .styled(ParElem::set_hanging_indent(hanging_indent + indent))
             .layout(vt, styles, regions)
     }
 }
@@ -115,7 +115,7 @@ impl Layout for TermsNode {
 ///
 /// Display: Term List Item
 /// Category: layout
-#[node]
+#[element]
 pub struct TermItem {
     /// The term described by the list item.
     #[required]

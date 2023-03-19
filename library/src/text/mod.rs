@@ -19,7 +19,7 @@ use std::borrow::Cow;
 use rustybuzz::Tag;
 use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
-use crate::layout::ParNode;
+use crate::layout::ParElem;
 use crate::prelude::*;
 
 /// Customize the look and layout of text in a variety of ways.
@@ -40,8 +40,8 @@ use crate::prelude::*;
 ///
 /// Display: Text
 /// Category: text
-#[node(Construct)]
-pub struct TextNode {
+#[element(Construct)]
+pub struct TextElem {
     /// A prioritized sequence of font families.
     ///
     /// When processing text, Typst tries all specified font families in order
@@ -291,7 +291,7 @@ pub struct TextNode {
     /// هذا عربي.
     /// ```
     #[resolve]
-    pub dir: HorizontalDir,
+    pub dir: TextDir,
 
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
     /// will be hyphenated if and only if justification is enabled.
@@ -479,16 +479,16 @@ pub struct TextNode {
     pub smallcaps: bool,
 }
 
-impl TextNode {
-    /// Create a new packed text node.
+impl TextElem {
+    /// Create a new packed text element.
     pub fn packed(text: impl Into<EcoString>) -> Content {
         Self::new(text.into()).pack()
     }
 }
 
-impl Construct for TextNode {
-    fn construct(_: &Vm, args: &mut Args) -> SourceResult<Content> {
-        // The text constructor is special: It doesn't create a text node.
+impl Construct for TextElem {
+    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+        // The text constructor is special: It doesn't create a text element.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
         let styles = Self::set(args)?;
@@ -606,28 +606,28 @@ cast_to_value! {
 
 /// The direction of text and inline objects in their line.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct HorizontalDir(pub Smart<Dir>);
+pub struct TextDir(pub Smart<Dir>);
 
 cast_from_value! {
-    HorizontalDir,
+    TextDir,
     v: Smart<Dir> => {
         if v.map_or(false, |dir| dir.axis() == Axis::Y) {
-            Err("must be horizontal")?;
+            Err("text direction must be horizontal")?;
         }
         Self(v)
     },
 }
 
 cast_to_value! {
-    v: HorizontalDir => v.0.into()
+    v: TextDir => v.0.into()
 }
 
-impl Resolve for HorizontalDir {
+impl Resolve for TextDir {
     type Output = Dir;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self.0 {
-            Smart::Auto => TextNode::lang_in(styles).dir(),
+            Smart::Auto => TextElem::lang_in(styles).dir(),
             Smart::Custom(dir) => dir,
         }
     }
@@ -651,7 +651,7 @@ impl Resolve for Hyphenate {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self.0 {
-            Smart::Auto => ParNode::justify_in(styles),
+            Smart::Auto => ParElem::justify_in(styles),
             Smart::Custom(v) => v,
         }
     }
@@ -677,7 +677,7 @@ cast_from_value! {
     StylisticSet,
     v: i64 => match v {
         1 ..= 20 => Self::new(v as u8),
-        _ => Err("must be between 1 and 20")?,
+        _ => Err("stylistic set must be between 1 and 20")?,
     },
 }
 

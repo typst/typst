@@ -20,8 +20,8 @@ use super::*;
 ///
 /// Display: Text Operator
 /// Category: math
-#[node(LayoutMath)]
-pub struct OpNode {
+#[element(LayoutMath)]
+pub struct OpElem {
     /// The operator's text.
     #[required]
     pub text: EcoString,
@@ -33,9 +33,9 @@ pub struct OpNode {
     pub limits: bool,
 }
 
-impl LayoutMath for OpNode {
+impl LayoutMath for OpElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let frame = ctx.layout_content(&TextNode::packed(self.text()))?;
+        let frame = ctx.layout_content(&TextElem::packed(self.text()))?;
         ctx.push(
             FrameFragment::new(ctx, frame)
                 .with_class(MathClass::Large)
@@ -50,14 +50,14 @@ macro_rules! ops {
         pub(super) fn define(math: &mut Scope) {
             $(math.define(
                 stringify!($name),
-                OpNode::new(ops!(@name $name $(: $value)?).into())
+                OpElem::new(ops!(@name $name $(: $value)?).into())
                     .with_limits(ops!(@limit $($tts)*))
                     .pack()
             );)*
 
             let dif = |d| {
-                HNode::new(THIN.into()).pack()
-                    + UprightNode::new(TextNode::packed(d)).pack()
+                HElem::new(THIN.into()).pack()
+                    + MathStyleElem::new(TextElem::packed(d)).with_italic(Some(false)).pack()
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));

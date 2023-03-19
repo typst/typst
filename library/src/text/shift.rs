@@ -1,6 +1,4 @@
-use typst::model::SequenceNode;
-
-use super::{variant, SpaceNode, TextNode, TextSize};
+use super::{variant, SpaceElem, TextElem, TextSize};
 use crate::prelude::*;
 
 /// Set text in subscript.
@@ -14,8 +12,8 @@ use crate::prelude::*;
 ///
 /// Display: Subscript
 /// Category: text
-#[node(Show)]
-pub struct SubNode {
+#[element(Show)]
+pub struct SubElem {
     /// Whether to prefer the dedicated subscript characters of the font.
     ///
     /// If this is enabled, Typst first tries to transform the text to subscript
@@ -46,21 +44,21 @@ pub struct SubNode {
     pub body: Content,
 }
 
-impl Show for SubNode {
+impl Show for SubElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body();
         let mut transformed = None;
         if self.typographic(styles) {
             if let Some(text) = search_text(&body, true) {
                 if is_shapable(vt, &text, styles) {
-                    transformed = Some(TextNode::packed(text));
+                    transformed = Some(TextElem::packed(text));
                 }
             }
         };
 
         Ok(transformed.unwrap_or_else(|| {
-            body.styled(TextNode::set_baseline(self.baseline(styles)))
-                .styled(TextNode::set_size(self.size(styles)))
+            body.styled(TextElem::set_baseline(self.baseline(styles)))
+                .styled(TextElem::set_size(self.size(styles)))
         }))
     }
 }
@@ -76,8 +74,8 @@ impl Show for SubNode {
 ///
 /// Display: Superscript
 /// Category: text
-#[node(Show)]
-pub struct SuperNode {
+#[element(Show)]
+pub struct SuperElem {
     /// Whether to prefer the dedicated superscript characters of the font.
     ///
     /// If this is enabled, Typst first tries to transform the text to
@@ -108,35 +106,35 @@ pub struct SuperNode {
     pub body: Content,
 }
 
-impl Show for SuperNode {
+impl Show for SuperElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let body = self.body();
         let mut transformed = None;
         if self.typographic(styles) {
             if let Some(text) = search_text(&body, false) {
                 if is_shapable(vt, &text, styles) {
-                    transformed = Some(TextNode::packed(text));
+                    transformed = Some(TextElem::packed(text));
                 }
             }
         };
 
         Ok(transformed.unwrap_or_else(|| {
-            body.styled(TextNode::set_baseline(self.baseline(styles)))
-                .styled(TextNode::set_size(self.size(styles)))
+            body.styled(TextElem::set_baseline(self.baseline(styles)))
+                .styled(TextElem::set_size(self.size(styles)))
         }))
     }
 }
 
 /// Find and transform the text contained in `content` to the given script kind
-/// if and only if it only consists of `Text`, `Space`, and `Empty` leaf nodes.
+/// if and only if it only consists of `Text`, `Space`, and `Empty` leafs.
 fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
-    if content.is::<SpaceNode>() {
+    if content.is::<SpaceElem>() {
         Some(' '.into())
-    } else if let Some(node) = content.to::<TextNode>() {
-        convert_script(&node.text(), sub)
-    } else if let Some(seq) = content.to::<SequenceNode>() {
+    } else if let Some(elem) = content.to::<TextElem>() {
+        convert_script(&elem.text(), sub)
+    } else if let Some(children) = content.to_sequence() {
         let mut full = EcoString::new();
-        for item in seq.children() {
+        for item in children {
             match search_text(&item, sub) {
                 Some(text) => full.push_str(&text),
                 None => return None,
@@ -152,7 +150,7 @@ fn search_text(content: &Content, sub: bool) -> Option<EcoString> {
 /// given string.
 fn is_shapable(vt: &Vt, text: &str, styles: StyleChain) -> bool {
     let world = vt.world;
-    for family in TextNode::font_in(styles) {
+    for family in TextElem::font_in(styles) {
         if let Some(font) = world
             .book()
             .select(family.as_str(), variant(styles))

@@ -16,8 +16,8 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 ///
 /// Display: Left/Right
 /// Category: math
-#[node(LayoutMath)]
-pub struct LrNode {
+#[element(LayoutMath)]
+pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
     ///
     /// Defaults to `{100%}`.
@@ -29,7 +29,7 @@ pub struct LrNode {
         let mut body = Content::empty();
         for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
             if i > 0 {
-                body += TextNode::packed(',');
+                body += TextElem::packed(',');
             }
             body += arg;
         }
@@ -38,12 +38,12 @@ pub struct LrNode {
     pub body: Content,
 }
 
-impl LayoutMath for LrNode {
+impl LayoutMath for LrElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = self.body();
-        if let Some(node) = body.to::<LrNode>() {
-            if node.size(ctx.styles()).is_auto() {
-                body = node.body();
+        if let Some(elem) = body.to::<LrElem>() {
+            if elem.size(ctx.styles()).is_auto() {
+                body = elem.body();
             }
         }
 
@@ -179,12 +179,11 @@ pub fn norm(
 }
 
 fn delimited(body: Content, left: char, right: char) -> Value {
-    Value::Content(
-        LrNode::new(Content::sequence(vec![
-            TextNode::packed(left),
-            body,
-            TextNode::packed(right),
-        ]))
-        .pack(),
-    )
+    LrElem::new(Content::sequence([
+        TextElem::packed(left),
+        body,
+        TextElem::packed(right),
+    ]))
+    .pack()
+    .into()
 }

@@ -13,8 +13,8 @@ use super::*;
 ///
 /// Display: Attachment
 /// Category: math
-#[node(LayoutMath)]
-pub struct AttachNode {
+#[element(LayoutMath)]
+pub struct AttachElem {
     /// The base to which things are attached.
     #[required]
     pub base: Content,
@@ -26,25 +26,25 @@ pub struct AttachNode {
     pub bottom: Option<Content>,
 }
 
-impl LayoutMath for AttachNode {
+impl LayoutMath for AttachElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let base = self.base();
-        let display_limits = base.is::<LimitsNode>();
-        let display_scripts = base.is::<ScriptsNode>();
+        let display_limits = base.is::<LimitsElem>();
+        let display_scripts = base.is::<ScriptsElem>();
 
         let base = ctx.layout_fragment(&base)?;
 
         ctx.style(ctx.style.for_subscript());
         let top = self
             .top(ctx.styles())
-            .map(|node| ctx.layout_fragment(&node))
+            .map(|elem| ctx.layout_fragment(&elem))
             .transpose()?;
         ctx.unstyle();
 
         ctx.style(ctx.style.for_superscript());
         let bottom = self
             .bottom(ctx.styles())
-            .map(|node| ctx.layout_fragment(&node))
+            .map(|elem| ctx.layout_fragment(&elem))
             .transpose()?;
         ctx.unstyle();
 
@@ -75,14 +75,14 @@ impl LayoutMath for AttachNode {
 ///
 /// Display: Scripts
 /// Category: math
-#[node(LayoutMath)]
-pub struct ScriptsNode {
+#[element(LayoutMath)]
+pub struct ScriptsElem {
     /// The base to attach the scripts to.
     #[required]
     pub body: Content,
 }
 
-impl LayoutMath for ScriptsNode {
+impl LayoutMath for ScriptsElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
@@ -97,14 +97,14 @@ impl LayoutMath for ScriptsNode {
 ///
 /// Display: Limits
 /// Category: math
-#[node(LayoutMath)]
-pub struct LimitsNode {
+#[element(LayoutMath)]
+pub struct LimitsElem {
     /// The base to attach the limits to.
     #[required]
     pub body: Content,
 }
 
-impl LayoutMath for LimitsNode {
+impl LayoutMath for LimitsElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }

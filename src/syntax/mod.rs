@@ -14,6 +14,5 @@ pub use self::kind::*;
 pub use self::lexer::*;
 pub use self::node::*;
 pub use self::parser::*;
-pub use self::reparser::*;
 pub use self::source::*;
 pub use self::span::*;

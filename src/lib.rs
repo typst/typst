@@ -9,12 +9,12 @@
 //!   The next step is to [evaluate] the markup. This produces a [module],
 //!   consisting of a scope of values that were exported by the code and
 //!   [content], a hierarchical, styled representation of what was written in
-//!   the source file. The nodes of the content tree are well structured and
+//!   the source file. The elements of the content tree are well structured and
 //!   order-independent and thus much better suited for further processing than
 //!   the raw markup.
 //! - **Typesetting:**
 //!   Next, the content is [typeset] into a [document] containing one [frame]
-//!   per page with elements and fixed positions.
+//!   per page with items at fixed positions.
 //! - **Exporting:**
 //!   These frames can finally be exported into an output format (currently
 //!   supported are [PDF] and [raster images]).

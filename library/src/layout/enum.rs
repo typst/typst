@@ -1,9 +1,9 @@
 use std::str::FromStr;
 
-use crate::layout::{BlockNode, ParNode, Sizing, Spacing};
+use crate::layout::{BlockElem, ParElem, Sizing, Spacing};
 use crate::meta::{Numbering, NumberingPattern};
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::TextElem;
 
 use super::GridLayouter;
 
@@ -50,8 +50,8 @@ use super::GridLayouter;
 ///
 /// Display: Numbered List
 /// Category: layout
-#[node(Layout)]
-pub struct EnumNode {
+#[element(Layout)]
+pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal
     /// [leading]($func/par.leading) instead. This makes the enumeration more
@@ -153,7 +153,7 @@ pub struct EnumNode {
     parents: Parent,
 }
 
-impl Layout for EnumNode {
+impl Layout for EnumElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -164,10 +164,10 @@ impl Layout for EnumNode {
         let indent = self.indent(styles);
         let body_indent = self.body_indent(styles);
         let gutter = if self.tight(styles) {
-            ParNode::leading_in(styles).into()
+            ParElem::leading_in(styles).into()
         } else {
             self.spacing(styles)
-                .unwrap_or_else(|| BlockNode::below_in(styles).amount())
+                .unwrap_or_else(|| BlockElem::below_in(styles).amount())
         };
 
         let mut cells = vec![];
@@ -186,7 +186,7 @@ impl Layout for EnumNode {
             } else {
                 match &numbering {
                     Numbering::Pattern(pattern) => {
-                        TextNode::packed(pattern.apply_kth(parents.len(), number))
+                        TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
                     other => other.apply_vt(vt, &[number])?.display(),
                 }
@@ -221,7 +221,7 @@ impl Layout for EnumNode {
 ///
 /// Display: Numbered List Item
 /// Category: layout
-#[node]
+#[element]
 pub struct EnumItem {
     /// The item's number.
     #[positional]

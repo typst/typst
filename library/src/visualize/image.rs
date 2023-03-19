@@ -22,8 +22,8 @@ use crate::prelude::*;
 ///
 /// Display: Image
 /// Category: visualize
-#[node(Layout)]
-pub struct ImageNode {
+#[element(Layout)]
+pub struct ImageElem {
     /// Path to an image file.
     #[required]
     #[parse(
@@ -46,7 +46,7 @@ pub struct ImageNode {
     pub fit: ImageFit,
 }
 
-impl Layout for ImageNode {
+impl Layout for ImageElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -97,7 +97,7 @@ impl Layout for ImageNode {
         // the frame to the target size, center aligning the image in the
         // process.
         let mut frame = Frame::new(fitted);
-        frame.push(Point::zero(), Element::Image(image, fitted, self.span()));
+        frame.push(Point::zero(), FrameItem::Image(image, fitted, self.span()));
         frame.resize(target, Align::CENTER_HORIZON);
 
         // Create a clipping group if only part of the image should be visible.

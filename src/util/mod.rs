@@ -40,7 +40,7 @@ pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
     state.finish128().as_u128()
 }
 
-/// Extra methods for [`NonZeroUsize`].
+/// An extra constant for [`NonZeroUsize`].
 pub trait NonZeroExt {
     /// The number `1`.
     const ONE: Self;
@@ -210,26 +210,17 @@ pub fn pretty_array_like(parts: &[impl AsRef<str>], trailing_comma: bool) -> Str
     buf.push('(');
     if list.contains('\n') {
         buf.push('\n');
-        buf.push_str(&indent(&list, 2));
+        for (i, line) in list.lines().enumerate() {
+            if i > 0 {
+                buf.push('\n');
+            }
+            buf.push_str("  ");
+            buf.push_str(line);
+        }
         buf.push('\n');
     } else {
         buf.push_str(&list);
     }
     buf.push(')');
-    buf
-}
-
-/// Indent a string by two spaces.
-pub fn indent(text: &str, amount: usize) -> String {
-    let mut buf = String::new();
-    for (i, line) in text.lines().enumerate() {
-        if i > 0 {
-            buf.push('\n');
-        }
-        for _ in 0..amount {
-            buf.push(' ');
-        }
-        buf.push_str(line);
-    }
     buf
 }

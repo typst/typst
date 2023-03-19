@@ -22,9 +22,9 @@ pub use typst::eval::{
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    node, Behave, Behaviour, Construct, Content, Finalize, Fold, Introspector, Label,
-    Locatable, MetaNode, Node, NodeId, Resolve, Selector, Set, Show, StabilityProvider,
-    StableId, StyleChain, StyleMap, StyleVec, Synthesize, Unlabellable, Vt,
+    element, Behave, Behaviour, Construct, Content, ElemFunc, Element, Finalize, Fold,
+    Introspector, Label, Locatable, Location, MetaElem, Resolve, Selector, Set, Show,
+    StabilityProvider, StyleChain, StyleVec, Styles, Synthesize, Unlabellable, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};
@@ -36,4 +36,4 @@ pub use typst::World;
 #[doc(no_inline)]
 pub use crate::layout::{Fragment, Layout, Regions};
 #[doc(no_inline)]
-pub use crate::shared::{ContentExt, StyleMapExt};
+pub use crate::shared::{ContentExt, StylesExt};

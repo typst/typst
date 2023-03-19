@@ -1,6 +1,4 @@
-use typst::model::StyledNode;
-
-use super::{AlignNode, Spacing};
+use super::{AlignElem, Spacing};
 use crate::prelude::*;
 
 /// Arrange content and spacing horizontally or vertically.
@@ -20,8 +18,8 @@ use crate::prelude::*;
 ///
 /// Display: Stack
 /// Category: layout
-#[node(Layout)]
-pub struct StackNode {
+#[element(Layout)]
+pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:
     ///
     /// - `{ltr}`: Left to right.
@@ -39,7 +37,7 @@ pub struct StackNode {
     pub children: Vec<StackChild>,
 }
 
-impl Layout for StackNode {
+impl Layout for StackElem {
     fn layout(
         &self,
         vt: &mut Vt,
@@ -73,7 +71,7 @@ impl Layout for StackNode {
     }
 }
 
-/// A child of a stack node.
+/// A child of a stack element.
 #[derive(Hash)]
 pub enum StackChild {
     /// Spacing between other children.
@@ -196,14 +194,13 @@ impl<'a> StackLayouter<'a> {
             self.finish_region();
         }
 
-        // Block-axis alignment of the `AlignNode` is respected
-        // by the stack node.
-        let aligns = if let Some(align) = block.to::<AlignNode>() {
+        // Block-axis alignment of the `AlignElement` is respected by stacks.
+        let aligns = if let Some(align) = block.to::<AlignElem>() {
             align.alignment(styles)
-        } else if let Some(styled) = block.to::<StyledNode>() {
-            AlignNode::alignment_in(styles.chain(&styled.styles()))
+        } else if let Some((_, local)) = block.to_styled() {
+            AlignElem::alignment_in(styles.chain(&local))
         } else {
-            AlignNode::alignment_in(styles)
+            AlignElem::alignment_in(styles)
         }
         .resolve(styles);
 

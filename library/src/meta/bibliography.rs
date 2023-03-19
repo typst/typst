@@ -8,18 +8,18 @@ use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
 
-use super::{LocalName, RefNode};
-use crate::layout::{BlockNode, GridNode, ParNode, Sizing, TrackSizings, VNode};
-use crate::meta::HeadingNode;
+use super::{LocalName, RefElem};
+use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
+use crate::meta::HeadingElem;
 use crate::prelude::*;
-use crate::text::TextNode;
+use crate::text::TextElem;
 
 /// A bibliography / reference listing.
 ///
 /// Display: Bibliography
 /// Category: meta
-#[node(Locatable, Synthesize, Show, LocalName)]
-pub struct BibliographyNode {
+#[element(Locatable, Synthesize, Show, LocalName)]
+pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
     #[parse(
@@ -45,11 +45,11 @@ pub struct BibliographyNode {
     pub style: BibliographyStyle,
 }
 
-impl BibliographyNode {
+impl BibliographyElem {
     /// Find the document's bibliography.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
-        let mut iter = introspector.query(Selector::node::<Self>()).into_iter();
-        let Some(node) = iter.next() else {
+        let mut iter = introspector.query(Self::func().select()).into_iter();
+        let Some(elem) = iter.next() else {
             return Err("the document does not contain a bibliography".into());
         };
 
@@ -57,15 +57,15 @@ impl BibliographyNode {
             Err("multiple bibliographies are not supported")?;
         }
 
-        Ok(node.to::<Self>().unwrap().clone())
+        Ok(elem.to::<Self>().unwrap().clone())
     }
 
     /// Whether the bibliography contains the given key.
     pub fn has(vt: &Vt, key: &str) -> bool {
         vt.introspector
-            .query(Selector::node::<Self>())
+            .query(Self::func().select())
             .into_iter()
-            .flat_map(|node| load(vt.world, &node.to::<Self>().unwrap().path()))
+            .flat_map(|elem| load(vt.world, &elem.to::<Self>().unwrap().path()))
             .flatten()
             .any(|entry| entry.key() == key)
     }
@@ -76,7 +76,7 @@ impl BibliographyNode {
         introspector: Tracked<Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)> {
         Self::find(introspector)
-            .and_then(|node| load(world, &node.path()))
+            .and_then(|elem| load(world, &elem.path()))
             .into_iter()
             .flatten()
             .map(|entry| {
@@ -89,13 +89,13 @@ impl BibliographyNode {
     }
 }
 
-impl Synthesize for BibliographyNode {
+impl Synthesize for BibliographyElem {
     fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
         self.push_style(self.style(styles));
     }
 }
 
-impl Show for BibliographyNode {
+impl Show for BibliographyElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
@@ -103,12 +103,12 @@ impl Show for BibliographyNode {
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {
-                TextNode::packed(self.local_name(TextNode::lang_in(styles)))
+                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
                     .spanned(self.span())
             });
 
             seq.push(
-                HeadingNode::new(title)
+                HeadingElem::new(title)
                     .with_level(NonZeroUsize::ONE)
                     .with_numbering(None)
                     .pack(),
@@ -121,7 +121,7 @@ impl Show for BibliographyNode {
 
         let works = Works::new(vt).at(self.span())?;
 
-        let row_gutter = BlockNode::below_in(styles).amount();
+        let row_gutter = BlockElem::below_in(styles).amount();
         if works.references.iter().any(|(prefix, _)| prefix.is_some()) {
             let mut cells = vec![];
             for (prefix, reference) in &works.references {
@@ -129,9 +129,9 @@ impl Show for BibliographyNode {
                 cells.push(reference.clone());
             }
 
-            seq.push(VNode::new(row_gutter).with_weakness(3).pack());
+            seq.push(VElem::new(row_gutter).with_weakness(3).pack());
             seq.push(
-                GridNode::new(cells)
+                GridElem::new(cells)
                     .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
                     .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
                     .with_row_gutter(TrackSizings(vec![row_gutter.into()]))
@@ -140,13 +140,13 @@ impl Show for BibliographyNode {
         } else {
             let mut entries = vec![];
             for (_, reference) in &works.references {
-                entries.push(VNode::new(row_gutter).with_weakness(3).pack());
+                entries.push(VElem::new(row_gutter).with_weakness(3).pack());
                 entries.push(reference.clone());
             }
 
             seq.push(
                 Content::sequence(entries)
-                    .styled(ParNode::set_hanging_indent(INDENT.into())),
+                    .styled(ParElem::set_hanging_indent(INDENT.into())),
             );
         }
 
@@ -154,7 +154,7 @@ impl Show for BibliographyNode {
     }
 }
 
-impl LocalName for BibliographyNode {
+impl LocalName for BibliographyElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Bibliographie",
@@ -196,8 +196,8 @@ impl BibliographyStyle {
 ///
 /// Display: Citation
 /// Category: meta
-#[node(Locatable, Synthesize, Show)]
-pub struct CiteNode {
+#[element(Locatable, Synthesize, Show)]
+pub struct CiteElem {
     /// The citation key.
     #[variadic]
     pub keys: Vec<EcoString>,
@@ -217,7 +217,7 @@ pub struct CiteNode {
     pub style: Smart<CitationStyle>,
 }
 
-impl Synthesize for CiteNode {
+impl Synthesize for CiteElem {
     fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
         self.push_supplement(self.supplement(styles));
         self.push_brackets(self.brackets(styles));
@@ -225,17 +225,17 @@ impl Synthesize for CiteNode {
     }
 }
 
-impl Show for CiteNode {
+impl Show for CiteElem {
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
         }
 
         let works = Works::new(vt).at(self.span())?;
-        let id = self.0.stable_id().unwrap();
+        let location = self.0.location().unwrap();
         works
             .citations
-            .get(&id)
+            .get(&location)
             .cloned()
             .flatten()
             .ok_or("bibliography does not contain this key")
@@ -264,24 +264,24 @@ pub enum CitationStyle {
 /// Fully formatted citations and references.
 #[derive(Default)]
 struct Works {
-    citations: HashMap<StableId, Option<Content>>,
+    citations: HashMap<Location, Option<Content>>,
     references: Vec<(Option<Content>, Content)>,
 }
 
 impl Works {
     /// Prepare all things need to cite a work or format a bibliography.
     fn new(vt: &Vt) -> StrResult<Arc<Self>> {
-        let bibliography = BibliographyNode::find(vt.introspector)?;
+        let bibliography = BibliographyElem::find(vt.introspector)?;
         let citations = vt
             .introspector
             .query(Selector::Any(eco_vec![
-                Selector::node::<RefNode>(),
-                Selector::node::<CiteNode>(),
+                RefElem::func().select(),
+                CiteElem::func().select(),
             ]))
             .into_iter()
-            .map(|node| match node.to::<RefNode>() {
+            .map(|elem| match elem.to::<RefElem>() {
                 Some(reference) => reference.to_citation(StyleChain::default()),
-                _ => node.to::<CiteNode>().unwrap().clone(),
+                _ => elem.to::<CiteElem>().unwrap().clone(),
             })
             .collect();
         Ok(create(vt.world, bibliography, citations))
@@ -292,19 +292,19 @@ impl Works {
 #[comemo::memoize]
 fn create(
     world: Tracked<dyn World>,
-    bibliography: BibliographyNode,
-    citations: Vec<CiteNode>,
+    bibliography: BibliographyElem,
+    citations: Vec<CiteElem>,
 ) -> Arc<Works> {
     let span = bibliography.span();
     let entries = load(world, &bibliography.path()).unwrap();
     let style = bibliography.style(StyleChain::default());
-    let bib_id = bibliography.0.stable_id().unwrap();
-    let ref_id = |target: &Entry| {
+    let bib_location = bibliography.0.location().unwrap();
+    let ref_location = |target: &Entry| {
         let i = entries
             .iter()
             .position(|entry| entry.key() == target.key())
             .unwrap_or_default();
-        bib_id.variant(i)
+        bib_location.variant(i)
     };
 
     let mut db = Database::new();
@@ -312,7 +312,7 @@ fn create(
     let mut preliminary = vec![];
 
     for citation in citations {
-        let cite_id = citation.0.stable_id().unwrap();
+        let cite_id = citation.0.location().unwrap();
         let entries = citation
             .keys()
             .into_iter()
@@ -333,8 +333,8 @@ fn create(
     let citations = preliminary
         .into_iter()
         .map(|(citation, cited)| {
-            let id = citation.0.stable_id().unwrap();
-            let Some(cited) = cited else { return (id, None) };
+            let location = citation.0.location().unwrap();
+            let Some(cited) = cited else { return (location, None) };
 
             let mut supplement = citation.supplement(StyleChain::default());
             let brackets = citation.brackets(StyleChain::default());
@@ -376,27 +376,27 @@ fn create(
                 }
 
                 if i > 0 {
-                    content += TextNode::packed(",\u{a0}");
+                    content += TextElem::packed(",\u{a0}");
                 }
 
                 // Format and link to the reference entry.
                 content += format_display_string(&display, supplement, citation.span())
-                    .linked(Link::Node(ref_id(entry)));
+                    .linked(Destination::Location(ref_location(entry)));
             }
 
             if brackets && len > 1 {
                 content = match citation_style.brackets() {
                     Brackets::None => content,
                     Brackets::Round => {
-                        TextNode::packed('(') + content + TextNode::packed(')')
+                        TextElem::packed('(') + content + TextElem::packed(')')
                     }
                     Brackets::Square => {
-                        TextNode::packed('[') + content + TextNode::packed(']')
+                        TextElem::packed('[') + content + TextElem::packed(']')
                     }
                 };
             }
 
-            (id, Some(content))
+            (location, Some(content))
         })
         .collect();
 
@@ -414,15 +414,15 @@ fn create(
             // Make link from citation to here work.
             let backlink = {
                 let mut content = Content::empty();
-                content.set_stable_id(ref_id(&reference.entry));
-                MetaNode::set_data(vec![Meta::Node(content)])
+                content.set_location(ref_location(&reference.entry));
+                MetaElem::set_data(vec![Meta::Elem(content)])
             };
 
             let prefix = reference.prefix.map(|prefix| {
                 // Format and link to first citation.
                 let bracketed = prefix.with_default_brackets(&*citation_style);
                 format_display_string(&bracketed, None, span)
-                    .linked(Link::Node(ids[reference.entry.key()]))
+                    .linked(Destination::Location(ids[reference.entry.key()]))
                     .styled(backlink.clone())
             });
 
@@ -510,7 +510,7 @@ fn format_display_string(
         let mut content = if segment == SUPPLEMENT && supplement.is_some() {
             supplement.take().unwrap_or_default()
         } else {
-            TextNode::packed(segment).spanned(span)
+            TextElem::packed(segment).spanned(span)
         };
 
         for (range, fmt) in &string.formatting {
@@ -522,7 +522,7 @@ fn format_display_string(
                 Formatting::Bold => content.strong(),
                 Formatting::Italic => content.emph(),
                 Formatting::Link(link) => {
-                    content.linked(Link::Dest(Destination::Url(link.as_str().into())))
+                    content.linked(Destination::Url(link.as_str().into()))
                 }
             };
         }
