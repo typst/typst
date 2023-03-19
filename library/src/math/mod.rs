@@ -39,9 +39,7 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HNode, ParNode, Spacing};
-use crate::meta::{
-    Count, Counter, CounterAction, CounterNode, CounterUpdate, LocalName, Numbering,
-};
+use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::{
     families, variant, FontFamily, FontList, LinebreakNode, SpaceNode, TextNode, TextSize,
@@ -217,29 +215,29 @@ impl Layout for EquationNode {
         if block {
             if let Some(numbering) = self.numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = CounterNode::new(
-                    Counter::of(Self::id()),
-                    CounterAction::Get(numbering),
-                );
+                let counter = Counter::of(Self::id())
+                    .display(numbering, false)
+                    .layout(vt, styles, pod)?
+                    .into_frame();
 
-                let sub = counter.pack().layout(vt, styles, pod)?.into_frame();
                 let width = if regions.size.x.is_finite() {
                     regions.size.x
                 } else {
-                    frame.width() + 2.0 * (sub.width() + NUMBER_GUTTER.resolve(styles))
+                    frame.width()
+                        + 2.0 * (counter.width() + NUMBER_GUTTER.resolve(styles))
                 };
 
-                let height = frame.height().max(sub.height());
+                let height = frame.height().max(counter.height());
                 frame.resize(Size::new(width, height), Align::CENTER_HORIZON);
 
                 let x = if TextNode::dir_in(styles).is_positive() {
-                    frame.width() - sub.width()
+                    frame.width() - counter.width()
                 } else {
                     Abs::zero()
                 };
-                let y = (frame.height() - sub.height()) / 2.0;
+                let y = (frame.height() - counter.height()) / 2.0;
 
-                frame.push_frame(Point::new(x, y), sub)
+                frame.push_frame(Point::new(x, y), counter)
             }
         } else {
             let slack = ParNode::leading_in(styles) * 0.7;

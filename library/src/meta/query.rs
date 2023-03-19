@@ -9,10 +9,29 @@ use crate::prelude::*;
 pub fn query(
     /// The thing to search for.
     target: Target,
-    /// A function to format the results with.
-    format: Func,
+    /// The location.
+    #[external]
+    location: StableId,
+    /// The location before which to query.
+    #[named]
+    #[external]
+    before: StableId,
+    /// The location after which to query.
+    #[named]
+    #[external]
+    after: StableId,
 ) -> Value {
-    QueryNode::new(target.0, format).pack().into()
+    let selector = target.0;
+    let introspector = vm.vt.introspector;
+    let elements = if let Some(id) = args.named("before")? {
+        introspector.query_before(selector, id)
+    } else if let Some(id) = args.named("after")? {
+        introspector.query_after(selector, id)
+    } else {
+        let _: StableId = args.expect("id")?;
+        introspector.query(selector)
+    };
+    elements.into()
 }
 
 /// A query target.
@@ -31,33 +50,5 @@ cast_from_value! {
         }
 
         Self(Selector::Node(id, None))
-    }
-}
-
-/// Executes a query.
-///
-/// Display: Query
-/// Category: special
-#[node(Locatable, Show)]
-struct QueryNode {
-    /// The thing to search for.
-    #[required]
-    target: Selector,
-
-    /// The function to format the results with.
-    #[required]
-    format: Func,
-}
-
-impl Show for QueryNode {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        if !vt.introspector.init() {
-            return Ok(Content::empty());
-        }
-
-        let id = self.0.stable_id().unwrap();
-        let target = self.target();
-        let (before, after) = vt.introspector.query_split(target, id);
-        Ok(self.format().call_vt(vt, [before.into(), after.into()])?.display())
     }
 }

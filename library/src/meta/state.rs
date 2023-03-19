@@ -1,6 +1,6 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
-use ecow::EcoVec;
+use ecow::{eco_vec, EcoVec};
 use typst::eval::Tracer;
 
 use crate::prelude::*;
@@ -21,91 +21,6 @@ pub fn state(
     Value::dynamic(State { key, init })
 }
 
-/// Call a method on a state.
-pub fn state_method(
-    state: State,
-    method: &str,
-    mut args: Args,
-    span: Span,
-) -> SourceResult<Value> {
-    let action = match method {
-        "get" => StateAction::Get(args.eat()?),
-        "final" => StateAction::Final(args.eat()?),
-        "update" => StateAction::Update(args.expect("value or function")?),
-        _ => bail!(span, "type state has no method `{}`", method),
-    };
-
-    args.finish()?;
-
-    let content = StateNode::new(state, action).pack();
-    Ok(Value::Content(content))
-}
-
-/// Executes an action on a state.
-///
-/// Display: State
-/// Category: special
-#[node(Locatable, Show)]
-pub struct StateNode {
-    /// The state.
-    #[required]
-    pub state: State,
-
-    /// The action.
-    #[required]
-    pub action: StateAction,
-}
-
-impl Show for StateNode {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        match self.action() {
-            StateAction::Get(func) => self.state().resolve(vt, self.0.stable_id(), func),
-            StateAction::Final(func) => self.state().resolve(vt, None, func),
-            StateAction::Update(_) => Ok(Content::empty()),
-        }
-    }
-}
-
-/// The action to perform on the state.
-#[derive(Clone, PartialEq, Hash)]
-pub enum StateAction {
-    /// Displays the current state.
-    Get(Option<Func>),
-    /// Displays the final state.
-    Final(Option<Func>),
-    /// Updates the state, possibly based on the previous one.
-    Update(StateUpdate),
-}
-
-cast_from_value! {
-    StateAction: "state action",
-}
-
-impl Debug for StateAction {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Get(_) => f.pad("get(..)"),
-            Self::Final(_) => f.pad("final(..)"),
-            Self::Update(_) => f.pad("update(..)"),
-        }
-    }
-}
-
-/// An update to perform on a state.
-#[derive(Debug, Clone, PartialEq, Hash)]
-pub enum StateUpdate {
-    /// Set the state to the specified value.
-    Set(Value),
-    /// Apply the given function to the state.
-    Func(Func),
-}
-
-cast_from_value! {
-    StateUpdate,
-    v: Func => Self::Func(v),
-    v: Value => Self::Set(v),
-}
-
 /// A state.
 #[derive(Clone, PartialEq, Hash)]
 pub struct State {
@@ -116,72 +31,92 @@ pub struct State {
 }
 
 impl State {
-    /// Display the state at the postition of the given stable id.
-    fn resolve(
-        &self,
-        vt: &mut Vt,
-        stop: Option<StableId>,
-        func: Option<Func>,
-    ) -> SourceResult<Content> {
-        if !vt.introspector.init() {
-            return Ok(Content::empty());
-        }
+    /// Call a method on a state.
+    pub fn call_method(
+        self,
+        vm: &mut Vm,
+        method: &str,
+        mut args: Args,
+        span: Span,
+    ) -> SourceResult<Value> {
+        let value = match method {
+            "display" => self.display(args.eat()?).into(),
+            "at" => self.at(&mut vm.vt, args.expect("location")?)?,
+            "final" => self.final_(&mut vm.vt, args.expect("location")?)?,
+            "update" => self.update(args.expect("value or function")?).into(),
+            _ => bail!(span, "type state has no method `{}`", method),
+        };
+        args.finish()?;
+        Ok(value)
+    }
 
-        let sequence = self.sequence(
-            vt.world,
-            TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
-            vt.introspector,
-        )?;
+    /// Display the current value of the state.
+    pub fn display(self, func: Option<Func>) -> Content {
+        DisplayNode::new(self, func).pack()
+    }
 
-        Ok(match sequence.at(stop) {
-            Some(value) => {
-                if let Some(func) = func {
-                    func.call_vt(vt, [value])?.display()
-                } else {
-                    value.display()
-                }
-            }
-            None => Content::empty(),
-        })
+    /// Get the value of the state at the given location.
+    pub fn at(self, vt: &mut Vt, id: StableId) -> SourceResult<Value> {
+        let sequence = self.sequence(vt)?;
+        let offset = vt.introspector.query_before(self.selector(), id).len();
+        Ok(sequence[offset].clone())
+    }
+
+    /// Get the value of the state at the final location.
+    pub fn final_(self, vt: &mut Vt, _: StableId) -> SourceResult<Value> {
+        let sequence = self.sequence(vt)?;
+        Ok(sequence.last().unwrap().clone())
+    }
+
+    /// Produce content that performs a state update.
+    pub fn update(self, update: StateUpdate) -> Content {
+        UpdateNode::new(self, update).pack()
     }
 
     /// Produce the whole sequence of states.
     ///
     /// This has to happen just once for all states, cutting down the number
     /// of state updates from quadratic to linear.
+    fn sequence(&self, vt: &mut Vt) -> SourceResult<EcoVec<Value>> {
+        self.sequence_impl(
+            vt.world,
+            TrackedMut::reborrow_mut(&mut vt.tracer),
+            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.introspector,
+        )
+    }
+
+    /// Memoized implementation of `sequence`.
     #[comemo::memoize]
-    fn sequence(
+    fn sequence_impl(
         &self,
         world: Tracked<dyn World>,
         tracer: TrackedMut<Tracer>,
         provider: TrackedMut<StabilityProvider>,
         introspector: Tracked<Introspector>,
-    ) -> SourceResult<StateSequence> {
+    ) -> SourceResult<EcoVec<Value>> {
         let mut vt = Vt { world, tracer, provider, introspector };
-        let search = Selector::Node(
-            NodeId::of::<StateNode>(),
-            Some(dict! { "state" => self.clone() }),
-        );
-
-        let mut stops = EcoVec::new();
         let mut state = self.init.clone();
+        let mut stops = eco_vec![state.clone()];
 
-        for node in introspector.query(search) {
-            let id = node.stable_id().unwrap();
-            let node = node.to::<StateNode>().unwrap();
-
-            if let StateAction::Update(update) = node.action() {
-                match update {
-                    StateUpdate::Set(value) => state = value,
-                    StateUpdate::Func(func) => state = func.call_vt(&mut vt, [state])?,
-                }
+        for node in introspector.query(self.selector()) {
+            let node = node.to::<UpdateNode>().unwrap();
+            match node.update() {
+                StateUpdate::Set(value) => state = value,
+                StateUpdate::Func(func) => state = func.call_vt(&mut vt, [state])?,
             }
-
-            stops.push((id, state.clone()));
+            stops.push(state.clone());
         }
 
-        Ok(StateSequence(stops))
+        Ok(stops)
+    }
+
+    /// The selector for this state's updates.
+    fn selector(&self) -> Selector {
+        Selector::Node(
+            NodeId::of::<UpdateNode>(),
+            Some(dict! { "state" => self.clone() }),
+        )
     }
 }
 
@@ -199,17 +134,70 @@ cast_from_value! {
     State: "state",
 }
 
-/// A sequence of state values.
-#[derive(Debug, Clone)]
-struct StateSequence(EcoVec<(StableId, Value)>);
+/// An update to perform on a state.
+#[derive(Clone, PartialEq, Hash)]
+pub enum StateUpdate {
+    /// Set the state to the specified value.
+    Set(Value),
+    /// Apply the given function to the state.
+    Func(Func),
+}
 
-impl StateSequence {
-    fn at(&self, stop: Option<StableId>) -> Option<Value> {
-        let entry = match stop {
-            Some(stop) => self.0.iter().find(|&&(id, _)| id == stop),
-            None => self.0.last(),
-        };
+impl Debug for StateUpdate {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("..")
+    }
+}
 
-        entry.map(|(_, value)| value.clone())
+cast_from_value! {
+    StateUpdate: "state update",
+    v: Func => Self::Func(v),
+    v: Value => Self::Set(v),
+}
+
+/// Executes a display of a state.
+///
+/// Display: State
+/// Category: special
+#[node(Locatable, Show)]
+struct DisplayNode {
+    /// The state.
+    #[required]
+    state: State,
+
+    /// The function to display the state with.
+    #[required]
+    func: Option<Func>,
+}
+
+impl Show for DisplayNode {
+    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+        let id = self.0.stable_id().unwrap();
+        let value = self.state().at(vt, id)?;
+        Ok(match self.func() {
+            Some(func) => func.call_vt(vt, [value])?.display(),
+            None => value.display(),
+        })
+    }
+}
+
+/// Executes a display of a state.
+///
+/// Display: State
+/// Category: special
+#[node(Locatable, Show)]
+struct UpdateNode {
+    /// The state.
+    #[required]
+    state: State,
+
+    /// The update to perform on the state.
+    #[required]
+    update: StateUpdate,
+}
+
+impl Show for UpdateNode {
+    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+        Ok(Content::empty())
     }
 }

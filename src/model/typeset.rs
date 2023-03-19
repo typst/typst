@@ -1,3 +1,4 @@
+use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
@@ -6,7 +7,7 @@ use comemo::{Constraint, Track, Tracked, TrackedMut};
 use super::{Content, Selector, StyleChain};
 use crate::diag::SourceResult;
 use crate::doc::{Document, Element, Frame, Location, Meta};
-use crate::eval::Tracer;
+use crate::eval::{cast_from_value, Tracer};
 use crate::geom::{Point, Transform};
 use crate::util::NonZeroExt;
 use crate::World;
@@ -116,7 +117,7 @@ impl StabilityProvider {
 /// Stably identifies a call site across multiple layout passes.
 ///
 /// This struct is created by [`StabilityProvider::identify`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct StableId(u128, usize, usize);
 
 impl StableId {
@@ -126,16 +127,27 @@ impl StableId {
     }
 }
 
+impl Debug for StableId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("..")
+    }
+}
+
+cast_from_value! {
+    StableId: "stable id",
+}
+
 /// Provides access to information about the document.
 pub struct Introspector {
     init: bool,
+    pages: usize,
     nodes: Vec<(Content, Location)>,
 }
 
 impl Introspector {
     /// Create a new introspector.
     pub fn new(frames: &[Frame]) -> Self {
-        let mut introspector = Self { init: false, nodes: vec![] };
+        let mut introspector = Self { init: false, pages: frames.len(), nodes: vec![] };
         for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();
             introspector.extract(frame, page, Transform::identity());
@@ -180,26 +192,37 @@ impl Introspector {
         self.init
     }
 
-    /// Query for all metadata matches for the given selector.
+    /// Query for all nodes for the given selector.
     pub fn query(&self, selector: Selector) -> Vec<Content> {
         self.all().filter(|node| selector.matches(node)).cloned().collect()
     }
 
-    /// Query for all metadata matches before the given id.
-    pub fn query_split(
-        &self,
-        selector: Selector,
-        id: StableId,
-    ) -> (Vec<Content>, Vec<Content>) {
-        let mut iter = self.all();
-        let before = iter
-            .by_ref()
-            .take_while(|node| node.stable_id() != Some(id))
+    /// Query for all nodes up to the given id.
+    pub fn query_before(&self, selector: Selector, id: StableId) -> Vec<Content> {
+        let mut matches = vec![];
+        for node in self.all() {
+            if selector.matches(node) {
+                matches.push(node.clone());
+            }
+            if node.stable_id() == Some(id) {
+                break;
+            }
+        }
+        matches
+    }
+
+    /// Query for all nodes starting from the given id.
+    pub fn query_after(&self, selector: Selector, id: StableId) -> Vec<Content> {
+        self.all()
+            .skip_while(|node| node.stable_id() != Some(id))
             .filter(|node| selector.matches(node))
             .cloned()
-            .collect();
-        let after = iter.filter(|node| selector.matches(node)).cloned().collect();
-        (before, after)
+            .collect()
+    }
+
+    /// The total number pages.
+    pub fn pages(&self) -> NonZeroUsize {
+        NonZeroUsize::new(self.pages).unwrap_or(NonZeroUsize::ONE)
     }
 
     /// Find the page number for the given stable id.

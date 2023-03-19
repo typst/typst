@@ -74,6 +74,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("scale", layout::ScaleNode::id());
     global.define("rotate", layout::RotateNode::id());
     global.define("hide", layout::HideNode::id());
+    global.define("measure", layout::measure);
 
     // Visualize.
     global.define("image", visualize::ImageNode::id());
@@ -92,6 +93,8 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("figure", meta::FigureNode::id());
     global.define("cite", meta::CiteNode::id());
     global.define("bibliography", meta::BibliographyNode::id());
+    global.define("locate", meta::locate);
+    global.define("style", meta::style);
     global.define("counter", meta::counter);
     global.define("numbering", meta::numbering);
     global.define("state", meta::state);
@@ -228,11 +231,11 @@ fn items() -> LangItems {
             math::AccentNode::new(base, math::Accent::new(accent)).pack()
         },
         math_frac: |num, denom| math::FracNode::new(num, denom).pack(),
-        library_method: |dynamic, method, args, span| {
-            if let Some(counter) = dynamic.downcast().cloned() {
-                meta::counter_method(counter, method, args, span)
-            } else if let Some(state) = dynamic.downcast().cloned() {
-                meta::state_method(state, method, args, span)
+        library_method: |vm, dynamic, method, args, span| {
+            if let Some(counter) = dynamic.downcast::<meta::Counter>().cloned() {
+                counter.call_method(vm, method, args, span)
+            } else if let Some(state) = dynamic.downcast::<meta::State>().cloned() {
+                state.call_method(vm, method, args, span)
             } else {
                 Err(format!("type {} has no method `{method}`", dynamic.type_name()))
                     .at(span)

@@ -1,9 +1,6 @@
 use std::str::FromStr;
 
-use super::{
-    Count, Counter, CounterAction, CounterNode, CounterUpdate, LocalName, Numbering,
-    NumberingPattern,
-};
+use super::{Count, Counter, CounterUpdate, LocalName, Numbering, NumberingPattern};
 use crate::layout::{BlockNode, VNode};
 use crate::prelude::*;
 use crate::text::TextNode;
@@ -59,12 +56,9 @@ impl Show for FigureNode {
             if let Some(numbering) = self.numbering(styles) {
                 let name = self.local_name(TextNode::lang_in(styles));
                 caption = TextNode::packed(eco_format!("{name}\u{a0}"))
-                    + CounterNode::new(
-                        Counter::of(Self::id()),
-                        CounterAction::Get(numbering),
-                    )
-                    .pack()
-                    .spanned(self.span())
+                    + Counter::of(Self::id())
+                        .display(numbering, false)
+                        .spanned(self.span())
                     + TextNode::packed(": ")
                     + caption;
             }

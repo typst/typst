@@ -4,6 +4,7 @@ use ecow::EcoString;
 
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
+use crate::model::StableId;
 use crate::syntax::Span;
 
 /// Call a method on a value.
@@ -73,8 +74,11 @@ pub fn call(
             "func" => Value::Func(content.id().into()),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
             "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?.clone(),
-            "page" => content.page(&vm.vt).at(span)?.into(),
-            "location" => content.location(&vm.vt).at(span)?.into(),
+            "id" => content
+                .stable_id()
+                .ok_or("this method can only be called on content returned by query()")
+                .at(span)?
+                .into(),
             _ => return missing(),
         },
 
@@ -137,7 +141,15 @@ pub fn call(
         },
 
         Value::Dyn(dynamic) => {
-            return (vm.items.library_method)(&dynamic, method, args, span);
+            if let Some(&id) = dynamic.downcast::<StableId>() {
+                match method {
+                    "page" => vm.vt.introspector.page(id).into(),
+                    "location" => vm.vt.introspector.location(id).into(),
+                    _ => return missing(),
+                }
+            } else {
+                return (vm.items.library_method)(vm, &dynamic, method, args, span);
+            }
         }
 
         _ => return missing(),
@@ -251,13 +263,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
-        "content" => &[
-            ("func", false),
-            ("has", true),
-            ("at", true),
-            ("page", false),
-            ("location", false),
-        ],
+        "content" => &[("func", false), ("has", true), ("at", true), ("id", false)],
         "array" => &[
             ("all", true),
             ("any", true),
@@ -293,14 +299,15 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         ],
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
+        "stable id" => &[("page", false), ("location", false)],
         "counter" => &[
-            ("get", true),
+            ("display", true),
+            ("at", true),
             ("final", true),
-            ("both", true),
             ("step", true),
             ("update", true),
         ],
-        "state" => &[("get", true), ("final", true), ("update", true)],
+        "state" => &[("display", true), ("at", true), ("final", true), ("update", true)],
         _ => &[],
     }
 }

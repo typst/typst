@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use super::{Counter, CounterAction, CounterNode, CounterUpdate, LocalName, Numbering};
+use super::{Counter, CounterUpdate, LocalName, Numbering};
 use crate::layout::{BlockNode, HNode, VNode};
 use crate::meta::Count;
 use crate::prelude::*;
@@ -92,9 +92,7 @@ impl Show for HeadingNode {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {
             realized =
-                CounterNode::new(Counter::of(Self::id()), CounterAction::Get(numbering))
-                    .pack()
-                    .spanned(self.span())
+                Counter::of(Self::id()).display(numbering, false).spanned(self.span())
                     + HNode::new(Em::new(0.3).into()).with_weak(true).pack()
                     + realized;
         }

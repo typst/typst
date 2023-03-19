@@ -22,6 +22,192 @@ pub fn counter(
     Value::dynamic(Counter::new(key))
 }
 
+/// Counts through pages, elements, and more.
+#[derive(Clone, PartialEq, Hash)]
+pub struct Counter(CounterKey);
+
+impl Counter {
+    /// Create a new counter from a key.
+    pub fn new(key: CounterKey) -> Self {
+        Self(key)
+    }
+
+    /// The counter for the given node.
+    pub fn of(id: NodeId) -> Self {
+        Self::new(CounterKey::Selector(Selector::Node(id, None)))
+    }
+
+    /// Call a method on counter.
+    pub fn call_method(
+        self,
+        vm: &mut Vm,
+        method: &str,
+        mut args: Args,
+        span: Span,
+    ) -> SourceResult<Value> {
+        let pattern = |s| NumberingPattern::from_str(s).unwrap().into();
+        let value = match method {
+            "display" => self
+                .display(
+                    args.eat()?.unwrap_or_else(|| pattern("1.1")),
+                    args.named("both")?.unwrap_or(false),
+                )
+                .into(),
+            "at" => self.at(&mut vm.vt, args.expect("location")?)?.into(),
+            "final" => self.final_(&mut vm.vt, args.expect("location")?)?.into(),
+            "update" => self.update(args.expect("value or function")?).into(),
+            "step" => self
+                .update(CounterUpdate::Step(
+                    args.named("level")?.unwrap_or(NonZeroUsize::ONE),
+                ))
+                .into(),
+            _ => bail!(span, "type counter has no method `{}`", method),
+        };
+        args.finish()?;
+        Ok(value)
+    }
+
+    /// Display the current value of the counter.
+    pub fn display(self, numbering: Numbering, both: bool) -> Content {
+        DisplayNode::new(self, numbering, both).pack()
+    }
+
+    /// Get the value of the state at the given location.
+    pub fn at(&self, vt: &mut Vt, id: StableId) -> SourceResult<CounterState> {
+        let sequence = self.sequence(vt)?;
+        let offset = vt.introspector.query_before(self.selector(), id).len();
+        let (mut state, page) = sequence[offset].clone();
+        if self.is_page() {
+            let delta = vt.introspector.page(id).get() - page.get();
+            state.step(NonZeroUsize::ONE, delta);
+        }
+        Ok(state)
+    }
+
+    /// Get the value of the state at the final location.
+    pub fn final_(&self, vt: &mut Vt, _: StableId) -> SourceResult<CounterState> {
+        let sequence = self.sequence(vt)?;
+        let (mut state, page) = sequence.last().unwrap().clone();
+        if self.is_page() {
+            let delta = vt.introspector.pages().get() - page.get();
+            state.step(NonZeroUsize::ONE, delta);
+        }
+        Ok(state)
+    }
+
+    /// Get the current and final value of the state combined in one state.
+    pub fn both(&self, vt: &mut Vt, id: StableId) -> SourceResult<CounterState> {
+        let sequence = self.sequence(vt)?;
+        let offset = vt.introspector.query_before(self.selector(), id).len();
+        let (mut at_state, at_page) = sequence[offset].clone();
+        let (mut final_state, final_page) = sequence.last().unwrap().clone();
+        if self.is_page() {
+            let at_delta = vt.introspector.page(id).get() - at_page.get();
+            at_state.step(NonZeroUsize::ONE, at_delta);
+            let final_delta = vt.introspector.pages().get() - final_page.get();
+            final_state.step(NonZeroUsize::ONE, final_delta);
+        }
+        Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
+    }
+
+    /// Produce content that performs a state update.
+    pub fn update(self, update: CounterUpdate) -> Content {
+        UpdateNode::new(self, update).pack()
+    }
+
+    /// Produce the whole sequence of counter states.
+    ///
+    /// This has to happen just once for all counters, cutting down the number
+    /// of counter updates from quadratic to linear.
+    fn sequence(
+        &self,
+        vt: &mut Vt,
+    ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
+        self.sequence_impl(
+            vt.world,
+            TrackedMut::reborrow_mut(&mut vt.tracer),
+            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.introspector,
+        )
+    }
+
+    /// Memoized implementation of `sequence`.
+    #[comemo::memoize]
+    fn sequence_impl(
+        &self,
+        world: Tracked<dyn World>,
+        tracer: TrackedMut<Tracer>,
+        provider: TrackedMut<StabilityProvider>,
+        introspector: Tracked<Introspector>,
+    ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
+        let mut vt = Vt { world, tracer, provider, introspector };
+        let mut state = CounterState(match &self.0 {
+            CounterKey::Selector(_) => smallvec![],
+            _ => smallvec![NonZeroUsize::ONE],
+        });
+        let mut page = NonZeroUsize::ONE;
+        let mut stops = eco_vec![(state.clone(), page)];
+
+        for node in introspector.query(self.selector()) {
+            if self.is_page() {
+                let id = node.stable_id().unwrap();
+                let prev = page;
+                page = introspector.page(id);
+
+                let delta = page.get() - prev.get();
+                if delta > 0 {
+                    state.step(NonZeroUsize::ONE, delta);
+                }
+            }
+
+            if let Some(update) = match node.to::<UpdateNode>() {
+                Some(node) => Some(node.update()),
+                None => match node.with::<dyn Count>() {
+                    Some(countable) => countable.update(),
+                    None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
+                },
+            } {
+                state.update(&mut vt, update)?;
+            }
+
+            stops.push((state.clone(), page));
+        }
+
+        Ok(stops)
+    }
+
+    /// The selector relevant for this counter's updates.
+    fn selector(&self) -> Selector {
+        let mut selector = Selector::Node(
+            NodeId::of::<UpdateNode>(),
+            Some(dict! { "counter" => self.clone() }),
+        );
+
+        if let CounterKey::Selector(key) = &self.0 {
+            selector = Selector::Any(eco_vec![selector, key.clone()]);
+        }
+
+        selector
+    }
+
+    /// Whether this is the page counter.
+    fn is_page(&self) -> bool {
+        self.0 == CounterKey::Page
+    }
+}
+
+impl Debug for Counter {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("counter(")?;
+        self.0.fmt(f)?;
+        f.write_char(')')
+    }
+}
+
+cast_from_value! {
+    Counter: "counter",
+}
+
 /// Identifies a counter.
 #[derive(Clone, PartialEq, Hash)]
 pub enum CounterKey {
@@ -65,118 +251,8 @@ impl Debug for CounterKey {
     }
 }
 
-/// Call a method on counter.
-pub fn counter_method(
-    counter: Counter,
-    method: &str,
-    mut args: Args,
-    span: Span,
-) -> SourceResult<Value> {
-    let pattern = |s| NumberingPattern::from_str(s).unwrap().into();
-    let action = match method {
-        "get" => CounterAction::Get(args.eat()?.unwrap_or_else(|| pattern("1.1"))),
-        "final" => CounterAction::Final(args.eat()?.unwrap_or_else(|| pattern("1.1"))),
-        "both" => CounterAction::Both(args.eat()?.unwrap_or_else(|| pattern("1/1"))),
-        "step" => CounterAction::Update(CounterUpdate::Step(
-            args.named("level")?.unwrap_or(NonZeroUsize::ONE),
-        )),
-        "update" => CounterAction::Update(args.expect("value or function")?),
-        _ => bail!(span, "type counter has no method `{}`", method),
-    };
-
-    args.finish()?;
-
-    let content = CounterNode::new(counter, action).pack();
-    Ok(Value::Content(content))
-}
-
-/// Executes an action on a counter.
-///
-/// Display: Counter
-/// Category: special
-#[node(Locatable, Show)]
-pub struct CounterNode {
-    /// The counter key.
-    #[required]
-    pub counter: Counter,
-
-    /// The action.
-    #[required]
-    pub action: CounterAction,
-}
-
-impl Show for CounterNode {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        match self.action() {
-            CounterAction::Get(numbering) => {
-                self.counter().resolve(vt, self.0.stable_id(), &numbering)
-            }
-            CounterAction::Final(numbering) => {
-                self.counter().resolve(vt, None, &numbering)
-            }
-            CounterAction::Both(numbering) => {
-                let both = match &numbering {
-                    Numbering::Pattern(pattern) => pattern.pieces() >= 2,
-                    _ => false,
-                };
-
-                let counter = self.counter();
-                let id = self.0.stable_id();
-                if !both {
-                    return counter.resolve(vt, id, &numbering);
-                }
-
-                let sequence = counter.sequence(
-                    vt.world,
-                    TrackedMut::reborrow_mut(&mut vt.tracer),
-                    TrackedMut::reborrow_mut(&mut vt.provider),
-                    vt.introspector,
-                )?;
-
-                Ok(match (sequence.single(id), sequence.single(None)) {
-                    (Some(current), Some(total)) => {
-                        numbering.apply_vt(vt, &[current, total])?.display()
-                    }
-                    _ => Content::empty(),
-                })
-            }
-            CounterAction::Update(_) => Ok(Content::empty()),
-        }
-    }
-}
-
-/// The action to perform on a counter.
-#[derive(Clone, PartialEq, Hash)]
-pub enum CounterAction {
-    /// Displays the current value.
-    Get(Numbering),
-    /// Displays the final value.
-    Final(Numbering),
-    /// If given a pattern with at least two parts, displays the current value
-    /// together with the final value. Otherwise, displays just the current
-    /// value.
-    Both(Numbering),
-    /// Updates the value, possibly based on the previous one.
-    Update(CounterUpdate),
-}
-
-cast_from_value! {
-    CounterAction: "counter action",
-}
-
-impl Debug for CounterAction {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Get(_) => f.pad("get(..)"),
-            Self::Final(_) => f.pad("final(..)"),
-            Self::Both(_) => f.pad("both(..)"),
-            Self::Update(_) => f.pad("update(..)"),
-        }
-    }
-}
-
 /// An update to perform on a counter.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum CounterUpdate {
     /// Set the counter to the specified state.
     Set(CounterState),
@@ -186,8 +262,14 @@ pub enum CounterUpdate {
     Func(Func),
 }
 
+impl Debug for CounterUpdate {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad("..")
+    }
+}
+
 cast_from_value! {
-    CounterUpdate,
+    CounterUpdate: "counter update",
     v: CounterState => Self::Set(v),
     v: Func => Self::Func(v),
 }
@@ -196,153 +278,6 @@ cast_from_value! {
 pub trait Count {
     /// Get the counter update for this node.
     fn update(&self) -> Option<CounterUpdate>;
-}
-
-/// Counts through pages, elements, and more.
-#[derive(Clone, PartialEq, Hash)]
-pub struct Counter {
-    /// The key that identifies the counter.
-    pub key: CounterKey,
-}
-
-impl Counter {
-    /// Create a new counter from a key.
-    pub fn new(key: CounterKey) -> Self {
-        Self { key }
-    }
-
-    /// The counter for the given node.
-    pub fn of(id: NodeId) -> Self {
-        Self::new(CounterKey::Selector(Selector::Node(id, None)))
-    }
-
-    /// Display the value of the counter at the postition of the given stable
-    /// id.
-    pub fn resolve(
-        &self,
-        vt: &mut Vt,
-        stop: Option<StableId>,
-        numbering: &Numbering,
-    ) -> SourceResult<Content> {
-        if !vt.introspector.init() {
-            return Ok(Content::empty());
-        }
-
-        let sequence = self.sequence(
-            vt.world,
-            TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
-            vt.introspector,
-        )?;
-
-        Ok(match sequence.at(stop) {
-            Some(state) => numbering.apply_vt(vt, &state.0)?.display(),
-            None => Content::empty(),
-        })
-    }
-
-    /// Produce the whole sequence of counter states.
-    ///
-    /// This has to happen just once for all counters, cutting down the number
-    /// of counter updates from quadratic to linear.
-    #[comemo::memoize]
-    fn sequence(
-        &self,
-        world: Tracked<dyn World>,
-        tracer: TrackedMut<Tracer>,
-        provider: TrackedMut<StabilityProvider>,
-        introspector: Tracked<Introspector>,
-    ) -> SourceResult<CounterSequence> {
-        let mut vt = Vt { world, tracer, provider, introspector };
-        let mut search = Selector::Node(
-            NodeId::of::<CounterNode>(),
-            Some(dict! { "counter" => self.clone() }),
-        );
-
-        if let CounterKey::Selector(selector) = &self.key {
-            search = Selector::Any(eco_vec![search, selector.clone()]);
-        }
-
-        let mut stops = EcoVec::new();
-        let mut state = CounterState(match &self.key {
-            CounterKey::Selector(_) => smallvec![],
-            _ => smallvec![NonZeroUsize::ONE],
-        });
-
-        let is_page = self.key == CounterKey::Page;
-        let mut prev_page = NonZeroUsize::ONE;
-
-        for node in introspector.query(search) {
-            let id = node.stable_id().unwrap();
-            if is_page {
-                let page = introspector.page(id);
-                let delta = page.get() - prev_page.get();
-                if delta > 0 {
-                    state.step(NonZeroUsize::ONE, delta);
-                }
-                prev_page = page;
-            }
-
-            if let Some(update) = match node.to::<CounterNode>() {
-                Some(counter) => match counter.action() {
-                    CounterAction::Update(update) => Some(update),
-                    _ => None,
-                },
-                None => match node.with::<dyn Count>() {
-                    Some(countable) => countable.update(),
-                    None => Some(CounterUpdate::Step(NonZeroUsize::ONE)),
-                },
-            } {
-                state.update(&mut vt, update)?;
-            }
-
-            stops.push((id, state.clone()));
-        }
-
-        Ok(CounterSequence { stops, is_page })
-    }
-}
-
-impl Debug for Counter {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("counter(")?;
-        self.key.fmt(f)?;
-        f.write_char(')')
-    }
-}
-
-cast_from_value! {
-    Counter: "counter",
-}
-
-/// A sequence of counter values.
-#[derive(Debug, Clone)]
-struct CounterSequence {
-    stops: EcoVec<(StableId, CounterState)>,
-    is_page: bool,
-}
-
-impl CounterSequence {
-    fn at(&self, stop: Option<StableId>) -> Option<CounterState> {
-        let entry = match stop {
-            Some(stop) => self.stops.iter().find(|&&(id, _)| id == stop),
-            None => self.stops.last(),
-        };
-
-        if let Some((_, state)) = entry {
-            return Some(state.clone());
-        }
-
-        if self.is_page {
-            return Some(CounterState(smallvec![NonZeroUsize::ONE]));
-        }
-
-        None
-    }
-
-    fn single(&self, stop: Option<StableId>) -> Option<NonZeroUsize> {
-        Some(*self.at(stop)?.0.first()?)
-    }
 }
 
 /// Counts through elements with different levels.
@@ -378,6 +313,16 @@ impl CounterState {
             self.0.push(NonZeroUsize::ONE);
         }
     }
+
+    /// Get the first number of the state.
+    pub fn first(&self) -> NonZeroUsize {
+        self.0.first().copied().unwrap_or(NonZeroUsize::ONE)
+    }
+
+    /// Display the counter state with a numbering.
+    pub fn display(&self, vt: &mut Vt, numbering: &Numbering) -> SourceResult<Content> {
+        Ok(numbering.apply_vt(vt, &self.0)?.display())
+    }
 }
 
 cast_from_value! {
@@ -387,4 +332,58 @@ cast_from_value! {
         .into_iter()
         .map(Value::cast)
         .collect::<StrResult<_>>()?),
+}
+
+cast_to_value! {
+    v: CounterState => Value::Array(v.0.into_iter().map(Into::into).collect())
+}
+
+/// Executes a display of a state.
+///
+/// Display: State
+/// Category: special
+#[node(Locatable, Show)]
+struct DisplayNode {
+    /// The counter.
+    #[required]
+    counter: Counter,
+
+    /// The numbering to display the counter with.
+    #[required]
+    numbering: Numbering,
+
+    /// Whether to display both the current and final value.
+    #[required]
+    both: bool,
+}
+
+impl Show for DisplayNode {
+    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+        let id = self.0.stable_id().unwrap();
+        let counter = self.counter();
+        let numbering = self.numbering();
+        let state = if self.both() { counter.both(vt, id) } else { counter.at(vt, id) }?;
+        state.display(vt, &numbering)
+    }
+}
+
+/// Executes a display of a state.
+///
+/// Display: State
+/// Category: special
+#[node(Locatable, Show)]
+struct UpdateNode {
+    /// The counter.
+    #[required]
+    counter: Counter,
+
+    /// The update to perform on the counter.
+    #[required]
+    update: CounterUpdate,
+}
+
+impl Show for UpdateNode {
+    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+        Ok(Content::empty())
+    }
 }

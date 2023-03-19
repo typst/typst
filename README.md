@@ -118,8 +118,9 @@ compilation.
 typst --watch file.typ
 ```
 
-If you prefer an integrated IDE-like experience, you can also check out the
-[Typst web app][app], which is currently in public beta.
+If you prefer an integrated IDE-like experience with autocompletion and instant
+preview, you can also check out the [Typst web app][app], which is currently in
+public beta.
 
 ## Build from source
 To build Typst yourself, you need to have the [latest stable Rust][rust]

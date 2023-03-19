@@ -2,7 +2,7 @@ use std::ptr;
 use std::str::FromStr;
 
 use super::{AlignNode, ColumnsNode};
-use crate::meta::{Counter, CounterAction, CounterKey, CounterNode, Numbering};
+use crate::meta::{Counter, CounterKey, Numbering};
 use crate::prelude::*;
 
 /// Layouts its child onto one or multiple pages.
@@ -214,8 +214,10 @@ pub struct PageNode {
     ///   footer: [
     ///     #set align(right)
     ///     #set text(8pt)
-    ///     #counter(page).get("1") of
-    ///     #counter(page).final("I")
+    ///     #counter(page).display(
+    ///       "1 of I",
+    ///       both: true,
+    ///     )
     ///   ]
     /// )
     ///
@@ -311,12 +313,13 @@ impl PageNode {
         let header_ascent = self.header_ascent(styles);
         let footer = self.footer(styles).or_else(|| {
             self.numbering(styles).map(|numbering| {
-                CounterNode::new(
-                    Counter::new(CounterKey::Page),
-                    CounterAction::Both(numbering),
-                )
-                .pack()
-                .aligned(self.number_align(styles))
+                let both = match &numbering {
+                    Numbering::Pattern(pattern) => pattern.pieces() >= 2,
+                    Numbering::Func(_) => true,
+                };
+                Counter::new(CounterKey::Page)
+                    .display(numbering, both)
+                    .aligned(self.number_align(styles))
             })
         });
         let footer_descent = self.footer_descent(styles);

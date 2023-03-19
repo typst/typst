@@ -78,13 +78,7 @@ impl PartialEq for StyleMap {
 
 impl Debug for StyleMap {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if let [style] = self.0.as_slice() {
-            return style.fmt(f);
-        }
-
-        let pieces: Vec<_> =
-            self.0.iter().map(|value| eco_format!("{value:?}")).collect();
-        f.write_str(&pretty_array_like(&pieces, false))
+        f.pad("..")
     }
 }
 

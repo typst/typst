@@ -6,7 +6,7 @@ use comemo::Tracked;
 use ecow::EcoString;
 use once_cell::sync::OnceCell;
 
-use super::{Args, Dynamic, Module, Value};
+use super::{Args, Dynamic, Module, Value, Vm};
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
@@ -92,6 +92,7 @@ pub struct LangItems {
     pub math_frac: fn(num: Content, denom: Content) -> Content,
     /// Dispatch a method on a library value.
     pub library_method: fn(
+        vm: &mut Vm,
         dynamic: &Dynamic,
         method: &str,
         args: Args,

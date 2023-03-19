@@ -114,8 +114,9 @@ impl Show for RefNode {
             bail!(self.span(), "only numbered elements can be referenced");
         };
 
-        let numbers =
-            Counter::of(node.id()).resolve(vt, node.stable_id(), &numbering.trimmed())?;
+        let numbers = Counter::of(node.id())
+            .at(vt, node.stable_id().unwrap())?
+            .display(vt, &numbering.trimmed())?;
 
         Ok((supplement + numbers).linked(Link::Node(node.stable_id().unwrap())))
     }

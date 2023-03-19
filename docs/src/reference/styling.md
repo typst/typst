@@ -88,7 +88,7 @@ fantasy encyclopedia.
   #set text(font: "Inria Serif")
   \~ #emph(it.body)
      #(counter(heading)
-         .get(it.numbering)) \~
+         .display(it.numbering)) \~
 ]
 
 = Dragon

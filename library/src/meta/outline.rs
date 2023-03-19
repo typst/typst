@@ -120,11 +120,9 @@ impl Show for OutlineNode {
                 let mut hidden = Content::empty();
                 for ancestor in &ancestors {
                     if let Some(numbering) = ancestor.numbering(StyleChain::default()) {
-                        let numbers = Counter::of(HeadingNode::id()).resolve(
-                            vt,
-                            ancestor.0.stable_id(),
-                            &numbering,
-                        )?;
+                        let numbers = Counter::of(HeadingNode::id())
+                            .at(vt, ancestor.0.stable_id().unwrap())?
+                            .display(vt, &numbering)?;
                         hidden += numbers + SpaceNode::new().pack();
                     };
                 }
@@ -138,11 +136,9 @@ impl Show for OutlineNode {
             // Format the numbering.
             let mut start = heading.body();
             if let Some(numbering) = heading.numbering(StyleChain::default()) {
-                let numbers = Counter::of(HeadingNode::id()).resolve(
-                    vt,
-                    Some(stable_id),
-                    &numbering,
-                )?;
+                let numbers = Counter::of(HeadingNode::id())
+                    .at(vt, stable_id)?
+                    .display(vt, &numbering)?;
                 start = numbers + SpaceNode::new().pack() + start;
             };
 

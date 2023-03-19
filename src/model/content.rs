@@ -2,7 +2,6 @@ use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::iter::{self, Sum};
-use std::num::NonZeroUsize;
 use std::ops::{Add, AddAssign, Deref};
 
 use ecow::{eco_format, EcoString, EcoVec};
@@ -10,10 +9,10 @@ use once_cell::sync::Lazy;
 
 use super::{
     node, Behave, Behaviour, Fold, Guard, Locatable, Recipe, StableId, Style, StyleMap,
-    Synthesize, Vt,
+    Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
-use crate::doc::{Location, Meta};
+use crate::doc::Meta;
 use crate::eval::{
     cast_from_value, cast_to_value, Args, Cast, Func, FuncInfo, Str, Value, Vm,
 };
@@ -184,22 +183,6 @@ impl Content {
     /// Borrow the value of the given field.
     pub fn at(&self, field: &str) -> StrResult<&Value> {
         self.field(field).ok_or_else(|| missing_field(field))
-    }
-
-    /// Determine the page of this content.
-    pub fn page(&self, vt: &Vt) -> StrResult<NonZeroUsize> {
-        match self.stable_id() {
-            Some(id) => Ok(vt.introspector.page(id)),
-            None => Err("this method can only be called on queried content".into()),
-        }
-    }
-
-    /// Determine the location of this content.
-    pub fn location(&self, vt: &Vt) -> StrResult<Location> {
-        match self.stable_id() {
-            Some(id) => Ok(vt.introspector.location(id)),
-            None => Err("this method can only be called on queried content".into()),
-        }
     }
 
     /// The content's label.
