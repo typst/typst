@@ -20,42 +20,42 @@ use crate::World;
 #[derive(Clone, Hash)]
 pub struct Func {
     /// The internal representation.
-    repr: Arc<Prehashed<Repr>>,
+    repr: Repr,
     /// The span with which errors are reported when this function is called.
     span: Span,
 }
 
 /// The different kinds of function representations.
-#[derive(Hash)]
+#[derive(Clone, PartialEq, Hash)]
 enum Repr {
     /// A native Rust function.
-    Native(NativeFunc),
+    Native(&'static NativeFunc),
     /// A function for an element.
     Elem(ElemFunc),
     /// A user-defined closure.
-    Closure(Closure),
+    Closure(Arc<Prehashed<Closure>>),
     /// A nested function with pre-applied arguments.
-    With(Func, Args),
+    With(Arc<(Func, Args)>),
 }
 
 impl Func {
     /// The name of the function.
     pub fn name(&self) -> Option<&str> {
-        match &**self.repr {
+        match &self.repr {
             Repr::Native(native) => Some(native.info.name),
             Repr::Elem(func) => Some(func.info().name),
             Repr::Closure(closure) => closure.name.as_deref(),
-            Repr::With(func, _) => func.name(),
+            Repr::With(arc) => arc.0.name(),
         }
     }
 
     /// Extract details the function.
     pub fn info(&self) -> Option<&FuncInfo> {
-        match &**self.repr {
+        match &self.repr {
             Repr::Native(native) => Some(&native.info),
             Repr::Elem(func) => Some(func.info()),
-            Repr::With(func, _) => func.info(),
-            _ => None,
+            Repr::Closure(_) => None,
+            Repr::With(arc) => arc.0.info(),
         }
     }
 
@@ -74,10 +74,10 @@ impl Func {
 
     /// The number of positional arguments this function takes, if known.
     pub fn argc(&self) -> Option<usize> {
-        match &**self.repr {
+        match &self.repr {
             Repr::Closure(closure) => closure.argc(),
-            Repr::With(wrapped, applied) => Some(wrapped.argc()?.saturating_sub(
-                applied.items.iter().filter(|arg| arg.name.is_none()).count(),
+            Repr::With(arc) => Some(arc.0.argc()?.saturating_sub(
+                arc.1.items.iter().filter(|arg| arg.name.is_none()).count(),
             )),
             _ => None,
         }
@@ -85,7 +85,7 @@ impl Func {
 
     /// Call the function with the given arguments.
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
-        match &**self.repr {
+        match &self.repr {
             Repr::Native(native) => {
                 let value = (native.func)(vm, &mut args)?;
                 args.finish()?;
@@ -113,9 +113,9 @@ impl Func {
                     args,
                 )
             }
-            Repr::With(wrapped, applied) => {
-                args.items = applied.items.iter().cloned().chain(args.items).collect();
-                return wrapped.call_vm(vm, args);
+            Repr::With(arc) => {
+                args.items = arc.1.items.iter().cloned().chain(args.items).collect();
+                return arc.0.call_vm(vm, args);
             }
         }
     }
@@ -137,15 +137,12 @@ impl Func {
     /// Apply the given arguments to the function.
     pub fn with(self, args: Args) -> Self {
         let span = self.span;
-        Self {
-            repr: Arc::new(Prehashed::new(Repr::With(self, args))),
-            span,
-        }
+        Self { repr: Repr::With(Arc::new((self, args))), span }
     }
 
     /// Extract the element function, if it is one.
     pub fn element(&self) -> Option<ElemFunc> {
-        match **self.repr {
+        match self.repr {
             Repr::Elem(func) => Some(func),
             _ => None,
         }
@@ -169,10 +166,7 @@ impl PartialEq for Func {
 
 impl From<Repr> for Func {
     fn from(repr: Repr) -> Self {
-        Self {
-            repr: Arc::new(Prehashed::new(repr)),
-            span: Span::detached(),
-        }
+        Self { repr, span: Span::detached() }
     }
 }
 
@@ -190,28 +184,32 @@ pub struct NativeFunc {
     pub info: Lazy<FuncInfo>,
 }
 
+impl PartialEq for NativeFunc {
+    fn eq(&self, other: &Self) -> bool {
+        self.func as usize == other.func as usize
+    }
+}
+
+impl Eq for NativeFunc {}
+
 impl Hash for NativeFunc {
     fn hash<H: Hasher>(&self, state: &mut H) {
         (self.func as usize).hash(state);
     }
 }
 
-impl From<NativeFunc> for Func {
-    fn from(native: NativeFunc) -> Self {
+impl From<&'static NativeFunc> for Func {
+    fn from(native: &'static NativeFunc) -> Self {
         Repr::Native(native).into()
     }
 }
 
-cast_to_value! {
-    v: NativeFunc => Value::Func(v.into())
-}
-
 impl<F> From<F> for Value
 where
-    F: Fn() -> NativeFunc,
+    F: Fn() -> &'static NativeFunc,
 {
     fn from(f: F) -> Self {
-        f().into()
+        Value::Func(f().into())
     }
 }
 
@@ -294,7 +292,7 @@ impl Closure {
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
-        let closure = match &**this.repr {
+        let closure = match &this.repr {
             Repr::Closure(closure) => closure,
             _ => panic!("`this` must be a closure"),
         };
@@ -347,7 +345,7 @@ impl Closure {
         result
     }
 
-    /// The number of positional arguments this function takes, if known.
+    /// The number of positional arguments this closure takes, if known.
     fn argc(&self) -> Option<usize> {
         if self.sink.is_some() {
             return None;
@@ -359,7 +357,7 @@ impl Closure {
 
 impl From<Closure> for Func {
     fn from(closure: Closure) -> Self {
-        Repr::Closure(closure).into()
+        Repr::Closure(Arc::new(Prehashed::new(closure))).into()
     }
 }
 

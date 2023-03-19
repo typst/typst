@@ -88,17 +88,17 @@ impl Debug for ElemFunc {
     }
 }
 
-impl Hash for ElemFunc {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(self.0 as *const _ as usize);
-    }
-}
-
 impl Eq for ElemFunc {}
 
 impl PartialEq for ElemFunc {
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
+    }
+}
+
+impl Hash for ElemFunc {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.0 as *const _ as usize);
     }
 }
 

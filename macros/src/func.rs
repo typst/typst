@@ -115,8 +115,8 @@ fn create(func: &Func) -> TokenStream {
     let params = params.iter().map(create_param_info);
     quote! {
         #[doc = #docs]
-        #vis fn #ident() -> ::typst::eval::NativeFunc {
-            ::typst::eval::NativeFunc {
+        #vis fn #ident() -> &'static ::typst::eval::NativeFunc {
+            static FUNC: ::typst::eval::NativeFunc = ::typst::eval::NativeFunc {
                 func: |vm, args| {
                     #(#handlers)*
                     #[allow(unreachable_code)]
@@ -130,7 +130,8 @@ fn create(func: &Func) -> TokenStream {
                     returns: ::std::vec![#(#returns),*],
                     category: #category,
                 }),
-            }
+            };
+            &FUNC
         }
     }
 }
