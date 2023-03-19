@@ -169,14 +169,14 @@ pub fn write_fonts(ctx: &mut PdfContext) {
             subsetter::subset(data, font.index(), profile)
         };
 
-        // Compress and write the font's byte.
+        // Compress and write the font's bytes.
         let data = subsetted.as_deref().unwrap_or(data);
         let data = deflate(data);
         let mut stream = ctx.writer.stream(data_ref, &data);
         stream.filter(Filter::FlateDecode);
 
         if subtype == CidFontType::Type0 {
-            stream.pair(Name(b"Subtype"), Name(b"OpenType"));
+            stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
         }
 
         stream.finish();

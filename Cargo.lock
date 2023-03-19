@@ -1171,9 +1171,9 @@ dependencies = [
 
 [[package]]
 name = "subsetter"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7965addcab1ea757e91d2c870b7d0146c3e7388ab85a6ec052dbe0ab2eaa3c18"
+checksum = "09eab8a83bff89ba2200bd4c59be45c7c787f988431b936099a5a266c957f2f9"
 
 [[package]]
 name = "svg2pdf"

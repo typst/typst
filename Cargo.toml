@@ -31,7 +31,7 @@ roxmltree = "0.14"
 rustybuzz = "0.5"
 serde = { version = "1", features = ["derive"] }
 siphasher = "0.3"
-subsetter = "0.1"
+subsetter = "0.1.1"
 svg2pdf = "0.4"
 thin-vec = "0.2"
 tiny-skia = "0.6.2"
