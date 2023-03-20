@@ -33,9 +33,11 @@ consider signing up to our [collaborative online editor][app] for free. It is
 currently in public beta.
 
 ## Example
-This is what a Typst file with a bit of math and automation looks like:
+A [gentle introduction][tutorial] to Typst is available in our documentation.
+However, if you want to see the power of Typst encapsulated in one image, here
+it is:
 <p align="center">
-  <img alt="Example" width="900" src="https://user-images.githubusercontent.com/17899797/226122655-db82e9fa-6942-47a5-9e14-a67183617f6f.png"/>
+  <img alt="Example" width="900" src="https://user-images.githubusercontent.com/17899797/226325459-6baa66fa-4c11-4eba-8f04-ef0fa796aa50.png"/>
 </p>
 
 Let's disect what's going on:
@@ -47,7 +49,8 @@ Let's disect what's going on:
   the appearance of an element.
 
 - We insert a heading with the `= Heading` syntax. One equals sign creates a top
-  level heading, two create a subheading and so on.
+  level heading, two create a subheading and so on. Typst has more lightweight
+  markup like this, see the [syntax] reference for a full list.
 
 - [Mathematical equations][math] are enclosed in dollar signs. By adding extra
   spaces around the contents of a equation, we can put it into a separate block.
@@ -169,8 +172,10 @@ instant preview. To achieve these goals, we follow three core design principles:
 [docs]: https://typst.app/docs/
 [app]: https://typst.app/
 [discord]: https://discord.gg/2uDybryKPe
+[tutorial]: https://typst.app/docs/tutorial/
 [show]: https://typst.app/docs/reference/styling/#show-rules
 [math]: https://typst.app/docs/reference/math/
+[syntax]: https://typst.app/docs/reference/syntax/
 [scripting]: https://typst.app/docs/reference/scripting/
 [rust]: https://rustup.rs/
 [releases]: https://github.com/typst/typst/releases/

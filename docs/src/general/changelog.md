@@ -5,6 +5,99 @@ description: |
 ---
 
 # Changelog
+## March 21, 2023
+- Reference and bibliography management
+  - [Bibliographies]($func/bibliography) and [citations]($func/cite) (currently
+    supported styles are APA, Chicago Author Date, IEEE, and MLA)
+  - You can now [reference]($func/ref) sections, figures, formulas, and works
+    from the bibliography with `[@label]`
+  - You can make an element referencable with a label:
+    - `[= Introduction <intro>]`
+    - `[$ A = pi r^2 $ <area>]`
+
+- Introspection system for interactions between different parts of the document
+  - [`counter`]($func/counter) function
+    - Access and modify counters for pages, headings, figures, and equations
+    - Define and use your own custom counters
+    - Time travel: Find out what the counter value was or will be at some other
+      point in the document (e.g. when you're building a list of figures, you
+      can determine the value of the figure counter at any given figure).
+    - Counters count in layout order and not in code order
+  - [`state`]($func/state) function
+    - Manage arbitrary state across your document
+    - Time travel: Find out the value of your state at any position in the
+      document
+    - State is modified in layout order and not in code order
+  - [`query`]($func/query) function
+    - Find all occurances of an element or a label, either in the whole document
+      or before/after some location
+    - Link to elements, find out their position on the pages and access their
+      fields
+    - Example use cases: Custom list of figures or page header with current
+      chapter title
+  - [`locate`]($func/locate) function
+    - Determines the location of itself in the final layout
+    - Can be accessed to get the `page` and `x`, `y` coordinates
+    - Can be used with counters and state to find out their values at that
+      location
+    - Can be used with queries to find elements before or after its location
+
+- New [`measure`]($func/measure) function
+  - Measure the layouted size of elements
+  - To be used in combination with the new [`style`]($func/style) function that
+    lets you generate different content based on the style context something is
+    inserted into (because that affects the measured size of content)
+
+- Exposed content representation
+  - Content is not opaque anymore
+  - Content can be compared for equality
+  - The tree of content elements can be traversed with code
+  - Can be observed in hover tooltips or with [`repr`]($func/repr)
+  - New [methods]($type/content) on content: `func`, `has`, `at`, and `location`
+  - All optional fields on elements are now settable
+  - More uniform field names (`heading.title` becomes `heading.body`,
+    `list.items` becomes `list.children`, and a few more changes)
+
+- Further improvements
+  - Added [`figure`]($func/figure) function
+  - Added [`numbering`]($func/equation.numbering) parameter on equation function
+  - Added [`numbering`]($func/page.numbering) and
+    [`number-align`]($func/page.number-align) parameters on page function
+  - The page function's [`header`]($func/page.header) and
+    [`footer`]($func/page.footer) parameters do not take functions anymore. If
+    you want to customize them based on the page number, use the new
+    [`numbering`]($func/page.numbering) parameter or [`counter`]($func/counter)
+    function instead.
+  - Added [`footer-descent`]($func/page.footer-descent) and
+    [`header-ascent`]($func/page.header-ascent) parameters
+  - Better default alignment in header and footer
+  - Fixed Arabic vowel placement
+  - Fixed PDF font embedding issues
+  - Renamed `math.formula` to [`math.equation`]($func/equation)
+  - Font family must be a named argument now: `[#set text(font: "..")]`
+  - Added support for [hanging indent]($func/par.hanging-indent)
+  - Renamed paragraph `indent` to [`first-line-indent`]($func/par.first-line-indent)
+  - More accurate [logarithm]($category/calculate/log) when base is `2` or `10`
+  - Improved some error messages
+  - Fixed layout of [`terms`]($func/terms) list
+
+- Web app improvements
+  - Added template gallery
+  - Added buttons to insert headings, equations, raw blocks, and references
+  - Jump to the source of something by clicking on it in the preview panel
+    (works for text, equations, images, and more)
+  - You can now upload your own fonts and use them in your project
+  - Hover debugging and autocompletion now takes multiple files into account and
+    works in show rules
+  - Hover tooltips now automatically collapse multiple consecutive equal values
+  - The preview now automatically scrolls to the right place when you type
+  - Links are now clickable in the preview area
+  - Toolbar, preview, and editor can now all be hidden
+  - Added autocompletion for raw block language tags
+  - Added autocompletion in SVG files
+  - New back button instead of four-dots button
+  - Lots of bug fixes
+
 ## February 25, 2023
 - Font changes
   - New default font: Linux Libertine
