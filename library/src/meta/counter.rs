@@ -11,12 +11,237 @@ use crate::prelude::*;
 
 /// Count through pages, elements, and more.
 ///
+/// With the counter function, you can access and modify counters for pages,
+/// headings, figures, and more. Moreover, you can define custom counters for
+/// other things you want to count.
+///
+/// ## Displaying a counter
+/// To display the current value of the heading counter, you call the `counter`
+/// function with the `key` set to `heading` and then call the `display` method
+/// on the counter. To see any output, you also have to enable heading
+/// [numbering]($func/heading.numbering).
+///
+/// The display function optionally takes an argument telling it how to
+/// format the counter. This can be a
+/// [numbering pattern or a function]($func/numbering).
+///
+/// ```example
+/// #set heading(numbering: "1.")
+///
+/// = Introduction
+/// Some text here.
+///
+/// = Background
+/// The current value is:
+/// #counter(heading).display()
+///
+/// Or in roman numerals:
+/// #counter(heading).display("I")
+/// ```
+///
+/// ## Modifying a counter
+/// To modify a counter, you can use the `step` and `update` methods:
+///
+/// - The `step` method increases the value of the counter by one. Because
+///   counters can have multiple levels (in the case of headings for sections,
+///   subsections, and so on), the `step` method optionally takes a `level`
+///   argument. If given, the counter steps at the given depth.
+///
+/// - The `update` method allows you to arbitrarily modify the counter. In its
+///   basic form, you give it an integer (or multiple for multiple levels). For
+///   more flexibility, you can instead also give it a function that gets the
+///   current value and returns a new value.
+///
+/// The heading counter is stepped before the heading is displayed, so
+/// `Analysis` gets the number seven even though the counter is at six after the
+/// second update.
+///
+/// ```example
+/// #set heading(numbering: "1.")
+///
+/// = Introduction
+/// #counter(heading).step()
+///
+/// = Background
+/// #counter(heading).update(3)
+/// #counter(heading).update(n => n * 2)
+///
+/// = Analysis
+/// Let's skip 7.1.
+/// #counter(heading).step(level: 2)
+///
+/// == Analysis
+/// Still at #counter(heading).display().
+/// ```
+///
+/// ## Page counter
+/// The page counter is special. It is automatically stepped at each pagebreak.
+/// But like other counters, you can also step it manually. For example, you
+/// could have Roman page numbers for your preface, then switch to Arabic page
+/// numbers for your main content and reset the page counter to one.
+///
+/// ```example
+/// >>> #set page(
+/// >>>   height: 100pt,
+/// >>>   margin: (bottom: 24pt, rest: 16pt),
+/// >>> )
+/// #set page(numbering: "(i)")
+///
+/// = Preface
+/// The preface is numbered with
+/// roman numerals.
+///
+/// #set page(numbering: "1 / 1")
+/// #counter(page).update(1)
+///
+/// = Main text
+/// Here, the counter is reset to one.
+/// We also display both the current
+/// page and total number of pages in
+/// Arabic numbers.
+/// ```
+///
+/// ## Custom counters
+/// To define your own counter, call the `counter` function with a string as a
+/// key. This key identifies the counter globally.
+///
+/// ```example
+/// #let mine = counter("mycounter")
+/// #mine.display() \
+/// #mine.step()
+/// #mine.display() \
+/// #mine.update(c => c * 3)
+/// #mine.display() \
+/// ```
+///
+/// ## Time travel
+/// Counters can travel through time! You can find out the final value of the
+/// counter before it is reached and even determine what the value was at any
+/// particular location in the document.
+///
+/// ```example
+/// #let mine = counter("mycounter")
+///
+/// = Values
+/// #locate(loc => {
+///   let start-val = mine.at(loc)
+///   let elements = query(<intro>, loc)
+///   let intro-val = mine.at(
+///     elements.first().location()
+///   )
+///   let final-val = mine.final(loc)
+///   [Starts as: #start-val \
+///    Value at intro is: #intro-val \
+///    Final value is: #final-val \ ]
+/// })
+///
+/// #mine.update(n => n + 3)
+///
+/// = Introduction <intro>
+/// #lorem(10)
+///
+/// #mine.step()
+/// #mine.step()
+/// ```
+///
+/// Let's disect what happens in the example above:
+///
+/// - We call [`locate`]($func/locate) to get access to the current location in
+///   the document. We then pass this location to our counter's `at` method to
+///   get its value at the current location. The `at` method always returns an
+///   array because counters can have multiple levels. As the counter starts at
+///   one, the first value is thus `{(1,)}`.
+///
+/// - We now [`query`]($func/query) the document for all elements with the
+///   `{<intro>}` label. The result is an array from which we extract the first
+///   (and only) element's [location]($type/content.location). We then look up
+///   the value of the counter at that location. The first update to the counter
+///   sets it to `{1 + 3 = 4}`. At the introduction heading, the value is thus
+///   `{(4,)}`.
+///
+/// - Last but not least, we call the `final` method on the counter. It tells us
+///   what the counter's value will be at the end of the document. We also need
+///   to give it a location to prove that we are inside of a `locate` call, but
+///   which one doesn't matter. After the heading follow two calls to `step()`,
+///   so the final value is `{(6,)}`.
+///
+/// ## Methods
+/// ### display()
+/// Display the value of the counter.
+///
+/// - numbering: string or function (positional)
+///   A [numbering pattern or a function]($func/numbering), which specifies how
+///   to display the counter. If given a function, that function receives each
+///   number of the counter as a separate argument. If the amount of numbers
+///   varies, e.g. for the heading argument, you can use an
+///   [argument sink]($type/arguments).
+///
+/// - returns: content
+///
+/// ### step()
+/// Increase the value of the counter by one.
+///
+/// The update will be in effect at the position where the returned content is
+/// inserted into the document. If you don't put the output into the document,
+/// nothing happens! This would be the case, for example, if you write
+/// `{let _ = counter(page).step()}`. Counter updates are always applied in
+/// layout order and in that case, Typst wouldn't know when to step the counter.
+///
+/// - level: integer (named)
+///   The depth at which to step the counter. Defaults to `{1}`.
+///
+/// - returns: content
+///
+/// ### update()
+/// Update the value of the counter.
+///
+/// Just like `step()`, the update only occurs if you put the resulting
+/// content into the document.
+///
+/// - value: integer or array or function (positional, required)
+///   If given an integer or array of integers, sets the counter to that value.
+///   If given a function, that function receives the previous counter value
+///   (with each number as a separate argument) and has to return the new
+///   value (integer or array).
+///
+/// - returns: content
+///
+/// ### at()
+/// Get the value of the counter at the given location. Always returns an
+/// array of integers, even if the counter has just one number.
+///
+/// - location: location (positional, required)
+///   The location at which the counter value should be retrieved. A suitable
+///   location can be retrieved from [`locate`]($func/locate) or
+///   [`query`]($func/query).
+///
+/// - returns: array
+///
+/// ### final()
+/// Get the value of the counter at the end of the document. Always returns an
+/// array of integers, even if the counter has just one number.
+///
+/// - location: location (positional, required)
+///   Can be any location. Why is it required then? Typst has to evaluate parts
+///   of your code multiple times to find out all counter's values. By only
+///   allowing this method in [`locate`]($func/locate) calls, the amount of code
+///   that can depend on the method's result is reduced. If you could call
+///   `final` directly at the top level of a module, the evaluation of the whole
+///   module and its exports could depend on the counter's value.
+///
+/// - returns: array
+///
 /// Display: Counter
 /// Category: meta
 /// Returns: counter
 #[func]
 pub fn counter(
     /// The key that identifies this counter.
+    ///
+    /// - If this is the [`page`]($func/page) function, counts through pages.
+    /// - If this is any other element function, counts through its elements.
+    /// - If it is a string, creates a custom counter that is only affected by
+    ///   manual updates.
     key: CounterKey,
 ) -> Value {
     Value::dynamic(Counter::new(key))
@@ -53,14 +278,14 @@ impl Counter {
                     args.named("both")?.unwrap_or(false),
                 )
                 .into(),
-            "at" => self.at(&mut vm.vt, args.expect("location")?)?.into(),
-            "final" => self.final_(&mut vm.vt, args.expect("location")?)?.into(),
-            "update" => self.update(args.expect("value or function")?).into(),
             "step" => self
                 .update(CounterUpdate::Step(
                     args.named("level")?.unwrap_or(NonZeroUsize::ONE),
                 ))
                 .into(),
+            "update" => self.update(args.expect("value or function")?).into(),
+            "at" => self.at(&mut vm.vt, args.expect("location")?)?.into(),
+            "final" => self.final_(&mut vm.vt, args.expect("location")?)?.into(),
             _ => bail!(span, "type counter has no method `{}`", method),
         };
         args.finish()?;

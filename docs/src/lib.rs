@@ -303,6 +303,7 @@ pub struct FuncModel {
     pub details: Html,
     pub params: Vec<ParamModel>,
     pub returns: Vec<&'static str>,
+    pub methods: Vec<MethodModel>,
 }
 
 /// Details about a group of functions.
@@ -332,14 +333,17 @@ fn function_page(
 
 /// Produce a function's model.
 fn func_model(resolver: &dyn Resolver, func: &Func, info: &FuncInfo) -> FuncModel {
+    let mut s = unscanny::Scanner::new(info.docs);
+    let docs = s.eat_until("\n## Methods").trim();
     FuncModel {
         name: info.name.into(),
         display: info.display,
-        oneliner: oneliner(info.docs),
+        oneliner: oneliner(docs),
         showable: func.element().is_some(),
-        details: Html::markdown(resolver, info.docs),
+        details: Html::markdown(resolver, docs),
         params: info.params.iter().map(|param| param_model(resolver, param)).collect(),
         returns: info.returns.clone(),
+        methods: method_models(resolver, info.docs),
     }
 }
 
@@ -501,7 +505,18 @@ fn type_model(resolver: &dyn Resolver, part: &'static str) -> TypeModel {
     let mut s = unscanny::Scanner::new(part);
     let display = s.eat_until('\n').trim();
     let docs = s.eat_until("\n## Methods").trim();
+    TypeModel {
+        name: display.to_lowercase(),
+        oneliner: oneliner(docs),
+        details: Html::markdown(resolver, docs),
+        methods: method_models(resolver, part),
+    }
+}
 
+/// Produce multiple methods' models.
+fn method_models(resolver: &dyn Resolver, docs: &'static str) -> Vec<MethodModel> {
+    let mut s = unscanny::Scanner::new(docs);
+    s.eat_until("\n## Methods");
     s.eat_whitespace();
 
     let mut methods = vec![];
@@ -512,12 +527,7 @@ fn type_model(resolver: &dyn Resolver, part: &'static str) -> TypeModel {
         }
     }
 
-    TypeModel {
-        name: display.to_lowercase(),
-        oneliner: oneliner(docs),
-        details: Html::markdown(resolver, docs),
-        methods,
-    }
+    methods
 }
 
 /// Produce a method's model.
@@ -741,6 +751,7 @@ const TYPE_ORDER: &[&str] = &[
     "dictionary",
     "function",
     "arguments",
+    "location",
     "dir",
     "alignment",
     "2d alignment",
