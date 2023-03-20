@@ -20,12 +20,12 @@ use crate::prelude::*;
 ///   x = eval(
 ///     expr.replace("x", str(x))
 ///   )
-///   [New value is #x. \ ]
+///   [New value is #x. ]
 /// }
 ///
-/// #compute("10")
-/// #compute("x + 3")
-/// #compute("x * 2")
+/// #compute("10") \
+/// #compute("x + 3") \
+/// #compute("x * 2") \
 /// #compute("x - 5")
 /// ```
 ///
@@ -83,12 +83,12 @@ use crate::prelude::*;
 ///   #s.update(x =>
 ///     eval(expr.replace("x", str(x)))
 ///   )
-///   New value is #s.display(). \
+///   New value is #s.display().
 /// ]
 ///
-/// #compute("10")
-/// #compute("x + 3")
-/// #compute("x * 2")
+/// #compute("10") \
+/// #compute("x + 3") \
+/// #compute("x * 2") \
 /// #compute("x - 5")
 /// ```
 ///
@@ -105,17 +105,17 @@ use crate::prelude::*;
 /// >>>   #s.update(x =>
 /// >>>     eval(expr.replace("x", str(x)))
 /// >>>   )
-/// >>>   New value is #s.display(). \
+/// >>>   New value is #s.display().
 /// >>> ]
 /// <<< ...
 ///
 /// #let more = [
-///   #compute("x * 2")
+///   #compute("x * 2") \
 ///   #compute("x - 5")
 /// ]
 ///
-/// #compute("10")
-/// #compute("x + 3")
+/// #compute("10") \
+/// #compute("x + 3") \
 /// #more
 /// ```
 ///
@@ -137,7 +137,7 @@ use crate::prelude::*;
 /// >>>   #s.update(x => {
 /// >>>     eval(expr.replace("x", str(x)))
 /// >>>   })
-/// >>>   New value is #s.display(). \
+/// >>>   New value is #s.display().
 /// >>> ]
 /// <<< ...
 ///
@@ -148,10 +148,10 @@ use crate::prelude::*;
 ///     .location()
 /// ))
 ///
-/// #compute("10")
-/// #compute("x + 3")
+/// #compute("10") \
+/// #compute("x + 3") \
 /// *Here.* <here> \
-/// #compute("x * 2")
+/// #compute("x * 2") \
 /// #compute("x - 5")
 /// ```
 ///

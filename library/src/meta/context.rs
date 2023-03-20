@@ -1,13 +1,22 @@
 use crate::prelude::*;
 
-/// Provide access to the location of content.
+/// Provides access to the location of content.
+///
+/// This is useful in combination with [queries]($func/query),
+/// [counters]($func/counter), [state]($func/state), and [links]($func/link).
+/// See their documentation for more details.
 ///
 /// Display: Locate
 /// Category: meta
 /// Returns: content
 #[func]
 pub fn locate(
-    /// The function to call with the location.
+    /// A function that receives a `location`. Its return value is displayed
+    /// in the document.
+    ///
+    /// This function is called once for each time the content returned by
+    /// `locate` appears in the document. That makes it possible to generate
+    /// content that depends on its own location in the document.
     func: Func,
 ) -> Value {
     LocateElem::new(func).pack().into()
@@ -15,7 +24,7 @@ pub fn locate(
 
 /// Executes a `locate` call.
 ///
-/// Display: Styled
+/// Display: Locate
 /// Category: special
 #[element(Locatable, Show)]
 struct LocateElem {
@@ -35,14 +44,24 @@ impl Show for LocateElem {
     }
 }
 
-/// Provide access to active styles.
+/// Provides access to active styles.
 ///
-/// Display: Styled
-/// Category: layout
+/// The styles are currently opaque and only useful in combination with the
+/// [`measure`]($func/measure) function. See its documentation for more details.
+/// In the future, the provided styles might also be directly accessed to look
+/// up styles defined by [set rules]($styling/#set-rules).
+///
+/// Display: Style
+/// Category: meta
 /// Returns: content
 #[func]
 pub fn style(
-    /// The function to call with the styles.
+    /// A function to call with the styles. Its return value is displayed
+    /// in the document.
+    ///
+    /// This function is called once for each time the content returned by
+    /// `style` appears in the document. That makes it possible to generate
+    /// content that depends on the style context it appears in.
     func: Func,
 ) -> Value {
     StyleElem::new(func).pack().into()
