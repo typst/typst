@@ -165,6 +165,11 @@ use crate::prelude::*;
 ///   which one doesn't matter. After the heading follow two calls to `step()`,
 ///   so the final value is `{(6,)}`.
 ///
+/// ## Different kinds of state
+/// The `counter` function is closely related to [state]($func/state) function.
+/// Read its documentation for more details on state management in Typst and
+/// why it doesn't just use normal variables for counters.
+///
 /// ## Methods
 /// ### display()
 /// Display the value of the counter.
@@ -195,7 +200,7 @@ use crate::prelude::*;
 /// ### update()
 /// Update the value of the counter.
 ///
-/// Just like `step()`, the update only occurs if you put the resulting
+/// Just like with `step`, the update only occurs if you put the resulting
 /// content into the document.
 ///
 /// - value: integer or array or function (positional, required)
@@ -223,7 +228,7 @@ use crate::prelude::*;
 ///
 /// - location: location (positional, required)
 ///   Can be any location. Why is it required then? Typst has to evaluate parts
-///   of your code multiple times to find out all counter's values. By only
+///   of your code multiple times to determine all counter values. By only
 ///   allowing this method in [`locate`]($func/locate) calls, the amount of code
 ///   that can depend on the method's result is reduced. If you could call
 ///   `final` directly at the top level of a module, the evaluation of the whole
