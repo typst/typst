@@ -31,6 +31,13 @@ complete document in it.
 ]
 ```
 
+Wait, shouldn't all arguments of a function be specified within parentheses? Why
+is there a second set of square brackets with content _after_ the parentheses?
+The answer is that, as passing content to a function is such a common thing to
+do in Typst, there is special syntax for it: Instead of putting the content
+inside of the argument list, you can write it in square brackets directly after
+the normal arguments, saving on punctuation.
+
 As seen above, that works. The [`par`]($func/par) function justifies all
 paragraphs within it. However, wrapping the document in countless functions and
 applying styles selectively and in-situ can quickly become cumbersome.
@@ -100,9 +107,12 @@ Let's add a few more styles to our document. We want larger margins and a serif
 font. For the purposes of the example, we'll also set another page size.
 
 ```example
-#set text(font: "New Computer Modern", 10pt)
+#set text(
+  font: "New Computer Modern",
+  size: 10pt
+)
 #set page(
-  "a6",
+  paper: "a6",
   margin: (x: 1.8cm, y: 1.5cm),
 )
 #set par(

@@ -55,9 +55,9 @@ items.
 + The geology
 ```
 
-If we wanted to add a bulleted list, we would use the `-` character instead of the
-`+` character. We can also nest lists: For example, we can add a sub-list to the
-first item of the list above by indenting it.
+If we wanted to add a bulleted list, we would use the `-` character instead of
+the `+` character. We can also nest lists: For example, we can add a sub-list to
+the first item of the list above by indenting it.
 
 ```example
 + The climate
@@ -67,7 +67,7 @@ first item of the list above by indenting it.
 + The geology
 ```
 
-## Adding images
+## Adding a figure
 You think that your report would benefit from a figure. Let's add one. Typst
 supports images in the formats PNG, JPEG, GIF, and SVG. To add an image file to
 your project, first open the _file panel_ by clicking the box icon in the left
@@ -83,9 +83,9 @@ We have seen before that specific symbols (called _markup_) have specific
 meaning in Typst. We can use `=`, `-`, `+`, and `_` to create headings, lists
 and emphasized text, respectively. However, having a special symbol for
 everything we want to insert into our document would soon become cryptic and
-unwieldy. For this reason, Typst reserves markup symbols only for the most common
-things. Everything else is inserted with _functions._ For our image to show up
-on the page, we use Typst's [`image`]($func/image) function.
+unwieldy. For this reason, Typst reserves markup symbols only for the most
+common things. Everything else is inserted with _functions._ For our image to
+show up on the page, we use Typst's [`image`]($func/image) function.
 
 ```example
 #image("glacier.jpg")
@@ -95,11 +95,11 @@ In general, a function produces some output for a set of _arguments_. When you
 _call_ a function within markup, you provide the arguments and Typst inserts the
 result (the function's _return value_) into the document. In our case, the
 `image` function takes one argument: The path to the image file. To call a
-function, we first need to type the `#` character, immediately followed by the
-name of the function. Then, we enclose the arguments in parentheses. Typst
-recognizes many different data types within argument lists. Our file path is a
-short [string of text]($type/string), so we need to enclose it
-in double quotes.
+function in markup, we first need to type the `#` character, immediately
+followed by the name of the function. Then, we enclose the arguments in
+parentheses. Typst recognizes many different data types within argument lists.
+Our file path is a short [string of text]($type/string), so we need to enclose
+it in double quotes.
 
 The inserted image uses the whole width of the page. To change that, pass the
 `width` argument to the `image` function. This is a _named_ argument and
@@ -110,40 +110,52 @@ they are separated by commas, so we first need to put a comma behind the path.
 #image("glacier.jpg", width: 70%)
 ```
 
-The `width` argument is a
-[relative length]($type/relative-length). In our case, we specified a
-percentage, determining that the image shall take up `{70%}` of the page's
-width. We also could have specified an absolute value like `{1cm}` or `{0.7in}`.
+The `width` argument is a [relative length]($type/relative-length). In our case,
+we specified a percentage, determining that the image shall take up `{70%}` of
+the page's width. We also could have specified an absolute value like `{1cm}` or
+`{0.7in}`.
 
-Just like text, the image is aligned at the left side of the page by default.
-That looks a bit awkward. Let's center it and add a caption. We achieve this by
-using the [`align`]($func/align) function. This function takes an `alignment` as
-its first argument and then the content that we want to align as the second
-argument:
+Just like text, the image is now aligned at the left side of the page by
+default. It's also lacking a caption. Let's fix that by using the
+[figure]($func/figure) function. This function takes the figure's contents as a
+positional argument and an optional caption as a named argument.
+
+Within the argument list of the `figure` function, Typst is already in code mode. This means, you can now remove the hashtag before the image function call.
+The hashtag is only needed directly in markup (to disambiguate text from function calls).
+
+The caption consists of arbitrary markup. To give markup to a function, we
+enclose it in square brackets. This construct is called a _content block._
 
 ```example
-#align(center)[
-  #image("glacier.jpg", width: 70%)
-
-  _Glaciers form an important
-   part of the earth's climate
-   system._
-]
+#figure(
+  image("glacier.jpg", width: 70%),
+  caption: [
+    _Glaciers_ form an important part
+    of the earth's climate system.
+  ],
+)
 ```
 
-Did you spot the closing bracket `]` at the end of the example? Both the
-argument and the caption are enclosed in the same square brackets. Therefore,
-the `align` function centers both of them.
+You continue to write your report and now want to reference the figure. To do
+that, first attach a label to figure. A label uniquely identifies an element in
+your document. Add one after the figure by enclosing some name in angle
+brackets. You can then reference the figure in your text by writing an `[@]`
+symbol followed by that name. Headings and equations can also be labelled to
+make them referencable.
 
-But wait, shouldn't the arguments of a function be specified within parentheses?
-Why is there a second set of square brackets with the aligned content after the
-parentheses?
+```example
+Glaciers as the one shown in
+@glaciers will cease to exist if
+we don't take action soon!
 
-The answer is that, as passing content to a function is such a common thing
-to do in Typst, there is special syntax for it: Instead of putting the content
-inside of the argument list, you can write it in square brackets directly after
-the normal arguments, saving on punctuation. We call markup in square brackets
-a _content block._
+#figure(
+  image("glacier.jpg", width: 70%),
+  caption: [
+    _Glaciers_ form an important part
+    of the earth's climate system.
+  ],
+) <glaciers>
+```
 
 <div class="info-box">
 
@@ -159,11 +171,37 @@ For example, the image function expects a path to an image file.
 It would not make sense to pass, e.g., a paragraph of text or a another image as
 the image's path parameter. That's why only strings are allowed here.
 On the contrary, strings work wherever content is expected because text is a
-kind of valid content.
+valid kind of content.
 </div>
 
+## Adding a bibliography
+As you write up your report, you need to back up some of your claims. You can
+add a bibliography to your document with the
+[`bibliography`]($func/bibliography) function. This function expects a path
+to a bibliography file.
+
+Typst's native bibliography format is
+[Hayagriva](https://github.com/typst/hayagriva/blob/main/docs/file-format.md),
+but for compatibility you can also use BibLaTeX files. As your classmate has
+already done a literature survey and sent you a `.bib` file, you'll use that
+one. Upload the file through the final panel to access it in Typst.
+
+Once the document contains a bibliography, you can start citing from it.
+Citations use the same syntax as references to a label. As soon as you cite a
+source for the first time, it will appear in the bibliography section of your
+document. Typst supports different citation and bibliography styles. Consult the
+[reference]($func/bibliography.style) for more details.
+
+```example
+= Methods
+We follow the glacier melting models
+established in @glacier-melt.
+
+#bibliography("works.bib")
+```
+
 ## Maths
-After fleshing out the introduction, you move on to the meat of the document:
+After fleshing out the methods section, you move on to the meat of the document:
 Your equations. Typst has built-in mathematical typesetting and uses its own
 math notation. Let's start with a simple equation. We wrap it in `[$]` signs
 to let Typst know it should expect a mathematical expression:
@@ -194,8 +232,8 @@ If you want to have a variable that consists of multiple letters, you can
 enclose it in quotes:
 
 ```example
-The flow rate of a glacier is given by
-the following equation:
+The flow rate of a glacier is given
+by the following equation:
 
 $ Q = rho A v + "time offset" $
 ```

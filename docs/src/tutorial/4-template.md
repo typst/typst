@@ -86,8 +86,6 @@ previous chapter.
 
 ```example
 #let conf(title, doc) = {
-  set text(font: "Linux Libertine", 11pt)
-  set par(justify: true)
   set page(
     paper: "us-letter",
 >>> margin: auto,
@@ -96,6 +94,11 @@ previous chapter.
       title
     ),
 <<<     ...
+  )
+  set par(justify: true)
+  set text(
+    font: "Linux Libertine",
+    size: 11pt,
   )
 
   // Heading show rules.
@@ -324,7 +327,6 @@ path of the file after the `{from}` keyword.
 >>>  columns(2, doc)
 >>>}
 <<< #import "conf.typ": conf
-
 #show: doc => conf(
   title: [
     Towards Improved Modelling

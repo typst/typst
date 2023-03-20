@@ -50,9 +50,6 @@ to learn some new tricks.
 Let's start by writing some set rules for the document.
 
 ```example
-#set text(font: "Linux Libertine", 11pt)
-#set par(justify: true)
-
 #set page(
 >>>  margin: auto,
   paper: "us-letter",
@@ -61,6 +58,11 @@ Let's start by writing some set rules for the document.
     glacier flow
   ],
   numbering: "1",
+)
+#set par(justify: true)
+#set text(
+  font: "Linux Libertine",
+  size: 11pt,
 )
 
 #lorem(600)
