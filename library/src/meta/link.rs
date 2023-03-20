@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::text::{Hyphenate, TextElem};
 
-/// Link to a URL or another location in the document.
+/// Link to a URL or a location in the document.
 ///
 /// The link function makes its positional `body` argument clickable and links
 /// it to the destination specified by the `dest` argument. By default, links

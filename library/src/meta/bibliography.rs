@@ -16,6 +16,31 @@ use crate::text::TextElem;
 
 /// A bibliography / reference listing.
 ///
+/// You can create a new bibliography by calling this function with a path
+/// to a bibliography file in either one of two formats:
+///
+/// - A Hayagriva `.yml` file. Hayagriva is a new bibliography file format
+///   designed for use with Typst. Visit its
+///   [documentation](https://github.com/typst/hayagriva/blob/main/docs/file-format.md)
+///   for more details.
+/// - A BibLaTeX `.bib` file.
+///
+/// As soon as you add a bibliography somewhere in your document, you can start
+/// citing things with reference syntax (`[@key]`) or explicit calls to the
+/// [citation]($func/cite) function (`[#cite("key")]`). The bibliography will
+/// only show entries for works that were referenced in the document.
+///
+/// # Example
+/// ```example
+/// This was already noted by
+/// pirates long ago. @arrgh
+///
+/// Multiple sources say ...
+/// #cite("arrgh", "netwok").
+///
+/// #bibliography("works.bib")
+/// ```
+///
 /// Display: Bibliography
 /// Category: meta
 #[element(Locatable, Synthesize, Show, LocalName)]
@@ -90,7 +115,7 @@ impl BibliographyElem {
 }
 
 impl Synthesize for BibliographyElem {
-    fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) {
         self.push_style(self.style(styles));
     }
 }
@@ -192,21 +217,64 @@ impl BibliographyStyle {
     }
 }
 
-/// A citation of another work.
+/// Cite a work from the bibliography.
+///
+/// Before you starting citing, you need to add a
+/// [bibliography]($func/bibliography) somewhere in your document.
+///
+/// # Example
+/// ```example
+/// This was already noted by
+/// pirates long ago. @arrgh
+///
+/// Multiple sources say ...
+/// #cite("arrgh", "netwok").
+///
+/// #bibliography("works.bib")
+/// ```
+///
+/// # Syntax
+/// This function indirectly has dedicated syntax. [References]($func/ref)
+/// can be used to cite works from the bibliography. The label then
+/// corresponds to the citation key.
 ///
 /// Display: Citation
 /// Category: meta
 #[element(Locatable, Synthesize, Show)]
 pub struct CiteElem {
-    /// The citation key.
+    /// The citation keys that identify the elements that shall be cited in
+    /// the bibliography.
+    ///
+    /// Reference syntax supports only a single key.
     #[variadic]
     pub keys: Vec<EcoString>,
 
     /// A supplement for the citation such as page or chapter number.
+    ///
+    /// In reference syntax, the supplement can be added in square brackets:
+    ///
+    /// ```example
+    /// This has been proven over and
+    /// over again. @distress[p.~7]
+    ///
+    /// #bibliography("works.bib")
+    /// ```
     #[positional]
     pub supplement: Option<Content>,
 
     /// Whether the citation should include brackets.
+    ///
+    /// ```example
+    /// #set cite(brackets: false)
+    ///
+    /// @netwok follow these methods
+    /// in their work ...
+    ///
+    /// #bibliography(
+    ///   "works.bib",
+    ///   style: "author-date",
+    /// )
+    /// ```
     #[default(true)]
     pub brackets: bool,
 
@@ -214,11 +282,19 @@ pub struct CiteElem {
     ///
     /// When set to `{auto}`, automatically picks the preferred citation style
     /// for the bibliography's style.
+    ///
+    /// ```example
+    /// #set cite(style: "alphanumerical")
+    /// Alphanumerical references.
+    /// @netwok
+    ///
+    /// #bibliography("works.bib")
+    /// ```
     pub style: Smart<CitationStyle>,
 }
 
 impl Synthesize for CiteElem {
-    fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) {
         self.push_supplement(self.supplement(styles));
         self.push_brackets(self.brackets(styles));
         self.push_style(self.style(styles));
@@ -243,6 +319,11 @@ impl Show for CiteElem {
     }
 }
 
+cast_from_value! {
+    CiteElem,
+    v: Content => v.to::<Self>().cloned().ok_or("expected citation")?,
+}
+
 /// A citation style.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum CitationStyle {
@@ -259,6 +340,12 @@ pub enum CitationStyle {
     AuthorTitle,
     /// Citations that just consist of the entry keys.
     Keys,
+}
+
+impl CitationStyle {
+    fn is_short(self) -> bool {
+        matches!(self, Self::Numerical | Self::Alphanumerical | Self::Keys)
+    }
 }
 
 /// Fully formatted citations and references.
@@ -280,7 +367,7 @@ impl Works {
             ]))
             .into_iter()
             .map(|elem| match elem.to::<RefElem>() {
-                Some(reference) => reference.to_citation(StyleChain::default()),
+                Some(reference) => reference.citation().unwrap(),
                 _ => elem.to::<CiteElem>().unwrap().clone(),
             })
             .collect();
@@ -370,6 +457,10 @@ fn create(
                         }],
                     )
                     .display;
+
+                if style.is_short() {
+                    display.value = display.value.replace(' ', "\u{a0}");
+                }
 
                 if brackets && len == 1 {
                     display = display.with_default_brackets(&*citation_style);

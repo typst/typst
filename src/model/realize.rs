@@ -42,7 +42,7 @@ pub fn realize(
         }
 
         if let Some(elem) = elem.with_mut::<dyn Synthesize>() {
-            elem.synthesize(vt, styles);
+            elem.synthesize(styles);
         }
 
         elem.mark_prepared();
@@ -165,7 +165,7 @@ pub trait Locatable {}
 /// rule.
 pub trait Synthesize {
     /// Prepare the element for show rule application.
-    fn synthesize(&mut self, vt: &Vt, styles: StyleChain);
+    fn synthesize(&mut self, styles: StyleChain);
 }
 
 /// The base recipe for an element.

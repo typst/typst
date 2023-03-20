@@ -158,7 +158,7 @@ pub struct EquationElem {
 }
 
 impl Synthesize for EquationElem {
-    fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) {
         self.push_block(self.block(styles));
         self.push_numbering(self.numbering(styles));
     }
@@ -216,7 +216,7 @@ impl Layout for EquationElem {
             if let Some(numbering) = self.numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
                 let counter = Counter::of(Self::func())
-                    .display(numbering, false)
+                    .display(Some(numbering), false)
                     .layout(vt, styles, pod)?
                     .into_frame();
 

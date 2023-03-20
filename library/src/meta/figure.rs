@@ -10,7 +10,7 @@ use crate::text::TextElem;
 /// ## Example
 /// ```example
 /// = Pipeline
-/// @fig-lab shows the central step of
+/// @lab shows the central step of
 /// our molecular testing pipeline.
 ///
 /// #figure(
@@ -18,7 +18,7 @@ use crate::text::TextElem;
 ///   caption: [
 ///     The molecular testing pipeline.
 ///   ],
-/// ) <fig-lab>
+/// ) <lab>
 /// ```
 ///
 /// Display: Figure
@@ -43,7 +43,7 @@ pub struct FigureElem {
 }
 
 impl Synthesize for FigureElem {
-    fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) {
         self.push_numbering(self.numbering(styles));
     }
 }
@@ -57,7 +57,7 @@ impl Show for FigureElem {
                 let name = self.local_name(TextElem::lang_in(styles));
                 caption = TextElem::packed(eco_format!("{name}\u{a0}"))
                     + Counter::of(Self::func())
-                        .display(numbering, false)
+                        .display(Some(numbering), false)
                         .spanned(self.span())
                     + TextElem::packed(": ")
                     + caption;

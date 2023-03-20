@@ -95,10 +95,17 @@ visualize: |
   be in the future.
 
 meta: |
-  Document structuring and metadata setup.
+  Document structuring, introspection, and metadata configuration.
 
-  Here, you can find functions to structure your document and configure its
-  metadata.
+  Here, you can find functions to structure your document and interact with that
+  structure. This includes section headings and figures, bibliography
+  management, cross-referencing and more.
+
+  Moreover, this category is home to Typst's introspection capabilities: With
+  the `counter` function, you can access and manipulate page, section, figure,
+  and equation counters or create custom ones. And the `query` function lets you
+  search for elements in the document to construct things like a list of
+  figures or headers which show the current chapter title.
 
 symbols: |
   These two modules give names to symbols and emoji to make them easy to insert
@@ -113,6 +120,8 @@ sym: |
   For example, `#sym.arrow` produces the → symbol. Within
   [formulas]($category/math), these symbols can be used without the `#sym.`
   prefix.
+
+  The `d` in an integral's `dx` can be written as `[$dif x$]`.
 
 emoji: |
   Named emoji.

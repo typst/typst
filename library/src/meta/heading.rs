@@ -80,7 +80,7 @@ pub struct HeadingElem {
 }
 
 impl Synthesize for HeadingElem {
-    fn synthesize(&mut self, _: &Vt, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) {
         self.push_level(self.level(styles));
         self.push_numbering(self.numbering(styles));
         self.push_outlined(self.outlined(styles));
@@ -92,7 +92,7 @@ impl Show for HeadingElem {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {
             realized = Counter::of(Self::func())
-                .display(numbering, false)
+                .display(Some(numbering), false)
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;

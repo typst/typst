@@ -318,7 +318,7 @@ impl PageElem {
                     Numbering::Func(_) => true,
                 };
                 Counter::new(CounterKey::Page)
-                    .display(numbering, both)
+                    .display(Some(numbering), both)
                     .aligned(self.number_align(styles))
             })
         });

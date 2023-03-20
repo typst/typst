@@ -5,8 +5,9 @@ use ecow::{eco_vec, EcoVec};
 use smallvec::{smallvec, SmallVec};
 use typst::eval::Tracer;
 
-use super::{Numbering, NumberingPattern};
+use super::{FigureElem, HeadingElem, Numbering, NumberingPattern};
 use crate::layout::PageElem;
+use crate::math::EquationElem;
 use crate::prelude::*;
 
 /// Count through pages, elements, and more.
@@ -165,7 +166,7 @@ use crate::prelude::*;
 ///   which one doesn't matter. After the heading follow two calls to `step()`,
 ///   so the final value is `{(6,)}`.
 ///
-/// ## Different kinds of state
+/// ## Other kinds of state
 /// The `counter` function is closely related to [state]($func/state) function.
 /// Read its documentation for more details on state management in Typst and
 /// why it doesn't just use normal variables for counters.
@@ -180,6 +181,9 @@ use crate::prelude::*;
 ///   number of the counter as a separate argument. If the amount of numbers
 ///   varies, e.g. for the heading argument, you can use an
 ///   [argument sink]($type/arguments).
+///
+///   If this is omitted, displays the counter with the numbering style for the
+///   counted element or with the pattern `{"1.1"}` if no such style exists.
 ///
 /// - returns: content
 ///
@@ -275,14 +279,10 @@ impl Counter {
         mut args: Args,
         span: Span,
     ) -> SourceResult<Value> {
-        let pattern = |s| NumberingPattern::from_str(s).unwrap().into();
         let value = match method {
-            "display" => self
-                .display(
-                    args.eat()?.unwrap_or_else(|| pattern("1.1")),
-                    args.named("both")?.unwrap_or(false),
-                )
-                .into(),
+            "display" => {
+                self.display(args.eat()?, args.named("both")?.unwrap_or(false)).into()
+            }
             "step" => self
                 .update(CounterUpdate::Step(
                     args.named("level")?.unwrap_or(NonZeroUsize::ONE),
@@ -298,7 +298,7 @@ impl Counter {
     }
 
     /// Display the current value of the counter.
-    pub fn display(self, numbering: Numbering, both: bool) -> Content {
+    pub fn display(self, numbering: Option<Numbering>, both: bool) -> Content {
         DisplayElem::new(self, numbering, both).pack()
     }
 
@@ -574,7 +574,7 @@ struct DisplayElem {
 
     /// The numbering to display the counter with.
     #[required]
-    numbering: Numbering,
+    numbering: Option<Numbering>,
 
     /// Whether to display both the current and final value.
     #[required]
@@ -582,10 +582,28 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let location = self.0.location().unwrap();
         let counter = self.counter();
-        let numbering = self.numbering();
+        let numbering = self
+            .numbering()
+            .or_else(|| {
+                let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
+                return None;
+            };
+
+                if func == HeadingElem::func() {
+                    HeadingElem::numbering_in(styles)
+                } else if func == FigureElem::func() {
+                    FigureElem::numbering_in(styles)
+                } else if func == EquationElem::func() {
+                    EquationElem::numbering_in(styles)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
+
         let state = if self.both() {
             counter.both(vt, location)?
         } else {

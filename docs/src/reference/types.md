@@ -379,18 +379,16 @@ the resulting parts.
 - returns: array
 
 # Content
-Representation of text, elements, and more.
+Representation of document content.
 
 This type is at the heart of Typst. All markup you write and most
-[functions]($type/function) you call produce content values. You
-can create a content value by enclosing markup in square brackets. This is also
-how you pass content to functions. Typst does not allow you to peek into
-content, but you can affect its appearance in various ways using set and show
-rules. See the chapter on [styling]($styling) for more details.
+[functions]($type/function) you call produce content values. You can create a
+content value by enclosing markup in square brackets. This is also how you pass
+content to functions.
 
 ```example
-#type([*Hello!*]) \
-#strong[Hello!]
+Type of *Hello!* is
+#type([*Hello!*])
 ```
 
 Content can be added with the `+` operator,
@@ -398,21 +396,62 @@ Content can be added with the `+` operator,
 integers. Wherever content is expected, you can also pass a
 [string]($type/string) or `{none}`.
 
-### Reactivity
-Content is reactive to the styles that are active where it is inserted.
-When you write a set or show rule, content that was _created_ before the show
-rule is stilled affected by the show rule if it is _inserted_ after the show
-rule.
+## Representation
+Content consists of elements with fields. When constructing an element with
+its _element function,_ you provide these fields as arguments and when you have
+a content value, you can access its fields with
+[field access syntax]($scripting/#field-access).
 
-```example
-// Content is created here.
-#let mytext = [= A heading]
+Some fields are required: These must be provided when constructing an element
+and as a consequence, they are always available through field access on content
+of that type. Required fields are marked as such in the documentation.
 
-// But still affected by the
-// styles that are active here.
-#show heading: set text(green)
-#mytext
-```
+Most fields are optional: Like required fields, they can be passed to the
+element function to configure them for a single element. However, these can also
+be configured with [set rules]($styling/#set-rules) to apply them to all
+elements within a scope. Optional fields are only available with field access
+syntax when they are were explicitly passed to the element function, not when
+they result from a set rule.
+
+Each element has a default appearance. However, you can also completely
+customize its appearance with a [show rule]($styling/#show-rules). The show rule
+is passed the element. It can access the element's field and produce arbitrary
+content from it.
+
+In the web app, you can hover over a content variable to see exactly which
+elements the content is composed of and what fields they have. Alternatively,
+you can inspect the output of the [`repr`]($func/repr) function.
+
+## Methods
+### func()
+The content's element function. This function can be used to create the element
+contained in this content. It can be used in set and show rules for the element.
+Can be compared with global functions to check whether you have a specific
+kind of element.
+
+- returns: function
+
+### has()
+Whether the content has the specified field.
+
+- field: string (positional, required)
+  The field to look for.
+- returns: boolean
+
+### at()
+Access the specified field on the content.
+
+- field: string (positional, required)
+  The field to access.
+- returns: any
+
+### location()
+The location of the content. This is only available on content returned by
+[query]($func/query), for other content it will fail with an error. The
+resulting location can be used with [counters]($func/counter),
+[state]($func/state) and [queries]($func/query).
+
+- returns: location
 
 # Array
 A sequence of values.

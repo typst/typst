@@ -31,8 +31,7 @@ Second: #mine.display("I")
 #counter(heading).step()
 
 = Alpha
-In #counter(heading).display().
-
+In #counter(heading).display()
 == Beta
 
 #set heading(numbering: none)

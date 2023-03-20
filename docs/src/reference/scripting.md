@@ -178,8 +178,7 @@ can be either:
 - a [dictionary]($type/dictionary) that has the specified key,
 - a [symbols]($type/symbol) that has the specified modifier,
 - a [module]($type/module) containing the specified definition,
-- [content]($type/content) that exposes the specified field. Most elements
-  expose some or all of the non-settable arguments passed to them as fields.
+- [content]($type/content) that has the specified field.
 
 ```example
 #let dict = (greet: "Hello")

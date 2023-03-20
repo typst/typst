@@ -13,15 +13,17 @@ of elements.
 ## Set rules { #set-rules }
 With set rules, you can customize the appearance of elements. They are written
 as a [function call]($type/function) to the respective function preceded by the
-`{set}` keyword (or `[#set]` in markup). Only settable parameters must be
-provided as arguments. Refer to each function's documentation for a list of
-settable parameters. In the example below, we use two set rules to change the
-[font family]($func/text.family) and
-[heading numbering]($func/heading.numbering) style.
+`{set}` keyword (or `[#set]` in markup). Only optional parameters of that
+function can be provided to the set rule. Refer to each function's documentation
+to see which parameters are optional. In the example below, we use two set rules
+to change the [font family]($func/text.family) and
+[heading numbering]($func/heading.numbering).
 
 ```example
-#set text(font: "New Computer Modern")
 #set heading(numbering: "I.")
+#set text(
+  font: "New Computer Modern"
+)
 
 = Introduction
 With set rules, you can style
@@ -35,9 +37,10 @@ your document. Below, we use a content block to scope the list styling to one
 particular list.
 
 ```example
-This list is affected:
-#[#set list(marker: [--])
- - Dash]
+This list is affected: #[
+  #set list(marker: [--])
+  - Dash
+]
 
 This one is not:
 - Bullet
@@ -87,8 +90,7 @@ fantasy encyclopedia.
   #set align(center)
   #set text(font: "Inria Serif")
   \~ #emph(it.body)
-     #(counter(heading)
-         .display(it.numbering)) \~
+     #counter(heading).display() \~
 ]
 
 = Dragon

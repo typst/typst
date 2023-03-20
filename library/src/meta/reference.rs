@@ -2,30 +2,37 @@ use super::{BibliographyElem, CiteElem, Counter, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::TextElem;
 
-/// A reference to a label.
+/// A reference to a label or bibliography.
 ///
 /// The reference function produces a textual reference to a label. For example,
 /// a reference to a heading will yield an appropriate string such as "Section
 /// 1" for a reference to the first heading. The references are also links to
 /// the respective element.
 ///
+/// Reference syntax can also be used to [cite]($func/cite) from a bibliography.
+///
 /// # Example
 /// ```example
 /// #set heading(numbering: "1.")
+/// #set math.equation(numbering: "(1)")
 ///
 /// = Introduction <intro>
-/// Recent developments in typesetting
-/// software have rekindled hope in
-/// previously frustrated researchers.
+/// Recent developments in
+/// typesetting software have
+/// rekindled hope in previously
+/// frustrated researchers. @distress
 /// As shown in @results, we ...
 ///
 /// = Results <results>
-/// We evaluate our method in a
-/// series of tests. @perf discusses
-/// the performance aspects of ...
+/// We discuss our approach in
+/// comparison with others.
 ///
 /// == Performance <perf>
-/// As described in @intro, we ...
+/// @slow demonstrates what slow
+/// software looks like.
+/// $ O(n) = 2^n $ <slow>
+///
+/// #bibliography("works.bib")
 /// ```
 ///
 /// ## Syntax
@@ -33,9 +40,12 @@ use crate::text::TextElem;
 /// created by typing an `@` followed by the name of the label (e.g.
 /// `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
 ///
+/// To customize the supplement, add content in square brackets after the
+/// reference: `[@intro[Chapter]]`.
+///
 /// Display: Reference
 /// Category: meta
-#[element(Locatable, Show)]
+#[element(Synthesize, Locatable, Show)]
 pub struct RefElem {
     /// The target label that should be referenced.
     #[required]
@@ -58,9 +68,22 @@ pub struct RefElem {
     ///
     /// = Introduction <intro>
     /// In @intro, we see how to turn
-    /// Sections into Chapters.
+    /// Sections into Chapters. And
+    /// in @intro[Part], it is done
+    /// manually.
     /// ```
     pub supplement: Smart<Option<Supplement>>,
+
+    /// A synthesized citation.
+    #[synthesized]
+    pub citation: Option<CiteElem>,
+}
+
+impl Synthesize for RefElem {
+    fn synthesize(&mut self, styles: StyleChain) {
+        let citation = self.to_citation(styles);
+        self.push_citation(Some(citation));
+    }
 }
 
 impl Show for RefElem {
@@ -77,7 +100,7 @@ impl Show for RefElem {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
 
-            return self.to_citation(styles).show(vt, styles);
+            return Ok(self.to_citation(styles).pack());
         }
 
         let [elem] = matches.as_slice() else {
@@ -126,11 +149,12 @@ impl RefElem {
     /// Turn the rference into a citation.
     pub fn to_citation(&self, styles: StyleChain) -> CiteElem {
         let mut elem = CiteElem::new(vec![self.target().0]);
+        elem.0.set_location(self.0.location().unwrap());
+        elem.synthesize(styles);
         elem.push_supplement(match self.supplement(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         });
-        elem.0.set_location(self.0.location().unwrap());
         elem
     }
 }
