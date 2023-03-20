@@ -229,8 +229,8 @@ use crate::prelude::*;
 /// - location: location (positional, required)
 ///   Can be any location. Why is it required then? Typst has to evaluate parts
 ///   of your code multiple times to determine all counter values. By only
-///   allowing this method in [`locate`]($func/locate) calls, the amount of code
-///   that can depend on the method's result is reduced. If you could call
+///   allowing this method within [`locate`]($func/locate) calls, the amount of
+///   code that can depend on the method's result is reduced. If you could call
 ///   `final` directly at the top level of a module, the evaluation of the whole
 ///   module and its exports could depend on the counter's value.
 ///
