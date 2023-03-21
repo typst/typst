@@ -40,7 +40,7 @@ it is:
   <img alt="Example" width="900" src="https://user-images.githubusercontent.com/17899797/226325459-6baa66fa-4c11-4eba-8f04-ef0fa796aa50.png"/>
 </p>
 
-Let's disect what's going on:
+Let's dissect what's going on:
 
 - We use _set rules_ to configure element properties like the size of pages or
   the numbering of headings. By setting the page height to `auto`, it scales to

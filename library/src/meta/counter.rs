@@ -145,7 +145,7 @@ use crate::prelude::*;
 /// #mine.step()
 /// ```
 ///
-/// Let's disect what happens in the example above:
+/// Let's dissect what happens in the example above:
 ///
 /// - We call [`locate`]($func/locate) to get access to the current location in
 ///   the document. We then pass this location to our counter's `at` method to
