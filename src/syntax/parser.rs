@@ -872,11 +872,20 @@ fn set_rule(p: &mut Parser) {
 fn show_rule(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Show);
+    p.unskip();
+    let m2 = p.marker();
+    p.skip();
+
     if !p.at(SyntaxKind::Colon) {
         code_expr(p);
     }
-    p.expect(SyntaxKind::Colon);
-    code_expr(p);
+
+    if p.eat_if(SyntaxKind::Colon) {
+        code_expr(p);
+    } else {
+        p.expected_at(m2, "colon");
+    }
+
     p.wrap(m, SyntaxKind::ShowRule);
 }
 
@@ -1293,6 +1302,12 @@ impl<'s> Parser<'s> {
             self.nodes.push(SyntaxNode::error(message, "", ErrorPos::Full));
         }
         self.skip();
+    }
+
+    fn expected_at(&mut self, m: Marker, thing: &str) {
+        let message = eco_format!("expected {}", thing);
+        let error = SyntaxNode::error(message, "", ErrorPos::Full);
+        self.nodes.insert(m.0, error);
     }
 
     fn unexpected(&mut self) {
