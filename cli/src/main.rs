@@ -156,7 +156,7 @@ fn print_help(help: &'static str) -> ! {
 
 /// Print the version hash and quit.
 fn print_version() -> ! {
-    println!("typst {}", env!("TYPST_HASH"));
+    println!("typst {}", env!("TYPST_VERSION"));
     std::process::exit(0);
 }
 
