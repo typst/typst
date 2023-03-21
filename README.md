@@ -113,6 +113,11 @@ typst file.typ
 typst path/to/source.typ path/to/output.pdf
 ```
 
+To properly use Typst, you should also install the fonts "Linux Libertine" and
+"New Computer Modern Math". They are available as part of this repository in
+`assets/fonts` or you can install them through the package manager of your
+choice.
+
 You can also watch source files and automatically recompile on changes. This is
 faster than compiling from scratch each time because Typst has incremental
 compilation.
