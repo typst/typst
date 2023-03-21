@@ -59,10 +59,10 @@ fn main() {
 
     let len = filtered.len();
     match len {
-        0 => {},
+        0 => {}
         1 => println!("Running test ..."),
         2.. => println!("Running {len} tests"),
-        _ => unreachable!()
+        _ => unreachable!(),
     }
 
     // Create loader and context.

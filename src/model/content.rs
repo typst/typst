@@ -398,7 +398,7 @@ impl std::hash::Hash for Content {
         // suggested:
         // self.func.hash(state);
         // self.attrs.hash(state);
-        
+
         // but this follows the PartialEq-impl.
         if let Some(seq) = self.to_sequence() {
             seq.for_each(|s| {

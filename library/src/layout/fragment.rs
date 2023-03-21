@@ -20,7 +20,7 @@ impl Fragment {
     pub fn len(&self) -> usize {
         self.0.len()
     }
-    
+
     /// Returns `true` if there are no frames in fragment,
     /// otherwise `false`.
     #[must_use]
