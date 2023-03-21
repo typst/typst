@@ -6,7 +6,7 @@ description: |
 
 # Community
 Hey and welcome to the Community page! We're so glad you're here. Typst is
-developed by a super early-stage startup and is still in its infancy, but it
+developed by an early-stage startup and is still in its infancy, but it
 would be pointless without people like you who are interested in it.
 
 We would love to not only hear from you but to also provide spaces where you can
@@ -34,22 +34,16 @@ community members, but if you need a little inspiration, here are a few ideas:
 - Share importable files or templates that you use to style your documents
 - Alert us of bugs you encounter while using Typst
 
-## Infrastructure test
-We will start a small-scale test of our product and infrastructure with a few
-people from our wait list, starting on December 26th, 2022. More wait list
-members will be invited throughout the infrastructure test. Everyone who has
-product access and is on our Discord server will receive access to a private
-text and speech channel.
-
+## Beta test
+We are starting a public beta test of our product on March 21st, 2022.
 The Typst compiler is still under active development and breaking changes can
-occur at any point. The compiler will remain closed source until Typst goes into
-public beta. Currently, we plan to start our public beta and open source Typst
-in March of 2023.
+occur at any point. The compiler is developed in the open on
+[GitHub](https://github.com/typst/typst).
 
 We will update the members of our Discord server and our social media followers
 when new features become available in the preview. We'll also update you on the
-development progress of large features, such as math typesetting. A development
-tracker will become available on the documentation pages soon.
+development progress of large features. A development tracker will become
+available on the documentation pages soon.
 
 ## Community Rules
 We want to make our community a safe and inclusive space for everyone.
