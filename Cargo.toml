@@ -3,6 +3,7 @@ name = "typst"
 version = "0.0.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
+resolver = "2"
 
 [workspace]
 members = ["cli", "docs", "library", "macros", "tests"]
