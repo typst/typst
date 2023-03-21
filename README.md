@@ -44,7 +44,7 @@ Let's dissect what's going on:
 
 - We use _set rules_ to configure element properties like the size of pages or
   the numbering of headings. By setting the page height to `auto`, it scales to
-  fit the content. Set rules accomodate the most common configurations. If you
+  fit the content. Set rules accommodate the most common configurations. If you
   need full control, you can also use [show rules][show] to completely redefine
   the appearance of an element.
 
@@ -165,7 +165,7 @@ instant preview. To achieve these goals, we follow three core design principles:
   (`\usepackage{knob}`).
 
 - **Performance through Incrementality:**
-  All Typst language features must accomodate for incremental compilation.
+  All Typst language features must accommodate for incremental compilation.
   Luckily we have [`comemo`], a system for incremental compilation which does
   most of the hard work in the background.
 
