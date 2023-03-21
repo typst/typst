@@ -133,6 +133,7 @@ impl ParElem {
         region: Size,
         expand: bool,
     ) -> SourceResult<Fragment> {
+        #[allow(clippy::too_many_arguments)]
         #[comemo::memoize]
         fn cached(
             par: &ParElem,
@@ -365,12 +366,13 @@ impl<'a> Item<'a> {
 }
 
 /// Maps byte offsets back to spans.
+#[derive(Default)]
 pub struct SpanMapper(Vec<(usize, Span)>);
 
 impl SpanMapper {
     /// Create a new span mapper.
     pub fn new() -> Self {
-        Self(vec![])
+        Self::default()
     }
 
     /// Push a span for a segment with the given length.
@@ -486,6 +488,7 @@ impl<'a> Line<'a> {
 
 /// Collect all text of the paragraph into one string. This also performs
 /// string-level preprocessing like case transformations.
+#[allow(clippy::type_complexity)]
 fn collect<'a>(
     children: &'a [Content],
     styles: &'a StyleChain<'a>,
@@ -745,8 +748,8 @@ fn is_compatible(a: Script, b: Script) -> bool {
 
 /// Get a style property, but only if it is the same for all children of the
 /// paragraph.
-fn shared_get<'a, T: PartialEq>(
-    styles: StyleChain<'a>,
+fn shared_get<T: PartialEq>(
+    styles: StyleChain<'_>,
     children: &[Content],
     getter: fn(StyleChain) -> T,
 ) -> Option<T> {
@@ -754,8 +757,8 @@ fn shared_get<'a, T: PartialEq>(
     children
         .iter()
         .filter_map(|child| child.to_styled())
-        .all(|(_, local)| getter(styles.chain(&local)) == value)
-        .then(|| value)
+        .all(|(_, local)| getter(styles.chain(local)) == value)
+        .then_some(value)
 }
 
 /// Find suitable linebreaks.

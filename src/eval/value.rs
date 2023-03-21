@@ -17,9 +17,10 @@ use crate::model::Styles;
 use crate::syntax::{ast, Span};
 
 /// A computational value.
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
+    #[default]
     None,
     /// A value that indicates some smart default behaviour.
     Auto,
@@ -122,10 +123,10 @@ impl Value {
     /// Try to access a field on the value.
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(&field).map(Self::Symbol),
-            Self::Dict(dict) => dict.at(&field).cloned(),
-            Self::Content(content) => content.at(&field),
-            Self::Module(module) => module.get(&field).cloned(),
+            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Dict(dict) => dict.at(field).cloned(),
+            Self::Content(content) => content.at(field),
+            Self::Module(module) => module.get(field).cloned(),
             v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
         }
     }
@@ -165,12 +166,6 @@ impl Value {
             Self::Func(func) => func.info().map(|info| info.docs),
             _ => None,
         }
-    }
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::None
     }
 }
 
@@ -246,7 +241,7 @@ impl Hash for Value {
 }
 
 /// A dynamic value.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
@@ -283,6 +278,12 @@ impl Debug for Dynamic {
 impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
+    }
+}
+
+impl std::hash::Hash for Dynamic {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state)
     }
 }
 
@@ -430,6 +431,7 @@ mod tests {
         test(Value::None, "none");
         test(false, "false");
         test(12i64, "12");
+        #[allow(clippy::approx_constant)]
         test(3.14, "3.14");
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");

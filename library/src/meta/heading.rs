@@ -141,7 +141,8 @@ impl LocalName for HeadingElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Abschnitt",
-            Lang::ENGLISH | _ => "Section",
+            Lang::ENGLISH => "Section",
+            _ => "Section",
         }
     }
 }

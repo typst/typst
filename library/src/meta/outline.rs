@@ -73,7 +73,7 @@ impl Show for OutlineElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         if let Some(title) = self.title(styles) {
-            let title = title.clone().unwrap_or_else(|| {
+            let title = title.unwrap_or_else(|| {
                 TextElem::packed(self.local_name(TextElem::lang_in(styles)))
                     .spanned(self.span())
             });
@@ -177,7 +177,8 @@ impl LocalName for OutlineElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Inhaltsverzeichnis",
-            Lang::ENGLISH | _ => "Contents",
+            Lang::ENGLISH => "Contents",
+            _ => "Contents",
         }
     }
 }

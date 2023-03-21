@@ -314,11 +314,12 @@ pub(super) fn decorate(
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
-        if bbox.map_or(false, |bbox| {
-            let y_min = -text.font.to_em(bbox.y_max).at(text.size);
-            let y_max = -text.font.to_em(bbox.y_min).at(text.size);
-            offset >= y_min && offset <= y_max
-        }) {
+        let bbox = bbox.map_or(false, |rect| {
+            let y_min = -text.font.to_em(rect.y_max).at(text.size);
+            let y_max = -text.font.to_em(rect.y_min).at(text.size);
+            (y_min..=y_max).contains(&offset)
+        });
+        if bbox {
             // Find all intersections of segments with the line.
             intersections.extend(
                 path.segments()

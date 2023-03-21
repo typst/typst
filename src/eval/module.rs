@@ -7,7 +7,7 @@ use super::{Content, Scope, Value};
 use crate::diag::StrResult;
 
 /// An evaluated module, ready for importing or typesetting.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Module(Arc<Repr>);
 
 /// The internal representation.
@@ -60,7 +60,7 @@ impl Module {
 
     /// Try to access a definition in the module.
     pub fn get(&self, name: &str) -> StrResult<&Value> {
-        self.scope().get(&name).ok_or_else(|| {
+        self.scope().get(name).ok_or_else(|| {
             eco_format!("module `{}` does not contain `{name}`", self.name())
         })
     }
@@ -83,5 +83,11 @@ impl Debug for Module {
 impl PartialEq for Module {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl std::hash::Hash for Module {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
     }
 }

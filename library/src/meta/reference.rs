@@ -123,7 +123,7 @@ impl Show for RefElem {
                 .map(TextElem::packed)
                 .unwrap_or_default(),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
+            Smart::Custom(Some(Supplement::Content(content))) => content,
             Smart::Custom(Some(Supplement::Func(func))) => {
                 func.call_vt(vt, [elem.clone().into()])?.display()
             }

@@ -42,6 +42,7 @@ struct CompileCommand {
     watch: bool,
 }
 
+#[allow(clippy::redundant_static_lifetimes)]
 const HELP: &'static str = "\
 typst creates PDF files from .typ files
 
@@ -68,6 +69,7 @@ struct FontsCommand {
     variants: bool,
 }
 
+#[allow(clippy::redundant_static_lifetimes)]
 const HELP_FONTS: &'static str = "\
 typst --fonts lists all discovered system fonts
 
@@ -255,7 +257,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
         // Print diagnostics.
         Err(errors) => {
             status(command, Status::Error).unwrap();
-            print_diagnostics(&world, *errors)
+            print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
         }
     }

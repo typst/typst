@@ -36,6 +36,7 @@ fn try_reparse(
     offset: usize,
 ) -> Option<Range<usize>> {
     // The range of children which overlap with the edit.
+    #[allow(clippy::reversed_empty_ranges)]
     let mut overlap = usize::MAX..0;
     let mut cursor = offset;
     let node_kind = node.kind();
@@ -72,7 +73,7 @@ fn try_reparse(
                     return node
                         .replace_children(i..i + 1, vec![newborn])
                         .is_ok()
-                        .then(|| new_range);
+                        .then_some(new_range);
                 }
             }
         }
@@ -157,7 +158,7 @@ fn try_reparse(
                 return node
                     .replace_children(start..end, newborns)
                     .is_ok()
-                    .then(|| new_range);
+                    .then_some(new_range);
             }
         }
     }

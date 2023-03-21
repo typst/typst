@@ -212,7 +212,7 @@ impl Source {
             k += c.len_utf16();
         }
 
-        (k == utf16_idx).then(|| self.text.len())
+        (k == utf16_idx).then_some(self.text.len())
     }
 
     /// Return the byte position at which the given line starts.

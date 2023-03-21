@@ -10,7 +10,7 @@ pub fn sym() -> Module {
 }
 
 /// The list of general symbols.
-pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
+pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Control.
     wj: '\u{2060}',
     zwj: '\u{200D}',

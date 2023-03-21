@@ -16,7 +16,7 @@ use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// Composable representation of styled content.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Content {
     func: ElemFunc,
     attrs: EcoVec<Attr>,
@@ -389,6 +389,28 @@ impl PartialEq for Content {
             left == right
         } else {
             self.func == other.func && self.fields_ref().eq(other.fields_ref())
+        }
+    }
+}
+
+impl std::hash::Hash for Content {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // suggested:
+        // self.func.hash(state);
+        // self.attrs.hash(state);
+        
+        // but this follows the PartialEq-impl.
+        if let Some(seq) = self.to_sequence() {
+            seq.for_each(|s| {
+                s.hash(state);
+            });
+        } else if let Some(style) = self.to_styled() {
+            style.hash(state);
+        } else {
+            self.func.hash(state);
+            self.fields_ref().for_each(|f| {
+                f.hash(state);
+            })
         }
     }
 }

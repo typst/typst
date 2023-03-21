@@ -17,12 +17,19 @@ use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Func {
     /// The internal representation.
     repr: Repr,
     /// The span with which errors are reported when this function is called.
     span: Span,
+}
+
+impl std::hash::Hash for Func {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.repr.hash(state);
+        // since `span` is ignored in `PartialEq` it should be ignored here
+    }
 }
 
 /// The different kinds of function representations.
@@ -115,7 +122,7 @@ impl Func {
             }
             Repr::With(arc) => {
                 args.items = arc.1.items.iter().cloned().chain(args.items).collect();
-                return arc.0.call_vm(vm, args);
+                arc.0.call_vm(vm, args)
             }
         }
     }
@@ -281,6 +288,7 @@ pub(super) struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
+    #[allow(clippy::too_many_arguments)]
     #[comemo::memoize]
     fn call(
         this: &Func,

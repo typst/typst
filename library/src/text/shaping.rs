@@ -309,7 +309,7 @@ impl<'a> ShapedText<'a> {
         // RTL needs offset one because the left side of the range should be
         // exclusive and the right side inclusive, contrary to the normal
         // behaviour of ranges.
-        self.glyphs[idx].safe_to_break.then(|| idx + (!ltr) as usize)
+        self.glyphs[idx].safe_to_break.then_some(idx + (!ltr) as usize)
     }
 }
 
@@ -377,7 +377,7 @@ pub fn shape<'a>(
 }
 
 /// Shape text with font fallback using the `families` iterator.
-fn shape_segment<'a>(
+fn shape_segment(
     ctx: &mut ShapingContext,
     base: usize,
     text: &str,

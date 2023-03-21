@@ -16,8 +16,16 @@ impl Fragment {
     }
 
     /// The number of frames in the fragment.
+    #[must_use]
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+    
+    /// Returns `true` if there are no frames in fragment,
+    /// otherwise `false`.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Extract the first and only frame.

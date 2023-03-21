@@ -122,7 +122,7 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     }
 
     // Directly after a raw block.
-    let mut s = Scanner::new(&ctx.text);
+    let mut s = Scanner::new(ctx.text);
     s.jump(ctx.leaf.offset());
     if s.eat_if("```") {
         s.eat_while('`');
@@ -651,7 +651,7 @@ fn param_completions(
                 kind: CompletionKind::Param,
                 label: param.name.into(),
                 apply: Some(eco_format!("{}: ${{}}", param.name)),
-                detail: Some(plain_docs_sentence(param.docs).into()),
+                detail: Some(plain_docs_sentence(param.docs)),
             });
         }
 
@@ -896,8 +896,8 @@ impl<'a> CompletionContext<'a> {
             frames,
             library,
             source,
-            global: &library.global.scope(),
-            math: &library.math.scope(),
+            global: library.global.scope(),
+            math: library.math.scope(),
             text,
             before: &text[..cursor],
             after: &text[cursor..],
@@ -1003,7 +1003,7 @@ impl<'a> CompletionContext<'a> {
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => {
-                func.info().map(|info| plain_docs_sentence(info.docs).into())
+                func.info().map(|info| plain_docs_sentence(info.docs))
             }
             v => Some(v.repr().into()),
         });

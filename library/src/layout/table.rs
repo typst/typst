@@ -275,7 +275,8 @@ impl LocalName for TableElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Tabelle",
-            Lang::ENGLISH | _ => "Table",
+            Lang::ENGLISH => "Table",
+            _ => "Table",
         }
     }
 }
