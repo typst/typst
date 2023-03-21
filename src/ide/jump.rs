@@ -20,10 +20,10 @@ pub enum Jump {
 }
 
 impl Jump {
-    fn from_span(world: &dyn World, span: Span) -> Self {
+    fn from_span(world: &dyn World, span: Span) -> Option<Self> {
         let source = world.source(span.source());
-        let node = source.find(span);
-        Self::Source(source.id(), node.offset())
+        let node = source.find(span)?;
+        Some(Self::Source(source.id(), node.offset()))
     }
 }
 
@@ -78,7 +78,7 @@ pub fn jump_from_click(
                         click,
                     ) {
                         let source = world.source(glyph.span.source());
-                        let node = source.find(glyph.span);
+                        let node = source.find(glyph.span)?;
                         let pos = if node.kind() == SyntaxKind::Text {
                             let range = node.range();
                             let mut offset = range.start + usize::from(glyph.offset);
@@ -99,12 +99,12 @@ pub fn jump_from_click(
             FrameItem::Shape(shape, span) => {
                 let Geometry::Rect(size) = shape.geometry else { continue };
                 if is_in_rect(pos, size, click) {
-                    return Some(Jump::from_span(world, *span));
+                    return Jump::from_span(world, *span);
                 }
             }
 
             FrameItem::Image(_, size, span) if is_in_rect(pos, *size, click) => {
-                return Some(Jump::from_span(world, *span));
+                return Jump::from_span(world, *span);
             }
 
             _ => {}

@@ -152,18 +152,18 @@ impl Source {
 
     /// Find the node with the given span.
     ///
-    /// Panics if the span does not point into this source file.
-    pub fn find(&self, span: Span) -> LinkedNode<'_> {
-        LinkedNode::new(&self.root)
-            .find(span)
-            .expect("span does not point into this source file")
+    /// Returns `None` if the span does not point into this source file.
+    pub fn find(&self, span: Span) -> Option<LinkedNode<'_>> {
+        LinkedNode::new(&self.root).find(span)
     }
 
     /// Map a span that points into this source file to a byte range.
     ///
     /// Panics if the span does not point into this source file.
     pub fn range(&self, span: Span) -> Range<usize> {
-        self.find(span).range()
+        self.find(span)
+            .expect("span does not point into this source file")
+            .range()
     }
 
     /// Return the index of the UTF-16 code unit at the byte index.
