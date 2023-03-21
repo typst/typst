@@ -55,6 +55,7 @@ ARGS:
 
 OPTIONS:
   -h, --help     Print this help
+  -V, --version  Print the CLI's version
   -w, --watch    Watch the inputs and recompile on changes
   --root <dir>   Configure the root for absolute paths
 
@@ -94,6 +95,10 @@ fn main() {
 /// Parse command line arguments.
 fn parse_args() -> StrResult<Command> {
     let mut args = Arguments::from_env();
+    if args.contains(["-V", "--version"]) {
+        print_version();
+    }
+
     let help = args.contains(["-h", "--help"]);
 
     let command = if args.contains("--fonts") {
@@ -144,8 +149,14 @@ fn parse_input_output(args: &mut Arguments, ext: &str) -> StrResult<(PathBuf, Pa
 }
 
 /// Print a help string and quit.
-fn print_help(help: &'static str) {
+fn print_help(help: &'static str) -> ! {
     print!("{help}");
+    std::process::exit(0);
+}
+
+/// Print the version hash and quit.
+fn print_version() -> ! {
+    println!("typst {}", env!("TYPST_HASH"));
     std::process::exit(0);
 }
 
