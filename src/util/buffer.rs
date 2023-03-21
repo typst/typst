@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::Deref;
 use std::sync::Arc;
@@ -6,9 +7,14 @@ use comemo::Prehashed;
 
 /// A shared buffer that is cheap to clone and hash.
 #[derive(Clone, Hash, Eq, PartialEq)]
-pub struct Buffer(Arc<Prehashed<Vec<u8>>>);
+pub struct Buffer(Arc<Prehashed<Cow<'static, [u8]>>>);
 
 impl Buffer {
+    /// Create a buffer from a static byte slice.
+    pub fn from_static(slice: &'static [u8]) -> Self {
+        Self(Arc::new(Prehashed::new(Cow::Borrowed(slice))))
+    }
+
     /// Return a view into the buffer.
     pub fn as_slice(&self) -> &[u8] {
         self
@@ -22,13 +28,13 @@ impl Buffer {
 
 impl From<&[u8]> for Buffer {
     fn from(slice: &[u8]) -> Self {
-        Self(Arc::new(Prehashed::new(slice.to_vec())))
+        Self(Arc::new(Prehashed::new(slice.to_vec().into())))
     }
 }
 
 impl From<Vec<u8>> for Buffer {
     fn from(vec: Vec<u8>) -> Self {
-        Self(Arc::new(Prehashed::new(vec)))
+        Self(Arc::new(Prehashed::new(vec.into())))
     }
 }
 
