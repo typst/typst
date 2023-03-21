@@ -404,6 +404,9 @@ impl SystemWorld {
         let mut searcher = FontSearcher::new();
         searcher.search_system();
 
+        #[cfg(feature = "embed-fonts")]
+        searcher.add_embedded();
+
         Self {
             root,
             library: Prehashed::new(typst_library::build()),
@@ -615,6 +618,32 @@ impl FontSearcher {
     /// Create a new, empty system searcher.
     fn new() -> Self {
         Self { book: FontBook::new(), fonts: vec![] }
+    }
+
+    /// Add fonts that are embedded in the binary.
+    #[cfg(feature = "embed-fonts")]
+    fn add_embedded(&mut self) {
+        let mut add = |bytes: &[u8]| {
+            let buffer = Buffer::from(bytes);
+            for (i, font) in Font::iter(buffer).enumerate() {
+                self.book.push(font.info().clone());
+                self.fonts.push(FontSlot {
+                    path: PathBuf::new(),
+                    index: i as u32,
+                    font: OnceCell::from(Some(font)),
+                });
+            }
+        };
+
+        // Embed default fonts.
+        add(include_bytes!("../../assets/fonts/LinLibertine_R.ttf"));
+        add(include_bytes!("../../assets/fonts/LinLibertine_RB.ttf"));
+        add(include_bytes!("../../assets/fonts/LinLibertine_RBI.ttf"));
+        add(include_bytes!("../../assets/fonts/LinLibertine_RI.ttf"));
+        add(include_bytes!("../../assets/fonts/NewCMMath-Book.otf"));
+        add(include_bytes!("../../assets/fonts/NewCMMath-Regular.otf"));
+        add(include_bytes!("../../assets/fonts/DejaVuSansMono.ttf"));
+        add(include_bytes!("../../assets/fonts/DejaVuSansMono-Bold.ttf"));
     }
 
     /// Search for fonts in the linux system font directories.

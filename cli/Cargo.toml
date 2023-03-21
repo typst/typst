@@ -27,3 +27,13 @@ pico-args = "0.4"
 same-file = "1"
 siphasher = "0.3"
 walkdir = "2"
+
+[features]
+default = ["embed-fonts"]
+
+# Embeds Typst's default fonts for
+# - text (Linux Libertine),
+# - math (New Computer Modern Math), and
+# - code (Deja Vu Sans Mono)
+# into the binary.
+embed-fonts = []
