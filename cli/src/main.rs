@@ -623,8 +623,8 @@ impl FontSearcher {
     /// Add fonts that are embedded in the binary.
     #[cfg(feature = "embed-fonts")]
     fn add_embedded(&mut self) {
-        let mut add = |bytes: &[u8]| {
-            let buffer = Buffer::from(bytes);
+        let mut add = |bytes: &'static [u8]| {
+            let buffer = Buffer::from_static(bytes);
             for (i, font) in Font::iter(buffer).enumerate() {
                 self.book.push(font.info().clone());
                 self.fonts.push(FontSlot {
