@@ -11,7 +11,7 @@ description: |
     supported styles are APA, Chicago Author Date, IEEE, and MLA)
   - You can now [reference]($func/ref) sections, figures, formulas, and works
     from the bibliography with `[@label]`
-  - You can make an element referencable with a label:
+  - You can make an element referenceable with a label:
     - `[= Introduction <intro>]`
     - `[$ A = pi r^2 $ <area>]`
 
@@ -29,7 +29,7 @@ description: |
       document
     - State is modified in layout order and not in code order
   - [`query`]($func/query) function
-    - Find all occurances of an element or a label, either in the whole document
+    - Find all occurrences of an element or a label, either in the whole document
       or before/after some location
     - Link to elements, find out their position on the pages and access their
       fields

@@ -109,7 +109,7 @@ fn is_opening_bracket(c: char) -> bool {
     matches!(c, '(' | '{' | '[')
 }
 
-/// Decides which quotes to subtitute smart quotes with.
+/// Decides which quotes to substitute smart quotes with.
 pub struct Quotes<'s> {
     /// The opening single quote.
     pub single_open: &'s str,

@@ -72,7 +72,7 @@ impl Str {
         Ok(grapheme.into())
     }
 
-    /// Extract a contigous substring.
+    /// Extract a contiguous substring.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
         let start = self.locate(start)?;
         let end = self.locate(end.unwrap_or(self.len()))?.max(start);
@@ -251,7 +251,7 @@ impl Str {
         trimmed.into()
     }
 
-    /// Replace at most `count` occurances of the given pattern with a
+    /// Replace at most `count` occurrences of the given pattern with a
     /// replacement string (beginning from the start).
     pub fn replace(&self, pattern: StrPattern, with: Self, count: Option<usize>) -> Self {
         match pattern {

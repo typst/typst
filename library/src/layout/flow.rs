@@ -75,7 +75,7 @@ struct FlowLayouter<'a> {
     regions: Regions<'a>,
     /// Whether the flow should expand to fill the region.
     expand: Axes<bool>,
-    /// The intial size of `regions.size` that was available before we started
+    /// The initial size of `regions.size` that was available before we started
     /// subtracting.
     initial: Size,
     /// Whether the last block was a paragraph.

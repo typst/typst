@@ -652,7 +652,7 @@ impl Heading {
         self.0.cast_first_match().unwrap_or_default()
     }
 
-    /// The section depth (numer of equals signs).
+    /// The section depth (number of equals signs).
     pub fn level(&self) -> NonZeroUsize {
         self.0
             .children()
@@ -1085,7 +1085,7 @@ impl Array {
 pub enum ArrayItem {
     /// A bare expression: `12`.
     Pos(Expr),
-    /// A spreaded expression: `..things`.
+    /// A spread expression: `..things`.
     Spread(Expr),
 }
 
@@ -1117,14 +1117,14 @@ impl Dict {
     }
 }
 
-/// An item in an dictionary expresssion.
+/// An item in an dictionary expression.
 #[derive(Debug, Clone, Hash)]
 pub enum DictItem {
     /// A named pair: `thickness: 3pt`.
     Named(Named),
     /// A keyed pair: `"spacy key": true`.
     Keyed(Keyed),
-    /// A spreaded expression: `..things`.
+    /// A spread expression: `..things`.
     Spread(Expr),
 }
 
@@ -1484,7 +1484,7 @@ pub enum Arg {
     Pos(Expr),
     /// A named argument: `draw: false`.
     Named(Named),
-    /// A spreaded argument: `..things`.
+    /// A spread argument: `..things`.
     Spread(Expr),
 }
 

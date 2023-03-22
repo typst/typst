@@ -146,7 +146,7 @@ impl Show for RefElem {
 }
 
 impl RefElem {
-    /// Turn the rference into a citation.
+    /// Turn the reference into a citation.
     pub fn to_citation(&self, styles: StyleChain) -> CiteElem {
         let mut elem = CiteElem::new(vec![self.target().0]);
         elem.0.set_location(self.0.location().unwrap());

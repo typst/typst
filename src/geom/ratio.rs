@@ -18,7 +18,7 @@ impl Ratio {
         Self(Scalar(1.0))
     }
 
-    /// Create a new ratio from a value, whre `1.0` means `100%`.
+    /// Create a new ratio from a value, where `1.0` means `100%`.
     pub const fn new(ratio: f64) -> Self {
         Self(Scalar(ratio))
     }

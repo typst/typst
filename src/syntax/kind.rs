@@ -212,7 +212,7 @@ pub enum SyntaxKind {
     FuncCall,
     /// A function call's argument list: `(12pt, y)`.
     Args,
-    /// Spreaded arguments or an argument sink: `..x`.
+    /// Spread arguments or an argument sink: `..x`.
     Spread,
     /// A closure: `(x, y) => z`.
     Closure,

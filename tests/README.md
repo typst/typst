@@ -52,7 +52,7 @@ testit --pdf
 
 ## Creating new tests
 To keep things small, please optimize reference images before committing them.
-When you use the approve buttom from the Test Helper (see the `tools` folder)
+When you use the approve button from the Test Helper (see the `tools` folder)
 this happens automatically if you have `oxipng` installed.
 ```bash
 # One image
