@@ -3,7 +3,10 @@ on: [push, pull_request]
 
 jobs:
   ci:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
