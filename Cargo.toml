@@ -3,6 +3,8 @@ name = "typst"
 version = "0.0.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
+description = "A markup-based typesetting system written in rust"
+license = "Apache-2.0"
 
 [workspace]
 members = ["cli", "docs", "library", "macros", "tests"]
