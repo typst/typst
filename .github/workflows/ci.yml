@@ -3,7 +3,7 @@ on: [push, pull_request]
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
