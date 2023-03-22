@@ -1,4 +1,4 @@
-// Test list marker configuraiton.
+// Test list marker configuration.
 
 ---
 // Test en-dash.

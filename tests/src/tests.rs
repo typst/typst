@@ -35,7 +35,7 @@ fn main() {
     let args = Args::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
-    // Since differents tests can affect each other through the memoization
+    // Since different tests can affect each other through the memoization
     // cache, a deterministic order is important for reproducibility.
     for entry in WalkDir::new("typ").sort_by_file_name() {
         let entry = entry.unwrap();
@@ -554,7 +554,7 @@ fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, S
 /// same result as a clean parse.
 ///
 /// The method will first inject 10 strings once every 400 source characters
-/// and then select 5 leaf node boundries to inject an additional, randomly
+/// and then select 5 leaf node boundaries to inject an additional, randomly
 /// chosen string from the injection list.
 fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
     let supplements = [

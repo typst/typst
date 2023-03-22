@@ -4,7 +4,7 @@
 ---
 // Ref: true
 
-// Ommitted space.
+// Omitted space.
 #let f() = {}
 #[#f()*Bold*]
 

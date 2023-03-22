@@ -233,7 +233,7 @@ impl<'a> StackLayouter<'a> {
 
     /// Advance to the next region.
     fn finish_region(&mut self) {
-        // Determine the size of the stack in this region dependening on whether
+        // Determine the size of the stack in this region depending on whether
         // the region expands.
         let mut size = self
             .expand

@@ -114,7 +114,7 @@ impl Array {
         Ok(self.0.remove(i))
     }
 
-    /// Extract a contigous subregion of the array.
+    /// Extract a contiguous subregion of the array.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
         let len = self.len();
         let start = self

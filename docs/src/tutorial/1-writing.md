@@ -141,7 +141,7 @@ that, first attach a label to figure. A label uniquely identifies an element in
 your document. Add one after the figure by enclosing some name in angle
 brackets. You can then reference the figure in your text by writing an `[@]`
 symbol followed by that name. Headings and equations can also be labelled to
-make them referencable.
+make them referenceable.
 
 ```example
 Glaciers as the one shown in
