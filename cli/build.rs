@@ -1,6 +1,11 @@
 use std::process::Command;
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=TYPST_VERSION");
+    if option_env!("TYPST_VERSION").is_some() {
+        return;
+    }
+
     let version = Command::new("git")
         .args(&["rev-parse", "HEAD"])
         .output()
