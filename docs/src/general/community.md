@@ -35,7 +35,7 @@ community members, but if you need a little inspiration, here are a few ideas:
 - Alert us of bugs you encounter while using Typst
 
 ## Beta test
-We are starting a public beta test of our product on March 21st, 2022.
+We are starting a public beta test of our product on March 21st, 2023.
 The Typst compiler is still under active development and breaking changes can
 occur at any point. The compiler is developed in the open on
 [GitHub](https://github.com/typst/typst).
