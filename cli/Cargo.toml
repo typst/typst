@@ -3,6 +3,7 @@ name = "typst-cli"
 version = "0.0.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
+build = "build.rs"
 
 [[bin]]
 name = "typst"
@@ -37,3 +38,6 @@ default = ["embed-fonts"]
 # - code (Deja Vu Sans Mono)
 # into the binary.
 embed-fonts = []
+
+[build-dependencies]
+built = { version = "0.6.0", features = ["git2"] }

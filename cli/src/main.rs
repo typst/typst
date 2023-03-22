@@ -25,6 +25,12 @@ use typst::util::{Buffer, PathExt};
 use typst::World;
 use walkdir::WalkDir;
 
+pub mod built_info {
+    // The file has been placed there by the build script.
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+    //
+}
+
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
@@ -156,7 +162,10 @@ fn print_help(help: &'static str) -> ! {
 
 /// Print the version hash and quit.
 fn print_version() -> ! {
-    println!("typst {}", env!("TYPST_VERSION"));
+    println!("typst {}", built_info::PKG_VERSION);
+    if built_info::GIT_VERSION.is_some() {
+        println!("built from git {}", built_info::GIT_VERSION.unwrap());
+    }
     std::process::exit(0);
 }
 
