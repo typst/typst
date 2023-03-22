@@ -160,7 +160,7 @@ Now, we are receiving it as the first parameter of the template function.
 Thus, we must specify it in the show rule where we call the template.
 
 ## Templates with named arguments
-Our paper in the previous chapter had a title and an author list. Lets add these
+Our paper in the previous chapter had a title and an author list. Let's add these
 things to our template. In addition to the title, we want our template to accept
 a list of authors with their affiliations and the paper's abstract. To keep
 things readable, we'll add those as named arguments. In the end, we want it to
@@ -372,7 +372,7 @@ that define reusable document styles. You've made it far and learned a lot. You
 can now use Typst to write your own documents and share them with others.
 
 We are still a super young project and are looking for feedback. If you have any
-questions, suggestions or found a bug, please let us know on
+questions, suggestions or you found a bug, please let us know on
 [Typst's Discord server](https://discord.gg/2uDybryKPe), on our
 [contact form](https://typst.app/contact), or on
 [social media.](https://twitter.com/typstapp)
