@@ -249,7 +249,7 @@ $ 7.32 beta +
 ```
 
 To add a subscript to a symbol or variable, type a `_` character and then the
-superscript. Similarly, use the `^` character for a superscript. If your
+subscript. Similarly, use the `^` character for a superscript. If your
 sub- or superscript consists of multiple things, you must enclose them
 in round parentheses.
 
