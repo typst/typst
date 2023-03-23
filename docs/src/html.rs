@@ -363,4 +363,6 @@ impl World for DocWorld {
             .contents()
             .into())
     }
+
+    fn today(&self, _: bool) -> (i32, u8, u8) {(1970, 1, 1)}
 }

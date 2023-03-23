@@ -1,7 +1,9 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
+use time::{Month};
 
-use typst::eval::Regex;
+use typst::eval::{Dynamic, Regex};
+use typst::eval::date::{Date, Duration};
 
 use crate::prelude::*;
 
@@ -179,6 +181,168 @@ cast_from_value! {
     } else {
         Err("ratio must be between 0% and 100%")?
     },
+}
+
+/// Calculate the absolute value of a numeric value.
+///
+/// ## Example
+/// ```example
+/// #calc.abs(-5) \
+/// #calc.abs(5pt - 2cm) \
+/// #calc.abs(2fr)
+/// ```
+///
+/// Display: Absolute
+/// Category: calculate
+/// Returns: any
+#[func]
+pub fn date(
+    /// Test
+    #[named]
+    #[default]
+    year: YearComponent,
+    /// Test
+    #[named]
+    #[default]
+    month: MonthComponent,
+    /// Test
+    #[named]
+    #[default]
+    day: DayComponent,
+) -> Value {
+    let date = match time::Date::from_calendar_date(year.0, month.0, day.0) {
+        Ok(date) => date,
+        Err(_) => bail!(args.span, "date must be valid")
+    };
+    Value::Dyn(Dynamic::new(Date(date)))
+}
+
+#[derive(Default)]
+struct HourComponent(u8);
+
+#[derive(Default)]
+struct MinuteComponent(u8);
+
+#[derive(Default)]
+struct SecondComponent(u8);
+
+#[derive(Default)]
+struct MillisecondComponent(u16);
+
+
+struct YearComponent(i32);
+
+impl Default for YearComponent {
+    fn default() -> Self {
+        YearComponent(1970)
+    }
+}
+
+struct MonthComponent(Month);
+
+impl Default for MonthComponent {
+    fn default() -> Self {
+        MonthComponent(Month::January)
+    }
+}
+
+
+struct DayComponent(u8);
+
+impl Default for DayComponent {
+    fn default() -> Self {
+        DayComponent(1)
+    }
+}
+
+cast_from_value!(
+    YearComponent,
+    v: i64 => match i32::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("year is invalid")?
+    }
+);
+
+cast_from_value!(
+    MonthComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n1) => match Month::try_from(n1) {
+            Ok(n2) => Self(n2),
+            _ => Err("month is invalid")?
+        }
+        _ => Err("month is invalid")?
+    }
+);
+
+cast_from_value!(
+    DayComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("day is invalid")?
+    }
+);
+
+cast_from_value!(
+    HourComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("hour is invalid")?
+    }
+);
+
+cast_from_value!(
+    MinuteComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("minute is invalid")?
+    }
+);
+
+cast_from_value!(
+    SecondComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("second is invalid")?
+    }
+);
+
+cast_from_value!(
+    MillisecondComponent,
+    v: i64 => match u16::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("millisecond is invalid")?
+    }
+);
+
+
+/// Calculate the absolute value of a numeric value.
+///
+/// ## Example
+/// ```example
+/// #calc.abs(-5) \
+/// #calc.abs(5pt - 2cm) \
+/// #calc.abs(2fr)
+/// ```
+///
+/// Display: Absolute
+/// Category: calculate
+/// Returns: any
+#[func]
+pub fn duration(
+
+    /// Test
+    #[named]
+    #[default]
+    weeks: i64,
+    /// Test
+    #[named]
+    #[default]
+    days: i64,
+) -> Value {
+    match Duration::new(weeks, days) {
+        Ok(d) => Value::Dyn(Dynamic::new(d)),
+        Err(e) => bail!(args.span, e)
+    }
 }
 
 /// Create a CMYK color.

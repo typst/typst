@@ -283,6 +283,8 @@ impl World for TestWorld {
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
     }
+
+    fn today(&self, _: bool) -> (i32, u8, u8) {(1970, 1, 1)}
 }
 
 impl TestWorld {

@@ -104,4 +104,9 @@ pub trait World {
 
     /// Try to access a file at a path.
     fn file(&self, path: &Path) -> FileResult<Buffer>;
+
+    /// Get the current date (using either UTC or the local date).
+    /// Returns a tuple in the form (year, month, day) if successful, otherwise an
+    /// error message.
+    fn today(&self, local: bool) -> (i32, u8, u8);
 }

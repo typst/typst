@@ -126,6 +126,8 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("json", compute::json);
     global.define("yaml", compute::yaml);
     global.define("xml", compute::xml);
+    global.define("datetime", compute::date);
+    global.define("duration", compute::duration);
 
     // Calc.
     global.define("calc", calc);

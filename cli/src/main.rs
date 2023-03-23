@@ -9,6 +9,7 @@ use std::process;
 use clap::{ArgAction, Parser, Subcommand};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
+use chrono::{Datelike};
 use comemo::Prehashed;
 use elsa::FrozenVec;
 use memmap2::Mmap;
@@ -527,6 +528,16 @@ impl World for SystemWorld {
             .buffer
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
+    }
+
+    fn today(&self, local: bool) -> (i32, u8, u8) {
+        let datetime = match local {
+            true => chrono::Local::now().naive_local(),
+            false => chrono::Utc::now().naive_utc()
+        };
+
+        // Month/day/hour/minute/second are always in range of u8
+        (datetime.year(), datetime.month().try_into().unwrap(), datetime.day().try_into().unwrap())
     }
 }
 

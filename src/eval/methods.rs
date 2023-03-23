@@ -1,9 +1,12 @@
 //! Methods on values.
 
 use ecow::EcoString;
+use typst::eval::date::Date;
 
 use super::{Args, Str, Value, Vm};
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, bail, SourceResult};
+use crate::eval::date::Duration;
+use crate::eval::Dynamic;
 use crate::model::Location;
 use crate::syntax::Span;
 
@@ -155,6 +158,54 @@ pub fn call(
                     "page" => vm.vt.introspector.page(location).into(),
                     "position" => vm.vt.introspector.position(location).into(),
                     _ => return missing(),
+                }
+            } else if let Some(&datetime) = dynamic.downcast::<Date>() {
+                match method {
+                    "display" => {
+                        let pattern = args.eat()?;
+                        match datetime.display(pattern) {
+                            Ok(d) => Value::Str(d),
+                            Err(msg) => bail!(args.span, msg)
+                        }
+                    },
+                    "add" => {
+                        let duration = args.expect::<Duration>("duration")?;
+                        match datetime.add(&duration) {
+                            Ok(d) => Value::Dyn(Dynamic::new(d)),
+                            Err(msg) => bail!(args.span, msg)
+                        }
+                    }
+                    "sub" => {
+                        let duration = args.expect::<Duration>("duration")?;
+                        match datetime.sub(&duration) {
+                            Ok(d) => Value::Dyn(Dynamic::new(d)),
+                            Err(msg) => bail!(args.span, msg)
+                        }
+                    }
+                    "year" => datetime.year().into(),
+                    "month" => datetime.month().into(),
+                    "day" => datetime.day().into(),
+                    _ => return missing()
+                }
+            } else if let Some(&duration) = dynamic.downcast::<Duration>() {
+                match method {
+                    "add" => {
+                        let args_duration = args.expect::<Duration>("duration")?;
+                        match duration.add(&args_duration) {
+                            Ok(d) => Value::Dyn(Dynamic::new(d)),
+                            Err(msg) => bail!(args.span, msg)
+                        }
+                    }
+                    "sub" => {
+                        let args_duration = args.expect::<Duration>("duration")?;
+                        match duration.sub(&args_duration) {
+                            Ok(d) => Value::Dyn(Dynamic::new(d)),
+                            Err(msg) => bail!(args.span, msg)
+                        }
+                    }
+                    "weeks" => duration.weeks().into(),
+                    "days" => duration.days().into(),
+                    _ => return missing()
                 }
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);

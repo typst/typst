@@ -339,11 +339,12 @@ impl Layout for BlockElem {
         // Resolve the sizing to a concrete size.
         let sizing = Axes::new(self.width(styles), self.height(styles));
         let mut expand = sizing.as_ref().map(Smart::is_custom);
-        let mut size = sizing
-            .resolve(styles)
-            .zip(regions.base())
-            .map(|(s, b)| s.map(|v| v.relative_to(b)))
-            .unwrap_or(regions.base());
+        let a = sizing;
+        let b = a.resolve(styles);
+        let c = b.zip(regions.base());
+        let d = c.map(|(s, b)| s.map(|v| v.relative_to(b)));
+        let e = d.unwrap_or(regions.base());
+        let mut size = e;
 
         // Layout the child.
         let mut frames = if self.breakable(styles) {
