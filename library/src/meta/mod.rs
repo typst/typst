@@ -13,6 +13,8 @@ mod query;
 mod reference;
 mod state;
 
+use std::borrow::Cow;
+
 pub use self::bibliography::*;
 pub use self::context::*;
 pub use self::counter::*;
@@ -31,5 +33,5 @@ use typst::doc::Lang;
 /// The named with which an element is referenced.
 pub trait LocalName {
     /// Get the name in the given language.
-    fn local_name(&self, lang: Lang) -> &'static str;
+    fn local_name(&self, lang: Lang) -> Cow<str>;
 }

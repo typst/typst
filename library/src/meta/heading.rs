@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use typst::font::FontWeight;
 
 use super::{Counter, CounterUpdate, LocalName, Numbering};
@@ -138,10 +140,10 @@ cast_from_value! {
 }
 
 impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+    fn local_name(&self, lang: Lang) -> Cow<str> {
+        Cow::from(match lang {
             Lang::GERMAN => "Abschnitt",
             Lang::ENGLISH | _ => "Section",
-        }
+        })
     }
 }

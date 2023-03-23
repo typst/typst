@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
 use crate::meta::LocalName;
 use crate::prelude::*;
@@ -272,10 +274,10 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
 }
 
 impl LocalName for TableElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+    fn local_name(&self, lang: Lang) -> Cow<str> {
+        Cow::from(match lang {
             Lang::GERMAN => "Tabelle",
             Lang::ENGLISH | _ => "Table",
-        }
+        })
     }
 }

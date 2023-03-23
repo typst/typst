@@ -17,6 +17,8 @@ mod stretch;
 mod style;
 mod underover;
 
+use std::borrow::Cow;
+
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
@@ -264,11 +266,11 @@ impl Count for EquationElem {
 }
 
 impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+    fn local_name(&self, lang: Lang) -> Cow<str> {
+        Cow::from(match lang {
             Lang::GERMAN => "Gleichung",
             Lang::ENGLISH | _ => "Equation",
-        }
+        })
     }
 }
 

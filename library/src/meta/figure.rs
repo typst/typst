@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::str::FromStr;
 
 use super::{Count, Counter, CounterUpdate, LocalName, Numbering, NumberingPattern};
@@ -29,8 +30,15 @@ pub struct FigureElem {
     #[required]
     pub body: Content,
 
+    /// The figure's name.
+    pub name: Option<String>,
+
     /// The figure's caption.
     pub caption: Option<Content>,
+
+    /// The separator between the figure's name and caption.
+    #[default(Some(Value::from(": ").display()))]
+    pub separator: Option<Content>,
 
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($func/numbering).
@@ -54,12 +62,16 @@ impl Show for FigureElem {
 
         if let Some(mut caption) = self.caption(styles) {
             if let Some(numbering) = self.numbering(styles) {
-                let name = self.local_name(TextElem::lang_in(styles));
+                let name = if let Some(name) = self.name(styles) {
+                    name
+                } else {
+                    self.local_name(TextElem::lang_in(styles)).into_owned()
+                };
                 caption = TextElem::packed(eco_format!("{name}\u{a0}"))
                     + Counter::of(Self::func())
                         .display(Some(numbering), false)
                         .spanned(self.span())
-                    + TextElem::packed(": ")
+                    + self.separator(styles).unwrap_or_default()
                     + caption;
             }
 
@@ -84,10 +96,14 @@ impl Count for FigureElem {
 }
 
 impl LocalName for FigureElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
-            Lang::GERMAN => "Abbildung",
-            Lang::ENGLISH | _ => "Figure",
+    fn local_name(&self, lang: Lang) -> Cow<str> {
+        if let Some(name) = self.name(StyleChain::default()) {
+            return Cow::from(name);
         }
+        Cow::from(match lang {
+            Lang::GERMAN => "Abbildung",
+            Lang::RUSSIAN => "Рисунок",
+            Lang::ENGLISH | _ => "Figure",
+        })
     }
 }

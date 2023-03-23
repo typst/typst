@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use super::{Counter, HeadingElem, LocalName};
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
@@ -174,10 +176,10 @@ impl Show for OutlineElem {
 }
 
 impl LocalName for OutlineElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+    fn local_name(&self, lang: Lang) -> Cow<str> {
+        Cow::from(match lang {
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ENGLISH | _ => "Contents",
-        }
+        })
     }
 }

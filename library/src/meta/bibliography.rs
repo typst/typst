@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::path::Path;
@@ -180,11 +181,11 @@ impl Show for BibliographyElem {
 }
 
 impl LocalName for BibliographyElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+    fn local_name(&self, lang: Lang) -> Cow<str> {
+        Cow::from(match lang {
             Lang::GERMAN => "Bibliographie",
             Lang::ENGLISH | _ => "Bibliography",
-        }
+        })
     }
 }
 
