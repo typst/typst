@@ -162,7 +162,7 @@ fn print_version() -> ! {
 
 /// Print an application-level error (independent from a source file).
 fn print_error(msg: &str) -> io::Result<()> {
-    let mut w = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Auto);
     let styles = term::Styles::default();
 
     w.set_color(&styles.header_error)?;
@@ -277,7 +277,7 @@ fn status(command: &CompileCommand, status: Status) -> io::Result<()> {
     let message = status.message();
     let color = status.color();
 
-    let mut w = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Auto);
     write!(w, "{esc}c{esc}[1;1H")?;
 
     w.set_color(&color)?;
@@ -327,7 +327,7 @@ fn print_diagnostics(
     world: &SystemWorld,
     errors: Vec<SourceError>,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut w = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Auto);
     let config = term::Config { tab_width: 2, ..Default::default() };
 
     for error in errors {
