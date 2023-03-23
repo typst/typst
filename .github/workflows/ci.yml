@@ -8,7 +8,9 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - run: git config --global core.autocrlf input
+      - run: |
+          git config --global core.eol lf
+          git config --global core.autocrlf input
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
