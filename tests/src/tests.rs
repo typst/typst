@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
+use regex::Regex;
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
@@ -442,8 +443,8 @@ fn test_part(
         println!("Syntax Tree:\n{:#?}\n", source.root())
     }
 
-    let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
-    let compare_ref = local_compare_ref.unwrap_or(compare_ref);
+    let metadata = parse_metadata(&source);
+    let compare_ref = metadata.compare_ref.unwrap_or(compare_ref);
 
     ok &= test_spans(source.root());
     ok &= test_reparse(world.source(id).text(), i, rng);
@@ -476,24 +477,23 @@ fn test_part(
         .collect();
 
     errors.sort_by_key(|error| error.0.start);
-    ref_errors.sort_by_key(|error| error.0.start);
 
-    if errors != ref_errors {
+    if !metadata.matches_errors(&errors) {
         println!("  Subtest {i} does not match expected errors. ❌");
         ok = false;
 
         let source = world.source(id);
         for error in errors.iter() {
-            if !ref_errors.contains(error) {
+            if !metadata.errors.iter().any(|meta_error| meta_error.matches(error)) {
                 print!("    Not annotated | ");
                 print_error(&source, line, error);
             }
         }
 
-        for error in ref_errors.iter() {
-            if !errors.contains(error) {
+        for error in metadata.errors {
+            if !errors.iter().any(|err| error.matches(err)) {
                 print!("    Not emitted   | ");
-                print_error(&source, line, error);
+                print_error(&source, line, &error.to_range_message());
             }
         }
     }
@@ -501,18 +501,79 @@ fn test_part(
     (ok, compare_ref, frames)
 }
 
-fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>) {
-    let mut compare_ref = None;
-    let mut errors = vec![];
+enum TestMetadataErrorPattern {
+    Exact(String),
+    Regex(Regex),
+}
+
+struct TestMetadataError {
+    pattern: TestMetadataErrorPattern,
+    range: Range<usize>,
+}
+
+impl TestMetadataError {
+    pub fn matches(&self, error: &(Range<usize>, String)) -> bool {
+        if error.0 != self.range {
+            return false;
+        }
+
+        match &self.pattern {
+            TestMetadataErrorPattern::Regex(re) => re.is_match(&error.1),
+            TestMetadataErrorPattern::Exact(ex) => ex == &error.1,
+        }
+    }
+
+    pub fn to_range_message(self) -> (Range<usize>, String) {
+        (
+            self.range,
+            match self.pattern {
+                TestMetadataErrorPattern::Regex(re) => re.to_string(),
+                TestMetadataErrorPattern::Exact(ex) => ex.to_string(),
+            },
+        )
+    }
+}
+
+#[derive(Default)]
+struct TestMetadata {
+    compare_ref: Option<bool>,
+    errors: Vec<TestMetadataError>,
+}
+
+impl TestMetadata {
+    pub fn matches_errors(&self, errors: &Vec<(Range<usize>, String)>) -> bool {
+        if errors.len() != self.errors.len() {
+            return false;
+        }
+
+        for i in 0..errors.len() {
+            let error = errors.get(i);
+            let metadata_error = self.errors.get(i);
+
+            if let (Some(error), Some(metadata_error)) = (error, metadata_error) {
+                if !metadata_error.matches(error) {
+                    return false;
+                }
+            } else {
+                return false;
+            }
+        }
+
+        true
+    }
+}
+
+fn parse_metadata(source: &Source) -> TestMetadata {
+    let mut metadata = TestMetadata::default();
 
     let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
         if line.starts_with("// Ref: false") {
-            compare_ref = Some(false);
+            metadata.compare_ref = Some(false);
         }
 
         if line.starts_with("// Ref: true") {
-            compare_ref = Some(true);
+            metadata.compare_ref = Some(true);
         }
 
         fn num(s: &mut Scanner) -> usize {
@@ -530,16 +591,36 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
             source.line_column_to_byte(line, column).unwrap()
         };
 
-        let Some(rest) = line.strip_prefix("// Error: ") else { continue };
-        let mut s = Scanner::new(rest);
-        let start = pos(&mut s);
-        let end = if s.eat_if('-') { pos(&mut s) } else { start };
-        let range = start..end;
+        if line.starts_with("// Error: ") {
+            let Some(rest) = line.strip_prefix("// Error: ") else { continue };
+            let mut s = Scanner::new(rest);
+            let start = pos(&mut s);
+            let end = if s.eat_if('-') { pos(&mut s) } else { start };
+            let range = start..end;
 
-        errors.push((range, s.after().trim().to_string()));
+            metadata.errors.push(TestMetadataError {
+                range,
+                pattern: TestMetadataErrorPattern::Exact(s.after().trim().to_string()),
+            });
+        } else if line.starts_with("// Error pattern: ") {
+            let Some(rest) = line.strip_prefix("// Error pattern: ") else { continue };
+            let mut s = Scanner::new(rest);
+            let start = pos(&mut s);
+            let end = if s.eat_if('-') { pos(&mut s) } else { start };
+            let range = start..end;
+
+            metadata.errors.push(TestMetadataError {
+                range,
+                pattern: TestMetadataErrorPattern::Regex(
+                    Regex::new(&s.after().trim().to_string())
+                        .expect("valid regex for error pattern"),
+                ),
+            });
+        }
     }
 
-    (compare_ref, errors)
+    metadata.errors.sort_by_key(|err| err.range.start);
+    metadata
 }
 
 fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, String)) {

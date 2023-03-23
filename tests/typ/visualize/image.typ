@@ -50,7 +50,7 @@ A #box(image("/tiger.jpg", height: 1cm, width: 80%)) B
 #image("/pattern.svg")
 
 ---
-// Error: 8-29 file not found (searched at typ/visualize/path/does/not/exist)
+// Error pattern: 8-29 ^file not found \(searched at typ(\\|/)visualize(\\|/)path(\\|/)does(\\|/)not(\\|/)exist\)$
 #image("path/does/not/exist")
 
 ---

@@ -60,11 +60,11 @@
 #import "module.typ": a, c,
 
 ---
-// Error: 9-11 failed to load file (is a directory)
+// Error pattern: 9-11 ^failed to load file (\(is a directory\)|\(access denied\))$
 #import "": name
 
 ---
-// Error: 9-20 file not found (searched at typ/compiler/lib/0.2.1)
+// Error pattern: 9-20 ^file not found \(searched at typ(\\|/)compiler(\\|/)lib(\\|/)0.2.1\)$
 #import "lib/0.2.1"
 
 ---

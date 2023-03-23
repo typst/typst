@@ -1432,6 +1432,7 @@ dependencies = [
  "elsa",
  "iai",
  "once_cell",
+ "regex",
  "tiny-skia",
  "ttf-parser 0.17.1",
  "typst",

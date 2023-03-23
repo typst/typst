@@ -23,7 +23,7 @@
 #table(columns: data.at(0).len(), ..cells)
 
 ---
-// Error: 6-16 file not found (searched at typ/compute/nope.csv)
+// Error pattern: 6-16 ^file not found \(searched at typ(\\|/)compute(\\|/)nope.csv\)$
 #csv("nope.csv")
 
 ---
