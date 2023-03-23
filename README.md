@@ -128,7 +128,9 @@ public beta.
 
 ## Build from source
 To build Typst yourself, you need to have the [latest stable Rust][rust]
-installed. Then, you can build the CLI with the following command:
+installed. With Rust installed, clone this repository to your directory of choice 
+(`cd path/to/directory/of/choice` and then `git clone https://github.com/typst/typst`), 
+change the current directory to the cloned repo (`cd typst`), and finally build the CLI with the following command:
 
 ```sh
 cargo build -p typst-cli --release
