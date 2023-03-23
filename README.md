@@ -140,7 +140,7 @@ You can link the binary to your cargo bin folder for direct usage.
 
 ```sh
 ln -s typst/target/release/typst ~/.cargo/bin/
-
+```
 
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
