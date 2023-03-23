@@ -45,6 +45,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("overline", text::OverlineElem::func());
     global.define("raw", text::RawElem::func());
     global.define("lorem", text::lorem);
+    global.define("date", text::DateElem::func());
 
     // Math.
     global.define("math", math);

@@ -32,3 +32,4 @@ unicode-math-class = { git = "https://github.com/typst/unicode-math-class" }
 unicode-script = "0.5"
 unicode-segmentation = "1"
 xi-unicode = "0.3"
+chrono = { version = "0.4", default-features = false, features = ["unstable-locales"]}

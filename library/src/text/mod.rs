@@ -1,5 +1,6 @@
 //! Text handling.
 
+mod date;
 mod deco;
 mod misc;
 mod quotes;
@@ -7,6 +8,7 @@ mod raw;
 mod shaping;
 mod shift;
 
+pub use self::date::*;
 pub use self::deco::*;
 pub use self::misc::*;
 pub use self::quotes::*;
