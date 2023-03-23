@@ -136,6 +136,12 @@ cargo build -p typst-cli --release
 
 The optimized binary will be stored in `target/release/`.
 
+You can link the binary to your cargo bin folder for direct usage.
+
+```sh
+ln -s typst/target/release/typst ~/.cargo/bin/
+
+
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
 feel free to open an issue or send a PR with a fix. For new features, we would
