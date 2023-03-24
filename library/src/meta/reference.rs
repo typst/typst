@@ -81,8 +81,22 @@ pub struct RefElem {
 
 /// A citable element can impl this trait to set the supplement content
 /// when it be referenced.
-pub trait RefSupplement {
-    fn ref_supplement(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content>;
+pub trait RefSupplement: LocalName {
+    /// This only and must be override by a trivial element which use the default ref_supplement logic
+    fn supplement_option(&self, _styles: StyleChain) -> Smart<Option<Supplement>> {
+        todo!("must override this if you do not override ref_supplement")
+    }
+
+    fn ref_supplement(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        Ok(match self.supplement_option(styles) {
+            Smart::Auto => TextElem::packed(self.local_name(TextElem::lang_in(styles))),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
+            Smart::Custom(Some(Supplement::Func(func))) => {
+                func.call_vt(vt, []).map(Value::display)?
+            }
+        })
+    }
 }
 
 impl Synthesize for RefElem {

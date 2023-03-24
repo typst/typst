@@ -96,15 +96,8 @@ impl Count for FigureElem {
 }
 
 impl RefSupplement for FigureElem {
-    fn ref_supplement(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(match self.supplement(styles) {
-            Smart::Auto => TextElem::packed(self.local_name(TextElem::lang_in(styles))),
-            Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
-            Smart::Custom(Some(Supplement::Func(func))) => {
-                func.call_vt(vt, []).map(Value::display)?
-            }
-        })
+    fn supplement_option(&self, styles: StyleChain) -> Smart<Option<Supplement>> {
+        self.supplement(styles)
     }
 }
 

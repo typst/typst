@@ -38,7 +38,7 @@ use self::ctx::*;
 use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
-use crate::layout::{HElem, ParElem, Spacing};
+use crate::{layout::{HElem, ParElem, Spacing}, meta::{Supplement, RefSupplement}};
 use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::{
@@ -133,11 +133,14 @@ pub fn module() -> Module {
 ///
 /// Display: Equation
 /// Category: math
-#[element(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName)]
+#[element(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, RefSupplement)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
     pub block: bool,
+
+    /// If you reference a equation, this will be the default supplement of it.
+    pub supplement: Smart<Option<Supplement>>,
 
     /// How to [number]($func/numbering) block-level equations.
     ///
@@ -260,6 +263,12 @@ impl Count for EquationElem {
         (self.block(StyleChain::default())
             && self.numbering(StyleChain::default()).is_some())
         .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+    }
+}
+
+impl RefSupplement for EquationElem {
+    fn supplement_option(&self, styles: StyleChain) -> Smart<Option<Supplement>> {
+        self.supplement(styles)
     }
 }
 
