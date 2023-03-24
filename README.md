@@ -125,6 +125,7 @@ typst --watch file.typ
 If you prefer an integrated IDE-like experience with autocompletion and instant
 preview, you can also check out the [Typst web app][app], which is currently in
 public beta.
+
 ## Use docker
 To build and run typst inside docker run following command:
 
