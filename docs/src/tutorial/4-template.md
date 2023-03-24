@@ -259,9 +259,9 @@ into the document. This way, the main file you write in is kept clutter free and
 your template is easily reused. Create a new text file in the file panel by
 clicking the plus button and name it `conf.typ`. Move the `conf` function
 definition inside of that new file. Now you can access it from your main file by
-adding an import before the show rule. Name the function that you want to import
-from another file between the `{import}` and `{from}` keywords and specify the
-path of the file after the `{from}` keyword.
+adding an import before the show rule. Specify the path of the file between the
+`{import}` keyword and a colon, then name the function that you
+want to import.
 
 ```example:single
 >>> #let conf(
