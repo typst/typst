@@ -702,6 +702,7 @@ Fails with an error if the key is not part of the dictionary.
 
 ### insert()
 Insert a new pair into the dictionary and return the value.
+If the dictionary already contains this key, the value is updated.
 
 - key: string (positional, required)
   The key of the pair that should be inserted.
