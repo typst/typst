@@ -44,24 +44,30 @@ pub struct Frame {
 impl Frame {
     /// Create a new, empty frame.
     ///
-    /// Panics the size is not finite.
+    /// # Panics
+    ///
+    /// If the size is not finite.
     #[track_caller]
+    #[must_use]
     pub fn new(size: Size) -> Self {
-        assert!(size.is_finite());
+        assert!(size.is_finite(), "frame has infinite size");
         Self { size, baseline: None, items: Arc::new(vec![]) }
     }
 
     /// Whether the frame contains no items.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
 
     /// The size of the frame.
+    #[must_use]
     pub fn size(&self) -> Size {
         self.size
     }
 
     /// The size of the frame, mutably.
+    #[must_use]
     pub fn size_mut(&mut self) -> &mut Size {
         &mut self.size
     }
@@ -72,21 +78,25 @@ impl Frame {
     }
 
     /// The width of the frame.
+    #[must_use]
     pub fn width(&self) -> Abs {
         self.size.x
     }
 
     /// The height of the frame.
+    #[must_use]
     pub fn height(&self) -> Abs {
         self.size.y
     }
 
     /// The vertical position of the frame's baseline.
+    #[must_use]
     pub fn baseline(&self) -> Abs {
         self.baseline.unwrap_or(self.size.y)
     }
 
     /// Whether the frame has a non-default baseline.
+    #[must_use]
     pub fn has_baseline(&self) -> bool {
         self.baseline.is_some()
     }
@@ -100,11 +110,13 @@ impl Frame {
     ///
     /// This is the same as `baseline()`, but more in line with the terminology
     /// used in math layout.
+    #[must_use]
     pub fn ascent(&self) -> Abs {
         self.baseline()
     }
 
     /// The distance from the baseline to the bottom of the frame.
+    #[must_use]
     pub fn descent(&self) -> Abs {
         self.size.y - self.baseline()
     }
@@ -116,6 +128,7 @@ impl Frame {
     }
 
     /// Approximately recover the text inside of the frame and its children.
+    #[must_use]
     pub fn text(&self) -> EcoString {
         let mut text = EcoString::new();
         for (_, item) in self.items() {
@@ -137,6 +150,7 @@ impl Frame {
 impl Frame {
     /// The layer the next item will be added on. This corresponds to the number
     /// of items in the frame.
+    #[must_use]
     pub fn layer(&self) -> usize {
         self.items.len()
     }
@@ -192,6 +206,7 @@ impl Frame {
     }
 
     /// Whether the given frame should be inlined.
+    #[must_use]
     fn should_inline(&self, frame: &Frame) -> bool {
         self.items.is_empty() || frame.items.len() <= 5
     }
@@ -271,7 +286,7 @@ impl Frame {
     }
 
     /// Attach the metadata from this style chain to the frame.
-    pub fn meta(&mut self, styles: StyleChain, force: bool) {
+    pub fn meta(&mut self, styles: StyleChain<'_>, force: bool) {
         if force || !self.is_empty() {
             for meta in MetaElem::data_in(styles) {
                 if matches!(meta, Meta::Hide) {
@@ -308,7 +323,7 @@ impl Frame {
             rounded_rect(size, radius, fill, stroke)
                 .into_iter()
                 .map(|x| (pos, FrameItem::Shape(x, span))),
-        )
+        );
     }
 
     /// Arbitrarily transform the contents of the frame.
@@ -342,6 +357,7 @@ impl Frame {
 /// Tools for debugging.
 impl Frame {
     /// Add a full size aqua background and a red baseline for debugging.
+    #[must_use]
     pub fn debug(mut self) -> Self {
         self.insert(
             0,
@@ -394,7 +410,7 @@ impl Frame {
 }
 
 impl Debug for Frame {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("Frame ")?;
         f.debug_list()
             .entries(self.items.iter().map(|(_, item)| item))
@@ -418,7 +434,7 @@ pub enum FrameItem {
 }
 
 impl Debug for FrameItem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Group(group) => group.fmt(f),
             Self::Text(text) => write!(f, "{text:?}"),
@@ -441,7 +457,8 @@ pub struct GroupItem {
 }
 
 impl GroupItem {
-    /// Create a new group with default settings.
+    /// Create a group item with the given frame, no transformation, and no clipping.
+    #[must_use]
     pub fn new(frame: Frame) -> Self {
         Self {
             frame,
@@ -452,7 +469,7 @@ impl GroupItem {
 }
 
 impl Debug for GroupItem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("Group ")?;
         self.frame.fmt(f)
     }
@@ -475,13 +492,14 @@ pub struct TextItem {
 
 impl TextItem {
     /// The width of the text run.
+    #[must_use]
     pub fn width(&self) -> Abs {
         self.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size)
     }
 }
 
 impl Debug for TextItem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         // This is only a rough approxmiation of the source text.
         f.write_str("Text(\"")?;
         for glyph in &self.glyphs {
@@ -512,18 +530,26 @@ pub struct Glyph {
 
 /// An identifier for a natural language.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Lang([u8; 3], u8);
+pub struct Lang {
+    storage: [u8; 3],
+}
 
 impl Lang {
-    pub const ENGLISH: Self = Self(*b"en ", 2);
-    pub const GERMAN: Self = Self(*b"de ", 2);
+    #[allow(missing_docs /* obvious */)]
+    pub const ENGLISH: Self = Self { storage: *b"en\0" };
+    #[allow(missing_docs /* obvious */)]
+    pub const GERMAN: Self = Self { storage: *b"de\0" };
 
     /// Return the language code as an all lowercase string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
-        std::str::from_utf8(&self.0[..usize::from(self.1)]).unwrap_or_default()
+        let len = if self.storage[2] == b'\0' { 2 } else { 3 };
+        std::str::from_utf8(&self.storage[..len])
+            .expect("language code is not valid UTF-8")
     }
 
     /// The default direction for the language.
+    #[must_use]
     pub fn dir(self) -> Dir {
         match self.as_str() {
             "ar" | "dv" | "fa" | "he" | "ks" | "pa" | "ps" | "sd" | "ug" | "ur"
@@ -539,14 +565,14 @@ impl FromStr for Lang {
     /// Construct a language from a two- or three-byte ISO 639-1/2/3 code.
     fn from_str(iso: &str) -> Result<Self, Self::Err> {
         let len = iso.len();
-        if matches!(len, 2..=3) && iso.is_ascii() {
-            let mut bytes = [b' '; 3];
-            bytes[..len].copy_from_slice(iso.as_bytes());
-            bytes.make_ascii_lowercase();
-            Ok(Self(bytes, len as u8))
-        } else {
-            Err("expected two or three letter language code (ISO 639-1/2/3)")
+        if !matches!(len, 2..=3) || !iso.is_ascii() {
+            return Err("expected two or three letter language code (ISO 639-1/2/3)");
         }
+
+        let mut bytes = [b'\0'; 3];
+        bytes[..len].copy_from_slice(iso.as_bytes());
+        bytes.make_ascii_lowercase();
+        Ok(Self { storage: bytes })
     }
 }
 
@@ -565,6 +591,7 @@ pub struct Region([u8; 2]);
 
 impl Region {
     /// Return the region code as an all uppercase string slice.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         std::str::from_utf8(&self.0).unwrap_or_default()
     }

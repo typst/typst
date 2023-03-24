@@ -138,7 +138,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         .collect();
 
     let docs = documentation(&body.attrs);
-    let mut lines = docs.split("\n").collect();
+    let mut lines = docs.split('\n').collect();
     let category = meta_line(&mut lines, "Category")?.into();
     let display = meta_line(&mut lines, "Display")?.into();
     let docs = lines.join("\n").trim().into();
@@ -355,6 +355,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
             fn unpack(content: &::typst::model::Content) -> ::std::option::Option<&Self> {
                 // Safety: Elements are #[repr(transparent)].
                 content.is::<Self>().then(|| unsafe {
+                    #[allow(clippy::transmute_ptr_to_ptr /* see safety comment */)]
                     ::std::mem::transmute(content)
                 })
             }

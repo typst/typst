@@ -40,9 +40,9 @@ pub struct StackElem {
 impl Layout for StackElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let mut layouter = StackLayouter::new(self.dir(styles), regions, styles);
 
@@ -81,7 +81,7 @@ pub enum StackChild {
 }
 
 impl Debug for StackChild {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Spacing(kind) => kind.fmt(f),
             Self::Block(block) => block.fmt(f),
@@ -186,9 +186,9 @@ impl<'a> StackLayouter<'a> {
     /// Layout an arbitrary block.
     fn layout_block(
         &mut self,
-        vt: &mut Vt,
+        vt: &mut Vt<'_>,
         block: &Content,
-        styles: StyleChain,
+        styles: StyleChain<'_>,
     ) -> SourceResult<()> {
         if self.regions.is_full() {
             self.finish_region();
@@ -198,14 +198,14 @@ impl<'a> StackLayouter<'a> {
         let aligns = if let Some(align) = block.to::<AlignElem>() {
             align.alignment(styles)
         } else if let Some((_, local)) = block.to_styled() {
-            AlignElem::alignment_in(styles.chain(&local))
+            AlignElem::alignment_in(styles.chain(local))
         } else {
             AlignElem::alignment_in(styles)
         }
         .resolve(styles);
 
         let fragment = block.layout(vt, styles, self.regions)?;
-        let len = fragment.len();
+        let num_frames = fragment.len();
         for (i, frame) in fragment.into_iter().enumerate() {
             // Grow our size, shrink the region and save the frame for later.
             let size = frame.size();
@@ -213,17 +213,17 @@ impl<'a> StackLayouter<'a> {
                 self.regions.size.y -= size.y;
             }
 
-            let gen = match self.axis {
+            let container = match self.axis {
                 Axis::X => Gen::new(size.y, size.x),
                 Axis::Y => Gen::new(size.x, size.y),
             };
 
-            self.used.main += gen.main;
-            self.used.cross.set_max(gen.cross);
+            self.used.main += container.main;
+            self.used.cross.set_max(container.cross);
 
             self.items.push(StackItem::Frame(frame, aligns));
 
-            if i + 1 < len {
+            if i + 1 < num_frames {
                 self.finish_region();
             }
         }
@@ -318,6 +318,7 @@ impl<T> Gen<T> {
     }
 
     /// Convert to the specific representation, given the current main axis.
+    #[allow(clippy::wrong_self_convention /* we generally expect `T` to be `Copy` */)]
     fn to_axes(self, main: Axis) -> Axes<T> {
         match main {
             Axis::X => Axes::new(self.main, self.cross),

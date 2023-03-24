@@ -1,6 +1,13 @@
 use typst::eval::Scope;
+use unicode_math_class::MathClass;
 
-use super::*;
+use super::ctx::MathContext;
+use super::fragment::FrameFragment;
+use super::style::MathStyleElem;
+use super::{spacing, LayoutMath};
+use crate::layout::HElem;
+use crate::prelude::*;
+use crate::text::TextElem;
 
 /// A text operator in an equation.
 ///
@@ -34,7 +41,7 @@ pub struct OpElem {
 }
 
 impl LayoutMath for OpElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         let frame = ctx.layout_content(&TextElem::packed(self.text()))?;
         ctx.push(
             FrameFragment::new(ctx, frame)
@@ -51,16 +58,17 @@ macro_rules! ops {
             $(math.define(
                 stringify!($name),
                 OpElem::new(ops!(@name $name $(: $value)?).into())
-                    .with_limits(ops!(@limit $($tts)*))
+                    .with_limits(ops!(@limit $($tts)?))
                     .pack()
             );)*
 
             let dif = |d| {
-                HElem::new(THIN.into()).pack()
+                HElem::new(spacing::THIN.into()).pack()
                     + MathStyleElem::new(TextElem::packed(d)).with_italic(Some(false)).pack()
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));
+            math.define("op", OpElem::func());
         }
     };
     (@name $name:ident) => { stringify!($name) };

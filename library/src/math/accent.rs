@@ -1,7 +1,18 @@
-use super::*;
+use ttf_parser::GlyphId;
+use typst::eval::Scope;
+
+use super::ctx::{scaled, MathContext, Scaled as _};
+use super::fragment::{FrameFragment, GlyphFragment, MathFragment};
+use crate::math::LayoutMath;
+use crate::prelude::*;
+use crate::text::TextElem;
 
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);
+
+pub(super) fn define(math: &mut Scope) {
+    math.define("accent", AccentElem::func());
+}
 
 /// Attach an accent to a base.
 ///
@@ -49,7 +60,7 @@ pub struct AccentElem {
 }
 
 impl LayoutMath for AccentElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         ctx.style(ctx.style.with_cramped(true));
         let base = ctx.layout_fragment(&self.base())?;
         ctx.unstyle();
@@ -88,7 +99,7 @@ impl LayoutMath for AccentElem {
         let mut frame = Frame::new(size);
         frame.set_baseline(baseline);
         frame.push_frame(accent_pos, accent);
-        frame.push_frame(base_pos, base.to_frame());
+        frame.push_frame(base_pos, base.into_frame());
         ctx.push(FrameFragment::new(ctx, frame).with_base_ascent(base_ascent));
 
         Ok(())
@@ -96,23 +107,32 @@ impl LayoutMath for AccentElem {
 }
 
 /// The horizontal attachment position for the given glyph.
-fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
+fn attachment(
+    ctx: &MathContext<'_, '_, '_>,
+    id: GlyphId,
+    italics_correction: Abs,
+) -> Abs {
     ctx.table
         .glyph_info
         .and_then(|info| info.top_accent_attachments)
         .and_then(|attachments| attachments.get(id))
-        .map(|record| record.value.scaled(ctx))
-        .unwrap_or_else(|| {
-            let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
-            (advance.scaled(ctx) + italics_correction) / 2.0
-        })
+        .map_or_else(
+            || {
+                let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
+                (advance.scaled(ctx) + italics_correction) / 2.0
+            },
+            |record| record.value.scaled(ctx),
+        )
 }
 
 /// An accent character.
+#[derive(Debug, Clone, Copy)]
 pub struct Accent(char);
 
 impl Accent {
     /// Normalize a character into an accent.
+    #[inline]
+    #[must_use]
     pub fn new(c: char) -> Self {
         Self(Symbol::combining_accent(c).unwrap_or(c))
     }

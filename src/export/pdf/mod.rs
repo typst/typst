@@ -9,6 +9,7 @@ use std::cmp::Eq;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 
+use az::Az as _;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 use xmp_writer::{LangId, RenditionClass, XmpWriter};
@@ -24,6 +25,7 @@ use crate::model::Introspector;
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
+#[must_use]
 pub fn pdf(document: &Document) -> Vec<u8> {
     let mut ctx = PdfContext::new(document);
     page::construct_pages(&mut ctx, &document.pages);
@@ -82,7 +84,7 @@ impl<'a> PdfContext<'a> {
 }
 
 /// Write the document catalog.
-fn write_catalog(ctx: &mut PdfContext) {
+fn write_catalog(ctx: &mut PdfContext<'_>) {
     // Build the outline tree.
     let outline_root_id = (!ctx.heading_tree.is_empty()).then(|| ctx.alloc.bump());
     let outline_start_ref = ctx.alloc;
@@ -103,7 +105,7 @@ fn write_catalog(ctx: &mut PdfContext) {
         let mut outline_root = ctx.writer.outline(outline_root_id);
         outline_root.first(outline_start_ref);
         outline_root.last(Ref::new(ctx.alloc.get() - 1));
-        outline_root.count(ctx.heading_tree.len() as i32);
+        outline_root.count(ctx.heading_tree.len().az());
     }
 
     let lang = ctx
@@ -129,12 +131,12 @@ fn write_catalog(ctx: &mut PdfContext) {
     let authors = &ctx.document.author;
     if !authors.is_empty() {
         info.author(TextStr(&authors.join(", ")));
-        xmp.creator(authors.iter().map(|s| s.as_str()));
+        xmp.creator(authors.iter().map(ecow::EcoString::as_str));
     }
     info.creator(TextStr("Typst"));
     info.finish();
     xmp.creator_tool("Typst");
-    xmp.num_pages(ctx.document.pages.len() as u32);
+    xmp.num_pages(ctx.document.pages.len().az());
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
     xmp.rendition_class(RenditionClass::Proof);
@@ -193,8 +195,8 @@ where
         });
     }
 
-    fn map(&self, item: T) -> usize {
-        self.to_pdf[&item]
+    fn map(&self, item: &T) -> usize {
+        self.to_pdf[item]
     }
 
     fn pdf_indices<'a>(
@@ -217,7 +219,7 @@ trait AbsExt {
 
 impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
-        self.to_pt() as f32
+        self.to_pt().az()
     }
 }
 
@@ -229,7 +231,7 @@ trait EmExt {
 
 impl EmExt for Em {
     fn to_font_units(self) -> f32 {
-        1000.0 * self.get() as f32
+        1000.0 * self.get().az::<f32>()
     }
 }
 

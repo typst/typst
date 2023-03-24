@@ -1,6 +1,6 @@
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter, Write};
-use std::iter;
-use std::mem;
+use std::{iter, mem};
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
@@ -16,11 +16,15 @@ pub struct Styles(EcoVec<Style>);
 
 impl Styles {
     /// Create a new, empty style list.
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Whether this contains no styles.
+    #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
@@ -30,16 +34,19 @@ impl Styles {
     /// If the property needs folding and the value is already contained in the
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
+    #[inline]
     pub fn set(&mut self, style: impl Into<Style>) {
         self.0.push(style.into());
     }
 
     /// Remove the style that was last set.
+    #[inline]
     pub fn unset(&mut self) {
         self.0.pop();
     }
 
     /// Apply outer styles. Like [`chain`](StyleChain::chain), but in-place.
+    #[inline]
     pub fn apply(&mut self, mut outer: Self) {
         outer.0.extend(mem::take(self).0.into_iter());
         *self = outer;
@@ -47,16 +54,20 @@ impl Styles {
 
     /// Apply one outer styles. Like [`chain_one`](StyleChain::chain_one), but
     /// in-place.
+    #[inline]
     pub fn apply_one(&mut self, outer: Style) {
         self.0.insert(0, outer);
     }
 
     /// Apply a slice of outer styles.
+    #[inline]
     pub fn apply_slice(&mut self, outer: &[Style]) {
         self.0 = outer.iter().cloned().chain(mem::take(self).0.into_iter()).collect();
     }
 
     /// Add an origin span to all contained properties.
+    #[inline]
+    #[must_use]
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
             if let Style::Property(property) = entry {
@@ -68,23 +79,26 @@ impl Styles {
 
     /// Returns `Some(_)` with an optional span if this list contains
     /// styles for the given element.
+    #[inline]
+    #[must_use]
     pub fn interruption<T: Element>(&self) -> Option<Option<Span>> {
         let func = T::func();
         self.0.iter().find_map(|entry| match entry {
-            Style::Property(property) => property.is_of(func).then(|| property.span),
-            Style::Recipe(recipe) => recipe.is_of(func).then(|| Some(recipe.span)),
+            Style::Property(property) => property.is_of(func).then_some(property.span),
+            Style::Recipe(recipe) => recipe.is_of(func).then_some(Some(recipe.span)),
         })
     }
 }
 
 impl From<Style> for Styles {
+    #[inline]
     fn from(entry: Style) -> Self {
         Self(eco_vec![entry])
     }
 }
 
 impl Debug for Styles {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad("..")
     }
 }
@@ -100,24 +114,28 @@ pub enum Style {
 
 impl Style {
     /// If this is a property, return it.
+    #[inline]
+    #[must_use]
     pub fn property(&self) -> Option<&Property> {
         match self {
             Self::Property(property) => Some(property),
-            _ => None,
+            Self::Recipe(..) => None,
         }
     }
 
     /// If this is a recipe, return it.
+    #[inline]
+    #[must_use]
     pub fn recipe(&self) -> Option<&Recipe> {
         match self {
             Self::Recipe(recipe) => Some(recipe),
-            _ => None,
+            Self::Property(..) => None,
         }
     }
 }
 
 impl Debug for Style {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Property(property) => property.fmt(f),
             Self::Recipe(recipe) => recipe.fmt(f),
@@ -126,12 +144,14 @@ impl Debug for Style {
 }
 
 impl From<Property> for Style {
+    #[inline]
     fn from(property: Property) -> Self {
         Self::Property(property)
     }
 }
 
 impl From<Recipe> for Style {
+    #[inline]
     fn from(recipe: Recipe) -> Self {
         Self::Recipe(recipe)
     }
@@ -152,23 +172,29 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
+    #[inline]
+    #[must_use]
     pub fn new(element: ElemFunc, name: EcoString, value: Value) -> Self {
         Self { element, name, value, span: None }
     }
 
     /// Whether this property is the given one.
+    #[inline]
+    #[must_use]
     pub fn is(&self, element: ElemFunc, name: &str) -> bool {
         self.element == element && self.name == name
     }
 
     /// Whether this property belongs to the given element.
+    #[inline]
+    #[must_use]
     pub fn is_of(&self, element: ElemFunc) -> bool {
         self.element == element
     }
 }
 
 impl Debug for Property {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "set {}({}: {:?})", self.element.name(), self.name, self.value)?;
         Ok(())
     }
@@ -187,6 +213,8 @@ pub struct Recipe {
 
 impl Recipe {
     /// Whether this recipe is for the given type of element.
+    #[inline]
+    #[must_use]
     pub fn is_of(&self, element: ElemFunc) -> bool {
         match self.selector {
             Some(Selector::Elem(own, _)) => own == element,
@@ -195,6 +223,8 @@ impl Recipe {
     }
 
     /// Whether the recipe is applicable to the target.
+    #[inline]
+    #[must_use]
     pub fn applicable(&self, target: &Content) -> bool {
         self.selector
             .as_ref()
@@ -202,7 +232,8 @@ impl Recipe {
     }
 
     /// Apply the recipe to the given content.
-    pub fn apply_vm(&self, vm: &mut Vm, content: Content) -> SourceResult<Content> {
+    #[allow(clippy::missing_errors_doc /* obvious */)]
+    pub fn apply_vm(&self, vm: &mut Vm<'_>, content: Content) -> SourceResult<Content> {
         match &self.transform {
             Transform::Content(content) => Ok(content.clone()),
             Transform::Func(func) => {
@@ -220,7 +251,8 @@ impl Recipe {
     }
 
     /// Apply the recipe to the given content.
-    pub fn apply_vt(&self, vt: &mut Vt, content: Content) -> SourceResult<Content> {
+    #[allow(clippy::missing_errors_doc /* obvious */)]
+    pub fn apply_vt(&self, vt: &mut Vt<'_>, content: Content) -> SourceResult<Content> {
         match &self.transform {
             Transform::Content(content) => Ok(content.clone()),
             Transform::Func(func) => {
@@ -237,7 +269,7 @@ impl Recipe {
 }
 
 impl Debug for Recipe {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("show")?;
         if let Some(selector) = &self.selector {
             f.write_char(' ')?;
@@ -266,18 +298,22 @@ pub enum Selector {
 
 impl Selector {
     /// Define a simple text selector.
+    #[inline]
+    #[must_use]
     pub fn text(text: &str) -> Self {
-        Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+        Self::Regex(Regex::new(&regex::escape(text)).unwrap_or_else(|_| unreachable!()))
     }
 
     /// Whether the selector matches for the target.
+    #[inline]
+    #[must_use]
     pub fn matches(&self, target: &Content) -> bool {
         match self {
             Self::Elem(element, dict) => {
                 target.func() == *element
                     && dict
                         .iter()
-                        .flat_map(|dict| dict.iter())
+                        .flatten()
                         .all(|(name, value)| target.field_ref(name) == Some(value))
             }
             Self::Label(label) => target.label() == Some(label),
@@ -291,7 +327,7 @@ impl Selector {
 }
 
 impl Debug for Selector {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Elem(elem, dict) => {
                 f.write_str(elem.name())?;
@@ -336,7 +372,7 @@ pub enum Transform {
 }
 
 impl Debug for Transform {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Content(content) => content.fmt(f),
             Self::Func(func) => func.fmt(f),
@@ -368,6 +404,8 @@ pub struct StyleChain<'a> {
 
 impl<'a> StyleChain<'a> {
     /// Start a new style chain with root styles.
+    #[inline]
+    #[must_use]
     pub fn new(root: &'a Styles) -> Self {
         Self { head: &root.0, tail: None }
     }
@@ -377,6 +415,8 @@ impl<'a> StyleChain<'a> {
     /// The resulting style chain contains styles from `local` as well as
     /// `self`. The ones from `local` take precedence over the ones from
     /// `self`. For folded properties `local` contributes the inner value.
+    #[inline]
+    #[must_use]
     pub fn chain<'b>(&'b self, local: &'b Styles) -> StyleChain<'b> {
         if local.is_empty() {
             *self
@@ -386,6 +426,8 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Make the given style the first link of the this chain.
+    #[inline]
+    #[must_use]
     pub fn chain_one<'b>(&'b self, style: &'b Style) -> StyleChain<'b> {
         StyleChain {
             head: std::slice::from_ref(style),
@@ -394,6 +436,8 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[inline]
+    #[must_use]
     pub fn get<T: Cast>(
         self,
         func: ElemFunc,
@@ -407,6 +451,8 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[inline]
+    #[must_use]
     pub fn get_resolve<T: Cast + Resolve>(
         self,
         func: ElemFunc,
@@ -418,6 +464,8 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[inline]
+    #[must_use]
     pub fn get_fold<T: Cast + Fold>(
         self,
         func: ElemFunc,
@@ -427,18 +475,18 @@ impl<'a> StyleChain<'a> {
     ) -> T::Output {
         fn next<T: Fold>(
             mut values: impl Iterator<Item = T>,
-            styles: StyleChain,
             default: &impl Fn() -> T::Output,
         ) -> T::Output {
             values
                 .next()
-                .map(|value| value.fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+                .map_or_else(default, |value| value.fold(next(values, default)))
         }
-        next(self.properties::<T>(func, name, inherent), self, &default)
+        next(self.properties::<T>(func, name, inherent), &default)
     }
 
     /// Cast the first value for the given property in the chain.
+    #[inline]
+    #[must_use]
     pub fn get_resolve_fold<T>(
         self,
         func: ElemFunc,
@@ -452,27 +500,32 @@ impl<'a> StyleChain<'a> {
     {
         fn next<T>(
             mut values: impl Iterator<Item = T>,
-            styles: StyleChain,
+            styles: StyleChain<'_>,
             default: &impl Fn() -> <T::Output as Fold>::Output,
         ) -> <T::Output as Fold>::Output
         where
             T: Resolve,
             T::Output: Fold,
         {
-            values
-                .next()
-                .map(|value| value.resolve(styles).fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+            values.next().map_or_else(default, |value| {
+                value.resolve(styles).fold(next(values, styles, default))
+            })
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }
 
     /// Iterate over all style recipes in the chain.
+    #[inline]
     pub fn recipes(self) -> impl Iterator<Item = &'a Recipe> {
         self.entries().filter_map(Style::recipe)
     }
 
     /// Iterate over all values for the given property in the chain.
+    ///
+    /// # Panics
+    ///
+    /// If any of the values can't be casted to `T`.
+    #[inline]
     pub fn properties<T: Cast + 'a>(
         self,
         func: ElemFunc,
@@ -488,13 +541,15 @@ impl<'a> StyleChain<'a> {
                     .map(|property| property.value.clone()),
             )
             .map(move |value| {
-                value.cast().unwrap_or_else(|err| {
-                    panic!("{} (for {}.{})", err, func.name(), name)
+                value.cast().unwrap_or_else(|error| {
+                    panic!("{error} (for {func}.{name})", func = func.name())
                 })
             })
     }
 
     /// Convert to a style map.
+    #[inline]
+    #[must_use]
     pub fn to_map(self) -> Styles {
         let mut suffix = Styles::new();
         for link in self.links() {
@@ -504,17 +559,22 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over the entries of the chain.
+    #[inline]
+    #[must_use]
     fn entries(self) -> Entries<'a> {
         Entries { inner: [].as_slice().iter(), links: self.links() }
     }
 
     /// Iterate over the links of the chain.
+    #[inline]
+    #[must_use]
     fn links(self) -> Links<'a> {
         Links(Some(self))
     }
 
-    /// Build owned styles from the suffix (all links beyond the `len`) of the
-    /// chain.
+    /// Build owned styles from the suffix (all links beyond the `len`) of the chain.
+    #[inline]
+    #[must_use]
     fn suffix(self, len: usize) -> Styles {
         let mut suffix = Styles::new();
         let take = self.links().count().saturating_sub(len);
@@ -525,11 +585,14 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Remove the last link from the chain.
+    #[inline]
     fn pop(&mut self) {
         *self = self.tail.copied().unwrap_or_default();
     }
 
     /// Whether two style chains contain the same pointers.
+    #[inline]
+    #[must_use]
     fn ptr_eq(self, other: Self) -> bool {
         std::ptr::eq(self.head, other.head)
             && match (self.tail, other.tail) {
@@ -541,15 +604,16 @@ impl<'a> StyleChain<'a> {
 }
 
 impl Debug for StyleChain<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for entry in self.entries().collect::<Vec<_>>().into_iter().rev() {
-            writeln!(f, "{:?}", entry)?;
+            writeln!(f, "{entry:?}")?;
         }
         Ok(())
     }
 }
 
 impl PartialEq for StyleChain<'_> {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.ptr_eq(*other) || crate::util::hash128(self) == crate::util::hash128(other)
     }
@@ -564,6 +628,7 @@ struct Entries<'a> {
 impl<'a> Iterator for Entries<'a> {
     type Item = &'a Style;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         loop {
             if let Some(entry) = self.inner.next_back() {
@@ -584,6 +649,7 @@ struct Links<'a>(Option<StyleChain<'a>>);
 impl<'a> Iterator for Links<'a> {
     type Item = &'a [Style];
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         let StyleChain { head, tail } = self.0?;
         self.0 = tail.copied();
@@ -600,11 +666,15 @@ pub struct StyleVec<T> {
 
 impl<T> StyleVec<T> {
     /// Whether there are any items in the sequence.
+    #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
 
     /// Number of items in the sequence.
+    #[inline]
+    #[must_use]
     pub fn len(&self) -> usize {
         self.items.len()
     }
@@ -613,6 +683,7 @@ impl<T> StyleVec<T> {
     /// current first item.
     ///
     /// This method has no effect if the vector is empty.
+    #[inline]
     pub fn push_front(&mut self, item: T) {
         if !self.styles.is_empty() {
             self.items.insert(0, item);
@@ -621,6 +692,8 @@ impl<T> StyleVec<T> {
     }
 
     /// Map the contained items.
+    #[inline]
+    #[must_use]
     pub fn map<F, U>(&self, f: F) -> StyleVec<U>
     where
         F: FnMut(&T) -> U,
@@ -632,6 +705,7 @@ impl<T> StyleVec<T> {
     }
 
     /// Iterate over references to the contained items and associated styles.
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = (&T, &Styles)> + '_ {
         self.items().zip(
             self.styles
@@ -641,6 +715,7 @@ impl<T> StyleVec<T> {
     }
 
     /// Iterate over the contained items.
+    #[inline]
     pub fn items(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()
     }
@@ -650,12 +725,16 @@ impl<T> StyleVec<T> {
     /// this method only returns lists once that are shared by consecutive
     /// items. This method is designed for use cases where you want to check,
     /// for example, whether any of the lists fulfills a specific property.
+    #[inline]
     pub fn styles(&self) -> impl Iterator<Item = &Styles> {
         self.styles.iter().map(|(map, _)| map)
     }
 }
 
 impl StyleVec<Content> {
+    /// Flatten the styles into the elements to get a vector of normal `Content`s.
+    #[inline]
+    #[must_use]
     pub fn to_vec(self) -> Vec<Content> {
         self.items
             .into_iter()
@@ -670,12 +749,14 @@ impl StyleVec<Content> {
 }
 
 impl<T> Default for StyleVec<T> {
+    #[inline]
     fn default() -> Self {
         Self { items: vec![], styles: vec![] }
     }
 }
 
 impl<T> FromIterator<T> for StyleVec<T> {
+    #[inline]
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let items: Vec<_> = iter.into_iter().collect();
         let styles = vec![(Styles::new(), items.len())];
@@ -705,16 +786,21 @@ pub struct StyleVecBuilder<'a, T> {
 
 impl<'a, T> StyleVecBuilder<'a, T> {
     /// Create a new style-vec builder.
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self { items: vec![], chains: vec![] }
     }
 
     /// Whether the builder is empty.
+    #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
 
     /// Push a new item into the style vector.
+    #[inline]
     pub fn push(&mut self, item: T, styles: StyleChain<'a>) {
         self.items.push(item);
 
@@ -729,6 +815,7 @@ impl<'a, T> StyleVecBuilder<'a, T> {
     }
 
     /// Iterate over the contained items.
+    #[inline]
     pub fn elems(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()
     }
@@ -736,25 +823,29 @@ impl<'a, T> StyleVecBuilder<'a, T> {
     /// Finish building, returning a pair of two things:
     /// - a style vector of items with the non-shared styles
     /// - a shared prefix chain of styles that apply to all items
+    #[must_use]
     pub fn finish(self) -> (StyleVec<T>, StyleChain<'a>) {
         let mut iter = self.chains.iter();
-        let mut trunk = match iter.next() {
-            Some(&(chain, _)) => chain,
-            None => return Default::default(),
+        let Some(&(mut trunk, _)) = iter.next() else {
+            return Default::default();
         };
 
         let mut shared = trunk.links().count();
         for &(mut chain, _) in iter {
             let len = chain.links().count();
-            if len < shared {
-                for _ in 0..shared - len {
-                    trunk.pop();
+            match len.cmp(&shared) {
+                Ordering::Less => {
+                    for _ in 0..shared - len {
+                        trunk.pop();
+                    }
+                    shared = len;
                 }
-                shared = len;
-            } else if len > shared {
-                for _ in 0..len - shared {
-                    chain.pop();
+                Ordering::Greater => {
+                    for _ in 0..len - shared {
+                        chain.pop();
+                    }
                 }
+                Ordering::Equal => {}
             }
 
             while shared > 0 && chain != trunk {
@@ -775,6 +866,7 @@ impl<'a, T> StyleVecBuilder<'a, T> {
 }
 
 impl<'a, T> Default for StyleVecBuilder<'a, T> {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -786,13 +878,14 @@ pub trait Resolve {
     type Output;
 
     /// Resolve the value using the style chain.
-    fn resolve(self, styles: StyleChain) -> Self::Output;
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output;
 }
 
 impl<T: Resolve> Resolve for Option<T> {
     type Output = Option<T::Output>;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         self.map(|v| v.resolve(styles))
     }
 }
@@ -813,6 +906,7 @@ where
 {
     type Output = Option<T::Output>;
 
+    #[inline]
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.map(|inner| inner.fold(outer.unwrap_or_default()))
     }

@@ -36,7 +36,7 @@ fn try_reparse(
     offset: usize,
 ) -> Option<Range<usize>> {
     // The range of children which overlap with the edit.
-    let mut overlap = usize::MAX..0;
+    let mut overlap = None::<Range<usize>>;
     let mut cursor = offset;
     let node_kind = node.kind();
 
@@ -69,18 +69,21 @@ fn try_reparse(
             // If the child is a block, try to reparse the block.
             if child.kind().is_block() {
                 if let Some(newborn) = reparse_block(text, new_range.clone()) {
+                    #[allow(clippy::range_plus_one /* false positive, API only takes `Range` */)]
                     return node
                         .replace_children(i..i + 1, vec![newborn])
                         .is_ok()
-                        .then(|| new_range);
+                        .then_some(new_range);
                 }
             }
         }
 
         // Does the child overlap with the edit?
+        #[allow(clippy::range_plus_one /* false positive, API only takes `Range` */)]
         if overlaps(&prev_range, &replaced) {
-            overlap.start = overlap.start.min(i);
-            overlap.end = i + 1;
+            overlap = Some(
+                overlap.map_or(i, |overlap: Range<_>| overlap.start.min(i))..(i + 1),
+            );
         }
 
         // Is the child beyond the edit?
@@ -97,8 +100,11 @@ fn try_reparse(
     // with indent and line breaks.
     if node.kind() == SyntaxKind::Markup
         && (parent_kind.is_none() || parent_kind == Some(SyntaxKind::ContentBlock))
-        && !overlap.is_empty()
+        && overlap.is_some()
     {
+        // XXX Can be better written as a let-chain once let-chains are stable.
+        #[allow(clippy::unnecessary_unwrap)]
+        let overlap = overlap.unwrap();
         // Add slack in both directions.
         let children = node.children_mut();
         let mut start = overlap.start.saturating_sub(2);
@@ -157,7 +163,7 @@ fn try_reparse(
                 return node
                     .replace_children(start..end, newborns)
                     .is_ok()
-                    .then(|| new_range);
+                    .then_some(new_range);
             }
         }
     }
@@ -211,6 +217,7 @@ fn next_nesting(node: &SyntaxNode, nesting: &mut usize) {
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::print_stderr /* ok in tests */)]
     use std::ops::Range;
 
     use super::super::{parse, Source, Span};

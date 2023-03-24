@@ -1,6 +1,7 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
 
+use az::Az as _;
 use typst::eval::Regex;
 
 use crate::prelude::*;
@@ -35,9 +36,9 @@ struct ToInt(i64);
 
 cast_from_value! {
     ToInt,
-    v: bool => Self(v as i64),
+    v: bool => Self(v.az()),
     v: i64 => Self(v),
-    v: f64 => Self(v as i64),
+    v: f64 => Self(v.az()),
     v: EcoString => Self(v.parse().map_err(|_| "not a valid integer")?),
 }
 
@@ -73,8 +74,8 @@ struct ToFloat(f64);
 
 cast_from_value! {
     ToFloat,
-    v: bool => Self(v as i64 as f64),
-    v: i64 => Self(v as f64),
+    v: bool => Self(v.az::<i64>().az()),
+    v: i64 => Self(v.az()),
     v: f64 => Self(v),
     v: EcoString => Self(v.parse().map_err(|_| "not a valid float")?),
 }
@@ -170,12 +171,9 @@ struct Component(u8);
 
 cast_from_value! {
     Component,
-    v: i64 => match v {
-        0 ..= 255 => Self(v as u8),
-        _ => Err("number must be between 0 and 255")?,
-    },
-    v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
-        Self((v.get() * 255.0).round() as u8)
+    v: i64 => v.try_into().map_err(|_| "number must be between 0 and 255").map(Self)?,
+    v: Ratio => if (0.0..=1.0).contains(&v.get()) {
+        Self((v.get() * 255.0).round().az())
     } else {
         Err("ratio must be between 0% and 100%")?
     },
@@ -217,7 +215,7 @@ struct RatioComponent(u8);
 cast_from_value! {
     RatioComponent,
     v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
-        Self((v.get() * 255.0).round() as u8)
+        Self((v.get() * 255.0).round().az())
     } else {
         Err("ratio must be between 0% and 100%")?
     },

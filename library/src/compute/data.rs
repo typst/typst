@@ -79,7 +79,7 @@ pub fn csv(
     for result in reader.records() {
         let row = result.map_err(format_csv_error).at(span)?;
         let sub = row.iter().map(|field| Value::Str(field.into())).collect();
-        array.push(Value::Array(sub))
+        array.push(Value::Array(sub));
     }
 
     Value::Array(array)
@@ -94,11 +94,11 @@ cast_from_value! {
         let mut chars = v.chars();
         let first = chars.next().ok_or("delimiter must not be empty")?;
         if chars.next().is_some() {
-            Err("delimiter must be a single character")?
+            return Err("delimiter must be a single character".into());
         }
 
         if !first.is_ascii() {
-            Err("delimiter must be an ASCII character")?
+            return Err("delimiter must be an ASCII character".into());
         }
 
         Self(first as u8)
@@ -112,6 +112,7 @@ impl Default for Delimiter {
 }
 
 /// Format the user-facing CSV error message.
+#[allow(clippy::needless_pass_by_value /* callback API */)]
 fn format_csv_error(error: csv::Error) -> String {
     match error.kind() {
         csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
@@ -205,6 +206,7 @@ fn convert_json(value: serde_json::Value) -> Value {
 
 /// Format the user-facing JSON error message.
 #[track_caller]
+#[allow(clippy::needless_pass_by_value /* callback API */)]
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
     format!("failed to parse json file: syntax error in line {}", error.line())
@@ -276,7 +278,7 @@ pub fn xml(
 }
 
 /// Convert an XML node to a Typst value.
-fn convert_xml(node: roxmltree::Node) -> Value {
+fn convert_xml(node: roxmltree::Node<'_, '_>) -> Value {
     if node.is_text() {
         return Value::Str(node.text().unwrap_or_default().into());
     }
@@ -301,6 +303,7 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 }
 
 /// Format the user-facing XML error message.
+#[allow(clippy::needless_pass_by_value /* callback API */)]
 fn format_xml_error(error: roxmltree::Error) -> String {
     format_xml_like_error("xml file", error)
 }

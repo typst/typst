@@ -103,6 +103,7 @@ pub fn assert(
     message: Option<EcoString>,
 ) -> Value {
     if !condition {
+        #[allow(clippy::redundant_else /* clarity */)]
         if let Some(message) = message {
             bail!(args.span, "assertion failed: {}", message);
         } else {

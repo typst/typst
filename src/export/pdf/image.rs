@@ -1,5 +1,6 @@
 use std::io::Cursor;
 
+use az::Az as _;
 use image::{DynamicImage, GenericImageView, ImageResult, Rgba};
 use pdf_writer::{Filter, Finish};
 
@@ -7,7 +8,7 @@ use super::{deflate, PdfContext, RefExt};
 use crate::image::{DecodedImage, RasterFormat};
 
 /// Embed all used images into the PDF.
-pub fn write_images(ctx: &mut PdfContext) {
+pub fn write_images(ctx: &mut PdfContext<'_>) {
     for image in ctx.image_map.items() {
         let image_ref = ctx.alloc.bump();
         ctx.image_refs.push(image_ref);
@@ -23,8 +24,8 @@ pub fn write_images(ctx: &mut PdfContext) {
                 let (data, filter, has_color) = encode_image(*format, dynamic).unwrap();
                 let mut image = ctx.writer.image_xobject(image_ref, &data);
                 image.filter(filter);
-                image.width(width as i32);
-                image.height(height as i32);
+                image.width(width.az());
+                image.height(height.az());
                 image.bits_per_component(8);
 
                 let space = image.color_space();
@@ -44,8 +45,8 @@ pub fn write_images(ctx: &mut PdfContext) {
 
                     let mut mask = ctx.writer.image_xobject(mask_ref, &alpha_data);
                     mask.filter(alpha_filter);
-                    mask.width(width as i32);
-                    mask.height(height as i32);
+                    mask.width(width.az());
+                    mask.height(height.az());
                     mask.color_space().device_gray();
                     mask.bits_per_component(8);
                 }

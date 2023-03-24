@@ -1,7 +1,9 @@
 use ttf_parser::math::{GlyphAssembly, GlyphConstruction, GlyphPart};
 use ttf_parser::LazyArray16;
 
-use super::*;
+use super::ctx::{scaled, MathContext, Scaled as _};
+use super::fragment::{GlyphFragment, VariantFragment};
+use crate::prelude::*;
 
 /// Maximum number of times extenders can be repeated.
 const MAX_REPEATS: usize = 1024;
@@ -9,8 +11,8 @@ const MAX_REPEATS: usize = 1024;
 impl GlyphFragment {
     /// Try to stretch a glyph to a desired height.
     pub fn stretch_vertical(
-        self,
-        ctx: &MathContext,
+        &self,
+        ctx: &MathContext<'_, '_, '_>,
         height: Abs,
         short_fall: Abs,
     ) -> VariantFragment {
@@ -19,8 +21,8 @@ impl GlyphFragment {
 
     /// Try to stretch a glyph to a desired width.
     pub fn stretch_horizontal(
-        self,
-        ctx: &MathContext,
+        &self,
+        ctx: &MathContext<'_, '_, '_>,
         width: Abs,
         short_fall: Abs,
     ) -> VariantFragment {
@@ -32,8 +34,8 @@ impl GlyphFragment {
 ///
 /// The resulting frame may not have the exact desired width.
 fn stretch_glyph(
-    ctx: &MathContext,
-    base: GlyphFragment,
+    ctx: &MathContext<'_, '_, '_>,
+    base: &GlyphFragment,
     target: Abs,
     short_fall: Abs,
     horizontal: bool,
@@ -73,7 +75,7 @@ fn stretch_glyph(
 
     // This is either good or the best we've got.
     if short_target <= best_advance || construction.assembly.is_none() {
-        return GlyphFragment::with_id(ctx, base.c, best_id, base.span).to_variant();
+        return GlyphFragment::with_id(ctx, base.ch, best_id, base.span).to_variant();
     }
 
     // Assemble from parts.
@@ -83,9 +85,9 @@ fn stretch_glyph(
 
 /// Assemble a glyph from parts.
 fn assemble(
-    ctx: &MathContext,
-    base: GlyphFragment,
-    assembly: GlyphAssembly,
+    ctx: &MathContext<'_, '_, '_>,
+    base: &GlyphFragment,
+    assembly: GlyphAssembly<'_>,
     min_overlap: Abs,
     target: Abs,
     horizontal: bool,
@@ -142,7 +144,7 @@ fn assemble(
             advance += ratio * (max_overlap - min_overlap);
         }
 
-        let fragment = GlyphFragment::with_id(ctx, base.c, part.glyph_id, base.span);
+        let fragment = GlyphFragment::with_id(ctx, base.ch, part.glyph_id, base.span);
         selected.push((fragment, advance));
     }
 
@@ -174,7 +176,7 @@ fn assemble(
     }
 
     VariantFragment {
-        c: base.c,
+        c: base.ch,
         id: None,
         frame,
         style: base.style,
@@ -187,7 +189,10 @@ fn assemble(
 
 /// Return an iterator over the assembly's parts with extenders repeated the
 /// specified number of times.
-fn parts(assembly: GlyphAssembly, repeat: usize) -> impl Iterator<Item = GlyphPart> + '_ {
+fn parts(
+    assembly: GlyphAssembly<'_>,
+    repeat: usize,
+) -> impl Iterator<Item = GlyphPart> + '_ {
     assembly.parts.into_iter().flat_map(move |part| {
         let count = if part.part_flags.extender() { repeat } else { 1 };
         std::iter::repeat(part).take(count)

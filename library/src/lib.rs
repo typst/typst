@@ -1,4 +1,24 @@
 //! Typst's standard library.
+#![deny(
+    absolute_paths_not_starting_with_crate,
+    future_incompatible,
+    keyword_idents,
+    macro_use_extern_crate,
+    meta_variable_misuse,
+    missing_abi,
+    missing_debug_implementations,
+    missing_docs,
+    non_ascii_idents,
+    nonstandard_style,
+    noop_method_call,
+    pointer_structural_match,
+    private_in_public,
+    rust_2018_idioms,
+    unused_qualifications
+)]
+#![warn(clippy::pedantic, clippy::dbg_macro, clippy::print_stderr, clippy::print_stdout)]
+#![allow(clippy::module_name_repetitions)]
+#![deny(unsafe_code)]
 
 pub mod compute;
 pub mod layout;
@@ -18,6 +38,7 @@ use typst::model::{Element, Styles};
 use self::layout::LayoutRoot;
 
 /// Construct the standard library.
+#[must_use]
 pub fn build() -> Library {
     let math = math::module();
     let calc = compute::calc::module();
@@ -29,126 +50,17 @@ pub fn build() -> Library {
 fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 
-    // Text.
-    global.define("text", text::TextElem::func());
-    global.define("linebreak", text::LinebreakElem::func());
-    global.define("smartquote", text::SmartQuoteElem::func());
-    global.define("strong", text::StrongElem::func());
-    global.define("emph", text::EmphElem::func());
-    global.define("lower", text::lower);
-    global.define("upper", text::upper);
-    global.define("smallcaps", text::smallcaps);
-    global.define("sub", text::SubElem::func());
-    global.define("super", text::SuperElem::func());
-    global.define("underline", text::UnderlineElem::func());
-    global.define("strike", text::StrikeElem::func());
-    global.define("overline", text::OverlineElem::func());
-    global.define("raw", text::RawElem::func());
-    global.define("lorem", text::lorem);
+    text::define(&mut global);
+    layout::define(&mut global);
+    visualize::define(&mut global);
+    meta::define(&mut global);
+    symbols::define(&mut global);
+    compute::define(&mut global);
+    define_colors(&mut global);
 
-    // Math.
+    global.define("calc", calc);
     global.define("math", math);
 
-    // Layout.
-    global.define("page", layout::PageElem::func());
-    global.define("pagebreak", layout::PagebreakElem::func());
-    global.define("v", layout::VElem::func());
-    global.define("par", layout::ParElem::func());
-    global.define("parbreak", layout::ParbreakElem::func());
-    global.define("h", layout::HElem::func());
-    global.define("box", layout::BoxElem::func());
-    global.define("block", layout::BlockElem::func());
-    global.define("list", layout::ListElem::func());
-    global.define("enum", layout::EnumElem::func());
-    global.define("terms", layout::TermsElem::func());
-    global.define("table", layout::TableElem::func());
-    global.define("stack", layout::StackElem::func());
-    global.define("grid", layout::GridElem::func());
-    global.define("columns", layout::ColumnsElem::func());
-    global.define("colbreak", layout::ColbreakElem::func());
-    global.define("place", layout::PlaceElem::func());
-    global.define("align", layout::AlignElem::func());
-    global.define("pad", layout::PadElem::func());
-    global.define("repeat", layout::RepeatElem::func());
-    global.define("move", layout::MoveElem::func());
-    global.define("scale", layout::ScaleElem::func());
-    global.define("rotate", layout::RotateElem::func());
-    global.define("hide", layout::HideElem::func());
-    global.define("measure", layout::measure);
-
-    // Visualize.
-    global.define("image", visualize::ImageElem::func());
-    global.define("line", visualize::LineElem::func());
-    global.define("rect", visualize::RectElem::func());
-    global.define("square", visualize::SquareElem::func());
-    global.define("ellipse", visualize::EllipseElem::func());
-    global.define("circle", visualize::CircleElem::func());
-
-    // Meta.
-    global.define("document", meta::DocumentElem::func());
-    global.define("ref", meta::RefElem::func());
-    global.define("link", meta::LinkElem::func());
-    global.define("outline", meta::OutlineElem::func());
-    global.define("heading", meta::HeadingElem::func());
-    global.define("figure", meta::FigureElem::func());
-    global.define("cite", meta::CiteElem::func());
-    global.define("bibliography", meta::BibliographyElem::func());
-    global.define("locate", meta::locate);
-    global.define("style", meta::style);
-    global.define("counter", meta::counter);
-    global.define("numbering", meta::numbering);
-    global.define("state", meta::state);
-    global.define("query", meta::query);
-
-    // Symbols.
-    global.define("sym", symbols::sym());
-    global.define("emoji", symbols::emoji());
-
-    // Compute.
-    global.define("type", compute::type_);
-    global.define("repr", compute::repr);
-    global.define("panic", compute::panic);
-    global.define("assert", compute::assert);
-    global.define("eval", compute::eval);
-    global.define("int", compute::int);
-    global.define("float", compute::float);
-    global.define("luma", compute::luma);
-    global.define("rgb", compute::rgb);
-    global.define("cmyk", compute::cmyk);
-    global.define("symbol", compute::symbol);
-    global.define("str", compute::str);
-    global.define("label", compute::label);
-    global.define("regex", compute::regex);
-    global.define("range", compute::range);
-    global.define("read", compute::read);
-    global.define("csv", compute::csv);
-    global.define("json", compute::json);
-    global.define("xml", compute::xml);
-
-    // Calc.
-    global.define("calc", calc);
-
-    // Colors.
-    global.define("black", Color::BLACK);
-    global.define("gray", Color::GRAY);
-    global.define("silver", Color::SILVER);
-    global.define("white", Color::WHITE);
-    global.define("navy", Color::NAVY);
-    global.define("blue", Color::BLUE);
-    global.define("aqua", Color::AQUA);
-    global.define("teal", Color::TEAL);
-    global.define("eastern", Color::EASTERN);
-    global.define("purple", Color::PURPLE);
-    global.define("fuchsia", Color::FUCHSIA);
-    global.define("maroon", Color::MAROON);
-    global.define("red", Color::RED);
-    global.define("orange", Color::ORANGE);
-    global.define("yellow", Color::YELLOW);
-    global.define("olive", Color::OLIVE);
-    global.define("green", Color::GREEN);
-    global.define("lime", Color::LIME);
-
-    // Other constants.
     global.define("ltr", Dir::LTR);
     global.define("rtl", Dir::RTL);
     global.define("ttb", Dir::TTB);
@@ -163,6 +75,27 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("bottom", GenAlign::Specific(Align::Bottom));
 
     Module::new("global").with_scope(global)
+}
+
+fn define_colors(scope: &mut Scope) {
+    scope.define("black", Color::BLACK);
+    scope.define("gray", Color::GRAY);
+    scope.define("silver", Color::SILVER);
+    scope.define("white", Color::WHITE);
+    scope.define("navy", Color::NAVY);
+    scope.define("blue", Color::BLUE);
+    scope.define("aqua", Color::AQUA);
+    scope.define("teal", Color::TEAL);
+    scope.define("eastern", Color::EASTERN);
+    scope.define("purple", Color::PURPLE);
+    scope.define("fuchsia", Color::FUCHSIA);
+    scope.define("maroon", Color::MAROON);
+    scope.define("red", Color::RED);
+    scope.define("orange", Color::ORANGE);
+    scope.define("yellow", Color::YELLOW);
+    scope.define("olive", Color::OLIVE);
+    scope.define("green", Color::GREEN);
+    scope.define("lime", Color::LIME);
 }
 
 /// Construct the standard style map.

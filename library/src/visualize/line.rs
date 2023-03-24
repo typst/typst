@@ -52,23 +52,25 @@ pub struct LineElem {
 impl Layout for LineElem {
     fn layout(
         &self,
-        _: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        _: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let resolve = |axes: Axes<Rel<Abs>>| {
             axes.zip(regions.base()).map(|(l, b)| l.relative_to(b))
         };
 
         let start = resolve(self.start(styles));
-        let delta =
-            self.end(styles).map(|end| resolve(end) - start).unwrap_or_else(|| {
+        let delta = self.end(styles).map_or_else(
+            || {
                 let length = self.length(styles);
                 let angle = self.angle(styles);
                 let x = angle.cos() * length;
                 let y = angle.sin() * length;
                 resolve(Axes::new(x, y))
-            });
+            },
+            |end| resolve(end) - start,
+        );
 
         let stroke = self.stroke(styles).unwrap_or_default();
         let size = start.max(start + delta).max(Size::zero());

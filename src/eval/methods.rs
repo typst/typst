@@ -8,8 +8,9 @@ use crate::model::Location;
 use crate::syntax::Span;
 
 /// Call a method on a value.
+#[allow(clippy::too_many_lines /* refactoring is not worth it */)]
 pub fn call(
-    vm: &mut Vm,
+    vm: &mut Vm<'_>,
     value: Value,
     method: &str,
     mut args: Args,
@@ -27,7 +28,7 @@ pub fn call(
         },
 
         Value::Str(string) => match method {
-            "len" => Value::Int(string.len() as i64),
+            "len" => Value::Int(string.len()),
             "first" => Value::Str(string.first().at(span)?),
             "last" => Value::Str(string.last().at(span)?),
             "at" => Value::Str(string.at(args.expect("index")?).at(span)?),
@@ -73,7 +74,7 @@ pub fn call(
         Value::Content(content) => match method {
             "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
-            "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?.clone(),
+            "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?,
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")
@@ -184,7 +185,7 @@ pub fn call_mut(
             "push" => array.push(args.expect("value")?),
             "pop" => output = array.pop().at(span)?,
             "insert" => {
-                array.insert(args.expect("index")?, args.expect("value")?).at(span)?
+                array.insert(args.expect("index")?, args.expect("value")?).at(span)?;
             }
             "remove" => output = array.remove(args.expect("index")?).at(span)?,
             _ => return missing(),
@@ -193,7 +194,7 @@ pub fn call_mut(
         Value::Dict(dict) => match method {
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => {
-                output = dict.remove(&args.expect::<EcoString>("key")?).at(span)?
+                output = dict.remove(&args.expect::<EcoString>("key")?).at(span)?;
             }
             _ => return missing(),
         },

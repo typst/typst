@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// A stroke of a geometric shape.
@@ -10,6 +11,7 @@ pub struct Stroke {
 }
 
 impl Default for Stroke {
+    #[inline]
     fn default() -> Self {
         Self {
             paint: Paint::Solid(Color::BLACK),
@@ -33,6 +35,8 @@ pub struct PartialStroke<T = Length> {
 
 impl PartialStroke<Abs> {
     /// Unpack the stroke, filling missing fields from the `default`.
+    #[must_use]
+    #[inline]
     pub fn unwrap_or(self, default: Stroke) -> Stroke {
         Stroke {
             paint: self.paint.unwrap_or(default.paint),
@@ -41,13 +45,15 @@ impl PartialStroke<Abs> {
     }
 
     /// Unpack the stroke, filling missing fields with the default values.
+    #[must_use]
+    #[inline]
     pub fn unwrap_or_default(self) -> Stroke {
         self.unwrap_or(Stroke::default())
     }
 }
 
 impl<T: Debug> Debug for PartialStroke<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match (self.paint, &self.thickness) {
             (Smart::Custom(paint), Smart::Custom(thickness)) => {
                 write!(f, "{thickness:?} + {paint:?}")
@@ -74,7 +80,8 @@ cast_from_value! {
 impl Resolve for PartialStroke {
     type Output = PartialStroke<Abs>;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         PartialStroke {
             paint: self.paint,
             thickness: self.thickness.resolve(styles),
@@ -85,6 +92,7 @@ impl Resolve for PartialStroke {
 impl Fold for PartialStroke<Abs> {
     type Output = Self;
 
+    #[inline]
     fn fold(self, outer: Self::Output) -> Self::Output {
         Self {
             paint: self.paint.or(outer.paint),

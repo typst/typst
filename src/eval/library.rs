@@ -29,15 +29,18 @@ pub struct Library {
 }
 
 /// Definition of library items the language is aware of.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct LangItems {
     /// The root layout function.
-    pub layout:
-        fn(vt: &mut Vt, content: &Content, styles: StyleChain) -> SourceResult<Document>,
+    pub layout: fn(
+        vt: &mut Vt<'_>,
+        content: &Content,
+        styles: StyleChain<'_>,
+    ) -> SourceResult<Document>,
     /// Access the em size.
-    pub em: fn(StyleChain) -> Abs,
+    pub em: fn(StyleChain<'_>) -> Abs,
     /// Access the text direction.
-    pub dir: fn(StyleChain) -> Dir,
+    pub dir: fn(StyleChain<'_>) -> Dir,
     /// Whitespace.
     pub space: fn() -> Content,
     /// A forced line break: `\`.
@@ -65,9 +68,10 @@ pub struct LangItems {
     /// A reference: `@target`, `@target[..]`.
     pub reference: fn(target: Label, supplement: Option<Content>) -> Content,
     /// The keys contained in the bibliography and short descriptions of them.
+    #[allow(clippy::type_complexity /* Extracting would be confusing and would reduce locality. */)]
     pub bibliography_keys: fn(
-        world: Tracked<dyn World>,
-        introspector: Tracked<Introspector>,
+        world: Tracked<'_, dyn World>,
+        introspector: Tracked<'_, Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)>,
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
@@ -92,7 +96,7 @@ pub struct LangItems {
     pub math_frac: fn(num: Content, denom: Content) -> Content,
     /// Dispatch a method on a library value.
     pub library_method: fn(
-        vm: &mut Vm,
+        vm: &mut Vm<'_>,
         dynamic: &Dynamic,
         method: &str,
         args: Args,
@@ -101,7 +105,7 @@ pub struct LangItems {
 }
 
 impl Debug for LangItems {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad("LangItems { .. }")
     }
 }
@@ -137,8 +141,7 @@ impl Hash for LangItems {
 }
 
 /// Global storage for lang items.
-#[doc(hidden)]
-pub static LANG_ITEMS: OnceCell<LangItems> = OnceCell::new();
+static LANG_ITEMS: OnceCell<LangItems> = OnceCell::new();
 
 /// Set the lang items.
 ///
@@ -149,17 +152,28 @@ pub static LANG_ITEMS: OnceCell<LangItems> = OnceCell::new();
 /// incremental, but only when different sets of lang items are used in the same
 /// program. For this reason, if this function is called multiple times, the
 /// items must be the same (and this is enforced).
-pub fn set_lang_items(items: LangItems) {
-    if let Err(items) = LANG_ITEMS.set(items) {
-        let first = hash128(LANG_ITEMS.get().unwrap());
-        let second = hash128(&items);
-        assert_eq!(first, second, "set differing lang items");
+///
+/// # Panics
+///
+/// If the old and new lang items are not the same.
+pub fn set_lang_items(new: LangItems) {
+    if let Err(old) = LANG_ITEMS.set(new) {
+        let new_hash = hash128(&new);
+        let old_hash = hash128(&old);
+        assert_eq!(new_hash, old_hash, "set differing lang items");
     }
+}
+
+/// # Panics
+///
+/// If no lang items have been set.
+pub fn get_lang_items() -> &'static LangItems {
+    LANG_ITEMS.get().unwrap()
 }
 
 /// Access a lang item.
 macro_rules! item {
     ($name:ident) => {
-        $crate::eval::LANG_ITEMS.get().unwrap().$name
+        $crate::eval::get_lang_items().$name
     };
 }

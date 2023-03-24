@@ -19,32 +19,46 @@ macro_rules! __format_str {
     }};
 }
 
-#[doc(inline)]
-pub use crate::__format_str as format_str;
 #[doc(hidden)]
 pub use ecow::eco_format;
 
-/// An immutable reference counted string.
+#[doc(inline)]
+pub use crate::__format_str as format_str;
+
+/// An immutable reference-counted string.
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Str(EcoString);
 
 impl Str {
     /// Create a new, empty string.
+    #[must_use]
     pub fn new() -> Self {
         Self(EcoString::new())
     }
 
     /// The length of the string in bytes.
+    #[must_use]
     pub fn len(&self) -> i64 {
         self.0.len() as i64
     }
 
+    /// Returns `true` if the string has a length of 0.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// A string slice containing the entire string.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         self
     }
 
     /// Extract the first grapheme cluster.
+    ///
+    /// # Errors
+    ///
+    /// If the string is empty.
     pub fn first(&self) -> StrResult<Self> {
         self.0
             .graphemes(true)
@@ -54,6 +68,10 @@ impl Str {
     }
 
     /// Extract the last grapheme cluster.
+    ///
+    /// # Errors
+    ///
+    /// If the string is empty.
     pub fn last(&self) -> StrResult<Self> {
         self.0
             .graphemes(true)
@@ -63,6 +81,10 @@ impl Str {
     }
 
     /// Extract the grapheme cluster at the given index.
+    ///
+    /// # Errors
+    ///
+    /// If the index is out of bounds.
     pub fn at(&self, index: i64) -> StrResult<Self> {
         let len = self.len();
         let grapheme = self.0[self.locate(index)?..]
@@ -73,6 +95,10 @@ impl Str {
     }
 
     /// Extract a contiguous substring.
+    ///
+    /// # Errors
+    ///
+    /// If the range is out of bounds.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
         let start = self.locate(start)?;
         let end = self.locate(end.unwrap_or(self.len()))?.max(start);
@@ -80,16 +106,19 @@ impl Str {
     }
 
     /// The grapheme clusters the string consists of.
+    #[must_use]
     pub fn clusters(&self) -> Array {
         self.as_str().graphemes(true).map(|s| Value::Str(s.into())).collect()
     }
 
     /// The codepoints the string consists of.
+    #[must_use]
     pub fn codepoints(&self) -> Array {
         self.chars().map(|c| Value::Str(c.into())).collect()
     }
 
     /// Whether the given pattern exists in this string.
+    #[must_use]
     pub fn contains(&self, pattern: StrPattern) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.contains(pat.as_str()),
@@ -98,6 +127,7 @@ impl Str {
     }
 
     /// Whether this string begins with the given pattern.
+    #[must_use]
     pub fn starts_with(&self, pattern: StrPattern) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.starts_with(pat.as_str()),
@@ -106,6 +136,7 @@ impl Str {
     }
 
     /// Whether this string ends with the given pattern.
+    #[must_use]
     pub fn ends_with(&self, pattern: StrPattern) -> bool {
         match pattern {
             StrPattern::Str(pat) => self.0.ends_with(pat.as_str()),
@@ -116,14 +147,16 @@ impl Str {
     }
 
     /// The text of the pattern's first match in this string.
+    #[must_use]
     pub fn find(&self, pattern: StrPattern) -> Option<Self> {
         match pattern {
-            StrPattern::Str(pat) => self.0.contains(pat.as_str()).then(|| pat),
+            StrPattern::Str(pat) => self.0.contains(pat.as_str()).then_some(pat),
             StrPattern::Regex(re) => re.find(self).map(|m| m.as_str().into()),
         }
     }
 
     /// The position of the pattern's first match in this string.
+    #[must_use]
     pub fn position(&self, pattern: StrPattern) -> Option<i64> {
         match pattern {
             StrPattern::Str(pat) => self.0.find(pat.as_str()).map(|i| i as i64),
@@ -133,6 +166,7 @@ impl Str {
 
     /// The start and, text and capture groups (if any) of the first match of
     /// the pattern in this string.
+    #[must_use]
     pub fn match_(&self, pattern: StrPattern) -> Option<Dict> {
         match pattern {
             StrPattern::Str(pat) => {
@@ -144,6 +178,7 @@ impl Str {
 
     /// The start, end, text and capture groups (if any) of all matches of the
     /// pattern in this string.
+    #[must_use]
     pub fn matches(&self, pattern: StrPattern) -> Array {
         match pattern {
             StrPattern::Str(pat) => self
@@ -161,6 +196,7 @@ impl Str {
     }
 
     /// Split this string at whitespace or a specific pattern.
+    #[must_use]
     pub fn split(&self, pattern: Option<StrPattern>) -> Array {
         let s = self.as_str();
         match pattern {
@@ -178,6 +214,7 @@ impl Str {
     /// the string. If `repeat` is true, the pattern is trimmed repeatedly
     /// instead of just once. Repeat must only be given in combination with a
     /// pattern.
+    #[must_use]
     pub fn trim(
         &self,
         pattern: Option<StrPattern>,
@@ -253,6 +290,8 @@ impl Str {
 
     /// Replace at most `count` occurrences of the given pattern with a
     /// replacement string (beginning from the start).
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value /* convention */)]
     pub fn replace(&self, pattern: StrPattern, with: Self, count: Option<usize>) -> Self {
         match pattern {
             StrPattern::Str(pat) => match count {
@@ -267,16 +306,24 @@ impl Str {
     }
 
     /// Repeat the string a number of times.
+    ///
+    /// # Errors
+    ///
+    /// If `n` is negative or the repeated length overflows.
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let n = usize::try_from(n)
             .ok()
-            .and_then(|n| self.0.len().checked_mul(n).map(|_| n))
-            .ok_or_else(|| format!("cannot repeat this string {} times", n))?;
+            .filter(|&n| self.0.len().checked_mul(n).is_some())
+            .ok_or_else(|| format!("cannot repeat this string {n} times"))?;
 
         Ok(Self(self.0.repeat(n)))
     }
 
     /// Resolve an index.
+    ///
+    /// # Errors
+    ///
+    /// If `index` is out of bounds or is not on a character boundary.
     fn locate(&self, index: i64) -> StrResult<usize> {
         let wrapped =
             if index >= 0 { Some(index) } else { self.len().checked_add(index) };
@@ -296,23 +343,27 @@ impl Str {
 
 /// The out of bounds access error message.
 #[cold]
+#[must_use]
 fn out_of_bounds(index: i64, len: i64) -> EcoString {
     eco_format!("string index out of bounds (index: {}, len: {})", index, len)
 }
 
 /// The char boundary access error message.
 #[cold]
+#[must_use]
 fn not_a_char_boundary(index: i64) -> EcoString {
     eco_format!("string index {} is not a character boundary", index)
 }
 
 /// The error message when the string is empty.
 #[cold]
+#[must_use]
 fn string_is_empty() -> EcoString {
     "string is empty".into()
 }
 
 /// Convert an item of std's `match_indices` to a dictionary.
+#[must_use]
 fn match_to_dict((start, text): (usize, &str)) -> Dict {
     dict! {
         "start" => Value::Int(start as i64),
@@ -323,14 +374,16 @@ fn match_to_dict((start, text): (usize, &str)) -> Dict {
 }
 
 /// Convert regex captures to a dictionary.
-fn captures_to_dict(cap: regex::Captures) -> Dict {
-    let m = cap.get(0).expect("missing first match");
+#[must_use]
+#[allow(clippy::needless_pass_by_value /* callback interface */)]
+fn captures_to_dict(captures: regex::Captures<'_>) -> Dict {
+    let m = captures.get(0).expect("missing first match");
     dict! {
         "start" => Value::Int(m.start() as i64),
         "end" => Value::Int(m.end() as i64),
         "text" => Value::Str(m.as_str().into()),
         "captures" => Value::Array(
-            cap.iter()
+            captures.iter()
                 .skip(1)
                 .map(|opt| opt.map_or(Value::None, |m| m.as_str().into()))
                 .collect(),
@@ -347,13 +400,13 @@ impl Deref for Str {
 }
 
 impl Display for Str {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad(self)
     }
 }
 
 impl Debug for Str {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_char('"')?;
         for c in self.chars() {
             match c {
@@ -419,7 +472,7 @@ impl From<String> for Str {
 }
 
 impl From<Cow<'_, str>> for Str {
-    fn from(s: Cow<str>) -> Self {
+    fn from(s: Cow<'_, str>) -> Self {
         Self(s.into())
     }
 }
@@ -448,8 +501,14 @@ pub struct Regex(regex::Regex);
 
 impl Regex {
     /// Create a new regular expression.
-    pub fn new(re: &str) -> StrResult<Self> {
-        regex::Regex::new(re).map(Self).map_err(|err| eco_format!("{err}"))
+    ///
+    /// # Errors
+    ///
+    /// If the regex fails to compile.
+    pub fn new(raw: &str) -> StrResult<Self> {
+        regex::Regex::new(raw)
+            .map(Self)
+            .map_err(|error| eco_format!("{error}"))
     }
 }
 
@@ -513,6 +572,6 @@ cast_from_value! {
     align: GenAlign => match align {
         GenAlign::Start => Self::Start,
         GenAlign::End => Self::End,
-        _ => Err("expected either `start` or `end`")?,
+        GenAlign::Specific(..) => Err("expected either `start` or `end`")?,
     },
 }

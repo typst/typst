@@ -1,28 +1,44 @@
+use std::fmt::Debug;
+
+use ecow::EcoString;
 use ttf_parser::math::MathValue;
-use typst::font::{FontStyle, FontWeight};
+use typst::diag::SourceResult;
+use typst::doc::Frame;
+use typst::font::{Font, FontStyle, FontWeight};
+use typst::geom::{Abs, Axes, Em, Smart};
+use typst::model::{Content, StyleChain, Styles, Vt};
+use unicode_math_class::MathClass;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::*;
+use super::fragment::{FrameFragment, GlyphFragment, MathFragment};
+use super::row::MathRow;
+use super::style::{MathSize, MathStyle, MathVariant};
+use super::{spacing, LayoutMath};
+use crate::layout::{Layout as _, Regions};
+use crate::text::{variant, TextElem, TextSize};
 
 macro_rules! scaled {
     ($ctx:expr, text: $text:ident, display: $display:ident $(,)?) => {
         match $ctx.style.size {
-            MathSize::Display => scaled!($ctx, $display),
+            $crate::math::style::MathSize::Display => scaled!($ctx, $display),
             _ => scaled!($ctx, $text),
         }
     };
     ($ctx:expr, $name:ident) => {
-        $ctx.constants.$name().scaled($ctx)
+        $crate::math::ctx::Scaled::scaled($ctx.constants.$name(), $ctx)
     };
 }
+pub(crate) use scaled;
 
 macro_rules! percent {
     ($ctx:expr, $name:ident) => {
         $ctx.constants.$name() as f64 / 100.0
     };
 }
+pub(crate) use percent;
 
 /// The context for math layout.
+#[derive(Debug)]
 pub struct MathContext<'a, 'b, 'v> {
     pub vt: &'v mut Vt<'b>,
     pub regions: Regions<'static>,
@@ -43,7 +59,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     pub fn new(
         vt: &'v mut Vt<'b>,
         styles: StyleChain<'a>,
-        regions: Regions,
+        regions: Regions<'_>,
         font: &'a Font,
         block: bool,
     ) -> Self {
@@ -54,14 +70,13 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let space_width = ttf
             .glyph_index(' ')
             .and_then(|id| ttf.glyph_hor_advance(id))
-            .map(|advance| font.to_em(advance))
-            .unwrap_or(THICK);
+            .map_or(spacing::THICK, |advance| font.to_em(advance));
 
         let variant = variant(styles);
         Self {
             vt,
             regions: Regions::one(regions.base(), Axes::splat(false)),
-            font: &font,
+            font,
             ttf: font.ttf(),
             table,
             constants,
@@ -97,7 +112,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         elem: &dyn LayoutMath,
     ) -> SourceResult<MathFragment> {
         let row = self.layout_fragments(elem)?;
-        Ok(MathRow::new(row).to_fragment(self))
+        Ok(MathRow::new(row).into_fragment(self))
     }
 
     pub fn layout_fragments(
@@ -115,12 +130,12 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     pub fn layout_frame(&mut self, elem: &dyn LayoutMath) -> SourceResult<Frame> {
-        Ok(self.layout_fragment(elem)?.to_frame())
+        Ok(self.layout_fragment(elem)?.into_frame())
     }
 
     pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {
         Ok(content
-            .layout(&mut self.vt, self.outer.chain(&self.local), self.regions)?
+            .layout(self.vt, self.outer.chain(&self.local), self.regions)?
             .into_frame())
     }
 
@@ -150,7 +165,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 let c = self.style.styled_char(c);
                 fragments.push(GlyphFragment::new(self, c, span).into());
             }
-            let frame = MathRow::new(fragments).to_frame(self);
+            let frame = MathRow::new(fragments).into_frame(self);
             self.push(FrameFragment::new(self, frame));
         } else {
             // Anything else is handled by Typst's standard text layout.
@@ -171,7 +186,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(())
     }
 
-    pub fn styles(&self) -> StyleChain {
+    pub fn styles(&self) -> StyleChain<'_> {
         self.outer.chain(&self.local)
     }
 
@@ -203,29 +218,29 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 }
 
 pub(super) trait Scaled {
-    fn scaled(self, ctx: &MathContext) -> Abs;
+    fn scaled(self, ctx: &MathContext<'_, '_, '_>) -> Abs;
 }
 
 impl Scaled for i16 {
-    fn scaled(self, ctx: &MathContext) -> Abs {
+    fn scaled(self, ctx: &MathContext<'_, '_, '_>) -> Abs {
         ctx.font.to_em(self).scaled(ctx)
     }
 }
 
 impl Scaled for u16 {
-    fn scaled(self, ctx: &MathContext) -> Abs {
+    fn scaled(self, ctx: &MathContext<'_, '_, '_>) -> Abs {
         ctx.font.to_em(self).scaled(ctx)
     }
 }
 
 impl Scaled for Em {
-    fn scaled(self, ctx: &MathContext) -> Abs {
+    fn scaled(self, ctx: &MathContext<'_, '_, '_>) -> Abs {
         self.at(ctx.size)
     }
 }
 
 impl Scaled for MathValue<'_> {
-    fn scaled(self, ctx: &MathContext) -> Abs {
+    fn scaled(self, ctx: &MathContext<'_, '_, '_>) -> Abs {
         self.value.scaled(ctx)
     }
 }

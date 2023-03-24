@@ -1,4 +1,10 @@
-use super::*;
+use std::cmp::Ordering;
+
+use super::ctx::MathContext;
+use super::fragment::MathFragment;
+use super::row::MathRow;
+use crate::math::LayoutMath;
+use crate::prelude::*;
 
 /// A math alignment point: `&`, `&&`.
 ///
@@ -8,7 +14,7 @@ use super::*;
 pub struct AlignPointElem {}
 
 impl LayoutMath for AlignPointElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         ctx.push(MathFragment::Align);
         Ok(())
     }
@@ -29,18 +35,22 @@ pub(super) fn alignments(rows: &[MathRow]) -> Vec<Abs> {
     let mut points = vec![Abs::zero(); count];
     for current in 0..count {
         for row in rows {
-            let mut x = Abs::zero();
-            let mut i = 0;
+            let mut x_cursor = Abs::zero();
+            let mut point_idx = 0;
             for fragment in row.iter() {
                 if matches!(fragment, MathFragment::Align) {
-                    if i < current {
-                        x = points[i];
-                    } else if i == current {
-                        points[i].set_max(x);
+                    match point_idx.cmp(&current) {
+                        Ordering::Less => {
+                            x_cursor = points[point_idx];
+                        }
+                        Ordering::Equal => {
+                            points[point_idx].set_max(x_cursor);
+                        }
+                        Ordering::Greater => {}
                     }
-                    i += 1;
+                    point_idx += 1;
                 }
-                x += fragment.width();
+                x_cursor += fragment.width();
             }
         }
     }

@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// A container with components for the four corners of a rectangle.
@@ -15,11 +16,15 @@ pub struct Corners<T> {
 
 impl<T> Corners<T> {
     /// Create a new instance from the four components.
+    #[must_use]
+    #[inline]
     pub const fn new(top_left: T, top_right: T, bottom_right: T, bottom_left: T) -> Self {
         Self { top_left, top_right, bottom_right, bottom_left }
     }
 
     /// Create an instance with four equal components.
+    #[must_use]
+    #[inline]
     pub fn splat(value: T) -> Self
     where
         T: Clone,
@@ -33,6 +38,8 @@ impl<T> Corners<T> {
     }
 
     /// Map the individual fields with `f`.
+    #[must_use]
+    #[inline]
     pub fn map<F, U>(self, mut f: F) -> Corners<U>
     where
         F: FnMut(T) -> U,
@@ -46,6 +53,8 @@ impl<T> Corners<T> {
     }
 
     /// Zip two instances into one.
+    #[must_use]
+    #[inline]
     pub fn zip<U>(self, other: Corners<U>) -> Corners<(T, U)> {
         Corners {
             top_left: (self.top_left, other.top_left),
@@ -55,14 +64,17 @@ impl<T> Corners<T> {
         }
     }
 
-    /// An iterator over the corners, starting with the top left corner,
-    /// clockwise.
+    /// An iterator over the corners,
+    /// starting with the top left corner, clockwise.
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         [&self.top_left, &self.top_right, &self.bottom_right, &self.bottom_left]
             .into_iter()
     }
 
     /// Whether all sides are equal.
+    #[must_use]
+    #[inline]
     pub fn is_uniform(&self) -> bool
     where
         T: PartialEq,
@@ -76,6 +88,8 @@ impl<T> Corners<T> {
 impl<T> Get<Corner> for Corners<T> {
     type Component = T;
 
+    #[must_use]
+    #[inline]
     fn get(self, corner: Corner) -> T {
         match corner {
             Corner::TopLeft => self.top_left,
@@ -85,6 +99,8 @@ impl<T> Get<Corner> for Corners<T> {
         }
     }
 
+    #[must_use]
+    #[inline]
     fn get_mut(&mut self, corner: Corner) -> &mut T {
         match corner {
             Corner::TopLeft => &mut self.top_left,
@@ -112,10 +128,12 @@ impl<T> Cast for Corners<Option<T>>
 where
     T: Cast + Copy,
 {
+    #[inline]
     fn is(value: &Value) -> bool {
         matches!(value, Value::Dict(_)) || T::is(value)
     }
 
+    #[inline]
     fn cast(mut value: Value) -> StrResult<Self> {
         if let Value::Dict(dict) = &mut value {
             let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
@@ -152,6 +170,7 @@ where
         }
     }
 
+    #[inline]
     fn describe() -> CastInfo {
         T::describe() + CastInfo::Type("dictionary")
     }
@@ -160,7 +179,8 @@ where
 impl<T: Resolve> Resolve for Corners<T> {
     type Output = Corners<T::Output>;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         self.map(|v| v.resolve(styles))
     }
 }
@@ -168,6 +188,7 @@ impl<T: Resolve> Resolve for Corners<T> {
 impl<T: Fold> Fold for Corners<Option<T>> {
     type Output = Corners<T::Output>;
 
+    #[inline]
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.zip(outer).map(|(inner, outer)| match inner {
             Some(value) => value.fold(outer),
@@ -180,6 +201,7 @@ impl<T> From<Corners<Option<T>>> for Value
 where
     T: PartialEq + Into<Value>,
 {
+    #[inline]
     fn from(corners: Corners<Option<T>>) -> Self {
         if corners.is_uniform() {
             if let Some(value) = corners.top_left {

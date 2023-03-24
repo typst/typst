@@ -1,11 +1,15 @@
+use std::borrow::Cow;
 use std::ops::Range;
 use std::str::FromStr;
 
+use az::SaturatingAs as _;
 use rustybuzz::{Feature, Tag, UnicodeBuffer};
-use typst::font::{Font, FontVariant};
-use typst::util::SliceExt;
+use typst::font::{Font, FontStyle, FontVariant};
+use typst::util::SliceExt as _;
 
-use super::*;
+use super::deco::decorate;
+use super::{FontFamily, NumberType, NumberWidth, TextElem};
+// use super::{Cow, FontFamily, FontStyle, NumberType, NumberWidth, TextElem, decorate};
 use crate::layout::SpanMapper;
 use crate::prelude::*;
 
@@ -75,6 +79,7 @@ impl ShapedGlyph {
 }
 
 /// A side you can go toward.
+#[derive(Debug, Clone, Copy)]
 enum Side {
     /// To the left-hand side.
     Left,
@@ -87,7 +92,8 @@ impl<'a> ShapedText<'a> {
     ///
     /// The `justification` defines how much extra advance width each
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
-    pub fn build(&self, vt: &Vt, justification: Abs) -> Frame {
+    #[must_use]
+    pub fn build(&self, vt: &Vt<'_>, justification: Abs) -> Frame {
         let (top, bottom) = self.measure(vt);
         let size = Size::new(self.width, top + bottom);
 
@@ -142,7 +148,8 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Measure the top and bottom extent of this text.
-    fn measure(&self, vt: &Vt) -> (Abs, Abs) {
+    #[must_use]
+    fn measure(&self, vt: &Vt<'_>) -> (Abs, Abs) {
         let mut top = Abs::zero();
         let mut bottom = Abs::zero();
 
@@ -180,11 +187,15 @@ impl<'a> ShapedText<'a> {
     }
 
     /// How many justifiable glyphs the text contains.
+    #[inline]
+    #[must_use]
     pub fn justifiables(&self) -> usize {
         self.glyphs.iter().filter(|g| g.is_justifiable()).count()
     }
 
     /// The width of the spaces in the text.
+    #[inline]
+    #[must_use]
     pub fn stretch(&self) -> Abs {
         self.glyphs
             .iter()
@@ -196,9 +207,10 @@ impl<'a> ShapedText<'a> {
 
     /// Reshape a range of the shaped text, reusing information from this
     /// shaping process if possible.
+    #[must_use]
     pub fn reshape(
         &'a self,
-        vt: &Vt,
+        vt: &Vt<'_>,
         spans: &SpanMapper,
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
@@ -226,7 +238,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// Push a hyphen to end of the text.
-    pub fn push_hyphen(&mut self, vt: &Vt) {
+    pub fn push_hyphen(&mut self, vt: &Vt<'_>) {
         families(self.styles).find_map(|family| {
             let world = vt.world;
             let font = world
@@ -256,6 +268,7 @@ impl<'a> ShapedText<'a> {
 
     /// Find the subslice of glyphs that represent the given text range if both
     /// sides are safe to break.
+    #[must_use]
     fn slice_safe_to_break(&self, text_range: Range<usize>) -> Option<&[ShapedGlyph]> {
         let Range { mut start, mut end } = text_range;
         if !self.dir.is_positive() {
@@ -269,6 +282,7 @@ impl<'a> ShapedText<'a> {
 
     /// Find the glyph offset matching the text index that is most towards the
     /// given side and safe-to-break.
+    #[must_use]
     fn find_safe_to_break(&self, text_index: usize, towards: Side) -> Option<usize> {
         let ltr = self.dir.is_positive();
 
@@ -309,12 +323,12 @@ impl<'a> ShapedText<'a> {
         // RTL needs offset one because the left side of the range should be
         // exclusive and the right side inclusive, contrary to the normal
         // behaviour of ranges.
-        self.glyphs[idx].safe_to_break.then(|| idx + (!ltr) as usize)
+        self.glyphs[idx].safe_to_break.then_some(idx + usize::from(!ltr))
     }
 }
 
 impl Debug for ShapedText<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.text.fmt(f)
     }
 }
@@ -329,14 +343,15 @@ struct ShapingContext<'a> {
     styles: StyleChain<'a>,
     size: Abs,
     variant: FontVariant,
-    tags: Vec<rustybuzz::Feature>,
+    tags: Vec<Feature>,
     fallback: bool,
     dir: Dir,
 }
 
 /// Shape text into [`ShapedText`].
+#[must_use]
 pub fn shape<'a>(
-    vt: &Vt,
+    vt: &Vt<'_>,
     base: usize,
     text: &'a str,
     spans: &SpanMapper,
@@ -377,8 +392,8 @@ pub fn shape<'a>(
 }
 
 /// Shape text with font fallback using the `families` iterator.
-fn shape_segment<'a>(
-    ctx: &mut ShapingContext,
+fn shape_segment(
+    ctx: &mut ShapingContext<'_>,
     base: usize,
     text: &str,
     mut families: impl Iterator<Item = FontFamily> + Clone,
@@ -409,7 +424,7 @@ fn shape_segment<'a>(
     // Extract the font id or shape notdef glyphs if we couldn't find any font.
     let Some(font) = selection else {
         if let Some(font) = ctx.used.first().cloned() {
-            shape_tofus(ctx, base, text, font);
+            shape_tofus(ctx, base, text, &font);
         }
         return;
     };
@@ -438,23 +453,7 @@ fn shape_segment<'a>(
         let info = &infos[i];
         let cluster = info.cluster as usize;
 
-        if info.glyph_id != 0 {
-            // Add the glyph to the shaped output.
-            // TODO: Don't ignore y_advance.
-            let (span, offset) = ctx.spans.span_at(ctx.base + cluster);
-            ctx.glyphs.push(ShapedGlyph {
-                font: font.clone(),
-                glyph_id: info.glyph_id as u16,
-                x_advance: font.to_em(pos[i].x_advance),
-                x_offset: font.to_em(pos[i].x_offset),
-                y_offset: font.to_em(pos[i].y_offset),
-                cluster: base + cluster,
-                safe_to_break: !info.unsafe_to_break(),
-                c: text[cluster..].chars().next().unwrap(),
-                span,
-                offset,
-            });
-        } else {
+        if info.glyph_id == 0 {
             // Determine the source text range for the tofu sequence.
             let range = {
                 // First, search for the end of the tofu sequence.
@@ -500,6 +499,22 @@ fn shape_segment<'a>(
 
             // Recursively shape the tofu sequence with the next family.
             shape_segment(ctx, base + range.start, &text[range], families.clone());
+        } else {
+            // Add the glyph to the shaped output.
+            // TODO: Don't ignore y_advance.
+            let (span, offset) = ctx.spans.span_at(ctx.base + cluster);
+            ctx.glyphs.push(ShapedGlyph {
+                font: font.clone(),
+                glyph_id: info.glyph_id.try_into().unwrap(),
+                x_advance: font.to_em(pos[i].x_advance),
+                x_offset: font.to_em(pos[i].x_offset),
+                y_offset: font.to_em(pos[i].y_offset),
+                cluster: base + cluster,
+                safe_to_break: !info.unsafe_to_break(),
+                c: text[cluster..].chars().next().unwrap(),
+                span,
+                offset,
+            });
         }
 
         i += 1;
@@ -509,7 +524,7 @@ fn shape_segment<'a>(
 }
 
 /// Shape the text with tofus from the given font.
-fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
+fn shape_tofus(ctx: &mut ShapingContext<'_>, base: usize, text: &str, font: &Font) {
     let x_advance = font.advance(0).unwrap_or_default();
     for (cluster, c) in text.char_indices() {
         let cluster = base + cluster;
@@ -530,7 +545,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
 }
 
 /// Apply tracking and spacing to the shaped glyphs.
-fn track_and_space(ctx: &mut ShapingContext) {
+fn track_and_space(ctx: &mut ShapingContext<'_>) {
     let tracking = Em::from_length(TextElem::tracking_in(ctx.styles), ctx.size);
     let spacing =
         TextElem::spacing_in(ctx.styles).map(|abs| Em::from_length(abs, ctx.size));
@@ -553,6 +568,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
 }
 
 /// Difference between non-breaking and normal space.
+#[must_use]
 fn nbsp_delta(font: &Font) -> Option<Em> {
     let space = font.ttf().glyph_index(' ')?.0;
     let nbsp = font.ttf().glyph_index('\u{00A0}')?.0;
@@ -560,7 +576,8 @@ fn nbsp_delta(font: &Font) -> Option<Em> {
 }
 
 /// Resolve the font variant.
-pub fn variant(styles: StyleChain) -> FontVariant {
+#[must_use]
+pub fn variant(styles: StyleChain<'_>) -> FontVariant {
     let mut variant = FontVariant::new(
         TextElem::style_in(styles),
         TextElem::weight_in(styles),
@@ -568,15 +585,12 @@ pub fn variant(styles: StyleChain) -> FontVariant {
     );
 
     let delta = TextElem::delta_in(styles);
-    variant.weight = variant
-        .weight
-        .thicken(delta.clamp(i16::MIN as i64, i16::MAX as i64) as i16);
+    variant.weight = variant.weight.thicken(delta.saturating_as());
 
     if TextElem::emph_in(styles) {
         variant.style = match variant.style {
             FontStyle::Normal => FontStyle::Italic,
-            FontStyle::Italic => FontStyle::Normal,
-            FontStyle::Oblique => FontStyle::Normal,
+            FontStyle::Italic | FontStyle::Oblique => FontStyle::Normal,
         }
     }
 
@@ -584,7 +598,7 @@ pub fn variant(styles: StyleChain) -> FontVariant {
 }
 
 /// Resolve a prioritized iterator over the font families.
-pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone {
+pub fn families(styles: StyleChain<'_>) -> impl Iterator<Item = FontFamily> + Clone {
     const FALLBACKS: &[&str] = &[
         "linux libertine",
         "twitter color emoji",
@@ -600,7 +614,9 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
 }
 
 /// Collect the tags of the OpenType features to apply.
-fn tags(styles: StyleChain) -> Vec<Feature> {
+#[allow(clippy::doc_markdown /* false positive */)]
+#[must_use]
+fn tags(styles: StyleChain<'_>) -> Vec<Feature> {
     let mut tags = vec![];
     let mut feat = |tag, value| {
         tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
@@ -660,7 +676,7 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
     }
 
     for (tag, value) in TextElem::features_in(styles).0 {
-        tags.push(Feature::new(tag, value, ..))
+        tags.push(Feature::new(tag, value, ..));
     }
 
     tags
@@ -668,7 +684,8 @@ fn tags(styles: StyleChain) -> Vec<Feature> {
 
 /// Process the language and and region of a style chain into a
 /// rustybuzz-compatible BCP 47 language.
-fn language(styles: StyleChain) -> rustybuzz::Language {
+#[must_use]
+fn language(styles: StyleChain<'_>) -> rustybuzz::Language {
     let mut bcp: EcoString = TextElem::lang_in(styles).as_str().into();
     if let Some(region) = TextElem::region_in(styles) {
         bcp.push('-');

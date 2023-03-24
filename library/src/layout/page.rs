@@ -272,7 +272,15 @@ pub struct PageElem {
 
 impl PageElem {
     /// Layout the page run into a sequence of frames, one per page.
-    pub fn layout(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Fragment> {
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from layouting children.
+    pub fn layout(
+        &self,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+    ) -> SourceResult<Fragment> {
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = self.width(styles).unwrap_or(Abs::inf());
@@ -327,21 +335,21 @@ impl PageElem {
         // Realize overlays.
         for frame in &mut fragment {
             let size = frame.size();
-            let pad = padding.resolve(styles).relative_to(size);
-            let pw = size.x - pad.left - pad.right;
+            let padding = padding.resolve(styles).relative_to(size);
+            let unpadded_width = size.x - padding.left - padding.right;
             for marginal in [&header, &footer, &background, &foreground] {
                 let Some(content) = marginal else { continue };
 
                 let (pos, area, align);
                 if ptr::eq(marginal, &header) {
-                    let ascent = header_ascent.relative_to(pad.top);
-                    pos = Point::with_x(pad.left);
-                    area = Size::new(pw, pad.top - ascent);
+                    let ascent = header_ascent.relative_to(padding.top);
+                    pos = Point::with_x(padding.left);
+                    area = Size::new(unpadded_width, padding.top - ascent);
                     align = Align::Bottom.into();
                 } else if ptr::eq(marginal, &footer) {
-                    let descent = footer_descent.relative_to(pad.bottom);
-                    pos = Point::new(pad.left, size.y - pad.bottom + descent);
-                    area = Size::new(pw, pad.bottom - descent);
+                    let descent = footer_descent.relative_to(padding.bottom);
+                    pos = Point::new(padding.left, size.y - padding.bottom + descent);
+                    area = Size::new(unpadded_width, padding.bottom - descent);
                     align = Align::Top.into();
                 } else {
                     pos = Point::zero();
@@ -349,16 +357,16 @@ impl PageElem {
                     align = Align::CENTER_HORIZON.into();
                 };
 
-                let pod = Regions::one(area, Axes::splat(true));
-                let sub = content
+                let this_region = Regions::one(area, Axes::splat(true));
+                let this_frame = content
                     .clone()
                     .styled(AlignElem::set_alignment(align))
-                    .layout(vt, styles, pod)?
+                    .layout(vt, styles, this_region)?
                     .into_frame();
                 if ptr::eq(marginal, &header) || ptr::eq(marginal, &background) {
-                    frame.prepend_frame(pos, sub);
+                    frame.prepend_frame(pos, this_frame);
                 } else {
-                    frame.push_frame(pos, sub);
+                    frame.push_frame(pos, this_frame);
                 }
             }
 
@@ -406,7 +414,11 @@ pub enum Marginal {
 
 impl Marginal {
     /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, vt: &mut Vt, page: usize) -> SourceResult<Content> {
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from evaluation of the closure.
+    pub fn resolve(&self, vt: &mut Vt<'_>, page: usize) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(content) => content.clone(),
             Self::Func(func) => func.call_vt(vt, [Value::Int(page as i64)])?.display(),
@@ -438,11 +450,15 @@ pub struct Paper {
 
 impl Paper {
     /// The width of the paper.
+    #[inline]
+    #[must_use]
     pub fn width(self) -> Abs {
         Abs::mm(self.width.0)
     }
 
     /// The height of the paper.
+    #[inline]
+    #[must_use]
     pub fn height(self) -> Abs {
         Abs::mm(self.height.0)
     }
@@ -455,6 +471,7 @@ macro_rules! papers {
         ///
         /// Each paper is parsable from its name in kebab-case.
         impl Paper {
+            #![allow(missing_docs /* obvious */)]
             $(pub const $var: Self = Self {
                 width: Scalar($width),
                 height: Scalar($height),

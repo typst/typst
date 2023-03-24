@@ -70,10 +70,10 @@ pub struct OutlineElem {
 }
 
 impl Show for OutlineElem {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         if let Some(title) = self.title(styles) {
-            let title = title.clone().unwrap_or_else(|| {
+            let title = title.unwrap_or_else(|| {
                 TextElem::packed(self.local_name(TextElem::lang_in(styles)))
                     .spanned(self.span())
             });
@@ -91,7 +91,7 @@ impl Show for OutlineElem {
         let depth = self.depth(styles);
 
         let mut ancestors: Vec<&HeadingElem> = vec![];
-        let elems = vt.introspector.query(Selector::Elem(
+        let elems = vt.introspector.query(&Selector::Elem(
             HeadingElem::func(),
             Some(dict! { "outlined" => true }),
         ));
@@ -177,7 +177,9 @@ impl Show for OutlineElem {
 }
 
 impl LocalName for OutlineElem {
+    #[inline]
     fn local_name(&self, lang: Lang) -> &'static str {
+        #[allow(clippy::wildcard_in_or_patterns /* clarity */)]
         match lang {
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ENGLISH | _ => "Contents",

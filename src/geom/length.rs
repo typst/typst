@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// A length, possibly expressed with contextual units.
@@ -14,17 +15,23 @@ pub struct Length {
 
 impl Length {
     /// The zero length.
+    #[must_use]
+    #[inline]
     pub const fn zero() -> Self {
         Self { abs: Abs::zero(), em: Em::zero() }
     }
 
     /// Try to compute the absolute value of the length.
+    #[must_use]
+    #[inline]
     pub fn try_abs(self) -> Option<Self> {
         (self.abs.is_zero() || self.em.is_zero())
             .then(|| Self { abs: self.abs.abs(), em: self.em.abs() })
     }
 
     /// Try to divide two lengths.
+    #[must_use]
+    #[inline]
     pub fn try_div(self, other: Self) -> Option<f64> {
         if self.abs.is_zero() && other.abs.is_zero() {
             Some(self.em / other.em)
@@ -37,7 +44,7 @@ impl Length {
 }
 
 impl Debug for Length {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match (self.abs.is_zero(), self.em.is_zero()) {
             (false, false) => write!(f, "{:?} + {:?}", self.abs, self.em),
             (true, false) => self.em.fmt(f),
@@ -47,10 +54,12 @@ impl Debug for Length {
 }
 
 impl Numeric for Length {
+    #[inline]
     fn zero() -> Self {
         Self::zero()
     }
 
+    #[inline]
     fn is_finite(self) -> bool {
         self.abs.is_finite() && self.em.is_finite()
     }
@@ -69,18 +78,21 @@ impl PartialOrd for Length {
 }
 
 impl From<Abs> for Length {
+    #[inline]
     fn from(abs: Abs) -> Self {
         Self { abs, em: Em::zero() }
     }
 }
 
 impl From<Em> for Length {
+    #[inline]
     fn from(em: Em) -> Self {
         Self { abs: Abs::zero(), em }
     }
 }
 
 impl From<Abs> for Rel<Length> {
+    #[inline]
     fn from(abs: Abs) -> Self {
         Rel::from(Length::from(abs))
     }
@@ -89,6 +101,7 @@ impl From<Abs> for Rel<Length> {
 impl Neg for Length {
     type Output = Self;
 
+    #[inline]
     fn neg(self) -> Self::Output {
         Self { abs: -self.abs, em: -self.em }
     }
@@ -97,6 +110,7 @@ impl Neg for Length {
 impl Add for Length {
     type Output = Self;
 
+    #[inline]
     fn add(self, rhs: Self) -> Self::Output {
         Self { abs: self.abs + rhs.abs, em: self.em + rhs.em }
     }
@@ -107,6 +121,7 @@ sub_impl!(Length - Length -> Length);
 impl Mul<f64> for Length {
     type Output = Self;
 
+    #[inline]
     fn mul(self, rhs: f64) -> Self::Output {
         Self { abs: self.abs * rhs, em: self.em * rhs }
     }
@@ -115,6 +130,7 @@ impl Mul<f64> for Length {
 impl Div<f64> for Length {
     type Output = Self;
 
+    #[inline]
     fn div(self, rhs: f64) -> Self::Output {
         Self { abs: self.abs / rhs, em: self.em / rhs }
     }
@@ -128,7 +144,8 @@ assign_impl!(Length /= f64);
 impl Resolve for Length {
     type Output = Abs;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         self.abs + self.em.resolve(styles)
     }
 }

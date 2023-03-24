@@ -1,8 +1,25 @@
-use super::*;
+use az::Az as _;
+use typst::eval::Scope;
+
+use super::align::alignments;
+use super::ctx::{MathContext, Scaled as _};
+use super::fragment::{FrameFragment, GlyphFragment};
+use super::row::MathRow;
+use super::LayoutMath;
+use crate::prelude::*;
 
 const LINE_GAP: Em = Em::new(0.15);
 const BRACE_GAP: Em = Em::new(0.25);
 const BRACKET_GAP: Em = Em::new(0.25);
+
+pub(super) fn define(math: &mut Scope) {
+    math.define("underline", UnderlineElem::func());
+    math.define("overline", OverlineElem::func());
+    math.define("underbrace", UnderbraceElem::func());
+    math.define("overbrace", OverbraceElem::func());
+    math.define("underbracket", UnderbracketElem::func());
+    math.define("overbracket", OverbracketElem::func());
+}
 
 /// A horizontal line under content.
 ///
@@ -21,7 +38,7 @@ pub struct UnderlineElem {
 }
 
 impl LayoutMath for UnderlineElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false, self.span())
     }
 }
@@ -43,7 +60,7 @@ pub struct OverlineElem {
 }
 
 impl LayoutMath for OverlineElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true, self.span())
     }
 }
@@ -69,7 +86,7 @@ pub struct UnderbraceElem {
 }
 
 impl LayoutMath for UnderbraceElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(
             ctx,
             &self.body(),
@@ -103,7 +120,7 @@ pub struct OverbraceElem {
 }
 
 impl LayoutMath for OverbraceElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(
             ctx,
             &self.body(),
@@ -137,7 +154,7 @@ pub struct UnderbracketElem {
 }
 
 impl LayoutMath for UnderbracketElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(
             ctx,
             &self.body(),
@@ -171,7 +188,7 @@ pub struct OverbracketElem {
 }
 
 impl LayoutMath for OverbracketElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(
             ctx,
             &self.body(),
@@ -186,7 +203,7 @@ impl LayoutMath for OverbracketElem {
 
 /// Layout an over- or underthing.
 fn layout(
-    ctx: &mut MathContext,
+    ctx: &mut MathContext<'_, '_, '_>,
     body: &Content,
     annotation: &Option<Content>,
     c: char,
@@ -230,19 +247,19 @@ fn layout(
 /// Add a `gap` between each row and uses the baseline of the `baseline`th
 /// row for the whole frame.
 pub(super) fn stack(
-    ctx: &MathContext,
+    ctx: &MathContext<'_, '_, '_>,
     rows: Vec<MathRow>,
     align: Align,
     gap: Abs,
     baseline: usize,
 ) -> Frame {
     let mut width = Abs::zero();
-    let mut height = rows.len().saturating_sub(1) as f64 * gap;
+    let mut height = rows.len().saturating_sub(1).az::<f64>() * gap;
 
     let points = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|row| row.to_aligned_frame(ctx, &points, align))
+        .map(|row| row.into_aligned_frame(ctx, &points, align))
         .collect();
 
     for row in &rows {

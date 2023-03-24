@@ -1,9 +1,8 @@
-pub use typst_macros::{cast_from_value, cast_to_value, Cast};
-
 use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::Add;
 
 use ecow::EcoString;
+pub use typst_macros::{cast_from_value, cast_to_value, Cast};
 
 use super::{Array, Str, Value};
 use crate::diag::StrResult;
@@ -16,12 +15,17 @@ pub trait Cast<V = Value>: Sized {
     fn is(value: &V) -> bool;
 
     /// Try to cast the value into an instance of `Self`.
+    ///
+    /// # Errors
+    ///
+    /// If the value was not castable to `Self`.
     fn cast(value: V) -> StrResult<Self>;
 
     /// Describe the acceptable values.
     fn describe() -> CastInfo;
 
-    /// Produce an error for an inacceptable value.
+    /// Produce an error for an unacceptable value.
+    #[allow(clippy::missing_errors_doc /* not an error per se */)]
     fn error(value: Value) -> StrResult<Self> {
         Err(Self::describe().error(&value))
     }
@@ -71,11 +75,11 @@ impl<T: Cast> Cast<Spanned<Value>> for Spanned<T> {
 }
 
 cast_to_value! {
-    v: u8 => Value::Int(v as i64)
+    v: u8 => Value::Int(v.into())
 }
 
 cast_to_value! {
-    v: u16 => Value::Int(v as i64)
+    v: u16 => Value::Int(v.into())
 }
 
 cast_from_value! {
@@ -90,11 +94,11 @@ cast_from_value! {
 }
 
 cast_to_value! {
-    v: u32 => Value::Int(v as i64)
+    v: u32 => Value::Int(v.into())
 }
 
 cast_to_value! {
-    v: i32 => Value::Int(v as i64)
+    v: i32 => Value::Int(v.into())
 }
 
 cast_from_value! {
@@ -116,7 +120,7 @@ cast_from_value! {
     NonZeroUsize,
     int: i64 => int
         .try_into()
-        .and_then(|int: usize| int.try_into())
+        .and_then(usize::try_into)
         .map_err(|_| if int <= 0 {
             "number must be positive"
         } else {
@@ -252,6 +256,7 @@ pub enum CastInfo {
 impl CastInfo {
     /// Produce an error message describing what was expected and what was
     /// found.
+    #[must_use]
     pub fn error(&self, found: &Value) -> EcoString {
         fn accumulate(
             info: &CastInfo,
@@ -319,6 +324,7 @@ impl Add for CastInfo {
 }
 
 /// Castable from nothing.
+#[derive(Debug, Clone, Copy)]
 pub enum Never {}
 
 impl Cast for Never {

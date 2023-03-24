@@ -4,11 +4,10 @@ use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
 use ecow::EcoString;
-
-use crate::diag::StrResult;
-
 #[doc(inline)]
 pub use typst_macros::symbols;
+
+use crate::diag::StrResult;
 
 /// A symbol, possibly with variants.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -31,12 +30,14 @@ enum List {
 
 impl Symbol {
     /// Create a new symbol from a single character.
+    #[must_use]
     pub const fn new(c: char) -> Self {
         Self(Repr::Single(c))
     }
 
     /// Create a symbol with a static variant list.
     #[track_caller]
+    #[must_use]
     pub const fn list(list: &'static [(&'static str, char)]) -> Self {
         debug_assert!(!list.is_empty());
         Self(Repr::Const(list))
@@ -44,21 +45,29 @@ impl Symbol {
 
     /// Create a symbol with a runtime variant list.
     #[track_caller]
+    #[must_use]
     pub fn runtime(list: Box<[(EcoString, char)]>) -> Self {
         debug_assert!(!list.is_empty());
         Self(Repr::Multi(Arc::new((List::Runtime(list), EcoString::new()))))
     }
 
     /// Get the symbol's text.
+    #[must_use]
     pub fn get(&self) -> char {
         match &self.0 {
             Repr::Single(c) => *c,
-            Repr::Const(_) => find(self.variants(), "").unwrap(),
-            Repr::Multi(arc) => find(self.variants(), &arc.1).unwrap(),
+            Repr::Const(_) => find(self.variants(), "")
+                .expect("const repr symbol has no default variant"),
+            Repr::Multi(arc) => find(self.variants(), &arc.1)
+                .expect("multi repr symbol doesn't have its tagged variant"),
         }
     }
 
     /// Apply a modifier to the symbol.
+    ///
+    /// # Errors
+    ///
+    /// If the symbol modifier is unrecognized.
     pub fn modified(mut self, modifier: &str) -> StrResult<Self> {
         if let Repr::Const(list) = self.0 {
             self.0 = Repr::Multi(Arc::new((List::Static(list), EcoString::new())));
@@ -70,7 +79,7 @@ impl Symbol {
                 modifiers.push('.');
             }
             modifiers.push_str(modifier);
-            if find(list.variants(), &modifiers).is_some() {
+            if find(list.variants(), modifiers).is_some() {
                 return Ok(self);
             }
         }
@@ -103,6 +112,7 @@ impl Symbol {
     }
 
     /// Normalize an accent to a combining one.
+    #[must_use]
     pub fn combining_accent(c: char) -> Option<char> {
         Some(match c {
             '\u{0300}' | '`' => '\u{0300}',
@@ -127,19 +137,20 @@ impl Symbol {
 }
 
 impl Debug for Symbol {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_char(self.get())
     }
 }
 
 impl Display for Symbol {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_char(self.get())
     }
 }
 
 impl List {
     /// The characters that are covered by this list.
+    #[must_use]
     fn variants(&self) -> Variants<'_> {
         match self {
             List::Static(list) => Variants::Static(list.iter()),
@@ -168,6 +179,7 @@ impl<'a> Iterator for Variants<'a> {
 }
 
 /// Find the best symbol from the list.
+#[must_use]
 fn find<'a>(
     variants: impl Iterator<Item = (&'a str, char)>,
     modifiers: &str,
@@ -208,6 +220,7 @@ fn parts(modifiers: &str) -> impl Iterator<Item = &str> {
 }
 
 /// Whether the modifier string contains the modifier `m`.
+#[must_use]
 fn contained(modifiers: &str, m: &str) -> bool {
     parts(modifiers).any(|part| part == m)
 }

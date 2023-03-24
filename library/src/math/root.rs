@@ -1,4 +1,16 @@
-use super::*;
+use typst::eval::Scope;
+
+use super::ctx::{percent, scaled, MathContext};
+use super::fragment::{FrameFragment, GlyphFragment};
+use super::style::MathSize;
+use super::LayoutMath;
+use crate::prelude::*;
+use crate::text::TextElem;
+
+pub(super) fn define(math: &mut Scope) {
+    math.define("sqrt", sqrt);
+    math.define("root", RootElem::func());
+}
 
 /// A square root.
 ///
@@ -39,16 +51,16 @@ pub struct RootElem {
 }
 
 impl LayoutMath for RootElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(ctx, self.index(ctx.styles()).as_ref(), &self.radicand(), self.span())
     }
 }
 
 /// Layout a root.
 ///
-/// https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot
+/// <https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot>
 fn layout(
-    ctx: &mut MathContext,
+    ctx: &mut MathContext<'_, '_, '_>,
     mut index: Option<&Content>,
     radicand: &Content,
     span: Span,
@@ -71,15 +83,16 @@ fn layout(
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;
-    let sqrt = precomposed(ctx, index, target)
-        .map(|frame| {
-            index = None;
-            frame
-        })
-        .unwrap_or_else(|| {
+    let sqrt = precomposed(ctx, index, target).map_or_else(
+        || {
             let glyph = GlyphFragment::new(ctx, '√', span);
             glyph.stretch_vertical(ctx, target, Abs::zero()).frame
-        });
+        },
+        |frame| {
+            index = None;
+            frame
+        },
+    );
 
     // Layout the index.
     // Script-script style looks too small, we use Script style instead.
@@ -134,7 +147,11 @@ fn layout(
 }
 
 /// Select a precomposed radical, if the font has it.
-fn precomposed(ctx: &MathContext, index: Option<&Content>, target: Abs) -> Option<Frame> {
+fn precomposed(
+    ctx: &MathContext<'_, '_, '_>,
+    index: Option<&Content>,
+    target: Abs,
+) -> Option<Frame> {
     let elem = index?.to::<TextElem>()?;
     let c = match elem.text().as_str() {
         "3" => '∛',

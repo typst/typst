@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
 
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 use crate::eval::Array;
 
@@ -15,11 +16,15 @@ pub struct Axes<T> {
 
 impl<T> Axes<T> {
     /// Create a new instance from the two components.
+    #[must_use]
+    #[inline]
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
 
     /// Create a new instance with two equal components.
+    #[must_use]
+    #[inline]
     pub fn splat(v: T) -> Self
     where
         T: Clone,
@@ -28,6 +33,8 @@ impl<T> Axes<T> {
     }
 
     /// Map the individual fields with `f`.
+    #[must_use]
+    #[inline]
     pub fn map<F, U>(self, mut f: F) -> Axes<U>
     where
         F: FnMut(T) -> U,
@@ -36,11 +43,15 @@ impl<T> Axes<T> {
     }
 
     /// Convert from `&Axes<T>` to `Axes<&T>`.
+    #[must_use]
+    #[inline]
     pub fn as_ref(&self) -> Axes<&T> {
         Axes { x: &self.x, y: &self.y }
     }
 
     /// Convert from `&Axes<T>` to `Axes<&<T as Deref>::Target>`.
+    #[must_use]
+    #[inline]
     pub fn as_deref(&self) -> Axes<&T::Target>
     where
         T: Deref,
@@ -49,16 +60,22 @@ impl<T> Axes<T> {
     }
 
     /// Convert from `&mut Axes<T>` to `Axes<&mut T>`.
+    #[must_use]
+    #[inline]
     pub fn as_mut(&mut self) -> Axes<&mut T> {
         Axes { x: &mut self.x, y: &mut self.y }
     }
 
     /// Zip two instances into an instance over a tuple.
+    #[must_use]
+    #[inline]
     pub fn zip<U>(self, other: Axes<U>) -> Axes<(T, U)> {
         Axes { x: (self.x, other.x), y: (self.y, other.y) }
     }
 
     /// Whether a condition is true for at least one of fields.
+    #[must_use]
+    #[inline]
     pub fn any<F>(self, mut f: F) -> bool
     where
         F: FnMut(&T) -> bool,
@@ -67,6 +84,8 @@ impl<T> Axes<T> {
     }
 
     /// Whether a condition is true for both fields.
+    #[must_use]
+    #[inline]
     pub fn all<F>(self, mut f: F) -> bool
     where
         F: FnMut(&T) -> bool,
@@ -75,6 +94,8 @@ impl<T> Axes<T> {
     }
 
     /// Filter the individual fields with a mask.
+    #[must_use]
+    #[inline]
     pub fn filter(self, mask: Axes<bool>) -> Axes<Option<T>> {
         Axes {
             x: if mask.x { Some(self.x) } else { None },
@@ -97,21 +118,29 @@ impl<T: Default> Axes<T> {
 
 impl<T: Ord> Axes<T> {
     /// The component-wise minimum of this and another instance.
+    #[must_use]
+    #[inline]
     pub fn min(self, other: Self) -> Self {
         Self { x: self.x.min(other.x), y: self.y.min(other.y) }
     }
 
     /// The component-wise minimum of this and another instance.
+    #[must_use]
+    #[inline]
     pub fn max(self, other: Self) -> Self {
         Self { x: self.x.max(other.x), y: self.y.max(other.y) }
     }
 
     /// The minimum of width and height.
+    #[must_use]
+    #[inline]
     pub fn min_by_side(self) -> T {
         self.x.min(self.y)
     }
 
     /// The minimum of width and height.
+    #[must_use]
+    #[inline]
     pub fn max_by_side(self) -> T {
         self.x.max(self.y)
     }
@@ -137,13 +166,13 @@ impl<T> Get<Axis> for Axes<T> {
 
 impl<T> Debug for Axes<T>
 where
-    T: Debug + 'static,
+    T: Debug + Any,
 {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Axes { x: Some(x), y: Some(y) } =
             self.as_ref().map(|v| (v as &dyn Any).downcast_ref::<Align>())
         {
-            write!(f, "{:?}-{:?}", x, y)
+            write!(f, "{x:?}-{y:?}")
         } else if (&self.x as &dyn Any).is::<Abs>() {
             write!(f, "Size({:?}, {:?})", self.x, self.y)
         } else {
@@ -163,6 +192,8 @@ pub enum Axis {
 
 impl Axis {
     /// The direction with the given positivity for this axis.
+    #[must_use]
+    #[inline]
     pub fn dir(self, positive: bool) -> Dir {
         match (self, positive) {
             (Self::X, true) => Dir::LTR,
@@ -173,6 +204,8 @@ impl Axis {
     }
 
     /// The other axis.
+    #[must_use]
+    #[inline]
     pub fn other(self) -> Self {
         match self {
             Self::X => Self::Y,
@@ -182,7 +215,7 @@ impl Axis {
 }
 
 impl Debug for Axis {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad(match self {
             Self::X => "horizontal",
             Self::Y => "vertical",
@@ -192,6 +225,8 @@ impl Debug for Axis {
 
 impl<T> Axes<Option<T>> {
     /// Unwrap the individual fields.
+    #[must_use]
+    #[inline]
     pub fn unwrap_or(self, other: Axes<T>) -> Axes<T> {
         Axes {
             x: self.x.unwrap_or(other.x),
@@ -202,6 +237,8 @@ impl<T> Axes<Option<T>> {
 
 impl<T> Axes<Smart<T>> {
     /// Unwrap the individual fields.
+    #[must_use]
+    #[inline]
     pub fn unwrap_or(self, other: Axes<T>) -> Axes<T> {
         Axes {
             x: self.x.unwrap_or(other.x),
@@ -212,6 +249,8 @@ impl<T> Axes<Smart<T>> {
 
 impl Axes<bool> {
     /// Select `t.x` if `self.x` is true and `f.x` otherwise and same for `y`.
+    #[must_use]
+    #[inline]
     pub fn select<T>(self, t: Axes<T>, f: Axes<T>) -> Axes<T> {
         Axes {
             x: if self.x { t.x } else { f.x },
@@ -223,6 +262,7 @@ impl Axes<bool> {
 impl Not for Axes<bool> {
     type Output = Self;
 
+    #[inline]
     fn not(self) -> Self::Output {
         Self { x: !self.x, y: !self.y }
     }
@@ -231,6 +271,7 @@ impl Not for Axes<bool> {
 impl BitOr for Axes<bool> {
     type Output = Self;
 
+    #[inline]
     fn bitor(self, rhs: Self) -> Self::Output {
         Self { x: self.x | rhs.x, y: self.y | rhs.y }
     }
@@ -239,6 +280,7 @@ impl BitOr for Axes<bool> {
 impl BitOr<bool> for Axes<bool> {
     type Output = Self;
 
+    #[inline]
     fn bitor(self, rhs: bool) -> Self::Output {
         Self { x: self.x | rhs, y: self.y | rhs }
     }
@@ -247,6 +289,7 @@ impl BitOr<bool> for Axes<bool> {
 impl BitAnd for Axes<bool> {
     type Output = Self;
 
+    #[inline]
     fn bitand(self, rhs: Self) -> Self::Output {
         Self { x: self.x & rhs.x, y: self.y & rhs.y }
     }
@@ -255,12 +298,14 @@ impl BitAnd for Axes<bool> {
 impl BitAnd<bool> for Axes<bool> {
     type Output = Self;
 
+    #[inline]
     fn bitand(self, rhs: bool) -> Self::Output {
         Self { x: self.x & rhs, y: self.y & rhs }
     }
 }
 
 impl BitOrAssign for Axes<bool> {
+    #[inline]
     fn bitor_assign(&mut self, rhs: Self) {
         self.x |= rhs.x;
         self.y |= rhs.y;
@@ -268,6 +313,7 @@ impl BitOrAssign for Axes<bool> {
 }
 
 impl BitAndAssign for Axes<bool> {
+    #[inline]
     fn bitand_assign(&mut self, rhs: Self) {
         self.x &= rhs.x;
         self.y &= rhs.y;
@@ -292,7 +338,8 @@ cast_to_value! {
 impl<T: Resolve> Resolve for Axes<T> {
     type Output = Axes<T::Output>;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         self.map(|v| v.resolve(styles))
     }
 }
@@ -300,6 +347,7 @@ impl<T: Resolve> Resolve for Axes<T> {
 impl<T: Fold> Fold for Axes<Option<T>> {
     type Output = Axes<T::Output>;
 
+    #[inline]
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.zip(outer).map(|(inner, outer)| match inner {
             Some(value) => value.fold(outer),

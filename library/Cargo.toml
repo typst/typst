@@ -10,7 +10,7 @@ doctest = false
 bench = false
 
 [dependencies]
-typst = { path = ".." }
+az = "1"
 comemo = "0.2"
 csv = "1"
 ecow = "0.1"
@@ -24,9 +24,13 @@ roxmltree = "0.14"
 rustybuzz = "0.5"
 serde_json = "1"
 smallvec = "1.10"
-syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
+syntect = { version = "5", default-features = false, features = [
+	"default-syntaxes",
+	"regex-fancy",
+] }
 ttf-parser = "0.18.1"
 typed-arena = "2"
+typst = { path = ".." }
 unicode-bidi = "0.3.5"
 unicode-math-class = "0.1"
 unicode-script = "0.5"

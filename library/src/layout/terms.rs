@@ -94,9 +94,9 @@ pub struct TermsElem {
 impl Layout for TermsElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let separator = self.separator(styles);
         let indent = self.indent(styles);

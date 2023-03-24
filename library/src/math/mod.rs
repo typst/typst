@@ -1,10 +1,9 @@
 //! Mathematical formulas.
 
-#[macro_use]
-mod ctx;
 mod accent;
 mod align;
 mod attach;
+mod ctx;
 mod delimited;
 mod frac;
 mod fragment;
@@ -17,90 +16,41 @@ mod stretch;
 mod style;
 mod underover;
 
-pub use self::accent::*;
-pub use self::align::*;
-pub use self::attach::*;
-pub use self::delimited::*;
-pub use self::frac::*;
-pub use self::matrix::*;
-pub use self::op::*;
-pub use self::root::*;
-pub use self::style::*;
-pub use self::underover::*;
-
-use ttf_parser::{GlyphId, Rect};
 use typst::eval::{Module, Scope};
-use typst::font::{Font, FontWeight};
+use typst::font::FontWeight;
 use typst::model::Guard;
-use unicode_math_class::MathClass;
 
-use self::ctx::*;
-use self::fragment::*;
-use self::row::*;
-use self::spacing::*;
+pub use self::accent::{Accent, AccentElem};
+pub use self::align::AlignPointElem;
+pub use self::attach::AttachElem;
+use self::ctx::{scaled, MathContext, Scaled as _};
+pub use self::delimited::LrElem;
+pub use self::frac::FracElem;
+use self::fragment::{FrameFragment, MathFragment};
 use crate::layout::{HElem, ParElem, Spacing};
 use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
-use crate::text::{
-    families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
-};
+use crate::text::{self, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem};
 
 /// Create a module with all math definitions.
+#[must_use]
 pub fn module() -> Module {
     let mut math = Scope::deduplicating();
+
     math.define("equation", EquationElem::func());
-    math.define("text", TextElem::func());
+    math.define("text", crate::text::TextElem::func());
 
-    // Grouping.
-    math.define("lr", LrElem::func());
-    math.define("abs", abs);
-    math.define("norm", norm);
-    math.define("floor", floor);
-    math.define("ceil", ceil);
-    math.define("round", round);
-
-    // Attachments and accents.
-    math.define("attach", AttachElem::func());
-    math.define("scripts", ScriptsElem::func());
-    math.define("limits", LimitsElem::func());
-    math.define("accent", AccentElem::func());
-    math.define("underline", UnderlineElem::func());
-    math.define("overline", OverlineElem::func());
-    math.define("underbrace", UnderbraceElem::func());
-    math.define("overbrace", OverbraceElem::func());
-    math.define("underbracket", UnderbracketElem::func());
-    math.define("overbracket", OverbracketElem::func());
-
-    // Fractions and matrix-likes.
-    math.define("frac", FracElem::func());
-    math.define("binom", BinomElem::func());
-    math.define("vec", VecElem::func());
-    math.define("mat", MatElem::func());
-    math.define("cases", CasesElem::func());
-
-    // Roots.
-    math.define("sqrt", sqrt);
-    math.define("root", RootElem::func());
-
-    // Styles.
-    math.define("upright", upright);
-    math.define("bold", bold);
-    math.define("italic", italic);
-    math.define("serif", serif);
-    math.define("sans", sans);
-    math.define("cal", cal);
-    math.define("frak", frak);
-    math.define("mono", mono);
-    math.define("bb", bb);
-
-    // Text operators.
-    math.define("op", OpElem::func());
+    accent::define(&mut math);
+    attach::define(&mut math);
+    delimited::define(&mut math);
+    frac::define(&mut math);
+    matrix::define(&mut math);
     op::define(&mut math);
-
-    // Spacings.
+    root::define(&mut math);
     spacing::define(&mut math);
+    style::define(&mut math);
+    underover::define(&mut math);
 
-    // Symbols.
     for (name, symbol) in crate::symbols::SYM {
         math.define(*name, symbol.clone());
     }
@@ -159,24 +109,24 @@ pub struct EquationElem {
 }
 
 impl Synthesize for EquationElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain<'_>) {
         self.push_block(self.block(styles));
         self.push_numbering(self.numbering(styles));
     }
 }
 
 impl Show for EquationElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::func()));
         if self.block(styles) {
-            realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
+            realized = realized.aligned(Axes::with_x(Some(Align::Center.into())));
         }
         Ok(realized)
     }
 }
 
 impl Finalize for EquationElem {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+    fn finalize(&self, realized: Content, _: StyleChain<'_>) -> Content {
         realized
             .styled(TextElem::set_weight(FontWeight::from_number(450)))
             .styled(TextElem::set_font(FontList(vec![FontFamily::new(
@@ -188,18 +138,18 @@ impl Finalize for EquationElem {
 impl Layout for EquationElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         const NUMBER_GUTTER: Em = Em::new(0.5);
 
         let block = self.block(styles);
 
         // Find a math font.
-        let variant = variant(styles);
+        let variant = text::variant(styles);
         let world = vt.world;
-        let Some(font) = families(styles)
+        let Some(font) = text::families(styles)
             .find_map(|family| {
                 let id = world.book().select(family.as_str(), variant)?;
                 let font = world.font(id)?;
@@ -238,7 +188,7 @@ impl Layout for EquationElem {
                 };
                 let y = (frame.height() - counter.height()) / 2.0;
 
-                frame.push_frame(Point::new(x, y), counter)
+                frame.push_frame(Point::new(x, y), counter);
             }
         } else {
             let slack = ParElem::leading_in(styles) * 0.7;
@@ -266,6 +216,7 @@ impl Count for EquationElem {
 
 impl LocalName for EquationElem {
     fn local_name(&self, lang: Lang) -> &'static str {
+        #[allow(clippy::wildcard_in_or_patterns /* clarity */)]
         match lang {
             Lang::GERMAN => "Gleichung",
             Lang::ENGLISH | _ => "Equation",
@@ -273,18 +224,21 @@ impl LocalName for EquationElem {
     }
 }
 
+/// Rendering an element into a math context.
 pub trait LayoutMath {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()>;
+    /// Render the element `self` into the math context `ctx`.
+    #[allow(clippy::missing_errors_doc /* obvious */)]
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()>;
 }
 
 impl LayoutMath for EquationElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
 }
 
 impl LayoutMath for Content {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         if let Some(children) = self.to_sequence() {
             for child in children {
                 child.layout_math(ctx)?;
@@ -293,7 +247,7 @@ impl LayoutMath for Content {
         }
 
         if let Some((elem, styles)) = self.to_styled() {
-            if TextElem::font_in(ctx.styles().chain(&styles))
+            if TextElem::font_in(ctx.styles().chain(styles))
                 != TextElem::font_in(ctx.styles())
             {
                 let frame = ctx.layout_content(self)?;

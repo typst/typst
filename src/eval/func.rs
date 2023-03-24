@@ -1,11 +1,10 @@
-pub use typst_macros::func;
-
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked, TrackedMut};
 use once_cell::sync::Lazy;
+pub use typst_macros::func;
 
 use super::{
     cast_to_value, Args, CastInfo, Eval, Flow, Route, Scope, Scopes, Tracer, Value, Vm,
@@ -17,7 +16,7 @@ use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Func {
     /// The internal representation.
     repr: Repr,
@@ -25,8 +24,14 @@ pub struct Func {
     span: Span,
 }
 
+impl Hash for Func {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.repr.hash(hasher);
+    }
+}
+
 /// The different kinds of function representations.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 enum Repr {
     /// A native Rust function.
     Native(&'static NativeFunc),
@@ -40,6 +45,8 @@ enum Repr {
 
 impl Func {
     /// The name of the function.
+    #[inline]
+    #[must_use]
     pub fn name(&self) -> Option<&str> {
         match &self.repr {
             Repr::Native(native) => Some(native.info.name),
@@ -50,6 +57,8 @@ impl Func {
     }
 
     /// Extract details the function.
+    #[inline]
+    #[must_use]
     pub fn info(&self) -> Option<&FuncInfo> {
         match &self.repr {
             Repr::Native(native) => Some(&native.info),
@@ -60,11 +69,15 @@ impl Func {
     }
 
     /// The function's span.
+    #[inline]
+    #[must_use]
     pub fn span(&self) -> Span {
         self.span
     }
 
     /// Attach a span to this function if it doesn't already have one.
+    #[inline]
+    #[must_use]
     pub fn spanned(mut self, span: Span) -> Self {
         if self.span.is_detached() {
             self.span = span;
@@ -73,6 +86,8 @@ impl Func {
     }
 
     /// The number of positional arguments this function takes, if known.
+    #[inline]
+    #[must_use]
     pub fn argc(&self) -> Option<usize> {
         match &self.repr {
             Repr::Closure(closure) => closure.argc(),
@@ -84,7 +99,11 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
+    ///
+    /// # Errors
+    ///
+    /// If the arguments are invalid for the function or if evaluation fails.
+    pub fn call_vm(&self, vm: &mut Vm<'_>, mut args: Args) -> SourceResult<Value> {
         match &self.repr {
             Repr::Native(native) => {
                 let value = (native.func)(vm, &mut args)?;
@@ -114,16 +133,21 @@ impl Func {
                 )
             }
             Repr::With(arc) => {
-                args.items = arc.1.items.iter().cloned().chain(args.items).collect();
-                return arc.0.call_vm(vm, args);
+                let (func, with_args) = &**arc;
+                args.items = with_args.items.iter().cloned().chain(args.items).collect();
+                func.call_vm(vm, args)
             }
         }
     }
 
-    /// Call the function with a Vt.
+    /// Call the function with a `Vt`.
+    ///
+    /// # Errors
+    ///
+    /// Same as `call_vm`.
     pub fn call_vt(
         &self,
-        vt: &mut Vt,
+        vt: &mut Vt<'_>,
         args: impl IntoIterator<Item = Value>,
     ) -> SourceResult<Value> {
         let route = Route::default();
@@ -135,12 +159,16 @@ impl Func {
     }
 
     /// Apply the given arguments to the function.
+    #[inline]
+    #[must_use]
     pub fn with(self, args: Args) -> Self {
         let span = self.span;
         Self { repr: Repr::With(Arc::new((self, args))), span }
     }
 
     /// Extract the element function, if it is one.
+    #[inline]
+    #[must_use]
     pub fn element(&self) -> Option<ElemFunc> {
         match self.repr {
             Repr::Elem(func) => Some(func),
@@ -150,7 +178,7 @@ impl Func {
 }
 
 impl Debug for Func {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self.name() {
             Some(name) => write!(f, "{name}"),
             None => f.write_str("(..) => .."),
@@ -159,6 +187,7 @@ impl Debug for Func {
 }
 
 impl PartialEq for Func {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.repr == other.repr
     }
@@ -171,6 +200,7 @@ impl From<Repr> for Func {
 }
 
 impl From<ElemFunc> for Func {
+    #[inline]
     fn from(func: ElemFunc) -> Self {
         Repr::Elem(func).into()
     }
@@ -179,12 +209,22 @@ impl From<ElemFunc> for Func {
 /// A Typst function defined by a native Rust function.
 pub struct NativeFunc {
     /// The function's implementation.
-    pub func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
+    pub func: fn(&mut Vm<'_>, &mut Args) -> SourceResult<Value>,
     /// Details about the function.
     pub info: Lazy<FuncInfo>,
 }
 
+impl Debug for NativeFunc {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("NativeFunc")
+            .field("info", &self.info)
+            .finish_non_exhaustive()
+    }
+}
+
 impl PartialEq for NativeFunc {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.func as usize == other.func as usize
     }
@@ -193,6 +233,7 @@ impl PartialEq for NativeFunc {
 impl Eq for NativeFunc {}
 
 impl Hash for NativeFunc {
+    #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
         (self.func as usize).hash(state);
     }
@@ -232,6 +273,7 @@ pub struct FuncInfo {
 
 impl FuncInfo {
     /// Get the parameter info for a parameter with the given name
+    #[must_use]
     pub fn param(&self, name: &str) -> Option<&ParamInfo> {
         self.params.iter().find(|param| param.name == name)
     }
@@ -239,6 +281,7 @@ impl FuncInfo {
 
 /// Describes a named parameter.
 #[derive(Debug, Clone)]
+#[allow(clippy::struct_excessive_bools /* what's the issue? */)]
 pub struct ParamInfo {
     /// The parameter's name.
     pub name: &'static str,
@@ -262,7 +305,7 @@ pub struct ParamInfo {
 }
 
 /// A user-defined closure.
-#[derive(Hash)]
+#[derive(Debug, Hash)]
 pub(super) struct Closure {
     /// The source file where the closure was defined.
     pub location: SourceId,
@@ -281,20 +324,20 @@ pub(super) struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
+    #[allow(clippy::too_many_arguments /* no easy way to reduce them, XXX figure out how? */)]
     #[comemo::memoize]
     fn call(
         this: &Func,
-        world: Tracked<dyn World>,
-        route: Tracked<Route>,
-        tracer: TrackedMut<Tracer>,
-        provider: TrackedMut<StabilityProvider>,
-        introspector: Tracked<Introspector>,
+        world: Tracked<'_, dyn World>,
+        route: Tracked<'_, Route>,
+        tracer: TrackedMut<'_, Tracer>,
+        provider: TrackedMut<'_, StabilityProvider>,
+        introspector: Tracked<'_, Introspector>,
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
-        let closure = match &this.repr {
-            Repr::Closure(closure) => closure,
-            _ => panic!("`this` must be a closure"),
+        let Repr::Closure(closure) = &this.repr else {
+            panic!("`this` must be a closure");
         };
 
         // Don't leak the scopes from the call site. Instead, we use the scope
@@ -337,9 +380,8 @@ impl Closure {
         let result = closure.body.eval(&mut vm);
         match vm.flow {
             Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
-            Some(Flow::Return(_, None)) => {}
+            Some(Flow::Return(_, None)) | None => {}
             Some(flow) => bail!(flow.forbidden()),
-            None => {}
         }
 
         result
@@ -374,7 +416,7 @@ pub(super) struct CapturesVisitor<'a> {
 
 impl<'a> CapturesVisitor<'a> {
     /// Create a new visitor for the given external scopes.
-    pub fn new(external: &'a Scopes) -> Self {
+    pub fn new(external: &'a Scopes<'_>) -> Self {
         Self {
             external,
             internal: Scopes::new(None),
@@ -423,9 +465,10 @@ impl<'a> CapturesVisitor<'a> {
 
                 for param in expr.params().children() {
                     match param {
-                        ast::Param::Pos(ident) => self.bind(ident),
+                        ast::Param::Pos(ident) | ast::Param::Sink(ident) => {
+                            self.bind(ident);
+                        }
                         ast::Param::Named(named) => self.bind(named.name()),
-                        ast::Param::Sink(ident) => self.bind(ident),
                     }
                 }
 
@@ -478,12 +521,12 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Bind a new internal variable.
-    fn bind(&mut self, ident: ast::Ident) {
+    fn bind(&mut self, ident: Ident) {
         self.internal.top.define(ident.take(), Value::None);
     }
 
     /// Capture a variable if it isn't internal.
-    fn capture(&mut self, ident: ast::Ident) {
+    fn capture(&mut self, ident: Ident) {
         if self.internal.get(&ident).is_err() {
             if let Ok(value) = self.external.get(&ident) {
                 self.captures.define_captured(ident.take(), value.clone());

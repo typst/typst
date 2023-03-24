@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// The four directions into which content can be laid out.
@@ -15,6 +16,8 @@ pub enum Dir {
 
 impl Dir {
     /// The specific axis this direction belongs to.
+    #[must_use]
+    #[inline]
     pub const fn axis(self) -> Axis {
         match self {
             Self::LTR | Self::RTL => Axis::X,
@@ -23,6 +26,8 @@ impl Dir {
     }
 
     /// The side this direction starts at.
+    #[must_use]
+    #[inline]
     pub const fn start(self) -> Side {
         match self {
             Self::LTR => Side::Left,
@@ -33,6 +38,8 @@ impl Dir {
     }
 
     /// The side this direction ends at.
+    #[must_use]
+    #[inline]
     pub const fn end(self) -> Side {
         match self {
             Self::LTR => Side::Right,
@@ -43,6 +50,8 @@ impl Dir {
     }
 
     /// The inverse direction.
+    #[must_use]
+    #[inline]
     pub const fn inv(self) -> Self {
         match self {
             Self::LTR => Self::RTL,
@@ -55,6 +64,8 @@ impl Dir {
     /// Whether this direction points into the positive coordinate direction.
     ///
     /// The positive directions are left-to-right and top-to-bottom.
+    #[must_use]
+    #[inline]
     pub const fn is_positive(self) -> bool {
         match self {
             Self::LTR | Self::TTB => true,
@@ -64,7 +75,7 @@ impl Dir {
 }
 
 impl Debug for Dir {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad(match self {
             Self::LTR => "ltr",
             Self::RTL => "rtl",

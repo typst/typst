@@ -32,6 +32,25 @@
 //! [PDF]: export::pdf
 //! [raster images]: export::render
 
+#![deny(
+    absolute_paths_not_starting_with_crate,
+    future_incompatible,
+    keyword_idents,
+    macro_use_extern_crate,
+    meta_variable_misuse,
+    missing_abi,
+    missing_debug_implementations,
+    missing_docs,
+    non_ascii_idents,
+    nonstandard_style,
+    noop_method_call,
+    pointer_structural_match,
+    private_in_public,
+    rust_2018_idioms,
+    unused_qualifications
+)]
+#![warn(clippy::pedantic, clippy::dbg_macro, clippy::print_stderr, clippy::print_stdout)]
+#![allow(clippy::module_name_repetitions)]
 #![recursion_limit = "1000"]
 
 extern crate self as typst;
@@ -63,6 +82,7 @@ use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
 /// Compile a source file into a fully layouted document.
+#[allow(clippy::missing_errors_doc /* obvious */)]
 pub fn compile(world: &(dyn World + 'static)) -> SourceResult<Document> {
     // Evaluate the source file into a module.
     let route = Route::default();

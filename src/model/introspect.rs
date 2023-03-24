@@ -26,6 +26,8 @@ pub struct Location {
 
 impl Location {
     /// Produce a variant of this location.
+    #[inline]
+    #[must_use]
     pub fn variant(mut self, n: usize) -> Self {
         self.variant = n;
         self
@@ -33,7 +35,7 @@ impl Location {
 }
 
 impl Debug for Location {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad("..")
     }
 }
@@ -43,16 +45,18 @@ cast_from_value! {
 }
 
 /// Provides stable identities to elements.
-#[derive(Clone)]
+#[derive(Clone, Debug, Default)]
 pub struct StabilityProvider {
     hashes: Vec<u128>,
     checkpoints: Vec<usize>,
 }
 
 impl StabilityProvider {
-    /// Create a new stability provider.
+    #[inline]
+    #[must_use]
+    /// Create a new, empty stability provider.
     pub fn new() -> Self {
-        Self { hashes: vec![], checkpoints: vec![] }
+        Self::default()
     }
 }
 
@@ -79,6 +83,7 @@ impl StabilityProvider {
 }
 
 /// Can be queried for elements and their positions.
+#[derive(Debug, Clone)]
 pub struct Introspector {
     pages: usize,
     elems: Vec<(Content, Position)>,
@@ -86,21 +91,25 @@ pub struct Introspector {
 
 impl Introspector {
     /// Create a new introspector.
+    #[inline]
+    #[must_use]
     pub fn new(frames: &[Frame]) -> Self {
         let mut introspector = Self { pages: frames.len(), elems: vec![] };
         for (i, frame) in frames.iter().enumerate() {
-            let page = NonZeroUsize::new(1 + i).unwrap();
+            let page = NonZeroUsize::new(1 + i).unwrap_or_else(|| unreachable!());
             introspector.extract(frame, page, Transform::identity());
         }
         introspector
     }
 
     /// Iterate over all elements.
+    #[inline]
     pub fn all(&self) -> impl Iterator<Item = &Content> {
         self.elems.iter().map(|(elem, _)| elem)
     }
 
     /// Extract metadata from a frame.
+    #[inline]
     fn extract(&mut self, frame: &Frame, page: NonZeroUsize, ts: Transform) {
         for (pos, item) in frame.items() {
             match item {
@@ -128,17 +137,23 @@ impl Introspector {
 #[comemo::track]
 impl Introspector {
     /// Whether this introspector is not yet initialized.
+    #[inline]
+    #[must_use]
     pub fn init(&self) -> bool {
         self.pages > 0
     }
 
     /// Query for all matching elements.
-    pub fn query(&self, selector: Selector) -> Vec<Content> {
+    #[inline]
+    #[must_use]
+    pub fn query(&self, selector: &Selector) -> Vec<Content> {
         self.all().filter(|elem| selector.matches(elem)).cloned().collect()
     }
 
     /// Query for all matching element up to the given location.
-    pub fn query_before(&self, selector: Selector, location: Location) -> Vec<Content> {
+    #[inline]
+    #[must_use]
+    pub fn query_before(&self, selector: &Selector, location: Location) -> Vec<Content> {
         let mut matches = vec![];
         for elem in self.all() {
             if selector.matches(elem) {
@@ -152,7 +167,9 @@ impl Introspector {
     }
 
     /// Query for all matching elements starting from the given location.
-    pub fn query_after(&self, selector: Selector, location: Location) -> Vec<Content> {
+    #[inline]
+    #[must_use]
+    pub fn query_after(&self, selector: &Selector, location: Location) -> Vec<Content> {
         self.all()
             .skip_while(|elem| elem.location() != Some(location))
             .filter(|elem| selector.matches(elem))
@@ -161,21 +178,29 @@ impl Introspector {
     }
 
     /// The total number pages.
+    #[inline]
+    #[must_use]
     pub fn pages(&self) -> NonZeroUsize {
         NonZeroUsize::new(self.pages).unwrap_or(NonZeroUsize::ONE)
     }
 
     /// Find the page number for the given location.
+    #[inline]
+    #[must_use]
     pub fn page(&self, location: Location) -> NonZeroUsize {
         self.position(location).page
     }
 
     /// Find the position for the given location.
+    #[inline]
+    #[must_use]
     pub fn position(&self, location: Location) -> Position {
         self.elems
             .iter()
             .find(|(elem, _)| elem.location() == Some(location))
-            .map(|(_, loc)| *loc)
-            .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
+            .map_or(
+                Position { page: NonZeroUsize::ONE, point: Point::zero() },
+                |(_, loc)| *loc,
+            )
     }
 }

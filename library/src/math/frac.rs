@@ -1,6 +1,18 @@
-use super::*;
+use typst::eval::Scope;
+
+use super::ctx::{scaled, MathContext, Scaled as _};
+use super::delimited::DELIM_SHORT_FALL;
+use super::fragment::{FrameFragment, GlyphFragment};
+use super::LayoutMath;
+use crate::prelude::*;
+use crate::text::TextElem;
 
 const FRAC_AROUND: Em = Em::new(0.1);
+
+pub(super) fn define(math: &mut Scope) {
+    math.define("frac", FracElem::func());
+    math.define("binom", BinomElem::func());
+}
 
 /// # Fraction
 /// A mathematical fraction.
@@ -31,7 +43,7 @@ pub struct FracElem {
 }
 
 impl LayoutMath for FracElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(ctx, &self.num(), &self.denom(), false, self.span())
     }
 }
@@ -57,14 +69,14 @@ pub struct BinomElem {
 }
 
 impl LayoutMath for BinomElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         layout(ctx, &self.upper(), &self.lower(), true, self.span())
     }
 }
 
 /// Layout a fraction or binomial.
 fn layout(
-    ctx: &mut MathContext,
+    ctx: &mut MathContext<'_, '_, '_>,
     num: &Content,
     denom: &Content,
     binom: bool,

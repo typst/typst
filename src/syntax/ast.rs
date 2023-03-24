@@ -17,12 +17,15 @@ use crate::util::NonZeroExt;
 /// A typed AST node.
 pub trait AstNode: Sized {
     /// Convert a node into its typed variant.
+    #[must_use]
     fn from_untyped(node: &SyntaxNode) -> Option<Self>;
 
     /// A reference to the underlying syntax node.
+    #[must_use]
     fn as_untyped(&self) -> &SyntaxNode;
 
     /// The source code location.
+    #[must_use]
     fn span(&self) -> Span {
         self.as_untyped().span()
     }
@@ -36,6 +39,7 @@ macro_rules! node {
         pub struct $name(SyntaxNode);
 
         impl AstNode for $name {
+            #[inline]
             fn from_untyped(node: &SyntaxNode) -> Option<Self> {
                 if matches!(node.kind(), SyntaxKind::$name) {
                     Some(Self(node.clone()))
@@ -44,6 +48,7 @@ macro_rules! node {
                 }
             }
 
+            #[inline]
             fn as_untyped(&self) -> &SyntaxNode {
                 &self.0
             }
@@ -58,6 +63,7 @@ node! {
 
 impl Markup {
     /// The expressions.
+    #[inline]
     pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
         let mut was_stmt = false;
         self.0
@@ -187,6 +193,7 @@ pub enum Expr {
 }
 
 impl Expr {
+    #[must_use]
     fn cast_with_space(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Space => node.cast().map(Self::Space),
@@ -196,6 +203,7 @@ impl Expr {
 }
 
 impl AstNode for Expr {
+    #[inline]
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Linebreak => node.cast().map(Self::Linebreak),
@@ -254,6 +262,7 @@ impl AstNode for Expr {
         }
     }
 
+    #[inline]
     fn as_untyped(&self) -> &SyntaxNode {
         match self {
             Self::Text(v) => v.as_untyped(),
@@ -315,54 +324,59 @@ impl AstNode for Expr {
 
 impl Expr {
     /// Can this expression be embedded into markup with a hashtag?
+    #[inline]
+    #[must_use]
     pub fn hashtag(&self) -> bool {
-        match self {
-            Self::Ident(_) => true,
-            Self::None(_) => true,
-            Self::Auto(_) => true,
-            Self::Bool(_) => true,
-            Self::Int(_) => true,
-            Self::Float(_) => true,
-            Self::Numeric(_) => true,
-            Self::Str(_) => true,
-            Self::Code(_) => true,
-            Self::Content(_) => true,
-            Self::Array(_) => true,
-            Self::Dict(_) => true,
-            Self::Parenthesized(_) => true,
-            Self::FieldAccess(_) => true,
-            Self::FuncCall(_) => true,
-            Self::Let(_) => true,
-            Self::Set(_) => true,
-            Self::Show(_) => true,
-            Self::Conditional(_) => true,
-            Self::While(_) => true,
-            Self::For(_) => true,
-            Self::Import(_) => true,
-            Self::Include(_) => true,
-            Self::Break(_) => true,
-            Self::Continue(_) => true,
-            Self::Return(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::Ident(_)
+                | Self::None(_)
+                | Self::Auto(_)
+                | Self::Bool(_)
+                | Self::Int(_)
+                | Self::Float(_)
+                | Self::Numeric(_)
+                | Self::Str(_)
+                | Self::Code(_)
+                | Self::Content(_)
+                | Self::Array(_)
+                | Self::Dict(_)
+                | Self::Parenthesized(_)
+                | Self::FieldAccess(_)
+                | Self::FuncCall(_)
+                | Self::Let(_)
+                | Self::Set(_)
+                | Self::Show(_)
+                | Self::Conditional(_)
+                | Self::While(_)
+                | Self::For(_)
+                | Self::Import(_)
+                | Self::Include(_)
+                | Self::Break(_)
+                | Self::Continue(_)
+                | Self::Return(_)
+        )
     }
 
     /// Is this a literal?
+    #[inline]
+    #[must_use]
     pub fn is_literal(&self) -> bool {
-        match self {
-            Self::None(_) => true,
-            Self::Auto(_) => true,
-            Self::Bool(_) => true,
-            Self::Int(_) => true,
-            Self::Float(_) => true,
-            Self::Numeric(_) => true,
-            Self::Str(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::None(_)
+                | Self::Auto(_)
+                | Self::Bool(_)
+                | Self::Int(_)
+                | Self::Float(_)
+                | Self::Numeric(_)
+                | Self::Str(_)
+        )
     }
 }
 
 impl Default for Expr {
+    #[inline]
     fn default() -> Self {
         Expr::Space(Space::default())
     }
@@ -375,6 +389,8 @@ node! {
 
 impl Text {
     /// Get the text.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> &EcoString {
         self.0.text()
     }
@@ -403,6 +419,8 @@ node! {
 
 impl Escape {
     /// Get the escaped character.
+    #[must_use]
+    #[inline]
     pub fn get(&self) -> char {
         let mut s = Scanner::new(self.0.text());
         s.expect('\\');
@@ -475,6 +493,8 @@ impl Shorthand {
     ];
 
     /// Get the shorthanded character.
+    #[must_use]
+    #[inline]
     pub fn get(&self) -> char {
         let text = self.0.text();
         Self::LIST
@@ -491,6 +511,8 @@ node! {
 
 impl SmartQuote {
     /// Whether this is a double quote.
+    #[must_use]
+    #[inline]
     pub fn double(&self) -> bool {
         self.0.text() == "\""
     }
@@ -503,6 +525,8 @@ node! {
 
 impl Strong {
     /// The contents of the strong node.
+    #[must_use]
+    #[inline]
     pub fn body(&self) -> Markup {
         self.0.cast_first_match().unwrap_or_default()
     }
@@ -515,6 +539,8 @@ node! {
 
 impl Emph {
     /// The contents of the emphasis node.
+    #[must_use]
+    #[inline]
     pub fn body(&self) -> Markup {
         self.0.cast_first_match().unwrap_or_default()
     }
@@ -527,6 +553,7 @@ node! {
 
 impl Raw {
     /// The trimmed raw text.
+    #[must_use]
     pub fn text(&self) -> EcoString {
         let mut text = self.0.text().as_str();
         let blocky = text.starts_with("```");
@@ -580,6 +607,8 @@ impl Raw {
     }
 
     /// An optional identifier specifying the language to syntax-highlight in.
+    #[inline]
+    #[must_use]
     pub fn lang(&self) -> Option<&str> {
         let inner = self.0.text().trim_start_matches('`');
         let mut s = Scanner::new(inner);
@@ -590,6 +619,8 @@ impl Raw {
     }
 
     /// Whether the raw text should be displayed in a separate block.
+    #[inline]
+    #[must_use]
     pub fn block(&self) -> bool {
         let text = self.0.text();
         text.starts_with("```") && text.chars().any(is_newline)
@@ -603,6 +634,8 @@ node! {
 
 impl Link {
     /// Get the URL.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> &EcoString {
         self.0.text()
     }
@@ -615,6 +648,8 @@ node! {
 
 impl Label {
     /// Get the label's text.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> &str {
         self.0.text().trim_start_matches('<').trim_end_matches('>')
     }
@@ -627,6 +662,8 @@ node! {
 
 impl Ref {
     /// Get the target.
+    #[inline]
+    #[must_use]
     pub fn target(&self) -> &str {
         self.0
             .children()
@@ -636,6 +673,8 @@ impl Ref {
     }
 
     /// Get the supplement.
+    #[inline]
+    #[must_use]
     pub fn supplement(&self) -> Option<ContentBlock> {
         self.0.cast_last_match()
     }
@@ -648,11 +687,15 @@ node! {
 
 impl Heading {
     /// The contents of the heading.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Markup {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The section depth (number of equals signs).
+    #[inline]
+    #[must_use]
     pub fn level(&self) -> NonZeroUsize {
         self.0
             .children()
@@ -669,6 +712,8 @@ node! {
 
 impl ListItem {
     /// The contents of the list item.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Markup {
         self.0.cast_first_match().unwrap_or_default()
     }
@@ -681,6 +726,8 @@ node! {
 
 impl EnumItem {
     /// The explicit numbering, if any: `23.`.
+    #[inline]
+    #[must_use]
     pub fn number(&self) -> Option<usize> {
         self.0.children().find_map(|node| match node.kind() {
             SyntaxKind::EnumMarker => node.text().trim_end_matches('.').parse().ok(),
@@ -689,6 +736,8 @@ impl EnumItem {
     }
 
     /// The contents of the list item.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Markup {
         self.0.cast_first_match().unwrap_or_default()
     }
@@ -701,11 +750,15 @@ node! {
 
 impl TermItem {
     /// The term described by the item.
+    #[inline]
+    #[must_use]
     pub fn term(&self) -> Markup {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The description of the term.
+    #[inline]
+    #[must_use]
     pub fn description(&self) -> Markup {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -718,11 +771,15 @@ node! {
 
 impl Equation {
     /// The contained math.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Math {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// Whether the equation should be displayed as a separate block.
+    #[inline]
+    #[must_use]
     pub fn block(&self) -> bool {
         let is_space = |node: Option<&SyntaxNode>| {
             node.map(SyntaxNode::kind) == Some(SyntaxKind::Space)
@@ -738,6 +795,8 @@ node! {
 
 impl Math {
     /// The expressions the mathematical content consists of.
+    #[inline]
+    #[must_use]
     pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
         self.0.children().filter_map(Expr::cast_with_space)
     }
@@ -750,16 +809,22 @@ node! {
 
 impl MathIdent {
     /// Get the identifier.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> &EcoString {
         self.0.text()
     }
 
     /// Take out the contained identifier.
+    #[inline]
+    #[must_use]
     pub fn take(self) -> EcoString {
         self.0.into_text()
     }
 
     /// Get the identifier as a string slice.
+    #[inline]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         self.get()
     }
@@ -768,6 +833,7 @@ impl MathIdent {
 impl Deref for MathIdent {
     type Target = str;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_str()
     }
@@ -785,16 +851,22 @@ node! {
 
 impl MathDelimited {
     /// The opening delimiter.
+    #[inline]
+    #[must_use]
     pub fn open(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The contents, including the delimiters.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Math {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The closing delimiter.
+    #[inline]
+    #[must_use]
     pub fn close(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -807,11 +879,15 @@ node! {
 
 impl MathAttach {
     /// The base, to which things are attached.
+    #[inline]
+    #[must_use]
     pub fn base(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The bottom attachment.
+    #[inline]
+    #[must_use]
     pub fn bottom(&self) -> Option<Expr> {
         self.0
             .children()
@@ -820,6 +896,8 @@ impl MathAttach {
     }
 
     /// The top attachment.
+    #[inline]
+    #[must_use]
     pub fn top(&self) -> Option<Expr> {
         self.0
             .children()
@@ -835,11 +913,15 @@ node! {
 
 impl MathFrac {
     /// The numerator.
+    #[inline]
+    #[must_use]
     pub fn num(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The denominator.
+    #[inline]
+    #[must_use]
     pub fn denom(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -852,16 +934,22 @@ node! {
 
 impl Ident {
     /// Get the identifier.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> &EcoString {
         self.0.text()
     }
 
     /// Take out the contained identifier.
+    #[inline]
+    #[must_use]
     pub fn take(self) -> EcoString {
         self.0.into_text()
     }
 
     /// Get the identifier as a string slice.
+    #[inline]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         self.get()
     }
@@ -870,6 +958,7 @@ impl Ident {
 impl Deref for Ident {
     type Target = str;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.as_str()
     }
@@ -892,6 +981,8 @@ node! {
 
 impl Bool {
     /// Get the boolean value.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> bool {
         self.0.text() == "true"
     }
@@ -904,6 +995,8 @@ node! {
 
 impl Int {
     /// Get the integer value.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> i64 {
         self.0.text().parse().unwrap_or_default()
     }
@@ -916,6 +1009,8 @@ node! {
 
 impl Float {
     /// Get the floating-point value.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> f64 {
         self.0.text().parse().unwrap_or_default()
     }
@@ -928,6 +1023,8 @@ node! {
 
 impl Numeric {
     /// Get the numeric value and unit.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> (f64, Unit) {
         let text = self.0.text();
         let count = text
@@ -938,6 +1035,7 @@ impl Numeric {
 
         let split = text.len() - count;
         let value = text[..split].parse().unwrap_or_default();
+        #[allow(clippy::wildcard_in_or_patterns /* clarity */)]
         let unit = match &text[split..] {
             "pt" => Unit::Length(AbsUnit::Pt),
             "mm" => Unit::Length(AbsUnit::Mm),
@@ -947,8 +1045,7 @@ impl Numeric {
             "rad" => Unit::Angle(AngleUnit::Rad),
             "em" => Unit::Em,
             "fr" => Unit::Fr,
-            "%" => Unit::Percent,
-            _ => Unit::Percent,
+            "%" | _ => Unit::Percent,
         };
 
         (value, unit)
@@ -977,6 +1074,7 @@ node! {
 
 impl Str {
     /// Get the string value with resolved escape sequences.
+    #[must_use]
     pub fn get(&self) -> EcoString {
         let text = self.0.text();
         let unquoted = &text[1..text.len() - 1];
@@ -1027,6 +1125,8 @@ node! {
 
 impl CodeBlock {
     /// The contained code.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Code {
         self.0.cast_first_match().unwrap_or_default()
     }
@@ -1039,6 +1139,7 @@ node! {
 
 impl Code {
     /// The list of expressions contained in the code.
+    #[inline]
     pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
@@ -1051,6 +1152,8 @@ node! {
 
 impl ContentBlock {
     /// The contained markup.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Markup {
         self.0.cast_first_match().unwrap_or_default()
     }
@@ -1063,6 +1166,8 @@ node! {
 
 impl Parenthesized {
     /// The wrapped expression.
+    #[inline]
+    #[must_use]
     pub fn expr(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
@@ -1075,6 +1180,8 @@ node! {
 
 impl Array {
     /// The array's items.
+    #[inline]
+    #[must_use]
     pub fn items(&self) -> impl DoubleEndedIterator<Item = ArrayItem> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
@@ -1090,6 +1197,7 @@ pub enum ArrayItem {
 }
 
 impl AstNode for ArrayItem {
+    #[inline]
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Spread => node.cast_first_match().map(Self::Spread),
@@ -1097,10 +1205,10 @@ impl AstNode for ArrayItem {
         }
     }
 
+    #[inline]
     fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Pos(v) => v.as_untyped(),
-            Self::Spread(v) => v.as_untyped(),
+            Self::Pos(v) | Self::Spread(v) => v.as_untyped(),
         }
     }
 }
@@ -1112,6 +1220,7 @@ node! {
 
 impl Dict {
     /// The dictionary's items.
+    #[inline]
     pub fn items(&self) -> impl DoubleEndedIterator<Item = DictItem> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
@@ -1129,6 +1238,7 @@ pub enum DictItem {
 }
 
 impl AstNode for DictItem {
+    #[inline]
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Named => node.cast().map(Self::Named),
@@ -1138,6 +1248,7 @@ impl AstNode for DictItem {
         }
     }
 
+    #[inline]
     fn as_untyped(&self) -> &SyntaxNode {
         match self {
             Self::Named(v) => v.as_untyped(),
@@ -1154,11 +1265,15 @@ node! {
 
 impl Named {
     /// The name: `thickness`.
+    #[inline]
+    #[must_use]
     pub fn name(&self) -> Ident {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The right-hand side of the pair: `3pt`.
+    #[inline]
+    #[must_use]
     pub fn expr(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1171,14 +1286,15 @@ node! {
 
 impl Keyed {
     /// The key: `"spacy key"`.
+    #[inline]
+    #[must_use]
     pub fn key(&self) -> Str {
-        self.0
-            .children()
-            .find_map(|node| node.cast::<Str>())
-            .unwrap_or_default()
+        self.0.children().find_map(SyntaxNode::cast).unwrap_or_default()
     }
 
     /// The right-hand side of the pair: `true`.
+    #[inline]
+    #[must_use]
     pub fn expr(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1191,6 +1307,8 @@ node! {
 
 impl Unary {
     /// The operator: `-`.
+    #[inline]
+    #[must_use]
     pub fn op(&self) -> UnOp {
         self.0
             .children()
@@ -1199,6 +1317,8 @@ impl Unary {
     }
 
     /// The expression to operate on: `x`.
+    #[inline]
+    #[must_use]
     pub fn expr(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1217,6 +1337,8 @@ pub enum UnOp {
 
 impl UnOp {
     /// Try to convert the token into a unary operation.
+    #[inline]
+    #[must_use]
     pub fn from_kind(token: SyntaxKind) -> Option<Self> {
         Some(match token {
             SyntaxKind::Plus => Self::Pos,
@@ -1227,6 +1349,8 @@ impl UnOp {
     }
 
     /// The precedence of this operator.
+    #[inline]
+    #[must_use]
     pub fn precedence(self) -> usize {
         match self {
             Self::Pos | Self::Neg => 7,
@@ -1235,6 +1359,8 @@ impl UnOp {
     }
 
     /// The string representation of this operation.
+    #[inline]
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Pos => "+",
@@ -1251,6 +1377,8 @@ node! {
 
 impl Binary {
     /// The binary operator: `+`.
+    #[inline]
+    #[must_use]
     pub fn op(&self) -> BinOp {
         let mut not = false;
         self.0
@@ -1267,11 +1395,15 @@ impl Binary {
     }
 
     /// The left-hand side of the operation: `a`.
+    #[inline]
+    #[must_use]
     pub fn lhs(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The right-hand side of the operation: `b`.
+    #[inline]
+    #[must_use]
     pub fn rhs(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1322,6 +1454,8 @@ pub enum BinOp {
 
 impl BinOp {
     /// Try to convert the token into a binary operation.
+    #[inline]
+    #[must_use]
     pub fn from_kind(token: SyntaxKind) -> Option<Self> {
         Some(match token {
             SyntaxKind::Plus => Self::Add,
@@ -1347,6 +1481,9 @@ impl BinOp {
     }
 
     /// The precedence of this operator.
+    #[inline]
+    #[must_use]
+    #[allow(clippy::match_same_arms /* one arm per variant is good */)]
     pub fn precedence(self) -> usize {
         match self {
             Self::Mul => 6,
@@ -1372,6 +1509,9 @@ impl BinOp {
     }
 
     /// The associativity of this operator.
+    #[inline]
+    #[must_use]
+    #[allow(clippy::match_same_arms /* one arm per variant is good */)]
     pub fn assoc(self) -> Assoc {
         match self {
             Self::Add => Assoc::Left,
@@ -1397,6 +1537,8 @@ impl BinOp {
     }
 
     /// The string representation of this operation.
+    #[inline]
+    #[must_use]
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Add => "+",
@@ -1438,11 +1580,15 @@ node! {
 
 impl FieldAccess {
     /// The expression to access the field on.
+    #[inline]
+    #[must_use]
     pub fn target(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The name of the field.
+    #[inline]
+    #[must_use]
     pub fn field(&self) -> Ident {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1455,11 +1601,15 @@ node! {
 
 impl FuncCall {
     /// The function to call.
+    #[inline]
+    #[must_use]
     pub fn callee(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The arguments to the function.
+    #[inline]
+    #[must_use]
     pub fn args(&self) -> Args {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1472,6 +1622,8 @@ node! {
 
 impl Args {
     /// The positional and named arguments.
+    #[inline]
+    #[must_use]
     pub fn items(&self) -> impl DoubleEndedIterator<Item = Arg> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
@@ -1499,9 +1651,8 @@ impl AstNode for Arg {
 
     fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Pos(v) => v.as_untyped(),
+            Self::Pos(v) | Self::Spread(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
-            Self::Spread(v) => v.as_untyped(),
         }
     }
 }
@@ -1515,16 +1666,22 @@ impl Closure {
     /// The name of the closure.
     ///
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
+    #[inline]
+    #[must_use]
     pub fn name(&self) -> Option<Ident> {
         self.0.children().next()?.cast()
     }
 
     /// The parameter bindings.
+    #[inline]
+    #[must_use]
     pub fn params(&self) -> Params {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The body of the closure.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1537,6 +1694,7 @@ node! {
 
 impl Params {
     /// The parameter bindings.
+    #[inline]
     pub fn children(&self) -> impl DoubleEndedIterator<Item = Param> + '_ {
         self.0.children().filter_map(SyntaxNode::cast)
     }
@@ -1554,6 +1712,7 @@ pub enum Param {
 }
 
 impl AstNode for Param {
+    #[inline]
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
             SyntaxKind::Ident => node.cast().map(Self::Pos),
@@ -1563,11 +1722,11 @@ impl AstNode for Param {
         }
     }
 
+    #[inline]
     fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Pos(v) => v.as_untyped(),
+            Self::Pos(v) | Self::Sink(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
-            Self::Sink(v) => v.as_untyped(),
         }
     }
 }
@@ -1579,6 +1738,8 @@ node! {
 
 impl LetBinding {
     /// The binding to assign to.
+    #[inline]
+    #[must_use]
     pub fn binding(&self) -> Ident {
         match self.0.cast_first_match() {
             Some(Expr::Ident(binding)) => binding,
@@ -1588,6 +1749,8 @@ impl LetBinding {
     }
 
     /// The expression the binding is initialized with.
+    #[inline]
+    #[must_use]
     pub fn init(&self) -> Option<Expr> {
         if self.0.cast_first_match::<Ident>().is_some() {
             // This is a normal binding like `let x = 1`.
@@ -1606,16 +1769,22 @@ node! {
 
 impl SetRule {
     /// The function to set style properties for.
+    #[inline]
+    #[must_use]
     pub fn target(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The style properties to set.
+    #[inline]
+    #[must_use]
     pub fn args(&self) -> Args {
         self.0.cast_last_match().unwrap_or_default()
     }
 
     /// A condition under which the set rule applies.
+    #[inline]
+    #[must_use]
     pub fn condition(&self) -> Option<Expr> {
         self.0
             .children()
@@ -1631,6 +1800,8 @@ node! {
 
 impl ShowRule {
     /// Defines which nodes the show rule applies to.
+    #[inline]
+    #[must_use]
     pub fn selector(&self) -> Option<Expr> {
         self.0
             .children()
@@ -1640,6 +1811,8 @@ impl ShowRule {
     }
 
     /// The transformation recipe.
+    #[inline]
+    #[must_use]
     pub fn transform(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1652,11 +1825,15 @@ node! {
 
 impl Conditional {
     /// The condition which selects the body to evaluate.
+    #[inline]
+    #[must_use]
     pub fn condition(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The expression to evaluate if the condition is true.
+    #[inline]
+    #[must_use]
     pub fn if_body(&self) -> Expr {
         self.0
             .children()
@@ -1666,6 +1843,8 @@ impl Conditional {
     }
 
     /// The expression to evaluate if the condition is false.
+    #[inline]
+    #[must_use]
     pub fn else_body(&self) -> Option<Expr> {
         self.0.children().filter_map(SyntaxNode::cast).nth(2)
     }
@@ -1678,11 +1857,15 @@ node! {
 
 impl WhileLoop {
     /// The condition which selects whether to evaluate the body.
+    #[inline]
+    #[must_use]
     pub fn condition(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The expression to evaluate while the condition is true.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1695,16 +1878,23 @@ node! {
 
 impl ForLoop {
     /// The pattern to assign to.
+    #[inline]
+    #[must_use]
     pub fn pattern(&self) -> ForPattern {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The expression to iterate over.
+    #[inline]
+    #[must_use]
+    #[allow(clippy::iter_not_returning_iterator /* it does in the VM ;) */)]
     pub fn iter(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The expression to evaluate for each iteration.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1717,6 +1907,8 @@ node! {
 
 impl ForPattern {
     /// The key part of the pattern: index for arrays, name for dictionaries.
+    #[inline]
+    #[must_use]
     pub fn key(&self) -> Option<Ident> {
         let mut children = self.0.children().filter_map(SyntaxNode::cast);
         let key = children.next();
@@ -1728,6 +1920,8 @@ impl ForPattern {
     }
 
     /// The value part of the pattern.
+    #[inline]
+    #[must_use]
     pub fn value(&self) -> Ident {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1740,11 +1934,15 @@ node! {
 
 impl ModuleImport {
     /// The module or path from which the items should be imported.
+    #[inline]
+    #[must_use]
     pub fn source(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
 
     /// The items to be imported.
+    #[inline]
+    #[must_use]
     pub fn imports(&self) -> Option<Imports> {
         self.0.children().find_map(|node| match node.kind() {
             SyntaxKind::Star => Some(Imports::Wildcard),
@@ -1773,6 +1971,8 @@ node! {
 
 impl ModuleInclude {
     /// The module or path from which the content should be included.
+    #[inline]
+    #[must_use]
     pub fn source(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
@@ -1795,6 +1995,8 @@ node! {
 
 impl FuncReturn {
     /// The expression to return.
+    #[inline]
+    #[must_use]
     pub fn body(&self) -> Option<Expr> {
         self.0.cast_last_match()
     }

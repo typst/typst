@@ -11,7 +11,7 @@ use crate::util::PathExt;
 use crate::World;
 
 /// Try to determine a set of possible values for an expression.
-pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
+pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode<'_>) -> Vec<Value> {
     match node.cast::<ast::Expr>() {
         Some(ast::Expr::None(_)) => vec![Value::None],
         Some(ast::Expr::Auto(_)) => vec![Value::Auto],
@@ -38,20 +38,15 @@ pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Val
 
             let route = Route::default();
             let mut tracer = Tracer::new(Some(node.span()));
-            typst::eval::eval(
-                world.track(),
-                route.track(),
-                tracer.track_mut(),
-                world.main(),
-            )
-            .and_then(|module| {
-                typst::model::typeset(
-                    world.track(),
-                    tracer.track_mut(),
-                    &module.content(),
-                )
-            })
-            .ok();
+            eval(world.track(), route.track(), tracer.track_mut(), world.main())
+                .and_then(|module| {
+                    typst::model::typeset(
+                        world.track(),
+                        tracer.track_mut(),
+                        &module.content(),
+                    )
+                })
+                .ok();
 
             tracer.finish()
         }

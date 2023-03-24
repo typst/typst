@@ -1,3 +1,4 @@
+use az::Az as _;
 use ecow::eco_format;
 use pdf_writer::types::{ActionType, AnnotationType, ColorSpaceOperand};
 use pdf_writer::writers::ColorSpace;
@@ -13,14 +14,14 @@ use crate::geom::{
 use crate::image::Image;
 
 /// Construct page objects.
-pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
+pub fn construct_pages(ctx: &mut PdfContext<'_>, frames: &[Frame]) {
     for frame in frames {
         construct_page(ctx, frame);
     }
 }
 
 /// Construct a page object.
-pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
+pub fn construct_page(ctx: &mut PdfContext<'_>, frame: &Frame) {
     let page_ref = ctx.alloc.bump();
     ctx.page_refs.push(page_ref);
     ctx.page_heights.push(frame.height().to_f32());
@@ -62,20 +63,20 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
 }
 
 /// Write the page tree.
-pub fn write_page_tree(ctx: &mut PdfContext) {
-    for page in std::mem::take(&mut ctx.pages).into_iter() {
+pub fn write_page_tree(ctx: &mut PdfContext<'_>) {
+    for page in std::mem::take(&mut ctx.pages) {
         write_page(ctx, page);
     }
 
     let mut pages = ctx.writer.pages(ctx.page_tree_ref);
     pages
-        .count(ctx.page_refs.len() as i32)
+        .count(ctx.page_refs.len().az())
         .kids(ctx.page_refs.iter().copied());
 
     let mut resources = pages.resources();
     let mut spaces = resources.color_spaces();
-    spaces.insert(SRGB).start::<ColorSpace>().srgb();
-    spaces.insert(D65_GRAY).start::<ColorSpace>().d65_gray();
+    spaces.insert(SRGB).start::<ColorSpace<'_>>().srgb();
+    spaces.insert(D65_GRAY).start::<ColorSpace<'_>>().d65_gray();
     spaces.finish();
 
     let mut fonts = resources.fonts();
@@ -98,7 +99,7 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 }
 
 /// Write a page tree node.
-fn write_page(ctx: &mut PdfContext, page: Page) {
+fn write_page(ctx: &mut PdfContext<'_>, page: Page) {
     let content_id = ctx.alloc.bump();
 
     let mut page_writer = ctx.writer.page(page.id);
@@ -197,10 +198,10 @@ impl PageContext<'_, '_> {
         let Transform { sx, ky, kx, sy, tx, ty } = transform;
         self.state.transform = self.state.transform.pre_concat(transform);
         self.content.transform([
-            sx.get() as _,
-            ky.get() as _,
-            kx.get() as _,
-            sy.get() as _,
+            sx.get().az(),
+            ky.get().az(),
+            kx.get().az(),
+            sy.get().az(),
             tx.to_f32(),
             ty.to_f32(),
         ]);
@@ -209,7 +210,7 @@ impl PageContext<'_, '_> {
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
             self.parent.font_map.insert(font.clone());
-            let name = eco_format!("F{}", self.parent.font_map.map(font.clone()));
+            let name = eco_format!("F{}", self.parent.font_map.map(font));
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
             self.state.font = Some((font.clone(), size));
         }
@@ -217,7 +218,7 @@ impl PageContext<'_, '_> {
 
     fn set_fill(&mut self, fill: Paint) {
         if self.state.fill != Some(fill) {
-            let f = |c| c as f32 / 255.0;
+            let f = |c| f32::from(c) / 255.0;
             let Paint::Solid(color) = fill;
             match color {
                 Color::Luma(c) => {
@@ -250,7 +251,7 @@ impl PageContext<'_, '_> {
 
     fn set_stroke(&mut self, stroke: Stroke) {
         if self.state.stroke != Some(stroke) {
-            let f = |c| c as f32 / 255.0;
+            let f = |c| f32::from(c) / 255.0;
             let Paint::Solid(color) = stroke.paint;
             match color {
                 Color::Luma(c) => {
@@ -285,7 +286,7 @@ impl PageContext<'_, '_> {
 }
 
 /// Encode a frame into the content stream.
-fn write_frame(ctx: &mut PageContext, frame: &Frame) {
+fn write_frame(ctx: &mut PageContext<'_, '_>, frame: &Frame) {
     for &(pos, ref item) in frame.items() {
         let x = pos.x.to_f32();
         let y = pos.y.to_f32();
@@ -296,15 +297,14 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
             FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
             FrameItem::Meta(meta, size) => match meta {
                 Meta::Link(dest) => write_link(ctx, pos, dest, *size),
-                Meta::Elem(_) => {}
-                Meta::Hide => {}
+                Meta::Elem(_) | Meta::Hide => {}
             },
         }
     }
 }
 
 /// Encode a group into the content stream.
-fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
+fn write_group(ctx: &mut PageContext<'_, '_>, pos: Point, group: &GroupItem) {
     let translation = Transform::translate(pos.x, pos.y);
 
     ctx.save_state();
@@ -327,7 +327,7 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 }
 
 /// Encode a text run into the content stream.
-fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
+fn write_text(ctx: &mut PageContext<'_, '_>, x: f32, y: f32, text: &TextItem) {
     *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
     ctx.parent
         .glyph_sets
@@ -381,7 +381,7 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
 }
 
 /// Encode a geometrical shape into the content stream.
-fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
+fn write_shape(ctx: &mut PageContext<'_, '_>, x: f32, y: f32, shape: &Shape) {
     if shape.fill.is_none() && shape.stroke.is_none() {
         return;
     }
@@ -422,7 +422,7 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
 }
 
 /// Encode a bezier path into the content stream.
-fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
+fn write_path(ctx: &mut PageContext<'_, '_>, x: f32, y: f32, path: &geom::Path) {
     for elem in &path.0 {
         match elem {
             geom::PathItem::MoveTo(p) => {
@@ -445,9 +445,9 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
 }
 
 /// Encode a vector or raster image into the content stream.
-fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size) {
+fn write_image(ctx: &mut PageContext<'_, '_>, x: f32, y: f32, image: &Image, size: Size) {
     ctx.parent.image_map.insert(image.clone());
-    let name = eco_format!("Im{}", ctx.parent.image_map.map(image.clone()));
+    let name = eco_format!("Im{}", ctx.parent.image_map.map(image));
     let w = size.x.to_f32();
     let h = size.y.to_f32();
     ctx.content.save_state();
@@ -457,7 +457,7 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
 }
 
 /// Save a link for later writing in the annotations dictionary.
-fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size) {
+fn write_link(ctx: &mut PageContext<'_, '_>, pos: Point, dest: &Destination, size: Size) {
     let mut min_x = Abs::inf();
     let mut min_y = Abs::inf();
     let mut max_x = -Abs::inf();

@@ -1,4 +1,9 @@
-use super::*;
+use typst::eval::Scope;
+
+use super::fragment::MathFragment;
+use super::style::MathSize;
+use crate::layout::HElem;
+use crate::prelude::*;
 
 pub(super) const THIN: Em = Em::new(1.0 / 6.0);
 pub(super) const MEDIUM: Em = Em::new(2.0 / 9.0);
@@ -19,7 +24,9 @@ pub(super) fn spacing(
     space: Option<MathFragment>,
     r: &MathFragment,
 ) -> Option<MathFragment> {
-    use MathClass::*;
+    use unicode_math_class::MathClass::{
+        Binary, Closing, Fence, Large, Opening, Punctuation, Relation, Special,
+    };
 
     let class = |f: &MathFragment| f.class().unwrap_or(Special);
     let resolve = |v: Em, f: &MathFragment| {
@@ -28,6 +35,7 @@ pub(super) fn spacing(
     let script =
         |f: &MathFragment| f.style().map_or(false, |s| s.size <= MathSize::Script);
 
+    #[allow(clippy::match_same_arms /* one arm per logical concept is nice */)]
     match (class(l), class(r)) {
         // No spacing before punctuation; thin spacing after punctuation, unless
         // in script size.

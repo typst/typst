@@ -7,20 +7,39 @@ mod raw;
 mod shaping;
 mod shift;
 
-pub use self::deco::*;
-pub use self::misc::*;
-pub use self::quotes::*;
-pub use self::raw::*;
-pub use self::shaping::*;
-pub use self::shift::*;
-
-use std::borrow::Cow;
-
 use rustybuzz::Tag;
+use typst::eval::Scope;
 use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
+pub use self::deco::{Decoration, OverlineElem, StrikeElem, UnderlineElem};
+pub use self::misc::{
+    lorem, lower, smallcaps, upper, Case, Delta, EmphElem, LinebreakElem, SpaceElem,
+    StrongElem, Toggle,
+};
+pub use self::quotes::{Quoter, Quotes, SmartQuoteElem};
+pub use self::raw::RawElem;
+pub use self::shaping::{families, shape, variant, ShapedText};
+pub use self::shift::{SubElem, SuperElem};
 use crate::layout::ParElem;
 use crate::prelude::*;
+
+pub(super) fn define(scope: &mut Scope) {
+    scope.define("text", TextElem::func());
+    scope.define("linebreak", LinebreakElem::func());
+    scope.define("smartquote", SmartQuoteElem::func());
+    scope.define("strong", StrongElem::func());
+    scope.define("emph", EmphElem::func());
+    scope.define("lower", lower);
+    scope.define("upper", upper);
+    scope.define("smallcaps", smallcaps);
+    scope.define("sub", SubElem::func());
+    scope.define("super", SuperElem::func());
+    scope.define("underline", UnderlineElem::func());
+    scope.define("strike", StrikeElem::func());
+    scope.define("overline", OverlineElem::func());
+    scope.define("raw", RawElem::func());
+    scope.define("lorem", lorem);
+}
 
 /// Customize the look and layout of text in a variety of ways.
 ///
@@ -57,7 +76,6 @@ pub struct TextElem {
     ///
     /// This is Latin. \
     /// هذا عربي.
-    ///
     /// ```
     #[default(FontList(vec![FontFamily::new("Linux Libertine")]))]
     pub font: FontList,
@@ -487,7 +505,7 @@ impl TextElem {
 }
 
 impl Construct for TextElem {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &mut Vm<'_>, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text element.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
@@ -503,18 +521,22 @@ pub struct FontFamily(EcoString);
 
 impl FontFamily {
     /// Create a named font family variant.
+    #[inline]
+    #[must_use]
     pub fn new(string: &str) -> Self {
         Self(string.to_lowercase().into())
     }
 
     /// The lowercased family name.
+    #[inline]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 }
 
 impl Debug for FontFamily {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
 }
@@ -544,7 +566,7 @@ impl IntoIterator for FontList {
 cast_from_value! {
     FontList,
     family: FontFamily => Self(vec![family]),
-    values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<StrResult<_>>()?),
+    values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 
 cast_to_value! {
@@ -558,6 +580,7 @@ pub struct TextSize(pub Length);
 impl Fold for TextSize {
     type Output = Abs;
 
+    #[inline]
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.0.em.at(outer) + self.0.abs
     }
@@ -583,7 +606,9 @@ pub enum TextEdge {
 
 impl TextEdge {
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, metrics: &FontMetrics) -> Abs {
+    #[inline]
+    #[must_use]
+    pub fn resolve(self, styles: StyleChain<'_>, metrics: &FontMetrics) -> Abs {
         match self {
             Self::Metric(metric) => metrics.vertical(metric).resolve(styles),
             Self::Length(length) => length.resolve(styles),
@@ -625,7 +650,8 @@ cast_to_value! {
 impl Resolve for TextDir {
     type Output = Dir;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         match self.0 {
             Smart::Auto => TextElem::lang_in(styles).dir(),
             Smart::Custom(dir) => dir,
@@ -649,7 +675,8 @@ cast_to_value! {
 impl Resolve for Hyphenate {
     type Output = bool;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         match self.0 {
             Smart::Auto => ParElem::justify_in(styles),
             Smart::Custom(v) => v,
@@ -663,11 +690,15 @@ pub struct StylisticSet(u8);
 
 impl StylisticSet {
     /// Create a new set, clamping to 1-20.
+    #[inline]
+    #[must_use]
     pub fn new(index: u8) -> Self {
         Self(index.clamp(1, 20))
     }
 
     /// Get the value, guaranteed to be 1-20.
+    #[inline]
+    #[must_use]
     pub fn get(self) -> u8 {
         self.0
     }
@@ -676,7 +707,7 @@ impl StylisticSet {
 cast_from_value! {
     StylisticSet,
     v: i64 => match v {
-        1 ..= 20 => Self::new(v as u8),
+        1..=20 => Self::new(v.try_into().unwrap()),
         _ => Err("stylistic set must be between 1 and 20")?,
     },
 }
@@ -706,6 +737,7 @@ pub enum NumberWidth {
 }
 
 /// OpenType font features settings.
+#[allow(clippy::doc_markdown /* false positive */)]
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct FontFeatures(pub Vec<(Tag, u32)>);
 
@@ -743,6 +775,7 @@ cast_to_value! {
 impl Fold for FontFeatures {
     type Output = Self;
 
+    #[inline]
     fn fold(mut self, outer: Self::Output) -> Self::Output {
         self.0.extend(outer.0);
         self

@@ -31,31 +31,43 @@ pub struct Dict(Arc<BTreeMap<Str, Value>>);
 
 impl Dict {
     /// Create a new, empty dictionary.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Create a new dictionary from a mapping of strings to values.
+    #[must_use]
     pub fn from_map(map: BTreeMap<Str, Value>) -> Self {
         Self(Arc::new(map))
     }
 
     /// Whether the dictionary is empty.
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// The number of pairs in the dictionary.
+    #[must_use]
     pub fn len(&self) -> i64 {
         self.0.len() as i64
     }
 
     /// Borrow the value the given `key` maps to.
+    ///
+    /// # Errors
+    ///
+    /// If the key is missing.
     pub fn at(&self, key: &str) -> StrResult<&Value> {
         self.0.get(key).ok_or_else(|| missing_key(key))
     }
 
     /// Mutably borrow the value the given `key` maps to.
+    ///
+    /// # Errors
+    ///
+    /// If the key is missing.
     pub fn at_mut(&mut self, key: &str) -> StrResult<&mut Value> {
         Arc::make_mut(&mut self.0)
             .get_mut(key)
@@ -63,6 +75,10 @@ impl Dict {
     }
 
     /// Remove the value if the dictionary contains the given key.
+    ///
+    /// # Errors
+    ///
+    /// If the key is missing.
     pub fn take(&mut self, key: &str) -> StrResult<Value> {
         Arc::make_mut(&mut self.0)
             .remove(key)
@@ -70,6 +86,7 @@ impl Dict {
     }
 
     /// Whether the dictionary contains a specific key.
+    #[must_use]
     pub fn contains(&self, key: &str) -> bool {
         self.0.contains_key(key)
     }
@@ -80,6 +97,10 @@ impl Dict {
     }
 
     /// Remove a mapping by `key` and return the value.
+    ///
+    /// # Errors
+    ///
+    /// If the key is missing.
     pub fn remove(&mut self, key: &str) -> StrResult<Value> {
         match Arc::make_mut(&mut self.0).remove(key) {
             Some(value) => Ok(value),
@@ -97,17 +118,20 @@ impl Dict {
     }
 
     /// Return the keys of the dictionary as an array.
+    #[must_use]
     pub fn keys(&self) -> Array {
         self.0.keys().cloned().map(Value::Str).collect()
     }
 
     /// Return the values of the dictionary as an array.
+    #[must_use]
     pub fn values(&self) -> Array {
         self.0.values().cloned().collect()
     }
 
     /// Return the values of the dictionary as an array of pairs (arrays of
     /// length two).
+    #[must_use]
     pub fn pairs(&self) -> Array {
         self.0
             .iter()
@@ -116,11 +140,12 @@ impl Dict {
     }
 
     /// Iterate over pairs of references to the contained keys and values.
-    pub fn iter(&self) -> std::collections::btree_map::Iter<Str, Value> {
+    pub fn iter(&self) -> std::collections::btree_map::Iter<'_, Str, Value> {
         self.0.iter()
     }
 
     /// Return an "unexpected key" error if there is any remaining pair.
+    #[allow(clippy::missing_errors_doc /* false positive */)]
     pub fn finish(&self, expected: &[&str]) -> StrResult<()> {
         if let Some((key, _)) = self.iter().next() {
             let parts: Vec<_> = expected.iter().map(|s| eco_format!("\"{s}\"")).collect();
@@ -133,7 +158,7 @@ impl Dict {
 }
 
 impl Debug for Dict {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if self.is_empty() {
             return f.write_str("(:)");
         }
@@ -203,6 +228,7 @@ impl<'a> IntoIterator for &'a Dict {
 
 /// The missing key access error message.
 #[cold]
+#[must_use]
 fn missing_key(key: &str) -> EcoString {
     eco_format!("dictionary does not contain key {:?}", Str::from(key))
 }

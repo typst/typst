@@ -1,7 +1,6 @@
 use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
-
 use if_chain::if_chain;
 
 use super::analyze::analyze_labels;
@@ -41,7 +40,7 @@ pub enum Tooltip {
 }
 
 /// Tooltip for a hovered expression.
-fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tooltip> {
+fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode<'_>) -> Option<Tooltip> {
     let mut ancestor = leaf;
     while !ancestor.is::<ast::Expr>() {
         ancestor = ancestor.parent()?;
@@ -117,7 +116,7 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 fn ref_tooltip(
     world: &(dyn World + 'static),
     frames: &[Frame],
-    leaf: &LinkedNode,
+    leaf: &LinkedNode<'_>,
 ) -> Option<Tooltip> {
     if leaf.kind() != SyntaxKind::RefMarker {
         return None;
@@ -126,7 +125,7 @@ fn ref_tooltip(
     let target = leaf.text().trim_start_matches('@');
     for (label, detail) in analyze_labels(world, frames).0 {
         if label.0 == target {
-            return Some(Tooltip::Text(detail?.into()));
+            return Some(Tooltip::Text(detail?));
         }
     }
 
@@ -136,7 +135,7 @@ fn ref_tooltip(
 /// Tooltips for components of a named parameter.
 fn named_param_tooltip(
     world: &(dyn World + 'static),
-    leaf: &LinkedNode,
+    leaf: &LinkedNode<'_>,
 ) -> Option<Tooltip> {
     let (info, named) = if_chain! {
         // Ensure that we are in a named pair in the arguments to a function
@@ -195,7 +194,7 @@ fn find_string_doc(info: &CastInfo, string: &str) -> Option<&'static str> {
 }
 
 /// Tooltip for font.
-fn font_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
+fn font_tooltip(world: &dyn World, leaf: &LinkedNode<'_>) -> Option<Tooltip> {
     if_chain! {
         // Ensure that we are on top of a string.
         if let Some(string) = leaf.cast::<ast::Str>();

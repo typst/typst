@@ -29,6 +29,7 @@ pub struct Arg {
 
 impl Args {
     /// Create positional arguments from a span and values.
+    #[must_use]
     pub fn new(span: Span, values: impl IntoIterator<Item = Value>) -> Self {
         let items = values
             .into_iter()
@@ -43,10 +44,14 @@ impl Args {
             span: self.span,
             name: None,
             value: Spanned::new(value, span),
-        })
+        });
     }
 
     /// Consume and cast the first positional argument if there is one.
+    ///
+    /// # Errors
+    ///
+    /// If the positional argument cannot be casted to `T`.
     pub fn eat<T>(&mut self) -> SourceResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
@@ -63,8 +68,9 @@ impl Args {
 
     /// Consume and cast the first positional argument.
     ///
-    /// Returns a `missing argument: {what}` error if no positional argument is
-    /// left.
+    /// # Errors
+    ///
+    /// If no positional argument is left or if the positional argument cannot be casted to `T`.
     pub fn expect<T>(&mut self, what: &str) -> SourceResult<T>
     where
         T: Cast<Spanned<Value>>,
@@ -76,6 +82,10 @@ impl Args {
     }
 
     /// Find and consume the first castable positional argument.
+    ///
+    /// # Errors
+    ///
+    /// If a castable positional argument is found but fails to cast to `T`.
     pub fn find<T>(&mut self) -> SourceResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
@@ -91,19 +101,22 @@ impl Args {
     }
 
     /// Find and consume all castable positional arguments.
+    ///
+    /// # Errors
+    ///
+    /// If any castable positional argument fails to cast to `T`.
     pub fn all<T>(&mut self) -> SourceResult<Vec<T>>
     where
         T: Cast<Spanned<Value>>,
     {
-        let mut list = vec![];
-        while let Some(value) = self.find()? {
-            list.push(value);
-        }
-        Ok(list)
+        std::iter::from_fn(|| self.find::<T>().transpose()).collect()
     }
 
-    /// Cast and remove the value for the given named argument, returning an
-    /// error if the conversion fails.
+    /// Cast and remove the value for the given named argument.
+    ///
+    /// # Errors
+    ///
+    /// If the argument fails to cast to `T`.
     pub fn named<T>(&mut self, name: &str) -> SourceResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
@@ -125,17 +138,19 @@ impl Args {
     }
 
     /// Same as named, but with fallback to find.
+    ///
+    /// # Errors
+    ///
+    /// If the argument fails to cast to `T`.
     pub fn named_or_find<T>(&mut self, name: &str) -> SourceResult<Option<T>>
     where
         T: Cast<Spanned<Value>>,
     {
-        match self.named(name)? {
-            Some(value) => Ok(Some(value)),
-            None => self.find(),
-        }
+        Ok(if let Some(named) = self.named(name)? { Some(named) } else { self.find()? })
     }
 
     /// Take out all arguments into a new instance.
+    #[must_use]
     pub fn take(&mut self) -> Self {
         Self {
             span: self.span,
@@ -145,6 +160,7 @@ impl Args {
 
     /// Return an "unexpected argument" error if there is any remaining
     /// argument.
+    #[allow(clippy::missing_errors_doc /* false positive */)]
     pub fn finish(self) -> SourceResult<()> {
         if let Some(arg) = self.items.first() {
             bail!(arg.span, "unexpected argument");
@@ -153,6 +169,7 @@ impl Args {
     }
 
     /// Extract the positional arguments as an array.
+    #[must_use]
     pub fn to_pos(&self) -> Array {
         self.items
             .iter()
@@ -162,6 +179,7 @@ impl Args {
     }
 
     /// Extract the named arguments as a dictionary.
+    #[must_use]
     pub fn to_named(&self) -> Dict {
         self.items
             .iter()
@@ -171,7 +189,7 @@ impl Args {
 }
 
 impl Debug for Args {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let pieces: Vec<_> =
             self.items.iter().map(|arg| eco_format!("{arg:?}")).collect();
         f.write_str(&pretty_array_like(&pieces, false))
@@ -179,7 +197,7 @@ impl Debug for Args {
 }
 
 impl Debug for Arg {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(name) = &self.name {
             f.write_str(name)?;
             f.write_str(": ")?;

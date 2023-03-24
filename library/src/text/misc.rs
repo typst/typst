@@ -99,7 +99,7 @@ pub struct StrongElem {
 }
 
 impl Show for StrongElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_delta(Delta(self.delta(styles)))))
     }
 }
@@ -159,7 +159,7 @@ pub struct EmphElem {
 }
 
 impl Show for EmphElem {
-    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, _: StyleChain<'_>) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_emph(Toggle)))
     }
 }
@@ -256,6 +256,8 @@ pub enum Case {
 
 impl Case {
     /// Apply the case to a string.
+    #[inline]
+    #[must_use]
     pub fn apply(self, text: &str) -> String {
         match self {
             Self::Lower => text.to_lowercase(),

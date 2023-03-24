@@ -21,6 +21,8 @@ pub struct Regions<'a> {
 
 impl Regions<'_> {
     /// Create a new region sequence with exactly one region.
+    #[inline]
+    #[must_use]
     pub fn one(size: Size, expand: Axes<bool>) -> Self {
         Self {
             size,
@@ -32,6 +34,8 @@ impl Regions<'_> {
     }
 
     /// Create a new sequence of same-size regions that repeats indefinitely.
+    #[inline]
+    #[must_use]
     pub fn repeat(size: Size, expand: Axes<bool>) -> Self {
         Self {
             size,
@@ -46,6 +50,8 @@ impl Regions<'_> {
     /// already partially used up.
     ///
     /// This is also used for relative sizing.
+    #[inline]
+    #[must_use]
     pub fn base(&self) -> Size {
         Size::new(self.size.x, self.full)
     }
@@ -54,6 +60,8 @@ impl Regions<'_> {
     ///
     /// Note that since all regions must have the same width, the width returned
     /// by `f` is ignored for the backlog and the final region.
+    #[inline]
+    #[must_use]
     pub fn map<'v, F>(&self, backlog: &'v mut Vec<Abs>, mut f: F) -> Regions<'v>
     where
         F: FnMut(Size) -> Size,
@@ -71,6 +79,8 @@ impl Regions<'_> {
     }
 
     /// Whether the first region is full and a region break is called for.
+    #[inline]
+    #[must_use]
     pub fn is_full(&self) -> bool {
         Abs::zero().fits(self.size.y) && !self.in_last()
     }
@@ -78,11 +88,14 @@ impl Regions<'_> {
     /// Whether the first region is the last usable region.
     ///
     /// If this is true, calling `next()` will have no effect.
+    #[inline]
+    #[must_use]
     pub fn in_last(&self) -> bool {
         self.backlog.is_empty() && self.last.map_or(true, |height| self.size.y == height)
     }
 
     /// Advance to the next region if there is any.
+    #[inline]
     pub fn next(&mut self) {
         if let Some(height) = self
             .backlog
@@ -102,6 +115,7 @@ impl Regions<'_> {
     /// regions, equivalently to what would be produced by calling
     /// [`next()`](Self::next) repeatedly until all regions are exhausted.
     /// This iterator may be infinite.
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = Size> + '_ {
         let first = std::iter::once(self.size);
         let backlog = self.backlog.iter();

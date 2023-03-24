@@ -13,9 +13,10 @@ bench = false
 doc = false
 
 [dependencies]
-typst = { path = ".." }
-typst-library = { path = "../library" }
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+chrono = { version = "0.4", default-features = false, features = [
+	"clock",
+	"std",
+] }
 codespan-reporting = "0.11"
 comemo = "0.2"
 dirs = "4"
@@ -26,6 +27,8 @@ once_cell = "1"
 pico-args = "0.4"
 same-file = "1"
 siphasher = "0.3"
+typst = { path = ".." }
+typst-library = { path = "../library" }
 walkdir = "2"
 
 [features]

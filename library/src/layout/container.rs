@@ -96,9 +96,9 @@ pub struct BoxElem {
 impl Layout for BoxElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let width = match self.width(styles) {
             Sizing::Auto => Smart::Auto,
@@ -311,9 +311,9 @@ pub struct BlockElem {
 impl Layout for BlockElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         // Apply inset.
         let mut body = self.body(styles).unwrap_or_default();
@@ -382,7 +382,7 @@ impl Layout for BlockElem {
 
             let outset = self.outset(styles);
             let radius = self.radius(styles);
-            for frame in frames.iter_mut().skip(skip as usize) {
+            for frame in frames.iter_mut().skip(skip.into()) {
                 frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
             }
         }
@@ -411,6 +411,8 @@ pub enum Sizing {
 
 impl Sizing {
     /// Whether this is fractional sizing.
+    #[inline]
+    #[must_use]
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
     }

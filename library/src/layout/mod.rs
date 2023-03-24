@@ -23,35 +23,35 @@ mod table;
 mod terms;
 mod transform;
 
-pub use self::align::*;
-pub use self::columns::*;
-pub use self::container::*;
-pub use self::enum_::*;
-pub use self::flow::*;
-pub use self::fragment::*;
-pub use self::grid::*;
-pub use self::hide::*;
-pub use self::list::*;
-pub use self::measure::*;
-pub use self::pad::*;
-pub use self::page::*;
-pub use self::par::*;
-pub use self::place::*;
-pub use self::regions::*;
-pub use self::repeat::*;
-pub use self::spacing::*;
-pub use self::stack::*;
-pub use self::table::*;
-pub use self::terms::*;
-pub use self::transform::*;
-
 use std::mem;
 
 use typed_arena::Arena;
 use typst::diag::SourceResult;
-use typst::eval::Tracer;
+use typst::eval::{Scope, Tracer};
 use typst::model::{applicable, realize, StyleVecBuilder};
 
+pub use self::align::AlignElem;
+pub use self::columns::{ColbreakElem, ColumnsElem};
+pub use self::container::{BlockElem, BoxElem, Sizing};
+pub use self::enum_::{EnumElem, EnumItem};
+pub use self::flow::FlowElem;
+pub use self::fragment::Fragment;
+use self::grid::GridLayouter;
+pub use self::grid::{GridElem, TrackSizings};
+pub use self::hide::HideElem;
+pub use self::list::{ListElem, ListItem};
+pub use self::measure::measure;
+pub use self::pad::PadElem;
+pub use self::page::{PageElem, PagebreakElem};
+pub use self::par::{ParElem, ParbreakElem, SpanMapper};
+pub use self::place::PlaceElem;
+pub use self::regions::Regions;
+pub use self::repeat::RepeatElem;
+pub use self::spacing::{HElem, Spacing, VElem};
+pub use self::stack::StackElem;
+pub use self::table::TableElem;
+pub use self::terms::{TermItem, TermsElem};
+pub use self::transform::{MoveElem, RotateElem, ScaleElem};
 use crate::math::{EquationElem, LayoutMath};
 use crate::meta::DocumentElem;
 use crate::prelude::*;
@@ -59,22 +59,62 @@ use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
 
+pub(super) fn define(scope: &mut Scope) {
+    scope.define("page", PageElem::func());
+    scope.define("pagebreak", PagebreakElem::func());
+    scope.define("v", VElem::func());
+    scope.define("par", ParElem::func());
+    scope.define("parbreak", ParbreakElem::func());
+    scope.define("h", HElem::func());
+    scope.define("box", BoxElem::func());
+    scope.define("block", BlockElem::func());
+    scope.define("list", ListElem::func());
+    scope.define("enum", EnumElem::func());
+    scope.define("terms", TermsElem::func());
+    scope.define("table", TableElem::func());
+    scope.define("stack", StackElem::func());
+    scope.define("grid", GridElem::func());
+    scope.define("columns", ColumnsElem::func());
+    scope.define("colbreak", ColbreakElem::func());
+    scope.define("place", PlaceElem::func());
+    scope.define("align", AlignElem::func());
+    scope.define("pad", PadElem::func());
+    scope.define("repeat", RepeatElem::func());
+    scope.define("move", MoveElem::func());
+    scope.define("scale", ScaleElem::func());
+    scope.define("rotate", RotateElem::func());
+    scope.define("hide", HideElem::func());
+    scope.define("measure", measure);
+}
+
 /// Root-level layout.
 pub trait LayoutRoot {
     /// Layout into one frame per page.
-    fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document>;
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from layouting children.
+    fn layout_root(
+        &self,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+    ) -> SourceResult<Document>;
 }
 
 impl LayoutRoot for Content {
-    fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
+    fn layout_root(
+        &self,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+    ) -> SourceResult<Document> {
         #[comemo::memoize]
         fn cached(
             content: &Content,
-            world: Tracked<dyn World>,
-            tracer: TrackedMut<Tracer>,
-            provider: TrackedMut<StabilityProvider>,
-            introspector: Tracked<Introspector>,
-            styles: StyleChain,
+            world: Tracked<'_, dyn World>,
+            tracer: TrackedMut<'_, Tracer>,
+            provider: TrackedMut<'_, StabilityProvider>,
+            introspector: Tracked<'_, Introspector>,
+            styles: StyleChain<'_>,
         ) -> SourceResult<Document> {
             let mut vt = Vt { world, tracer, provider, introspector };
             let scratch = Scratch::default();
@@ -99,22 +139,29 @@ impl LayoutRoot for Content {
 /// Layout into regions.
 pub trait Layout {
     /// Layout into one frame per region.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from layouting children.
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment>;
 
     /// Layout without side effects.
     ///
-    /// This element must be layouted again in the same order for the results to
-    /// be valid.
+    /// This element must be layouted again in the same order for the results to be valid.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from layouting children.
     fn measure(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         vt.provider.save();
         let result = self.layout(vt, styles, regions);
@@ -126,19 +173,19 @@ pub trait Layout {
 impl Layout for Content {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
         fn cached(
             content: &Content,
-            world: Tracked<dyn World>,
-            tracer: TrackedMut<Tracer>,
-            provider: TrackedMut<StabilityProvider>,
-            introspector: Tracked<Introspector>,
-            styles: StyleChain,
-            regions: Regions,
+            world: Tracked<'_, dyn World>,
+            tracer: TrackedMut<'_, Tracer>,
+            provider: TrackedMut<'_, StabilityProvider>,
+            introspector: Tracked<'_, Introspector>,
+            styles: StyleChain<'_>,
+            regions: Regions<'_>,
         ) -> SourceResult<Fragment> {
             let mut vt = Vt { world, tracer, provider, introspector };
             let scratch = Scratch::default();
@@ -163,7 +210,7 @@ impl Layout for Content {
 
 /// Realize into an element that is capable of root-level layout.
 fn realize_root<'a>(
-    vt: &mut Vt,
+    vt: &mut Vt<'_>,
     scratch: &'a Scratch<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
@@ -172,7 +219,7 @@ fn realize_root<'a>(
         return Ok((content.clone(), styles));
     }
 
-    let mut builder = Builder::new(vt, &scratch, true);
+    let mut builder = Builder::new(vt, scratch, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles))?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
@@ -181,7 +228,7 @@ fn realize_root<'a>(
 
 /// Realize into an element that is capable of block-level layout.
 fn realize_block<'a>(
-    vt: &mut Vt,
+    vt: &mut Vt<'_>,
     scratch: &'a Scratch<'a>,
     content: &'a Content,
     styles: StyleChain<'a>,
@@ -197,7 +244,7 @@ fn realize_block<'a>(
         return Ok((content.clone(), styles));
     }
 
-    let mut builder = Builder::new(vt, &scratch, false);
+    let mut builder = Builder::new(vt, scratch, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
@@ -234,7 +281,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Self {
             vt,
             scratch,
-            doc: top.then(|| DocBuilder::default()),
+            doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
             par: ParBuilder::default(),
             list: ListBuilder::default(),
@@ -291,7 +338,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             .to::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
-        self.interrupt_page(keep.then(|| styles))?;
+        self.interrupt_page(keep.then_some(styles))?;
 
         if let Some(doc) = &mut self.doc {
             if doc.accept(content, styles) {
@@ -299,6 +346,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             }
         }
 
+        #[allow(clippy::redundant_else /* clarity */)]
         if content.is::<PagebreakElem>() {
             bail!(content.span(), "pagebreaks are not allowed inside of containers");
         } else {
@@ -314,7 +362,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
     ) -> SourceResult<()> {
         let stored = self.scratch.styles.alloc(styles);
         let styles = stored.chain(map);
-        self.interrupt_style(&map, None)?;
+        self.interrupt_style(map, None)?;
         self.accept(elem, styles)?;
         self.interrupt_style(map, Some(styles))?;
         Ok(())
@@ -468,9 +516,9 @@ impl<'a> FlowBuilder<'a> {
 
             let above = BlockElem::above_in(styles);
             let below = BlockElem::below_in(styles);
-            self.0.push(above.clone().pack(), styles);
+            self.0.push(above.pack(), styles);
             self.0.push(content.clone(), styles);
-            self.0.push(below.clone().pack(), styles);
+            self.0.push(below.pack(), styles);
             return true;
         }
 

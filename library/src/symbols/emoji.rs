@@ -1,6 +1,8 @@
 use typst::eval::{symbols, Module, Scope, Symbol};
 
 /// A module with all emoji.
+#[inline]
+#[must_use]
 pub fn emoji() -> Module {
     let mut scope = Scope::new();
     for (name, symbol) in EMOJI {
@@ -10,7 +12,7 @@ pub fn emoji() -> Module {
 }
 
 /// A list of named emoji.
-const EMOJI: &[(&'static str, Symbol)] = symbols! {
+const EMOJI: &[(&str, Symbol)] = symbols! {
     abacus: '🧮',
     abc: '🔤',
     abcd: '🔡',

@@ -6,17 +6,16 @@ mod highlight;
 mod jump;
 mod tooltip;
 
-pub use self::analyze::analyze_labels;
-pub use self::complete::*;
-pub use self::highlight::*;
-pub use self::jump::*;
-pub use self::tooltip::*;
-
 use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
 
-use self::analyze::*;
+pub use self::analyze::analyze_labels;
+use self::analyze::{analyze_expr, analyze_import};
+pub use self::complete::*;
+pub use self::highlight::*;
+pub use self::jump::*;
+pub use self::tooltip::*;
 use crate::font::{FontInfo, FontStyle};
 
 /// Extract the first sentence of plain text of a piece of documentation.
@@ -50,7 +49,7 @@ fn plain_docs_sentence(docs: &str) -> EcoString {
                     s.eat_until(']');
                     s.eat();
                 }
-                link = false
+                link = false;
             }
             '*' | '_' => {}
             '.' => {

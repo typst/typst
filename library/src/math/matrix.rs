@@ -1,8 +1,22 @@
-use super::*;
+use az::Az as _;
+use typst::eval::Scope;
+
+use super::align::alignments;
+use super::ctx::{scaled, MathContext, Scaled as _};
+use super::delimited::DELIM_SHORT_FALL;
+use super::fragment::{FrameFragment, GlyphFragment};
+use super::{underover, LayoutMath};
+use crate::prelude::*;
 
 const ROW_GAP: Em = Em::new(0.5);
 const COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
+
+pub(super) fn define(math: &mut Scope) {
+    math.define("vec", VecElem::func());
+    math.define("mat", MatElem::func());
+    math.define("cases", CasesElem::func());
+}
 
 /// A column vector.
 ///
@@ -33,7 +47,7 @@ pub struct VecElem {
 }
 
 impl LayoutMath for VecElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Center)?;
         layout_delimiters(
@@ -42,7 +56,8 @@ impl LayoutMath for VecElem {
             delim.map(Delimiter::open),
             delim.map(Delimiter::close),
             self.span(),
-        )
+        );
+        Ok(())
     }
 }
 
@@ -115,7 +130,7 @@ pub struct MatElem {
 }
 
 impl LayoutMath for MatElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_mat_body(ctx, &self.rows())?;
         layout_delimiters(
@@ -124,7 +139,8 @@ impl LayoutMath for MatElem {
             delim.map(Delimiter::open),
             delim.map(Delimiter::close),
             self.span(),
-        )
+        );
+        Ok(())
     }
 }
 
@@ -161,10 +177,11 @@ pub struct CasesElem {
 }
 
 impl LayoutMath for CasesElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Left)?;
-        layout_delimiters(ctx, frame, Some(delim.open()), None, self.span())
+        layout_delimiters(ctx, frame, Some(delim.open()), None, self.span());
+        Ok(())
     }
 }
 
@@ -214,7 +231,7 @@ impl Delimiter {
 
 /// Layout the inner contents of a vector.
 fn layout_vec_body(
-    ctx: &mut MathContext,
+    ctx: &mut MathContext<'_, '_, '_>,
     column: &[Content],
     align: Align,
 ) -> SourceResult<Frame> {
@@ -225,26 +242,29 @@ fn layout_vec_body(
         flat.push(ctx.layout_row(child)?);
     }
     ctx.unstyle();
-    Ok(stack(ctx, flat, align, gap, 0))
+    Ok(underover::stack(ctx, flat, align, gap, 0))
 }
 
 /// Layout the inner contents of a matrix.
-fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult<Frame> {
+fn layout_mat_body(
+    ctx: &mut MathContext<'_, '_, '_>,
+    rows: &[Vec<Content>],
+) -> SourceResult<Frame> {
     let row_gap = ROW_GAP.scaled(ctx);
     let col_gap = COL_GAP.scaled(ctx);
 
-    let ncols = rows.first().map_or(0, |row| row.len());
-    let nrows = rows.len();
-    if ncols == 0 || nrows == 0 {
+    let num_cols = rows.first().map_or(0, Vec::len);
+    let num_rows = rows.len();
+    if num_cols == 0 || num_rows == 0 {
         return Ok(Frame::new(Size::zero()));
     }
 
-    let mut widths = vec![Abs::zero(); ncols];
-    let mut ascents = vec![Abs::zero(); nrows];
-    let mut descents = vec![Abs::zero(); nrows];
+    let mut widths = vec![Abs::zero(); num_cols];
+    let mut ascents = vec![Abs::zero(); num_rows];
+    let mut descents = vec![Abs::zero(); num_rows];
 
     ctx.style(ctx.style.for_denominator());
-    let mut cols = vec![vec![]; ncols];
+    let mut cols = vec![vec![]; num_cols];
     for ((row, ascent), descent) in rows.iter().zip(&mut ascents).zip(&mut descents) {
         for ((cell, rcol), col) in row.iter().zip(&mut widths).zip(&mut cols) {
             let cell = ctx.layout_row(cell)?;
@@ -256,25 +276,27 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
     }
     ctx.unstyle();
 
-    let width = widths.iter().sum::<Abs>() + col_gap * (ncols - 1) as f64;
+    let width = widths.iter().sum::<Abs>() + col_gap * (num_cols - 1).az::<f64>();
     let height = ascents.iter().sum::<Abs>()
         + descents.iter().sum::<Abs>()
-        + row_gap * (nrows - 1) as f64;
+        + row_gap * (num_rows - 1).az::<f64>();
     let size = Size::new(width, height);
 
     let mut frame = Frame::new(size);
     let mut x = Abs::zero();
-    for (col, &rcol) in cols.into_iter().zip(&widths) {
+    for (col, &resolved_width) in cols.into_iter().zip(&widths) {
         let points = alignments(&col);
         let mut y = Abs::zero();
         for ((cell, &ascent), &descent) in col.into_iter().zip(&ascents).zip(&descents) {
-            let cell = cell.to_aligned_frame(ctx, &points, Align::Center);
-            let pos =
-                Point::new(x + (rcol - cell.width()) / 2.0, y + ascent - cell.ascent());
+            let cell = cell.into_aligned_frame(ctx, &points, Align::Center);
+            let pos = Point::new(
+                x + (resolved_width - cell.width()) / 2.0,
+                y + ascent - cell.ascent(),
+            );
             frame.push_frame(pos, cell);
             y += ascent + descent + row_gap;
         }
-        x += rcol + col_gap;
+        x += resolved_width + col_gap;
     }
 
     Ok(frame)
@@ -282,12 +304,12 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
 
 /// Layout the outer wrapper around a vector's or matrices' body.
 fn layout_delimiters(
-    ctx: &mut MathContext,
+    ctx: &mut MathContext<'_, '_, '_>,
     mut frame: Frame,
     left: Option<char>,
     right: Option<char>,
     span: Span,
-) -> SourceResult<()> {
+) {
     let axis = scaled!(ctx, axis_height);
     let short_fall = DELIM_SHORT_FALL.scaled(ctx);
     let height = frame.height();
@@ -308,6 +330,4 @@ fn layout_delimiters(
                 .stretch_vertical(ctx, target, short_fall),
         );
     }
-
-    Ok(())
 }

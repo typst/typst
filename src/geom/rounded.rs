@@ -1,8 +1,10 @@
-use super::*;
-
 use std::mem;
 
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
+use super::*;
+
 /// Produce shapes that together make up a rounded rectangle.
+#[must_use]
 pub fn rounded_rect(
     size: Size,
     radius: Corners<Abs>,
@@ -31,6 +33,7 @@ pub fn rounded_rect(
 
 /// Output the shape of the rectangle as a path or primitive rectangle,
 /// depending on whether it is rounded.
+#[must_use]
 fn fill_geometry(size: Size, radius: Corners<Abs>) -> Geometry {
     if radius.iter().copied().all(Abs::is_zero) {
         Geometry::Rect(size)
@@ -42,6 +45,7 @@ fn fill_geometry(size: Size, radius: Corners<Abs>) -> Geometry {
 }
 
 /// Output the minimum number of paths along the rectangles border.
+#[must_use]
 fn stroke_segments(
     size: Size,
     radius: Corners<Abs>,
@@ -89,14 +93,14 @@ fn stroke_segments(
 fn draw_side(
     path: &mut Path,
     side: Side,
-    size: Size,
+    rect_size: Size,
     start_radius: Abs,
     end_radius: Abs,
     connection: Connection,
 ) {
     let angle_left = Angle::deg(if connection.prev { 90.0 } else { 45.0 });
     let angle_right = Angle::deg(if connection.next { 90.0 } else { 45.0 });
-    let length = size.get(side.axis());
+    let length = rect_size.get(side.axis());
 
     // The arcs for a border of the rectangle along the x-axis, starting at (0,0).
     let p1 = Point::with_x(start_radius);
@@ -121,12 +125,12 @@ fn draw_side(
 
     let transform = match side {
         Side::Left => Transform::rotate(Angle::deg(-90.0))
-            .post_concat(Transform::translate(Abs::zero(), size.y)),
+            .post_concat(Transform::translate(Abs::zero(), rect_size.y)),
         Side::Bottom => Transform::rotate(Angle::deg(180.0))
-            .post_concat(Transform::translate(size.x, size.y)),
+            .post_concat(Transform::translate(rect_size.x, rect_size.y)),
         Side::Right => Transform::rotate(Angle::deg(90.0))
-            .post_concat(Transform::translate(size.x, Abs::zero())),
-        _ => Transform::identity(),
+            .post_concat(Transform::translate(rect_size.x, Abs::zero())),
+        Side::Top => Transform::identity(),
     };
 
     arc1 = arc1.map(|x| x.transform(transform));
@@ -150,6 +154,7 @@ fn draw_side(
 /// Get the control points for a bezier curve that describes a circular arc for
 /// a start point, an end point and a center of the circle whose arc connects
 /// the two.
+#[must_use]
 fn bezier_arc(start: Point, center: Point, end: Point) -> [Point; 4] {
     // https://stackoverflow.com/a/44829356/1567835
     let a = start - center;
@@ -178,6 +183,8 @@ impl Connection {
     /// Advance to the next clockwise side of the polygon. The argument
     /// indicates whether the border is connected on the right side of the next
     /// edge.
+    #[must_use]
+    #[inline]
     pub fn advance(self, next: bool) -> Self {
         Self { prev: self.next, next }
     }

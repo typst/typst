@@ -29,7 +29,11 @@ pub struct DocumentElem {
 
 impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
-    fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
+    fn layout_root(
+        &self,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+    ) -> SourceResult<Document> {
         let mut pages = vec![];
 
         for mut child in &self.children() {

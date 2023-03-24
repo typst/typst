@@ -8,7 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 
 /// Metadata about a collection of fonts.
-#[derive(Default, Clone, Hash)]
+#[derive(Default, Debug, Clone, Hash)]
 pub struct FontBook {
     /// Maps from lowercased family names to font indices.
     families: BTreeMap<String, Vec<usize>>,
@@ -18,11 +18,13 @@ pub struct FontBook {
 
 impl FontBook {
     /// Create a new, empty font book.
+    #[must_use]
     pub fn new() -> Self {
         Self { families: BTreeMap::new(), infos: vec![] }
     }
 
     /// Create a font book for a collection of fonts.
+    #[must_use]
     pub fn from_fonts<'a>(fonts: impl IntoIterator<Item = &'a Font>) -> Self {
         let mut book = Self::new();
         for font in fonts {
@@ -57,6 +59,7 @@ impl FontBook {
     /// the given `variant` as closely as possible.
     ///
     /// The `family` should be all lowercase.
+    #[must_use]
     pub fn select(&self, family: &str, variant: FontVariant) -> Option<usize> {
         let ids = self.families.get(family)?;
         self.find_best_variant(None, variant, ids.iter().copied())
@@ -66,6 +69,7 @@ impl FontBook {
     /// - is as close as possible to the font `like` (if any)
     /// - is as close as possible to the given `variant`
     /// - is suitable for shaping the given `text`
+    #[must_use]
     pub fn select_fallback(
         &self,
         like: Option<&FontInfo>,
@@ -106,6 +110,7 @@ impl FontBook {
     ///   normal.
     /// - The absolute distance to the target stretch.
     /// - The absolute distance to the target weight.
+    #[must_use]
     fn find_best_variant(
         &self,
         like: Option<&FontInfo>,
@@ -159,13 +164,22 @@ pub struct FontInfo {
 
 bitflags::bitflags! {
     /// Bitflags describing characteristics of a font.
-    #[derive(Serialize, Deserialize)]
+    #[derive(Serialize)]
     #[serde(transparent)]
     pub struct FontFlags: u32 {
         /// All glyphs have the same width.
         const MONOSPACE = 1 << 0;
         /// Glyphs have short strokes at their stems.
         const SERIF = 1 << 1;
+    }
+}
+
+impl<'de> Deserialize<'de> for FontFlags {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        <_>::deserialize(deserializer).map(FontFlags::from_bits_truncate)
     }
 }
 
@@ -180,7 +194,8 @@ impl FontInfo {
     }
 
     /// Compute metadata for a single ttf-parser face.
-    pub(super) fn from_ttf(ttf: &ttf_parser::Face) -> Option<Self> {
+    #[must_use]
+    pub(super) fn from_ttf(ttf: &ttf_parser::Face<'_>) -> Option<Self> {
         // We cannot use Name ID 16 "Typographic Family", because for some
         // fonts it groups together more than just Style / Weight / Stretch
         // variants (e.g. Display variants of Noto fonts) and then some
@@ -271,7 +286,8 @@ impl FontInfo {
 }
 
 /// Try to find and decode the name with the given id.
-pub(super) fn find_name(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> {
+#[must_use]
+pub(super) fn find_name(ttf: &ttf_parser::Face<'_>, name_id: u16) -> Option<String> {
     ttf.names().into_iter().find_map(|entry| {
         if entry.name_id == name_id {
             if let Some(string) = entry.to_string() {
@@ -288,6 +304,7 @@ pub(super) fn find_name(ttf: &ttf_parser::Face, name_id: u16) -> Option<String> 
 }
 
 /// Decode mac roman encoded bytes into a string.
+#[must_use]
 fn decode_mac_roman(coded: &[u8]) -> String {
     #[rustfmt::skip]
     const TABLE: [char; 128] = [
@@ -313,6 +330,7 @@ fn decode_mac_roman(coded: &[u8]) -> String {
 }
 
 /// Trim style naming from a family name and fix bad names.
+#[must_use]
 fn typographic_family(mut family: &str) -> &str {
     // Separators between names, modifiers and styles.
     const SEPARATORS: [char; 3] = [' ', '-', '_'];
@@ -395,6 +413,7 @@ fn typographic_family(mut family: &str) -> &str {
 }
 
 /// How many words the two strings share in their prefix.
+#[must_use]
 fn shared_prefix_words(left: &str, right: &str) -> usize {
     left.unicode_words()
         .zip(right.unicode_words())
@@ -424,8 +443,9 @@ pub struct Coverage(Vec<u32>);
 
 impl Coverage {
     /// Encode a vector of codepoints.
+    #[must_use]
     pub fn from_vec(mut codepoints: Vec<u32>) -> Self {
-        codepoints.sort();
+        codepoints.sort_unstable();
         codepoints.dedup();
 
         let mut runs = Vec::new();
@@ -446,6 +466,7 @@ impl Coverage {
     }
 
     /// Whether the codepoint is covered.
+    #[must_use]
     pub fn contains(&self, c: u32) -> bool {
         let mut inside = false;
         let mut cursor = 0;
@@ -518,7 +539,7 @@ mod tests {
             // {2, 3, 4, 9, 10, 11, 15, 18, 19}
             &[18, 19, 2, 4, 9, 11, 15, 3, 3, 10],
             &[2, 3, 4, 3, 3, 1, 2, 2],
-        )
+        );
     }
 
     #[test]

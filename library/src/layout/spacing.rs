@@ -109,38 +109,49 @@ pub struct VElem {
 
     /// The elements's weakness level, see also [`Behaviour`].
     #[internal]
-    #[parse(args.named("weak")?.map(|v: bool| v as usize))]
+    #[parse(args.named("weak")?.map(bool::into))]
     pub weakness: usize,
 }
 
 impl VElem {
     /// Normal strong spacing.
+    #[inline]
+    #[must_use]
     pub fn strong(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(0)
     }
 
     /// User-created weak spacing.
+    #[inline]
+    #[must_use]
     pub fn weak(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(1)
     }
 
     /// Weak spacing with list attach weakness.
+    #[inline]
+    #[must_use]
     pub fn list_attach(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(2)
     }
 
-    /// Weak spacing with BlockElem::ABOVE/BELOW weakness.
+    /// Weak spacing with `BlockElem::{ABOVE,BELOW}` weakness.
+    #[inline]
+    #[must_use]
     pub fn block_around(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(3)
     }
 
-    /// Weak spacing with BlockElem::SPACING weakness.
+    /// Weak spacing with `BlockElem::SPACING` weakness.
+    #[inline]
+    #[must_use]
     pub fn block_spacing(amount: Spacing) -> Self {
         Self::new(amount).with_weakness(4)
     }
 }
 
 impl Behave for VElem {
+    #[inline]
     fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
@@ -151,6 +162,7 @@ impl Behave for VElem {
         }
     }
 
+    #[inline]
     fn larger(&self, prev: &Content) -> bool {
         let Some(prev) = prev.to::<Self>() else { return false };
         self.amount() > prev.amount()
@@ -174,36 +186,43 @@ pub enum Spacing {
 
 impl Spacing {
     /// Whether this is fractional spacing.
+    #[inline]
+    #[must_use]
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
     }
 }
 
 impl From<Abs> for Spacing {
+    #[inline]
     fn from(abs: Abs) -> Self {
         Self::Rel(abs.into())
     }
 }
 
 impl From<Em> for Spacing {
+    #[inline]
     fn from(em: Em) -> Self {
         Self::Rel(Rel::new(Ratio::zero(), em.into()))
     }
 }
 
 impl From<Length> for Spacing {
+    #[inline]
     fn from(length: Length) -> Self {
         Self::Rel(length.into())
     }
 }
 
 impl From<Fr> for Spacing {
+    #[inline]
     fn from(fr: Fr) -> Self {
         Self::Fr(fr)
     }
 }
 
 impl PartialOrd for Spacing {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
             (Self::Rel(a), Self::Rel(b)) => a.partial_cmp(b),

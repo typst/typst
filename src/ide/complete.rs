@@ -59,7 +59,7 @@ pub struct Completion {
 }
 
 /// A kind of item that can be completed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum CompletionKind {
     /// A syntactical structure.
     Syntax,
@@ -74,16 +74,16 @@ pub enum CompletionKind {
 }
 
 /// Complete in comments. Or rather, don't!
-fn complete_comments(ctx: &mut CompletionContext) -> bool {
+fn complete_comments(ctx: &mut CompletionContext<'_>) -> bool {
     matches!(ctx.leaf.kind(), SyntaxKind::LineComment | SyntaxKind::BlockComment)
 }
 
 /// Complete in markup mode.
-fn complete_markup(ctx: &mut CompletionContext) -> bool {
+fn complete_markup(ctx: &mut CompletionContext<'_>) -> bool {
     // Bail if we aren't even in markup.
     if !matches!(
         ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
+        None | Some(SyntaxKind::Markup | SyntaxKind::Ref)
     ) {
         return false;
     }
@@ -122,7 +122,7 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     }
 
     // Directly after a raw block.
-    let mut s = Scanner::new(&ctx.text);
+    let mut s = Scanner::new(ctx.text);
     s.jump(ctx.leaf.offset());
     if s.eat_if("```") {
         s.eat_while('`');
@@ -149,7 +149,7 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for markup snippets.
 #[rustfmt::skip]
-fn markup_completions(ctx: &mut CompletionContext) {
+fn markup_completions(ctx: &mut CompletionContext<'_>) {
     ctx.snippet_completion(
         "expression",
         "#${}",
@@ -248,13 +248,15 @@ fn markup_completions(ctx: &mut CompletionContext) {
 }
 
 /// Complete in math mode.
-fn complete_math(ctx: &mut CompletionContext) -> bool {
+fn complete_math(ctx: &mut CompletionContext<'_>) -> bool {
     if !matches!(
         ctx.leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
+        Some(
+            SyntaxKind::Equation
+                | SyntaxKind::Math
+                | SyntaxKind::MathFrac
+                | SyntaxKind::MathAttach
+        )
     ) {
         return false;
     }
@@ -285,7 +287,7 @@ fn complete_math(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for math snippets.
 #[rustfmt::skip]
-fn math_completions(ctx: &mut CompletionContext) {
+fn math_completions(ctx: &mut CompletionContext<'_>) {
     ctx.scope_completions(true, |_| true);
 
     ctx.snippet_completion(
@@ -308,7 +310,7 @@ fn math_completions(ctx: &mut CompletionContext) {
 }
 
 /// Complete field accesses.
-fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
+fn complete_field_accesses(ctx: &mut CompletionContext<'_>) -> bool {
     // Behind an expression plus dot: "emoji.|".
     if_chain! {
         if ctx.leaf.kind() == SyntaxKind::Dot
@@ -344,7 +346,7 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for all fields on a value.
-fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
+fn field_access_completions(ctx: &mut CompletionContext<'_>, value: &Value) {
     for &(method, args) in methods_on(value.type_name()) {
         ctx.completions.push(Completion {
             kind: CompletionKind::Func,
@@ -355,7 +357,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 eco_format!("{method}()${{}}")
             }),
             detail: None,
-        })
+        });
     }
 
     match value {
@@ -391,7 +393,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
 }
 
 /// Complete imports.
-fn complete_imports(ctx: &mut CompletionContext) -> bool {
+fn complete_imports(ctx: &mut CompletionContext<'_>) -> bool {
     // Behind an import list:
     // "#import "path.typ": |",
     // "#import "path.typ": a, b, |".
@@ -431,7 +433,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for all exports of a module.
 fn import_completions(
-    ctx: &mut CompletionContext,
+    ctx: &mut CompletionContext<'_>,
     existing: &[ast::Ident],
     value: &Value,
 ) {
@@ -456,7 +458,7 @@ fn import_completions(
 }
 
 /// Complete set and show rules.
-fn complete_rules(ctx: &mut CompletionContext) -> bool {
+fn complete_rules(ctx: &mut CompletionContext<'_>) -> bool {
     // We don't want to complete directly behind the keyword.
     if !ctx.leaf.kind().is_trivia() {
         return false;
@@ -494,7 +496,7 @@ fn complete_rules(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for all functions from the global scope.
-fn set_rule_completions(ctx: &mut CompletionContext) {
+fn set_rule_completions(ctx: &mut CompletionContext<'_>) {
     ctx.scope_completions(true, |value| {
         matches!(
             value,
@@ -506,7 +508,7 @@ fn set_rule_completions(ctx: &mut CompletionContext) {
 }
 
 /// Add completions for selectors.
-fn show_rule_selector_completions(ctx: &mut CompletionContext) {
+fn show_rule_selector_completions(ctx: &mut CompletionContext<'_>) {
     ctx.scope_completions(
         false,
         |value| matches!(value, Value::Func(func) if func.element().is_some()),
@@ -528,7 +530,7 @@ fn show_rule_selector_completions(ctx: &mut CompletionContext) {
 }
 
 /// Add completions for recipes.
-fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
+fn show_rule_recipe_completions(ctx: &mut CompletionContext<'_>) {
     ctx.snippet_completion(
         "replacement",
         "[${content}]",
@@ -551,7 +553,7 @@ fn show_rule_recipe_completions(ctx: &mut CompletionContext) {
 }
 
 /// Complete call and set rule parameters.
-fn complete_params(ctx: &mut CompletionContext) -> bool {
+fn complete_params(ctx: &mut CompletionContext<'_>) -> bool {
     // Ensure that we are in a function call or set rule's argument list.
     let (callee, set, args) = if_chain! {
         if let Some(parent) = ctx.leaf.parent();
@@ -625,7 +627,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for the parameters of a function.
 fn param_completions(
-    ctx: &mut CompletionContext,
+    ctx: &mut CompletionContext<'_>,
     callee: &ast::Ident,
     set: bool,
     exclude: &[ast::Ident],
@@ -651,7 +653,7 @@ fn param_completions(
                 kind: CompletionKind::Param,
                 label: param.name.into(),
                 apply: Some(eco_format!("{}: ${{}}", param.name)),
-                detail: Some(plain_docs_sentence(param.docs).into()),
+                detail: Some(plain_docs_sentence(param.docs)),
             });
         }
 
@@ -667,7 +669,7 @@ fn param_completions(
 
 /// Add completions for the values of a named function parameter.
 fn named_param_value_completions(
-    ctx: &mut CompletionContext,
+    ctx: &mut CompletionContext<'_>,
     callee: &ast::Ident,
     name: &str,
 ) {
@@ -692,13 +694,15 @@ fn named_param_value_completions(
 }
 
 /// Complete in code mode.
-fn complete_code(ctx: &mut CompletionContext) -> bool {
+fn complete_code(ctx: &mut CompletionContext<'_>) -> bool {
     if matches!(
         ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
+        None | Some(
+            SyntaxKind::Markup
+                | SyntaxKind::Math
+                | SyntaxKind::MathFrac
+                | SyntaxKind::MathAttach
+        )
     ) {
         return false;
     }
@@ -726,7 +730,8 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for expression snippets.
 #[rustfmt::skip]
-fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
+#[allow(clippy::too_many_lines /* data */)]
+fn code_completions(ctx: &mut CompletionContext<'_>, hashtag: bool) {
     ctx.scope_completions(true, |value| !hashtag || {
         matches!(value, Value::Symbol(_) | Value::Func(_) | Value::Module(_))
     });
@@ -880,7 +885,6 @@ struct CompletionContext<'a> {
 }
 
 impl<'a> CompletionContext<'a> {
-    /// Create a new autocompletion context.
     fn new(
         world: &'a (dyn World + 'static),
         frames: &'a [Frame],
@@ -896,8 +900,8 @@ impl<'a> CompletionContext<'a> {
             frames,
             library,
             source,
-            global: &library.global.scope(),
-            math: &library.math.scope(),
+            global: library.global.scope(),
+            math: library.math.scope(),
             text,
             before: &text[..cursor],
             after: &text[cursor..],
@@ -1002,9 +1006,7 @@ impl<'a> CompletionContext<'a> {
 
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
-            Value::Func(func) => {
-                func.info().map(|info| plain_docs_sentence(info.docs).into())
-            }
+            Value::Func(func) => func.info().map(|info| plain_docs_sentence(info.docs)),
             v => Some(v.repr().into()),
         });
 
@@ -1121,10 +1123,12 @@ impl<'a> CompletionContext<'a> {
 
         let in_math = matches!(
             self.leaf.parent_kind(),
-            Some(SyntaxKind::Equation)
-                | Some(SyntaxKind::Math)
-                | Some(SyntaxKind::MathFrac)
-                | Some(SyntaxKind::MathAttach)
+            Some(
+                SyntaxKind::Equation
+                    | SyntaxKind::Math
+                    | SyntaxKind::MathFrac
+                    | SyntaxKind::MathAttach
+            )
         );
 
         let scope = if in_math { self.math } else { self.global };

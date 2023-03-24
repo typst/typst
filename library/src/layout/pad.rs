@@ -21,7 +21,7 @@ use crate::prelude::*;
 pub struct PadElem {
     /// The padding at the left side.
     #[parse(
-        let all = args.named("rest")?.or(args.find()?);
+        let all = args.named_or_find("rest")?;
         let x = args.named("x")?.or(all);
         let y = args.named("y")?.or(all);
         args.named("left")?.or(x)
@@ -62,9 +62,9 @@ pub struct PadElem {
 impl Layout for PadElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let sides = Sides::new(
             self.left(styles),

@@ -57,6 +57,8 @@ pub struct Quoter {
 
 impl Quoter {
     /// Start quoting.
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             quote_depth: 0,
@@ -66,9 +68,10 @@ impl Quoter {
     }
 
     /// Process the last seen character.
-    pub fn last(&mut self, c: char) {
-        self.expect_opening = is_ignorable(c) || is_opening_bracket(c);
-        self.last_num = c.is_numeric();
+    #[inline]
+    pub fn last(&mut self, ch: char) {
+        self.expect_opening = is_ignorable(ch) || is_opening_bracket(ch);
+        self.last_num = ch.is_numeric();
     }
 
     /// Process and substitute a quote.
@@ -96,6 +99,7 @@ impl Quoter {
 }
 
 impl Default for Quoter {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }
@@ -110,6 +114,7 @@ fn is_opening_bracket(c: char) -> bool {
 }
 
 /// Decides which quotes to substitute smart quotes with.
+#[derive(Debug, Clone, Copy)]
 pub struct Quotes<'s> {
     /// The opening single quote.
     pub single_open: &'s str,
@@ -135,6 +140,8 @@ impl<'s> Quotes<'s> {
     /// Norwegian.
     ///
     /// For unknown languages, the English quotes are used.
+    #[inline]
+    #[must_use]
     pub fn from_lang(lang: Lang, region: Option<Region>) -> Self {
         let region = region.as_ref().map(Region::as_str);
         let (single_open, single_close, double_open, double_close) = match lang.as_str() {
@@ -158,6 +165,8 @@ impl<'s> Quotes<'s> {
     }
 
     /// The opening quote.
+    #[inline]
+    #[must_use]
     fn open(&self, double: bool) -> &'s str {
         if double {
             self.double_open
@@ -167,6 +176,8 @@ impl<'s> Quotes<'s> {
     }
 
     /// The closing quote.
+    #[inline]
+    #[must_use]
     fn close(&self, double: bool) -> &'s str {
         if double {
             self.double_close
@@ -176,6 +187,9 @@ impl<'s> Quotes<'s> {
     }
 
     /// Which character should be used as a prime.
+    #[inline]
+    #[must_use]
+    #[allow(clippy::unused_self /* could change in the future */)]
     fn prime(&self, double: bool) -> &'static str {
         if double {
             "″"
@@ -185,6 +199,9 @@ impl<'s> Quotes<'s> {
     }
 
     /// Which character should be used as a fallback quote.
+    #[inline]
+    #[must_use]
+    #[allow(clippy::unused_self /* could change in the future */)]
     fn fallback(&self, double: bool) -> &'static str {
         if double {
             "\""
@@ -196,6 +213,7 @@ impl<'s> Quotes<'s> {
 
 impl Default for Quotes<'_> {
     /// Returns the english quotes as default.
+    #[inline]
     fn default() -> Self {
         Self {
             single_open: "‘",

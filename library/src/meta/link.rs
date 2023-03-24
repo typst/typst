@@ -71,6 +71,8 @@ pub struct LinkElem {
 
 impl LinkElem {
     /// Create a link element from a URL with its bare text.
+    #[inline]
+    #[must_use]
     pub fn from_url(url: EcoString) -> Self {
         let body = body_from_url(&url);
         Self::new(Destination::Url(url), body)
@@ -78,19 +80,22 @@ impl LinkElem {
 }
 
 impl Show for LinkElem {
-    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    #[inline]
+    fn show(&self, _: &mut Vt<'_>, _: StyleChain<'_>) -> SourceResult<Content> {
         Ok(self.body())
     }
 }
 
 impl Finalize for LinkElem {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+    #[inline]
+    fn finalize(&self, realized: Content, _: StyleChain<'_>) -> Content {
         realized
             .linked(self.dest())
             .styled(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))))
     }
 }
 
+#[must_use]
 fn body_from_url(url: &EcoString) -> Content {
     let mut text = url.as_str();
     for prefix in ["mailto:", "tel:"] {

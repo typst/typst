@@ -1,9 +1,10 @@
 /// Implement the `Sub` trait based on existing `Neg` and `Add` impls.
 macro_rules! sub_impl {
     ($a:ident - $b:ident -> $c:ident) => {
-        impl std::ops::Sub<$b> for $a {
+        impl Sub<$b> for $a {
             type Output = $c;
 
+            #[inline]
             fn sub(self, other: $b) -> $c {
                 self + -other
             }
@@ -14,7 +15,8 @@ macro_rules! sub_impl {
 /// Implement an assign trait based on an existing non-assign trait.
 macro_rules! assign_impl {
     ($a:ident += $b:ident) => {
-        impl std::ops::AddAssign<$b> for $a {
+        impl AddAssign<$b> for $a {
+            #[inline]
             fn add_assign(&mut self, other: $b) {
                 *self = *self + other;
             }
@@ -22,7 +24,8 @@ macro_rules! assign_impl {
     };
 
     ($a:ident -= $b:ident) => {
-        impl std::ops::SubAssign<$b> for $a {
+        impl SubAssign<$b> for $a {
+            #[inline]
             fn sub_assign(&mut self, other: $b) {
                 *self = *self - other;
             }
@@ -30,7 +33,8 @@ macro_rules! assign_impl {
     };
 
     ($a:ident *= $b:ident) => {
-        impl std::ops::MulAssign<$b> for $a {
+        impl MulAssign<$b> for $a {
+            #[inline]
             fn mul_assign(&mut self, other: $b) {
                 *self = *self * other;
             }
@@ -38,7 +42,8 @@ macro_rules! assign_impl {
     };
 
     ($a:ident /= $b:ident) => {
-        impl std::ops::DivAssign<$b> for $a {
+        impl DivAssign<$b> for $a {
+            #[inline]
             fn div_assign(&mut self, other: $b) {
                 *self = *self / other;
             }

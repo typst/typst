@@ -256,9 +256,13 @@ pub struct State {
 
 impl State {
     /// Call a method on a state.
+    ///
+    /// # Errors
+    ///
+    /// As with any dynamic method call.
     pub fn call_method(
         self,
-        vm: &mut Vm,
+        vm: &mut Vm<'_>,
         method: &str,
         mut args: Args,
         span: Span,
@@ -275,24 +279,38 @@ impl State {
     }
 
     /// Display the current value of the state.
+    #[inline]
+    #[must_use]
     pub fn display(self, func: Option<Func>) -> Content {
         DisplayElem::new(self, func).pack()
     }
 
     /// Get the value of the state at the given location.
-    pub fn at(self, vt: &mut Vt, location: Location) -> SourceResult<Value> {
+    ///
+    /// # Errors
+    ///
+    /// If the function-based state fails to evaluate.
+    #[inline]
+    pub fn at(self, vt: &mut Vt<'_>, location: Location) -> SourceResult<Value> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), location).len();
+        let offset = vt.introspector.query_before(&self.selector(), location).len();
         Ok(sequence[offset].clone())
     }
 
     /// Get the value of the state at the final location.
-    pub fn final_(self, vt: &mut Vt, _: Location) -> SourceResult<Value> {
+    ///
+    /// # Errors
+    ///
+    /// If the function-based state fails to evaluate.
+    #[inline]
+    pub fn final_(self, vt: &mut Vt<'_>, _: Location) -> SourceResult<Value> {
         let sequence = self.sequence(vt)?;
-        Ok(sequence.last().unwrap().clone())
+        Ok(sequence.last().unwrap_or_else(|| unreachable!()).clone())
     }
 
     /// Produce content that performs a state update.
+    #[inline]
+    #[must_use]
     pub fn update(self, update: StateUpdate) -> Content {
         UpdateElem::new(self, update).pack()
     }
@@ -301,7 +319,12 @@ impl State {
     ///
     /// This has to happen just once for all states, cutting down the number
     /// of state updates from quadratic to linear.
-    fn sequence(&self, vt: &mut Vt) -> SourceResult<EcoVec<Value>> {
+    ///
+    /// # Errors
+    ///
+    /// If the function-based state fails to evaluate.
+    #[inline]
+    fn sequence(&self, vt: &mut Vt<'_>) -> SourceResult<EcoVec<Value>> {
         self.sequence_impl(
             vt.world,
             TrackedMut::reborrow_mut(&mut vt.tracer),
@@ -314,16 +337,16 @@ impl State {
     #[comemo::memoize]
     fn sequence_impl(
         &self,
-        world: Tracked<dyn World>,
-        tracer: TrackedMut<Tracer>,
-        provider: TrackedMut<StabilityProvider>,
-        introspector: Tracked<Introspector>,
+        world: Tracked<'_, dyn World>,
+        tracer: TrackedMut<'_, Tracer>,
+        provider: TrackedMut<'_, StabilityProvider>,
+        introspector: Tracked<'_, Introspector>,
     ) -> SourceResult<EcoVec<Value>> {
         let mut vt = Vt { world, tracer, provider, introspector };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];
 
-        for elem in introspector.query(self.selector()) {
+        for elem in introspector.query(&self.selector()) {
             let elem = elem.to::<UpdateElem>().unwrap();
             match elem.update() {
                 StateUpdate::Set(value) => state = value,
@@ -336,13 +359,15 @@ impl State {
     }
 
     /// The selector for this state's updates.
+    #[inline]
+    #[must_use]
     fn selector(&self) -> Selector {
         Selector::Elem(UpdateElem::func(), Some(dict! { "state" => self.clone() }))
     }
 }
 
 impl Debug for State {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("state(")?;
         self.key.fmt(f)?;
         f.write_str(", ")?;
@@ -365,7 +390,7 @@ pub enum StateUpdate {
 }
 
 impl Debug for StateUpdate {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad("..")
     }
 }
@@ -392,7 +417,8 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    #[inline]
+    fn show(&self, vt: &mut Vt<'_>, _: StyleChain<'_>) -> SourceResult<Content> {
         let location = self.0.location().unwrap();
         let value = self.state().at(vt, location)?;
         Ok(match self.func() {
@@ -418,7 +444,8 @@ struct UpdateElem {
 }
 
 impl Show for UpdateElem {
-    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    #[inline]
+    fn show(&self, _: &mut Vt<'_>, _: StyleChain<'_>) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }

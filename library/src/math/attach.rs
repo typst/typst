@@ -1,4 +1,17 @@
-use super::*;
+use typst::eval::Scope;
+use unicode_math_class::MathClass;
+
+use super::ctx::{scaled, MathContext};
+use super::fragment::{FrameFragment, MathFragment};
+use super::style::MathSize;
+use super::LayoutMath;
+use crate::prelude::*;
+
+pub(super) fn define(math: &mut Scope) {
+    math.define("attach", AttachElem::func());
+    math.define("scripts", ScriptsElem::func());
+    math.define("limits", LimitsElem::func());
+}
 
 /// A base with optional attachments.
 ///
@@ -27,7 +40,7 @@ pub struct AttachElem {
 }
 
 impl LayoutMath for AttachElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         let base = self.base();
         let display_limits = base.is::<LimitsElem>();
         let display_scripts = base.is::<ScriptsElem>();
@@ -59,10 +72,12 @@ impl LayoutMath for AttachElem {
                 });
 
         if display_limits {
-            limits(ctx, base, top, bottom)
+            limits(ctx, base, top, bottom);
         } else {
-            scripts(ctx, base, top, bottom)
+            scripts(ctx, base, top, bottom);
         }
+
+        Ok(())
     }
 }
 
@@ -83,7 +98,7 @@ pub struct ScriptsElem {
 }
 
 impl LayoutMath for ScriptsElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
 }
@@ -105,18 +120,18 @@ pub struct LimitsElem {
 }
 
 impl LayoutMath for LimitsElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
 }
 
 /// Layout sub- and superscripts.
 fn scripts(
-    ctx: &mut MathContext,
+    ctx: &mut MathContext<'_, '_, '_>,
     base: MathFragment,
-    sup: Option<MathFragment>,
-    sub: Option<MathFragment>,
-) -> SourceResult<()> {
+    superscript: Option<MathFragment>,
+    subscript: Option<MathFragment>,
+) {
     let sup_shift_up = if ctx.style.cramped {
         scaled!(ctx, superscript_shift_up_cramped)
     } else {
@@ -134,7 +149,7 @@ fn scripts(
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
 
-    if let Some(sup) = &sup {
+    if let Some(sup) = &superscript {
         let ascent = match &base {
             MathFragment::Frame(frame) => frame.base_ascent,
             _ => base.ascent(),
@@ -145,15 +160,15 @@ fn scripts(
             .max(sup_bottom_min + sup.descent());
     }
 
-    if let Some(sub) = &sub {
+    if let Some(subscript) = &subscript {
         shift_down = sub_shift_down
             .max(base.descent() + sub_drop_min)
-            .max(sub.ascent() - sub_top_max);
+            .max(subscript.ascent() - sub_top_max);
     }
 
-    if let (Some(sup), Some(sub)) = (&sup, &sub) {
-        let sup_bottom = shift_up - sup.descent();
-        let sub_top = sub.ascent() - shift_down;
+    if let (Some(superscript), Some(subscript)) = (&superscript, &subscript) {
+        let sup_bottom = shift_up - superscript.descent();
+        let sub_top = subscript.ascent() - shift_down;
         let gap = sup_bottom - sub_top;
         if gap < gap_min {
             let increase = gap_min - gap;
@@ -166,21 +181,21 @@ fn scripts(
     }
 
     let italics = base.italics_correction();
-    let sup_delta = Abs::zero();
-    let sub_delta = -italics;
+    let superscript_delta = Abs::zero();
+    let subscript_delta = -italics;
 
     let mut width = Abs::zero();
     let mut ascent = base.ascent();
     let mut descent = base.descent();
 
-    if let Some(sup) = &sup {
-        ascent.set_max(shift_up + sup.ascent());
-        width.set_max(sup_delta + sup.width());
+    if let Some(superscript) = &superscript {
+        ascent.set_max(shift_up + superscript.ascent());
+        width.set_max(superscript_delta + superscript.width());
     }
 
-    if let Some(sub) = &sub {
-        descent.set_max(shift_down + sub.descent());
-        width.set_max(sub_delta + sub.width());
+    if let Some(subscript) = &subscript {
+        descent.set_max(shift_down + subscript.descent());
+        width.set_max(subscript_delta + subscript.width());
     }
 
     width += base.width() + space_after;
@@ -191,32 +206,34 @@ fn scripts(
 
     let mut frame = Frame::new(Size::new(width, ascent + descent));
     frame.set_baseline(ascent);
-    frame.push_frame(base_pos, base.to_frame());
+    frame.push_frame(base_pos, base.into_frame());
 
-    if let Some(sup) = sup {
-        let sup_pos =
-            Point::new(sup_delta + base_width, ascent - shift_up - sup.ascent());
-        frame.push_frame(sup_pos, sup.to_frame());
+    if let Some(superscript) = superscript {
+        let sup_pos = Point::new(
+            superscript_delta + base_width,
+            ascent - shift_up - superscript.ascent(),
+        );
+        frame.push_frame(sup_pos, superscript.into_frame());
     }
 
-    if let Some(sub) = sub {
-        let sub_pos =
-            Point::new(sub_delta + base_width, ascent + shift_down - sub.ascent());
-        frame.push_frame(sub_pos, sub.to_frame());
+    if let Some(subscript) = subscript {
+        let sub_pos = Point::new(
+            subscript_delta + base_width,
+            ascent + shift_down - subscript.ascent(),
+        );
+        frame.push_frame(sub_pos, subscript.into_frame());
     }
 
     ctx.push(FrameFragment::new(ctx, frame).with_class(class));
-
-    Ok(())
 }
 
 /// Layout limits.
 fn limits(
-    ctx: &mut MathContext,
+    ctx: &mut MathContext<'_, '_, '_>,
     base: MathFragment,
     top: Option<MathFragment>,
     bottom: Option<MathFragment>,
-) -> SourceResult<()> {
+) {
     let upper_gap_min = scaled!(ctx, upper_limit_gap_min);
     let upper_rise_min = scaled!(ctx, upper_limit_baseline_rise_min);
     let lower_gap_min = scaled!(ctx, lower_limit_gap_min);
@@ -245,22 +262,20 @@ fn limits(
 
     let mut frame = Frame::new(Size::new(width, height));
     frame.set_baseline(base_pos.y + base.ascent());
-    frame.push_frame(base_pos, base.to_frame());
+    frame.push_frame(base_pos, base.into_frame());
 
     if let Some(top) = top {
         let top_pos = Point::with_x((width - top.width()) / 2.0 + delta);
-        frame.push_frame(top_pos, top.to_frame());
+        frame.push_frame(top_pos, top.into_frame());
     }
 
     if let Some(bottom) = bottom {
         let bottom_pos =
             Point::new((width - bottom.width()) / 2.0 - delta, height - bottom.height());
-        frame.push_frame(bottom_pos, bottom.to_frame());
+        frame.push_frame(bottom_pos, bottom.into_frame());
     }
 
     ctx.push(FrameFragment::new(ctx, frame).with_class(class));
-
-    Ok(())
 }
 
 /// Codepoints that should have sub- and superscripts attached as limits.

@@ -1,3 +1,20 @@
+#![deny(
+    absolute_paths_not_starting_with_crate,
+    future_incompatible,
+    keyword_idents,
+    macro_use_extern_crate,
+    meta_variable_misuse,
+    missing_abi,
+    non_ascii_idents,
+    nonstandard_style,
+    noop_method_call,
+    pointer_structural_match,
+    private_in_public,
+    rust_2018_idioms,
+    unused_qualifications
+)]
+#![warn(clippy::pedantic)]
+
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::env;
@@ -58,10 +75,10 @@ fn main() {
     }
 
     let len = filtered.len();
-    if len == 1 {
-        println!("Running test ...");
-    } else if len > 1 {
-        println!("Running {len} tests");
+    match len {
+        0 => {}
+        1 => println!("Running test ..."),
+        _ => println!("Running {len} tests"),
     }
 
     // Create loader and context.
@@ -76,8 +93,9 @@ fn main() {
         let pdf_path =
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-        ok += test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref())
-            as usize;
+        if test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref()) {
+            ok += 1;
+        }
     }
 
     if len > 1 {
@@ -303,14 +321,14 @@ impl TestWorld {
         id
     }
 
-    fn slot(&self, path: &Path) -> RefMut<PathSlot> {
+    fn slot(&self, path: &Path) -> RefMut<'_, PathSlot> {
         RefMut::map(self.paths.borrow_mut(), |paths| {
             paths.entry(path.normalize()).or_default()
         })
     }
 
     fn insert(&self, path: &Path, text: String) -> SourceId {
-        let id = SourceId::from_u16(self.sources.len() as u16);
+        let id = SourceId::from_u16(self.sources.len().try_into().unwrap());
         let source = Source::new(id, path, text);
         self.sources.push(Box::new(source));
         id
@@ -321,14 +339,13 @@ impl TestWorld {
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let suffix = path
         .strip_prefix(FILE_DIR)
-        .map(|suffix| Path::new("/").join(suffix))
-        .unwrap_or_else(|_| path.into());
+        .map_or_else(|_| path.into(), |suffix| Path::new("/").join(suffix));
 
-    let f = |e| FileError::from_io(e, &suffix);
-    let mut file = File::open(&path).map_err(f)?;
-    if file.metadata().map_err(f)?.is_file() {
+    let io_error = |error| FileError::from_io(&error, &suffix);
+    let mut file = File::open(path).map_err(io_error)?;
+    if file.metadata().map_err(io_error)?.is_file() {
         let mut data = vec![];
-        file.read_to_end(&mut data).map_err(f)?;
+        file.read_to_end(&mut data).map_err(io_error)?;
         Ok(data)
     } else {
         Err(FileError::IsDirectory)
@@ -383,7 +400,7 @@ fn test(
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
             let pdf_data = typst::export::pdf(&document);
-            fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
+            fs::create_dir_all(pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
@@ -394,7 +411,7 @@ fn test(
         }
 
         let canvas = render(&document.pages);
-        fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
+        fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
@@ -442,7 +459,7 @@ fn test_part(
         println!("Syntax Tree:\n{:#?}\n", source.root())
     }
 
-    let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
+    let (local_compare_ref, mut ref_errors) = parse_metadata(source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     ok &= test_spans(source.root());
@@ -486,14 +503,14 @@ fn test_part(
         for error in errors.iter() {
             if !ref_errors.contains(error) {
                 print!("    Not annotated | ");
-                print_error(&source, line, error);
+                print_error(source, line, error);
             }
         }
 
         for error in ref_errors.iter() {
             if !errors.contains(error) {
                 print!("    Not emitted   | ");
-                print_error(&source, line, error);
+                print_error(source, line, error);
             }
         }
     }
@@ -507,6 +524,10 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
 
     let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
+        fn num(s: &mut Scanner<'_>) -> usize {
+            s.eat_while(char::is_numeric).parse().unwrap()
+        }
+
         if line.starts_with("// Ref: false") {
             compare_ref = Some(false);
         }
@@ -515,14 +536,10 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
             compare_ref = Some(true);
         }
 
-        fn num(s: &mut Scanner) -> usize {
-            s.eat_while(char::is_numeric).parse().unwrap()
-        }
-
         let comments =
             lines[i..].iter().take_while(|line| line.starts_with("//")).count();
 
-        let pos = |s: &mut Scanner| -> usize {
+        let pos = |s: &mut Scanner<'_>| -> usize {
             let first = num(s) - 1;
             let (delta, column) =
                 if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
@@ -587,7 +604,7 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
 
     let mut ok = true;
 
-    let apply = |replace: std::ops::Range<usize>, with| {
+    let apply = |replace: Range<usize>, with| {
         let mut incr_source = Source::detached(text);
         if incr_source.root().len() != text.len() {
             println!(

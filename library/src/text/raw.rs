@@ -25,7 +25,6 @@ use crate::prelude::*;
 /// ````example
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
-///
 /// ```rust
 /// fn main() {
 ///     println!("Hello World!");
@@ -52,7 +51,6 @@ pub struct RawElem {
     ///   }
     ///   sum
     /// }
-    ///
     /// ```mydsl
     /// 1 + 2 + 3 + 4 + 5
     /// ```
@@ -81,7 +79,6 @@ pub struct RawElem {
     /// )
     ///
     /// With `rg`, you can search through your files quickly.
-    ///
     /// ```bash
     /// rg "Hello World"
     /// ```
@@ -112,7 +109,7 @@ impl RawElem {
             .map(|syntax| {
                 (
                     syntax.name.as_str(),
-                    syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
+                    syntax.file_extensions.iter().map(String::as_str).collect(),
                 )
             })
             .chain([("Typst", vec!["typ"]), ("Typst (code)", vec!["typc"])])
@@ -121,15 +118,15 @@ impl RawElem {
 }
 
 impl Synthesize for RawElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain<'_>) {
         self.push_lang(self.lang(styles));
     }
 }
 
 impl Show for RawElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         let text = self.text();
-        let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
+        let lang = self.lang(styles).as_ref().map(EcoString::to_lowercase);
         let foreground = THEME
             .settings
             .foreground
@@ -147,7 +144,7 @@ impl Show for RawElem {
             let highlighter = synt::Highlighter::new(&THEME);
             highlight_themed(
                 &LinkedNode::new(&root),
-                vec![],
+                &[],
                 &highlighter,
                 &mut |node, style| {
                     seq.push(styled(&text[node.range()], foreground, style));
@@ -186,7 +183,7 @@ impl Show for RawElem {
 }
 
 impl Finalize for RawElem {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+    fn finalize(&self, realized: Content, _: StyleChain<'_>) -> Content {
         let mut styles = Styles::new();
         styles.set(TextElem::set_overhang(false));
         styles.set(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false))));
@@ -198,28 +195,32 @@ impl Finalize for RawElem {
     }
 }
 
-/// Highlight a syntax node in a theme by calling `f` with ranges and their
-/// styles.
+/// Highlight a syntax node in a theme by calling `f` with ranges and their styles.
 fn highlight_themed<F>(
-    node: &LinkedNode,
-    scopes: Vec<syntect::parsing::Scope>,
-    highlighter: &synt::Highlighter,
+    node: &LinkedNode<'_>,
+    scopes: &[syntect::parsing::Scope],
+    highlighter: &synt::Highlighter<'_>,
     f: &mut F,
 ) where
-    F: FnMut(&LinkedNode, synt::Style),
+    F: FnMut(&LinkedNode<'_>, synt::Style),
 {
+    // XXX use is_empty once it's stable.
     if node.children().len() == 0 {
-        let style = highlighter.style_for_stack(&scopes);
+        let style = highlighter.style_for_stack(scopes);
         f(node, style);
         return;
     }
 
     for child in node.children() {
-        let mut scopes = scopes.clone();
-        if let Some(tag) = typst::ide::highlight(&child) {
-            scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
-        }
-        highlight_themed(&child, scopes, highlighter, f);
+        let scopes: Vec<_> = scopes
+            .iter()
+            .copied()
+            .chain(
+                typst::ide::highlight(&child)
+                    .map(|tag| syntect::parsing::Scope::new(tag.tm_scope()).unwrap()),
+            )
+            .collect();
+        highlight_themed(&child, &scopes, highlighter, f);
     }
 }
 
@@ -257,7 +258,7 @@ fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
 
 /// The syntect syntax definitions.
 static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(|| syntect::parsing::SyntaxSet::load_defaults_nonewlines());
+    Lazy::new(syntect::parsing::SyntaxSet::load_defaults_nonewlines);
 
 /// The default theme used for syntax highlighting.
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {

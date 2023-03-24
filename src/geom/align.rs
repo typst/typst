@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// Where to align something along an axis.
@@ -25,6 +26,8 @@ impl Align {
     pub const CENTER_HORIZON: Axes<Self> = Axes { x: Align::Center, y: Align::Horizon };
 
     /// The axis this alignment belongs to.
+    #[must_use]
+    #[inline]
     pub const fn axis(self) -> Axis {
         match self {
             Self::Left | Self::Center | Self::Right => Axis::X,
@@ -33,6 +36,8 @@ impl Align {
     }
 
     /// The inverse alignment.
+    #[must_use]
+    #[inline]
     pub const fn inv(self) -> Self {
         match self {
             Self::Left => Self::Right,
@@ -44,8 +49,9 @@ impl Align {
         }
     }
 
-    /// Returns the position of this alignment in a container with the given
-    /// extent.
+    /// Returns the position of this alignment in a container with the given extent.
+    #[must_use]
+    #[inline]
     pub fn position(self, extent: Abs) -> Abs {
         match self {
             Self::Left | Self::Top => Abs::zero(),
@@ -67,7 +73,7 @@ impl From<Side> for Align {
 }
 
 impl Debug for Align {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad(match self {
             Self::Left => "left",
             Self::Center => "center",
@@ -92,6 +98,8 @@ pub enum GenAlign {
 
 impl GenAlign {
     /// The axis this alignment belongs to.
+    #[must_use]
+    #[inline]
     pub const fn axis(self) -> Axis {
         match self {
             Self::Start | Self::End => Axis::X,
@@ -107,7 +115,7 @@ impl From<Align> for GenAlign {
 }
 
 impl Debug for GenAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Start => f.pad("start"),
             Self::End => f.pad("end"),
@@ -144,18 +152,21 @@ cast_to_value! {
 }
 
 impl From<Axes<GenAlign>> for Axes<Option<GenAlign>> {
+    #[inline]
     fn from(axes: Axes<GenAlign>) -> Self {
         axes.map(Some)
     }
 }
 
 impl From<Axes<Align>> for Axes<Option<GenAlign>> {
+    #[inline]
     fn from(axes: Axes<Align>) -> Self {
         axes.map(GenAlign::Specific).into()
     }
 }
 
 impl From<Align> for Axes<Option<GenAlign>> {
+    #[inline]
     fn from(align: Align) -> Self {
         let mut axes = Axes::splat(None);
         axes.set(align.axis(), Some(align.into()));
@@ -166,7 +177,8 @@ impl From<Align> for Axes<Option<GenAlign>> {
 impl Resolve for GenAlign {
     type Output = Align;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         let dir = item!(dir)(styles);
         match self {
             Self::Start => dir.start().into(),
@@ -179,6 +191,7 @@ impl Resolve for GenAlign {
 impl Fold for GenAlign {
     type Output = Self;
 
+    #[inline]
     fn fold(self, _: Self::Output) -> Self::Output {
         self
     }

@@ -1,8 +1,7 @@
+use super::GridLayouter;
 use crate::layout::{BlockElem, ParElem, Sizing, Spacing};
 use crate::prelude::*;
 use crate::text::TextElem;
-
-use super::GridLayouter;
 
 /// A bullet list.
 ///
@@ -114,9 +113,9 @@ pub struct ListElem {
 impl Layout for ListElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let indent = self.indent(styles);
         let body_indent = self.body_indent(styles);
@@ -175,13 +174,15 @@ cast_from_value! {
 /// A list's marker.
 #[derive(Debug, Clone, Hash)]
 pub enum ListMarker {
+    /// Use the element in the vector corresponding to the current depth as the marker.
     Content(Vec<Content>),
+    /// Evaluate the given function, passing the list depth, to generate the marker.
     Func(Func),
 }
 
 impl ListMarker {
     /// Resolve the marker for the given depth.
-    fn resolve(&self, vt: &mut Vt, depth: usize) -> SourceResult<Content> {
+    fn resolve(&self, vt: &mut Vt<'_>, depth: usize) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(list) => list
                 .get(depth)
@@ -197,8 +198,8 @@ cast_from_value! {
     ListMarker,
     v: Content => Self::Content(vec![v]),
     array: Array => {
-        if array.len() == 0 {
-            Err("array must contain at least one marker")?;
+        if array.is_empty() {
+            return Err("array must contain at least one marker".into());
         }
         Self::Content(array.into_iter().map(Value::display).collect())
     },

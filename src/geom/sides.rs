@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// A container with left, top, right and bottom components.
@@ -15,11 +16,15 @@ pub struct Sides<T> {
 
 impl<T> Sides<T> {
     /// Create a new instance from the four components.
+    #[must_use]
+    #[inline]
     pub const fn new(left: T, top: T, right: T, bottom: T) -> Self {
         Self { left, top, right, bottom }
     }
 
     /// Create an instance with four equal components.
+    #[must_use]
+    #[inline]
     pub fn splat(value: T) -> Self
     where
         T: Clone,
@@ -33,6 +38,8 @@ impl<T> Sides<T> {
     }
 
     /// Map the individual fields with `f`.
+    #[must_use]
+    #[inline]
     pub fn map<F, U>(self, mut f: F) -> Sides<U>
     where
         F: FnMut(T) -> U,
@@ -46,6 +53,8 @@ impl<T> Sides<T> {
     }
 
     /// Zip two instances into one.
+    #[must_use]
+    #[inline]
     pub fn zip<U>(self, other: Sides<U>) -> Sides<(T, U)> {
         Sides {
             left: (self.left, other.left),
@@ -56,11 +65,14 @@ impl<T> Sides<T> {
     }
 
     /// An iterator over the sides, starting with the left side, clockwise.
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &T> {
         [&self.left, &self.top, &self.right, &self.bottom].into_iter()
     }
 
     /// Whether all sides are equal.
+    #[must_use]
+    #[inline]
     pub fn is_uniform(&self) -> bool
     where
         T: PartialEq,
@@ -71,6 +83,8 @@ impl<T> Sides<T> {
 
 impl<T: Add> Sides<T> {
     /// Sums up `left` and `right` into `x`, and `top` and `bottom` into `y`.
+    #[must_use]
+    #[inline]
     pub fn sum_by_axis(self) -> Axes<T::Output> {
         Axes::new(self.left + self.right, self.top + self.bottom)
     }
@@ -78,6 +92,8 @@ impl<T: Add> Sides<T> {
 
 impl Sides<Rel<Abs>> {
     /// Evaluate the sides relative to the given `size`.
+    #[must_use]
+    #[inline]
     pub fn relative_to(self, size: Size) -> Sides<Abs> {
         Sides {
             left: self.left.relative_to(size.x),
@@ -91,6 +107,7 @@ impl Sides<Rel<Abs>> {
 impl<T> Get<Side> for Sides<T> {
     type Component = T;
 
+    #[inline]
     fn get(self, side: Side) -> T {
         match side {
             Side::Left => self.left,
@@ -100,6 +117,7 @@ impl<T> Get<Side> for Sides<T> {
         }
     }
 
+    #[inline]
     fn get_mut(&mut self, side: Side) -> &mut T {
         match side {
             Side::Left => &mut self.left,
@@ -125,6 +143,8 @@ pub enum Side {
 
 impl Side {
     /// The opposite side.
+    #[must_use]
+    #[inline]
     pub fn inv(self) -> Self {
         match self {
             Self::Left => Self::Right,
@@ -135,6 +155,8 @@ impl Side {
     }
 
     /// The next side, clockwise.
+    #[must_use]
+    #[inline]
     pub fn next_cw(self) -> Self {
         match self {
             Self::Left => Self::Top,
@@ -145,6 +167,8 @@ impl Side {
     }
 
     /// The next side, counter-clockwise.
+    #[must_use]
+    #[inline]
     pub fn next_ccw(self) -> Self {
         match self {
             Self::Left => Self::Bottom,
@@ -155,6 +179,8 @@ impl Side {
     }
 
     /// The first corner of the side in clockwise order.
+    #[must_use]
+    #[inline]
     pub fn start_corner(self) -> Corner {
         match self {
             Self::Left => Corner::BottomLeft,
@@ -165,11 +191,15 @@ impl Side {
     }
 
     /// The second corner of the side in clockwise order.
+    #[must_use]
+    #[inline]
     pub fn end_corner(self) -> Corner {
         self.next_cw().start_corner()
     }
 
     /// Return the corresponding axis.
+    #[must_use]
+    #[inline]
     pub fn axis(self) -> Axis {
         match self {
             Self::Left | Self::Right => Axis::Y,
@@ -182,10 +212,12 @@ impl<T> Cast for Sides<Option<T>>
 where
     T: Default + Cast + Copy,
 {
+    #[inline]
     fn is(value: &Value) -> bool {
         matches!(value, Value::Dict(_)) || T::is(value)
     }
 
+    #[inline]
     fn cast(mut value: Value) -> StrResult<Self> {
         if let Value::Dict(dict) = &mut value {
             let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
@@ -210,6 +242,7 @@ where
         }
     }
 
+    #[inline]
     fn describe() -> CastInfo {
         T::describe() + CastInfo::Type("dictionary")
     }
@@ -219,6 +252,7 @@ impl<T> From<Sides<Option<T>>> for Value
 where
     T: PartialEq + Into<Value>,
 {
+    #[inline]
     fn from(sides: Sides<Option<T>>) -> Self {
         if sides.is_uniform() {
             if let Some(value) = sides.left {
@@ -247,7 +281,8 @@ where
 impl<T: Resolve> Resolve for Sides<T> {
     type Output = Sides<T::Output>;
 
-    fn resolve(self, styles: StyleChain) -> Self::Output {
+    #[inline]
+    fn resolve(self, styles: StyleChain<'_>) -> Self::Output {
         self.map(|v| v.resolve(styles))
     }
 }
@@ -255,6 +290,7 @@ impl<T: Resolve> Resolve for Sides<T> {
 impl<T: Fold> Fold for Sides<Option<T>> {
     type Output = Sides<T::Output>;
 
+    #[inline]
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.zip(outer).map(|(inner, outer)| match inner {
             Some(value) => value.fold(outer),

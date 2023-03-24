@@ -1,6 +1,7 @@
-use crate::prelude::*;
+use az::Az as _;
 
 use super::AlignElem;
+use crate::prelude::*;
 
 /// Repeats content to the available space.
 ///
@@ -36,9 +37,9 @@ pub struct RepeatElem {
 impl Layout for RepeatElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.size, Axes::new(false, false));
         let piece = self.body().layout(vt, styles, pod)?.into_frame();
@@ -62,12 +63,13 @@ impl Layout for RepeatElem {
         }
 
         let mut offset = Abs::zero();
+        #[allow(clippy::float_cmp /* false positive, we `floor`ed earlier */)]
         if count == 1.0 {
             offset += align.position(remaining);
         }
 
         if width > Abs::zero() {
-            for _ in 0..(count as usize).min(1000) {
+            for _ in 0..count.az::<usize>().min(1000) {
                 frame.push_frame(Point::with_x(offset), piece.clone());
                 offset += piece.width() + apart;
             }

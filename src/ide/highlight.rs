@@ -48,8 +48,10 @@ pub enum Tag {
 }
 
 impl Tag {
-    /// Return the recommended TextMate grammar scope for the given highlighting
-    /// tag.
+    /// Return the recommended TextMate grammar scope for the given highlighting tag.
+    #[allow(clippy::doc_markdown /* false positive */)]
+    #[must_use]
+    #[inline]
     pub fn tm_scope(&self) -> &'static str {
         match self {
             Self::Comment => "comment.typst",
@@ -77,6 +79,8 @@ impl Tag {
     }
 
     /// The recommended CSS class for the highlighting tag.
+    #[must_use]
+    #[inline]
     pub fn css_class(self) -> &'static str {
         match self {
             Self::Comment => "typ-comment",
@@ -107,15 +111,21 @@ impl Tag {
 /// Determine the highlight tag of a linked syntax node.
 ///
 /// Returns `None` if the node should not be highlighted.
-pub fn highlight(node: &LinkedNode) -> Option<Tag> {
+#[must_use]
+#[inline]
+#[allow(clippy::too_many_lines /* giant match */)]
+#[allow(clippy::match_same_arms /* one arm per variant is good */)]
+pub fn highlight(node: &LinkedNode<'_>) -> Option<Tag> {
     match node.kind() {
-        SyntaxKind::Markup
+        SyntaxKind::Markup => {
             if node.parent_kind() == Some(SyntaxKind::TermItem)
-                && node.next_sibling_kind() == Some(SyntaxKind::Colon) =>
-        {
-            Some(Tag::ListTerm)
+                && node.next_sibling_kind() == Some(SyntaxKind::Colon)
+            {
+                Some(Tag::ListTerm)
+            } else {
+                None
+            }
         }
-        SyntaxKind::Markup => None,
         SyntaxKind::Text => None,
         SyntaxKind::Space => None,
         SyntaxKind::Linebreak => Some(Tag::Escape),
@@ -255,7 +265,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
 }
 
 /// Highlight an identifier based on context.
-fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
+fn highlight_ident(node: &LinkedNode<'_>) -> Option<Tag> {
     // Are we directly before an argument list?
     let next_leaf = node.next_leaf();
     if let Some(next) = &next_leaf {
@@ -306,7 +316,8 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
 }
 
 /// Highlight a hashtag based on context.
-fn highlight_hashtag(node: &LinkedNode) -> Option<Tag> {
+#[must_use]
+fn highlight_hashtag(node: &LinkedNode<'_>) -> Option<Tag> {
     let next = node.next_sibling()?;
     let expr = next.cast::<ast::Expr>()?;
     if !expr.hashtag() {
@@ -316,13 +327,16 @@ fn highlight_hashtag(node: &LinkedNode) -> Option<Tag> {
 }
 
 /// Whether the node is one of the two identifier nodes.
-fn is_ident(node: &LinkedNode) -> bool {
+#[must_use]
+fn is_ident(node: &LinkedNode<'_>) -> bool {
     matches!(node.kind(), SyntaxKind::Ident | SyntaxKind::MathIdent)
 }
 
 /// Highlight a node to an HTML `code` element.
 ///
 /// This uses these [CSS classes for categories](Tag::css_class).
+#[must_use]
+#[inline]
 pub fn highlight_html(root: &SyntaxNode) -> String {
     let mut buf = String::from("<code>");
     let node = LinkedNode::new(root);
@@ -332,7 +346,7 @@ pub fn highlight_html(root: &SyntaxNode) -> String {
 }
 
 /// Highlight one source node, emitting HTML.
-fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
+fn highlight_html_impl(html: &mut String, node: &LinkedNode<'_>) {
     let mut span = false;
     if let Some(tag) = highlight(node) {
         if tag != Tag::Error {
@@ -344,7 +358,11 @@ fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
     }
 
     let text = node.text();
-    if !text.is_empty() {
+    if text.is_empty() {
+        for child in node.children() {
+            highlight_html_impl(html, &child);
+        }
+    } else {
         for c in text.chars() {
             match c {
                 '<' => html.push_str("&lt;"),
@@ -354,10 +372,6 @@ fn highlight_html_impl(html: &mut String, node: &LinkedNode) {
                 '"' => html.push_str("&quot;"),
                 _ => html.push(c),
             }
-        }
-    } else {
-        for child in node.children() {
-            highlight_html_impl(html, &child);
         }
     }
 
@@ -375,6 +389,7 @@ mod tests {
 
     #[test]
     fn test_highlighting() {
+        #[allow(clippy::enum_glob_use /* just for tests */)]
         use Tag::*;
 
         #[track_caller]
@@ -385,7 +400,7 @@ mod tests {
             assert_eq!(vec, goal);
         }
 
-        fn highlight_tree(tags: &mut Vec<(Range<usize>, Tag)>, node: &LinkedNode) {
+        fn highlight_tree(tags: &mut Vec<(Range<usize>, Tag)>, node: &LinkedNode<'_>) {
             if let Some(tag) = highlight(node) {
                 tags.push((node.range(), tag));
             }

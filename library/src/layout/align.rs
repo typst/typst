@@ -58,7 +58,7 @@ pub struct AlignElem {
 }
 
 impl Show for AlignElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         Ok(self
             .body()
             .styled(Self::set_alignment(self.alignment(styles).map(Some))))

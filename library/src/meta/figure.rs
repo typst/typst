@@ -43,13 +43,13 @@ pub struct FigureElem {
 }
 
 impl Synthesize for FigureElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain<'_>) {
         self.push_numbering(self.numbering(styles));
     }
 }
 
 impl Show for FigureElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         let mut realized = self.body();
 
         if let Some(mut caption) = self.caption(styles) {
@@ -84,7 +84,9 @@ impl Count for FigureElem {
 }
 
 impl LocalName for FigureElem {
+    #[inline]
     fn local_name(&self, lang: Lang) -> &'static str {
+        #[allow(clippy::wildcard_in_or_patterns /* clarity */)]
         match lang {
             Lang::GERMAN => "Abbildung",
             Lang::ENGLISH | _ => "Figure",

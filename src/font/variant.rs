@@ -1,5 +1,6 @@
 use std::fmt::{self, Debug, Formatter};
 
+use az::{Az as _, SaturatingAs as _};
 use serde::{Deserialize, Serialize};
 
 use crate::eval::{cast_from_value, cast_to_value, Cast, Value};
@@ -19,13 +20,14 @@ pub struct FontVariant {
 
 impl FontVariant {
     /// Create a variant from its three components.
+    #[must_use]
     pub fn new(style: FontStyle, weight: FontWeight, stretch: FontStretch) -> Self {
         Self { style, weight, stretch }
     }
 }
 
 impl Debug for FontVariant {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}-{:?}-{:?}", self.style, self.weight, self.stretch)
     }
 }
@@ -45,6 +47,7 @@ pub enum FontStyle {
 
 impl FontStyle {
     /// The conceptual distance between the styles, expressed as a number.
+    #[must_use]
     pub fn distance(self, other: Self) -> u16 {
         if self == other {
             0
@@ -96,25 +99,39 @@ impl FontWeight {
     /// Black weight (900).
     pub const BLACK: Self = Self(900);
 
+    const MIN: u16 = 100;
+    const MAX: u16 = 900;
+
     /// Create a font weight from a number between 100 and 900, clamping it if
     /// necessary.
+    #[must_use]
     pub fn from_number(weight: u16) -> Self {
-        Self(weight.max(100).min(900))
+        Self(weight.max(Self::MIN).min(Self::MAX))
     }
 
     /// The number between 100 and 900.
+    #[must_use]
     pub fn to_number(self) -> u16 {
         self.0
     }
 
     /// Add (or remove) weight, saturating at the boundaries of 100 and 900.
+    #[must_use]
     pub fn thicken(self, delta: i16) -> Self {
-        Self((self.0 as i16).saturating_add(delta).max(100).min(900) as u16)
+        Self(
+            self.0
+                .az::<i16>()
+                .saturating_add(delta)
+                .max(Self::MIN.az())
+                .min(Self::MAX.az())
+                .az(),
+        )
     }
 
     /// The absolute number distance between this and another font weight.
+    #[must_use]
     pub fn distance(self, other: Self) -> u16 {
-        (self.0 as i16 - other.0 as i16).unsigned_abs()
+        (self.0.az::<i16>() - other.0.az::<i16>()).unsigned_abs()
     }
 }
 
@@ -125,14 +142,14 @@ impl Default for FontWeight {
 }
 
 impl Debug for FontWeight {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
 cast_from_value! {
     FontWeight,
-    v: i64 => Self::from_number(v.clamp(0, u16::MAX as i64) as u16),
+    v: i64 => Self::from_number(v.saturating_as()),
     /// Thin weight (100).
     "thin" => Self::THIN,
     /// Extra light weight (200).
@@ -204,12 +221,14 @@ impl FontStretch {
 
     /// Create a font stretch from a ratio between 0.5 and 2.0, clamping it if
     /// necessary.
+    #[must_use]
     pub fn from_ratio(ratio: Ratio) -> Self {
-        Self((ratio.get().max(0.5).min(2.0) * 1000.0) as u16)
+        Self((ratio.get().max(0.5).min(2.0) * 1000.0).az())
     }
 
     /// Create a font stretch from an OpenType-style number between 1 and 9,
     /// clamping it if necessary.
+    #[must_use]
     pub fn from_number(stretch: u16) -> Self {
         match stretch {
             0 | 1 => Self::ULTRA_CONDENSED,
@@ -225,11 +244,13 @@ impl FontStretch {
     }
 
     /// The ratio between 0.5 and 2.0 corresponding to this stretch.
+    #[must_use]
     pub fn to_ratio(self) -> Ratio {
-        Ratio::new(self.0 as f64 / 1000.0)
+        Ratio::new(f64::from(self.0) / 1000.0)
     }
 
     /// The absolute ratio distance between this and another font stretch.
+    #[must_use]
     pub fn distance(self, other: Self) -> Ratio {
         (self.to_ratio() - other.to_ratio()).abs()
     }
@@ -242,7 +263,7 @@ impl Default for FontStretch {
 }
 
 impl Debug for FontStretch {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.to_ratio().fmt(f)
     }
 }
@@ -271,6 +292,6 @@ mod tests {
 
     #[test]
     fn test_font_stretch_debug() {
-        assert_eq!(format!("{:?}", FontStretch::EXPANDED), "125%")
+        assert_eq!(format!("{:?}", FontStretch::EXPANDED), "125%");
     }
 }

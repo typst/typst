@@ -49,9 +49,9 @@ pub struct ImageElem {
 impl Layout for ImageElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let image = load(vt.world, &self.path()).unwrap();
         let sizing = Axes::new(self.width(styles), self.height(styles));
@@ -64,20 +64,20 @@ impl Layout for ImageElem {
         let region_ratio = region.x / region.y;
 
         // Find out whether the image is wider or taller than the target size.
-        let pxw = image.width() as f64;
-        let pxh = image.height() as f64;
-        let px_ratio = pxw / pxh;
-        let wide = px_ratio > region_ratio;
+        let width_pixels: f64 = image.width().into();
+        let height_pixels: f64 = image.height().into();
+        let aspect_ratio = width_pixels / height_pixels;
+        let wide = aspect_ratio > region_ratio;
 
         // The space into which the image will be placed according to its fit.
         let target = if expand.x && expand.y {
             region
         } else if expand.x || (!expand.y && wide && region.x.is_finite()) {
-            Size::new(region.x, region.y.min(region.x.safe_div(px_ratio)))
+            Size::new(region.x, region.y.min(region.x.safe_div(aspect_ratio)))
         } else if region.y.is_finite() {
-            Size::new(region.x.min(region.y * px_ratio), region.y)
+            Size::new(region.x.min(region.y * aspect_ratio), region.y)
         } else {
-            Size::new(Abs::pt(pxw), Abs::pt(pxh))
+            Size::new(Abs::pt(width_pixels), Abs::pt(height_pixels))
         };
 
         // Compute the actual size of the fitted image.
@@ -85,9 +85,9 @@ impl Layout for ImageElem {
         let fitted = match fit {
             ImageFit::Cover | ImageFit::Contain => {
                 if wide == (fit == ImageFit::Contain) {
-                    Size::new(target.x, target.x / px_ratio)
+                    Size::new(target.x, target.x / aspect_ratio)
                 } else {
-                    Size::new(target.y * px_ratio, target.y)
+                    Size::new(target.y * aspect_ratio, target.y)
                 }
             }
             ImageFit::Stretch => target,
@@ -126,7 +126,7 @@ pub enum ImageFit {
 
 /// Load an image from a path.
 #[comemo::memoize]
-fn load(world: Tracked<dyn World>, full: &str) -> StrResult<Image> {
+fn load(world: Tracked<'_, dyn World>, full: &str) -> StrResult<Image> {
     let full = Path::new(full);
     let buffer = world.file(full)?;
     let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();

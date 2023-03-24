@@ -1,3 +1,5 @@
+use az::Az as _;
+
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
 use crate::meta::LocalName;
 use crate::prelude::*;
@@ -121,9 +123,9 @@ pub struct TableElem {
 impl Layout for TableElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let inset = self.inset(styles);
         let align = self.align(styles);
@@ -236,11 +238,15 @@ pub enum Celled<T> {
 
 impl<T: Cast + Clone> Celled<T> {
     /// Resolve the value based on the cell position.
-    pub fn resolve(&self, vt: &mut Vt, x: usize, y: usize) -> SourceResult<T> {
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from evaluation of the closure.
+    pub fn resolve(&self, vt: &mut Vt<'_>, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
             Self::Func(func) => func
-                .call_vt(vt, [Value::Int(x as i64), Value::Int(y as i64)])?
+                .call_vt(vt, [Value::Int(x.az()), Value::Int(y.az())])?
                 .cast()
                 .at(func.span())?,
         })
@@ -282,6 +288,7 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
 
 impl LocalName for TableElem {
     fn local_name(&self, lang: Lang) -> &'static str {
+        #[allow(clippy::wildcard_in_or_patterns /* clarity */)]
         match lang {
             Lang::GERMAN => "Tabelle",
             Lang::ENGLISH | _ => "Table",

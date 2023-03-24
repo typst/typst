@@ -80,20 +80,21 @@ pub struct RefElem {
 }
 
 impl Synthesize for RefElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    #[inline]
+    fn synthesize(&mut self, styles: StyleChain<'_>) {
         let citation = self.to_citation(styles);
         self.push_citation(Some(citation));
     }
 }
 
 impl Show for RefElem {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
         }
 
         let target = self.target();
-        let matches = vt.introspector.query(Selector::Label(self.target()));
+        let matches = vt.introspector.query(&Selector::Label(self.target()));
 
         if BibliographyElem::has(vt, &target.0) {
             if !matches.is_empty() {
@@ -123,7 +124,7 @@ impl Show for RefElem {
                 .map(TextElem::packed)
                 .unwrap_or_default(),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
+            Smart::Custom(Some(Supplement::Content(content))) => content,
             Smart::Custom(Some(Supplement::Func(func))) => {
                 func.call_vt(vt, [elem.clone().into()])?.display()
             }
@@ -147,9 +148,13 @@ impl Show for RefElem {
 
 impl RefElem {
     /// Turn the reference into a citation.
-    pub fn to_citation(&self, styles: StyleChain) -> CiteElem {
+    #[inline]
+    #[must_use]
+    pub fn to_citation(&self, styles: StyleChain<'_>) -> CiteElem {
         let mut elem = CiteElem::new(vec![self.target().0]);
-        elem.0.set_location(self.0.location().unwrap());
+        if let Some(location) = self.0.location() {
+            elem.0.set_location(location);
+        }
         elem.synthesize(styles);
         elem.push_supplement(match self.supplement(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
@@ -160,8 +165,11 @@ impl RefElem {
 }
 
 /// Additional content for a reference.
+#[derive(Debug)]
 pub enum Supplement {
+    /// Insert the provided content.
     Content(Content),
+    /// Use the provided function, passing the element being rendered, to get the supplement for that element.
     Func(Func),
 }
 

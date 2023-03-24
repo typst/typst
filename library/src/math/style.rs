@@ -1,4 +1,20 @@
-use super::*;
+use typst::eval::Scope;
+
+use super::ctx::{percent, MathContext};
+use super::LayoutMath;
+use crate::prelude::*;
+
+pub(super) fn define(math: &mut Scope) {
+    math.define("upright", upright);
+    math.define("bold", bold);
+    math.define("italic", italic);
+    math.define("serif", serif);
+    math.define("sans", sans);
+    math.define("cal", cal);
+    math.define("frak", frak);
+    math.define("mono", mono);
+    math.define("bb", bb);
+}
 
 /// Bold font style in math.
 ///
@@ -199,7 +215,7 @@ pub struct MathStyleElem {
 }
 
 impl LayoutMath for MathStyleElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         let mut style = ctx.style;
         if let Some(variant) = self.variant(StyleChain::default()) {
             style = style.with_variant(variant);
@@ -294,6 +310,7 @@ impl MathStyle {
 /// The size of elements in an equation.
 ///
 /// See the TeXbook p. 141.
+#[allow(clippy::doc_markdown /* false positive */)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub enum MathSize {
     /// Second-level sub- and superscripts.
@@ -307,7 +324,7 @@ pub enum MathSize {
 }
 
 impl MathSize {
-    pub(super) fn factor(self, ctx: &MathContext) -> f64 {
+    pub(super) fn factor(self, ctx: &MathContext<'_, '_, '_>) -> f64 {
         match self {
             Self::Display | Self::Text => 1.0,
             Self::Script => percent!(ctx, script_percent_scale_down),
@@ -319,11 +336,17 @@ impl MathSize {
 /// A mathematical style variant, as defined by Unicode.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Cast)]
 pub enum MathVariant {
+    /// A serif font.
     Serif,
+    /// A sans-serif font.
     Sans,
+    /// A calligraphic font.
     Cal,
+    /// A Fraktur font.
     Frak,
+    /// A monospace font.
     Mono,
+    /// A blackboard bold font.
     Bb,
 }
 
@@ -335,10 +358,10 @@ impl Default for MathVariant {
 
 /// Select the correct styled math letter.
 ///
-/// https://www.w3.org/TR/mathml-core/#new-text-transform-mappings
-/// https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols
+/// <https://www.w3.org/TR/mathml-core/#new-text-transform-mappings>
+/// <https://en.wikipedia.org/wiki/Mathematical_Alphanumeric_Symbols>
 pub(super) fn styled_char(style: MathStyle, c: char) -> char {
-    use MathVariant::*;
+    use MathVariant::{Bb, Cal, Frak, Mono, Sans, Serif};
 
     let MathStyle { variant, bold, .. } = style;
     let italic = style.italic.unwrap_or(matches!(
@@ -445,6 +468,7 @@ pub(super) fn styled_char(style: MathStyle, c: char) -> char {
     std::char::from_u32(start + (c as u32 - base as u32)).unwrap()
 }
 
+#[allow(clippy::unicode_not_nfc /* that's the point */)]
 fn basic_exception(c: char) -> Option<char> {
     Some(match c {
         '〈' => '⟨',
@@ -461,7 +485,7 @@ fn latin_exception(
     bold: bool,
     italic: bool,
 ) -> Option<char> {
-    use MathVariant::*;
+    use MathVariant::{Bb, Cal, Frak, Serif};
     Some(match (c, variant, bold, italic) {
         ('B', Cal, false, _) => 'ℬ',
         ('E', Cal, false, _) => 'ℰ',
@@ -499,7 +523,7 @@ fn greek_exception(
     bold: bool,
     italic: bool,
 ) -> Option<char> {
-    use MathVariant::*;
+    use MathVariant::{Sans, Serif};
     let list = match c {
         'ϴ' => ['𝚹', '𝛳', '𝜭', '𝝧', '𝞡'],
         '∇' => ['𝛁', '𝛻', '𝜵', '𝝯', '𝞩'],

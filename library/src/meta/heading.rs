@@ -80,7 +80,7 @@ pub struct HeadingElem {
 }
 
 impl Synthesize for HeadingElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain<'_>) {
         self.push_level(self.level(styles));
         self.push_numbering(self.numbering(styles));
         self.push_outlined(self.outlined(styles));
@@ -88,7 +88,7 @@ impl Synthesize for HeadingElem {
 }
 
 impl Show for HeadingElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {
             realized = Counter::of(Self::func())
@@ -102,7 +102,7 @@ impl Show for HeadingElem {
 }
 
 impl Finalize for HeadingElem {
-    fn finalize(&self, realized: Content, styles: StyleChain) -> Content {
+    fn finalize(&self, realized: Content, styles: StyleChain<'_>) -> Content {
         let level = self.level(styles).get();
         let scale = match level {
             1 => 1.4,
@@ -138,7 +138,9 @@ cast_from_value! {
 }
 
 impl LocalName for HeadingElem {
+    #[inline]
     fn local_name(&self, lang: Lang) -> &'static str {
+        #[allow(clippy::wildcard_in_or_patterns /* clarity */)]
         match lang {
             Lang::GERMAN => "Abschnitt",
             Lang::ENGLISH | _ => "Section",

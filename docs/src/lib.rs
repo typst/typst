@@ -1,14 +1,31 @@
 //! Documentation provider for Typst.
+#![deny(
+    absolute_paths_not_starting_with_crate,
+    future_incompatible,
+    keyword_idents,
+    macro_use_extern_crate,
+    meta_variable_misuse,
+    missing_abi,
+    missing_debug_implementations,
+    non_ascii_idents,
+    nonstandard_style,
+    noop_method_call,
+    pointer_structural_match,
+    private_in_public,
+    rust_2018_idioms,
+    unused_qualifications
+)]
+#![warn(clippy::pedantic, clippy::dbg_macro, clippy::print_stderr, clippy::print_stdout)]
+#![allow(clippy::module_name_repetitions)]
+#![deny(unsafe_code)]
 
 mod html;
 
-pub use html::Html;
-
-use std::fmt::{self, Debug, Formatter};
 use std::path::Path;
 
 use comemo::Prehashed;
 use heck::ToTitleCase;
+pub use html::Html;
 use include_dir::{include_dir, Dir};
 use once_cell::sync::Lazy;
 use serde::de::DeserializeOwned;
@@ -19,7 +36,6 @@ use typst::eval::{CastInfo, Func, FuncInfo, Library, Module, ParamInfo, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Sides, Smart};
 use typst_library::layout::PageElem;
-use unscanny::Scanner;
 
 static SRC: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src");
 static FILES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../assets/files");
@@ -45,7 +61,7 @@ static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
     lib.styles.set(PageElem::set_margin(Sides::splat(Some(Smart::Custom(
         Abs::pt(15.0).into(),
     )))));
-    typst::eval::set_lang_items(lib.items.clone());
+    typst::eval::set_lang_items(lib.items);
     Prehashed::new(lib)
 });
 
@@ -230,7 +246,7 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     for group in grouped {
         let mut functions = vec![];
         for name in &group.functions {
-            let value = focus.get(&name).unwrap();
+            let value = focus.get(name).unwrap();
             let Value::Func(func) = value else { panic!("not a function") };
             let info = func.info().unwrap();
             functions.push(func_model(resolver, func, info));
@@ -336,7 +352,7 @@ fn func_model(resolver: &dyn Resolver, func: &Func, info: &FuncInfo) -> FuncMode
     let mut s = unscanny::Scanner::new(info.docs);
     let docs = s.eat_until("\n## Methods").trim();
     FuncModel {
-        name: info.name.into(),
+        name: info.name,
         display: info.display,
         oneliner: oneliner(docs),
         showable: func.element().is_some(),
@@ -349,6 +365,7 @@ fn func_model(resolver: &dyn Resolver, func: &Func, info: &FuncInfo) -> FuncMode
 
 /// Details about a function parameter.
 #[derive(Debug, Serialize)]
+#[allow(clippy::struct_excessive_bools /* what's the issue? */)]
 pub struct ParamModel {
     pub name: &'static str,
     pub details: Html,
@@ -545,13 +562,11 @@ fn method_model(resolver: &dyn Resolver, part: &'static str) -> MethodModel {
         s.expect(": ");
         let types: Vec<_> =
             s.eat_until(['(', '\n']).split(" or ").map(str::trim).collect();
-        if !types.iter().all(|ty| type_index(ty) != usize::MAX) {
-            panic!(
-                "unknown type in method {} parameter {}",
-                name,
-                types.iter().find(|ty| type_index(ty) == usize::MAX).unwrap()
-            )
-        }
+        assert!(
+            types.iter().all(|ty| type_index(ty) != usize::MAX),
+            "unknown type in method {name} parameter {}",
+            types.iter().find(|ty| type_index(ty) == usize::MAX).unwrap()
+        );
 
         if name == "returns" {
             returns = types;
@@ -570,7 +585,7 @@ fn method_model(resolver: &dyn Resolver, part: &'static str) -> MethodModel {
                 "positional" => positional = true,
                 "required" => required = true,
                 "variadic" => variadic = true,
-                _ => panic!("unknown parameter flag {:?}", part),
+                _ => panic!("unknown parameter flag {part:?}"),
             }
         }
 
@@ -629,7 +644,7 @@ fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
             if variant.is_empty() {
                 name.into()
             } else {
-                format!("{}.{}", name, variant)
+                format!("{name}.{variant}")
             }
         };
 
@@ -704,11 +719,12 @@ fn yaml<T: DeserializeOwned>(path: &str) -> T {
 fn details(key: &str) -> &str {
     DETAILS
         .get(&yaml::Value::String(key.into()))
-        .and_then(|value| value.as_str())
+        .and_then(yaml::Value::as_str)
         .unwrap_or_else(|| panic!("missing details for {key}"))
 }
 
 /// Turn a title into an URL fragment.
+#[must_use]
 pub fn urlify(title: &str) -> String {
     title
         .chars()
@@ -722,7 +738,7 @@ pub fn urlify(title: &str) -> String {
 
 /// Extract the first line of documentation.
 fn oneliner(docs: &str) -> &str {
-    docs.lines().next().unwrap_or_default().into()
+    docs.lines().next().unwrap_or_default()
 }
 
 /// The order of types in the documentation.

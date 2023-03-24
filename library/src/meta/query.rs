@@ -139,7 +139,7 @@ pub fn query(
     #[default]
     after: Location,
 ) -> Value {
-    let selector = target.0;
+    let selector = &target.0;
     let introspector = vm.vt.introspector;
     let elements = if let Some(location) = args.named("before")? {
         introspector.query_before(selector, location)

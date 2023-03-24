@@ -29,12 +29,17 @@ pub trait Construct {
     ///
     /// This is passed only the arguments that remain after execution of the
     /// element's set rule.
-    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content>;
+    #[allow(clippy::missing_errors_doc /* obvious */)]
+    fn construct(vm: &mut Vm<'_>, args: &mut Args) -> SourceResult<Content>;
 }
 
 /// An element's set rule.
 pub trait Set {
     /// Parse relevant arguments into style properties for this element.
+    ///
+    /// # Errors
+    ///
+    /// If the arguments cannot be parsed into the element's settable properties.
     fn set(args: &mut Args) -> SourceResult<Styles>;
 }
 
@@ -44,37 +49,57 @@ pub struct ElemFunc(pub(super) &'static NativeElemFunc);
 
 impl ElemFunc {
     /// The function's name.
+    #[inline]
+    #[must_use]
     pub fn name(self) -> &'static str {
         self.0.name
     }
 
     /// Apply the given arguments to the function.
+    #[inline]
+    #[must_use]
     pub fn with(self, args: Args) -> Func {
         Func::from(self).with(args)
     }
 
     /// Extract details about the function.
+    #[inline]
+    #[must_use]
     pub fn info(&self) -> &'static FuncInfo {
         &self.0.info
     }
 
     /// Construct an element.
-    pub fn construct(self, vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    ///
+    /// # Errors
+    ///
+    /// Directly propagated from the element's constructor.
+    #[inline]
+    pub fn construct(self, vm: &mut Vm<'_>, args: &mut Args) -> SourceResult<Content> {
         (self.0.construct)(vm, args)
     }
 
     /// Create a selector for elements of this function.
+    #[inline]
+    #[must_use]
     pub fn select(self) -> Selector {
         Selector::Elem(self, None)
     }
 
     /// Create a selector for elements of this function, filtering for those
     /// whose [fields](super::Content::field) match the given arguments.
+    #[inline]
+    #[must_use]
     pub fn where_(self, fields: Dict) -> Selector {
         Selector::Elem(self, Some(fields))
     }
 
     /// Execute the set rule for the element and return the resulting style map.
+    ///
+    /// # Errors
+    ///
+    /// Directly propagated from the element's set method, or if there are arguments left over.
+    #[inline]
     pub fn set(self, mut args: Args) -> SourceResult<Styles> {
         let styles = (self.0.set)(&mut args)?;
         args.finish()?;
@@ -83,7 +108,7 @@ impl ElemFunc {
 }
 
 impl Debug for ElemFunc {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad(self.name())
     }
 }
@@ -91,14 +116,16 @@ impl Debug for ElemFunc {
 impl Eq for ElemFunc {}
 
 impl PartialEq for ElemFunc {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         std::ptr::eq(self.0, other.0)
     }
 }
 
 impl Hash for ElemFunc {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(self.0 as *const _ as usize);
+    #[inline]
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        (self.0 as *const NativeElemFunc).hash(hasher);
     }
 }
 
@@ -124,11 +151,21 @@ pub struct NativeElemFunc {
     /// The element's vtable for capability dispatch.
     pub vtable: fn(of: TypeId) -> Option<*const ()>,
     /// The element's constructor.
-    pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
+    pub construct: fn(&mut Vm<'_>, &mut Args) -> SourceResult<Content>,
     /// The element's set rule.
     pub set: fn(&mut Args) -> SourceResult<Styles>,
     /// Details about the function.
     pub info: Lazy<FuncInfo>,
+}
+
+impl Debug for NativeElemFunc {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("NativeElemFunc")
+            .field("name", &self.name)
+            .field("info", &self.info)
+            .finish_non_exhaustive()
+    }
 }
 
 /// A label for an element.
@@ -136,7 +173,7 @@ pub struct NativeElemFunc {
 pub struct Label(pub EcoString);
 
 impl Debug for Label {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "<{}>", self.0)
     }
 }

@@ -21,10 +21,11 @@ macro_rules! __array {
     };
 }
 
-#[doc(inline)]
-pub use crate::__array as array;
 #[doc(hidden)]
 pub use ecow::eco_vec;
+
+#[doc(inline)]
+pub use crate::__array as array;
 
 /// A reference counted array with value semantics.
 #[derive(Default, Clone, PartialEq, Hash)]
@@ -32,41 +33,70 @@ pub struct Array(EcoVec<Value>);
 
 impl Array {
     /// Create a new, empty array.
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Create a new array from an eco vector of values.
+    #[must_use]
     pub fn from_vec(vec: EcoVec<Value>) -> Self {
         Self(vec)
     }
 
     /// The length of the array.
+    #[must_use]
     pub fn len(&self) -> i64 {
         self.0.len() as i64
     }
 
+    /// Returns `true` if the array has a length of 0.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// The first value in the array.
+    ///
+    /// # Errors
+    ///
+    /// If the array is empty.
     pub fn first(&self) -> StrResult<&Value> {
         self.0.first().ok_or_else(array_is_empty)
     }
 
     /// Mutably borrow the first value in the array.
+    ///
+    /// # Errors
+    ///
+    /// If the array is empty.
     pub fn first_mut(&mut self) -> StrResult<&mut Value> {
         self.0.make_mut().first_mut().ok_or_else(array_is_empty)
     }
 
     /// The last value in the array.
+    ///
+    /// # Errors
+    ///
+    /// If the array is empty.
     pub fn last(&self) -> StrResult<&Value> {
         self.0.last().ok_or_else(array_is_empty)
     }
 
     /// Mutably borrow the last value in the array.
+    ///
+    /// # Errors
+    ///
+    /// If the array is empty.
     pub fn last_mut(&mut self) -> StrResult<&mut Value> {
         self.0.make_mut().last_mut().ok_or_else(array_is_empty)
     }
 
     /// Borrow the value at the given index.
+    ///
+    /// # Errors
+    ///
+    /// If the index is out of bounds.
     pub fn at(&self, index: i64) -> StrResult<&Value> {
         self.locate(index)
             .and_then(|i| self.0.get(i))
@@ -74,6 +104,10 @@ impl Array {
     }
 
     /// Mutably borrow the value at the given index.
+    ///
+    /// # Errors
+    ///
+    /// If the index is out of bounds.
     pub fn at_mut(&mut self, index: i64) -> StrResult<&mut Value> {
         let len = self.len();
         self.locate(index)
@@ -87,11 +121,19 @@ impl Array {
     }
 
     /// Remove the last value in the array.
+    ///
+    /// # Errors
+    ///
+    /// If the array is empty.
     pub fn pop(&mut self) -> StrResult<Value> {
         self.0.pop().ok_or_else(array_is_empty)
     }
 
     /// Insert a value at the specified index.
+    ///
+    /// # Errors
+    ///
+    /// If the index is out of bounds (note that `self.len()` is not out of bounds).
     pub fn insert(&mut self, index: i64, value: Value) -> StrResult<()> {
         let len = self.len();
         let i = self
@@ -104,6 +146,10 @@ impl Array {
     }
 
     /// Remove and return the value at the specified index.
+    ///
+    /// # Errors
+    ///
+    /// If the index is out of bounds.
     pub fn remove(&mut self, index: i64) -> StrResult<Value> {
         let len = self.len();
         let i = self
@@ -115,6 +161,10 @@ impl Array {
     }
 
     /// Extract a contiguous subregion of the array.
+    ///
+    /// # Errors
+    ///
+    /// If the range is out of bounds.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
         let len = self.len();
         let start = self
@@ -133,12 +183,18 @@ impl Array {
     }
 
     /// Whether the array contains a specific value.
+    #[must_use]
     pub fn contains(&self, value: &Value) -> bool {
         self.0.contains(value)
     }
 
     /// Return the first matching item.
-    pub fn find(&self, vm: &mut Vm, func: Func) -> SourceResult<Option<Value>> {
+    ///
+    /// # Errors
+    ///
+    /// If evaluation of `func` fails.
+    #[allow(clippy::needless_pass_by_value /* convention */)]
+    pub fn find(&self, vm: &mut Vm<'_>, func: Func) -> SourceResult<Option<Value>> {
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
             if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
@@ -149,7 +205,12 @@ impl Array {
     }
 
     /// Return the index of the first matching item.
-    pub fn position(&self, vm: &mut Vm, func: Func) -> SourceResult<Option<i64>> {
+    ///
+    /// # Errors
+    ///
+    /// If evaluation of `func` fails.
+    #[allow(clippy::needless_pass_by_value /* convention */)]
+    pub fn position(&self, vm: &mut Vm<'_>, func: Func) -> SourceResult<Option<i64>> {
         for (i, item) in self.iter().enumerate() {
             let args = Args::new(func.span(), [item.clone()]);
             if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
@@ -162,19 +223,29 @@ impl Array {
 
     /// Return a new array with only those items for which the function returns
     /// true.
-    pub fn filter(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
+    ///
+    /// # Errors
+    ///
+    /// If evaluation of `func` fails.
+    #[allow(clippy::needless_pass_by_value /* convention */)]
+    pub fn filter(&self, vm: &mut Vm<'_>, func: Func) -> SourceResult<Self> {
         let mut kept = EcoVec::new();
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
             if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
-                kept.push(item.clone())
+                kept.push(item.clone());
             }
         }
         Ok(Self::from_vec(kept))
     }
 
     /// Transform each item in the array with a function.
-    pub fn map(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
+    ///
+    /// # Errors
+    ///
+    /// If evaluation of `func` fails.
+    #[allow(clippy::needless_pass_by_value /* convention */)]
+    pub fn map(&self, vm: &mut Vm<'_>, func: Func) -> SourceResult<Self> {
         let enumerate = func.argc() == Some(2);
         self.iter()
             .enumerate()
@@ -190,7 +261,12 @@ impl Array {
     }
 
     /// Fold all of the array's items into one with a function.
-    pub fn fold(&self, vm: &mut Vm, init: Value, func: Func) -> SourceResult<Value> {
+    ///
+    /// # Errors
+    ///
+    /// If evaluation of `func` fails.
+    #[allow(clippy::needless_pass_by_value /* convention */)]
+    pub fn fold(&self, vm: &mut Vm<'_>, init: Value, func: Func) -> SourceResult<Value> {
         let mut acc = init;
         for item in self.iter() {
             let args = Args::new(func.span(), [acc, item.clone()]);
@@ -200,7 +276,12 @@ impl Array {
     }
 
     /// Whether any item matches.
-    pub fn any(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
+    ///
+    /// # Errors
+    ///
+    /// If evaluation of `func` fails.
+    #[allow(clippy::needless_pass_by_value /* convention */)]
+    pub fn any(&self, vm: &mut Vm<'_>, func: Func) -> SourceResult<bool> {
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
             if func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
@@ -212,7 +293,12 @@ impl Array {
     }
 
     /// Whether all items match.
-    pub fn all(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
+    ///
+    /// # Errors
+    ///
+    /// If evaluation of `func` fails.
+    #[allow(clippy::needless_pass_by_value /* convention */)]
+    pub fn all(&self, vm: &mut Vm<'_>, func: Func) -> SourceResult<bool> {
         for item in self.iter() {
             let args = Args::new(func.span(), [item.clone()]);
             if !func.call_vm(vm, args)?.cast::<bool>().at(func.span())? {
@@ -224,6 +310,7 @@ impl Array {
     }
 
     /// Return a new array with all items from this and nested arrays.
+    #[must_use]
     pub fn flatten(&self) -> Self {
         let mut flat = EcoVec::with_capacity(self.0.len());
         for item in self.iter() {
@@ -237,11 +324,14 @@ impl Array {
     }
 
     /// Returns a new array with reversed order.
+    #[must_use]
     pub fn rev(&self) -> Self {
         self.0.iter().cloned().rev().collect()
     }
 
     /// Split all values in the array.
+    #[must_use]
+    #[allow(clippy::needless_pass_by_value /* convention */)]
     pub fn split(&self, at: Value) -> Array {
         self.as_slice()
             .split(|value| *value == at)
@@ -251,6 +341,11 @@ impl Array {
 
     /// Join all values in the array, optionally with separator and last
     /// separator (between the final two items).
+    ///
+    /// # Errors
+    ///
+    /// If the items can't be joined.
+    #[allow(clippy::missing_panics_doc)]
     pub fn join(&self, sep: Option<Value>, mut last: Option<Value>) -> StrResult<Value> {
         let len = self.0.len();
         let sep = sep.unwrap_or(Value::None);
@@ -259,6 +354,7 @@ impl Array {
         for (i, value) in self.iter().cloned().enumerate() {
             if i > 0 {
                 if i + 1 == len && last.is_some() {
+                    // XXX let chains
                     result = ops::join(result, last.take().unwrap())?;
                 } else {
                     result = ops::join(result, sep.clone())?;
@@ -273,7 +369,9 @@ impl Array {
 
     /// Return a sorted version of this array.
     ///
-    /// Returns an error if two values could not be compared.
+    /// # Errors
+    ///
+    /// If two values could not be compared.
     pub fn sorted(&self) -> StrResult<Self> {
         let mut result = Ok(());
         let mut vec = self.0.clone();
@@ -293,26 +391,32 @@ impl Array {
     }
 
     /// Repeat this array `n` times.
+    ///
+    /// # Errors
+    ///
+    /// If `n` is negative or the repeated length overflows.
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let count = usize::try_from(n)
             .ok()
             .and_then(|n| self.0.len().checked_mul(n))
-            .ok_or_else(|| format!("cannot repeat this array {} times", n))?;
+            .ok_or_else(|| format!("cannot repeat this array {n} times"))?;
 
         Ok(self.iter().cloned().cycle().take(count).collect())
     }
 
     /// Extract a slice of the whole array.
+    #[must_use]
     pub fn as_slice(&self) -> &[Value] {
         self.0.as_slice()
     }
 
     /// Iterate over references to the contained values.
-    pub fn iter(&self) -> std::slice::Iter<Value> {
+    pub fn iter(&self) -> std::slice::Iter<'_, Value> {
         self.0.iter()
     }
 
     /// Resolve an index.
+    #[must_use]
     fn locate(&self, index: i64) -> Option<usize> {
         usize::try_from(if index >= 0 { index } else { self.len().checked_add(index)? })
             .ok()
@@ -320,7 +424,7 @@ impl Array {
 }
 
 impl Debug for Array {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let pieces: Vec<_> = self.iter().map(|value| eco_format!("{value:?}")).collect();
         f.write_str(&pretty_array_like(&pieces, self.len() == 1))
     }

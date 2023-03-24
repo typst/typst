@@ -1,3 +1,4 @@
+use az::Az as _;
 use typst::eval::Tracer;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
@@ -109,7 +110,7 @@ pub struct ParElem {
 }
 
 impl Construct for ParElem {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(_: &mut Vm<'_>, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // element. Instead, it just ensures that the passed content lives in a
         // separate paragraph and styles it.
@@ -125,22 +126,27 @@ impl Construct for ParElem {
 
 impl ParElem {
     /// Layout the paragraph into a collection of lines.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from layouting children.
     pub fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
         consecutive: bool,
         region: Size,
         expand: bool,
     ) -> SourceResult<Fragment> {
+        #[allow(clippy::too_many_arguments /* no easy way to reduce */)]
         #[comemo::memoize]
         fn cached(
             par: &ParElem,
-            world: Tracked<dyn World>,
-            tracer: TrackedMut<Tracer>,
-            provider: TrackedMut<StabilityProvider>,
-            introspector: Tracked<Introspector>,
-            styles: StyleChain,
+            world: Tracked<'_, dyn World>,
+            tracer: TrackedMut<'_, Tracer>,
+            provider: TrackedMut<'_, StabilityProvider>,
+            introspector: Tracked<'_, Introspector>,
+            styles: StyleChain<'_>,
             consecutive: bool,
             region: Size,
             expand: bool,
@@ -315,8 +321,7 @@ impl Segment<'_> {
     fn len(&self) -> usize {
         match *self {
             Self::Text(len) => len,
-            Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
-            Self::Box(_, true) => SPACING_REPLACE.len_utf8(),
+            Self::Spacing(_) | Self::Box(_, true) => SPACING_REPLACE.len_utf8(),
             Self::Equation(_) | Self::Box(_, _) | Self::Meta => OBJ_REPLACE.len_utf8(),
         }
     }
@@ -365,15 +370,19 @@ impl<'a> Item<'a> {
 }
 
 /// Maps byte offsets back to spans.
+#[derive(Default, Debug, Clone)]
 pub struct SpanMapper(Vec<(usize, Span)>);
 
 impl SpanMapper {
     /// Create a new span mapper.
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
-        Self(vec![])
+        Self::default()
     }
 
     /// Push a span for a segment with the given length.
+    #[inline]
     pub fn push(&mut self, len: usize, span: Span) {
         self.0.push((len, span));
     }
@@ -381,6 +390,8 @@ impl SpanMapper {
     /// Determine the span at the given byte offset.
     ///
     /// May return a detached span.
+    #[inline]
+    #[must_use]
     pub fn span_at(&self, offset: usize) -> (Span, u16) {
         let mut cursor = 0;
         for &(len, span) in &self.0 {
@@ -484,13 +495,16 @@ impl<'a> Line<'a> {
     }
 }
 
+type Segments<'a> = Vec<(Segment<'a>, StyleChain<'a>)>;
+
 /// Collect all text of the paragraph into one string. This also performs
 /// string-level preprocessing like case transformations.
+#[allow(clippy::too_many_lines /* refactoring would not be worth it */)]
 fn collect<'a>(
     children: &'a [Content],
     styles: &'a StyleChain<'a>,
     consecutive: bool,
-) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>, SpanMapper)> {
+) -> SourceResult<(String, Segments<'a>, SpanMapper)> {
     let mut full = String::new();
     let mut quoter = Quoter::new();
     let mut segments = vec![];
@@ -520,10 +534,10 @@ fn collect<'a>(
         }
     }
 
-    let hang = ParElem::hanging_indent_in(*styles);
-    if !hang.is_zero() {
+    let hanging_indent = ParElem::hanging_indent_in(*styles);
+    if !hanging_indent.is_zero() {
         full.push(SPACING_REPLACE);
-        segments.push((Segment::Spacing((-hang).into()), *styles));
+        segments.push((Segment::Spacing((-hanging_indent).into()), *styles));
     }
 
     while let Some(mut child) = iter.next() {
@@ -555,9 +569,9 @@ fn collect<'a>(
         } else if let Some(elem) = child.to::<SmartQuoteElem>() {
             let prev = full.len();
             if SmartQuoteElem::enabled_in(styles) {
-                let lang = TextElem::lang_in(styles);
+                let language = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
-                let quotes = Quotes::from_lang(lang, region);
+                let local_quotes = Quotes::from_lang(language, region);
                 let peeked = iter.peek().and_then(|child| {
                     if let Some(elem) = child.to::<TextElem>() {
                         elem.text().chars().next()
@@ -570,7 +584,7 @@ fn collect<'a>(
                     }
                 });
 
-                full.push_str(quoter.quote(&quotes, elem.double(styles), peeked));
+                full.push_str(quoter.quote(&local_quotes, elem.double(styles), peeked));
             } else {
                 full.push(if elem.double(styles) { '"' } else { '\'' });
             }
@@ -613,7 +627,7 @@ fn collect<'a>(
 /// Prepare paragraph layout by shaping the whole paragraph and layouting all
 /// contained inline-level content.
 fn prepare<'a>(
-    vt: &mut Vt,
+    vt: &mut Vt<'_>,
     children: &'a [Content],
     text: &'a str,
     segments: Vec<(Segment<'a>, StyleChain<'a>)>,
@@ -688,11 +702,11 @@ fn prepare<'a>(
     })
 }
 
-/// Group a range of text by BiDi level and script, shape the runs and generate
-/// items for them.
+/// Group a range of text by BiDi level and script, shape the runs and generate items for them.
+#[allow(clippy::doc_markdown /* false positive */)]
 fn shape_range<'a>(
     items: &mut Vec<Item<'a>>,
-    vt: &Vt,
+    vt: &Vt<'_>,
     bidi: &BidiInfo<'a>,
     range: Range,
     spans: &SpanMapper,
@@ -709,6 +723,7 @@ fn shape_range<'a>(
     let mut cursor = range.start;
 
     // Group by embedding level and script.
+    #[allow(clippy::mut_range_bound /* false positive */)]
     for i in cursor..range.end {
         if !bidi.text.is_char_boundary(i) {
             continue;
@@ -745,21 +760,21 @@ fn is_compatible(a: Script, b: Script) -> bool {
 
 /// Get a style property, but only if it is the same for all children of the
 /// paragraph.
-fn shared_get<'a, T: PartialEq>(
-    styles: StyleChain<'a>,
+fn shared_get<T: PartialEq>(
+    styles: StyleChain<'_>,
     children: &[Content],
-    getter: fn(StyleChain) -> T,
+    getter: fn(StyleChain<'_>) -> T,
 ) -> Option<T> {
     let value = getter(styles);
     children
         .iter()
-        .filter_map(|child| child.to_styled())
-        .all(|(_, local)| getter(styles.chain(&local)) == value)
-        .then(|| value)
+        .filter_map(Content::to_styled)
+        .all(|(_, local)| getter(styles.chain(local)) == value)
+        .then_some(value)
 }
 
 /// Find suitable linebreaks.
-fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+fn linebreak<'a>(vt: &Vt<'_>, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
     let linebreaks = ParElem::linebreaks_in(p.styles).unwrap_or_else(|| {
         if ParElem::justify_in(p.styles) {
             Linebreaks::Optimized
@@ -777,7 +792,11 @@ fn linebreak<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
 /// Perform line breaking in simple first-fit style. This means that we build
 /// lines greedily, always taking the longest possible line. This may lead to
 /// very unbalanced line, but is fast and simple.
-fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+fn linebreak_simple<'a>(
+    vt: &Vt<'_>,
+    p: &'a Preparation<'a>,
+    width: Abs,
+) -> Vec<Line<'a>> {
     let mut lines = vec![];
     let mut start = 0;
     let mut last = None;
@@ -833,7 +852,11 @@ fn linebreak_simple<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line
 /// computed and stored in dynamic programming table) is minimal. The final
 /// result is simply the layout determined for the last breakpoint at the end of
 /// text.
-fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<Line<'a>> {
+fn linebreak_optimized<'a>(
+    vt: &Vt<'_>,
+    p: &'a Preparation<'a>,
+    width: Abs,
+) -> Vec<Line<'a>> {
     /// The cost of a line or paragraph layout.
     type Cost = f64;
 
@@ -864,7 +887,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     for (end, mandatory, hyphen) in breakpoints(p) {
         let k = table.len();
         let eof = end == p.bidi.text.len();
-        let mut best: Option<Entry> = None;
+        let mut best: Option<Entry<'_>> = None;
 
         // Find the optimal predecessor.
         for (i, pred) in table.iter_mut().enumerate().skip(active) {
@@ -1043,18 +1066,18 @@ impl Breakpoints<'_> {
 
 /// Create a line which spans the given range.
 fn line<'a>(
-    vt: &Vt,
-    p: &'a Preparation,
+    vt: &Vt<'_>,
+    prep: &'a Preparation<'_>,
     mut range: Range,
     mandatory: bool,
     hyphen: bool,
 ) -> Line<'a> {
     let end = range.end;
-    let mut justify = p.justify && end < p.bidi.text.len() && !mandatory;
+    let mut justify = prep.justify && end < prep.bidi.text.len() && !mandatory;
 
     if range.is_empty() {
         return Line {
-            bidi: &p.bidi,
+            bidi: &prep.bidi,
             end,
             trimmed: range,
             first: None,
@@ -1067,7 +1090,7 @@ fn line<'a>(
     }
 
     // Slice out the relevant items.
-    let (expanded, mut inner) = p.slice(range.clone());
+    let (expanded, mut inner) = prep.slice(range.clone());
     let mut width = Abs::zero();
 
     // Reshape the last item if it's split in half or hyphenated.
@@ -1078,7 +1101,7 @@ fn line<'a>(
         // end of the line.
         let base = expanded.end - shaped.text.len();
         let start = range.start.max(base);
-        let text = &p.bidi.text[start..range.end];
+        let text = &prep.bidi.text[start..range.end];
         let trimmed = text.trim_end();
         range.end = start + trimmed.len();
 
@@ -1099,7 +1122,7 @@ fn line<'a>(
         if hyphen || start + shaped.text.len() > range.end {
             if hyphen || start < range.end || before.is_empty() {
                 let shifted = start - base..range.end - base;
-                let mut reshaped = shaped.reshape(vt, &p.spans, shifted);
+                let mut reshaped = shaped.reshape(vt, &prep.spans, shifted);
                 if hyphen || shy {
                     reshaped.push_hyphen(vt);
                 }
@@ -1122,7 +1145,7 @@ fn line<'a>(
         if range.start + shaped.text.len() > end {
             if range.start < end {
                 let shifted = range.start - base..end - base;
-                let reshaped = shaped.reshape(vt, &p.spans, shifted);
+                let reshaped = shaped.reshape(vt, &prep.spans, shifted);
                 width += reshaped.width;
                 first = Some(Item::Text(reshaped));
             }
@@ -1137,7 +1160,7 @@ fn line<'a>(
     }
 
     Line {
-        bidi: &p.bidi,
+        bidi: &prep.bidi,
         trimmed: range,
         end,
         first,
@@ -1151,9 +1174,9 @@ fn line<'a>(
 
 /// Combine layouted lines into one frame per region.
 fn finalize(
-    vt: &mut Vt,
-    p: &Preparation,
-    lines: &[Line],
+    vt: &mut Vt<'_>,
+    prep: &Preparation<'_>,
+    lines: &[Line<'_>],
     region: Size,
     expand: bool,
 ) -> SourceResult<Fragment> {
@@ -1162,7 +1185,7 @@ fn finalize(
     let width = if !region.x.is_finite()
         || (!expand && lines.iter().all(|line| line.fr().is_zero()))
     {
-        p.hang + lines.iter().map(|line| line.width).max().unwrap_or_default()
+        prep.hang + lines.iter().map(|line| line.width).max().unwrap_or_default()
     } else {
         region.x
     };
@@ -1170,11 +1193,11 @@ fn finalize(
     // Stack the lines into one frame per region.
     let mut frames: Vec<Frame> = lines
         .iter()
-        .map(|line| commit(vt, p, line, width, region.y))
+        .map(|line| commit(vt, prep, line, width, region.y))
         .collect::<SourceResult<_>>()?;
 
     // Prevent orphans.
-    let leading = ParElem::leading_in(p.styles);
+    let leading = ParElem::leading_in(prep.styles);
     if frames.len() >= 2 && !frames[1].is_empty() {
         let second = frames.remove(1);
         let first = &mut frames[0];
@@ -1202,19 +1225,19 @@ fn merge(first: &mut Frame, second: Frame, leading: Abs) {
 
 /// Commit to a line and build its frame.
 fn commit(
-    vt: &mut Vt,
-    p: &Preparation,
-    line: &Line,
+    vt: &mut Vt<'_>,
+    prep: &Preparation<'_>,
+    line: &Line<'_>,
     width: Abs,
     full: Abs,
 ) -> SourceResult<Frame> {
-    let mut remaining = width - line.width - p.hang;
+    let mut remaining = width - line.width - prep.hang;
     let mut offset = Abs::zero();
 
     // Reorder the line from logical to visual order.
     let (reordered, starts_rtl) = reorder(line);
     if !starts_rtl {
-        offset += p.hang;
+        offset += prep.hang;
     }
 
     // Handle hanging punctuation to the left.
@@ -1250,7 +1273,7 @@ fn commit(
     if remaining < Abs::zero() || (line.justify && fr.is_zero()) {
         let justifiables = line.justifiables();
         if justifiables > 0 {
-            justification = remaining / justifiables as f64;
+            justification = remaining / justifiables.az::<f64>();
             remaining = Abs::zero();
         }
     }
@@ -1306,7 +1329,7 @@ fn commit(
 
     // Construct the line's frame.
     for (offset, frame) in frames {
-        let x = offset + p.align.position(remaining);
+        let x = offset + prep.align.position(remaining);
         let y = top - frame.baseline();
         output.push_frame(Point::new(x, y), frame);
     }
@@ -1333,7 +1356,7 @@ fn reorder<'a>(line: &'a Line<'a>) -> (Vec<&Item<'a>>, bool) {
 
     // Compute the reordered ranges in visual order (left to right).
     let (levels, runs) = line.bidi.visual_runs(para, line.trimmed.clone());
-    let starts_rtl = levels.first().map_or(false, |level| level.is_rtl());
+    let starts_rtl = levels.first().map_or(false, unicode_bidi::Level::is_rtl);
 
     // Collect the reordered items.
     for run in runs {
@@ -1356,10 +1379,9 @@ fn reorder<'a>(line: &'a Line<'a>) -> (Vec<&Item<'a>>, bool) {
 
 /// How much a character should hang into the end margin.
 ///
-/// For more discussion, see:
-/// https://recoveringphysicist.com/21/
-fn overhang(c: char) -> f64 {
-    match c {
+/// For more discussion, see <https://recoveringphysicist.com/21/>
+fn overhang(ch: char) -> f64 {
+    match ch {
         // Dashes.
         '–' | '—' => 0.2,
         '-' => 0.55,

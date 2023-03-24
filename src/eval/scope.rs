@@ -20,6 +20,7 @@ pub struct Scopes<'a> {
 
 impl<'a> Scopes<'a> {
     /// Create a new, empty hierarchy of scopes.
+    #[must_use]
     pub fn new(base: Option<&'a Library>) -> Self {
         Self { top: Scope::new(), scopes: vec![], base }
     }
@@ -37,6 +38,10 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable immutably.
+    ///
+    /// # Errors
+    ///
+    /// If the variable cannot be found.
     pub fn get(&self, var: &str) -> StrResult<&Value> {
         Ok(std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
@@ -46,6 +51,10 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable immutably in math.
+    ///
+    /// # Errors
+    ///
+    /// If the variable cannot be found.
     pub fn get_in_math(&self, var: &str) -> StrResult<&Value> {
         Ok(std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
@@ -55,6 +64,10 @@ impl<'a> Scopes<'a> {
     }
 
     /// Try to access a variable mutably.
+    ///
+    /// # Errors
+    ///
+    /// If the variable cannot be found or cannot be mutated.
     pub fn get_mut(&mut self, var: &str) -> StrResult<&mut Value> {
         std::iter::once(&mut self.top)
             .chain(&mut self.scopes.iter_mut().rev())
@@ -70,17 +83,22 @@ impl<'a> Scopes<'a> {
 
 /// A map from binding names to values.
 #[derive(Default, Clone, Hash)]
-pub struct Scope(BTreeMap<EcoString, Slot>, bool);
+pub struct Scope {
+    contents: BTreeMap<EcoString, Slot>,
+    deduplicating: bool,
+}
 
 impl Scope {
     /// Create a new empty scope.
+    #[must_use]
     pub fn new() -> Self {
-        Self(BTreeMap::new(), false)
+        Self { contents: BTreeMap::new(), deduplicating: false }
     }
 
     /// Create a new scope with duplication prevention.
+    #[must_use]
     pub fn deduplicating() -> Self {
-        Self(BTreeMap::new(), true)
+        Self { contents: BTreeMap::new(), deduplicating: true }
     }
 
     /// Bind a value to a name.
@@ -88,12 +106,12 @@ impl Scope {
     pub fn define(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
         let name = name.into();
 
-        #[cfg(debug_assertions)]
-        if self.1 && self.0.contains_key(&name) {
-            panic!("duplicate definition: {name}");
-        }
+        debug_assert!(
+            !(self.deduplicating && self.contents.contains_key(&name)),
+            "duplicate definition: {name}",
+        );
 
-        self.0.insert(name, Slot::new(value.into(), Kind::Normal));
+        self.contents.insert(name, Slot::new(value.into(), Kind::Normal));
     }
 
     /// Define a captured, immutable binding.
@@ -102,30 +120,31 @@ impl Scope {
         var: impl Into<EcoString>,
         value: impl Into<Value>,
     ) {
-        self.0.insert(var.into(), Slot::new(value.into(), Kind::Captured));
+        self.contents
+            .insert(var.into(), Slot::new(value.into(), Kind::Captured));
     }
 
     /// Try to access a variable immutably.
     pub fn get(&self, var: &str) -> Option<&Value> {
-        self.0.get(var).map(Slot::read)
+        self.contents.get(var).map(Slot::read)
     }
 
     /// Try to access a variable mutably.
     pub fn get_mut(&mut self, var: &str) -> Option<StrResult<&mut Value>> {
-        self.0.get_mut(var).map(Slot::write)
+        self.contents.get_mut(var).map(Slot::write)
     }
 
     /// Iterate over all definitions.
     pub fn iter(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
-        self.0.iter().map(|(k, v)| (k, v.read()))
+        self.contents.iter().map(|(k, v)| (k, v.read()))
     }
 }
 
 impl Debug for Scope {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("Scope ")?;
         f.debug_map()
-            .entries(self.0.iter().map(|(k, v)| (k, v.read())))
+            .entries(self.contents.iter().map(|(k, v)| (k, v.read())))
             .finish()
     }
 }

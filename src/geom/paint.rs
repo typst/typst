@@ -1,5 +1,8 @@
 use std::str::FromStr;
 
+use az::Az as _;
+
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// How a fill or stroke should be painted.
@@ -16,7 +19,7 @@ impl<T: Into<Color>> From<T> for Paint {
 }
 
 impl Debug for Paint {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Solid(color) => color.fmt(f),
         }
@@ -43,7 +46,9 @@ pub enum Color {
     Cmyk(CmykColor),
 }
 
+/// Preset colors.
 impl Color {
+    #![allow(missing_docs, /* obvious */)]
     pub const BLACK: Self = Self::Rgba(RgbaColor::new(0x00, 0x00, 0x00, 0xFF));
     pub const GRAY: Self = Self::Rgba(RgbaColor::new(0xAA, 0xAA, 0xAA, 0xFF));
     pub const SILVER: Self = Self::Rgba(RgbaColor::new(0xDD, 0xDD, 0xDD, 0xFF));
@@ -62,8 +67,13 @@ impl Color {
     pub const OLIVE: Self = Self::Rgba(RgbaColor::new(0x3D, 0x99, 0x70, 0xFF));
     pub const GREEN: Self = Self::Rgba(RgbaColor::new(0x2E, 0xCC, 0x40, 0xFF));
     pub const LIME: Self = Self::Rgba(RgbaColor::new(0x01, 0xFF, 0x70, 0xFF));
+    pub const TRANSPARENT: Self = Self::Rgba(RgbaColor::new(0, 0, 0, 0));
+}
 
+impl Color {
     /// Convert this color to RGBA.
+    #[must_use]
+    #[inline]
     pub fn to_rgba(self) -> RgbaColor {
         match self {
             Self::Luma(luma) => luma.to_rgba(),
@@ -73,6 +83,8 @@ impl Color {
     }
 
     /// Lighten this color by the given factor.
+    #[must_use]
+    #[inline]
     pub fn lighten(self, factor: Ratio) -> Self {
         match self {
             Self::Luma(luma) => Self::Luma(luma.lighten(factor)),
@@ -82,6 +94,8 @@ impl Color {
     }
 
     /// Darken this color by the given factor.
+    #[must_use]
+    #[inline]
     pub fn darken(self, factor: Ratio) -> Self {
         match self {
             Self::Luma(luma) => Self::Luma(luma.darken(factor)),
@@ -91,6 +105,8 @@ impl Color {
     }
 
     /// Negate this color.
+    #[must_use]
+    #[inline]
     pub fn negate(self) -> Self {
         match self {
             Self::Luma(luma) => Self::Luma(luma.negate()),
@@ -101,7 +117,7 @@ impl Color {
 }
 
 impl Debug for Color {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Luma(c) => Debug::fmt(c, f),
             Self::Rgba(c) => Debug::fmt(c, f),
@@ -116,50 +132,63 @@ pub struct LumaColor(pub u8);
 
 impl LumaColor {
     /// Construct a new luma color.
+    #[must_use]
+    #[inline]
     pub const fn new(luma: u8) -> Self {
         Self(luma)
     }
 
     /// Convert to an opque RGBA color.
+    #[must_use]
+    #[inline]
     pub const fn to_rgba(self) -> RgbaColor {
         RgbaColor::new(self.0, self.0, self.0, u8::MAX)
     }
 
     /// Convert to CMYK as a fraction of true black.
+    #[must_use]
+    #[inline]
     pub fn to_cmyk(self) -> CmykColor {
         CmykColor::new(
-            round_u8(self.0 as f64 * 0.75),
-            round_u8(self.0 as f64 * 0.68),
-            round_u8(self.0 as f64 * 0.67),
-            round_u8(self.0 as f64 * 0.90),
+            round_u8(f64::from(self.0) * 0.75),
+            round_u8(f64::from(self.0) * 0.68),
+            round_u8(f64::from(self.0) * 0.67),
+            round_u8(f64::from(self.0) * 0.90),
         )
     }
 
     /// Lighten this color by a factor.
+    #[must_use]
+    #[inline]
     pub fn lighten(self, factor: Ratio) -> Self {
-        let inc = round_u8((u8::MAX - self.0) as f64 * factor.get());
+        let inc = round_u8(f64::from(u8::MAX - self.0) * factor.get());
         Self(self.0.saturating_add(inc))
     }
 
     /// Darken this color by a factor.
+    #[must_use]
+    #[inline]
     pub fn darken(self, factor: Ratio) -> Self {
-        let dec = round_u8(self.0 as f64 * factor.get());
+        let dec = round_u8(f64::from(self.0) * factor.get());
         Self(self.0.saturating_sub(dec))
     }
 
     /// Negate this color.
+    #[must_use]
+    #[inline]
     pub fn negate(self) -> Self {
         Self(u8::MAX - self.0)
     }
 }
 
 impl Debug for LumaColor {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "luma({})", self.0)
     }
 }
 
 impl From<LumaColor> for Color {
+    #[inline]
     fn from(luma: LumaColor) -> Self {
         Self::Luma(luma)
     }
@@ -180,6 +209,8 @@ pub struct RgbaColor {
 
 impl RgbaColor {
     /// Construct a new RGBA color.
+    #[must_use]
+    #[inline]
     pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
         Self { r, g, b, a }
     }
@@ -187,9 +218,11 @@ impl RgbaColor {
     /// Lighten this color by a factor.
     ///
     /// The alpha channel is not affected.
+    #[must_use]
+    #[inline]
     pub fn lighten(self, factor: Ratio) -> Self {
         let lighten =
-            |c: u8| c.saturating_add(round_u8((u8::MAX - c) as f64 * factor.get()));
+            |c: u8| c.saturating_add(round_u8(f64::from(u8::MAX - c) * factor.get()));
         Self {
             r: lighten(self.r),
             g: lighten(self.g),
@@ -201,8 +234,10 @@ impl RgbaColor {
     /// Darken this color by a factor.
     ///
     /// The alpha channel is not affected.
+    #[must_use]
+    #[inline]
     pub fn darken(self, factor: Ratio) -> Self {
-        let darken = |c: u8| c.saturating_sub(round_u8(c as f64 * factor.get()));
+        let darken = |c: u8| c.saturating_sub(round_u8(f64::from(c) * factor.get()));
         Self {
             r: darken(self.r),
             g: darken(self.g),
@@ -214,6 +249,8 @@ impl RgbaColor {
     /// Negate this color.
     ///
     /// The alpha channel is not affected.
+    #[must_use]
+    #[inline]
     pub fn negate(self) -> Self {
         Self {
             r: u8::MAX - self.r,
@@ -266,13 +303,14 @@ impl FromStr for RgbaColor {
 }
 
 impl Debug for RgbaColor {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let Self { r, g, b, a } = *self;
         if f.alternate() {
-            write!(f, "rgba({}, {}, {}, {})", self.r, self.g, self.b, self.a,)?;
+            write!(f, "rgba({r}, {g}, {b}, {a})")?;
         } else {
-            write!(f, "rgb(\"#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
-            if self.a != 255 {
-                write!(f, "{:02x}", self.a)?;
+            write!(f, "rgb(\"#{r:02x}{g:02x}{b:02x}")?;
+            if a != 255 {
+                write!(f, "{a:02x}")?;
             }
             write!(f, "\")")?;
         }
@@ -281,6 +319,7 @@ impl Debug for RgbaColor {
 }
 
 impl<T: Into<RgbaColor>> From<T> for Color {
+    #[inline]
     fn from(rgba: T) -> Self {
         Self::Rgba(rgba.into())
     }
@@ -305,15 +344,19 @@ pub struct CmykColor {
 
 impl CmykColor {
     /// Construct a new CMYK color.
+    #[must_use]
+    #[inline]
     pub const fn new(c: u8, m: u8, y: u8, k: u8) -> Self {
         Self { c, m, y, k }
     }
 
     /// Convert this color to RGBA.
+    #[must_use]
+    #[inline]
     pub fn to_rgba(self) -> RgbaColor {
-        let k = self.k as f64 / 255.0;
+        let k = f64::from(self.k) / 255.0;
         let f = |c| {
-            let c = c as f64 / 255.0;
+            let c = f64::from(c) / 255.0;
             round_u8(255.0 * (1.0 - c) * (1.0 - k))
         };
 
@@ -321,8 +364,10 @@ impl CmykColor {
     }
 
     /// Lighten this color by a factor.
+    #[must_use]
+    #[inline]
     pub fn lighten(self, factor: Ratio) -> Self {
-        let lighten = |c: u8| c.saturating_sub(round_u8(c as f64 * factor.get()));
+        let lighten = |c: u8| c.saturating_sub(round_u8(f64::from(c) * factor.get()));
         Self {
             c: lighten(self.c),
             m: lighten(self.m),
@@ -332,9 +377,11 @@ impl CmykColor {
     }
 
     /// Darken this color by a factor.
+    #[must_use]
+    #[inline]
     pub fn darken(self, factor: Ratio) -> Self {
         let darken =
-            |c: u8| c.saturating_add(round_u8((u8::MAX - c) as f64 * factor.get()));
+            |c: u8| c.saturating_add(round_u8(f64::from(u8::MAX - c) * factor.get()));
         Self {
             c: darken(self.c),
             m: darken(self.m),
@@ -346,6 +393,8 @@ impl CmykColor {
     /// Negate this color.
     ///
     /// Does not affect the key component.
+    #[must_use]
+    #[inline]
     pub fn negate(self) -> Self {
         Self {
             c: u8::MAX - self.c,
@@ -357,8 +406,8 @@ impl CmykColor {
 }
 
 impl Debug for CmykColor {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let g = |c| 100.0 * (c as f64 / 255.0);
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let g = |c| 100.0 * (f64::from(c) / 255.0);
         write!(
             f,
             "cmyk({:.1}%, {:.1}%, {:.1}%, {:.1}%)",
@@ -371,14 +420,16 @@ impl Debug for CmykColor {
 }
 
 impl From<CmykColor> for Color {
+    #[inline]
     fn from(cmyk: CmykColor) -> Self {
         Self::Cmyk(cmyk)
     }
 }
 
 /// Convert to the closest u8.
+#[must_use]
 fn round_u8(value: f64) -> u8 {
-    value.round() as u8
+    value.round().az()
 }
 
 #[cfg(test)]

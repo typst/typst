@@ -1,15 +1,21 @@
+use std::fmt::{self, Debug, Formatter};
+use std::path::Path;
+
 use comemo::Prehashed;
 use md::escape::escape_html;
 use pulldown_cmark as md;
+use serde::{Deserialize, Serialize};
 use typst::diag::FileResult;
+use typst::eval::{Library, Value};
 use typst::font::{Font, FontBook};
-use typst::geom::{Point, Size};
+use typst::geom::{Abs, Point, Size};
 use typst::syntax::{Source, SourceId};
 use typst::util::Buffer;
 use typst::World;
+use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
 
-use super::*;
+use crate::{Resolver, FILES, FONTS, GROUPS, IMAGES, LIBRARY};
 
 /// HTML documentation.
 #[derive(Serialize)]
@@ -24,26 +30,30 @@ pub struct Html {
 
 impl Html {
     /// Create HTML from a raw string.
+    #[inline]
+    #[must_use]
     pub fn new(raw: String) -> Self {
         Self { md: String::new(), raw, description: None }
     }
 
     /// Convert markdown to HTML.
     #[track_caller]
-    pub fn markdown(resolver: &dyn Resolver, md: &str) -> Self {
-        let mut text = md;
+    #[inline]
+    #[must_use]
+    pub fn markdown(resolver: &dyn Resolver, markdown: &str) -> Self {
+        let mut text = markdown;
         let mut description = None;
-        let document = YamlFrontMatter::parse::<Metadata>(&md);
+        let document = YamlFrontMatter::parse::<Metadata>(markdown);
         if let Ok(document) = &document {
             text = &document.content;
-            description = Some(document.metadata.description.clone())
+            description = Some(document.metadata.description.clone());
         }
 
         let options = md::Options::ENABLE_TABLES | md::Options::ENABLE_HEADING_ATTRIBUTES;
 
         let mut handler = Handler::new(resolver);
         let iter = md::Parser::new_ext(text, options)
-            .filter_map(|mut event| handler.handle(&mut event).then(|| event));
+            .filter_map(|mut event| handler.handle(&mut event).then_some(event));
 
         let mut raw = String::new();
         md::html::push_html(&mut raw, iter);
@@ -53,11 +63,15 @@ impl Html {
     }
 
     /// The raw HTML.
+    #[inline]
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.raw
     }
 
     /// The original Markdown, if any.
+    #[inline]
+    #[must_use]
     pub fn md(&self) -> &str {
         &self.md
     }
@@ -65,20 +79,24 @@ impl Html {
     /// The title of the HTML.
     ///
     /// Returns `None` if the HTML doesn't start with an `h1` tag.
+    #[inline]
+    #[must_use]
     pub fn title(&self) -> Option<&str> {
         let mut s = Scanner::new(&self.raw);
         s.eat_if("<h1>").then(|| s.eat_until("</h1>"))
     }
 
     /// The description from the front matter.
+    #[inline]
+    #[must_use]
     pub fn description(&self) -> Option<String> {
         self.description.clone()
     }
 }
 
 impl Debug for Html {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Html({:?})", self.title().unwrap_or(".."))
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("Html").field(&self.title().unwrap_or("..")).finish()
     }
 }
 
@@ -98,7 +116,7 @@ impl<'a> Handler<'a> {
         Self { resolver, lang: None }
     }
 
-    fn handle(&mut self, event: &mut md::Event) -> bool {
+    fn handle(&mut self, event: &mut md::Event<'_>) -> bool {
         let lang = self.lang.take();
         match event {
             // Rewrite Markdown images.
@@ -169,7 +187,7 @@ impl<'a> Handler<'a> {
 
     fn handle_image(&self, link: &str) -> String {
         if let Some(file) = IMAGES.get_file(link) {
-            self.resolver.image(&link, file.contents()).into()
+            self.resolver.image(link, file.contents())
         } else if let Some(url) = self.resolver.link(link) {
             url
         } else {
@@ -190,14 +208,11 @@ impl<'a> Handler<'a> {
         let rest = &link[root.len()..].trim_matches('/');
         let base = match root {
             "$tutorial" => "/docs/tutorial/",
-            "$reference" => "/docs/reference/",
-            "$category" => "/docs/reference/",
+            "$reference" | "$category" | "$func" => "/docs/reference/",
             "$syntax" => "/docs/reference/syntax/",
             "$styling" => "/docs/reference/styling/",
             "$scripting" => "/docs/reference/scripting/",
-            "$types" => "/docs/reference/types/",
-            "$type" => "/docs/reference/types/",
-            "$func" => "/docs/reference/",
+            "$types" | "$type" => "/docs/reference/types/",
             "$changelog" => "/docs/changelog/",
             "$community" => "/docs/community/",
             _ => panic!("unknown link root: {root}"),
@@ -305,7 +320,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         return Html::new(format!("<pre>{}</pre>", highlighted.as_str()));
     }
 
-    let source = Source::new(SourceId::from_u16(0), Path::new("main.typ"), compile);
+    let source = Source::new(SourceId::from_u16(0), "main.typ".as_ref(), compile);
     let world = DocWorld(source);
     let mut frames = match typst::compile(&world) {
         Ok(doc) => doc.pages,

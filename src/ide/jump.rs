@@ -115,6 +115,7 @@ pub fn jump_from_click(
 }
 
 /// Find the output location in the document for a cursor position.
+#[must_use]
 pub fn jump_from_cursor(
     frames: &[Frame],
     source: &Source,
@@ -129,7 +130,7 @@ pub fn jump_from_cursor(
     for (i, frame) in frames.iter().enumerate() {
         if let Some(pos) = find_in_frame(frame, span) {
             return Some(Position {
-                page: NonZeroUsize::new(i + 1).unwrap(),
+                page: NonZeroUsize::new(i + 1).unwrap_or_else(|| unreachable!()),
                 point: pos,
             });
         }
@@ -139,6 +140,7 @@ pub fn jump_from_cursor(
 }
 
 /// Find the position of a span in a frame.
+#[must_use]
 fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
     for (mut pos, item) in frame.items() {
         if let FrameItem::Group(group) = item {

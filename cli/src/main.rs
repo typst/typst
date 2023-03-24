@@ -1,5 +1,24 @@
+#![deny(
+    absolute_paths_not_starting_with_crate,
+    future_incompatible,
+    keyword_idents,
+    macro_use_extern_crate,
+    meta_variable_misuse,
+    missing_abi,
+    missing_copy_implementations,
+    non_ascii_idents,
+    nonstandard_style,
+    noop_method_call,
+    pointer_structural_match,
+    private_in_public,
+    rust_2018_idioms,
+    unused_qualifications
+)]
+#![warn(clippy::pedantic)]
+
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Read, Write};
@@ -43,7 +62,7 @@ struct CompileCommand {
     font_paths: Vec<PathBuf>,
 }
 
-const HELP: &'static str = "\
+const HELP: &str = "\
 typst creates PDF files from .typ files
 
 USAGE:
@@ -71,7 +90,7 @@ struct FontsCommand {
     variants: bool,
 }
 
-const HELP_FONTS: &'static str = "\
+const HELP_FONTS: &str = "\
 typst --fonts lists all discovered fonts in system and custom font paths
 
 USAGE:
@@ -87,7 +106,7 @@ OPTIONS:
 fn main() {
     let command = parse_args();
     let ok = command.is_ok();
-    if let Err(msg) = command.and_then(dispatch) {
+    if let Err(msg) = command.and_then(|command| dispatch(&command)) {
         print_error(&msg).unwrap();
         if !ok {
             println!("\nfor more information, try --help");
@@ -120,7 +139,7 @@ fn parse_args() -> StrResult<Command> {
         let root = args.opt_value_from_str("--root").map_err(|_| "missing root path")?;
         let watch = args.contains(["-w", "--watch"]);
         let (input, output) = parse_input_output(&mut args, "pdf")?;
-        Command::Compile(CompileCommand { input, output, watch, root, font_paths })
+        Command::Compile(CompileCommand { input, output, root, watch, font_paths })
     };
 
     // Don't allow excess arguments.
@@ -137,12 +156,11 @@ fn parse_args() -> StrResult<Command> {
 /// given extension.
 fn parse_input_output(args: &mut Arguments, ext: &str) -> StrResult<(PathBuf, PathBuf)> {
     let input: PathBuf = args.free_from_str().map_err(|_| "missing input file")?;
-    let output = match args.opt_free_from_str().ok().flatten() {
-        Some(output) => output,
-        None => {
-            let name = input.file_name().ok_or("source path does not point to a file")?;
-            Path::new(name).with_extension(ext)
-        }
+    let output = if let Some(output) = args.opt_free_from_str().ok().flatten() {
+        output
+    } else {
+        let name = input.file_name().ok_or("source path does not point to a file")?;
+        Path::new(name).with_extension(ext)
     };
 
     // Ensure that the source file is not overwritten.
@@ -178,15 +196,18 @@ fn print_error(msg: &str) -> io::Result<()> {
 }
 
 /// Dispatch a command.
-fn dispatch(command: Command) -> StrResult<()> {
+fn dispatch(command: &Command) -> StrResult<()> {
     match command {
         Command::Compile(command) => compile(command),
-        Command::Fonts(command) => fonts(command),
+        Command::Fonts(command) => {
+            fonts(command);
+            Ok(())
+        }
     }
 }
 
 /// Execute a compilation command.
-fn compile(command: CompileCommand) -> StrResult<()> {
+fn compile(command: &CompileCommand) -> StrResult<()> {
     let root = if let Some(root) = &command.root {
         root.clone()
     } else if let Some(dir) = command.input.parent() {
@@ -199,7 +220,7 @@ fn compile(command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(root, &command.font_paths);
 
     // Perform initial compilation.
-    compile_once(&mut world, &command)?;
+    compile_once(&mut world, command)?;
 
     if !command.watch {
         return Ok(());
@@ -237,7 +258,7 @@ fn compile(command: CompileCommand) -> StrResult<()> {
         }
 
         if recompile {
-            compile_once(&mut world, &command)?;
+            compile_once(&mut world, command)?;
             comemo::evict(30);
         }
     }
@@ -261,7 +282,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
         // Print diagnostics.
         Err(errors) => {
             status(command, Status::Error).unwrap();
-            print_diagnostics(&world, *errors)
+            print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
         }
     }
@@ -304,6 +325,7 @@ fn status(command: &CompileCommand, status: Status) -> io::Result<()> {
 }
 
 /// The status in which the watcher can be.
+#[derive(Debug, Clone, Copy)]
 enum Status {
     Compiling,
     Success,
@@ -311,7 +333,7 @@ enum Status {
 }
 
 impl Status {
-    fn message(&self) -> &str {
+    fn message(self) -> &'static str {
         match self {
             Self::Compiling => "compiling ...",
             Self::Success => "compiled successfully",
@@ -319,7 +341,7 @@ impl Status {
         }
     }
 
-    fn color(&self) -> termcolor::ColorSpec {
+    fn color(self) -> termcolor::ColorSpec {
         let styles = term::Styles::default();
         match self {
             Self::Error => styles.header_error,
@@ -363,7 +385,7 @@ fn print_diagnostics(
 }
 
 /// Execute a font listing command.
-fn fonts(command: FontsCommand) -> StrResult<()> {
+fn fonts(command: &FontsCommand) {
     let mut searcher = FontSearcher::new();
     searcher.search_system();
     for path in &command.font_paths {
@@ -378,8 +400,6 @@ fn fonts(command: FontsCommand) -> StrResult<()> {
             }
         }
     }
-
-    Ok(())
 }
 
 /// A world that provides access to the operating system.
@@ -484,19 +504,17 @@ impl World for SystemWorld {
 }
 
 impl SystemWorld {
-    fn slot(&self, path: &Path) -> FileResult<RefMut<PathSlot>> {
+    fn slot(&self, path: &Path) -> FileResult<RefMut<'_, PathSlot>> {
         let mut hashes = self.hashes.borrow_mut();
-        let hash = match hashes.get(path).cloned() {
-            Some(hash) => hash,
-            None => {
-                let hash = PathHash::new(path);
-                if let Ok(canon) = path.canonicalize() {
-                    hashes.insert(canon.normalize(), hash.clone());
-                }
-                hashes.insert(path.into(), hash.clone());
-                hash
+        let hash = hashes.get(path).cloned().unwrap_or_else(|| {
+            let hash = PathHash::new(path);
+            if let Ok(canonical) = path.canonicalize() {
+                // XXX is this `normalize` unnecessary?
+                hashes.insert(canonical.normalize(), hash.clone());
             }
-        }?;
+            hashes.insert(path.into(), hash.clone());
+            hash
+        })?;
 
         Ok(std::cell::RefMut::map(self.paths.borrow_mut(), |paths| {
             paths.entry(hash).or_default()
@@ -504,32 +522,26 @@ impl SystemWorld {
     }
 
     fn insert(&self, path: &Path, text: String) -> SourceId {
-        let id = SourceId::from_u16(self.sources.len() as u16);
+        let id = SourceId::from_u16(self.sources.len().try_into().unwrap());
         let source = Source::new(id, path, text);
         self.sources.push(Box::new(source));
         id
     }
 
     fn relevant(&mut self, event: &notify::Event) -> bool {
-        match &event.kind {
-            notify::EventKind::Any => {}
-            notify::EventKind::Access(_) => return false,
-            notify::EventKind::Create(_) => return true,
-            notify::EventKind::Modify(kind) => match kind {
-                notify::event::ModifyKind::Any => {}
-                notify::event::ModifyKind::Data(_) => {}
-                notify::event::ModifyKind::Metadata(_) => return false,
-                notify::event::ModifyKind::Name(_) => return true,
-                notify::event::ModifyKind::Other => return false,
-            },
-            notify::EventKind::Remove(_) => {}
-            notify::EventKind::Other => return false,
-        }
+        use notify::event::ModifyKind as M;
+        use notify::EventKind as E;
 
-        event.paths.iter().any(|path| self.dependant(path))
+        match &event.kind {
+            E::Any | E::Remove(..) | E::Modify(M::Any | M::Data(..)) => {
+                event.paths.iter().any(|path| self.dependent(path))
+            }
+            E::Access(..) | E::Other | E::Modify(M::Metadata(..) | M::Other) => false,
+            E::Create(..) | E::Modify(M::Name(..)) => true,
+        }
     }
 
-    fn dependant(&self, path: &Path) -> bool {
+    fn dependent(&self, path: &Path) -> bool {
         self.hashes.borrow().contains_key(&path.normalize())
             || PathHash::new(path)
                 .map_or(false, |hash| self.paths.borrow().contains_key(&hash))
@@ -548,7 +560,7 @@ struct PathHash(u128);
 
 impl PathHash {
     fn new(path: &Path) -> FileResult<Self> {
-        let f = |e| FileError::from_io(e, path);
+        let f = |e| FileError::from_io(&e, path);
         let handle = Handle::from_path(path).map_err(f)?;
         let mut state = SipHasher::new();
         handle.hash(&mut state);
@@ -558,7 +570,7 @@ impl PathHash {
 
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
-    let f = |e| FileError::from_io(e, path);
+    let f = |e| FileError::from_io(&e, path);
     let mut file = File::open(path).map_err(f)?;
     if file.metadata().map_err(f)?.is_file() {
         let mut data = vec![];
@@ -638,11 +650,11 @@ impl FontSearcher {
     fn add_embedded(&mut self) {
         let mut add = |bytes: &'static [u8]| {
             let buffer = Buffer::from_static(bytes);
-            for (i, font) in Font::iter(buffer).enumerate() {
+            for (index, font) in Font::iter(buffer).enumerate() {
                 self.book.push(font.info().clone());
                 self.fonts.push(FontSlot {
                     path: PathBuf::new(),
-                    index: i as u32,
+                    index: index.try_into().unwrap(),
                     font: OnceCell::from(Some(font)),
                 });
             }
@@ -705,11 +717,11 @@ impl FontSearcher {
             .follow_links(true)
             .sort_by(|a, b| a.file_name().cmp(b.file_name()))
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(Result::ok)
         {
             let path = entry.path();
             if matches!(
-                path.extension().and_then(|s| s.to_str()),
+                path.extension().and_then(OsStr::to_str),
                 Some("ttf" | "otf" | "TTF" | "OTF" | "ttc" | "otc" | "TTC" | "OTC"),
             ) {
                 self.search_file(path);
@@ -720,16 +732,14 @@ impl FontSearcher {
     /// Index the fonts in the file at the given path.
     fn search_file(&mut self, path: impl AsRef<Path>) {
         let path = path.as_ref();
-        if let Ok(file) = File::open(path) {
-            if let Ok(mmap) = unsafe { Mmap::map(&file) } {
-                for (i, info) in FontInfo::iter(&mmap).enumerate() {
-                    self.book.push(info);
-                    self.fonts.push(FontSlot {
-                        path: path.into(),
-                        index: i as u32,
-                        font: OnceCell::new(),
-                    });
-                }
+        if let Ok(data) = File::open(path).and_then(|file| unsafe { Mmap::map(&file) }) {
+            for (index, info) in FontInfo::iter(&data).enumerate() {
+                self.book.push(info);
+                self.fonts.push(FontSlot {
+                    path: path.into(),
+                    index: index.try_into().unwrap(),
+                    font: OnceCell::new(),
+                });
             }
         }
     }

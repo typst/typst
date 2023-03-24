@@ -3,20 +3,20 @@
 mod book;
 mod variant;
 
-pub use self::book::*;
-pub use self::variant::*;
-
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ttf_parser::GlyphId;
 
+pub use self::book::*;
+pub use self::variant::*;
 use crate::eval::Cast;
 use crate::geom::Em;
 use crate::util::Buffer;
 
 /// An OpenType font.
+#[allow(clippy::doc_markdown /* false positive */)]
 #[derive(Clone)]
 pub struct Font(Arc<Repr>);
 
@@ -40,6 +40,7 @@ struct Repr {
 
 impl Font {
     /// Parse a font from data and collection index.
+    #[must_use]
     pub fn new(data: Buffer, index: u32) -> Option<Self> {
         // Safety:
         // - The slices's location is stable in memory:
@@ -47,6 +48,7 @@ impl Font {
         //   - Nobody else can move it since we have a strong ref to the `Arc`.
         // - The internal 'static lifetime is not leaked because its rewritten
         //   to the self-lifetime in `ttf()`.
+        // XXX the `yoke` crate could solve this with safe code.
         let slice: &'static [u8] =
             unsafe { std::slice::from_raw_parts(data.as_ptr(), data.len()) };
 
@@ -65,36 +67,50 @@ impl Font {
     }
 
     /// The underlying buffer.
+    #[must_use]
+    #[inline]
     pub fn data(&self) -> &Buffer {
         &self.0.data
     }
 
     /// The font's index in the buffer.
+    #[must_use]
+    #[inline]
     pub fn index(&self) -> u32 {
         self.0.index
     }
 
     /// The font's metadata.
+    #[must_use]
+    #[inline]
     pub fn info(&self) -> &FontInfo {
         &self.0.info
     }
 
     /// The font's metrics.
+    #[must_use]
+    #[inline]
     pub fn metrics(&self) -> &FontMetrics {
         &self.0.metrics
     }
 
     /// The number of font units per one em.
+    #[must_use]
+    #[inline]
     pub fn units_per_em(&self) -> f64 {
         self.0.metrics.units_per_em
     }
 
     /// Convert from font units to an em length.
+    #[must_use]
+    #[inline]
     pub fn to_em(&self, units: impl Into<f64>) -> Em {
         Em::from_units(units, self.units_per_em())
     }
 
     /// Look up the horizontal advance width of a glyph.
+    #[must_use]
+    #[inline]
     pub fn advance(&self, glyph: u16) -> Option<Em> {
         self.0
             .ttf
@@ -103,11 +119,15 @@ impl Font {
     }
 
     /// Lookup a name by id.
+    #[must_use]
+    #[inline]
     pub fn find_name(&self, id: u16) -> Option<String> {
         find_name(&self.0.ttf, id)
     }
 
     /// A reference to the underlying `ttf-parser` face.
+    #[must_use]
+    #[inline]
     pub fn ttf(&self) -> &ttf_parser::Face<'_> {
         // We can't implement Deref because that would leak the
         // internal 'static lifetime.
@@ -115,6 +135,8 @@ impl Font {
     }
 
     /// A reference to the underlying `rustybuzz` face.
+    #[must_use]
+    #[inline]
     pub fn rusty(&self) -> &rustybuzz::Face<'_> {
         // We can't implement Deref because that would leak the
         // internal 'static lifetime.
@@ -130,7 +152,7 @@ impl Hash for Font {
 }
 
 impl Debug for Font {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Font({})", self.info().family)
     }
 }
@@ -166,7 +188,8 @@ pub struct FontMetrics {
 
 impl FontMetrics {
     /// Extract the font's metrics.
-    pub fn from_ttf(ttf: &ttf_parser::Face) -> Self {
+    #[must_use]
+    pub fn from_ttf(ttf: &ttf_parser::Face<'_>) -> Self {
         let units_per_em = f64::from(ttf.units_per_em());
         let to_em = |units| Em::from_units(units, units_per_em);
 
@@ -209,6 +232,8 @@ impl FontMetrics {
     }
 
     /// Look up a vertical metric.
+    #[must_use]
+    #[inline]
     pub fn vertical(&self, metric: VerticalFontMetric) -> Em {
         match metric {
             VerticalFontMetric::Ascender => self.ascender,

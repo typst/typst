@@ -1,6 +1,8 @@
 use typst::eval::{symbols, Module, Scope, Symbol};
 
 /// A module with all general symbols.
+#[inline]
+#[must_use]
 pub fn sym() -> Module {
     let mut scope = Scope::new();
     for (name, symbol) in SYM {
@@ -10,7 +12,8 @@ pub fn sym() -> Module {
 }
 
 /// The list of general symbols.
-pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
+#[allow(clippy::unicode_not_nfc /* XXX this is intentional, right? */)]
+pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Control.
     wj: '\u{2060}',
     zwj: '\u{200D}',

@@ -20,8 +20,15 @@ mod ops;
 mod scope;
 mod symbol;
 
+use std::collections::BTreeMap;
+use std::mem;
+use std::path::{Path, PathBuf};
+
+use comemo::{Track, Tracked, TrackedMut};
+use ecow::EcoVec;
 #[doc(hidden)]
 pub use once_cell::sync::Lazy;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub use self::args::*;
 pub use self::array::*;
@@ -29,22 +36,12 @@ pub use self::cast::*;
 pub use self::dict::*;
 pub use self::func::*;
 pub use self::library::*;
+pub(crate) use self::methods::methods_on;
 pub use self::module::*;
 pub use self::scope::*;
 pub use self::str::*;
 pub use self::symbol::*;
 pub use self::value::*;
-
-pub(crate) use self::methods::methods_on;
-
-use std::collections::BTreeMap;
-use std::mem;
-use std::path::{Path, PathBuf};
-
-use comemo::{Track, Tracked, TrackedMut};
-use ecow::EcoVec;
-use unicode_segmentation::UnicodeSegmentation;
-
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
@@ -65,21 +62,19 @@ const MAX_CALL_DEPTH: usize = 256;
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
 pub fn eval(
-    world: Tracked<dyn World>,
-    route: Tracked<Route>,
-    tracer: TrackedMut<Tracer>,
+    world: Tracked<'_, dyn World>,
+    route: Tracked<'_, Route>,
+    tracer: TrackedMut<'_, Tracer>,
     source: &Source,
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
     let id = source.id();
     let path = if id.is_detached() { Path::new("") } else { world.source(id).path() };
-    if route.contains(id) {
-        panic!("Tried to cyclicly evaluate {}", path.display());
-    }
+    assert!(!route.contains(id), "Tried to cyclicly evaluate {path:?}");
 
     // Hook up the lang items.
     let library = world.library();
-    set_lang_items(library.items.clone());
+    set_lang_items(library.items);
 
     // Evaluate the module.
     let route = unsafe { Route::insert(route, id) };
@@ -115,7 +110,7 @@ pub fn eval(
 /// Everything in the output is associated with the given `span`.
 #[comemo::memoize]
 pub fn eval_string(
-    world: Tracked<dyn World>,
+    world: Tracked<'_, dyn World>,
     code: &str,
     span: Span,
 ) -> SourceResult<Value> {
@@ -156,12 +151,13 @@ pub fn eval_string(
 ///
 /// Holds the state needed to [evaluate](eval) Typst sources. A new
 /// virtual machine is created for each module evaluation and function call.
+#[derive(Debug)]
 pub struct Vm<'a> {
     /// The underlying virtual typesetter.
     pub vt: Vt<'a>,
     /// The language items.
     items: LangItems,
-    /// The route of source ids the VM took to reach its current location.
+    /// The route of source IDs the VM took to reach its current location.
     route: Tracked<'a, Route>,
     /// The current location.
     location: SourceId,
@@ -177,6 +173,7 @@ pub struct Vm<'a> {
 
 impl<'a> Vm<'a> {
     /// Create a new virtual machine.
+    #[must_use]
     fn new(
         vt: Vt<'a>,
         route: Tracked<'a, Route>,
@@ -184,7 +181,7 @@ impl<'a> Vm<'a> {
         scopes: Scopes<'a>,
     ) -> Self {
         let traced = vt.tracer.span(location);
-        let items = vt.world.library().items.clone();
+        let items = vt.world.library().items;
         Self {
             vt,
             items,
@@ -198,6 +195,7 @@ impl<'a> Vm<'a> {
     }
 
     /// Access the underlying world.
+    #[must_use]
     pub fn world(&self) -> Tracked<'a, dyn World> {
         self.vt.world
     }
@@ -213,6 +211,10 @@ impl<'a> Vm<'a> {
 
     /// Resolve a user-entered path to be relative to the compilation
     /// environment's root.
+    ///
+    /// # Errors
+    ///
+    /// If the environment is not suitable for resolving relative paths.
     pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
@@ -242,6 +244,7 @@ pub enum Flow {
 
 impl Flow {
     /// Return an error stating that this control flow is forbidden.
+    #[must_use]
     pub fn forbidden(&self) -> SourceError {
         match *self {
             Self::Break(span) => {
@@ -257,8 +260,8 @@ impl Flow {
     }
 }
 
-/// A route of source ids.
-#[derive(Default)]
+/// A route of source IDs.
+#[derive(Default, Debug, Clone)]
 pub struct Route {
     parent: Option<Tracked<'static, Self>>,
     id: Option<SourceId>,
@@ -266,15 +269,16 @@ pub struct Route {
 
 impl Route {
     /// Create a new route with just one entry.
+    #[must_use]
     pub fn new(id: SourceId) -> Self {
         Self { id: Some(id), parent: None }
     }
 
-    /// Insert a new id into the route.
+    /// Insert a new ID into the route.
     ///
     /// You must guarantee that `outer` lives longer than the resulting
     /// route is ever used.
-    unsafe fn insert(outer: Tracked<Route>, id: SourceId) -> Route {
+    unsafe fn insert(outer: Tracked<'_, Route>, id: SourceId) -> Route {
         Route {
             parent: Some(std::mem::transmute(outer)),
             id: Some(id),
@@ -284,14 +288,15 @@ impl Route {
 
 #[comemo::track]
 impl Route {
-    /// Whether the given id is part of the route.
+    /// Whether the given ID is part of the route.
+    #[must_use]
     fn contains(&self, id: SourceId) -> bool {
         self.id == Some(id) || self.parent.map_or(false, |parent| parent.contains(id))
     }
 }
 
 /// Traces which values existed for the expression at a span.
-#[derive(Default, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct Tracer {
     span: Option<Span>,
     values: Vec<Value>,
@@ -302,11 +307,13 @@ impl Tracer {
     pub const MAX: usize = 10;
 
     /// Create a new tracer, possibly with a span under inspection.
+    #[must_use]
     pub fn new(span: Option<Span>) -> Self {
         Self { span, values: vec![] }
     }
 
     /// Get the traced values.
+    #[must_use]
     pub fn finish(self) -> Vec<Value> {
         self.values
     }
@@ -315,12 +322,9 @@ impl Tracer {
 #[comemo::track]
 impl Tracer {
     /// The traced span if it is part of the given source file.
+    #[must_use]
     fn span(&self, id: SourceId) -> Option<Span> {
-        if self.span.map(Span::source) == Some(id) {
-            self.span
-        } else {
-            None
-        }
+        self.span.filter(|span| span.source() == id)
     }
 
     /// Trace a value for the span.
@@ -337,24 +341,24 @@ pub(super) trait Eval {
     type Output;
 
     /// Evaluate the expression to the output value.
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output>;
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output>;
 }
 
 impl Eval for ast::Markup {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         eval_markup(vm, &mut self.exprs())
     }
 }
 
 /// Evaluate a stream of markup.
 fn eval_markup(
-    vm: &mut Vm,
+    vm: &mut Vm<'_>,
     exprs: &mut impl Iterator<Item = ast::Expr>,
 ) -> SourceResult<Content> {
     let flow = vm.flow.take();
-    let mut seq = Vec::with_capacity(exprs.size_hint().1.unwrap_or_default());
+    let mut sequence = Vec::with_capacity(exprs.size_hint().1.unwrap_or_default());
 
     while let Some(expr) = exprs.next() {
         match expr {
@@ -364,7 +368,7 @@ fn eval_markup(
                     break;
                 }
 
-                seq.push(eval_markup(vm, exprs)?.styled_with_map(styles))
+                sequence.push(eval_markup(vm, exprs)?.styled_with_map(styles));
             }
             ast::Expr::Show(show) => {
                 let recipe = show.eval(vm)?;
@@ -373,17 +377,19 @@ fn eval_markup(
                 }
 
                 let tail = eval_markup(vm, exprs)?;
-                seq.push(tail.styled_with_recipe(vm, recipe)?)
+                sequence.push(tail.styled_with_recipe(vm, recipe)?);
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {
-                    if let Some(elem) =
-                        seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
+                    if let Some(elem) = sequence
+                        .iter_mut()
+                        .rev()
+                        .find(|node| !node.can::<dyn Unlabellable>())
                     {
                         *elem = mem::take(elem).labelled(label);
                     }
                 }
-                value => seq.push(value.display().spanned(expr.span())),
+                value => sequence.push(value.display().spanned(expr.span())),
             },
         }
 
@@ -396,13 +402,13 @@ fn eval_markup(
         vm.flow = flow;
     }
 
-    Ok(Content::sequence(seq))
+    Ok(Content::sequence(sequence))
 }
 
 impl Eval for ast::Expr {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let span = self.span();
         let forbidden = |name| {
             error!(span, "{} is only allowed directly in code and content blocks", name)
@@ -474,7 +480,7 @@ impl Eval for ast::Expr {
 }
 
 impl ast::Expr {
-    fn eval_display(&self, vm: &mut Vm) -> SourceResult<Content> {
+    fn eval_display(&self, vm: &mut Vm<'_>) -> SourceResult<Content> {
         Ok(self.eval(vm)?.display().spanned(self.span()))
     }
 }
@@ -482,7 +488,7 @@ impl ast::Expr {
 impl Eval for ast::Text {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.text)(self.get().clone()))
     }
 }
@@ -490,7 +496,7 @@ impl Eval for ast::Text {
 impl Eval for ast::Space {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.space)())
     }
 }
@@ -498,7 +504,7 @@ impl Eval for ast::Space {
 impl Eval for ast::Linebreak {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.linebreak)())
     }
 }
@@ -506,7 +512,7 @@ impl Eval for ast::Linebreak {
 impl Eval for ast::Parbreak {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.parbreak)())
     }
 }
@@ -514,7 +520,7 @@ impl Eval for ast::Parbreak {
 impl Eval for ast::Escape {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::Symbol(Symbol::new(self.get())))
     }
 }
@@ -522,7 +528,7 @@ impl Eval for ast::Escape {
 impl Eval for ast::Shorthand {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::Symbol(Symbol::new(self.get())))
     }
 }
@@ -530,7 +536,7 @@ impl Eval for ast::Shorthand {
 impl Eval for ast::SmartQuote {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.smart_quote)(self.double()))
     }
 }
@@ -538,7 +544,7 @@ impl Eval for ast::SmartQuote {
 impl Eval for ast::Strong {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.strong)(self.body().eval(vm)?))
     }
 }
@@ -546,7 +552,7 @@ impl Eval for ast::Strong {
 impl Eval for ast::Emph {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.emph)(self.body().eval(vm)?))
     }
 }
@@ -554,7 +560,7 @@ impl Eval for ast::Emph {
 impl Eval for ast::Raw {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let text = self.text();
         let lang = self.lang().map(Into::into);
         let block = self.block();
@@ -565,7 +571,7 @@ impl Eval for ast::Raw {
 impl Eval for ast::Link {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.link)(self.get().clone()))
     }
 }
@@ -573,7 +579,7 @@ impl Eval for ast::Link {
 impl Eval for ast::Label {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::Label(Label(self.get().into())))
     }
 }
@@ -581,7 +587,7 @@ impl Eval for ast::Label {
 impl Eval for ast::Ref {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let label = Label(self.target().into());
         let supplement = self.supplement().map(|block| block.eval(vm)).transpose()?;
         Ok((vm.items.reference)(label, supplement))
@@ -591,7 +597,7 @@ impl Eval for ast::Ref {
 impl Eval for ast::Heading {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let level = self.level();
         let body = self.body().eval(vm)?;
         Ok((vm.items.heading)(level, body))
@@ -601,7 +607,7 @@ impl Eval for ast::Heading {
 impl Eval for ast::ListItem {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.list_item)(self.body().eval(vm)?))
     }
 }
@@ -609,7 +615,7 @@ impl Eval for ast::ListItem {
 impl Eval for ast::EnumItem {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let number = self.number();
         let body = self.body().eval(vm)?;
         Ok((vm.items.enum_item)(number, body))
@@ -619,7 +625,7 @@ impl Eval for ast::EnumItem {
 impl Eval for ast::TermItem {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let term = self.term().eval(vm)?;
         let description = self.description().eval(vm)?;
         Ok((vm.items.term_item)(term, description))
@@ -629,7 +635,7 @@ impl Eval for ast::TermItem {
 impl Eval for ast::Equation {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let body = self.body().eval(vm)?;
         let block = self.block();
         Ok((vm.items.equation)(body, block))
@@ -639,7 +645,7 @@ impl Eval for ast::Equation {
 impl Eval for ast::Math {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Content::sequence(
             self.exprs()
                 .map(|expr| expr.eval_display(vm))
@@ -651,15 +657,15 @@ impl Eval for ast::Math {
 impl Eval for ast::MathIdent {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(vm.scopes.get_in_math(self).cloned().at(self.span())?)
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
+        vm.scopes.get_in_math(self).cloned().at(self.span())
     }
 }
 
 impl Eval for ast::MathAlignPoint {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok((vm.items.math_align_point)())
     }
 }
@@ -667,7 +673,7 @@ impl Eval for ast::MathAlignPoint {
 impl Eval for ast::MathDelimited {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let open = self.open().eval_display(vm)?;
         let body = self.body().eval(vm)?;
         let close = self.close().eval_display(vm)?;
@@ -678,7 +684,7 @@ impl Eval for ast::MathDelimited {
 impl Eval for ast::MathAttach {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let base = self.base().eval_display(vm)?;
         let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
         let top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
@@ -689,7 +695,7 @@ impl Eval for ast::MathAttach {
 impl Eval for ast::MathFrac {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let num = self.num().eval_display(vm)?;
         let denom = self.denom().eval_display(vm)?;
         Ok((vm.items.math_frac)(num, denom))
@@ -699,15 +705,15 @@ impl Eval for ast::MathFrac {
 impl Eval for ast::Ident {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(vm.scopes.get(self).cloned().at(self.span())?)
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
+        vm.scopes.get(self).cloned().at(self.span())
     }
 }
 
 impl Eval for ast::None {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::None)
     }
 }
@@ -715,7 +721,7 @@ impl Eval for ast::None {
 impl Eval for ast::Auto {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::Auto)
     }
 }
@@ -723,7 +729,7 @@ impl Eval for ast::Auto {
 impl Eval for ast::Bool {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::Bool(self.get()))
     }
 }
@@ -731,7 +737,7 @@ impl Eval for ast::Bool {
 impl Eval for ast::Int {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::Int(self.get()))
     }
 }
@@ -739,7 +745,7 @@ impl Eval for ast::Int {
 impl Eval for ast::Float {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::Float(self.get()))
     }
 }
@@ -747,7 +753,7 @@ impl Eval for ast::Float {
 impl Eval for ast::Numeric {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::numeric(self.get()))
     }
 }
@@ -755,7 +761,7 @@ impl Eval for ast::Numeric {
 impl Eval for ast::Str {
     type Output = Value;
 
-    fn eval(&self, _: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, _: &mut Vm<'_>) -> SourceResult<Self::Output> {
         Ok(Value::Str(self.get().into()))
     }
 }
@@ -763,7 +769,7 @@ impl Eval for ast::Str {
 impl Eval for ast::CodeBlock {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         vm.scopes.enter();
         let output = self.body().eval(vm)?;
         vm.scopes.exit();
@@ -774,14 +780,14 @@ impl Eval for ast::CodeBlock {
 impl Eval for ast::Code {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         eval_code(vm, &mut self.exprs())
     }
 }
 
 /// Evaluate a stream of expressions.
 fn eval_code(
-    vm: &mut Vm,
+    vm: &mut Vm<'_>,
     exprs: &mut impl Iterator<Item = ast::Expr>,
 ) -> SourceResult<Value> {
     let flow = vm.flow.take();
@@ -828,7 +834,7 @@ fn eval_code(
 impl Eval for ast::ContentBlock {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         vm.scopes.enter();
         let content = self.body().eval(vm)?;
         vm.scopes.exit();
@@ -839,7 +845,7 @@ impl Eval for ast::ContentBlock {
 impl Eval for ast::Parenthesized {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         self.expr().eval(vm)
     }
 }
@@ -847,7 +853,7 @@ impl Eval for ast::Parenthesized {
 impl Eval for ast::Array {
     type Output = Array;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let items = self.items();
 
         let mut vec = EcoVec::with_capacity(items.size_hint().0);
@@ -869,7 +875,7 @@ impl Eval for ast::Array {
 impl Eval for ast::Dict {
     type Output = Dict;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let mut map = BTreeMap::new();
 
         for item in self.items() {
@@ -899,7 +905,7 @@ impl Eval for ast::Dict {
 impl Eval for ast::Unary {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let value = self.expr().eval(vm)?;
         let result = match self.op() {
             ast::UnOp::Pos => ops::pos(value),
@@ -913,7 +919,7 @@ impl Eval for ast::Unary {
 impl Eval for ast::Binary {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         match self.op() {
             ast::BinOp::Add => self.apply(vm, ops::add),
             ast::BinOp::Sub => self.apply(vm, ops::sub),
@@ -942,7 +948,7 @@ impl ast::Binary {
     /// Apply a basic binary operation.
     fn apply(
         &self,
-        vm: &mut Vm,
+        vm: &mut Vm<'_>,
         op: fn(Value, Value) -> StrResult<Value>,
     ) -> SourceResult<Value> {
         let lhs = self.lhs().eval(vm)?;
@@ -961,7 +967,7 @@ impl ast::Binary {
     /// Apply an assignment operation.
     fn assign(
         &self,
-        vm: &mut Vm,
+        vm: &mut Vm<'_>,
         op: fn(Value, Value) -> StrResult<Value>,
     ) -> SourceResult<Value> {
         let rhs = self.rhs().eval(vm)?;
@@ -987,7 +993,7 @@ impl ast::Binary {
 impl Eval for ast::FieldAccess {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let value = self.target().eval(vm)?;
         let field = self.field();
         value.field(&field).at(field.span())
@@ -997,7 +1003,7 @@ impl Eval for ast::FieldAccess {
 impl Eval for ast::FuncCall {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let span = self.span();
         if vm.depth >= MAX_CALL_DEPTH {
             bail!(span, "maximum function call depth exceeded");
@@ -1089,7 +1095,7 @@ fn in_math(expr: &ast::Expr) -> bool {
 impl Eval for ast::Args {
     type Output = Args;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let mut items = EcoVec::new();
 
         for arg in self.items() {
@@ -1138,7 +1144,7 @@ impl Eval for ast::Args {
 impl Eval for ast::Closure {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         // The closure's name is defined by its let binding if there's one.
         let name = self.name();
 
@@ -1187,7 +1193,7 @@ impl Eval for ast::Closure {
 impl Eval for ast::LetBinding {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let value = match self.init() {
             Some(expr) => expr.eval(vm)?,
             None => Value::None,
@@ -1200,7 +1206,7 @@ impl Eval for ast::LetBinding {
 impl Eval for ast::SetRule {
     type Output = Styles;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         if let Some(condition) = self.condition() {
             if !condition.eval(vm)?.cast::<bool>().at(condition.span())? {
                 return Ok(Styles::new());
@@ -1225,7 +1231,7 @@ impl Eval for ast::SetRule {
 impl Eval for ast::ShowRule {
     type Output = Recipe;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let selector = self
             .selector()
             .map(|sel| sel.eval(vm)?.cast::<Selector>().at(sel.span()))
@@ -1246,7 +1252,7 @@ impl Eval for ast::ShowRule {
 impl Eval for ast::Conditional {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let condition = self.condition();
         if condition.eval(vm)?.cast::<bool>().at(condition.span())? {
             self.if_body().eval(vm)
@@ -1261,7 +1267,7 @@ impl Eval for ast::Conditional {
 impl Eval for ast::WhileLoop {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
         let mut i = 0;
@@ -1306,8 +1312,7 @@ impl Eval for ast::WhileLoop {
 /// Whether the expression always evaluates to the same value.
 fn is_invariant(expr: &SyntaxNode) -> bool {
     match expr.cast() {
-        Some(ast::Expr::Ident(_)) => false,
-        Some(ast::Expr::MathIdent(_)) => false,
+        Some(ast::Expr::Ident(_) | ast::Expr::MathIdent(_)) => false,
         Some(ast::Expr::FieldAccess(access)) => {
             is_invariant(access.target().as_untyped())
         }
@@ -1328,7 +1333,7 @@ fn can_diverge(expr: &SyntaxNode) -> bool {
 impl Eval for ast::ForLoop {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let flow = vm.flow.take();
         let mut output = Value::None;
 
@@ -1408,7 +1413,7 @@ impl Eval for ast::ForLoop {
 impl Eval for ast::ModuleImport {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
         let module = import(vm, source, span)?;
@@ -1444,7 +1449,7 @@ impl Eval for ast::ModuleImport {
 impl Eval for ast::ModuleInclude {
     type Output = Content;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
         let module = import(vm, source, span)?;
@@ -1453,7 +1458,7 @@ impl Eval for ast::ModuleInclude {
 }
 
 /// Process an import of a module relative to the current location.
-fn import(vm: &mut Vm, source: Value, span: Span) -> SourceResult<Module> {
+fn import(vm: &mut Vm<'_>, source: Value, span: Span) -> SourceResult<Module> {
     let path = match source {
         Value::Str(path) => path,
         Value::Module(module) => return Ok(module),
@@ -1480,7 +1485,7 @@ fn import(vm: &mut Vm, source: Value, span: Span) -> SourceResult<Module> {
 impl Eval for ast::LoopBreak {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         if vm.flow.is_none() {
             vm.flow = Some(Flow::Break(self.span()));
         }
@@ -1491,7 +1496,7 @@ impl Eval for ast::LoopBreak {
 impl Eval for ast::LoopContinue {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         if vm.flow.is_none() {
             vm.flow = Some(Flow::Continue(self.span()));
         }
@@ -1502,7 +1507,7 @@ impl Eval for ast::LoopContinue {
 impl Eval for ast::FuncReturn {
     type Output = Value;
 
-    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+    fn eval(&self, vm: &mut Vm<'_>) -> SourceResult<Self::Output> {
         let value = self.body().map(|body| body.eval(vm)).transpose()?;
         if vm.flow.is_none() {
             vm.flow = Some(Flow::Return(self.span(), value));
@@ -1514,11 +1519,11 @@ impl Eval for ast::FuncReturn {
 /// Access an expression mutably.
 trait Access {
     /// Access the value.
-    fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value>;
+    fn access<'a>(&self, vm: &'a mut Vm<'_>) -> SourceResult<&'a mut Value>;
 }
 
 impl Access for ast::Expr {
-    fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm<'_>) -> SourceResult<&'a mut Value> {
         match self {
             Self::Ident(v) => v.access(vm),
             Self::Parenthesized(v) => v.access(vm),
@@ -1533,7 +1538,7 @@ impl Access for ast::Expr {
 }
 
 impl Access for ast::Ident {
-    fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm<'_>) -> SourceResult<&'a mut Value> {
         let span = self.span();
         let value = vm.scopes.get_mut(self).at(span)?;
         if vm.traced == Some(span) {
@@ -1544,19 +1549,19 @@ impl Access for ast::Ident {
 }
 
 impl Access for ast::Parenthesized {
-    fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm<'_>) -> SourceResult<&'a mut Value> {
         self.expr().access(vm)
     }
 }
 
 impl Access for ast::FieldAccess {
-    fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm<'_>) -> SourceResult<&'a mut Value> {
         self.access_dict(vm)?.at_mut(&self.field().take()).at(self.span())
     }
 }
 
 impl ast::FieldAccess {
-    fn access_dict<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Dict> {
+    fn access_dict<'a>(&self, vm: &'a mut Vm<'_>) -> SourceResult<&'a mut Dict> {
         match self.target().access(vm)? {
             Value::Dict(dict) => Ok(dict),
             value => bail!(
@@ -1569,7 +1574,7 @@ impl ast::FieldAccess {
 }
 
 impl Access for ast::FuncCall {
-    fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
+    fn access<'a>(&self, vm: &'a mut Vm<'_>) -> SourceResult<&'a mut Value> {
         if let ast::Expr::FieldAccess(access) = self.callee() {
             let method = access.field().take();
             if methods::is_accessor(&method) {

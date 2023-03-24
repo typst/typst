@@ -42,10 +42,11 @@ macro_rules! __error {
     };
 }
 
-#[doc(inline)]
-pub use crate::__error as error;
 #[doc(hidden)]
 pub use ecow::eco_format;
+
+#[doc(inline)]
+pub use crate::__error as error;
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;
@@ -69,6 +70,7 @@ pub struct SourceError {
 impl SourceError {
     /// Create a new, bare error.
     #[track_caller]
+    #[must_use]
     pub fn new(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             span,
@@ -79,6 +81,7 @@ impl SourceError {
     }
 
     /// Adjust the position in the node where the error should be annotated.
+    #[must_use]
     pub fn with_pos(mut self, pos: ErrorPos) -> Self {
         self.pos = pos;
         self
@@ -87,6 +90,7 @@ impl SourceError {
     /// The range in the source file identified by
     /// [`self.span.source()`](Span::source) where the error should be
     /// annotated.
+    #[must_use]
     pub fn range(&self, world: &dyn World) -> Range<usize> {
         let full = world.source(self.span.source()).range(self.span);
         match self.pos {
@@ -109,10 +113,10 @@ pub enum Tracepoint {
 }
 
 impl Display for Tracepoint {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Tracepoint::Call(Some(name)) => {
-                write!(f, "error occurred in this call of function `{}`", name)
+                write!(f, "error occurred in this call of function `{name}`")
             }
             Tracepoint::Call(None) => {
                 write!(f, "error occurred in this function call")
@@ -130,13 +134,14 @@ impl Display for Tracepoint {
 /// Enrich a [`SourceResult`] with a tracepoint.
 pub trait Trace<T> {
     /// Add the tracepoint to all errors that lie outside the `span`.
-    fn trace<F>(self, world: Tracked<dyn World>, make_point: F, span: Span) -> Self
+    #[must_use]
+    fn trace<F>(self, world: Tracked<'_, dyn World>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint;
 }
 
 impl<T> Trace<T> for SourceResult<T> {
-    fn trace<F>(self, world: Tracked<dyn World>, make_point: F, span: Span) -> Self
+    fn trace<F>(self, world: Tracked<'_, dyn World>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint,
     {
@@ -165,6 +170,7 @@ pub type StrResult<T> = Result<T, EcoString>;
 /// Convert a [`StrResult`] to a [`SourceResult`] by adding span information.
 pub trait At<T> {
     /// Add the span information.
+    #[allow(clippy::missing_errors_doc /* converting to a Result, not returning an error. */)]
     fn at(self, span: Span) -> SourceResult<T>;
 }
 
@@ -199,7 +205,8 @@ pub enum FileError {
 
 impl FileError {
     /// Create a file error from an I/O error.
-    pub fn from_io(error: io::Error, path: &Path) -> Self {
+    #[must_use]
+    pub fn from_io(error: &io::Error, path: &Path) -> Self {
         match error.kind() {
             io::ErrorKind::NotFound => Self::NotFound(path.into()),
             io::ErrorKind::PermissionDenied => Self::AccessDenied,
@@ -216,7 +223,7 @@ impl FileError {
 impl std::error::Error for FileError {}
 
 impl Display for FileError {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotFound(path) => {
                 write!(f, "file not found (searched at {})", path.display())
@@ -249,6 +256,7 @@ impl From<FileError> for EcoString {
 }
 
 /// Format a user-facing error message for an XML-like file format.
+#[must_use]
 pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> String {
     match error {
         roxmltree::Error::UnexpectedCloseTag { expected, actual, pos } => {

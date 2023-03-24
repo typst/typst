@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// A geometric shape with optional fill and stroke.
@@ -24,11 +25,15 @@ pub enum Geometry {
 
 impl Geometry {
     /// Fill the geometry without a stroke.
+    #[must_use]
+    #[inline]
     pub fn filled(self, fill: Paint) -> Shape {
         Shape { geometry: self, fill: Some(fill), stroke: None }
     }
 
     /// Stroke the geometry without a fill.
+    #[must_use]
+    #[inline]
     pub fn stroked(self, stroke: Stroke) -> Shape {
         Shape { geometry: self, fill: None, stroke: Some(stroke) }
     }

@@ -183,8 +183,7 @@ impl Lexer<'_> {
             '#' => SyntaxKind::Hashtag,
             '[' => SyntaxKind::LeftBracket,
             ']' => SyntaxKind::RightBracket,
-            '\'' => SyntaxKind::SmartQuote,
-            '"' => SyntaxKind::SmartQuote,
+            '\'' | '"' => SyntaxKind::SmartQuote,
             '$' => SyntaxKind::Dollar,
             '~' => SyntaxKind::Shorthand,
             ':' => SyntaxKind::Colon,
@@ -284,10 +283,8 @@ impl Lexer<'_> {
         self.s.eat_while(char::is_ascii_digit);
 
         let read = self.s.from(start);
-        if self.s.eat_if('.') && self.space_or_end() {
-            if read.parse::<usize>().is_ok() {
-                return SyntaxKind::EnumMarker;
-            }
+        if self.s.eat_if('.') && self.space_or_end() && read.parse::<usize>().is_ok() {
+            return SyntaxKind::EnumMarker;
         }
 
         self.text()
@@ -353,7 +350,7 @@ impl Lexer<'_> {
     }
 
     fn in_word(&self) -> bool {
-        let alphanum = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
+        let alphanum = |c: Option<char>| c.map_or(false, char::is_alphanumeric);
         let prev = self.s.scout(-2);
         let next = self.s.peek();
         alphanum(prev) && alphanum(next)
@@ -573,12 +570,12 @@ impl Lexer<'_> {
 }
 
 /// Try to parse an identifier into a keyword.
+#[must_use]
 fn keyword(ident: &str) -> Option<SyntaxKind> {
     Some(match ident {
         "none" => SyntaxKind::None,
         "auto" => SyntaxKind::Auto,
-        "true" => SyntaxKind::Bool,
-        "false" => SyntaxKind::Bool,
+        "true" | "false" => SyntaxKind::Bool,
         "not" => SyntaxKind::Not,
         "and" => SyntaxKind::And,
         "or" => SyntaxKind::Or,
@@ -602,6 +599,7 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
 
 /// Whether this character denotes a newline.
 #[inline]
+#[must_use]
 pub fn is_newline(character: char) -> bool {
     matches!(
         character,
@@ -613,6 +611,7 @@ pub fn is_newline(character: char) -> bool {
 }
 
 /// Split text at newlines.
+#[must_use]
 pub(super) fn split_newlines(text: &str) -> Vec<&str> {
     let mut s = Scanner::new(text);
     let mut lines = Vec::new();
@@ -636,6 +635,7 @@ pub(super) fn split_newlines(text: &str) -> Vec<&str> {
 }
 
 /// Count the number of newlines in text.
+#[must_use]
 fn count_newlines(text: &str) -> usize {
     let mut newlines = 0;
     let mut s = Scanner::new(text);
@@ -658,6 +658,7 @@ fn count_newlines(text: &str) -> usize {
 ///
 /// [uax31]: http://www.unicode.org/reports/tr31/
 #[inline]
+#[must_use]
 pub fn is_ident(string: &str) -> bool {
     let mut chars = string.chars();
     chars
@@ -667,24 +668,28 @@ pub fn is_ident(string: &str) -> bool {
 
 /// Whether a character can start an identifier.
 #[inline]
+#[must_use]
 pub(crate) fn is_id_start(c: char) -> bool {
     c.is_xid_start() || c == '_'
 }
 
 /// Whether a character can continue an identifier.
 #[inline]
+#[must_use]
 pub(crate) fn is_id_continue(c: char) -> bool {
     c.is_xid_continue() || c == '_' || c == '-'
 }
 
 /// Whether a character can start an identifier in math.
 #[inline]
+#[must_use]
 fn is_math_id_start(c: char) -> bool {
     c.is_xid_start()
 }
 
 /// Whether a character can continue an identifier in math.
 #[inline]
+#[must_use]
 fn is_math_id_continue(c: char) -> bool {
     c.is_xid_continue() && c != '_'
 }

@@ -37,8 +37,12 @@ impl Span {
 
     /// Create a new span from a source id and a unique number.
     ///
-    /// Panics if the `number` is not contained in `FULL`.
+    /// # Panics
+    ///
+    /// If the `number` is not contained in `FULL`.
     #[track_caller]
+    #[inline]
+    #[must_use]
     pub const fn new(id: SourceId, number: u64) -> Self {
         assert!(
             Self::FULL.start <= number && number < Self::FULL.end,
@@ -49,12 +53,16 @@ impl Span {
     }
 
     /// A span that does not point into any source file.
+    #[inline]
+    #[must_use]
     pub const fn detached() -> Self {
         Self::pack(SourceId::detached(), Self::DETACHED)
     }
 
     /// Pack the components into a span.
     #[track_caller]
+    #[inline]
+    #[must_use]
     const fn pack(id: SourceId, number: u64) -> Span {
         let bits = ((id.into_u16() as u64) << Self::BITS) | number;
         match NonZeroU64::new(bits) {
@@ -64,16 +72,22 @@ impl Span {
     }
 
     /// Whether the span is detached.
+    #[inline]
+    #[must_use]
     pub const fn is_detached(self) -> bool {
         self.source().is_detached()
     }
 
     /// The id of the source file the span points into.
+    #[inline]
+    #[must_use]
     pub const fn source(self) -> SourceId {
         SourceId::from_u16((self.0.get() >> Self::BITS) as u16)
     }
 
     /// The unique number of the span within its source file.
+    #[inline]
+    #[must_use]
     pub const fn number(self) -> u64 {
         self.0.get() & ((1 << Self::BITS) - 1)
     }
@@ -90,16 +104,22 @@ pub struct Spanned<T> {
 
 impl<T> Spanned<T> {
     /// Create a new instance from a value and its span.
+    #[inline]
+    #[must_use]
     pub fn new(v: T, span: Span) -> Self {
         Self { v, span }
     }
 
     /// Convert from `&Spanned<T>` to `Spanned<&T>`
+    #[inline]
+    #[must_use]
     pub fn as_ref(&self) -> Spanned<&T> {
         Spanned { v: &self.v, span: self.span }
     }
 
     /// Map the value using a function.
+    #[inline]
+    #[must_use]
     pub fn map<F, U>(self, f: F) -> Spanned<U>
     where
         F: FnOnce(T) -> U,
@@ -109,7 +129,7 @@ impl<T> Spanned<T> {
 }
 
 impl<T: Debug> Debug for Spanned<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.v.fmt(f)
     }
 }

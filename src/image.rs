@@ -3,6 +3,8 @@
 use std::io;
 use std::sync::Arc;
 
+use az::CheckedAs;
+
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::util::Buffer;
 
@@ -25,27 +27,40 @@ impl Image {
     /// Create an image from a buffer and a format.
     ///
     /// Extracts the width and height.
+    ///
+    /// # Errors
+    ///
+    /// If the image size cannot be determined.
+    #[inline]
     pub fn new(data: Buffer, format: ImageFormat) -> StrResult<Self> {
         let (width, height) = determine_size(&data, format)?;
         Ok(Self { data, format, width, height })
     }
 
     /// The raw image data.
+    #[inline]
+    #[must_use]
     pub fn data(&self) -> &Buffer {
         &self.data
     }
 
     /// The format of the image.
+    #[inline]
+    #[must_use]
     pub fn format(&self) -> ImageFormat {
         self.format
     }
 
     /// The width of the image in pixels.
+    #[inline]
+    #[must_use]
     pub fn width(&self) -> u32 {
         self.width
     }
 
     /// The height of the image in pixels.
+    #[inline]
+    #[must_use]
     pub fn height(&self) -> u32 {
         self.height
     }
@@ -98,6 +113,7 @@ pub enum VectorFormat {
 }
 
 impl From<RasterFormat> for image::ImageFormat {
+    #[inline]
     fn from(format: RasterFormat) -> Self {
         match format {
             RasterFormat::Png => image::ImageFormat::Png,
@@ -108,6 +124,7 @@ impl From<RasterFormat> for image::ImageFormat {
 }
 
 impl From<ttf_parser::RasterImageFormat> for RasterFormat {
+    #[inline]
     fn from(format: ttf_parser::RasterImageFormat) -> Self {
         match format {
             ttf_parser::RasterImageFormat::PNG => RasterFormat::Png,
@@ -116,17 +133,33 @@ impl From<ttf_parser::RasterImageFormat> for RasterFormat {
 }
 
 impl From<ttf_parser::RasterImageFormat> for ImageFormat {
+    #[inline]
     fn from(format: ttf_parser::RasterImageFormat) -> Self {
         Self::Raster(format.into())
     }
 }
 
 /// A decoded image.
+#[derive(Clone)]
 pub enum DecodedImage {
     /// A decoded pixel raster.
     Raster(image::DynamicImage, RasterFormat),
     /// An decoded SVG tree.
     Svg(usvg::Tree),
+}
+
+impl std::fmt::Debug for DecodedImage {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Raster(image, format) => formatter
+                .debug_struct("Raster")
+                .field("image", image)
+                .field("format", format)
+                .finish(),
+            // XXX use `usvg::Tree`'s Debug implementation once it gets one
+            Self::Svg(..) => formatter.debug_struct("Svg").finish_non_exhaustive(),
+        }
+    }
 }
 
 /// Determine the image size in pixels.
@@ -144,14 +177,16 @@ fn determine_size(data: &Buffer, format: ImageFormat) -> StrResult<(u32, u32)> {
                 usvg::Tree::from_data(data, &opts.to_ref()).map_err(format_usvg_error)?;
 
             let size = tree.svg_node().size;
-            let width = size.width().ceil() as u32;
-            let height = size.height().ceil() as u32;
+            let width = size.width().ceil().checked_as().ok_or("width too large")?;
+            let height = size.height().ceil().checked_as().ok_or("height too large")?;
             Ok((width, height))
         }
     }
 }
 
 /// Format the user-facing raster graphic decoding error message.
+#[allow(clippy::needless_pass_by_value /* required signature */)]
+#[must_use]
 fn format_image_error(error: image::ImageError) -> String {
     match error {
         image::ImageError::Limits(_) => "file is too large".into(),
@@ -160,6 +195,7 @@ fn format_image_error(error: image::ImageError) -> String {
 }
 
 /// Format the user-facing SVG decoding error message.
+#[must_use]
 fn format_usvg_error(error: usvg::Error) -> String {
     match error {
         usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),

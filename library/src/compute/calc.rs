@@ -3,6 +3,7 @@
 use std::cmp::Ordering;
 use std::ops::Rem;
 
+use az::Az as _;
 use typst::eval::{Module, Scope};
 
 use crate::prelude::*;
@@ -67,7 +68,7 @@ cast_from_value! {
     v: i64 => Self(Value::Int(v.abs())),
     v: f64 => Self(Value::Float(v.abs())),
     v: Length => Self(Value::Length(v.try_abs()
-        .ok_or_else(|| "cannot take absolute value of this length")?)),
+        .ok_or("cannot take absolute value of this length")?)),
     v: Angle => Self(Value::Angle(v.abs())),
     v: Ratio => Self(Value::Ratio(v.abs())),
     v: Fr => Self(Value::Fraction(v.abs())),
@@ -100,7 +101,7 @@ pub fn pow(
             bail!(exponent.span, "exponent must be non-negative");
         }
     };
-    base.apply2(exponent, |a, b| a.pow(b as u32), f64::powf)
+    base.apply2(exponent, |a, b| a.pow(b.az()), f64::powf)
 }
 
 /// Calculate the square root of a number.
@@ -147,7 +148,7 @@ pub fn sin(
 ) -> Value {
     Value::Float(match angle {
         AngleLike::Angle(a) => a.sin(),
-        AngleLike::Int(n) => (n as f64).sin(),
+        AngleLike::Int(n) => n.az::<f64>().sin(),
         AngleLike::Float(n) => n.sin(),
     })
 }
@@ -174,7 +175,7 @@ pub fn cos(
 ) -> Value {
     Value::Float(match angle {
         AngleLike::Angle(a) => a.cos(),
-        AngleLike::Int(n) => (n as f64).cos(),
+        AngleLike::Int(n) => n.az::<f64>().cos(),
         AngleLike::Float(n) => n.cos(),
     })
 }
@@ -200,7 +201,7 @@ pub fn tan(
 ) -> Value {
     Value::Float(match angle {
         AngleLike::Angle(a) => a.tan(),
-        AngleLike::Int(n) => (n as f64).tan(),
+        AngleLike::Int(n) => n.az::<f64>().tan(),
         AngleLike::Float(n) => n.tan(),
     })
 }
@@ -290,7 +291,7 @@ pub fn sinh(
 ) -> Value {
     Value::Float(match angle {
         AngleLike::Angle(a) => a.to_rad().sinh(),
-        AngleLike::Int(n) => (n as f64).sinh(),
+        AngleLike::Int(n) => n.az::<f64>().sinh(),
         AngleLike::Float(n) => n.sinh(),
     })
 }
@@ -315,7 +316,7 @@ pub fn cosh(
 ) -> Value {
     Value::Float(match angle {
         AngleLike::Angle(a) => a.to_rad().cosh(),
-        AngleLike::Int(n) => (n as f64).cosh(),
+        AngleLike::Int(n) => n.az::<f64>().cosh(),
         AngleLike::Float(n) => n.cosh(),
     })
 }
@@ -340,7 +341,7 @@ pub fn tanh(
 ) -> Value {
     Value::Float(match angle {
         AngleLike::Angle(a) => a.to_rad().tanh(),
-        AngleLike::Int(n) => (n as f64).tanh(),
+        AngleLike::Int(n) => n.az::<f64>().tanh(),
         AngleLike::Float(n) => n.tanh(),
     })
 }
@@ -366,6 +367,7 @@ pub fn log(
     #[default(10.0)]
     base: f64,
 ) -> Value {
+    #[allow(clippy::float_cmp /* intended behavior */)]
     Value::Float(if base == 2.0 {
         value.log2()
     } else if base == 10.0 {
@@ -396,7 +398,7 @@ pub fn floor(
 ) -> Value {
     match value {
         Num::Int(n) => Value::Int(n),
-        Num::Float(n) => Value::Int(n.floor() as i64),
+        Num::Float(n) => Value::Int(n.floor().az()),
     }
 }
 
@@ -421,7 +423,7 @@ pub fn ceil(
 ) -> Value {
     match value {
         Num::Int(n) => Value::Int(n),
-        Num::Float(n) => Value::Int(n.ceil() as i64),
+        Num::Float(n) => Value::Int(n.ceil().az()),
     }
 }
 
@@ -452,7 +454,7 @@ pub fn round(
         Num::Int(n) if digits == 0 => Value::Int(n),
         _ => {
             let n = value.float();
-            let factor = 10.0_f64.powi(digits as i32) as f64;
+            let factor = 10f64.powi(digits.az());
             Value::Float((n * factor).round() / factor)
         }
     }
@@ -656,7 +658,7 @@ impl Num {
 
     fn float(self) -> f64 {
         match self {
-            Self::Int(v) => v as f64,
+            Self::Int(v) => v.az(),
             Self::Float(v) => v,
         }
     }

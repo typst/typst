@@ -4,7 +4,8 @@ use crate::doc::Meta;
 use crate::util::hash128;
 
 /// Whether the target is affected by show rules in the given style chain.
-pub fn applicable(target: &Content, styles: StyleChain) -> bool {
+#[must_use]
+pub fn applicable(target: &Content, styles: StyleChain<'_>) -> bool {
     if target.needs_preparation() {
         return true;
     }
@@ -28,10 +29,14 @@ pub fn applicable(target: &Content, styles: StyleChain) -> bool {
 }
 
 /// Apply the show rules in the given style chain to a target.
+///
+/// # Errors
+///
+/// If any show rules fail to be applied.
 pub fn realize(
-    vt: &mut Vt,
+    vt: &mut Vt<'_>,
     target: &Content,
-    styles: StyleChain,
+    styles: StyleChain<'_>,
 ) -> SourceResult<Option<Content>> {
     // Pre-process.
     if target.needs_preparation() {
@@ -97,7 +102,7 @@ pub fn realize(
 
 /// Try to apply a recipe to the target.
 fn try_apply(
-    vt: &mut Vt,
+    vt: &mut Vt<'_>,
     target: &Content,
     recipe: &Recipe,
     guard: Guard,
@@ -152,9 +157,7 @@ fn try_apply(
         }
 
         // Not supported here.
-        Some(Selector::Any(_)) => Ok(None),
-
-        None => Ok(None),
+        Some(Selector::Any(_)) | None => Ok(None),
     }
 }
 
@@ -165,13 +168,14 @@ pub trait Locatable {}
 /// rule.
 pub trait Synthesize {
     /// Prepare the element for show rule application.
-    fn synthesize(&mut self, styles: StyleChain);
+    fn synthesize(&mut self, styles: StyleChain<'_>);
 }
 
 /// The base recipe for an element.
 pub trait Show {
     /// Execute the base recipe for this element.
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content>;
+    #[allow(clippy::missing_errors_doc /* obvious */)]
+    fn show(&self, vt: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content>;
 }
 
 /// Post-process an element after it was realized.
@@ -179,17 +183,20 @@ pub trait Finalize {
     /// Finalize the fully realized form of the element. Use this for effects that
     /// should work even in the face of a user-defined show rule, for example
     /// the linking behaviour of a link element.
-    fn finalize(&self, realized: Content, styles: StyleChain) -> Content;
+    #[must_use]
+    fn finalize(&self, realized: Content, styles: StyleChain<'_>) -> Content;
 }
 
 /// How the element interacts with other elements.
 pub trait Behave {
     /// The element's interaction behaviour.
+    #[must_use]
     fn behaviour(&self) -> Behaviour;
 
     /// Whether this weak element is larger than a previous one and thus picked
     /// as the maximum when the levels are the same.
-    #[allow(unused_variables)]
+    #[must_use]
+    #[allow(unused_variables /* name in docs */)]
     fn larger(&self, prev: &Content) -> bool {
         false
     }

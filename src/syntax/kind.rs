@@ -257,6 +257,8 @@ pub enum SyntaxKind {
 
 impl SyntaxKind {
     /// Is this a bracket, brace, or parenthesis?
+    #[inline]
+    #[must_use]
     pub fn is_grouping(self) -> bool {
         matches!(
             self,
@@ -270,6 +272,8 @@ impl SyntaxKind {
     }
 
     /// Does this node terminate a preceding expression?
+    #[inline]
+    #[must_use]
     pub fn is_terminator(self) -> bool {
         matches!(
             self,
@@ -282,11 +286,15 @@ impl SyntaxKind {
     }
 
     /// Is this a code or content block.
+    #[inline]
+    #[must_use]
     pub fn is_block(self) -> bool {
         matches!(self, Self::CodeBlock | Self::ContentBlock)
     }
 
     /// Does this node need termination through a semicolon or linebreak?
+    #[inline]
+    #[must_use]
     pub fn is_stmt(self) -> bool {
         matches!(
             self,
@@ -300,6 +308,8 @@ impl SyntaxKind {
 
     /// Whether this kind of node is automatically skipped by the parser in
     /// code and math mode.
+    #[inline]
+    #[must_use]
     pub fn is_trivia(self) -> bool {
         matches!(
             self,
@@ -308,11 +318,16 @@ impl SyntaxKind {
     }
 
     /// Whether this is an error.
+    #[inline]
+    #[must_use]
     pub fn is_error(self) -> bool {
         self == Self::Error
     }
 
     /// A human-readable name for the kind.
+    #[inline]
+    #[must_use]
+    #[allow(clippy::too_many_lines /* giant match block */)]
     pub fn name(self) -> &'static str {
         match self {
             Self::Markup => "markup",

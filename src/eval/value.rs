@@ -17,9 +17,10 @@ use crate::model::Styles;
 use crate::syntax::{ast, Span};
 
 /// A computational value.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
+    #[default]
     None,
     /// A value that indicates some smart default behaviour.
     Auto,
@@ -49,7 +50,7 @@ pub enum Value {
     Label(Label),
     /// A content value: `[*Hi* there]`.
     Content(Content),
-    // Content styles.
+    /// Content styles.
     Styles(Styles),
     /// An array of values: `(1, "hi", 12cm)`.
     Array(Array),
@@ -67,6 +68,7 @@ pub enum Value {
 
 impl Value {
     /// Create a new dynamic value.
+    #[must_use]
     pub fn dynamic<T>(any: T) -> Self
     where
         T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
@@ -75,6 +77,7 @@ impl Value {
     }
 
     /// Create a numeric value from a number with a unit.
+    #[must_use]
     pub fn numeric(pair: (f64, ast::Unit)) -> Self {
         let (v, unit) = pair;
         match unit {
@@ -87,6 +90,7 @@ impl Value {
     }
 
     /// The name of the stored value's type.
+    #[must_use]
     pub fn type_name(&self) -> &'static str {
         match self {
             Self::None => "none",
@@ -115,27 +119,37 @@ impl Value {
     }
 
     /// Try to cast the value into a specific type.
+    ///
+    /// # Errors
+    ///
+    /// If `self` cannot be casted to `T`.
     pub fn cast<T: Cast>(self) -> StrResult<T> {
         T::cast(self)
     }
 
     /// Try to access a field on the value.
+    ///
+    /// # Errors
+    ///
+    /// If `self` does not support field access or if the field does not exist.
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(&field).map(Self::Symbol),
-            Self::Dict(dict) => dict.at(&field).cloned(),
-            Self::Content(content) => content.at(&field),
-            Self::Module(module) => module.get(&field).cloned(),
+            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Dict(dict) => dict.at(field).cloned(),
+            Self::Content(content) => content.at(field),
+            Self::Module(module) => module.get(field).cloned(),
             v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
         }
     }
 
     /// Return the debug representation of the value.
+    #[must_use]
     pub fn repr(&self) -> Str {
         format_str!("{:?}", self)
     }
 
     /// Attach a span to the value, if possible.
+    #[must_use]
     pub fn spanned(self, span: Span) -> Self {
         match self {
             Value::Content(v) => Value::Content(v.spanned(span)),
@@ -145,21 +159,22 @@ impl Value {
     }
 
     /// Return the display representation of the value.
+    #[must_use]
     pub fn display(self) -> Content {
         match self {
-            Self::None => Content::empty(),
+            Self::None | Self::Func(_) => Content::empty(),
             Self::Int(v) => item!(text)(eco_format!("{}", v)),
             Self::Float(v) => item!(text)(eco_format!("{}", v)),
             Self::Str(v) => item!(text)(v.into()),
             Self::Symbol(v) => item!(text)(v.get().into()),
             Self::Content(v) => v,
-            Self::Func(_) => Content::empty(),
             Self::Module(module) => module.content(),
             _ => item!(raw)(self.repr().into(), Some("typc".into()), false),
         }
     }
 
     /// Try to extract documentation for the value.
+    #[must_use]
     pub fn docs(&self) -> Option<&'static str> {
         match self {
             Self::Func(func) => func.info().map(|info| info.docs),
@@ -168,14 +183,8 @@ impl Value {
     }
 }
 
-impl Default for Value {
-    fn default() -> Self {
-        Value::None
-    }
-}
-
 impl Debug for Value {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::None => f.pad("none"),
             Self::Auto => f.pad("auto"),
@@ -219,8 +228,7 @@ impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
         match self {
-            Self::None => {}
-            Self::Auto => {}
+            Self::None | Self::Auto => {}
             Self::Bool(v) => v.hash(state),
             Self::Int(v) => v.hash(state),
             Self::Float(v) => v.to_bits().hash(state),
@@ -246,11 +254,12 @@ impl Hash for Value {
 }
 
 /// A dynamic value.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
     /// Create a new instance from any value that satisfies the required bounds.
+    #[must_use]
     pub fn new<T>(any: T) -> Self
     where
         T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
@@ -259,23 +268,26 @@ impl Dynamic {
     }
 
     /// Whether the wrapped type is `T`.
+    #[must_use]
     pub fn is<T: Type + 'static>(&self) -> bool {
         (*self.0).as_any().is::<T>()
     }
 
     /// Try to downcast to a reference to a specific type.
+    #[must_use]
     pub fn downcast<T: Type + 'static>(&self) -> Option<&T> {
         (*self.0).as_any().downcast_ref()
     }
 
     /// The name of the stored value's type.
+    #[must_use]
     pub fn type_name(&self) -> &'static str {
         self.0.dyn_type_name()
     }
 }
 
 impl Debug for Dynamic {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         Debug::fmt(&self.0, f)
     }
 }
@@ -283,6 +295,12 @@ impl Debug for Dynamic {
 impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
+    }
+}
+
+impl Hash for Dynamic {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.0.hash128().hash(hasher);
     }
 }
 
@@ -382,7 +400,7 @@ macro_rules! primitive {
 
 primitive! { bool: "boolean", Bool }
 primitive! { i64: "integer", Int }
-primitive! { f64: "float", Float, Int(v) => v as f64 }
+primitive! { f64: "float", Float, Int(v) => az::cast(v) }
 primitive! { Length: "length", Length }
 primitive! { Angle: "angle", Angle }
 primitive! { Ratio: "ratio", Ratio }
@@ -430,7 +448,7 @@ mod tests {
         test(Value::None, "none");
         test(false, "false");
         test(12i64, "12");
-        test(3.14, "3.14");
+        test(3.17, "3.17");
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");
         test(Ratio::one() / 2.0, "50%");

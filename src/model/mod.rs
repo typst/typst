@@ -6,16 +6,14 @@ mod introspect;
 mod realize;
 mod styles;
 
+use comemo::{Constraint, Track, Tracked, TrackedMut};
+pub use typst_macros::element;
+
 pub use self::content::*;
 pub use self::element::*;
 pub use self::introspect::*;
 pub use self::realize::*;
 pub use self::styles::*;
-
-pub use typst_macros::element;
-
-use comemo::{Constraint, Track, Tracked, TrackedMut};
-
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::eval::Tracer;
@@ -24,8 +22,8 @@ use crate::World;
 /// Typeset content into a fully layouted document.
 #[comemo::memoize]
 pub fn typeset(
-    world: Tracked<dyn World>,
-    mut tracer: TrackedMut<Tracer>,
+    world: Tracked<'_, dyn World>,
+    mut tracer: TrackedMut<'_, Tracer>,
     content: &Content,
 ) -> SourceResult<Document> {
     let library = world.library();
@@ -63,6 +61,7 @@ pub fn typeset(
 /// A virtual typesetter.
 ///
 /// Holds the state needed to [typeset] content.
+#[derive(Debug)]
 pub struct Vt<'a> {
     /// The compilation environment.
     pub world: Tracked<'a, dyn World>,

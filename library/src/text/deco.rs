@@ -66,7 +66,7 @@ pub struct UnderlineElem {
 }
 
 impl Show for UnderlineElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Underline,
             stroke: self.stroke(styles).unwrap_or_default(),
@@ -145,7 +145,7 @@ pub struct OverlineElem {
 }
 
 impl Show for OverlineElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Overline,
             stroke: self.stroke(styles).unwrap_or_default(),
@@ -209,7 +209,7 @@ pub struct StrikeElem {
 }
 
 impl Show for StrikeElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Strikethrough,
             stroke: self.stroke(styles).unwrap_or_default(),
@@ -223,10 +223,15 @@ impl Show for StrikeElem {
 /// Defines a line that is positioned over, under or on top of text.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
+    /// The line's positioning.
     pub line: DecoLine,
+    #[allow(missing_docs /* obvious */)]
     pub stroke: PartialStroke<Abs>,
+    /// Manual adjustment of position relative to `line`.
     pub offset: Smart<Abs>,
+    /// How much to extend the line beyond the ends of the text.
     pub extent: Abs,
+    /// Whether to offset the line to avoid intersecting tails like that of p and q.
     pub evade: bool,
 }
 
@@ -245,6 +250,7 @@ cast_from_value! {
 
 /// A kind of decorative line.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[allow(missing_docs /* obvious */)]
 pub enum DecoLine {
     Underline,
     Strikethrough,
@@ -302,23 +308,24 @@ pub(super) fn decorate(
     let mut x = pos.x;
     let mut intersections = vec![];
 
-    for glyph in text.glyphs.iter() {
+    for glyph in &text.glyphs {
         let dx = glyph.x_offset.at(text.size) + x;
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
-        let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
+        let bounding_box = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();
 
         x += glyph.x_advance.at(text.size);
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
-        if bbox.map_or(false, |bbox| {
-            let y_min = -text.font.to_em(bbox.y_max).at(text.size);
-            let y_max = -text.font.to_em(bbox.y_min).at(text.size);
+        let intersect_precondition = bounding_box.map_or(false, |bounding_box| {
+            let y_min = -text.font.to_em(bounding_box.y_max).at(text.size);
+            let y_max = -text.font.to_em(bounding_box.y_min).at(text.size);
             offset >= y_min && offset <= y_max
-        }) {
+        });
+        if intersect_precondition {
             // Find all intersections of segments with the line.
             intersections.extend(
                 path.segments()

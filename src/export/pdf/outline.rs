@@ -1,3 +1,4 @@
+use az::Az as _;
 use ecow::EcoString;
 use pdf_writer::{Finish, Ref, TextStr};
 
@@ -38,14 +39,14 @@ impl HeadingNode {
 
 /// Write an outline item and all its children.
 pub fn write_outline_item(
-    ctx: &mut PdfContext,
+    ctx: &mut PdfContext<'_>,
     node: &HeadingNode,
     parent_ref: Ref,
     prev_ref: Option<Ref>,
     is_last: bool,
 ) -> Ref {
     let id = ctx.alloc.bump();
-    let next_ref = Ref::new(id.get() + node.len() as i32);
+    let next_ref = Ref::new(id.get() + node.len().az::<i32>());
 
     let mut outline = ctx.writer.outline_item(id);
     outline.parent(parent_ref);
@@ -62,7 +63,7 @@ pub fn write_outline_item(
         let current_child = Ref::new(id.get() + 1);
         outline.first(current_child);
         outline.last(Ref::new(next_ref.get() - 1));
-        outline.count(-(node.children.len() as i32));
+        outline.count(-(node.children.len().az::<i32>()));
     }
 
     outline.title(TextStr(&node.content));

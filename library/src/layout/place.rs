@@ -56,9 +56,9 @@ pub struct PlaceElem {
 impl Layout for PlaceElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let out_of_flow = self.out_of_flow(styles);
 
@@ -90,12 +90,15 @@ impl PlaceElem {
     /// Whether this element wants to be placed relative to its its parent's
     /// base origin. Instead of relative to the parent's current flow/cursor
     /// position.
-    pub fn out_of_flow(&self, styles: StyleChain) -> bool {
+    #[inline]
+    #[must_use]
+    pub fn out_of_flow(&self, styles: StyleChain<'_>) -> bool {
         self.alignment(styles).y.is_some()
     }
 }
 
 impl Behave for PlaceElem {
+    #[inline]
     fn behaviour(&self) -> Behaviour {
         Behaviour::Ignorant
     }

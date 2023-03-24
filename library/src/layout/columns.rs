@@ -1,3 +1,5 @@
+use az::Az as _;
+
 use crate::prelude::*;
 use crate::text::TextElem;
 
@@ -52,9 +54,9 @@ pub struct ColumnsElem {
 impl Layout for ColumnsElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let body = self.body();
 
@@ -67,7 +69,8 @@ impl Layout for ColumnsElem {
         // Determine the width of the gutter and each column.
         let columns = self.count(styles).get();
         let gutter = self.gutter(styles).relative_to(regions.base().x);
-        let width = (regions.size.x - gutter * (columns - 1) as f64) / columns as f64;
+        let width =
+            (regions.size.x - gutter * (columns - 1).az::<f64>()) / columns.az::<f64>();
 
         let backlog: Vec<_> = std::iter::once(&regions.size.y)
             .chain(regions.backlog)
@@ -89,7 +92,8 @@ impl Layout for ColumnsElem {
         let mut finished = vec![];
 
         let dir = TextElem::dir_in(styles);
-        let total_regions = (frames.len() as f32 / columns as f32).ceil() as usize;
+        let total_regions =
+            (frames.len().az::<f32>() / columns.az::<f32>()).ceil().az::<usize>();
 
         // Stitch together the columns for each region.
         for region in regions.iter().take(total_regions) {

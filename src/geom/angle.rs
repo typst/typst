@@ -1,3 +1,4 @@
+#[allow(clippy::wildcard_imports /* this module exists to reduce file size, not to introduce a new scope */)]
 use super::*;
 
 /// An angle.
@@ -6,83 +7,111 @@ pub struct Angle(Scalar);
 
 impl Angle {
     /// The zero angle.
+    #[must_use]
+    #[inline]
     pub const fn zero() -> Self {
         Self(Scalar(0.0))
     }
 
     /// Create an angle from a number of raw units.
+    #[must_use]
+    #[inline]
     pub const fn raw(raw: f64) -> Self {
         Self(Scalar(raw))
     }
 
     /// Create an angle from a value in a unit.
+    #[must_use]
+    #[inline]
     pub fn with_unit(val: f64, unit: AngleUnit) -> Self {
         Self(Scalar(val * unit.raw_scale()))
     }
 
     /// Create an angle from a number of radians.
+    #[must_use]
+    #[inline]
     pub fn rad(rad: f64) -> Self {
         Self::with_unit(rad, AngleUnit::Rad)
     }
 
     /// Create an angle from a number of degrees.
+    #[must_use]
+    #[inline]
     pub fn deg(deg: f64) -> Self {
         Self::with_unit(deg, AngleUnit::Deg)
     }
 
     /// Get the value of this angle in raw units.
+    #[must_use]
+    #[inline]
     pub const fn to_raw(self) -> f64 {
         (self.0).0
     }
 
     /// Get the value of this angle in a unit.
+    #[must_use]
+    #[inline]
     pub fn to_unit(self, unit: AngleUnit) -> f64 {
         self.to_raw() / unit.raw_scale()
     }
 
     /// Convert this to a number of radians.
+    #[must_use]
+    #[inline]
     pub fn to_rad(self) -> f64 {
         self.to_unit(AngleUnit::Rad)
     }
 
     /// Convert this to a number of degrees.
+    #[must_use]
+    #[inline]
     pub fn to_deg(self) -> f64 {
         self.to_unit(AngleUnit::Deg)
     }
 
     /// The absolute value of the this angle.
+    #[must_use]
+    #[inline]
     pub fn abs(self) -> Self {
         Self::raw(self.to_raw().abs())
     }
 
     /// Get the sine of this angle in radians.
+    #[must_use]
+    #[inline]
     pub fn sin(self) -> f64 {
         self.to_rad().sin()
     }
 
     /// Get the cosine of this angle in radians.
+    #[must_use]
+    #[inline]
     pub fn cos(self) -> f64 {
         self.to_rad().cos()
     }
 
     /// Get the tangent of this angle in radians.
+    #[must_use]
+    #[inline]
     pub fn tan(self) -> f64 {
         self.to_rad().tan()
     }
 }
 
 impl Numeric for Angle {
+    #[inline]
     fn zero() -> Self {
         Self::zero()
     }
 
+    #[inline]
     fn is_finite(self) -> bool {
         self.0.is_finite()
     }
 }
 
 impl Debug for Angle {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{}deg", round_2(self.to_deg()))
     }
 }
@@ -90,6 +119,7 @@ impl Debug for Angle {
 impl Neg for Angle {
     type Output = Self;
 
+    #[inline]
     fn neg(self) -> Self {
         Self(-self.0)
     }
@@ -98,6 +128,7 @@ impl Neg for Angle {
 impl Add for Angle {
     type Output = Self;
 
+    #[inline]
     fn add(self, other: Self) -> Self {
         Self(self.0 + other.0)
     }
@@ -108,6 +139,7 @@ sub_impl!(Angle - Angle -> Angle);
 impl Mul<f64> for Angle {
     type Output = Self;
 
+    #[inline]
     fn mul(self, other: f64) -> Self {
         Self(self.0 * other)
     }
@@ -116,6 +148,7 @@ impl Mul<f64> for Angle {
 impl Mul<Angle> for f64 {
     type Output = Angle;
 
+    #[inline]
     fn mul(self, other: Angle) -> Angle {
         other * self
     }
@@ -124,6 +157,7 @@ impl Mul<Angle> for f64 {
 impl Div<f64> for Angle {
     type Output = Self;
 
+    #[inline]
     fn div(self, other: f64) -> Self {
         Self(self.0 / other)
     }
@@ -132,6 +166,7 @@ impl Div<f64> for Angle {
 impl Div for Angle {
     type Output = f64;
 
+    #[inline]
     fn div(self, other: Self) -> f64 {
         self.to_raw() / other.to_raw()
     }
@@ -143,6 +178,7 @@ assign_impl!(Angle *= f64);
 assign_impl!(Angle /= f64);
 
 impl Sum for Angle {
+    #[inline]
     fn sum<I: Iterator<Item = Angle>>(iter: I) -> Self {
         Self(iter.map(|s| s.0).sum())
     }
@@ -159,6 +195,8 @@ pub enum AngleUnit {
 
 impl AngleUnit {
     /// How many raw units correspond to a value of `1.0` in this unit.
+    #[must_use]
+    #[inline]
     fn raw_scale(self) -> f64 {
         match self {
             Self::Rad => 1.0,
@@ -168,7 +206,7 @@ impl AngleUnit {
 }
 
 impl Debug for AngleUnit {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad(match self {
             Self::Rad => "rad",
             Self::Deg => "deg",

@@ -142,22 +142,24 @@ pub struct RectElem {
 impl Layout for RectElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         layout(
             vt,
             styles,
             regions,
-            ShapeKind::Rect,
-            &self.body(styles),
-            Axes::new(self.width(styles), self.height(styles)),
-            self.fill(styles),
-            self.stroke(styles),
-            self.inset(styles),
-            self.outset(styles),
-            self.radius(styles),
+            LayoutShape {
+                kind: ShapeKind::Rect,
+                body: self.body(styles).as_ref(),
+                sizing: Axes::new(self.width(styles), self.height(styles)),
+                fill: self.fill(styles),
+                stroke: self.stroke(styles),
+                inset: self.inset(styles),
+                outset: self.outset(styles),
+                radius: self.radius(styles),
+            },
             self.span(),
         )
     }
@@ -252,22 +254,24 @@ pub struct SquareElem {
 impl Layout for SquareElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         layout(
             vt,
             styles,
             regions,
-            ShapeKind::Square,
-            &self.body(styles),
-            Axes::new(self.width(styles), self.height(styles)),
-            self.fill(styles),
-            self.stroke(styles),
-            self.inset(styles),
-            self.outset(styles),
-            self.radius(styles),
+            LayoutShape {
+                kind: ShapeKind::Square,
+                body: self.body(styles).as_ref(),
+                sizing: Axes::new(self.width(styles), self.height(styles)),
+                fill: self.fill(styles),
+                stroke: self.stroke(styles),
+                inset: self.inset(styles),
+                outset: self.outset(styles),
+                radius: self.radius(styles),
+            },
             self.span(),
         )
     }
@@ -334,22 +338,24 @@ pub struct EllipseElem {
 impl Layout for EllipseElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         layout(
             vt,
             styles,
             regions,
-            ShapeKind::Ellipse,
-            &self.body(styles),
-            Axes::new(self.width(styles), self.height(styles)),
-            self.fill(styles),
-            self.stroke(styles).map(Sides::splat),
-            self.inset(styles),
-            self.outset(styles),
-            Corners::splat(Rel::zero()),
+            LayoutShape {
+                kind: ShapeKind::Ellipse,
+                body: self.body(styles).as_ref(),
+                sizing: Axes::new(self.width(styles), self.height(styles)),
+                fill: self.fill(styles),
+                stroke: self.stroke(styles).map(Sides::splat),
+                inset: self.inset(styles),
+                outset: self.outset(styles),
+                radius: Corners::splat(Rel::zero()),
+            },
             self.span(),
         )
     }
@@ -441,42 +447,59 @@ pub struct CircleElem {
 impl Layout for CircleElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         layout(
             vt,
             styles,
             regions,
-            ShapeKind::Circle,
-            &self.body(styles),
-            Axes::new(self.width(styles), self.height(styles)),
-            self.fill(styles),
-            self.stroke(styles).map(Sides::splat),
-            self.inset(styles),
-            self.outset(styles),
-            Corners::splat(Rel::zero()),
+            LayoutShape {
+                kind: ShapeKind::Circle,
+                body: self.body(styles).as_ref(),
+                sizing: Axes::new(self.width(styles), self.height(styles)),
+                fill: self.fill(styles),
+                stroke: self.stroke(styles).map(Sides::splat),
+                inset: self.inset(styles),
+                outset: self.outset(styles),
+                radius: Corners::splat(Rel::zero()),
+            },
             self.span(),
         )
     }
 }
 
-/// Layout a shape.
-fn layout(
-    vt: &mut Vt,
-    styles: StyleChain,
-    regions: Regions,
+struct LayoutShape<'a> {
     kind: ShapeKind,
-    body: &Option<Content>,
+    body: Option<&'a Content>,
     sizing: Axes<Smart<Rel<Length>>>,
     fill: Option<Paint>,
     stroke: Smart<Sides<Option<PartialStroke<Abs>>>>,
-    mut inset: Sides<Rel<Abs>>,
+    inset: Sides<Rel<Abs>>,
     outset: Sides<Rel<Abs>>,
     radius: Corners<Rel<Abs>>,
+}
+
+/// Layout a shape.
+fn layout(
+    vt: &mut Vt<'_>,
+    styles: StyleChain<'_>,
+    regions: Regions<'_>,
+    shape: LayoutShape<'_>,
     span: Span,
 ) -> SourceResult<Fragment> {
+    let LayoutShape {
+        kind,
+        body,
+        sizing,
+        fill,
+        stroke,
+        mut inset,
+        outset,
+        radius,
+    } = shape;
+
     let resolved = sizing
         .zip(regions.base())
         .map(|(s, r)| s.map(|v| v.resolve(styles).relative_to(r)));

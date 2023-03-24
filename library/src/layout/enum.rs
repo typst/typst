@@ -1,11 +1,10 @@
 use std::str::FromStr;
 
+use super::GridLayouter;
 use crate::layout::{BlockElem, ParElem, Sizing, Spacing};
 use crate::meta::{Numbering, NumberingPattern};
 use crate::prelude::*;
 use crate::text::TextElem;
-
-use super::GridLayouter;
 
 /// A numbered list.
 ///
@@ -156,9 +155,9 @@ pub struct EnumElem {
 impl Layout for EnumElem {
     fn layout(
         &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
+        vt: &mut Vt<'_>,
+        styles: StyleChain<'_>,
+        regions: Regions<'_>,
     ) -> SourceResult<Fragment> {
         let numbering = self.numbering(styles);
         let indent = self.indent(styles);
@@ -188,7 +187,9 @@ impl Layout for EnumElem {
                     Numbering::Pattern(pattern) => {
                         TextElem::packed(pattern.apply_kth(parents.len(), number))
                     }
-                    other => other.apply_vt(vt, &[number])?.display(),
+                    other @ Numbering::Func(_) => {
+                        other.apply_vt(vt, &[number])?.display()
+                    }
                 }
             };
 

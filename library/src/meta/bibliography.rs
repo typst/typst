@@ -72,33 +72,44 @@ pub struct BibliographyElem {
 
 impl BibliographyElem {
     /// Find the document's bibliography.
-    pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
-        let mut iter = introspector.query(Self::func().select()).into_iter();
+    ///
+    /// # Errors
+    ///
+    /// If there is not exactly one bibliography in the document.
+    pub fn find(introspector: Tracked<'_, Introspector>) -> StrResult<Self> {
+        let mut iter = introspector.query(&Self::func().select()).into_iter();
         let Some(elem) = iter.next() else {
             return Err("the document does not contain a bibliography".into());
         };
 
         if iter.next().is_some() {
-            Err("multiple bibliographies are not supported")?;
+            return Err("multiple bibliographies are not supported".into());
         }
 
-        Ok(elem.to::<Self>().unwrap().clone())
+        Ok(elem.to::<Self>().unwrap_or_else(|| unreachable!()).clone())
     }
 
     /// Whether the bibliography contains the given key.
-    pub fn has(vt: &Vt, key: &str) -> bool {
+    #[must_use]
+    pub fn has(vt: &Vt<'_>, key: &str) -> bool {
         vt.introspector
-            .query(Self::func().select())
+            .query(&Self::func().select())
             .into_iter()
-            .flat_map(|elem| load(vt.world, &elem.to::<Self>().unwrap().path()))
+            .flat_map(|elem| {
+                load(
+                    vt.world,
+                    &elem.to::<Self>().unwrap_or_else(|| unreachable!()).path(),
+                )
+            })
             .flatten()
             .any(|entry| entry.key() == key)
     }
 
     /// Find all bibliography keys.
+    #[must_use]
     pub fn keys(
-        world: Tracked<dyn World>,
-        introspector: Tracked<Introspector>,
+        world: Tracked<'_, dyn World>,
+        introspector: Tracked<'_, Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)> {
         Self::find(introspector)
             .and_then(|elem| load(world, &elem.path()))
@@ -115,19 +126,20 @@ impl BibliographyElem {
 }
 
 impl Synthesize for BibliographyElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    #[inline]
+    fn synthesize(&mut self, styles: StyleChain<'_>) {
         self.push_style(self.style(styles));
     }
 }
 
 impl Show for BibliographyElem {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
-            let title = title.clone().unwrap_or_else(|| {
+            let title = title.unwrap_or_else(|| {
                 TextElem::packed(self.local_name(TextElem::lang_in(styles)))
                     .spanned(self.span())
             });
@@ -180,7 +192,9 @@ impl Show for BibliographyElem {
 }
 
 impl LocalName for BibliographyElem {
+    #[inline]
     fn local_name(&self, lang: Lang) -> &'static str {
+        #[allow(clippy::wildcard_in_or_patterns /* clarity */)]
         match lang {
             Lang::GERMAN => "Bibliographie",
             Lang::ENGLISH | _ => "Bibliography",
@@ -207,6 +221,9 @@ pub enum BibliographyStyle {
 
 impl BibliographyStyle {
     /// The default citation style for this bibliography style.
+    #[allow(clippy::match_same_arms /* one arm per variant is nice */)]
+    #[inline]
+    #[must_use]
     pub fn default_citation_style(self) -> CitationStyle {
         match self {
             Self::Apa => CitationStyle::AuthorDate,
@@ -294,7 +311,7 @@ pub struct CiteElem {
 }
 
 impl Synthesize for CiteElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain<'_>) {
         self.push_supplement(self.supplement(styles));
         self.push_brackets(self.brackets(styles));
         self.push_style(self.style(styles));
@@ -302,7 +319,7 @@ impl Synthesize for CiteElem {
 }
 
 impl Show for CiteElem {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt<'_>, _: StyleChain<'_>) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
         }
@@ -356,12 +373,12 @@ struct Works {
 }
 
 impl Works {
-    /// Prepare all things need to cite a work or format a bibliography.
-    fn new(vt: &Vt) -> StrResult<Arc<Self>> {
+    /// Prepare all things needed to cite a work or format a bibliography.
+    fn new(vt: &Vt<'_>) -> StrResult<Arc<Self>> {
         let bibliography = BibliographyElem::find(vt.introspector)?;
         let citations = vt
             .introspector
-            .query(Selector::Any(eco_vec![
+            .query(&Selector::Any(eco_vec![
                 RefElem::func().select(),
                 CiteElem::func().select(),
             ]))
@@ -378,7 +395,7 @@ impl Works {
 /// Generate all citations and the whole bibliography.
 #[comemo::memoize]
 fn create(
-    world: Tracked<dyn World>,
+    world: Tracked<'_, dyn World>,
     bibliography: BibliographyElem,
     citations: Vec<CiteElem>,
 ) -> Arc<Works> {
@@ -414,7 +431,7 @@ fn create(
     }
 
     let mut current = CitationStyle::Numerical;
-    let mut citation_style: Box<dyn style::CitationStyle> =
+    let mut citation_style: Box<dyn style::CitationStyle<'_>> =
         Box::new(style::Numerical::new());
 
     let citations = preliminary
@@ -453,7 +470,7 @@ fn create(
                         &mut *citation_style,
                         &[Citation {
                             entry,
-                            supplement: supplement.is_some().then(|| SUPPLEMENT),
+                            supplement: supplement.is_some().then_some(SUPPLEMENT),
                         }],
                     )
                     .display;
@@ -491,7 +508,7 @@ fn create(
         })
         .collect();
 
-    let bibliography_style: Box<dyn style::BibliographyStyle> = match style {
+    let bibliography_style: Box<dyn style::BibliographyStyle<'_>> = match style {
         BibliographyStyle::Apa => Box::new(style::Apa::new()),
         BibliographyStyle::AuthorDate => Box::new(style::ChicagoAuthorDate::new()),
         BibliographyStyle::Ieee => Box::new(style::Ieee::new()),
@@ -505,7 +522,7 @@ fn create(
             // Make link from citation to here work.
             let backlink = {
                 let mut content = Content::empty();
-                content.set_location(ref_location(&reference.entry));
+                content.set_location(ref_location(reference.entry));
                 MetaElem::set_data(vec![Meta::Elem(content)])
             };
 
@@ -531,7 +548,7 @@ fn create(
 
 /// Load bibliography entries from a path.
 #[comemo::memoize]
-fn load(world: Tracked<dyn World>, path: &str) -> StrResult<EcoVec<hayagriva::Entry>> {
+fn load(world: Tracked<'_, dyn World>, path: &str) -> StrResult<EcoVec<Entry>> {
     let path = Path::new(path);
     let buffer = world.file(path)?;
     let src = std::str::from_utf8(&buffer).map_err(|_| "file is not valid utf-8")?;
@@ -539,10 +556,10 @@ fn load(world: Tracked<dyn World>, path: &str) -> StrResult<EcoVec<hayagriva::En
     let entries = match ext.to_lowercase().as_str() {
         "yml" => hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error)?,
         "bib" => hayagriva::io::from_biblatex_str(src).map_err(|err| {
-            err.into_iter()
-                .next()
-                .map(|error| format_biblatex_error(src, error))
-                .unwrap_or_else(|| "failed to parse biblatex file".into())
+            err.into_iter().next().map_or_else(
+                || "failed to parse biblatex file".into(),
+                |error| format_biblatex_error(src, error),
+            )
         })?,
         _ => return Err("unknown bibliography format".into()),
     };
@@ -550,11 +567,13 @@ fn load(world: Tracked<dyn World>, path: &str) -> StrResult<EcoVec<hayagriva::En
 }
 
 /// Format a Hayagriva loading error.
+#[allow(clippy::needless_pass_by_value /* callback API */)]
 fn format_hayagriva_error(error: YamlBibliographyError) -> EcoString {
     eco_format!("{error}")
 }
 
 /// Format a BibLaTeX loading error.
+#[allow(clippy::needless_pass_by_value /* callback API */)]
 fn format_biblatex_error(src: &str, error: BibLaTeXError) -> EcoString {
     let (span, msg) = match error {
         BibLaTeXError::Parse(error) => (error.span, error.kind.to_string()),
@@ -586,7 +605,7 @@ fn format_display_string(
         stops.push(i + SUPPLEMENT.len());
     }
 
-    stops.sort();
+    stops.sort_unstable();
     stops.dedup();
     stops.push(string.value.len());
 

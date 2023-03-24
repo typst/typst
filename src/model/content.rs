@@ -16,6 +16,7 @@ use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// Composable representation of styled content.
+#[allow(clippy::derived_hash_with_manual_eq /* see https://github.com/typst/typst/pull/450#issuecomment-1490188916, XXX better solution */)]
 #[derive(Clone, Hash)]
 pub struct Content {
     func: ElemFunc,
@@ -37,66 +38,85 @@ enum Attr {
 
 impl Content {
     /// Create an empty element.
+    #[inline]
+    #[must_use]
     pub fn new(func: ElemFunc) -> Self {
         Self { func, attrs: EcoVec::new() }
     }
 
     /// Create empty content.
+    #[inline]
+    #[must_use]
     pub fn empty() -> Self {
         Self::new(SequenceElem::func())
     }
 
     /// Create a new sequence element from multiples elements.
+    #[inline]
+    #[must_use]
     pub fn sequence(iter: impl IntoIterator<Item = Self>) -> Self {
         let mut iter = iter.into_iter();
         let Some(first) = iter.next() else { return Self::empty() };
         let Some(second) = iter.next() else { return first };
         let mut content = Content::empty();
-        content.attrs.push(Attr::Child(first));
-        content.attrs.push(Attr::Child(second));
-        content.attrs.extend(iter.map(Attr::Child));
+        content
+            .attrs
+            .extend([first, second].into_iter().chain(iter).map(Attr::Child));
         content
     }
 
     /// The element function of the contained content.
+    #[inline]
+    #[must_use]
     pub fn func(&self) -> ElemFunc {
         self.func
     }
 
     /// Whether the content is an empty sequence.
+    #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.is::<SequenceElem>() && self.attrs.is_empty()
     }
 
     /// Whether the contained element is of type `T`.
+    #[inline]
+    #[must_use]
     pub fn is<T: Element>(&self) -> bool {
         self.func == T::func()
     }
 
     /// Cast to `T` if the contained element is of type `T`.
+    #[inline]
+    #[must_use]
     pub fn to<T: Element>(&self) -> Option<&T> {
         T::unpack(self)
     }
 
     /// Access the children if this is a sequence.
+    #[inline]
+    #[must_use]
     pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Self>> {
-        if !self.is::<SequenceElem>() {
-            return None;
-        }
-        Some(self.attrs.iter().filter_map(Attr::child))
+        self.is::<SequenceElem>()
+            .then(|| self.attrs.iter().filter_map(Attr::child))
     }
 
     /// Access the child and styles.
+    #[inline]
+    #[must_use]
     pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
-        if !self.is::<StyledElem>() {
-            return None;
-        }
-        let child = self.attrs.iter().find_map(Attr::child)?;
-        let styles = self.attrs.iter().find_map(Attr::styles)?;
-        Some((child, styles))
+        self.is::<StyledElem>()
+            .then(|| {
+                let child = self.attrs.iter().find_map(Attr::child)?;
+                let styles = self.attrs.iter().find_map(Attr::styles)?;
+                Some((child, styles))
+            })
+            .flatten()
     }
 
     /// Whether the contained element has the given capability.
+    #[inline]
+    #[must_use]
     pub fn can<C>(&self) -> bool
     where
         C: ?Sized + 'static,
@@ -104,34 +124,40 @@ impl Content {
         (self.func.0.vtable)(TypeId::of::<C>()).is_some()
     }
 
-    /// Cast to a trait object if the contained element has the given
-    /// capability.
+    /// Cast to a trait object if the contained element has the given capability.
+    #[inline]
+    #[must_use]
     pub fn with<C>(&self) -> Option<&C>
     where
         C: ?Sized + 'static,
     {
         let vtable = (self.func.0.vtable)(TypeId::of::<C>())?;
-        let data = self as *const Self as *const ();
+        let data = (self as *const Self).cast();
         Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
     }
 
-    /// Cast to a mutable trait object if the contained element has the given
-    /// capability.
+    /// Cast to a mutable trait object if the contained element has the given capability.
+    #[inline]
+    #[must_use]
     pub fn with_mut<C>(&mut self) -> Option<&mut C>
     where
         C: ?Sized + 'static,
     {
         let vtable = (self.func.0.vtable)(TypeId::of::<C>())?;
-        let data = self as *mut Self as *mut ();
+        let data = (self as *mut Self).cast();
         Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
     }
 
     /// The content's span.
+    #[inline]
+    #[must_use]
     pub fn span(&self) -> Span {
         self.attrs.iter().find_map(Attr::span).unwrap_or(Span::detached())
     }
 
     /// Attach a span to the content if it doesn't already have one.
+    #[inline]
+    #[must_use]
     pub fn spanned(mut self, span: Span) -> Self {
         if self.span().is_detached() {
             self.attrs.push(Attr::Span(span));
@@ -140,6 +166,8 @@ impl Content {
     }
 
     /// Attach a field to the content.
+    #[inline]
+    #[must_use]
     pub fn with_field(
         mut self,
         name: impl Into<EcoString>,
@@ -150,6 +178,7 @@ impl Content {
     }
 
     /// Attach a field to the content.
+    #[inline]
     pub fn push_field(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
         let name = name.into();
         if let Some(i) = self.attrs.iter().position(|attr| match attr {
@@ -164,6 +193,8 @@ impl Content {
     }
 
     /// Access a field on the content.
+    #[inline]
+    #[must_use]
     pub fn field(&self, name: &str) -> Option<Value> {
         if let Some(iter) = self.to_sequence() {
             (name == "children")
@@ -178,6 +209,8 @@ impl Content {
     /// Access a field on the content by reference.
     ///
     /// Does not include synthesized fields for sequence and styled elements.
+    #[inline]
+    #[must_use]
     pub fn field_ref(&self, name: &str) -> Option<&Value> {
         self.fields_ref()
             .find(|&(field, _)| field == name)
@@ -187,6 +220,7 @@ impl Content {
     /// Iter over all fields on the content.
     ///
     /// Does not include synthesized fields for sequence and styled elements.
+    #[inline]
     pub fn fields(&self) -> impl Iterator<Item = (&EcoString, Value)> {
         static CHILD: EcoString = EcoString::inline("child");
         static CHILDREN: EcoString = EcoString::inline("children");
@@ -207,6 +241,7 @@ impl Content {
     /// Iter over all fields on the content.
     ///
     /// Does not include synthesized fields for sequence and styled elements.
+    #[inline]
     pub fn fields_ref(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
         let mut iter = self.attrs.iter();
         std::iter::from_fn(move || {
@@ -217,6 +252,8 @@ impl Content {
     }
 
     /// Try to access a field on the content as a specified type.
+    #[inline]
+    #[must_use]
     pub fn cast_field<T: Cast>(&self, name: &str) -> Option<T> {
         match self.field(name) {
             Some(value) => value.cast().ok(),
@@ -225,22 +262,37 @@ impl Content {
     }
 
     /// Expect a field on the content to exist as a specified type.
+    ///
+    /// # Panics
+    ///
+    /// If the field is not present or cannot be casted to `T`.
+    #[inline]
+    #[must_use]
     #[track_caller]
     pub fn expect_field<T: Cast>(&self, name: &str) -> T {
         self.field(name).unwrap().cast().unwrap()
     }
 
     /// Whether the content has the specified field.
+    #[inline]
+    #[must_use]
     pub fn has(&self, field: &str) -> bool {
         self.field(field).is_some()
     }
 
     /// Borrow the value of the given field.
+    ///
+    /// # Errors
+    ///
+    /// If the field is missing.
+    #[inline]
     pub fn at(&self, field: &str) -> StrResult<Value> {
         self.field(field).ok_or_else(|| missing_field(field))
     }
 
     /// The content's label.
+    #[inline]
+    #[must_use]
     pub fn label(&self) -> Option<&Label> {
         match self.field_ref("label")? {
             Value::Label(label) => Some(label),
@@ -249,15 +301,23 @@ impl Content {
     }
 
     /// Attach a label to the content.
+    #[inline]
+    #[must_use]
     pub fn labelled(self, label: Label) -> Self {
         self.with_field("label", label)
     }
 
     /// Style this content with a style entry.
+    #[inline]
+    #[must_use]
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
         if self.is::<StyledElem>() {
-            let prev =
-                self.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
+            let prev = self
+                .attrs
+                .make_mut()
+                .iter_mut()
+                .find_map(Attr::styles_mut)
+                .expect("no styles attribute in attributes");
             prev.apply_one(style.into());
             self
         } else {
@@ -266,14 +326,20 @@ impl Content {
     }
 
     /// Style this content with a full style map.
+    #[inline]
+    #[must_use]
     pub fn styled_with_map(mut self, styles: Styles) -> Self {
         if styles.is_empty() {
             return self;
         }
 
         if self.is::<StyledElem>() {
-            let prev =
-                self.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
+            let prev = self
+                .attrs
+                .make_mut()
+                .iter_mut()
+                .find_map(Attr::styles_mut)
+                .expect("no styles attribute in attributes");
             prev.apply(styles);
             self
         } else {
@@ -285,7 +351,16 @@ impl Content {
     }
 
     /// Style this content with a recipe, eagerly applying it if possible.
-    pub fn styled_with_recipe(self, vm: &mut Vm, recipe: Recipe) -> SourceResult<Self> {
+    ///
+    /// # Errors
+    ///
+    /// If (eager) evaluation fails.
+    #[inline]
+    pub fn styled_with_recipe(
+        self,
+        vm: &mut Vm<'_>,
+        recipe: Recipe,
+    ) -> SourceResult<Self> {
         if recipe.selector.is_none() {
             recipe.apply_vm(vm, self)
         } else {
@@ -294,40 +369,56 @@ impl Content {
     }
 
     /// Repeat this content `n` times.
+    ///
+    /// # Errors
+    ///
+    /// If `n` is negative or too large.
+    #[inline]
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let count = usize::try_from(n)
-            .map_err(|_| format!("cannot repeat this content {} times", n))?;
+            .map_err(|_| format!("cannot repeat this content {n} times"))?;
 
         Ok(Self::sequence(vec![self.clone(); count]))
     }
 
     /// Disable a show rule recipe.
+    #[inline]
+    #[must_use]
     pub fn guarded(mut self, guard: Guard) -> Self {
         self.attrs.push(Attr::Guard(guard));
         self
     }
 
     /// Check whether a show rule recipe is disabled.
+    #[inline]
+    #[must_use]
     pub fn is_guarded(&self, guard: Guard) -> bool {
         self.attrs.contains(&Attr::Guard(guard))
     }
 
     /// Whether no show rule was executed for this content so far.
+    #[inline]
+    #[must_use]
     pub fn is_pristine(&self) -> bool {
         !self.attrs.iter().any(|modifier| matches!(modifier, Attr::Guard(_)))
     }
 
     /// Whether this content has already been prepared.
+    #[inline]
+    #[must_use]
     pub fn is_prepared(&self) -> bool {
         self.attrs.contains(&Attr::Prepared)
     }
 
     /// Mark this content as prepared.
+    #[inline]
     pub fn mark_prepared(&mut self) {
         self.attrs.push(Attr::Prepared);
     }
 
     /// Whether the content needs to be realized specially.
+    #[inline]
+    #[must_use]
     pub fn needs_preparation(&self) -> bool {
         (self.can::<dyn Locatable>()
             || self.can::<dyn Synthesize>()
@@ -336,6 +427,8 @@ impl Content {
     }
 
     /// This content's location in the document flow.
+    #[inline]
+    #[must_use]
     pub fn location(&self) -> Option<Location> {
         self.attrs.iter().find_map(|modifier| match modifier {
             Attr::Location(location) => Some(*location),
@@ -344,13 +437,14 @@ impl Content {
     }
 
     /// Attach a location to this content.
+    #[inline]
     pub fn set_location(&mut self, location: Location) {
         self.attrs.push(Attr::Location(location));
     }
 }
 
 impl Debug for Content {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let name = self.func.name();
         if let Some(text) = item!(text_str)(self) {
             f.write_char('[')?;
@@ -376,12 +470,14 @@ impl Debug for Content {
 }
 
 impl Default for Content {
+    #[inline]
     fn default() -> Self {
         Self::empty()
     }
 }
 
 impl PartialEq for Content {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         if let (Some(left), Some(right)) = (self.to_sequence(), other.to_sequence()) {
             left.eq(right)
@@ -396,6 +492,7 @@ impl PartialEq for Content {
 impl Add for Content {
     type Output = Self;
 
+    #[inline]
     fn add(self, mut rhs: Self) -> Self::Output {
         let mut lhs = self;
         match (lhs.is::<SequenceElem>(), rhs.is::<SequenceElem>()) {
@@ -417,18 +514,22 @@ impl Add for Content {
 }
 
 impl AddAssign for Content {
+    #[inline]
     fn add_assign(&mut self, rhs: Self) {
         *self = std::mem::take(self) + rhs;
     }
 }
 
 impl Sum for Content {
+    #[inline]
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self::sequence(iter)
     }
 }
 
 impl Attr {
+    #[inline]
+    #[must_use]
     fn child(&self) -> Option<&Content> {
         match self {
             Self::Child(child) => Some(child),
@@ -436,6 +537,8 @@ impl Attr {
         }
     }
 
+    #[inline]
+    #[must_use]
     fn styles(&self) -> Option<&Styles> {
         match self {
             Self::Styles(styles) => Some(styles),
@@ -443,6 +546,8 @@ impl Attr {
         }
     }
 
+    #[inline]
+    #[must_use]
     fn styles_mut(&mut self) -> Option<&mut Styles> {
         match self {
             Self::Styles(styles) => Some(styles),
@@ -450,6 +555,8 @@ impl Attr {
         }
     }
 
+    #[inline]
+    #[must_use]
     fn field(&self) -> Option<&EcoString> {
         match self {
             Self::Field(field) => Some(field),
@@ -457,6 +564,8 @@ impl Attr {
         }
     }
 
+    #[inline]
+    #[must_use]
     fn value(&self) -> Option<&Value> {
         match self {
             Self::Value(value) => Some(value),
@@ -464,6 +573,8 @@ impl Attr {
         }
     }
 
+    #[inline]
+    #[must_use]
     fn span(&self) -> Option<Span> {
         match self {
             Self::Span(span) => Some(*span),
@@ -495,6 +606,7 @@ pub struct MetaElem {
 }
 
 impl Behave for MetaElem {
+    #[inline]
     fn behaviour(&self) -> Behaviour {
         Behaviour::Ignorant
     }
@@ -503,6 +615,7 @@ impl Behave for MetaElem {
 impl Fold for Vec<Meta> {
     type Output = Self;
 
+    #[inline]
     fn fold(mut self, outer: Self::Output) -> Self::Output {
         self.extend(outer);
         self
@@ -512,6 +625,7 @@ impl Fold for Vec<Meta> {
 /// The missing key access error message.
 #[cold]
 #[track_caller]
+#[must_use]
 fn missing_field(key: &str) -> EcoString {
     eco_format!("content does not contain field {:?}", Str::from(key))
 }

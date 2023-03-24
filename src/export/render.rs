@@ -3,6 +3,7 @@
 use std::io::Read;
 use std::sync::Arc;
 
+use az::Az as _;
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
@@ -19,12 +20,14 @@ use crate::image::{DecodedImage, Image};
 ///
 /// This renders the frame at the given number of pixels per point and returns
 /// the resulting `tiny-skia` pixel buffer.
+#[must_use]
 pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
     let size = frame.size();
-    let pxw = (pixel_per_pt * size.x.to_f32()).round().max(1.0) as u32;
-    let pxh = (pixel_per_pt * size.y.to_f32()).round().max(1.0) as u32;
+    let width_px = (pixel_per_pt * size.x.to_f32()).round().max(1.0).az();
+    let height_px = (pixel_per_pt * size.y.to_f32()).round().max(1.0).az();
 
-    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
+    let mut canvas =
+        sk::Pixmap::new(width_px, height_px).expect("zero-sized or overlarge pixmap");
     canvas.fill(fill.into());
 
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
@@ -59,9 +62,7 @@ fn render_frame(
                 render_image(canvas, ts, mask, image, *size);
             }
             FrameItem::Meta(meta, _) => match meta {
-                Meta::Link(_) => {}
-                Meta::Elem(_) => {}
-                Meta::Hide => {}
+                Meta::Link(_) | Meta::Elem(_) | Meta::Hide => {}
             },
         }
     }
@@ -80,9 +81,9 @@ fn render_group(
     let mut storage;
     if group.clips {
         let size = group.frame.size();
-        let w = size.x.to_f32();
-        let h = size.y.to_f32();
-        if let Some(path) = sk::Rect::from_xywh(0.0, 0.0, w, h)
+        let width = size.x.to_f32();
+        let height = size.y.to_f32();
+        if let Some(path) = sk::Rect::from_xywh(0.0, 0.0, width, height)
             .map(sk::PathBuilder::from_rect)
             .and_then(|path| path.transform(ts))
         {
@@ -90,10 +91,16 @@ fn render_group(
                 storage = mask.clone();
                 storage.intersect_path(&path, sk::FillRule::default(), false)
             } else {
-                let pxw = canvas.width();
-                let pxh = canvas.height();
+                let width_px = canvas.width();
+                let height_px = canvas.height();
                 storage = sk::ClipMask::new();
-                storage.set_path(pxw, pxh, &path, sk::FillRule::default(), false)
+                storage.set_path(
+                    width_px,
+                    height_px,
+                    &path,
+                    sk::FillRule::default(),
+                    false,
+                )
             };
 
             // Clipping fails if clipping rect is empty. In that case we just
@@ -141,11 +148,11 @@ fn render_svg_glyph(
     let mut data = text.font.ttf().glyph_svg_image(id)?;
 
     // Decompress SVGZ.
-    let mut decoded = vec![];
+    let mut decompressed = vec![];
     if data.starts_with(&[0x1f, 0x8b]) {
         let mut decoder = flate2::read::GzDecoder::new(data);
-        decoder.read_to_end(&mut decoded).ok()?;
-        data = &decoded;
+        decoder.read_to_end(&mut decompressed).ok()?;
+        data = &decompressed;
     }
 
     // Parse XML.
@@ -160,17 +167,17 @@ fn render_svg_glyph(
 
     // If there's no viewbox defined, use the em square for our scale
     // transformation ...
-    let upem = text.font.units_per_em() as f32;
-    let (mut width, mut height) = (upem, upem);
+    let units_per_em = text.font.units_per_em().az::<f32>();
+    let (mut width, mut height) = (units_per_em, units_per_em);
 
     // ... but if there's a viewbox or width, use that.
     if root.has_attribute("viewBox") || root.has_attribute("width") {
-        width = view_box.width() as f32;
+        width = view_box.width().az();
     }
 
     // Same as for width.
     if root.has_attribute("viewBox") || root.has_attribute("height") {
-        height = view_box.height() as f32;
+        height = view_box.height().az();
     }
 
     // FIXME: This doesn't respect the clipping mask.
@@ -188,17 +195,17 @@ fn render_bitmap_glyph(
     id: GlyphId,
 ) -> Option<()> {
     let size = text.size.to_f32();
-    let ppem = size * ts.sy;
-    let raster = text.font.ttf().glyph_raster_image(id, ppem as u16)?;
-    let image = Image::new(raster.data.into(), raster.format.into()).ok()?;
+    let pixels_per_em = (size * ts.sy).abs();
+    let raster = text.font.ttf().glyph_raster_image(id, pixels_per_em.az())?;
+    let image = Image::new(raster.data.to_vec().into(), raster.format.into()).ok()?;
 
     // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
     // and maybe also for Noto Color Emoji. And: Is the size calculation
     // correct?
     let h = text.size;
-    let w = (image.width() as f64 / image.height() as f64) * h;
-    let dx = (raster.x as f32) / (image.width() as f32) * size;
-    let dy = (raster.y as f32) / (image.height() as f32) * size;
+    let w = (image.width().az::<f64>() / image.height().az::<f64>()) * h;
+    let dx = f32::from(raster.x) / image.width().az::<f32>() * size;
+    let dy = f32::from(raster.y) / image.height().az::<f32>() * size;
     let ts = ts.pre_translate(dx, -size - dy);
     render_image(canvas, ts, mask, &image, Size::new(w, h))
 }
@@ -216,6 +223,7 @@ fn render_outline_glyph(
     // Render a glyph directly as a path. This only happens when the fast glyph
     // rasterization can't be used due to very large text size or weird
     // scale/skewing transforms.
+    #[allow(clippy::float_cmp /* the comparison must be exact */)]
     if ppem > 100.0 || ts.kx != 0.0 || ts.ky != 0.0 || ts.sx != ts.sy {
         let path = {
             let mut builder = WrappedPathBuilder(sk::PathBuilder::new());
@@ -228,7 +236,7 @@ fn render_outline_glyph(
 
         // Flip vertically because font design coordinate
         // system is Y-up.
-        let scale = text.size.to_f32() / text.font.units_per_em() as f32;
+        let scale = text.size.to_f32() / text.font.units_per_em().az::<f32>();
         let ts = ts.pre_scale(scale, -scale);
         canvas.fill_path(&path, &paint, rule, ts, mask)?;
         return Some(());
@@ -239,10 +247,10 @@ fn render_outline_glyph(
     // doesn't exist, yet.
     let glyph = pixglyph::Glyph::load(text.font.ttf(), id)?;
     let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
-    let cw = canvas.width() as i32;
-    let ch = canvas.height() as i32;
-    let mw = bitmap.width as i32;
-    let mh = bitmap.height as i32;
+    let cw = canvas.width().az::<i32>();
+    let ch = canvas.height().az::<i32>();
+    let mw = bitmap.width.az::<i32>();
+    let mh = bitmap.height.az::<i32>();
 
     // Determine the pixel bounding box that we actually need to draw.
     let left = bitmap.left;
@@ -260,19 +268,19 @@ fn render_outline_glyph(
     let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
     for x in left.clamp(0, cw)..right.clamp(0, cw) {
         for y in top.clamp(0, ch)..bottom.clamp(0, ch) {
-            let ai = ((y - top) * mw + (x - left)) as usize;
+            let ai = ((y - top) * mw + (x - left)).az::<usize>();
             let cov = bitmap.coverage[ai];
             if cov == 0 {
                 continue;
             }
 
-            let pi = (y * cw + x) as usize;
+            let pi = (y * cw + x).az::<usize>();
             if cov == 255 {
                 pixels[pi] = color;
                 continue;
             }
 
-            let applied = alpha_mul(color, cov as u32);
+            let applied = alpha_mul(color, cov.into());
             pixels[pi] = blend_src_over(applied, pixels[pi]);
         }
     }
@@ -303,7 +311,7 @@ fn render_shape(
     };
 
     if let Some(fill) = shape.fill {
-        let mut paint: sk::Paint = fill.into();
+        let mut paint = sk::Paint::from(fill);
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
         }
@@ -361,14 +369,14 @@ fn render_image(
     let view_width = size.x.to_f32();
     let view_height = size.y.to_f32();
 
-    let aspect = (image.width() as f32) / (image.height() as f32);
+    let aspect = image.width().az::<f32>() / image.height().az::<f32>();
     let scale = ts.sx.max(ts.sy);
-    let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
-    let h = ((w as f32) / aspect).ceil() as u32;
+    let w = (scale * view_width.max(aspect * view_height)).ceil().az::<u32>();
+    let h = (w.az::<f32>() / aspect).ceil().az::<u32>();
 
     let pixmap = scaled_texture(image, w, h)?;
-    let scale_x = view_width / pixmap.width() as f32;
-    let scale_y = view_height / pixmap.height() as f32;
+    let scale_x = view_width / pixmap.width().az::<f32>();
+    let scale_y = view_height / pixmap.height().az::<f32>();
 
     let paint = sk::Paint {
         shader: sk::Pattern::new(
@@ -418,10 +426,10 @@ impl From<Transform> for sk::Transform {
     fn from(transform: Transform) -> Self {
         let Transform { sx, ky, kx, sy, tx, ty } = transform;
         sk::Transform::from_row(
-            sx.get() as _,
-            ky.get() as _,
-            kx.get() as _,
-            sy.get() as _,
+            sx.get().az(),
+            ky.get().az(),
+            kx.get().az(),
+            sy.get().az(),
             tx.to_f32(),
             ty.to_f32(),
         )
@@ -478,7 +486,7 @@ trait AbsExt {
 
 impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
-        self.to_pt() as f32
+        self.to_pt().az()
     }
 }
 
@@ -493,7 +501,7 @@ fn blend_src_over(src: u32, dst: u32) -> u32 {
 
 /// Alpha multiply a color.
 fn alpha_mul(color: u32, scale: u32) -> u32 {
-    let mask = 0xff00ff;
+    let mask = 0x00ff_00ff;
     let rb = ((color & mask) * scale) >> 8;
     let ag = ((color >> 8) & mask) * scale;
     (rb & mask) | (ag & !mask)

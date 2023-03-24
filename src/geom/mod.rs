@@ -1,4 +1,5 @@
 //! Geometrical primitives.
+#![allow(clippy::wildcard_imports /* the submodules exist to reduce file size, not to introduce new scopes */)]
 
 #[macro_use]
 mod macros;
@@ -26,6 +27,13 @@ mod smart;
 mod stroke;
 mod transform;
 
+use std::cmp::Ordering;
+use std::f64::consts::PI;
+use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
+use std::iter::Sum;
+use std::ops::*;
+
 pub use self::abs::*;
 pub use self::align::*;
 pub use self::angle::*;
@@ -49,14 +57,6 @@ pub use self::size::*;
 pub use self::smart::*;
 pub use self::stroke::*;
 pub use self::transform::*;
-
-use std::cmp::Ordering;
-use std::f64::consts::PI;
-use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
-use std::iter::Sum;
-use std::ops::*;
-
 use crate::diag::StrResult;
 use crate::eval::{array, cast_from_value, cast_to_value, Cast, CastInfo, Dict, Value};
 use crate::model::{Fold, Resolve, StyleChain};
@@ -67,12 +67,15 @@ pub trait Get<Index> {
     type Component;
 
     /// Return the component for the specified index.
+    #[must_use]
     fn get(self, index: Index) -> Self::Component;
 
     /// Borrow the component for the specified index mutably.
+    #[must_use]
     fn get_mut(&mut self, index: Index) -> &mut Self::Component;
 
     /// Convenience method for setting a component.
+    #[inline]
     fn set(&mut self, index: Index, component: Self::Component) {
         *self.get_mut(index) = component;
     }
@@ -91,18 +94,22 @@ pub trait Numeric:
     + Div<f64, Output = Self>
 {
     /// The identity element for addition.
+    #[must_use]
     fn zero() -> Self;
 
     /// Whether `self` is zero.
+    #[must_use]
     fn is_zero(self) -> bool {
         self == Self::zero()
     }
 
     /// Whether `self` consists only of finite parts.
+    #[must_use]
     fn is_finite(self) -> bool;
 }
 
 /// Round a float to two decimal places.
+#[must_use]
 pub fn round_2(value: f64) -> f64 {
     (value * 100.0).round() / 100.0
 }

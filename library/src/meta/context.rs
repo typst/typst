@@ -63,7 +63,7 @@ struct LocateElem {
 }
 
 impl Show for LocateElem {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt<'_>, _: StyleChain<'_>) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
         }
@@ -108,7 +108,7 @@ struct StyleElem {
 }
 
 impl Show for StyleElem {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         Ok(self.func().call_vt(vt, [styles.to_map().into()])?.display())
     }
 }

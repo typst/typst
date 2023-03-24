@@ -262,19 +262,27 @@ pub struct Counter(CounterKey);
 
 impl Counter {
     /// Create a new counter from a key.
+    #[inline]
+    #[must_use]
     pub fn new(key: CounterKey) -> Self {
         Self(key)
     }
 
     /// The counter for the given element.
+    #[inline]
+    #[must_use]
     pub fn of(func: ElemFunc) -> Self {
         Self::new(CounterKey::Selector(Selector::Elem(func, None)))
     }
 
     /// Call a method on counter.
+    ///
+    /// # Errors
+    ///
+    /// As with any dynamic method call.
     pub fn call_method(
         self,
-        vm: &mut Vm,
+        vm: &mut Vm<'_>,
         method: &str,
         mut args: Args,
         span: Span,
@@ -298,14 +306,21 @@ impl Counter {
     }
 
     /// Display the current value of the counter.
+    #[inline]
+    #[must_use]
     pub fn display(self, numbering: Option<Numbering>, both: bool) -> Content {
         DisplayElem::new(self, numbering, both).pack()
     }
 
     /// Get the value of the state at the given location.
-    pub fn at(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
+    ///
+    /// # Errors
+    ///
+    /// If a function-based counter fails to evaluate during initial counter sequencing.
+    #[inline]
+    pub fn at(&self, vt: &mut Vt<'_>, location: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), location).len();
+        let offset = vt.introspector.query_before(&self.selector(), location).len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
             let delta = vt.introspector.page(location).get() - page.get();
@@ -315,9 +330,14 @@ impl Counter {
     }
 
     /// Get the value of the state at the final location.
-    pub fn final_(&self, vt: &mut Vt, _: Location) -> SourceResult<CounterState> {
+    ///
+    /// # Errors
+    ///
+    /// If a function-based counter fails to evaluate during initial counter sequencing.
+    #[inline]
+    pub fn final_(&self, vt: &mut Vt<'_>, _: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let (mut state, page) = sequence.last().unwrap().clone();
+        let (mut state, page) = sequence.last().unwrap_or_else(|| unreachable!()).clone();
         if self.is_page() {
             let delta = vt.introspector.pages().get() - page.get();
             state.step(NonZeroUsize::ONE, delta);
@@ -326,11 +346,20 @@ impl Counter {
     }
 
     /// Get the current and final value of the state combined in one state.
-    pub fn both(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
+    ///
+    /// # Errors
+    ///
+    /// If a function-based counter fails to evaluate during initial counter sequencing.
+    pub fn both(
+        &self,
+        vt: &mut Vt<'_>,
+        location: Location,
+    ) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), location).len();
+        let offset = vt.introspector.query_before(&self.selector(), location).len();
         let (mut at_state, at_page) = sequence[offset].clone();
-        let (mut final_state, final_page) = sequence.last().unwrap().clone();
+        let (mut final_state, final_page) =
+            sequence.last().unwrap_or_else(|| unreachable!()).clone();
         if self.is_page() {
             let at_delta = vt.introspector.page(location).get() - at_page.get();
             at_state.step(NonZeroUsize::ONE, at_delta);
@@ -341,6 +370,8 @@ impl Counter {
     }
 
     /// Produce content that performs a state update.
+    #[inline]
+    #[must_use]
     pub fn update(self, update: CounterUpdate) -> Content {
         UpdateElem::new(self, update).pack()
     }
@@ -349,9 +380,14 @@ impl Counter {
     ///
     /// This has to happen just once for all counters, cutting down the number
     /// of counter updates from quadratic to linear.
+    ///
+    /// # Errors
+    ///
+    /// If a function-based counter fails to evaluate.
+    #[inline]
     fn sequence(
         &self,
-        vt: &mut Vt,
+        vt: &mut Vt<'_>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         self.sequence_impl(
             vt.world,
@@ -362,23 +398,28 @@ impl Counter {
     }
 
     /// Memoized implementation of `sequence`.
+    ///
+    /// # Errors
+    ///
+    /// If a function-based counter fails to evaluate.
     #[comemo::memoize]
     fn sequence_impl(
         &self,
-        world: Tracked<dyn World>,
-        tracer: TrackedMut<Tracer>,
-        provider: TrackedMut<StabilityProvider>,
-        introspector: Tracked<Introspector>,
+        world: Tracked<'_, dyn World>,
+        tracer: TrackedMut<'_, Tracer>,
+        provider: TrackedMut<'_, StabilityProvider>,
+        introspector: Tracked<'_, Introspector>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut vt = Vt { world, tracer, provider, introspector };
-        let mut state = CounterState(match &self.0 {
-            CounterKey::Selector(_) => smallvec![0],
-            _ => smallvec![1],
+        let mut state = CounterState(if let CounterKey::Selector(..) = &self.0 {
+            smallvec![0]
+        } else {
+            smallvec![1]
         });
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
-        for elem in introspector.query(self.selector()) {
+        for elem in introspector.query(&self.selector()) {
             if self.is_page() {
                 let location = elem.location().unwrap();
                 let prev = page;
@@ -407,6 +448,8 @@ impl Counter {
     }
 
     /// The selector relevant for this counter's updates.
+    #[inline]
+    #[must_use]
     fn selector(&self) -> Selector {
         let mut selector =
             Selector::Elem(UpdateElem::func(), Some(dict! { "counter" => self.clone() }));
@@ -419,13 +462,15 @@ impl Counter {
     }
 
     /// Whether this is the page counter.
+    #[inline]
+    #[must_use]
     fn is_page(&self) -> bool {
         self.0 == CounterKey::Page
     }
 }
 
 impl Debug for Counter {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.write_str("counter(")?;
         self.0.fmt(f)?;
         f.write_char(')')
@@ -466,7 +511,7 @@ cast_from_value! {
 }
 
 impl Debug for CounterKey {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::Page => f.pad("page"),
             Self::Selector(selector) => selector.fmt(f),
@@ -487,7 +532,7 @@ pub enum CounterUpdate {
 }
 
 impl Debug for CounterUpdate {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad("..")
     }
 }
@@ -510,7 +555,11 @@ pub struct CounterState(pub SmallVec<[usize; 3]>);
 
 impl CounterState {
     /// Advance the counter and return the numbers for the given heading.
-    pub fn update(&mut self, vt: &mut Vt, update: CounterUpdate) -> SourceResult<()> {
+    ///
+    /// # Errors
+    ///
+    /// If a function-based counter fails to evaluate.
+    pub fn update(&mut self, vt: &mut Vt<'_>, update: CounterUpdate) -> SourceResult<()> {
         match update {
             CounterUpdate::Set(state) => *self = state,
             CounterUpdate::Step(level) => self.step(level, 1),
@@ -518,7 +567,7 @@ impl CounterState {
                 *self = func
                     .call_vt(vt, self.0.iter().copied().map(Into::into))?
                     .cast()
-                    .at(func.span())?
+                    .at(func.span())?;
             }
         }
         Ok(())
@@ -539,12 +588,23 @@ impl CounterState {
     }
 
     /// Get the first number of the state.
+    #[inline]
+    #[must_use]
     pub fn first(&self) -> usize {
         self.0.first().copied().unwrap_or(1)
     }
 
     /// Display the counter state with a numbering.
-    pub fn display(&self, vt: &mut Vt, numbering: &Numbering) -> SourceResult<Content> {
+    ///
+    /// # Errors
+    ///
+    /// If a function-based counter fails to evaluate.
+    #[inline]
+    pub fn display(
+        &self,
+        vt: &mut Vt<'_>,
+        numbering: &Numbering,
+    ) -> SourceResult<Content> {
         Ok(numbering.apply_vt(vt, &self.0)?.display())
     }
 }
@@ -582,7 +642,7 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt<'_>, styles: StyleChain<'_>) -> SourceResult<Content> {
         let location = self.0.location().unwrap();
         let counter = self.counter();
         let numbering = self
@@ -629,7 +689,7 @@ struct UpdateElem {
 }
 
 impl Show for UpdateElem {
-    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt<'_>, _: StyleChain<'_>) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }

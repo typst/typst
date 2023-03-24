@@ -26,16 +26,22 @@ enum Repr {
 
 impl SyntaxNode {
     /// Create a new leaf node.
+    #[inline]
+    #[must_use]
     pub fn leaf(kind: SyntaxKind, text: impl Into<EcoString>) -> Self {
         Self(Repr::Leaf(LeafNode::new(kind, text)))
     }
 
     /// Create a new inner node with children.
+    #[inline]
+    #[must_use]
     pub fn inner(kind: SyntaxKind, children: Vec<SyntaxNode>) -> Self {
         Self(Repr::Inner(Arc::new(InnerNode::new(kind, children))))
     }
 
     /// Create a new error node.
+    #[inline]
+    #[must_use]
     pub fn error(
         message: impl Into<EcoString>,
         text: impl Into<EcoString>,
@@ -45,6 +51,8 @@ impl SyntaxNode {
     }
 
     /// The type of the node.
+    #[inline]
+    #[must_use]
     pub fn kind(&self) -> SyntaxKind {
         match &self.0 {
             Repr::Leaf(leaf) => leaf.kind,
@@ -54,6 +62,8 @@ impl SyntaxNode {
     }
 
     /// The byte length of the node in the source text.
+    #[inline]
+    #[must_use]
     pub fn len(&self) -> usize {
         match &self.0 {
             Repr::Leaf(leaf) => leaf.len(),
@@ -62,7 +72,16 @@ impl SyntaxNode {
         }
     }
 
+    /// Returns `true` if the node in the source text has length 0.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// The span of the node.
+    #[inline]
+    #[must_use]
     pub fn span(&self) -> Span {
         match &self.0 {
             Repr::Leaf(leaf) => leaf.span,
@@ -74,6 +93,8 @@ impl SyntaxNode {
     /// The text of the node if it is a leaf node.
     ///
     /// Returns the empty string if this is an inner node.
+    #[inline]
+    #[must_use]
     pub fn text(&self) -> &EcoString {
         static EMPTY: EcoString = EcoString::new();
         match &self.0 {
@@ -86,6 +107,8 @@ impl SyntaxNode {
     /// Extract the text from the node.
     ///
     /// Builds the string if this is an inner node.
+    #[inline]
+    #[must_use]
     pub fn into_text(self) -> EcoString {
         match self.0 {
             Repr::Leaf(leaf) => leaf.text,
@@ -97,6 +120,7 @@ impl SyntaxNode {
     }
 
     /// The node's children.
+    #[inline]
     pub fn children(&self) -> std::slice::Iter<'_, SyntaxNode> {
         match &self.0 {
             Repr::Leaf(_) | Repr::Error(_) => [].iter(),
@@ -105,26 +129,36 @@ impl SyntaxNode {
     }
 
     /// Whether the node can be cast to the given AST node.
+    #[inline]
+    #[must_use]
     pub fn is<T: AstNode>(&self) -> bool {
         self.cast::<T>().is_some()
     }
 
     /// Try to convert the node to a typed AST node.
+    #[inline]
+    #[must_use]
     pub fn cast<T: AstNode>(&self) -> Option<T> {
         T::from_untyped(self)
     }
 
     /// Cast the first child that can cast to the AST type `T`.
+    #[inline]
+    #[must_use]
     pub fn cast_first_match<T: AstNode>(&self) -> Option<T> {
         self.children().find_map(Self::cast)
     }
 
     /// Cast the last child that can cast to the AST type `T`.
+    #[inline]
+    #[must_use]
     pub fn cast_last_match<T: AstNode>(&self) -> Option<T> {
         self.children().rev().find_map(Self::cast)
     }
 
     /// Whether the node or its children contain an error.
+    #[inline]
+    #[must_use]
     pub fn erroneous(&self) -> bool {
         match &self.0 {
             Repr::Leaf(_) => false,
@@ -134,6 +168,8 @@ impl SyntaxNode {
     }
 
     /// The error messages for this node and its descendants.
+    #[inline]
+    #[must_use]
     pub fn errors(&self) -> Vec<SourceError> {
         if !self.erroneous() {
             return vec![];
@@ -144,12 +180,13 @@ impl SyntaxNode {
         } else {
             self.children()
                 .filter(|node| node.erroneous())
-                .flat_map(|node| node.errors())
+                .flat_map(SyntaxNode::errors)
                 .collect()
         }
     }
 
     /// Set a synthetic span for the node and all its descendants.
+    #[inline]
     pub fn synthesize(&mut self, span: Span) {
         match &mut self.0 {
             Repr::Leaf(leaf) => leaf.span = span,
@@ -268,7 +305,7 @@ impl SyntaxNode {
 }
 
 impl Debug for SyntaxNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self.0 {
             Repr::Inner(node) => node.fmt(f),
             Repr::Leaf(node) => node.fmt(f),
@@ -310,7 +347,7 @@ impl LeafNode {
 }
 
 impl Debug for LeafNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}: {:?}", self.kind, self.text)
     }
 }
@@ -472,7 +509,7 @@ impl InnerNode {
                 .start
                 .checked_sub(1)
                 .and_then(|i| self.children.get(i))
-                .map_or(self.span.number() + 1, |child| child.upper());
+                .map_or(self.span.number() + 1, SyntaxNode::upper);
 
             // The upper bound for renumbering is either
             // - the span number of the first child after the to-be-renumbered
@@ -517,7 +554,7 @@ impl InnerNode {
 }
 
 impl Debug for InnerNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}: {}", self.kind, self.len)?;
         if !self.children.is_empty() {
             f.write_str(" ")?;
@@ -562,7 +599,7 @@ impl ErrorNode {
 }
 
 impl Debug for ErrorNode {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Error: {:?} ({})", self.text, self.message)
     }
 }
@@ -594,31 +631,43 @@ pub struct LinkedNode<'a> {
 
 impl<'a> LinkedNode<'a> {
     /// Start a new traversal at a root node.
+    #[inline]
+    #[must_use]
     pub fn new(root: &'a SyntaxNode) -> Self {
         Self { node: root, parent: None, index: 0, offset: 0 }
     }
 
     /// Get the contained syntax node.
+    #[inline]
+    #[must_use]
     pub fn get(&self) -> &'a SyntaxNode {
         self.node
     }
 
     /// The index of this node in its parent's children list.
+    #[inline]
+    #[must_use]
     pub fn index(&self) -> usize {
         self.index
     }
 
     /// The absolute byte offset of this node in the source file.
+    #[inline]
+    #[must_use]
     pub fn offset(&self) -> usize {
         self.offset
     }
 
     /// The byte range of this node in the source file.
+    #[inline]
+    #[must_use]
     pub fn range(&self) -> Range<usize> {
         self.offset..self.offset + self.node.len()
     }
 
     /// An iterator over this node's children.
+    #[inline]
+    #[must_use]
     pub fn children(&self) -> LinkedChildren<'a> {
         LinkedChildren {
             parent: Rc::new(self.clone()),
@@ -629,6 +678,8 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Find a descendant with the given span.
+    #[inline]
+    #[must_use]
     pub fn find(&self, span: Span) -> Option<LinkedNode<'a>> {
         if self.span() == span {
             return Some(self.clone());
@@ -665,11 +716,15 @@ impl<'a> LinkedNode<'a> {
 /// Access to parents and siblings.
 impl<'a> LinkedNode<'a> {
     /// Get this node's parent.
+    #[inline]
+    #[must_use]
     pub fn parent(&self) -> Option<&Self> {
         self.parent.as_deref()
     }
 
     /// Get the first previous non-trivia sibling node.
+    #[inline]
+    #[must_use]
     pub fn prev_sibling(&self) -> Option<Self> {
         let parent = self.parent()?;
         let index = self.index.checked_sub(1)?;
@@ -684,6 +739,8 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Get the next non-trivia sibling node.
+    #[inline]
+    #[must_use]
     pub fn next_sibling(&self) -> Option<Self> {
         let parent = self.parent()?;
         let index = self.index.checked_add(1)?;
@@ -698,24 +755,32 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Get the kind of this node's parent.
+    #[inline]
+    #[must_use]
     pub fn parent_kind(&self) -> Option<SyntaxKind> {
         Some(self.parent()?.node.kind())
     }
 
     /// Get the kind of this node's first previous non-trivia sibling.
+    #[inline]
+    #[must_use]
     pub fn prev_sibling_kind(&self) -> Option<SyntaxKind> {
         Some(self.prev_sibling()?.node.kind())
     }
 
     /// Get the kind of this node's next non-trivia sibling.
+    #[inline]
+    #[must_use]
     pub fn next_sibling_kind(&self) -> Option<SyntaxKind> {
         Some(self.next_sibling()?.node.kind())
     }
 }
 
-/// Access to leafs.
+/// Access to leaves.
 impl<'a> LinkedNode<'a> {
     /// Get the rightmost non-trivia leaf before this node.
+    #[inline]
+    #[must_use]
     pub fn prev_leaf(&self) -> Option<Self> {
         let mut node = self.clone();
         while let Some(prev) = node.prev_sibling() {
@@ -728,6 +793,8 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Find the leftmost contained non-trivia leaf.
+    #[inline]
+    #[must_use]
     pub fn leftmost_leaf(&self) -> Option<Self> {
         if self.is_leaf() && !self.kind().is_trivia() && !self.kind().is_error() {
             return Some(self.clone());
@@ -743,6 +810,8 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Get the leaf at the specified byte offset.
+    #[inline]
+    #[must_use]
     pub fn leaf_at(&self, cursor: usize) -> Option<Self> {
         if self.node.children().len() == 0 && cursor <= self.offset + self.len() {
             return Some(self.clone());
@@ -764,6 +833,8 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Find the rightmost contained non-trivia leaf.
+    #[inline]
+    #[must_use]
     pub fn rightmost_leaf(&self) -> Option<Self> {
         if self.is_leaf() && !self.kind().is_trivia() {
             return Some(self.clone());
@@ -779,6 +850,8 @@ impl<'a> LinkedNode<'a> {
     }
 
     /// Get the leftmost non-trivia leaf after this node.
+    #[inline]
+    #[must_use]
     pub fn next_leaf(&self) -> Option<Self> {
         let mut node = self.clone();
         while let Some(next) = node.next_sibling() {
@@ -794,18 +867,20 @@ impl<'a> LinkedNode<'a> {
 impl Deref for LinkedNode<'_> {
     type Target = SyntaxNode;
 
+    #[inline]
     fn deref(&self) -> &Self::Target {
         self.get()
     }
 }
 
 impl Debug for LinkedNode<'_> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.node.fmt(f)
     }
 }
 
 /// An iterator over the children of a linked node.
+#[derive(Debug)]
 pub struct LinkedChildren<'a> {
     parent: Rc<LinkedNode<'a>>,
     iter: std::iter::Enumerate<std::slice::Iter<'a, SyntaxNode>>,
@@ -816,6 +891,7 @@ pub struct LinkedChildren<'a> {
 impl<'a> Iterator for LinkedChildren<'a> {
     type Item = LinkedNode<'a>;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next().map(|(index, node)| {
             let offset = self.front;
@@ -829,12 +905,14 @@ impl<'a> Iterator for LinkedChildren<'a> {
         })
     }
 
+    #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         self.iter.size_hint()
     }
 }
 
 impl DoubleEndedIterator for LinkedChildren<'_> {
+    #[inline]
     fn next_back(&mut self) -> Option<Self::Item> {
         self.iter.next_back().map(|(index, node)| {
             self.back -= node.len();
@@ -858,7 +936,7 @@ pub(super) type NumberingResult = Result<(), Unnumberable>;
 pub(super) struct Unnumberable;
 
 impl Display for Unnumberable {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.pad("cannot number within this interval")
     }
 }

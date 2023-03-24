@@ -17,6 +17,8 @@ pub struct BehavedBuilder<'a> {
 
 impl<'a> BehavedBuilder<'a> {
     /// Create a new style-vec builder.
+    #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             builder: StyleVecBuilder::new(),
@@ -26,12 +28,16 @@ impl<'a> BehavedBuilder<'a> {
     }
 
     /// Whether the builder is totally empty.
+    #[inline]
+    #[must_use]
     pub fn is_empty(&self) -> bool {
         self.builder.is_empty() && self.staged.is_empty()
     }
 
     /// Whether the builder is empty except for some weak elements that will
     /// probably collapse.
+    #[inline]
+    #[must_use]
     pub fn is_basically_empty(&self) -> bool {
         self.builder.is_empty()
             && self
@@ -49,7 +55,8 @@ impl<'a> BehavedBuilder<'a> {
         match interaction {
             Behaviour::Weak(level) => {
                 if matches!(self.last, Behaviour::Weak(_)) {
-                    let item = elem.with::<dyn Behave>().unwrap();
+                    let item =
+                        elem.with::<dyn Behave>().unwrap_or_else(|| unreachable!());
                     let i = self.staged.iter().position(|prev| {
                         let Behaviour::Weak(prev_level) = prev.1 else { return false };
                         level < prev_level
@@ -81,11 +88,15 @@ impl<'a> BehavedBuilder<'a> {
     }
 
     /// Iterate over the contained elements.
+    #[inline]
+    #[must_use]
     pub fn elems(&self) -> impl DoubleEndedIterator<Item = &Content> {
         self.builder.elems().chain(self.staged.iter().map(|(item, ..)| item))
     }
 
     /// Return the finish style vec and the common prefix chain.
+    #[inline]
+    #[must_use]
     pub fn finish(mut self) -> (StyleVec<Content>, StyleChain<'a>) {
         self.flush(false);
         self.builder.finish()
@@ -93,6 +104,7 @@ impl<'a> BehavedBuilder<'a> {
 
     /// Push the staged elements, filtering out weak elements if `supportive` is
     /// false.
+    #[inline]
     fn flush(&mut self, supportive: bool) {
         for (item, interaction, styles) in self.staged.drain(..) {
             if supportive || interaction == Behaviour::Ignorant {
@@ -103,6 +115,7 @@ impl<'a> BehavedBuilder<'a> {
 }
 
 impl<'a> Default for BehavedBuilder<'a> {
+    #[inline]
     fn default() -> Self {
         Self::new()
     }

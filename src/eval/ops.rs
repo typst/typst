@@ -1,18 +1,21 @@
 //! Operations on values.
+#![allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps /* calling convention */)]
 
 use std::cmp::Ordering;
 
+use az::Az as _;
 use ecow::eco_format;
+#[allow(clippy::enum_glob_use /* cannot expand because the Value::Length collides with geom::Length */)]
+use Value::*;
 
 use super::{format_str, Regex, Value};
 use crate::diag::StrResult;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
-use Value::*;
 
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
-    ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(eco_format!($fmt, $($value.type_name()),*))
+    ($fmt:expr $(, $value:expr)* $(,)?) => {
+        return Err(eco_format!($fmt $(, $value.type_name())*))
     };
 }
 
@@ -71,8 +74,8 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (None, b) => b,
 
         (Int(a), Int(b)) => Int(a + b),
-        (Int(a), Float(b)) => Float(a as f64 + b),
-        (Float(a), Int(b)) => Float(a + b as f64),
+        (Int(a), Float(b)) => Float(a.az::<f64>() + b),
+        (Float(a), Int(b)) => Float(a + b.az::<f64>()),
         (Float(a), Float(b)) => Float(a + b),
 
         (Angle(a), Angle(b)) => Angle(a + b),
@@ -137,8 +140,8 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a - b),
-        (Int(a), Float(b)) => Float(a as f64 - b),
-        (Float(a), Int(b)) => Float(a - b as f64),
+        (Int(a), Float(b)) => Float(a.az::<f64>() - b),
+        (Float(a), Int(b)) => Float(a - b.az::<f64>()),
         (Float(a), Float(b)) => Float(a - b),
 
         (Angle(a), Angle(b)) => Angle(a - b),
@@ -165,34 +168,34 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a * b),
-        (Int(a), Float(b)) => Float(a as f64 * b),
-        (Float(a), Int(b)) => Float(a * b as f64),
+        (Int(a), Float(b)) => Float(a.az::<f64>() * b),
+        (Float(a), Int(b)) => Float(a * b.az::<f64>()),
         (Float(a), Float(b)) => Float(a * b),
 
-        (Length(a), Int(b)) => Length(a * b as f64),
+        (Length(a), Int(b)) => Length(a * b.az::<f64>()),
         (Length(a), Float(b)) => Length(a * b),
-        (Int(a), Length(b)) => Length(b * a as f64),
+        (Int(a), Length(b)) => Length(b * a.az::<f64>()),
         (Float(a), Length(b)) => Length(b * a),
 
-        (Angle(a), Int(b)) => Angle(a * b as f64),
+        (Angle(a), Int(b)) => Angle(a * b.az::<f64>()),
         (Angle(a), Float(b)) => Angle(a * b),
-        (Int(a), Angle(b)) => Angle(a as f64 * b),
+        (Int(a), Angle(b)) => Angle(a.az::<f64>() * b),
         (Float(a), Angle(b)) => Angle(a * b),
 
-        (Ratio(a), Int(b)) => Ratio(a * b as f64),
+        (Ratio(a), Int(b)) => Ratio(a * b.az::<f64>()),
         (Ratio(a), Float(b)) => Ratio(a * b),
         (Float(a), Ratio(b)) => Ratio(a * b),
-        (Int(a), Ratio(b)) => Ratio(a as f64 * b),
+        (Int(a), Ratio(b)) => Ratio(a.az::<f64>() * b),
 
-        (Relative(a), Int(b)) => Relative(a * b as f64),
+        (Relative(a), Int(b)) => Relative(a * b.az::<f64>()),
         (Relative(a), Float(b)) => Relative(a * b),
-        (Int(a), Relative(b)) => Relative(a as f64 * b),
+        (Int(a), Relative(b)) => Relative(a.az::<f64>() * b),
         (Float(a), Relative(b)) => Relative(a * b),
 
         (Float(a), Fraction(b)) => Fraction(a * b),
-        (Fraction(a), Int(b)) => Fraction(a * b as f64),
+        (Fraction(a), Int(b)) => Fraction(a * b.az::<f64>()),
         (Fraction(a), Float(b)) => Fraction(a * b),
-        (Int(a), Fraction(b)) => Fraction(a as f64 * b),
+        (Int(a), Fraction(b)) => Fraction(a.az::<f64>() * b),
 
         (Str(a), Int(b)) => Str(a.repeat(b)?),
         (Int(a), Str(b)) => Str(b.repeat(a)?),
@@ -212,32 +215,32 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
     }
 
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Float(a as f64 / b as f64),
-        (Int(a), Float(b)) => Float(a as f64 / b),
-        (Float(a), Int(b)) => Float(a / b as f64),
+        (Int(a), Int(b)) => Float(a.az::<f64>() / b.az::<f64>()),
+        (Int(a), Float(b)) => Float(a.az::<f64>() / b),
+        (Float(a), Int(b)) => Float(a / b.az::<f64>()),
         (Float(a), Float(b)) => Float(a / b),
 
-        (Length(a), Int(b)) => Length(a / b as f64),
+        (Length(a), Int(b)) => Length(a / b.az::<f64>()),
         (Length(a), Float(b)) => Length(a / b),
         (Length(a), Length(b)) => Float(try_div_length(a, b)?),
         (Length(a), Relative(b)) if b.rel.is_zero() => Float(try_div_length(a, b.abs)?),
 
-        (Angle(a), Int(b)) => Angle(a / b as f64),
+        (Angle(a), Int(b)) => Angle(a / b.az::<f64>()),
         (Angle(a), Float(b)) => Angle(a / b),
         (Angle(a), Angle(b)) => Float(a / b),
 
-        (Ratio(a), Int(b)) => Ratio(a / b as f64),
+        (Ratio(a), Int(b)) => Ratio(a / b.az::<f64>()),
         (Ratio(a), Float(b)) => Ratio(a / b),
         (Ratio(a), Ratio(b)) => Float(a / b),
         (Ratio(a), Relative(b)) if b.abs.is_zero() => Float(a / b.rel),
 
-        (Relative(a), Int(b)) => Relative(a / b as f64),
+        (Relative(a), Int(b)) => Relative(a / b.az::<f64>()),
         (Relative(a), Float(b)) => Relative(a / b),
         (Relative(a), Length(b)) if a.rel.is_zero() => Float(try_div_length(a.abs, b)?),
         (Relative(a), Ratio(b)) if a.abs.is_zero() => Float(a.rel / b),
         (Relative(a), Relative(b)) => Float(try_div_relative(a, b)?),
 
-        (Fraction(a), Int(b)) => Fraction(a / b as f64),
+        (Fraction(a), Int(b)) => Fraction(a / b.az::<f64>()),
         (Fraction(a), Float(b)) => Fraction(a / b),
         (Fraction(a), Fraction(b)) => Float(a / b),
 
@@ -295,6 +298,7 @@ pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
 }
 
 /// Compute whether two values are equal.
+#[allow(clippy::needless_pass_by_value, clippy::unnecessary_wraps /* calling convention */)]
 pub fn eq(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(Bool(equal(&lhs, &rhs)))
 }
@@ -323,11 +327,11 @@ comparison!(gt, ">", Ordering::Greater);
 comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
 
 /// Determine whether two values are equal.
+#[allow(clippy::float_cmp /* the user's problem */)]
 pub fn equal(lhs: &Value, rhs: &Value) -> bool {
     match (lhs, rhs) {
         // Compare reflexively.
-        (None, None) => true,
-        (Auto, Auto) => true,
+        (None, None) | (Auto, Auto) => true,
         (Bool(a), Bool(b)) => a == b,
         (Int(a), Int(b)) => a == b,
         (Float(a), Float(b)) => a == b,
@@ -349,8 +353,8 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Dyn(a), Dyn(b)) => a == b,
 
         // Some technically different things should compare equal.
-        (&Int(a), &Float(b)) => a as f64 == b,
-        (&Float(a), &Int(b)) => a == b as f64,
+        (&Int(a), &Float(b)) => a.az::<f64>() == b,
+        (&Float(a), &Int(b)) => a == b.az::<f64>(),
         (&Length(a), &Relative(b)) => a == b.abs && b.rel.is_zero(),
         (&Ratio(a), &Relative(b)) => a == b.rel && b.abs.is_zero(),
         (&Relative(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
@@ -374,8 +378,8 @@ pub fn compare(lhs: &Value, rhs: &Value) -> Option<Ordering> {
         (Str(a), Str(b)) => a.partial_cmp(b),
 
         // Some technically different things should be comparable.
-        (&Int(a), &Float(b)) => (a as f64).partial_cmp(&b),
-        (&Float(a), &Int(b)) => a.partial_cmp(&(b as f64)),
+        (&Int(a), &Float(b)) => (a.az::<f64>()).partial_cmp(&b),
+        (&Float(a), &Int(b)) => a.partial_cmp(&(b.az::<f64>())),
         (&Length(a), &Relative(b)) if b.rel.is_zero() => a.partial_cmp(&b.abs),
         (&Ratio(a), &Relative(b)) if b.abs.is_zero() => a.partial_cmp(&b.rel),
         (&Relative(a), &Length(b)) if a.rel.is_zero() => a.abs.partial_cmp(&b),

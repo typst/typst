@@ -1,7 +1,23 @@
-use super::*;
+use typst::eval::Scope;
+use unicode_math_class::MathClass;
+
+use super::ctx::{scaled, MathContext, Scaled as _};
+use super::fragment::{GlyphFragment, MathFragment};
+use super::LayoutMath;
+use crate::prelude::*;
+use crate::text::TextElem;
 
 /// How much less high scaled delimiters can be than what they wrap.
 pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
+
+pub(super) fn define(math: &mut Scope) {
+    math.define("lr", LrElem::func());
+    math.define("abs", abs);
+    math.define("norm", norm);
+    math.define("floor", floor);
+    math.define("ceil", ceil);
+    math.define("round", round);
+}
 
 /// Scales delimiters.
 ///
@@ -39,7 +55,7 @@ pub struct LrElem {
 }
 
 impl LayoutMath for LrElem {
-    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+    fn layout_math(&self, ctx: &mut MathContext<'_, '_, '_>) -> SourceResult<()> {
         let mut body = self.body();
         if let Some(elem) = body.to::<LrElem>() {
             if elem.size(ctx.styles()).is_auto() {
@@ -78,15 +94,14 @@ impl LayoutMath for LrElem {
 
 /// Scale a math fragment to a height.
 fn scale(
-    ctx: &mut MathContext,
+    ctx: &mut MathContext<'_, '_, '_>,
     fragment: &mut MathFragment,
     height: Abs,
     apply: Option<MathClass>,
 ) {
-    if matches!(
-        fragment.class(),
-        Some(MathClass::Opening | MathClass::Closing | MathClass::Fence)
-    ) {
+    if let Some(MathClass::Opening | MathClass::Closing | MathClass::Fence) =
+        fragment.class()
+    {
         let glyph = match fragment {
             MathFragment::Glyph(glyph) => glyph.clone(),
             MathFragment::Variant(variant) => {
