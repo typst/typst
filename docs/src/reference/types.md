@@ -1,5 +1,5 @@
 # None
-A type that indicates the absence of any other value.
+A value that indicates the absence of any other value.
 
 The none type has exactly one value: `{none}`.
 
@@ -14,7 +14,7 @@ Not visible: #none
 ```
 
 # Auto
-A type that indicates a smart default.
+A value that indicates a smart default.
 
 The auto type has exactly one value: `{auto}`.
 
@@ -24,7 +24,7 @@ Setting it to `{auto}` lets Typst automatically determine the direction from the
 [text language]($func/text.lang).
 
 # Boolean
-A value with two states.
+Either `{true}` or `{false}`.
 
 The boolean type has two values: `{true}` and `{false}`. It denotes whether
 something is active or enabled.
@@ -379,7 +379,7 @@ the resulting parts.
 - returns: array
 
 # Content
-Representation of document content.
+A piece of document content.
 
 This type is at the heart of Typst. All markup you write and most
 [functions]($type/function) you call produce content values. You can create a

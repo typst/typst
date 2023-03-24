@@ -169,7 +169,7 @@ The body of a loop can be a code or content block:
 
 - `{for .. in collection {..}}`
 - `{for .. in collection [..]}`
-- `{while condition [..]}`
+- `{while condition {..}}`
 - `{while condition [..]}`
 
 ## Fields { #fields }
