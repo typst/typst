@@ -8,6 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  PLATFORMS: linux/amd64,linux/arm64
 
 jobs:
   build-and-publish:
@@ -23,7 +24,7 @@ jobs:
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v2.5.0
         with:
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ env.PLATFORMS }}
 
       - name: Log into registry ${{ env.REGISTRY }}
         uses: docker/login-action@v2.1.0
@@ -45,5 +46,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          platforms: ${{ env.PLATFORMS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
