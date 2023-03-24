@@ -17,7 +17,7 @@
   </a>
 </p>
 
-Typst is a new markup-based typsetting system that is designed to be as powerful
+Typst is a new markup-based typesetting system that is designed to be as powerful
 as LaTeX while being much easier to learn and use. Typst has:
 
 - Built-in markup for the most common formatting tasks

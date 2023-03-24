@@ -337,10 +337,10 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   ),
 >>>   numbering: "1",
 >>> )
-#show heading: it => block[
+#show heading: it => [
   #set align(center)
   #set text(12pt, weight: "regular")
-  #smallcaps(it.body)
+  #block(smallcaps(it.body))
 ]
 
 <<< ...
@@ -416,7 +416,7 @@ differentiate between section and subsection headings:
 >>>
 #show heading.where(
   level: 1
-): it => block[
+): it => block(width: 100%)[
   #set align(center)
   #set text(12pt, weight: "regular")
   #smallcaps(it.body)
