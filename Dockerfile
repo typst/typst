@@ -1,7 +1,7 @@
 FROM rust:alpine AS build
 COPY . /app
 WORKDIR /app
-RUN apk add --update musl-dev \
+RUN apk add --update git musl-dev \
     && cargo build -p typst-cli --release
 
 FROM alpine:latest  
