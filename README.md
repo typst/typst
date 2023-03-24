@@ -131,16 +131,10 @@ To build Typst yourself, you need to have the [latest stable Rust][rust]
 installed. Then, you can build the CLI with the following command:
 
 ```sh
-cargo build -p typst-cli --release
+cargo build -p typst-cli --release --path cli
 ```
 
 The optimized binary will be stored in `target/release/`.
-
-You can link the binary to your cargo bin folder for direct usage.
-
-```sh
-ln -s typst/target/release/typst ~/.cargo/bin/
-```
 
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
