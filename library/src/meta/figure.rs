@@ -1,9 +1,14 @@
 use std::str::FromStr;
 
-use super::{Count, Counter, CounterUpdate, LocalName, Numbering, NumberingPattern};
-use crate::layout::{BlockElem, VElem};
+use super::{
+    Count, Counter, CounterUpdate, LocalName, Numbering, NumberingPattern, Supplement,
+};
 use crate::prelude::*;
 use crate::text::TextElem;
+use crate::{
+    layout::{BlockElem, VElem},
+    meta::RefSupplement,
+};
 
 /// A figure with an optional caption.
 ///
@@ -23,11 +28,15 @@ use crate::text::TextElem;
 ///
 /// Display: Figure
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, LocalName)]
+#[element(Locatable, Synthesize, Count, Show, LocalName, RefSupplement)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
     pub body: Content,
+
+    /// The supplement of the figure, shows before the numbering.
+    /// And if you reference a figure, this will be the default supplement of it.
+    pub supplement: Smart<Option<Supplement>>,
 
     /// The figure's caption.
     pub caption: Option<Content>,
@@ -49,13 +58,16 @@ impl Synthesize for FigureElem {
 }
 
 impl Show for FigureElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
 
         if let Some(mut caption) = self.caption(styles) {
             if let Some(numbering) = self.numbering(styles) {
-                let name = self.local_name(TextElem::lang_in(styles));
-                caption = TextElem::packed(eco_format!("{name}\u{a0}"))
+                let mut supplement = self.ref_supplement(vt, styles)?;
+                if !supplement.is_empty() {
+                    supplement += TextElem::packed('\u{a0}');
+                }
+                caption = supplement
                     + Counter::of(Self::func())
                         .display(Some(numbering), false)
                         .spanned(self.span())
@@ -80,6 +92,19 @@ impl Count for FigureElem {
         self.numbering(StyleChain::default())
             .is_some()
             .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+    }
+}
+
+impl RefSupplement for FigureElem {
+    fn ref_supplement(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        Ok(match self.supplement(styles) {
+            Smart::Auto => TextElem::packed(self.local_name(TextElem::lang_in(styles))),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
+            Smart::Custom(Some(Supplement::Func(func))) => {
+                func.call_vt(vt, []).map(Value::display)?
+            }
+        })
     }
 }
 

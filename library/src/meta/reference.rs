@@ -79,6 +79,12 @@ pub struct RefElem {
     pub citation: Option<CiteElem>,
 }
 
+/// A citable element can impl this trait to set the supplement content
+/// when it be referenced.
+pub trait RefSupplement {
+    fn ref_supplement(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content>;
+}
+
 impl Synthesize for RefElem {
     fn synthesize(&mut self, styles: StyleChain) {
         let citation = self.to_citation(styles);
@@ -117,11 +123,16 @@ impl Show for RefElem {
 
         let supplement = self.supplement(styles);
         let mut supplement = match supplement {
-            Smart::Auto => elem
-                .with::<dyn LocalName>()
-                .map(|elem| elem.local_name(TextElem::lang_in(styles)))
-                .map(TextElem::packed)
-                .unwrap_or_default(),
+            Smart::Auto => {
+                if let Some(elem) = elem.with::<dyn RefSupplement>() {
+                    elem.ref_supplement(vt, styles)?
+                } else {
+                    elem.with::<dyn LocalName>()
+                        .map(|elem| elem.local_name(TextElem::lang_in(styles)))
+                        .map(TextElem::packed)
+                        .unwrap_or_default()
+                }
+            }
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             Smart::Custom(Some(Supplement::Func(func))) => {
