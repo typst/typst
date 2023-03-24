@@ -40,6 +40,7 @@ struct CompileCommand {
     output: PathBuf,
     root: Option<PathBuf>,
     watch: bool,
+    font_paths: Vec<PathBuf>,
 }
 
 const HELP: &'static str = "\
@@ -54,22 +55,24 @@ ARGS:
   [output.pdf]   Path to output PDF file
 
 OPTIONS:
-  -h, --help     Print this help
-  -V, --version  Print the CLI's version
-  -w, --watch    Watch the inputs and recompile on changes
-  --root <dir>   Configure the root for absolute paths
+  -h, --help        Print this help
+  -V, --version     Print the CLI's version
+  -w, --watch       Watch the inputs and recompile on changes
+  --font-path <dir> Add extern dirs into the font search paths
+  --root <dir>      Configure the root for absolute paths
 
 SUBCOMMANDS:
-  --fonts        List all discovered system fonts
+  --fonts           List all discovered fonts in system and custom font paths
 ";
 
 /// List discovered system fonts.
 struct FontsCommand {
+    font_paths: Vec<PathBuf>,
     variants: bool,
 }
 
 const HELP_FONTS: &'static str = "\
-typst --fonts lists all discovered system fonts
+typst --fonts lists all discovered fonts in system and custom font paths
 
 USAGE:
   typst --fonts [OPTIONS]
@@ -100,13 +103,14 @@ fn parse_args() -> StrResult<Command> {
     }
 
     let help = args.contains(["-h", "--help"]);
+    let font_paths = args.values_from_str("--font-path").unwrap();
 
     let command = if args.contains("--fonts") {
         if help {
             print_help(HELP_FONTS);
         }
 
-        Command::Fonts(FontsCommand { variants: args.contains("--variants") })
+        Command::Fonts(FontsCommand { font_paths, variants: args.contains("--variants") })
     } else {
         if help {
             print_help(HELP);
@@ -115,7 +119,7 @@ fn parse_args() -> StrResult<Command> {
         let root = args.opt_value_from_str("--root").map_err(|_| "missing root path")?;
         let watch = args.contains(["-w", "--watch"]);
         let (input, output) = parse_input_output(&mut args, "pdf")?;
-        Command::Compile(CompileCommand { input, output, watch, root })
+        Command::Compile(CompileCommand { input, output, watch, root, font_paths })
     };
 
     // Don't allow excess arguments.
@@ -191,7 +195,7 @@ fn compile(command: CompileCommand) -> StrResult<()> {
     };
 
     // Create the world that serves sources, fonts and files.
-    let mut world = SystemWorld::new(root);
+    let mut world = SystemWorld::new(root, &command.font_paths);
 
     // Perform initial compilation.
     compile_once(&mut world, &command)?;
@@ -360,6 +364,9 @@ fn print_diagnostics(
 fn fonts(command: FontsCommand) -> StrResult<()> {
     let mut searcher = FontSearcher::new();
     searcher.search_system();
+    for path in &command.font_paths {
+        searcher.search_dir(path)
+    }
     for (name, infos) in searcher.book.families() {
         println!("{name}");
         if command.variants {
@@ -400,12 +407,16 @@ struct PathSlot {
 }
 
 impl SystemWorld {
-    fn new(root: PathBuf) -> Self {
+    fn new(root: PathBuf, font_paths: &[PathBuf]) -> Self {
         let mut searcher = FontSearcher::new();
         searcher.search_system();
 
         #[cfg(feature = "embed-fonts")]
         searcher.add_embedded();
+
+        for path in font_paths {
+            searcher.search_dir(path)
+        }
 
         Self {
             root,
