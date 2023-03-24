@@ -127,7 +127,13 @@ preview, you can also check out the [Typst web app][app], which is currently in
 public beta.
 
 ## Use docker
-To build and run typst inside docker run following command:
+To run prebuilt image inside docker run:
+
+```sh
+docker run -it --rm ghcr.io/typst/typst:main
+```
+
+To build and run typst from source inside docker run following command:
 
 ```sh
 docker build -t typst .
