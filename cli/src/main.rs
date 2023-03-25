@@ -58,7 +58,7 @@ OPTIONS:
   -h, --help        Print this help
   -V, --version     Print the CLI's version
   -w, --watch       Watch the inputs and recompile on changes
-  --font-path <dir> Add extern dirs into the font search paths
+  --font-path <dir> Add additional directories to search for fonts
   --root <dir>      Configure the root for absolute paths
 
 SUBCOMMANDS:
@@ -78,8 +78,9 @@ USAGE:
   typst --fonts [OPTIONS]
 
 OPTIONS:
-  -h, --help     Print this help
-  --variants     Also list style variants of each font family
+  -h, --help        Print this help
+  --font-path <dir> Add additional directories to search for fonts
+  --variants        Also list style variants of each font family
 ";
 
 /// Entry point.
