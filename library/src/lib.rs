@@ -90,6 +90,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("link", meta::LinkElem::func());
     global.define("outline", meta::OutlineElem::func());
     global.define("heading", meta::HeadingElem::func());
+    global.define("caption", meta::CaptionElem::func());
     global.define("figure", meta::FigureElem::func());
     global.define("cite", meta::CiteElem::func());
     global.define("bibliography", meta::BibliographyElem::func());

@@ -81,20 +81,22 @@ pub struct RefElem {
 
 /// A citable element can impl this trait to set the supplement content
 /// when it be referenced.
-pub trait RefSupplement: LocalName {
-    /// This only and must be override by a trivial element which use the default ref_supplement logic
-    fn supplement_option(&self, _styles: StyleChain) -> Smart<Option<Supplement>> {
-        todo!("must override this if you do not override ref_supplement")
-    }
+pub trait ReferenceInfo: LocalName {
+    /// The counter used in reference.
+    fn counter(&self, styles: StyleChain) -> Counter;
 
+    /// supplement used in reference.
+    fn supplement(&self, _styles: StyleChain) -> Smart<Option<Supplement>>;
+
+    // default logic of convert supplement into content in reference
     fn ref_supplement(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(match self.supplement_option(styles) {
+        Ok(match self.supplement(styles) {
             Smart::Auto => TextElem::packed(self.local_name(TextElem::lang_in(styles))),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
-            Smart::Custom(Some(Supplement::Func(func))) => {
-                func.call_vt(vt, []).map(Value::display)?
-            }
+            Smart::Custom(Some(sup)) => match sup {
+                Supplement::Content(c) => c,
+                Supplement::Func(func) => func.call_vt(vt, [])?.display(),
+            },
         })
     }
 }
@@ -138,7 +140,7 @@ impl Show for RefElem {
         let supplement = self.supplement(styles);
         let mut supplement = match supplement {
             Smart::Auto => {
-                if let Some(elem) = elem.with::<dyn RefSupplement>() {
+                if let Some(elem) = elem.with::<dyn ReferenceInfo>() {
                     elem.ref_supplement(vt, styles)?
                 } else {
                     elem.with::<dyn LocalName>()
@@ -162,7 +164,12 @@ impl Show for RefElem {
             bail!(self.span(), "only numbered elements can be referenced");
         };
 
-        let numbers = Counter::of(elem.func())
+        let counter = if let Some(elem) = elem.with::<dyn ReferenceInfo>() {
+            elem.counter(styles)
+        } else {
+            Counter::of(elem.func())
+        };
+        let numbers = counter
             .at(vt, elem.location().unwrap())?
             .display(vt, &numbering.trimmed())?;
 

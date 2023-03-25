@@ -38,8 +38,10 @@ use self::ctx::*;
 use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
-use crate::{layout::{HElem, ParElem, Spacing}, meta::{Supplement, RefSupplement}};
-use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
+use crate::layout::{HElem, ParElem, Spacing};
+use crate::meta::{
+    Count, Counter, CounterUpdate, LocalName, Numbering, ReferenceInfo, Supplement,
+};
 use crate::prelude::*;
 use crate::text::{
     families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
@@ -133,7 +135,17 @@ pub fn module() -> Module {
 ///
 /// Display: Equation
 /// Category: math
-#[element(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, RefSupplement)]
+#[element(
+    Locatable,
+    Synthesize,
+    Show,
+    Finalize,
+    Layout,
+    LayoutMath,
+    Count,
+    LocalName,
+    ReferenceInfo
+)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
@@ -141,6 +153,9 @@ pub struct EquationElem {
 
     /// If you reference a equation, this will be the default supplement of it.
     pub supplement: Smart<Option<Supplement>>,
+
+    // Custom counter for this equation.
+    pub counter: Option<Counter>,
 
     /// How to [number]($func/numbering) block-level equations.
     ///
@@ -218,10 +233,16 @@ impl Layout for EquationElem {
         if block {
             if let Some(numbering) = self.numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = Counter::of(Self::func())
-                    .display(Some(numbering), false)
-                    .layout(vt, styles, pod)?
-                    .into_frame();
+                let counter = ReferenceInfo::counter(self, styles);
+
+                let mut counter_content = counter.clone().display(Some(numbering), false);
+
+                if counter != Counter::of(Self::func()) {
+                    counter_content +=
+                        counter.update(CounterUpdate::Step(NonZeroUsize::ONE))
+                }
+
+                let counter = counter_content.layout(vt, styles, pod)?.into_frame();
 
                 let width = if regions.size.x.is_finite() {
                     regions.size.x
@@ -260,14 +281,23 @@ impl Layout for EquationElem {
 
 impl Count for EquationElem {
     fn update(&self) -> Option<CounterUpdate> {
-        (self.block(StyleChain::default())
-            && self.numbering(StyleChain::default()).is_some())
-        .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+        if ReferenceInfo::counter(self, StyleChain::default())
+            == Counter::of(Self::func())
+        {
+            (self.block(StyleChain::default())
+                && self.numbering(StyleChain::default()).is_some())
+            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+        } else {
+            None
+        }
     }
 }
 
-impl RefSupplement for EquationElem {
-    fn supplement_option(&self, styles: StyleChain) -> Smart<Option<Supplement>> {
+impl ReferenceInfo for EquationElem {
+    fn counter(&self, styles: StyleChain) -> Counter {
+        Self::counter(self, styles).unwrap_or(Counter::of(Self::func()))
+    }
+    fn supplement(&self, styles: StyleChain) -> Smart<Option<Supplement>> {
         self.supplement(styles)
     }
 }
