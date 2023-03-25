@@ -282,6 +282,7 @@ impl Layout for EquationElem {
 impl Count for EquationElem {
     fn update(&self) -> Option<CounterUpdate> {
         (ReferenceInfo::counter(self, StyleChain::default()) == Counter::of(Self::func())
+            && self.block(StyleChain::default())
             && self.numbering(StyleChain::default()).is_some())
         .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
