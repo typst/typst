@@ -153,15 +153,19 @@ Lightens a color.
 
 - amount: ratio (positional, required)
   The factor to lighten the color by.
+- returns: color
 
 ### darken()
 Darkens a color.
 
 - amount: ratio (positional, required)
   The factor to darken the color by.
+- returns: color
 
 ### negate()
 Produces the negative of the color.
+
+- returns: color
 
 # Symbol
 A Unicode symbol.
