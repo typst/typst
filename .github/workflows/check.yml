@@ -75,7 +75,7 @@ jobs:
     # https://docs.github.com/en/actions/learn-github-actions/contexts#context-availability
     strategy:
       matrix:
-        msrv: [1.56.1] # 2021 edition requires 1.56
+        msrv: [1.61.0] # 2021 edition requires 1.56
     name: ubuntu / ${{ matrix.msrv }}
     steps:
       - uses: actions/checkout@v3
