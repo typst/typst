@@ -663,6 +663,7 @@ instead of integers. You can access and create dictionary entries with the
 [field access notation]($scripting/#fields) (`.key`) to access
 the value. Dictionaries can be added with the `+` operator and
 [joined together]($scripting/#blocks).
+To check whether a key is present in the dictionary, use the `in` keyword.
 
 You can iterate over the pairs in a dictionary using a
 [for loop]($scripting/#loops).
@@ -686,6 +687,7 @@ special `(:)` syntax to create an empty dictionary.
 #dict.values() \
 #dict.at("born") \
 #dict.insert("city", "Berlin ")
+#("name" in dict)
 ```
 
 ## Methods
@@ -706,6 +708,7 @@ Fails with an error if the key is not part of the dictionary.
 
 ### insert()
 Insert a new pair into the dictionary and return the value.
+If the dictionary already contains this key, the value is updated.
 
 - key: string (positional, required)
   The key of the pair that should be inserted.
