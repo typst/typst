@@ -1,4 +1,4 @@
-use super::{Counter, HeadingElem, LocalName};
+use super::{Counter, CounterKey, HeadingElem, LocalName};
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
@@ -160,7 +160,10 @@ impl Show for OutlineElem {
             }
 
             // Add the page number and linebreak.
-            let page = vt.introspector.page(location);
+            let page = Counter::new(CounterKey::Page)
+                // query the page counter state at location of heading
+                .at(vt, location)?
+                .first();
             let end = TextElem::packed(eco_format!("{page}"));
             seq.push(end.linked(Destination::Location(location)));
             seq.push(LinebreakElem::new().pack());
