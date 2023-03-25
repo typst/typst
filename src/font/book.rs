@@ -425,7 +425,7 @@ pub struct Coverage(Vec<u32>);
 impl Coverage {
     /// Encode a vector of codepoints.
     pub fn from_vec(mut codepoints: Vec<u32>) -> Self {
-        codepoints.sort();
+        codepoints.sort_unstable();
         codepoints.dedup();
 
         let mut runs = Vec::new();

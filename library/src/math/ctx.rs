@@ -61,7 +61,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Self {
             vt,
             regions: Regions::one(regions.base(), Axes::splat(false)),
-            font: &font,
+            font,
             ttf: font.ttf(),
             table,
             constants,
@@ -120,7 +120,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {
         Ok(content
-            .layout(&mut self.vt, self.outer.chain(&self.local), self.regions)?
+            .layout(self.vt, self.outer.chain(&self.local), self.regions)?
             .into_frame())
     }
 

@@ -115,7 +115,7 @@ impl Func {
             }
             Repr::With(arc) => {
                 args.items = arc.1.items.iter().cloned().chain(args.items).collect();
-                return arc.0.call_vm(vm, args);
+                arc.0.call_vm(vm, args)
             }
         }
     }
@@ -292,10 +292,7 @@ impl Closure {
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
-        let closure = match &this.repr {
-            Repr::Closure(closure) => closure,
-            _ => panic!("`this` must be a closure"),
-        };
+        let Repr::Closure(closure) = &this.repr else { panic!("`this` must be a closure") };
 
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
@@ -337,9 +334,8 @@ impl Closure {
         let result = closure.body.eval(&mut vm);
         match vm.flow {
             Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
-            Some(Flow::Return(_, None)) => {}
+            Some(Flow::Return(_, None)) | None => {}
             Some(flow) => bail!(flow.forbidden()),
-            None => {}
         }
 
         result

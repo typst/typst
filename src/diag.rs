@@ -112,7 +112,7 @@ impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Tracepoint::Call(Some(name)) => {
-                write!(f, "error occurred in this call of function `{}`", name)
+                write!(f, "error occurred in this call of function `{name}`")
             }
             Tracepoint::Call(None) => {
                 write!(f, "error occurred in this function call")

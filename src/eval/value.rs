@@ -17,9 +17,10 @@ use crate::model::Styles;
 use crate::syntax::{ast, Span};
 
 /// A computational value.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
+    #[default]
     None,
     /// A value that indicates some smart default behaviour.
     Auto,
@@ -122,10 +123,10 @@ impl Value {
     /// Try to access a field on the value.
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(&field).map(Self::Symbol),
-            Self::Dict(dict) => dict.at(&field).cloned(),
-            Self::Content(content) => content.at(&field),
-            Self::Module(module) => module.get(&field).cloned(),
+            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Dict(dict) => dict.at(field).cloned(),
+            Self::Content(content) => content.at(field),
+            Self::Module(module) => module.get(field).cloned(),
             v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
         }
     }
@@ -147,13 +148,12 @@ impl Value {
     /// Return the display representation of the value.
     pub fn display(self) -> Content {
         match self {
-            Self::None => Content::empty(),
+            Self::Func(_) | Self::None => Content::empty(),
             Self::Int(v) => item!(text)(eco_format!("{}", v)),
             Self::Float(v) => item!(text)(eco_format!("{}", v)),
             Self::Str(v) => item!(text)(v.into()),
             Self::Symbol(v) => item!(text)(v.get().into()),
             Self::Content(v) => v,
-            Self::Func(_) => Content::empty(),
             Self::Module(module) => module.content(),
             _ => item!(raw)(self.repr().into(), Some("typc".into()), false),
         }
@@ -165,12 +165,6 @@ impl Value {
             Self::Func(func) => func.info().map(|info| info.docs),
             _ => None,
         }
-    }
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::None
     }
 }
 
@@ -219,8 +213,7 @@ impl Hash for Value {
     fn hash<H: Hasher>(&self, state: &mut H) {
         std::mem::discriminant(self).hash(state);
         match self {
-            Self::None => {}
-            Self::Auto => {}
+            Self::Auto | Self::None => {}
             Self::Bool(v) => v.hash(state),
             Self::Int(v) => v.hash(state),
             Self::Float(v) => v.to_bits().hash(state),

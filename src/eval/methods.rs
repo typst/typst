@@ -27,7 +27,7 @@ pub fn call(
         },
 
         Value::Str(string) => match method {
-            "len" => Value::Int(string.len() as i64),
+            "len" => Value::Int(string.len()),
             "first" => Value::Str(string.first().at(span)?),
             "last" => Value::Str(string.last().at(span)?),
             "at" => Value::Str(string.at(args.expect("index")?).at(span)?),
@@ -73,7 +73,7 @@ pub fn call(
         Value::Content(content) => match method {
             "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
-            "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?.clone(),
+            "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?,
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")

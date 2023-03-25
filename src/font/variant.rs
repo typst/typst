@@ -132,7 +132,7 @@ impl Debug for FontWeight {
 
 cast_from_value! {
     FontWeight,
-    v: i64 => Self::from_number(v.clamp(0, u16::MAX as i64) as u16),
+    v: i64 => Self::from_number(v.clamp(0, i64::from(u16::MAX)) as u16),
     /// Thin weight (100).
     "thin" => Self::THIN,
     /// Extra light weight (200).
@@ -226,7 +226,7 @@ impl FontStretch {
 
     /// The ratio between 0.5 and 2.0 corresponding to this stretch.
     pub fn to_ratio(self) -> Ratio {
-        Ratio::new(self.0 as f64 / 1000.0)
+        Ratio::new(f64::from(self.0) / 1000.0)
     }
 
     /// The absolute ratio distance between this and another font stretch.

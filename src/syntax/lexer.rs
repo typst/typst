@@ -357,7 +357,7 @@ impl Lexer<'_> {
     }
 
     fn in_word(&self) -> bool {
-        let alphanum = |c: Option<char>| c.map_or(false, |c| c.is_alphanumeric());
+        let alphanum = |c: Option<char>| c.map_or(false, char::is_alphanumeric);
         let prev = self.s.scout(-2);
         let next = self.s.peek();
         alphanum(prev) && alphanum(next)

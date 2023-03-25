@@ -43,7 +43,7 @@ struct CompileCommand {
     font_paths: Vec<PathBuf>,
 }
 
-const HELP: &'static str = "\
+const HELP: &str = "\
 typst creates PDF files from .typ files
 
 USAGE:
@@ -71,7 +71,7 @@ struct FontsCommand {
     variants: bool,
 }
 
-const HELP_FONTS: &'static str = "\
+const HELP_FONTS: &str = "\
 typst --fonts lists all discovered fonts in system and custom font paths
 
 USAGE:
@@ -260,7 +260,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
         // Print diagnostics.
         Err(errors) => {
             status(command, Status::Error).unwrap();
-            print_diagnostics(&world, *errors)
+            print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
         }
     }

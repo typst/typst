@@ -71,8 +71,8 @@ impl Styles {
     pub fn interruption<T: Element>(&self) -> Option<Option<Span>> {
         let func = T::func();
         self.0.iter().find_map(|entry| match entry {
-            Style::Property(property) => property.is_of(func).then(|| property.span),
-            Style::Recipe(recipe) => recipe.is_of(func).then(|| Some(recipe.span)),
+            Style::Property(property) => property.is_of(func).then_some(property.span),
+            Style::Recipe(recipe) => recipe.is_of(func).then_some(Some(recipe.span)),
         })
     }
 }
@@ -277,7 +277,7 @@ impl Selector {
                 target.func() == *element
                     && dict
                         .iter()
-                        .flat_map(|dict| dict.iter())
+                        .flat_map(Dict::iter)
                         .all(|(name, value)| target.field_ref(name) == Some(value))
             }
             Self::Label(label) => target.label() == Some(label),
@@ -432,8 +432,7 @@ impl<'a> StyleChain<'a> {
         ) -> T::Output {
             values
                 .next()
-                .map(|value| value.fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+                .map_or_else(default, |value| value.fold(next(values, styles, default)))
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }
@@ -459,10 +458,9 @@ impl<'a> StyleChain<'a> {
             T: Resolve,
             T::Output: Fold,
         {
-            values
-                .next()
-                .map(|value| value.resolve(styles).fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+            values.next().map_or_else(default, |value| {
+                value.resolve(styles).fold(next(values, styles, default))
+            })
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }
@@ -543,7 +541,7 @@ impl<'a> StyleChain<'a> {
 impl Debug for StyleChain<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         for entry in self.entries().collect::<Vec<_>>().into_iter().rev() {
-            writeln!(f, "{:?}", entry)?;
+            writeln!(f, "{entry:?}")?;
         }
         Ok(())
     }
@@ -738,10 +736,7 @@ impl<'a, T> StyleVecBuilder<'a, T> {
     /// - a shared prefix chain of styles that apply to all items
     pub fn finish(self) -> (StyleVec<T>, StyleChain<'a>) {
         let mut iter = self.chains.iter();
-        let mut trunk = match iter.next() {
-            Some(&(chain, _)) => chain,
-            None => return Default::default(),
-        };
+        let Some(&(mut trunk, _)) = iter.next() else { return Default::default() };
 
         let mut shared = trunk.links().count();
         for &(mut chain, _) in iter {

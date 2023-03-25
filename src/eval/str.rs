@@ -39,6 +39,11 @@ impl Str {
         self.0.len() as i64
     }
 
+    /// Whether the string is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// A string slice containing the entire string.
     pub fn as_str(&self) -> &str {
         self
@@ -118,7 +123,7 @@ impl Str {
     /// The text of the pattern's first match in this string.
     pub fn find(&self, pattern: StrPattern) -> Option<Self> {
         match pattern {
-            StrPattern::Str(pat) => self.0.contains(pat.as_str()).then(|| pat),
+            StrPattern::Str(pat) => self.0.contains(pat.as_str()).then_some(pat),
             StrPattern::Regex(re) => re.find(self).map(|m| m.as_str().into()),
         }
     }
@@ -271,7 +276,7 @@ impl Str {
         let n = usize::try_from(n)
             .ok()
             .and_then(|n| self.0.len().checked_mul(n).map(|_| n))
-            .ok_or_else(|| format!("cannot repeat this string {} times", n))?;
+            .ok_or_else(|| format!("cannot repeat this string {n} times"))?;
 
         Ok(Self(self.0.repeat(n)))
     }

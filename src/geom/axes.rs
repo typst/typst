@@ -143,7 +143,7 @@ where
         if let Axes { x: Some(x), y: Some(y) } =
             self.as_ref().map(|v| (v as &dyn Any).downcast_ref::<Align>())
         {
-            write!(f, "{:?}-{:?}", x, y)
+            write!(f, "{x:?}-{y:?}")
         } else if (&self.x as &dyn Any).is::<Abs>() {
             write!(f, "Size({:?}, {:?})", self.x, self.y)
         } else {

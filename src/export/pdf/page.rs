@@ -63,7 +63,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
 
 /// Write the page tree.
 pub fn write_page_tree(ctx: &mut PdfContext) {
-    for page in std::mem::take(&mut ctx.pages).into_iter() {
+    for page in std::mem::take(&mut ctx.pages) {
         write_page(ctx, page);
     }
 
@@ -217,7 +217,7 @@ impl PageContext<'_, '_> {
 
     fn set_fill(&mut self, fill: Paint) {
         if self.state.fill != Some(fill) {
-            let f = |c| c as f32 / 255.0;
+            let f = |c| f32::from(c) / 255.0;
             let Paint::Solid(color) = fill;
             match color {
                 Color::Luma(c) => {
@@ -250,7 +250,7 @@ impl PageContext<'_, '_> {
 
     fn set_stroke(&mut self, stroke: Stroke) {
         if self.state.stroke != Some(stroke) {
-            let f = |c| c as f32 / 255.0;
+            let f = |c| f32::from(c) / 255.0;
             let Paint::Solid(color) = stroke.paint;
             match color {
                 Color::Luma(c) => {
@@ -296,8 +296,7 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
             FrameItem::Image(image, size, _) => write_image(ctx, x, y, image, *size),
             FrameItem::Meta(meta, size) => match meta {
                 Meta::Link(dest) => write_link(ctx, pos, dest, *size),
-                Meta::Elem(_) => {}
-                Meta::Hide => {}
+                Meta::Elem(_) | Meta::Hide => {}
             },
         }
     }

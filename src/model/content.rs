@@ -111,7 +111,7 @@ impl Content {
         C: ?Sized + 'static,
     {
         let vtable = (self.func.0.vtable)(TypeId::of::<C>())?;
-        let data = self as *const Self as *const ();
+        let data = (self as *const Self).cast::<()>();
         Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
     }
 
@@ -122,7 +122,7 @@ impl Content {
         C: ?Sized + 'static,
     {
         let vtable = (self.func.0.vtable)(TypeId::of::<C>())?;
-        let data = self as *mut Self as *mut ();
+        let data = (self as *mut Self).cast::<()>();
         Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
     }
 
@@ -296,7 +296,7 @@ impl Content {
     /// Repeat this content `n` times.
     pub fn repeat(&self, n: i64) -> StrResult<Self> {
         let count = usize::try_from(n)
-            .map_err(|_| format!("cannot repeat this content {} times", n))?;
+            .map_err(|_| format!("cannot repeat this content {n} times"))?;
 
         Ok(Self::sequence(vec![self.clone(); count]))
     }

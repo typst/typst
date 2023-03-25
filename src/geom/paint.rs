@@ -128,22 +128,22 @@ impl LumaColor {
     /// Convert to CMYK as a fraction of true black.
     pub fn to_cmyk(self) -> CmykColor {
         CmykColor::new(
-            round_u8(self.0 as f64 * 0.75),
-            round_u8(self.0 as f64 * 0.68),
-            round_u8(self.0 as f64 * 0.67),
-            round_u8(self.0 as f64 * 0.90),
+            round_u8(f64::from(self.0) * 0.75),
+            round_u8(f64::from(self.0) * 0.68),
+            round_u8(f64::from(self.0) * 0.67),
+            round_u8(f64::from(self.0) * 0.90),
         )
     }
 
     /// Lighten this color by a factor.
     pub fn lighten(self, factor: Ratio) -> Self {
-        let inc = round_u8((u8::MAX - self.0) as f64 * factor.get());
+        let inc = round_u8(f64::from(u8::MAX - self.0) * factor.get());
         Self(self.0.saturating_add(inc))
     }
 
     /// Darken this color by a factor.
     pub fn darken(self, factor: Ratio) -> Self {
-        let dec = round_u8(self.0 as f64 * factor.get());
+        let dec = round_u8(f64::from(self.0) * factor.get());
         Self(self.0.saturating_sub(dec))
     }
 
@@ -189,7 +189,7 @@ impl RgbaColor {
     /// The alpha channel is not affected.
     pub fn lighten(self, factor: Ratio) -> Self {
         let lighten =
-            |c: u8| c.saturating_add(round_u8((u8::MAX - c) as f64 * factor.get()));
+            |c: u8| c.saturating_add(round_u8(f64::from(u8::MAX - c) * factor.get()));
         Self {
             r: lighten(self.r),
             g: lighten(self.g),
@@ -202,7 +202,7 @@ impl RgbaColor {
     ///
     /// The alpha channel is not affected.
     pub fn darken(self, factor: Ratio) -> Self {
-        let darken = |c: u8| c.saturating_sub(round_u8(c as f64 * factor.get()));
+        let darken = |c: u8| c.saturating_sub(round_u8(f64::from(c) * factor.get()));
         Self {
             r: darken(self.r),
             g: darken(self.g),
@@ -311,9 +311,9 @@ impl CmykColor {
 
     /// Convert this color to RGBA.
     pub fn to_rgba(self) -> RgbaColor {
-        let k = self.k as f64 / 255.0;
+        let k = f64::from(self.k) / 255.0;
         let f = |c| {
-            let c = c as f64 / 255.0;
+            let c = f64::from(c) / 255.0;
             round_u8(255.0 * (1.0 - c) * (1.0 - k))
         };
 
@@ -322,7 +322,7 @@ impl CmykColor {
 
     /// Lighten this color by a factor.
     pub fn lighten(self, factor: Ratio) -> Self {
-        let lighten = |c: u8| c.saturating_sub(round_u8(c as f64 * factor.get()));
+        let lighten = |c: u8| c.saturating_sub(round_u8(f64::from(c) * factor.get()));
         Self {
             c: lighten(self.c),
             m: lighten(self.m),
@@ -334,7 +334,7 @@ impl CmykColor {
     /// Darken this color by a factor.
     pub fn darken(self, factor: Ratio) -> Self {
         let darken =
-            |c: u8| c.saturating_add(round_u8((u8::MAX - c) as f64 * factor.get()));
+            |c: u8| c.saturating_add(round_u8(f64::from(u8::MAX - c) * factor.get()));
         Self {
             c: darken(self.c),
             m: darken(self.m),
@@ -358,7 +358,7 @@ impl CmykColor {
 
 impl Debug for CmykColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let g = |c| 100.0 * (c as f64 / 255.0);
+        let g = |c| 100.0 * (f64::from(c) / 255.0);
         write!(
             f,
             "cmyk({:.1}%, {:.1}%, {:.1}%, {:.1}%)",

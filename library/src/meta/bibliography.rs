@@ -127,7 +127,7 @@ impl Show for BibliographyElem {
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
-            let title = title.clone().unwrap_or_else(|| {
+            let title = title.unwrap_or_else(|| {
                 TextElem::packed(self.local_name(TextElem::lang_in(styles)))
                     .spanned(self.span())
             });
@@ -453,7 +453,7 @@ fn create(
                         &mut *citation_style,
                         &[Citation {
                             entry,
-                            supplement: supplement.is_some().then(|| SUPPLEMENT),
+                            supplement: supplement.is_some().then_some(SUPPLEMENT),
                         }],
                     )
                     .display;
@@ -505,7 +505,7 @@ fn create(
             // Make link from citation to here work.
             let backlink = {
                 let mut content = Content::empty();
-                content.set_location(ref_location(&reference.entry));
+                content.set_location(ref_location(reference.entry));
                 MetaElem::set_data(vec![Meta::Elem(content)])
             };
 

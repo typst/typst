@@ -1,5 +1,4 @@
 //! Documentation provider for Typst.
-
 mod html;
 
 pub use html::Html;
@@ -230,7 +229,7 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     for group in grouped {
         let mut functions = vec![];
         for name in &group.functions {
-            let value = focus.get(&name).unwrap();
+            let value = focus.get(name).unwrap();
             let Value::Func(func) = value else { panic!("not a function") };
             let info = func.info().unwrap();
             functions.push(func_model(resolver, func, info));
@@ -336,7 +335,7 @@ fn func_model(resolver: &dyn Resolver, func: &Func, info: &FuncInfo) -> FuncMode
     let mut s = unscanny::Scanner::new(info.docs);
     let docs = s.eat_until("\n## Methods").trim();
     FuncModel {
-        name: info.name.into(),
+        name: info.name,
         display: info.display,
         oneliner: oneliner(docs),
         showable: func.element().is_some(),
@@ -570,7 +569,7 @@ fn method_model(resolver: &dyn Resolver, part: &'static str) -> MethodModel {
                 "positional" => positional = true,
                 "required" => required = true,
                 "variadic" => variadic = true,
-                _ => panic!("unknown parameter flag {:?}", part),
+                _ => panic!("unknown parameter flag {part:?}"),
             }
         }
 
@@ -629,7 +628,7 @@ fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
             if variant.is_empty() {
                 name.into()
             } else {
-                format!("{}.{}", name, variant)
+                format!("{name}.{variant}")
             }
         };
 
@@ -704,7 +703,7 @@ fn yaml<T: DeserializeOwned>(path: &str) -> T {
 fn details(key: &str) -> &str {
     DETAILS
         .get(&yaml::Value::String(key.into()))
-        .and_then(|value| value.as_str())
+        .and_then(yaml::Value::as_str)
         .unwrap_or_else(|| panic!("missing details for {key}"))
 }
 
@@ -722,7 +721,7 @@ pub fn urlify(title: &str) -> String {
 
 /// Extract the first line of documentation.
 fn oneliner(docs: &str) -> &str {
-    docs.lines().next().unwrap_or_default().into()
+    docs.lines().next().unwrap_or_default()
 }
 
 /// The order of types in the documentation.

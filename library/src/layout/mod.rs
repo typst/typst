@@ -172,7 +172,7 @@ fn realize_root<'a>(
         return Ok((content.clone(), styles));
     }
 
-    let mut builder = Builder::new(vt, &scratch, true);
+    let mut builder = Builder::new(vt, scratch, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles))?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
@@ -197,7 +197,7 @@ fn realize_block<'a>(
         return Ok((content.clone(), styles));
     }
 
-    let mut builder = Builder::new(vt, &scratch, false);
+    let mut builder = Builder::new(vt, scratch, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
@@ -234,7 +234,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Self {
             vt,
             scratch,
-            doc: top.then(|| DocBuilder::default()),
+            doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
             par: ParBuilder::default(),
             list: ListBuilder::default(),
@@ -291,7 +291,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             .to::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
-        self.interrupt_page(keep.then(|| styles))?;
+        self.interrupt_page(keep.then_some(styles))?;
 
         if let Some(doc) = &mut self.doc {
             if doc.accept(content, styles) {
@@ -314,7 +314,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
     ) -> SourceResult<()> {
         let stored = self.scratch.styles.alloc(styles);
         let styles = stored.chain(map);
-        self.interrupt_style(&map, None)?;
+        self.interrupt_style(map, None)?;
         self.accept(elem, styles)?;
         self.interrupt_style(map, Some(styles))?;
         Ok(())
@@ -468,9 +468,9 @@ impl<'a> FlowBuilder<'a> {
 
             let above = BlockElem::above_in(styles);
             let below = BlockElem::below_in(styles);
-            self.0.push(above.clone().pack(), styles);
+            self.0.push(above.pack(), styles);
             self.0.push(content.clone(), styles);
-            self.0.push(below.clone().pack(), styles);
+            self.0.push(below.pack(), styles);
             return true;
         }
 

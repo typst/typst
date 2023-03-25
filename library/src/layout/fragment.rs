@@ -20,6 +20,11 @@ impl Fragment {
         self.0.len()
     }
 
+    /// Whether the fragment is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Extract the first and only frame.
     ///
     /// Panics if there are multiple frames.

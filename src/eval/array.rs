@@ -46,6 +46,11 @@ impl Array {
         self.0.len() as i64
     }
 
+    /// Whether the array is empty.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// The first value in the array.
     pub fn first(&self) -> StrResult<&Value> {
         self.0.first().ok_or_else(array_is_empty)
@@ -297,7 +302,7 @@ impl Array {
         let count = usize::try_from(n)
             .ok()
             .and_then(|n| self.0.len().checked_mul(n))
-            .ok_or_else(|| format!("cannot repeat this array {} times", n))?;
+            .ok_or_else(|| format!("cannot repeat this array {n} times"))?;
 
         Ok(self.iter().cloned().cycle().take(count).collect())
     }

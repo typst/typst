@@ -83,7 +83,7 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     // Bail if we aren't even in markup.
     if !matches!(
         ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup) | Some(SyntaxKind::Ref)
+        None | Some(SyntaxKind::Markup | SyntaxKind::Ref)
     ) {
         return false;
     }
@@ -122,7 +122,7 @@ fn complete_markup(ctx: &mut CompletionContext) -> bool {
     }
 
     // Directly after a raw block.
-    let mut s = Scanner::new(&ctx.text);
+    let mut s = Scanner::new(ctx.text);
     s.jump(ctx.leaf.offset());
     if s.eat_if("```") {
         s.eat_while('`');
@@ -251,10 +251,12 @@ fn markup_completions(ctx: &mut CompletionContext) {
 fn complete_math(ctx: &mut CompletionContext) -> bool {
     if !matches!(
         ctx.leaf.parent_kind(),
-        Some(SyntaxKind::Equation)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
+        Some(
+            SyntaxKind::Equation
+                | SyntaxKind::Math
+                | SyntaxKind::MathFrac
+                | SyntaxKind::MathAttach
+        )
     ) {
         return false;
     }
@@ -651,7 +653,7 @@ fn param_completions(
                 kind: CompletionKind::Param,
                 label: param.name.into(),
                 apply: Some(eco_format!("{}: ${{}}", param.name)),
-                detail: Some(plain_docs_sentence(param.docs).into()),
+                detail: Some(plain_docs_sentence(param.docs)),
             });
         }
 
@@ -695,10 +697,12 @@ fn named_param_value_completions(
 fn complete_code(ctx: &mut CompletionContext) -> bool {
     if matches!(
         ctx.leaf.parent_kind(),
-        None | Some(SyntaxKind::Markup)
-            | Some(SyntaxKind::Math)
-            | Some(SyntaxKind::MathFrac)
-            | Some(SyntaxKind::MathAttach)
+        None | Some(
+            SyntaxKind::Markup
+                | SyntaxKind::Math
+                | SyntaxKind::MathFrac
+                | SyntaxKind::MathAttach
+        )
     ) {
         return false;
     }
@@ -896,8 +900,8 @@ impl<'a> CompletionContext<'a> {
             frames,
             library,
             source,
-            global: &library.global.scope(),
-            math: &library.math.scope(),
+            global: library.global.scope(),
+            math: library.math.scope(),
             text,
             before: &text[..cursor],
             after: &text[cursor..],
@@ -1002,9 +1006,7 @@ impl<'a> CompletionContext<'a> {
 
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
-            Value::Func(func) => {
-                func.info().map(|info| plain_docs_sentence(info.docs).into())
-            }
+            Value::Func(func) => func.info().map(|info| plain_docs_sentence(info.docs)),
             v => Some(v.repr().into()),
         });
 
@@ -1121,10 +1123,12 @@ impl<'a> CompletionContext<'a> {
 
         let in_math = matches!(
             self.leaf.parent_kind(),
-            Some(SyntaxKind::Equation)
-                | Some(SyntaxKind::Math)
-                | Some(SyntaxKind::MathFrac)
-                | Some(SyntaxKind::MathAttach)
+            Some(
+                SyntaxKind::Equation
+                    | SyntaxKind::Math
+                    | SyntaxKind::MathFrac
+                    | SyntaxKind::MathAttach
+            )
         );
 
         let scope = if in_math { self.math } else { self.global };

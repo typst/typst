@@ -62,6 +62,11 @@ impl SyntaxNode {
         }
     }
 
+    /// Whether the node is empty.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// The span of the node.
     pub fn span(&self) -> Span {
         match &self.0 {
@@ -144,7 +149,7 @@ impl SyntaxNode {
         } else {
             self.children()
                 .filter(|node| node.erroneous())
-                .flat_map(|node| node.errors())
+                .flat_map(SyntaxNode::errors)
                 .collect()
         }
     }
@@ -472,7 +477,7 @@ impl InnerNode {
                 .start
                 .checked_sub(1)
                 .and_then(|i| self.children.get(i))
-                .map_or(self.span.number() + 1, |child| child.upper());
+                .map_or(self.span.number() + 1, SyntaxNode::upper);
 
             // The upper bound for renumbering is either
             // - the span number of the first child after the to-be-renumbered

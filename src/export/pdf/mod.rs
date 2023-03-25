@@ -129,7 +129,7 @@ fn write_catalog(ctx: &mut PdfContext) {
     let authors = &ctx.document.author;
     if !authors.is_empty() {
         info.author(TextStr(&authors.join(", ")));
-        xmp.creator(authors.iter().map(|s| s.as_str()));
+        xmp.creator(authors.iter().map(ecow::EcoString::as_str));
     }
     info.creator(TextStr("Typst"));
     info.finish();

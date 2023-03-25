@@ -71,11 +71,11 @@ impl<T: Cast> Cast<Spanned<Value>> for Spanned<T> {
 }
 
 cast_to_value! {
-    v: u8 => Value::Int(v as i64)
+    v: u8 => Value::Int(i64::from(v))
 }
 
 cast_to_value! {
-    v: u16 => Value::Int(v as i64)
+    v: u16 => Value::Int(i64::from(v))
 }
 
 cast_from_value! {
@@ -90,11 +90,11 @@ cast_from_value! {
 }
 
 cast_to_value! {
-    v: u32 => Value::Int(v as i64)
+    v: u32 => Value::Int(i64::from(v))
 }
 
 cast_to_value! {
-    v: i32 => Value::Int(v as i64)
+    v: i32 => Value::Int(i64::from(v))
 }
 
 cast_from_value! {
@@ -116,7 +116,7 @@ cast_from_value! {
     NonZeroUsize,
     int: i64 => int
         .try_into()
-        .and_then(|int: usize| int.try_into())
+        .and_then(usize::try_into)
         .map_err(|_| if int <= 0 {
             "number must be positive"
         } else {

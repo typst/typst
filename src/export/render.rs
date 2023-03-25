@@ -59,9 +59,7 @@ fn render_frame(
                 render_image(canvas, ts, mask, image, *size);
             }
             FrameItem::Meta(meta, _) => match meta {
-                Meta::Link(_) => {}
-                Meta::Elem(_) => {}
-                Meta::Hide => {}
+                Meta::Link(_) | Meta::Elem(_) | Meta::Hide => {}
             },
         }
     }
@@ -196,9 +194,9 @@ fn render_bitmap_glyph(
     // and maybe also for Noto Color Emoji. And: Is the size calculation
     // correct?
     let h = text.size;
-    let w = (image.width() as f64 / image.height() as f64) * h;
-    let dx = (raster.x as f32) / (image.width() as f32) * size;
-    let dy = (raster.y as f32) / (image.height() as f32) * size;
+    let w = (f64::from(image.width()) / f64::from(image.height())) * h;
+    let dx = f32::from(raster.x) / (image.width() as f32) * size;
+    let dy = f32::from(raster.y) / (image.height() as f32) * size;
     let ts = ts.pre_translate(dx, -size - dy);
     render_image(canvas, ts, mask, &image, Size::new(w, h))
 }
@@ -272,7 +270,7 @@ fn render_outline_glyph(
                 continue;
             }
 
-            let applied = alpha_mul(color, cov as u32);
+            let applied = alpha_mul(color, u32::from(cov));
             pixels[pi] = blend_src_over(applied, pixels[pi]);
         }
     }

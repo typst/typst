@@ -175,7 +175,9 @@ impl Introspector {
         self.elems
             .iter()
             .find(|(elem, _)| elem.location() == Some(location))
-            .map(|(_, loc)| *loc)
-            .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
+            .map_or(
+                Position { page: NonZeroUsize::ONE, point: Point::zero() },
+                |(_, loc)| *loc,
+            )
     }
 }

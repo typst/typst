@@ -198,7 +198,7 @@ impl<'a> StackLayouter<'a> {
         let aligns = if let Some(align) = block.to::<AlignElem>() {
             align.alignment(styles)
         } else if let Some((_, local)) = block.to_styled() {
-            AlignElem::alignment_in(styles.chain(&local))
+            AlignElem::alignment_in(styles.chain(local))
         } else {
             AlignElem::alignment_in(styles)
         }

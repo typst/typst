@@ -67,7 +67,7 @@ cast_from_value! {
     v: i64 => Self(Value::Int(v.abs())),
     v: f64 => Self(Value::Float(v.abs())),
     v: Length => Self(Value::Length(v.try_abs()
-        .ok_or_else(|| "cannot take absolute value of this length")?)),
+        .ok_or("cannot take absolute value of this length")?)),
     v: Angle => Self(Value::Angle(v.abs())),
     v: Ratio => Self(Value::Ratio(v.abs())),
     v: Fr => Self(Value::Fraction(v.abs())),
@@ -452,7 +452,7 @@ pub fn round(
         Num::Int(n) if digits == 0 => Value::Int(n),
         _ => {
             let n = value.float();
-            let factor = 10.0_f64.powi(digits as i32) as f64;
+            let factor = 10.0_f64.powi(digits as i32);
             Value::Float((n * factor).round() / factor)
         }
     }

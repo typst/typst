@@ -745,8 +745,8 @@ fn is_compatible(a: Script, b: Script) -> bool {
 
 /// Get a style property, but only if it is the same for all children of the
 /// paragraph.
-fn shared_get<'a, T: PartialEq>(
-    styles: StyleChain<'a>,
+fn shared_get<T: PartialEq>(
+    styles: StyleChain,
     children: &[Content],
     getter: fn(StyleChain) -> T,
 ) -> Option<T> {
@@ -754,8 +754,8 @@ fn shared_get<'a, T: PartialEq>(
     children
         .iter()
         .filter_map(|child| child.to_styled())
-        .all(|(_, local)| getter(styles.chain(&local)) == value)
-        .then(|| value)
+        .all(|(_, local)| getter(styles.chain(local)) == value)
+        .then_some(value)
 }
 
 /// Find suitable linebreaks.
