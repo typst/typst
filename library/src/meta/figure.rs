@@ -81,23 +81,26 @@ impl Show for FigureElem {
         let mut realized = self.body();
 
         if let Some(caption_elem) = self.caption(styles) {
-            let mut caption = self.ref_supplement(vt, styles)?;
-            if !caption.is_empty() {
-                caption += TextElem::packed('\u{a0}');
-            }
+            let mut caption = Content::empty();
 
             if let Some(numbering) = self.numbering(styles) {
+                caption += self.ref_supplement(vt, styles)?;
+                if !caption.is_empty() {
+                    caption += TextElem::packed('\u{a0}');
+                }
+
                 let counter = self.counter(styles);
 
                 caption +=
                     counter.clone().display(Some(numbering), false).spanned(self.span())
-                        + caption_elem.sep(styles).unwrap_or(TextElem::packed(": "))
-                        + caption_elem.content();
+                        + caption_elem.sep(styles).unwrap_or(TextElem::packed(": "));
 
                 if counter != Counter::of(Self::func()) {
                     caption += counter.update(CounterUpdate::Step(NonZeroUsize::ONE))
                 }
             }
+
+            caption += caption_elem.content();
 
             realized += VElem::weak(self.gap(styles).into()).pack();
             realized += caption;
@@ -113,8 +116,9 @@ impl Show for FigureElem {
 
 impl Count for FigureElem {
     fn update(&self) -> Option<CounterUpdate> {
-        (self.counter(StyleChain::default()) == Counter::of(Self::func()))
-            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+        (self.counter(StyleChain::default()) == Counter::of(Self::func())
+            && self.numbering(StyleChain::default()).is_some())
+        .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
 }
 
