@@ -308,18 +308,20 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         if kind == SyntaxKind::MathFrac {
-            math_unparen(p, m);
+            math_unparen(p, m, false);
         }
 
         p.eat();
         let m2 = p.marker();
         math_expr_prec(p, prec, stop);
-        math_unparen(p, m2);
+
+        let force_closing_parenthesis = kind == SyntaxKind::MathFrac;
+        math_unparen(p, m2, force_closing_parenthesis);
 
         if p.eat_if(SyntaxKind::Underscore) || p.eat_if(SyntaxKind::Hat) {
             let m3 = p.marker();
             math_expr_prec(p, prec, SyntaxKind::Eof);
-            math_unparen(p, m3);
+            math_unparen(p, m3, false);
         }
 
         p.wrap(m, kind);
@@ -363,10 +365,17 @@ fn math_delimited(p: &mut Parser, stop: MathClass) {
     }
 }
 
-fn math_unparen(p: &mut Parser, m: Marker) {
+fn math_unparen(p: &mut Parser, m: Marker, force_match: bool) {
     let Some(node) = p.nodes.get_mut(m.0) else { return };
     if node.kind() != SyntaxKind::MathDelimited {
-        return;
+        if force_match && node.text() == "(" {
+            p.wrap(m, SyntaxKind::MathDelimited);
+            let node = p.nodes.get_mut(m.0).unwrap();
+            node.convert_to_kind(SyntaxKind::Math);
+            return;
+        } else {
+            return;
+        }
     }
 
     if let [first, .., last] = node.children_mut() {
