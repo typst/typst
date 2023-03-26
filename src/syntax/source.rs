@@ -262,7 +262,7 @@ impl Hash for Source {
 }
 
 /// A unique identifier for a loaded source file.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct SourceId(u16);
 
 impl SourceId {
@@ -284,6 +284,19 @@ impl SourceId {
     /// Extract the underlying number.
     pub const fn into_u16(self) -> u16 {
         self.0
+    }
+}
+
+impl Debug for SourceId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "SourceId(")?;
+
+        match self.is_detached() {
+            true => write!(f, "DETACHED")?,
+            false => write!(f, "{}", self.0)?,
+        };
+
+        write!(f, ")")
     }
 }
 

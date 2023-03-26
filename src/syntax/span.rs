@@ -23,7 +23,7 @@ use super::SourceId;
 ///
 /// This type takes up 8 bytes and is null-optimized (i.e. `Option<Span>` also
 /// takes 8 bytes).
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Span(NonZeroU64);
 
 impl Span {
@@ -76,6 +76,15 @@ impl Span {
     /// The unique number of the span within its source file.
     pub const fn number(self) -> u64 {
         self.0.get() & ((1 << Self::BITS) - 1)
+    }
+}
+
+impl Debug for Span {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Span")
+            .field("source", &self.source())
+            .field("number", &self.number())
+            .finish()
     }
 }
 

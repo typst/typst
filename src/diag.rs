@@ -180,7 +180,7 @@ where
 /// A result type with a file-related error.
 pub type FileResult<T> = Result<T, FileError>;
 
-/// An error that occurred while trying to load of a file.
+/// An error that occurred while trying to load a file.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum FileError {
     /// A file was not found at this path.
