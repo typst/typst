@@ -458,6 +458,10 @@ impl World for SystemWorld {
     }
 
     fn source(&self, id: SourceId) -> &Source {
+        if id.is_detached() {
+            panic!("Cannot get source for detached source id");
+        }
+
         &self.sources[id.into_u16() as usize]
     }
 
