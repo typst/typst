@@ -79,6 +79,7 @@ fn global(math: Module, calc: Module) -> Module {
     // Visualize.
     global.define("image", visualize::ImageElem::func());
     global.define("line", visualize::LineElem::func());
+    global.define("bezier", visualize::BezierCurve::func());
     global.define("rect", visualize::RectElem::func());
     global.define("square", visualize::SquareElem::func());
     global.define("ellipse", visualize::EllipseElem::func());
