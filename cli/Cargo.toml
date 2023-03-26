@@ -35,5 +35,6 @@ default = ["embed-fonts"]
 # - text (Linux Libertine),
 # - math (New Computer Modern Math), and
 # - code (Deja Vu Sans Mono)
+# and additionally New Computer Modern for text
 # into the binary.
 embed-fonts = []
