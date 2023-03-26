@@ -238,6 +238,7 @@ fn compile(command: CompileCommand) -> StrResult<()> {
 
         if recompile {
             compile_once(&mut world, &command)?;
+            comemo::evict(30);
         }
     }
 }
