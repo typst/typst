@@ -399,6 +399,24 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
     divides: ['∣', not: '∤'],
     perp: ['⟂', circle: '⦹'],
 
+    // Algebra.
+    times: [
+        '⨯',
+        r: '⋊',
+        l: '⋉',
+    ],
+    wreath: '≀',
+    tri: [
+        l: '⊲',
+        l.eq: '⊴',
+        l.not: '⋪',
+        l.eq.not: '⋬',
+        r: '⊳',
+        r.eq: '⊵',
+        r.not: '⋫',
+        r.eq.not: '⋭',
+    ],
+
     // Geometry.
     parallel: ['∥', circle: '⦷', not: '∦'],
 
@@ -407,7 +425,6 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
     join: ['⨝', r: '⟖', l: '⟕', l.r: '⟗'],
     degree: ['°', c: '℃', f: '℉'],
     smash: '⨳',
-    wreath: '≀',
 
     // Currency.
     bitcoin: '₿',
