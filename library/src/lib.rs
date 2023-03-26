@@ -85,6 +85,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("circle", visualize::CircleElem::func());
 
     // Meta.
+    global.define("anchor", meta::AnchorElem::func());
     global.define("document", meta::DocumentElem::func());
     global.define("ref", meta::RefElem::func());
     global.define("link", meta::LinkElem::func());

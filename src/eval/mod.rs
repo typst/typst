@@ -49,8 +49,8 @@ use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
 use crate::model::{
-    Content, Introspector, Label, Recipe, Selector, StabilityProvider, Styles, Transform,
-    Vt, Whitespace,
+    Content, Introspector, Label, MetaElem, Recipe, Selector, StabilityProvider, Styles,
+    Transform, Vt, Whitespace,
 };
 use crate::syntax::ast::AstNode;
 use crate::syntax::{
@@ -381,7 +381,9 @@ fn eval_markup(
                     if let Some(elem) =
                         seq.iter_mut().rev().find(|node| !node.can::<dyn Whitespace>())
                     {
-                        *elem = mem::take(elem).labelled(label);
+                        *elem = mem::take(elem)
+                            .labelled(label.clone())
+                            .styled(MetaElem::set_active_label(Some(label)));
                     }
                 }
                 value => seq.push(value.display().spanned(expr.span())),

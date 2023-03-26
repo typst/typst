@@ -492,6 +492,9 @@ pub struct MetaElem {
     /// property.
     #[fold]
     pub data: Vec<Meta>,
+
+    /// The currently active label.
+    pub active_label: Option<Label>,
 }
 
 impl Behave for MetaElem {

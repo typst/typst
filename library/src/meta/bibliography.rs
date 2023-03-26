@@ -8,7 +8,7 @@ use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
 
-use super::{LinkElem, LocalName, RefElem};
+use super::{LinkElem, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
 use crate::meta::HeadingElem;
 use crate::prelude::*;
@@ -43,7 +43,7 @@ use crate::text::TextElem;
 ///
 /// Display: Bibliography
 /// Category: meta
-#[element(Locatable, Synthesize, Show, LocalName)]
+#[element(Locatable, Synthesize, Show)]
 pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
@@ -127,16 +127,14 @@ impl Show for BibliographyElem {
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
-            let title = title.clone().unwrap_or_else(|| {
-                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
-                    .spanned(self.span())
-            });
+            let title = title.clone().unwrap_or_else(|| self.local_name(styles));
 
             seq.push(
                 HeadingElem::new(title)
                     .with_level(NonZeroUsize::ONE)
                     .with_numbering(None)
-                    .pack(),
+                    .pack()
+                    .spanned(self.span()),
             );
         }
 
@@ -179,12 +177,15 @@ impl Show for BibliographyElem {
     }
 }
 
-impl LocalName for BibliographyElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+impl BibliographyElem {
+    fn local_name(&self, styles: StyleChain) -> Content {
+        let name = match TextElem::lang_in(styles) {
             Lang::GERMAN => "Bibliographie",
+            Lang::GREEK => "Βιβλιογραφία",
             Lang::ENGLISH | _ => "Bibliography",
-        }
+        };
+
+        TextElem::packed(name).spanned(self.span())
     }
 }
 

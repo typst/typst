@@ -247,8 +247,10 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         styles: StyleChain<'a>,
     ) -> SourceResult<()> {
         if content.can::<dyn LayoutMath>() && !content.is::<EquationElem>() {
-            content =
-                self.scratch.content.alloc(EquationElem::new(content.clone()).pack());
+            content = self
+                .scratch
+                .content
+                .alloc(EquationElem::new(content.clone()).pack().spanned(content.span()));
         }
 
         if let Some((elem, local)) = content.to_styled() {

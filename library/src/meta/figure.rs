@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use super::{Count, Counter, CounterUpdate, LocalName, Numbering, NumberingPattern};
+use super::{AnchorElem, Count, Counter, CounterUpdate, Numbering, NumberingPattern};
 use crate::layout::{BlockElem, VElem};
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -23,7 +23,7 @@ use crate::text::TextElem;
 ///
 /// Display: Figure
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, LocalName)]
+#[element(Locatable, Synthesize, Count, Show)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
@@ -49,29 +49,50 @@ impl Synthesize for FigureElem {
 }
 
 impl Show for FigureElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let numbering = self.numbering(styles);
+        let supplement =
+            TextElem::packed(eco_format!("{}\u{a0}", self.local_name(styles)));
+
+        // Build the content
         let mut realized = self.body();
 
-        if let Some(mut caption) = self.caption(styles) {
-            if let Some(numbering) = self.numbering(styles) {
-                let name = self.local_name(TextElem::lang_in(styles));
-                caption = TextElem::packed(eco_format!("{name}\u{a0}"))
+        // Build the caption
+        if let Some(caption) = self.caption(styles) {
+            realized += VElem::weak(self.gap(styles).into()).pack();
+
+            if let Some(numbering) = &numbering {
+                realized += supplement.clone()
                     + Counter::of(Self::func())
-                        .display(Some(numbering), false)
+                        .at(vt, self.0.location().unwrap())?
+                        .display(vt, numbering)?
                         .spanned(self.span())
-                    + TextElem::packed(": ")
-                    + caption;
+                    + TextElem::packed(": ");
             }
 
-            realized += VElem::weak(self.gap(styles).into()).pack();
             realized += caption;
         }
 
-        Ok(BlockElem::new()
+        // Collect the content & caption into an unbreakable block
+        let block = BlockElem::new()
             .with_body(Some(realized))
             .with_breakable(false)
             .pack()
-            .aligned(Axes::with_x(Some(Align::Center.into()))))
+            .aligned(Axes::with_x(Some(Align::Center.into())));
+
+        // Build the reference name
+        let ref_name = match numbering.map(Numbering::trimmed) {
+            Some(numbering) => Some(
+                supplement
+                    + Counter::of(Self::func())
+                        .at(vt, self.0.location().unwrap())?
+                        .display(vt, &numbering)?
+                        .spanned(self.span()),
+            ),
+            None => None,
+        };
+
+        Ok(AnchorElem::new(ref_name, block).pack().spanned(self.span()))
     }
 }
 
@@ -83,10 +104,11 @@ impl Count for FigureElem {
     }
 }
 
-impl LocalName for FigureElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+impl FigureElem {
+    fn local_name(&self, styles: StyleChain) -> &'static str {
+        match TextElem::lang_in(styles) {
             Lang::GERMAN => "Abbildung",
+            Lang::GREEK => "Εικόνα",
             Lang::ENGLISH | _ => "Figure",
         }
     }

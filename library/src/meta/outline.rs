@@ -1,4 +1,4 @@
-use super::{Counter, CounterKey, HeadingElem, LocalName};
+use super::{Counter, CounterKey, HeadingElem};
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
@@ -22,7 +22,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 ///
 /// Display: Outline
 /// Category: meta
-#[element(Show, LocalName)]
+#[element(Show)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -74,8 +74,7 @@ impl Show for OutlineElem {
         let mut seq = vec![ParbreakElem::new().pack()];
         if let Some(title) = self.title(styles) {
             let title = title.clone().unwrap_or_else(|| {
-                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
-                    .spanned(self.span())
+                TextElem::packed(self.local_name(styles)).spanned(self.span())
             });
 
             seq.push(
@@ -83,7 +82,8 @@ impl Show for OutlineElem {
                     .with_level(NonZeroUsize::ONE)
                     .with_numbering(None)
                     .with_outlined(false)
-                    .pack(),
+                    .pack()
+                    .spanned(self.span()),
             );
         }
 
@@ -176,10 +176,11 @@ impl Show for OutlineElem {
     }
 }
 
-impl LocalName for OutlineElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+impl OutlineElem {
+    fn local_name(&self, styles: StyleChain) -> &'static str {
+        match TextElem::lang_in(styles) {
             Lang::GERMAN => "Inhaltsverzeichnis",
+            Lang::GREEK => "Περιεχόμενα",
             Lang::ENGLISH | _ => "Contents",
         }
     }

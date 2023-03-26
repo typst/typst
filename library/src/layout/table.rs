@@ -1,6 +1,6 @@
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
-use crate::meta::LocalName;
 use crate::prelude::*;
+use crate::text::TextElem;
 
 /// A table of items.
 ///
@@ -32,7 +32,7 @@ use crate::prelude::*;
 ///
 /// Display: Table
 /// Category: layout
-#[element(Layout, LocalName)]
+#[element(Layout)]
 pub struct TableElem {
     /// Defines the column sizes. See the [grid documentation]($func/grid) for
     /// more information on track sizing.
@@ -271,11 +271,14 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
     }
 }
 
-impl LocalName for TableElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+impl TableElem {
+    pub fn local_name(&self, styles: StyleChain) -> Content {
+        let name = match TextElem::lang_in(styles) {
             Lang::GERMAN => "Tabelle",
+            Lang::GREEK => "Πίνακας",
             Lang::ENGLISH | _ => "Table",
-        }
+        };
+
+        TextElem::packed(name).spanned(self.span())
     }
 }

@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use super::{Counter, CounterUpdate, LocalName, Numbering};
+use super::{AnchorElem, Counter, CounterUpdate, Numbering};
 use crate::layout::{BlockElem, HElem, VElem};
 use crate::meta::Count;
 use crate::prelude::*;
@@ -41,7 +41,7 @@ use crate::text::{TextElem, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName)]
+#[element(Locatable, Synthesize, Count, Show, Finalize)]
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
@@ -88,15 +88,33 @@ impl Synthesize for HeadingElem {
 }
 
 impl Show for HeadingElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
+        let mut ref_name = None;
         if let Some(numbering) = self.numbering(styles) {
-            realized = Counter::of(Self::func())
-                .display(Some(numbering), false)
-                .spanned(self.span())
+            let mut make_number = |trimmed| -> SourceResult<_> {
+                let numbering = match trimmed {
+                    true => numbering.clone().trimmed(),
+                    false => numbering.clone(),
+                };
+                Ok(Counter::of(Self::func())
+                    .at(vt, self.0.location().unwrap())?
+                    .display(vt, &numbering)?
+                    .spanned(self.span()))
+            };
+
+            realized = make_number(false)?
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
+
+            ref_name = Some(
+                TextElem::packed(eco_format!("{}\u{a0}", self.local_name(styles)))
+                    + make_number(true)?,
+            );
         }
+
+        realized = AnchorElem::new(ref_name, realized).pack().spanned(self.span());
+
         Ok(BlockElem::new().with_body(Some(realized)).pack())
     }
 }
@@ -137,10 +155,11 @@ cast_from_value! {
     v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
 }
 
-impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+impl HeadingElem {
+    fn local_name(&self, styles: StyleChain) -> &'static str {
+        match TextElem::lang_in(styles) {
             Lang::GERMAN => "Abschnitt",
+            Lang::GREEK => "Ενότητα",
             Lang::ENGLISH | _ => "Section",
         }
     }

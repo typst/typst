@@ -39,7 +39,7 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
-use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
+use crate::meta::{AnchorElem, Count, Counter, CounterUpdate, Numbering};
 use crate::prelude::*;
 use crate::text::{
     families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
@@ -133,7 +133,7 @@ pub fn module() -> Module {
 ///
 /// Display: Equation
 /// Category: math
-#[element(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName)]
+#[element(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
@@ -165,11 +165,25 @@ impl Synthesize for EquationElem {
 }
 
 impl Show for EquationElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::func()));
         if self.block(styles) {
             realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
         }
+
+        let supplement = match self.numbering(styles) {
+            Some(numbering) => Some(
+                TextElem::packed(eco_format!("{}\u{a0}", self.local_name(styles)))
+                    + Counter::of(Self::func())
+                        .at(vt, self.0.location().unwrap())?
+                        .display(vt, &numbering.trimmed())?
+                        .spanned(self.span()),
+            ),
+            None => None,
+        };
+
+        realized = AnchorElem::new(supplement, realized).pack().spanned(self.span());
+
         Ok(realized)
     }
 }
@@ -263,10 +277,11 @@ impl Count for EquationElem {
     }
 }
 
-impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
+impl EquationElem {
+    fn local_name(&self, styles: StyleChain) -> &'static str {
+        match TextElem::lang_in(styles) {
             Lang::GERMAN => "Gleichung",
+            Lang::GREEK => "Εξίσωση",
             Lang::ENGLISH | _ => "Equation",
         }
     }
