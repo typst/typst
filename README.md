@@ -144,6 +144,8 @@ If you want to contribute and are wondering how everything works, also check out
 the [`ARCHITECTURE.md`][architecture] file. It explains how the compiler works.
 
 ## Pronunciation
+**IPA**: /taɪpst/
+
 "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
 
 ## Design Principles
