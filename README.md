@@ -143,6 +143,9 @@ invite you to open an issue first so we can explore the design space together.
 If you want to contribute and are wondering how everything works, also check out
 the [`ARCHITECTURE.md`][architecture] file. It explains how the compiler works.
 
+## Pronunciation
+"Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
+
 ## Design Principles
 All of Typst has been designed with three key goals in mind: Power,
 simplicity, and performance. We think it's time for a system that matches the
