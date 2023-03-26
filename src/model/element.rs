@@ -141,5 +141,5 @@ impl Debug for Label {
     }
 }
 
-/// Indicates that an element cannot be labelled.
-pub trait Unlabellable {}
+/// Indicates that an element is whitespace.
+pub trait Whitespace {}

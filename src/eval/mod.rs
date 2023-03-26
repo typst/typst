@@ -50,7 +50,7 @@ use crate::diag::{
 };
 use crate::model::{
     Content, Introspector, Label, Recipe, Selector, StabilityProvider, Styles, Transform,
-    Unlabellable, Vt,
+    Vt, Whitespace,
 };
 use crate::syntax::ast::AstNode;
 use crate::syntax::{
@@ -364,7 +364,8 @@ fn eval_markup(
                     break;
                 }
 
-                seq.push(eval_markup(vm, exprs)?.styled_with_map(styles))
+                let tail = eval_markup(vm, exprs)?;
+                seq.push(tail.styled_with_map(styles))
             }
             ast::Expr::Show(show) => {
                 let recipe = show.eval(vm)?;
@@ -378,7 +379,7 @@ fn eval_markup(
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {
                     if let Some(elem) =
-                        seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
+                        seq.iter_mut().rev().find(|node| !node.can::<dyn Whitespace>())
                     {
                         *elem = mem::take(elem).labelled(label);
                     }

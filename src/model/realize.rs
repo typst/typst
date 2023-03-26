@@ -36,8 +36,9 @@ pub fn realize(
     // Pre-process.
     if target.needs_preparation() {
         let mut elem = target.clone();
-        if target.can::<dyn Locatable>() || target.label().is_some() {
-            let location = vt.provider.locate(hash128(target));
+
+        if elem.can::<dyn Locatable>() || elem.label().is_some() {
+            let location = vt.provider.locate(hash128(&elem));
             elem.set_location(location);
         }
 
@@ -48,11 +49,9 @@ pub fn realize(
         elem.mark_prepared();
 
         if elem.location().is_some() {
-            let span = elem.span();
-            let meta = Meta::Elem(elem.clone());
             return Ok(Some(
-                (elem + MetaElem::new().pack().spanned(span))
-                    .styled(MetaElem::set_data(vec![meta])),
+                (elem.clone() + MetaElem::new().pack().spanned(elem.span()))
+                    .styled(MetaElem::set_data(vec![Meta::Elem(elem)])),
             ));
         }
 
@@ -76,19 +75,16 @@ pub fn realize(
     }
 
     // Realize if there was no matching recipe.
-    if let Some(showable) = target.with::<dyn Show>() {
-        let guard = Guard::Base(target.func());
-        if realized.is_none() && !target.is_guarded(guard) {
-            realized = Some(showable.show(vt, styles)?);
+    if let Some(s) = target.with::<dyn Show>() {
+        if realized.is_none() && !target.is_guarded(Guard::Base(target.func())) {
+            realized = Some(s.show(vt, styles)?)
         }
     }
 
     // Finalize only if this is the first application for this element.
     if let Some(elem) = target.with::<dyn Finalize>() {
         if target.is_pristine() {
-            if let Some(already) = realized {
-                realized = Some(elem.finalize(already, styles));
-            }
+            realized = realized.map(|r| elem.finalize(r, styles));
         }
     }
 

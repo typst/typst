@@ -5,7 +5,7 @@ use crate::prelude::*;
 ///
 /// Display: Space
 /// Category: text
-#[element(Unlabellable, Behave)]
+#[element(Whitespace, Behave)]
 pub struct SpaceElem {}
 
 impl Behave for SpaceElem {
@@ -14,7 +14,7 @@ impl Behave for SpaceElem {
     }
 }
 
-impl Unlabellable for SpaceElem {}
+impl Whitespace for SpaceElem {}
 
 /// Inserts a line break.
 ///

@@ -210,10 +210,10 @@ pub enum Linebreaks {
 ///
 /// Display: Paragraph Break
 /// Category: layout
-#[element(Unlabellable)]
+#[element(Whitespace)]
 pub struct ParbreakElem {}
 
-impl Unlabellable for ParbreakElem {}
+impl Whitespace for ParbreakElem {}
 
 /// Range of a substring of text.
 type Range = std::ops::Range<usize>;

@@ -144,6 +144,6 @@ function escape(text) {
     return text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-function deactivate() {}
+function deactivate() { }
 
 module.exports = { activate, deactivate }

@@ -256,10 +256,13 @@ pub enum Selector {
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
     Elem(ElemFunc, Option<Dict>),
+
     /// Matches elements with a specific label.
     Label(Label),
+
     /// Matches text elements through a regular expression.
     Regex(Regex),
+
     /// Matches if any of the subselectors match.
     Any(EcoVec<Self>),
 }
