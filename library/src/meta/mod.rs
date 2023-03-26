@@ -26,10 +26,18 @@ pub use self::query::*;
 pub use self::reference::*;
 pub use self::state::*;
 
-use typst::doc::Lang;
+use crate::text::TextElem;
+use typst::{
+    doc::Lang,
+    model::{Content, StyleChain},
+};
 
 /// The named with which an element is referenced.
 pub trait LocalName {
     /// Get the name in the given language.
     fn local_name(&self, lang: Lang) -> &'static str;
+
+    fn local_name_content(&self, styles: StyleChain) -> Content {
+        TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+    }
 }

@@ -58,11 +58,11 @@ pub struct RefElem {
     ///
     /// ```example
     /// #set heading(numbering: "1.")
-    /// #set ref(supplement: it => {
+    /// #set ref(supplement: (it, orig) => {
     ///   if it.func() == heading {
     ///     "Chapter"
     ///   } else {
-    ///     "Thing"
+    ///     orig
     ///   }
     /// })
     ///
@@ -89,13 +89,20 @@ pub trait ReferenceInfo: LocalName {
     fn supplement(&self, _styles: StyleChain) -> Smart<Option<Supplement>>;
 
     // default logic of convert supplement into content in reference
-    fn ref_supplement(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn resolve_supplement(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        elem: Content,
+    ) -> SourceResult<Content> {
         Ok(match self.supplement(styles) {
-            Smart::Auto => TextElem::packed(self.local_name(TextElem::lang_in(styles))),
+            Smart::Auto => self.local_name_content(styles),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(sup)) => match sup {
                 Supplement::Content(c) => c,
-                Supplement::Func(func) => func.call_vt(vt, [])?.display(),
+                Supplement::Func(func) => func
+                    .call_vt(vt, [elem.into(), self.local_name_content(styles).into()])?
+                    .display(),
             },
         })
     }
@@ -138,22 +145,25 @@ impl Show for RefElem {
         }
 
         let supplement = self.supplement(styles);
+
+        let default_supplement = elem
+            .with::<dyn LocalName>()
+            .map(|elem| elem.local_name_content(styles))
+            .unwrap_or_default();
+
+        let ref_supplement = if let Some(ref_info) = elem.with::<dyn ReferenceInfo>() {
+            ref_info.resolve_supplement(vt, styles, elem.clone())?
+        } else {
+            default_supplement
+        };
+
         let mut supplement = match supplement {
-            Smart::Auto => {
-                if let Some(elem) = elem.with::<dyn ReferenceInfo>() {
-                    elem.ref_supplement(vt, styles)?
-                } else {
-                    elem.with::<dyn LocalName>()
-                        .map(|elem| elem.local_name(TextElem::lang_in(styles)))
-                        .map(TextElem::packed)
-                        .unwrap_or_default()
-                }
-            }
+            Smart::Auto => ref_supplement,
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
-            Smart::Custom(Some(Supplement::Func(func))) => {
-                func.call_vt(vt, [elem.clone().into()])?.display()
-            }
+            Smart::Custom(Some(Supplement::Func(func))) => func
+                .call_vt(vt, [elem.clone().into(), ref_supplement.into()])?
+                .display(),
         };
 
         if !supplement.is_empty() {

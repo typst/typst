@@ -84,7 +84,8 @@ impl Show for FigureElem {
             let mut caption = Content::empty();
 
             if let Some(numbering) = self.numbering(styles) {
-                caption += self.ref_supplement(vt, styles)?;
+                caption += self.resolve_supplement(vt, styles, self.clone().pack())?;
+
                 if !caption.is_empty() {
                     caption += TextElem::packed('\u{a0}');
                 }
