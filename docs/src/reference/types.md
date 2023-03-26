@@ -702,8 +702,8 @@ May be used on the left-hand side of an assignment if the key is already
 present in the dictionary.
 Fails with an error if the key is not part of the dictionary.
 
-- index: integer (positional, required)
-  The index at which to retrieve the item.
+- key: string (positional, required)
+  The key at which to retrieve the item.
 - returns: any
 
 ### insert()
