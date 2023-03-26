@@ -191,8 +191,10 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
         circle: '⊗',
         circle.big: '⨂',
         div: '⋇',
-        l: '⋋',
-        r: '⋌',
+        three.l: '⋋',
+        three.r: '⋌',
+        l: '⋉',
+        r: '⋊',
         square: '⊠',
         triangle: '⨻',
     ],
@@ -400,11 +402,6 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
     perp: ['⟂', circle: '⦹'],
 
     // Algebra.
-    times: [
-        '⨯',
-        r: '⋊',
-        l: '⋉',
-    ],
     wreath: '≀',
     tri: [
         l: '⊲',
