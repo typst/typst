@@ -18,3 +18,7 @@ bench/target
 # Node
 node_modules
 package-lock.json
+
+# Nix
+/result
+.direnv/
