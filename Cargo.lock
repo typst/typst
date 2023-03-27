@@ -59,7 +59,7 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 [[package]]
 name = "biblatex"
 version = "0.6.3"
-source = "git+https://github.com/typst/biblatex#932ad283dd45dd88d4fa14dc5b9bda7a270ba027"
+source = "git+https://github.com/typst/biblatex#ffdcd63906f0fd6c2736727af2d91a5da0bfd64e"
 dependencies = [
  "chrono",
  "numerals",
@@ -431,7 +431,7 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 [[package]]
 name = "hayagriva"
 version = "0.1.1"
-source = "git+https://github.com/typst/hayagriva#754efb7e1034bcd4d4f1366e432197edbbfb9ed5"
+source = "git+https://github.com/typst/hayagriva#d42d30f673b5446775e4c393a2f4f2bca5773a5d"
 dependencies = [
  "biblatex",
  "chrono",
