@@ -176,7 +176,7 @@ The body of a loop can be a code or content block:
 You can use _dot notation_ to access fields on a value. The value in question
 can be either:
 - a [dictionary]($type/dictionary) that has the specified key,
-- a [symbols]($type/symbol) that has the specified modifier,
+- a [symbol]($type/symbol) that has the specified modifier,
 - a [module]($type/module) containing the specified definition,
 - [content]($type/content) that has the specified field.
 
