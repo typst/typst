@@ -8,7 +8,7 @@ use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
 
-use super::{LocalName, RefElem};
+use super::{LinkElem, LocalName, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
 use crate::meta::HeadingElem;
 use crate::prelude::*;
@@ -613,7 +613,7 @@ fn format_display_string(
                 Formatting::Bold => content.strong(),
                 Formatting::Italic => content.emph(),
                 Formatting::Link(link) => {
-                    content.linked(Destination::Url(link.as_str().into()))
+                    LinkElem::new(Destination::Url(link.as_str().into()), content).pack()
                 }
             };
         }
