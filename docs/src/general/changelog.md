@@ -30,6 +30,7 @@ description: |
   [`location`]($func/locate) type
 - Added symbols for double, triple, and quadruple dot accent
 - Added smart quotes for Norwegian Bokmål
+- Fixed hovering over comments in web app
 
 ## March 21, 2023
 - Reference and bibliography management

@@ -21,6 +21,9 @@ pub fn tooltip(
     cursor: usize,
 ) -> Option<Tooltip> {
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
+    if leaf.kind().is_trivia() {
+        return None;
+    }
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
