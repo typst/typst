@@ -1,4 +1,4 @@
-use super::{BibliographyElem, CiteElem, ErrorElem};
+use super::{BibliographyElem, CiteElem};
 use crate::meta::AnchorElem;
 use crate::prelude::*;
 
@@ -106,13 +106,13 @@ impl Show for RefElem {
         }
 
         // At this point we have zero or one anchors. Ensure we have one.
-        let Some((anchor, ref_name)) = target_anchor? else {
+        let Some((anchor, ref_body)) = target_anchor? else {
             bail!(self.span(), "label does not exist in the document");
         };
 
         // Finally, build the supplement from the anchor.
         let supplement = match self.supplement(styles) {
-            Smart::Auto => ref_name,
+            Smart::Auto => ref_body,
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             Smart::Custom(Some(Supplement::Func(func))) => {
@@ -152,8 +152,8 @@ impl RefElem {
 
         // Filter the matches to only include the valid anchors.
         let anchor = collect_one(matches.clone().filter_map(|anchor| {
-            let ref_name = anchor.ref_name();
-            (!ref_name.is::<ErrorElem>()).then_some((anchor, ref_name))
+            let ref_body = anchor.ref_body();
+            ref_body.get_error().is_none().then_some((anchor, ref_body))
         }));
 
         let anchor: Result<_, Box<dyn Iterator<Item = _>>> = match anchor {
@@ -161,8 +161,7 @@ impl RefElem {
             Ok(None) => {
                 // Filter the matches again, but this time to find invalid anchors.
                 let anchor = collect_one(matches.filter_map(|anchor| {
-                    (anchor.ref_name().to::<ErrorElem>())
-                        .map(|elem| (anchor, elem.error()))
+                    anchor.ref_body().get_error().map(|elem| (anchor, elem.error()))
                 }));
 
                 match anchor {
@@ -185,7 +184,10 @@ impl RefElem {
         };
 
         match anchor {
-            Ok((anchor, name)) => Ok(Some((anchor.clone(), name))),
+            Ok((anchor, ref_body)) => Ok(Some((
+                anchor.clone(),
+                ref_body.apply_vt(vt, anchor.0.location().unwrap())?,
+            ))),
             Err(_) => bail!(self.span(), "label occurs multiple times in the document"),
         }
     }

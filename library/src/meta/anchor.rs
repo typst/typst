@@ -1,9 +1,13 @@
 use typst::{
     diag::SourceResult,
+    eval::{cast_from_value, cast_to_value, Func, Value},
     model::{
-        element, Content, Label, Locatable, MetaElem, Show, StyleChain, Synthesize, Vt,
+        element, Content, Label, Locatable, Location, MetaElem, Show, StyleChain,
+        Synthesize, Vt,
     },
 };
+
+use super::ErrorElem;
 
 /// An anchor represents an element that can be [referenced]($func/ref).
 ///
@@ -36,9 +40,12 @@ use typst::{
 /// Category: meta
 #[element(Locatable, Synthesize, Show)]
 pub struct AnchorElem {
-    /// The name of the anchor as seen in references to it.
+    /// Defines the body of references targeting this anchor.
+    ///
+    /// Can be set either to the reference body directly, or a function taking the location of the
+    /// anchor and returning the reference body.
     #[required]
-    pub ref_name: Content,
+    pub ref_body: RefBody,
 
     /// The body of the anchor.
     #[required]
@@ -68,5 +75,52 @@ impl Synthesize for AnchorElem {
 impl Show for AnchorElem {
     fn show(&self, _vt: &mut Vt, _styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(MetaElem::set_active_label(None)))
+    }
+}
+
+#[derive(Debug)]
+pub enum RefBody {
+    /// A reference's content.
+    Content(Content),
+
+    /// A closure mapping from an anchor's location to a reference's content.
+    Func(Func),
+}
+
+impl RefBody {
+    /// Apply the pattern to the given numbers.
+    pub fn apply_vt(&self, vt: &mut Vt, location: Location) -> SourceResult<Content> {
+        match self {
+            Self::Content(content) => Ok(content.clone()),
+            Self::Func(func) => {
+                func.call_vt(vt, [Value::from(location)]).map(Value::display)
+            }
+        }
+    }
+
+    pub fn get_error(&self) -> Option<&ErrorElem> {
+        match self {
+            RefBody::Content(content) => content.to::<ErrorElem>(),
+            RefBody::Func(_) => None,
+        }
+    }
+}
+
+cast_from_value! {
+    RefBody,
+    v: Content => Self::Content(v),
+    v: Func => Self::Func(v),
+}
+
+cast_to_value! {
+    v: RefBody => match v {
+        RefBody::Content(content) => content.into(),
+        RefBody::Func(func) => func.into(),
+    }
+}
+
+impl From<Content> for RefBody {
+    fn from(value: Content) -> Self {
+        Self::Content(value)
     }
 }

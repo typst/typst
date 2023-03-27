@@ -83,7 +83,7 @@ impl Show for FigureElem {
             .aligned(Axes::with_x(Some(Align::Center.into())));
 
         // Build the reference name
-        let ref_name = match numbering.map(Numbering::trimmed) {
+        let ref_body = match numbering.map(Numbering::trimmed) {
             Some(numbering) => Some(
                 supplement
                     + Counter::of(Self::func())
@@ -94,7 +94,7 @@ impl Show for FigureElem {
             None => None,
         };
 
-        let ref_name = ref_name.unwrap_or_else(|| {
+        let ref_body = ref_body.unwrap_or_else(|| {
             ErrorElem::from(error!(
                 self.span(),
                 "cannot reference figure without numbering"
@@ -102,7 +102,7 @@ impl Show for FigureElem {
             .pack()
         });
 
-        Ok(AnchorElem::new(ref_name, block).pack().spanned(self.span()))
+        Ok(AnchorElem::new(ref_body.into(), block).pack().spanned(self.span()))
     }
 }
 

@@ -183,7 +183,7 @@ impl Show for EquationElem {
             None => None,
         };
 
-        let ref_name = supplement.unwrap_or_else(|| {
+        let ref_body = supplement.unwrap_or_else(|| {
             ErrorElem::from(error!(
                 self.span(),
                 "cannot reference equation without numbering"
@@ -191,7 +191,7 @@ impl Show for EquationElem {
             .pack()
         });
 
-        realized = AnchorElem::new(ref_name, realized).pack().spanned(self.span());
+        realized = AnchorElem::new(ref_body.into(), realized).pack().spanned(self.span());
 
         Ok(realized)
     }

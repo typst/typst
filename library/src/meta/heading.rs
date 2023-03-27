@@ -90,7 +90,7 @@ impl Synthesize for HeadingElem {
 impl Show for HeadingElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
-        let mut ref_name = None;
+        let mut ref_body = None;
         if let Some(numbering) = self.numbering(styles) {
             let mut make_number = |trimmed| -> SourceResult<_> {
                 let numbering = match trimmed {
@@ -107,13 +107,13 @@ impl Show for HeadingElem {
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
                 + realized;
 
-            ref_name = Some(
+            ref_body = Some(
                 TextElem::packed(eco_format!("{}\u{a0}", self.local_name(styles)))
                     + make_number(true)?,
             );
         }
 
-        let ref_name = ref_name.unwrap_or_else(|| {
+        let ref_body = ref_body.unwrap_or_else(|| {
             ErrorElem::from(error!(
                 self.span(),
                 "cannot reference heading without numbering"
@@ -121,7 +121,7 @@ impl Show for HeadingElem {
             .pack()
         });
 
-        realized = AnchorElem::new(ref_name, realized).pack().spanned(self.span());
+        realized = AnchorElem::new(ref_body.into(), realized).pack().spanned(self.span());
 
         Ok(BlockElem::new().with_body(Some(realized)).pack())
     }
