@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use super::{AnchorElem, Counter, CounterUpdate, Numbering};
+use super::{AnchorElem, Counter, CounterUpdate, ErrorElem, Numbering};
 use crate::layout::{BlockElem, HElem, VElem};
 use crate::meta::Count;
 use crate::prelude::*;
@@ -112,6 +112,14 @@ impl Show for HeadingElem {
                     + make_number(true)?,
             );
         }
+
+        let ref_name = ref_name.unwrap_or_else(|| {
+            ErrorElem::from(error!(
+                self.span(),
+                "cannot reference heading without numbering"
+            ))
+            .pack()
+        });
 
         realized = AnchorElem::new(ref_name, realized).pack().spanned(self.span());
 

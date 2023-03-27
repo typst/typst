@@ -39,6 +39,7 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
+use crate::meta::ErrorElem;
 use crate::meta::{AnchorElem, Count, Counter, CounterUpdate, Numbering};
 use crate::prelude::*;
 use crate::text::{
@@ -182,7 +183,15 @@ impl Show for EquationElem {
             None => None,
         };
 
-        realized = AnchorElem::new(supplement, realized).pack().spanned(self.span());
+        let ref_name = supplement.unwrap_or_else(|| {
+            ErrorElem::from(error!(
+                self.span(),
+                "cannot reference equation without numbering"
+            ))
+            .pack()
+        });
+
+        realized = AnchorElem::new(ref_name, realized).pack().spanned(self.span());
 
         Ok(realized)
     }

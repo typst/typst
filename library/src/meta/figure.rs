@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
-use super::{AnchorElem, Count, Counter, CounterUpdate, Numbering, NumberingPattern};
+use super::{
+    AnchorElem, Count, Counter, CounterUpdate, ErrorElem, Numbering, NumberingPattern,
+};
 use crate::layout::{BlockElem, VElem};
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -91,6 +93,14 @@ impl Show for FigureElem {
             ),
             None => None,
         };
+
+        let ref_name = ref_name.unwrap_or_else(|| {
+            ErrorElem::from(error!(
+                self.span(),
+                "cannot reference figure without numbering"
+            ))
+            .pack()
+        });
 
         Ok(AnchorElem::new(ref_name, block).pack().spanned(self.span()))
     }

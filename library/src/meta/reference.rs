@@ -1,4 +1,4 @@
-use super::{BibliographyElem, CiteElem};
+use super::{BibliographyElem, CiteElem, ErrorElem};
 use crate::meta::AnchorElem;
 use crate::prelude::*;
 
@@ -151,40 +151,43 @@ impl RefElem {
         let matches = matches.iter().filter_map(AnchorElem::unpack);
 
         // Filter the matches to only include the valid anchors.
-        let mut valid_anchors = matches
-            .clone()
-            .filter_map(|anchor| anchor.ref_name().map(|name| (anchor, name)));
+        let anchor = collect_one(matches.clone().filter_map(|anchor| {
+            let ref_name = anchor.ref_name();
+            (!ref_name.is::<ErrorElem>()).then_some((anchor, ref_name))
+        }));
 
-        // Check the first valid anchor and:
-        let (first_anchor, name) = match valid_anchors.next() {
-            // if one exists, store it.
-            Some((anchor, name)) => (anchor, name),
-            // if no valid anchors exist, generate the errors for the invalid anchors (if any).
-            None => {
-                let invalid_anchors = matches
-                    .filter_map(|anchor| match anchor.ref_name() {
-                        Some(_) => None,
-                        None => Some(anchor),
-                    })
-                    .collect::<Vec<_>>();
+        let anchor: Result<_, Box<dyn Iterator<Item = _>>> = match anchor {
+            // No valid anchors.
+            Ok(None) => {
+                // Filter the matches again, but this time to find invalid anchors.
+                let anchor = collect_one(matches.filter_map(|anchor| {
+                    (anchor.ref_name().to::<ErrorElem>())
+                        .map(|elem| (anchor, elem.error()))
+                }));
 
-                match &*invalid_anchors {
-                    [] => return Ok(None),
-                    [anchor] => bail!(anchor.span(), "cannot reference this element"),
-                    _ => {
-                        bail!(self.span(), "label occurs multiple times in the document")
-                    }
+                match anchor {
+                    // Single invalid anchor, print an error for it.
+                    Ok(Some((_, error))) => bail!(error),
+
+                    // No invalid anchors, meaning no matching anchors at all.
+                    Ok(None) => return Ok(None),
+
+                    // Multiple invalid anchors.
+                    Err(it) => Err(Box::new(it.map(|(anchor, _)| anchor))),
                 }
             }
+
+            // Single valid anchor.
+            Ok(Some(anchor)) => Ok(anchor),
+
+            // Multiple valid anchors.
+            Err(it) => Err(Box::new(it.map(|(anchor, _)| anchor))),
         };
 
-        // At this point, at least one valid anchor exists. If there are more valid anchors
-        // remaining in the iterator, it means we have an ambuguous reference.
-        if let Some(_) = valid_anchors.next() {
-            bail!(self.span(), "there are multiple anchors matching this label");
+        match anchor {
+            Ok((anchor, name)) => Ok(Some((anchor.clone(), name))),
+            Err(_) => bail!(self.span(), "label occurs multiple times in the document"),
         }
-
-        Ok(Some((first_anchor.clone(), name)))
     }
 }
 
@@ -204,5 +207,24 @@ cast_to_value! {
     v: Supplement => match v {
         Supplement::Content(v) => v.into(),
         Supplement::Func(v) => v.into(),
+    }
+}
+
+/// Try and collect an iterator into an option. On failure, return an iterator over all the items.
+fn collect_one<I>(
+    mut iterator: I,
+) -> Result<Option<I::Item>, impl Iterator<Item = I::Item>>
+where
+    I: Iterator,
+{
+    let first = match iterator.next() {
+        Some(v) => v,
+        None => return Ok(None),
+    };
+
+    let mut rest = iterator.peekable();
+    match rest.peek().is_some() {
+        false => Ok(Some(first)),
+        true => Err(Some(first).into_iter().chain(rest)),
     }
 }

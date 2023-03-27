@@ -14,7 +14,7 @@ pub struct AnchorElem {
     /// The name of the anchor as seen in references to it, or none to indicate an anchor that
     /// should throw an error if it is matched and no other valid anchors are present.
     #[required]
-    pub ref_name: Option<Content>,
+    pub ref_name: Content,
 
     /// The body of the anchor.
     #[required]
