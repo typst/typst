@@ -9,6 +9,7 @@ use std::string::FromUtf8Error;
 
 use comemo::Tracked;
 use ecow::EcoString;
+use typst_macros::cast_from_value;
 
 use crate::syntax::{ErrorPos, Span, Spanned};
 use crate::World;
@@ -95,6 +96,10 @@ impl SourceError {
             ErrorPos::End => full.end..full.end,
         }
     }
+}
+
+cast_from_value! {
+    SourceError: "source_error",
 }
 
 /// A part of an error's [trace](SourceError::trace).

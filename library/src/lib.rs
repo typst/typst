@@ -87,6 +87,7 @@ fn global(math: Module, calc: Module) -> Module {
     // Meta.
     global.define("anchor", meta::AnchorElem::func());
     global.define("document", meta::DocumentElem::func());
+    global.define("error", meta::ErrorElem::func());
     global.define("ref", meta::RefElem::func());
     global.define("link", meta::LinkElem::func());
     global.define("outline", meta::OutlineElem::func());
