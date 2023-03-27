@@ -361,6 +361,8 @@ fn math_delimited(p: &mut Parser, stop: MathClass) {
             p.unexpected();
         }
     }
+
+    p.wrap(m, SyntaxKind::Math);
 }
 
 fn math_unparen(p: &mut Parser, m: Marker) {
