@@ -8,6 +8,8 @@ description: |
 ## Unreleased
 - **Breaking:** Enumerations now require a space after their marker, that is,
   `[1.ok]` must now be written as `[1. ok]`
+- **Breaking:** Changed default style for [term lists]($func/terms): Does not
+  include a colon anymore and has a bit more indent
 - Fixed bibliography ordering in IEEE style
 - Fixed parsing of decimals in math: `[$1.2/3.4$]`
 - Fixed parsing of unbalanced delimiters in fractions: `[$1/(2 (x)$]`
@@ -21,6 +23,8 @@ description: |
 - Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
   delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
   `[$mat(delim: #none, 1, 2; 3, 4)$]`.
+- Added [`separator`]($func/terms.separator) argument to term lists
+- Fixed [`indent`]($func/terms.indent) property of term lists
 - Added [`round`]($func/round) function for equations
 - Numberings now allow zeros. To reset a counter, you can write
   `[#counter(..).update(0)]`

@@ -118,7 +118,7 @@ pub struct EnumElem {
     #[default(false)]
     pub full: bool,
 
-    /// The indentation of each item's label.
+    /// The indentation of each item.
     #[resolve]
     pub indent: Length,
 

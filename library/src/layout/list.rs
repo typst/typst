@@ -78,7 +78,7 @@ pub struct ListElem {
     #[default(ListMarker::Content(vec![]))]
     pub marker: ListMarker,
 
-    /// The indent of each item's marker.
+    /// The indent of each item.
     #[resolve]
     pub indent: Length,
 
