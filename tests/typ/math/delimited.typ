@@ -36,3 +36,11 @@ $ lr(]sum_(x=1)^n x], size: #70%)
 ---
 // Test predefined delimiter pairings.
 $floor(x/2), ceil(x/2), abs(x), norm(x)$
+
+---
+// Test fence between automatic delimiters.
+$ ((x / 4) / 2 | y) $
+
+---
+// Test fence between manual delimiters.
+$ lr(brace.l x in CC | (norm(x) / 2)^2 = 1 brace.r) $
