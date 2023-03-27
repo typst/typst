@@ -21,8 +21,7 @@ pub struct PolygonElem {
     #[fold]
     pub stroke: Option<PartialStroke>,
 
-    /// The points of the polygon.
-    /// A polygon needs to have atleast one point.
+    /// The vertices of the polygon. The polygon automatically closes itself.
     #[variadic]
     pub vertices: Vec<Axes<Rel<Length>>>,
 }
