@@ -11,10 +11,10 @@ bench = false
 
 [dependencies]
 typst = { path = ".." }
-comemo = { git = "https://github.com/typst/comemo" }
+comemo = "0.2"
 csv = "1"
 ecow = "0.1"
-hayagriva = { git = "https://github.com/typst/hayagriva" }
+hayagriva = "0.2"
 hypher = "0.1"
 kurbo = "0.8"
 lipsum = { git = "https://github.com/reknih/lipsum" }
@@ -28,7 +28,7 @@ syntect = { version = "5", default-features = false, features = ["default-syntax
 ttf-parser = "0.18.1"
 typed-arena = "2"
 unicode-bidi = "0.3.5"
-unicode-math-class = { git = "https://github.com/typst/unicode-math-class" }
+unicode-math-class = "0.1"
 unicode-script = "0.5"
 unicode-segmentation = "1"
 xi-unicode = "0.3"

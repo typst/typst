@@ -58,8 +58,9 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "biblatex"
-version = "0.6.3"
-source = "git+https://github.com/typst/biblatex#ffdcd63906f0fd6c2736727af2d91a5da0bfd64e"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1bc17a7f4d461f93f5dbbae4c961746cb4aafb5c6c1a61089a86836614932a3c"
 dependencies = [
  "chrono",
  "numerals",
@@ -159,8 +160,9 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "comemo"
-version = "0.1.0"
-source = "git+https://github.com/typst/comemo#9b520e8f5284d1c39d0bb13eb426f923972775f8"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "22bf2c21093020535dd771993fedae8dd55393a4258cca501a9b55a962d350a5"
 dependencies = [
  "comemo-macros",
  "siphasher",
@@ -168,8 +170,9 @@ dependencies = [
 
 [[package]]
 name = "comemo-macros"
-version = "0.1.0"
-source = "git+https://github.com/typst/comemo#9b520e8f5284d1c39d0bb13eb426f923972775f8"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9faa23f4534253fa656b176ff524d5cd7306a6fed3048929f9cc01ab38ab5a5a"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -430,8 +433,9 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hayagriva"
-version = "0.1.1"
-source = "git+https://github.com/typst/hayagriva#d42d30f673b5446775e4c393a2f4f2bca5773a5d"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33f939b9606af811242f770582c89a2f8bb5de4e531c0a1df9d2d4906bcbc32a"
 dependencies = [
  "biblatex",
  "chrono",
@@ -844,7 +848,8 @@ checksum = "db8bcd96cb740d03149cbad5518db9fd87126a10ab519c011893b1754134c468"
 [[package]]
 name = "pixglyph"
 version = "0.1.0"
-source = "git+https://github.com/typst/pixglyph#e3ff0272d6723cdada91a00b0c99cda0e5adb56d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9eefadd393715fe315c8cdcd587f893b818a6dfe4f6f9faeb44b764c7c38fd8b"
 dependencies = [
  "ttf-parser 0.18.1",
 ]
@@ -1500,7 +1505,8 @@ checksum = "e5464a87b239f13a63a501f2701565754bae92d243d4bb7eb12f6d57d2269bf4"
 [[package]]
 name = "unicode-math-class"
 version = "0.1.0"
-source = "git+https://github.com/typst/unicode-math-class#a7ac7dd75cd79ab2e0bdb629036cb913371608d2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7d246cf599d5fae3c8d56e04b20eb519adb89a8af8d0b0fbcded369aa3647d65"
 
 [[package]]
 name = "unicode-normalization"
