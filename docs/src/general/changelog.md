@@ -5,6 +5,32 @@ description: |
 ---
 
 # Changelog
+## Unreleased
+- **Breaking:** Enumerations now require a space after their marker, that is,
+  `[1.ok]` must now be written as `[1. ok]`
+- Fixed bibliography ordering in IEEE style
+- Fixed parsing of decimals in math: `[$1.2/3.4$]`
+- Fixed parsing of unbalanced delimiters in fractions: `[$1/(2 (x)$]`
+- Fixed unexpected parsing of numbers as enumerations, e.g. in `[1.2]`
+- Fixed combination of page fill and header
+- Fixed compiler crash if [`repeat`]($func/repeat) is used in page with
+  automatic width
+- Fixed [matrices]($func/mat) with explicit delimiter
+- Fixed build of CLI if `git` is not installed
+- Links in bibliographies are now affected by link styling
+  `[#counter(..).update(0)]`
+- Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
+  delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
+  `[$mat(delim: #none, 1, 2; 3, 4)$]`.
+- Numberings now allow zeros. To reset a counter, you can write
+- Added `--font-path` argument for CLI
+- Added Nix flake
+- Numerous documentation fixes
+- Added documentation for `{page()}` and `{position()}` methods on
+  [`location`]($func/locate) type
+- Added symbols for double, triple, and quadruple dot accent
+- Added smart quotes for Norwegian Bokmål
+
 ## March 21, 2023
 - Reference and bibliography management
   - [Bibliographies]($func/bibliography) and [citations]($func/cite) (currently
