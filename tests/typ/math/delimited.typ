@@ -3,11 +3,11 @@
 ---
 // Test automatic matching.
 $ (a) + {b/2} + |a|/2 + (b) $
-$f(x/2) < zeta(c^2 + |a + b/2|)$
+$ f(x/2) < zeta(c^2 + |a + b/2|) $
 
 ---
 // Test unmatched.
-$[1,2[ = [1,2) != zeta\(x/2\) $
+$ [1,2[ = [1,2) != zeta\(x/2\) $
 
 ---
 // Test manual matching.
@@ -35,7 +35,7 @@ $ lr(]sum_(x=1)^n x], size: #70%)
 
 ---
 // Test predefined delimiter pairings.
-$floor(x/2), ceil(x/2), abs(x), norm(x)$
+$ floor(x/2), ceil(x/2), abs(x), norm(x) $
 
 ---
 // Test fence between automatic delimiters.
