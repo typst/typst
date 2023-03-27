@@ -37,7 +37,7 @@ A [gentle introduction][tutorial] to Typst is available in our documentation.
 However, if you want to see the power of Typst encapsulated in one image, here
 it is:
 <p align="center">
- <img alt="Example" width="900" src="https://user-images.githubusercontent.com/38260698/226794868-90911832-433a-4575-be88-42d582589403.png"/>
+ <img alt="Example" width="900" src="https://user-images.githubusercontent.com/17899797/228031796-ced0e452-fcee-4ae9-92da-b9287764ff25.png"/>
 </p>
 
 
@@ -78,13 +78,13 @@ Let's dissect what's going on:
 
   = Fibonacci sequence
   The Fibonacci sequence is defined through the
-  _recurrence relation_ $F_n = F_(n-1) + F_(n-2)$.
-  It can also be expressed in closed form:
+  recurrence relation $F_n = F_(n-1) + F_(n-2)$.
+  It can also be expressed in _closed form:_
 
-  $ F_n = floor(1 / sqrt(5) phi.alt^n), quad
+  $ F_n = round(1 / sqrt(5) phi.alt^n), quad
     phi.alt = (1 + sqrt(5)) / 2 $
 
-  #let count = 10
+  #let count = 8
   #let nums = range(1, count + 1)
   #let fib(n) = (
     if n <= 2 { 1 }

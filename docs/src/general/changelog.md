@@ -18,11 +18,12 @@ description: |
 - Fixed [matrices]($func/mat) with explicit delimiter
 - Fixed build of CLI if `git` is not installed
 - Links in bibliographies are now affected by link styling
-  `[#counter(..).update(0)]`
 - Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
   delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
   `[$mat(delim: #none, 1, 2; 3, 4)$]`.
+- Added [`round`]($func/round) function for equations
 - Numberings now allow zeros. To reset a counter, you can write
+  `[#counter(..).update(0)]`
 - Added `--font-path` argument for CLI
 - Added Nix flake
 - Numerous documentation fixes
