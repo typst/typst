@@ -2,12 +2,25 @@ use typst::diag::SourceError;
 
 use crate::prelude::*;
 
-/// A compile-time error
+/// A compile-time error.
+///
+/// Note that the error is only emitted when the error element is realized. If the error never
+/// appears on the document, nothing will happen.
+///
+/// ## Example
+/// ```example
+/// // It is fine to create an error element, as long as it is never realized.
+/// #let x = error("My error")
+///
+/// // Uncommenting this line would cause compilation to fail.
+/// // #x
+/// ```
 ///
 /// Display: Error
 /// Category: meta
 #[element(Show, Construct)]
 pub struct ErrorElem {
+    /// The error string that will appear on compilation failure.
     #[required]
     pub error: SourceError,
 }
