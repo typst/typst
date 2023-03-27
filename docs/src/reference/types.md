@@ -822,6 +822,10 @@ In Typst, all functions are _pure._ This means that for the same
 arguments, they always return the same result. They cannot "remember" things to
 produce another value when they are called a second time.
 
+The only exception are built-in methods like
+[`array.push(value)`]($type/array.push). These can modify the values they are
+called on.
+
 ## Methods
 ### with()
 Returns a new function that has the given arguments pre-applied.
