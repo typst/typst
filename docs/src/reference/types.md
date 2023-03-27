@@ -470,8 +470,9 @@ Arrays can be added together with the `+` operator,
 [joined together]($scripting/#blocks) and multiplied with
 integers.
 
-Empty parenthesis yield an array of length zero and a parentheses-wrapped value
-with trailing comma yields an array of length one.
+**Note:** An array of length one needs a trailing comma, as in `{(1,)}`. This is
+to disambiguate from a simple parenthesized expressions like `{(1 + 2) * 3}`.
+An empty array is written as `{()}`.
 
 ## Example
 ```example
