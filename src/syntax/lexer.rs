@@ -430,6 +430,10 @@ impl Lexer<'_> {
         // Keep numbers and grapheme clusters together.
         if c.is_numeric() {
             self.s.eat_while(char::is_numeric);
+            let mut s = self.s;
+            if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
+                self.s = s;
+            }
         } else {
             let len = self
                 .s
