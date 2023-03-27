@@ -462,7 +462,7 @@ impl<'a> StyleChain<'a> {
             values
                 .next()
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
-                .unwrap_or(default())
+                .unwrap_or_default()
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }
