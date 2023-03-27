@@ -55,6 +55,13 @@ impl LayoutMath for LrElem {
             .max()
             .unwrap_or_default();
 
+        let mut fences = vec![];
+        for (index, fragment) in fragments.iter().enumerate() {
+            if matches!(fragment.class(), Some(MathClass::Fence)) {
+                fences.push(index);
+            }
+        }
+
         let height = self
             .size(ctx.styles())
             .unwrap_or(Rel::one())
@@ -63,9 +70,12 @@ impl LayoutMath for LrElem {
 
         match fragments.as_mut_slice() {
             [one] => scale(ctx, one, height, None),
-            [first, .., last] => {
-                scale(ctx, first, height, Some(MathClass::Opening));
-                scale(ctx, last, height, Some(MathClass::Closing));
+            frags if frags.len() >= 2 => {
+                scale(ctx, &mut frags[0], height, Some(MathClass::Opening));
+                scale(ctx, &mut frags[frags.len() - 1], height, Some(MathClass::Closing));
+                for fence in fences {
+                    scale(ctx, &mut frags[fence], height, Some(MathClass::Fence));
+                }
             }
             _ => {}
         }
