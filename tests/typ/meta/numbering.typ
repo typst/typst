@@ -1,7 +1,7 @@
 // Test integrated numbering patterns.
 
 ---
-#for i in range(1, 9) {
+#for i in range(0, 9) {
   numbering("*", i)
   [ and ]
   numbering("I.a", i, i)
@@ -10,9 +10,5 @@
 }
 
 ---
-// Error: 17-18 number must be positive
-#numbering("1", 0)
-
----
-// Error: 17-19 number must be positive
+// Error: 17-19 number must be at least zero
 #numbering("1", -1)

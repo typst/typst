@@ -372,8 +372,8 @@ impl Counter {
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut vt = Vt { world, tracer, provider, introspector };
         let mut state = CounterState(match &self.0 {
-            CounterKey::Selector(_) => smallvec![],
-            _ => smallvec![NonZeroUsize::ONE],
+            CounterKey::Selector(_) => smallvec![0],
+            _ => smallvec![1],
         });
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
@@ -506,7 +506,7 @@ pub trait Count {
 
 /// Counts through elements with different levels.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct CounterState(pub SmallVec<[NonZeroUsize; 3]>);
+pub struct CounterState(pub SmallVec<[usize; 3]>);
 
 impl CounterState {
     /// Advance the counter and return the numbers for the given heading.
@@ -534,13 +534,13 @@ impl CounterState {
         }
 
         while self.0.len() < level {
-            self.0.push(NonZeroUsize::ONE);
+            self.0.push(1);
         }
     }
 
     /// Get the first number of the state.
-    pub fn first(&self) -> NonZeroUsize {
-        self.0.first().copied().unwrap_or(NonZeroUsize::ONE)
+    pub fn first(&self) -> usize {
+        self.0.first().copied().unwrap_or(1)
     }
 
     /// Display the counter state with a numbering.
@@ -551,7 +551,7 @@ impl CounterState {
 
 cast_from_value! {
     CounterState,
-    num: NonZeroUsize => Self(smallvec![num]),
+    num: usize => Self(smallvec![num]),
     array: Array => Self(array
         .into_iter()
         .map(Value::cast)

@@ -100,8 +100,8 @@ pub struct EnumElem {
     ///   [Ahead],
     /// )
     /// ```
-    #[default(NonZeroUsize::ONE)]
-    pub start: NonZeroUsize,
+    #[default(1)]
+    pub start: usize,
 
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
@@ -225,7 +225,7 @@ impl Layout for EnumElem {
 pub struct EnumItem {
     /// The item's number.
     #[positional]
-    pub number: Option<NonZeroUsize>,
+    pub number: Option<usize>,
 
     /// The item's body.
     #[required]
@@ -245,11 +245,11 @@ cast_from_value! {
     v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
-struct Parent(NonZeroUsize);
+struct Parent(usize);
 
 cast_from_value! {
     Parent,
-    v: NonZeroUsize => Self(v),
+    v: usize => Self(v),
 }
 
 cast_to_value! {
@@ -257,7 +257,7 @@ cast_to_value! {
 }
 
 impl Fold for Parent {
-    type Output = Vec<NonZeroUsize>;
+    type Output = Vec<usize>;
 
     fn fold(self, mut outer: Self::Output) -> Self::Output {
         outer.push(self.0);
