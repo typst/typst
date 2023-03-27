@@ -2,7 +2,7 @@ use super::{BibliographyElem, CiteElem, ErrorElem};
 use crate::meta::AnchorElem;
 use crate::prelude::*;
 
-/// A reference to a label or bibliography.
+/// A reference to a label, [`anchor`]($func/anchor) or bibliography.
 ///
 /// The reference function produces a textual reference to a label. For example,
 /// a reference to a heading will yield an appropriate string such as "Section

@@ -5,14 +5,38 @@ use typst::{
     },
 };
 
-/// An anchor that can be referenced from other parts of the document
+/// An anchor represents an element that can be [referenced]($func/ref).
+///
+/// ```example
+/// #let myfigure(caption, images) = anchor(
+///     caption,
+///     block(
+///         stack(
+///             align(horizon, grid(..images, columns: 2)),
+///             align(center, caption),
+///         ),
+///         breakable: false,
+///     )
+/// )
+///
+/// #myfigure("Figure 1", (
+///     image("cylinder.svg"),
+///     image("tetrahedron.svg"),
+/// )) <fig1>
+///
+/// #myfigure("Figure 2", (
+///     image("tetrahedron.svg"),
+///     image("cylinder.svg"),
+/// )) <fig2>
+///
+/// See @fig1 and @fig2
+/// ```
 ///
 /// Display: Anchor
 /// Category: meta
 #[element(Locatable, Synthesize, Show)]
 pub struct AnchorElem {
-    /// The name of the anchor as seen in references to it, or none to indicate an anchor that
-    /// should throw an error if it is matched and no other valid anchors are present.
+    /// The name of the anchor as seen in references to it.
     #[required]
     pub ref_name: Content,
 
