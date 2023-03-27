@@ -32,7 +32,7 @@ pub struct StackElem {
     /// Spacing to insert between items where no explicit spacing was provided.
     pub spacing: Option<Spacing>,
 
-    /// The childfren to stack along the axis.
+    /// The children to stack along the axis.
     #[variadic]
     pub children: Vec<StackChild>,
 }
