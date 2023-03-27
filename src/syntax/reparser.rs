@@ -72,7 +72,7 @@ fn try_reparse(
                     return node
                         .replace_children(i..i + 1, vec![newborn])
                         .is_ok()
-                        .then(|| new_range);
+                        .then_some(new_range);
                 }
             }
         }
@@ -157,7 +157,7 @@ fn try_reparse(
                 return node
                     .replace_children(start..end, newborns)
                     .is_ok()
-                    .then(|| new_range);
+                    .then_some(new_range);
             }
         }
     }

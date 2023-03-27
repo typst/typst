@@ -73,7 +73,7 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
     }
 
     let docs = documentation(&item.attrs);
-    let mut lines = docs.split("\n").collect();
+    let mut lines = docs.split('\n').collect();
     let returns = meta_line(&mut lines, "Returns")?
         .split(" or ")
         .map(Into::into)

@@ -71,8 +71,8 @@ impl Styles {
     pub fn interruption<T: Element>(&self) -> Option<Option<Span>> {
         let func = T::func();
         self.0.iter().find_map(|entry| match entry {
-            Style::Property(property) => property.is_of(func).then(|| property.span),
-            Style::Recipe(recipe) => recipe.is_of(func).then(|| Some(recipe.span)),
+            Style::Property(property) => property.is_of(func).then_some(property.span),
+            Style::Recipe(recipe) => recipe.is_of(func).then_some(Some(recipe.span)),
         })
     }
 }
@@ -433,7 +433,7 @@ impl<'a> StyleChain<'a> {
             values
                 .next()
                 .map(|value| value.fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+                .unwrap_or(default())
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }
@@ -462,7 +462,7 @@ impl<'a> StyleChain<'a> {
             values
                 .next()
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+                .unwrap_or(default())
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }

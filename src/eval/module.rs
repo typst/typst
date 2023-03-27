@@ -60,7 +60,7 @@ impl Module {
 
     /// Try to access a definition in the module.
     pub fn get(&self, name: &str) -> StrResult<&Value> {
-        self.scope().get(&name).ok_or_else(|| {
+        self.scope().get(name).ok_or_else(|| {
             eco_format!("module `{}` does not contain `{name}`", self.name())
         })
     }

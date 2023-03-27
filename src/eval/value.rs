@@ -17,9 +17,10 @@ use crate::model::Styles;
 use crate::syntax::{ast, Span};
 
 /// A computational value.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
+    #[default]
     None,
     /// A value that indicates some smart default behaviour.
     Auto,
@@ -122,10 +123,10 @@ impl Value {
     /// Try to access a field on the value.
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
-            Self::Symbol(symbol) => symbol.clone().modified(&field).map(Self::Symbol),
-            Self::Dict(dict) => dict.at(&field).cloned(),
-            Self::Content(content) => content.at(&field),
-            Self::Module(module) => module.get(&field).cloned(),
+            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Dict(dict) => dict.at(field).cloned(),
+            Self::Content(content) => content.at(field),
+            Self::Module(module) => module.get(field).cloned(),
             v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
         }
     }
@@ -165,12 +166,6 @@ impl Value {
             Self::Func(func) => func.info().map(|info| info.docs),
             _ => None,
         }
-    }
-}
-
-impl Default for Value {
-    fn default() -> Self {
-        Value::None
     }
 }
 
