@@ -38,6 +38,10 @@ The keyword ```rust let```.
 (``` trimmed```) \
 
 ---
+// Single ticks should not have a language.
+`rust let`
+
+---
 // First line is not dedented and leading space is still possible.
      ```   A
         B
