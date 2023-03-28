@@ -5,27 +5,29 @@ description: |
 ---
 
 # Community
+
 Hey and welcome to the Community page! We're so glad you're here. Typst is
-developed by an early-stage startup and is still in its infancy, but it
-would be pointless without people like you who are interested in it.
+developed by an early-stage startup and is still in its infancy, but it would be
+pointless without people like you who are interested in it.
 
 We would love to not only hear from you but to also provide spaces where you can
 discuss any topic around Typst, typesetting, writing, the sciences, and
 typography with other likeminded people.
 
-For the time being, **we would like to invite you to our [Discord
-server](https://discord.gg/2uDybryKPe).** The server is open for everyone, even
-if you do not have preview access to Typst yet. Of course, you are also very
-welcome to connect with us on social media
+For the time being, **we would like to invite you to our
+[Discord server](https://discord.gg/2uDybryKPe).** The server is open for
+everyone, even if you do not have preview access to Typst yet. Of course, you
+are also very welcome to connect with us on social media
 ([Twitter](https://twitter.com/typstapp/),
 [Instagram](https://instagram.com/typstapp/),
 [LinkedIn](https://linkedin.com/company/typst), and
 [Github](https://github.com/typst)).
 
 ## What to share?
-For our community, we want to foster versatility and inclusivity.
-You are welcome to post about any topic that you think would interest other
-community members, but if you need a little inspiration, here are a few ideas:
+
+For our community, we want to foster versatility and inclusivity. You are
+welcome to post about any topic that you think would interest other community
+members, but if you need a little inspiration, here are a few ideas:
 
 - Share and discuss your thoughts and ideas for new features or improvements
   you'd like to see in Typst
@@ -35,9 +37,10 @@ community members, but if you need a little inspiration, here are a few ideas:
 - Alert us of bugs you encounter while using Typst
 
 ## Beta test
-We are starting a public beta test of our product on March 21st, 2023.
-The Typst compiler is still under active development and breaking changes can
-occur at any point. The compiler is developed in the open on
+
+We are starting a public beta test of our product on March 21st, 2023. The Typst
+compiler is still under active development and breaking changes can occur at any
+point. The compiler is developed in the open on
 [GitHub](https://github.com/typst/typst).
 
 We will update the members of our Discord server and our social media followers
@@ -46,6 +49,7 @@ development progress of large features. A development tracker will become
 available on the documentation pages soon.
 
 ## Community Rules
+
 We want to make our community a safe and inclusive space for everyone.
 Therefore, we will not tolerate any sexual harassment, sexism, political
 attacks, derogatory language or personal insults, racism, doxing, and other
@@ -59,5 +63,6 @@ community spaces operated by us, such as the Discord server. Please also note
 that the terms of service and privacy policies of the respective services apply.
 
 ## See you soon!
+
 Thanks again for learning more about Typst. We would be delighted to meet you on
 our [Discord server](https://discord.gg/2uDybryKPe)!

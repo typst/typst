@@ -3,11 +3,12 @@ description: Typst's tutorial.
 ---
 
 # Writing in Typst
+
 Let's get started! Suppose you got assigned to write a technical report for
 university. It will contain prose, maths, headings, and figures. To get started,
 you create a new project on the Typst app. You'll be taken to the editor where
-you see two panels: A source panel where you compose your document and a
-preview panel where you see the rendered document.
+you see two panels: A source panel where you compose your document and a preview
+panel where you see the rendered document.
 
 ![Typst app screenshot](1-writing-app.png)
 
@@ -23,7 +24,9 @@ contribute to the formation and
 behavior of these natural structures.
 ```
 
-_Throughout this tutorial, we'll show code examples like this one. Just like in the app, the first panel contains markup and the second panel shows a preview. We shrunk the page to fit the examples so you can see what's going on._
+_Throughout this tutorial, we'll show code examples like this one. Just like in
+the app, the first panel contains markup and the second panel shows a preview.
+We shrunk the page to fit the examples so you can see what's going on._
 
 The next step is to add a heading and emphasize some text. Typst uses simple
 markup for the most common formatting tasks. To add a heading, enter the `=`
@@ -68,6 +71,7 @@ the first item of the list above by indenting it.
 ```
 
 ## Adding a figure
+
 You think that your report would benefit from a figure. Let's add one. Typst
 supports images in the formats PNG, JPEG, GIF, and SVG. To add an image file to
 your project, first open the _file panel_ by clicking the box icon in the left
@@ -120,8 +124,10 @@ default. It's also lacking a caption. Let's fix that by using the
 [figure]($func/figure) function. This function takes the figure's contents as a
 positional argument and an optional caption as a named argument.
 
-Within the argument list of the `figure` function, Typst is already in code mode. This means, you can now remove the hashtag before the image function call.
-The hashtag is only needed directly in markup (to disambiguate text from function calls).
+Within the argument list of the `figure` function, Typst is already in code
+mode. This means, you can now remove the hashtag before the image function call.
+The hashtag is only needed directly in markup (to disambiguate text from
+function calls).
 
 The caption consists of arbitrary markup. To give markup to a function, we
 enclose it in square brackets. This construct is called a _content block._
@@ -167,18 +173,20 @@ A content block can contain text, but also any other kind of markup, function
 calls, and more, whereas a string is really just a _sequence of characters_ and
 nothing else.
 
-For example, the image function expects a path to an image file.
-It would not make sense to pass, e.g., a paragraph of text or another image as
-the image's path parameter. That's why only strings are allowed here.
-On the contrary, strings work wherever content is expected because text is a
-valid kind of content.
+For example, the image function expects a path to an image file. It would not
+make sense to pass, e.g., a paragraph of text or another image as the image's
+path parameter. That's why only strings are allowed here. On the contrary,
+strings work wherever content is expected because text is a valid kind of
+content.
+
 </div>
 
 ## Adding a bibliography
+
 As you write up your report, you need to back up some of your claims. You can
 add a bibliography to your document with the
-[`bibliography`]($func/bibliography) function. This function expects a path
-to a bibliography file.
+[`bibliography`]($func/bibliography) function. This function expects a path to a
+bibliography file.
 
 Typst's native bibliography format is
 [Hayagriva](https://github.com/typst/hayagriva/blob/main/docs/file-format.md),
@@ -201,10 +209,11 @@ established in @glacier-melt.
 ```
 
 ## Maths
+
 After fleshing out the methods section, you move on to the meat of the document:
 Your equations. Typst has built-in mathematical typesetting and uses its own
-math notation. Let's start with a simple equation. We wrap it in `[$]` signs
-to let Typst know it should expect a mathematical expression:
+math notation. Let's start with a simple equation. We wrap it in `[$]` signs to
+let Typst know it should expect a mathematical expression:
 
 ```example
 The equation $Q = rho A v + C$
@@ -249,9 +258,9 @@ $ 7.32 beta +
 ```
 
 To add a subscript to a symbol or variable, type a `_` character and then the
-subscript. Similarly, use the `^` character for a superscript. If your
-sub- or superscript consists of multiple things, you must enclose them
-in round parentheses.
+subscript. Similarly, use the `^` character for a superscript. If your sub- or
+superscript consists of multiple things, you must enclose them in round
+parentheses.
 
 The above example also showed us how to insert fractions: Simply put a `/`
 character between the numerator and the denominator and Typst will automatically
@@ -294,6 +303,7 @@ preceded with `#sym.` there. See the [symbols section]($category/symbols/sym)
 for a list of all available symbols.
 
 ## Review
+
 You have now seen how to write a basic document in Typst. You learned how to
 emphasize text, write lists, insert images, align content, and typeset
 mathematical expressions. You also learned about Typst's functions. There are

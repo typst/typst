@@ -3,6 +3,7 @@ description: Typst's tutorial.
 ---
 
 # Formatting
+
 So far, you have written a report with some text, a few equations and images.
 However, it still looks very plain. Your teaching assistant does not yet know
 that you are using a new typesetting system, and you want your report to fit in
@@ -10,6 +11,7 @@ with the other student's submissions. In this chapter, we will see how to format
 your report using Typst's styling system.
 
 ## Set rules
+
 As we have seen in the previous chapter, Typst has functions that _insert_
 content (e.g. the [`image`]($func/image) function) and others that _manipulate_
 content that they received as arguments (e.g. the [`align`]($func/align)
@@ -65,12 +67,13 @@ water).
 
 Want to know in more technical terms what is happening here?
 
-Set rules can be conceptualized as setting default values
-for some of the parameters of a function for all future
-uses of that function.
+Set rules can be conceptualized as setting default values for some of the
+parameters of a function for all future uses of that function.
+
 </div>
 
 ## The autocomplete panel
+
 If you followed along and tried a few things in the app, you might have noticed
 that always after you enter a `#` character, a panel pops up to show you the
 available functions, and, within an argument list, the available parameters.
@@ -85,6 +88,7 @@ what they do.
 ![Autocomplete panel](2-formatting-autocomplete.png)
 
 ## Set up the page
+
 Back to set rules: When writing a rule, you choose the function depending on
 what type of element you want to style. Here is a list of some functions that
 are commonly used in set rules:
@@ -99,9 +103,9 @@ are commonly used in set rules:
 - [`document`]($func/document) to set the metadata contained in the PDF output,
   such as title and author
 
-Not all function parameters can be set. In general, only parameters that tell
-a function _how_ to do something can be set, not those that tell it _what_ to
-do it with. The function reference pages indicate which parameters are settable.
+Not all function parameters can be set. In general, only parameters that tell a
+function _how_ to do something can be set, not those that tell it _what_ to do
+it with. The function reference pages indicate which parameters are settable.
 
 Let's add a few more styles to our document. We want larger margins and a serif
 font. For the purposes of the example, we'll also set another page size.
@@ -176,6 +180,7 @@ center alignment. Vertical and horizontal alignments can be combined with the
 `{+}` operator to yield a 2D alignment.
 
 ## A hint of sophistication
+
 To structure our document more clearly, we now want to number our headings. We
 can do this by setting the `numbering` parameter of the
 [`heading`]($func/heading) function.
@@ -219,24 +224,27 @@ many words of _Lorem Ipsum_ text.
 
 <div class="info-box">
 
-Did you wonder why the headings and text set rules apply to all text and headings,
-even if they are not produced with the respective functions?
+Did you wonder why the headings and text set rules apply to all text and
+headings, even if they are not produced with the respective functions?
 
-Typst internally calls the `heading` function every time you write `[= Conclusion]`.
-In fact, the function call `[#heading[Conclusion]]` is equivalent to the heading
-markup above. Other markup elements work similarly, they are only
-_syntax sugar_ for the corresponding function calls.
+Typst internally calls the `heading` function every time you write
+`[= Conclusion]`. In fact, the function call `[#heading[Conclusion]]` is
+equivalent to the heading markup above. Other markup elements work similarly,
+they are only _syntax sugar_ for the corresponding function calls.
+
 </div>
 
 ## Show rules
+
 You are already pretty happy with how this turned out. But one last thing needs
 to be fixed: The report you are writing is intended for a larger project and
 that project's name should always be accompanied by a logo, even in prose.
 
 You consider your options. You could add an `[#image("logo.svg")]` call before
 every instance of the logo using search and replace. That sounds very tedious.
-Instead, you could maybe
-[define a custom function]($type/function/#definitions) that always yields the logo with its image. However, there is an even easier way:
+Instead, you could maybe [define a custom function]($type/function/#definitions)
+that always yields the logo with its image. However, there is an even easier
+way:
 
 With show rules, you can redefine how Typst displays certain elements. You
 specify which elements Typst should show differently and how they should look.
@@ -273,6 +281,7 @@ functions, keywords, and variables. This can be observed in parameter lists,
 function definitions, and [code blocks]($scripting).
 
 ## Review
+
 You now know how to apply basic formatting to your Typst documents. You learned
 how to set the font, justify your paragraphs, change the page dimensions, and
 add numbering to your headings with set rules. You also learned how to use a

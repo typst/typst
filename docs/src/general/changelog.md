@@ -5,7 +5,9 @@ description: |
 ---
 
 # Changelog
+
 ## Unreleased
+
 - Added [`polygon`]($func/polygon) function
 - The [`link`]($func/link) function now accepts [labels]($func/label)
 - Fixed styling of text operators in math
@@ -15,6 +17,7 @@ description: |
 - Reduced maximum function call depth from 256 to 64
 
 ## March 28, 2023
+
 - **Breaking:** Enumerations now require a space after their marker, that is,
   `[1.ok]` must now be written as `[1. ok]`
 - **Breaking:** Changed default style for [term lists]($func/terms): Does not
@@ -48,7 +51,9 @@ description: |
 - Embedded default fonts in CLI binary
 
 ## March 21, 2023
+
 - Reference and bibliography management
+
   - [Bibliographies]($func/bibliography) and [citations]($func/cite) (currently
     supported styles are APA, Chicago Author Date, IEEE, and MLA)
   - You can now [reference]($func/ref) sections, figures, formulas, and works
@@ -58,6 +63,7 @@ description: |
     - `[$ A = pi r^2 $ <area>]`
 
 - Introspection system for interactions between different parts of the document
+
   - [`counter`]($func/counter) function
     - Access and modify counters for pages, headings, figures, and equations
     - Define and use your own custom counters
@@ -71,8 +77,8 @@ description: |
       document
     - State is modified in layout order and not in code order
   - [`query`]($func/query) function
-    - Find all occurrences of an element or a label, either in the whole document
-      or before/after some location
+    - Find all occurrences of an element or a label, either in the whole
+      document or before/after some location
     - Link to elements, find out their position on the pages and access their
       fields
     - Example use cases: Custom list of figures or page header with current
@@ -85,12 +91,14 @@ description: |
     - Can be used with queries to find elements before or after its location
 
 - New [`measure`]($func/measure) function
+
   - Measure the layouted size of elements
   - To be used in combination with the new [`style`]($func/style) function that
     lets you generate different content based on the style context something is
     inserted into (because that affects the measured size of content)
 
 - Exposed content representation
+
   - Content is not opaque anymore
   - Content can be compared for equality
   - The tree of content elements can be traversed with code
@@ -101,6 +109,7 @@ description: |
     `list.items` becomes `list.children`, and a few more changes)
 
 - Further improvements
+
   - Added [`figure`]($func/figure) function
   - Added [`numbering`]($func/equation.numbering) parameter on equation function
   - Added [`numbering`]($func/page.numbering) and
@@ -118,7 +127,8 @@ description: |
   - Renamed `math.formula` to [`math.equation`]($func/equation)
   - Font family must be a named argument now: `[#set text(font: "..")]`
   - Added support for [hanging indent]($func/par.hanging-indent)
-  - Renamed paragraph `indent` to [`first-line-indent`]($func/par.first-line-indent)
+  - Renamed paragraph `indent` to
+    [`first-line-indent`]($func/par.first-line-indent)
   - More accurate [logarithm]($category/calculate/log) when base is `2` or `10`
   - Improved some error messages
   - Fixed layout of [`terms`]($func/terms) list
@@ -141,32 +151,34 @@ description: |
   - Lots of bug fixes
 
 ## February 25, 2023
+
 - Font changes
   - New default font: Linux Libertine
   - New default font for raw blocks: DejaVu Sans Mono
   - New default font for math: Book weight of New Computer Modern Math
   - Lots of new math fonts available
   - Removed Latin Modern fonts in favor of New Computer Modern family
-  - Removed unnecessary smallcaps fonts which are already accessible through
-    the corresponding main font and the [`smallcaps`]($func/smallcaps) function
+  - Removed unnecessary smallcaps fonts which are already accessible through the
+    corresponding main font and the [`smallcaps`]($func/smallcaps) function
 - Improved default spacing for headings
 - Added [`panic`]($func/panic) function
-- Added [`clusters`]($type/string.clusters) and [`codepoints`]($type/string.codepoints)
-  methods for strings
+- Added [`clusters`]($type/string.clusters) and
+  [`codepoints`]($type/string.codepoints) methods for strings
 - Support for multiple authors in [`set document`]($func/document.author)
 - Fixed crash when string is accessed at a position that is not a char boundary
 - Fixed semicolon parsing in `[#var ;]`
 - Fixed incremental parsing when inserting backslash at end of `[#"abc"]`
-- Fixed names of a few font families
-  (including Noto Sans Symbols and New Computer Modern families)
+- Fixed names of a few font families (including Noto Sans Symbols and New
+  Computer Modern families)
 - Fixed autocompletion for font families
 - Improved incremental compilation for user-defined functions
 
 ## February 15, 2023
+
 - [Box]($func/box) and [block]($func/block) have gained `fill`, `stroke`,
   `radius`, and `inset` properties
-- Blocks may now be explicitly sized, fixed-height blocks can still break
-  across pages
+- Blocks may now be explicitly sized, fixed-height blocks can still break across
+  pages
 - Blocks can now be configured to be [`breakable`]($func/block.breakable) or not
 - [Numbering style]($func/enum.numbering) can now be configured for nested enums
 - [Markers]($func/list.marker) can now be configured for nested lists
@@ -179,12 +191,13 @@ description: |
 - Fixed raw block highlighting bug
 
 ## February 12, 2023
+
 - Shapes, images, and transformations (move/rotate/scale/repeat) are now
   block-level. To integrate them into a paragraph, use a [`box`]($func/box) as
   with other elements.
 - A colon is now required in an "everything" show rule: Write `{show: it => ..}`
-  instead of `{show it => ..}`. This prevents intermediate states that ruin
-  your whole document.
+  instead of `{show it => ..}`. This prevents intermediate states that ruin your
+  whole document.
 - Non-math content like a shape or table in a math formula is now centered
   vertically
 - Support for widow and orphan prevention within containers
@@ -207,8 +220,9 @@ description: |
 - Parentheses are now included when accepting a function autocompletion
 
 ## February 2, 2023
-- Merged text and math symbols, renamed a few symbols
-  (including `infty` to `infinity` with the alias `oo`)
+
+- Merged text and math symbols, renamed a few symbols (including `infty` to
+  `infinity` with the alias `oo`)
 - Fixed missing italic mappings
 - Math italics correction is now applied properly
 - Parentheses now scale in `[$zeta(x/2)$]`
@@ -222,16 +236,18 @@ description: |
 - Allow arbitrary math directly in content
 
 ## January 30, 2023
+
 [Go to the announcement blog post.](https://typst.app/blog/2023/january-update)
+
 - New expression syntax in markup/math
   - Blocks cannot be directly embedded in markup anymore
   - Like other expressions, they now require a leading hashtag
-  - More expressions available with hashtag, including literals
-    (`[#"string"]`) as well as field access and method call
-    without space: `[#emoji.face]`
+  - More expressions available with hashtag, including literals (`[#"string"]`)
+    as well as field access and method call without space: `[#emoji.face]`
 - New import syntax
   - `[#import "module.typ"]` creates binding named `module`
-  - `[#import "module.typ": a, b]` or `[#import "module.typ": *]` to import items
+  - `[#import "module.typ": a, b]` or `[#import "module.typ": *]` to import
+    items
   - `[#import emoji: face, turtle]` to import from already bound module
 - New symbol handling
   - Removed symbol notation
@@ -247,14 +263,14 @@ description: |
     module instead of the global scope, but can also access local variables
   - Can be explicitly used in code, e.g. `[#set math.vec(delim: "[")]`
 - Delimiter matching in math
-   - Any opening delimiters matches any closing one
-   - When matched, they automatically scale
-   - To prevent scaling, escape them
-   - To forcibly match two delimiters, use `lr` function
-   - Line breaks may occur between matched delimiters
-   - Delimiters may also be unbalanced
-   - You can also use the `lr` function to scale the brackets
-     (or just one bracket) to a specific size manually
+  - Any opening delimiters matches any closing one
+  - When matched, they automatically scale
+  - To prevent scaling, escape them
+  - To forcibly match two delimiters, use `lr` function
+  - Line breaks may occur between matched delimiters
+  - Delimiters may also be unbalanced
+  - You can also use the `lr` function to scale the brackets (or just one
+    bracket) to a specific size manually
 - Multi-line math with alignment
   - The `\` character inserts a line break
   - The `&` character defines an alignment point
@@ -277,7 +293,8 @@ description: |
   - New shorthands: `[|`, `|]`, and `||`
   - New `attach` function, overridable attachments with `script` and `limit`
   - Manual spacing in math, with `h`, `thin`, `med`, `thick` and `quad`
-  - Symbols and other content may now be used like a function, e.g. `[$zeta(x)$]`
+  - Symbols and other content may now be used like a function, e.g.
+    `[$zeta(x)$]`
   - Added Fira Math font, removed Noto Sans Math font
   - Support for alternative math fonts through
     `[#show math.formula: set text("Fira Math")]`

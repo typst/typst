@@ -5,8 +5,8 @@
 [![Discord Server][typst discord]][typst discord link]
 [![Discord License Apache-2][typst license]][typst license link]
 
-Typst is a new markup-based typesetting system that is designed to be as powerful
-as LaTeX while being much easier to learn and use. Typst has:
+Typst is a new markup-based typesetting system that is designed to be as
+powerful as LaTeX while being much easier to learn and use. Typst has:
 
 - Built-in markup for the most common formatting tasks
 - Flexible functions for everything else
@@ -21,6 +21,7 @@ consider signing up to our [collaborative online editor][app] for free. It is
 currently in public beta.
 
 ## Example
+
 A [gentle introduction][tutorial] to Typst is available in our documentation.
 However, if you want to see the power of Typst encapsulated in one image, here
 it is:
@@ -58,36 +59,38 @@ Let's dissect what's going on:
 <details>
   <summary>Text version of the code example.</summary>
 
-  ```text
-  #set page(width: 10cm, height: auto)
-  #set heading(numbering: "1.")
+```text
+#set page(width: 10cm, height: auto)
+#set heading(numbering: "1.")
 
-  = Fibonacci sequence
-  The Fibonacci sequence is defined through the
-  recurrence relation $F_n = F_(n-1) + F_(n-2)$.
-  It can also be expressed in _closed form:_
+= Fibonacci sequence
+The Fibonacci sequence is defined through the
+recurrence relation $F_n = F_(n-1) + F_(n-2)$.
+It can also be expressed in _closed form:_
 
-  $ F_n = round(1 / sqrt(5) phi.alt^n), quad
-    phi.alt = (1 + sqrt(5)) / 2 $
+$ F_n = round(1 / sqrt(5) phi.alt^n), quad
+  phi.alt = (1 + sqrt(5)) / 2 $
 
-  #let count = 8
-  #let nums = range(1, count + 1)
-  #let fib(n) = (
-    if n <= 2 { 1 }
-    else { fib(n - 1) + fib(n - 2) }
-  )
+#let count = 8
+#let nums = range(1, count + 1)
+#let fib(n) = (
+  if n <= 2 { 1 }
+  else { fib(n - 1) + fib(n - 2) }
+)
 
-  The first #count numbers of the sequence are:
+The first #count numbers of the sequence are:
 
-  #align(center, table(
-    columns: count,
-    ..nums.map(n => $F_#n$),
-    ..nums.map(n => str(fib(n))),
-  ))
-  ```
+#align(center, table(
+  columns: count,
+  ..nums.map(n => $F_#n$),
+  ..nums.map(n => str(fib(n))),
+))
+```
+
 </details>
 
 ## Installing
+
 You can get sources and pre-built binaries for the latest release of Typst from
 the [releases page][releases]. This will give you Typst's CLI which converts
 Typst sources into PDFs.
@@ -106,7 +109,9 @@ Nix users can use the `typst` package with `nix-shell -p typst` or build and run
 the bleeding edge version with `nix run github:typst/typst -- --version`.
 
 ## Usage
+
 Once you have installed Typst, you can use it like this:
+
 ```sh
 # Creates `file.pdf` in working directory.
 typst file.typ
@@ -118,6 +123,7 @@ typst path/to/source.typ path/to/output.pdf
 You can also watch source files and automatically recompile on changes. This is
 faster than compiling from scratch each time because Typst has incremental
 compilation.
+
 ```sh
 # Watches source files and recompiles on changes.
 typst --watch file.typ
@@ -128,6 +134,7 @@ preview, you can also check out the [Typst web app][app], which is currently in
 public beta.
 
 ## Build from source
+
 To build Typst yourself, you need to have the [latest stable Rust][rust]
 installed. Then, you can build the CLI with the following command:
 
@@ -138,6 +145,7 @@ cargo build -p typst-cli --release
 The optimized binary will be stored in `target/release/`.
 
 ## Contributing
+
 We would love to see contributions from the community. If you experience bugs,
 feel free to open an issue or send a PR with a fix. For new features, we would
 invite you to open an issue first so we can explore the design space together.
@@ -145,36 +153,37 @@ If you want to contribute and are wondering how everything works, also check out
 the [`ARCHITECTURE.md`][architecture] file. It explains how the compiler works.
 
 ## Pronunciation
+
 **IPA**: /taɪpst/
 
 "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
 
 ## Design Principles
-All of Typst has been designed with three key goals in mind: Power,
-simplicity, and performance. We think it's time for a system that matches the
-power of LaTeX, is easy to learn and use, all while being fast enough to realize
-instant preview. To achieve these goals, we follow three core design principles:
 
-- **Simplicity through Consistency:**
-  If you know how to do one thing in Typst, you should be able to transfer that
-  knowledge to other things. If there are multiple ways to do the same thing,
-  one of them should be at a different level of abstraction than the other. E.g.
-  it's okay that `= Introduction` and `#heading[Introduction]` do the same thing
-  because the former is just syntax sugar for the latter.
+All of Typst has been designed with three key goals in mind: Power, simplicity,
+and performance. We think it's time for a system that matches the power of
+LaTeX, is easy to learn and use, all while being fast enough to realize instant
+preview. To achieve these goals, we follow three core design principles:
 
-- **Power through Composability:**
-  There are two ways to make something flexible: Have a knob for everything or
-  have a few knobs that you can combine in many ways. Typst is designed with the
-  second way in mind. We provide systems that you can compose in ways we've
-  never even thought of. TeX is also in the second category, but it's a bit
-  low-level and therefore people use LaTeX instead. But there, we don't really
-  have that much composability. Instead, there's a package for everything
-  (`\usepackage{knob}`).
+- **Simplicity through Consistency:** If you know how to do one thing in Typst,
+  you should be able to transfer that knowledge to other things. If there are
+  multiple ways to do the same thing, one of them should be at a different level
+  of abstraction than the other. E.g. it's okay that `= Introduction` and
+  `#heading[Introduction]` do the same thing because the former is just syntax
+  sugar for the latter.
 
-- **Performance through Incrementality:**
-  All Typst language features must accommodate for incremental compilation.
-  Luckily we have [`comemo`], a system for incremental compilation which does
-  most of the hard work in the background.
+- **Power through Composability:** There are two ways to make something
+  flexible: Have a knob for everything or have a few knobs that you can combine
+  in many ways. Typst is designed with the second way in mind. We provide
+  systems that you can compose in ways we've never even thought of. TeX is also
+  in the second category, but it's a bit low-level and therefore people use
+  LaTeX instead. But there, we don't really have that much composability.
+  Instead, there's a package for everything (`\usepackage{knob}`).
+
+- **Performance through Incrementality:** All Typst language features must
+  accommodate for incremental compilation. Luckily we have [`comemo`], a system
+  for incremental compilation which does most of the hard work in the
+  background.
 
 [docs]: https://typst.app/docs/
 [app]: https://typst.app/
@@ -188,14 +197,18 @@ instant preview. To achieve these goals, we follow three core design principles:
 [releases]: https://github.com/typst/typst/releases/
 [architecture]: https://github.com/typst/typst/blob/main/ARCHITECTURE.md
 [`comemo`]: https://github.com/typst/comemo/
-
-[typst banner]: https://user-images.githubusercontent.com/17899797/226108480-722b770e-6313-40d7-84f2-26bebb55a281.png
-[typst documentation]: https://img.shields.io/website?down_message=offline&label=docs&up_color=007aff&up_message=online&url=https%3A%2F%2Ftypst.app%2Fdocs
+[typst banner]:
+  https://user-images.githubusercontent.com/17899797/226108480-722b770e-6313-40d7-84f2-26bebb55a281.png
+[typst documentation]:
+  https://img.shields.io/website?down_message=offline&label=docs&up_color=007aff&up_message=online&url=https%3A%2F%2Ftypst.app%2Fdocs
 [typst documentation link]: https://typst.app/docs/
-[typst app]: https://img.shields.io/website?down_message=offline&label=typst.app&up_color=239dad&up_message=online&url=https%3A%2F%2Ftypst.app
+[typst app]:
+  https://img.shields.io/website?down_message=offline&label=typst.app&up_color=239dad&up_message=online&url=https%3A%2F%2Ftypst.app
 [typst app link]: https://typst.app/
-[typst discord]: https://img.shields.io/discord/1054443721975922748?color=5865F2&label=discord&labelColor=555
+[typst discord]:
+  https://img.shields.io/discord/1054443721975922748?color=5865F2&label=discord&labelColor=555
 [typst discord link]: https://discord.gg/2uDybryKPe
 [typst license]: https://img.shields.io/badge/license-Apache%202-brightgreen
 [typst license link]: https://github.com/typst/typst/blob/main/LICENSE
-[typst example]: https://user-images.githubusercontent.com/17899797/228031796-ced0e452-fcee-4ae9-92da-b9287764ff25.png
+[typst example]:
+  https://user-images.githubusercontent.com/17899797/228031796-ced0e452-fcee-4ae9-92da-b9287764ff25.png

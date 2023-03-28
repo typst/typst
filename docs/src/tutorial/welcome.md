@@ -3,6 +3,7 @@ description: Typst's tutorial.
 ---
 
 # Tutorial
+
 Welcome to Typst's tutorial! In this tutorial, you will learn how to write and
 format documents in Typst. We will start with everyday tasks and gradually
 introduce more advanced features. This tutorial does not assume prior knowledge
@@ -15,6 +16,7 @@ helpful autocompletions. Alternatively, you can follow along in your local text
 editor with the [open-source CLI](https://github.com/typst/typst).
 
 ## When to use Typst
+
 Before we get started, let's check what Typst is and when to use it. Typst is a
 markup language for typesetting documents. It is designed to be easy to learn,
 fast, and versatile. Typst takes text files with markup in them and outputs
@@ -28,16 +30,17 @@ and automation features, it is an excellent choice for any set of documents that
 share a common style, such as a book series.
 
 ## What you will learn
+
 This tutorial has four chapters. Each chapter builds on the previous one. Here
 is what you will learn in each of them:
 
 1. [Writing in Typst:]($tutorial/writing-in-typst) Learn how to write text and
    insert images, equations, and other elements.
-2. [Formatting:]($tutorial/formatting) Learn how to adjust the formatting
-   of your document, including font size, heading styles, and more.
-3. [Advanced Styling:]($tutorial/advanced-styling) Create a complex page
-   layout for a scientific paper with typographic features such as an author
-   list and run-in headings.
+2. [Formatting:]($tutorial/formatting) Learn how to adjust the formatting of
+   your document, including font size, heading styles, and more.
+3. [Advanced Styling:]($tutorial/advanced-styling) Create a complex page layout
+   for a scientific paper with typographic features such as an author list and
+   run-in headings.
 4. [Making a Template:]($tutorial/making-a-template) Build a reusable template
    from the paper you created in the previous chapter.
 

@@ -3,6 +3,7 @@ description: All concepts needed to style your document with Typst.
 ---
 
 # Styling
+
 Typst includes a flexible styling system that automatically applies styling of
 your choice to your document. With _set rules,_ you can configure basic
 properties of elements. This way, you create most common styles. However, there
@@ -11,6 +12,7 @@ Typst further supports _show rules_ that can completely redefine the appearance
 of elements.
 
 ## Set rules { #set-rules }
+
 With set rules, you can customize the appearance of elements. They are written
 as a [function call]($type/function) to the respective function preceded by the
 `{set}` keyword (or `[#set]` in markup). Only optional parameters of that
@@ -60,6 +62,7 @@ a _set-if_ rule.
 ```
 
 ## Show rules { #show-rules }
+
 With show rules, you can deeply customize the look of a type of element. The
 most basic form of show rule is a _show-set rule._ Such a rule is written as the
 `{show}` keyword followed by a function name, a colon and then a set rule. This
@@ -79,10 +82,9 @@ in Typst. For maximum flexibility, you can instead write a show rule that
 defines how to format an element from scratch. To write such a show rule,
 replace the set rule behind the colon with an arbitrary
 [function]($type/function). This functions receives the element in question and
-can return arbitrary content. Different
-[fields]($scripting/#fields) are available on the element passed
-to the function. Below, we define a show rule that formats headings for a
-fantasy encyclopedia.
+can return arbitrary content. Different [fields]($scripting/#fields) are
+available on the element passed to the function. Below, we define a show rule
+that formats headings for a fantasy encyclopedia.
 
 ```example
 #set heading(numbering: "(I)")
@@ -114,9 +116,8 @@ take a number of other _selectors_ that define what to apply the transformation
 to:
 
 - **Everything:** `{show: rest => ..}` \
-  Transform everything after the show rule. This is useful to apply a more
-  complex layout to your whole document without wrapping everything in a giant
-  function call.
+  Transform everything after the show rule. This is useful to apply a more complex
+  layout to your whole document without wrapping everything in a giant function call.
 
 - **Text:** `{show "Text": ..}` \
   Style, transform or replace text.
@@ -130,8 +131,8 @@ to:
   want to only change the style of level-1 headings.
 
 - **Label:** `{show <intro>: ..}` \
-  Select and transform elements that have the specified label.
-  See the documentation of the [`label` function]($func/label) for more details.
+  Select and transform elements that have the specified label. See the documentation
+  of the [`label` function]($func/label) for more details.
 
 ```example
 #show "Project": smallcaps

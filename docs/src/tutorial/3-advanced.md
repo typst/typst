@@ -3,6 +3,7 @@ description: Typst's tutorial.
 ---
 
 # Advanced Styling
+
 In the previous two chapters of this tutorial, you have learned how to write a
 document in Typst and how to change its formatting. The report you wrote
 throughout the last two chapters got a straight A and your supervisor wants to
@@ -27,6 +28,7 @@ in real time. You can join our [Discord server](https://discord.gg/2uDybryKPe)
 to find others with preview access and try teams with them!
 
 ## The conference guidelines
+
 The layout guidelines are available on the conference website. Let's take a look
 at them:
 
@@ -47,6 +49,7 @@ We already know how to do many of these things, but for some of them, we'll need
 to learn some new tricks.
 
 ## Writing the right set rules
+
 Let's start by writing some set rules for the document.
 
 ```example
@@ -85,6 +88,7 @@ surrounded by parentheses. And we could even have provided a completely custom
 function here to format things to our liking.
 
 ## Creating a title and abstract
+
 Now, let's add a title and an abstract. We'll start with the title. We center
 align it and increase its font weight by enclosing it in `[*stars*]`.
 
@@ -97,8 +101,8 @@ align it and increase its font weight by enclosing it in `[*stars*]`.
 ])
 ```
 
-This looks right. We used the `text` function to override the previous text
-set rule locally, increasing the size to 17pt for the function's argument. Let's
+This looks right. We used the `text` function to override the previous text set
+rule locally, increasing the size to 17pt for the function's argument. Let's
 also add the author list: Since we are writing this paper together with our
 supervisor, we'll add our own and their name.
 
@@ -247,6 +251,7 @@ and also within markup (prefixed by `#`, like functions). This way, if we decide
 on another title, we can easily change it in one place.
 
 ## Adding columns and headings
+
 The paper above unfortunately looks like a wall of lead. To fix that, let's add
 some headings and switch our paper to a two-column layout. The
 [`columns`]($func/columns) function takes a number and content, and layouts the
@@ -317,8 +322,8 @@ content. In our case, it passes it on to the `columns` function.
 ```
 
 Now there is only one thing left to do: Style our headings. We need to make them
-centered and use small capitals. Because the `heading` function does not offer
-a way to set any of that, we need to write our own heading show rule.
+centered and use small capitals. Because the `heading` function does not offer a
+way to set any of that, we need to write our own heading show rule.
 
 ```example:50,250,265,270
 >>> #let title = [
@@ -386,15 +391,16 @@ function that gets passed the heading as a parameter. That parameter can be used
 as content but it also has some fields like `title`, `numbers`, and `level` from
 which we can compose a custom look. Here, we are center-aligning, setting the
 font weight to `{"regular"}` because headings are bold by default, and use the
-[`smallcaps`]($func/smallcaps) function to render the heading's title in small capitals.
+[`smallcaps`]($func/smallcaps) function to render the heading's title in small
+capitals.
 
 The only remaining problem is that all headings look the same now. The
 "Motivation" and "Problem Statement" subsections ought to be italic run in
-headers, but right now, they look indistinguishable from the section headings. We
-can fix that by using a `where` selector on our set rule: This is a
-[method]($scripting/#methods) we can call on headings (and other
-elements) that allows us to filter them by their level. We can use it to
-differentiate between section and subsection headings:
+headers, but right now, they look indistinguishable from the section headings.
+We can fix that by using a `where` selector on our set rule: This is a
+[method]($scripting/#methods) we can call on headings (and other elements) that
+allows us to filter them by their level. We can use it to differentiate between
+section and subsection headings:
 
 ```example:50,250,265,245
 >>> #let title = [
@@ -473,12 +479,14 @@ headings by their level. We then rendered the subsection headings as run-ins. We
 also automatically add a period to the end of the subsection headings.
 
 Let's review the conference's style guide:
+
 - The font should be an 11pt serif font ✓
 - The title should be in 17pt and bold ✓
 - The paper contains a single-column abstract and two-column main text ✓
 - The abstract should be centered ✓
 - The main text should be justified ✓
-- First level section headings should be centered, rendered in small caps and in 13pt ✓
+- First level section headings should be centered, rendered in small caps and in
+  13pt ✓
 - Second level headings are run-ins, italicized and have the same size as the
   body text ✓
 - Finally, the pages should be US letter sized, numbered in the center and the
@@ -487,15 +495,18 @@ Let's review the conference's style guide:
 We are now in compliance with all of these styles and can submit the paper to
 the conference! The finished paper looks like this:
 
-<img
-  src="3-advanced-paper.png"
-  alt="The finished paper"
-  style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; display: block; margin: 24px auto;"
+<img src="3-advanced-paper.png" alt="The finished paper" style="box-shadow: 0
+4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; display: block;
+margin: 24px auto;"
+
 >
 
 ## Review
+
 You have now learned how to create headers and footers, how to use functions and
-scopes to locally override styles, how to create more complex layouts with the [`grid`]($func/grid) function and how to write show rules for individual functions, and the whole document. You also learned how to use the
+scopes to locally override styles, how to create more complex layouts with the
+[`grid`]($func/grid) function and how to write show rules for individual
+functions, and the whole document. You also learned how to use the
 [`where` selector]($styling/#show-rules) to filter the headings by their level.
 
 The paper was a great success! You've met a lot of like-minded researchers at
@@ -505,5 +516,5 @@ though, so maybe now you want to create a time-saving template for you and your
 team?
 
 In the next section, we will learn how to create templates that can be reused in
-multiple documents. This is a more advanced topic, so feel free to come back
-to it later if you don't feel up to it right now.
+multiple documents. This is a more advanced topic, so feel free to come back to
+it later if you don't feel up to it right now.

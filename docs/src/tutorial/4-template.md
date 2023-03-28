@@ -3,6 +3,7 @@ description: Typst's tutorial.
 ---
 
 # Making a Template
+
 In the previous three chapters of this tutorial, you have learned how to write a
 document in Typst, apply basic styles, and customize its appearance in-depth to
 comply with a publisher's style guide. Because the paper you wrote in the
@@ -13,6 +14,7 @@ this chapter you will learn how to create a template that you and your team can
 use with just one show rule. Let's get started!
 
 ## A toy template
+
 In Typst, templates are functions in which you can wrap your whole document. To
 learn how to do that, let's first review how to write your very own functions.
 They can do anything you want them to, so why not go a bit crazy?
@@ -55,15 +57,15 @@ negative thoughts or beliefs.
 In fact, I am amazing!
 ```
 
-Our whole document will now be passed to the `amazed` function, as if we
-wrapped it around it. This is not especially useful with this particular
-function, but when combined with set rules and named arguments, it can be very
-powerful.
+Our whole document will now be passed to the `amazed` function, as if we wrapped
+it around it. This is not especially useful with this particular function, but
+when combined with set rules and named arguments, it can be very powerful.
 
 ## Embedding set and show rules
+
 To apply some set and show rules to our template, we can use `set` and `show`
-within a content block in our function and then insert the document into
-that content block.
+within a content block in our function and then insert the document into that
+content block.
 
 ```example
 #let template(doc) = [
@@ -156,15 +158,16 @@ rules and function calls with a `#`. In exchange, we cannot write markup
 directly into it anymore.
 
 Also note where the title comes from: We previously had it inside of a variable.
-Now, we are receiving it as the first parameter of the template function.
-Thus, we must specify it in the show rule where we call the template.
+Now, we are receiving it as the first parameter of the template function. Thus,
+we must specify it in the show rule where we call the template.
 
 ## Templates with named arguments
-Our paper in the previous chapter had a title and an author list. Let's add these
-things to our template. In addition to the title, we want our template to accept
-a list of authors with their affiliations and the paper's abstract. To keep
-things readable, we'll add those as named arguments. In the end, we want it to
-work like this:
+
+Our paper in the previous chapter had a title and an author list. Let's add
+these things to our template. In addition to the title, we want our template to
+accept a list of authors with their affiliations and the paper's abstract. To
+keep things readable, we'll add those as named arguments. In the end, we want it
+to work like this:
 
 ```typ
 #show: doc => conf(
@@ -212,9 +215,9 @@ the array's [`map` method]($type/array.map) comes in handy. It takes a function
 as an argument that gets called with each item of the array. We pass it a
 function that formats the details for each author and returns a new array
 containing content values. We've now got one array of values that we'd like to
-use as multiple arguments for the grid. We can do that by using the [`spread`
-operator]($type/arguments). It takes an array and applies each of its items as a
-separate argument to the function.
+use as multiple arguments for the grid. We can do that by using the
+[`spread` operator]($type/arguments). It takes an array and applies each of its
+items as a separate argument to the function.
 
 The resulting template function looks like this:
 
@@ -254,14 +257,14 @@ The resulting template function looks like this:
 ```
 
 ## A separate file
+
 Most of the time, a template is specified in a different file and then imported
 into the document. This way, the main file you write in is kept clutter free and
 your template is easily reused. Create a new text file in the file panel by
 clicking the plus button and name it `conf.typ`. Move the `conf` function
 definition inside of that new file. Now you can access it from your main file by
 adding an import before the show rule. Specify the path of the file between the
-`{import}` keyword and a colon, then name the function that you
-want to import.
+`{import}` keyword and a colon, then name the function that you want to import.
 
 ```example:single
 >>> #let conf(
@@ -366,6 +369,7 @@ conference! Why not share it on
 it too?
 
 ## Review
+
 Congratulations, you have completed Typst's Tutorial! In this section, you have
 learned how to define your own functions and how to create and apply templates
 that define reusable document styles. You've made it far and learned a lot. You

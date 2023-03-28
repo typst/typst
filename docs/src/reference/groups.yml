@@ -18,14 +18,15 @@
 
 - name: underover
   title: Under/Over
-  functions: [
-    "underline",
-    "overline",
-    "underbrace",
-    "overbrace",
-    "underbracket",
-    "overbracket",
-  ]
+  functions:
+    [
+      "underline",
+      "overline",
+      "underbrace",
+      "overbrace",
+      "underbracket",
+      "overbracket",
+    ]
   description: |
     Delimiters above or below parts of an equation.
 
