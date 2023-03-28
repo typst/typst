@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## March 28, 2023
 - **Breaking:** Enumerations now require a space after their marker, that is,
   `[1.ok]` must now be written as `[1. ok]`
 - **Breaking:** Changed default style for [term lists]($func/terms): Does not
@@ -36,6 +36,7 @@ description: |
 - Added symbols for double, triple, and quadruple dot accent
 - Added smart quotes for Norwegian Bokmål
 - Fixed hovering over comments in web app
+- Embedded default fonts in CLI binary
 
 ## March 21, 2023
 - Reference and bibliography management
