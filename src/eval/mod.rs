@@ -652,7 +652,7 @@ impl Eval for ast::MathIdent {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(vm.scopes.get_in_math(self).cloned().at(self.span())?)
+        vm.scopes.get_in_math(self).cloned().at(self.span())
     }
 }
 
@@ -700,7 +700,7 @@ impl Eval for ast::Ident {
     type Output = Value;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(vm.scopes.get(self).cloned().at(self.span())?)
+        vm.scopes.get(self).cloned().at(self.span())
     }
 }
 

@@ -43,7 +43,7 @@ cast_from_value! {
 }
 
 /// Provides stable identities to elements.
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct StabilityProvider {
     hashes: Vec<u128>,
     checkpoints: Vec<usize>,
@@ -52,7 +52,7 @@ pub struct StabilityProvider {
 impl StabilityProvider {
     /// Create a new stability provider.
     pub fn new() -> Self {
-        Self { hashes: vec![], checkpoints: vec![] }
+        Self::default()
     }
 }
 
