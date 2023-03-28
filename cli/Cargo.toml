@@ -17,7 +17,7 @@ typst = { path = ".." }
 typst-library = { path = "../library" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 codespan-reporting = "0.11"
-comemo = { git = "https://github.com/typst/comemo" }
+comemo = "0.2"
 dirs = "4"
 elsa = "1.7"
 memmap2 = "0.5"

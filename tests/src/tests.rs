@@ -1,8 +1,7 @@
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::ffi::OsStr;
-use std::fs::{self, File};
-use std::io::Read;
+use std::fs;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::{env, thread};
@@ -337,11 +336,8 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
         .unwrap_or_else(|_| path.into());
 
     let f = |e| FileError::from_io(e, &suffix);
-    let mut file = File::open(&path).map_err(f)?;
-    if file.metadata().map_err(f)?.is_file() {
-        let mut data = vec![];
-        file.read_to_end(&mut data).map_err(f)?;
-        Ok(data)
+    if fs::metadata(&path).map_err(f)?.is_file() {
+        fs::read(&path).map_err(f)
     } else {
         Err(FileError::IsDirectory)
     }
@@ -484,7 +480,7 @@ fn test_part(
     let mut errors: Vec<_> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)
-        .map(|error| (error.range(world), error.message.to_string()))
+        .map(|error| (error.range(world), error.message.replace('\\', "/")))
         .collect();
 
     errors.sort_by_key(|error| error.0.start);

@@ -14,7 +14,7 @@ typst-library = { path = "../library" }
 unscanny = "0.1"
 include_dir = "0.7"
 pulldown-cmark = "0.9"
-comemo = { git = "https://github.com/typst/comemo" }
+comemo = "0.2"
 serde = "1"
 serde_yaml = "0.8"
 heck = "0.4"

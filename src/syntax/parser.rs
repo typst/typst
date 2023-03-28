@@ -361,6 +361,8 @@ fn math_delimited(p: &mut Parser, stop: MathClass) {
             p.unexpected();
         }
     }
+
+    p.wrap(m, SyntaxKind::Math);
 }
 
 fn math_unparen(p: &mut Parser, m: Marker) {
@@ -428,6 +430,7 @@ fn math_args(p: &mut Parser) {
             p.convert(SyntaxKind::Colon);
             named = Some(arg);
             arg = p.marker();
+            array = p.marker();
         }
 
         match p.current_text() {
@@ -448,7 +451,10 @@ fn math_args(p: &mut Parser) {
                 p.convert(SyntaxKind::Comma);
                 arg = p.marker();
                 namable = true;
-                named = None;
+                if named.is_some() {
+                    array = p.marker();
+                    named = None;
+                }
                 continue;
             }
             _ => {}
@@ -465,6 +471,9 @@ fn math_args(p: &mut Parser) {
 
     if arg != p.marker() {
         maybe_wrap_in_math(p, arg, named);
+        if named.is_some() {
+            array = p.marker();
+        }
     }
 
     if has_arrays && array != p.marker() {

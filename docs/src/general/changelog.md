@@ -5,6 +5,42 @@ description: |
 ---
 
 # Changelog
+## Unreleased
+- Reduced maximum function call depth from 256 to 64.
+
+## March 28, 2023
+- **Breaking:** Enumerations now require a space after their marker, that is,
+  `[1.ok]` must now be written as `[1. ok]`
+- **Breaking:** Changed default style for [term lists]($func/terms): Does not
+  include a colon anymore and has a bit more indent
+- Fixed bibliography ordering in IEEE style
+- Fixed parsing of decimals in math: `[$1.2/3.4$]`
+- Fixed parsing of unbalanced delimiters in fractions: `[$1/(2 (x)$]`
+- Fixed unexpected parsing of numbers as enumerations, e.g. in `[1.2]`
+- Fixed combination of page fill and header
+- Fixed compiler crash if [`repeat`]($func/repeat) is used in page with
+  automatic width
+- Fixed [matrices]($func/mat) with explicit delimiter
+- Fixed build of CLI if `git` is not installed
+- Links in bibliographies are now affected by link styling
+- Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
+  delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
+  `[$mat(delim: #none, 1, 2; 3, 4)$]`.
+- Added [`separator`]($func/terms.separator) argument to term lists
+- Fixed [`indent`]($func/terms.indent) property of term lists
+- Added [`round`]($func/round) function for equations
+- Numberings now allow zeros. To reset a counter, you can write
+  `[#counter(..).update(0)]`
+- Added `--font-path` argument for CLI
+- Added Nix flake
+- Numerous documentation fixes
+- Added documentation for `{page()}` and `{position()}` methods on
+  [`location`]($func/locate) type
+- Added symbols for double, triple, and quadruple dot accent
+- Added smart quotes for Norwegian Bokmål
+- Fixed hovering over comments in web app
+- Embedded default fonts in CLI binary
+
 ## March 21, 2023
 - Reference and bibliography management
   - [Bibliographies]($func/bibliography) and [citations]($func/cite) (currently

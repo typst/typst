@@ -2,7 +2,7 @@ use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -40,6 +40,7 @@ struct CompileCommand {
     output: PathBuf,
     root: Option<PathBuf>,
     watch: bool,
+    font_paths: Vec<PathBuf>,
 }
 
 const HELP: &'static str = "\
@@ -54,29 +55,32 @@ ARGS:
   [output.pdf]   Path to output PDF file
 
 OPTIONS:
-  -h, --help     Print this help
-  -V, --version  Print the CLI's version
-  -w, --watch    Watch the inputs and recompile on changes
-  --root <dir>   Configure the root for absolute paths
+  -h, --help        Print this help
+  -V, --version     Print the CLI's version
+  -w, --watch       Watch the inputs and recompile on changes
+  --font-path <dir> Add additional directories to search for fonts
+  --root <dir>      Configure the root for absolute paths
 
 SUBCOMMANDS:
-  --fonts        List all discovered system fonts
+  --fonts           List all discovered fonts in system and custom font paths
 ";
 
 /// List discovered system fonts.
 struct FontsCommand {
+    font_paths: Vec<PathBuf>,
     variants: bool,
 }
 
 const HELP_FONTS: &'static str = "\
-typst --fonts lists all discovered system fonts
+typst --fonts lists all discovered fonts in system and custom font paths
 
 USAGE:
   typst --fonts [OPTIONS]
 
 OPTIONS:
-  -h, --help     Print this help
-  --variants     Also list style variants of each font family
+  -h, --help        Print this help
+  --font-path <dir> Add additional directories to search for fonts
+  --variants        Also list style variants of each font family
 ";
 
 /// Entry point.
@@ -100,13 +104,14 @@ fn parse_args() -> StrResult<Command> {
     }
 
     let help = args.contains(["-h", "--help"]);
+    let font_paths = args.values_from_str("--font-path").unwrap();
 
     let command = if args.contains("--fonts") {
         if help {
             print_help(HELP_FONTS);
         }
 
-        Command::Fonts(FontsCommand { variants: args.contains("--variants") })
+        Command::Fonts(FontsCommand { font_paths, variants: args.contains("--variants") })
     } else {
         if help {
             print_help(HELP);
@@ -115,7 +120,7 @@ fn parse_args() -> StrResult<Command> {
         let root = args.opt_value_from_str("--root").map_err(|_| "missing root path")?;
         let watch = args.contains(["-w", "--watch"]);
         let (input, output) = parse_input_output(&mut args, "pdf")?;
-        Command::Compile(CompileCommand { input, output, watch, root })
+        Command::Compile(CompileCommand { input, output, watch, root, font_paths })
     };
 
     // Don't allow excess arguments.
@@ -162,7 +167,7 @@ fn print_version() -> ! {
 
 /// Print an application-level error (independent from a source file).
 fn print_error(msg: &str) -> io::Result<()> {
-    let mut w = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Auto);
     let styles = term::Styles::default();
 
     w.set_color(&styles.header_error)?;
@@ -191,12 +196,16 @@ fn compile(command: CompileCommand) -> StrResult<()> {
     };
 
     // Create the world that serves sources, fonts and files.
-    let mut world = SystemWorld::new(root);
+    let mut world = SystemWorld::new(root, &command.font_paths);
 
     // Perform initial compilation.
-    compile_once(&mut world, &command)?;
-
+    let failed = compile_once(&mut world, &command)?;
     if !command.watch {
+        // Return with non-zero exit code in case of error.
+        if failed {
+            process::exit(1);
+        }
+
         return Ok(());
     }
 
@@ -205,9 +214,9 @@ fn compile(command: CompileCommand) -> StrResult<()> {
     let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
         .map_err(|_| "failed to watch directory")?;
 
-    // Watch this directory recursively.
+    // Watch root directory recursively.
     watcher
-        .watch(Path::new("."), RecursiveMode::Recursive)
+        .watch(&world.root, RecursiveMode::Recursive)
         .map_err(|_| "failed to watch directory")?;
 
     // Handle events.
@@ -233,12 +242,13 @@ fn compile(command: CompileCommand) -> StrResult<()> {
 
         if recompile {
             compile_once(&mut world, &command)?;
+            comemo::evict(30);
         }
     }
 }
 
 /// Compile a single time.
-fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<()> {
+fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<bool> {
     status(command, Status::Compiling).unwrap();
 
     world.reset();
@@ -250,6 +260,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
             let buffer = typst::export::pdf(&document);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
             status(command, Status::Success).unwrap();
+            Ok(false)
         }
 
         // Print diagnostics.
@@ -257,10 +268,9 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
             status(command, Status::Error).unwrap();
             print_diagnostics(&world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
+            Ok(true)
         }
     }
-
-    Ok(())
 }
 
 /// Clear the terminal and render the status message.
@@ -277,7 +287,7 @@ fn status(command: &CompileCommand, status: Status) -> io::Result<()> {
     let message = status.message();
     let color = status.color();
 
-    let mut w = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Auto);
     write!(w, "{esc}c{esc}[1;1H")?;
 
     w.set_color(&color)?;
@@ -327,7 +337,7 @@ fn print_diagnostics(
     world: &SystemWorld,
     errors: Vec<SourceError>,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut w = StandardStream::stderr(ColorChoice::Always);
+    let mut w = StandardStream::stderr(ColorChoice::Auto);
     let config = term::Config { tab_width: 2, ..Default::default() };
 
     for error in errors {
@@ -360,6 +370,9 @@ fn print_diagnostics(
 fn fonts(command: FontsCommand) -> StrResult<()> {
     let mut searcher = FontSearcher::new();
     searcher.search_system();
+    for path in &command.font_paths {
+        searcher.search_dir(path)
+    }
     for (name, infos) in searcher.book.families() {
         println!("{name}");
         if command.variants {
@@ -400,12 +413,16 @@ struct PathSlot {
 }
 
 impl SystemWorld {
-    fn new(root: PathBuf) -> Self {
+    fn new(root: PathBuf, font_paths: &[PathBuf]) -> Self {
         let mut searcher = FontSearcher::new();
         searcher.search_system();
 
         #[cfg(feature = "embed-fonts")]
         searcher.add_embedded();
+
+        for path in font_paths {
+            searcher.search_dir(path)
+        }
 
         Self {
             root,
@@ -546,11 +563,8 @@ impl PathHash {
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
-    let mut file = File::open(path).map_err(f)?;
-    if file.metadata().map_err(f)?.is_file() {
-        let mut data = vec![];
-        file.read_to_end(&mut data).map_err(f)?;
-        Ok(data)
+    if fs::metadata(&path).map_err(f)?.is_file() {
+        fs::read(&path).map_err(f)
     } else {
         Err(FileError::IsDirectory)
     }
@@ -644,6 +658,8 @@ impl FontSearcher {
         add(include_bytes!("../../assets/fonts/NewCMMath-Regular.otf"));
         add(include_bytes!("../../assets/fonts/DejaVuSansMono.ttf"));
         add(include_bytes!("../../assets/fonts/DejaVuSansMono-Bold.ttf"));
+        add(include_bytes!("../../assets/fonts/DejaVuSansMono-Oblique.ttf"));
+        add(include_bytes!("../../assets/fonts/DejaVuSansMono-BoldOblique.ttf"));
     }
 
     /// Search for fonts in the linux system font directories.

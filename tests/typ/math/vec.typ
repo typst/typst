@@ -10,5 +10,5 @@ $ v = vec(1, 2+3, 4) $
 $ vec(1, 2) $
 
 ---
-// Error: 22-25 expected "(", "[", "{", "|", or "||"
+// Error: 22-25 expected "(", "[", "{", "|", "||", or none
 #set math.vec(delim: "%")

@@ -62,7 +62,7 @@ pub fn numbering(
     /// If `numbering` is a pattern and more numbers than counting symbols are
     /// given, the last counting symbol with its prefix is repeated.
     #[variadic]
-    numbers: Vec<NonZeroUsize>,
+    numbers: Vec<usize>,
 ) -> Value {
     numbering.apply_vm(vm, &numbers)?
 }
@@ -78,25 +78,23 @@ pub enum Numbering {
 
 impl Numbering {
     /// Apply the pattern to the given numbers.
-    pub fn apply_vm(&self, vm: &mut Vm, numbers: &[NonZeroUsize]) -> SourceResult<Value> {
+    pub fn apply_vm(&self, vm: &mut Vm, numbers: &[usize]) -> SourceResult<Value> {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => {
-                let args = Args::new(
-                    func.span(),
-                    numbers.iter().map(|n| Value::Int(n.get() as i64)),
-                );
+                let args =
+                    Args::new(func.span(), numbers.iter().map(|&n| Value::Int(n as i64)));
                 func.call_vm(vm, args)?
             }
         })
     }
 
     /// Apply the pattern to the given numbers.
-    pub fn apply_vt(&self, vt: &mut Vt, numbers: &[NonZeroUsize]) -> SourceResult<Value> {
+    pub fn apply_vt(&self, vt: &mut Vt, numbers: &[usize]) -> SourceResult<Value> {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => {
-                func.call_vt(vt, numbers.iter().map(|n| Value::Int(n.get() as i64)))?
+                func.call_vt(vt, numbers.iter().map(|&n| Value::Int(n as i64)))?
             }
         })
     }
@@ -147,7 +145,7 @@ pub struct NumberingPattern {
 
 impl NumberingPattern {
     /// Apply the pattern to the given number.
-    pub fn apply(&self, numbers: &[NonZeroUsize]) -> EcoString {
+    pub fn apply(&self, numbers: &[usize]) -> EcoString {
         let mut fmt = EcoString::new();
         let mut numbers = numbers.into_iter();
 
@@ -179,7 +177,7 @@ impl NumberingPattern {
     }
 
     /// Apply only the k-th segment of the pattern to a number.
-    pub fn apply_kth(&self, k: usize, number: NonZeroUsize) -> EcoString {
+    pub fn apply_kth(&self, k: usize, number: usize) -> EcoString {
         let mut fmt = EcoString::new();
         if let Some((prefix, _, _)) = self.pieces.first() {
             fmt.push_str(prefix);
@@ -282,13 +280,16 @@ impl NumberingKind {
     }
 
     /// Apply the numbering to the given number.
-    pub fn apply(self, n: NonZeroUsize, case: Case) -> EcoString {
-        let mut n = n.get();
+    pub fn apply(self, mut n: usize, case: Case) -> EcoString {
         match self {
             Self::Arabic => {
                 eco_format!("{n}")
             }
             Self::Letter => {
+                if n == 0 {
+                    return '-'.into();
+                }
+
                 n -= 1;
 
                 let mut letters = vec![];
@@ -308,6 +309,10 @@ impl NumberingKind {
                 String::from_utf8(letters).unwrap().into()
             }
             Self::Roman => {
+                if n == 0 {
+                    return 'N'.into();
+                }
+
                 // Adapted from Yann Villessuzanne's roman.rs under the
                 // Unlicense, at https://github.com/linfir/roman.rs/
                 let mut fmt = EcoString::new();
@@ -347,6 +352,10 @@ impl NumberingKind {
                 fmt
             }
             Self::Symbol => {
+                if n == 0 {
+                    return '-'.into();
+                }
+
                 const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
                 let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
                 let amount = ((n - 1) / SYMBOLS.len()) + 1;

@@ -21,6 +21,9 @@ pub fn tooltip(
     cursor: usize,
 ) -> Option<Tooltip> {
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
+    if leaf.kind().is_trivia() {
+        return None;
+    }
 
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
@@ -123,7 +126,7 @@ fn ref_tooltip(
     let target = leaf.text().trim_start_matches('@');
     for (label, detail) in analyze_labels(world, frames).0 {
         if label.0 == target {
-            return Some(Tooltip::Text(detail?.into()));
+            return Some(Tooltip::Text(detail?));
         }
     }
 

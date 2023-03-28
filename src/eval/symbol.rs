@@ -70,7 +70,7 @@ impl Symbol {
                 modifiers.push('.');
             }
             modifiers.push_str(modifier);
-            if find(list.variants(), &modifiers).is_some() {
+            if find(list.variants(), modifiers).is_some() {
                 return Ok(self);
             }
         }
@@ -114,6 +114,8 @@ impl Symbol {
             '\u{0306}' | '˘' => '\u{0306}',
             '\u{0307}' | '.' | '˙' | '⋅' => '\u{0307}',
             '\u{0308}' | '¨' => '\u{0308}',
+            '\u{20db}' => '\u{20db}',
+            '\u{20dc}' => '\u{20dc}',
             '\u{030a}' | '∘' | '○' => '\u{030a}',
             '\u{030b}' | '˝' => '\u{030b}',
             '\u{030c}' | 'ˇ' => '\u{030c}',

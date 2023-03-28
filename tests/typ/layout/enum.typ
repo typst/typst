@@ -4,6 +4,7 @@
 #enum[Embrace][Extend][Extinguish]
 
 ---
+0. Before first!
 1. First.
    2. Indented
 
@@ -22,7 +23,14 @@
 / Term: List
 
 ---
+// In the line.
+1.2 \
+This is 0. \
+See 0.3. \
+
+---
 // Edge cases.
 +
-Empty
-+Nope
+Empty \
++Nope \
+a + 0.

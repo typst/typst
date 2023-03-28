@@ -168,7 +168,7 @@ calls, and more, whereas a string is really just a _sequence of characters_ and
 nothing else.
 
 For example, the image function expects a path to an image file.
-It would not make sense to pass, e.g., a paragraph of text or a another image as
+It would not make sense to pass, e.g., a paragraph of text or another image as
 the image's path parameter. That's why only strings are allowed here.
 On the contrary, strings work wherever content is expected because text is a
 valid kind of content.
