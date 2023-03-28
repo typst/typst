@@ -657,6 +657,8 @@ impl FontSearcher {
         add(include_bytes!("../../assets/fonts/NewCMMath-Regular.otf"));
         add(include_bytes!("../../assets/fonts/DejaVuSansMono.ttf"));
         add(include_bytes!("../../assets/fonts/DejaVuSansMono-Bold.ttf"));
+        add(include_bytes!("../../assets/fonts/DejaVuSansMono-Oblique.ttf"));
+        add(include_bytes!("../../assets/fonts/DejaVuSansMono-BoldOblique.ttf"));
     }
 
     /// Search for fonts in the linux system font directories.
