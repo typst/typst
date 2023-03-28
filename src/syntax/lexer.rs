@@ -275,7 +275,7 @@ impl Lexer<'_> {
         ));
 
         // Don't include the trailing characters likely to be part of another expression.
-        if matches!(self.s.scout(-1), Some('!' | ',' | '.' | ';' | '?' | '\'')) {
+        if matches!(self.s.scout(-1), Some('!' | ',' | '.' | ':' | ';' | '?' | '\'')) {
             self.s.uneat();
         }
 
