@@ -1,10 +1,19 @@
 use crate::prelude::*;
 
-/// A closed-path polygon.
+/// A closed polygon.
+///
+/// The polygon is defined by its corner points and is closed automatically.
 ///
 /// ## Example
 /// ```example
-/// #polygon(fill: blue, (0pt, 0pt), (10pt, 0pt), (10pt, 10pt))
+/// #polygon(
+///   fill: red,
+///   stroke: 2pt + black,
+///   (0pt, 0pt),
+///   (50%, 0pt),
+///   (50%, 4cm),
+///   (20%, 4cm),
+/// )
 /// ```
 ///
 /// Display: Polygon
@@ -13,6 +22,9 @@ use crate::prelude::*;
 pub struct PolygonElem {
     /// How to fill the polygon. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
+    ///
+    /// Currently all polygons are filled according to the
+    /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
 
     /// How to stroke the polygon. See the [lines's
@@ -21,7 +33,8 @@ pub struct PolygonElem {
     #[fold]
     pub stroke: Option<PartialStroke>,
 
-    /// The vertices of the polygon. The polygon automatically closes itself.
+    /// The vertices of the polygon. Each point is specified as an array of two
+    /// [relative lengths]($type/relative-length).
     #[variadic]
     pub vertices: Vec<Axes<Rel<Length>>>,
 }
@@ -45,20 +58,19 @@ impl Layout for PolygonElem {
             .collect();
 
         let size = points.iter().fold(Point::zero(), |max, c| c.max(max)).to_size();
-
         let target = regions.expand.select(regions.size, size);
         let mut frame = Frame::new(target);
 
-        // only create a path if there is more than zero points.
+        // Only create a path if there are more than zero points.
         if points.len() > 0 {
-            let stroke = self.stroke(styles).map(|e| e.unwrap_or_default());
             let fill = self.fill(styles);
+            let stroke = self.stroke(styles).map(PartialStroke::unwrap_or_default);
 
-            // construct a closed path given all points.
+            // Construct a closed path given all points.
             let mut path = Path::new();
             path.move_to(points[0]);
-            for point in &points[1..] {
-                path.line_to(*point);
+            for &point in &points[1..] {
+                path.line_to(point);
             }
             path.close_path();
 
