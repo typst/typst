@@ -199,9 +199,13 @@ fn compile(command: CompileCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(root, &command.font_paths);
 
     // Perform initial compilation.
-    compile_once(&mut world, &command)?;
-
+    let failed = compile_once(&mut world, &command)?;
     if !command.watch {
+        // Return with non-zero exit code in case of error.
+        if failed {
+            process::exit(1);
+        }
+
         return Ok(());
     }
 
@@ -244,7 +248,7 @@ fn compile(command: CompileCommand) -> StrResult<()> {
 }
 
 /// Compile a single time.
-fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<()> {
+fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<bool> {
     status(command, Status::Compiling).unwrap();
 
     world.reset();
@@ -256,6 +260,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
             let buffer = typst::export::pdf(&document);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
             status(command, Status::Success).unwrap();
+            Ok(false)
         }
 
         // Print diagnostics.
@@ -263,10 +268,9 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
             status(command, Status::Error).unwrap();
             print_diagnostics(&world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
+            Ok(true)
         }
     }
-
-    Ok(())
 }
 
 /// Clear the terminal and render the status message.
