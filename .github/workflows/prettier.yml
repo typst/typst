@@ -1,0 +1,22 @@
+name: Prettier checks
+
+# This action works with pull requests and pushes
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  prettier:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install the Nix package manager
+        uses: cachix/install-nix-action@v20
+
+      - name: Checks
+        run: nix run nixpkgs#nodePackages.prettier -- --check .
