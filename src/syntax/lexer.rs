@@ -274,7 +274,8 @@ impl Lexer<'_> {
             | '?' | '@' | '[' | '_' | '~' | '\''
         ));
 
-        if self.s.scout(-1) == Some('.') {
+        // Don't include the trailing characters likely to be part of another expression.
+        if matches!(self.s.scout(-1), Some('!' | ',' | '.' | ';' | '?' | '\'')) {
             self.s.uneat();
         }
 
