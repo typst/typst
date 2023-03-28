@@ -5,6 +5,8 @@
 [![Discord Server][typst discord]][typst discord link]
 [![Discord License Apache-2][typst license]][typst license link]
 
+# Typst
+
 Typst is a new markup-based typesetting system that is designed to be as
 powerful as LaTeX while being much easier to learn and use. Typst has:
 
@@ -133,6 +135,15 @@ If you prefer an integrated IDE-like experience with autocompletion and instant
 preview, you can also check out the [Typst web app][app], which is currently in
 public beta.
 
+When using [Nix][nix] with [Flakes feature][nix flake] enabled, you can either
+use the [Typst version from Nix][typst version from nix] or use the default
+`flake.nix` file provided in this project to build the latest bleeding edge
+version.
+
+- To use Typst from Nix repository: `nix run nixpkgs#typst -- --version`
+- To build and use the latest bleeding edge version:
+  `nix run github:typst/typst -- --version`
+
 ## Build from source
 
 To build Typst yourself, you need to have the [latest stable Rust][rust]
@@ -143,6 +154,11 @@ cargo build -p typst-cli --release
 ```
 
 The optimized binary will be stored in `target/release/`.
+
+When using [Nix][nix] with [Flakes feature][nix flake] enabled, you can create a
+development environment by doing: `nix develop`. This will create a new shell
+environment where all the required dependencies (Rust, Cargo, etc etc) to build
+Typst will be available.
 
 ## Contributing
 
@@ -212,3 +228,7 @@ preview. To achieve these goals, we follow three core design principles:
 [typst license link]: https://github.com/typst/typst/blob/main/LICENSE
 [typst example]:
   https://user-images.githubusercontent.com/17899797/228031796-ced0e452-fcee-4ae9-92da-b9287764ff25.png
+[nix]: https://nixos.org/
+[nix flake]: https://nixos.wiki/wiki/Flakes
+[typst version from nix]:
+  https://search.nixos.org/packages?channel=unstable&show=typst&from=0&size=50&sort=relevance&type=packages&query=typst
