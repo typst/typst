@@ -5,6 +5,12 @@ description: |
 ---
 
 # Changelog
+## Unreleased
+- Added [`polygon`]($func/polygon) function
+- Reduced maximum function call depth from 256 to 64
+- CLI now returns with non-zero status code if there is an error
+- CLI now watches the root directory instead of the current one
+
 ## March 28, 2023
 - **Breaking:** Enumerations now require a space after their marker, that is,
   `[1.ok]` must now be written as `[1. ok]`

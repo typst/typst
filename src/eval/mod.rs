@@ -60,7 +60,7 @@ use crate::util::PathExt;
 use crate::World;
 
 const MAX_ITERATIONS: usize = 10_000;
-const MAX_CALL_DEPTH: usize = 256;
+const MAX_CALL_DEPTH: usize = 64;
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
