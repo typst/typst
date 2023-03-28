@@ -268,6 +268,7 @@ impl LocalName for EquationElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Gleichung",
+            Lang::ITALIAN => "Equazione",
             Lang::ENGLISH | _ => "Equation",
         }
     }
