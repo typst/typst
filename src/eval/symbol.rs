@@ -70,7 +70,7 @@ impl Symbol {
                 modifiers.push('.');
             }
             modifiers.push_str(modifier);
-            if find(list.variants(), &modifiers).is_some() {
+            if find(list.variants(), modifiers).is_some() {
                 return Ok(self);
             }
         }
