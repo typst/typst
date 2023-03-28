@@ -71,3 +71,25 @@ int main() {
   </html>
   ```
 ]
+
+
+---
+#set page(width: 180pt)
+#set text(6pt)
+// Line numbering of code block
+#set raw(numbering: "1")
+```rs
+fn main() {
+    println!("Hello, world!");
+
+
+
+
+
+
+
+
+    return; 
+}
+
+```

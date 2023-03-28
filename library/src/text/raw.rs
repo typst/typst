@@ -1,11 +1,12 @@
 use once_cell::sync::Lazy;
 use syntect::highlighting as synt;
-use typst::syntax::{self, LinkedNode};
+use typst::syntax::{self, LinkedNode, SyntaxKind};
 
 use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
 };
-use crate::layout::BlockElem;
+use crate::layout::{BlockElem, GridElem, Sizing, TrackSizings};
+use crate::meta::Numbering;
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
@@ -101,6 +102,20 @@ pub struct RawElem {
     /// ```
     /// ````
     pub lang: Option<EcoString>,
+
+    /// How to [number]($func/numbering) the lines.
+    ///
+    /// ````example
+    /// #set raw(
+    ///     numbering: "1|"
+    /// )
+    /// ```rs
+    /// fn main() {
+    ///     return;
+    /// }
+    /// ```
+    /// ````
+    pub numbering: Option<Numbering>,
 }
 
 impl RawElem {
@@ -127,53 +142,20 @@ impl Synthesize for RawElem {
 }
 
 impl Show for RawElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
+        let numbering = self.numbering(styles);
         let foreground = THEME
             .settings
             .foreground
             .map(to_typst)
             .map_or(Color::BLACK, Color::from);
 
-        let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
-            let root = match lang.as_deref() {
-                Some("typc") => syntax::parse_code(&text),
-                _ => syntax::parse(&text),
-            };
-
-            let mut seq = vec![];
-            let highlighter = synt::Highlighter::new(&THEME);
-            highlight_themed(
-                &LinkedNode::new(&root),
-                vec![],
-                &highlighter,
-                &mut |node, style| {
-                    seq.push(styled(&text[node.range()], foreground.into(), style));
-                },
-            );
-
-            Content::sequence(seq)
-        } else if let Some(syntax) =
-            lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
-        {
-            let mut seq = vec![];
-            let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
-            for (i, line) in text.lines().enumerate() {
-                if i != 0 {
-                    seq.push(LinebreakElem::new().pack());
-                }
-
-                for (style, piece) in
-                    highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
-                {
-                    seq.push(styled(piece, foreground.into(), style));
-                }
-            }
-
-            Content::sequence(seq)
+        let mut realized = if let Some(numbering) = numbering.as_ref() {
+            realize_with_numbering(text, lang, foreground.into(), vt, styles, numbering)?
         } else {
-            TextElem::packed(text)
+            realize_without_numbering(text, lang, foreground.into())?
         };
 
         if self.block(styles) {
@@ -197,6 +179,172 @@ impl Finalize for RawElem {
     }
 }
 
+fn realize_without_numbering(
+    text: EcoString,
+    lang: Option<EcoString>,
+    foreground: Paint,
+) -> SourceResult<Content> {
+    let realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
+        let root = match lang.as_deref() {
+            Some("typc") => syntax::parse_code(&text),
+            _ => syntax::parse(&text),
+        };
+
+        let mut seq = vec![];
+        let highlighter = synt::Highlighter::new(&THEME);
+        highlight_themed(
+            &LinkedNode::new(&root),
+            vec![],
+            &highlighter,
+            &mut |node, style| {
+                seq.push(styled(&text[node.range()], foreground.clone(), style));
+                Ok(())
+            },
+        )?;
+
+        Content::sequence(seq)
+    } else if let Some(syntax) =
+        lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
+    {
+        let mut seq = vec![];
+        let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
+        for (i, line) in text.lines().enumerate() {
+            if i != 0 {
+                seq.push(LinebreakElem::new().pack());
+            }
+
+            for (style, piece) in
+                highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
+            {
+                seq.push(styled(piece, foreground.clone(), style));
+            }
+        }
+
+        Content::sequence(seq)
+    } else {
+        TextElem::packed(text)
+    };
+    Ok(realized)
+}
+
+fn realize_with_numbering(
+    text: EcoString,
+    lang: Option<EcoString>,
+    foreground: Paint,
+    vt: &mut Vt,
+    styles: StyleChain,
+    numbering: &Numbering,
+) -> SourceResult<Content> {
+    let default_align = Axes {
+        x: Some(Align::Right.into()),
+        y: Some(Align::Bottom.into()),
+    };
+    let (mut cells, line_count) =
+        if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
+            let root = match lang.as_deref() {
+                Some("typc") => syntax::parse_code(&text),
+                _ => syntax::parse(&text),
+            };
+
+            let mut seq = vec![];
+            let highlighter = synt::Highlighter::new(&THEME);
+            let mut line_seq = vec![];
+            seq.push(
+                numbering.apply_vt(vt, &[1])?.display().aligned(default_align.clone()),
+            );
+            let mut index = 2;
+            highlight_themed(
+                &LinkedNode::new(&root),
+                vec![],
+                &highlighter,
+                &mut |node, style| {
+                    if matches!(node.kind(), SyntaxKind::Space) {
+                        let mut lines = text[node.range()].lines();
+                        let first = match lines.next() {
+                            Some(v) => v,
+                            None => return Ok(()),
+                        };
+                        if !first.is_empty() {
+                            line_seq.push(styled(first, foreground.clone(), style));
+                        }
+                        while let Some(v) = lines.next() {
+                            seq.push(Content::sequence(line_seq.drain(..)));
+                            seq.push(
+                                numbering
+                                    .apply_vt(vt, &[index])?
+                                    .display()
+                                    .aligned(default_align.clone()),
+                            );
+                            index += 1;
+                            if !v.is_empty() {
+                                line_seq.push(TextElem::packed(v));
+                            }
+                        }
+                    } else {
+                        line_seq.push(styled(&text[node.range()], foreground.clone(), style));
+                    }
+                    Ok(())
+                },
+            )?;
+            if !line_seq.is_empty() {
+                seq.push(Content::sequence(line_seq))
+            }
+
+            (seq, index)
+        } else if let Some(syntax) =
+            lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
+        {
+            let mut seq = vec![];
+            let mut line_count = 0;
+            let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
+            for (i, line) in text.lines().enumerate() {
+                seq.push(
+                    numbering
+                        .apply_vt(vt, &[i + 1])?
+                        .display()
+                        .aligned(default_align.clone()),
+                );
+
+                let mut line_seq = vec![];
+                for (style, piece) in
+                    highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
+                {
+                    line_seq.push(styled(piece, foreground.clone(), style));
+                }
+                seq.push(Content::sequence(line_seq));
+                line_count += 1;
+            }
+
+            (seq, line_count)
+        } else {
+            let mut seq = vec![];
+            let mut line_count = 0;
+            for (i, line) in text.lines().enumerate() {
+                seq.push(
+                    numbering
+                        .apply_vt(vt, &[i + 1])?
+                        .display()
+                        .aligned(default_align.clone()),
+                );
+                seq.push(TextElem::packed(line));
+                line_count += 1;
+            }
+
+            (seq, line_count)
+        };
+
+    if text.ends_with('\n') || text.ends_with("\r\n") {
+        cells.push(numbering.apply_vt(vt, &[line_count + 1])?.display());
+    }
+    const COLUMN_GUTTER: Em = Em::new(0.65);
+    let row_gutter = BlockElem::below_in(styles).amount();
+    Ok(GridElem::new(cells)
+        .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
+        .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
+        .with_row_gutter(TrackSizings(vec![row_gutter.into()]))
+        .pack())
+}
+
 /// Highlight a syntax node in a theme by calling `f` with ranges and their
 /// styles.
 fn highlight_themed<F>(
@@ -204,13 +352,14 @@ fn highlight_themed<F>(
     scopes: Vec<syntect::parsing::Scope>,
     highlighter: &synt::Highlighter,
     f: &mut F,
-) where
-    F: FnMut(&LinkedNode, synt::Style),
+) -> SourceResult<()>
+where
+    F: FnMut(&LinkedNode, synt::Style) -> SourceResult<()>,
 {
     if node.children().len() == 0 {
         let style = highlighter.style_for_stack(&scopes);
-        f(node, style);
-        return;
+        f(node, style)?;
+        return Ok(());
     }
 
     for child in node.children() {
@@ -218,8 +367,9 @@ fn highlight_themed<F>(
         if let Some(tag) = typst::ide::highlight(&child) {
             scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
         }
-        highlight_themed(&child, scopes, highlighter, f);
+        highlight_themed(&child, scopes, highlighter, f)?;
     }
+    Ok(())
 }
 
 /// Style a piece of text with a syntect style.
