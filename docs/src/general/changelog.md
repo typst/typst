@@ -5,6 +5,9 @@ description: |
 ---
 
 # Changelog
+## Unreleased
+- Reduced maximum function call depth from 256 to 64.
+
 ## March 28, 2023
 - **Breaking:** Enumerations now require a space after their marker, that is,
   `[1.ok]` must now be written as `[1. ok]`

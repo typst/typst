@@ -2,7 +2,7 @@ use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -559,11 +559,8 @@ impl PathHash {
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
-    let mut file = File::open(path).map_err(f)?;
-    if file.metadata().map_err(f)?.is_file() {
-        let mut data = vec![];
-        file.read_to_end(&mut data).map_err(f)?;
-        Ok(data)
+    if fs::metadata(&path).map_err(f)?.is_file() {
+        fs::read(&path).map_err(f)
     } else {
         Err(FileError::IsDirectory)
     }
