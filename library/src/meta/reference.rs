@@ -58,11 +58,11 @@ pub struct RefElem {
     ///
     /// ```example
     /// #set heading(numbering: "1.")
-    /// #set ref(supplement: it => {
+    /// #set ref(supplement: (it, orig) => {
     ///   if it.func() == heading {
     ///     "Chapter"
     ///   } else {
-    ///     "Thing"
+    ///     orig
     ///   }
     /// })
     ///
@@ -77,6 +77,35 @@ pub struct RefElem {
     /// A synthesized citation.
     #[synthesized]
     pub citation: Option<CiteElem>,
+}
+
+/// A citable element can impl this trait to set the supplement content
+/// when it be referenced.
+pub trait ReferenceInfo: LocalName {
+    /// The counter used in reference.
+    fn counter(&self, styles: StyleChain) -> Counter;
+
+    /// supplement used in reference.
+    fn supplement(&self, _styles: StyleChain) -> Smart<Option<Supplement>>;
+
+    // default logic of convert supplement into content in reference
+    fn resolve_supplement(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        elem: Content,
+    ) -> SourceResult<Content> {
+        Ok(match self.supplement(styles) {
+            Smart::Auto => self.local_name_content(styles),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(sup)) => match sup {
+                Supplement::Content(c) => c,
+                Supplement::Func(func) => func
+                    .call_vt(vt, [elem.into(), self.local_name_content(styles).into()])?
+                    .display(),
+            },
+        })
+    }
 }
 
 impl Synthesize for RefElem {
@@ -116,17 +145,25 @@ impl Show for RefElem {
         }
 
         let supplement = self.supplement(styles);
+
+        let default_supplement = elem
+            .with::<dyn LocalName>()
+            .map(|elem| elem.local_name_content(styles))
+            .unwrap_or_default();
+
+        let ref_supplement = if let Some(ref_info) = elem.with::<dyn ReferenceInfo>() {
+            ref_info.resolve_supplement(vt, styles, elem.clone())?
+        } else {
+            default_supplement
+        };
+
         let mut supplement = match supplement {
-            Smart::Auto => elem
-                .with::<dyn LocalName>()
-                .map(|elem| elem.local_name(TextElem::lang_in(styles)))
-                .map(TextElem::packed)
-                .unwrap_or_default(),
+            Smart::Auto => ref_supplement,
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
-            Smart::Custom(Some(Supplement::Func(func))) => {
-                func.call_vt(vt, [elem.clone().into()])?.display()
-            }
+            Smart::Custom(Some(Supplement::Func(func))) => func
+                .call_vt(vt, [elem.clone().into(), ref_supplement.into()])?
+                .display(),
         };
 
         if !supplement.is_empty() {
@@ -137,7 +174,12 @@ impl Show for RefElem {
             bail!(self.span(), "only numbered elements can be referenced");
         };
 
-        let numbers = Counter::of(elem.func())
+        let counter = if let Some(elem) = elem.with::<dyn ReferenceInfo>() {
+            elem.counter(styles)
+        } else {
+            Counter::of(elem.func())
+        };
+        let numbers = counter
             .at(vt, elem.location().unwrap())?
             .display(vt, &numbering.trimmed())?;
 

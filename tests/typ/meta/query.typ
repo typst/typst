@@ -48,7 +48,7 @@
     Figure
     #numbering(it.numbering,
       ..counter(figure).at(it.location())):
-    #it.caption
+    #it.caption.at("content")
     #box(width: 1fr, repeat[.])
     #counter(page).at(it.location()).first() \
   ]
