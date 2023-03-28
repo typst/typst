@@ -214,9 +214,9 @@ fn compile(command: CompileCommand) -> StrResult<()> {
     let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
         .map_err(|_| "failed to watch directory")?;
 
-    // Watch this directory recursively.
+    // Watch root directory recursively.
     watcher
-        .watch(Path::new("."), RecursiveMode::Recursive)
+        .watch(&world.root, RecursiveMode::Recursive)
         .map_err(|_| "failed to watch directory")?;
 
     // Handle events.
