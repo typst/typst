@@ -1,10 +1,11 @@
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::env;
 use std::ffi::OsStr;
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::{env, thread};
 
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
@@ -31,18 +32,6 @@ const FONT_DIR: &str = "../assets/fonts";
 const FILE_DIR: &str = "../assets/files";
 
 fn main() {
-    let builder = thread::Builder::new().stack_size(64 * 1024 * 1024);
-
-    let handler = builder
-        .spawn(|| {
-            execute_tests();
-        })
-        .unwrap();
-
-    handler.join().unwrap();
-}
-
-fn execute_tests() {
     let args = Args::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
@@ -336,8 +325,11 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
         .unwrap_or_else(|_| path.into());
 
     let f = |e| FileError::from_io(e, &suffix);
-    if fs::metadata(&path).map_err(f)?.is_file() {
-        fs::read(&path).map_err(f)
+    let mut file = File::open(&path).map_err(f)?;
+    if file.metadata().map_err(f)?.is_file() {
+        let mut data = vec![];
+        file.read_to_end(&mut data).map_err(f)?;
+        Ok(data)
     } else {
         Err(FileError::IsDirectory)
     }
@@ -480,7 +472,7 @@ fn test_part(
     let mut errors: Vec<_> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)
-        .map(|error| (error.range(world), error.message.replace('\\', "/")))
+        .map(|error| (error.range(world), error.message.to_string()))
         .collect();
 
     errors.sort_by_key(|error| error.0.start);
