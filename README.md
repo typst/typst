@@ -101,9 +101,10 @@ Let's dissect what's going on:
   ```
 </details>
 
-## Install and use
+## Installing
 You can get sources and pre-built binaries for the latest release of Typst from
-the [releases page][releases].
+the [releases page][releases]. This will give you Typst's CLI which converts
+Typst sources into PDFs.
 
 Typst is also available through several package managers:
 
@@ -115,11 +116,11 @@ brew install typst
 pacman -S typst
 ```
 
-Nix users can use the `typst` package with `nix-shell -p typst` or build and run the bleeding edge version using the `github:typst/typst` flake with `nix run github:typst/typst -- --version`.
+Nix users can use the `typst` package with `nix-shell -p typst` or build and run
+the bleeding edge version with `nix run github:typst/typst -- --version`.
 
-This will give you Typst's CLI which converts
-Typst sources into PDFs.
-
+## Usage
+Once you have installed Typst, you can use it like this:
 ```sh
 # Creates `file.pdf` in working directory.
 typst file.typ
