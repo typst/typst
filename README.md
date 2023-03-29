@@ -112,7 +112,7 @@ brew install typst
 pacman -S typst
 
 # Nix
-nix-env -iA nixpkgs.typst
+# Use the `typst` package, or get the latest version with the `github:typst/typst` flake
 ```
 
 You can also get sources and pre-built binaries for the latest release of Typst from
