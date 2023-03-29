@@ -255,6 +255,7 @@ enum NumberingKind {
     Letter,
     Roman,
     Symbol,
+    Hebrew,
 }
 
 impl NumberingKind {
@@ -265,6 +266,7 @@ impl NumberingKind {
             'a' => NumberingKind::Letter,
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
+            'א' => NumberingKind::Hebrew,
             _ => return None,
         })
     }
@@ -276,6 +278,7 @@ impl NumberingKind {
             Self::Letter => 'a',
             Self::Roman => 'i',
             Self::Symbol => '*',
+            Self::Hebrew => 'א',
         }
     }
 
@@ -360,6 +363,59 @@ impl NumberingKind {
                 let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
                 let amount = ((n - 1) / SYMBOLS.len()) + 1;
                 std::iter::repeat(symbol).take(amount).collect()
+            },
+            Self::Hebrew => {
+                if n == 0 {
+                    return '-'.into();
+                }
+
+                let mut fmt = EcoString::new();
+                'outer: for &(name, value) in &[
+                    ('ת', 400),
+                    ('ש', 300),
+                    ('ר', 200),
+                    ('ק', 100),
+                    ('צ', 90),
+                    ('פ', 80),
+                    ('ע', 70),
+                    ('ס', 60),
+                    ('נ', 50),
+                    ('מ', 40),
+                    ('ל', 30),
+                    ('כ', 20),
+                    ('י', 10),
+                    ('ט', 9),
+                    ('ח', 8),
+                    ('ז', 7),
+                    ('ו', 6),
+                    ('ה', 5),
+                    ('ד', 4),
+                    ('ג', 3),
+                    ('ב', 2),
+                    ('א', 1),
+                ] {
+                    while n >= value {
+                        match n {
+                            15 => fmt.push_str("ט\"ו"),
+                            16 => fmt.push_str("ט\"ז"),
+                            _ => {
+                                let append_apostrophe = n == value && fmt.is_empty();
+                                if n == value && !fmt.is_empty() {
+                                    fmt.push('"');
+                                }
+                                fmt.push(name);
+                                if append_apostrophe {
+                                    fmt.push('\'');
+                                }
+
+                                n -= value;
+                                continue;
+                            },
+                        }
+                        break 'outer;
+                    }
+                }
+                fmt
             }
         }
     }
