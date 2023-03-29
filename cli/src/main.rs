@@ -192,8 +192,9 @@ fn compile(command: CompileCommand) -> StrResult<()> {
     } else if let Some(dir) = command
         .input
         .canonicalize()
-        .map_err(|_| "given input path does not exist")?
-        .parent()
+        .ok()
+        .as_ref()
+        .and_then(|path| path.parent())
     {
         dir.into()
     } else {
