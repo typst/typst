@@ -112,7 +112,7 @@ brew install typst
 pacman -S typst
 
 # Nix
-# Use the `typst` package with `nix-shell -p typst` or build and run the bleeding edge version using `github:typst/typst` flake: `nix run github:typst/typst -- --version`
+Use the `typst` package with `nix-shell -p typst` or build and run the bleeding edge version using `github:typst/typst` flake: `nix run github:typst/typst -- --version`
 ```
 
 You can also get sources and pre-built binaries for the latest release of Typst from
