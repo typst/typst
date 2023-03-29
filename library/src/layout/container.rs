@@ -88,6 +88,10 @@ pub struct BoxElem {
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
+    /// Whether to clip the content inside the block.
+    #[default(false)]
+    pub clip: bool,
+
     /// The contents of the box.
     #[positional]
     pub body: Option<Content>,
@@ -142,6 +146,10 @@ impl Layout for BoxElem {
             let outset = self.outset(styles);
             let radius = self.radius(styles);
             frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
+        }
+
+        if self.clip(styles) {
+            frame.clip();
         }
 
         // Apply metadata.
@@ -296,6 +304,10 @@ pub struct BlockElem {
     #[default(VElem::block_spacing(Em::new(1.2).into()))]
     pub below: VElem,
 
+    /// Whether to clip the content inside the block.
+    #[default(false)]
+    pub clip: bool,
+
     /// The contents of the block.
     #[positional]
     pub body: Option<Content>,
@@ -384,6 +396,12 @@ impl Layout for BlockElem {
             let radius = self.radius(styles);
             for frame in frames.iter_mut().skip(skip as usize) {
                 frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
+            }
+        }
+
+        if self.clip(styles) {
+            for frame in frames.iter_mut() {
+                frame.clip();
             }
         }
 
