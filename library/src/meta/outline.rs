@@ -180,6 +180,7 @@ impl LocalName for OutlineElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Inhaltsverzeichnis",
+            Lang::ITALIAN => "Indice",
             Lang::ENGLISH | _ => "Contents",
         }
     }
