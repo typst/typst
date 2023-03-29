@@ -35,9 +35,10 @@ pub struct OpElem {
 
 impl LayoutMath for OpElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let frame = ctx.layout_content(&TextElem::packed(self.text()))?;
+        let fragment =
+            ctx.layout_text(&TextElem::new(self.text()).spanned(self.span()))?;
         ctx.push(
-            FrameFragment::new(ctx, frame)
+            FrameFragment::new(ctx, fragment.to_frame())
                 .with_class(MathClass::Large)
                 .with_limits(self.limits(ctx.styles())),
         );

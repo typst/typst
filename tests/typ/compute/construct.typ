@@ -58,6 +58,10 @@
 #envelope.fly
 
 ---
+// Error: 8-10 expected at least one variant
+#symbol()
+
+---
 // Test conversion to string.
 #test(str(123), "123")
 #test(str(50.14), "50.14")

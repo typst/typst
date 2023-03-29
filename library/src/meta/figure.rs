@@ -141,6 +141,7 @@ impl LocalName for FigureElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Abbildung",
+            Lang::ITALIAN => "Figura",
             Lang::ENGLISH | _ => "Figure",
         }
     }
