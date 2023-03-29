@@ -331,7 +331,8 @@ impl LayoutMath for Content {
         }
 
         if let Some(elem) = self.to::<TextElem>() {
-            ctx.layout_text(elem)?;
+            let fragment = ctx.layout_text(elem)?;
+            ctx.push(fragment);
             return Ok(());
         }
 
