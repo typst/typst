@@ -258,6 +258,9 @@ pub fn symbol(
     variants: Vec<Spanned<Variant>>,
 ) -> Value {
     let mut list = Vec::new();
+    if variants.is_empty() {
+        bail!(args.span, "expected at least one variant");
+    }
     for Spanned { v, span } in variants {
         if list.iter().any(|(prev, _)| &v.0 == prev) {
             bail!(span, "duplicate variant");
