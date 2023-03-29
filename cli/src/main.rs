@@ -189,7 +189,13 @@ fn dispatch(command: Command) -> StrResult<()> {
 fn compile(command: CompileCommand) -> StrResult<()> {
     let root = if let Some(root) = &command.root {
         root.clone()
-    } else if let Some(dir) = command.input.parent() {
+    } else if let Some(dir) = command
+        .input
+        .canonicalize()
+        .ok()
+        .as_ref()
+        .and_then(|path| path.parent())
+    {
         dir.into()
     } else {
         PathBuf::new()
