@@ -102,7 +102,6 @@ Let's dissect what's going on:
 </details>
 
 ## Install and use
-
 You can get sources and pre-built binaries for the latest release of Typst from
 the [releases page][releases].
 
