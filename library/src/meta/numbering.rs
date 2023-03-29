@@ -215,7 +215,7 @@ impl FromStr for NumberingPattern {
             let prefix = pattern[handled..i].into();
             let case = if c.is_uppercase() { Case::Upper } else { Case::Lower };
             pieces.push((prefix, kind, case));
-            handled = i + 1;
+            handled = c.len_utf8() + i;
         }
 
         let suffix = pattern[handled..].into();
