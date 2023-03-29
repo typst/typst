@@ -102,7 +102,17 @@ Let's dissect what's going on:
 </details>
 
 ## Install and use
-You can get sources and pre-built binaries for the latest release of Typst from
+Typst is available through several package managers:
+
+```sh
+# macOS or Linux using Homebrew
+brew install typst
+
+# Arch Linux
+pacman -S typst
+```
+
+You can also get sources and pre-built binaries for the latest release of Typst from
 the [releases page][releases]. This will give you Typst's CLI which converts
 Typst sources into PDFs.
 
