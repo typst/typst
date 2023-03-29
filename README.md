@@ -103,7 +103,21 @@ Let's dissect what's going on:
 
 ## Install and use
 You can get sources and pre-built binaries for the latest release of Typst from
-the [releases page][releases]. This will give you Typst's CLI which converts
+the [releases page][releases].
+
+Typst is also available through several package managers:
+
+```sh
+# macOS or Linux using Homebrew
+brew install typst
+
+# Arch Linux
+pacman -S typst
+```
+
+Nix users can use the `typst` package with `nix-shell -p typst` or build and run the bleeding edge version using the `github:typst/typst` flake with `nix run github:typst/typst -- --version`.
+
+This will give you Typst's CLI which converts
 Typst sources into PDFs.
 
 ```sh
