@@ -110,6 +110,9 @@ brew install typst
 
 # Arch Linux
 pacman -S typst
+
+# Nix
+nix-env -iA nixpkgs.typst
 ```
 
 You can also get sources and pre-built binaries for the latest release of Typst from
