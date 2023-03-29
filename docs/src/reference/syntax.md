@@ -126,10 +126,10 @@ Our study design is as follows:
 ```
 
 ## Escape sequences { #escapes }
-Escape sequences are used to insert special characters that are otherwise have
-special meaning in Typst. To escape a character, precede it with a backslash. To
-insert any Unicode codepoint, you can write a hexadecimal escape sequence:
-`[\u{1f600}]`. The same kind of escape sequences also work in
+Escape sequences are used to insert special characters that are hard to type or
+otherwise have special meaning in Typst. To escape a character, precede it with
+a backslash. To insert any Unicode codepoint, you can write a hexadecimal
+escape sequence: `[\u{1f600}]`. The same kind of escape sequences also work in
 [strings]($type/string).
 
 ```example

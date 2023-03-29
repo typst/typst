@@ -2,8 +2,7 @@ use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::env;
 use std::ffi::OsStr;
-use std::fs::{self, File};
-use std::io::Read;
+use std::fs;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
@@ -35,7 +34,7 @@ fn main() {
     let args = Args::new(env::args().skip(1));
     let mut filtered = Vec::new();
 
-    // Since differents tests can affect each other through the memoization
+    // Since different tests can affect each other through the memoization
     // cache, a deterministic order is important for reproducibility.
     for entry in WalkDir::new("typ").sort_by_file_name() {
         let entry = entry.unwrap();
@@ -326,11 +325,8 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
         .unwrap_or_else(|_| path.into());
 
     let f = |e| FileError::from_io(e, &suffix);
-    let mut file = File::open(path).map_err(f)?;
-    if file.metadata().map_err(f)?.is_file() {
-        let mut data = vec![];
-        file.read_to_end(&mut data).map_err(f)?;
-        Ok(data)
+    if fs::metadata(&path).map_err(f)?.is_file() {
+        fs::read(&path).map_err(f)
     } else {
         Err(FileError::IsDirectory)
     }
@@ -473,7 +469,7 @@ fn test_part(
     let mut errors: Vec<_> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)
-        .map(|error| (error.range(world), error.message.to_string()))
+        .map(|error| (error.range(world), error.message.replace('\\', "/")))
         .collect();
 
     errors.sort_by_key(|error| error.0.start);
@@ -555,7 +551,7 @@ fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, S
 /// same result as a clean parse.
 ///
 /// The method will first inject 10 strings once every 400 source characters
-/// and then select 5 leaf node boundries to inject an additional, randomly
+/// and then select 5 leaf node boundaries to inject an additional, randomly
 /// chosen string from the injection list.
 fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
     let supplements = [

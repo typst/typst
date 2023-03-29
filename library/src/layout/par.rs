@@ -397,7 +397,7 @@ impl SpanMapper {
 
 /// A layouted line, consisting of a sequence of layouted paragraph items that
 /// are mostly borrowed from the preparation phase. This type enables you to
-/// measure the size of a line in a range before comitting to building the
+/// measure the size of a line in a range before committing to building the
 /// line's frame.
 ///
 /// At most two paragraph items must be created individually for this line: The
@@ -892,7 +892,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // The line is overfull. This is the case if
                 // - justification is on, but we'd need to shrink too much
                 // - justification is off and the line just doesn't fit
-                // Since any longer line will also be overfull, we can deactive
+                // Since any longer line will also be overfull, we can deactivate
                 // this breakpoint.
                 active = i + 1;
                 MAX_COST

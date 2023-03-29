@@ -245,7 +245,7 @@ impl Hash for Value {
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
-    /// Create a new instance from any value that satisifies the required bounds.
+    /// Create a new instance from any value that satisfies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
         T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,

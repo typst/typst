@@ -109,7 +109,7 @@ fn is_opening_bracket(c: char) -> bool {
     matches!(c, '(' | '{' | '[')
 }
 
-/// Decides which quotes to subtitute smart quotes with.
+/// Decides which quotes to substitute smart quotes with.
 pub struct Quotes<'s> {
     /// The opening single quote.
     pub single_open: &'s str,
@@ -145,7 +145,7 @@ impl<'s> Quotes<'s> {
             "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
-            "ru" | "no" | "nn" => ("’", "’", "«", "»"),
+            "ru" | "no" | "nb" | "nn" => ("’", "’", "«", "»"),
             _ => return Self::default(),
         };
 

@@ -141,7 +141,7 @@ that, first attach a label to figure. A label uniquely identifies an element in
 your document. Add one after the figure by enclosing some name in angle
 brackets. You can then reference the figure in your text by writing an `[@]`
 symbol followed by that name. Headings and equations can also be labelled to
-make them referencable.
+make them referenceable.
 
 ```example
 Glaciers as the one shown in
@@ -168,7 +168,7 @@ calls, and more, whereas a string is really just a _sequence of characters_ and
 nothing else.
 
 For example, the image function expects a path to an image file.
-It would not make sense to pass, e.g., a paragraph of text or a another image as
+It would not make sense to pass, e.g., a paragraph of text or another image as
 the image's path parameter. That's why only strings are allowed here.
 On the contrary, strings work wherever content is expected because text is a
 valid kind of content.
@@ -249,7 +249,7 @@ $ 7.32 beta +
 ```
 
 To add a subscript to a symbol or variable, type a `_` character and then the
-superscript. Similarly, use the `^` character for a superscript. If your
+subscript. Similarly, use the `^` character for a superscript. If your
 sub- or superscript consists of multiple things, you must enclose them
 in round parentheses.
 

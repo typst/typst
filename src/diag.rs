@@ -112,16 +112,16 @@ impl Display for Tracepoint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Tracepoint::Call(Some(name)) => {
-                write!(f, "error occured in this call of function `{}`", name)
+                write!(f, "error occurred in this call of function `{}`", name)
             }
             Tracepoint::Call(None) => {
-                write!(f, "error occured in this function call")
+                write!(f, "error occurred in this function call")
             }
             Tracepoint::Show(name) => {
-                write!(f, "error occured while applying show rule to this {name}")
+                write!(f, "error occurred while applying show rule to this {name}")
             }
             Tracepoint::Import => {
-                write!(f, "error occured while importing this module")
+                write!(f, "error occurred while importing this module")
             }
         }
     }
@@ -180,7 +180,7 @@ where
 /// A result type with a file-related error.
 pub type FileResult<T> = Result<T, FileError>;
 
-/// An error that occured while trying to load of a file.
+/// An error that occurred while trying to load of a file.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum FileError {
     /// A file was not found at this path.

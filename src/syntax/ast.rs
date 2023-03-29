@@ -581,7 +581,14 @@ impl Raw {
 
     /// An optional identifier specifying the language to syntax-highlight in.
     pub fn lang(&self) -> Option<&str> {
-        let inner = self.0.text().trim_start_matches('`');
+        let text = self.0.text();
+
+        // Only blocky literals are supposed to contain a language.
+        if !text.starts_with("```") {
+            return Option::None;
+        }
+
+        let inner = text.trim_start_matches('`');
         let mut s = Scanner::new(inner);
         s.eat_if(is_id_start).then(|| {
             s.eat_while(is_id_continue);
@@ -652,7 +659,7 @@ impl Heading {
         self.0.cast_first_match().unwrap_or_default()
     }
 
-    /// The section depth (numer of equals signs).
+    /// The section depth (number of equals signs).
     pub fn level(&self) -> NonZeroUsize {
         self.0
             .children()
@@ -681,7 +688,7 @@ node! {
 
 impl EnumItem {
     /// The explicit numbering, if any: `23.`.
-    pub fn number(&self) -> Option<NonZeroUsize> {
+    pub fn number(&self) -> Option<usize> {
         self.0.children().find_map(|node| match node.kind() {
             SyntaxKind::EnumMarker => node.text().trim_end_matches('.').parse().ok(),
             _ => Option::None,
@@ -1085,7 +1092,7 @@ impl Array {
 pub enum ArrayItem {
     /// A bare expression: `12`.
     Pos(Expr),
-    /// A spreaded expression: `..things`.
+    /// A spread expression: `..things`.
     Spread(Expr),
 }
 
@@ -1117,14 +1124,14 @@ impl Dict {
     }
 }
 
-/// An item in an dictionary expresssion.
+/// An item in an dictionary expression.
 #[derive(Debug, Clone, Hash)]
 pub enum DictItem {
     /// A named pair: `thickness: 3pt`.
     Named(Named),
     /// A keyed pair: `"spacy key": true`.
     Keyed(Keyed),
-    /// A spreaded expression: `..things`.
+    /// A spread expression: `..things`.
     Spread(Expr),
 }
 
@@ -1484,7 +1491,7 @@ pub enum Arg {
     Pos(Expr),
     /// A named argument: `draw: false`.
     Named(Named),
-    /// A spreaded argument: `..things`.
+    /// A spread argument: `..things`.
     Spread(Expr),
 }
 

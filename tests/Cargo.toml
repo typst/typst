@@ -7,7 +7,7 @@ edition = "2021"
 [dev-dependencies]
 typst = { path = ".." }
 typst-library = { path = "../library" }
-comemo = { git = "https://github.com/typst/comemo" }
+comemo = "0.2"
 elsa = "1.7"
 iai = { git = "https://github.com/reknih/iai" }
 once_cell = "1"

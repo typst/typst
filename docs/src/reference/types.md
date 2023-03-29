@@ -1,5 +1,5 @@
 # None
-A type that indicates the absence of any other value.
+A value that indicates the absence of any other value.
 
 The none type has exactly one value: `{none}`.
 
@@ -14,7 +14,7 @@ Not visible: #none
 ```
 
 # Auto
-A type that indicates a smart default.
+A value that indicates a smart default.
 
 The auto type has exactly one value: `{auto}`.
 
@@ -24,7 +24,7 @@ Setting it to `{auto}` lets Typst automatically determine the direction from the
 [text language]($func/text.lang).
 
 # Boolean
-A value with two states.
+Either `{true}` or `{false}`.
 
 The boolean type has two values: `{true}` and `{false}`. It denotes whether
 something is active or enabled.
@@ -153,15 +153,19 @@ Lightens a color.
 
 - amount: ratio (positional, required)
   The factor to lighten the color by.
+- returns: color
 
 ### darken()
 Darkens a color.
 
 - amount: ratio (positional, required)
   The factor to darken the color by.
+- returns: color
 
 ### negate()
 Produces the negative of the color.
+
+- returns: color
 
 # Symbol
 A Unicode symbol.
@@ -379,7 +383,7 @@ the resulting parts.
 - returns: array
 
 # Content
-Representation of document content.
+A piece of document content.
 
 This type is at the heart of Typst. All markup you write and most
 [functions]($type/function) you call produce content values. You can create a
@@ -466,8 +470,9 @@ Arrays can be added together with the `+` operator,
 [joined together]($scripting/#blocks) and multiplied with
 integers.
 
-Empty parenthesis yield an array of length zero and a parentheses-wrapped value
-with trailing comma yields an array of length one.
+**Note:** An array of length one needs a trailing comma, as in `{(1,)}`. This is
+to disambiguate from a simple parenthesized expressions like `{(1 + 2) * 3}`.
+An empty array is written as `{()}`.
 
 ## Example
 ```example
@@ -659,6 +664,7 @@ instead of integers. You can access and create dictionary entries with the
 [field access notation]($scripting/#fields) (`.key`) to access
 the value. Dictionaries can be added with the `+` operator and
 [joined together]($scripting/#blocks).
+To check whether a key is present in the dictionary, use the `in` keyword.
 
 You can iterate over the pairs in a dictionary using a
 [for loop]($scripting/#loops).
@@ -682,6 +688,7 @@ special `(:)` syntax to create an empty dictionary.
 #dict.values() \
 #dict.at("born") \
 #dict.insert("city", "Berlin ")
+#("name" in dict)
 ```
 
 ## Methods
@@ -696,12 +703,13 @@ May be used on the left-hand side of an assignment if the key is already
 present in the dictionary.
 Fails with an error if the key is not part of the dictionary.
 
-- index: integer (positional, required)
-  The index at which to retrieve the item.
+- key: string (positional, required)
+  The key at which to retrieve the item.
 - returns: any
 
 ### insert()
 Insert a new pair into the dictionary and return the value.
+If the dictionary already contains this key, the value is updated.
 
 - key: string (positional, required)
   The key of the pair that should be inserted.
@@ -813,6 +821,10 @@ once?
 In Typst, all functions are _pure._ This means that for the same
 arguments, they always return the same result. They cannot "remember" things to
 produce another value when they are called a second time.
+
+The only exception are built-in methods like
+[`array.push(value)`]($type/array.push). These can modify the values they are
+called on.
 
 ## Methods
 ### with()

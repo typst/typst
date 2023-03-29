@@ -24,8 +24,8 @@ pub struct VecElem {
     /// #set math.vec(delim: "[")
     /// $ vec(1, 2) $
     /// ```
-    #[default(Delimiter::Paren)]
-    pub delim: Delimiter,
+    #[default(Some(Delimiter::Paren))]
+    pub delim: Option<Delimiter>,
 
     /// The elements of the vector.
     #[variadic]
@@ -39,8 +39,8 @@ impl LayoutMath for VecElem {
         layout_delimiters(
             ctx,
             frame,
-            Some(delim.open()),
-            Some(delim.close()),
+            delim.map(Delimiter::open),
+            delim.map(Delimiter::close),
             self.span(),
         )
     }
@@ -76,8 +76,8 @@ pub struct MatElem {
     /// #set math.mat(delim: "[")
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[default(Delimiter::Paren)]
-    pub delim: Delimiter,
+    #[default(Some(Delimiter::Paren))]
+    pub delim: Option<Delimiter>,
 
     /// An array of arrays with the rows of the matrix.
     ///
@@ -121,8 +121,8 @@ impl LayoutMath for MatElem {
         layout_delimiters(
             ctx,
             frame,
-            Some(delim.open()),
-            Some(delim.close()),
+            delim.map(Delimiter::open),
+            delim.map(Delimiter::close),
             self.span(),
         )
     }

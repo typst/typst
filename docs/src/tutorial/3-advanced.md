@@ -81,7 +81,7 @@ Last but not least is the `numbering` argument. Here, we can provide a
 [numbering pattern]($func/numbering) that defines how to number the pages. By
 setting into to `{"1"}`, Typst only displays the bare page number. Setting it to
 `{"(1/1)"}` would have displayed the current page and total number of pages
-surrounded by parentheses. And we can even have provided a completely custom
+surrounded by parentheses. And we could even have provided a completely custom
 function here to format things to our liking.
 
 ## Creating a title and abstract
@@ -337,10 +337,10 @@ a way to set any of that, we need to write our own heading show rule.
 >>>   ),
 >>>   numbering: "1",
 >>> )
-#show heading: it => block[
+#show heading: it => [
   #set align(center)
   #set text(12pt, weight: "regular")
-  #smallcaps(it.body)
+  #block(smallcaps(it.body))
 ]
 
 <<< ...
@@ -416,7 +416,7 @@ differentiate between section and subsection headings:
 >>>
 #show heading.where(
   level: 1
-): it => block[
+): it => block(width: 100%)[
   #set align(center)
   #set text(12pt, weight: "regular")
   #smallcaps(it.body)

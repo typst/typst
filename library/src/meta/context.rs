@@ -6,6 +6,35 @@ use crate::prelude::*;
 /// [counters]($func/counter), [state]($func/state), and [links]($func/link).
 /// See their documentation for more details.
 ///
+/// ```example
+/// #locate(loc => [
+///   My locatation: \
+///   #loc.position()!
+/// ])
+/// ```
+///
+/// ## Methods
+/// ### page()
+/// Return the page number for this location.
+///
+/// Note that this does not return the value of the [page counter]($func/counter)
+/// at this location, but the true page number (starting from one).
+///
+/// If you want to know the value of the page counter, use
+/// `{counter(page).at(loc)}` instead.
+///
+/// - returns: integer
+///
+/// ### position()
+/// Return a dictionary with the page number and the x, y position for this
+/// location. The page number starts at one and the coordinates are measured
+/// from the top-left of the page.
+///
+/// If you only need the page number, use `page()` instead as it allows Typst
+/// to skip unnecessary work.
+///
+/// - returns: dictionary
+///
 /// Display: Locate
 /// Category: meta
 /// Returns: content

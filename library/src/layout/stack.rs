@@ -32,7 +32,7 @@ pub struct StackElem {
     /// Spacing to insert between items where no explicit spacing was provided.
     pub spacing: Option<Spacing>,
 
-    /// The childfren to stack along the axis.
+    /// The children to stack along the axis.
     #[variadic]
     pub children: Vec<StackChild>,
 }
@@ -233,7 +233,7 @@ impl<'a> StackLayouter<'a> {
 
     /// Advance to the next region.
     fn finish_region(&mut self) {
-        // Determine the size of the stack in this region dependening on whether
+        // Determine the size of the stack in this region depending on whether
         // the region expands.
         let mut size = self
             .expand

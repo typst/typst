@@ -425,7 +425,7 @@ mod tests {
             assert_eq!(source.lines, result.lines);
         }
 
-        // Test inserting at the begining.
+        // Test inserting at the beginning.
         test("abc\n", 0..0, "hi\n", "hi\nabc\n");
         test("\nabc", 0..0, "hi\r", "hi\r\nabc");
 

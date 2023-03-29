@@ -659,7 +659,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         assert!(x < self.cols.len());
         assert!(y < self.rows.len());
 
-        // Columns are reorded, but the cell slice is not.
+        // Columns are reorder, but the cell slice is not.
         if self.is_rtl {
             x = self.cols.len() - 1 - x;
         }

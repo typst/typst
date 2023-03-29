@@ -195,7 +195,7 @@ fn markup_completions(ctx: &mut CompletionContext) {
     ctx.snippet_completion(
         "label",
         "<${name}>",
-        "Makes the preceding element referencable.",
+        "Makes the preceding element referenceable.",
     );
 
     ctx.snippet_completion(
@@ -517,7 +517,7 @@ fn show_rule_selector_completions(ctx: &mut CompletionContext) {
     ctx.snippet_completion(
         "text selector",
         "\"${text}\": ${}",
-        "Replace occurances of specific text.",
+        "Replace occurrences of specific text.",
     );
 
     ctx.snippet_completion(
@@ -794,19 +794,19 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
     ctx.snippet_completion(
         "while loop",
         "while ${1 < 2} {\n\t${}\n}",
-        "Computes or inserts somthing while a condition is met.",
+        "Computes or inserts something while a condition is met.",
     );
 
     ctx.snippet_completion(
         "for loop",
         "for ${value} in ${(1, 2, 3)} {\n\t${}\n}",
-        "Computes or inserts somthing for each value in a collection.",
+        "Computes or inserts something for each value in a collection.",
     );
 
     ctx.snippet_completion(
         "for loop (with key)",
         "for ${key}, ${value} in ${(a: 1, b: 2)} {\n\t${}\n}",
-        "Computes or inserts somthing for each key and value in a collection.",
+        "Computes or inserts something for each key and value in a collection.",
     );
 
     ctx.snippet_completion(

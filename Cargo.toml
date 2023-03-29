@@ -16,7 +16,7 @@ bench = false
 typst-macros = { path = "macros" }
 bitflags = "1"
 bytemuck = "1"
-comemo = { git = "https://github.com/typst/comemo" }
+comemo = "0.2"
 ecow = "0.1"
 flate2 = "1"
 if_chain = "1"
@@ -25,7 +25,7 @@ log = "0.4"
 miniz_oxide = "0.5"
 once_cell = "1"
 pdf-writer = "0.6"
-pixglyph = { git = "https://github.com/typst/pixglyph" }
+pixglyph = "0.1"
 regex = "1"
 resvg = { version = "0.22", default-features = false }
 roxmltree = "0.14"
@@ -37,7 +37,7 @@ svg2pdf = "0.4"
 thin-vec = "0.2"
 tiny-skia = "0.6.2"
 ttf-parser = "0.18.1"
-unicode-math-class = { git = "https://github.com/typst/unicode-math-class" }
+unicode-math-class = "0.1"
 unicode-segmentation = "1"
 unicode-xid = "0.2"
 unscanny = "0.1"
@@ -49,3 +49,6 @@ debug = 0
 
 [profile.dev.package."*"]
 opt-level = 2
+
+[profile.release.package."typst-cli"]
+strip = true

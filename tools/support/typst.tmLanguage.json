@@ -96,7 +96,7 @@
           "name": "string.other.math.typst",
           "begin": "\\$",
           "end": "\\$",
-          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
+          "captures": { "0": { "name": "punctuation.definition.string.math.typst" } }
         },
         {
           "name": "markup.heading.typst",
@@ -364,7 +364,7 @@
           "name": "string.other.math.typst",
           "begin": "\\$",
           "end": "\\$",
-          "captures": { "0": { "name": "punctuation.defintion.string.math.typst" } }
+          "captures": { "0": { "name": "punctuation.definition.string.math.typst" } }
         }
       ]
     },

@@ -57,6 +57,7 @@ pub fn module() -> Module {
     math.define("norm", norm);
     math.define("floor", floor);
     math.define("ceil", ceil);
+    math.define("round", round);
 
     // Attachments and accents.
     math.define("attach", AttachElem::func());

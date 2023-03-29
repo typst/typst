@@ -9,6 +9,9 @@ use super::AlignElem;
 /// Space may be inserted between the instances of the body parameter, so be
 /// sure to include negative space if you need the instances to overlap.
 ///
+/// Errors if there no bounds on the available space, as it would create
+/// infinite content.
+///
 /// ## Example
 /// ```example
 /// Sign on the dotted line:
@@ -48,6 +51,11 @@ impl Layout for RepeatElem {
         let apart = remaining / (count - 1.0);
 
         let size = Size::new(regions.size.x, piece.height());
+
+        if !size.is_finite() {
+            bail!(self.span(), "repeat with no size restrictions");
+        }
+
         let mut frame = Frame::new(size);
         if piece.has_baseline() {
             frame.set_baseline(piece.baseline());
