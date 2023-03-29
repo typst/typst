@@ -102,7 +102,11 @@ Let's dissect what's going on:
 </details>
 
 ## Install and use
-Typst is available through several package managers:
+
+You can get sources and pre-built binaries for the latest release of Typst from
+the [releases page][releases].
+
+Typst is also available through several package managers:
 
 ```sh
 # macOS or Linux using Homebrew
@@ -110,13 +114,11 @@ brew install typst
 
 # Arch Linux
 pacman -S typst
-
-# Nix
-Use the `typst` package with `nix-shell -p typst` or build and run the bleeding edge version using `github:typst/typst` flake: `nix run github:typst/typst -- --version`
 ```
 
-You can also get sources and pre-built binaries for the latest release of Typst from
-the [releases page][releases]. This will give you Typst's CLI which converts
+Nix users can use the `typst` package with `nix-shell -p typst` or build and run the bleeding edge version using the `github:typst/typst` flake with `nix run github:typst/typst -- --version`.
+
+This will give you Typst's CLI which converts
 Typst sources into PDFs.
 
 ```sh
