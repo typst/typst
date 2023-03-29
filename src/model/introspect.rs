@@ -3,9 +3,11 @@ use std::hash::Hash;
 use std::num::NonZeroUsize;
 
 use super::{Content, Selector};
+use crate::diag::StrResult;
 use crate::doc::{Frame, FrameItem, Meta, Position};
 use crate::eval::cast_from_value;
 use crate::geom::{Point, Transform};
+use crate::model::Label;
 use crate::util::NonZeroExt;
 
 /// Stably identifies an element in the document across multiple layout passes.
@@ -158,6 +160,18 @@ impl Introspector {
             .filter(|elem| selector.matches(elem))
             .cloned()
             .collect()
+    }
+
+    /// Query for a unique element with the label.
+    pub fn query_label(&self, label: &Label) -> StrResult<Content> {
+        let mut found = None;
+        for elem in self.all().filter(|elem| elem.label() == Some(label)) {
+            if found.is_some() {
+                return Err("label occurs multiple times in the document".into());
+            }
+            found = Some(elem.clone());
+        }
+        found.ok_or_else(|| "label does not exist in the document".into())
     }
 
     /// The total number pages.

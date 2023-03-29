@@ -7,9 +7,12 @@ description: |
 # Changelog
 ## Unreleased
 - Added [`polygon`]($func/polygon) function
-- Reduced maximum function call depth from 256 to 64
+- The [`link`]($func/link) function now accepts [labels]($func/label)
+- Fixed styling of text operators in math
+- Fixed invalid parsing of language tag in raw block with a single backtick
 - CLI now returns with non-zero status code if there is an error
 - CLI now watches the root directory instead of the current one
+- Reduced maximum function call depth from 256 to 64
 
 ## March 28, 2023
 - **Breaking:** Enumerations now require a space after their marker, that is,
