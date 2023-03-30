@@ -140,11 +140,6 @@ impl CompileSettings {
         };
         Self::new(input, output, watch, args.root, args.font_paths)
     }
-
-    /// Compile the input file into the output file.
-    pub fn compile(self) -> StrResult<()> {
-        compile(self)
-    }
 }
 
 struct FontsSettings {
@@ -171,11 +166,6 @@ impl FontsSettings {
             _ => unreachable!(),
         }
     }
-
-    /// List all discovered fonts in system and custom font paths
-    pub fn fonts(self) -> StrResult<()> {
-        fonts(self)
-    }
 }
 
 /// Entry point.
@@ -183,9 +173,10 @@ fn main() {
     let arguments = CliArguments::parse();
 
     let res = match &arguments.command {
-        Command::Compile(_) => CompileSettings::with_arguments(arguments).compile(),
-        Command::Watch(_) => CompileSettings::with_arguments(arguments).compile(),
-        Command::Fonts(_) => FontsSettings::with_arguments(arguments).fonts(),
+        Command::Compile(_) | Command::Watch(_) => {
+            compile(CompileSettings::with_arguments(arguments))
+        }
+        Command::Fonts(_) => fonts(FontsSettings::with_arguments(arguments)),
     };
 
     if let Err(msg) = res {
