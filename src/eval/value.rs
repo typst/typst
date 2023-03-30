@@ -241,7 +241,7 @@ impl Hash for Value {
 }
 
 /// A dynamic value.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
@@ -278,6 +278,12 @@ impl Debug for Dynamic {
 impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
+    }
+}
+
+impl Hash for Dynamic {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.hash128().hash(state);
     }
 }
 

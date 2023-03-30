@@ -1,4 +1,5 @@
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
@@ -7,7 +8,7 @@ use super::{Content, Scope, Value};
 use crate::diag::StrResult;
 
 /// An evaluated module, ready for importing or typesetting.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Module(Arc<Repr>);
 
 /// The internal representation.
@@ -83,5 +84,11 @@ impl Debug for Module {
 impl PartialEq for Module {
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Hash for Module {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.0).hash(state);
     }
 }

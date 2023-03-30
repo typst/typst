@@ -17,7 +17,7 @@ use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Func {
     /// The internal representation.
     repr: Repr,
@@ -161,6 +161,12 @@ impl Debug for Func {
 impl PartialEq for Func {
     fn eq(&self, other: &Self) -> bool {
         self.repr == other.repr
+    }
+}
+
+impl Hash for Func {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.repr.hash(state);
     }
 }
 

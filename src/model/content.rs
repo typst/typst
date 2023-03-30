@@ -1,5 +1,6 @@
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
+use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
@@ -16,7 +17,7 @@ use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// Composable representation of styled content.
-#[derive(Clone, Hash)]
+#[derive(Clone)]
 pub struct Content {
     func: ElemFunc,
     attrs: EcoVec<Attr>,
@@ -388,6 +389,27 @@ impl PartialEq for Content {
             left == right
         } else {
             self.func == other.func && self.fields_ref().eq(other.fields_ref())
+        }
+    }
+}
+
+impl Hash for Content {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        #[derive(Hash)]
+        enum Kind {
+            Sequence,
+            Styled,
+            Func,
+        }
+
+        if let Some(sequence) = self.to_sequence() {
+            Kind::Sequence.hash(state);
+            sequence.for_each(|child| child.hash(state));
+        } else if let Some(styled) = self.to_styled() {
+            (Kind::Styled, styled).hash(state);
+        } else {
+            (Kind::Func, self.func).hash(state);
+            self.fields_ref().for_each(|child| child.hash(state));
         }
     }
 }
