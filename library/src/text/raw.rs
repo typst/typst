@@ -105,17 +105,24 @@ pub struct RawElem {
 
 impl RawElem {
     /// The supported language names and tags.
-    pub fn languages() -> Vec<(&'static str, Vec<&'static str>)> {
-        SYNTAXES
-            .syntaxes()
+    pub fn languages(world: &dyn World) -> Vec<(EcoString, Vec<EcoString>)> {
+        let syntaxes = world.syntax_set().0.syntaxes();
+        syntaxes
             .iter()
             .map(|syntax| {
                 (
-                    syntax.name.as_str(),
-                    syntax.file_extensions.iter().map(|s| s.as_str()).collect(),
+                    EcoString::from(syntax.name.clone()),
+                    syntax
+                        .file_extensions
+                        .iter()
+                        .map(|s| EcoString::from(s.clone()))
+                        .collect(),
                 )
             })
-            .chain([("Typst", vec!["typ"]), ("Typst (code)", vec!["typc"])])
+            .chain([
+                (EcoString::inline("Typst"), vec![EcoString::inline("typ")]),
+                (EcoString::inline("Typst (code)"), vec![EcoString::inline("typc")]),
+            ])
             .collect()
     }
 }
@@ -127,7 +134,7 @@ impl Synthesize for RawElem {
 }
 
 impl Show for RawElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
@@ -156,7 +163,7 @@ impl Show for RawElem {
 
             Content::sequence(seq)
         } else if let Some(syntax) =
-            lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
+            lang.and_then(|token| vt.world.syntax_set().0.find_syntax_by_token(&token))
         {
             let mut seq = vec![];
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
@@ -165,8 +172,10 @@ impl Show for RawElem {
                     seq.push(LinebreakElem::new().pack());
                 }
 
-                for (style, piece) in
-                    highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
+                for (style, piece) in highlighter
+                    .highlight_line(line, &vt.world.syntax_set().0)
+                    .into_iter()
+                    .flatten()
                 {
                     seq.push(styled(piece, foreground, style));
                 }
@@ -254,10 +263,6 @@ fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> RgbaColor {
 fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
     synt::Color { r, g, b, a }
 }
-
-/// The syntect syntax definitions.
-static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(|| syntect::parsing::SyntaxSet::load_defaults_nonewlines());
 
 /// The default theme used for syntax highlighting.
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {

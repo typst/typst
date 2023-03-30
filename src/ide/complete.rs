@@ -951,10 +951,10 @@ impl<'a> CompletionContext<'a> {
 
     /// Add completions for raw block tags.
     fn raw_completions(&mut self) {
-        for (name, mut tags) in (self.library.items.raw_languages)() {
+        for (name, mut tags) in (self.library.items.raw_languages)(self.world) {
             let lower = name.to_lowercase();
-            if !tags.contains(&lower.as_str()) {
-                tags.push(lower.as_str());
+            if !tags.contains(&lower) {
+                tags.push(lower);
             }
 
             tags.retain(|tag| is_ident(tag));
@@ -965,7 +965,7 @@ impl<'a> CompletionContext<'a> {
             self.completions.push(Completion {
                 kind: CompletionKind::Constant,
                 label: name.into(),
-                apply: Some(tags[0].into()),
+                apply: Some(tags[0].clone()),
                 detail: Some(separated_list(&tags, " or ").into()),
             });
         }

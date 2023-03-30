@@ -1391,6 +1391,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "walkdir",
+ "yaml-rust",
 ]
 
 [[package]]
@@ -1514,6 +1515,7 @@ dependencies = [
  "siphasher",
  "subsetter",
  "svg2pdf",
+ "syntect",
  "thin-vec",
  "tiny-skia",
  "ttf-parser 0.18.1",
@@ -1541,6 +1543,7 @@ dependencies = [
  "once_cell",
  "same-file",
  "siphasher",
+ "syntect",
  "typst",
  "typst-library",
  "walkdir",
@@ -1557,6 +1560,7 @@ dependencies = [
  "pulldown-cmark",
  "serde",
  "serde_yaml",
+ "syntect",
  "typst",
  "typst-library",
  "unicode_names2",

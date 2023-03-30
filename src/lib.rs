@@ -54,6 +54,8 @@ pub mod syntax;
 use std::path::Path;
 
 use comemo::{Prehashed, Track};
+use once_cell::sync::Lazy;
+use syntect::parsing::SyntaxSet;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
@@ -102,6 +104,25 @@ pub trait World {
     /// Try to access the font with the given id.
     fn font(&self, id: usize) -> Option<Font>;
 
+    /// The syntec syntax definitions.
+    fn syntax_set(&self) -> &typst::SyntaxSetWrapper {
+        &DEFAULT_SYNTAXES
+    }
+
     /// Try to access a file at a path.
     fn file(&self, path: &Path) -> FileResult<Buffer>;
+}
+
+/// The default syntect syntax definitions.
+static DEFAULT_SYNTAXES: Lazy<SyntaxSetWrapper> = Lazy::new(|| {
+    SyntaxSetWrapper(syntect::parsing::SyntaxSet::load_defaults_nonewlines())
+});
+
+pub struct SyntaxSetWrapper(pub SyntaxSet);
+
+impl std::hash::Hash for SyntaxSetWrapper {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // TODO: This is a really bad hash function
+        state.write_usize(self.0.syntaxes().len());
+    }
 }

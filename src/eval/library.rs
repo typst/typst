@@ -59,7 +59,7 @@ pub struct LangItems {
     /// Raw text with optional syntax highlighting: `` `...` ``.
     pub raw: fn(text: EcoString, tag: Option<EcoString>, block: bool) -> Content,
     /// The language names and tags supported by raw text.
-    pub raw_languages: fn() -> Vec<(&'static str, Vec<&'static str>)>,
+    pub raw_languages: fn(world: &dyn World) -> Vec<(EcoString, Vec<EcoString>)>,
     /// A hyperlink: `https://typst.org`.
     pub link: fn(url: EcoString) -> Content,
     /// A reference: `@target`, `@target[..]`.
