@@ -6,6 +6,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
+use clap::{ArgAction, Parser, Subcommand};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use comemo::Prehashed;
@@ -23,7 +24,6 @@ use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
 use typst::World;
 use walkdir::WalkDir;
-use clap::{Parser, ArgAction, Subcommand};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -61,7 +61,7 @@ enum Command {
     Fonts(FontsCommand),
 }
 
-    /// Compiles the input file into a PDF file
+/// Compiles the input file into a PDF file
 #[derive(Debug, Clone, Parser)]
 pub struct CompileCommand {
     /// Path to input Typst file
@@ -71,7 +71,7 @@ pub struct CompileCommand {
     output: Option<PathBuf>,
 }
 
-    /// Watches the input file and recompiles on changes
+/// Watches the input file and recompiles on changes
 #[derive(Debug, Clone, Parser)]
 pub struct WatchCommand {
     /// Path to input Typst file
@@ -109,27 +109,27 @@ struct CompileSettings {
 
 impl CompileSettings {
     /// Create a new compile settings from the field values.
-    pub fn new(input: PathBuf, output: Option<PathBuf>, watch: bool, root: Option<PathBuf>, font_paths: Vec<PathBuf>) -> Self{
+    pub fn new(
+        input: PathBuf,
+        output: Option<PathBuf>,
+        watch: bool,
+        root: Option<PathBuf>,
+        font_paths: Vec<PathBuf>,
+    ) -> Self {
         let output = match output {
             Some(path) => path,
             None => {
                 let mut out = input.clone();
                 out.set_extension("pdf");
                 out
-            },
+            }
         };
 
-        Self {
-            input,
-            output,
-            watch,
-            root,
-            font_paths,
-        }
-    }   
+        Self { input, output, watch, root, font_paths }
+    }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
-    /// 
+    ///
     /// # Panics
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
@@ -158,14 +158,11 @@ struct FontsSettings {
 impl FontsSettings {
     /// Create a new font settings from the field values.
     pub fn new(font_paths: Vec<PathBuf>, variants: bool) -> Self {
-        Self {
-            font_paths,
-            variants,
-        }
+        Self { font_paths, variants }
     }
 
     /// Create a new font settings from the CLI arguments.
-    /// 
+    ///
     /// # Panics
     /// Panics if the command is not a fonts command.
     pub fn with_arguments(args: CliArguments) -> Self {
