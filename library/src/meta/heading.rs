@@ -142,6 +142,7 @@ impl LocalName for HeadingElem {
         match lang {
             Lang::GERMAN => "Abschnitt",
             Lang::ITALIAN => "Sezione",
+            Lang::RUSSIAN => "Раздел",
             Lang::ENGLISH | _ => "Section",
         }
     }

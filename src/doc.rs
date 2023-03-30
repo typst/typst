@@ -517,6 +517,7 @@ pub struct Lang([u8; 3], u8);
 impl Lang {
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
+    pub const RUSSIAN: Self = Self(*b"ru ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
 
     /// Return the language code as an all lowercase string slice.
