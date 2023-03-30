@@ -78,13 +78,8 @@ pub fn csv(
         // Original solution use line from error, but that is incorrect with has_headers set to false
         // See issue: https://github.com/BurntSushi/rust-csv/issues/184
         let line = line + 1; // Counting lines from 1
-        let sub = result
-            .map_err(|err| format_csv_error(err, line))
-            .at(span)?
-            .into_iter()
-            .map(Str::from)
-            .map(Value::Str)
-            .collect();
+        let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
+        let sub = row.into_iter().map(|field| Value::Str(field.into())).collect();
         array.push(Value::Array(sub))
     }
 
