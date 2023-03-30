@@ -27,6 +27,8 @@ pico-args = "0.4"
 same-file = "1"
 siphasher = "0.3"
 walkdir = "2"
+pandoc_types = "0.6.0"
+serde_json = "1.0.95"
 
 [features]
 default = ["embed-fonts"]

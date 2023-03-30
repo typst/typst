@@ -54,6 +54,7 @@ pub mod syntax;
 use std::path::Path;
 
 use comemo::{Prehashed, Track};
+use model::Content;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
@@ -61,6 +62,17 @@ use crate::eval::{Library, Route, Tracer};
 use crate::font::{Font, FontBook};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
+
+/// Compile a source file into a unlayouted content object
+pub fn compile_to_content(world: &(dyn World + 'static)) -> SourceResult<Content> {
+    // Evaluate the source file into a module.
+    let route = Route::default();
+    let mut tracer = Tracer::default();
+    let module =
+        eval::eval(world.track(), route.track(), tracer.track_mut(), world.main())?;
+
+    Ok(module.content())
+}
 
 /// Compile a source file into a fully layouted document.
 pub fn compile(world: &(dyn World + 'static)) -> SourceResult<Document> {

@@ -5,6 +5,7 @@ use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
+use std::str::FromStr;
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
@@ -28,16 +29,35 @@ use walkdir::WalkDir;
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
+mod pandoc;
+
 /// What to do.
 enum Command {
     Compile(CompileCommand),
     Fonts(FontsCommand),
 }
 
+enum OutputFormat {
+    PDF,
+    PandocJson,
+}
+impl FromStr for OutputFormat {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        use OutputFormat::*;
+        match s {
+            "pdf" => Ok(PDF),
+            "pandoc-json" => Ok(PandocJson),
+            other => Err(format!("invalid format: {}", other))
+        }
+    }
+}
 /// Compile a .typ file into a PDF file.
 struct CompileCommand {
     input: PathBuf,
     output: PathBuf,
+    output_format: OutputFormat,
     root: Option<PathBuf>,
     watch: bool,
     font_paths: Vec<PathBuf>,
@@ -118,9 +138,13 @@ fn parse_args() -> StrResult<Command> {
         }
 
         let root = args.opt_value_from_str("--root").map_err(|_| "missing root path")?;
+        let output_format = args
+            .opt_value_from_str("--output-format").map_err(|_| "unknown output format")?
+            .unwrap_or(OutputFormat::PDF);
+
         let watch = args.contains(["-w", "--watch"]);
         let (input, output) = parse_input_output(&mut args, "pdf")?;
-        Command::Compile(CompileCommand { input, output, watch, root, font_paths })
+        Command::Compile(CompileCommand { input, output, watch, root, font_paths, output_format })
     };
 
     // Don't allow excess arguments.
@@ -260,10 +284,13 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
     world.reset();
     world.main = world.resolve(&command.input).map_err(|err| err.to_string())?;
 
-    match typst::compile(world) {
+    let res = match command.output_format {
+        OutputFormat::PDF => typst::compile(world).map(|doc| typst::export::pdf(&doc)),
+        OutputFormat::PandocJson => typst::compile_to_content(world).map(|cont| pandoc::pandoc(&cont)),
+    };
+    match res {
         // Export the PDF.
-        Ok(document) => {
-            let buffer = typst::export::pdf(&document);
+        Ok(buffer) => {
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
             status(command, Status::Success).unwrap();
             Ok(false)

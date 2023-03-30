@@ -800,6 +800,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7e5500299e16ebb147ae15a00a942af264cf3688f47923b8fc2cd5858f23ad3"
 
 [[package]]
+name = "pandoc_types"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16172f24b8ad7f0ded9947f3d33f0344bc4d4e7c4937a2a0c405447403211434"
+dependencies = [
+ "serde",
+ "serde_tuple",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1080,13 +1090,34 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.94"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c533a59c9d8a93a09c6ab31f0fd5e5f4dd1b8fc9434804029839884765d04ea"
+checksum = "d721eca97ac802aa7777b701877c8004d950fc142651367300d21c1cc0194744"
 dependencies = [
  "itoa",
  "ryu",
  "serde",
+]
+
+[[package]]
+name = "serde_tuple"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f4f025b91216f15a2a32aa39669329a475733590a015835d1783549a56d09427"
+dependencies = [
+ "serde",
+ "serde_tuple_macros",
+]
+
+[[package]]
+name = "serde_tuple_macros"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4076151d1a2b688e25aaf236997933c66e18b870d0369f8b248b8ab2be630d7e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -1365,8 +1396,10 @@ dependencies = [
  "memmap2",
  "notify",
  "once_cell",
+ "pandoc_types",
  "pico-args",
  "same-file",
+ "serde_json",
  "siphasher",
  "typst",
  "typst-library",
