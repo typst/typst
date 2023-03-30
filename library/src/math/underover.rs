@@ -4,6 +4,9 @@ const LINE_GAP: Em = Em::new(0.15);
 const BRACE_GAP: Em = Em::new(0.25);
 const BRACKET_GAP: Em = Em::new(0.25);
 
+const COMBINING_OVERLINE: char = '\u{305}';
+const COMBINING_LOW_LINE: char = '\u{332}';
+
 /// A horizontal line under content.
 ///
 /// ## Example
@@ -22,7 +25,7 @@ pub struct UnderlineElem {
 
 impl LayoutMath for UnderlineElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false, self.span())
+        layout(ctx, &self.body(), &None, COMBINING_LOW_LINE, LINE_GAP, false, self.span())
     }
 }
 
@@ -44,7 +47,7 @@ pub struct OverlineElem {
 
 impl LayoutMath for OverlineElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true, self.span())
+        layout(ctx, &self.body(), &None, COMBINING_OVERLINE, LINE_GAP, true, self.span())
     }
 }
 
