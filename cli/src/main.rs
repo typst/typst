@@ -6,6 +6,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
+use clap::{ArgAction, Parser, Subcommand};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use comemo::Prehashed;
@@ -61,7 +62,7 @@ enum Command {
     Fonts(FontsCommand),
 }
 
-    /// Compiles the input file into a PDF file
+/// Compiles the input file into a PDF file
 #[derive(Debug, Clone, Parser)]
 pub struct CompileCommand {
     /// Path to input Typst file
@@ -71,7 +72,7 @@ pub struct CompileCommand {
     output: Option<PathBuf>,
 }
 
-    /// Watches the input file and recompiles on changes
+/// Watches the input file and recompiles on changes
 #[derive(Debug, Clone, Parser)]
 pub struct WatchCommand {
     /// Path to input Typst file
@@ -109,27 +110,23 @@ struct CompileSettings {
 
 impl CompileSettings {
     /// Create a new compile settings from the field values.
-    pub fn new(input: PathBuf, output: Option<PathBuf>, watch: bool, root: Option<PathBuf>, font_paths: Vec<PathBuf>) -> Self{
+    pub fn new(
+        input: PathBuf,
+        output: Option<PathBuf>,
+        watch: bool,
+        root: Option<PathBuf>,
+        font_paths: Vec<PathBuf>,
+    ) -> Self {
         let output = match output {
             Some(path) => path,
-            None => {
-                let mut out = input.clone();
-                out.set_extension("pdf");
-                out
-            },
+            None => input.with_extension("pdf"),
         };
 
-        Self {
-            input,
-            output,
-            watch,
-            root,
-            font_paths,
-        }
-    }   
+        Self { input, output, watch, root, font_paths }
+    }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
-    /// 
+    ///
     /// # Panics
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
@@ -139,11 +136,6 @@ impl CompileSettings {
             _ => unreachable!(),
         };
         Self::new(input, output, watch, args.root, args.font_paths)
-    }
-
-    /// Compile the input file into the output file.
-    pub fn compile(self) -> StrResult<()> {
-        compile(self)
     }
 }
 
@@ -156,16 +148,13 @@ struct FontsSettings {
 }
 
 impl FontsSettings {
-    /// Create a new font settings from the field values.
+    /// Create font settings from the field values.
     pub fn new(font_paths: Vec<PathBuf>, variants: bool) -> Self {
-        Self {
-            font_paths,
-            variants,
-        }
+        Self { font_paths, variants }
     }
 
     /// Create a new font settings from the CLI arguments.
-    /// 
+    ///
     /// # Panics
     /// Panics if the command is not a fonts command.
     pub fn with_arguments(args: CliArguments) -> Self {
@@ -174,11 +163,6 @@ impl FontsSettings {
             _ => unreachable!(),
         }
     }
-
-    /// List all discovered fonts in system and custom font paths
-    pub fn fonts(self) -> StrResult<()> {
-        fonts(self)
-    }
 }
 
 /// Entry point.
@@ -186,9 +170,10 @@ fn main() {
     let arguments = CliArguments::parse();
 
     let res = match &arguments.command {
-        Command::Compile(_) => CompileSettings::with_arguments(arguments).compile(),
-        Command::Watch(_) => CompileSettings::with_arguments(arguments).compile(),
-        Command::Fonts(_) => FontsSettings::with_arguments(arguments).fonts(),
+        Command::Compile(_) | Command::Watch(_) => {
+            compile(CompileSettings::with_arguments(arguments))
+        }
+        Command::Fonts(_) => fonts(FontsSettings::with_arguments(arguments)),
     };
 
     if let Err(msg) = res {
