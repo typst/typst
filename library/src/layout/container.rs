@@ -88,7 +88,7 @@ pub struct BoxElem {
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
-    /// Whether to clip the content inside the block.
+    /// Whether to clip the content inside the box.
     #[default(false)]
     pub clip: bool,
 

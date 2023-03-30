@@ -179,10 +179,6 @@ fn render_svg_glyph(
     // Compute the space we need to draw our glyph.
     // See https://github.com/RazrFalcon/resvg/issues/602 for why
     // using the svg size is problematic here.
-    //
-    // FIXME: this is in line with the earlier implementation that
-    // would not clip a clyph if it contains a viewBox, however 
-    // maybe it should?
     let mut bbox = usvg::Rect::new_bbox();
     for node in tree.root().descendants() {
         if let Some(rect) = node.calculate_bbox().and_then(|b| b.to_rect()) {
