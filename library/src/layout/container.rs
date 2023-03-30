@@ -137,6 +137,11 @@ impl Layout for BoxElem {
             frame.set_baseline(frame.baseline() - shift);
         }
 
+        // Clip the contents
+        if self.clip(styles) {
+            frame.clip();
+        }
+
         // Prepare fill and stroke.
         let fill = self.fill(styles);
         let stroke = self.stroke(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
@@ -146,10 +151,6 @@ impl Layout for BoxElem {
             let outset = self.outset(styles);
             let radius = self.radius(styles);
             frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
-        }
-
-        if self.clip(styles) {
-            frame.clip();
         }
 
         // Apply metadata.
@@ -381,6 +382,13 @@ impl Layout for BlockElem {
             body.layout(vt, styles, pod)?.into_frames()
         };
 
+        // Clip the contents
+        if self.clip(styles) {
+            for frame in frames.iter_mut() {
+                frame.clip();
+            }
+        }
+
         // Prepare fill and stroke.
         let fill = self.fill(styles);
         let stroke = self.stroke(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
@@ -396,12 +404,6 @@ impl Layout for BlockElem {
             let radius = self.radius(styles);
             for frame in frames.iter_mut().skip(skip as usize) {
                 frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
-            }
-        }
-
-        if self.clip(styles) {
-            for frame in frames.iter_mut() {
-                frame.clip();
             }
         }
 
