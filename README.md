@@ -142,7 +142,7 @@ You can also add custom font paths for your project and list all of the discover
 # Adds the given path in the list of font paths to search for
 typst --font-path path/to/fonts compile file.typ
 
-# List all of the discovered fonts
+# Lists all of the discovered fonts.
 typst --font-path path/to/fonts fonts
 ```
 
