@@ -268,27 +268,70 @@ fn render_outline_glyph(
     let glyph = pixglyph::Glyph::load(text.font.ttf(), id)?;
     let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
 
-    let mw = bitmap.width;
-    let mh = bitmap.height;
+    // If we have a clip mask we first render to a pixmap that we then blend
+    // with our canvas
+    if mask.is_some() {
+        let mw = bitmap.width;
+        let mh = bitmap.height;
 
-    let Paint::Solid(color) = text.fill;
-    let c = color.to_rgba();
+        let Paint::Solid(color) = text.fill;
+        let c = color.to_rgba();
 
-    // Pad the pixmap with 1 pixel in each dimension so that we do
-    // not get any problem with floating point errors along ther border
-    let mut pixmap = sk::Pixmap::new(mw+2, mh+2)?;
-    for x in 0..mw {
-        for y in 0..mh {
-            let alpha = bitmap.coverage[(y * mw + x) as usize];
-            let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, alpha).premultiply();
-            pixmap.pixels_mut()[((y+1) * (mw+2) + (x+1)) as usize] = color;
+        // Pad the pixmap with 1 pixel in each dimension so that we do
+        // not get any problem with floating point errors along ther border
+        let mut pixmap = sk::Pixmap::new(mw+2, mh+2)?;
+        for x in 0..mw {
+            for y in 0..mh {
+                let alpha = bitmap.coverage[(y * mw + x) as usize];
+                let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, alpha).premultiply();
+                pixmap.pixels_mut()[((y+1) * (mw+2) + (x+1)) as usize] = color;
+            }
         }
+
+        let left = bitmap.left;
+        let top = bitmap.top;
+
+        canvas.draw_pixmap(left-1, top-1, pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
+    } else {
+         let cw = canvas.width() as i32;
+         let ch = canvas.height() as i32;
+         let mw = bitmap.width as i32;
+         let mh = bitmap.height as i32;
+
+         // Determine the pixel bounding box that we actually need to draw.
+         let left = bitmap.left;
+         let right = left + mw;
+         let top = bitmap.top;
+         let bottom = top + mh;
+
+         // Premultiply the text color.
+        let Paint::Solid(color) = text.fill;
+        let c = color.to_rgba();
+        let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply().get();
+
+        // Blend the glyph bitmap with the existing pixels on the canvas.
+        let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
+        for x in left.clamp(0, cw)..right.clamp(0, cw) {
+            for y in top.clamp(0, ch)..bottom.clamp(0, ch) {
+                let ai = ((y - top) * mw + (x - left)) as usize;
+                let cov = bitmap.coverage[ai];
+                if cov == 0 {
+                    continue;
+                }
+
+                let pi = (y * cw + x) as usize;
+                if cov == 255 {
+                    pixels[pi] = color;
+                    continue;
+                }
+
+                let applied = alpha_mul(color, cov as u32);
+                pixels[pi] = blend_src_over(applied, pixels[pi]);
+            }
+        }
+
+        Some(())
     }
-
-    let left = bitmap.left;
-    let top = bitmap.top;
-
-    canvas.draw_pixmap(left-1, top-1, pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
 }
 
 /// Render a geometrical shape into the canvas.
@@ -491,4 +534,21 @@ impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
     }
+}
+
+// Alpha multiplication and blending are ported from:
+// https://skia.googlesource.com/skia/+/refs/heads/main/include/core/SkColorPriv.h
+
+/// Blends two premulitplied, packed 32-bit RGBA colors. Alpha channel must be
+/// in the 8 high bits.
+fn blend_src_over(src: u32, dst: u32) -> u32 {
+    src + alpha_mul(dst, 256 - (src >> 24))
+}
+
+/// Alpha multiply a color.
+fn alpha_mul(color: u32, scale: u32) -> u32 {
+    let mask = 0xff00ff;
+    let rb = ((color & mask) * scale) >> 8;
+    let ag = ((color >> 8) & mask) * scale;
+    (rb & mask) | (ag & !mask)
 }
