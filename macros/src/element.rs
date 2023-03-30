@@ -204,6 +204,11 @@ fn create(element: &Elem) -> TokenStream {
             pub fn span(&self) -> ::typst::syntax::Span {
                 self.0.span()
             }
+
+             /// Set the element's span.
+             pub fn spanned(self, span: ::typst::syntax::Span) -> Self {
+                Self(self.0.spanned(span))
+            }
         }
 
         #element_impl

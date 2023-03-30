@@ -124,11 +124,11 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .into_frame())
     }
 
-    pub fn layout_text(&mut self, elem: &TextElem) -> SourceResult<()> {
+    pub fn layout_text(&mut self, elem: &TextElem) -> SourceResult<MathFragment> {
         let text = elem.text();
         let span = elem.span();
         let mut chars = text.chars();
-        if let Some(glyph) = chars
+        let fragment = if let Some(glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
             .map(|c| self.style.styled_char(c))
@@ -139,9 +139,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 && glyph.class == Some(MathClass::Large)
             {
                 let height = scaled!(self, display_operator_min_height);
-                self.push(glyph.stretch_vertical(self, height, Abs::zero()));
+                glyph.stretch_vertical(self, height, Abs::zero()).into()
             } else {
-                self.push(glyph);
+                glyph.into()
             }
         } else if text.chars().all(|c| c.is_ascii_digit()) {
             // Numbers aren't that difficult.
@@ -151,7 +151,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 fragments.push(GlyphFragment::new(self, c, span).into());
             }
             let frame = MathRow::new(fragments).to_frame(self);
-            self.push(FrameFragment::new(self, frame));
+            FrameFragment::new(self, frame).into()
         } else {
             // Anything else is handled by Typst's standard text layout.
             let spaced = text.graphemes(true).count() > 1;
@@ -161,14 +161,12 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             }
             let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
             let frame = self.layout_content(&TextElem::packed(text).spanned(span))?;
-            self.push(
-                FrameFragment::new(self, frame)
-                    .with_class(MathClass::Alphabetic)
-                    .with_spaced(spaced),
-            );
-        }
-
-        Ok(())
+            FrameFragment::new(self, frame)
+                .with_class(MathClass::Alphabetic)
+                .with_spaced(spaced)
+                .into()
+        };
+        Ok(fragment)
     }
 
     pub fn styles(&self) -> StyleChain {

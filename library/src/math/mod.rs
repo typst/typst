@@ -268,6 +268,7 @@ impl LocalName for EquationElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Gleichung",
+            Lang::ITALIAN => "Equazione",
             Lang::ENGLISH | _ => "Equation",
         }
     }
@@ -331,7 +332,8 @@ impl LayoutMath for Content {
         }
 
         if let Some(elem) = self.to::<TextElem>() {
-            ctx.layout_text(elem)?;
+            let fragment = ctx.layout_text(elem)?;
+            ctx.push(fragment);
             return Ok(());
         }
 

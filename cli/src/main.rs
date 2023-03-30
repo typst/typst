@@ -189,7 +189,13 @@ fn dispatch(command: Command) -> StrResult<()> {
 fn compile(command: CompileCommand) -> StrResult<()> {
     let root = if let Some(root) = &command.root {
         root.clone()
-    } else if let Some(dir) = command.input.parent() {
+    } else if let Some(dir) = command
+        .input
+        .canonicalize()
+        .ok()
+        .as_ref()
+        .and_then(|path| path.parent())
+    {
         dir.into()
     } else {
         PathBuf::new()
@@ -563,10 +569,10 @@ impl PathHash {
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
-    if fs::metadata(&path).map_err(f)?.is_file() {
-        fs::read(&path).map_err(f)
-    } else {
+    if fs::metadata(&path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
+    } else {
+        fs::read(&path).map_err(f)
     }
 }
 
