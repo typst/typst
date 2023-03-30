@@ -264,15 +264,32 @@ impl Lexer<'_> {
     }
 
     fn link(&mut self) -> SyntaxKind {
+        let mut bracket_stack = Vec::new();
         #[rustfmt::skip]
-        self.s.eat_while(|c: char| matches!(c,
-            | '0' ..= '9'
-            | 'a' ..= 'z'
-            | 'A' ..= 'Z'
-            | '!' | '#' | '$' | '%' | '&' | '(' | '*' | '+'
-            | ',' | '-' | '.' | '/' | ':' | ';' | '='
-            | '?' | '@' | '[' | '_' | '~' | '\''
-        ));
+        self.s.eat_while(|c: char| {
+            match c {
+                | '0' ..= '9'
+                | 'a' ..= 'z'
+                | 'A' ..= 'Z'
+                | '!' | '#' | '$' | '%' | '&' | '*' | '+'
+                | ',' | '-' | '.' | '/' | ':' | ';' | '='
+                | '?' | '@' | '_' | '~' | '\'' => true,
+                '[' => {
+                    bracket_stack.push(SyntaxKind::LeftBracket);
+                    true
+                }
+                '(' => {
+                    bracket_stack.push(SyntaxKind::LeftParen);
+                    true
+                }
+                ']' => bracket_stack.pop() == Some(SyntaxKind::LeftBracket),
+                ')' => bracket_stack.pop() == Some(SyntaxKind::LeftParen),
+                _ => false,
+            }
+        });
+        if !bracket_stack.is_empty() {
+            return self.error_at_end("expected closing bracket in link");
+        }
 
         // Don't include the trailing characters likely to be part of another expression.
         if matches!(self.s.scout(-1), Some('!' | ',' | '.' | ':' | ';' | '?' | '\'')) {
