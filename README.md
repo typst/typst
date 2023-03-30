@@ -139,7 +139,7 @@ typst watch file.typ
 
 You can also add custom font paths for your project and list all of the discovered fonts:
 ```sh
-# Adds the given path in the list of font paths to search for
+# Adds additional directories to search for fonts.
 typst --font-path path/to/fonts compile file.typ
 
 # Lists all of the discovered fonts.
