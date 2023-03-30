@@ -134,7 +134,7 @@ fn render_text(
 fn render_svg_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    _: Option<&sk::ClipMask>,
+    mask: Option<&sk::ClipMask>,
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
@@ -173,10 +173,38 @@ fn render_svg_glyph(
         height = view_box.height() as f32;
     }
 
-    // FIXME: This doesn't respect the clipping mask.
     let size = text.size.to_f32();
-    let ts = ts.pre_scale(size / width, size / height);
-    resvg::render(&tree, FitTo::Original, ts, canvas.as_mut())
+
+    // If we have complicated skewing and/or scaling then we render
+    // the glyph onto a pixmap of full size.
+    //
+    // FIXME: this can be improved by using the transform to compute
+    // the largest possible bounding box and using this instead.
+    if ts.kx != 0.0 || ts.ky != 0.0 || ts.sx != ts.sy {
+        let ts = ts.pre_scale(size / width, size / height);
+        let mut pixmap = sk::Pixmap::new(canvas.width(), canvas.height())?;
+        resvg::render(&tree, FitTo::Original, ts, pixmap.as_mut())?;
+        canvas.draw_pixmap(0, 0, pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
+    } else {
+        let ppem = size * ts.sy;
+
+        // Create a pixmap with plenty of space to render our glyph.
+        // See https://github.com/RazrFalcon/resvg/issues/602 for why
+        // using the svg size is problematic here.
+        let buf_width = ppem as u32 * 3;
+        let buf_height = ppem as u32 * 3;
+        let mut pixmap = sk::Pixmap::new(buf_width, buf_height)?;
+
+        // We offset our transform a known abmount so that we render
+        // in the middle of our pixmap.
+        let offset_x = (ts.tx - ppem) as i32;
+        let offset_y = (ts.ty - ppem) as i32;
+        let ts = ts.pre_scale(size / width, size / height)
+            .post_translate(-offset_x as f32, -offset_y as f32);
+        resvg::render(&tree, FitTo::Original, ts, pixmap.as_mut())?;
+
+        canvas.draw_pixmap(offset_x, offset_y, pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
+    }
 }
 
 /// Render a bitmap glyph into the canvas.
@@ -239,45 +267,28 @@ fn render_outline_glyph(
     // doesn't exist, yet.
     let glyph = pixglyph::Glyph::load(text.font.ttf(), id)?;
     let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
-    let cw = canvas.width() as i32;
-    let ch = canvas.height() as i32;
-    let mw = bitmap.width as i32;
-    let mh = bitmap.height as i32;
 
-    // Determine the pixel bounding box that we actually need to draw.
-    let left = bitmap.left;
-    let right = left + mw;
-    let top = bitmap.top;
-    let bottom = top + mh;
+    let mw = bitmap.width;
+    let mh = bitmap.height;
 
-    // Premultiply the text color.
     let Paint::Solid(color) = text.fill;
     let c = color.to_rgba();
-    let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply().get();
 
-    // Blend the glyph bitmap with the existing pixels on the canvas.
-    // FIXME: This doesn't respect the clipping mask.
-    let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
-    for x in left.clamp(0, cw)..right.clamp(0, cw) {
-        for y in top.clamp(0, ch)..bottom.clamp(0, ch) {
-            let ai = ((y - top) * mw + (x - left)) as usize;
-            let cov = bitmap.coverage[ai];
-            if cov == 0 {
-                continue;
-            }
-
-            let pi = (y * cw + x) as usize;
-            if cov == 255 {
-                pixels[pi] = color;
-                continue;
-            }
-
-            let applied = alpha_mul(color, cov as u32);
-            pixels[pi] = blend_src_over(applied, pixels[pi]);
+    // Pad the pixmap with 1 pixel in each dimension so that we do
+    // not get any problem with floating point errors along ther border
+    let mut pixmap = sk::Pixmap::new(mw+2, mh+2)?;
+    for x in 0..mw {
+        for y in 0..mh {
+            let alpha = bitmap.coverage[(y * mw + x) as usize];
+            let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, alpha).premultiply();
+            pixmap.pixels_mut()[((y+1) * (mw+2) + (x+1)) as usize] = color;
         }
     }
 
-    Some(())
+    let left = bitmap.left;
+    let top = bitmap.top;
+
+    canvas.draw_pixmap(left-1, top-1, pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
 }
 
 /// Render a geometrical shape into the canvas.
@@ -480,21 +491,4 @@ impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
     }
-}
-
-// Alpha multiplication and blending are ported from:
-// https://skia.googlesource.com/skia/+/refs/heads/main/include/core/SkColorPriv.h
-
-/// Blends two premulitplied, packed 32-bit RGBA colors. Alpha channel must be
-/// in the 8 high bits.
-fn blend_src_over(src: u32, dst: u32) -> u32 {
-    src + alpha_mul(dst, 256 - (src >> 24))
-}
-
-/// Alpha multiply a color.
-fn alpha_mul(color: u32, scale: u32) -> u32 {
-    let mask = 0xff00ff;
-    let rb = ((color & mask) * scale) >> 8;
-    let ag = ((color >> 8) & mask) * scale;
-    (rb & mask) | (ag & !mask)
 }

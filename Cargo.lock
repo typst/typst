@@ -1322,7 +1322,6 @@ name = "typst"
 version = "0.0.0"
 dependencies = [
  "bitflags",
- "bytemuck",
  "comemo",
  "ecow",
  "flate2",
