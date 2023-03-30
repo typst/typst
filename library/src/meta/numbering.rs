@@ -396,16 +396,16 @@ impl NumberingKind {
                 ] {
                     while n >= value {
                         match n {
-                            15 => fmt.push_str("ט\"ו"),
-                            16 => fmt.push_str("ט\"ז"),
+                            15 => fmt.push_str("ט״ו"),
+                            16 => fmt.push_str("ט״ז"),
                             _ => {
-                                let append_apostrophe = n == value && fmt.is_empty();
+                                let append_geresh = n == value && fmt.is_empty();
                                 if n == value && !fmt.is_empty() {
-                                    fmt.push('"');
+                                    fmt.push('״');
                                 }
                                 fmt.push(name);
-                                if append_apostrophe {
-                                    fmt.push('\'');
+                                if append_geresh {
+                                    fmt.push('׳');
                                 }
 
                                 n -= value;
