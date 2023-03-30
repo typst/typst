@@ -115,7 +115,7 @@ impl Func {
             }
             Repr::With(arc) => {
                 args.items = arc.1.items.iter().cloned().chain(args.items).collect();
-                return arc.0.call_vm(vm, args);
+                arc.0.call_vm(vm, args)
             }
         }
     }

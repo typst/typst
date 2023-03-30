@@ -27,6 +27,27 @@
           substring 0 8 self.rev
         else
           fallback;
+
+      packageFor = pkgs: pkgs.rustPlatform.buildRustPackage {
+        pname = "typst";
+        version = rev "00000000";
+
+        src = self;
+
+        cargoLock = {
+          lockFile = ./Cargo.lock;
+          allowBuiltinFetchGit = true;
+        };
+
+        buildInputs = optionals pkgs.stdenv.isDarwin [
+          pkgs.darwin.apple_sdk.frameworks.CoreServices
+        ];
+
+        cargoBuildFlags = [ "-p" "typst-cli" ];
+        cargoTestFlags = [ "-p" "typst-cli" ];
+
+        TYPST_VERSION = rev "(unknown version)";
+      };
     in
     {
       devShells = eachSystem (pkgs: {
@@ -50,27 +71,12 @@
 
       formatter = eachSystem (pkgs: pkgs.nixpkgs-fmt);
 
+      overlays.default = _: prev: {
+        typst-dev = packageFor prev;
+      };
+
       packages = eachSystem (pkgs: {
-        default = pkgs.rustPlatform.buildRustPackage {
-          pname = "typst";
-          version = rev "00000000";
-
-          src = self;
-
-          cargoLock = {
-            lockFile = ./Cargo.lock;
-            allowBuiltinFetchGit = true;
-          };
-
-          buildInputs = optionals pkgs.stdenv.isDarwin [
-            pkgs.darwin.apple_sdk.frameworks.CoreServices
-          ];
-
-          cargoBuildFlags = [ "-p" "typst-cli" ];
-          cargoTestFlags = [ "-p" "typst-cli" ];
-
-          TYPST_VERSION = rev "(unknown version)";
-        };
+        default = packageFor pkgs;
       });
     };
 }

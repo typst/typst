@@ -581,7 +581,14 @@ impl Raw {
 
     /// An optional identifier specifying the language to syntax-highlight in.
     pub fn lang(&self) -> Option<&str> {
-        let inner = self.0.text().trim_start_matches('`');
+        let text = self.0.text();
+
+        // Only blocky literals are supposed to contain a language.
+        if !text.starts_with("```") {
+            return Option::None;
+        }
+
+        let inner = text.trim_start_matches('`');
         let mut s = Scanner::new(inner);
         s.eat_if(is_id_start).then(|| {
             s.eat_while(is_id_continue);

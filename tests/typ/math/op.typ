@@ -19,3 +19,7 @@ $ lim_(n->infinity) 1/n = 0 $
 // Test custom operator.
 $ op("myop", limits: #false)_(x:=1) x \
   op("myop", limits: #true)_(x:=1) x $
+
+---
+// Test styled operator.
+$ bold(op("bold", limits: #true))_x y $

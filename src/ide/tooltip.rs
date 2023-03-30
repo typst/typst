@@ -126,7 +126,7 @@ fn ref_tooltip(
     let target = leaf.text().trim_start_matches('@');
     for (label, detail) in analyze_labels(world, frames).0 {
         if label.0 == target {
-            return Some(Tooltip::Text(detail?.into()));
+            return Some(Tooltip::Text(detail?));
         }
     }
 

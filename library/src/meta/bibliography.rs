@@ -183,6 +183,7 @@ impl LocalName for BibliographyElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Bibliographie",
+            Lang::ITALIAN => "Bibliografia",
             Lang::ENGLISH | _ => "Bibliography",
         }
     }
@@ -613,7 +614,8 @@ fn format_display_string(
                 Formatting::Bold => content.strong(),
                 Formatting::Italic => content.emph(),
                 Formatting::Link(link) => {
-                    LinkElem::new(Destination::Url(link.as_str().into()), content).pack()
+                    LinkElem::new(Destination::Url(link.as_str().into()).into(), content)
+                        .pack()
                 }
             };
         }

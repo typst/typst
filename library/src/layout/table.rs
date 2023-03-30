@@ -87,6 +87,15 @@ pub struct TableElem {
     /// This can either be a single alignment or a function that returns an
     /// alignment. The function is passed the cell's column and row index,
     /// starting at zero. If set to `{auto}`, the outer alignment is used.
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 3,
+    ///   align: (x, y) => (left, center, right).at(x),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    /// )
+    /// ```
     pub align: Celled<Smart<Axes<Option<GenAlign>>>>,
 
     /// How to stroke the cells.
@@ -275,6 +284,7 @@ impl LocalName for TableElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::GERMAN => "Tabelle",
+            Lang::ITALIAN => "Tabella",
             Lang::ENGLISH | _ => "Table",
         }
     }

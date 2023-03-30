@@ -60,3 +60,18 @@ My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
 ---
 // Link to page one.
 #link((page: 1, x: 10pt, y: 20pt))[Back to the start]
+
+---
+// Test link to label.
+Text <hey>
+#link(<hey>)[Go to text.]
+
+---
+// Error: 2-20 label does not exist in the document
+#link(<hey>)[Nope.]
+
+---
+Text <hey>
+Text <hey>
+// Error: 2-20 label occurs multiple times in the document
+#link(<hey>)[Nope.]

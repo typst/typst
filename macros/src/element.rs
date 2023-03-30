@@ -138,7 +138,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         .collect();
 
     let docs = documentation(&body.attrs);
-    let mut lines = docs.split("\n").collect();
+    let mut lines = docs.split('\n').collect();
     let category = meta_line(&mut lines, "Category")?.into();
     let display = meta_line(&mut lines, "Display")?.into();
     let docs = lines.join("\n").trim().into();
@@ -203,6 +203,11 @@ fn create(element: &Elem) -> TokenStream {
             /// The element's span.
             pub fn span(&self) -> ::typst::syntax::Span {
                 self.0.span()
+            }
+
+             /// Set the element's span.
+             pub fn spanned(self, span: ::typst::syntax::Span) -> Self {
+                Self(self.0.spanned(span))
             }
         }
 

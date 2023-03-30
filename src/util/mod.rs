@@ -205,7 +205,7 @@ pub fn pretty_comma_list(pieces: &[impl AsRef<str>], trailing_comma: bool) -> St
 /// Tries to format horizontally, but falls back to vertical formatting if the
 /// pieces are too long.
 pub fn pretty_array_like(parts: &[impl AsRef<str>], trailing_comma: bool) -> String {
-    let list = pretty_comma_list(&parts, trailing_comma);
+    let list = pretty_comma_list(parts, trailing_comma);
     let mut buf = String::new();
     buf.push('(');
     if list.contains('\n') {

@@ -6,8 +6,19 @@ description: |
 
 # Changelog
 ## Unreleased
+- Added [`polygon`]($func/polygon) function
+- The [`link`]($func/link) function now accepts [labels]($func/label)
+- Fixed styling of text operators in math
+- Fixed invalid parsing of language tag in raw block with a single backtick
+- CLI now returns with non-zero status code if there is an error
+- CLI now watches the root directory instead of the current one
+- Reduced maximum function call depth from 256 to 64
+
+## March 28, 2023
 - **Breaking:** Enumerations now require a space after their marker, that is,
   `[1.ok]` must now be written as `[1. ok]`
+- **Breaking:** Changed default style for [term lists]($func/terms): Does not
+  include a colon anymore and has a bit more indent
 - Fixed bibliography ordering in IEEE style
 - Fixed parsing of decimals in math: `[$1.2/3.4$]`
 - Fixed parsing of unbalanced delimiters in fractions: `[$1/(2 (x)$]`
@@ -18,11 +29,14 @@ description: |
 - Fixed [matrices]($func/mat) with explicit delimiter
 - Fixed build of CLI if `git` is not installed
 - Links in bibliographies are now affected by link styling
-  `[#counter(..).update(0)]`
 - Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
   delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
   `[$mat(delim: #none, 1, 2; 3, 4)$]`.
+- Added [`separator`]($func/terms.separator) argument to term lists
+- Fixed [`indent`]($func/terms.indent) property of term lists
+- Added [`round`]($func/round) function for equations
 - Numberings now allow zeros. To reset a counter, you can write
+  `[#counter(..).update(0)]`
 - Added `--font-path` argument for CLI
 - Added Nix flake
 - Numerous documentation fixes
@@ -31,6 +45,7 @@ description: |
 - Added symbols for double, triple, and quadruple dot accent
 - Added smart quotes for Norwegian Bokmål
 - Fixed hovering over comments in web app
+- Embedded default fonts in CLI binary
 
 ## March 21, 2023
 - Reference and bibliography management

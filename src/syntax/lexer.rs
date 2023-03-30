@@ -303,10 +303,8 @@ impl Lexer<'_> {
         self.s.eat_while(char::is_ascii_digit);
 
         let read = self.s.from(start);
-        if self.s.eat_if('.') && self.space_or_end() {
-            if read.parse::<usize>().is_ok() {
-                return SyntaxKind::EnumMarker;
-            }
+        if self.s.eat_if('.') && self.space_or_end() && read.parse::<usize>().is_ok() {
+            return SyntaxKind::EnumMarker;
         }
 
         self.text()
