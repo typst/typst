@@ -156,7 +156,7 @@ struct FontsSettings {
 }
 
 impl FontsSettings {
-    /// Create a new font settings from the field values.
+    /// Create font settings from the field values.
     pub fn new(font_paths: Vec<PathBuf>, variants: bool) -> Self {
         Self {
             font_paths,
