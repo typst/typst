@@ -53,7 +53,7 @@ impl SyntaxNode {
         }
     }
 
-    /// Return `true` if length is 0
+    /// Return `true` if the length is 0.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
