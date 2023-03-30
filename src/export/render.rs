@@ -7,7 +7,7 @@ use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use usvg::FitTo;
+use usvg::{FitTo, NodeExt};
 
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::geom::{
@@ -174,37 +174,44 @@ fn render_svg_glyph(
     }
 
     let size = text.size.to_f32();
+    let ts = ts.pre_scale(size / width, size / height);
 
-    // If we have complicated skewing and/or scaling then we render
-    // the glyph onto a pixmap of full size.
+    // Compute the space we need to draw our glyph.
+    // See https://github.com/RazrFalcon/resvg/issues/602 for why
+    // using the svg size is problematic here.
     //
-    // FIXME: this can be improved by using the transform to compute
-    // the largest possible bounding box and using this instead.
-    if ts.kx != 0.0 || ts.ky != 0.0 || ts.sx != ts.sy {
-        let ts = ts.pre_scale(size / width, size / height);
-        let mut pixmap = sk::Pixmap::new(canvas.width(), canvas.height())?;
-        resvg::render(&tree, FitTo::Original, ts, pixmap.as_mut())?;
-        canvas.draw_pixmap(0, 0, pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
-    } else {
-        let ppem = size * ts.sy;
-
-        // Create a pixmap with plenty of space to render our glyph.
-        // See https://github.com/RazrFalcon/resvg/issues/602 for why
-        // using the svg size is problematic here.
-        let buf_width = ppem as u32 * 3;
-        let buf_height = ppem as u32 * 3;
-        let mut pixmap = sk::Pixmap::new(buf_width, buf_height)?;
-
-        // We offset our transform a known abmount so that we render
-        // in the middle of our pixmap.
-        let offset_x = (ts.tx - ppem) as i32;
-        let offset_y = (ts.ty - ppem) as i32;
-        let ts = ts.pre_scale(size / width, size / height)
-            .post_translate(-offset_x as f32, -offset_y as f32);
-        resvg::render(&tree, FitTo::Original, ts, pixmap.as_mut())?;
-
-        canvas.draw_pixmap(offset_x, offset_y, pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
+    // FIXME: this is in line with the earlier implementation that
+    // would not clip a clyph if it contains a viewBox, however 
+    // maybe it should?
+    let mut bbox = usvg::Rect::new_bbox();
+    for node in tree.root().descendants() {
+        if let Some(rect) = node.calculate_bbox().and_then(|b| b.to_rect()) {
+            bbox = bbox.expand(rect);
+        }
     }
+
+    let canvas_rect = usvg::ScreenRect::new(0, 0, canvas.width(), canvas.height())?;
+
+    // Compute the bbox after the transform is applied.
+    // We add a nice 5px border along the bounding box to
+    // be on the safe size. We also compute the intersection
+    // with the canvas rectangle
+    let svg_ts = usvg::Transform::new(
+        ts.sx.into(), ts.kx.into(), 
+        ts.ky.into(), ts.sy.into(), 
+        ts.tx.into(), ts.ty.into());
+    let bbox = bbox.transform(&svg_ts)?
+        .to_screen_rect();
+    let bbox = usvg::ScreenRect::new(bbox.left()-5, bbox.y()-5, bbox.width()+10, bbox.height()+10)?
+        .fit_to_rect(canvas_rect);
+
+    let mut pixmap = sk::Pixmap::new(bbox.width(), bbox.height())?;
+
+    // We offset our transform so that the pixmap starts at the edge of the bbox.
+    let ts = ts.post_translate(-bbox.left() as f32, -bbox.top() as f32);
+    resvg::render(&tree, FitTo::Original, ts, pixmap.as_mut())?;
+
+    canvas.draw_pixmap(bbox.left(), bbox.top(), pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
 }
 
 /// Render a bitmap glyph into the canvas.
