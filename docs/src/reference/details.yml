@@ -83,6 +83,8 @@ math: |
   Functions calls preceded by a hashtag are normal code function calls and not
   affected by these rules.
 
+  Outside math formulas, these functions can be accessed with `math.` prefix.
+
 layout: |
   Arranging elements on the page in different ways.
 
@@ -122,6 +124,7 @@ sym: |
   prefix.
 
   The `d` in an integral's `dx` can be written as `[$dif x$]`.
+  Outside math formulas, `dif` can be accessed as `math.dif`.
 
 emoji: |
   Named emoji.
