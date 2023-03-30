@@ -100,8 +100,13 @@ pub struct FontsCommand {
 /// List all discovered syntaxes in custom font paths
 #[derive(Debug, Clone, Parser)]
 struct SyntaxesCommand {
-    /// Add directories to search for .sublime-syntax files
-    syntax_paths: Vec<PathBuf>,
+    /// Show file extensions and scope of syntax
+    #[arg(long)]
+    details: bool,
+
+    /// Show builtin syntaxes as well
+    #[arg(long)]
+    builtin: bool,
 }
 
 /// A summary of the input arguments relevant to compilation.
@@ -193,12 +198,18 @@ impl FontsSettings {
 struct SyntaxesSettings {
     /// The syntax paths
     syntax_paths: Vec<PathBuf>,
+
+    /// Whether to show file extensions and scope of syntax
+    details: bool,
+
+    /// Whether to show builtin syntaxes
+    builtin: bool,
 }
 
 impl SyntaxesSettings {
     /// Create a new syntax settings from the field values.
-    pub fn new(syntax_paths: Vec<PathBuf>) -> Self {
-        Self { syntax_paths }
+    pub fn new(syntax_paths: Vec<PathBuf>, details: bool, builtin: bool) -> Self {
+        Self { syntax_paths, details, builtin }
     }
 
     /// Create a new syntax settings from the CLI arguments.
@@ -207,7 +218,9 @@ impl SyntaxesSettings {
     /// Panics if the command is not a fonts command.
     pub fn with_arguments(args: CliArguments) -> Self {
         match args.command {
-            Command::Syntaxes(_command) => Self::new(args.syntax_paths),
+            Command::Syntaxes(command) => {
+                Self::new(args.syntax_paths, command.details, command.builtin)
+            }
             _ => unreachable!(),
         }
     }
@@ -451,10 +464,11 @@ fn fonts(command: FontsSettings) -> StrResult<()> {
 
 /// Execute a syntaxes listing command.
 fn syntaxes(command: SyntaxesSettings) -> StrResult<()> {
-    if command.syntax_paths.is_empty() {
-        return Err(EcoString::from("No path was provided via --syntax-path"));
-    }
-    let mut builder = syntect::parsing::SyntaxSetBuilder::new();
+    let mut builder = if command.builtin {
+        typst::DEFAULT_SYNTAXES.0.clone().into_builder()
+    } else {
+        syntect::parsing::SyntaxSetBuilder::new()
+    };
     for path in command.syntax_paths {
         builder
             .add_from_folder(path, false)
@@ -462,8 +476,10 @@ fn syntaxes(command: SyntaxesSettings) -> StrResult<()> {
     }
     for syntax in builder.syntaxes() {
         println!("{}", syntax.name);
-        println!("- Extensions: {:?}", syntax.file_extensions);
-        println!("- Scope: {:?}", syntax.scope);
+        if command.details {
+            println!("- Extensions: {:?}", syntax.file_extensions);
+            println!("- Scope: {:?}", syntax.scope);
+        }
     }
     Ok(())
 }

@@ -114,7 +114,7 @@ pub trait World {
 }
 
 /// The default syntect syntax definitions.
-static DEFAULT_SYNTAXES: Lazy<SyntaxSetWrapper> = Lazy::new(|| {
+pub static DEFAULT_SYNTAXES: Lazy<SyntaxSetWrapper> = Lazy::new(|| {
     SyntaxSetWrapper(syntect::parsing::SyntaxSet::load_defaults_nonewlines())
 });
 
