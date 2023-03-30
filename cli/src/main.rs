@@ -118,11 +118,7 @@ impl CompileSettings {
     ) -> Self {
         let output = match output {
             Some(path) => path,
-            None => {
-                let mut out = input.clone();
-                out.set_extension("pdf");
-                out
-            }
+            None => input.with_extension("pdf"),
         };
 
         Self { input, output, watch, root, font_paths }
