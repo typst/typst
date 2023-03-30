@@ -336,10 +336,10 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
         .unwrap_or_else(|_| path.into());
 
     let f = |e| FileError::from_io(e, &suffix);
-    if fs::metadata(&path).map_err(f)?.is_file() {
-        fs::read(&path).map_err(f)
-    } else {
+    if fs::metadata(&path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
+    } else {
+        fs::read(&path).map_err(f)
     }
 }
 

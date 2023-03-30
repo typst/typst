@@ -251,6 +251,11 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 self.scratch.content.alloc(EquationElem::new(content.clone()).pack());
         }
 
+        if let Some(realized) = realize(self.vt, content, styles)? {
+            let stored = self.scratch.content.alloc(realized);
+            return self.accept(stored, styles);
+        }
+
         if let Some((elem, local)) = content.to_styled() {
             return self.styled(elem, local, styles);
         }
@@ -260,11 +265,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
                 self.accept(elem, styles)?;
             }
             return Ok(());
-        }
-
-        if let Some(realized) = realize(self.vt, content, styles)? {
-            let stored = self.scratch.content.alloc(realized);
-            return self.accept(stored, styles);
         }
 
         if self.list.accept(content, styles) {
