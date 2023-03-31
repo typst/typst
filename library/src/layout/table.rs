@@ -283,11 +283,8 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
 impl LocalName for TableElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
-<<<<<<< HEAD
             Lang::FRENCH => "Tableau",
-=======
             Lang::CHINESE => "表",
->>>>>>> 631ba40e57b4f121fe9335f334a76dd9c81de088
             Lang::GERMAN => "Tabelle",
             Lang::ITALIAN => "Tabella",
             Lang::RUSSIAN => "Таблица",

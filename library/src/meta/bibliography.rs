@@ -202,12 +202,9 @@ impl Show for BibliographyElem {
 impl LocalName for BibliographyElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
-<<<<<<< HEAD
             Lang::GERMAN | Lang::FRENCH => "Bibliographie",
-=======
             Lang::CHINESE => "参考文献",
             Lang::GERMAN => "Bibliographie",
->>>>>>> 631ba40e57b4f121fe9335f334a76dd9c81de088
             Lang::ITALIAN => "Bibliografia",
             Lang::RUSSIAN => "Библиография",
             Lang::ENGLISH | _ => "Bibliography",

@@ -140,11 +140,8 @@ cast_from_value! {
 impl LocalName for HeadingElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
-<<<<<<< HEAD
             Lang::FRENCH => "Chapitre",
-=======
             Lang::CHINESE => "小节",
->>>>>>> 631ba40e57b4f121fe9335f334a76dd9c81de088
             Lang::GERMAN => "Abschnitt",
             Lang::ITALIAN => "Sezione",
             Lang::RUSSIAN => "Раздел",
