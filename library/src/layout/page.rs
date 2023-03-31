@@ -362,8 +362,8 @@ impl PageElem {
                 }
             }
 
-            if let Some(fill) = fill {
-                frame.fill(fill);
+            if let Some(fill) = &fill {
+                frame.fill(fill.clone());
             }
         }
 

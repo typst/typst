@@ -215,8 +215,8 @@ impl PageContext<'_, '_> {
         }
     }
 
-    fn set_fill(&mut self, fill: Paint) {
-        if self.state.fill != Some(fill) {
+    fn set_fill(&mut self, fill: &Paint) {
+        if self.state.fill.as_ref() != Some(fill) {
             let f = |c| c as f32 / 255.0;
             let Paint::Solid(color) = fill;
             match color {
@@ -233,7 +233,7 @@ impl PageContext<'_, '_> {
                     self.content.set_fill_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
                 }
             }
-            self.state.fill = Some(fill);
+            self.state.fill = Some(fill.clone());
         }
     }
 
@@ -248,8 +248,8 @@ impl PageContext<'_, '_> {
         self.state.fill_space = None;
     }
 
-    fn set_stroke(&mut self, stroke: Stroke) {
-        if self.state.stroke != Some(stroke) {
+    fn set_stroke(&mut self, stroke: &Stroke) {
+        if self.state.stroke.as_ref() != Some(stroke) {
             let f = |c| c as f32 / 255.0;
             let Paint::Solid(color) = stroke.paint;
             match color {
@@ -268,7 +268,7 @@ impl PageContext<'_, '_> {
             }
 
             self.content.set_line_width(stroke.thickness.to_f32());
-            self.state.stroke = Some(stroke);
+            self.state.stroke = Some(stroke.clone());
         }
     }
 
@@ -335,7 +335,7 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
         .or_default()
         .extend(text.glyphs.iter().map(|g| g.id));
 
-    ctx.set_fill(text.fill);
+    ctx.set_fill(&text.fill);
     ctx.set_font(&text.font, text.size);
     ctx.content.begin_text();
 
@@ -386,11 +386,11 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
         return;
     }
 
-    if let Some(fill) = shape.fill {
+    if let Some(fill) = &shape.fill {
         ctx.set_fill(fill);
     }
 
-    if let Some(stroke) = shape.stroke {
+    if let Some(stroke) = &shape.stroke {
         ctx.set_stroke(stroke);
     }
 
@@ -413,7 +413,7 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
         }
     }
 
-    match (shape.fill, shape.stroke) {
+    match (&shape.fill, &shape.stroke) {
         (None, None) => unreachable!(),
         (Some(_), None) => ctx.content.fill_nonzero(),
         (None, Some(_)) => ctx.content.stroke(),

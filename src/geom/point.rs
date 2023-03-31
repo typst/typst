@@ -72,10 +72,10 @@ impl Numeric for Point {
 impl Get<Axis> for Point {
     type Component = Abs;
 
-    fn get(self, axis: Axis) -> Abs {
+    fn get_ref(&self, axis: Axis) -> &Abs {
         match axis {
-            Axis::X => self.x,
-            Axis::Y => self.y,
+            Axis::X => &self.x,
+            Axis::Y => &self.y,
         }
     }
 

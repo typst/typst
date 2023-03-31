@@ -383,7 +383,13 @@ impl Layout for BlockElem {
             let outset = self.outset(styles);
             let radius = self.radius(styles);
             for frame in frames.iter_mut().skip(skip as usize) {
-                frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
+                frame.fill_and_stroke(
+                    fill.clone(),
+                    stroke.clone(),
+                    outset,
+                    radius,
+                    self.span(),
+                );
             }
         }
 
