@@ -554,24 +554,17 @@ fn create(
 
 /// Load bibliography entries from a path.
 #[comemo::memoize]
-fn load(world: Tracked<dyn World>, paths: &BibPaths) -> StrResult<EcoVec<hayagriva::Entry>> {
+fn load(
+    world: Tracked<dyn World>,
+    paths: &BibPaths,
+) -> StrResult<EcoVec<hayagriva::Entry>> {
     let mut result = EcoVec::new();
+
     // We might have multiple bib/yaml files
-    for path_str in &paths.0 {
-        let path = Path::new(path_str.as_str());
-        let buffer = world.file(path)?;
+    for path in &paths.0 {
+        let buffer = world.file(Path::new(path.as_str()))?;
         let src = std::str::from_utf8(&buffer).map_err(|_| "file is not valid utf-8")?;
-        let ext = path.extension().and_then(OsStr::to_str).unwrap_or_default();
-        let entries = match ext.to_lowercase().as_str() {
-            "yml" => hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error)?,
-            "bib" => hayagriva::io::from_biblatex_str(src).map_err(|err| {
-                err.into_iter()
-                    .next()
-                    .map(|error| format_biblatex_error(path_str, src, error))
-                    .unwrap_or_else(|| eco_format!("failed to parse {path_str}"))
-            })?,
-            _ => return Err("unknown bibliography format".into()),
-        };
+        let entries = parse_bib(path, src)?;
         result.extend(entries);
     }
 
@@ -591,6 +584,22 @@ fn load(world: Tracked<dyn World>, paths: &BibPaths) -> StrResult<EcoVec<hayagri
         Err(eco_format!("duplicate bibliography keys: {}", duplicates.join(", ")))
     } else {
         Ok(result)
+    }
+}
+
+/// Parse a bibliography file (bib/yml)
+fn parse_bib(path_str: &str, src: &str) -> StrResult<Vec<hayagriva::Entry>> {
+    let path = Path::new(path_str);
+    let ext = path.extension().and_then(OsStr::to_str).unwrap_or_default();
+    match ext.to_lowercase().as_str() {
+        "yml" => hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error),
+        "bib" => hayagriva::io::from_biblatex_str(src).map_err(|err| {
+            err.into_iter()
+                .next()
+                .map(|error| format_biblatex_error(path_str, src, error))
+                .unwrap_or_else(|| eco_format!("failed to parse {path_str}"))
+        }),
+        _ => Err("unknown bibliography format".into()),
     }
 }
 
