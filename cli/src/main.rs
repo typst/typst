@@ -186,9 +186,13 @@ fn main() {
 /// Or opens it using the given viewer provided by `open` if it is `Some`.
 fn open_pdf(open: Option<&str>, path: &Path) -> StrResult<()> {
     if let Some(app) = open {
-        open::with(path, app).map_err(|err| format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err))?;
+        open::with(path, app).map_err(|err| {
+            format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err)
+        })?;
     } else {
-        open::that(path).map_err(|err| format!("failed to open `{}`, reason: {}", path.display(), err))?;
+        open::that(path).map_err(|err| {
+            format!("failed to open `{}`, reason: {}", path.display(), err)
+        })?;
     }
 
     Ok(())
