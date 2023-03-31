@@ -84,7 +84,7 @@ pub struct WatchCommand {
 /// List all discovered fonts in system and custom font paths
 #[derive(Debug, Clone, Parser)]
 pub struct FontsCommand {
-    /// Add additional directories to search for fonts
+    /// Also list style variants of each font family
     #[arg(long)]
     variants: bool,
 }
