@@ -141,6 +141,8 @@ pub struct GlyphFragment {
     pub lang: Lang,
     pub fill: Paint,
     pub width: Abs,
+    pub x_min: Abs,
+    pub x_max: Abs,
     pub ascent: Abs,
     pub descent: Abs,
     pub italics_correction: Abs,
@@ -186,6 +188,8 @@ impl GlyphFragment {
             style: ctx.style,
             font_size: ctx.size,
             width,
+            x_min: bbox.x_min.scaled(ctx),
+            x_max: bbox.x_max.scaled(ctx),
             ascent: bbox.y_max.scaled(ctx),
             descent: -bbox.y_min.scaled(ctx),
             italics_correction: italics,
@@ -202,10 +206,20 @@ impl GlyphFragment {
     }
 
     pub fn to_variant(&self) -> VariantFragment {
+        // Some variants come from "combining" glyphs that have zero advance width.  
+        // In that case, use the glyph bounding box to compute the glyph's width and also
+        // to align the glyph so it has zero left-side bearing with respect to its
+        // containing frame.
+        let (width, x_offset) = if self.width == Abs::zero() {
+            (self.x_max - self.x_min, -self.x_min)
+        } else {    
+            (self.width, Abs::zero())
+        };
+
         VariantFragment {
             c: self.c,
             id: Some(self.id),
-            frame: self.to_frame(),
+            frame: self.to_frame_with_placement(width, x_offset),
             style: self.style,
             font_size: self.font_size,
             italics_correction: self.italics_correction,
@@ -215,6 +229,10 @@ impl GlyphFragment {
     }
 
     pub fn to_frame(&self) -> Frame {
+        self.to_frame_with_placement(self.width, Abs::zero())
+    }
+
+    pub fn to_frame_with_placement(&self, width: Abs, x_offset: Abs) -> Frame {
         let item = TextItem {
             font: self.font.clone(),
             size: self.font_size,
@@ -223,13 +241,13 @@ impl GlyphFragment {
             glyphs: vec![Glyph {
                 id: self.id.0,
                 c: self.c,
-                x_advance: Em::from_length(self.width, self.font_size),
-                x_offset: Em::zero(),
+                x_advance: Em::from_length(width, self.font_size),
+                x_offset: Em::from_length(x_offset, self.font_size),
                 span: self.span,
                 offset: 0,
             }],
         };
-        let size = Size::new(self.width, self.ascent + self.descent);
+        let size = Size::new(width, self.ascent + self.descent);
         let mut frame = Frame::new(size);
         frame.set_baseline(self.ascent);
         frame.push(Point::with_y(self.ascent), FrameItem::Text(item));
