@@ -127,13 +127,10 @@ impl CompileSettings {
     /// # Panics
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
-        let (input, output, open, watch) = match args.command {
-            Command::Compile(command) => {
-                (command.input, command.output, command.open, false)
-            }
-            Command::Watch(command) => {
-                (command.input, command.output, command.open, true)
-            }
+        let watch = matches!(args.command, Command::Watch(_));
+        let CompileComand { input, output, open } = match args.command {
+            Command::Compile(command) => command,
+            Command::Watch(command) => command,
             _ => unreachable!(),
         };
         Self::new(input, output, watch, args.root, args.font_paths, open)
