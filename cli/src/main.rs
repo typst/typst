@@ -4,7 +4,7 @@ use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process;
+use std::process::{self, Stdio};
 
 use clap::{ArgAction, Parser, Subcommand};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -185,9 +185,11 @@ fn main() {
 /// Opens the given PDF file using: either the default PDF viewer if `open` is `None`.
 /// Or opens it using the given viewer provided by `open` if it is `Some`.
 fn open_pdf(open: Option<&str>, path: &Path) -> StrResult<()> {
-    if let Some(app) = open { open::with(path, app) } else { open::that(path) }.map_err(
-        |err| format!("An error occurred when opening '{}': {}", path.display(), err),
-    )?;
+    if let Some(app) = open {
+        open::with(path, app).map_err(|err| format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err))?;
+    } else {
+        open::that(path).map_err(|err| format!("failed to open `{}`, reason: {}", path.display(), err))?;
+    }
 
     Ok(())
 }
@@ -227,14 +229,6 @@ fn compile(command: CompileSettings) -> StrResult<()> {
 
     // Perform initial compilation.
     let failed = compile_once(&mut world, &command)?;
-    if !command.watch {
-        // Return with non-zero exit code in case of error.
-        if failed {
-            process::exit(1);
-        }
-
-        return Ok(());
-    }
 
     // open the file if requested, this must be done on the first **successful** compilation
     if !failed {
@@ -242,6 +236,15 @@ fn compile(command: CompileSettings) -> StrResult<()> {
         if let Some(open) = &command.open {
             open_pdf(open.as_deref(), &command.output)?;
         }
+    }
+
+    if !command.watch {
+        // Return with non-zero exit code in case of error.
+        if failed {
+            process::exit(1);
+        }
+
+        return Ok(());
     }
 
     // Setup file watching.
