@@ -1,7 +1,7 @@
 // Test citations and bibliographies.
 
 ---
-// Error: 15-25 failed to parse biblatex file: wrong number of digits in line 5
+// Error: 15-25 parsing failed at ../assets/files/bad.bib:5: wrong number of digits
 #bibliography("/bad.bib")
 
 ---
@@ -27,3 +27,13 @@ As described by @netwok],
 the net-work is a creature of its own.
 This is close to piratery! @arrgh
 And quark! @quark
+
+---
+// Error: 15-43 duplicate bibliography keys: arrgh, distress, glacier-melt, issue201, mcintosh_anxiety, netwok, psychology25, quark, restful, sharing, tolkien54
+#bibliography(("/works.bib", "/works.bib"))
+
+---
+#set page(width: 200pt)
+= Multiple Bibs
+Now we have multiple bibliographies containing #cite("glacier-melt", "keshav2007read")
+#bibliography(("/works.bib", "/works_too.bib"))

@@ -1324,7 +1324,7 @@ impl<'s> Parser<'s> {
         while self
             .nodes
             .last()
-            .map_or(false, |child| child.kind() == SyntaxKind::Error && child.len() == 0)
+            .map_or(false, |child| child.kind() == SyntaxKind::Error && child.is_empty())
         {
             self.nodes.pop();
         }

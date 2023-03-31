@@ -1,7 +1,7 @@
 use super::*;
 
 /// A stroke of a geometric shape.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke {
     /// The stroke's paint.
     pub paint: Paint,
@@ -23,7 +23,7 @@ impl Default for Stroke {
 /// In this representation, both fields are optional so that you can pass either
 /// just a paint (`red`), just a thickness (`0.1em`) or both (`2pt + red`) where
 /// this is expected.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Default, Clone, Eq, PartialEq, Hash)]
 pub struct PartialStroke<T = Length> {
     /// The stroke's paint.
     pub paint: Smart<Paint>,
@@ -48,7 +48,7 @@ impl PartialStroke<Abs> {
 
 impl<T: Debug> Debug for PartialStroke<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match (self.paint, &self.thickness) {
+        match (&self.paint, &self.thickness) {
             (Smart::Custom(paint), Smart::Custom(thickness)) => {
                 write!(f, "{thickness:?} + {paint:?}")
             }

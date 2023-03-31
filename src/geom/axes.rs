@@ -120,10 +120,10 @@ impl<T: Ord> Axes<T> {
 impl<T> Get<Axis> for Axes<T> {
     type Component = T;
 
-    fn get(self, axis: Axis) -> T {
+    fn get_ref(&self, axis: Axis) -> &T {
         match axis {
-            Axis::X => self.x,
-            Axis::Y => self.y,
+            Axis::X => &self.x,
+            Axis::Y => &self.y,
         }
     }
 

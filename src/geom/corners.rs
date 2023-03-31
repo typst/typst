@@ -76,12 +76,12 @@ impl<T> Corners<T> {
 impl<T> Get<Corner> for Corners<T> {
     type Component = T;
 
-    fn get(self, corner: Corner) -> T {
+    fn get_ref(&self, corner: Corner) -> &T {
         match corner {
-            Corner::TopLeft => self.top_left,
-            Corner::TopRight => self.top_right,
-            Corner::BottomRight => self.bottom_right,
-            Corner::BottomLeft => self.bottom_left,
+            Corner::TopLeft => &self.top_left,
+            Corner::TopRight => &self.top_right,
+            Corner::BottomRight => &self.bottom_right,
+            Corner::BottomLeft => &self.bottom_left,
         }
     }
 
@@ -110,7 +110,7 @@ pub enum Corner {
 
 impl<T> Cast for Corners<Option<T>>
 where
-    T: Cast + Copy,
+    T: Cast + Clone,
 {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Dict(_)) || T::is(value)
@@ -121,15 +121,23 @@ where
             let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
 
             let rest = take("rest")?;
-            let left = take("left")?.or(rest);
-            let top = take("top")?.or(rest);
-            let right = take("right")?.or(rest);
-            let bottom = take("bottom")?.or(rest);
+            let left = take("left")?.or_else(|| rest.clone());
+            let top = take("top")?.or_else(|| rest.clone());
+            let right = take("right")?.or_else(|| rest.clone());
+            let bottom = take("bottom")?.or_else(|| rest.clone());
             let corners = Corners {
-                top_left: take("top-left")?.or(top).or(left),
-                top_right: take("top-right")?.or(top).or(right),
-                bottom_right: take("bottom-right")?.or(bottom).or(right),
-                bottom_left: take("bottom-left")?.or(bottom).or(left),
+                top_left: take("top-left")?
+                    .or_else(|| top.clone())
+                    .or_else(|| left.clone()),
+                top_right: take("top-right")?
+                    .or_else(|| top.clone())
+                    .or_else(|| right.clone()),
+                bottom_right: take("bottom-right")?
+                    .or_else(|| bottom.clone())
+                    .or_else(|| right.clone()),
+                bottom_left: take("bottom-left")?
+                    .or_else(|| bottom.clone())
+                    .or_else(|| left.clone()),
             };
 
             dict.finish(&[

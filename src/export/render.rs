@@ -223,7 +223,7 @@ fn render_outline_glyph(
             builder.0.finish()?
         };
 
-        let paint = text.fill.into();
+        let paint = (&text.fill).into();
         let rule = sk::FillRule::default();
 
         // Flip vertically because font design coordinate
@@ -302,7 +302,7 @@ fn render_shape(
         Geometry::Path(ref path) => convert_path(path)?,
     };
 
-    if let Some(fill) = shape.fill {
+    if let Some(fill) = &shape.fill {
         let mut paint: sk::Paint = fill.into();
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
@@ -312,7 +312,7 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if let Some(Stroke { paint, thickness }) = shape.stroke {
+    if let Some(Stroke { paint, thickness }) = &shape.stroke {
         let paint = paint.into();
         let stroke = sk::Stroke { width: thickness.to_f32(), ..Default::default() };
         canvas.stroke_path(&path, &paint, &stroke, ts, mask);
@@ -428,10 +428,10 @@ impl From<Transform> for sk::Transform {
     }
 }
 
-impl From<Paint> for sk::Paint<'static> {
-    fn from(paint: Paint) -> Self {
+impl From<&Paint> for sk::Paint<'static> {
+    fn from(paint: &Paint) -> Self {
         let mut sk_paint = sk::Paint::default();
-        let Paint::Solid(color) = paint;
+        let Paint::Solid(color) = *paint;
         sk_paint.set_color(color.into());
         sk_paint.anti_alias = true;
         sk_paint

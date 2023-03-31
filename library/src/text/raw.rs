@@ -134,8 +134,7 @@ impl Show for RawElem {
             .settings
             .foreground
             .map(to_typst)
-            .map_or(Color::BLACK, Color::from)
-            .into();
+            .map_or(Color::BLACK, Color::from);
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
@@ -150,7 +149,7 @@ impl Show for RawElem {
                 vec![],
                 &highlighter,
                 &mut |node, style| {
-                    seq.push(styled(&text[node.range()], foreground, style));
+                    seq.push(styled(&text[node.range()], foreground.into(), style));
                 },
             );
 
@@ -168,7 +167,7 @@ impl Show for RawElem {
                 for (style, piece) in
                     highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
                 {
-                    seq.push(styled(piece, foreground, style));
+                    seq.push(styled(piece, foreground.into(), style));
                 }
             }
 

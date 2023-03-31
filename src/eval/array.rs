@@ -41,6 +41,11 @@ impl Array {
         Self(vec)
     }
 
+    /// Return `true` if the length is 0.
+    pub fn is_empty(&self) -> bool {
+        self.0.len() == 0
+    }
+
     /// The length of the array.
     pub fn len(&self) -> i64 {
         self.0.len() as i64
