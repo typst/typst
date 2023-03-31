@@ -55,7 +55,7 @@ enum Command {
     Compile(CompileCommand),
 
     /// Watches the input file and recompiles on changes
-    Watch(WatchCommand),
+    Watch(CompileCommand),
 
     /// List all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
@@ -69,16 +69,10 @@ pub struct CompileCommand {
 
     /// Path to output PDF file
     output: Option<PathBuf>,
-}
 
-/// Watches the input file and recompiles on changes
-#[derive(Debug, Clone, Parser)]
-pub struct WatchCommand {
-    /// Path to input Typst file
-    input: PathBuf,
-
-    /// Path to output PDF file
-    output: Option<PathBuf>,
+    /// Open the output file after compilation using the default PDF viewer
+    #[arg(short = 'O', long = "open")]
+    open: bool,
 }
 
 /// List all discovered fonts in system and custom font paths
