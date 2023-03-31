@@ -142,7 +142,7 @@ struct FontsSettings {
     /// The font paths
     font_paths: Vec<PathBuf>,
 
-    /// Wether to include font variants
+    /// Whether to include font variants
     variants: bool,
 }
 
