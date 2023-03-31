@@ -86,8 +86,10 @@ impl Count for FigureElem {
 impl LocalName for FigureElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::CHINESE => "图",
             Lang::GERMAN => "Abbildung",
             Lang::ITALIAN => "Figura",
+            Lang::RUSSIAN => "Рисунок",
             Lang::ENGLISH | _ => "Figure",
         }
     }

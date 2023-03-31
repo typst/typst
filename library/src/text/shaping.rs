@@ -122,7 +122,14 @@ impl<'a> ShapedText<'a> {
                 })
                 .collect();
 
-            let item = TextItem { font, size: self.size, lang, fill, glyphs };
+            let item = TextItem {
+                font,
+                size: self.size,
+                lang,
+                fill: fill.clone(),
+                glyphs,
+            };
+
             let layer = frame.layer();
             let width = item.width();
 

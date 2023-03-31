@@ -201,20 +201,20 @@ impl GlyphFragment {
         self.ascent + self.descent
     }
 
-    pub fn to_variant(&self) -> VariantFragment {
+    pub fn to_variant(self) -> VariantFragment {
         VariantFragment {
             c: self.c,
             id: Some(self.id),
-            frame: self.to_frame(),
             style: self.style,
             font_size: self.font_size,
             italics_correction: self.italics_correction,
             class: self.class,
             span: self.span,
+            frame: self.to_frame(),
         }
     }
 
-    pub fn to_frame(&self) -> Frame {
+    pub fn to_frame(self) -> Frame {
         let item = TextItem {
             font: self.font.clone(),
             size: self.font_size,
