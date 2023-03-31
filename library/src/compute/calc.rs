@@ -94,13 +94,18 @@ pub fn pow(
         Num::Int(i) if i > u32::MAX as i64 => {
             bail!(exponent.span, "exponent too large");
         }
-        Num::Int(0..) => exponent.v,
-        Num::Float(f) if f >= 0.0 => exponent.v,
+        Num::Int(i) if i != 0 => exponent.v,
+        Num::Float(f) if f.is_normal() => exponent.v,
         _ => {
-            bail!(exponent.span, "exponent must be non-negative");
+            bail!(exponent.span, "exponent must be normal (non-zero, non-NaN, non-infinite, non-subnormal)");
         }
     };
-    base.apply2(exponent, |a, b| a.pow(b as u32), f64::powf)
+
+    match (base, exponent) {
+        (Num::Int(a), Num::Int(b)) if b > 0 => Value::Int(a.pow(b as u32)),
+        (a, Num::Int(b)) => Value::Float(a.float().powi(b as i32)),
+        (a, b) => Value::Float(f64::powf(a.float(), b.float())),
+    }
 }
 
 /// Calculate the square root of a number.
