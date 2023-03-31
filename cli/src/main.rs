@@ -4,7 +4,7 @@ use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process::{self, Stdio};
+use std::process;
 
 use clap::{ArgAction, Parser, Subcommand};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
