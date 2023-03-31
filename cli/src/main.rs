@@ -70,9 +70,9 @@ pub struct CompileCommand {
     /// Path to output PDF file
     output: Option<PathBuf>,
 
-    /// Open the output file after compilation using the default PDF viewer
+    /// Opens the output file after compilation using the default PDF viewer
     #[arg(short = 'O', long = "open")]
-    open: bool,
+    open: Option<Option<String>>,
 }
 
 /// List all discovered fonts in system and custom font paths
@@ -99,6 +99,9 @@ struct CompileSettings {
 
     /// The paths to search for fonts.
     font_paths: Vec<PathBuf>,
+
+    /// The open command to use.
+    open: Option<Option<String>>,
 }
 
 impl CompileSettings {
@@ -109,13 +112,14 @@ impl CompileSettings {
         watch: bool,
         root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
+        open: Option<Option<String>>,
     ) -> Self {
         let output = match output {
             Some(path) => path,
             None => input.with_extension("pdf"),
         };
 
-        Self { input, output, watch, root, font_paths }
+        Self { input, output, watch, root, font_paths, open }
     }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
@@ -123,12 +127,16 @@ impl CompileSettings {
     /// # Panics
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
-        let (input, output, watch) = match args.command {
-            Command::Compile(command) => (command.input, command.output, false),
-            Command::Watch(command) => (command.input, command.output, true),
+        let (input, output, open, watch) = match args.command {
+            Command::Compile(command) => {
+                (command.input, command.output, command.open, false)
+            }
+            Command::Watch(command) => {
+                (command.input, command.output, command.open, true)
+            }
             _ => unreachable!(),
         };
-        Self::new(input, output, watch, args.root, args.font_paths)
+        Self::new(input, output, watch, args.root, args.font_paths, open)
     }
 }
 
@@ -174,6 +182,16 @@ fn main() {
     }
 }
 
+/// Opens the given PDF file using: either the default PDF viewer if `open` is `None`.
+/// Or opens it using the given viewer provided by `open` if it is `Some`.
+fn open_pdf(open: Option<&str>, path: &Path) -> StrResult<()> {
+    if let Some(app) = open { open::with(path, app) } else { open::that(path) }.map_err(
+        |err| format!("An error occurred when opening '{}': {}", path.display(), err),
+    )?;
+
+    Ok(())
+}
+
 /// Print an application-level error (independent from a source file).
 fn print_error(msg: &str) -> io::Result<()> {
     let mut w = StandardStream::stderr(ColorChoice::Auto);
@@ -188,6 +206,8 @@ fn print_error(msg: &str) -> io::Result<()> {
 
 /// Execute a compilation command.
 fn compile(command: CompileSettings) -> StrResult<()> {
+    let mut opened = false;
+
     let root = if let Some(root) = &command.root {
         root.clone()
     } else if let Some(dir) = command
@@ -214,6 +234,14 @@ fn compile(command: CompileSettings) -> StrResult<()> {
         }
 
         return Ok(());
+    }
+
+    // open the file if requested, this must be done on the first **successful** compilation
+    if !failed {
+        opened = true;
+        if let Some(open) = &command.open {
+            open_pdf(open.as_deref(), &command.output)?;
+        }
     }
 
     // Setup file watching.
@@ -250,6 +278,14 @@ fn compile(command: CompileSettings) -> StrResult<()> {
         if recompile {
             compile_once(&mut world, &command)?;
             comemo::evict(30);
+
+            // open the file if requested, this must be done on the first **successful** compilation
+            if !opened {
+                opened = true;
+                if let Some(open) = &command.open {
+                    open_pdf(open.as_deref(), &command.output)?;
+                }
+            }
         }
     }
 }
