@@ -285,6 +285,7 @@ impl LocalName for TableElem {
         match lang {
             Lang::GERMAN => "Tabelle",
             Lang::ITALIAN => "Tabella",
+            Lang::RUSSIAN => "Таблица",
             Lang::ENGLISH | _ => "Table",
         }
     }
