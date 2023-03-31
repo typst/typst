@@ -88,6 +88,7 @@ impl LocalName for FigureElem {
         match lang {
             Lang::GERMAN => "Abbildung",
             Lang::ITALIAN => "Figura",
+            Lang::CHINESE => "图",
             Lang::ENGLISH | _ => "Figure",
         }
     }
