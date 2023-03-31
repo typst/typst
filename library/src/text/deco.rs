@@ -268,8 +268,8 @@ pub(super) fn decorate(
     };
 
     let offset = deco.offset.unwrap_or(-metrics.position.at(text.size)) - shift;
-    let stroke = deco.stroke.unwrap_or(Stroke {
-        paint: text.fill,
+    let stroke = deco.stroke.clone().unwrap_or(Stroke {
+        paint: text.fill.clone(),
         thickness: metrics.thickness.at(text.size),
     });
 
@@ -284,7 +284,7 @@ pub(super) fn decorate(
         let target = Point::new(to - from, Abs::zero());
 
         if target.x >= min_width || !deco.evade {
-            let shape = Geometry::Line(target).stroked(stroke);
+            let shape = Geometry::Line(target).stroked(stroke.clone());
             frame.push(origin, FrameItem::Shape(shape, Span::detached()));
         }
     };

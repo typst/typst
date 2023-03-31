@@ -6,6 +6,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
+use clap::{ArgAction, Parser, Subcommand};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use comemo::Prehashed;
@@ -13,7 +14,6 @@ use elsa::FrozenVec;
 use memmap2::Mmap;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use once_cell::unsync::OnceCell;
-use pico_args::Arguments;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
@@ -28,141 +28,156 @@ use walkdir::WalkDir;
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
+const TYPST_VERSION: &str = env!("TYPST_VERSION");
+
+/// typst creates PDF files from .typ files
+#[derive(Debug, Clone, Parser)]
+#[clap(name = "typst", version = TYPST_VERSION, author)]
+pub struct CliArguments {
+    /// Add additional directories to search for fonts
+    #[clap(long = "font-path", value_name = "DIR", action = ArgAction::Append)]
+    font_paths: Vec<PathBuf>,
+
+    /// Configure the root for absolute paths
+    #[clap(long = "root", value_name = "DIR")]
+    root: Option<PathBuf>,
+
+    /// The typst command to run
+    #[command(subcommand)]
+    command: Command,
+}
+
 /// What to do.
+#[derive(Debug, Clone, Subcommand)]
+#[command()]
 enum Command {
+    /// Compiles the input file into a PDF file
     Compile(CompileCommand),
+
+    /// Watches the input file and recompiles on changes
+    Watch(WatchCommand),
+
+    /// List all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
 }
 
-/// Compile a .typ file into a PDF file.
-struct CompileCommand {
+/// Compiles the input file into a PDF file
+#[derive(Debug, Clone, Parser)]
+pub struct CompileCommand {
+    /// Path to input Typst file
     input: PathBuf,
-    output: PathBuf,
-    root: Option<PathBuf>,
-    watch: bool,
-    font_paths: Vec<PathBuf>,
+
+    /// Path to output PDF file
+    output: Option<PathBuf>,
 }
 
-const HELP: &'static str = "\
-typst creates PDF files from .typ files
+/// Watches the input file and recompiles on changes
+#[derive(Debug, Clone, Parser)]
+pub struct WatchCommand {
+    /// Path to input Typst file
+    input: PathBuf,
 
-USAGE:
-  typst [OPTIONS] <input.typ> [output.pdf]
-  typst [SUBCOMMAND] ...
+    /// Path to output PDF file
+    output: Option<PathBuf>,
+}
 
-ARGS:
-  <input.typ>    Path to input Typst file
-  [output.pdf]   Path to output PDF file
-
-OPTIONS:
-  -h, --help        Print this help
-  -V, --version     Print the CLI's version
-  -w, --watch       Watch the inputs and recompile on changes
-  --font-path <dir> Add additional directories to search for fonts
-  --root <dir>      Configure the root for absolute paths
-
-SUBCOMMANDS:
-  --fonts           List all discovered fonts in system and custom font paths
-";
-
-/// List discovered system fonts.
-struct FontsCommand {
-    font_paths: Vec<PathBuf>,
+/// List all discovered fonts in system and custom font paths
+#[derive(Debug, Clone, Parser)]
+pub struct FontsCommand {
+    /// Add additional directories to search for fonts
+    #[arg(long)]
     variants: bool,
 }
 
-const HELP_FONTS: &'static str = "\
-typst --fonts lists all discovered fonts in system and custom font paths
+/// A summary of the input arguments relevant to compilation.
+struct CompileSettings {
+    /// The path to the input file.
+    input: PathBuf,
 
-USAGE:
-  typst --fonts [OPTIONS]
+    /// The path to the output file.
+    output: PathBuf,
 
-OPTIONS:
-  -h, --help        Print this help
-  --font-path <dir> Add additional directories to search for fonts
-  --variants        Also list style variants of each font family
-";
+    /// Whether to watch the input files for changes.
+    watch: bool,
+
+    /// The root directory for absolute paths.
+    root: Option<PathBuf>,
+
+    /// The paths to search for fonts.
+    font_paths: Vec<PathBuf>,
+}
+
+impl CompileSettings {
+    /// Create a new compile settings from the field values.
+    pub fn new(
+        input: PathBuf,
+        output: Option<PathBuf>,
+        watch: bool,
+        root: Option<PathBuf>,
+        font_paths: Vec<PathBuf>,
+    ) -> Self {
+        let output = match output {
+            Some(path) => path,
+            None => input.with_extension("pdf"),
+        };
+
+        Self { input, output, watch, root, font_paths }
+    }
+
+    /// Create a new compile settings from the CLI arguments and a compile command.
+    ///
+    /// # Panics
+    /// Panics if the command is not a compile or watch command.
+    pub fn with_arguments(args: CliArguments) -> Self {
+        let (input, output, watch) = match args.command {
+            Command::Compile(command) => (command.input, command.output, false),
+            Command::Watch(command) => (command.input, command.output, true),
+            _ => unreachable!(),
+        };
+        Self::new(input, output, watch, args.root, args.font_paths)
+    }
+}
+
+struct FontsSettings {
+    /// The font paths
+    font_paths: Vec<PathBuf>,
+
+    /// Whether to include font variants
+    variants: bool,
+}
+
+impl FontsSettings {
+    /// Create font settings from the field values.
+    pub fn new(font_paths: Vec<PathBuf>, variants: bool) -> Self {
+        Self { font_paths, variants }
+    }
+
+    /// Create a new font settings from the CLI arguments.
+    ///
+    /// # Panics
+    /// Panics if the command is not a fonts command.
+    pub fn with_arguments(args: CliArguments) -> Self {
+        match args.command {
+            Command::Fonts(command) => Self::new(args.font_paths, command.variants),
+            _ => unreachable!(),
+        }
+    }
+}
 
 /// Entry point.
 fn main() {
-    let command = parse_args();
-    let ok = command.is_ok();
-    if let Err(msg) = command.and_then(dispatch) {
-        print_error(&msg).unwrap();
-        if !ok {
-            println!("\nfor more information, try --help");
+    let arguments = CliArguments::parse();
+
+    let res = match &arguments.command {
+        Command::Compile(_) | Command::Watch(_) => {
+            compile(CompileSettings::with_arguments(arguments))
         }
-        process::exit(1);
-    }
-}
-
-/// Parse command line arguments.
-fn parse_args() -> StrResult<Command> {
-    let mut args = Arguments::from_env();
-    if args.contains(["-V", "--version"]) {
-        print_version();
-    }
-
-    let help = args.contains(["-h", "--help"]);
-    let font_paths = args.values_from_str("--font-path").unwrap();
-
-    let command = if args.contains("--fonts") {
-        if help {
-            print_help(HELP_FONTS);
-        }
-
-        Command::Fonts(FontsCommand { font_paths, variants: args.contains("--variants") })
-    } else {
-        if help {
-            print_help(HELP);
-        }
-
-        let root = args.opt_value_from_str("--root").map_err(|_| "missing root path")?;
-        let watch = args.contains(["-w", "--watch"]);
-        let (input, output) = parse_input_output(&mut args, "pdf")?;
-        Command::Compile(CompileCommand { input, output, watch, root, font_paths })
+        Command::Fonts(_) => fonts(FontsSettings::with_arguments(arguments)),
     };
 
-    // Don't allow excess arguments.
-    let rest = args.finish();
-    if !rest.is_empty() {
-        Err(format!("unexpected argument{}", if rest.len() > 1 { "s" } else { "" }))?;
+    if let Err(msg) = res {
+        print_error(&msg).expect("failed to print error");
     }
-
-    Ok(command)
-}
-
-/// Parse two freestanding path arguments, with the output path being optional.
-/// If it is omitted, it is determined from the input path's file stem plus the
-/// given extension.
-fn parse_input_output(args: &mut Arguments, ext: &str) -> StrResult<(PathBuf, PathBuf)> {
-    let input: PathBuf = args.free_from_str().map_err(|_| "missing input file")?;
-    let output = match args.opt_free_from_str().ok().flatten() {
-        Some(output) => output,
-        None => {
-            let name = input.file_name().ok_or("source path does not point to a file")?;
-            Path::new(name).with_extension(ext)
-        }
-    };
-
-    // Ensure that the source file is not overwritten.
-    if is_same_file(&input, &output).unwrap_or(false) {
-        Err("source and destination files are the same")?;
-    }
-
-    Ok((input, output))
-}
-
-/// Print a help string and quit.
-fn print_help(help: &'static str) -> ! {
-    print!("{help}");
-    std::process::exit(0);
-}
-
-/// Print the version hash and quit.
-fn print_version() -> ! {
-    println!("typst {}", env!("TYPST_VERSION"));
-    std::process::exit(0);
 }
 
 /// Print an application-level error (independent from a source file).
@@ -177,16 +192,8 @@ fn print_error(msg: &str) -> io::Result<()> {
     writeln!(w, ": {msg}.")
 }
 
-/// Dispatch a command.
-fn dispatch(command: Command) -> StrResult<()> {
-    match command {
-        Command::Compile(command) => compile(command),
-        Command::Fonts(command) => fonts(command),
-    }
-}
-
 /// Execute a compilation command.
-fn compile(command: CompileCommand) -> StrResult<()> {
+fn compile(command: CompileSettings) -> StrResult<()> {
     let root = if let Some(root) = &command.root {
         root.clone()
     } else if let Some(dir) = command
@@ -254,7 +261,7 @@ fn compile(command: CompileCommand) -> StrResult<()> {
 }
 
 /// Compile a single time.
-fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<bool> {
+fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
     status(command, Status::Compiling).unwrap();
 
     world.reset();
@@ -280,7 +287,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileCommand) -> StrResult<
 }
 
 /// Clear the terminal and render the status message.
-fn status(command: &CompileCommand, status: Status) -> io::Result<()> {
+fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     if !command.watch {
         return Ok(());
     }
@@ -373,7 +380,7 @@ fn print_diagnostics(
 }
 
 /// Execute a font listing command.
-fn fonts(command: FontsCommand) -> StrResult<()> {
+fn fonts(command: FontsSettings) -> StrResult<()> {
     let mut searcher = FontSearcher::new();
     searcher.search_system();
     for path in &command.font_paths {
@@ -569,10 +576,10 @@ impl PathHash {
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
-    if fs::metadata(&path).map_err(f)?.is_file() {
-        fs::read(&path).map_err(f)
-    } else {
+    if fs::metadata(&path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
+    } else {
+        fs::read(&path).map_err(f)
     }
 }
 

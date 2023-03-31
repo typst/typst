@@ -23,6 +23,22 @@ Nohttps:\//link \
 Nohttp\://comment
 
 ---
+// Verify that brackets are included in links.
+https://[::1]:8080/ \
+https://example.com/(paren) \
+https://example.com/#(((nested))) \
+
+---
+// Check that unbalanced brackets are not included in links.
+#[https://example.com/] \
+https://example.com/)
+
+---
+// Verify that opening brackets without closing brackets throw an error.
+// Error: 22-22 expected closing bracket in link
+https://exam(ple.com/
+
+---
 // Styled with underline and color.
 #show link: it => underline(text(fill: rgb("283663"), it))
 You could also make the

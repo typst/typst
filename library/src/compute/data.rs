@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use typst::diag::{format_xml_like_error, FileError};
 
 use crate::prelude::*;
@@ -76,9 +74,12 @@ pub fn csv(
     let mut reader = builder.from_reader(data.as_slice());
     let mut array = Array::new();
 
-    for result in reader.records() {
-        let row = result.map_err(format_csv_error).at(span)?;
-        let sub = row.iter().map(|field| Value::Str(field.into())).collect();
+    for (line, result) in reader.records().enumerate() {
+        // Original solution use line from error, but that is incorrect with has_headers set to false
+        // See issue: https://github.com/BurntSushi/rust-csv/issues/184
+        let line = line + 1; // Counting lines from 1
+        let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
+        let sub = row.into_iter().map(|field| Value::Str(field.into())).collect();
         array.push(Value::Array(sub))
     }
 
@@ -112,17 +113,13 @@ impl Default for Delimiter {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(error: csv::Error) -> String {
+fn format_csv_error(error: csv::Error, line: usize) -> String {
     match error.kind() {
         csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
-        csv::ErrorKind::UnequalLengths { pos, expected_len, len } => {
-            let mut msg = format!(
-                "failed to parse csv file: found {len} instead of {expected_len} fields"
-            );
-            if let Some(pos) = pos {
-                write!(msg, " in line {}", pos.line()).unwrap();
-            }
-            msg
+        csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
+            format!(
+                "failed to parse csv file: found {len} instead of {expected_len} fields in line {line}"
+            )
         }
         _ => "failed to parse csv file".into(),
     }

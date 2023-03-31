@@ -48,13 +48,17 @@ pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
     #[parse(
-        let Spanned { v: path, span } =
-            args.expect::<Spanned<EcoString>>("path to bibliography file")?;
-        let path: EcoString = vm.locate(&path).at(span)?.to_string_lossy().into();
-        let _ = load(vm.world(), &path).at(span)?;
-        path
+        let Spanned { v: mut paths, span } =
+            args.expect::<Spanned<BibPaths>>("path to bibliography file")?;
+        for path in &mut paths.0 {
+            // resolve paths
+            *path = vm.locate(&path).at(span)?.to_string_lossy().into();
+        }
+        // check that parsing works
+        let _ = load(vm.world(), &paths).at(span)?;
+        paths
     )]
-    pub path: EcoString,
+    pub path: BibPaths,
 
     /// The title of the bibliography.
     ///
@@ -69,6 +73,22 @@ pub struct BibliographyElem {
     #[default(BibliographyStyle::Ieee)]
     pub style: BibliographyStyle,
 }
+
+
+/// A list of bib file paths.
+#[derive(Debug, Default, Clone, Hash)]
+pub struct BibPaths(Vec<EcoString>);
+
+cast_from_value! {
+    BibPaths,
+    v: EcoString => Self(vec![v]),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+cast_to_value! {
+    v: BibPaths => v.0.into()
+}
+
 
 impl BibliographyElem {
     /// Find the document's bibliography.
@@ -182,8 +202,11 @@ impl Show for BibliographyElem {
 impl LocalName for BibliographyElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::GERMAN | Lang::FRENCH => "Bibliographie",
+            Lang::CHINESE => "参考文献",
             Lang::GERMAN => "Bibliographie",
             Lang::ITALIAN => "Bibliografia",
+            Lang::RUSSIAN => "Библиография",
             Lang::ENGLISH | _ => "Bibliography",
         }
     }
@@ -532,22 +555,53 @@ fn create(
 
 /// Load bibliography entries from a path.
 #[comemo::memoize]
-fn load(world: Tracked<dyn World>, path: &str) -> StrResult<EcoVec<hayagriva::Entry>> {
-    let path = Path::new(path);
-    let buffer = world.file(path)?;
-    let src = std::str::from_utf8(&buffer).map_err(|_| "file is not valid utf-8")?;
+fn load(
+    world: Tracked<dyn World>,
+    paths: &BibPaths,
+) -> StrResult<EcoVec<hayagriva::Entry>> {
+    let mut result = EcoVec::new();
+
+    // We might have multiple bib/yaml files
+    for path in &paths.0 {
+        let buffer = world.file(Path::new(path.as_str()))?;
+        let src = std::str::from_utf8(&buffer).map_err(|_| "file is not valid utf-8")?;
+        let entries = parse_bib(path, src)?;
+        result.extend(entries);
+    }
+
+    // Biblatex only checks for duplicate keys within files
+    // -> We have to do this between files again
+    let mut keys = result.iter().map(|r| r.key()).collect::<Vec<_>>();
+    keys.sort_unstable();
+    // Waiting for `slice_partition_dedup` #54279
+    let mut duplicates = Vec::new();
+    for pair in keys.windows(2) {
+        if pair[0] == pair[1] {
+            duplicates.push(pair[0]);
+        }
+    }
+
+    if !duplicates.is_empty() {
+        Err(eco_format!("duplicate bibliography keys: {}", duplicates.join(", ")))
+    } else {
+        Ok(result)
+    }
+}
+
+/// Parse a bibliography file (bib/yml)
+fn parse_bib(path_str: &str, src: &str) -> StrResult<Vec<hayagriva::Entry>> {
+    let path = Path::new(path_str);
     let ext = path.extension().and_then(OsStr::to_str).unwrap_or_default();
-    let entries = match ext.to_lowercase().as_str() {
-        "yml" => hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error)?,
+    match ext.to_lowercase().as_str() {
+        "yml" => hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error),
         "bib" => hayagriva::io::from_biblatex_str(src).map_err(|err| {
             err.into_iter()
                 .next()
-                .map(|error| format_biblatex_error(src, error))
-                .unwrap_or_else(|| "failed to parse biblatex file".into())
-        })?,
-        _ => return Err("unknown bibliography format".into()),
-    };
-    Ok(entries.into_iter().collect())
+                .map(|error| format_biblatex_error(path_str, src, error))
+                .unwrap_or_else(|| eco_format!("failed to parse {path_str}"))
+        }),
+        _ => Err("unknown bibliography format".into()),
+    }
 }
 
 /// Format a Hayagriva loading error.
@@ -556,13 +610,13 @@ fn format_hayagriva_error(error: YamlBibliographyError) -> EcoString {
 }
 
 /// Format a BibLaTeX loading error.
-fn format_biblatex_error(src: &str, error: BibLaTeXError) -> EcoString {
+fn format_biblatex_error(path: &str, src: &str, error: BibLaTeXError) -> EcoString {
     let (span, msg) = match error {
         BibLaTeXError::Parse(error) => (error.span, error.kind.to_string()),
         BibLaTeXError::Type(error) => (error.span, error.kind.to_string()),
     };
     let line = src.get(..span.start).unwrap_or_default().lines().count();
-    eco_format!("failed to parse biblatex file: {msg} in line {line}")
+    eco_format!("parsing failed at {path}:{line}: {msg}")
 }
 
 /// Hayagriva only supports strings, but we have a content supplement. To deal
