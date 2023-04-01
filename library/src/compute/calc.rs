@@ -97,7 +97,10 @@ pub fn pow(
         Num::Int(i) => exponent.v,
         Num::Float(f) if f.is_normal() || f == 0 as f64 => exponent.v,
         _ => {
-            bail!(exponent.span, "exponent must be normal (non-NaN, non-infinite, non-subnormal)");
+            bail!(
+                exponent.span,
+                "exponent must be normal (non-NaN, non-infinite, non-subnormal)"
+            );
         }
     };
 
