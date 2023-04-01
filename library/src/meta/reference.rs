@@ -203,10 +203,10 @@ pub trait RefInfo {
     /// The numbering used in reference.
     fn numbering(&self, styles: StyleChain) -> Option<Numbering>;
 
-    /// supplement used in reference.
+    /// The supplement used in reference.
     fn supplement(&self, _styles: StyleChain) -> Option<Supplement>;
 
-    // default logic to convert supplements into contents in references
+    // The default logic to convert supplements into contents in references
     fn resolve_supplement(
         &self,
         vt: &mut Vt,

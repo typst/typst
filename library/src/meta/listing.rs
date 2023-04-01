@@ -15,13 +15,13 @@ use crate::visualize::ImageElem;
 /// #listing(of: table, title: "Table of Tables")
 ///
 /// #figure(caption: "A nice figure!")[
-///     #table(
-///         columns: (auto, 1fr),
-///         "A", "Ampere",
-///         "V", "Volt",
-///         "Hz", "Hertz",
-///         "K", "Kelvin",
-///     )
+///   #table(
+///     columns: (auto, 1fr),
+///     "A", "Ampere",
+///     "V", "Volt",
+///     "Hz", "Hertz",
+///     "K", "Kelvin",
+///   )
 /// ]
 /// ```
 ///

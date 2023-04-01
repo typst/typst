@@ -202,10 +202,10 @@ impl LocalName for RawElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::CHINESE => "代码",
-            Lang::GERMAN => "Computercode",
             Lang::ITALIAN => "Codice",
             Lang::RUSSIAN => "код",
-            Lang::ENGLISH | Lang::FRENCH | _ => "Code",
+            Lang::FRENCH => "Liste",
+            Lang::ENGLISH | Lang::GERMAN | _ => "Listing",
         }
     }
 }
