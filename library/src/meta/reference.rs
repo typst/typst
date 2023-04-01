@@ -206,7 +206,7 @@ pub trait RefInfo {
     /// supplement used in reference.
     fn supplement(&self, _styles: StyleChain) -> Option<Supplement>;
 
-    // default logic of convert supplement into content in reference
+    // default logic to convert supplements into contents in references
     fn resolve_supplement(
         &self,
         vt: &mut Vt,

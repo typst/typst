@@ -171,10 +171,10 @@ impl Show for FigureElem {
 
 impl Count for FigureElem {
     fn update(&self) -> Option<CounterUpdate> {
-        // if the figure is numbered and is listed.
-        (self.numbering(StyleChain::default()).is_some()
-            && self.listed(StyleChain::default()))
-        .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
+        // if the figure is numbered.
+        self.numbering(StyleChain::default())
+            .is_some()
+            .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
 }
 
@@ -204,32 +204,29 @@ impl RefInfo for FigureElem {
     }
 }
 
-/// The type of a figure
+/// The type of a figure.
 ///
 /// Priority list:
 /// 1. `counter` and `supplement` explicitly set
 /// 2. contains an image element
 /// 3. contains a raw element
 /// 4. contains a table element
-/// 5. could not determine content
+/// 5. could not determine content.
 #[derive(Debug, Clone)]
-#[repr(u8)]
 pub enum FigureType {
-    /// A figure containing one (or more) images
+    /// A figure containing one (or more) images.
     Image(ImageElem),
 
-    /// A figure containing a table
+    /// A figure containing a table.
     Table(TableElem),
 
-    /// A figure containing a snippet of code
+    /// A figure containing a snippet of code.
     Raw(RawElem),
 
     /// The figure type is manually set.
     Manual(ElemFunc),
 
     /// Could not determine the content of the figure.
-    /// Unless the figure has `counter` and `supplement` explicitly set,
-    /// this will be treated as an error.
     Other,
 }
 
@@ -281,6 +278,7 @@ impl FigureType {
     }
 
     /// Gets the supplement of this figure type.
+    /// This does not evaluate any function in the supplement.
     pub fn supplement(
         &self,
         figure: &FigureElem,
@@ -300,6 +298,8 @@ impl FigureType {
     }
 
     /// Resolves the supplement of this figure type.
+    /// This evaluates any function in the supplement.
+    /// It returns a `Content` that can be displayed in the document directly.
     pub fn resolve_supplement(
         &self,
         vt: &mut Vt,
