@@ -95,7 +95,7 @@ pub fn pow(
             bail!(exponent.span, "exponent too large");
         }
         Num::Int(_) => exponent.v,
-        Num::Float(f) if f.is_infinite() => exponent.v,
+        Num::Float(f) if f.is_finite() => exponent.v,
         _ => {
             bail!(exponent.span, "exponent must be non-infinite");
         }
