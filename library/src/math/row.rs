@@ -50,7 +50,7 @@ impl MathRow {
             }
 
             // Convert variable operators into binary operators if something
-            // precedes them.
+            // precedes them and they are not preceded by a operator or comparator.
             if fragment.class() == Some(MathClass::Vary)
                 && matches!(
                     last.and_then(|i| resolved[i].class()),
