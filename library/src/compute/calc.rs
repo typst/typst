@@ -99,7 +99,7 @@ pub fn pow(
         _ => {
             bail!(
                 exponent.span,
-                "exponent must be normal non-infinite"
+                "exponent must be non-infinite"
             );
         }
     };
