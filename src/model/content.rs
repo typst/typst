@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
-    Location, Recipe, Style, Styles, Synthesize,
+    Location, Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
@@ -345,6 +345,36 @@ impl Content {
     /// Attach a location to this content.
     pub fn set_location(&mut self, location: Location) {
         self.attrs.push(Attr::Location(location));
+    }
+
+    /// Gives an iterator over the children of this content
+    pub fn children(&self) -> impl Iterator<Item = &Content> {
+        self.attrs.iter().filter_map(Attr::child)
+    }
+
+    /// Queries the content tree for all elements that match the given selector.
+    ///
+    /// # Show rules
+    /// Elements produced in `show` rules will not be included in the results.
+    pub fn query(&self, selector: Selector) -> Vec<Content> {
+        let mut results = Vec::new();
+        self.query_into(&selector, &mut results);
+        results
+    }
+
+    /// Queries the content tree for all elements that match the given selector.
+    /// And stores the results inside of the `results` vec.
+    ///
+    /// # Show rules
+    /// Elements produced in `show` rules will not be included in the results.
+    pub fn query_into(&self, selector: &Selector, results: &mut Vec<Content>) {
+        if selector.matches(self) {
+            results.push(self.clone());
+        }
+
+        for child in self.children() {
+            child.query_into(selector, results);
+        }
     }
 }
 

@@ -111,13 +111,21 @@ impl Show for RefElem {
             bail!(self.span(), "cannot reference {}", elem.func().name());
         }
 
+        let default_supplement = elem
+            .with::<dyn LocalName>()
+            .map(|elem| elem.local_name(TextElem::lang_in(styles)));
+
+        let ref_supplement = if let Some(ref_info) = elem.with::<dyn ReferenceInfo>() {
+            ref_info.resolve_supplement(vt, styles, elem.clone())?
+        } else {
+            default_supplement
+                .map(TextElem::packed)
+                .unwrap_or_else(Content::empty)
+        };
+
         let supplement = self.supplement(styles);
         let mut supplement = match supplement {
-            Smart::Auto => elem
-                .with::<dyn LocalName>()
-                .map(|elem| elem.local_name(TextElem::lang_in(styles)))
-                .map(TextElem::packed)
-                .unwrap_or_default(),
+            Smart::Auto => ref_supplement,
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
             Smart::Custom(Some(Supplement::Func(func))) => {
@@ -133,7 +141,19 @@ impl Show for RefElem {
             bail!(self.span(), "only numbered elements can be referenced");
         };
 
-        let numbers = Counter::of(elem.func())
+        let counter = if let Some(ref_info) = elem.with::<dyn ReferenceInfo>() {
+            ref_info.counter(styles).unwrap_or_else(|| Counter::of(elem.func()))
+        } else {
+            Counter::of(elem.func())
+        };
+
+        let numbering = if let Some(ref_info) = elem.with::<dyn ReferenceInfo>() {
+            ref_info.numbering(styles).unwrap_or_else(|| numbering)
+        } else {
+            numbering
+        };
+
+        let numbers = counter
             .at(vt, elem.location().unwrap())?
             .display(vt, &numbering.trimmed())?;
 
@@ -171,5 +191,32 @@ cast_to_value! {
     v: Supplement => match v {
         Supplement::Content(v) => v.into(),
         Supplement::Func(v) => v.into(),
+    }
+}
+
+/// A citable element can impl this trait to set the supplement content
+/// when it be referenced.
+pub trait ReferenceInfo {
+    /// The counter used in reference.
+    fn counter(&self, styles: StyleChain) -> Option<Counter>;
+
+    /// The numbering used in reference.
+    fn numbering(&self, styles: StyleChain) -> Option<Numbering>;
+
+    /// supplement used in reference.
+    fn supplement(&self, _styles: StyleChain) -> Option<Supplement>;
+
+    // default logic of convert supplement into content in reference
+    fn resolve_supplement(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        elem: Content,
+    ) -> SourceResult<Content> {
+        Ok(match self.supplement(styles) {
+            None => Content::empty(),
+            Some(Supplement::Content(c)) => c,
+            Some(Supplement::Func(func)) => func.call_vt(vt, [elem.into()])?.display(),
+        })
     }
 }

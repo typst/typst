@@ -22,7 +22,7 @@ use crate::prelude::*;
 ///
 /// Display: Image
 /// Category: visualize
-#[element(Layout)]
+#[element(Locatable, Layout)]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
