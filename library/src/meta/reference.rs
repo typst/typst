@@ -115,7 +115,7 @@ impl Show for RefElem {
             .with::<dyn LocalName>()
             .map(|elem| elem.local_name(TextElem::lang_in(styles)));
 
-        let ref_supplement = if let Some(ref_info) = elem.with::<dyn ReferenceInfo>() {
+        let ref_supplement = if let Some(ref_info) = elem.with::<dyn RefInfo>() {
             ref_info.resolve_supplement(vt, styles, elem.clone())?
         } else {
             default_supplement
@@ -141,13 +141,13 @@ impl Show for RefElem {
             bail!(self.span(), "only numbered elements can be referenced");
         };
 
-        let counter = if let Some(ref_info) = elem.with::<dyn ReferenceInfo>() {
+        let counter = if let Some(ref_info) = elem.with::<dyn RefInfo>() {
             ref_info.counter(styles).unwrap_or_else(|| Counter::of(elem.func()))
         } else {
             Counter::of(elem.func())
         };
 
-        let numbering = if let Some(ref_info) = elem.with::<dyn ReferenceInfo>() {
+        let numbering = if let Some(ref_info) = elem.with::<dyn RefInfo>() {
             ref_info.numbering(styles).unwrap_or_else(|| numbering)
         } else {
             numbering
@@ -196,7 +196,7 @@ cast_to_value! {
 
 /// A citable element can impl this trait to set the supplement content
 /// when it be referenced.
-pub trait ReferenceInfo {
+pub trait RefInfo {
     /// The counter used in reference.
     fn counter(&self, styles: StyleChain) -> Option<Counter>;
 

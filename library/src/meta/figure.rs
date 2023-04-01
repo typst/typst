@@ -6,7 +6,7 @@ use super::{
     Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
 };
 use crate::layout::{BlockElem, TableElem, VElem};
-use crate::meta::{ReferenceInfo, Supplement};
+use crate::meta::{RefInfo, Supplement};
 use crate::prelude::*;
 use crate::text::{RawElem, TextElem};
 use crate::visualize::ImageElem;
@@ -29,7 +29,7 @@ use crate::visualize::ImageElem;
 ///
 /// Display: Figure
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, LocalName, ReferenceInfo)]
+#[element(Locatable, Synthesize, Count, Show, LocalName, RefInfo)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
@@ -82,48 +82,55 @@ impl FigureElem {
         let query = self.body().query(Selector::Any(elems));
 
         // we query in the order of the highest priority to the lowest
-        if let Some(image) = query.iter().find(|c| c.is::<ImageElem>()) {
-            FigureType::Image(image.to::<ImageElem>().expect("expected an image").clone())
-        } else if let Some(raw) = query.iter().find(|c| c.is::<RawElem>()) {
-            FigureType::Raw(raw.to::<RawElem>().expect("expected an image").clone())
-        } else if let Some(table) = query.iter().find(|c| c.is::<TableElem>()) {
-            FigureType::Table(table.to::<TableElem>().expect("expected an image").clone())
-        } else {
-            FigureType::Other
-        }
+        query
+            .iter()
+            .find_map(|c| c.to::<ImageElem>())
+            .cloned()
+            .map(FigureType::Image)
+            .or(query
+                .iter()
+                .find_map(|c| c.to::<RawElem>())
+                .cloned()
+                .map(FigureType::Raw))
+            .or(query
+                .iter()
+                .find_map(|c| c.to::<TableElem>())
+                .cloned()
+                .map(FigureType::Table))
+            .unwrap_or(FigureType::Other)
     }
 
     /// Creates the content of the figure's caption.
     pub fn show_caption(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let ty = self.determine_type(styles);
 
-        if let Some(mut caption) = self.caption(styles) {
-            if let Some(numbering) = self.numbering(styles) {
-                let mut name = ty
-                    .resolve_supplement(vt, self, styles)?
-                    .unwrap_or_else(Content::empty);
+        let Some(mut caption) = self.caption(styles) else {
+            return Ok(Content::empty());
+        };
 
-                let counter = ty
-                    .counter(self.counter(styles))
-                    .unwrap_or_else(|| Counter::of(Self::func()));
+        if let Some(numbering) = self.numbering(styles) {
+            let mut name = ty
+                .resolve_supplement(vt, self, styles)?
+                .unwrap_or_else(Content::empty);
 
-                if !name.is_empty() {
-                    name += TextElem::packed("\u{a0}");
-                }
+            let counter = ty
+                .counter(self.counter(styles))
+                .unwrap_or_else(|| Counter::of(Self::func()));
 
-                caption = name
-                    + counter
-                        .at(vt, self.0.location().expect("missing location"))?
-                        .display(vt, &numbering)?
-                        .spanned(self.span())
-                    + TextElem::packed(": ")
-                    + caption;
+            if !name.is_empty() {
+                name += TextElem::packed("\u{a0}");
             }
 
-            Ok(caption)
-        } else {
-            Ok(Content::empty())
+            caption = name
+                + counter
+                    .at(vt, self.0.location().expect("missing location"))?
+                    .display(vt, &numbering)?
+                    .spanned(self.span())
+                + TextElem::packed(": ")
+                + caption;
         }
+
+        Ok(caption)
     }
 }
 
@@ -136,7 +143,6 @@ impl Synthesize for FigureElem {
 }
 
 impl Show for FigureElem {
-    #[track_caller]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
 
@@ -184,7 +190,7 @@ impl LocalName for FigureElem {
     }
 }
 
-impl ReferenceInfo for FigureElem {
+impl RefInfo for FigureElem {
     fn counter(&self, styles: StyleChain) -> Option<Counter> {
         self.determine_type(styles).counter(self.counter(styles))
     }

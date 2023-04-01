@@ -352,6 +352,18 @@ impl Content {
         self.attrs.iter().filter_map(Attr::child)
     }
 
+    /// Gives an iterator over the children of this content that are contained
+    /// within the arguments of the content.
+    pub fn children_in_args(&self) -> impl Iterator<Item = &Content> {
+        self.attrs
+            .iter()
+            .filter_map(Attr::value)
+            .filter_map(|value| match value {
+                Value::Content(content) => Some(content),
+                _ => None,
+            })
+    }
+
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// # Show rules
@@ -372,7 +384,7 @@ impl Content {
             results.push(self.clone());
         }
 
-        for child in self.children() {
+        for child in self.children().chain(self.children_in_args()) {
             child.query_into(selector, results);
         }
     }

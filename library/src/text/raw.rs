@@ -203,7 +203,7 @@ impl LocalName for RawElem {
         match lang {
             Lang::CHINESE => "代码",
             Lang::GERMAN => "Computercode",
-            Lang::ITALIAN => "codice ",
+            Lang::ITALIAN => "Codice",
             Lang::RUSSIAN => "код",
             Lang::ENGLISH | Lang::FRENCH | _ => "Code",
         }
