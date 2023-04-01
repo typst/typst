@@ -68,6 +68,8 @@ pub struct Stroke {
     pub line_join: LineJoin,
     /// The stroke's line dash pattern.
     pub dash_pattern: Option<DashPattern<Abs, Abs>>,
+    /// The miter limit. Defaults to 4.0, same as `tiny-skia`.
+    pub miter_limit: Scalar,
 }
 
 impl Default for Stroke {
@@ -78,6 +80,7 @@ impl Default for Stroke {
             line_cap: LineCap::Butt,
             line_join: LineJoin::Miter,
             dash_pattern: None,
+            miter_limit: Scalar(4.0),
         }
     }
 }
@@ -99,6 +102,8 @@ pub struct PartialStroke<T = Length> {
     pub line_join: Smart<LineJoin>,
     /// The stroke's line dash pattern.
     pub dash_pattern: Smart<Option<DashPattern<T>>>,
+    /// The miter limit.
+    pub miter_limit: Smart<Scalar>,
 }
 
 impl PartialStroke<Abs> {
@@ -118,6 +123,7 @@ impl PartialStroke<Abs> {
             line_cap: self.line_cap.unwrap_or(default.line_cap),
             line_join: self.line_join.unwrap_or(default.line_join),
             dash_pattern,
+            miter_limit: self.miter_limit.unwrap_or(default.miter_limit),
         }
     }
 
@@ -225,6 +231,7 @@ cast_from_value! {
         line_cap: Smart::Auto,
         line_join: Smart::Auto,
         dash_pattern: Smart::Auto,
+        miter_limit: Smart::Auto,
     },
     color: Color => Self {
         paint: Smart::Custom(color.into()),
@@ -232,6 +239,7 @@ cast_from_value! {
         line_cap: Smart::Auto,
         line_join: Smart::Auto,
         dash_pattern: Smart::Auto,
+        miter_limit: Smart::Auto,
     },
     mut dict: Dict => {
         fn take<T: Cast<Value>>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {
@@ -244,8 +252,9 @@ cast_from_value! {
         let line_cap = take::<LineCap>(&mut dict, "line_cap")?;
         let line_join = take::<LineJoin>(&mut dict, "line_join")?;
         let dash_pattern = take::<Option<DashPattern>>(&mut dict, "dash")?;
+        let miter_limit = take::<f64>(&mut dict, "miter_limit")?;
 
-        dict.finish(&["color", "thickness", "line_cap", "line_join", "dash"])?;
+        dict.finish(&["color", "thickness", "line_cap", "line_join", "dash", "miter_limit"])?;
 
         Self {
             paint,
@@ -253,6 +262,7 @@ cast_from_value! {
             line_cap,
             line_join,
             dash_pattern,
+            miter_limit: miter_limit.map(Scalar),
         }
     },
 }
@@ -267,6 +277,7 @@ impl Resolve for PartialStroke {
             line_cap: self.line_cap,
             line_join: self.line_join,
             dash_pattern: self.dash_pattern.resolve(styles),
+            miter_limit: self.miter_limit,
         }
     }
 }
@@ -281,6 +292,7 @@ impl Fold for PartialStroke<Abs> {
             line_cap: self.line_cap.or(outer.line_cap),
             line_join: self.line_join.or(outer.line_join),
             dash_pattern: self.dash_pattern.or(outer.dash_pattern),
+            miter_limit: self.miter_limit,
         }
     }
 }

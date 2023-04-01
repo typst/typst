@@ -42,8 +42,23 @@
 #line(length: 60pt, stroke: (color: red, thickness: 1pt, dash: (array: ("dot", 1pt, 4pt, 2pt), phase: 5pt)))
 
 ---
+// Line joins
+#stack(dir: ltr, 
+  polygon(stroke: (thickness: 4pt, color: blue, line_join: "round"),
+    (0pt, 20pt), (15pt, 0pt), (0pt, 40pt), (15pt, 45pt)),
+  h(1em),
+  polygon(stroke: (thickness: 4pt, color: blue, line_join: "bevel"),
+    (0pt, 20pt), (15pt, 0pt), (0pt, 40pt), (15pt, 45pt)),
+  h(1em),
+  polygon(stroke: (thickness: 4pt, color: blue, line_join: "miter"),
+    (0pt, 20pt), (15pt, 0pt), (0pt, 40pt), (15pt, 45pt)),
+  h(1em),
+  polygon(stroke: (thickness: 4pt, color: blue, line_join: "miter", miter_limit: 20.0),
+    (0pt, 20pt), (15pt, 0pt), (0pt, 40pt), (15pt, 45pt)),
+)
+---
 
-// Error: 29-56 unexpected key "thicknes", valid keys are "color", "thickness", "line_cap", "line_join", and "dash"
+// Error: 29-56 unexpected key "thicknes", valid keys are "color", "thickness", "line_cap", "line_join", "dash", and "miter_limit"
 #line(length: 60pt, stroke: (color: red, thicknes: 1pt))
 
 ---

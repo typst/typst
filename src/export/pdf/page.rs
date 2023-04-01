@@ -256,6 +256,7 @@ impl PageContext<'_, '_> {
                 line_cap,
                 line_join,
                 dash_pattern,
+                miter_limit,
             } = stroke;
 
             let f = |c| c as f32 / 255.0;
@@ -300,6 +301,9 @@ impl PageContext<'_, '_> {
                 } else {
                     self.content.set_dash_pattern([], 0.0);
                 }
+            }
+            if self.state.stroke.as_ref().map(|s| &s.miter_limit) != Some(miter_limit) {
+                self.content.set_miter_limit(miter_limit.0 as f32);
             }
             self.state.stroke = Some(stroke.clone());
         }

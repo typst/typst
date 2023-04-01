@@ -52,6 +52,7 @@ pub struct RectElem {
     ///     - `thickness`: the stroke's thickness
     ///     - `line_cap`: one of `"butt"`, `"round"` or `"square"`, the line cap of the stroke
     ///     - `line_join`: one of `"miter"`, `"round"` or `"bevel"`, the line join of the stroke
+    ///     - `miter_limit`: the miter limit to use if `line_join` is `"miter"`, defaults to 4.0
     ///     - `dash`: the dash pattern to use. Can be any of the following:
     ///         - One of the strings `"solid"`, `"dotted"`, `"densely dotted"`, `"loosely dotted"`,
     ///           `"dashed"`, `"densely dashed"`, `"loosely dashed"`, `"dashdotted"`, 

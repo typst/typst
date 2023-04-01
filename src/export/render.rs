@@ -392,7 +392,7 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if let Some(Stroke { paint, thickness, line_cap, line_join, dash_pattern }) = &shape.stroke {
+    if let Some(Stroke { paint, thickness, line_cap, line_join, dash_pattern, miter_limit }) = &shape.stroke {
         let line_cap = match line_cap {
             LineCap::Butt => sk::LineCap::Butt,
             LineCap::Round => sk::LineCap::Round,
@@ -415,7 +415,7 @@ fn render_shape(
             line_cap, 
             line_join, 
             dash, 
-            ..Default::default()
+            miter_limit: miter_limit.0 as f32,
         };
         canvas.stroke_path(&path, &paint, &stroke, ts, mask);
     }
