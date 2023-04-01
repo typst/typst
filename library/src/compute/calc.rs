@@ -97,10 +97,7 @@ pub fn pow(
         Num::Int(_) => exponent.v,
         Num::Float(f) if f.is_infinite() => exponent.v,
         _ => {
-            bail!(
-                exponent.span,
-                "exponent must be non-infinite"
-            );
+            bail!(exponent.span, "exponent must be non-infinite");
         }
     };
 
