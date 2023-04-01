@@ -912,7 +912,12 @@ node! {
 impl Int {
     /// Get the integer value.
     pub fn get(&self) -> i64 {
-        self.0.text().parse().unwrap_or_default()
+        match self.0.text() {
+            v if v.starts_with("0x") => i64::from_str_radix(&v[2..], 16).unwrap_or_default(),
+            v if v.starts_with("0o") => i64::from_str_radix(&v[2..], 8).unwrap_or_default(),
+            v if v.starts_with("0b") => i64::from_str_radix(&v[2..], 2).unwrap_or_default(),
+            _ => self.0.text().parse().unwrap_or_default(),
+        }
     }
 }
 

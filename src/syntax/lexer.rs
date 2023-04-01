@@ -525,6 +525,36 @@ impl Lexer<'_> {
     }
 
     fn number(&mut self, start: usize, c: char) -> SyntaxKind {
+        if c == '0' {
+            if self.s.eat_if("x") {
+                self.s.eat_while(char::is_ascii_hexdigit);
+
+                let num = self.s.get(start+2..self.s.cursor());
+
+                if i64::from_str_radix(num, 16).is_err() {
+                    return self.error("invalid hexadecimal number");
+                }
+                return SyntaxKind::Int;
+            }
+            else if self.s.eat_if("b") {
+                self.s.eat_while(|c| matches!(c, '0' | '1'));
+
+                let num = self.s.get(start+2..self.s.cursor());
+                if i64::from_str_radix(num, 2).is_err() {
+                    return self.error("invalid binary number");
+                }
+                return SyntaxKind::Int;
+            } else if self.s.eat_if("o") {
+                self.s.eat_while(|c| matches!(c, '0'..='7'));
+
+                let num = self.s.get(start+2..self.s.cursor());
+                if i64::from_str_radix(num, 8).is_err() {
+                    return self.error("invalid octal number");
+                }
+                return SyntaxKind::Int;
+            }
+        }
+
         // Read the first part (integer or fractional depending on `first`).
         self.s.eat_while(char::is_ascii_digit);
 
