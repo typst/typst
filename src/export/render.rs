@@ -11,7 +11,7 @@ use usvg::{FitTo, NodeExt};
 
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::geom::{
-    self, Abs, Color, Geometry, Paint, PathItem, Shape, Size, Stroke, Transform,
+    self, Abs, Color, Geometry, Paint, PathItem, Shape, Size, Stroke, LineCap, LineJoin, Transform,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -392,9 +392,31 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if let Some(Stroke { paint, thickness }) = &shape.stroke {
+    if let Some(Stroke { paint, thickness, line_cap, line_join, dash_pattern }) = &shape.stroke {
+        let line_cap = match line_cap {
+            LineCap::Butt => sk::LineCap::Butt,
+            LineCap::Round => sk::LineCap::Round,
+            LineCap::Square => sk::LineCap::Square,
+        };
+        let line_join = match line_join {
+            LineJoin::Miter => sk::LineJoin::Miter,
+            LineJoin::Round => sk::LineJoin::Round,
+            LineJoin::Bevel => sk::LineJoin::Bevel,
+        };
+        // FIXME: tiny-skia does not support all the same dash patterns as pdf
+        // See: https://docs.rs/tiny-skia/latest/tiny_skia/struct.StrokeDash.html
+        // And: https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/pdfreference1.4.pdf
+        let dash = dash_pattern.as_ref().and_then(|pattern| sk::StrokeDash::new(
+                pattern.dash_array.iter().map(|l| l.to_f32()).collect(), 
+                pattern.dash_phase.to_f32()));
         let paint = paint.into();
-        let stroke = sk::Stroke { width: thickness.to_f32(), ..Default::default() };
+        let stroke = sk::Stroke { 
+            width: thickness.to_f32(), 
+            line_cap, 
+            line_join, 
+            dash, 
+            ..Default::default()
+        };
         canvas.stroke_path(&path, &paint, &stroke, ts, mask);
     }
 

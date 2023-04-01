@@ -1,5 +1,5 @@
 use ecow::eco_format;
-use pdf_writer::types::{ActionType, AnnotationType, ColorSpaceOperand};
+use pdf_writer::types::{ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle};
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
@@ -8,7 +8,7 @@ use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
-    Transform,
+    Transform, LineCap, LineJoin
 };
 use crate::image::Image;
 
@@ -250,8 +250,16 @@ impl PageContext<'_, '_> {
 
     fn set_stroke(&mut self, stroke: &Stroke) {
         if self.state.stroke.as_ref() != Some(stroke) {
+            let Stroke {
+                paint,
+                thickness,
+                line_cap,
+                line_join,
+                dash_pattern,
+            } = stroke;
+
             let f = |c| c as f32 / 255.0;
-            let Paint::Solid(color) = stroke.paint;
+            let Paint::Solid(color) = paint;
             match color {
                 Color::Luma(c) => {
                     self.set_stroke_color_space(D65_GRAY);
@@ -267,7 +275,32 @@ impl PageContext<'_, '_> {
                 }
             }
 
-            self.content.set_line_width(stroke.thickness.to_f32());
+            self.content.set_line_width(thickness.to_f32());
+            if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
+                let cap = match line_cap {
+                    LineCap::Butt => LineCapStyle::ButtCap,
+                    LineCap::Round => LineCapStyle::RoundCap,
+                    LineCap::Square => LineCapStyle::ProjectingSquareCap,
+                };
+                self.content.set_line_cap(cap);
+            }
+            if self.state.stroke.as_ref().map(|s| &s.line_join) != Some(line_join) {
+                let join = match line_join {
+                    LineJoin::Miter => LineJoinStyle::MiterJoin,
+                    LineJoin::Round => LineJoinStyle::RoundJoin,
+                    LineJoin::Bevel => LineJoinStyle::BevelJoin,
+                };
+                self.content.set_line_join(join);
+            }
+            if self.state.stroke.as_ref().map(|s| &s.dash_pattern) != Some(dash_pattern) {
+                if let Some(pattern) = dash_pattern {
+                    self.content.set_dash_pattern(
+                        pattern.dash_array.iter().map(|l| l.to_f32()), 
+                        pattern.dash_phase.to_f32());
+                } else {
+                    self.content.set_dash_pattern([], 0.0);
+                }
+            }
             self.state.stroke = Some(stroke.clone());
         }
     }

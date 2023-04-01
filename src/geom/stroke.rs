@@ -1,5 +1,60 @@
 use super::*;
 
+/// A the line cap of a stroke
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum LineCap {
+    Butt,
+    Round,
+    Square,
+}
+
+/// A the line join of a stroke
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum LineJoin {
+    Miter,
+    Round,
+    Bevel,
+}
+
+/// A the length of a dash in a line dash pattern
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum DashLength<T = Length> {
+    LineWidth,
+    Length(T),
+}
+impl From<Abs> for DashLength {
+    fn from(l: Abs) -> Self {
+        DashLength::Length(l.into())
+    }
+}
+
+impl<T> DashLength<T> {
+    fn finish(self, line_width: T) -> T {
+        match self {
+            Self::LineWidth => line_width,
+            Self::Length(l) => l,
+        }
+    }
+} 
+
+/// A line dash pattern
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct DashPattern<T = Length, DT = DashLength<T>> {
+    /// The dash array.
+    pub dash_array: Vec<DT>,
+    /// The dash phase.
+    pub dash_phase: T,
+}
+
+impl<T: Default> From<Vec<DashLength<T>>> for DashPattern<T> {
+    fn from(dash_array: Vec<DashLength<T>>) -> Self {
+        Self {
+            dash_array: dash_array,
+            dash_phase: T::default(),
+        }
+    }
+}
+
 /// A stroke of a geometric shape.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke {
@@ -7,6 +62,12 @@ pub struct Stroke {
     pub paint: Paint,
     /// The stroke's thickness.
     pub thickness: Abs,
+    /// The stroke's line cap.
+    pub line_cap: LineCap,
+    /// The stroke's line join.
+    pub line_join: LineJoin,
+    /// The stroke's line dash pattern.
+    pub dash_pattern: Option<DashPattern<Abs, Abs>>,
 }
 
 impl Default for Stroke {
@@ -14,6 +75,9 @@ impl Default for Stroke {
         Self {
             paint: Paint::Solid(Color::BLACK),
             thickness: Abs::pt(1.0),
+            line_cap: LineCap::Butt,
+            line_join: LineJoin::Miter,
+            dash_pattern: None,
         }
     }
 }
@@ -29,14 +93,31 @@ pub struct PartialStroke<T = Length> {
     pub paint: Smart<Paint>,
     /// The stroke's thickness.
     pub thickness: Smart<T>,
+    /// The stroke's line cap.
+    pub line_cap: Smart<LineCap>,
+    /// The stroke's line join.
+    pub line_join: Smart<LineJoin>,
+    /// The stroke's line dash pattern.
+    pub dash_pattern: Smart<Option<DashPattern<T>>>,
 }
 
 impl PartialStroke<Abs> {
     /// Unpack the stroke, filling missing fields from the `default`.
     pub fn unwrap_or(self, default: Stroke) -> Stroke {
+        let thickness = self.thickness.unwrap_or(default.thickness);
+        let dash_pattern = self.dash_pattern.map(|pattern| 
+            pattern.map(|pattern| DashPattern {
+                dash_array: pattern.dash_array.into_iter()
+                    .map(|l| l.finish(thickness)).collect(),
+                dash_phase: pattern.dash_phase,
+            })).unwrap_or(default.dash_pattern);
+
         Stroke {
             paint: self.paint.unwrap_or(default.paint),
-            thickness: self.thickness.unwrap_or(default.thickness),
+            thickness,
+            line_cap: self.line_cap.unwrap_or(default.line_cap),
+            line_join: self.line_join.unwrap_or(default.line_join),
+            dash_pattern,
         }
     }
 
@@ -60,14 +141,119 @@ impl<T: Debug> Debug for PartialStroke<T> {
 }
 
 cast_from_value! {
+    LineCap: "line cap",
+    "butt" => Self::Butt,
+    "round" => Self::Round,
+    "square" => Self::Square,
+}
+
+cast_from_value! {
+    LineJoin: "line join",
+    "miter" => Self::Miter,
+    "round" => Self::Round,
+    "bevel" => Self::Bevel,
+}
+
+cast_from_value! {
+    DashLength: "dash length",
+    "dot" => Self::LineWidth,
+    l: Length => Self::Length(l),
+}
+
+impl Resolve for DashLength {
+    type Output = DashLength<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        match self {
+            Self::LineWidth => DashLength::LineWidth,
+            Self::Length(l) => DashLength::Length(l.resolve(styles)),
+        }
+    }
+}
+
+cast_from_value! {
+    DashPattern: "dash pattern",
+    // Use same names as tikz:
+    // https://tex.stackexchange.com/questions/45275/tikz-get-values-for-predefined-dash-patterns
+    "solid" => Vec::new().into(),
+    "dotted" => vec![DashLength::LineWidth, Abs::pt(2.0).into()].into(),
+    "densely dotted" => vec![DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    "loosely dotted" => vec![DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+    "dashed" => vec![Abs::pt(3.0).into(), Abs::pt(3.0).into()].into(),
+    "densely dashed" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into()].into(),
+    "loosely dashed" => vec![Abs::pt(3.0).into(), Abs::pt(6.0).into()].into(),
+    "dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
+    "densely dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    "loosely dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+    array: Vec<DashLength> => {
+        Self {
+            dash_array: array.into_iter().collect(),
+            dash_phase: Length::zero(),
+        }
+    },
+    mut dict: Dict => {
+        let dash_array: Vec<DashLength> = dict.take("array")?.cast()?;
+        let dash_phase = dict.take("phase").ok().map(Length::cast)
+            .transpose()?.unwrap_or(Length::zero());
+
+        dict.finish(&["array", "phase"])?;
+
+        Self {
+            dash_array,
+            dash_phase,
+        }
+    },
+}
+
+impl Resolve for DashPattern {
+    type Output = DashPattern<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        DashPattern {
+            dash_array: self.dash_array.into_iter()
+                .map(|l| l.resolve(styles)).collect(),
+            dash_phase: self.dash_phase.resolve(styles),
+        }
+    }
+}
+
+cast_from_value! {
     PartialStroke: "stroke",
     thickness: Length => Self {
         paint: Smart::Auto,
         thickness: Smart::Custom(thickness),
+        line_cap: Smart::Auto,
+        line_join: Smart::Auto,
+        dash_pattern: Smart::Auto,
     },
     color: Color => Self {
         paint: Smart::Custom(color.into()),
         thickness: Smart::Auto,
+        line_cap: Smart::Auto,
+        line_join: Smart::Auto,
+        dash_pattern: Smart::Auto,
+    },
+    mut dict: Dict => {
+        fn take<T: Cast<Value>>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {
+            Ok(dict.take(key).ok().map(T::cast)
+                .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto))
+        }
+
+        let paint = take::<Paint>(&mut dict, "color")?;
+        let thickness = take::<Length>(&mut dict, "thickness")?;
+        let line_cap = take::<LineCap>(&mut dict, "line_cap")?;
+        let line_join = take::<LineJoin>(&mut dict, "line_join")?;
+        let dash_pattern = take::<Option<DashPattern>>(&mut dict, "dash")?;
+
+        dict.finish(&["color", "thickness", "line_cap", "line_join", "dash"])?;
+
+        Self {
+            paint,
+            thickness,
+            line_cap,
+            line_join,
+            dash_pattern,
+        }
     },
 }
 
@@ -78,6 +264,9 @@ impl Resolve for PartialStroke {
         PartialStroke {
             paint: self.paint,
             thickness: self.thickness.resolve(styles),
+            line_cap: self.line_cap,
+            line_join: self.line_join,
+            dash_pattern: self.dash_pattern.resolve(styles),
         }
     }
 }
@@ -89,6 +278,9 @@ impl Fold for PartialStroke<Abs> {
         Self {
             paint: self.paint.or(outer.paint),
             thickness: self.thickness.or(outer.thickness),
+            line_cap: self.line_cap.or(outer.line_cap),
+            line_join: self.line_join.or(outer.line_join),
+            dash_pattern: self.dash_pattern.or(outer.dash_pattern),
         }
     }
 }

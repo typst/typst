@@ -188,22 +188,30 @@ where
 
     fn cast(mut value: Value) -> StrResult<Self> {
         if let Value::Dict(dict) = &mut value {
-            let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+            let mut try_cast = || -> StrResult<_> {
+                let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
 
-            let rest = take("rest")?;
-            let x = take("x")?.or_else(|| rest.clone());
-            let y = take("y")?.or_else(|| rest.clone());
-            let sides = Sides {
-                left: take("left")?.or_else(|| x.clone()),
-                top: take("top")?.or_else(|| y.clone()),
-                right: take("right")?.or_else(|| x.clone()),
-                bottom: take("bottom")?.or_else(|| y.clone()),
+                let rest = take("rest")?;
+                let x = take("x")?.or_else(|| rest.clone());
+                let y = take("y")?.or_else(|| rest.clone());
+                let sides = Sides {
+                    left: take("left")?.or_else(|| x.clone()),
+                    top: take("top")?.or_else(|| y.clone()),
+                    right: take("right")?.or_else(|| x.clone()),
+                    bottom: take("bottom")?.or_else(|| y.clone()),
+                };
+
+                dict.finish(&["left", "top", "right", "bottom", "x", "y", "rest"])?;
+
+                Ok(sides)
             };
 
-            dict.finish(&["left", "top", "right", "bottom", "x", "y", "rest"])?;
+            if let Ok(res) = try_cast() {
+                return Ok(res)
+            }
+        }
 
-            Ok(sides)
-        } else if T::is(&value) {
+        if T::is(&value) {
             Ok(Self::splat(Some(T::cast(value)?)))
         } else {
             <Self as Cast>::error(value)
