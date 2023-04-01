@@ -139,3 +139,21 @@ assign_impl!(Point += Point);
 assign_impl!(Point -= Point);
 assign_impl!(Point *= f64);
 assign_impl!(Point /= f64);
+
+impl From<Axes<Abs>> for Point {
+    fn from(axes: Axes<Abs>) -> Self {
+        Self { x: axes.x, y: axes.y }
+    }
+}
+
+impl From<kurbo::Point> for Point {
+    fn from(point: kurbo::Point) -> Self {
+        Self::new(Abs::raw(point.x), Abs::raw(point.y))
+    }
+}
+
+impl From<Point> for kurbo::Point {
+    fn from(point: Point) -> Self {
+        Self::new(point.x.to_raw(), point.y.to_raw())
+    }
+}

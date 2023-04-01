@@ -86,6 +86,8 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("polygon", visualize::PolygonElem::func());
     global.define("path", visualize::PathElem::func());
 
+    global.define("draw", visualize::draw());
+
     // Meta.
     global.define("document", meta::DocumentElem::func());
     global.define("ref", meta::RefElem::func());

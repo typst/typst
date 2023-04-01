@@ -6,7 +6,9 @@ use ecow::eco_format;
 
 use super::{format_str, Regex, Value};
 use crate::diag::StrResult;
-use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
+use crate::geom::{
+    Axes, Axis, GenAlign, Length, Numeric, PartialStroke, PathBuilder, Rel, Smart,
+};
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -32,6 +34,21 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
+        (Dyn(a), Dyn(b)) => {
+            if let (Some(a), Some(b)) =
+                (a.downcast::<PathBuilder>(), b.downcast::<PathBuilder>())
+            {
+                // FIXME: there should be a more efficient way of doing this
+                // the solution is probably to use the dyn-clone trait in order
+                // to use Box in Dynamic.
+                let mut path = a.clone();
+
+                path.extend(b);
+                return Ok(Value::dynamic(path));
+            };
+
+            mismatch!("cannot join {} and {}", a, b);
+        }
         (a, b) => mismatch!("cannot join {} with {}", a, b),
     })
 }

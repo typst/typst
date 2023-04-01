@@ -274,6 +274,18 @@ impl BitAndAssign for Axes<bool> {
     }
 }
 
+impl From<Point> for Axes<Abs> {
+    fn from(point: Point) -> Self {
+        Axes { x: point.x, y: point.y }
+    }
+}
+
+impl From<Axes<Abs>> for kurbo::Vec2 {
+    fn from(axes: Axes<Abs>) -> Self {
+        Self::new(axes.x.to_raw(), axes.y.to_raw())
+    }
+}
+
 cast_from_value! {
     Axes<Rel<Length>>,
     array: Array => {
@@ -287,6 +299,17 @@ cast_from_value! {
 
 cast_to_value! {
     v: Axes<Rel<Length>> => Value::Array(array![v.x, v.y])
+}
+
+cast_from_value! {
+    Axes<Length>,
+    array: Array => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
+            _ => Err("point array must contain exactly two entries")?,
+        }
+    },
 }
 
 impl<T: Resolve> Resolve for Axes<T> {
