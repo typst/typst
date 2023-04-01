@@ -74,7 +74,6 @@ pub struct BibliographyElem {
     pub style: BibliographyStyle,
 }
 
-
 /// A list of bib file paths.
 #[derive(Debug, Default, Clone, Hash)]
 pub struct BibPaths(Vec<EcoString>);
@@ -88,7 +87,6 @@ cast_from_value! {
 cast_to_value! {
     v: BibPaths => v.0.into()
 }
-
 
 impl BibliographyElem {
     /// Find the document's bibliography.
@@ -204,7 +202,6 @@ impl LocalName for BibliographyElem {
         match lang {
             Lang::GERMAN | Lang::FRENCH => "Bibliographie",
             Lang::CHINESE => "参考文献",
-            Lang::GERMAN => "Bibliographie",
             Lang::ITALIAN => "Bibliografia",
             Lang::RUSSIAN => "Библиография",
             Lang::ENGLISH | _ => "Bibliography",
