@@ -43,6 +43,10 @@ pub struct FigureElem {
     #[default(Smart::Auto)]
     pub supplement: Smart<Option<Supplement>>,
 
+    /// The counter to use for the figure.
+    #[default(Smart::Auto)]
+    pub counter: Smart<Option<Counter>>,
+
     /// Whether the figure should appear in the list of figures/tables/code.
     #[default(true)]
     pub listed: bool,
@@ -52,6 +56,11 @@ pub struct FigureElem {
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
     pub numbering: Option<Numbering>,
 
+    /// The type of the figure.
+    /// Setting this will override the automatic detection.
+    #[default(Smart::Auto)]
+    pub of: Smart<ElemFunc>,
+
     /// The vertical gap between the body and caption.
     #[default(Em::new(0.65).into())]
     pub gap: Length,
@@ -59,7 +68,11 @@ pub struct FigureElem {
 
 impl FigureElem {
     /// Determines the type of the figure based on its content.
-    pub fn determine_type(&self) -> FigureType {
+    pub fn determine_type(&self, styles: StyleChain) -> FigureType {
+        if let Smart::Custom(func) = self.of(styles) {
+            return FigureType::Manual(func);
+        }
+
         let elems = eco_vec![
             Selector::Elem(ImageElem::func(), None),
             Selector::Elem(RawElem::func(), None),
@@ -82,19 +95,17 @@ impl FigureElem {
 
     /// Creates the content of the figure's caption.
     pub fn show_caption(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let ty = self.determine_type();
+        let ty = self.determine_type(styles);
 
-        let mut caption = Content::empty();
-        if let Some(caption_elem) = self.caption(styles) {
+        if let Some(mut caption) = self.caption(styles) {
             if let Some(numbering) = self.numbering(styles) {
-                let mut name =
-                    ty.resolve_supplement(vt, self, styles)?.ok_or_else(|| {
-                        vec![error!(self.span(), "Could not determine the figure type")]
-                    })?;
+                let mut name = ty
+                    .resolve_supplement(vt, self, styles)?
+                    .unwrap_or_else(Content::empty);
 
-                let counter = ty.counter().ok_or_else(|| {
-                    vec![error!(self.span(), "Could not determine the figure type")]
-                })?;
+                let counter = ty
+                    .counter(self.counter(styles))
+                    .unwrap_or_else(|| Counter::of(Self::func()));
 
                 if !name.is_empty() {
                     name += TextElem::packed("\u{a0}");
@@ -106,17 +117,21 @@ impl FigureElem {
                         .display(vt, &numbering)?
                         .spanned(self.span())
                     + TextElem::packed(": ")
-                    + caption_elem;
+                    + caption;
             }
-        }
 
-        Ok(caption)
+            Ok(caption)
+        } else {
+            Ok(Content::empty())
+        }
     }
 }
 
 impl Synthesize for FigureElem {
     fn synthesize(&mut self, styles: StyleChain) {
         self.push_numbering(self.numbering(styles));
+        self.push_counter(self.counter(styles));
+        self.push_of(self.of(styles));
     }
 }
 
@@ -126,11 +141,16 @@ impl Show for FigureElem {
         let mut realized = self.body();
 
         if self.caption(styles).is_some() {
-            let counter = self.determine_type().counter().ok_or_else(|| {
-                vec![error!(self.span(), "Could not determine the figure type")]
-            })?;
+            let counter = self
+                .determine_type(styles)
+                .counter(self.counter(styles))
+                .unwrap_or_else(|| Counter::of(Self::func()));
 
-            realized += counter.clone().update(CounterUpdate::Step(NonZeroUsize::ONE));
+            if self.numbering(styles).is_some() && counter != Counter::of(Self::func()) {
+                realized +=
+                    counter.clone().update(CounterUpdate::Step(NonZeroUsize::ONE));
+            }
+
             realized += VElem::weak(self.gap(styles).into()).pack();
             realized += self.show_caption(vt, styles)?;
         }
@@ -165,8 +185,8 @@ impl LocalName for FigureElem {
 }
 
 impl ReferenceInfo for FigureElem {
-    fn counter(&self, _: StyleChain) -> Option<Counter> {
-        self.determine_type().counter()
+    fn counter(&self, styles: StyleChain) -> Option<Counter> {
+        self.determine_type(styles).counter(self.counter(styles))
     }
 
     fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
@@ -174,7 +194,7 @@ impl ReferenceInfo for FigureElem {
     }
 
     fn supplement(&self, styles: StyleChain) -> Option<Supplement> {
-        self.determine_type().supplement(self, styles)
+        self.determine_type(styles).supplement(self, styles)
     }
 }
 
@@ -198,6 +218,9 @@ pub enum FigureType {
     /// A figure containing a snippet of code
     Raw(RawElem),
 
+    /// The figure type is manually set.
+    Manual(ElemFunc),
+
     /// Could not determine the content of the figure.
     /// Unless the figure has `counter` and `supplement` explicitly set,
     /// this will be treated as an error.
@@ -216,12 +239,17 @@ impl FigureType {
             FigureType::Image(_) => Some(ImageElem::func()),
             FigureType::Table(_) => Some(TableElem::func()),
             FigureType::Raw(_) => Some(RawElem::func()),
+            FigureType::Manual(func) => Some(*func),
             FigureType::Other => None,
         }
     }
 
     /// Gets the counter associated with this figure type.
-    pub fn counter(&self) -> Option<Counter> {
+    pub fn counter(&self, counter: Smart<Option<Counter>>) -> Option<Counter> {
+        if let Smart::Custom(counter) = counter {
+            return counter;
+        }
+
         match self {
             FigureType::Image(_) => {
                 Some(Counter::new(CounterKey::Str("figure_images".into())))
@@ -232,6 +260,16 @@ impl FigureType {
             FigureType::Raw(_) => {
                 Some(Counter::new(CounterKey::Str("figure_raw_texts".into())))
             }
+            FigureType::Manual(func) if *func == ImageElem::func() => {
+                Some(Counter::new(CounterKey::Str("figure_images".into())))
+            }
+            FigureType::Manual(func) if *func == RawElem::func() => {
+                Some(Counter::new(CounterKey::Str("figure_tables".into())))
+            }
+            FigureType::Manual(func) if *func == TableElem::func() => {
+                Some(Counter::new(CounterKey::Str("figure_tables".into())))
+            }
+            FigureType::Manual(func) => Some(Counter::of(*func)),
             FigureType::Other => None,
         }
     }
@@ -248,6 +286,7 @@ impl FigureType {
                 FigureType::Raw(raw) => raw.local_name(lang),
                 FigureType::Table(table) => table.local_name(lang),
                 FigureType::Image(_) | FigureType::Other => figure.local_name(lang),
+                FigureType::Manual(_) => figure.local_name(lang),
             }))),
             Smart::Custom(None) => None,
             Smart::Custom(Some(supplement)) => Some(supplement),
