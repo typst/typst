@@ -365,12 +365,13 @@ impl<'a> Item<'a> {
 }
 
 /// Maps byte offsets back to spans.
+#[derive(Default)]
 pub struct SpanMapper(Vec<(usize, Span)>);
 
 impl SpanMapper {
     /// Create a new span mapper.
     pub fn new() -> Self {
-        Self(vec![])
+        Self::default()
     }
 
     /// Push a span for a segment with the given length.
@@ -745,8 +746,8 @@ fn is_compatible(a: Script, b: Script) -> bool {
 
 /// Get a style property, but only if it is the same for all children of the
 /// paragraph.
-fn shared_get<'a, T: PartialEq>(
-    styles: StyleChain<'a>,
+fn shared_get<T: PartialEq>(
+    styles: StyleChain<'_>,
     children: &[Content],
     getter: fn(StyleChain) -> T,
 ) -> Option<T> {
@@ -754,7 +755,7 @@ fn shared_get<'a, T: PartialEq>(
     children
         .iter()
         .filter_map(|child| child.to_styled())
-        .all(|(_, local)| getter(styles.chain(&local)) == value)
+        .all(|(_, local)| getter(styles.chain(local)) == value)
         .then(|| value)
 }
 

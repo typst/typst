@@ -15,6 +15,11 @@ impl Fragment {
         Self(frames)
     }
 
+    /// Return `true` if the length is 0.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// The number of frames in the fragment.
     pub fn len(&self) -> usize {
         self.0.len()
