@@ -15,7 +15,7 @@ use crate::visualize::ImageElem;
 /// #listing(of: table, title: "Table of Tables")
 ///
 /// #figure(caption: "A nice figure!")[
-///     table(
+///     #table(
 ///         columns: (auto, "1fr"),
 ///         "A", "Ampere",
 ///         "V", "Volt",
