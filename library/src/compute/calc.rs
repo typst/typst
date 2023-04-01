@@ -90,19 +90,26 @@ pub fn pow(
     /// The exponent of the power. Must be non-negative.
     exponent: Spanned<Num>,
 ) -> Value {
-    let exponent = match exponent.v {
+    let exponent_value = match exponent.v {
         Num::Int(i) if i > u32::MAX as i64 => {
             bail!(exponent.span, "exponent too large");
         }
-        Num::Int(i) if i != 0 => exponent.v,
-        Num::Float(f) if f.is_normal() => exponent.v,
+        Num::Int(i) => exponent.v,
+        Num::Float(f) if f.is_normal() || f == 0 as f64 => exponent.v,
         _ => {
-            bail!(exponent.span, "exponent must be normal (non-zero, non-NaN, non-infinite, non-subnormal)");
+            bail!(
+                exponent.span,
+                "exponent must be normal (non-NaN, non-infinite, non-subnormal)"
+            );
         }
     };
 
-    match (base, exponent) {
-        (Num::Int(a), Num::Int(b)) if b > 0 => Value::Int(a.pow(b as u32)),
+    if exponent_value.float() == 0 as f64 && base.float() == 0 as f64 {
+        return bail!(exponent.span, "zero to the power of zero is undefined");
+    }
+
+    match (base, exponent_value) {
+        (Num::Int(a), Num::Int(b)) if b >= 0 => Value::Int(a.pow(b as u32)),
         (a, Num::Int(b)) => Value::Float(a.float().powi(b as i32)),
         (a, b) => Value::Float(f64::powf(a.float(), b.float())),
     }
