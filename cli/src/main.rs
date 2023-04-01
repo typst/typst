@@ -60,7 +60,6 @@ enum Command {
     Watch(WatchCommand),
 
     /// List all discovered fonts in system and custom font paths
-    #[command(visible_alias = "f")]
     Fonts(FontsCommand),
 }
 
