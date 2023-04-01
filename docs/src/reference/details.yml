@@ -34,6 +34,8 @@ math: |
   $ "area" = pi dot.op "radius"^2 $
   $ cal(A) :=
       { x in RR | x "is natural" } $
+  #let x = 5
+  $ #x < 17 $
   ```
 
   Math mode makes a wide selection of [symbols]($category/symbols/sym) like
