@@ -52,9 +52,11 @@ pub struct CliArguments {
 #[command()]
 enum Command {
     /// Compiles the input file into a PDF file
+    #[command(visible_alias = "c")]
     Compile(CompileCommand),
 
     /// Watches the input file and recompiles on changes
+    #[command(visible_alias = "w")]
     Watch(WatchCommand),
 
     /// List all discovered fonts in system and custom font paths
