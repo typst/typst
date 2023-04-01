@@ -403,12 +403,23 @@ fn render_shape(
             LineJoin::Round => sk::LineJoin::Round,
             LineJoin::Bevel => sk::LineJoin::Bevel,
         };
-        // FIXME: tiny-skia does not support all the same dash patterns as pdf
-        // See: https://docs.rs/tiny-skia/latest/tiny_skia/struct.StrokeDash.html
-        // And: https://opensource.adobe.com/dc-acrobat-sdk-docs/pdfstandards/pdfreference1.4.pdf
-        let dash = dash_pattern.as_ref().and_then(|pattern| sk::StrokeDash::new(
-                pattern.dash_array.iter().map(|l| l.to_f32()).collect(), 
-                pattern.dash_phase.to_f32()));
+
+        let dash = dash_pattern.as_ref().and_then(|pattern| {
+            // tiny-skia only allows dash patterns with an even number of elements,
+            // while pdf allows any number.
+            let len = if pattern.dash_array.len() % 2 == 1 {
+                pattern.dash_array.len() * 2
+            } else {
+                pattern.dash_array.len()
+            };
+            let dash_array = pattern.dash_array.iter()
+                .map(|l| l.to_f32())
+                .cycle()
+                .take(len)
+                .collect();
+
+            sk::StrokeDash::new(dash_array, pattern.dash_phase.to_f32())
+        });
         let paint = paint.into();
         let stroke = sk::Stroke { 
             width: thickness.to_f32(), 
