@@ -1,6 +1,6 @@
 # General
 .vscode
-.idea/
+.idea
 _things
 desktop.ini
 .DS_Store
