@@ -83,7 +83,15 @@ math: |
   Functions calls preceded by a hashtag are normal code function calls and not
   affected by these rules.
 
-  Outside math formulas, these functions can be accessed with `math.` prefix.
+  All math functions are part of the `math` [module]($scripting/#modules), which
+  is available by default in equations. Outside of equations, they can be
+  accessed with the `math.` prefix. For example, to set the font used for
+  equations, write:
+
+  ```example
+  #show math.equation: set text(font: "Fira Math")
+  $ sum_(i in NN) 1 + i $
+  ```
 
 layout: |
   Arranging elements on the page in different ways.
