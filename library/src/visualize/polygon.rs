@@ -62,7 +62,7 @@ impl Layout for PolygonElem {
         let mut frame = Frame::new(target);
 
         // Only create a path if there are more than zero points.
-        if points.is_empty() {
+        if !points.is_empty() {
             let fill = self.fill(styles);
             let stroke = self.stroke(styles).map(PartialStroke::unwrap_or_default);
 
