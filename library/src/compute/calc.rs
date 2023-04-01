@@ -94,12 +94,12 @@ pub fn pow(
         Num::Int(i) if i > u32::MAX as i64 => {
             bail!(exponent.span, "exponent too large");
         }
-        Num::Int(i) => exponent.v,
-        Num::Float(f) if f.is_normal() || f == 0 as f64 => exponent.v,
+        Num::Int(_) => exponent.v,
+        Num::Float(f) if f.is_infinite() => exponent.v,
         _ => {
             bail!(
                 exponent.span,
-                "exponent must be normal (non-NaN, non-infinite, non-subnormal)"
+                "exponent must be normal non-infinite"
             );
         }
     };
@@ -128,12 +128,9 @@ pub fn pow(
 /// Returns: float
 #[func]
 pub fn sqrt(
-    /// The number whose square root to calculate. Must be non-negative.
+    /// The number whose square root to calculate.
     value: Spanned<Num>,
 ) -> Value {
-    if value.v.float() < 0.0 {
-        bail!(value.span, "cannot take square root of negative number");
-    }
     Value::Float(value.v.float().sqrt())
 }
 
@@ -233,11 +230,7 @@ pub fn asin(
     /// The number whose arcsine to calculate. Must be between -1 and 1.
     value: Spanned<Num>,
 ) -> Value {
-    let val = value.v.float();
-    if val < -1.0 || val > 1.0 {
-        bail!(value.span, "arcsin must be between -1 and 1");
-    }
-    Value::Angle(Angle::rad(val.asin()))
+    Value::Angle(Angle::rad(value.v.float().asin()))
 }
 
 /// Calculate the arccosine of a number.
@@ -256,11 +249,7 @@ pub fn acos(
     /// The number whose arcsine to calculate. Must be between -1 and 1.
     value: Spanned<Num>,
 ) -> Value {
-    let val = value.v.float();
-    if val < -1.0 || val > 1.0 {
-        bail!(value.span, "arccos must be between -1 and 1");
-    }
-    Value::Angle(Angle::rad(val.acos()))
+    Value::Angle(Angle::rad(value.v.float().acos()))
 }
 
 /// Calculate the arctangent of a number.
