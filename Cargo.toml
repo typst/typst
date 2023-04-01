@@ -6,6 +6,7 @@ edition = "2021"
 
 [workspace]
 members = ["cli", "docs", "library", "macros", "tests"]
+default-members = ["cli"]
 
 [lib]
 doctest = false
