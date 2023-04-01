@@ -583,6 +583,10 @@ struct DisplayElem {
 
 impl Show for DisplayElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        if !vt.introspector.init() {
+            return Ok(Content::empty());
+        }
+
         let location = self.0.location().unwrap();
         let counter = self.counter();
         let numbering = self
