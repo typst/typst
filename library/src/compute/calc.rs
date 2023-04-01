@@ -94,11 +94,7 @@ pub fn pow(
         Num::Int(i) if i > u32::MAX as i64 => {
             bail!(exponent.span, "exponent too large");
         }
-        Num::Int(_) => exponent.v,
-        Num::Float(f) if f.is_finite() => exponent.v,
-        _ => {
-            bail!(exponent.span, "exponent must be non-infinite");
-        }
+        _ => exponent.v
     };
 
     if exponent_value.float() == 0 as f64 && base.float() == 0 as f64 {
