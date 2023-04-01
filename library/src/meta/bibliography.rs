@@ -52,7 +52,7 @@ pub struct BibliographyElem {
             args.expect::<Spanned<BibPaths>>("path to bibliography file")?;
         for path in &mut paths.0 {
             // resolve paths
-            *path = vm.locate(&path).at(span)?.to_string_lossy().into();
+            *path = vm.locate(path).at(span)?.to_string_lossy().into();
         }
         // check that parsing works
         let _ = load(vm.world(), &paths).at(span)?;
@@ -145,7 +145,7 @@ impl Show for BibliographyElem {
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
-            let title = title.clone().unwrap_or_else(|| {
+            let title = title.unwrap_or_else(|| {
                 TextElem::packed(self.local_name(TextElem::lang_in(styles)))
                     .spanned(self.span())
             });
@@ -526,7 +526,7 @@ fn create(
             // Make link from citation to here work.
             let backlink = {
                 let mut content = Content::empty();
-                content.set_location(ref_location(&reference.entry));
+                content.set_location(ref_location(reference.entry));
                 MetaElem::set_data(vec![Meta::Elem(content)])
             };
 

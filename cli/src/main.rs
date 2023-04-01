@@ -279,7 +279,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Print diagnostics.
         Err(errors) => {
             status(command, Status::Error).unwrap();
-            print_diagnostics(&world, *errors)
+            print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
             Ok(true)
         }
@@ -576,10 +576,10 @@ impl PathHash {
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
-    if fs::metadata(&path).map_err(f)?.is_dir() {
+    if fs::metadata(path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(&path).map_err(f)
+        fs::read(path).map_err(f)
     }
 }
 

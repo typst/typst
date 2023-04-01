@@ -30,7 +30,7 @@ impl Layout for FlowElem {
             let mut styles = styles;
             if let Some((elem, map)) = child.to_styled() {
                 child = elem;
-                styles = outer.chain(&map);
+                styles = outer.chain(map);
             }
 
             if let Some(elem) = child.to::<VElem>() {
@@ -54,7 +54,7 @@ impl Layout for FlowElem {
                     true,
                 ));
             } else if child.can::<dyn Layout>() {
-                layouter.layout_multiple(vt, &child, styles)?;
+                layouter.layout_multiple(vt, child, styles)?;
             } else if child.is::<ColbreakElem>() {
                 if !layouter.regions.backlog.is_empty() || layouter.regions.last.is_some()
                 {

@@ -457,7 +457,7 @@ pub fn round(
         Num::Int(n) if digits == 0 => Value::Int(n),
         _ => {
             let n = value.float();
-            let factor = 10.0_f64.powi(digits as i32) as f64;
+            let factor = 10.0_f64.powi(digits as i32);
             Value::Float((n * factor).round() / factor)
         }
     }

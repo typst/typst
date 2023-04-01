@@ -297,7 +297,7 @@ impl LayoutMath for Content {
         }
 
         if let Some((elem, styles)) = self.to_styled() {
-            if TextElem::font_in(ctx.styles().chain(&styles))
+            if TextElem::font_in(ctx.styles().chain(styles))
                 != TextElem::font_in(ctx.styles())
             {
                 let frame = ctx.layout_content(self)?;
