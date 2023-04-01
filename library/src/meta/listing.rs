@@ -16,7 +16,7 @@ use crate::visualize::ImageElem;
 ///
 /// #figure(caption: "A nice figure!")[
 ///     #table(
-///         columns: (auto, "1fr"),
+///         columns: (auto, 1fr),
 ///         "A", "Ampere",
 ///         "V", "Volt",
 ///         "Hz", "Hertz",
