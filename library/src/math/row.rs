@@ -57,10 +57,8 @@ impl MathRow {
                     Some(
                         MathClass::Normal
                             | MathClass::Alphabetic
-                            | MathClass::Binary
                             | MathClass::Closing
                             | MathClass::Fence
-                            | MathClass::Relation
                     )
                 )
             {
