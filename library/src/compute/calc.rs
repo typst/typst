@@ -94,7 +94,7 @@ pub fn pow(
         Num::Int(i) if i > u32::MAX as i64 => {
             bail!(exponent.span, "exponent too large");
         }
-        _ => exponent.v
+        _ => exponent.v,
     };
 
     if exponent_value.float() == 0 as f64 && base.float() == 0 as f64 {
