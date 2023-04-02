@@ -55,7 +55,7 @@ follows:
 | Fraction               | `[$1 + (a+b)/5$]`        | [`frac`]($func/frac)     |
 | Line break             | `[$x \ y ]`              | [`linebreak`]($func/linebreak) |
 | Alignment point        | `[$x &= 2 \ &= 3$]`      | [Math]($category/math)   |
-| Variable access        | `[$pi$]`                 | [Math]($category/math)   |
+| Variable access        | `[$#x$, $pi$]`           | [Math]($category/math)   |
 | Field access           | `[$arrow.r.long$]`       | [Scripting]($scripting/#fields) |
 | Implied multiplication | `[$x y$]`                | [Math]($category/math)   |
 | Symbol shorthand       | `[$->, !=$]`             | [Symbols]($category/symbols/sym) |

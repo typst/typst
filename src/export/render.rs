@@ -7,7 +7,7 @@ use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use usvg::FitTo;
+use usvg::{FitTo, NodeExt};
 
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::geom::{
@@ -134,7 +134,7 @@ fn render_text(
 fn render_svg_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    _: Option<&sk::ClipMask>,
+    mask: Option<&sk::ClipMask>,
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
@@ -173,10 +173,41 @@ fn render_svg_glyph(
         height = view_box.height() as f32;
     }
 
-    // FIXME: This doesn't respect the clipping mask.
     let size = text.size.to_f32();
     let ts = ts.pre_scale(size / width, size / height);
-    resvg::render(&tree, FitTo::Original, ts, canvas.as_mut())
+
+    // Compute the space we need to draw our glyph.
+    // See https://github.com/RazrFalcon/resvg/issues/602 for why
+    // using the svg size is problematic here.
+    let mut bbox = usvg::Rect::new_bbox();
+    for node in tree.root().descendants() {
+        if let Some(rect) = node.calculate_bbox().and_then(|b| b.to_rect()) {
+            bbox = bbox.expand(rect);
+        }
+    }
+
+    let canvas_rect = usvg::ScreenRect::new(0, 0, canvas.width(), canvas.height())?;
+
+    // Compute the bbox after the transform is applied.
+    // We add a nice 5px border along the bounding box to
+    // be on the safe size. We also compute the intersection
+    // with the canvas rectangle
+    let svg_ts = usvg::Transform::new(
+        ts.sx.into(), ts.kx.into(), 
+        ts.ky.into(), ts.sy.into(), 
+        ts.tx.into(), ts.ty.into());
+    let bbox = bbox.transform(&svg_ts)?
+        .to_screen_rect();
+    let bbox = usvg::ScreenRect::new(bbox.left()-5, bbox.y()-5, bbox.width()+10, bbox.height()+10)?
+        .fit_to_rect(canvas_rect);
+
+    let mut pixmap = sk::Pixmap::new(bbox.width(), bbox.height())?;
+
+    // We offset our transform so that the pixmap starts at the edge of the bbox.
+    let ts = ts.post_translate(-bbox.left() as f32, -bbox.top() as f32);
+    resvg::render(&tree, FitTo::Original, ts, pixmap.as_mut())?;
+
+    canvas.draw_pixmap(bbox.left(), bbox.top(), pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
 }
 
 /// Render a bitmap glyph into the canvas.
@@ -239,45 +270,71 @@ fn render_outline_glyph(
     // doesn't exist, yet.
     let glyph = pixglyph::Glyph::load(text.font.ttf(), id)?;
     let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
-    let cw = canvas.width() as i32;
-    let ch = canvas.height() as i32;
-    let mw = bitmap.width as i32;
-    let mh = bitmap.height as i32;
 
-    // Determine the pixel bounding box that we actually need to draw.
-    let left = bitmap.left;
-    let right = left + mw;
-    let top = bitmap.top;
-    let bottom = top + mh;
+    // If we have a clip mask we first render to a pixmap that we then blend
+    // with our canvas
+    if mask.is_some() {
+        let mw = bitmap.width;
+        let mh = bitmap.height;
 
-    // Premultiply the text color.
-    let Paint::Solid(color) = text.fill;
-    let c = color.to_rgba();
-    let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply().get();
+        let Paint::Solid(color) = text.fill;
+        let c = color.to_rgba();
 
-    // Blend the glyph bitmap with the existing pixels on the canvas.
-    // FIXME: This doesn't respect the clipping mask.
-    let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
-    for x in left.clamp(0, cw)..right.clamp(0, cw) {
-        for y in top.clamp(0, ch)..bottom.clamp(0, ch) {
-            let ai = ((y - top) * mw + (x - left)) as usize;
-            let cov = bitmap.coverage[ai];
-            if cov == 0 {
-                continue;
+        // Pad the pixmap with 1 pixel in each dimension so that we do
+        // not get any problem with floating point errors along ther border
+        let mut pixmap = sk::Pixmap::new(mw+2, mh+2)?;
+        for x in 0..mw {
+            for y in 0..mh {
+                let alpha = bitmap.coverage[(y * mw + x) as usize];
+                let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, alpha).premultiply();
+                pixmap.pixels_mut()[((y+1) * (mw+2) + (x+1)) as usize] = color;
             }
-
-            let pi = (y * cw + x) as usize;
-            if cov == 255 {
-                pixels[pi] = color;
-                continue;
-            }
-
-            let applied = alpha_mul(color, cov as u32);
-            pixels[pi] = blend_src_over(applied, pixels[pi]);
         }
-    }
 
-    Some(())
+        let left = bitmap.left;
+        let top = bitmap.top;
+
+        canvas.draw_pixmap(left-1, top-1, pixmap.as_ref(), &sk::PixmapPaint::default(), sk::Transform::identity(), mask)
+    } else {
+         let cw = canvas.width() as i32;
+         let ch = canvas.height() as i32;
+         let mw = bitmap.width as i32;
+         let mh = bitmap.height as i32;
+
+         // Determine the pixel bounding box that we actually need to draw.
+         let left = bitmap.left;
+         let right = left + mw;
+         let top = bitmap.top;
+         let bottom = top + mh;
+
+         // Premultiply the text color.
+        let Paint::Solid(color) = text.fill;
+        let c = color.to_rgba();
+        let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply().get();
+
+        // Blend the glyph bitmap with the existing pixels on the canvas.
+        let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
+        for x in left.clamp(0, cw)..right.clamp(0, cw) {
+            for y in top.clamp(0, ch)..bottom.clamp(0, ch) {
+                let ai = ((y - top) * mw + (x - left)) as usize;
+                let cov = bitmap.coverage[ai];
+                if cov == 0 {
+                    continue;
+                }
+
+                let pi = (y * cw + x) as usize;
+                if cov == 255 {
+                    pixels[pi] = color;
+                    continue;
+                }
+
+                let applied = alpha_mul(color, cov as u32);
+                pixels[pi] = blend_src_over(applied, pixels[pi]);
+            }
+        }
+
+        Some(())
+    }
 }
 
 /// Render a geometrical shape into the canvas.

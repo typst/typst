@@ -384,7 +384,7 @@ pub fn shape<'a>(
 }
 
 /// Shape text with font fallback using the `families` iterator.
-fn shape_segment<'a>(
+fn shape_segment(
     ctx: &mut ShapingContext,
     base: usize,
     text: &str,

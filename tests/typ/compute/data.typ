@@ -42,6 +42,24 @@
 #json("/bad.json")
 
 ---
+// Test reading YAML data
+#let data = yaml("/yamltypes.yaml")
+#test(data.len(), 7)
+#test(data.null_key, (none, none))
+#test(data.string, "text")
+#test(data.integer, 5)
+#test(data.float, 1.12)
+#test(data.mapping, ("1": "one", "2": "two"))
+#test(data.seq, (1,2,3,4))
+#test(data.bool, false)
+#test(data.keys().contains("true"), false)
+---
+
+---
+// Error: 7-18 failed to parse yaml file: while parsing a flow sequence, expected ',' or ']' at line 2 column 1
+#yaml("/bad.yaml")
+
+---
 // Test reading XML data.
 #let data = xml("/data.xml")
 #test(data, ((
