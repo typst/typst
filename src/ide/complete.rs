@@ -1094,12 +1094,12 @@ impl<'a> CompletionContext<'a> {
         let mut ancestor = Some(self.leaf.clone());
         while let Some(node) = &ancestor {
             let mut sibling = Some(node.clone());
-            while let Some(node) = &sibling {
-                if let Some(v) = node.cast::<ast::LetBinding>() {
-                    defined.insert(v.binding().take());
-                }
-                sibling = node.prev_sibling();
-            }
+            // while let Some(node) = &sibling {
+            //     if let Some(v) = node.cast::<ast::LetBinding>() {
+            //         defined.insert(v.binding().take());
+            //     }
+            //     sibling = node.prev_sibling();
+            // }
 
             if let Some(parent) = node.parent() {
                 if let Some(v) = parent.cast::<ast::ForLoop>() {

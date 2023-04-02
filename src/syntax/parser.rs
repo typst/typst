@@ -838,17 +838,27 @@ fn let_binding(p: &mut Parser) {
     p.assert(SyntaxKind::Let);
 
     let m2 = p.marker();
-    p.expect(SyntaxKind::Ident);
-
-    let closure = p.directly_at(SyntaxKind::LeftParen);
-    if closure {
-        let m3 = p.marker();
+    let mut closure = false;
+    let unpacking = p.at(SyntaxKind::LeftParen);
+    if unpacking {
         collection(p, false);
-        validate_params(p, m3);
-        p.wrap(m3, SyntaxKind::Params);
+        validate_unpacking(p, m2);
+        p.wrap(m2, SyntaxKind::Pattern);
+    } else {
+        p.expect(SyntaxKind::Ident);
+    
+        closure = p.directly_at(SyntaxKind::LeftParen);
+        if closure {
+            let m3 = p.marker();
+            collection(p, false);
+            validate_params(p, m3);
+            p.wrap(m3, SyntaxKind::Params);
+        } else {
+            p.wrap(m2, SyntaxKind::Pattern);
+        }
     }
 
-    let f = if closure { Parser::expect } else { Parser::eat_if };
+    let f = if closure || unpacking { Parser::expect } else { Parser::eat_if };
     if f(p, SyntaxKind::Eq) {
         code_expr(p);
     }
@@ -933,11 +943,14 @@ fn for_loop(p: &mut Parser) {
 
 fn for_pattern(p: &mut Parser) {
     let m = p.marker();
-    if p.expect(SyntaxKind::Ident) {
-        if p.eat_if(SyntaxKind::Comma) {
-            p.expect(SyntaxKind::Ident);
-        }
-        p.wrap(m, SyntaxKind::ForPattern);
+    let unpacking = p.at(SyntaxKind::LeftParen);
+    if unpacking {
+        collection(p, false);
+        validate_unpacking(p, m);
+        p.wrap(m, SyntaxKind::Pattern);
+    } else {
+        p.expect(SyntaxKind::Ident);
+        p.wrap(m, SyntaxKind::Pattern);
     }
 }
 
@@ -1081,6 +1094,36 @@ fn validate_args(p: &mut Parser, m: Marker) {
             if !used.insert(within.text().clone()) {
                 within.convert_to_error("duplicate argument");
                 child.make_erroneous();
+            }
+        }
+    }
+}
+
+fn validate_unpacking(p: &mut Parser, m: Marker) {
+    let mut used = HashSet::new();
+    for child in p.post_process(m) {
+        match child.kind() {
+            SyntaxKind::Ident => {
+                if !(child.text() == "_") && !used.insert(child.text().clone()) {
+                    child.convert_to_error("duplicate identifier");
+                }
+            }
+            SyntaxKind::Spread => {
+                let Some(within) = child.children_mut().last_mut() else { continue };
+                if within.kind() != SyntaxKind::Ident {
+                    within.convert_to_error(eco_format!(
+                        "expected identifier, found {}",
+                        within.kind().name(),
+                    ));
+                    child.make_erroneous();
+                }
+            }
+            SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
+            kind => {
+                child.convert_to_error(eco_format!(
+                    "expected identifier or argument sink, found {}",
+                    kind.name()
+                ));
             }
         }
     }

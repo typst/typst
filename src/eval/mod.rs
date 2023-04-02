@@ -1184,6 +1184,53 @@ impl Eval for ast::Closure {
     }
 }
 
+impl ast::Pattern {
+
+    // TODO (Marmare): comment and maybe rename
+    pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
+        match self.bindings() {
+            ast::PatternKind::Ident(ident) => {
+                vm.define(ident, value);
+                Ok(Value::None)
+            }
+            ast::PatternKind::Destructure(pattern) => {
+                let Ok(value) = value.clone().cast::<Array>() else {
+                    bail!(self.span(), "cannot destructure {} into an array", value.type_name());
+                };
+
+                let mut i = 0;
+                for p in &pattern {
+                    match p {
+                        ast::DestructuringKind::Ident(ident) => {
+                            let Ok(v) = value.at(i) else {
+                                bail!(ident.span(), "not enough elements to destructure");
+                            };
+                            vm.define(ident.clone(), v.clone());
+                            i += 1;
+                        }
+                        ast::DestructuringKind::Sink(ident) => {
+                            let sink_size = i64::try_from(value.len()).unwrap() - i64::try_from(pattern.len()).unwrap() + 1;
+                            let Ok(v) = value.slice(i, Some(i + sink_size)) else {
+                                bail!(ident.span(), "not enough elements to destructure");
+                            };
+                            vm.define(ident.clone(), v.clone());
+                            i += sink_size;
+                        }
+                        ast::DestructuringKind::Placeholder => {
+                            i += 1;
+                        }
+                    }
+                }
+                if i < pattern.len().try_into().unwrap() {
+                    bail!(self.span(), "not enough values to unpack");
+                }
+
+                Ok(Value::None)
+            }
+        }
+    }
+}
+
 impl Eval for ast::LetBinding {
     type Output = Value;
 
@@ -1192,8 +1239,16 @@ impl Eval for ast::LetBinding {
             Some(expr) => expr.eval(vm)?,
             None => Value::None,
         };
-        vm.define(self.binding(), value);
-        Ok(Value::None)
+
+        match self.binding() {
+            ast::LetBindingKind::Normal(pattern) => {
+                pattern.define(vm, value)
+            }
+            ast::LetBindingKind::Closure(ident) => {
+                vm.define(ident, value);
+                Ok(Value::None)
+            }
+        }
     }
 }
 

@@ -1590,17 +1590,80 @@ impl AstNode for Param {
 }
 
 node! {
+    /// A destructuring pattern: `x` or `(x, _, ..y)`.
+    Pattern
+}
+
+#[derive(Debug, Clone, Hash)]
+pub enum DestructuringKind {
+    /// An identifier: `x`.
+    Ident(Ident),
+    /// An argument sink: `..y`.
+    Sink(Ident),
+    /// A placeholder: `_`.
+    Placeholder,
+}
+
+#[derive(Debug, Clone, Hash)]
+pub enum PatternKind {
+    /// A single identifier: `x`.
+    Ident(Ident),
+    /// A destructuring pattern: `(x, _, ..y)`.
+    Destructure(Vec<DestructuringKind>),
+}
+
+impl Pattern {
+    /// TODO (Marmare): comment and maybe rename
+    pub fn bindings(&self) -> PatternKind {
+        if self.0.children().len() > 1 {
+            let mut bindings = Vec::new();
+            for child in self.0.children() {
+                match child.kind() {
+                    SyntaxKind::Ident => {
+                        if child.text() == "_" {
+                            bindings.push(DestructuringKind::Placeholder)
+                        } else {
+                            bindings.push(DestructuringKind::Ident(child.cast().unwrap()))
+                        }
+                    }
+                    SyntaxKind::Spread => bindings.push(DestructuringKind::Sink(child.cast_first_match().unwrap())),
+                    _ => {},
+                }
+            }
+            PatternKind::Destructure(bindings)
+        } else if let Some(ident) = self.0.cast_first_match::<Ident>() {
+            PatternKind::Ident(ident)
+        } else {
+            PatternKind::Ident(Ident::default())
+        }
+    }
+}
+
+node! {
     /// A let binding: `let x = 1`.
     LetBinding
 }
 
+pub enum LetBindingKind {
+    /// A normal binding: `let x = 1`.
+    Normal(Pattern),
+    /// A closure binding: `let f(x) = 1`.
+    Closure(Ident),
+}
+
 impl LetBinding {
     /// The binding to assign to.
-    pub fn binding(&self) -> Ident {
-        match self.0.cast_first_match() {
-            Some(Expr::Ident(binding)) => binding,
-            Some(Expr::Closure(closure)) => closure.name().unwrap_or_default(),
-            _ => Ident::default(),
+    pub fn binding(&self) -> LetBindingKind {
+        if let Some(pattern) = self.0.cast_first_match::<Pattern>() {
+            LetBindingKind::Normal(pattern)
+        } else if let Some(closure) = self.0.cast_first_match::<Closure>() {
+            if let Some(ident) = closure.name() {
+                LetBindingKind::Closure(ident)
+            } else {
+                LetBindingKind::Closure(Ident::default())
+            }
+        } else {
+            LetBindingKind::Normal(Pattern::default())
         }
     }
 
