@@ -1221,7 +1221,7 @@ impl ast::Pattern {
                         }
                     }
                 }
-                if i < pattern.len().try_into().unwrap() {
+                if i < value.len().try_into().unwrap() {
                     bail!(self.span(), "not enough values to unpack");
                 }
 
