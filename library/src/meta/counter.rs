@@ -15,22 +15,6 @@ use crate::prelude::*;
 /// With the counter function, you can access and modify counters for pages,
 /// headings, figures, and more. Moreover, you can define custom counters for
 /// other things you want to count.
-/// 
-/// ## Counter initial value
-/// All counters start at zero by default, with the exception of the page counter
-/// as pages always start at one. This means that if, in your application, your counter
-/// should start at one. You can do this in one of two ways:
-/// 1. You can set the counter to one before you start counting: `#counter("my_counter").update(1)`.
-/// 2. You can increment the counter by one before your start counting: `#counter("my_counter").step(1)`.
-/// 
-/// This is done so that, when using a counter to count the number of a certain type of elements, it will
-/// return zero if there are no elements of this type. For example, if you want to count the number of
-/// figures in a document, you can do this:
-/// ```example
-/// The number of figures in this document is #locate(loc => {
-///   counter(figure).at(loc)
-/// })
-/// ```
 ///
 /// ## Displaying a counter
 /// To display the current value of the heading counter, you call the `counter`
@@ -91,6 +75,48 @@ use crate::prelude::*;
 /// Still at #counter(heading).display().
 /// ```
 ///
+/// ## Custom counters
+/// To define your own counter, call the `counter` function with a string as a
+/// key. This key identifies the counter globally.
+///
+/// ```example
+/// #let mine = counter("mycounter")
+/// #mine.display() \
+/// #mine.step()
+/// #mine.display() \
+/// #mine.update(c => c * 3)
+/// #mine.display() \
+/// ```
+///
+/// ## How to step
+/// When you define and use a custom counter, in general, you should first step
+/// the counter and then display it. This way, the stepping behaviour of a
+/// counter can depend on the element it is stepped for. If you were writing a
+/// counter for, let's say, theorems, your theorem's definition would thus first
+/// include the counter step and only then display the counter and the theorem's
+/// contents.
+///
+/// ```example
+/// #let c = counter("theorem")
+/// #let theorem(it) = block[
+///   #c.step()
+///   *Theorem #c.display():* #it
+/// ]
+///
+/// #theorem[$1 = 1$]
+/// #theorem[$2 < 3$]
+/// ```
+///
+/// The rationale behind this is best explained on the example of the heading
+/// counter: An update to the heading counter depends on the heading's level.
+/// By stepping directly before the heading, we can correctly step from `1` to
+/// `1.1` when encountering a level 2 heading. If we were to step after the
+/// heading, we wouldn't know what to step to.
+///
+/// Because counters should always be stepped before the elements they count,
+/// they always start at zero. This way, they are at one for the first display
+/// (which happens after the first step).
+///
 /// ## Page counter
 /// The page counter is special. It is automatically stepped at each pagebreak.
 /// But like other counters, you can also step it manually. For example, you
@@ -116,19 +142,6 @@ use crate::prelude::*;
 /// We also display both the current
 /// page and total number of pages in
 /// Arabic numbers.
-/// ```
-///
-/// ## Custom counters
-/// To define your own counter, call the `counter` function with a string as a
-/// key. This key identifies the counter globally.
-///
-/// ```example
-/// #let mine = counter("mycounter")
-/// #mine.display() \
-/// #mine.step()
-/// #mine.display() \
-/// #mine.update(c => c * 3)
-/// #mine.display() \
 /// ```
 ///
 /// ## Time travel
