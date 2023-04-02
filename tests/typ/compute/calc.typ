@@ -94,6 +94,26 @@
 #calc.pow(2, calc.pow(2.0, 10000.0))
 
 ---
+Error: 15-18 the return value is not a real number
+#calc.pow(-1, 0.5)
+
+---
+// Error : 11-13 cannot take square root of negative number
+#calc.sqrt(-1)
+
+---
+// Error: 11-13 a logarithm parameter must be strictly positive
+#calc.log(-1)
+
+---
+// Error: 11-12 a logarithm base should be normal (not NaN, not infinite, non-null, not subnormal)
+#calc.log(1, base: 0)
+
+---
+Error: 11-13 this logarithm doesn't return a real value
+#calc.log(10, base: -1)
+
+---
 // Error: 10-12 expected at least one value
 #calc.min()
 

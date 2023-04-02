@@ -379,9 +379,9 @@ pub fn tanh(
 /// Returns: float
 #[func]
 pub fn log(
-    /// The number whose logarithm to calculate.
+    /// The number whose logarithm to calculate. It must be strictly positive.
     value: Spanned<Num>,
-    /// The base of the logarithm.
+    /// The base of the logarithm. It can't be null.
     #[named]
     #[default(10.0)]
     base: f64,
@@ -391,8 +391,8 @@ pub fn log(
     if number <= 0 as f64 {
         bail!(value.span, "a logarithm parameter must be strictly positive")
     }
-    if base == 0 as f64 {
-        bail!(value.span, "a logarithm base cannot be null")
+    if !base.is_normal() {
+        bail!(value.span, "a logarithm base should be normal (not NaN, not infinite, non-null, not subnormal)")
     }
 
     let return_value = if base == 2.0 {
