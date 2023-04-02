@@ -1,3 +1,4 @@
+use kurbo::{CubicBez, ParamCurveExtrema};
 use crate::prelude::*;
 use crate::visualize::path::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 
@@ -19,7 +20,7 @@ impl PathVertex {
 
     pub fn control_point_from(&self) -> Axes<Rel<Length>> {
         match self {
-            Vertex(x) => *x,
+            Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
             MirroredControlPoint(_, a) => a.map(|x| -x),
             AllControlPoints(_, _, b) => *b,
         }
@@ -27,7 +28,7 @@ impl PathVertex {
 
     pub fn control_point_to(&self) -> Axes<Rel<Length>> {
         match self {
-            Vertex(x) => *x,
+            Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
             MirroredControlPoint(_, a) => *a,
             AllControlPoints(_, a, _) => *a,
         }
@@ -86,14 +87,23 @@ cast_to_value! {
 /// Category: visualize
 #[element(Layout)]
 pub struct PathElem {
+    /// Whether to close this path with one last bezier curve. This last curve still takes into account the control points.
+    /// If you want to close with a straight line, simply add one last point that's the same as the start point.
     #[default(false)]
     pub closed: bool,
+
+    /// How to fill the polygon. See the
+    /// [rectangle's documentation]($func/rect.fill) for more details.
+    ///
+    /// Currently all paths are filled according to the
+    /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
+    pub fill: Option<Paint>,
 
     /// How to stroke the polygon. See the [lines's
     /// documentation]($func/line.stroke) for more details.
     #[resolve]
     #[fold]
-    pub stroke: PartialStroke,
+    pub stroke: Option<PartialStroke>,
 
     /// The vertices of the path.
     ///
@@ -120,40 +130,59 @@ impl Layout for PathElem {
             .map(|c| resolve(c.vertex()))
             .collect();
 
-        let size = points.iter().fold(Point::zero(), |max, c| c.max(max)).to_size(); // TODO: this is... uh, wrong.
-        let target = regions.expand.select(regions.size, size);
-        let mut frame = Frame::new(target);
+        let mut size = Size::zero();
 
         // Only create a path if there are more than zero points.
-        if points.len() > 0 {
-            let stroke = Some(self.stroke(styles).unwrap_or_default());
-
+        let path = if points.len() > 0 {
             // Construct a closed path given all points.
             let mut path = Path::new();
             path.move_to(points[0]);
+
+            let mut add_cubic = |from_point: Point, to_point: Point, from: PathVertex, to: PathVertex| {
+                let from_control_point = resolve(from.control_point_from()) + from_point;
+                let to_control_point = resolve(to.control_point_to()) + to_point;
+
+                path.cubic_to(from_control_point, to_control_point, to_point);
+
+                let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
+                let p1 = kurbo::Point::new(from_control_point.x.to_raw(), from_control_point.y.to_raw());
+                let p2 = kurbo::Point::new(to_control_point.x.to_raw(), to_control_point.y.to_raw());
+                let p3 = kurbo::Point::new(to_point.x.to_raw(), to_point.y.to_raw());
+                let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
+                size.x.set_max(Abs::raw(extrema.x1));
+                size.y.set_max(Abs::raw(extrema.y1));
+            };
+
             for (vertex_window, point_window) in vertices.windows(2).zip(points.windows(2)) {
                 let from = vertex_window[0];
                 let to = vertex_window[1];
                 let from_point = point_window[0];
                 let to_point = point_window[1];
 
-                let from_control_point = resolve(from.control_point_from()) + from_point;
-                let to_control_point = resolve(to.control_point_to()) + to_point;
-                path.cubic_to(from_control_point, to_control_point, to_point);
+                add_cubic(from_point, to_point, from, to);
             }
 
             if self.closed(styles) {
-                let from = *vertices.last().unwrap();
-                let to = vertices[0]; // We checked that we have at least one element.
+                let from = *vertices.last().unwrap(); // We checked that we have at least one element.
+                let to = vertices[0];
                 let from_point = *points.last().unwrap();
                 let to_point = points[0];
 
-                let from_control_point = resolve(from.control_point_from()) + from_point;
-                let to_control_point = resolve(to.control_point_to()) + to_point;
-                path.cubic_to(from_control_point, to_control_point, to_point);
+                add_cubic(from_point, to_point, from, to);
             }
 
-            let shape = Shape { geometry: Geometry::Path(path), stroke, fill: None };
+            Some(path)
+        } else {
+            None
+        };
+
+        let target = regions.expand.select(regions.size, size);
+        let mut frame = Frame::new(target);
+
+        if let Some(path) = path {
+            let fill = self.fill(styles);
+            let stroke = self.stroke(styles).map(PartialStroke::unwrap_or_default);
+            let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
             frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
         }
 
