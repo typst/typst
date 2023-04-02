@@ -311,6 +311,7 @@ impl Counter {
             let delta = vt.introspector.page(location).get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
+
         Ok(state)
     }
 
@@ -375,7 +376,7 @@ impl Counter {
         let mut vt = Vt { world, tracer, provider, introspector };
         let mut state = CounterState(match &self.0 {
             CounterKey::Selector(_) => smallvec![0],
-            _ => smallvec![1],
+            _ => smallvec![0],
         });
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
