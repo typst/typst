@@ -1186,7 +1186,7 @@ impl Eval for ast::Closure {
 
 impl ast::Pattern {
 
-    // TODO (Marmare): comment and maybe rename
+    // Destruct the given value into the pattern.
     pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
         match self.bindings() {
             ast::PatternKind::Ident(ident) => {

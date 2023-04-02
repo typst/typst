@@ -454,6 +454,7 @@ impl<'a> CapturesVisitor<'a> {
                 self.visit(expr.iter().as_untyped());
                 self.internal.enter();
 
+                // TODO (Marmare): is this actually the right behaviour?
                 let pattern = expr.pattern();
                 for ident in pattern.idents() {
                     self.bind(ident);

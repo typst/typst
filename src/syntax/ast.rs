@@ -1659,7 +1659,6 @@ node! {
     LetBinding
 }
 
-// TODO (Marmare): rename
 pub enum LetBindingKind {
     /// A normal binding: `let x = 1`.
     Normal(Pattern),
