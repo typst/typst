@@ -113,7 +113,7 @@ pub fn pow(
     let is_nan = match return_value {
         Value::Float(f) => f.is_nan(),
         Value::Int(i) => (i as f64).is_nan(),
-        _ => false
+        _ => false,
     };
 
     if is_nan {
@@ -402,7 +402,7 @@ pub fn log(
     } else {
         number.log(base)
     };
-    
+
     if return_value.is_subnormal() || return_value.is_nan() {
         bail!(value.span, "this logarithm doesn't return a real value")
     }
