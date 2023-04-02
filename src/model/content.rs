@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
-    Location, Recipe, Selector, Style, Styles, Synthesize,
+    Location, Recipe, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
@@ -102,6 +102,12 @@ impl Content {
         C: ?Sized + 'static,
     {
         (self.func.0.vtable)(TypeId::of::<C>()).is_some()
+    }
+
+    /// Whether the contained element has the given capability.
+    /// Where the capability is given by a `TypeId`.
+    pub fn can_type_id(&self, type_id: TypeId) -> bool {
+        (self.func.0.vtable)(type_id).is_some()
     }
 
     /// Cast to a trait object if the contained element has the given

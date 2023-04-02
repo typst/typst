@@ -121,14 +121,7 @@ impl Show for RefElem {
 
         let reference = elem
             .with::<dyn Refable>()
-            .map(|elem| {
-                elem.reference(
-                    vt,
-                    styles,
-                    self.0.location().expect("expected location"),
-                    supplement,
-                )
-            })
+            .map(|elem| elem.reference(vt, styles, supplement))
             .expect("element should be refable")?;
 
         Ok(reference.linked(Destination::Location(elem.location().unwrap())))
@@ -189,11 +182,33 @@ cast_to_value! {
 /// by the [`RefElement`].
 pub trait Refable {
     /// Tries to build a reference content for this element.
+    ///
+    /// # Arguments
+    /// - `vt` - The virtual typesetter.
+    /// - `styles` - The styles of the reference.
+    /// - `location` - The location where the reference is being created.
+    /// - `supplement` - The supplement of the reference.
     fn reference(
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        location: Location,
         supplement: Option<Content>,
     ) -> SourceResult<Content>;
+
+    /// Returns the level of this element.
+    /// This is used to determine the level of the outline.
+    /// By default this returns `0`.
+    fn level(&self, _styles: StyleChain) -> usize {
+        0
+    }
+
+    /// Returns the location of this element.
+    fn location(&self) -> Option<Location>;
+
+    /// Tries to build an outline element for this element.
+    /// If this returns `None`, the outline will not include this element.
+    /// By default this just calls [`Refable::reference`].
+    fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
+        self.reference(vt, styles, None).map(Some)
+    }
 }

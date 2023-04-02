@@ -4,7 +4,7 @@ use super::{Counter, CounterUpdate, LocalName, Numbering, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
 use crate::meta::{Count, Supplement};
 use crate::prelude::*;
-use crate::text::{TextElem, TextSize};
+use crate::text::{SpaceElem, TextElem, TextSize};
 
 /// A section heading.
 ///
@@ -160,7 +160,6 @@ impl Refable for HeadingElem {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        location: Location,
         supplement: Option<Content>,
     ) -> SourceResult<Content> {
         // first we create the supplement of the heading
@@ -180,10 +179,36 @@ impl Refable for HeadingElem {
 
         // we get the counter and display it
         let numbers = Counter::of(Self::func())
-            .at(vt, location)?
+            .at(vt, self.0.location().expect("missing location"))?
             .display(vt, &numbering.trimmed())?;
 
         Ok(supplement + numbers)
+    }
+
+    fn level(&self, styles: StyleChain) -> usize {
+        self.level(styles).get()
+    }
+
+    fn location(&self) -> Option<Location> {
+        self.0.location()
+    }
+
+    fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
+        // we check if the heading is outlined
+        if !self.outlined(styles) {
+            return Ok(None);
+        }
+
+        // We build the numbering followed by the title
+        let mut start = self.body();
+        if let Some(numbering) = self.numbering(StyleChain::default()) {
+            let numbers = Counter::of(HeadingElem::func())
+                .at(vt, self.location().expect("missing location"))?
+                .display(vt, &numbering)?;
+            start = numbers + SpaceElem::new().pack() + start;
+        };
+
+        Ok(Some(start))
     }
 }
 

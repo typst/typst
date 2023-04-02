@@ -151,8 +151,16 @@ fn try_apply(
             Ok(Some(Content::sequence(result)))
         }
 
+        Some(Selector::Can(cap)) => {
+            if !target.can_type_id(*cap) {
+                return Ok(None);
+            }
+
+            recipe.apply_vt(vt, target.clone().guarded(guard)).map(Some)
+        }
+
         // Not supported here.
-        Some(Selector::Any(_)) => Ok(None),
+        Some(Selector::Any(_)) | Some(Selector::All(_)) => Ok(None),
 
         None => Ok(None),
     }

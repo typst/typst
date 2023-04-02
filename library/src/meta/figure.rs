@@ -249,7 +249,6 @@ impl Refable for FigureElem {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        _location: Location,
         supplement: Option<Content>,
     ) -> SourceResult<Content> {
         let Some(desc) = self.show_supplement_and_numbering(vt, styles, supplement)? else {
@@ -257,6 +256,19 @@ impl Refable for FigureElem {
         };
 
         Ok(desc)
+    }
+
+    fn location(&self) -> Option<Location> {
+        self.0.location()
+    }
+
+    fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
+        // if the figure is not listed, it is not referenced.
+        if !self.listed(styles) {
+            return Ok(None);
+        }
+
+        self.show_caption(vt, styles).map(Some)
     }
 }
 
