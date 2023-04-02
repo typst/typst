@@ -124,9 +124,12 @@ pub fn pow(
 /// Returns: float
 #[func]
 pub fn sqrt(
-    /// The number whose square root to calculate.
+    /// The number whose square root to calculate. Must be non-negative.
     value: Spanned<Num>,
 ) -> Value {
+    if value.v.float() < 0.0 {
+        bail!(value.span, "cannot take square root of negative number");
+    }
     Value::Float(value.v.float().sqrt())
 }
 
@@ -226,7 +229,11 @@ pub fn asin(
     /// The number whose arcsine to calculate. Must be between -1 and 1.
     value: Spanned<Num>,
 ) -> Value {
-    Value::Angle(Angle::rad(value.v.float().asin()))
+    let val = value.v.float();
+    if val < -1.0 || val > 1.0 {
+        bail!(value.span, "arcsin must be between -1 and 1");
+    }
+    Value::Angle(Angle::rad(val.asin()))
 }
 
 /// Calculate the arccosine of a number.
@@ -245,7 +252,11 @@ pub fn acos(
     /// The number whose arcsine to calculate. Must be between -1 and 1.
     value: Spanned<Num>,
 ) -> Value {
-    Value::Angle(Angle::rad(value.v.float().acos()))
+    let val = value.v.float();
+    if val < -1.0 || val > 1.0 {
+        bail!(value.span, "arccos must be between -1 and 1");
+    }
+    Value::Angle(Angle::rad(val.acos()))
 }
 
 /// Calculate the arctangent of a number.
