@@ -395,19 +395,19 @@ pub fn log(
         bail!(value.span, "a logarithm base cannot be null")
     }
 
-    let return_value = Value::Float(if base == 2.0 {
+    let return_value = if base == 2.0 {
         number.log2()
     } else if base == 10.0 {
         number.log10()
     } else {
         number.log(base)
-    });
+    };
 
-    if return_value == Value::Float(f64::NAN) {
+    if return_value.is_subnormal() {
         bail!(value.span, "this logarithm doesn't return a real value")
     }
 
-    return_value
+    Value::Float(return_value)
 }
 
 /// Round a number down to the nearest integer.
