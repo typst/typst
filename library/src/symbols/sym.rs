@@ -42,8 +42,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     fence: [l: '⧘', l.double: '⧚', r: '⧙', r.double: '⧛', dotted: '⦙'],
     angle: [
         '∠',
-        l: '〈',
-        r: '〉',
+        l: '⟨',
+        r: '⟩',
         l.double: '《',
         r.double: '》',
         acute: '⦟',
