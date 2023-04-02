@@ -172,7 +172,7 @@ fn realize_root<'a>(
         return Ok((content.clone(), styles));
     }
 
-    let mut builder = Builder::new(vt, &scratch, true);
+    let mut builder = Builder::new(vt, scratch, true);
     builder.accept(content, styles)?;
     builder.interrupt_page(Some(styles))?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
@@ -197,7 +197,7 @@ fn realize_block<'a>(
         return Ok((content.clone(), styles));
     }
 
-    let mut builder = Builder::new(vt, &scratch, false);
+    let mut builder = Builder::new(vt, scratch, false);
     builder.accept(content, styles)?;
     builder.interrupt_par()?;
     let (children, shared) = builder.flow.0.finish();
@@ -314,7 +314,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
     ) -> SourceResult<()> {
         let stored = self.scratch.styles.alloc(styles);
         let styles = stored.chain(map);
-        self.interrupt_style(&map, None)?;
+        self.interrupt_style(map, None)?;
         self.accept(elem, styles)?;
         self.interrupt_style(map, Some(styles))?;
         Ok(())
@@ -466,11 +466,15 @@ impl<'a> FlowBuilder<'a> {
                 self.0.push(spacing.pack(), styles);
             }
 
-            let above = BlockElem::above_in(styles);
-            let below = BlockElem::below_in(styles);
-            self.0.push(above.clone().pack(), styles);
+            let (above, below) = if let Some(block) = content.to::<BlockElem>() {
+                (block.above(styles), block.below(styles))
+            } else {
+                (BlockElem::above_in(styles), BlockElem::below_in(styles))
+            };
+
+            self.0.push(above.pack(), styles);
             self.0.push(content.clone(), styles);
-            self.0.push(below.clone().pack(), styles);
+            self.0.push(below.pack(), styles);
             return true;
         }
 

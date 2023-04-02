@@ -43,9 +43,6 @@
           pkgs.darwin.apple_sdk.frameworks.CoreServices
         ];
 
-        cargoBuildFlags = [ "-p" "typst-cli" ];
-        cargoTestFlags = [ "-p" "typst-cli" ];
-
         TYPST_VERSION = rev "(unknown version)";
       };
     in

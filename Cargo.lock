@@ -1580,6 +1580,7 @@ dependencies = [
  "roxmltree",
  "rustybuzz",
  "serde_json",
+ "serde_yaml",
  "smallvec",
  "syntect",
  "ttf-parser 0.18.1",
