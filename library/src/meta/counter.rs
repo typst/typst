@@ -15,6 +15,22 @@ use crate::prelude::*;
 /// With the counter function, you can access and modify counters for pages,
 /// headings, figures, and more. Moreover, you can define custom counters for
 /// other things you want to count.
+/// 
+/// ## Counter initial value
+/// All counters start at zero by default, with the exception of the page counter
+/// as pages always start at one. This means that if, in your application, your counter
+/// should start at one. You can do this in one of two ways:
+/// 1. You can set the counter to one before you start counting: `#counter("my_counter").update(1)`.
+/// 2. You can increment the counter by one before your start counting: `#counter("my_counter").step(1)`.
+/// 
+/// This is done so that, when using a counter to count the number of a certain type of elements, it will
+/// return zero if there are no elements of this type. For example, if you want to count the number of
+/// figures in a document, you can do this:
+/// ```example
+/// The number of figures in this document is #locate(loc => {
+///   counter(figure).at(loc)
+/// })
+/// ```
 ///
 /// ## Displaying a counter
 /// To display the current value of the heading counter, you call the `counter`
@@ -311,6 +327,7 @@ impl Counter {
             let delta = vt.introspector.page(location).get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
+
         Ok(state)
     }
 
@@ -374,8 +391,9 @@ impl Counter {
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut vt = Vt { world, tracer, provider, introspector };
         let mut state = CounterState(match &self.0 {
-            CounterKey::Selector(_) => smallvec![0],
-            _ => smallvec![1],
+            // special case, because pages always start at one.
+            CounterKey::Page => smallvec![1],
+            _ => smallvec![0],
         });
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
