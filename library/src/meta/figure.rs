@@ -1,15 +1,10 @@
 use std::str::FromStr;
 
-use ecow::eco_vec;
-
-use super::{
-    Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
-};
-use crate::layout::{BlockElem, TableElem, VElem};
-use crate::meta::{RefInfo, Supplement};
+use super::{Count, Counter, CounterUpdate, LocalName, Numbering, NumberingPattern};
+use crate::layout::{BlockElem, VElem};
+use crate::meta::{Refable, Supplement};
 use crate::prelude::*;
-use crate::text::{RawElem, TextElem};
-use crate::visualize::ImageElem;
+use crate::text::TextElem;
 
 /// A figure with an optional caption.
 ///
@@ -29,7 +24,7 @@ use crate::visualize::ImageElem;
 ///
 /// Display: Figure
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, LocalName, RefInfo)]
+#[element(Locatable, Synthesize, Count, Show, LocalName, Refable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
@@ -45,7 +40,7 @@ pub struct FigureElem {
 
     /// The counter to use for the figure.
     #[default(Smart::Auto)]
-    pub counter: Smart<Option<Counter>>,
+    pub counter: Smart<Counter>,
 
     /// Whether the figure should appear in the list of figures/tables/code.
     #[default(true)]
@@ -61,73 +56,116 @@ pub struct FigureElem {
     #[default(Smart::Auto)]
     pub of: Smart<ElemFunc>,
 
+    /// The element to use for the figure's properties.
+    #[synthesized]
+    pub element: Option<Content>,
+
     /// The vertical gap between the body and caption.
     #[default(Em::new(0.65).into())]
     pub gap: Length,
 }
 
 impl FigureElem {
-    /// Determines the type of the figure based on its content.
-    pub fn determine_type(&self, styles: StyleChain) -> FigureType {
-        if let Smart::Custom(func) = self.of(styles) {
-            return FigureType::Manual(func);
-        }
+    /// Determines the type of the figure by looking at the content, finding all
+    /// [`Figurable`] elements and sorting them by priority then returning the highest.
+    pub fn determine_type(&self, styles: StyleChain) -> Option<Content> {
+        let potential_elems = self.body().query(|content| {
+            content.can::<dyn Figurable>() && content.can::<dyn LocalName>()
+        });
 
-        let elems = eco_vec![
-            Selector::Elem(ImageElem::func(), None),
-            Selector::Elem(RawElem::func(), None),
-            Selector::Elem(TableElem::func(), None),
-        ];
-
-        let query = self.body().query(Selector::Any(elems));
-
-        // we query in the order of the highest priority to the lowest
-        query
-            .iter()
-            .find_map(|c| c.to::<ImageElem>())
-            .cloned()
-            .map(FigureType::Image)
-            .or(query
-                .iter()
-                .find_map(|c| c.to::<RawElem>())
-                .cloned()
-                .map(FigureType::Raw))
-            .or(query
-                .iter()
-                .find_map(|c| c.to::<TableElem>())
-                .cloned()
-                .map(FigureType::Table))
-            .unwrap_or(FigureType::Other)
+        potential_elems.into_iter().max_by_key(|elem| {
+            elem.with::<dyn Figurable>()
+                .expect("should be figurable")
+                .priority(styles)
+        })
     }
 
-    /// Creates the content of the figure's caption.
-    pub fn show_caption(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let ty = self.determine_type(styles);
+    /// Finds the element with the given function in the figure's content.
+    /// Returns `None` if no element with the given function is found.
+    pub fn find_elem(&self, func: ElemFunc) -> Option<Content> {
+        let potential_elems = self.body().query(|content| {
+            content.can::<dyn Figurable>() && content.can::<dyn LocalName>()
+        });
 
-        let Some(mut caption) = self.caption(styles) else {
-            return Ok(Content::empty());
-        };
+        potential_elems.into_iter().find(|elem| elem.func() == func)
+    }
 
+    pub fn resolve_of(&self, styles: StyleChain) -> ElemFunc {
+        match self.of(styles) {
+            Smart::Custom(func) => func,
+            Smart::Auto => unreachable!("should be synthesized"),
+        }
+    }
+
+    pub fn resolve_element(&self) -> Content {
+        self.element().expect("should be synthesized")
+    }
+
+    pub fn resolve_counter(&self, styles: StyleChain) -> Counter {
+        match self.counter(styles) {
+            Smart::Auto => self
+                .resolve_element()
+                .with::<dyn Figurable>()
+                .expect("should be figurable")
+                .counter(styles),
+            Smart::Custom(other) => other,
+        }
+    }
+
+    pub fn resolve_supplement(&self, styles: StyleChain) -> Option<Supplement> {
+        match self.supplement(styles) {
+            Smart::Auto => Some(
+                self.resolve_element()
+                    .with::<dyn Figurable>()
+                    .expect("should be figurable")
+                    .supplement(styles),
+            ),
+            Smart::Custom(other) => other,
+        }
+    }
+
+    pub fn show_supplement_and_numbering(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        external_supp: Option<Content>,
+    ) -> SourceResult<Option<Content>> {
+        let elem = self.resolve_element();
         if let Some(numbering) = self.numbering(styles) {
-            let mut name = ty
-                .resolve_supplement(vt, self, styles)?
-                .unwrap_or_else(Content::empty);
+            let mut name = if let Some(supplement) = external_supp {
+                supplement
+            } else {
+                self.resolve_supplement(styles)
+                    .map_or(Ok(None), |supplement| {
+                        supplement.resolve(vt, [elem.into()]).map(Some)
+                    })?
+                    .unwrap_or_else(Content::empty)
+            };
 
-            let counter = ty
-                .counter(self.counter(styles))
-                .unwrap_or_else(|| Counter::of(Self::func()));
+            let counter = self.resolve_counter(styles);
 
             if !name.is_empty() {
                 name += TextElem::packed("\u{a0}");
             }
 
-            caption = name
-                + counter
-                    .at(vt, self.0.location().expect("missing location"))?
-                    .display(vt, &numbering)?
-                    .spanned(self.span())
-                + TextElem::packed(": ")
-                + caption;
+            let number = counter
+                .at(vt, self.0.location().expect("missing location"))?
+                .display(vt, &numbering)?
+                .spanned(self.span());
+
+            Ok(Some(name + number))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn show_caption(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let Some(mut caption) = self.caption(styles) else {
+            return Ok(Content::empty());
+        };
+
+        if let Some(sup_and_num) = self.show_supplement_and_numbering(vt, styles, None)? {
+            caption = sup_and_num + TextElem::packed(": ") + caption;
         }
 
         Ok(caption)
@@ -135,10 +173,32 @@ impl FigureElem {
 }
 
 impl Synthesize for FigureElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
+        Self::func();
         self.push_numbering(self.numbering(styles));
         self.push_counter(self.counter(styles));
-        self.push_of(self.of(styles));
+
+        let type_ = match self.of(styles) {
+            Smart::Auto => {
+                let Some(type_) = self.determine_type(styles) else {
+                    bail!(self.span(), "unable to determine figure type")
+                };
+
+                type_
+            }
+            Smart::Custom(func) => {
+                let Some(type_) = self.find_elem(func) else {
+                    bail!(self.span(), "unable to find figure child of type: {}", func.name())
+                };
+
+                type_
+            }
+        };
+
+        self.push_of(Smart::Custom(type_.func()));
+        self.push_element(Some(type_));
+
+        Ok(())
     }
 }
 
@@ -147,14 +207,10 @@ impl Show for FigureElem {
         let mut realized = self.body();
 
         if self.caption(styles).is_some() {
-            let counter = self
-                .determine_type(styles)
-                .counter(self.counter(styles))
-                .unwrap_or_else(|| Counter::of(Self::func()));
+            let counter = self.resolve_counter(styles);
 
             if self.numbering(styles).is_some() && counter != Counter::of(Self::func()) {
-                realized +=
-                    counter.clone().update(CounterUpdate::Step(NonZeroUsize::ONE));
+                realized += counter.update(CounterUpdate::Step(NonZeroUsize::ONE));
             }
 
             realized += VElem::weak(self.gap(styles).into()).pack();
@@ -180,138 +236,41 @@ impl Count for FigureElem {
 
 impl LocalName for FigureElem {
     fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
-            Lang::CHINESE => "图",
-            Lang::GERMAN => "Abbildung",
-            Lang::ITALIAN => "Figura",
-            Lang::RUSSIAN => "Рисунок",
-            Lang::ENGLISH | Lang::FRENCH | _ => "Figure",
-        }
+        self.element()
+            .expect("missing element")
+            .with::<dyn LocalName>()
+            .expect("missing local name")
+            .local_name(lang)
     }
 }
 
-impl RefInfo for FigureElem {
-    fn counter(&self, styles: StyleChain) -> Option<Counter> {
-        self.determine_type(styles).counter(self.counter(styles))
-    }
-
-    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
-        self.numbering(styles)
-    }
-
-    fn supplement(&self, styles: StyleChain) -> Option<Supplement> {
-        self.determine_type(styles).supplement(self, styles)
-    }
-}
-
-/// The type of a figure.
-///
-/// Priority list:
-/// 1. `counter` and `supplement` explicitly set
-/// 2. contains an image element
-/// 3. contains a raw element
-/// 4. contains a table element
-/// 5. could not determine content.
-#[derive(Debug, Clone)]
-pub enum FigureType {
-    /// A figure containing one (or more) images.
-    Image(ImageElem),
-
-    /// A figure containing a table.
-    Table(TableElem),
-
-    /// A figure containing a snippet of code.
-    Raw(RawElem),
-
-    /// The figure type is manually set.
-    Manual(ElemFunc),
-
-    /// Could not determine the content of the figure.
-    Other,
-}
-
-impl FigureType {
-    /// Is this figure type unknown?
-    pub fn is_other(&self) -> bool {
-        matches!(self, Self::Other)
-    }
-
-    /// Gets the function of the element associated with this figure type.
-    pub fn func(&self) -> Option<ElemFunc> {
-        match self {
-            FigureType::Image(_) => Some(ImageElem::func()),
-            FigureType::Table(_) => Some(TableElem::func()),
-            FigureType::Raw(_) => Some(RawElem::func()),
-            FigureType::Manual(func) => Some(*func),
-            FigureType::Other => None,
-        }
-    }
-
-    /// Gets the counter associated with this figure type.
-    pub fn counter(&self, counter: Smart<Option<Counter>>) -> Option<Counter> {
-        if let Smart::Custom(counter) = counter {
-            return counter;
-        }
-
-        match self {
-            FigureType::Image(_) => {
-                Some(Counter::new(CounterKey::Str("figure_images".into())))
-            }
-            FigureType::Table(_) => {
-                Some(Counter::new(CounterKey::Str("figure_tables".into())))
-            }
-            FigureType::Raw(_) => {
-                Some(Counter::new(CounterKey::Str("figure_raw_texts".into())))
-            }
-            FigureType::Manual(func) if *func == ImageElem::func() => {
-                Some(Counter::new(CounterKey::Str("figure_images".into())))
-            }
-            FigureType::Manual(func) if *func == RawElem::func() => {
-                Some(Counter::new(CounterKey::Str("figure_tables".into())))
-            }
-            FigureType::Manual(func) if *func == TableElem::func() => {
-                Some(Counter::new(CounterKey::Str("figure_tables".into())))
-            }
-            FigureType::Manual(func) => Some(Counter::of(*func)),
-            FigureType::Other => None,
-        }
-    }
-
-    /// Gets the supplement of this figure type.
-    /// This does not evaluate any function in the supplement.
-    pub fn supplement(
-        &self,
-        figure: &FigureElem,
-        styles: StyleChain,
-    ) -> Option<Supplement> {
-        let lang = TextElem::lang_in(styles);
-        match figure.supplement(styles) {
-            Smart::Auto => Some(Supplement::Content(TextElem::packed(match self {
-                FigureType::Raw(raw) => raw.local_name(lang),
-                FigureType::Table(table) => table.local_name(lang),
-                FigureType::Image(_) | FigureType::Other => figure.local_name(lang),
-                FigureType::Manual(_) => figure.local_name(lang),
-            }))),
-            Smart::Custom(None) => None,
-            Smart::Custom(Some(supplement)) => Some(supplement),
-        }
-    }
-
-    /// Resolves the supplement of this figure type.
-    /// This evaluates any function in the supplement.
-    /// It returns a `Content` that can be displayed in the document directly.
-    pub fn resolve_supplement(
+impl Refable for FigureElem {
+    fn reference(
         &self,
         vt: &mut Vt,
-        figure: &FigureElem,
         styles: StyleChain,
-    ) -> SourceResult<Option<Content>> {
-        Ok(match self.supplement(figure, styles) {
-            Some(Supplement::Content(content)) => Some(content),
-            Some(Supplement::Func(func)) => {
-                Some(func.call_vt(vt, [figure.clone().into()])?.display())
-            }
-            None => None,
-        })
+        _location: Location,
+        supplement: Option<Content>,
+    ) -> SourceResult<Content> {
+        let Some(desc) = self.show_supplement_and_numbering(vt, styles, supplement)? else {
+            bail!(self.span(), "cannot reference unnumbered figure")
+        };
+
+        Ok(desc)
     }
+}
+
+/// An element that can be placed in a figure.
+/// This trait is used to determine the type of a figure, it counter, its numbering pattern
+/// and the supplement to use for referencing it and creating the citation.
+/// The element chosen as the figure's content is the one with the highest priority.
+pub trait Figurable {
+    /// The type of the figure's content.
+    fn counter(&self, styles: StyleChain) -> Counter;
+
+    /// The supplement to use for referencing the figure.
+    fn supplement(&self, styles: StyleChain) -> Supplement;
+
+    /// The priority of this element.
+    fn priority(&self, styles: StyleChain) -> isize;
 }

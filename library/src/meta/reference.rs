@@ -1,6 +1,5 @@
-use super::{BibliographyElem, CiteElem, Counter, LocalName, Numbering};
+use super::{BibliographyElem, CiteElem};
 use crate::prelude::*;
-use crate::text::TextElem;
 
 /// A reference to a label or bibliography.
 ///
@@ -83,9 +82,10 @@ pub struct RefElem {
 }
 
 impl Synthesize for RefElem {
-    fn synthesize(&mut self, styles: StyleChain) {
-        let citation = self.to_citation(styles);
+    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
+        let citation = self.to_citation(styles)?;
         self.push_citation(Some(citation));
+        Ok(())
     }
 }
 
@@ -103,75 +103,50 @@ impl Show for RefElem {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
 
-            return Ok(self.to_citation(styles).pack());
+            return Ok(self.to_citation(styles)?.pack());
         }
 
         let elem = elem.at(self.span())?;
-        if !elem.can::<dyn Locatable>() {
+        if !elem.can::<dyn Refable>() {
             bail!(self.span(), "cannot reference {}", elem.func().name());
         }
 
-        let default_supplement = elem
-            .with::<dyn LocalName>()
-            .map(|elem| elem.local_name(TextElem::lang_in(styles)));
-
-        let ref_supplement = if let Some(ref_info) = elem.with::<dyn RefInfo>() {
-            ref_info.resolve_supplement(vt, styles, elem.clone())?
-        } else {
-            default_supplement
-                .map(TextElem::packed)
-                .unwrap_or_else(Content::empty)
-        };
-
-        let supplement = self.supplement(styles);
-        let mut supplement = match supplement {
-            Smart::Auto => ref_supplement,
-            Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
+        let supplement = match self.supplement(styles) {
+            Smart::Auto | Smart::Custom(None) => None,
+            Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             Smart::Custom(Some(Supplement::Func(func))) => {
-                func.call_vt(vt, [elem.clone().into()])?.display()
+                Some(func.call_vt(vt, [elem.clone().into()])?.display())
             }
         };
 
-        if !supplement.is_empty() {
-            supplement += TextElem::packed('\u{a0}');
-        }
+        let reference = elem
+            .with::<dyn Refable>()
+            .map(|elem| {
+                elem.reference(
+                    vt,
+                    styles,
+                    self.0.location().expect("expected location"),
+                    supplement,
+                )
+            })
+            .expect("element should be refable")?;
 
-        let Some(numbering) = elem.cast_field::<Numbering>("numbering") else {
-            bail!(self.span(), "only numbered elements can be referenced");
-        };
-
-        let counter = if let Some(ref_info) = elem.with::<dyn RefInfo>() {
-            ref_info.counter(styles).unwrap_or_else(|| Counter::of(elem.func()))
-        } else {
-            Counter::of(elem.func())
-        };
-
-        let numbering = if let Some(ref_info) = elem.with::<dyn RefInfo>() {
-            ref_info.numbering(styles).unwrap_or_else(|| numbering)
-        } else {
-            numbering
-        };
-
-        let numbers = counter
-            .at(vt, elem.location().unwrap())?
-            .display(vt, &numbering.trimmed())?;
-
-        Ok((supplement + numbers).linked(Destination::Location(elem.location().unwrap())))
+        Ok(reference.linked(Destination::Location(elem.location().unwrap())))
     }
 }
 
 impl RefElem {
     /// Turn the reference into a citation.
-    pub fn to_citation(&self, styles: StyleChain) -> CiteElem {
+    pub fn to_citation(&self, styles: StyleChain) -> SourceResult<CiteElem> {
         let mut elem = CiteElem::new(vec![self.target().0]);
         elem.0.set_location(self.0.location().unwrap());
-        elem.synthesize(styles);
+        elem.synthesize(styles)?;
         elem.push_supplement(match self.supplement(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,
         });
-        elem
+
+        Ok(elem)
     }
 }
 
@@ -179,6 +154,20 @@ impl RefElem {
 pub enum Supplement {
     Content(Content),
     Func(Func),
+}
+
+impl Supplement {
+    /// Tries to resolve the supplement into its content.
+    pub fn resolve(
+        &self,
+        vt: &mut Vt,
+        args: impl IntoIterator<Item = Value>,
+    ) -> SourceResult<Content> {
+        match self {
+            Supplement::Content(content) => Ok(content.clone()),
+            Supplement::Func(func) => func.call_vt(vt, args).map(|v| v.display()),
+        }
+    }
 }
 
 cast_from_value! {
@@ -194,29 +183,17 @@ cast_to_value! {
     }
 }
 
-/// A citable element can impl this trait to set the supplement content
-/// when it be referenced.
-pub trait RefInfo {
-    /// The counter used in reference.
-    fn counter(&self, styles: StyleChain) -> Option<Counter>;
-
-    /// The numbering used in reference.
-    fn numbering(&self, styles: StyleChain) -> Option<Numbering>;
-
-    /// The supplement used in reference.
-    fn supplement(&self, _styles: StyleChain) -> Option<Supplement>;
-
-    // The default logic to convert supplements into contents in references
-    fn resolve_supplement(
+/// Marks an element as being able to be referenced.
+/// This is used to implement the `@ref` macro.
+/// It is expected to build the [`Content`] that gets linked
+/// by the [`RefElement`].
+pub trait Refable {
+    /// Tries to build a reference content for this element.
+    fn reference(
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        elem: Content,
-    ) -> SourceResult<Content> {
-        Ok(match self.supplement(styles) {
-            None => Content::empty(),
-            Some(Supplement::Content(c)) => c,
-            Some(Supplement::Func(func)) => func.call_vt(vt, [elem.into()])?.display(),
-        })
-    }
+        location: Location,
+        supplement: Option<Content>,
+    ) -> SourceResult<Content>;
 }

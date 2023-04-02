@@ -368,9 +368,9 @@ impl Content {
     ///
     /// # Show rules
     /// Elements produced in `show` rules will not be included in the results.
-    pub fn query(&self, selector: Selector) -> Vec<Content> {
+    pub fn query<F: FnMut(&Content) -> bool>(&self, mut predicate: F) -> Vec<Content> {
         let mut results = Vec::new();
-        self.query_into(&selector, &mut results);
+        self.query_into(&mut predicate, &mut results);
         results
     }
 
@@ -379,13 +379,17 @@ impl Content {
     ///
     /// # Show rules
     /// Elements produced in `show` rules will not be included in the results.
-    pub fn query_into(&self, selector: &Selector, results: &mut Vec<Content>) {
-        if selector.matches(self) {
+    pub fn query_into<F: FnMut(&Content) -> bool>(
+        &self,
+        predicate: &mut F,
+        results: &mut Vec<Content>,
+    ) {
+        if predicate(self) {
             results.push(self.clone());
         }
 
         for child in self.children().chain(self.children_in_args()) {
-            child.query_into(selector, results);
+            child.query_into(predicate, results);
         }
     }
 }

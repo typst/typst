@@ -6,7 +6,7 @@ use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
-use crate::meta::LocalName;
+use crate::meta::{Counter, CounterKey, Figurable, LocalName, Supplement};
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
@@ -36,7 +36,7 @@ use crate::prelude::*;
 ///
 /// Display: Raw Text / Code
 /// Category: text
-#[element(Synthesize, Show, Finalize)]
+#[element(Synthesize, Show, Finalize, LocalName, Figurable)]
 pub struct RawElem {
     /// The raw text.
     ///
@@ -122,8 +122,10 @@ impl RawElem {
 }
 
 impl Synthesize for RawElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
         self.push_lang(self.lang(styles));
+
+        Ok(())
     }
 }
 
@@ -207,6 +209,20 @@ impl LocalName for RawElem {
             Lang::FRENCH => "Liste",
             Lang::ENGLISH | Lang::GERMAN | _ => "Listing",
         }
+    }
+}
+
+impl Figurable for RawElem {
+    fn counter(&self, _styles: StyleChain) -> Counter {
+        Counter::new(CounterKey::Str("__raw_in_figures".into()))
+    }
+
+    fn supplement(&self, styles: StyleChain) -> Supplement {
+        Supplement::Content(TextElem::packed(self.local_name(TextElem::lang_in(styles))))
+    }
+
+    fn priority(&self, _styles: StyleChain) -> isize {
+        500
     }
 }
 

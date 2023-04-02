@@ -89,7 +89,7 @@ impl Show for ListingElem {
             // Ignore figures that are not of the desired type
             // Unless the filtered type is `figure` which includes all figures.
             if of != FigureElem::func()
-                && figure.determine_type(styles).func() != Some(of)
+            // && figure.determine_type(styles).func() != Some(of)
             {
                 continue;
             }

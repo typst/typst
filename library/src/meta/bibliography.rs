@@ -133,8 +133,10 @@ impl BibliographyElem {
 }
 
 impl Synthesize for BibliographyElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
         self.push_style(self.style(styles));
+
+        Ok(())
     }
 }
 
@@ -315,10 +317,12 @@ pub struct CiteElem {
 }
 
 impl Synthesize for CiteElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
         self.push_supplement(self.supplement(styles));
         self.push_brackets(self.brackets(styles));
         self.push_style(self.style(styles));
+
+        Ok(())
     }
 }
 

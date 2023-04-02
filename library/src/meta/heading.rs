@@ -1,8 +1,8 @@
 use typst::font::FontWeight;
 
-use super::{Counter, CounterUpdate, LocalName, Numbering};
+use super::{Counter, CounterUpdate, LocalName, Numbering, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
-use crate::meta::Count;
+use crate::meta::{Count, Supplement};
 use crate::prelude::*;
 use crate::text::{TextElem, TextSize};
 
@@ -41,7 +41,7 @@ use crate::text::{TextElem, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName)]
+#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable)]
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
@@ -74,16 +74,34 @@ pub struct HeadingElem {
     #[default(true)]
     pub outlined: bool,
 
+    /// A supplement for the heading.
+    ///
+    /// For references to headings, this is added before the
+    /// referenced number.
+    ///
+    /// ```example
+    /// #set heading(numbering: "1.", supplement: "Chapter")
+    ///
+    /// = Introduction <intro>
+    /// In @intro, we see how to turn
+    /// Sections into Chapters. And
+    /// in @intro[Part], it is done
+    /// manually.
+    /// ```
+    pub supplement: Smart<Option<Supplement>>,
+
     /// The heading's title.
     #[required]
     pub body: Content,
 }
 
 impl Synthesize for HeadingElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
         self.push_level(self.level(styles));
         self.push_numbering(self.numbering(styles));
         self.push_outlined(self.outlined(styles));
+
+        Ok(())
     }
 }
 
@@ -135,6 +153,38 @@ impl Count for HeadingElem {
 cast_from_value! {
     HeadingElem,
     v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
+}
+
+impl Refable for HeadingElem {
+    fn reference(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        location: Location,
+        supplement: Option<Content>,
+    ) -> SourceResult<Content> {
+        // first we create the supplement of the heading
+        let mut supplement = supplement.unwrap_or_else(|| {
+            TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+        });
+
+        // we append a space if the supplement is not empty
+        if !supplement.is_empty() {
+            supplement += TextElem::packed('\u{a0}')
+        };
+
+        // we check for a numbering
+        let Some(numbering) = self.numbering(styles) else {
+            bail!(self.span(), "only numbered headings can be referenced");
+        };
+
+        // we get the counter and display it
+        let numbers = Counter::of(Self::func())
+            .at(vt, location)?
+            .display(vt, &numbering.trimmed())?;
+
+        Ok(supplement + numbers)
+    }
 }
 
 impl LocalName for HeadingElem {
