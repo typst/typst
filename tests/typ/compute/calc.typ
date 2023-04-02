@@ -77,6 +77,23 @@
 #test(calc.min("hi"), "hi")
 
 ---
+// Test the `calc` function.
+#test(calc.pow(10, 0), 1)
+#test(calc.pow(2, 4), 16)
+
+---
+// Error: 10-16 zero to the power of zero is undefined
+#calc.pow(0, 0)
+
+---
+// Error: 14-31 exponent is too large
+#calc.pow(2, 10000000000000000)
+
+---
+// Error: 14-36 exponent may not be NaN, infinite, or subnormal
+#calc.pow(2, calc.pow(2.0, 10000.0))
+
+---
 // Error: 10-12 expected at least one value
 #calc.min()
 

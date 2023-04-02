@@ -308,7 +308,7 @@ impl Counter {
         let offset = vt.introspector.query_before(self.selector(), location).len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
-            let delta = vt.introspector.page(location).get() - page.get();
+            let delta = vt.introspector.page(location).get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
         Ok(state)
@@ -319,7 +319,7 @@ impl Counter {
         let sequence = self.sequence(vt)?;
         let (mut state, page) = sequence.last().unwrap().clone();
         if self.is_page() {
-            let delta = vt.introspector.pages().get() - page.get();
+            let delta = vt.introspector.pages().get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
         Ok(state)
@@ -332,9 +332,11 @@ impl Counter {
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if self.is_page() {
-            let at_delta = vt.introspector.page(location).get() - at_page.get();
+            let at_delta =
+                vt.introspector.page(location).get().saturating_sub(at_page.get());
             at_state.step(NonZeroUsize::ONE, at_delta);
-            let final_delta = vt.introspector.pages().get() - final_page.get();
+            let final_delta =
+                vt.introspector.pages().get().saturating_sub(final_page.get());
             final_state.step(NonZeroUsize::ONE, final_delta);
         }
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
