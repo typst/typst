@@ -15,14 +15,14 @@ use crate::prelude::*;
 /// With the counter function, you can access and modify counters for pages,
 /// headings, figures, and more. Moreover, you can define custom counters for
 /// other things you want to count.
-/// 
+///
 /// ## Counter initial value
 /// All counters start at zero by default, with the exception of the page counter
 /// as pages always start at one. This means that if, in your application, your counter
 /// should start at one. You can do this in one of two ways:
 /// 1. You can set the counter to one before you start counting: `#counter("my_counter").update(1)`.
 /// 2. You can increment the counter by one before your start counting: `#counter("my_counter").step(1)`.
-/// 
+///
 /// This is done so that, when using a counter to count the number of a certain type of elements, it will
 /// return zero if there are no elements of this type. For example, if you want to count the number of
 /// figures in a document, you can do this:

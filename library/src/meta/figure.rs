@@ -7,6 +7,61 @@ use crate::prelude::*;
 use crate::text::TextElem;
 
 /// A figure with an optional caption.
+/// 
+/// ## Content detection
+/// By default, the figure will attempt to automatically detect the content
+/// and use a priority list to detect which content is likely
+/// to be the most important. The priority list is as follows:
+/// - [image]($func/image) are the most important
+/// - [code]($func/code) are the second most important
+/// - [table]($func/table) are the third most important.
+/// 
+/// There can be a variety of content within a figure and only the first element
+/// of the most important category will be used. For example, if a figure contains
+/// an image and a table, the image will be used. This behaviour can be overridden
+/// using the `of` parameter. By setting it, you can force the figure to use a
+/// specific type of content. Note however, that the figure must contain an element
+/// of the given type.
+/// 
+/// ```example
+/// #figure(caption: [ Hello, world! ], of: table)[
+///   #table(
+///    columns: (auto, 1fr)
+///    image("molecular.jpg", width: 32pt),
+///    [ A first picture ],
+///    image("molecular.jpg", width: 32pt),
+///    [ A second picture ],
+///   )
+/// ]
+/// ```
+/// 
+/// ## Counter and supplement
+/// Based on the `of` parameter or the detected content, the figure will chose
+/// the appropriate counter and supplement. These can be overridden by using the
+/// `counter` and `supplement` parameters respectively.
+/// 
+/// The overriding of these values is done as follows:
+/// ```example
+/// #figure(caption: [ Hello, world! ], counter: counter("my_counter"), supplement: "Molecule")[
+///   #image("molecular.jpg", width: 32pt)
+/// ]
+/// ```
+/// 
+/// The default counters are defined as follows:
+/// - for (tables)[$func/table]: `counter(figure.where(of: table))`
+/// - for (raw text)[$func/raw]: `counter(figure.where(of: raw))`
+/// - for (images)[$func/image]: `counter(figure.where(of: image))`
+/// 
+/// These are the counters you need to use if you want to change the
+/// counting behaviour of figures.
+/// 
+/// ## Numbering
+/// By default, the figure will be numbered using the `1` [numbering pattern]($func/numbering).
+/// This can be overridden by using the `numbering` parameter.
+/// 
+/// ## Listing
+/// By default, the figure will be listed in the list of figures/tables/code. This can be disabled by
+/// setting the `listed` parameter to `false`.
 ///
 /// ## Example
 /// ```example
@@ -101,14 +156,16 @@ impl FigureElem {
         self.element().expect("should be synthesized")
     }
 
-    pub fn resolve_counter(&self, styles: StyleChain) -> Counter {
+    pub fn resolve_counter(&self, styles: StyleChain) -> (Counter, bool) {
         match self.counter(styles) {
-            Smart::Auto => self
-                .resolve_element()
-                .with::<dyn Figurable>()
-                .expect("should be figurable")
-                .counter(styles),
-            Smart::Custom(other) => other,
+            Smart::Auto => {
+                let element = self.resolve_element();
+                let figurable =
+                    element.with::<dyn Figurable>().expect("should be figurable");
+
+                (figurable.counter(styles), figurable.requires_update())
+            }
+            Smart::Custom(other) => (other, true),
         }
     }
 
@@ -142,7 +199,7 @@ impl FigureElem {
                     .unwrap_or_else(Content::empty)
             };
 
-            let counter = self.resolve_counter(styles);
+            let (counter, _) = self.resolve_counter(styles);
 
             if !name.is_empty() {
                 name += TextElem::packed("\u{a0}");
@@ -204,11 +261,10 @@ impl Synthesize for FigureElem {
 
 impl Show for FigureElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let counter = self.resolve_counter(styles);
-        let counter_update = (self.numbering(styles).is_some()
-            && counter != Counter::of(Self::func()))
-        .then(|| counter.update(CounterUpdate::Step(NonZeroUsize::ONE)))
-        .unwrap_or_else(Content::empty);
+        let (counter, update) = self.resolve_counter(styles);
+        let counter_update = update
+            .then(|| counter.update(CounterUpdate::Step(NonZeroUsize::ONE)))
+            .unwrap_or_else(Content::empty);
 
         let mut realized = self.body();
 
@@ -280,6 +336,9 @@ impl Refable for FigureElem {
 pub trait Figurable {
     /// The type of the figure's content.
     fn counter(&self, styles: StyleChain) -> Counter;
+
+    /// Whether the figure needs to update the counter.
+    fn requires_update(&self) -> bool;
 
     /// The supplement to use for referencing the figure.
     fn supplement(&self, styles: StyleChain) -> Supplement;

@@ -4,7 +4,7 @@ use std::path::Path;
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
 use crate::{
-    meta::{Counter, Figurable, LocalName, Supplement},
+    meta::{Counter, Figurable, FigureElem, LocalName, Supplement},
     prelude::*,
     text::TextElem,
 };
@@ -130,7 +130,16 @@ impl LocalName for ImageElem {
 
 impl Figurable for ImageElem {
     fn counter(&self, _styles: StyleChain) -> Counter {
-        Counter::of(Self::func())
+        Counter::new(crate::meta::CounterKey::Selector(Selector::Elem(
+            FigureElem::func(),
+            Some(dict! {
+                "of" => Value::from(Self::func()),
+            }),
+        )))
+    }
+
+    fn requires_update(&self) -> bool {
+        false
     }
 
     fn supplement(&self, styles: StyleChain) -> Supplement {

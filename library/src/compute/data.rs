@@ -212,21 +212,21 @@ fn format_json_error(error: serde_json::Error) -> String {
 /// The file must contain a valid YAML object or array. YAML mappings will be
 /// converted into Typst dictionaries, and YAML sequences will be converted into
 /// Typst arrays. Strings and booleans will be converted into the Typst
-/// equivalents, null-values (`null`, `~` or empty ``) will be converted into 
-/// `{none}`, and numbers will be converted to floats or integers depending on 
+/// equivalents, null-values (`null`, `~` or empty ``) will be converted into
+/// `{none}`, and numbers will be converted to floats or integers depending on
 /// whether they are whole numbers.
 ///
-/// Note that mapping keys that are not a string cause the entry to be 
+/// Note that mapping keys that are not a string cause the entry to be
 /// discarded.
-/// 
+///
 /// Custom YAML tags are ignored, though the loaded value will still be
 /// present.
-/// 
+///
 /// The function returns a dictionary or value or an array, depending on
 /// the YAML file.
 ///
 /// The YAML files in the example contain objects with authors as keys,
-/// each with a sequence of their own submapping with the keys 
+/// each with a sequence of their own submapping with the keys
 /// "title" and "published"
 ///
 /// ## Example
@@ -275,9 +275,9 @@ fn convert_yaml(value: serde_yaml::Value) -> Value {
         serde_yaml::Value::Mapping(v) => Value::Dict(
             v.into_iter()
                 .map(|(key, value)| (convert_yaml_key(key), convert_yaml(value)))
-                .filter_map(|(key, value)| key.map(|key|(key, value)))
+                .filter_map(|(key, value)| key.map(|key| (key, value)))
                 .collect(),
-        )
+        ),
     }
 }
 
