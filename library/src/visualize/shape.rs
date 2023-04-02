@@ -382,7 +382,7 @@ pub struct CircleElem {
     /// The circle's width. This is mutually exclusive with `radius` and
     /// `height`.
     ///
-    /// In contrast to `size`, this can be relative to the parent container's
+    /// In contrast to `radius`, this can be relative to the parent container's
     /// width.
     #[parse(
         let size = args
@@ -398,7 +398,7 @@ pub struct CircleElem {
     /// The circle's height.This is mutually exclusive with `radius` and
     /// `width`.
     ///
-    /// In contrast to `size`, this can be relative to the parent container's
+    /// In contrast to `radius`, this can be relative to the parent container's
     /// height.
     #[parse(match size {
         None => args.named("height")?,
