@@ -375,7 +375,8 @@ impl Counter {
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut vt = Vt { world, tracer, provider, introspector };
         let mut state = CounterState(match &self.0 {
-            CounterKey::Selector(_) => smallvec![0],
+            // special case, because pages always start at one.
+            CounterKey::Page => smallvec![1],
             _ => smallvec![0],
         });
         let mut page = NonZeroUsize::ONE;
