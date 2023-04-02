@@ -438,10 +438,13 @@ impl<'a> CapturesVisitor<'a> {
             // A let expression contains a binding, but that binding is only
             // active after the body is evaluated.
             Some(ast::Expr::Let(expr)) => {
-                // if let Some(init) = expr.init() {
-                //     self.visit(init.as_untyped());
-                // }
-                // self.bind(expr.binding());
+                if let Some(init) = expr.init() {
+                    self.visit(init.as_untyped());
+                }
+                // TODO (Marmare): is this actually the right behaviour?
+                for ident in expr.binding().idents() {
+                    self.bind(ident);
+                }
             }
 
             // A for loop contains one or two bindings in its pattern. These are
@@ -450,11 +453,12 @@ impl<'a> CapturesVisitor<'a> {
             Some(ast::Expr::For(expr)) => {
                 self.visit(expr.iter().as_untyped());
                 self.internal.enter();
+
                 let pattern = expr.pattern();
-                if let Some(key) = pattern.key() {
-                    self.bind(key);
+                for ident in pattern.idents() {
+                    self.bind(ident);
                 }
-                self.bind(pattern.value());
+  
                 self.visit(expr.body().as_untyped());
                 self.internal.exit();
             }

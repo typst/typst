@@ -1388,12 +1388,14 @@ impl Eval for ast::ForLoop {
         let mut output = Value::None;
 
         macro_rules! iter {
-            (for ($($binding:ident => $value:ident),*) in $iter:expr) => {{
+            (for $pat:ident in $iter:expr) => {{
                 vm.scopes.enter();
 
                 #[allow(unused_parens)]
-                for ($($value),*) in $iter {
-                    $(vm.define($binding.clone(), $value);)*
+                for value in $iter {
+                    if let Err(err) = $pat.define(vm, Value::from(value)) {
+                        return Err(err)
+                    }
 
                     let body = self.body();
                     let value = body.eval(vm)?;
@@ -1416,39 +1418,25 @@ impl Eval for ast::ForLoop {
 
         let iter = self.iter().eval(vm)?;
         let pattern = self.pattern();
-        let key = pattern.key();
-        let value = pattern.value();
 
-        match (key, value, iter) {
-            (None, v, Value::Str(string)) => {
-                iter!(for (v => value) in string.as_str().graphemes(true));
+        match (pattern.bindings(), iter.clone()) {
+            (ast::PatternKind::Ident(_), Value::Str(string)) => {
+                // iterate over characters of string
+                iter!(for pattern in string.as_str().graphemes(true));
             }
-            (None, v, Value::Array(array)) => {
-                iter!(for (v => value) in array.into_iter());
+            (ast::PatternKind::Ident(_), Value::Dict(dict)) => {
+                // iterate over keys of dict
+                iter!(for pattern in dict.into_iter().map(|p| p.0));
             }
-            (Some(i), v, Value::Array(array)) => {
-                iter!(for (i => idx, v => value) in array.into_iter().enumerate());
+            (_, Value::Array(array)) => {
+                // iterate over values of array and allow unpacking
+                iter!(for pattern in array.into_iter());
             }
-            (None, v, Value::Dict(dict)) => {
-                iter!(for (v => value) in dict.into_iter().map(|p| p.1));
-            }
-            (Some(k), v, Value::Dict(dict)) => {
-                iter!(for (k => key, v => value) in dict.into_iter());
-            }
-            (None, v, Value::Args(args)) => {
-                iter!(for (v => value) in args.items.into_iter()
-                    .filter(|arg| arg.name.is_none())
-                    .map(|arg| arg.value.v));
-            }
-            (Some(k), v, Value::Args(args)) => {
-                iter!(for (k => key, v => value) in args.items.into_iter()
-                    .map(|arg| (arg.name.map_or(Value::None, Value::Str), arg.value.v)));
-            }
-            (_, _, Value::Str(_)) => {
-                bail!(pattern.span(), "mismatched pattern");
-            }
-            (_, _, iter) => {
+            (ast::PatternKind::Ident(_), _) => {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
+            }
+            (_, _) => {
+                bail!(self.iter().span(), "cannot unpack values of {}", iter.type_name());
             }
         }
 

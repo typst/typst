@@ -833,6 +833,7 @@ fn args(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Args);
 }
 
+// TODO (Marmare): force more than one unpacking item
 fn let_binding(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Let);

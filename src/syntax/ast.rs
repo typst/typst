@@ -1637,6 +1637,21 @@ impl Pattern {
             PatternKind::Ident(Ident::default())
         }
     }
+
+    // Returns a list of all identifiers in the pattern.
+    pub fn idents(&self) -> Vec<Ident> {
+        match self.bindings() {
+            PatternKind::Ident(ident) => vec![ident],
+            PatternKind::Destructure(bindings) => bindings
+                .into_iter()
+                .filter_map(|binding| match binding {
+                    DestructuringKind::Ident(ident) => Some(ident),
+                    DestructuringKind::Sink(ident) => Some(ident),
+                    DestructuringKind::Placeholder => Option::None,
+                })
+                .collect(),
+        }
+    }
 }
 
 node! {
@@ -1644,11 +1659,26 @@ node! {
     LetBinding
 }
 
+// TODO (Marmare): rename
 pub enum LetBindingKind {
     /// A normal binding: `let x = 1`.
     Normal(Pattern),
     /// A closure binding: `let f(x) = 1`.
     Closure(Ident),
+}
+
+impl LetBindingKind {
+    // Returns a list of all identifiers in the pattern.
+    pub fn idents(&self) -> Vec<Ident> {
+        match self {
+            LetBindingKind::Normal(pattern) => {
+                pattern.idents()
+            }
+            LetBindingKind::Closure(ident) => {
+                vec![ident.clone()]
+            }
+        }
+    }
 }
 
 impl LetBinding {
@@ -1775,7 +1805,7 @@ node! {
 
 impl ForLoop {
     /// The pattern to assign to.
-    pub fn pattern(&self) -> ForPattern {
+    pub fn pattern(&self) -> Pattern {
         self.0.cast_first_match().unwrap_or_default()
     }
 
@@ -1786,29 +1816,6 @@ impl ForLoop {
 
     /// The expression to evaluate for each iteration.
     pub fn body(&self) -> Expr {
-        self.0.cast_last_match().unwrap_or_default()
-    }
-}
-
-node! {
-    /// A for loop's destructuring pattern: `x` or `x, y`.
-    ForPattern
-}
-
-impl ForPattern {
-    /// The key part of the pattern: index for arrays, name for dictionaries.
-    pub fn key(&self) -> Option<Ident> {
-        let mut children = self.0.children().filter_map(SyntaxNode::cast);
-        let key = children.next();
-        if children.next().is_some() {
-            key
-        } else {
-            Option::None
-        }
-    }
-
-    /// The value part of the pattern.
-    pub fn value(&self) -> Ident {
         self.0.cast_last_match().unwrap_or_default()
     }
 }
