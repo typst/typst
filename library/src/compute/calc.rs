@@ -391,8 +391,8 @@ pub fn log(
     if number <= 0 as f64 {
         bail!(value.span, "a logarithm parameter must be strictly positive")
     }
-    if base <= 0 as f64 {
-        bail!(value.span, "a logarithm base must be strictly positive")
+    if base == 0 as f64 {
+        bail!(value.span, "a logarithm base cannot be null")
     }
 
     let return_value = Value::Float(if base == 2.0 {
