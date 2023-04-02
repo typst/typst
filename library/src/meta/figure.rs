@@ -204,24 +204,25 @@ impl Synthesize for FigureElem {
 
 impl Show for FigureElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let counter = self.resolve_counter(styles);
+        let counter_update = (self.numbering(styles).is_some()
+            && counter != Counter::of(Self::func()))
+        .then(|| counter.update(CounterUpdate::Step(NonZeroUsize::ONE)))
+        .unwrap_or_else(Content::empty);
+
         let mut realized = self.body();
 
         if self.caption(styles).is_some() {
-            let counter = self.resolve_counter(styles);
-
-            if self.numbering(styles).is_some() && counter != Counter::of(Self::func()) {
-                realized += counter.update(CounterUpdate::Step(NonZeroUsize::ONE));
-            }
-
             realized += VElem::weak(self.gap(styles).into()).pack();
             realized += self.show_caption(vt, styles)?;
         }
 
-        Ok(BlockElem::new()
-            .with_body(Some(realized))
-            .with_breakable(false)
-            .pack()
-            .aligned(Axes::with_x(Some(Align::Center.into()))))
+        Ok(counter_update
+            + BlockElem::new()
+                .with_body(Some(realized))
+                .with_breakable(false)
+                .pack()
+                .aligned(Axes::with_x(Some(Align::Center.into()))))
     }
 }
 

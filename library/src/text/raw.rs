@@ -6,7 +6,7 @@ use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
-use crate::meta::{Counter, CounterKey, Figurable, LocalName, Supplement};
+use crate::meta::{Counter, Figurable, LocalName, Supplement};
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
@@ -214,7 +214,7 @@ impl LocalName for RawElem {
 
 impl Figurable for RawElem {
     fn counter(&self, _styles: StyleChain) -> Counter {
-        Counter::new(CounterKey::Str("__raw_in_figures".into()))
+        Counter::of(Self::func())
     }
 
     fn supplement(&self, styles: StyleChain) -> Supplement {

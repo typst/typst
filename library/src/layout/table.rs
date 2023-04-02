@@ -1,5 +1,5 @@
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
-use crate::meta::{Counter, CounterKey, Figurable, LocalName, Supplement};
+use crate::meta::{Counter, Figurable, LocalName, Supplement};
 use crate::prelude::*;
 use crate::text::TextElem;
 
@@ -296,7 +296,7 @@ impl LocalName for TableElem {
 
 impl Figurable for TableElem {
     fn counter(&self, _styles: StyleChain) -> Counter {
-        Counter::new(CounterKey::Str("__tables_in_figures".into()))
+        Counter::of(Self::func())
     }
 
     fn supplement(&self, styles: StyleChain) -> Supplement {
