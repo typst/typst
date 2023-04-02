@@ -403,7 +403,7 @@ pub fn log(
         number.log(base)
     };
 
-    if return_value.is_subnormal() || return_value.is_nan() {
+    if return_value.is_infinite() || return_value.is_nan() {
         bail!(value.span, "this logarithm doesn't return a real value")
     }
 
