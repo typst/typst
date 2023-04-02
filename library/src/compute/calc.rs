@@ -402,8 +402,8 @@ pub fn log(
     } else {
         number.log(base)
     };
-
-    if return_value.is_subnormal() {
+    
+    if return_value.is_subnormal() || return_value.is_nan() {
         bail!(value.span, "this logarithm doesn't return a real value")
     }
 
