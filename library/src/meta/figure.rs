@@ -1,13 +1,15 @@
 use std::str::FromStr;
 
-use super::{Count, Counter, CounterUpdate, LocalName, Numbering, NumberingPattern};
+use super::{
+    Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
+};
 use crate::layout::{BlockElem, VElem};
 use crate::meta::{Refable, Supplement};
 use crate::prelude::*;
 use crate::text::TextElem;
 
 /// A figure with an optional caption.
-/// 
+///
 /// ## Content detection
 /// By default, the figure will attempt to automatically detect the content
 /// and use a priority list to detect which content is likely
@@ -15,14 +17,14 @@ use crate::text::TextElem;
 /// - [image]($func/image) are the most important
 /// - [code]($func/code) are the second most important
 /// - [table]($func/table) are the third most important.
-/// 
+///
 /// There can be a variety of content within a figure and only the first element
 /// of the most important category will be used. For example, if a figure contains
 /// an image and a table, the image will be used. This behaviour can be overridden
 /// using the `of` parameter. By setting it, you can force the figure to use a
 /// specific type of content. Note however, that the figure must contain an element
 /// of the given type.
-/// 
+///
 /// ```example
 /// #figure(caption: [ Hello, world! ], of: table)[
 ///   #table(
@@ -34,31 +36,35 @@ use crate::text::TextElem;
 ///   )
 /// ]
 /// ```
-/// 
+///
+/// If you use an element that is not supported by the figure, and set it as its `of` parameter,
+/// to be able to make an outline or reference it, you will need to manually specify the supplement
+/// and counter. Otherwise the figure will produce an error.
+///
 /// ## Counter and supplement
 /// Based on the `of` parameter or the detected content, the figure will chose
 /// the appropriate counter and supplement. These can be overridden by using the
 /// `counter` and `supplement` parameters respectively.
-/// 
+///
 /// The overriding of these values is done as follows:
 /// ```example
 /// #figure(caption: [ Hello, world! ], counter: counter("my_counter"), supplement: "Molecule")[
 ///   #image("molecular.jpg", width: 32pt)
 /// ]
 /// ```
-/// 
+///
 /// The default counters are defined as follows:
 /// - for (tables)[$func/table]: `counter(figure.where(of: table))`
 /// - for (raw text)[$func/raw]: `counter(figure.where(of: raw))`
 /// - for (images)[$func/image]: `counter(figure.where(of: image))`
-/// 
+///
 /// These are the counters you need to use if you want to change the
 /// counting behaviour of figures.
-/// 
+///
 /// ## Numbering
 /// By default, the figure will be numbered using the `1` [numbering pattern]($func/numbering).
 /// This can be overridden by using the `numbering` parameter.
-/// 
+///
 /// ## Listing
 /// By default, the figure will be listed in the list of figures/tables/code. This can be disabled by
 /// setting the `listed` parameter to `false`.
@@ -79,7 +85,7 @@ use crate::text::TextElem;
 ///
 /// Display: Figure
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, LocalName, Refable)]
+#[element(Locatable, Synthesize, Count, Show, Refable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
@@ -93,13 +99,9 @@ pub struct FigureElem {
     #[default(Smart::Auto)]
     pub supplement: Smart<Option<Supplement>>,
 
-    /// The counter to use for the figure.
-    #[default(Smart::Auto)]
-    pub counter: Smart<Counter>,
-
     /// Whether the figure should appear in the list of figures/tables/code.
     #[default(true)]
-    pub listed: bool,
+    pub outlined: bool,
 
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($func/numbering).
@@ -109,15 +111,16 @@ pub struct FigureElem {
     /// The type of the figure.
     /// Setting this will override the automatic detection.
     #[default(Smart::Auto)]
-    pub of: Smart<ElemFunc>,
-
-    /// The element to use for the figure's properties.
-    #[synthesized]
-    pub element: Option<Content>,
+    pub contents: Smart<ContentParam>,
 
     /// The vertical gap between the body and caption.
     #[default(Em::new(0.65).into())]
     pub gap: Length,
+
+    /// The element to use for the figure's properties.
+    #[synthesized]
+    #[internal]
+    element: Option<FigureContent>,
 }
 
 impl FigureElem {
@@ -138,47 +141,7 @@ impl FigureElem {
     /// Finds the element with the given function in the figure's content.
     /// Returns `None` if no element with the given function is found.
     pub fn find_elem(&self, func: ElemFunc) -> Option<Content> {
-        let potential_elems = self.body().query(|content| {
-            content.can::<dyn Figurable>() && content.can::<dyn LocalName>()
-        });
-
-        potential_elems.into_iter().find(|elem| elem.func() == func)
-    }
-
-    pub fn resolve_of(&self, styles: StyleChain) -> ElemFunc {
-        match self.of(styles) {
-            Smart::Custom(func) => func,
-            Smart::Auto => unreachable!("should be synthesized"),
-        }
-    }
-
-    pub fn resolve_element(&self) -> Content {
-        self.element().expect("should be synthesized")
-    }
-
-    pub fn resolve_counter(&self, styles: StyleChain) -> (Counter, bool) {
-        match self.counter(styles) {
-            Smart::Auto => {
-                let element = self.resolve_element();
-                let figurable =
-                    element.with::<dyn Figurable>().expect("should be figurable");
-
-                (figurable.counter(styles), figurable.requires_update())
-            }
-            Smart::Custom(other) => (other, true),
-        }
-    }
-
-    pub fn resolve_supplement(&self, styles: StyleChain) -> Option<Supplement> {
-        match self.supplement(styles) {
-            Smart::Auto => Some(
-                self.resolve_element()
-                    .with::<dyn Figurable>()
-                    .expect("should be figurable")
-                    .supplement(styles),
-            ),
-            Smart::Custom(other) => other,
-        }
+        self.body().query(|content| content.func() == func).first().cloned()
     }
 
     pub fn show_supplement_and_numbering(
@@ -187,19 +150,16 @@ impl FigureElem {
         styles: StyleChain,
         external_supp: Option<Content>,
     ) -> SourceResult<Option<Content>> {
-        let elem = self.resolve_element();
         if let Some(numbering) = self.numbering(styles) {
-            let mut name = if let Some(supplement) = external_supp {
-                supplement
+            let element = self.element().expect("missing element");
+
+            let mut name = if let Some(supp) = external_supp {
+                supp
             } else {
-                self.resolve_supplement(styles)
-                    .map_or(Ok(None), |supplement| {
-                        supplement.resolve(vt, [elem.into()]).map(Some)
-                    })?
-                    .unwrap_or_else(Content::empty)
+                element.supplement.resolve(vt, [element.content.into()])?
             };
 
-            let (counter, _) = self.resolve_counter(styles);
+            let counter = element.counter;
 
             if !name.is_empty() {
                 name += TextElem::packed("\u{a0}");
@@ -231,29 +191,95 @@ impl FigureElem {
 
 impl Synthesize for FigureElem {
     fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
-        Self::func();
         self.push_numbering(self.numbering(styles));
-        self.push_counter(self.counter(styles));
 
-        let type_ = match self.of(styles) {
-            Smart::Auto => {
-                let Some(type_) = self.determine_type(styles) else {
-                    bail!(self.span(), "unable to determine figure type")
-                };
+        // we get the numbering or `None`.
+        let numbering = self.numbering(styles);
 
-                type_
-            }
-            Smart::Custom(func) => {
-                let Some(type_) = self.find_elem(func) else {
-                    bail!(self.span(), "unable to find figure child of type: {}", func.name())
-                };
-
-                type_
-            }
+        // we get the content or `None`.
+        let content = match self.contents(styles) {
+            Smart::Auto => match self.determine_type(styles ){
+                Some(ty) => Some(ty),
+                None => bail!(self.span(), "unable to determine figure type, use `contents` to manually specify it"),
+            },
+            Smart::Custom(ContentParam::Elem(ty)) => self.find_elem(ty),
+            Smart::Custom(ContentParam::Name(_)) => None,
         };
 
-        self.push_of(Smart::Custom(type_.func()));
-        self.push_element(Some(type_));
+        if self.contents(styles).is_auto() {
+            if let Some(content) = &content {
+                self.push_contents(Smart::Custom(ContentParam::Elem(content.func())));
+            }
+        }
+
+        // we get the counter or `None`.
+        let counter = if let Some(content) = &content {
+            Some((
+                Counter::new(CounterKey::Selector(Selector::Elem(
+                    Self::func(),
+                    Some(dict! {
+                        "contents" => Value::from(content.func()),
+                    }),
+                ))),
+                false,
+            ))
+        } else if let Smart::Custom(ContentParam::Name(name)) = self.contents(styles) {
+            Some((
+                Counter::new(CounterKey::Selector(Selector::Elem(
+                    Self::func(),
+                    Some(dict! {
+                        "contents" => Value::from(name),
+                    }),
+                ))),
+                false,
+            ))
+        } else if let Smart::Custom(ContentParam::Elem(func)) = self.contents(styles) {
+            Some((
+                Counter::new(CounterKey::Selector(Selector::Elem(
+                    Self::func(),
+                    Some(dict! {
+                        "contents" => Value::from(func),
+                    }),
+                ))),
+                false,
+            ))
+        } else {
+            None
+        };
+
+        // we get the supplement or `None`.
+        let supplement = match self.supplement(styles) {
+            Smart::Auto => {
+                if let Some(figurable) =
+                    content.as_ref().and_then(|c| c.with::<dyn Figurable>())
+                {
+                    Some(figurable.supplement(styles))
+                } else {
+                    None
+                }
+            }
+            Smart::Custom(supp) => supp,
+        };
+
+        if let Some(numbering) = numbering {
+            let Some((counter, update_counter)) = counter else {
+                bail!(self.span(), "numbering a figure requires that is has a counter");
+            };
+
+            let Some(supplement) = supplement else {
+                bail!(self.span(), "numbering a figure requires that is has a supplement");
+            };
+
+            self.push_element(Some(FigureContent {
+                numbering,
+                counter,
+                update_counter,
+                supplement,
+                content: content.unwrap_or_else(|| self.body()),
+            }))
+        } else {
+            self.push_element(None);
+        }
 
         Ok(())
     }
@@ -261,10 +287,14 @@ impl Synthesize for FigureElem {
 
 impl Show for FigureElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let (counter, update) = self.resolve_counter(styles);
-        let counter_update = update
-            .then(|| counter.update(CounterUpdate::Step(NonZeroUsize::ONE)))
-            .unwrap_or_else(Content::empty);
+        let counter_update = if let Some(element) = self.element() {
+            element
+                .update_counter
+                .then(|| element.counter.update(CounterUpdate::Step(NonZeroUsize::ONE)))
+                .unwrap_or_else(Content::empty)
+        } else {
+            Content::empty()
+        };
 
         let mut realized = self.body();
 
@@ -291,16 +321,6 @@ impl Count for FigureElem {
     }
 }
 
-impl LocalName for FigureElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        self.element()
-            .expect("missing element")
-            .with::<dyn LocalName>()
-            .expect("missing local name")
-            .local_name(lang)
-    }
-}
-
 impl Refable for FigureElem {
     fn reference(
         &self,
@@ -320,12 +340,81 @@ impl Refable for FigureElem {
     }
 
     fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
-        // if the figure is not listed, it is not referenced.
-        if !self.listed(styles) {
+        // if the figure is not outlined, it is not referenced.
+        if !self.outlined(styles) {
             return Ok(None);
         }
 
         self.show_caption(vt, styles).map(Some)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum ContentParam {
+    Elem(ElemFunc),
+    Name(EcoString),
+}
+
+cast_from_value! {
+    ContentParam,
+    v: ElemFunc => Self::Elem(v),
+    v: EcoString => Self::Name(v),
+}
+
+cast_to_value! {
+    v: ContentParam => match v {
+        ContentParam::Elem(v) => v.into(),
+        ContentParam::Name(v) => v.into(),
+    }
+}
+
+struct FigureContent {
+    numbering: Numbering,
+    counter: Counter,
+    update_counter: bool,
+    supplement: Supplement,
+    content: Content,
+}
+
+cast_to_value! {
+    v: FigureContent => dict! {
+        "numbering" => Value::from(v.numbering),
+        "counter" => Value::from(v.counter),
+        "update_counter" => Value::from(v.update_counter),
+        "supplement" => Value::from(v.supplement),
+        "content" => Value::from(v.content),
+    }.into()
+}
+
+cast_from_value! {
+    FigureContent,
+    v: Dict => {
+        let numbering = v
+            .at("numbering")
+            .cloned()
+            .map(Numbering::cast)??;
+
+        let counter = v
+            .at("counter")
+            .cloned()
+            .map(Counter::cast)??;
+
+        let update_counter = v
+            .at("update_counter")
+            .cloned()
+            .map(bool::cast)??;
+
+        let supplement = v
+            .at("supplement")
+            .cloned()
+            .map(Supplement::cast)??;
+
+        let content = v
+            .at("content")
+            .cloned()
+            .map(Content::cast)??;
+
+        Self { numbering, update_counter, counter, supplement, content }
     }
 }
 
@@ -334,12 +423,6 @@ impl Refable for FigureElem {
 /// and the supplement to use for referencing it and creating the citation.
 /// The element chosen as the figure's content is the one with the highest priority.
 pub trait Figurable {
-    /// The type of the figure's content.
-    fn counter(&self, styles: StyleChain) -> Counter;
-
-    /// Whether the figure needs to update the counter.
-    fn requires_update(&self) -> bool;
-
     /// The supplement to use for referencing the figure.
     fn supplement(&self, styles: StyleChain) -> Supplement;
 

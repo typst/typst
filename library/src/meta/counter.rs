@@ -482,6 +482,9 @@ cast_from_value! {
         }
 
         Self::Selector(Selector::Elem(element, None))
+    },
+    selector: Selector => {
+        Self::Selector(selector)
     }
 }
 

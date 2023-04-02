@@ -39,6 +39,9 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
+use crate::meta::Figurable;
+use crate::meta::Refable;
+use crate::meta::Supplement;
 use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::{
@@ -134,7 +137,9 @@ pub fn module() -> Module {
 ///
 /// Display: Equation
 /// Category: math
-#[element(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName)]
+#[element(
+    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable
+)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
@@ -276,6 +281,51 @@ impl LocalName for EquationElem {
             Lang::RUSSIAN => "Уравнение",
             Lang::ENGLISH | _ => "Equation",
         }
+    }
+}
+
+impl Refable for EquationElem {
+    fn reference(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        supplement: Option<Content>,
+    ) -> SourceResult<Content> {
+        // first we create the supplement of the heading
+        let mut supplement = supplement.unwrap_or_else(|| {
+            TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+        });
+
+        // we append a space if the supplement is not empty
+        if !supplement.is_empty() {
+            supplement += TextElem::packed('\u{a0}')
+        };
+
+        // we check for a numbering
+        let Some(numbering) = self.numbering(styles) else {
+            bail!(self.span(), "only numbered equations can be referenced");
+        };
+
+        // we get the counter and display it
+        let numbers = Counter::of(Self::func())
+            .at(vt, self.0.location().expect("missing location"))?
+            .display(vt, &numbering.trimmed())?;
+
+        Ok(supplement + numbers)
+    }
+
+    fn location(&self) -> Option<Location> {
+        self.0.location()
+    }
+}
+
+impl Figurable for EquationElem {
+    fn supplement(&self, styles: StyleChain) -> crate::meta::Supplement {
+        Supplement::Content(TextElem::packed(self.local_name(TextElem::lang_in(styles))))
+    }
+
+    fn priority(&self, _: StyleChain) -> isize {
+        900
     }
 }
 

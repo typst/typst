@@ -61,7 +61,8 @@
 
 #figure(
   rect[Just some stand-in text],
-  of: image,
+  contents: image,
+  supplement: "Figure",
   caption: [Stand-in text],
 )
 
