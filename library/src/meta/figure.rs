@@ -91,6 +91,7 @@ impl LocalName for FigureElem {
             Lang::ITALIAN => "Figura",
             Lang::PORTUGUESE => "Figura",
             Lang::RUSSIAN => "Рисунок",
+            Lang::SPANISH => "Figura",
             Lang::ENGLISH | Lang::FRENCH | _ => "Figure",
         }
     }
