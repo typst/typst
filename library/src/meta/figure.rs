@@ -55,11 +55,11 @@ use crate::text::TextElem;
 /// ```
 ///
 /// The default counters are defined as follows:
-/// - for (tables)[$func/table]: `counter(figure.where(of: table))`
-/// - for (equations)[$func/equation]: `counter(figure.where(of: math.equation))`
-/// - for (raw text)[$func/raw]: `counter(figure.where(of: raw))`
-/// - for (images)[$func/image]: `counter(figure.where(of: image))`
-/// - for a custom kind: `counter(figure.where(of: kind))`
+/// - for (tables)[$func/table]: `counter(figure.where(kind: table))`
+/// - for (equations)[$func/equation]: `counter(figure.where(kind: math.equation))`
+/// - for (raw text)[$func/raw]: `counter(figure.where(kind: raw))`
+/// - for (images)[$func/image]: `counter(figure.where(kind: image))`
+/// - for a custom kind: `counter(figure.where(kind: kind))`
 ///
 /// These are the counters you need to use if you want to change the
 /// counting behaviour of figures.
