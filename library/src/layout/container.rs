@@ -88,6 +88,10 @@ pub struct BoxElem {
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
 
+    /// Whether to clip the content inside the box.
+    #[default(false)]
+    pub clip: bool,
+
     /// The contents of the box.
     #[positional]
     pub body: Option<Content>,
@@ -131,6 +135,11 @@ impl Layout for BoxElem {
         let shift = self.baseline(styles).relative_to(frame.height());
         if !shift.is_zero() {
             frame.set_baseline(frame.baseline() - shift);
+        }
+
+        // Clip the contents
+        if self.clip(styles) {
+            frame.clip();
         }
 
         // Prepare fill and stroke.
@@ -296,6 +305,10 @@ pub struct BlockElem {
     #[default(VElem::block_spacing(Em::new(1.2).into()))]
     pub below: VElem,
 
+    /// Whether to clip the content inside the block.
+    #[default(false)]
+    pub clip: bool,
+
     /// The contents of the block.
     #[positional]
     pub body: Option<Content>,
@@ -369,6 +382,13 @@ impl Layout for BlockElem {
             body.layout(vt, styles, pod)?.into_frames()
         };
 
+        // Clip the contents
+        if self.clip(styles) {
+            for frame in frames.iter_mut() {
+                frame.clip();
+            }
+        }
+
         // Prepare fill and stroke.
         let fill = self.fill(styles);
         let stroke = self.stroke(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
@@ -383,7 +403,13 @@ impl Layout for BlockElem {
             let outset = self.outset(styles);
             let radius = self.radius(styles);
             for frame in frames.iter_mut().skip(skip as usize) {
-                frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
+                frame.fill_and_stroke(
+                    fill.clone(),
+                    stroke.clone(),
+                    outset,
+                    radius,
+                    self.span(),
+                );
             }
         }
 

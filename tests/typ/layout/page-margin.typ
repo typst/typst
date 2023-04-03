@@ -17,4 +17,4 @@
 #[#set page(margin: (bottom: 0pt)); #align(bottom)[Bottom]]
 
 // Ensure that specific margins override general margins.
-#[#set page(margin: (rest: 0pt, left: 20pt)); Overriden]
+#[#set page(margin: (rest: 0pt, left: 20pt)); Overridden]

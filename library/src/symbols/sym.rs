@@ -10,7 +10,7 @@ pub fn sym() -> Module {
 }
 
 /// The list of general symbols.
-pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
+pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Control.
     wj: '\u{2060}',
     zwj: '\u{200D}',
@@ -42,8 +42,8 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
     fence: [l: '⧘', l.double: '⧚', r: '⧙', r.double: '⧛', dotted: '⦙'],
     angle: [
         '∠',
-        l: '〈',
-        r: '〉',
+        l: '⟨',
+        r: '⟩',
         l.double: '《',
         r.double: '》',
         acute: '⦟',
@@ -88,7 +88,17 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
         circle: '⊝',
         wave.double: '〰',
     ],
-    dot: ['.', op: '⋅', c: '·', circle: '⊙', circle.big: '⨀', square: '⊡'],
+    dot: [
+        '.',
+        op: '⋅',
+        c: '·',
+        circle: '⊙',
+        circle.big: '⨀',
+        square: '⊡',
+        double: '¨',
+        triple: '\u{20db}',
+        quad: '\u{20dc}',
+    ],
     excl: ['!', double: '‼', inv: '¡', quest: '⁉'],
     quest: ['?', double: '⁇', excl: '⁈', inv: '¿'],
     interrobang: '‽',

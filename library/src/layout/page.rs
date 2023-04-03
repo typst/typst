@@ -326,10 +326,6 @@ impl PageElem {
 
         // Realize overlays.
         for frame in &mut fragment {
-            if let Some(fill) = fill {
-                frame.fill(fill);
-            }
-
             let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
             let pw = size.x - pad.left - pad.right;
@@ -364,6 +360,10 @@ impl PageElem {
                 } else {
                     frame.push_frame(pos, sub);
                 }
+            }
+
+            if let Some(fill) = &fill {
+                frame.fill(fill.clone());
             }
         }
 

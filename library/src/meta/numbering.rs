@@ -62,7 +62,7 @@ pub fn numbering(
     /// If `numbering` is a pattern and more numbers than counting symbols are
     /// given, the last counting symbol with its prefix is repeated.
     #[variadic]
-    numbers: Vec<NonZeroUsize>,
+    numbers: Vec<usize>,
 ) -> Value {
     numbering.apply_vm(vm, &numbers)?
 }
@@ -78,25 +78,23 @@ pub enum Numbering {
 
 impl Numbering {
     /// Apply the pattern to the given numbers.
-    pub fn apply_vm(&self, vm: &mut Vm, numbers: &[NonZeroUsize]) -> SourceResult<Value> {
+    pub fn apply_vm(&self, vm: &mut Vm, numbers: &[usize]) -> SourceResult<Value> {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => {
-                let args = Args::new(
-                    func.span(),
-                    numbers.iter().map(|n| Value::Int(n.get() as i64)),
-                );
+                let args =
+                    Args::new(func.span(), numbers.iter().map(|&n| Value::Int(n as i64)));
                 func.call_vm(vm, args)?
             }
         })
     }
 
     /// Apply the pattern to the given numbers.
-    pub fn apply_vt(&self, vt: &mut Vt, numbers: &[NonZeroUsize]) -> SourceResult<Value> {
+    pub fn apply_vt(&self, vt: &mut Vt, numbers: &[usize]) -> SourceResult<Value> {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => {
-                func.call_vt(vt, numbers.iter().map(|n| Value::Int(n.get() as i64)))?
+                func.call_vt(vt, numbers.iter().map(|&n| Value::Int(n as i64)))?
             }
         })
     }
@@ -147,7 +145,7 @@ pub struct NumberingPattern {
 
 impl NumberingPattern {
     /// Apply the pattern to the given number.
-    pub fn apply(&self, numbers: &[NonZeroUsize]) -> EcoString {
+    pub fn apply(&self, numbers: &[usize]) -> EcoString {
         let mut fmt = EcoString::new();
         let mut numbers = numbers.into_iter();
 
@@ -179,7 +177,7 @@ impl NumberingPattern {
     }
 
     /// Apply only the k-th segment of the pattern to a number.
-    pub fn apply_kth(&self, k: usize, number: NonZeroUsize) -> EcoString {
+    pub fn apply_kth(&self, k: usize, number: usize) -> EcoString {
         let mut fmt = EcoString::new();
         if let Some((prefix, _, _)) = self.pieces.first() {
             fmt.push_str(prefix);
@@ -217,7 +215,7 @@ impl FromStr for NumberingPattern {
             let prefix = pattern[handled..i].into();
             let case = if c.is_uppercase() { Case::Upper } else { Case::Lower };
             pieces.push((prefix, kind, case));
-            handled = i + 1;
+            handled = c.len_utf8() + i;
         }
 
         let suffix = pattern[handled..].into();
@@ -257,6 +255,7 @@ enum NumberingKind {
     Letter,
     Roman,
     Symbol,
+    Hebrew,
 }
 
 impl NumberingKind {
@@ -267,6 +266,7 @@ impl NumberingKind {
             'a' => NumberingKind::Letter,
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
+            'א' => NumberingKind::Hebrew,
             _ => return None,
         })
     }
@@ -278,17 +278,21 @@ impl NumberingKind {
             Self::Letter => 'a',
             Self::Roman => 'i',
             Self::Symbol => '*',
+            Self::Hebrew => 'א',
         }
     }
 
     /// Apply the numbering to the given number.
-    pub fn apply(self, n: NonZeroUsize, case: Case) -> EcoString {
-        let mut n = n.get();
+    pub fn apply(self, mut n: usize, case: Case) -> EcoString {
         match self {
             Self::Arabic => {
                 eco_format!("{n}")
             }
             Self::Letter => {
+                if n == 0 {
+                    return '-'.into();
+                }
+
                 n -= 1;
 
                 let mut letters = vec![];
@@ -308,6 +312,10 @@ impl NumberingKind {
                 String::from_utf8(letters).unwrap().into()
             }
             Self::Roman => {
+                if n == 0 {
+                    return 'N'.into();
+                }
+
                 // Adapted from Yann Villessuzanne's roman.rs under the
                 // Unlicense, at https://github.com/linfir/roman.rs/
                 let mut fmt = EcoString::new();
@@ -347,10 +355,67 @@ impl NumberingKind {
                 fmt
             }
             Self::Symbol => {
+                if n == 0 {
+                    return '-'.into();
+                }
+
                 const SYMBOLS: &[char] = &['*', '†', '‡', '§', '¶', '‖'];
                 let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
                 let amount = ((n - 1) / SYMBOLS.len()) + 1;
                 std::iter::repeat(symbol).take(amount).collect()
+            },
+            Self::Hebrew => {
+                if n == 0 {
+                    return '-'.into();
+                }
+
+                let mut fmt = EcoString::new();
+                'outer: for &(name, value) in &[
+                    ('ת', 400),
+                    ('ש', 300),
+                    ('ר', 200),
+                    ('ק', 100),
+                    ('צ', 90),
+                    ('פ', 80),
+                    ('ע', 70),
+                    ('ס', 60),
+                    ('נ', 50),
+                    ('מ', 40),
+                    ('ל', 30),
+                    ('כ', 20),
+                    ('י', 10),
+                    ('ט', 9),
+                    ('ח', 8),
+                    ('ז', 7),
+                    ('ו', 6),
+                    ('ה', 5),
+                    ('ד', 4),
+                    ('ג', 3),
+                    ('ב', 2),
+                    ('א', 1),
+                ] {
+                    while n >= value {
+                        match n {
+                            15 => fmt.push_str("ט״ו"),
+                            16 => fmt.push_str("ט״ז"),
+                            _ => {
+                                let append_geresh = n == value && fmt.is_empty();
+                                if n == value && !fmt.is_empty() {
+                                    fmt.push('״');
+                                }
+                                fmt.push(name);
+                                if append_geresh {
+                                    fmt.push('׳');
+                                }
+
+                                n -= value;
+                                continue;
+                            },
+                        }
+                        break 'outer;
+                    }
+                }
+                fmt
             }
         }
     }

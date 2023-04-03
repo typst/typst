@@ -141,6 +141,24 @@ pub fn ceil(
     delimited(body, '⌈', '⌉')
 }
 
+/// Round an expression.
+///
+/// ## Example
+/// ```example
+/// $ round(x/2) $
+/// ```
+///
+/// Display: Round
+/// Category: math
+/// Returns: content
+#[func]
+pub fn round(
+    /// The expression to round.
+    body: Content,
+) -> Value {
+    delimited(body, '⌊', '⌉')
+}
+
 /// Take the absolute value of an expression.
 ///
 /// ## Example

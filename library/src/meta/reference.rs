@@ -11,6 +11,9 @@ use crate::text::TextElem;
 ///
 /// Reference syntax can also be used to [cite]($func/cite) from a bibliography.
 ///
+/// If you just want to link to a labelled element and not get an automatic
+/// textual reference, consider using the [`link`]($func/link) function instead.
+///
 /// # Example
 /// ```example
 /// #set heading(numbering: "1.")
@@ -93,24 +96,17 @@ impl Show for RefElem {
         }
 
         let target = self.target();
-        let matches = vt.introspector.query(Selector::Label(self.target()));
+        let elem = vt.introspector.query_label(&self.target());
 
         if BibliographyElem::has(vt, &target.0) {
-            if !matches.is_empty() {
+            if elem.is_ok() {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
 
             return Ok(self.to_citation(styles).pack());
         }
 
-        let [elem] = matches.as_slice() else {
-            bail!(self.span(), if matches.is_empty() {
-                "label does not exist in the document"
-            } else {
-                "label occurs multiple times in the document"
-            });
-        };
-
+        let elem = elem.at(self.span())?;
         if !elem.can::<dyn Locatable>() {
             bail!(self.span(), "cannot reference {}", elem.func().name());
         }
@@ -123,7 +119,7 @@ impl Show for RefElem {
                 .map(TextElem::packed)
                 .unwrap_or_default(),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(Supplement::Content(content))) => content.clone(),
+            Smart::Custom(Some(Supplement::Content(content))) => content,
             Smart::Custom(Some(Supplement::Func(func))) => {
                 func.call_vt(vt, [elem.clone().into()])?.display()
             }

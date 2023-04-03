@@ -86,7 +86,7 @@ fn encode_image(
             (data.into_inner(), Filter::DctDecode, true)
         }
 
-        // TODO: Encode flat streams with PNG-predictor?
+        // TODO: Encode flate streams with PNG-predictor?
 
         // 8-bit gray PNG.
         (RasterFormat::Png, DynamicImage::ImageLuma8(luma)) => {

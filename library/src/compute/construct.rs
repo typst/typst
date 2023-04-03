@@ -258,6 +258,9 @@ pub fn symbol(
     variants: Vec<Spanned<Variant>>,
 ) -> Value {
     let mut list = Vec::new();
+    if variants.is_empty() {
+        bail!(args.span, "expected at least one variant");
+    }
     for Spanned { v, span } in variants {
         if list.iter().any(|(prev, _)| &v.0 == prev) {
             bail!(span, "duplicate variant");
@@ -380,6 +383,10 @@ pub fn regex(
     /// escape sequences. To produce regex escape sequences that are also valid in
     /// Typst (e.g. `[\\]`), you need to escape twice. Thus, to match a verbatim
     /// backslash, you would need to write `{regex("\\\\")}`.
+    ///
+    /// If you need many escape sequences, you can also create a raw element
+    /// and extract its text to use it for your regular expressions:
+    /// ```{regex(`\d+\.\d+\.\d+`.text)}```.
     regex: Spanned<EcoString>,
 ) -> Value {
     Regex::new(&regex.v).at(regex.span)?.into()

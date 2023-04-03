@@ -170,7 +170,6 @@ impl Lexer<'_> {
             '`' => self.raw(),
             'h' if self.s.eat_if("ttp://") => self.link(),
             'h' if self.s.eat_if("ttps://") => self.link(),
-            '0'..='9' => self.numbering(start),
             '<' if self.s.at(is_id_continue) => self.label(),
             '@' => self.ref_marker(),
 
@@ -200,6 +199,7 @@ impl Lexer<'_> {
             '-' if self.space_or_end() => SyntaxKind::ListMarker,
             '+' if self.space_or_end() => SyntaxKind::EnumMarker,
             '/' if self.space_or_end() => SyntaxKind::TermMarker,
+            '0'..='9' => self.numbering(start),
 
             _ => self.text(),
         }
@@ -264,16 +264,35 @@ impl Lexer<'_> {
     }
 
     fn link(&mut self) -> SyntaxKind {
+        let mut bracket_stack = Vec::new();
         #[rustfmt::skip]
-        self.s.eat_while(|c: char| matches!(c,
-            | '0' ..= '9'
-            | 'a' ..= 'z'
-            | 'A' ..= 'Z'
-            | '~'  | '/' | '%' | '?' | '#' | '&' | '+' | '='
-            | '\'' | '.' | ',' | ';'
-        ));
+        self.s.eat_while(|c: char| {
+            match c {
+                | '0' ..= '9'
+                | 'a' ..= 'z'
+                | 'A' ..= 'Z'
+                | '!' | '#' | '$' | '%' | '&' | '*' | '+'
+                | ',' | '-' | '.' | '/' | ':' | ';' | '='
+                | '?' | '@' | '_' | '~' | '\'' => true,
+                '[' => {
+                    bracket_stack.push(SyntaxKind::LeftBracket);
+                    true
+                }
+                '(' => {
+                    bracket_stack.push(SyntaxKind::LeftParen);
+                    true
+                }
+                ']' => bracket_stack.pop() == Some(SyntaxKind::LeftBracket),
+                ')' => bracket_stack.pop() == Some(SyntaxKind::LeftParen),
+                _ => false,
+            }
+        });
+        if !bracket_stack.is_empty() {
+            return self.error_at_end("expected closing bracket in link");
+        }
 
-        if self.s.scout(-1) == Some('.') {
+        // Don't include the trailing characters likely to be part of another expression.
+        if matches!(self.s.scout(-1), Some('!' | ',' | '.' | ':' | ';' | '?' | '\'')) {
             self.s.uneat();
         }
 
@@ -284,14 +303,8 @@ impl Lexer<'_> {
         self.s.eat_while(char::is_ascii_digit);
 
         let read = self.s.from(start);
-        if self.s.eat_if('.') {
-            if let Ok(number) = read.parse::<usize>() {
-                if number == 0 {
-                    return self.error("must be positive");
-                }
-
-                return SyntaxKind::EnumMarker;
-            }
+        if self.s.eat_if('.') && self.space_or_end() && read.parse::<usize>().is_ok() {
+            return SyntaxKind::EnumMarker;
         }
 
         self.text()
@@ -434,6 +447,10 @@ impl Lexer<'_> {
         // Keep numbers and grapheme clusters together.
         if c.is_numeric() {
             self.s.eat_while(char::is_numeric);
+            let mut s = self.s;
+            if s.eat_if('.') && !s.eat_while(char::is_numeric).is_empty() {
+                self.s = s;
+            }
         } else {
             let len = self
                 .s

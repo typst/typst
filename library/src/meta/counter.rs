@@ -75,6 +75,48 @@ use crate::prelude::*;
 /// Still at #counter(heading).display().
 /// ```
 ///
+/// ## Custom counters
+/// To define your own counter, call the `counter` function with a string as a
+/// key. This key identifies the counter globally.
+///
+/// ```example
+/// #let mine = counter("mycounter")
+/// #mine.display() \
+/// #mine.step()
+/// #mine.display() \
+/// #mine.update(c => c * 3)
+/// #mine.display() \
+/// ```
+///
+/// ## How to step
+/// When you define and use a custom counter, in general, you should first step
+/// the counter and then display it. This way, the stepping behaviour of a
+/// counter can depend on the element it is stepped for. If you were writing a
+/// counter for, let's say, theorems, your theorem's definition would thus first
+/// include the counter step and only then display the counter and the theorem's
+/// contents.
+///
+/// ```example
+/// #let c = counter("theorem")
+/// #let theorem(it) = block[
+///   #c.step()
+///   *Theorem #c.display():* #it
+/// ]
+///
+/// #theorem[$1 = 1$]
+/// #theorem[$2 < 3$]
+/// ```
+///
+/// The rationale behind this is best explained on the example of the heading
+/// counter: An update to the heading counter depends on the heading's level.
+/// By stepping directly before the heading, we can correctly step from `1` to
+/// `1.1` when encountering a level 2 heading. If we were to step after the
+/// heading, we wouldn't know what to step to.
+///
+/// Because counters should always be stepped before the elements they count,
+/// they always start at zero. This way, they are at one for the first display
+/// (which happens after the first step).
+///
 /// ## Page counter
 /// The page counter is special. It is automatically stepped at each pagebreak.
 /// But like other counters, you can also step it manually. For example, you
@@ -100,19 +142,6 @@ use crate::prelude::*;
 /// We also display both the current
 /// page and total number of pages in
 /// Arabic numbers.
-/// ```
-///
-/// ## Custom counters
-/// To define your own counter, call the `counter` function with a string as a
-/// key. This key identifies the counter globally.
-///
-/// ```example
-/// #let mine = counter("mycounter")
-/// #mine.display() \
-/// #mine.step()
-/// #mine.display() \
-/// #mine.update(c => c * 3)
-/// #mine.display() \
 /// ```
 ///
 /// ## Time travel
@@ -308,9 +337,10 @@ impl Counter {
         let offset = vt.introspector.query_before(self.selector(), location).len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
-            let delta = vt.introspector.page(location).get() - page.get();
+            let delta = vt.introspector.page(location).get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
+
         Ok(state)
     }
 
@@ -319,7 +349,7 @@ impl Counter {
         let sequence = self.sequence(vt)?;
         let (mut state, page) = sequence.last().unwrap().clone();
         if self.is_page() {
-            let delta = vt.introspector.pages().get() - page.get();
+            let delta = vt.introspector.pages().get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
         Ok(state)
@@ -332,9 +362,11 @@ impl Counter {
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if self.is_page() {
-            let at_delta = vt.introspector.page(location).get() - at_page.get();
+            let at_delta =
+                vt.introspector.page(location).get().saturating_sub(at_page.get());
             at_state.step(NonZeroUsize::ONE, at_delta);
-            let final_delta = vt.introspector.pages().get() - final_page.get();
+            let final_delta =
+                vt.introspector.pages().get().saturating_sub(final_page.get());
             final_state.step(NonZeroUsize::ONE, final_delta);
         }
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
@@ -372,8 +404,9 @@ impl Counter {
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut vt = Vt { world, tracer, provider, introspector };
         let mut state = CounterState(match &self.0 {
-            CounterKey::Selector(_) => smallvec![],
-            _ => smallvec![NonZeroUsize::ONE],
+            // special case, because pages always start at one.
+            CounterKey::Page => smallvec![1],
+            _ => smallvec![0],
         });
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
@@ -506,7 +539,7 @@ pub trait Count {
 
 /// Counts through elements with different levels.
 #[derive(Debug, Clone, PartialEq, Hash)]
-pub struct CounterState(pub SmallVec<[NonZeroUsize; 3]>);
+pub struct CounterState(pub SmallVec<[usize; 3]>);
 
 impl CounterState {
     /// Advance the counter and return the numbers for the given heading.
@@ -534,13 +567,13 @@ impl CounterState {
         }
 
         while self.0.len() < level {
-            self.0.push(NonZeroUsize::ONE);
+            self.0.push(1);
         }
     }
 
     /// Get the first number of the state.
-    pub fn first(&self) -> NonZeroUsize {
-        self.0.first().copied().unwrap_or(NonZeroUsize::ONE)
+    pub fn first(&self) -> usize {
+        self.0.first().copied().unwrap_or(1)
     }
 
     /// Display the counter state with a numbering.
@@ -551,7 +584,7 @@ impl CounterState {
 
 cast_from_value! {
     CounterState,
-    num: NonZeroUsize => Self(smallvec![num]),
+    num: usize => Self(smallvec![num]),
     array: Array => Self(array
         .into_iter()
         .map(Value::cast)
@@ -583,6 +616,10 @@ struct DisplayElem {
 
 impl Show for DisplayElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        if !vt.introspector.init() {
+            return Ok(Content::empty());
+        }
+
         let location = self.0.location().unwrap();
         let counter = self.counter();
         let numbering = self

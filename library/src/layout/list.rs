@@ -78,7 +78,7 @@ pub struct ListElem {
     #[default(ListMarker::Content(vec![]))]
     pub marker: ListMarker,
 
-    /// The indent of each item's marker.
+    /// The indent of each item.
     #[resolve]
     pub indent: Length,
 
@@ -197,7 +197,7 @@ cast_from_value! {
     ListMarker,
     v: Content => Self::Content(vec![v]),
     array: Array => {
-        if array.len() == 0 {
+        if array.is_empty() {
             Err("array must contain at least one marker")?;
         }
         Self::Content(array.into_iter().map(Value::display).collect())

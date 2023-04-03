@@ -122,7 +122,14 @@ impl<'a> ShapedText<'a> {
                 })
                 .collect();
 
-            let item = TextItem { font, size: self.size, lang, fill, glyphs };
+            let item = TextItem {
+                font,
+                size: self.size,
+                lang,
+                fill: fill.clone(),
+                glyphs,
+            };
+
             let layer = frame.layer();
             let width = item.width();
 
@@ -377,7 +384,7 @@ pub fn shape<'a>(
 }
 
 /// Shape text with font fallback using the `families` iterator.
-fn shape_segment<'a>(
+fn shape_segment(
     ctx: &mut ShapingContext,
     base: usize,
     text: &str,

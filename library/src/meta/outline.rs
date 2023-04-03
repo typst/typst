@@ -1,4 +1,4 @@
-use super::{Counter, HeadingElem, LocalName};
+use super::{Counter, CounterKey, HeadingElem, LocalName};
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
@@ -73,7 +73,7 @@ impl Show for OutlineElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         if let Some(title) = self.title(styles) {
-            let title = title.clone().unwrap_or_else(|| {
+            let title = title.unwrap_or_else(|| {
                 TextElem::packed(self.local_name(TextElem::lang_in(styles)))
                     .spanned(self.span())
             });
@@ -160,7 +160,10 @@ impl Show for OutlineElem {
             }
 
             // Add the page number and linebreak.
-            let page = vt.introspector.page(location);
+            let page = Counter::new(CounterKey::Page)
+                // query the page counter state at location of heading
+                .at(vt, location)?
+                .first();
             let end = TextElem::packed(eco_format!("{page}"));
             seq.push(end.linked(Destination::Location(location)));
             seq.push(LinebreakElem::new().pack());
@@ -176,7 +179,11 @@ impl Show for OutlineElem {
 impl LocalName for OutlineElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::FRENCH => "Table des matières",
+            Lang::CHINESE => "目录",
             Lang::GERMAN => "Inhaltsverzeichnis",
+            Lang::ITALIAN => "Indice",
+            Lang::RUSSIAN => "Содержание",
             Lang::ENGLISH | _ => "Contents",
         }
     }

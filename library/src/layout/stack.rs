@@ -32,7 +32,7 @@ pub struct StackElem {
     /// Spacing to insert between items where no explicit spacing was provided.
     pub spacing: Option<Spacing>,
 
-    /// The childfren to stack along the axis.
+    /// The children to stack along the axis.
     #[variadic]
     pub children: Vec<StackChild>,
 }
@@ -198,7 +198,7 @@ impl<'a> StackLayouter<'a> {
         let aligns = if let Some(align) = block.to::<AlignElem>() {
             align.alignment(styles)
         } else if let Some((_, local)) = block.to_styled() {
-            AlignElem::alignment_in(styles.chain(&local))
+            AlignElem::alignment_in(styles.chain(local))
         } else {
             AlignElem::alignment_in(styles)
         }

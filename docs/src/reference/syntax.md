@@ -55,7 +55,7 @@ follows:
 | Fraction               | `[$1 + (a+b)/5$]`        | [`frac`]($func/frac)     |
 | Line break             | `[$x \ y ]`              | [`linebreak`]($func/linebreak) |
 | Alignment point        | `[$x &= 2 \ &= 3$]`      | [Math]($category/math)   |
-| Variable access        | `[$pi$]`                 | [Math]($category/math)   |
+| Variable access        | `[$#x$, $pi$]`           | [Math]($category/math)   |
 | Field access           | `[$arrow.r.long$]`       | [Scripting]($scripting/#fields) |
 | Implied multiplication | `[$x y$]`                | [Math]($category/math)   |
 | Symbol shorthand       | `[$->, !=$]`             | [Symbols]($category/symbols/sym) |
@@ -126,10 +126,10 @@ Our study design is as follows:
 ```
 
 ## Escape sequences { #escapes }
-Escape sequences are used to insert special characters that are otherwise have
-special meaning in Typst. To escape a character, precede it with a backslash. To
-insert any Unicode codepoint, you can write a hexadecimal escape sequence:
-`[\u{1f600}]`. The same kind of escape sequences also work in
+Escape sequences are used to insert special characters that are hard to type or
+otherwise have special meaning in Typst. To escape a character, precede it with
+a backslash. To insert any Unicode codepoint, you can write a hexadecimal
+escape sequence: `[\u{1f600}]`. The same kind of escape sequences also work in
 [strings]($type/string).
 
 ```example

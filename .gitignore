@@ -1,5 +1,6 @@
 # General
 .vscode
+.idea
 _things
 desktop.ini
 .DS_Store
@@ -18,3 +19,7 @@ bench/target
 # Node
 node_modules
 package-lock.json
+
+# Nix
+/result
+.direnv/

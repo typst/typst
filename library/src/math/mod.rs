@@ -57,6 +57,7 @@ pub fn module() -> Module {
     math.define("norm", norm);
     math.define("floor", floor);
     math.define("ceil", ceil);
+    math.define("round", round);
 
     // Attachments and accents.
     math.define("attach", AttachElem::func());
@@ -266,7 +267,11 @@ impl Count for EquationElem {
 impl LocalName for EquationElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::FRENCH => "Équation",
+            Lang::CHINESE => "等式",
             Lang::GERMAN => "Gleichung",
+            Lang::ITALIAN => "Equazione",
+            Lang::RUSSIAN => "Уравнение",
             Lang::ENGLISH | _ => "Equation",
         }
     }
@@ -292,7 +297,7 @@ impl LayoutMath for Content {
         }
 
         if let Some((elem, styles)) = self.to_styled() {
-            if TextElem::font_in(ctx.styles().chain(&styles))
+            if TextElem::font_in(ctx.styles().chain(styles))
                 != TextElem::font_in(ctx.styles())
             {
                 let frame = ctx.layout_content(self)?;
@@ -330,7 +335,8 @@ impl LayoutMath for Content {
         }
 
         if let Some(elem) = self.to::<TextElem>() {
-            ctx.layout_text(elem)?;
+            let fragment = ctx.layout_text(elem)?;
+            ctx.push(fragment);
             return Ok(());
         }
 

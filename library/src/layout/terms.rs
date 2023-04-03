@@ -1,7 +1,6 @@
 use super::{HElem, VElem};
 use crate::layout::{BlockElem, ParElem, Spacing};
 use crate::prelude::*;
-use crate::text::{SpaceElem, TextElem};
 
 /// A list of terms and their descriptions.
 ///
@@ -42,17 +41,33 @@ pub struct TermsElem {
     #[default(true)]
     pub tight: bool,
 
-    /// The indentation of each item's term.
+    /// The separator between the item and the description.
+    ///
+    /// If you want to just separate them with a certain amount of space, use
+    /// `{h(2cm, weak: true)}` as the separator and replace `{2cm}` with your
+    /// desired amount of space.
+    ///
+    /// ```example
+    /// #set terms(separator: [: ])
+    ///
+    /// / Colon: A nice separator symbol.
+    /// ```
+    #[default(HElem::new(Em::new(0.6).into()).with_weak(true).pack())]
+    pub separator: Content,
+
+    /// The indentation of each item.
     pub indent: Length,
 
     /// The hanging indent of the description.
+    ///
+    /// This is in addition to the whole item's `indent`.
     ///
     /// ```example
     /// #set terms(hanging-indent: 0pt)
     /// / Term: This term list does not
     ///   make use of hanging indents.
     /// ```
-    #[default(Em::new(1.0).into())]
+    #[default(Em::new(2.0).into())]
     pub hanging_indent: Length,
 
     /// The spacing between the items of a wide (non-tight) term list.
@@ -83,6 +98,7 @@ impl Layout for TermsElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        let separator = self.separator(styles);
         let indent = self.indent(styles);
         let hanging_indent = self.hanging_indent(styles);
         let gutter = if self.tight(styles) {
@@ -97,11 +113,11 @@ impl Layout for TermsElem {
             if i > 0 {
                 seq.push(VElem::new(gutter).with_weakness(1).pack());
             }
-            if indent.is_zero() {
+            if !indent.is_zero() {
                 seq.push(HElem::new(indent.into()).pack());
             }
-            seq.push((child.term() + TextElem::packed(':')).strong());
-            seq.push(SpaceElem::new().pack());
+            seq.push(child.term().strong());
+            seq.push(separator.clone());
             seq.push(child.description());
         }
 

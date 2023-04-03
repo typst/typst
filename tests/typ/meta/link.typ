@@ -23,6 +23,22 @@ Nohttps:\//link \
 Nohttp\://comment
 
 ---
+// Verify that brackets are included in links.
+https://[::1]:8080/ \
+https://example.com/(paren) \
+https://example.com/#(((nested))) \
+
+---
+// Check that unbalanced brackets are not included in links.
+#[https://example.com/] \
+https://example.com/)
+
+---
+// Verify that opening brackets without closing brackets throw an error.
+// Error: 22-22 expected closing bracket in link
+https://exam(ple.com/
+
+---
 // Styled with underline and color.
 #show link: it => underline(text(fill: rgb("283663"), it))
 You could also make the
@@ -44,3 +60,18 @@ My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
 ---
 // Link to page one.
 #link((page: 1, x: 10pt, y: 20pt))[Back to the start]
+
+---
+// Test link to label.
+Text <hey>
+#link(<hey>)[Go to text.]
+
+---
+// Error: 2-20 label does not exist in the document
+#link(<hey>)[Nope.]
+
+---
+Text <hey>
+Text <hey>
+// Error: 2-20 label occurs multiple times in the document
+#link(<hey>)[Nope.]

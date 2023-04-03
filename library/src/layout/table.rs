@@ -87,6 +87,15 @@ pub struct TableElem {
     /// This can either be a single alignment or a function that returns an
     /// alignment. The function is passed the cell's column and row index,
     /// starting at zero. If set to `{auto}`, the outer alignment is used.
+    ///
+    /// ```example
+    /// #table(
+    ///   columns: 3,
+    ///   align: (x, y) => (left, center, right).at(x),
+    ///   [Hello], [Hello], [Hello],
+    ///   [A], [B], [C],
+    /// )
+    /// ```
     pub align: Celled<Smart<Axes<Option<GenAlign>>>>,
 
     /// How to stroke the cells.
@@ -158,14 +167,14 @@ impl Layout for TableElem {
         // Add lines and backgrounds.
         for (frame, rows) in layout.fragment.iter_mut().zip(&layout.rows) {
             // Render table lines.
-            if let Some(stroke) = stroke {
+            if let Some(stroke) = &stroke {
                 let thickness = stroke.thickness;
                 let half = thickness / 2.0;
 
                 // Render horizontal lines.
                 for offset in points(rows.iter().map(|piece| piece.height)) {
                     let target = Point::with_x(frame.width() + thickness);
-                    let hline = Geometry::Line(target).stroked(stroke);
+                    let hline = Geometry::Line(target).stroked(stroke.clone());
                     frame.prepend(
                         Point::new(-half, offset),
                         FrameItem::Shape(hline, self.span()),
@@ -175,7 +184,7 @@ impl Layout for TableElem {
                 // Render vertical lines.
                 for offset in points(layout.cols.iter().copied()) {
                     let target = Point::with_y(frame.height() + thickness);
-                    let vline = Geometry::Line(target).stroked(stroke);
+                    let vline = Geometry::Line(target).stroked(stroke.clone());
                     frame.prepend(
                         Point::new(offset, -half),
                         FrameItem::Shape(vline, self.span()),
@@ -274,7 +283,11 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
 impl LocalName for TableElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::FRENCH => "Tableau",
+            Lang::CHINESE => "表",
             Lang::GERMAN => "Tabelle",
+            Lang::ITALIAN => "Tabella",
+            Lang::RUSSIAN => "Таблица",
             Lang::ENGLISH | _ => "Table",
         }
     }

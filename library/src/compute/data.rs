@@ -1,5 +1,3 @@
-use std::fmt::Write;
-
 use typst::diag::{format_xml_like_error, FileError};
 
 use crate::prelude::*;
@@ -76,9 +74,12 @@ pub fn csv(
     let mut reader = builder.from_reader(data.as_slice());
     let mut array = Array::new();
 
-    for result in reader.records() {
-        let row = result.map_err(format_csv_error).at(span)?;
-        let sub = row.iter().map(|field| Value::Str(field.into())).collect();
+    for (line, result) in reader.records().enumerate() {
+        // Original solution use line from error, but that is incorrect with has_headers set to false
+        // See issue: https://github.com/BurntSushi/rust-csv/issues/184
+        let line = line + 1; // Counting lines from 1
+        let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
+        let sub = row.into_iter().map(|field| Value::Str(field.into())).collect();
         array.push(Value::Array(sub))
     }
 
@@ -112,17 +113,13 @@ impl Default for Delimiter {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(error: csv::Error) -> String {
+fn format_csv_error(error: csv::Error, line: usize) -> String {
     match error.kind() {
         csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
-        csv::ErrorKind::UnequalLengths { pos, expected_len, len } => {
-            let mut msg = format!(
-                "failed to parse csv file: found {len} instead of {expected_len} fields"
-            );
-            if let Some(pos) = pos {
-                write!(msg, " in line {}", pos.line()).unwrap();
-            }
-            msg
+        csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
+            format!(
+                "failed to parse csv file: found {len} instead of {expected_len} fields in line {line}"
+            )
         }
         _ => "failed to parse csv file".into(),
     }
@@ -208,6 +205,96 @@ fn convert_json(value: serde_json::Value) -> Value {
 fn format_json_error(error: serde_json::Error) -> String {
     assert!(error.is_syntax() || error.is_eof());
     format!("failed to parse json file: syntax error in line {}", error.line())
+}
+
+/// Read structured data from a YAML file.
+///
+/// The file must contain a valid YAML object or array. YAML mappings will be
+/// converted into Typst dictionaries, and YAML sequences will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents, null-values (`null`, `~` or empty ``) will be converted into 
+/// `{none}`, and numbers will be converted to floats or integers depending on 
+/// whether they are whole numbers.
+///
+/// Note that mapping keys that are not a string cause the entry to be 
+/// discarded.
+/// 
+/// Custom YAML tags are ignored, though the loaded value will still be
+/// present.
+/// 
+/// The function returns a dictionary or value or an array, depending on
+/// the YAML file.
+///
+/// The YAML files in the example contain objects with authors as keys,
+/// each with a sequence of their own submapping with the keys 
+/// "title" and "published"
+///
+/// ## Example
+/// ```example
+/// #let bookshelf(contents) = {
+///   for author, works in contents {
+///     author
+///     for work in works [
+///       - #work.title (#work.published)
+///     ]
+///   }
+/// }
+///
+/// #bookshelf(yaml("scifi-authors.yaml"))
+/// ```
+///
+/// Display: YAML
+/// Category: data-loading
+/// Returns: array or value or dictionary
+#[func]
+pub fn yaml(
+    /// Path to a YAML file.
+    path: Spanned<EcoString>,
+) -> Value {
+    let Spanned { v: path, span } = path;
+    let path = vm.locate(&path).at(span)?;
+    let data = vm.world().file(&path).at(span)?;
+    let value: serde_yaml::Value =
+        serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
+    convert_yaml(value)
+}
+
+/// Convert a YAML value to a Typst value.
+fn convert_yaml(value: serde_yaml::Value) -> Value {
+    match value {
+        serde_yaml::Value::Null => Value::None,
+        serde_yaml::Value::Bool(v) => Value::Bool(v),
+        serde_yaml::Value::Number(v) => match v.as_i64() {
+            Some(int) => Value::Int(int),
+            None => Value::Float(v.as_f64().unwrap_or(f64::NAN)),
+        },
+        serde_yaml::Value::String(v) => Value::Str(v.into()),
+        serde_yaml::Value::Sequence(v) => {
+            Value::Array(v.into_iter().map(convert_yaml).collect())
+        }
+        serde_yaml::Value::Mapping(v) => Value::Dict(
+            v.into_iter()
+                .map(|(key, value)| (convert_yaml_key(key), convert_yaml(value)))
+                .filter_map(|(key, value)| key.map(|key|(key, value)))
+                .collect(),
+        )
+    }
+}
+
+/// Converts an arbitary YAML mapping key into a Typst Dict Key.
+/// Currently it only does so for strings, everything else
+/// returns None
+fn convert_yaml_key(key: serde_yaml::Value) -> Option<Str> {
+    match key {
+        serde_yaml::Value::String(v) => Some(Str::from(v)),
+        _ => None,
+    }
+}
+
+/// Format the user-facing YAML error message.
+#[track_caller]
+fn format_yaml_error(error: serde_yaml::Error) -> String {
+    format!("failed to parse yaml file: {}", error.to_string().trim())
 }
 
 /// Read structured data from an XML file.

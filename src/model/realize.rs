@@ -176,9 +176,8 @@ pub trait Show {
 
 /// Post-process an element after it was realized.
 pub trait Finalize {
-    /// Finalize the fully realized form of the element. Use this for effects that
-    /// should work even in the face of a user-defined show rule, for example
-    /// the linking behaviour of a link element.
+    /// Finalize the fully realized form of the element. Use this for effects
+    /// that should work even in the face of a user-defined show rule.
     fn finalize(&self, realized: Content, styles: StyleChain) -> Content;
 }
 

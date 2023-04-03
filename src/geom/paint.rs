@@ -3,7 +3,7 @@ use std::str::FromStr;
 use super::*;
 
 /// How a fill or stroke should be painted.
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum Paint {
     /// A solid color.
     Solid(Color),

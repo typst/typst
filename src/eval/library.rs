@@ -74,7 +74,7 @@ pub struct LangItems {
     /// An item in a bullet list: `- ...`.
     pub list_item: fn(body: Content) -> Content,
     /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.
-    pub enum_item: fn(number: Option<NonZeroUsize>, body: Content) -> Content,
+    pub enum_item: fn(number: Option<usize>, body: Content) -> Content,
     /// An item in a term list: `/ Term: Details`.
     pub term_item: fn(term: Content, description: Content) -> Content,
     /// A mathematical equation: `$x$`, `$ x^2 $`.

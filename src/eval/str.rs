@@ -34,6 +34,11 @@ impl Str {
         Self(EcoString::new())
     }
 
+    /// Return `true` if the length is 0.
+    pub fn is_empty(&self) -> bool {
+        self.0.len() == 0
+    }
+
     /// The length of the string in bytes.
     pub fn len(&self) -> i64 {
         self.0.len() as i64
@@ -118,7 +123,7 @@ impl Str {
     /// The text of the pattern's first match in this string.
     pub fn find(&self, pattern: StrPattern) -> Option<Self> {
         match pattern {
-            StrPattern::Str(pat) => self.0.contains(pat.as_str()).then(|| pat),
+            StrPattern::Str(pat) => self.0.contains(pat.as_str()).then_some(pat),
             StrPattern::Regex(re) => re.find(self).map(|m| m.as_str().into()),
         }
     }

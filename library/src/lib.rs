@@ -83,6 +83,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("square", visualize::SquareElem::func());
     global.define("ellipse", visualize::EllipseElem::func());
     global.define("circle", visualize::CircleElem::func());
+    global.define("polygon", visualize::PolygonElem::func());
 
     // Meta.
     global.define("document", meta::DocumentElem::func());
@@ -123,6 +124,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("read", compute::read);
     global.define("csv", compute::csv);
     global.define("json", compute::json);
+    global.define("yaml", compute::yaml);
     global.define("xml", compute::xml);
 
     // Calc.
