@@ -29,7 +29,7 @@ use crate::text::TextElem;
 /// ```example
 /// #figure(caption: [ Hello, world! ], kind: table)[
 ///   #table(
-///    columns: (auto, 1fr)
+///    columns: (auto, 1fr),
 ///    image("molecular.jpg", width: 32pt),
 ///    [ A first picture ],
 ///    image("molecular.jpg", width: 32pt),
