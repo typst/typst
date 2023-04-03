@@ -14,7 +14,7 @@ use crate::text::TextElem;
 /// and use a priority list to detect which content is likely
 /// to be the most important. The priority list is as follows:
 /// - [image]($func/image) are the most important
-/// - [equations]($math/equation) are the second most important
+/// - [equations]($func/equation) are the second most important
 /// - [code]($func/code) are the third most important
 /// - [table]($func/table) are the fourth most important.
 ///
