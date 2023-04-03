@@ -84,6 +84,7 @@ pub struct BoxElem {
     ///   outset: (y: 3pt),
     ///   radius: 2pt,
     /// )[rectangle].
+    /// ```
     #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
