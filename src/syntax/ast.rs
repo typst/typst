@@ -1698,12 +1698,9 @@ impl LetBinding {
 
     /// The expression the binding is initialized with.
     pub fn init(&self) -> Option<Expr> {
-        if self.0.cast_first_match::<Ident>().is_some() {
-            // This is a normal binding like `let x = 1`.
-            self.0.children().filter_map(SyntaxNode::cast).nth(1)
-        } else {
-            // This is a closure binding like `let f(x) = 1`.
-            self.0.cast_first_match()
+        match self.binding() {
+            LetBindingKind::Normal(_) => self.0.cast_last_match(),
+            LetBindingKind::Closure(_) => self.0.cast_first_match(),
         }
     }
 }

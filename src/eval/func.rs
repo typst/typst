@@ -441,7 +441,7 @@ impl<'a> CapturesVisitor<'a> {
                 if let Some(init) = expr.init() {
                     self.visit(init.as_untyped());
                 }
-                // TODO (Marmare): is this actually the right behaviour?
+
                 for ident in expr.binding().idents() {
                     self.bind(ident);
                 }
@@ -454,7 +454,6 @@ impl<'a> CapturesVisitor<'a> {
                 self.visit(expr.iter().as_untyped());
                 self.internal.enter();
 
-                // TODO (Marmare): is this actually the right behaviour?
                 let pattern = expr.pattern();
                 for ident in pattern.idents() {
                     self.bind(ident);
@@ -555,7 +554,7 @@ mod tests {
 
         // For loop.
         test("#for x in y { x + z }", &["y", "z"]);
-        test("#for x, y in y { x + y }", &["y"]);
+        test("#for (x, y) in y { x + y }", &["y"]);
         test("#for x in y {} #x", &["x", "y"]);
 
         // Import.
