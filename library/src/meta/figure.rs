@@ -1,9 +1,7 @@
 use std::any::TypeId;
 use std::str::FromStr;
 
-use super::{
-    Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern,
-};
+use super::{Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern};
 use crate::layout::{BlockElem, VElem};
 use crate::meta::{Refable, Supplement};
 use crate::prelude::*;
@@ -73,7 +71,7 @@ use crate::text::TextElem;
 /// ## Outline
 /// By default, the figure will be outlined in the list of figures/tables/code. This can be disabled by
 /// setting the `outlined` parameter to `false`.
-/// 
+///
 /// ## Global figure counter
 /// There is a global figure counter which can be accessed which counts all numbered figures in the document
 /// regardless of its type. This counter can be accessed using the `counter(figure)` function.
@@ -105,12 +103,12 @@ pub struct FigureElem {
 
     /// The figure's supplement, if not provided, the figure will attempt to
     /// automatically detect the counter from the content.
-    /// 
+    ///
     /// ## Custom figure type
     /// If you are using a custom figure type and would like to figure to be
     /// referenced, you will need to manually specify the supplement, using either
     /// a function or a string.
-    /// 
+    ///
     /// ```example
     /// #figure(caption: "My custom figure", contents: "foo", supplement: "Bar")[
     ///   #block[ The inside of my custom figure! ]
@@ -130,11 +128,11 @@ pub struct FigureElem {
     pub numbering: Option<Numbering>,
 
     /// The type of the figure. Setting this will override the automatic detection.
-    /// 
+    ///
     /// This can be useful if you wish to create a custom figure type that is not
     /// an [image]($func/image), a [table]($func/table) or a [code]($func/raw). Or if
     /// you want to force the figure to use a specific type regardless of its content.
-    /// 
+    ///
     /// You can set the contents to be an element, or a string. If you set it to be
     /// a string or an element that is not supported by the figure, you will need to
     /// manually specify the supplement if you wish to number the figure.
@@ -155,7 +153,8 @@ impl FigureElem {
     /// Determines the type of the figure by looking at the content, finding all
     /// [`Figurable`] elements and sorting them by priority then returning the highest.
     pub fn determine_type(&self, styles: StyleChain) -> Option<Content> {
-        let potential_elems = self.body().query(Selector::Can(TypeId::of::<dyn Figurable>()));
+        let potential_elems =
+            self.body().query(Selector::Can(TypeId::of::<dyn Figurable>()));
 
         potential_elems.into_iter().max_by_key(|elem| {
             elem.with::<dyn Figurable>()
@@ -172,7 +171,7 @@ impl FigureElem {
 
     /// Builds the supplement and numbering of the figure.
     /// If there is no numbering, returns [`None`].
-    /// 
+    ///
     /// # Errors
     /// If a numbering is specified but the [`Self::element`] is `None`.
     pub fn show_supplement_and_numbering(
@@ -209,7 +208,7 @@ impl FigureElem {
 
     /// Builds the caption for the figure.
     /// If there is a numbering, will also try to show the supplement and the numbering.
-    /// 
+    ///
     /// # Errors
     /// If a numbering is specified but the [`Self::element`] is `None`.
     pub fn show_caption(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
