@@ -21,13 +21,13 @@ use crate::text::TextElem;
 /// There can be a variety of content within a figure and only the first element
 /// of the most important category will be used. For example, if a figure contains
 /// an image and a table, the image will be used. This behaviour can be overridden
-/// using the `contents` parameter. By setting it, you can force the figure to use a
+/// using the `kind` parameter. By setting it, you can force the figure to use a
 /// specific type of content. Note however that if the figure does not contain said
-/// element, or the `contents` is set to a string, you will need to manually specify
+/// element, or the `kind` is set to a string, you will need to manually specify
 /// the supplement to be able to make an outline or reference it.
 ///
 /// ```example
-/// #figure(caption: [ Hello, world! ], contents: table)[
+/// #figure(caption: [ Hello, world! ], kind: table)[
 ///   #table(
 ///    columns: (auto, 1fr)
 ///    image("molecular.jpg", width: 32pt),
@@ -43,13 +43,13 @@ use crate::text::TextElem;
 /// and counter. Otherwise the figure will produce an error.
 ///
 /// ## Counting and supplement
-/// Based on the `contents` parameter or the detected content, the figure will chose
+/// Based on the `kind` parameter or the detected content, the figure will chose
 /// the appropriate counter and supplement. These can be overridden by using the
-/// `contents` and `supplement` parameters respectively.
+/// `kind` and `supplement` parameters respectively.
 ///
 /// The overriding of these values is done as follows:
 /// ```example
-/// #figure(caption: [ Hello, world! ], contents: "hello", supplement: "Molecule")[
+/// #figure(caption: [ Hello, world! ], kind: "hello", supplement: "Molecule")[
 ///   #image("molecular.jpg", width: 32pt)
 /// ]
 /// ```
@@ -59,7 +59,7 @@ use crate::text::TextElem;
 /// - for (equations)[$func/equation]: `counter(figure.where(of: math.equation))`
 /// - for (raw text)[$func/raw]: `counter(figure.where(of: raw))`
 /// - for (images)[$func/image]: `counter(figure.where(of: image))`
-/// - for a custom contents: `counter(figure.where(of: contents))`
+/// - for a custom kind: `counter(figure.where(of: kind))`
 ///
 /// These are the counters you need to use if you want to change the
 /// counting behaviour of figures.
@@ -110,7 +110,7 @@ pub struct FigureElem {
     /// a function or a string.
     ///
     /// ```example
-    /// #figure(caption: "My custom figure", contents: "foo", supplement: "Bar")[
+    /// #figure(caption: "My custom figure", kind: "foo", supplement: "Bar")[
     ///   #block[ The inside of my custom figure! ]
     /// ]
     /// ```
@@ -133,11 +133,11 @@ pub struct FigureElem {
     /// an [image]($func/image), a [table]($func/table) or a [code]($func/raw). Or if
     /// you want to force the figure to use a specific type regardless of its content.
     ///
-    /// You can set the contents to be an element, or a string. If you set it to be
+    /// You can set the kind to be an element, or a string. If you set it to be
     /// a string or an element that is not supported by the figure, you will need to
     /// manually specify the supplement if you wish to number the figure.
     #[default(Smart::Auto)]
-    pub contents: Smart<ContentParam>,
+    pub kind: Smart<ContentParam>,
 
     /// The vertical gap between the body and caption.
     #[default(Em::new(0.65).into())]
@@ -146,7 +146,7 @@ pub struct FigureElem {
     /// The detailed numbering information for the figure.
     #[synthesized]
     #[internal]
-    element: Option<FigureContent>,
+    pub element: Option<FigureKind>,
 }
 
 impl FigureElem {
@@ -232,46 +232,46 @@ impl Synthesize for FigureElem {
         let numbering = self.numbering(styles);
 
         // We get the content or `None`.
-        let content = match self.contents(styles) {
+        let content = match self.kind(styles) {
             Smart::Auto => match self.determine_type(styles ){
                 Some(ty) => Some(ty),
-                None => bail!(self.span(), "unable to determine figure type, use `contents` to manually specify it"),
+                None => bail!(self.span(), "unable to determine figure type, use `kind` to manually specify it"),
             },
             Smart::Custom(ContentParam::Elem(ty)) => self.find_elem(ty),
             Smart::Custom(ContentParam::Name(_)) => None,
         };
 
-        if self.contents(styles).is_auto() {
+        if self.kind(styles).is_auto() {
             if let Some(content) = &content {
-                self.push_contents(Smart::Custom(ContentParam::Elem(content.func())));
+                self.push_kind(Smart::Custom(ContentParam::Elem(content.func())));
             }
         }
 
         // We get the counter or `None`.
         // The list of choices is the following:
-        // 1. If there is a detected content, we use the counter `counter(figure.where(contents: detected_content))`
-        // 2. If there is a name, we use the counter `counter(figure.where(contents: name))`
-        // 3. If there is a elem, we use the counter `counter(figure.where(contents: elem))`
+        // 1. If there is a detected content, we use the counter `counter(figure.where(kind: detected_content))`
+        // 2. If there is a name, we use the counter `counter(figure.where(kind: name))`
+        // 3. If there is a elem, we use the counter `counter(figure.where(kind: elem))`
         // 4. We return None.
         let counter = if let Some(content) = &content {
             Some(Counter::new(CounterKey::Selector(Selector::Elem(
                 Self::func(),
                 Some(dict! {
-                    "contents" => Value::from(content.func()),
+                    "kind" => Value::from(content.func()),
                 }),
             ))))
-        } else if let Smart::Custom(ContentParam::Name(name)) = self.contents(styles) {
+        } else if let Smart::Custom(ContentParam::Name(name)) = self.kind(styles) {
             Some(Counter::new(CounterKey::Selector(Selector::Elem(
                 Self::func(),
                 Some(dict! {
-                    "contents" => Value::from(name),
+                    "kind" => Value::from(name),
                 }),
             ))))
-        } else if let Smart::Custom(ContentParam::Elem(func)) = self.contents(styles) {
+        } else if let Smart::Custom(ContentParam::Elem(func)) = self.kind(styles) {
             Some(Counter::new(CounterKey::Selector(Selector::Elem(
                 Self::func(),
                 Some(dict! {
-                    "contents" => Value::from(func),
+                    "kind" => Value::from(func),
                 }),
             ))))
         } else {
@@ -306,7 +306,7 @@ impl Synthesize for FigureElem {
                 bail!(self.span(), "numbering a figure requires that is has a supplement");
             };
 
-            self.push_element(Some(FigureContent {
+            self.push_element(Some(FigureKind {
                 numbering,
                 counter,
                 supplement,
@@ -380,7 +380,7 @@ impl Refable for FigureElem {
     }
 }
 
-/// The `contents` parameter of [`FigureElem`].
+/// The `kind` parameter of [`FigureElem`].
 #[derive(Debug, Clone)]
 pub enum ContentParam {
     /// The content is an element function.
@@ -404,7 +404,7 @@ cast_to_value! {
 }
 
 /// The state needed to build the numbering of a figure.
-struct FigureContent {
+pub struct FigureKind {
     /// The numbering scheme.
     numbering: Numbering,
 
@@ -420,7 +420,7 @@ struct FigureContent {
 }
 
 cast_to_value! {
-    v: FigureContent => dict! {
+    v: FigureKind => dict! {
         "numbering" => Value::from(v.numbering),
         "counter" => Value::from(v.counter),
         "supplement" => Value::from(v.supplement),
@@ -429,7 +429,7 @@ cast_to_value! {
 }
 
 cast_from_value! {
-    FigureContent,
+    FigureKind,
     v: Dict => {
         let numbering = v
             .at("numbering")
