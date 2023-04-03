@@ -15,7 +15,7 @@ use crate::text::TextElem;
 /// to be the most important. The priority list is as follows:
 /// - [image]($func/image) are the most important
 /// - [equations]($func/equation) are the second most important
-/// - [code]($func/code) are the third most important
+/// - [code]($func/raw) are the third most important
 /// - [table]($func/table) are the fourth most important.
 ///
 /// There can be a variety of content within a figure and only the first element
