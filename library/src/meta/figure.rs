@@ -1,7 +1,8 @@
+use std::any::TypeId;
 use std::str::FromStr;
 
 use super::{
-    Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
+    Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern,
 };
 use crate::layout::{BlockElem, VElem};
 use crate::meta::{Refable, Supplement};
@@ -15,18 +16,20 @@ use crate::text::TextElem;
 /// and use a priority list to detect which content is likely
 /// to be the most important. The priority list is as follows:
 /// - [image]($func/image) are the most important
-/// - [code]($func/code) are the second most important
-/// - [table]($func/table) are the third most important.
+/// - [equations]($math/equation) are the second most important
+/// - [code]($func/code) are the third most important
+/// - [table]($func/table) are the fourth most important.
 ///
 /// There can be a variety of content within a figure and only the first element
 /// of the most important category will be used. For example, if a figure contains
 /// an image and a table, the image will be used. This behaviour can be overridden
-/// using the `of` parameter. By setting it, you can force the figure to use a
-/// specific type of content. Note however, that the figure must contain an element
-/// of the given type.
+/// using the `contents` parameter. By setting it, you can force the figure to use a
+/// specific type of content. Note however that if the figure does not contain said
+/// element, or the `contents` is set to a string, you will need to manually specify
+/// the supplement to be able to make an outline or reference it.
 ///
 /// ```example
-/// #figure(caption: [ Hello, world! ], of: table)[
+/// #figure(caption: [ Hello, world! ], contents: table)[
 ///   #table(
 ///    columns: (auto, 1fr)
 ///    image("molecular.jpg", width: 32pt),
@@ -37,26 +40,28 @@ use crate::text::TextElem;
 /// ]
 /// ```
 ///
-/// If you use an element that is not supported by the figure, and set it as its `of` parameter,
+/// If you use an element that is not supported by the figure, and set it as its `content` parameter,
 /// to be able to make an outline or reference it, you will need to manually specify the supplement
 /// and counter. Otherwise the figure will produce an error.
 ///
-/// ## Counter and supplement
-/// Based on the `of` parameter or the detected content, the figure will chose
+/// ## Counting and supplement
+/// Based on the `contents` parameter or the detected content, the figure will chose
 /// the appropriate counter and supplement. These can be overridden by using the
-/// `counter` and `supplement` parameters respectively.
+/// `contents` and `supplement` parameters respectively.
 ///
 /// The overriding of these values is done as follows:
 /// ```example
-/// #figure(caption: [ Hello, world! ], counter: counter("my_counter"), supplement: "Molecule")[
+/// #figure(caption: [ Hello, world! ], contents: "hello", supplement: "Molecule")[
 ///   #image("molecular.jpg", width: 32pt)
 /// ]
 /// ```
 ///
 /// The default counters are defined as follows:
 /// - for (tables)[$func/table]: `counter(figure.where(of: table))`
+/// - for (equations)[$func/equation]: `counter(figure.where(of: math.equation))`
 /// - for (raw text)[$func/raw]: `counter(figure.where(of: raw))`
 /// - for (images)[$func/image]: `counter(figure.where(of: image))`
+/// - for a custom contents: `counter(figure.where(of: contents))`
 ///
 /// These are the counters you need to use if you want to change the
 /// counting behaviour of figures.
@@ -65,9 +70,13 @@ use crate::text::TextElem;
 /// By default, the figure will be numbered using the `1` [numbering pattern]($func/numbering).
 /// This can be overridden by using the `numbering` parameter.
 ///
-/// ## Listing
-/// By default, the figure will be listed in the list of figures/tables/code. This can be disabled by
-/// setting the `listed` parameter to `false`.
+/// ## Outline
+/// By default, the figure will be outlined in the list of figures/tables/code. This can be disabled by
+/// setting the `outlined` parameter to `false`.
+/// 
+/// ## Global figure counter
+/// There is a global figure counter which can be accessed which counts all numbered figures in the document
+/// regardless of its type. This counter can be accessed using the `counter(figure)` function.
 ///
 /// ## Example
 /// ```example
@@ -96,10 +105,22 @@ pub struct FigureElem {
 
     /// The figure's supplement, if not provided, the figure will attempt to
     /// automatically detect the counter from the content.
+    /// 
+    /// ## Custom figure type
+    /// If you are using a custom figure type and would like to figure to be
+    /// referenced, you will need to manually specify the supplement, using either
+    /// a function or a string.
+    /// 
+    /// ```example
+    /// #figure(caption: "My custom figure", contents: "foo", supplement: "Bar")[
+    ///   #block[ The inside of my custom figure! ]
+    /// ]
+    /// ```
     #[default(Smart::Auto)]
     pub supplement: Smart<Option<Supplement>>,
 
     /// Whether the figure should appear in the list of figures/tables/code.
+    /// Defaults to `true`.
     #[default(true)]
     pub outlined: bool,
 
@@ -108,8 +129,15 @@ pub struct FigureElem {
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
     pub numbering: Option<Numbering>,
 
-    /// The type of the figure.
-    /// Setting this will override the automatic detection.
+    /// The type of the figure. Setting this will override the automatic detection.
+    /// 
+    /// This can be useful if you wish to create a custom figure type that is not
+    /// an [image]($func/image), a [table]($func/table) or a [code]($func/raw). Or if
+    /// you want to force the figure to use a specific type regardless of its content.
+    /// 
+    /// You can set the contents to be an element, or a string. If you set it to be
+    /// a string or an element that is not supported by the figure, you will need to
+    /// manually specify the supplement if you wish to number the figure.
     #[default(Smart::Auto)]
     pub contents: Smart<ContentParam>,
 
@@ -117,7 +145,7 @@ pub struct FigureElem {
     #[default(Em::new(0.65).into())]
     pub gap: Length,
 
-    /// The element to use for the figure's properties.
+    /// The detailed numbering information for the figure.
     #[synthesized]
     #[internal]
     element: Option<FigureContent>,
@@ -127,9 +155,7 @@ impl FigureElem {
     /// Determines the type of the figure by looking at the content, finding all
     /// [`Figurable`] elements and sorting them by priority then returning the highest.
     pub fn determine_type(&self, styles: StyleChain) -> Option<Content> {
-        let potential_elems = self.body().query(|content| {
-            content.can::<dyn Figurable>() && content.can::<dyn LocalName>()
-        });
+        let potential_elems = self.body().query(Selector::Can(TypeId::of::<dyn Figurable>()));
 
         potential_elems.into_iter().max_by_key(|elem| {
             elem.with::<dyn Figurable>()
@@ -141,9 +167,14 @@ impl FigureElem {
     /// Finds the element with the given function in the figure's content.
     /// Returns `None` if no element with the given function is found.
     pub fn find_elem(&self, func: ElemFunc) -> Option<Content> {
-        self.body().query(|content| content.func() == func).first().cloned()
+        self.body().query(Selector::Elem(func, None)).first().cloned()
     }
 
+    /// Builds the supplement and numbering of the figure.
+    /// If there is no numbering, returns [`None`].
+    /// 
+    /// # Errors
+    /// If a numbering is specified but the [`Self::element`] is `None`.
     pub fn show_supplement_and_numbering(
         &self,
         vt: &mut Vt,
@@ -176,6 +207,11 @@ impl FigureElem {
         }
     }
 
+    /// Builds the caption for the figure.
+    /// If there is a numbering, will also try to show the supplement and the numbering.
+    /// 
+    /// # Errors
+    /// If a numbering is specified but the [`Self::element`] is `None`.
     pub fn show_caption(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let Some(mut caption) = self.caption(styles) else {
             return Ok(Content::empty());
@@ -193,10 +229,10 @@ impl Synthesize for FigureElem {
     fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
         self.push_numbering(self.numbering(styles));
 
-        // we get the numbering or `None`.
+        // We get the numbering or `None`.
         let numbering = self.numbering(styles);
 
-        // we get the content or `None`.
+        // We get the content or `None`.
         let content = match self.contents(styles) {
             Smart::Auto => match self.determine_type(styles ){
                 Some(ty) => Some(ty),
@@ -212,42 +248,40 @@ impl Synthesize for FigureElem {
             }
         }
 
-        // we get the counter or `None`.
+        // We get the counter or `None`.
+        // The list of choices is the following:
+        // 1. If there is a detected content, we use the counter `counter(figure.where(contents: detected_content))`
+        // 2. If there is a name, we use the counter `counter(figure.where(contents: name))`
+        // 3. If there is a elem, we use the counter `counter(figure.where(contents: elem))`
+        // 4. We return None.
         let counter = if let Some(content) = &content {
-            Some((
-                Counter::new(CounterKey::Selector(Selector::Elem(
-                    Self::func(),
-                    Some(dict! {
-                        "contents" => Value::from(content.func()),
-                    }),
-                ))),
-                false,
-            ))
+            Some(Counter::new(CounterKey::Selector(Selector::Elem(
+                Self::func(),
+                Some(dict! {
+                    "contents" => Value::from(content.func()),
+                }),
+            ))))
         } else if let Smart::Custom(ContentParam::Name(name)) = self.contents(styles) {
-            Some((
-                Counter::new(CounterKey::Selector(Selector::Elem(
-                    Self::func(),
-                    Some(dict! {
-                        "contents" => Value::from(name),
-                    }),
-                ))),
-                false,
-            ))
+            Some(Counter::new(CounterKey::Selector(Selector::Elem(
+                Self::func(),
+                Some(dict! {
+                    "contents" => Value::from(name),
+                }),
+            ))))
         } else if let Smart::Custom(ContentParam::Elem(func)) = self.contents(styles) {
-            Some((
-                Counter::new(CounterKey::Selector(Selector::Elem(
-                    Self::func(),
-                    Some(dict! {
-                        "contents" => Value::from(func),
-                    }),
-                ))),
-                false,
-            ))
+            Some(Counter::new(CounterKey::Selector(Selector::Elem(
+                Self::func(),
+                Some(dict! {
+                    "contents" => Value::from(func),
+                }),
+            ))))
         } else {
             None
         };
 
-        // we get the supplement or `None`.
+        // We get the supplement or `None`.
+        // The supplement must either be set manually of the content identification
+        // must have succeeded.
         let supplement = match self.supplement(styles) {
             Smart::Auto => {
                 if let Some(figurable) =
@@ -261,8 +295,11 @@ impl Synthesize for FigureElem {
             Smart::Custom(supp) => supp,
         };
 
+        // We the user wishes to number their figure, we check whether there is a
+        // counter and a supplement. If so, we push the element, which is just a
+        // summary of the caption properties
         if let Some(numbering) = numbering {
-            let Some((counter, update_counter)) = counter else {
+            let Some(counter) = counter else {
                 bail!(self.span(), "numbering a figure requires that is has a counter");
             };
 
@@ -273,7 +310,6 @@ impl Synthesize for FigureElem {
             self.push_element(Some(FigureContent {
                 numbering,
                 counter,
-                update_counter,
                 supplement,
                 content: content.unwrap_or_else(|| self.body()),
             }))
@@ -287,34 +323,28 @@ impl Synthesize for FigureElem {
 
 impl Show for FigureElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let counter_update = if let Some(element) = self.element() {
-            element
-                .update_counter
-                .then(|| element.counter.update(CounterUpdate::Step(NonZeroUsize::ONE)))
-                .unwrap_or_else(Content::empty)
-        } else {
-            Content::empty()
-        };
-
+        // We build the body of the figure.
         let mut realized = self.body();
 
+        // We build the caption, if any.
         if self.caption(styles).is_some() {
             realized += VElem::weak(self.gap(styles).into()).pack();
             realized += self.show_caption(vt, styles)?;
         }
 
-        Ok(counter_update
-            + BlockElem::new()
-                .with_body(Some(realized))
-                .with_breakable(false)
-                .pack()
-                .aligned(Axes::with_x(Some(Align::Center.into()))))
+        // We wrap the contents in a block.
+        Ok(BlockElem::new()
+            .with_body(Some(realized))
+            .with_breakable(false)
+            .pack()
+            .aligned(Axes::with_x(Some(Align::Center.into()))))
     }
 }
 
 impl Count for FigureElem {
     fn update(&self) -> Option<CounterUpdate> {
-        // if the figure is numbered.
+        // If the figure is numbered, step the counter by one.
+        // This steps the `counter(figure)` which is global to all numbered figures.
         self.numbering(StyleChain::default())
             .is_some()
             .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
@@ -328,6 +358,8 @@ impl Refable for FigureElem {
         styles: StyleChain,
         supplement: Option<Content>,
     ) -> SourceResult<Content> {
+        // If the figure is not numbered, we cannot reference it.
+        // Otherwise we build the supplement and numbering scheme.
         let Some(desc) = self.show_supplement_and_numbering(vt, styles, supplement)? else {
             bail!(self.span(), "cannot reference unnumbered figure")
         };
@@ -340,7 +372,7 @@ impl Refable for FigureElem {
     }
 
     fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
-        // if the figure is not outlined, it is not referenced.
+        // If the figure is not outlined, it is not referenced.
         if !self.outlined(styles) {
             return Ok(None);
         }
@@ -349,9 +381,13 @@ impl Refable for FigureElem {
     }
 }
 
+/// The `contents` parameter of [`FigureElem`].
 #[derive(Debug, Clone)]
 pub enum ContentParam {
+    /// The content is an element function.
     Elem(ElemFunc),
+
+    /// The content is a name.
     Name(EcoString),
 }
 
@@ -368,11 +404,19 @@ cast_to_value! {
     }
 }
 
+/// The state needed to build the numbering of a figure.
 struct FigureContent {
+    /// The numbering scheme.
     numbering: Numbering,
+
+    /// The counter to use.
     counter: Counter,
-    update_counter: bool,
+
+    /// The supplement to use.
     supplement: Supplement,
+
+    /// The relevant content of the figure.
+    /// This is used to build the supplement.
     content: Content,
 }
 
@@ -380,7 +424,6 @@ cast_to_value! {
     v: FigureContent => dict! {
         "numbering" => Value::from(v.numbering),
         "counter" => Value::from(v.counter),
-        "update_counter" => Value::from(v.update_counter),
         "supplement" => Value::from(v.supplement),
         "content" => Value::from(v.content),
     }.into()
@@ -399,11 +442,6 @@ cast_from_value! {
             .cloned()
             .map(Counter::cast)??;
 
-        let update_counter = v
-            .at("update_counter")
-            .cloned()
-            .map(bool::cast)??;
-
         let supplement = v
             .at("supplement")
             .cloned()
@@ -414,13 +452,13 @@ cast_from_value! {
             .cloned()
             .map(Content::cast)??;
 
-        Self { numbering, update_counter, counter, supplement, content }
+        Self { numbering, counter, supplement, content }
     }
 }
 
-/// An element that can be placed in a figure.
-/// This trait is used to determine the type of a figure, it counter, its numbering pattern
-/// and the supplement to use for referencing it and creating the citation.
+/// An element that can be autodetected in a figure.
+/// This trait is used to determine the type of a figure, its counter, its numbering pattern
+/// and the supplement to use for referencing it and creating the caption.
 /// The element chosen as the figure's content is the one with the highest priority.
 pub trait Figurable {
     /// The supplement to use for referencing the figure.
