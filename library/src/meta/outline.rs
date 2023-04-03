@@ -33,7 +33,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// #outline(target: figure.where(kind: image), title: "Table of Figures")
 ///
 /// #figure(caption: "A nice figure!")[
-///  #image(src: "/tiger.jpg")
+///  #image("/tiger.jpg")
 /// ]
 /// ```
 ///
