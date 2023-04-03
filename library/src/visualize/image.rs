@@ -121,7 +121,7 @@ impl LocalName for ImageElem {
         match lang {
             Lang::CHINESE => "图",
             Lang::GERMAN => "Abbildung",
-            Lang::ITALIAN => "Figura",
+            Lang::ITALIAN | Lang::PORTUGUESE => "Figura",
             Lang::RUSSIAN => "Рисунок",
             Lang::ENGLISH | Lang::FRENCH | _ => "Figure",
         }
