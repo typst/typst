@@ -297,6 +297,11 @@ impl Str {
 
         Ok(resolved)
     }
+
+    /// Enumerate the grapheme clusters of this string.
+    pub fn enumerate(&self) -> Array {
+        self.clusters().enumerate()
+    }
 }
 
 /// The out of bounds access error message.

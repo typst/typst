@@ -67,6 +67,7 @@ pub fn call(
                 Value::Str(string.trim(pattern, at, repeat))
             }
             "split" => Value::Array(string.split(args.eat()?)),
+            "enumerate" => Value::Array(string.enumerate()),
             _ => return missing(),
         },
 
@@ -116,6 +117,7 @@ pub fn call(
                 array.join(sep, last).at(span)?
             }
             "sorted" => Value::Array(array.sorted().at(span)?),
+            "enumerate" => Value::Array(array.enumerate()),
             _ => return missing(),
         },
 
@@ -272,6 +274,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("split", true),
             ("starts-with", true),
             ("trim", true),
+            ("enumerate", false),
         ],
         "content" => &[("func", false), ("has", true), ("at", true), ("location", false)],
         "array" => &[
@@ -297,6 +300,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("rev", false),
             ("slice", true),
             ("sorted", false),
+            ("enumerate", false),
         ],
         "dictionary" => &[
             ("at", true),
