@@ -19,6 +19,8 @@ description: |
 - The [`link`]($func/link) function now accepts [labels]($func/label)
 - The [`bibliography`]($func/bibliography) now also accepts multiple
   bibliography paths (as an array)
+- Parsing of BibLaTeX files is now more permissive (accepts non-numeric edition,
+  pages, volumes, dates, and Jabref-style comments, fixed abbreviation parsing)
 - Labels and references can now include `:` and `.` if not at the end
 - Added basic i18n for a few more languages (IT, RU, ZH, FR, PT)
 - Added numbering support for Hebrew
@@ -36,11 +38,13 @@ description: |
 - CLI now has an `--open` flag to directly open the PDF
 - Fixed block spacing, e.g. in `{block(above: 1cm, below: 1cm, ..)}`
 - Fixed extraneous spacing in unary operators in equations
+- Fixed APA bibliography ordering
 - Fixed styling of text operators in math
 - Fixed invalid parsing of language tag in raw block with a single backtick
 - Fixed bugs with displaying counters and state
 - Fixed crash related to page counter
 - Fixed crash when [`symbol`]($func/symbol) function is called without arguments
+- Fixed crash in bibliography generation
 - Fixed access to label of certain content elements
 - Fixed line number in error message for CSV parsing
 - Fixed invalid autocompletion after certain markup elements
