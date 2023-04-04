@@ -133,6 +133,10 @@ impl Show for StyleElem {
 /// This is also useful if you're trying to make content fit a certain box, and doing certain
 /// arithmetic using `pt` (for example, comparing different lengths) is required.
 ///
+/// Please note: This function may provide a width or height of `infpt` if one of the page
+/// dimensions is `auto`, under certain circumstances. This should not normally occur for
+/// usual page sizes, however.
+///
 /// ```example
 /// layout(size => {
 ///     // work with the width and height of the container we're in
