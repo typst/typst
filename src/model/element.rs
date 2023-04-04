@@ -63,6 +63,14 @@ impl ElemFunc {
         (self.0.construct)(vm, args)
     }
 
+    /// Whether the contained element has the given capability.
+    pub fn can<C>(&self) -> bool
+    where
+        C: ?Sized + 'static,
+    {
+        (self.0.vtable)(TypeId::of::<C>()).is_some()
+    }
+
     /// Create a selector for elements of this function.
     pub fn select(self) -> Selector {
         Selector::Elem(self, None)

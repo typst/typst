@@ -1,3 +1,4 @@
+use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
@@ -260,14 +261,23 @@ pub enum Selector {
     Label(Label),
     /// Matches text elements through a regular expression.
     Regex(Regex),
+    /// Matches elements with a specific capability.
+    Can(TypeId),
     /// Matches if any of the subselectors match.
     Any(EcoVec<Self>),
+    /// Matches if all of the subselectors match.
+    All(EcoVec<Self>),
 }
 
 impl Selector {
     /// Define a simple text selector.
     pub fn text(text: &str) -> Self {
         Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+    }
+
+    /// Define a simple [`Selector::Can`] selector.
+    pub fn can<T: ?Sized + Any>() -> Self {
+        Self::Can(TypeId::of::<T>())
     }
 
     /// Whether the selector matches for the target.
@@ -285,7 +295,9 @@ impl Selector {
                 target.func() == item!(text_func)
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
+            Self::Can(cap) => target.can_type_id(*cap),
             Self::Any(selectors) => selectors.iter().any(|sel| sel.matches(target)),
+            Self::All(selectors) => selectors.iter().all(|sel| sel.matches(target)),
         }
     }
 }
@@ -303,8 +315,9 @@ impl Debug for Selector {
             }
             Self::Label(label) => label.fmt(f),
             Self::Regex(regex) => regex.fmt(f),
-            Self::Any(selectors) => {
-                f.write_str("any")?;
+            Self::Can(cap) => cap.fmt(f),
+            Self::Any(selectors) | Self::All(selectors) => {
+                f.write_str(if matches!(self, Self::Any(_)) { "any" } else { "all" })?;
                 let pieces: Vec<_> =
                     selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
                 f.write_str(&pretty_array_like(&pieces, false))

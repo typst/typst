@@ -39,6 +39,7 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
+use crate::meta::Refable;
 use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::{
@@ -134,7 +135,9 @@ pub fn module() -> Module {
 ///
 /// Display: Equation
 /// Category: math
-#[element(Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName)]
+#[element(
+    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable
+)]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
     #[default(false)]
@@ -159,9 +162,11 @@ pub struct EquationElem {
 }
 
 impl Synthesize for EquationElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_block(self.block(styles));
         self.push_numbering(self.numbering(styles));
+
+        Ok(())
     }
 }
 
@@ -275,6 +280,45 @@ impl LocalName for EquationElem {
             Lang::RUSSIAN => "Уравнение",
             Lang::ENGLISH | _ => "Equation",
         }
+    }
+}
+
+impl Refable for EquationElem {
+    fn reference(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        supplement: Option<Content>,
+    ) -> SourceResult<Content> {
+        // first we create the supplement of the heading
+        let mut supplement = supplement.unwrap_or_else(|| {
+            TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+        });
+
+        // we append a space if the supplement is not empty
+        if !supplement.is_empty() {
+            supplement += TextElem::packed('\u{a0}')
+        };
+
+        // we check for a numbering
+        let Some(numbering) = self.numbering(styles) else {
+            bail!(self.span(), "only numbered equations can be referenced");
+        };
+
+        // we get the counter and display it
+        let numbers = Counter::of(Self::func())
+            .at(vt, self.0.location().expect("missing location"))?
+            .display(vt, &numbering.trimmed())?;
+
+        Ok(supplement + numbers)
+    }
+
+    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
+        self.numbering(styles)
+    }
+
+    fn counter(&self, _styles: StyleChain) -> Counter {
+        Counter::of(Self::func())
     }
 }
 

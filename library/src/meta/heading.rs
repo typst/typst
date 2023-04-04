@@ -1,10 +1,10 @@
 use typst::font::FontWeight;
 
-use super::{Counter, CounterUpdate, LocalName, Numbering};
+use super::{Counter, CounterUpdate, LocalName, Numbering, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
-use crate::meta::Count;
+use crate::meta::{Count, Supplement};
 use crate::prelude::*;
-use crate::text::{TextElem, TextSize};
+use crate::text::{SpaceElem, TextElem, TextSize};
 
 /// A section heading.
 ///
@@ -41,7 +41,7 @@ use crate::text::{TextElem, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName)]
+#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable)]
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
@@ -74,16 +74,35 @@ pub struct HeadingElem {
     #[default(true)]
     pub outlined: bool,
 
+    /// A supplement for the heading.
+    ///
+    /// For references to headings, this is added before the
+    /// referenced number.
+    ///
+    /// ```example
+    /// #set heading(numbering: "1.", supplement: "Chapter")
+    ///
+    /// = Introduction <intro>
+    /// In @intro, we see how to turn
+    /// Sections into Chapters. And
+    /// in @intro[Part], it is done
+    /// manually.
+    /// ```
+    #[default(Smart::Auto)]
+    pub supplement: Smart<Option<Supplement>>,
+
     /// The heading's title.
     #[required]
     pub body: Content,
 }
 
 impl Synthesize for HeadingElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_level(self.level(styles));
         self.push_numbering(self.numbering(styles));
         self.push_outlined(self.outlined(styles));
+
+        Ok(())
     }
 }
 
@@ -135,6 +154,77 @@ impl Count for HeadingElem {
 cast_from_value! {
     HeadingElem,
     v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
+}
+
+impl Refable for HeadingElem {
+    fn reference(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        supplement: Option<Content>,
+    ) -> SourceResult<Content> {
+        // first we create the supplement of the heading
+        let mut supplement = if let Some(supplement) = supplement {
+            supplement
+        } else {
+            match self.supplement(styles) {
+                Smart::Auto => {
+                    TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+                }
+                Smart::Custom(None) => Content::empty(),
+                Smart::Custom(Some(supplement)) => {
+                    supplement.resolve(vt, std::iter::once(Value::from(self.clone())))?
+                }
+            }
+        };
+
+        // we append a space if the supplement is not empty
+        if !supplement.is_empty() {
+            supplement += TextElem::packed('\u{a0}')
+        };
+
+        // we check for a numbering
+        let Some(numbering) = self.numbering(styles) else {
+            bail!(self.span(), "only numbered headings can be referenced");
+        };
+
+        // we get the counter and display it
+        let numbers = Counter::of(Self::func())
+            .at(vt, self.0.location().expect("missing location"))?
+            .display(vt, &numbering.trimmed())?;
+
+        Ok(supplement + numbers)
+    }
+
+    fn level(&self, styles: StyleChain) -> usize {
+        self.level(styles).get()
+    }
+
+    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
+        self.numbering(styles)
+    }
+
+    fn counter(&self, _styles: StyleChain) -> Counter {
+        Counter::of(Self::func())
+    }
+
+    fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
+        // we check if the heading is outlined
+        if !self.outlined(styles) {
+            return Ok(None);
+        }
+
+        // We build the numbering followed by the title
+        let mut start = self.body();
+        if let Some(numbering) = self.numbering(StyleChain::default()) {
+            let numbers = Counter::of(HeadingElem::func())
+                .at(vt, self.0.location().expect("missing location"))?
+                .display(vt, &numbering)?;
+            start = numbers + SpaceElem::new().pack() + start;
+        };
+
+        Ok(Some(start))
+    }
 }
 
 impl LocalName for HeadingElem {
