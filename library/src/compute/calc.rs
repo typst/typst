@@ -99,28 +99,22 @@ pub fn pow(
             bail!(span, "exponent is too large")
         }
         Num::Float(f) if !f.is_normal() && f != 0.0 => {
-            bail!(span, "exponent may not be NaN, infinite, or subnormal")
+            bail!(span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
     };
 
-    let return_value = match (base, exp) {
-        (Num::Int(a), Num::Int(b)) if b >= 0 => Value::Int(a.pow(b as u32)),
-        (a, Num::Int(b)) => Value::Float(a.float().powi(b as i32)),
-        (a, b) => Value::Float(a.float().powf(b.float())),
+    let result = match (base, exp) {
+        (Num::Int(a), Num::Int(b)) if b >= 0 => Num::Int(a.pow(b as u32)),
+        (a, Num::Int(b)) => Num::Float(a.float().powi(b as i32)),
+        (a, b) => Num::Float(a.float().powf(b.float())),
     };
 
-    let is_nan = match return_value {
-        Value::Float(f) => f.is_nan(),
-        Value::Int(i) => (i as f64).is_nan(),
-        _ => false,
-    };
-
-    if is_nan {
-        bail!(span, "the return value is not a real number")
+    if result.float().is_nan() {
+        bail!(span, "the result is not a real number")
     }
 
-    return_value
+    result.value()
 }
 
 /// Calculate the square root of a number.
@@ -243,7 +237,7 @@ pub fn asin(
 ) -> Value {
     let val = value.v.float();
     if val < -1.0 || val > 1.0 {
-        bail!(value.span, "arcsin must be between -1 and 1");
+        bail!(value.span, "value must be between -1 and 1");
     }
     Value::Angle(Angle::rad(val.asin()))
 }
@@ -266,7 +260,7 @@ pub fn acos(
 ) -> Value {
     let val = value.v.float();
     if val < -1.0 || val > 1.0 {
-        bail!(value.span, "arccos must be between -1 and 1");
+        bail!(value.span, "value must be between -1 and 1");
     }
     Value::Angle(Angle::rad(val.acos()))
 }
@@ -379,23 +373,23 @@ pub fn tanh(
 /// Returns: float
 #[func]
 pub fn log(
-    /// The number whose logarithm to calculate. It must be strictly positive.
+    /// The number whose logarithm to calculate. Must be strictly positive.
     value: Spanned<Num>,
-    /// The base of the logarithm. It can't be null.
+    /// The base of the logarithm. Defaults to `{10}` and may not be zero.
     #[named]
     #[default(10.0)]
     base: f64,
 ) -> Value {
     let number = value.v.float();
-
-    if number <= 0 as f64 {
-        bail!(value.span, "a logarithm parameter must be strictly positive")
+    if number <= 0.0 {
+        bail!(value.span, "value must be strictly positive")
     }
+
     if !base.is_normal() {
-        bail!(value.span, "a logarithm base should be normal (not NaN, not infinite, non-null, not subnormal)")
+        bail!(value.span, "base may not be zero, NaN, infinite, or subnormal")
     }
 
-    let return_value = if base == 2.0 {
+    let result = if base == 2.0 {
         number.log2()
     } else if base == 10.0 {
         number.log10()
@@ -403,11 +397,11 @@ pub fn log(
         number.log(base)
     };
 
-    if return_value.is_infinite() || return_value.is_nan() {
-        bail!(value.span, "this logarithm doesn't return a real value")
+    if result.is_infinite() || result.is_nan() {
+        bail!(value.span, "the result is not a real number")
     }
 
-    Value::Float(return_value)
+    Value::Float(result)
 }
 
 /// Round a number down to the nearest integer.
@@ -693,6 +687,13 @@ impl Num {
         match self {
             Self::Int(v) => v as f64,
             Self::Float(v) => v,
+        }
+    }
+
+    fn value(self) -> Value {
+        match self {
+            Self::Int(v) => Value::Int(v),
+            Self::Float(v) => Value::Float(v),
         }
     }
 }

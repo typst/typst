@@ -90,11 +90,11 @@
 #calc.pow(2, 10000000000000000)
 
 ---
-// Error: 14-36 exponent may not be NaN, infinite, or subnormal
+// Error: 14-36 exponent may not be infinite, subnormal, or NaN
 #calc.pow(2, calc.pow(2.0, 10000.0))
 
 ---
-// Error: 15-18 the return value is not a real number
+// Error: 15-18 the result is not a real number
 #calc.pow(-1, 0.5)
 
 ---
@@ -102,15 +102,15 @@
 #calc.sqrt(-1)
 
 ---
-// Error: 11-13 a logarithm parameter must be strictly positive
+// Error: 11-13 value must be strictly positive
 #calc.log(-1)
 
 ---
-// Error: 11-12 a logarithm base should be normal (not NaN, not infinite, non-null, not subnormal)
+// Error: 11-12 base may not be zero, NaN, infinite, or subnormal
 #calc.log(1, base: 0)
 
 ---
-// Error: 11-13 this logarithm doesn't return a real value
+// Error: 11-13 the result is not a real number
 #calc.log(10, base: -1)
 
 ---
