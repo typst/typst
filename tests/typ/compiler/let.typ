@@ -77,6 +77,15 @@ Three
 // Error: 12-15 at most one destructuring sink is allowed
 #let (..a, ..a) = (1, 2)
 
+// Error: 12-13 not enough elements to destructure
+#let (a, b, c) = (1, 2)
+
+// Error: 6-9 too many elements to destructure
+#let (a) = (1, 2)
+
+// Error: 6 test
+#let (..a, b, c, d) = (1, 2)
+
 ---
 // Error: 5 expected identifier
 #let

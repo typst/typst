@@ -1194,7 +1194,7 @@ impl ast::Pattern {
             }
             ast::PatternKind::Destructure(pattern) => {
                 let Ok(value) = value.clone().cast::<Array>() else {
-                    bail!(self.span(), "cannot destructure {} into an array", value.type_name());
+                    bail!(self.span(), "cannot destructure {}", value.type_name());
                 };
 
                 let mut i = 0;
@@ -1209,6 +1209,9 @@ impl ast::Pattern {
                         }
                         ast::DestructuringKind::Sink(ident) => {
                             let sink_size = value.len() as i64 - pattern.len() as i64 + 1;
+                            if sink_size < 0 {
+                                bail!(self.span(), "not enough elements to destructure");
+                            }
                             let Ok(v) = value.slice(i, Some(i + sink_size)) else {
                                 bail!(ident.span(), "not enough elements to destructure");
                             };
@@ -1218,7 +1221,7 @@ impl ast::Pattern {
                     }
                 }
                 if i < value.len().try_into().unwrap() {
-                    bail!(self.span(), "not enough values to destructure");
+                    bail!(self.span(), "too many elements to destructure");
                 }
 
                 Ok(Value::None)
