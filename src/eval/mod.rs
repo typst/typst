@@ -1185,7 +1185,6 @@ impl Eval for ast::Closure {
 }
 
 impl ast::Pattern {
-
     // Destruct the given value into the pattern.
     pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
         match self.bindings() {
@@ -1209,7 +1208,9 @@ impl ast::Pattern {
                             i += 1;
                         }
                         ast::DestructuringKind::Sink(ident) => {
-                            let sink_size = i64::try_from(value.len()).unwrap() - i64::try_from(pattern.len()).unwrap() + 1;
+                            let sink_size = i64::try_from(value.len()).unwrap()
+                                - i64::try_from(pattern.len()).unwrap()
+                                + 1;
                             let Ok(v) = value.slice(i, Some(i + sink_size)) else {
                                 bail!(ident.span(), "not enough elements to destructure");
                             };
@@ -1238,9 +1239,7 @@ impl Eval for ast::LetBinding {
         };
 
         match self.binding() {
-            ast::LetBindingKind::Normal(pattern) => {
-                pattern.define(vm, value)
-            }
+            ast::LetBindingKind::Normal(pattern) => pattern.define(vm, value),
             ast::LetBindingKind::Closure(ident) => {
                 vm.define(ident, value);
                 Ok(Value::None)
@@ -1391,7 +1390,7 @@ impl Eval for ast::ForLoop {
                 #[allow(unused_parens)]
                 for value in $iter {
                     if let Err(err) = $pat.define(vm, Value::from(value)) {
-                        return Err(err)
+                        return Err(err);
                     }
 
                     let body = self.body();

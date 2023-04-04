@@ -458,7 +458,7 @@ impl<'a> CapturesVisitor<'a> {
                 for ident in pattern.idents() {
                     self.bind(ident);
                 }
-  
+
                 self.visit(expr.body().as_untyped());
                 self.internal.exit();
             }

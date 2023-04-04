@@ -325,7 +325,9 @@ impl Array {
 
     /// Enumerate all items in the array.
     pub fn enumerate(&self) -> Self {
-        let v = self.0.iter()
+        let v = self
+            .0
+            .iter()
             .enumerate()
             .map(|(i, value)| eco_vec![Value::Int(i as i64), value.clone()])
             .map(Self::from_vec)

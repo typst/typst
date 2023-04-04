@@ -1534,12 +1534,10 @@ impl Closure {
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
     pub fn name(&self) -> Option<Ident> {
         match self.0.cast_first_match::<Pattern>() {
-            Some(p) => {
-                match p.bindings() {
-                    PatternKind::Ident(ident) => Some(ident),
-                    _ => Option::None,
-                }
-            }
+            Some(p) => match p.bindings() {
+                PatternKind::Ident(ident) => Some(ident),
+                _ => Option::None,
+            },
             _ => Option::None,
         }
     }
@@ -1628,8 +1626,9 @@ impl Pattern {
                     SyntaxKind::Ident => {
                         bindings.push(DestructuringKind::Ident(child.cast().unwrap()))
                     }
-                    SyntaxKind::Spread => bindings.push(DestructuringKind::Sink(child.cast_first_match().unwrap())),
-                    _ => {},
+                    SyntaxKind::Spread => bindings
+                        .push(DestructuringKind::Sink(child.cast_first_match().unwrap())),
+                    _ => {}
                 }
             }
             PatternKind::Destructure(bindings)
@@ -1671,9 +1670,7 @@ impl LetBindingKind {
     // Returns a list of all identifiers in the pattern.
     pub fn idents(&self) -> Vec<Ident> {
         match self {
-            LetBindingKind::Normal(pattern) => {
-                pattern.idents()
-            }
+            LetBindingKind::Normal(pattern) => pattern.idents(),
             LetBindingKind::Closure(ident) => {
                 vec![ident.clone()]
             }
