@@ -344,7 +344,7 @@
         },
         {
           "name": "constant.numeric.integer.typst",
-          "match": "\\b(0x[0-9a-zA-Z]+|(0b|0o)?\\d+)\\b"
+          "match": "\\b(0x[0-9a-fA-F]+|0b[0-1]+|0o[0-7]+|\\d+)\\b"
         },
         {
           "name": "constant.numeric.float.typst",
