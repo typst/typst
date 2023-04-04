@@ -147,7 +147,7 @@ impl NumberingPattern {
     /// Apply the pattern to the given number.
     pub fn apply(&self, numbers: &[usize]) -> EcoString {
         let mut fmt = EcoString::new();
-        let mut numbers = numbers.into_iter();
+        let mut numbers = numbers.iter();
 
         for (i, ((prefix, kind, case), &n)) in
             self.pieces.iter().zip(&mut numbers).enumerate()

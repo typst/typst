@@ -67,7 +67,7 @@ cast_from_value! {
     v: i64 => Self(Value::Int(v.abs())),
     v: f64 => Self(Value::Float(v.abs())),
     v: Length => Self(Value::Length(v.try_abs()
-        .ok_or_else(|| "cannot take absolute value of this length")?)),
+        .ok_or("cannot take absolute value of this length")?)),
     v: Angle => Self(Value::Angle(v.abs())),
     v: Ratio => Self(Value::Ratio(v.abs())),
     v: Fr => Self(Value::Fraction(v.abs())),

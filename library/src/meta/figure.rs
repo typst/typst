@@ -312,11 +312,9 @@ impl Synthesize for FigureElem {
             let supplement = supplement
                 .resolve(vt, [content.unwrap_or_else(|| self.body()).into()])?;
 
-            self.push_supplement(Smart::Custom(Some(Supplement::Content(
-                supplement.clone(),
-            ))));
-            self.push_counter(Some(counter.clone()));
-            self.push_numbering(Some(numbering.clone()));
+            self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+            self.push_counter(Some(counter));
+            self.push_numbering(Some(numbering));
         } else {
             self.push_supplement(Smart::Custom(None));
             self.push_counter(None);

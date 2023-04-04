@@ -207,7 +207,7 @@ impl LocalName for OutlineElem {
             Lang::ITALIAN => "Indice",
             Lang::PORTUGUESE => "Sumário",
             Lang::RUSSIAN => "Содержание",
-            Lang::ENGLISH | _ => "Contents",
+            _ => "Contents",
         }
     }
 }

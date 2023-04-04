@@ -207,7 +207,7 @@ impl LocalName for RawElem {
             Lang::ITALIAN => "Codice",
             Lang::RUSSIAN => "код",
             Lang::FRENCH => "Liste",
-            Lang::ENGLISH | Lang::GERMAN | _ => "Listing",
+            _ => "Listing",
         }
     }
 }
@@ -277,7 +277,7 @@ fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
 
 /// The syntect syntax definitions.
 static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(|| syntect::parsing::SyntaxSet::load_defaults_nonewlines());
+    Lazy::new(syntect::parsing::SyntaxSet::load_defaults_nonewlines);
 
 /// The default theme used for syntax highlighting.
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {

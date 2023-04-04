@@ -756,7 +756,7 @@ fn shared_get<T: PartialEq>(
         .iter()
         .filter_map(|child| child.to_styled())
         .all(|(_, local)| getter(styles.chain(local)) == value)
-        .then(|| value)
+        .then_some(value)
 }
 
 /// Find suitable linebreaks.
