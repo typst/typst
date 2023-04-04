@@ -187,18 +187,24 @@ pub fn layout(
 struct LayoutElem {
     /// The function to call with the outer container's (or page's) size.
     #[required]
-    func: Func
+    func: Func,
 }
 
 impl Layout for LayoutElem {
-    fn layout(&self, vt: &mut Vt, styles: StyleChain, regions: Regions) -> SourceResult<Fragment> {
+    fn layout(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
         // Gets the current region's base size, which will be the size of the outer container,
         // or of the page if there is no such container.
         let Size { x, y } = regions.base();
         let size_dict = dict! { "width" => x, "height" => y }.into();
 
-        let result = self.func()
-            .call_vt(vt, [size_dict])?  // calls func(size)
+        let result = self
+            .func()
+            .call_vt(vt, [size_dict])? // calls func(size)
             .display();
 
         result.layout(vt, styles, regions)
