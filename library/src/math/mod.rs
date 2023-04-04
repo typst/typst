@@ -41,7 +41,6 @@ use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
 use crate::meta::Figurable;
 use crate::meta::Refable;
-use crate::meta::Supplement;
 use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
 use crate::text::{
@@ -321,10 +320,6 @@ impl Refable for EquationElem {
 }
 
 impl Figurable for EquationElem {
-    fn supplement(&self, styles: StyleChain) -> crate::meta::Supplement {
-        Supplement::Content(TextElem::packed(self.local_name(TextElem::lang_in(styles))))
-    }
-
     fn priority(&self, _: StyleChain) -> isize {
         900
     }

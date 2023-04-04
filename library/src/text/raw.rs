@@ -6,7 +6,7 @@ use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
-use crate::meta::{Figurable, LocalName, Supplement};
+use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
@@ -213,10 +213,6 @@ impl LocalName for RawElem {
 }
 
 impl Figurable for RawElem {
-    fn supplement(&self, styles: StyleChain) -> Supplement {
-        Supplement::Content(TextElem::packed(self.local_name(TextElem::lang_in(styles))))
-    }
-
     fn priority(&self, _styles: StyleChain) -> isize {
         500
     }

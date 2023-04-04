@@ -1,7 +1,9 @@
 use std::any::TypeId;
 use std::str::FromStr;
 
-use super::{Count, Counter, CounterKey, CounterUpdate, Numbering, NumberingPattern};
+use super::{
+    Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
+};
 use crate::layout::{BlockElem, VElem};
 use crate::meta::{Refable, Supplement};
 use crate::prelude::*;
@@ -229,9 +231,12 @@ impl Synthesize for FigureElem {
 
         // We get the content or `None`.
         let content = match self.kind(styles) {
-            Smart::Auto => match self.determine_type(styles ){
+            Smart::Auto => match self.determine_type(styles) {
                 Some(ty) => Some(ty),
-                None => bail!(self.span(), "unable to determine figure type, use `kind` to manually specify it"),
+                None => bail!(
+                    self.span(),
+                    "unable to determine figure type, use `kind` to manually specify it"
+                ),
             },
             Smart::Custom(ContentParam::Elem(ty)) => self.find_elem(ty),
             Smart::Custom(ContentParam::Name(_)) => None,
@@ -279,10 +284,12 @@ impl Synthesize for FigureElem {
         // must have succeeded.
         let supplement = match self.supplement(styles) {
             Smart::Auto => {
-                if let Some(figurable) =
-                    content.as_ref().and_then(|c| c.with::<dyn Figurable>())
+                if let Some(local_name) =
+                    content.as_ref().and_then(|c| c.with::<dyn LocalName>())
                 {
-                    Some(figurable.supplement(styles))
+                    Some(Supplement::Content(TextElem::packed(
+                        local_name.local_name(TextElem::lang_in(styles)),
+                    )))
                 } else {
                     None
                 }
@@ -302,13 +309,10 @@ impl Synthesize for FigureElem {
                 bail!(self.span(), "numbering a figure requires that is has a supplement");
             };
 
-            let supplement = supplement.resolve(vt, [content.unwrap_or_else(|| self.body()).into()])?;
+            let supplement = supplement
+                .resolve(vt, [content.unwrap_or_else(|| self.body()).into()])?;
 
-            self.push_element(Some(FigureKind {
-                numbering,
-                counter,
-                supplement,
-            }))
+            self.push_element(Some(FigureKind { numbering, counter, supplement }))
         } else {
             self.push_element(None);
         }
@@ -447,9 +451,6 @@ cast_from_value! {
 /// and the supplement to use for referencing it and creating the caption.
 /// The element chosen as the figure's content is the one with the highest priority.
 pub trait Figurable {
-    /// The supplement to use for referencing the figure.
-    fn supplement(&self, styles: StyleChain) -> Supplement;
-
     /// The priority of this element.
     fn priority(&self, styles: StyleChain) -> isize;
 }

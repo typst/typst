@@ -1,7 +1,6 @@
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
-use crate::meta::{Figurable, LocalName, Supplement};
+use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
-use crate::text::TextElem;
 
 /// A table of items.
 ///
@@ -296,10 +295,6 @@ impl LocalName for TableElem {
 }
 
 impl Figurable for TableElem {
-    fn supplement(&self, styles: StyleChain) -> Supplement {
-        Supplement::Content(TextElem::packed(self.local_name(TextElem::lang_in(styles))))
-    }
-
     fn priority(&self, _styles: StyleChain) -> isize {
         -1000
     }

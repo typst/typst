@@ -4,9 +4,8 @@ use std::path::Path;
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
 use crate::{
-    meta::{Figurable, LocalName, Supplement},
+    meta::{Figurable, LocalName},
     prelude::*,
-    text::TextElem,
 };
 
 /// A raster or vector graphic.
@@ -129,10 +128,6 @@ impl LocalName for ImageElem {
 }
 
 impl Figurable for ImageElem {
-    fn supplement(&self, styles: StyleChain) -> Supplement {
-        Supplement::Content(TextElem::packed(self.local_name(TextElem::lang_in(styles))))
-    }
-
     fn priority(&self, _styles: StyleChain) -> isize {
         1000
     }
