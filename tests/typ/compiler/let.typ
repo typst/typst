@@ -33,6 +33,39 @@ Three
 #test(v3, 3)
 
 ---
+// Unpacking.
+
+// Simple unpacking.
+#let (a, b) = (1, 2)
+#test(a, 1)
+#test(b, 2)
+
+// Unpacking with placeholders.
+#let (a, _, c) = (1, 2, 3)
+#test(a, 1)
+#test(c, 3)
+
+// Unpacking with a spread.
+#let (a, b, ..c) = (1, 2, 3, 4, 5, 6)
+#test(a, 1)
+#test(b, 2)
+#test(c, (3, 4, 5, 6))
+
+// Unpacking with a spread and placeholders.
+#let (a, b, .._) = (1, 2, 3, 4, 5, 6)
+#test(a, 1)
+#test(b, 2)
+
+// Unpacking with a spread in the middle.
+#let (a, ..b, c) = (1, 2, 3, 4, 5, 6)
+#test(a, 1)
+#test(b, (2, 3, 4, 5))
+#test(c, 6)
+
+// Error: 2-3 unknown variable
+#_
+
+---
 // Error: 5 expected identifier
 #let
 

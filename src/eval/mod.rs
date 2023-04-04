@@ -1205,7 +1205,9 @@ impl ast::Pattern {
                             let Ok(v) = value.at(i) else {
                                 bail!(ident.span(), "not enough elements to destructure");
                             };
-                            vm.define(ident.clone(), v.clone());
+                            if ident.clone().take() != "_" {
+                                vm.define(ident.clone(), v.clone());
+                            }
                             i += 1;
                         }
                         ast::DestructuringKind::Sink(ident) => {
@@ -1213,11 +1215,10 @@ impl ast::Pattern {
                             let Ok(v) = value.slice(i, Some(i + sink_size)) else {
                                 bail!(ident.span(), "not enough elements to destructure");
                             };
-                            vm.define(ident.clone(), v.clone());
+                            if ident.clone().take() != "_" {
+                                vm.define(ident.clone(), v.clone());
+                            }
                             i += sink_size;
-                        }
-                        ast::DestructuringKind::Placeholder => {
-                            i += 1;
                         }
                     }
                 }

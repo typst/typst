@@ -1608,8 +1608,6 @@ pub enum DestructuringKind {
     Ident(Ident),
     /// An argument sink: `..y`.
     Sink(Ident),
-    /// A placeholder: `_`.
-    Placeholder,
 }
 
 #[derive(Debug, Clone, Hash)]
@@ -1628,11 +1626,7 @@ impl Pattern {
             for child in self.0.children() {
                 match child.kind() {
                     SyntaxKind::Ident => {
-                        if child.text() == "_" {
-                            bindings.push(DestructuringKind::Placeholder)
-                        } else {
-                            bindings.push(DestructuringKind::Ident(child.cast().unwrap()))
-                        }
+                        bindings.push(DestructuringKind::Ident(child.cast().unwrap()))
                     }
                     SyntaxKind::Spread => bindings.push(DestructuringKind::Sink(child.cast_first_match().unwrap())),
                     _ => {},
@@ -1655,7 +1649,6 @@ impl Pattern {
                 .filter_map(|binding| match binding {
                     DestructuringKind::Ident(ident) => Some(ident),
                     DestructuringKind::Sink(ident) => Some(ident),
-                    DestructuringKind::Placeholder => Option::None,
                 })
                 .collect(),
         }
