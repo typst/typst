@@ -90,17 +90,25 @@ pub fn pow(
     /// The exponent of the power. Must be non-negative.
     exponent: Spanned<Num>,
 ) -> Value {
-    let exponent = match exponent.v {
-        Num::Int(i) if i > u32::MAX as i64 => {
-            bail!(exponent.span, "exponent too large");
+    let Spanned { v: exp, span } = exponent;
+    match exp {
+        _ if exp.float() == 0.0 && base.float() == 0.0 => {
+            bail!(args.span, "zero to the power of zero is undefined")
         }
-        Num::Int(0..) => exponent.v,
-        Num::Float(f) if f >= 0.0 => exponent.v,
-        _ => {
-            bail!(exponent.span, "exponent must be non-negative");
+        Num::Int(i) if i32::try_from(i).is_err() => {
+            bail!(span, "exponent is too large")
         }
+        Num::Float(f) if !f.is_normal() && f != 0.0 => {
+            bail!(span, "exponent may not be NaN, infinite, or subnormal")
+        }
+        _ => {}
     };
-    base.apply2(exponent, |a, b| a.pow(b as u32), f64::powf)
+
+    match (base, exp) {
+        (Num::Int(a), Num::Int(b)) if b >= 0 => Value::Int(a.pow(b as u32)),
+        (a, Num::Int(b)) => Value::Float(a.float().powi(b as i32)),
+        (a, b) => Value::Float(a.float().powf(b.float())),
+    }
 }
 
 /// Calculate the square root of a number.
@@ -452,7 +460,7 @@ pub fn round(
         Num::Int(n) if digits == 0 => Value::Int(n),
         _ => {
             let n = value.float();
-            let factor = 10.0_f64.powi(digits as i32) as f64;
+            let factor = 10.0_f64.powi(digits as i32);
             Value::Float((n * factor).round() / factor)
         }
     }

@@ -10,7 +10,7 @@ pub fn emoji() -> Module {
 }
 
 /// A list of named emoji.
-const EMOJI: &[(&'static str, Symbol)] = symbols! {
+const EMOJI: &[(&str, Symbol)] = symbols! {
     abacus: '🧮',
     abc: '🔤',
     abcd: '🔡',

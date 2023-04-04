@@ -53,6 +53,11 @@ impl SyntaxNode {
         }
     }
 
+    /// Return `true` if the length is 0.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// The byte length of the node in the source text.
     pub fn len(&self) -> usize {
         match &self.0 {

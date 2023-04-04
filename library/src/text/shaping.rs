@@ -4,6 +4,7 @@ use std::str::FromStr;
 use rustybuzz::{Feature, Tag, UnicodeBuffer};
 use typst::font::{Font, FontVariant};
 use typst::util::SliceExt;
+use unicode_script::{Script, UnicodeScript};
 
 use super::*;
 use crate::layout::SpanMapper;
@@ -69,9 +70,22 @@ impl ShapedGlyph {
     }
 
     /// Whether the glyph is justifiable.
+    ///
+    /// Typst's basic justification strategy is to stretch all the spaces
+    /// in a line until the line fills the available width. However, some
+    /// scripts (notably Chinese and Japanese) don't use spaces.
+    ///
+    /// In Japanese typography, the convention is to insert space evenly
+    /// between all glyphs. I assume it's the same in Chinese.
     pub fn is_justifiable(&self) -> bool {
-        self.is_space() || matches!(self.c, '，' | '。' | '、')
+        self.is_space() || is_spaceless(self.c.script())
     }
+}
+
+/// Does this script separate its words using spaces?
+fn is_spaceless(script: Script) -> bool {
+    use Script::*;
+    matches!(script, Hiragana | Katakana | Han)
 }
 
 /// A side you can go toward.
@@ -122,7 +136,14 @@ impl<'a> ShapedText<'a> {
                 })
                 .collect();
 
-            let item = TextItem { font, size: self.size, lang, fill, glyphs };
+            let item = TextItem {
+                font,
+                size: self.size,
+                lang,
+                fill: fill.clone(),
+                glyphs,
+            };
+
             let layer = frame.layer();
             let width = item.width();
 
@@ -377,7 +398,7 @@ pub fn shape<'a>(
 }
 
 /// Shape text with font fallback using the `families` iterator.
-fn shape_segment<'a>(
+fn shape_segment(
     ctx: &mut ShapingContext,
     base: usize,
     text: &str,

@@ -52,10 +52,12 @@ pub struct CliArguments {
 #[command()]
 enum Command {
     /// Compiles the input file into a PDF file
+    #[command(visible_alias = "c")]
     Compile(CompileCommand),
 
     /// Watches the input file and recompiles on changes
-    Watch(CompileCommand),
+    #[command(visible_alias = "w")]
+    Watch(WatchCommand),
 
     /// List all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
@@ -140,7 +142,7 @@ struct FontsSettings {
     /// The font paths
     font_paths: Vec<PathBuf>,
 
-    /// Wether to include font variants
+    /// Whether to include font variants
     variants: bool,
 }
 
@@ -307,7 +309,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Print diagnostics.
         Err(errors) => {
             status(command, Status::Error).unwrap();
-            print_diagnostics(&world, *errors)
+            print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
             Ok(true)
         }
@@ -604,10 +606,10 @@ impl PathHash {
 /// Read a file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
-    if fs::metadata(&path).map_err(f)?.is_dir() {
+    if fs::metadata(path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(&path).map_err(f)
+        fs::read(path).map_err(f)
     }
 }
 

@@ -91,12 +91,12 @@ impl Sides<Rel<Abs>> {
 impl<T> Get<Side> for Sides<T> {
     type Component = T;
 
-    fn get(self, side: Side) -> T {
+    fn get_ref(&self, side: Side) -> &T {
         match side {
-            Side::Left => self.left,
-            Side::Top => self.top,
-            Side::Right => self.right,
-            Side::Bottom => self.bottom,
+            Side::Left => &self.left,
+            Side::Top => &self.top,
+            Side::Right => &self.right,
+            Side::Bottom => &self.bottom,
         }
     }
 
@@ -180,7 +180,7 @@ impl Side {
 
 impl<T> Cast for Sides<Option<T>>
 where
-    T: Default + Cast + Copy,
+    T: Default + Cast + Clone,
 {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Dict(_)) || T::is(value)
@@ -191,13 +191,13 @@ where
             let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
 
             let rest = take("rest")?;
-            let x = take("x")?.or(rest);
-            let y = take("y")?.or(rest);
+            let x = take("x")?.or_else(|| rest.clone());
+            let y = take("y")?.or_else(|| rest.clone());
             let sides = Sides {
-                left: take("left")?.or(x),
-                top: take("top")?.or(y),
-                right: take("right")?.or(x),
-                bottom: take("bottom")?.or(y),
+                left: take("left")?.or_else(|| x.clone()),
+                top: take("top")?.or_else(|| y.clone()),
+                right: take("right")?.or_else(|| x.clone()),
+                bottom: take("bottom")?.or_else(|| y.clone()),
             };
 
             dict.finish(&["left", "top", "right", "bottom", "x", "y", "rest"])?;
