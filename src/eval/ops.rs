@@ -424,39 +424,17 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
         _ => Option::None,
     }
 }
-//SourceResult<Value>
-pub fn pipe(
-    b: &Binary,
-    vm: &mut Vm, /*lhs: Value, rhs: Value*/
-) -> SourceResult<Value> {
+
+pub fn pipe(b: &Binary, vm: &mut Vm) -> SourceResult<Value> {
     use crate::diag::At;
-    let (lhs, rhs) = (b.lhs().eval(vm)?, b.eval(vm)?);
-    let x = match (lhs.clone(), rhs.clone()) {
-        (Args(args), Func(f)) => f.call_vm(vm, args),
-        //  (Args(args), FuncPattern(_)) => unimplemented!(),
-        (Args(_), v) => {
-            let r = Err(eco_format!(
-                "cannot pipe in {} cause it is not a function",
-                rhs.type_name(),
-            ));
-            return r.at(b.span());
+    let (lhs, rhs) = (b.lhs().eval(vm)?, b.rhs().eval(vm)?);
+    let x = match (lhs, rhs) {
+        (v, Func(f)) => f.call_vm(vm, crate::eval::Args::new(b.span(), vec![v])),
+        (x, y) => {
+            return Err(eco_format!("cant pipe {} in {}.", x.type_name(), y.type_name()))
+                .at(b.span());
         }
-        (v, Func(f)) => {
-            let r = Err(eco_format!(
-                "cannot pipe value: {} cause in {} it must be an Args",
-                lhs.type_name(),
-                rhs.type_name()
-            ));
-            return r.at(b.span());
-        }
-        (lhs, rhs) => {
-            let r = Err(eco_format!(
-                "cannot pipe {} in {} ",
-                lhs.type_name(),
-                rhs.type_name()
-            ));
-            return r.at(b.span());
-        }
+        _ => unreachable!(),
     };
     x
 }
