@@ -39,7 +39,6 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
-use crate::meta::Figurable;
 use crate::meta::Refable;
 use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
@@ -320,12 +319,6 @@ impl Refable for EquationElem {
 
     fn counter(&self, _styles: StyleChain) -> Counter {
         Counter::of(Self::func())
-    }
-}
-
-impl Figurable for EquationElem {
-    fn priority(&self, _: StyleChain) -> isize {
-        900
     }
 }
 
