@@ -915,6 +915,7 @@ impl Eval for ast::Binary {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         match self.op() {
+            ast::BinOp::Pipe => ops::pipe(&self, vm),
             ast::BinOp::Add => self.apply(vm, ops::add),
             ast::BinOp::Sub => self.apply(vm, ops::sub),
             ast::BinOp::Mul => self.apply(vm, ops::mul),

@@ -251,6 +251,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::BlockComment => Some(Tag::Comment),
         SyntaxKind::Error => Some(Tag::Error),
         SyntaxKind::Eof => None,
+        SyntaxKind::Pipe => None,
     }
 }
 

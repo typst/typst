@@ -102,6 +102,8 @@ pub enum SyntaxKind {
     Plus,
     /// The unary negation and binary subtraction operator: `-`.
     Minus,
+    /// The binary pipe operator : `|>`.
+    Pipe,
     /// The division operator and fraction operator in math: `/`.
     Slash,
     /// The superscript operator in math: `^`.
@@ -315,6 +317,7 @@ impl SyntaxKind {
     /// A human-readable name for the kind.
     pub fn name(self) -> &'static str {
         match self {
+            Self::Pipe => "pipe",
             Self::Markup => "markup",
             Self::Text => "text",
             Self::Space => "space",

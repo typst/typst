@@ -4,9 +4,10 @@ use std::cmp::Ordering;
 
 use ecow::eco_format;
 
-use super::{format_str, Regex, Value};
-use crate::diag::StrResult;
+use super::{format_str, Eval, Regex, Value, Vm};
+use crate::diag::{SourceResult, StrResult};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
+use crate::syntax::ast::{AstNode, Binary};
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -422,4 +423,40 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
         (a, Array(b)) => Some(b.contains(a)),
         _ => Option::None,
     }
+}
+//SourceResult<Value>
+pub fn pipe(
+    b: &Binary,
+    vm: &mut Vm, /*lhs: Value, rhs: Value*/
+) -> SourceResult<Value> {
+    use crate::diag::At;
+    let (lhs, rhs) = (b.lhs().eval(vm)?, b.eval(vm)?);
+    let x = match (lhs.clone(), rhs.clone()) {
+        (Args(args), Func(f)) => f.call_vm(vm, args),
+        //  (Args(args), FuncPattern(_)) => unimplemented!(),
+        (Args(_), v) => {
+            let r = Err(eco_format!(
+                "cannot pipe in {} cause it is not a function",
+                rhs.type_name(),
+            ));
+            return r.at(b.span());
+        }
+        (v, Func(f)) => {
+            let r = Err(eco_format!(
+                "cannot pipe value: {} cause in {} it must be an Args",
+                lhs.type_name(),
+                rhs.type_name()
+            ));
+            return r.at(b.span());
+        }
+        (lhs, rhs) => {
+            let r = Err(eco_format!(
+                "cannot pipe {} in {} ",
+                lhs.type_name(),
+                rhs.type_name()
+            ));
+            return r.at(b.span());
+        }
+    };
+    x
 }

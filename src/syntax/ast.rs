@@ -1323,6 +1323,8 @@ pub enum BinOp {
     Geq,
     /// The assignment operator: `=`.
     Assign,
+    /// The pipe operator: `|>`.
+    Pipe,
     /// The containment operator: `in`.
     In,
     /// The inversed containment operator: `not in`.
@@ -1380,6 +1382,7 @@ impl BinOp {
             Self::NotIn => 4,
             Self::And => 3,
             Self::Or => 2,
+            Self::Pipe => 1,
             Self::Assign => 1,
             Self::AddAssign => 1,
             Self::SubAssign => 1,
@@ -1405,6 +1408,7 @@ impl BinOp {
             Self::Geq => Assoc::Left,
             Self::In => Assoc::Left,
             Self::NotIn => Assoc::Left,
+            Self::Pipe => Assoc::Left,
             Self::Assign => Assoc::Right,
             Self::AddAssign => Assoc::Right,
             Self::SubAssign => Assoc::Right,
@@ -1416,6 +1420,7 @@ impl BinOp {
     /// The string representation of this operation.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Pipe => "|>",
             Self::Add => "+",
             Self::Sub => "-",
             Self::Mul => "*",

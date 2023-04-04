@@ -490,6 +490,7 @@ impl Lexer<'_> {
             '/' if self.s.eat_if('=') => SyntaxKind::SlashEq,
             '.' if self.s.eat_if('.') => SyntaxKind::Dots,
             '=' if self.s.eat_if('>') => SyntaxKind::Arrow,
+            '|' if self.s.eat_if('>') => SyntaxKind::Pipe,
 
             '{' => SyntaxKind::LeftBrace,
             '}' => SyntaxKind::RightBrace,
