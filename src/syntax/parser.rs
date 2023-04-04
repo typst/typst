@@ -833,32 +833,59 @@ fn args(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Args);
 }
 
+// TODO (Marmare): remove success return value
+enum PatternKind {
+    Normal,
+    Destructuring,
+}
+
+fn pattern(p: &mut Parser) -> PatternKind {
+    let m = p.marker();
+    let unpacking = p.at(SyntaxKind::LeftParen);
+    if unpacking {
+        collection(p, false);
+        validate_unpacking(p, m);
+        p.wrap(m, SyntaxKind::Pattern);
+
+        PatternKind::Destructuring
+    } else {
+        let success = p.expect(SyntaxKind::Ident);
+        if p.at(SyntaxKind::Comma) {
+            // TODO: this should only be a warning instead
+            p.expected("keyword `in`. Did you mean to use an unpacking pattern?");
+        }
+
+        if success {
+            p.wrap(m, SyntaxKind::Pattern);
+        }
+
+        PatternKind::Normal
+    }
+}
+
 fn let_binding(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Let);
 
     let m2 = p.marker();
     let mut closure = false;
-    let unpacking = p.at(SyntaxKind::LeftParen);
-    if unpacking {
-        collection(p, false);
-        validate_unpacking(p, m2);
-        p.wrap(m2, SyntaxKind::Pattern);
-    } else {
-        p.expect(SyntaxKind::Ident);
-    
-        closure = p.directly_at(SyntaxKind::LeftParen);
-        if closure {
-            let m3 = p.marker();
-            collection(p, false);
-            validate_params(p, m3);
-            p.wrap(m3, SyntaxKind::Params);
-        } else {
-            p.wrap(m2, SyntaxKind::Pattern);
+    let mut destructuring = false;
+    match pattern(p) {
+        PatternKind::Normal => {
+            closure = p.directly_at(SyntaxKind::LeftParen);
+            if closure {
+                let m3 = p.marker();
+                collection(p, false);
+                validate_params(p, m3);
+                p.wrap(m3, SyntaxKind::Params);
+            }
+        }
+        PatternKind::Destructuring => {
+            destructuring = true;
         }
     }
 
-    let f = if closure || unpacking { Parser::expect } else { Parser::eat_if };
+    let f = if closure || destructuring { Parser::expect } else { Parser::eat_if };
     if f(p, SyntaxKind::Eq) {
         code_expr(p);
     }
@@ -934,24 +961,11 @@ fn while_loop(p: &mut Parser) {
 fn for_loop(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::For);
-    for_pattern(p);
+    pattern(p);
     p.expect(SyntaxKind::In);
     code_expr(p);
     block(p);
     p.wrap(m, SyntaxKind::ForLoop);
-}
-
-fn for_pattern(p: &mut Parser) {
-    let m = p.marker();
-    let unpacking = p.at(SyntaxKind::LeftParen);
-    if unpacking {
-        collection(p, false);
-        validate_unpacking(p, m);
-        p.wrap(m, SyntaxKind::Pattern);
-    } else {
-        p.expect(SyntaxKind::Ident);
-        p.wrap(m, SyntaxKind::Pattern);
-    }
 }
 
 fn module_import(p: &mut Parser) {

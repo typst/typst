@@ -1533,7 +1533,15 @@ impl Closure {
     ///
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
     pub fn name(&self) -> Option<Ident> {
-        self.0.children().next()?.cast()
+        match self.0.cast_first_match::<Pattern>() {
+            Some(p) => {
+                match p.bindings() {
+                    PatternKind::Ident(ident) => Some(ident),
+                    _ => Option::None,
+                }
+            }
+            _ => Option::None,
+        }
     }
 
     /// The parameter bindings.
