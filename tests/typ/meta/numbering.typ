@@ -21,3 +21,14 @@
   [ עבור #i]
   parbreak()
 }
+
+---
+#set text(lang: "zh")
+
+#for i in range(9,21, step: 2){
+  numbering("第一章", i)
+  [ and ]
+  numbering("第壹章", i)
+  [ 这是 #i ]
+  parbreak()
+}
