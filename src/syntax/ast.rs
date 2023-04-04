@@ -1361,6 +1361,7 @@ impl BinOp {
             SyntaxKind::HyphEq => Self::SubAssign,
             SyntaxKind::StarEq => Self::MulAssign,
             SyntaxKind::SlashEq => Self::DivAssign,
+            SyntaxKind::Pipe => Self::Pipe,
             _ => return Option::None,
         })
     }
