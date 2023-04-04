@@ -232,7 +232,7 @@ fn format_json_error(error: serde_json::Error) -> String {
 /// ## Example
 /// ```example
 /// #let bookshelf(contents) = {
-///   for author, works in contents {
+///   for (author, works) in contents {
 ///     author
 ///     for work in works [
 ///       - #work.title (#work.published)
