@@ -9,7 +9,7 @@
 
 // Dictionary is not traversed in insertion order.
 // Should output `Age: 2. Name: Typst.`.
-#for (k, v) in (Name: "Typst", Age: 2).pairs() [
+#for (k, v) in (Name: "Typst", Age: 2) [
   #k: #v.
 ]
 
@@ -57,7 +57,7 @@
 }
 
 // Keys and values of dictionary.
-#for (k, v) in (a: 6, b: 7).pairs() {
+#for (k, v) in (a: 6, b: 7) {
   out += (k,)
   out += (v,)
 }
