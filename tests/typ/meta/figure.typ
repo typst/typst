@@ -55,10 +55,10 @@ We can clearly see that @fig-cylinder and
   }
 
   let title = none
-  if not it.element == none {
-    title = it.element.supplement
-    if not it.element.numbering == none {
-      title += " " +  it.element.counter.display(it.element.numbering)
+  if not it.numbering == none {
+    title = it.supplement
+    if not it.numbering == none {
+      title += " " +  it.counter.display(it.numbering)
     }
   }
   title = strong(title)

@@ -146,10 +146,17 @@ pub struct FigureElem {
     #[default(Em::new(0.65).into())]
     pub gap: Length,
 
+    /// Convenience field to get access to the figures counter, if any.
+    /// If the figure is not numbered, this will be `none`.
+    /// Otherwise it will be set to the counter being used by this figure.
+    #[synthesized]
+    #[internal]
+    pub counter: Option<Counter>,
+
     /// The detailed numbering information for the figure.
     #[synthesized]
     #[internal]
-    pub element: Option<FigureKind>,
+    data: Option<FigureData>,
 }
 
 impl FigureElem {
@@ -186,23 +193,23 @@ impl FigureElem {
     /// If there is no numbering, returns [`None`].
     ///
     /// # Errors
-    /// If a numbering is specified but the [`Self::element`] is `None`.
+    /// If a numbering is specified but the [`Self::data()`] is `None`.
     pub fn show_supplement_and_numbering(
         &self,
         vt: &mut Vt,
         external_supp: Option<Content>,
     ) -> SourceResult<Option<Content>> {
-        if let Some(element) = self.element() {
-            let mut name = external_supp.unwrap_or(element.supplement);
+        if let Some(data) = self.data() {
+            let mut name = external_supp.unwrap_or(data.supplement);
 
             if !name.is_empty() {
                 name += TextElem::packed("\u{a0}");
             }
 
-            let number = element
+            let number = data
                 .counter
                 .at(vt, self.0.location().expect("missing location"))?
-                .display(vt, &element.numbering)?
+                .display(vt, &data.numbering)?
                 .spanned(self.span());
 
             Ok(Some(name + number))
@@ -290,7 +297,8 @@ impl Synthesize for FigureElem {
 
         // When the user wishes to number their figure, we check whether there is a
         // counter and a supplement. If so, we push the element, which is just a
-        // summary of the caption properties
+        // summary of the caption properties. We also push all of the components
+        // of the summary for convenient access by the user for `show` rules.
         if let Some(numbering) = numbering {
             let Some(counter) = counter else {
                 bail!(self.span(), "numbering a figure requires that is has a kind");
@@ -303,9 +311,17 @@ impl Synthesize for FigureElem {
             let supplement = supplement
                 .resolve(vt, [content.unwrap_or_else(|| self.body()).into()])?;
 
-            self.push_element(Some(FigureKind { numbering, counter, supplement }))
+            self.push_supplement(Smart::Custom(Some(Supplement::Content(
+                supplement.clone(),
+            ))));
+            self.push_counter(Some(counter.clone()));
+            self.push_numbering(Some(numbering.clone()));
+            self.push_data(Some(FigureData { numbering, counter, supplement }));
         } else {
-            self.push_element(None);
+            self.push_supplement(Smart::Custom(None));
+            self.push_counter(None);
+            self.push_numbering(None);
+            self.push_data(None);
         }
 
         Ok(())
@@ -372,8 +388,7 @@ impl Refable for FigureElem {
     }
 
     fn counter(&self, _styles: StyleChain) -> Counter {
-        self.element()
-            .map_or_else(|| Counter::of(Self::func()), |e| e.counter)
+        self.data().map_or_else(|| Counter::of(Self::func()), |e| e.counter)
     }
 }
 
@@ -401,7 +416,7 @@ cast_to_value! {
 }
 
 /// The state needed to build the numbering of a figure.
-pub struct FigureKind {
+pub struct FigureData {
     /// The numbering scheme.
     numbering: Numbering,
 
@@ -413,7 +428,7 @@ pub struct FigureKind {
 }
 
 cast_to_value! {
-    v: FigureKind => dict! {
+    v: FigureData => dict! {
         "numbering" => Value::from(v.numbering),
         "counter" => Value::from(v.counter),
         "supplement" => Value::from(v.supplement),
@@ -421,7 +436,7 @@ cast_to_value! {
 }
 
 cast_from_value! {
-    FigureKind,
+    FigureData,
     v: Dict => {
         let numbering = v
             .at("numbering")
