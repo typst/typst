@@ -183,29 +183,36 @@ cast_from_value! {
     },
 }
 
-/// Calculate the absolute value of a numeric value.
+/// Create a date.
+///
+/// The color is specified by specifying the year, month and day of the date. By default, the
+/// year is assumed to be '1970', the month January, and the day 1.
 ///
 /// ## Example
 /// ```example
-/// #calc.abs(-5) \
-/// #calc.abs(5pt - 2cm) \
-/// #calc.abs(2fr)
+/// #let a = date()
+/// #let b = date(year: 2013, month: 4)
+/// #let c = date(year: 2022, month: 6, day: 8)
+///
+/// The default date is #a.display(). The month of the second date is
+/// #b.display("[month repr: long]"). The final date is #c.display("[month repr: short] [day], [year]")
+///
 /// ```
 ///
-/// Display: Absolute
-/// Category: calculate
-/// Returns: any
+/// Display: Date
+/// Category: construct
+/// Returns: date
 #[func]
 pub fn date(
-    /// Test
+    /// The year of the date.
     #[named]
     #[default]
     year: YearComponent,
-    /// Test
+    /// The month of the date.
     #[named]
     #[default]
     month: MonthComponent,
-    /// Test
+    /// The day of the date.
     #[named]
     #[default]
     day: DayComponent,
@@ -216,19 +223,6 @@ pub fn date(
     };
     Value::Dyn(Dynamic::new(Date(date)))
 }
-
-#[derive(Default)]
-struct HourComponent(u8);
-
-#[derive(Default)]
-struct MinuteComponent(u8);
-
-#[derive(Default)]
-struct SecondComponent(u8);
-
-#[derive(Default)]
-struct MillisecondComponent(u16);
-
 
 struct YearComponent(i32);
 
@@ -282,59 +276,40 @@ cast_from_value!(
     }
 );
 
-cast_from_value!(
-    HourComponent,
-    v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("hour is invalid")?
-    }
-);
 
-cast_from_value!(
-    MinuteComponent,
-    v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("minute is invalid")?
-    }
-);
-
-cast_from_value!(
-    SecondComponent,
-    v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("second is invalid")?
-    }
-);
-
-cast_from_value!(
-    MillisecondComponent,
-    v: i64 => match u16::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("millisecond is invalid")?
-    }
-);
-
-
-/// Calculate the absolute value of a numeric value.
+/// Create a duration.
+///
+/// The duration is specified by the number of weeks and/or number of days.
 ///
 /// ## Example
 /// ```example
-/// #calc.abs(-5) \
-/// #calc.abs(5pt - 2cm) \
-/// #calc.abs(2fr)
+/// #let show_date(date) = {
+/// date.display("[month repr:long] [day], [year]")
+/// }
+///
+/// #let a = duration(days: 1)
+/// #let b = duration(weeks: 2)
+/// #let c = duration(weeks: 2, days: 7)
+///
+/// #let d = date(year: 2022, month: 03, day: 05)
+///
+/// The date of today is #show_date(d). \
+/// The date of yesterday was #show_date(d.sub(a)). \
+/// In two weeks and 1 day from now, the date will be #show_date(d.add(b).add(a)). \
+/// In three weeks, it will be #show_date(d.add(c)).
+///
 /// ```
 ///
-/// Display: Absolute
-/// Category: calculate
-/// Returns: any
+/// Display: Duration
+/// Category: construct
+/// Returns: duration
 #[func]
 pub fn duration(
-
-    /// Test
+    /// The number of weeks of the duration.
     #[named]
     #[default]
     weeks: i64,
-    /// Test
+    /// The number of days of the duration.
     #[named]
     #[default]
     days: i64,
