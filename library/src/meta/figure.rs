@@ -197,12 +197,12 @@ impl FigureElem {
     ) -> SourceResult<Option<Content>> {
         if let (Some(numbering), Some(supplement), Some(counter)) = (
             self.numbering(styles),
-            self.supplement(styles).as_custom().and_then(|s| s),
+            self.supplement(styles)
+                .as_custom()
+                .and_then(|s| s.and_then(Supplement::as_content)),
             self.counter(),
         ) {
-            let mut name = external_supp.unwrap_or(
-                supplement.as_content().expect("supplement should be synthesized"),
-            );
+            let mut name = external_supp.unwrap_or(supplement);
 
             if !name.is_empty() {
                 name += TextElem::packed("\u{a0}");
