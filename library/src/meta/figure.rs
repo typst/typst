@@ -260,23 +260,18 @@ impl Synthesize for FigureElem {
         // 1. If there is a detected content, we use the counter `counter(figure.where(kind: detected_content))`
         // 2. If there is a name/elem, we use the counter `counter(figure.where(kind: name/elem))`
         // 4. We return None.
-        let counter = if let Some(content) = &content {
-            Some(Counter::new(CounterKey::Selector(Selector::Elem(
-                Self::func(),
-                Some(dict! {
-                    "kind" => Value::from(content.func()),
-                }),
-            ))))
-        } else if let Smart::Custom(content) = self.kind(styles) {
-            Some(Counter::new(CounterKey::Selector(Selector::Elem(
-                Self::func(),
-                Some(dict! {
-                    "kind" => Value::from(content),
-                }),
-            ))))
-        } else {
-            None
-        };
+        let counter = content.as_ref()
+            .map(Content::func)
+            .map(Value::from)
+            .or_else(|| self.kind(styles).as_custom().map(Value::from))
+            .map(|content| {
+                Counter::new(CounterKey::Selector(Selector::Elem(
+                    Self::func(),
+                    Some(dict! {
+                        "kind" => content,
+                    }),
+                )))
+            });
 
         // We get the supplement or `None`.
         // The supplement must either be set manually of the content identification
