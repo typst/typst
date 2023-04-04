@@ -256,6 +256,8 @@ enum NumberingKind {
     Roman,
     Symbol,
     Hebrew,
+    HiraganaIroha,
+    KatakanaIroha,
 }
 
 impl NumberingKind {
@@ -267,6 +269,8 @@ impl NumberingKind {
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
+            'い' => NumberingKind::HiraganaIroha,
+            'イ' => NumberingKind::KatakanaIroha,
             _ => return None,
         })
     }
@@ -279,6 +283,8 @@ impl NumberingKind {
             Self::Roman => 'i',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
+            Self::HiraganaIroha => 'い',
+            Self::KatakanaIroha => 'イ',
         }
     }
 
@@ -292,6 +298,30 @@ impl NumberingKind {
                 |x| match case {
                     Case::Lower => char::from(b'a' + x as u8),
                     Case::Upper => char::from(b'A' + x as u8),
+                },
+                n,
+            ),
+            Self::HiraganaIroha => zeroless::<47>(
+                |x| {
+                    [
+                        'い', 'ろ', 'は', 'に', 'ほ', 'へ', 'と', 'ち', 'り', 'ぬ', 'る',
+                        'を', 'わ', 'か', 'よ', 'た', 'れ', 'そ', 'つ', 'ね', 'な', 'ら',
+                        'む', 'う', 'ゐ', 'の', 'お', 'く', 'や', 'ま', 'け', 'ふ', 'こ',
+                        'え', 'て', 'あ', 'さ', 'き', 'ゆ', 'め', 'み', 'し', 'ゑ', 'ひ',
+                        'も', 'せ', 'す',
+                    ][x]
+                },
+                n,
+            ),
+            Self::KatakanaIroha => zeroless::<47>(
+                |x| {
+                    [
+                        'イ', 'ロ', 'ハ', 'ニ', 'ホ', 'ヘ', 'ト', 'チ', 'リ', 'ヌ', 'ル',
+                        'ヲ', 'ワ', 'カ', 'ヨ', 'タ', 'レ', 'ソ', 'ツ', 'ネ', 'ナ', 'ラ',
+                        'ム', 'ウ', 'ヰ', 'ノ', 'オ', 'ク', 'ヤ', 'マ', 'ケ', 'フ', 'コ',
+                        'エ', 'テ', 'ア', 'サ', 'キ', 'ユ', 'メ', 'ミ', 'シ', 'ヱ', 'ヒ',
+                        'モ', 'セ', 'ス',
+                    ][x]
                 },
                 n,
             ),
