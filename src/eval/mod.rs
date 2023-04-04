@@ -13,13 +13,13 @@ mod str;
 #[macro_use]
 mod value;
 mod args;
+pub mod date;
 mod func;
 mod methods;
 mod module;
 mod ops;
 mod scope;
 mod symbol;
-pub mod date;
 
 #[doc(hidden)]
 pub use once_cell::sync::Lazy;

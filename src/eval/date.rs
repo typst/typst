@@ -10,7 +10,8 @@ pub struct Date(pub time::Date);
 impl Date {
     pub fn display(&self, pattern: Option<Str>) -> Result<Str, &str> {
         let pattern = pattern.unwrap_or(Str::from("[year]-[month]-[day]"));
-        let format = format_description::parse(pattern.as_str()).map_err(|_| "invalid date format")?;
+        let format = format_description::parse(pattern.as_str())
+            .map_err(|_| "invalid date format")?;
         let result = self.0.format(&format).map_err(|_| "couldn't parse date format")?;
         Ok(result.into())
     }
@@ -36,7 +37,7 @@ impl Date {
     }
 
     fn err_msg() -> &'static str {
-        return "resulting date is too large"
+        return "resulting date is too large";
     }
 }
 
@@ -56,17 +57,25 @@ pub struct Duration(pub time::Duration);
 impl Duration {
     pub fn new(weeks: i64, days: i64) -> Result<Self, &'static str> {
         let mut duration = time::Duration::days(0);
-        duration = duration.checked_add(time::Duration::weeks(weeks)).ok_or(Duration::err_msg())?;
-        duration = duration.checked_add(time::Duration::days(days)).ok_or(Duration::err_msg())?;
+        duration = duration
+            .checked_add(time::Duration::weeks(weeks))
+            .ok_or(Duration::err_msg())?;
+        duration = duration
+            .checked_add(time::Duration::days(days))
+            .ok_or(Duration::err_msg())?;
         Ok(Self(duration))
     }
 
     pub fn add(&self, duration: &Duration) -> Result<Self, &'static str> {
-        self.0.checked_add(duration.0).map_or(Err(Duration::err_msg()), |v| Ok(Duration(v)))
+        self.0
+            .checked_add(duration.0)
+            .map_or(Err(Duration::err_msg()), |v| Ok(Duration(v)))
     }
 
     pub fn sub(&self, duration: &Duration) -> Result<Self, &'static str> {
-        self.0.checked_sub(duration.0).map_or(Err(Duration::err_msg()), |v| Ok(Duration(v)))
+        self.0
+            .checked_sub(duration.0)
+            .map_or(Err(Duration::err_msg()), |v| Ok(Duration(v)))
     }
 
     pub fn weeks(&self) -> i64 {
@@ -78,7 +87,7 @@ impl Duration {
     }
 
     fn err_msg() -> &'static str {
-        return "resulting duration is too large"
+        return "resulting duration is too large";
     }
 }
 

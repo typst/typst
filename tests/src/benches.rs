@@ -148,5 +148,7 @@ impl World for BenchWorld {
         Err(FileError::NotFound(path.into()))
     }
 
-    fn today(&self, _: bool) -> (i32, u8, u8) {(1970, 1, 1)}
+    fn today(&self, _: bool) -> (i32, u8, u8) {
+        (1970, 1, 1)
+    }
 }

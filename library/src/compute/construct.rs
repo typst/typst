@@ -1,9 +1,9 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
-use time::{Month};
+use time::Month;
 
-use typst::eval::{Dynamic, Regex};
 use typst::eval::date::{Date, Duration};
+use typst::eval::{Dynamic, Regex};
 
 use crate::prelude::*;
 
@@ -194,9 +194,9 @@ cast_from_value! {
 /// #let b = date(year: 2013, month: 4)
 /// #let c = date(year: 2022, month: 6, day: 8)
 ///
-/// The default date is #a.display(). The month of the second date is
-/// #b.display("[month repr: long]"). The final date is #c.display("[month repr: short] [day], [year]")
-///
+/// The default date is #a.display(). \
+/// The month of the second date is #b.display("[month repr:long]"). \
+/// The third date is #c.display("[month repr:short] [day], [year]").
 /// ```
 ///
 /// Display: Date
@@ -219,7 +219,7 @@ pub fn date(
 ) -> Value {
     let date = match time::Date::from_calendar_date(year.0, month.0, day.0) {
         Ok(date) => date,
-        Err(_) => bail!(args.span, "date must be valid")
+        Err(_) => bail!(args.span, "date must be valid"),
     };
     Value::Dyn(Dynamic::new(Date(date)))
 }
@@ -239,7 +239,6 @@ impl Default for MonthComponent {
         MonthComponent(Month::January)
     }
 }
-
 
 struct DayComponent(u8);
 
@@ -275,7 +274,6 @@ cast_from_value!(
         _ => Err("day is invalid")?
     }
 );
-
 
 /// Create a duration.
 ///
@@ -316,7 +314,7 @@ pub fn duration(
 ) -> Value {
     match Duration::new(weeks, days) {
         Ok(d) => Value::Dyn(Dynamic::new(d)),
-        Err(e) => bail!(args.span, e)
+        Err(e) => bail!(args.span, e),
     }
 }
 

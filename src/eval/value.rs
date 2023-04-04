@@ -63,7 +63,7 @@ pub enum Value {
     /// A module.
     Module(Module),
     /// A dynamic value.
-    Dyn(Dynamic)
+    Dyn(Dynamic),
 }
 
 impl Value {
@@ -111,7 +111,7 @@ impl Value {
             Self::Func(_) => Func::TYPE_NAME,
             Self::Args(_) => Args::TYPE_NAME,
             Self::Module(_) => Module::TYPE_NAME,
-            Self::Dyn(v) => v.type_name()
+            Self::Dyn(v) => v.type_name(),
         }
     }
 
@@ -193,7 +193,7 @@ impl Debug for Value {
             Self::Func(v) => Debug::fmt(v, f),
             Self::Args(v) => Debug::fmt(v, f),
             Self::Module(v) => Debug::fmt(v, f),
-            Self::Dyn(v) => Debug::fmt(v, f)
+            Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
 }
@@ -235,7 +235,7 @@ impl Hash for Value {
             Self::Func(v) => v.hash(state),
             Self::Args(v) => v.hash(state),
             Self::Module(v) => v.hash(state),
-            Self::Dyn(v) => v.hash(state)
+            Self::Dyn(v) => v.hash(state),
         }
     }
 }
