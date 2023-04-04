@@ -524,9 +524,28 @@ impl Lexer<'_> {
         SyntaxKind::Ident
     }
 
-    fn number(&mut self, start: usize, c: char) -> SyntaxKind {
+    fn number(&mut self, mut start: usize, c: char) -> SyntaxKind {
+        // Handle alternative integer bases.
+        let mut base = 10;
+        if c == '0' {
+            if self.s.eat_if('b') {
+                base = 2;
+            } else if self.s.eat_if('o') {
+                base = 8;
+            } else if self.s.eat_if('x') {
+                base = 16;
+            }
+            if base != 10 {
+                start = self.s.cursor();
+            }
+        }
+
         // Read the first part (integer or fractional depending on `first`).
-        self.s.eat_while(char::is_ascii_digit);
+        self.s.eat_while(if base == 16 {
+            char::is_ascii_alphanumeric
+        } else {
+            char::is_ascii_digit
+        });
 
         // Read the fractional part if not already done.
         // Make sure not to confuse a range for the decimal separator.
@@ -534,12 +553,13 @@ impl Lexer<'_> {
             && !self.s.at("..")
             && !self.s.scout(1).map_or(false, is_id_start)
             && self.s.eat_if('.')
+            && base == 10
         {
             self.s.eat_while(char::is_ascii_digit);
         }
 
         // Read the exponent.
-        if !self.s.at("em") && self.s.eat_if(['e', 'E']) {
+        if !self.s.at("em") && self.s.eat_if(['e', 'E']) && base == 10 {
             self.s.eat_if(['+', '-']);
             self.s.eat_while(char::is_ascii_digit);
         }
@@ -553,14 +573,21 @@ impl Lexer<'_> {
         let number = self.s.get(start..suffix_start);
         let suffix = self.s.from(suffix_start);
 
+        let kind = if i64::from_str_radix(number, base).is_ok() {
+            SyntaxKind::Int
+        } else if base == 10 && number.parse::<f64>().is_ok() {
+            SyntaxKind::Float
+        } else {
+            return self.error(match base {
+                2 => "invalid binary number",
+                8 => "invalid octal number",
+                16 => "invalid hexadecimal number",
+                _ => "invalid number",
+            });
+        };
+
         if suffix.is_empty() {
-            return if number.parse::<i64>().is_ok() {
-                SyntaxKind::Int
-            } else if number.parse::<f64>().is_ok() {
-                SyntaxKind::Float
-            } else {
-                self.error("invalid number")
-            };
+            return kind;
         }
 
         if !matches!(

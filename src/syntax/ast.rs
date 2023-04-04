@@ -912,7 +912,17 @@ node! {
 impl Int {
     /// Get the integer value.
     pub fn get(&self) -> i64 {
-        self.0.text().parse().unwrap_or_default()
+        let text = self.0.text();
+        if let Some(rest) = text.strip_prefix("0x") {
+            i64::from_str_radix(rest, 16)
+        } else if let Some(rest) = text.strip_prefix("0o") {
+            i64::from_str_radix(rest, 8)
+        } else if let Some(rest) = text.strip_prefix("0b") {
+            i64::from_str_radix(rest, 2)
+        } else {
+            text.parse()
+        }
+        .unwrap_or_default()
     }
 }
 
