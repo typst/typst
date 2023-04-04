@@ -1,7 +1,3 @@
-use std::any::TypeId;
-
-use ecow::eco_vec;
-
 use super::{Counter, CounterKey, HeadingElem, LocalName, Refable};
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
@@ -39,7 +35,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 ///
 /// Display: Outline
 /// Category: meta
-#[element(Show, Synthesize, LocalName)]
+#[element(Show, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -55,8 +51,8 @@ pub struct OutlineElem {
     pub depth: Option<NonZeroUsize>,
 
     /// The type of element to include in the outline.
-    #[default(None)]
-    pub target: Option<Selector>,
+    #[default(Selector::Elem(HeadingElem::func(), Some(dict! { "outlined" => true })))]
+    pub target: Selector,
 
     /// Whether to indent the subheadings to align the start of their numbering
     /// with the title of their parents. This will only have an effect if a
@@ -90,25 +86,6 @@ pub struct OutlineElem {
     pub fill: Option<Content>,
 }
 
-impl Synthesize for OutlineElem {
-    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        // if no target is set, we default to outlined headings.
-        if let Some(target) = self.target(styles) {
-            self.push_target(Some(Selector::All(eco_vec![
-                target,
-                Selector::Can(TypeId::of::<dyn Refable>())
-            ])));
-        } else {
-            self.push_target(Some(Selector::Elem(
-                HeadingElem::func(),
-                Some(dict! { "outlined" => true }),
-            )));
-        }
-
-        Ok(())
-    }
-}
-
 impl Show for OutlineElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
@@ -131,39 +108,51 @@ impl Show for OutlineElem {
         let indent = self.indent(styles);
         let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
 
-        let mut ancestors: Vec<&HeadingElem> = vec![];
-        let elems = vt
-            .introspector
-            .query(self.target(styles).expect("expected target to be set"));
+        let mut ancestors: Vec<&Content> = vec![];
+        let elems = vt.introspector.query(self.target(styles));
 
         for elem in &elems {
-            let refable = elem.with::<dyn Refable>().unwrap();
-            let heading = elem.to::<HeadingElem>();
+            let Some(refable) = elem.with::<dyn Refable>() else {
+                bail!(elem.span(), "outlined elements must be referenceable");
+            };
+
             let location = elem.location().expect("missing location");
 
             if depth < refable.level(styles) {
                 continue;
             }
 
+            let Some(outline) = refable.outline(vt, styles)? else {
+                continue;
+            };
+
             // Deals with the ancestors of the current heading.
             // This is only applicable for headings.
-            if let Some(heading) = heading {
-                while ancestors.last().map_or(false, |last| {
+            while ancestors
+                .last()
+                .and_then(|ancestor| ancestor.with::<dyn Refable>())
+                .map_or(false, |last| {
                     last.level(StyleChain::default())
-                        >= heading.level(StyleChain::default())
-                }) {
-                    ancestors.pop();
-                }
+                        >= refable.level(StyleChain::default())
+                })
+            {
+                ancestors.pop();
             }
 
             // Add hidden ancestors numberings to realize the indent.
             if indent {
                 let mut hidden = Content::empty();
                 for ancestor in &ancestors {
-                    if let Some(numbering) = ancestor.numbering(StyleChain::default()) {
-                        let numbers = Counter::of(HeadingElem::func())
-                            .at(vt, ancestor.0.location().unwrap())?
+                    let ancestor_refable = ancestor.with::<dyn Refable>().unwrap();
+
+                    if let Some(numbering) =
+                        ancestor_refable.numbering(StyleChain::default())
+                    {
+                        let numbers = ancestor_refable
+                            .counter(styles)
+                            .at(vt, ancestor.location().unwrap())?
                             .display(vt, &numbering)?;
+
                         hidden += numbers + SpaceElem::new().pack();
                     };
                 }
@@ -173,10 +162,6 @@ impl Show for OutlineElem {
                     seq.push(SpaceElem::new().pack());
                 }
             }
-
-            let Some(outline) = refable.outline(vt, styles)? else {
-                continue;
-            };
 
             // Add the outline of the element.
             seq.push(outline.linked(Destination::Location(location)));
@@ -204,9 +189,7 @@ impl Show for OutlineElem {
             seq.push(end.linked(Destination::Location(location)));
             seq.push(LinebreakElem::new().pack());
 
-            if let Some(heading) = heading {
-                ancestors.push(heading);
-            }
+            ancestors.push(elem);
         }
 
         seq.push(ParbreakElem::new().pack());

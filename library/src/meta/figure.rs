@@ -362,6 +362,15 @@ impl Refable for FigureElem {
 
         self.show_caption(vt, styles).map(Some)
     }
+
+    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
+        self.numbering(styles)
+    }
+
+    fn counter(&self, _styles: StyleChain) -> Counter {
+        self.element()
+            .map_or_else(|| Counter::of(Self::func()), |e| e.counter)
+    }
 }
 
 /// The `kind` parameter of [`FigureElem`].

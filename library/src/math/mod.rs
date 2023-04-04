@@ -313,6 +313,14 @@ impl Refable for EquationElem {
 
         Ok(supplement + numbers)
     }
+
+    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
+        self.numbering(styles)
+    }
+
+    fn counter(&self, _styles: StyleChain) -> Counter {
+        Counter::of(Self::func())
+    }
 }
 
 impl Figurable for EquationElem {

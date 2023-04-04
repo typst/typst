@@ -1,4 +1,4 @@
-use super::{BibliographyElem, CiteElem};
+use super::{BibliographyElem, CiteElem, Counter, Numbering};
 use crate::prelude::*;
 
 /// A reference to a label or bibliography.
@@ -200,6 +200,12 @@ pub trait Refable {
     fn level(&self, _styles: StyleChain) -> usize {
         0
     }
+
+    /// Returns the numbering of this element.
+    fn numbering(&self, styles: StyleChain) -> Option<Numbering>;
+
+    /// Returns the counter of this element.
+    fn counter(&self, styles: StyleChain) -> Counter;
 
     /// Tries to build an outline element for this element.
     /// If this returns `None`, the outline will not include this element.

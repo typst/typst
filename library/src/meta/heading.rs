@@ -200,6 +200,14 @@ impl Refable for HeadingElem {
         self.level(styles).get()
     }
 
+    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
+        self.numbering(styles)
+    }
+
+    fn counter(&self, _styles: StyleChain) -> Counter {
+        Counter::of(Self::func())
+    }
+
     fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
         // we check if the heading is outlined
         if !self.outlined(styles) {
