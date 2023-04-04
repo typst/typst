@@ -36,8 +36,9 @@ use crate::text::Case;
 pub fn numbering(
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I` and `*`. They are
-    /// replaced by the number in the sequence, in the given case.
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `い`, `イ`,
+    /// `א`, and `*`. They are replaced by the number in the sequence,
+    /// in the given case.
     ///
     /// The `*` character means that symbols should be used to count, in the
     /// order of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six
@@ -129,8 +130,8 @@ cast_to_value! {
 
 /// How to turn a number into text.
 ///
-/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`, `I`
-/// or `*`, and then a suffix.
+/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`,
+/// `I`, `い`, `イ`, `א`, or `*`, and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
