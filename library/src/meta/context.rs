@@ -124,7 +124,7 @@ impl Show for StyleElem {
 ///
 /// If, however, this `layout` call is placed directly on the page, not inside any container,
 /// then the function will be given `(width: page_width, height: page_height)`, where `page_width`
-/// and `page_height` correspond to the current page's respective dimensions.
+/// and `page_height` correspond to the current page's respective dimensions, minus its margins.
 ///
 /// This is useful, for example, to convert a [`ratio`]($type/ratio) value (such as `5%`, `100%`
 /// etc.), which are usually based upon the outer container's dimensions (precisely what this
@@ -140,7 +140,7 @@ impl Show for StyleElem {
 /// })
 ///
 /// layout(size => {
-///     // convert 49% (width) to 'pt'
+///     // convert 49% (of page width) to 'pt'
 ///     // note that "ratio" values are always relative to a certain, possibly arbitrary length,
 ///     // but it's usually the current container's width or height (e.g., for table columns,
 ///     // 15% would be relative to the width, but, for rows, it would be relative to the height).
