@@ -152,11 +152,6 @@ pub struct FigureElem {
     #[synthesized]
     #[internal]
     pub counter: Option<Counter>,
-
-    /// The detailed numbering information for the figure.
-    #[synthesized]
-    #[internal]
-    data: Option<FigureData>,
 }
 
 impl FigureElem {
@@ -197,19 +192,25 @@ impl FigureElem {
     pub fn show_supplement_and_numbering(
         &self,
         vt: &mut Vt,
+        styles: StyleChain,
         external_supp: Option<Content>,
     ) -> SourceResult<Option<Content>> {
-        if let Some(data) = self.data() {
-            let mut name = external_supp.unwrap_or(data.supplement);
+        if let (Some(numbering), Some(supplement), Some(counter)) = (
+            self.numbering(styles),
+            self.supplement(styles).as_custom().and_then(|s| s),
+            self.counter(),
+        ) {
+            let mut name = external_supp.unwrap_or(
+                supplement.as_content().expect("supplement should be synthesized"),
+            );
 
             if !name.is_empty() {
                 name += TextElem::packed("\u{a0}");
             }
 
-            let number = data
-                .counter
+            let number = counter
                 .at(vt, self.0.location().expect("missing location"))?
-                .display(vt, &data.numbering)?
+                .display(vt, &numbering)?
                 .spanned(self.span());
 
             Ok(Some(name + number))
@@ -228,7 +229,7 @@ impl FigureElem {
             return Ok(Content::empty());
         };
 
-        if let Some(sup_and_num) = self.show_supplement_and_numbering(vt, None)? {
+        if let Some(sup_and_num) = self.show_supplement_and_numbering(vt, styles, None)? {
             caption = sup_and_num + TextElem::packed(": ") + caption;
         }
 
@@ -316,12 +317,10 @@ impl Synthesize for FigureElem {
             ))));
             self.push_counter(Some(counter.clone()));
             self.push_numbering(Some(numbering.clone()));
-            self.push_data(Some(FigureData { numbering, counter, supplement }));
         } else {
             self.push_supplement(Smart::Custom(None));
             self.push_counter(None);
             self.push_numbering(None);
-            self.push_data(None);
         }
 
         Ok(())
@@ -362,12 +361,12 @@ impl Refable for FigureElem {
     fn reference(
         &self,
         vt: &mut Vt,
-        _styles: StyleChain,
+        styles: StyleChain,
         supplement: Option<Content>,
     ) -> SourceResult<Content> {
         // If the figure is not numbered, we cannot reference it.
         // Otherwise we build the supplement and numbering scheme.
-        let Some(desc) = self.show_supplement_and_numbering(vt, supplement)? else {
+        let Some(desc) = self.show_supplement_and_numbering(vt, styles, supplement)? else {
             bail!(self.span(), "cannot reference unnumbered figure")
         };
 
@@ -388,7 +387,7 @@ impl Refable for FigureElem {
     }
 
     fn counter(&self, _styles: StyleChain) -> Counter {
-        self.data().map_or_else(|| Counter::of(Self::func()), |e| e.counter)
+        self.counter().unwrap_or_else(|| Counter::of(Self::func()))
     }
 }
 
@@ -412,48 +411,6 @@ cast_to_value! {
     v: ContentParam => match v {
         ContentParam::Elem(v) => v.into(),
         ContentParam::Name(v) => v.into(),
-    }
-}
-
-/// The state needed to build the numbering of a figure.
-pub struct FigureData {
-    /// The numbering scheme.
-    numbering: Numbering,
-
-    /// The counter to use.
-    counter: Counter,
-
-    /// The supplement to use.
-    supplement: Content,
-}
-
-cast_to_value! {
-    v: FigureData => dict! {
-        "numbering" => Value::from(v.numbering),
-        "counter" => Value::from(v.counter),
-        "supplement" => Value::from(v.supplement),
-    }.into()
-}
-
-cast_from_value! {
-    FigureData,
-    v: Dict => {
-        let numbering = v
-            .at("numbering")
-            .cloned()
-            .map(Numbering::cast)??;
-
-        let counter = v
-            .at("counter")
-            .cloned()
-            .map(Counter::cast)??;
-
-        let supplement = v
-            .at("supplement")
-            .cloned()
-            .map(Content::cast)??;
-
-        Self { numbering, counter, supplement }
     }
 }
 

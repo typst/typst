@@ -160,6 +160,15 @@ impl Supplement {
             Supplement::Func(func) => func.call_vt(vt, args).map(|v| v.display()),
         }
     }
+
+    /// Tries to get the content of the supplement.
+    /// Returns `None` if the supplement is a function.
+    pub fn as_content(self) -> Option<Content> {
+        match self {
+            Supplement::Content(content) => Some(content),
+            _ => None,
+        }
+    }
 }
 
 cast_from_value! {
