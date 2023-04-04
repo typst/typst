@@ -113,16 +113,15 @@ impl Show for RefElem {
 
         let supplement = match self.supplement(styles) {
             Smart::Auto | Smart::Custom(None) => None,
-            Smart::Custom(Some(Supplement::Content(content))) => Some(content),
-            Smart::Custom(Some(Supplement::Func(func))) => {
-                Some(func.call_vt(vt, [elem.clone().into()])?.display())
+            Smart::Custom(Some(supplement)) => {
+                Some(supplement.resolve(vt, [elem.clone().into()])?)
             }
         };
 
         let reference = elem
             .with::<dyn Refable>()
-            .map(|elem| elem.reference(vt, styles, supplement))
-            .expect("element should be refable")?;
+            .expect("element should be refable")
+            .reference(vt, styles, supplement)?;
 
         Ok(reference.linked(Destination::Location(elem.location().unwrap())))
     }
