@@ -10,17 +10,18 @@
 }
  
 ---
+
+// Error: 1:16-1:21 cannot add function and integer
 #let add2(x) = x + 2
 #{
-// cannot add function and integer
   add2 |> add2
 }
 
 
 ---
-// Error: 32:41-32:43: panicked
-#let p(x) = if type(x) == type(2) {panic()}
 
+// Error: 1:41-1:43 panicked
+#let p(x) = if type(x) == type(2) {panic()}
 #{2 |> p}
 
 ---
