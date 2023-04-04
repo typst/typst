@@ -42,6 +42,7 @@ description: |
 - Fixed crash when [`symbol`]($func/symbol) function is called without arguments
 - Fixed access to label of certain content elements
 - Fixed line number in error message for CSV parsing
+- Fixed invalid autocompletion after certain markup elements
 
 ## March 28, 2023
 - **Breaking:** Enumerations now require a space after their marker, that is,
