@@ -36,7 +36,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Delimiters.
     paren: [l: '(', r: ')', t: '⏜', b: '⏝'],
     brace: [l: '{', r: '}', t: '⏞', b: '⏟'],
-    bracket: [l: '[', r: ']', t: '⎴', b: '⎵'],
+    bracket: [l: '[', l.double: '⟦', r: ']', r.double: '⟧', t: '⎴', b: '⎵'],
     turtle: [l: '〔', r: '〕', t: '⏠', b: '⏡'],
     bar: [v: '|', v.double: '‖', v.triple: '⦀', v.broken: '¦', v.circle: '⦶', h: '―'],
     fence: [l: '⧘', l.double: '⧚', r: '⧙', r.double: '⧛', dotted: '⦙'],
@@ -376,6 +376,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         union: '⨚',
         vol: '∰',
     ],
+    laplace: '∆',
 
     // Logic.
     forall: '∀',
