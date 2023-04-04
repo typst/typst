@@ -81,6 +81,19 @@ It explains #name.
 Sum is #add(2, 3).
 ```
 
+Let bindings can also be used to unpack arrays. Note that the underscore `_`
+is special in these assignments, as it can be used multiple times in the
+same assignment.
+
+```example
+#let (x, y) = (1, 2)
+The coordinates are #x, #y.
+
+#let (_, c1, .._, c2) = "Hello World!".clusters()
+The second cluster of "Hello World!" is #c1.
+The last cluster is #c2.
+```
+
 ## Conditionals { #conditionals }
 With a conditional, you can display or compute different things depending on
 whether some condition is fulfilled. Typst supports `{if}`, `{else if}` and
@@ -136,20 +149,12 @@ For loops can iterate over a variety of collections:
   one cluster.)
 
 - `{for value in array {..}}` \
-  `{for index, value in array {..}}`\
-  Iterates over the items in the [array]($type/array). Can also provide the
-  index of each item.
+  Iterates over the items in the [array]($type/array). The unpacking syntax
+  described in [Let binding]($scripting/bindings) can also be used in place here.
 
-- `{for value in dict {..}}` \
-  `{for key, value in dict {..}}` \
-  Iterates over the values or keys and values of the
-  [dictionary]($type/dictionary).
-
-- `{for value in args {..}}` \
-  `{for name, value in args {..}}` \
-  Iterates over the values or names and values of the
-  [arguments]($type/arguments). For positional arguments, the `name` is
-  `{none}`.
+- `{for pair in dict {..}}` \
+  Iterates over the key-value pairs of the [dictionary]($type/dictionary).
+  The pairs can also be unpacked by using `{for (key, value) in dict {..}}`
 
 To control the execution of the loop, Typst provides the `{break}` and
 `{continue}` statements. The former performs an early exit from the loop while
