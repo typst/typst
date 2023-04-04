@@ -82,8 +82,8 @@ pub struct RefElem {
 }
 
 impl Synthesize for RefElem {
-    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
-        let citation = self.to_citation(styles)?;
+    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+        let citation = self.to_citation(vt, styles)?;
         self.push_citation(Some(citation));
         Ok(())
     }
@@ -103,7 +103,7 @@ impl Show for RefElem {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
 
-            return Ok(self.to_citation(styles)?.pack());
+            return Ok(self.to_citation(vt, styles)?.pack());
         }
 
         let elem = elem.at(self.span())?;
@@ -130,10 +130,10 @@ impl Show for RefElem {
 
 impl RefElem {
     /// Turn the reference into a citation.
-    pub fn to_citation(&self, styles: StyleChain) -> SourceResult<CiteElem> {
+    pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
         let mut elem = CiteElem::new(vec![self.target().0]);
         elem.0.set_location(self.0.location().unwrap());
-        elem.synthesize(styles)?;
+        elem.synthesize(vt, styles)?;
         elem.push_supplement(match self.supplement(styles) {
             Smart::Custom(Some(Supplement::Content(content))) => Some(content),
             _ => None,

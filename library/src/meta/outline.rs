@@ -91,7 +91,7 @@ pub struct OutlineElem {
 }
 
 impl Synthesize for OutlineElem {
-    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         // if no target is set, we default to outlined headings.
         if let Some(target) = self.target(styles) {
             self.push_target(Some(Selector::All(eco_vec![

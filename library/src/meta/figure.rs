@@ -183,11 +183,7 @@ impl FigureElem {
         if let Some(numbering) = self.numbering(styles) {
             let element = self.element().expect("missing element");
 
-            let mut name = if let Some(supp) = external_supp {
-                supp
-            } else {
-                element.supplement.resolve(vt, [element.content.into()])?
-            };
+            let mut name = external_supp.unwrap_or(element.supplement);
 
             let counter = element.counter;
 
@@ -225,7 +221,7 @@ impl FigureElem {
 }
 
 impl Synthesize for FigureElem {
-    fn synthesize(&mut self, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_numbering(self.numbering(styles));
 
         // We get the numbering or `None`.
@@ -306,11 +302,12 @@ impl Synthesize for FigureElem {
                 bail!(self.span(), "numbering a figure requires that is has a supplement");
             };
 
+            let supplement = supplement.resolve(vt, [content.unwrap_or_else(|| self.body()).into()])?;
+
             self.push_element(Some(FigureKind {
                 numbering,
                 counter,
                 supplement,
-                content: content.unwrap_or_else(|| self.body()),
             }))
         } else {
             self.push_element(None);
@@ -412,11 +409,7 @@ pub struct FigureKind {
     counter: Counter,
 
     /// The supplement to use.
-    supplement: Supplement,
-
-    /// The relevant content of the figure.
-    /// This is used to build the supplement.
-    content: Content,
+    supplement: Content,
 }
 
 cast_to_value! {
@@ -424,7 +417,6 @@ cast_to_value! {
         "numbering" => Value::from(v.numbering),
         "counter" => Value::from(v.counter),
         "supplement" => Value::from(v.supplement),
-        "content" => Value::from(v.content),
     }.into()
 }
 
@@ -444,14 +436,9 @@ cast_from_value! {
         let supplement = v
             .at("supplement")
             .cloned()
-            .map(Supplement::cast)??;
-
-        let content = v
-            .at("content")
-            .cloned()
             .map(Content::cast)??;
 
-        Self { numbering, counter, supplement, content }
+        Self { numbering, counter, supplement }
     }
 }
 
