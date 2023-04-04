@@ -380,18 +380,31 @@ impl Content {
         results
     }
 
-    /// Queries the content tree for all elements that match the given selector.
-    /// And stores the results inside of the `results` vec.
-    ///
-    /// # Show rules
-    /// Elements produced in `show` rules will not be included in the results.
-    pub fn query_into(&self, selector: &Selector, results: &mut Vec<Content>) {
+    /// Queries the content tree for all elements that match the given selector
+    /// and stores the results inside of the `results` vec.
+    fn query_into(&self, selector: &Selector, results: &mut Vec<Content>) {
         if selector.matches(self) {
             results.push(self.clone());
         }
 
-        for child in self.children().chain(self.children_in_args()) {
-            child.query_into(selector, results);
+        for attr in &self.attrs {
+            match attr {
+                Attr::Child(child) => child.query_into(selector, results),
+                Attr::Value(value) => walk_value(&value, selector, results),
+                _ => {}
+            }
+        }
+
+        fn walk_value(value: &Value, selector: &Selector, results: &mut Vec<Content>) {
+            match value {
+                Value::Content(content) => content.query_into(selector, results),
+                Value::Array(array) => {
+                    for value in array {
+                        walk_value(value, selector, results);
+                    }
+                }
+                _ => {}
+            }
         }
     }
 }
