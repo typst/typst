@@ -10,6 +10,25 @@
 }
 
 ---
+#for i in range(0, 4) {
+  numbering("A", i)
+  [ for #i]
+  linebreak()
+}
+#par[...]
+#for i in range(26, 30) {
+  numbering("A", i)
+  [ for #i]
+  linebreak()
+}
+#par[...]
+#for i in range(676, 680) {
+  numbering("A", i)
+  [ for #i]
+  linebreak()
+}
+
+---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)
 
