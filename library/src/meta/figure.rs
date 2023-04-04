@@ -260,7 +260,8 @@ impl Synthesize for FigureElem {
         // 1. If there is a detected content, we use the counter `counter(figure.where(kind: detected_content))`
         // 2. If there is a name/elem, we use the counter `counter(figure.where(kind: name/elem))`
         // 4. We return None.
-        let counter = content.as_ref()
+        let counter = content
+            .as_ref()
             .map(Content::func)
             .map(Value::from)
             .or_else(|| self.kind(styles).as_custom().map(Value::from))
@@ -274,7 +275,7 @@ impl Synthesize for FigureElem {
             });
 
         // We get the supplement or `None`.
-        // The supplement must either be set manually of the content identification
+        // The supplement must either be set manually or the content identification
         // must have succeeded.
         let supplement = match supplement {
             Smart::Auto => {
@@ -287,7 +288,7 @@ impl Synthesize for FigureElem {
             Smart::Custom(supp) => supp,
         };
 
-        // We the user wishes to number their figure, we check whether there is a
+        // When the user wishes to number their figure, we check whether there is a
         // counter and a supplement. If so, we push the element, which is just a
         // summary of the caption properties
         if let Some(numbering) = numbering {
@@ -296,7 +297,7 @@ impl Synthesize for FigureElem {
             };
 
             let Some(supplement) = supplement else {
-                bail!(self.span(), "numbering a figure requires that is has a kind or supplement");
+                bail!(self.span(), "numbering a figure requires that is has a supplement");
             };
 
             let supplement = supplement
