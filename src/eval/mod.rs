@@ -1424,9 +1424,9 @@ impl Eval for ast::ForLoop {
                 // iterate over characters of string
                 iter!(for pattern in string.as_str().graphemes(true));
             }
-            (ast::PatternKind::Ident(_), Value::Dict(dict)) => {
+            (_, Value::Dict(dict)) => {
                 // iterate over keys of dict
-                iter!(for pattern in dict.into_iter().map(|p| p.0));
+                iter!(for pattern in dict.pairs());
             }
             (_, Value::Array(array)) => {
                 // iterate over values of array and allow unpacking
@@ -1436,7 +1436,7 @@ impl Eval for ast::ForLoop {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
             }
             (_, _) => {
-                bail!(self.iter().span(), "cannot unpack values of {}", iter.type_name());
+                bail!(pattern.span(), "cannot unpack values of {}", iter.type_name());
             }
         }
 
