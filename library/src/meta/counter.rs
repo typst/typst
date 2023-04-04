@@ -496,9 +496,7 @@ cast_from_value! {
 
         Self::Selector(Selector::Elem(element, None))
     },
-    selector: Selector => {
-        Self::Selector(selector)
-    }
+    selector: Selector => Self::Selector(selector),
 }
 
 impl Debug for CounterKey {

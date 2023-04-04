@@ -165,7 +165,6 @@ impl Synthesize for EquationElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_block(self.block(styles));
         self.push_numbering(self.numbering(styles));
-
         Ok(())
     }
 }
@@ -317,7 +316,7 @@ impl Refable for EquationElem {
         self.numbering(styles)
     }
 
-    fn counter(&self, _styles: StyleChain) -> Counter {
+    fn counter(&self, _: StyleChain) -> Counter {
         Counter::of(Self::func())
     }
 }

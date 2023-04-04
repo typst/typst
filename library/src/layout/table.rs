@@ -10,6 +10,9 @@ use crate::prelude::*;
 /// the [grid documentation]($func/grid) for more information on how to size the
 /// table tracks.
 ///
+/// To give a table a caption and make it [referenceable]($func/ref), put it
+/// into a [figure]($func/figure).
+///
 /// ## Example
 /// ```example
 /// #table(

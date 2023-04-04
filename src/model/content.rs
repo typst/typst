@@ -354,28 +354,11 @@ impl Content {
         self.attrs.push(Attr::Location(location));
     }
 
-    /// Gives an iterator over the children of this content
-    pub fn children(&self) -> impl Iterator<Item = &Content> {
-        self.attrs.iter().filter_map(Attr::child)
-    }
-
-    /// Gives an iterator over the children of this content that are contained
-    /// within the arguments of the content.
-    pub fn children_in_args(&self) -> impl Iterator<Item = &Content> {
-        self.attrs
-            .iter()
-            .filter_map(Attr::value)
-            .filter_map(|value| match value {
-                Value::Content(content) => Some(content),
-                _ => None,
-            })
-    }
-
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// # Show rules
     /// Elements produced in `show` rules will not be included in the results.
-    pub fn query(&self, selector: Selector) -> Vec<Content> {
+    pub fn query(&self, selector: Selector) -> Vec<&Content> {
         let mut results = Vec::new();
         self.query_into(&selector, &mut results);
         results
@@ -383,9 +366,9 @@ impl Content {
 
     /// Queries the content tree for all elements that match the given selector
     /// and stores the results inside of the `results` vec.
-    fn query_into(&self, selector: &Selector, results: &mut Vec<Content>) {
+    fn query_into<'a>(&'a self, selector: &Selector, results: &mut Vec<&'a Content>) {
         if selector.matches(self) {
-            results.push(self.clone());
+            results.push(self);
         }
 
         for attr in &self.attrs {
@@ -397,7 +380,11 @@ impl Content {
         }
 
         /// Walks a given value to find any content that matches the selector.
-        fn walk_value(value: &Value, selector: &Selector, results: &mut Vec<Content>) {
+        fn walk_value<'a>(
+            value: &'a Value,
+            selector: &Selector,
+            results: &mut Vec<&'a Content>,
+        ) {
             match value {
                 Value::Content(content) => content.query_into(selector, results),
                 Value::Array(array) => {

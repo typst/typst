@@ -124,7 +124,6 @@ impl RawElem {
 impl Synthesize for RawElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_lang(self.lang(styles));
-
         Ok(())
     }
 }
