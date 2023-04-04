@@ -1187,7 +1187,7 @@ impl Eval for ast::Closure {
 impl ast::Pattern {
     // Destruct the given value into the pattern.
     pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
-        match self.bindings() {
+        match self.kind() {
             ast::PatternKind::Ident(ident) => {
                 vm.define(ident, value);
                 Ok(Value::None)
@@ -1208,9 +1208,7 @@ impl ast::Pattern {
                             i += 1;
                         }
                         ast::DestructuringKind::Sink(ident) => {
-                            let sink_size = i64::try_from(value.len()).unwrap()
-                                - i64::try_from(pattern.len()).unwrap()
-                                + 1;
+                            let sink_size = value.len() as i64 - pattern.len() as i64 + 1;
                             let Ok(v) = value.slice(i, Some(i + sink_size)) else {
                                 bail!(ident.span(), "not enough elements to destructure");
                             };
@@ -1220,7 +1218,7 @@ impl ast::Pattern {
                     }
                 }
                 if i < value.len().try_into().unwrap() {
-                    bail!(self.span(), "not enough values to unpack");
+                    bail!(self.span(), "not enough values to destructure");
                 }
 
                 Ok(Value::None)
@@ -1415,7 +1413,7 @@ impl Eval for ast::ForLoop {
         let iter = self.iter().eval(vm)?;
         let pattern = self.pattern();
 
-        match (pattern.bindings(), iter.clone()) {
+        match (pattern.kind(), iter.clone()) {
             (ast::PatternKind::Ident(_), Value::Str(string)) => {
                 // iterate over characters of string
                 iter!(for pattern in string.as_str().graphemes(true));
@@ -1425,14 +1423,18 @@ impl Eval for ast::ForLoop {
                 iter!(for pattern in dict.pairs());
             }
             (_, Value::Array(array)) => {
-                // iterate over values of array and allow unpacking
+                // iterate over values of array and allow destructuring
                 iter!(for pattern in array.into_iter());
             }
             (ast::PatternKind::Ident(_), _) => {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
             }
             (_, _) => {
-                bail!(pattern.span(), "cannot unpack values of {}", iter.type_name());
+                bail!(
+                    pattern.span(),
+                    "cannot destructure values of {}",
+                    iter.type_name()
+                );
             }
         }
 

@@ -841,10 +841,10 @@ enum PatternKind {
 
 fn pattern(p: &mut Parser) -> PatternKind {
     let m = p.marker();
-    let unpacking = p.at(SyntaxKind::LeftParen);
-    if unpacking {
+
+    if p.at(SyntaxKind::LeftParen) {
         collection(p, false);
-        validate_unpacking(p, m);
+        validate_destruct_pattern(p, m);
         p.wrap(m, SyntaxKind::Pattern);
 
         PatternKind::Destructuring
@@ -852,7 +852,7 @@ fn pattern(p: &mut Parser) -> PatternKind {
         let success = p.expect(SyntaxKind::Ident);
         if p.at(SyntaxKind::Comma) {
             // TODO: this should only be a warning instead
-            p.expected("keyword `in`. Did you mean to use an unpacking pattern?");
+            p.expected("keyword `in`. did you mean to use a destructuring pattern?");
         }
 
         if success {
@@ -880,9 +880,7 @@ fn let_binding(p: &mut Parser) {
                 p.wrap(m3, SyntaxKind::Params);
             }
         }
-        PatternKind::Destructuring => {
-            destructuring = true;
-        }
+        PatternKind::Destructuring => destructuring = true,
     }
 
     let f = if closure || destructuring { Parser::expect } else { Parser::eat_if };
@@ -1113,14 +1111,16 @@ fn validate_args(p: &mut Parser, m: Marker) {
     }
 }
 
-fn validate_unpacking(p: &mut Parser, m: Marker) {
+fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
     let mut used_spread = false;
     let mut used = HashSet::new();
     for child in p.post_process(m) {
         match child.kind() {
             SyntaxKind::Ident => {
-                if !(child.text() == "_") && !used.insert(child.text().clone()) {
-                    child.convert_to_error("duplicate identifier");
+                if child.text() != "_" && !used.insert(child.text().clone()) {
+                    child.convert_to_error(
+                        "at most one binding per identifier is allowed",
+                    );
                 }
             }
             SyntaxKind::Spread => {
@@ -1133,14 +1133,14 @@ fn validate_unpacking(p: &mut Parser, m: Marker) {
                     child.make_erroneous();
                 }
                 if used_spread {
-                    child.convert_to_error("multiple argument sinks");
+                    child.convert_to_error("at most one destructuring sink is allowed");
                 }
                 used_spread = true;
             }
             SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
             kind => {
                 child.convert_to_error(eco_format!(
-                    "expected identifier or argument sink, found {}",
+                    "expected identifier or destructuring sink, found {}",
                     kind.name()
                 ));
             }

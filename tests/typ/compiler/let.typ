@@ -33,25 +33,25 @@ Three
 #test(v3, 3)
 
 ---
-// Unpacking.
+// Destructuring.
 
-// Simple unpacking.
+// Simple destructuring.
 #let (a, b) = (1, 2)
 #test(a, 1)
 #test(b, 2)
 
-// Unpacking with multiple placeholders.
+// Destructuring with multiple placeholders.
 #let (a, _, c, _) = (1, 2, 3, 4)
 #test(a, 1)
 #test(c, 3)
 
-// Unpacking with a spread.
+// Destructuring with a sink.
 #let (a, b, ..c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, 2)
 #test(c, (3, 4, 5, 6))
 
-// Unpacking with a spread in the middle.
+// Destructuring with a sink in the middle.
 #let (a, ..b, c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, (2, 3, 4, 5))

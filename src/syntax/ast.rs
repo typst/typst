@@ -1533,12 +1533,10 @@ impl Closure {
     ///
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
     pub fn name(&self) -> Option<Ident> {
-        match self.0.cast_first_match::<Pattern>() {
-            Some(p) => match p.bindings() {
-                PatternKind::Ident(ident) => Some(ident),
-                _ => Option::None,
-            },
-            _ => Option::None,
+        if let PatternKind::Ident(ident) = self.0.cast_first_match::<Pattern>()?.kind() {
+            Some(ident)
+        } else {
+            Option::None
         }
     }
 
@@ -1600,14 +1598,7 @@ node! {
     Pattern
 }
 
-#[derive(Debug, Clone, Hash)]
-pub enum DestructuringKind {
-    /// An identifier: `x`.
-    Ident(Ident),
-    /// An argument sink: `..y`.
-    Sink(Ident),
-}
-
+/// The kind of a pattern.
 #[derive(Debug, Clone, Hash)]
 pub enum PatternKind {
     /// A single identifier: `x`.
@@ -1616,9 +1607,18 @@ pub enum PatternKind {
     Destructure(Vec<DestructuringKind>),
 }
 
+/// The kind of an element in a destructuring pattern.
+#[derive(Debug, Clone, Hash)]
+pub enum DestructuringKind {
+    /// An identifier: `x`.
+    Ident(Ident),
+    /// An argument sink: `..y`.
+    Sink(Ident),
+}
+
 impl Pattern {
-    /// TODO (Marmare): comment and maybe rename
-    pub fn bindings(&self) -> PatternKind {
+    /// The kind of the pattern.
+    pub fn kind(&self) -> PatternKind {
         if self.0.children().len() > 1 {
             let mut bindings = Vec::new();
             for child in self.0.children() {
@@ -1632,16 +1632,14 @@ impl Pattern {
                 }
             }
             PatternKind::Destructure(bindings)
-        } else if let Some(ident) = self.0.cast_first_match::<Ident>() {
-            PatternKind::Ident(ident)
         } else {
-            PatternKind::Ident(Ident::default())
+            PatternKind::Ident(self.0.cast_first_match().unwrap())
         }
     }
 
     // Returns a list of all identifiers in the pattern.
     pub fn idents(&self) -> Vec<Ident> {
-        match self.bindings() {
+        match self.kind() {
             PatternKind::Ident(ident) => vec![ident],
             PatternKind::Destructure(bindings) => bindings
                 .into_iter()

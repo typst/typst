@@ -81,7 +81,7 @@ It explains #name.
 Sum is #add(2, 3).
 ```
 
-Let bindings can also be used to unpack arrays. Note that the underscore `_`
+Let bindings can be used to destructure arrays. Note that the underscore `_`
 is special in these assignments, as it can be used multiple times in the
 same assignment.
 
@@ -149,12 +149,12 @@ For loops can iterate over a variety of collections:
   one cluster.)
 
 - `{for value in array {..}}` \
-  Iterates over the items in the [array]($type/array). The unpacking syntax
-  described in [Let binding]($scripting/bindings) can also be used in place here.
+  Iterates over the items in the [array]($type/array). The destructuring syntax
+  described in [Let binding]($scripting/bindings) can also be used here.
 
 - `{for pair in dict {..}}` \
   Iterates over the key-value pairs of the [dictionary]($type/dictionary).
-  The pairs can also be unpacked by using `{for (key, value) in dict {..}}`
+  The pairs can also be destructured by using `{for (key, value) in dict {..}}`
 
 To control the execution of the loop, Typst provides the `{break}` and
 `{continue}` statements. The former performs an early exit from the loop while

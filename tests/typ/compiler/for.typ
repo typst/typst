@@ -85,14 +85,14 @@
 
 ---
 // Keys and values of strings.
-// Error: 6-12 cannot unpack values of string
+// Error: 6-12 cannot destructure values of string
 #for (k, v) in "hi" {
   dont-care
 }
 
 ---
-// Unpacking without parentheses.
-// Error: 7 expected keyword `in`. Did you mean to use an unpacking pattern?
+// Destructuring without parentheses.
+// Error: 7 expected keyword `in`. did you mean to use a destructuring pattern?
 // Error: 7 expected keyword `in`
 #for k, v in (a: 4, b: 5) {
   dont-care
