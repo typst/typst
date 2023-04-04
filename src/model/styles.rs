@@ -316,14 +316,8 @@ impl Debug for Selector {
             Self::Label(label) => label.fmt(f),
             Self::Regex(regex) => regex.fmt(f),
             Self::Can(cap) => cap.fmt(f),
-            Self::Any(selectors) => {
-                f.write_str("any")?;
-                let pieces: Vec<_> =
-                    selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
-                f.write_str(&pretty_array_like(&pieces, false))
-            }
-            Self::All(selectors) => {
-                f.write_str("all")?;
+            Self::Any(selectors) | Self::All(selectors) => {
+                f.write_str(if matches!(self, Self::Any(_)) { "any" } else { "all" })?;
                 let pieces: Vec<_> =
                     selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
                 f.write_str(&pretty_array_like(&pieces, false))
