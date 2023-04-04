@@ -395,6 +395,7 @@ impl Content {
             }
         }
 
+        /// Walks a given value to find any content that matches the selector.
         fn walk_value(value: &Value, selector: &Selector, results: &mut Vec<Content>) {
             match value {
                 Value::Content(content) => content.query_into(selector, results),
