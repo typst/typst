@@ -248,11 +248,9 @@ impl Synthesize for FigureElem {
             }
         }
 
-        // We get the counter or `None`.
         // The list of choices is the following:
         // 1. If there is a detected content, we use the counter `counter(figure.where(kind: detected_content))`
-        // 2. If there is a name, we use the counter `counter(figure.where(kind: name))`
-        // 3. If there is a elem, we use the counter `counter(figure.where(kind: elem))`
+        // 2. If there is a name/elem, we use the counter `counter(figure.where(kind: name/elem))`
         // 4. We return None.
         let counter = if let Some(content) = &content {
             Some(Counter::new(CounterKey::Selector(Selector::Elem(
@@ -261,18 +259,11 @@ impl Synthesize for FigureElem {
                     "kind" => Value::from(content.func()),
                 }),
             ))))
-        } else if let Smart::Custom(ContentParam::Name(name)) = self.kind(styles) {
+        } else if let Smart::Custom(content) = self.kind(styles) {
             Some(Counter::new(CounterKey::Selector(Selector::Elem(
                 Self::func(),
                 Some(dict! {
-                    "kind" => Value::from(name),
-                }),
-            ))))
-        } else if let Smart::Custom(ContentParam::Elem(func)) = self.kind(styles) {
-            Some(Counter::new(CounterKey::Selector(Selector::Elem(
-                Self::func(),
-                Some(dict! {
-                    "kind" => Value::from(func),
+                    "kind" => Value::from(content),
                 }),
             ))))
         } else {
@@ -284,15 +275,11 @@ impl Synthesize for FigureElem {
         // must have succeeded.
         let supplement = match self.supplement(styles) {
             Smart::Auto => {
-                if let Some(local_name) =
-                    content.as_ref().and_then(|c| c.with::<dyn LocalName>())
-                {
-                    Some(Supplement::Content(TextElem::packed(
-                        local_name.local_name(TextElem::lang_in(styles)),
-                    )))
-                } else {
-                    None
-                }
+                content.as_ref().and_then(|c| c.with::<dyn LocalName>()).map(|c| {
+                    Supplement::Content(TextElem::packed(
+                        c.local_name(TextElem::lang_in(styles)),
+                    ))
+                })
             }
             Smart::Custom(supp) => supp,
         };
