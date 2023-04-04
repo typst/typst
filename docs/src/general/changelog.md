@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## April 04, 2023 (v0.1)
 - **Breaking changes:**
   - When using the CLI, you now have to use subcommands:
     - `typst compile file.typ` or `typst c file.typ` to create a PDF

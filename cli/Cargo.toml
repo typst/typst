@@ -1,6 +1,6 @@
 [package]
 name = "typst-cli"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 
