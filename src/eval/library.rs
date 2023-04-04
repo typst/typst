@@ -65,6 +65,7 @@ pub struct LangItems {
     /// A reference: `@target`, `@target[..]`.
     pub reference: fn(target: Label, supplement: Option<Content>) -> Content,
     /// The keys contained in the bibliography and short descriptions of them.
+    #[allow(clippy::type_complexity)]
     pub bibliography_keys: fn(
         world: Tracked<dyn World>,
         introspector: Tracked<Introspector>,

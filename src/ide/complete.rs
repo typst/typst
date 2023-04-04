@@ -317,6 +317,8 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
         if ctx.leaf.range().end == ctx.cursor;
         if let Some(prev) = ctx.leaf.prev_sibling();
         if prev.is::<ast::Expr>();
+        if prev.parent_kind() != Some(SyntaxKind::Markup) ||
+           prev.prev_sibling_kind() == Some(SyntaxKind::Hashtag);
         if let Some(value) = analyze_expr(ctx.world, &prev).into_iter().next();
         then {
             ctx.from = ctx.cursor;

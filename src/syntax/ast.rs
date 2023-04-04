@@ -316,49 +316,49 @@ impl AstNode for Expr {
 impl Expr {
     /// Can this expression be embedded into markup with a hashtag?
     pub fn hashtag(&self) -> bool {
-        match self {
-            Self::Ident(_) => true,
-            Self::None(_) => true,
-            Self::Auto(_) => true,
-            Self::Bool(_) => true,
-            Self::Int(_) => true,
-            Self::Float(_) => true,
-            Self::Numeric(_) => true,
-            Self::Str(_) => true,
-            Self::Code(_) => true,
-            Self::Content(_) => true,
-            Self::Array(_) => true,
-            Self::Dict(_) => true,
-            Self::Parenthesized(_) => true,
-            Self::FieldAccess(_) => true,
-            Self::FuncCall(_) => true,
-            Self::Let(_) => true,
-            Self::Set(_) => true,
-            Self::Show(_) => true,
-            Self::Conditional(_) => true,
-            Self::While(_) => true,
-            Self::For(_) => true,
-            Self::Import(_) => true,
-            Self::Include(_) => true,
-            Self::Break(_) => true,
-            Self::Continue(_) => true,
-            Self::Return(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::Ident(_)
+                | Self::None(_)
+                | Self::Auto(_)
+                | Self::Bool(_)
+                | Self::Int(_)
+                | Self::Float(_)
+                | Self::Numeric(_)
+                | Self::Str(_)
+                | Self::Code(_)
+                | Self::Content(_)
+                | Self::Array(_)
+                | Self::Dict(_)
+                | Self::Parenthesized(_)
+                | Self::FieldAccess(_)
+                | Self::FuncCall(_)
+                | Self::Let(_)
+                | Self::Set(_)
+                | Self::Show(_)
+                | Self::Conditional(_)
+                | Self::While(_)
+                | Self::For(_)
+                | Self::Import(_)
+                | Self::Include(_)
+                | Self::Break(_)
+                | Self::Continue(_)
+                | Self::Return(_)
+        )
     }
 
     /// Is this a literal?
     pub fn is_literal(&self) -> bool {
-        match self {
-            Self::None(_) => true,
-            Self::Auto(_) => true,
-            Self::Bool(_) => true,
-            Self::Int(_) => true,
-            Self::Float(_) => true,
-            Self::Numeric(_) => true,
-            Self::Str(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::None(_)
+                | Self::Auto(_)
+                | Self::Bool(_)
+                | Self::Int(_)
+                | Self::Float(_)
+                | Self::Numeric(_)
+                | Self::Str(_)
+        )
     }
 }
 
@@ -912,7 +912,17 @@ node! {
 impl Int {
     /// Get the integer value.
     pub fn get(&self) -> i64 {
-        self.0.text().parse().unwrap_or_default()
+        let text = self.0.text();
+        if let Some(rest) = text.strip_prefix("0x") {
+            i64::from_str_radix(rest, 16)
+        } else if let Some(rest) = text.strip_prefix("0o") {
+            i64::from_str_radix(rest, 8)
+        } else if let Some(rest) = text.strip_prefix("0b") {
+            i64::from_str_radix(rest, 2)
+        } else {
+            text.parse()
+        }
+        .unwrap_or_default()
     }
 }
 

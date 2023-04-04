@@ -110,6 +110,20 @@
 }
 
 ---
+// Test numbers with alternative bases.
+#test(0x10, 16)
+#test(0b1101, 13)
+#test(0xA + 0xa, 0x14)
+
+---
+// Error: 2-7 invalid binary number
+#0b123
+
+---
+// Error: 2-8 invalid hexadecimal number
+#0x123z
+
+---
 // Test boolean operators.
 
 // Test not.

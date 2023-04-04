@@ -43,11 +43,18 @@ The number can be negative, zero, or positive. As Typst uses 64 bits to store
 integers, integers cannot be smaller than `{-9223372036854775808}` or larger than
 `{9223372036854775807}`.
 
+The number can also be specified as hexadecimal, octal, or binary by starting it
+with a zero followed by either `x`, `o`, or `b`.
+
 ## Example
 ```example
 #(1 + 2) \
 #(2 - 5) \
 #(3 + 4 < 8)
+
+#0xff \
+#0o10 \
+#0b1001
 ```
 
 # Float

@@ -6,13 +6,48 @@ description: |
 
 # Changelog
 ## Unreleased
-- Added [`polygon`]($func/polygon) function
+- **Breaking:** When using the CLI, you now have to use subcommands:
+  - `typst compile file.typ` or `typst c file.typ` to create a PDF
+  - `typst watch file.typ` or `typst w file.typ` to compile and watch
+  - `typst fonts` to list all fonts
+- **Breaking:** Manual counters now start at zero. Read the "How to step"
+  section [here]($func/counter) for more details
+- Added support for clipping in [boxes]($func/box.clip) and
+  [blocks]($func/block.clip)
+- Added [`polygon`]($func/polygon) function for drawing polygons
+- Added [`yaml`]($func/yaml) function to load data from YAML files
 - The [`link`]($func/link) function now accepts [labels]($func/label)
-- Fixed styling of text operators in math
-- Fixed invalid parsing of language tag in raw block with a single backtick
+- The [`bibliography`]($func/bibliography) now also accepts multiple
+  bibliography paths (as an array)
+- Parsing of BibLaTeX files is now more permissive (accepts non-numeric edition,
+  pages, volumes, dates, and Jabref-style comments, fixed abbreviation parsing)
+- Labels and references can now include `:` and `.` if not at the end
+- Added basic i18n for a few more languages (IT, RU, ZH, FR, PT)
+- Added numbering support for Hebrew
+- Added support for [integers]($type/integer) with base 2, 8, and 16
+- Added symbols for double bracket and laplace operator
+- The link syntax now allows more characters
+- Improved justification of Japanese and Chinese text
+- Calculation functions behave more consistently w.r.t to non-real results
+- Replaced deprecated angle brackets
+- Reduced maximum function call depth from 256 to 64
 - CLI now returns with non-zero status code if there is an error
 - CLI now watches the root directory instead of the current one
-- Reduced maximum function call depth from 256 to 64
+- CLI now puts PDF file next to input file by default
+- CLI now accepts more kinds of input files (e.g. `/dev/stdin`)
+- CLI now has an `--open` flag to directly open the PDF
+- Fixed block spacing, e.g. in `{block(above: 1cm, below: 1cm, ..)}`
+- Fixed extraneous spacing in unary operators in equations
+- Fixed APA bibliography ordering
+- Fixed styling of text operators in math
+- Fixed invalid parsing of language tag in raw block with a single backtick
+- Fixed bugs with displaying counters and state
+- Fixed crash related to page counter
+- Fixed crash when [`symbol`]($func/symbol) function is called without arguments
+- Fixed crash in bibliography generation
+- Fixed access to label of certain content elements
+- Fixed line number in error message for CSV parsing
+- Fixed invalid autocompletion after certain markup elements
 
 ## March 28, 2023
 - **Breaking:** Enumerations now require a space after their marker, that is,
