@@ -202,9 +202,6 @@ pub trait Refable {
         0
     }
 
-    /// Returns the location of this element.
-    fn location(&self) -> Option<Location>;
-
     /// Tries to build an outline element for this element.
     /// If this returns `None`, the outline will not include this element.
     /// By default this just calls [`Refable::reference`].

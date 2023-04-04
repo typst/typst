@@ -354,10 +354,6 @@ impl Refable for FigureElem {
         Ok(desc)
     }
 
-    fn location(&self) -> Option<Location> {
-        self.0.location()
-    }
-
     fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
         // If the figure is not outlined, it is not referenced.
         if !self.outlined(styles) {

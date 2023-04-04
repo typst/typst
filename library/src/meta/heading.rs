@@ -200,10 +200,6 @@ impl Refable for HeadingElem {
         self.level(styles).get()
     }
 
-    fn location(&self) -> Option<Location> {
-        self.0.location()
-    }
-
     fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
         // we check if the heading is outlined
         if !self.outlined(styles) {
@@ -214,7 +210,7 @@ impl Refable for HeadingElem {
         let mut start = self.body();
         if let Some(numbering) = self.numbering(StyleChain::default()) {
             let numbers = Counter::of(HeadingElem::func())
-                .at(vt, self.location().expect("missing location"))?
+                .at(vt, self.0.location().expect("missing location"))?
                 .display(vt, &numbering)?;
             start = numbers + SpaceElem::new().pack() + start;
         };

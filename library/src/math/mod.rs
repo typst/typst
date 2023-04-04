@@ -313,10 +313,6 @@ impl Refable for EquationElem {
 
         Ok(supplement + numbers)
     }
-
-    fn location(&self) -> Option<Location> {
-        self.0.location()
-    }
 }
 
 impl Figurable for EquationElem {

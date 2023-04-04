@@ -139,7 +139,7 @@ impl Show for OutlineElem {
         for elem in &elems {
             let refable = elem.with::<dyn Refable>().unwrap();
             let heading = elem.to::<HeadingElem>();
-            let location = refable.location().expect("missing location");
+            let location = elem.location().expect("missing location");
 
             if depth < refable.level(styles) {
                 continue;
