@@ -363,7 +363,7 @@ impl NumberingKind {
                 let symbol = SYMBOLS[(n - 1) % SYMBOLS.len()];
                 let amount = ((n - 1) / SYMBOLS.len()) + 1;
                 std::iter::repeat(symbol).take(amount).collect()
-            },
+            }
             Self::Hebrew => {
                 if n == 0 {
                     return '-'.into();
@@ -410,7 +410,7 @@ impl NumberingKind {
 
                                 n -= value;
                                 continue;
-                            },
+                            }
                         }
                         break 'outer;
                     }
