@@ -40,8 +40,8 @@ Three
 #test(a, 1)
 #test(b, 2)
 
-// Unpacking with placeholders.
-#let (a, _, c) = (1, 2, 3)
+// Unpacking with multiple placeholders.
+#let (a, _, c, _) = (1, 2, 3, 4)
 #test(a, 1)
 #test(c, 3)
 
@@ -51,19 +51,17 @@ Three
 #test(b, 2)
 #test(c, (3, 4, 5, 6))
 
-// Unpacking with a spread and placeholders.
-#let (a, b, .._) = (1, 2, 3, 4, 5, 6)
-#test(a, 1)
-#test(b, 2)
-
 // Unpacking with a spread in the middle.
 #let (a, ..b, c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, (2, 3, 4, 5))
 #test(c, 6)
 
-// Error: 2-3 unknown variable
-#_
+// Error: 10-11 duplicate identifier
+#let (a, a) = (1, 2)
+
+// Error: 12-15 multiple argument sinks
+#let (..a, ..a) = (1, 2)
 
 ---
 // Error: 5 expected identifier

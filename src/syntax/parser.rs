@@ -1114,6 +1114,7 @@ fn validate_args(p: &mut Parser, m: Marker) {
 }
 
 fn validate_unpacking(p: &mut Parser, m: Marker) {
+    let mut used_spread = false;
     let mut used = HashSet::new();
     for child in p.post_process(m) {
         match child.kind() {
@@ -1131,6 +1132,10 @@ fn validate_unpacking(p: &mut Parser, m: Marker) {
                     ));
                     child.make_erroneous();
                 }
+                if used_spread {
+                    child.convert_to_error("multiple argument sinks");
+                }
+                used_spread = true;
             }
             SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
             kind => {
