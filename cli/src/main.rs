@@ -57,7 +57,7 @@ enum Command {
 
     /// Watches the input file and recompiles on changes
     #[command(visible_alias = "w")]
-    Watch(WatchCommand),
+    Watch(CompileCommand),
 
     /// List all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
@@ -178,23 +178,6 @@ fn main() {
     if let Err(msg) = res {
         print_error(&msg).expect("failed to print error");
     }
-}
-
-/// Opens the given file using:
-/// - The default file viewer if `open` is `None`.
-/// - The given viewer provided by `open` if it is `Some`.
-fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
-    if let Some(app) = open {
-        open::with(path, app).map_err(|err| {
-            format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err)
-        })?;
-    } else {
-        open::that(path).map_err(|err| {
-            format!("failed to open `{}`, reason: {}", path.display(), err)
-        })?;
-    }
-
-    Ok(())
 }
 
 /// Print an application-level error (independent from a source file).
@@ -404,6 +387,23 @@ fn print_diagnostics(
 
             term::emit(&mut w, &config, world, &help)?;
         }
+    }
+
+    Ok(())
+}
+
+/// Opens the given file using:
+/// - The default file viewer if `open` is `None`.
+/// - The given viewer provided by `open` if it is `Some`.
+fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
+    if let Some(app) = open {
+        open::with(path, app).map_err(|err| {
+            format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err)
+        })?;
+    } else {
+        open::that(path).map_err(|err| {
+            format!("failed to open `{}`, reason: {}", path.display(), err)
+        })?;
     }
 
     Ok(())
