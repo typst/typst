@@ -288,29 +288,13 @@ impl NumberingKind {
             Self::Arabic => {
                 eco_format!("{n}")
             }
-            Self::Letter => {
-                if n == 0 {
-                    return '-'.into();
-                }
-
-                n -= 1;
-
-                let mut letters = vec![];
-                loop {
-                    let c = b'a' + (n % 26) as u8;
-                    letters.push(match case {
-                        Case::Lower => c,
-                        Case::Upper => c.to_ascii_uppercase(),
-                    });
-                    n /= 26;
-                    if n == 0 {
-                        break;
-                    }
-                }
-
-                letters.reverse();
-                String::from_utf8(letters).unwrap().into()
-            }
+            Self::Letter => zeroless::<26>(
+                |x| match case {
+                    Case::Lower => char::from(b'a' + x as u8),
+                    Case::Upper => char::from(b'A' + x as u8),
+                },
+                n,
+            ),
             Self::Roman => {
                 if n == 0 {
                     return 'N'.into();
@@ -419,4 +403,44 @@ impl NumberingKind {
             }
         }
     }
+}
+
+/// Stringify a number using a base-N counting system with no zero digit.
+///
+/// This is best explained by example.  Suppose our digits are 'A', 'B', and 'C'.
+/// we would get the following:
+///
+/// ```text
+///  1 =>   "A"
+///  2 =>   "B"
+///  3 =>   "C"
+///  4 =>  "AA"
+///  5 =>  "AB"
+///  6 =>  "AC"
+///  7 =>  "BA"
+///  8 =>  "BB"
+///  9 =>  "BC"
+/// 10 =>  "CA"
+/// 11 =>  "CB"
+/// 12 =>  "CC"
+/// 13 => "AAA"
+///    etc.
+/// ```
+///
+/// You might be familiar with this scheme from the way spreadsheet software
+/// tends to label its columns.
+fn zeroless<const N_DIGITS: usize>(
+    mk_digit: impl Fn(usize) -> char,
+    mut n: usize,
+) -> EcoString {
+    if n == 0 {
+        return '-'.into();
+    }
+    let mut cs = vec![];
+    while n > 0 {
+        n -= 1;
+        cs.push(mk_digit(n % N_DIGITS));
+        n /= N_DIGITS;
+    }
+    cs.into_iter().rev().collect()
 }
