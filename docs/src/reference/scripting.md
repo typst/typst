@@ -89,7 +89,7 @@ same assignment.
 #let (x, y) = (1, 2)
 The coordinates are #x, #y.
 
-#let (_, c1, .._, c2) = "Hello World!".clusters()
+#let (_, c1, .., c2) = "Hello World!".clusters()
 The second cluster of "Hello World!" is #c1.
 The last cluster is #c2.
 ```

@@ -71,6 +71,11 @@ Three
 #let (..a) = ()
 #test(a, ())
 
+// Destructuring with unnamed sink.
+#let (a, .., b) = (1, 2, 3, 4)
+#test(a, 1)
+#test(b, 4)
+
 // Error: 10-11 at most one binding per identifier is allowed
 #let (a, a) = (1, 2)
 

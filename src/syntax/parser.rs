@@ -777,6 +777,11 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
     let m = p.marker();
 
     if p.eat_if(SyntaxKind::Dots) {
+        if p.at(SyntaxKind::Comma) || p.at(SyntaxKind::RightParen) {
+            p.wrap(m, SyntaxKind::Spread);
+            return SyntaxKind::Spread;
+        }
+
         code_expr(p);
         p.wrap(m, SyntaxKind::Spread);
         return SyntaxKind::Spread;
@@ -833,7 +838,6 @@ fn args(p: &mut Parser) {
     p.wrap(m, SyntaxKind::Args);
 }
 
-// TODO (Marmare): remove success return value
 enum PatternKind {
     Normal,
     Destructuring,
@@ -1125,7 +1129,7 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
             }
             SyntaxKind::Spread => {
                 let Some(within) = child.children_mut().last_mut() else { continue };
-                if within.kind() != SyntaxKind::Ident {
+                if within.children().len() > 0 && within.kind() != SyntaxKind::Ident {
                     within.convert_to_error(eco_format!(
                         "expected identifier, found {}",
                         within.kind().name(),
