@@ -289,11 +289,11 @@ impl Synthesize for FigureElem {
         // summary of the caption properties
         if let Some(numbering) = numbering {
             let Some(counter) = counter else {
-                bail!(self.span(), "numbering a figure requires that is has a counter");
+                bail!(self.span(), "numbering a figure requires that is has a kind");
             };
 
             let Some(supplement) = supplement else {
-                bail!(self.span(), "numbering a figure requires that is has a supplement");
+                bail!(self.span(), "numbering a figure requires that is has a kind or supplement");
             };
 
             let supplement = supplement
