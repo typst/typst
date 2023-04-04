@@ -71,7 +71,7 @@ pub struct CompileCommand {
     output: Option<PathBuf>,
 
     /// Opens the output file after compilation using the default PDF viewer
-    #[arg(short = 'O', long = "open")]
+    #[arg(long = "open")]
     open: Option<Option<String>>,
 }
 
@@ -118,7 +118,6 @@ impl CompileSettings {
             Some(path) => path,
             None => input.with_extension("pdf"),
         };
-
         Self { input, output, watch, root, font_paths, open }
     }
 
@@ -128,7 +127,7 @@ impl CompileSettings {
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
-        let CompileComand { input, output, open } = match args.command {
+        let CompileCommand { input, output, open } = match args.command {
             Command::Compile(command) => command,
             Command::Watch(command) => command,
             _ => unreachable!(),
@@ -179,9 +178,10 @@ fn main() {
     }
 }
 
-/// Opens the given PDF file using: either the default PDF viewer if `open` is `None`.
-/// Or opens it using the given viewer provided by `open` if it is `Some`.
-fn open_pdf(open: Option<&str>, path: &Path) -> StrResult<()> {
+/// Opens the given file using:
+/// - The default file viewer if `open` is `None`.
+/// - The given viewer provided by `open` if it is `Some`.
+fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
     if let Some(app) = open {
         open::with(path, app).map_err(|err| {
             format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err)
@@ -208,9 +208,7 @@ fn print_error(msg: &str) -> io::Result<()> {
 }
 
 /// Execute a compilation command.
-fn compile(command: CompileSettings) -> StrResult<()> {
-    let mut opened = false;
-
+fn compile(mut command: CompileSettings) -> StrResult<()> {
     let root = if let Some(root) = &command.root {
         root.clone()
     } else if let Some(dir) = command
@@ -233,9 +231,8 @@ fn compile(command: CompileSettings) -> StrResult<()> {
 
     // open the file if requested, this must be done on the first **successful** compilation
     if !failed {
-        opened = true;
-        if let Some(open) = &command.open {
-            open_pdf(open.as_deref(), &command.output)?;
+        if let Some(open) = command.open.take() {
+            open_file(open.as_deref(), &command.output)?;
         }
     }
 
@@ -284,11 +281,8 @@ fn compile(command: CompileSettings) -> StrResult<()> {
             comemo::evict(30);
 
             // open the file if requested, this must be done on the first **successful** compilation
-            if !opened {
-                opened = true;
-                if let Some(open) = &command.open {
-                    open_pdf(open.as_deref(), &command.output)?;
-                }
+            if let Some(open) = command.open.take() {
+                open_file(open.as_deref(), &command.output)?;
             }
         }
     }
