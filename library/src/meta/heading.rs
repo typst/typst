@@ -88,6 +88,7 @@ pub struct HeadingElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
+    #[default(Smart::Auto)]
     pub supplement: Smart<Option<Supplement>>,
 
     /// The heading's title.
@@ -163,9 +164,18 @@ impl Refable for HeadingElem {
         supplement: Option<Content>,
     ) -> SourceResult<Content> {
         // first we create the supplement of the heading
-        let mut supplement = supplement.unwrap_or_else(|| {
-            TextElem::packed(self.local_name(TextElem::lang_in(styles)))
-        });
+        let mut supplement = if let Some(supplement) = supplement {
+            supplement
+        } else{
+            match self.supplement(styles) {
+                Smart::Auto => TextElem::packed(self.local_name(TextElem::lang_in(styles))),
+                Smart::Custom(None) => Content::empty(),
+                Smart::Custom(Some(supplement)) => supplement.resolve(
+                    vt,
+                    std::iter::once(Value::from(self.clone()))
+                )?,
+            }
+        };
 
         // we append a space if the supplement is not empty
         if !supplement.is_empty() {
