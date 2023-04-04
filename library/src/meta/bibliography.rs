@@ -218,7 +218,7 @@ pub enum BibliographyStyle {
     Apa,
     /// The Chicago Author Date style. Based on the 17th edition of the Chicago
     /// Manual of Style, Chapter 15.
-    AuthorDate,
+    ChicagoAuthorDate,
     /// The style of the Institute of Electrical and Electronics Engineers.
     /// Based on the 2018 IEEE Reference Guide.
     Ieee,
@@ -231,10 +231,10 @@ impl BibliographyStyle {
     /// The default citation style for this bibliography style.
     pub fn default_citation_style(self) -> CitationStyle {
         match self {
-            Self::Apa => CitationStyle::AuthorDate,
-            Self::AuthorDate => CitationStyle::AuthorDate,
+            Self::Apa => CitationStyle::ChicagoAuthorDate,
+            Self::ChicagoAuthorDate => CitationStyle::ChicagoAuthorDate,
             Self::Ieee => CitationStyle::Numerical,
-            Self::Mla => CitationStyle::AuthorDate,
+            Self::Mla => CitationStyle::ChicagoAuthorDate,
         }
     }
 }
@@ -294,7 +294,7 @@ pub struct CiteElem {
     ///
     /// #bibliography(
     ///   "works.bib",
-    ///   style: "author-date",
+    ///   style: "chicago-author-date",
     /// )
     /// ```
     #[default(true)]
@@ -354,14 +354,14 @@ pub enum CitationStyle {
     /// A simple alphanumerical style. For example, the output could be Rass97
     /// or MKG+21.
     Alphanumerical,
-    /// The Chicago Author Date style. Based on the 17th edition of the Chicago
-    /// Manual of Style, Chapter 15.
-    AuthorDate,
-    /// A Chicago-like author-title format. Results could look like this:
-    /// Prokopov, “It Is Fast or It Is Wrong”.
-    AuthorTitle,
     /// Citations that just consist of the entry keys.
     Keys,
+    /// The Chicago Author Date style. Based on the 17th edition of the Chicago
+    /// Manual of Style, Chapter 15.
+    ChicagoAuthorDate,
+    /// The Chicago-like author-title format. Results could look like this:
+    /// Prokopov, “It Is Fast or It Is Wrong”.
+    ChicagoAuthorTitle,
 }
 
 impl CitationStyle {
@@ -458,10 +458,12 @@ fn create(
                     CitationStyle::Alphanumerical => {
                         Box::new(style::Alphanumerical::new())
                     }
-                    CitationStyle::AuthorDate => {
+                    CitationStyle::ChicagoAuthorDate => {
                         Box::new(style::ChicagoAuthorDate::new())
                     }
-                    CitationStyle::AuthorTitle => Box::new(style::AuthorTitle::new()),
+                    CitationStyle::ChicagoAuthorTitle => {
+                        Box::new(style::AuthorTitle::new())
+                    }
                     CitationStyle::Keys => Box::new(style::Keys::new()),
                 };
             }
@@ -515,7 +517,7 @@ fn create(
 
     let bibliography_style: Box<dyn style::BibliographyStyle> = match style {
         BibliographyStyle::Apa => Box::new(style::Apa::new()),
-        BibliographyStyle::AuthorDate => Box::new(style::ChicagoAuthorDate::new()),
+        BibliographyStyle::ChicagoAuthorDate => Box::new(style::ChicagoAuthorDate::new()),
         BibliographyStyle::Ieee => Box::new(style::Ieee::new()),
         BibliographyStyle::Mla => Box::new(style::Mla::new()),
     };

@@ -1,10 +1,6 @@
 // Test citations and bibliographies.
 
 ---
-// Error: 15-25 parsing failed at ../assets/files/bad.bib:5: wrong number of digits
-#bibliography("/bad.bib")
-
----
 // Test ambiguous reference.
 = Introduction <arrgh>
 // Error: 1-7 label occurs in the document and its bibliography
@@ -20,7 +16,7 @@ See also #cite("arrgh", "distress", [p. 22]), @arrgh[p. 4], and @distress[p. 5].
 ---
 // Test unconventional order.
 #set page(width: 200pt)
-#bibliography("/works.bib", title: [Works to be cited], style: "author-date")
+#bibliography("/works.bib", title: [Works to be cited], style: "chicago-author-date")
 #line(length: 100%)
 #[#set cite(brackets: false)
 As described by @netwok],

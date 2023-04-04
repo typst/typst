@@ -12,6 +12,9 @@ description: |
   - `typst fonts` to list all fonts
 - **Breaking:** Manual counters now start at zero. Read the "How to step"
   section [here]($func/counter) for more details
+- **Breaking:** Renamed the `{"author-date"}` and `{"author-title"}`
+  [bibliography styles]($func/bibliography.style) to `{"chicago-author-date"}`
+  and `{"chicago-author-title"}`
 - Added support for clipping in [boxes]($func/box.clip) and
   [blocks]($func/block.clip)
 - Added [`polygon`]($func/polygon) function for drawing polygons
