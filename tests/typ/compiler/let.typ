@@ -57,10 +57,24 @@ Three
 #test(b, (2, 3, 4, 5))
 #test(c, 6)
 
-// Error: 10-11 duplicate identifier
+// Destructuring with an empty sink.
+#let (..a, b, c) = (1, 2)
+#test(a, ())
+
+#let (a, ..b, c) = (1, 2)
+#test(b, ())
+
+#let (a, b, ..c) = (1, 2)
+#test(c, ())
+
+// Destructuring with an empty sink and empty array.
+#let (..a) = ()
+#test(a, ())
+
+// Error: 10-11 at most one binding per identifier is allowed
 #let (a, a) = (1, 2)
 
-// Error: 12-15 multiple argument sinks
+// Error: 12-15 at most one destructuring sink is allowed
 #let (..a, ..a) = (1, 2)
 
 ---
