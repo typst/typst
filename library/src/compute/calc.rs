@@ -104,11 +104,23 @@ pub fn pow(
         _ => {}
     };
 
-    match (base, exp) {
+    let return_value = match (base, exp) {
         (Num::Int(a), Num::Int(b)) if b >= 0 => Value::Int(a.pow(b as u32)),
         (a, Num::Int(b)) => Value::Float(a.float().powi(b as i32)),
         (a, b) => Value::Float(a.float().powf(b.float())),
+    };
+
+    let is_nan = match return_value {
+        Value::Float(f) => f.is_nan(),
+        Value::Int(i) => (i as f64).is_nan(),
+        _ => false,
+    };
+
+    if is_nan {
+        bail!(span, "the return value is not a real number")
     }
+
+    return_value
 }
 
 /// Calculate the square root of a number.
@@ -367,20 +379,35 @@ pub fn tanh(
 /// Returns: float
 #[func]
 pub fn log(
-    /// The number whose logarithm to calculate.
-    value: f64,
-    /// The base of the logarithm.
+    /// The number whose logarithm to calculate. It must be strictly positive.
+    value: Spanned<Num>,
+    /// The base of the logarithm. It can't be null.
     #[named]
     #[default(10.0)]
     base: f64,
 ) -> Value {
-    Value::Float(if base == 2.0 {
-        value.log2()
+    let number = value.v.float();
+
+    if number <= 0 as f64 {
+        bail!(value.span, "a logarithm parameter must be strictly positive")
+    }
+    if !base.is_normal() {
+        bail!(value.span, "a logarithm base should be normal (not NaN, not infinite, non-null, not subnormal)")
+    }
+
+    let return_value = if base == 2.0 {
+        number.log2()
     } else if base == 10.0 {
-        value.log10()
+        number.log10()
     } else {
-        value.log(base)
-    })
+        number.log(base)
+    };
+
+    if return_value.is_infinite() || return_value.is_nan() {
+        bail!(value.span, "this logarithm doesn't return a real value")
+    }
+
+    Value::Float(return_value)
 }
 
 /// Round a number down to the nearest integer.
