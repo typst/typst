@@ -126,8 +126,8 @@ impl Show for OutlineElem {
                 continue;
             };
 
-            // Deals with the ancestors of the current heading.
-            // This is only applicable for headings.
+            // Deals with the ancestors of the current element.
+            // This is only applicable for elements with a hierarchy/level.
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Refable>())
