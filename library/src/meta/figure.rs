@@ -1,5 +1,6 @@
-use std::any::TypeId;
 use std::str::FromStr;
+
+use ecow::eco_vec;
 
 use super::{
     Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
@@ -154,9 +155,19 @@ pub struct FigureElem {
 impl FigureElem {
     /// Determines the type of the figure by looking at the content, finding all
     /// [`Figurable`] elements and sorting them by priority then returning the highest.
-    pub fn determine_type(&self, styles: StyleChain) -> Option<Content> {
-        let potential_elems =
-            self.body().query(Selector::Can(TypeId::of::<dyn Figurable>()));
+    pub fn determine_type(
+        &self,
+        styles: StyleChain,
+        require_supplement: bool,
+    ) -> Option<Content> {
+        let potential_elems = self.body().query(if require_supplement {
+            Selector::All(eco_vec![
+                Selector::can::<dyn Figurable>(),
+                Selector::can::<dyn LocalName>()
+            ])
+        } else {
+            Selector::can::<dyn Figurable>()
+        });
 
         potential_elems.into_iter().max_by_key(|elem| {
             elem.with::<dyn Figurable>()
@@ -179,23 +190,19 @@ impl FigureElem {
     pub fn show_supplement_and_numbering(
         &self,
         vt: &mut Vt,
-        styles: StyleChain,
         external_supp: Option<Content>,
     ) -> SourceResult<Option<Content>> {
-        if let Some(numbering) = self.numbering(styles) {
-            let element = self.element().expect("missing element");
-
+        if let Some(element) = self.element() {
             let mut name = external_supp.unwrap_or(element.supplement);
-
-            let counter = element.counter;
 
             if !name.is_empty() {
                 name += TextElem::packed("\u{a0}");
             }
 
-            let number = counter
+            let number = element
+                .counter
                 .at(vt, self.0.location().expect("missing location"))?
-                .display(vt, &numbering)?
+                .display(vt, &element.numbering)?
                 .spanned(self.span());
 
             Ok(Some(name + number))
@@ -214,7 +221,7 @@ impl FigureElem {
             return Ok(Content::empty());
         };
 
-        if let Some(sup_and_num) = self.show_supplement_and_numbering(vt, styles, None)? {
+        if let Some(sup_and_num) = self.show_supplement_and_numbering(vt, None)? {
             caption = sup_and_num + TextElem::packed(": ") + caption;
         }
 
@@ -228,10 +235,11 @@ impl Synthesize for FigureElem {
 
         // We get the numbering or `None`.
         let numbering = self.numbering(styles);
+        let supplement = self.supplement(styles);
 
         // We get the content or `None`.
         let content = match self.kind(styles) {
-            Smart::Auto => match self.determine_type(styles) {
+            Smart::Auto => match self.determine_type(styles, supplement.is_auto()) {
                 Some(ty) => Some(ty),
                 None => bail!(
                     self.span(),
@@ -273,7 +281,7 @@ impl Synthesize for FigureElem {
         // We get the supplement or `None`.
         // The supplement must either be set manually of the content identification
         // must have succeeded.
-        let supplement = match self.supplement(styles) {
+        let supplement = match supplement {
             Smart::Auto => {
                 content.as_ref().and_then(|c| c.with::<dyn LocalName>()).map(|c| {
                     Supplement::Content(TextElem::packed(
@@ -342,12 +350,12 @@ impl Refable for FigureElem {
     fn reference(
         &self,
         vt: &mut Vt,
-        styles: StyleChain,
+        _styles: StyleChain,
         supplement: Option<Content>,
     ) -> SourceResult<Content> {
         // If the figure is not numbered, we cannot reference it.
         // Otherwise we build the supplement and numbering scheme.
-        let Some(desc) = self.show_supplement_and_numbering(vt, styles, supplement)? else {
+        let Some(desc) = self.show_supplement_and_numbering(vt, supplement)? else {
             bail!(self.span(), "cannot reference unnumbered figure")
         };
 

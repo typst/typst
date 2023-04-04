@@ -1,4 +1,4 @@
-use std::any::TypeId;
+use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
@@ -273,6 +273,11 @@ impl Selector {
     /// Define a simple text selector.
     pub fn text(text: &str) -> Self {
         Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+    }
+
+    /// Define a simple [`Selector::Can`] selector.
+    pub fn can<T: ?Sized + Any>() -> Self {
+        Self::Can(TypeId::of::<T>())
     }
 
     /// Whether the selector matches for the target.
