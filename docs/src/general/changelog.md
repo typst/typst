@@ -19,6 +19,7 @@ description: |
 - The [`link`]($func/link) function now accepts [labels]($func/label)
 - The [`bibliography`]($func/bibliography) now also accepts multiple
   bibliography paths (as an array)
+- Labels and references can now include `:` and `.` if not at the end
 - Added basic i18n for a few more languages (IT, RU, ZH, FR, PT)
 - Added numbering support for Hebrew
 - Added support for [integers]($type/integer) with base 2, 8, and 16

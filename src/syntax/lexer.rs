@@ -291,8 +291,8 @@ impl Lexer<'_> {
             return self.error_at_end("expected closing bracket in link");
         }
 
-        // Don't include the trailing characters likely to be part of another expression.
-        if matches!(self.s.scout(-1), Some('!' | ',' | '.' | ':' | ';' | '?' | '\'')) {
+        // Don't include the trailing characters likely to be part of text.
+        while matches!(self.s.scout(-1), Some('!' | ',' | '.' | ':' | ';' | '?' | '\'')) {
             self.s.uneat();
         }
 
@@ -311,12 +311,18 @@ impl Lexer<'_> {
     }
 
     fn ref_marker(&mut self) -> SyntaxKind {
-        self.s.eat_while(is_id_continue);
+        self.s.eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.'));
+
+        // Don't include the trailing characters likely to be part of text.
+        while matches!(self.s.scout(-1), Some('.' | ':')) {
+            self.s.uneat();
+        }
+
         SyntaxKind::RefMarker
     }
 
     fn label(&mut self) -> SyntaxKind {
-        let label = self.s.eat_while(is_id_continue);
+        let label = self.s.eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.'));
         if label.is_empty() {
             return self.error("label cannot be empty");
         }
