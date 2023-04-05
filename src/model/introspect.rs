@@ -194,6 +194,7 @@ impl Introspector {
         self.position(location).page
     }
 
+    /// Gets the page numbering for the given location, if any.
     pub fn page_numbering(&self, location: Location) -> Option<Value> {
         let page = self.page(location);
         self.page_numberings
