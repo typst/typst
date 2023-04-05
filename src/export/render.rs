@@ -61,6 +61,7 @@ fn render_frame(
             FrameItem::Meta(meta, _) => match meta {
                 Meta::Link(_) => {}
                 Meta::Elem(_) => {}
+                Meta::PageNumbering(_) => {}
                 Meta::Hide => {}
             },
         }

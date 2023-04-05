@@ -1,4 +1,8 @@
-use super::{Counter, CounterKey, HeadingElem, LocalName, Refable};
+use std::str::FromStr;
+
+use super::{
+    Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
+};
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
@@ -205,6 +209,15 @@ impl Show for OutlineElem {
             // Add the outline of the element.
             seq.push(outline.linked(Destination::Location(location)));
 
+            let page_numbering = vt
+                .introspector
+                .page_numbering(location)
+                .cast::<Option<Numbering>>()
+                .unwrap()
+                .unwrap_or_else(|| {
+                    Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
+                });
+
             // Add filler symbols between the section name and page number.
             if let Some(filler) = self.fill(styles) {
                 seq.push(SpaceElem::new().pack());
@@ -221,11 +234,10 @@ impl Show for OutlineElem {
 
             // Add the page number and linebreak.
             let page = Counter::new(CounterKey::Page)
-                // query the page counter state at location of heading
                 .at(vt, location)?
-                .first();
-            let end = TextElem::packed(eco_format!("{page}"));
-            seq.push(end.linked(Destination::Location(location)));
+                .display(vt, &page_numbering)?;
+
+            seq.push(page.linked(Destination::Location(location)));
             seq.push(LinebreakElem::new().pack());
 
             ancestors.push(elem);
