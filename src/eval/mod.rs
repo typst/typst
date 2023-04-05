@@ -37,8 +37,7 @@ pub use self::value::*;
 
 pub(crate) use self::methods::methods_on;
 
-use std::collections::BTreeMap;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::mem;
 use std::path::{Path, PathBuf};
 
@@ -1207,31 +1206,26 @@ impl ast::Pattern {
                                     i += 1;
                                 }
                                 ast::DestructuringKind::Sink(ident) => {
-                                    let sink_size =
-                                        value.len() as i64 - pattern.len() as i64 + 1;
-                                    if sink_size < 0 {
-                                        bail!(
-                                            self.span(),
-                                            "not enough elements to destructure"
-                                        );
-                                    }
-                                    let Ok(v) = value.slice(i, Some(i + sink_size)) else {
-                                        bail!(self.span(), "not enough elements to destructure");
-                                    };
-                                    if let Some(ident) = ident {
-                                        vm.define(ident.clone(), v.clone());
-                                    }
-                                    i += sink_size;
+                                    (1 + value.len() as usize).checked_sub(pattern.len()).and_then(|sink_size| {
+                                        let Ok(sink) = value.slice(i, Some(i + sink_size as i64)) else {
+                                            return None;
+                                        };
+                                        if let Some(ident) = ident {
+                                            vm.define(ident.clone(), sink.clone());
+                                        }
+                                        i += sink_size as i64;
+                                        Some(())
+                                    }).ok_or("not enough elements to destructure").at(self.span())?;
                                 }
-                                ast::DestructuringKind::Named((key, _)) => {
+                                ast::DestructuringKind::Named(key, _) => {
                                     bail!(
                                         key.span(),
                                         "cannot destructure named elements from an array"
-                                    );
+                                    )
                                 }
                             }
                         }
-                        if i < value.len().try_into().unwrap() {
+                        if i < value.len() as i64 {
                             bail!(self.span(), "too many elements to destructure");
                         }
                     }
@@ -1250,7 +1244,7 @@ impl ast::Pattern {
                                 ast::DestructuringKind::Sink(ident) => {
                                     sink = ident.clone()
                                 }
-                                ast::DestructuringKind::Named((key, ident)) => {
+                                ast::DestructuringKind::Named(key, ident) => {
                                     let Ok(v) = value.at(key) else {
                                         bail!(ident.span(), "destructuring key not found in dictionary");
                                     };
@@ -1441,9 +1435,7 @@ impl Eval for ast::ForLoop {
 
                 #[allow(unused_parens)]
                 for value in $iter {
-                    if let Err(err) = $pat.define(vm, Value::from(value)) {
-                        return Err(err);
-                    }
+                    $pat.define(vm, Value::from(value))?;
 
                     let body = self.body();
                     let value = body.eval(vm)?;
@@ -1484,11 +1476,7 @@ impl Eval for ast::ForLoop {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
             }
             (_, _) => {
-                bail!(
-                    pattern.span(),
-                    "cannot destructure values of {}",
-                    iter.type_name()
-                );
+                bail!(pattern.span(), "cannot destructure values of {}", iter.type_name())
             }
         }
 
