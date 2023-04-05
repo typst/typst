@@ -277,9 +277,10 @@ impl Array {
         Ok(result)
     }
 
-    /// Return a sorted version of this array.
+    /// Return a sorted version of this array, optionally by a given key function.
     ///
-    /// Returns an error if two values could not be compared.
+    /// Returns an error if two values could not be compared or if the key function (if given)
+    /// yields an error.
     pub fn sorted(
         &self,
         vm: &mut Vm,
