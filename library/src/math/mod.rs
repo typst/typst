@@ -154,17 +154,42 @@ pub struct EquationElem {
     /// With @ratio, we get:
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
-    pub numbering: Option<Numbering>,
+    pub numbering: Option<Numbering>, // TODO default to "(1)" numbering
+
+    /// If `true`, then equations are always displayed numbered (as long as `numbering` is not
+    /// `none`). If `false` (the default), then equations are only displayed with a number if they
+    /// have a label attached to them.
+    ///
+    /// ```example
+    /// #set math.equation(numbering: "(1)", smart_numbering: false)
+    ///
+    /// We define:
+    /// $ phi.alt := (1 + sqrt(5)) / 2 $ <ratio>
+    ///
+    /// With @ratio, we get:
+    /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
+    /// ```
+    #[default(true)]
+    pub always_number: bool,
 
     /// The contents of the equation.
     #[required]
     pub body: Content,
 }
 
+impl EquationElem {
+    fn get_numbering(&self, styles: StyleChain) -> Option<Numbering> {
+        if !self.always_number(styles) && !todo!("is_labelled") {
+            return None;
+        }
+        self.numbering(styles)
+    }
+}
+
 impl Synthesize for EquationElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_block(self.block(styles));
-        self.push_numbering(self.numbering(styles));
+        self.push_numbering(self.get_numbering(styles));
         Ok(())
     }
 }
@@ -218,7 +243,7 @@ impl Layout for EquationElem {
         let mut frame = ctx.layout_frame(self)?;
 
         if block {
-            if let Some(numbering) = self.numbering(styles) {
+            if let Some(numbering) = self.get_numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
                 let counter = Counter::of(Self::func())
                     .display(Some(numbering), false)
@@ -263,7 +288,7 @@ impl Layout for EquationElem {
 impl Count for EquationElem {
     fn update(&self) -> Option<CounterUpdate> {
         (self.block(StyleChain::default())
-            && self.numbering(StyleChain::default()).is_some())
+            && self.get_numbering(StyleChain::default()).is_some())
         .then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
 }
