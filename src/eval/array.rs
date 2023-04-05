@@ -5,7 +5,8 @@ use std::ops::{Add, AddAssign};
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{At, SourceError, SourceResult, StrResult};
+use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// Create a new [`Array`] from values.
@@ -279,20 +280,43 @@ impl Array {
     /// Return a sorted version of this array.
     ///
     /// Returns an error if two values could not be compared.
-    pub fn sorted(&self) -> StrResult<Self> {
+    pub fn sorted(
+        &self,
+        vm: &mut Vm,
+        span: Span,
+        key: Option<Func>,
+    ) -> SourceResult<Self> {
         let mut result = Ok(());
         let mut vec = self.0.clone();
+        let mut key_ = |x: Value| match &key {
+            Some(f) => f.call_vm(vm, Args::new(f.span(), [x])),
+            None => Ok(x),
+        };
         vec.make_mut().sort_by(|a, b| {
-            a.partial_cmp(b).unwrap_or_else(|| {
-                if result.is_ok() {
-                    result = Err(eco_format!(
-                        "cannot order {} and {}",
-                        a.type_name(),
-                        b.type_name(),
-                    ));
+            // Until we get `try` blocks :)
+            match (key_(a.clone()), key_(b.clone())) {
+                (Ok(a), Ok(b)) => a.partial_cmp(&b).unwrap_or_else(|| {
+                    if result.is_ok() {
+                        result = Err(eco_format!(
+                            "cannot order {} and {}",
+                            a.type_name(),
+                            b.type_name(),
+                        ))
+                        .at(span);
+                    }
+                    Ordering::Equal
+                }),
+                (Err(mut e), _) | (_, Err(mut e)) => {
+                    if result.is_ok() {
+                        e.push(SourceError::new(
+                            span,
+                            "error while evaluating key for sorting",
+                        ));
+                        result = Err(e);
+                    }
+                    Ordering::Equal
                 }
-                Ordering::Equal
-            })
+            }
         });
         result.map(|_| Self::from_vec(vec))
     }
