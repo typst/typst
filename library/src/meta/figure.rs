@@ -248,20 +248,6 @@ impl Count for FigureElem {
     }
 }
 
-impl LocalName for FigureElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
-            Lang::CHINESE => "图",
-            Lang::GERMAN => "Abbildung",
-            Lang::ITALIAN => "Figura",
-            Lang::PORTUGUESE => "Figura",
-            Lang::RUSSIAN => "Рисунок",
-            Lang::SPANISH => "Figura",
-            Lang::ENGLISH | Lang::FRENCH | _ => "Figure",
-        }
-    }
-}
-
 impl Refable for FigureElem {
     fn reference(
         &self,
