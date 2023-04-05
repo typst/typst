@@ -99,6 +99,54 @@ Three
 #let (a, b) = true
 
 ---
+// Destructuring dictionaries.
+
+// Simple destructuring.
+#let (a: a, b, x: c) = (a: 1, b: 2, x: 3)
+#test(a, 1)
+#test(b, 2)
+#test(c, 3)
+
+// Destructuring with a sink.
+#let (a: _, ..b) = (a: 1, b: 2, c: 3)
+#test(b, (b: 2, c: 3))
+
+// Destructuring with a sink in the middle.
+#let (a: _, ..b, c: _) = (a: 1, b: 2, c: 3)
+#test(b, (b: 2))
+
+// Destructuring with an empty sink.
+#let (a: _, ..b) = (a: 1)
+#test(b, (:))
+
+// Destructuring with an empty sink and empty dict.
+#let (..a) = (:)
+#test(a, (:))
+
+// Destructuring with unnamed sink.
+#let (a, ..) = (a: 1, b: 2)
+#test(a, 1)
+
+// Error: 10-13 expected identifier, found string
+// Error: 18-19 expected identifier, found integer
+#let (a: "a", b: 2) = (a: 1, b: 2)
+
+// Error: 13-14 at most one binding per identifier is allowed
+#let (a: a, a) = (a: 1, b: 2)
+
+---
+// Error: 10-11 destructuring key not found in dictionary
+#let (a, b) = (a: 1)
+
+---
+// Error: 13-14 destructuring key not found in dictionary
+#let (a, b: b) = (a: 1)
+
+---
+// Error: 7-8 cannot destructure named elements from an array
+#let (a: a, b) = (1, 2, 3)
+
+---
 // Error: 5 expected identifier
 #let
 

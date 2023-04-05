@@ -1614,6 +1614,8 @@ pub enum DestructuringKind {
     Ident(Ident),
     /// An argument sink: `..y`.
     Sink(Option<Ident>),
+    /// Named arguments: `x: 1`.
+    Named((Ident, Ident)),
 }
 
 impl Pattern {
@@ -1629,7 +1631,14 @@ impl Pattern {
                     SyntaxKind::Spread => {
                         bindings.push(DestructuringKind::Sink(child.cast_first_match()))
                     }
-                    _ => {}
+                    SyntaxKind::Named => {
+                        let mut filtered_children =
+                            child.children().filter_map(SyntaxNode::cast);
+                        let key = filtered_children.next().unwrap_or_default();
+                        let ident = filtered_children.next().unwrap_or_default();
+                        bindings.push(DestructuringKind::Named((key, ident)))
+                    }
+                    _ => (),
                 }
             }
             PatternKind::Destructure(bindings)
@@ -1647,6 +1656,7 @@ impl Pattern {
                 .filter_map(|binding| match binding {
                     DestructuringKind::Ident(ident) => Some(ident),
                     DestructuringKind::Sink(ident) => ident,
+                    DestructuringKind::Named((_, ident)) => Some(ident),
                 })
                 .collect(),
         }

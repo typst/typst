@@ -38,6 +38,7 @@ pub use self::value::*;
 pub(crate) use self::methods::methods_on;
 
 use std::collections::BTreeMap;
+use std::collections::HashSet;
 use std::mem;
 use std::path::{Path, PathBuf};
 
@@ -1193,37 +1194,85 @@ impl ast::Pattern {
                 Ok(Value::None)
             }
             ast::PatternKind::Destructure(pattern) => {
-                let Ok(value) = value.clone().cast::<Array>() else {
-                    bail!(self.span(), "cannot destructure {}", value.type_name());
-                };
-
-                let mut i = 0;
-                for p in &pattern {
-                    match p {
-                        ast::DestructuringKind::Ident(ident) => {
-                            let Ok(v) = value.at(i) else {
-                                bail!(ident.span(), "not enough elements to destructure");
-                            };
-                            vm.define(ident.clone(), v.clone());
-                            i += 1;
+                match value {
+                    Value::Array(value) => {
+                        let mut i = 0;
+                        for p in &pattern {
+                            match p {
+                                ast::DestructuringKind::Ident(ident) => {
+                                    let Ok(v) = value.at(i) else {
+                                        bail!(ident.span(), "not enough elements to destructure");
+                                    };
+                                    vm.define(ident.clone(), v.clone());
+                                    i += 1;
+                                }
+                                ast::DestructuringKind::Sink(ident) => {
+                                    let sink_size =
+                                        value.len() as i64 - pattern.len() as i64 + 1;
+                                    if sink_size < 0 {
+                                        bail!(
+                                            self.span(),
+                                            "not enough elements to destructure"
+                                        );
+                                    }
+                                    let Ok(v) = value.slice(i, Some(i + sink_size)) else {
+                                        bail!(self.span(), "not enough elements to destructure");
+                                    };
+                                    if let Some(ident) = ident {
+                                        vm.define(ident.clone(), v.clone());
+                                    }
+                                    i += sink_size;
+                                }
+                                ast::DestructuringKind::Named((key, _)) => {
+                                    bail!(
+                                        key.span(),
+                                        "cannot destructure named elements from an array"
+                                    );
+                                }
+                            }
                         }
-                        ast::DestructuringKind::Sink(ident) => {
-                            let sink_size = value.len() as i64 - pattern.len() as i64 + 1;
-                            if sink_size < 0 {
-                                bail!(self.span(), "not enough elements to destructure");
-                            }
-                            let Ok(v) = value.slice(i, Some(i + sink_size)) else {
-                                bail!(self.span(), "not enough elements to destructure");
-                            };
-                            if let Some(ident) = ident {
-                                vm.define(ident.clone(), v.clone());
-                            }
-                            i += sink_size;
+                        if i < value.len().try_into().unwrap() {
+                            bail!(self.span(), "too many elements to destructure");
                         }
                     }
-                }
-                if i < value.len().try_into().unwrap() {
-                    bail!(self.span(), "too many elements to destructure");
+                    Value::Dict(value) => {
+                        let mut sink = None;
+                        let mut used = HashSet::new();
+                        for p in &pattern {
+                            match p {
+                                ast::DestructuringKind::Ident(ident) => {
+                                    let Ok(v) = value.at(ident) else {
+                                        bail!(ident.span(), "destructuring key not found in dictionary");
+                                    };
+                                    vm.define(ident.clone(), v.clone());
+                                    used.insert(ident.clone().take());
+                                }
+                                ast::DestructuringKind::Sink(ident) => {
+                                    sink = ident.clone()
+                                }
+                                ast::DestructuringKind::Named((key, ident)) => {
+                                    let Ok(v) = value.at(key) else {
+                                        bail!(ident.span(), "destructuring key not found in dictionary");
+                                    };
+                                    vm.define(key.clone(), v.clone());
+                                    used.insert(key.clone().take());
+                                }
+                            }
+                        }
+
+                        if let Some(ident) = sink {
+                            let mut sink = Dict::new();
+                            for (key, value) in value {
+                                if !used.contains(key.as_str()) {
+                                    sink.insert(key, value);
+                                }
+                            }
+                            vm.define(ident, Value::Dict(sink));
+                        }
+                    }
+                    _ => {
+                        bail!(self.span(), "cannot destructure {}", value.type_name());
+                    }
                 }
 
                 Ok(Value::None)
