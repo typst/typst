@@ -1,78 +1,6 @@
 use kurbo::{CubicBez, ParamCurveExtrema};
 use crate::prelude::*;
-use crate::visualize::path::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum PathVertex {
-    Vertex(Axes<Rel<Length>>),
-    MirroredControlPoint(Axes<Rel<Length>>, Axes<Rel<Length>>),
-    AllControlPoints(Axes<Rel<Length>>, Axes<Rel<Length>>, Axes<Rel<Length>>),
-}
-
-impl PathVertex {
-    pub fn vertex(&self) -> Axes<Rel<Length>> {
-        match self {
-            Vertex(x) => *x,
-            MirroredControlPoint(x, _) => *x,
-            AllControlPoints(x, _, _) => *x,
-        }
-    }
-
-    pub fn control_point_from(&self) -> Axes<Rel<Length>> {
-        match self {
-            Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
-            MirroredControlPoint(_, a) => a.map(|x| -x),
-            AllControlPoints(_, _, b) => *b,
-        }
-    }
-
-    pub fn control_point_to(&self) -> Axes<Rel<Length>> {
-        match self {
-            Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
-            MirroredControlPoint(_, a) => *a,
-            AllControlPoints(_, a, _) => *a,
-        }
-    }
-}
-
-cast_from_value! {
-    PathVertex,
-    array: Array => {
-        let mut iter = array.into_iter();
-        match (iter.next(), iter.next(), iter.next(), iter.next()) {
-            (Some(a), None, None, None) => {
-                Vertex(a.cast()?)
-            },
-            (Some(a), Some(b), None, None) => {
-                if Axes::<Rel<Length>>::is(&a) {
-                    MirroredControlPoint(a.cast()?, b.cast()?)
-                } else {
-                    Vertex(Axes::new(a.cast()?, b.cast()?))
-                }
-            },
-            (Some(a), Some(b), Some(c), None) => {
-                AllControlPoints(a.cast()?, b.cast()?, c.cast()?)
-            },
-            _ => Err("path vertex must be 1, 2, or 3 points")?,
-        }
-    },
-}
-
-cast_to_value! {
-    v: PathVertex => {
-        match v {
-            PathVertex::Vertex(x) => {
-                Value::from(x)
-            },
-            PathVertex::MirroredControlPoint(x, c) => {
-                Value::Array(array![x, c])
-            },
-            PathVertex::AllControlPoints(x, c1, c2) => {
-                Value::Array(array![x, c1, c2])
-            },
-        }
-    }
-}
+use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 
 /// A path going through a list of points, connected through Bezier curves.
 ///
@@ -103,6 +31,7 @@ pub struct PathElem {
     /// documentation]($func/line.stroke) for more details.
     #[resolve]
     #[fold]
+    #[default(Some(PartialStroke::default()))]
     pub stroke: Option<PartialStroke>,
 
     /// The vertices of the path.
@@ -187,5 +116,77 @@ impl Layout for PathElem {
         }
 
         Ok(Fragment::frame(frame))
+    }
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum PathVertex {
+    Vertex(Axes<Rel<Length>>),
+    MirroredControlPoint(Axes<Rel<Length>>, Axes<Rel<Length>>),
+    AllControlPoints(Axes<Rel<Length>>, Axes<Rel<Length>>, Axes<Rel<Length>>),
+}
+
+impl PathVertex {
+    pub fn vertex(&self) -> Axes<Rel<Length>> {
+        match self {
+            Vertex(x) => *x,
+            MirroredControlPoint(x, _) => *x,
+            AllControlPoints(x, _, _) => *x,
+        }
+    }
+
+    pub fn control_point_from(&self) -> Axes<Rel<Length>> {
+        match self {
+            Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
+            MirroredControlPoint(_, a) => a.map(|x| -x),
+            AllControlPoints(_, _, b) => *b,
+        }
+    }
+
+    pub fn control_point_to(&self) -> Axes<Rel<Length>> {
+        match self {
+            Vertex(_) => Axes::new(Rel::zero(), Rel::zero()),
+            MirroredControlPoint(_, a) => *a,
+            AllControlPoints(_, a, _) => *a,
+        }
+    }
+}
+
+cast_from_value! {
+    PathVertex,
+    array: Array => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next(), iter.next()) {
+            (Some(a), None, None, None) => {
+                Vertex(a.cast()?)
+            },
+            (Some(a), Some(b), None, None) => {
+                if Axes::<Rel<Length>>::is(&a) {
+                    MirroredControlPoint(a.cast()?, b.cast()?)
+                } else {
+                    Vertex(Axes::new(a.cast()?, b.cast()?))
+                }
+            },
+            (Some(a), Some(b), Some(c), None) => {
+                AllControlPoints(a.cast()?, b.cast()?, c.cast()?)
+            },
+            _ => Err("path vertex must have 1, 2, or 3 points")?,
+        }
+    },
+}
+
+cast_to_value! {
+    v: PathVertex => {
+        match v {
+            PathVertex::Vertex(x) => {
+                Value::from(x)
+            },
+            PathVertex::MirroredControlPoint(x, c) => {
+                Value::Array(array![x, c])
+            },
+            PathVertex::AllControlPoints(x, c1, c2) => {
+                Value::Array(array![x, c1, c2])
+            },
+        }
     }
 }
