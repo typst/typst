@@ -81,9 +81,7 @@ It explains #name.
 Sum is #add(2, 3).
 ```
 
-Let bindings can be used to destructure arrays. Note that the underscore `_`
-is special in these assignments, as it can be used multiple times in the
-same assignment.
+Let bindings can be used to destructure arrays and dictionaries.
 
 ```example
 #let (x, y) = (1, 2)
@@ -92,6 +90,25 @@ The coordinates are #x, #y.
 #let (_, c1, .., c2) = "Hello World!".clusters()
 The second cluster of "Hello World!" is #c1.
 The last cluster is #c2.
+
+#let (Homer, Austen: jane-austen, ..books) = (
+  "Shakespeare": "Hamlet",
+  "Homer": "The Odyssey",
+  "Dicken": "Oliver Twist",
+  "Austen": "Persuasion",
+)
+#for (author, title) in books [
+  #author wrote #title, 
+]
+Homer wrote #Homer and Austen wrote #jane-austen.
+```
+
+Note that the underscore `_` is the only identifier that can
+be used multiple times in the same assignment.
+
+```
+#let (_, y, _) = (1, 2, 3)
+The y coordinate is #y.
 ```
 
 ## Conditionals { #conditionals }
@@ -154,7 +171,7 @@ For loops can iterate over a variety of collections:
 
 - `{for pair in dict {..}}` \
   Iterates over the key-value pairs of the [dictionary]($type/dictionary).
-  The pairs can also be destructured by using `{for (key, value) in dict {..}}`
+  The pairs can also be destructured by using `{for (key, value) in dict {..}}`.
 
 To control the execution of the loop, Typst provides the `{break}` and
 `{continue}` statements. The former performs an early exit from the loop while
