@@ -256,6 +256,9 @@ impl Layout for EquationElem {
             frame.size_mut().y = ascent + descent;
         }
 
+        // Apply metadata.
+        frame.meta(styles, false);
+
         Ok(Fragment::frame(frame))
     }
 }
