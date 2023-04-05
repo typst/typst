@@ -159,7 +159,17 @@ installed. Then, you can build the CLI with the following command:
 cargo build -p typst-cli --release
 ```
 
-The optimized binary will be stored in `target/release/`.
+The optimized binary will be stored in `target/release/`. To make the binary
+available on your `$PATH` alongside other locally installed Rust binaries, copy
+or symbolically link the file to your local `${HOME}/.cargo/bin` directory:
+
+```sh
+# Copies the binary file
+cp -a target/release/typst "${HOME}/.cargo/bin/typst"
+
+# Creates symbolic link to the binary file
+ln -s "$(realpath target/release/typst)" "${HOME}/.cargo/bin/typst"
+```
 
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
