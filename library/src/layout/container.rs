@@ -374,6 +374,7 @@ impl Layout for BlockElem {
 
                 pod.size.y = heights[0];
                 pod.backlog = &heights[1..];
+                pod.full = heights.iter().sum();
                 pod.last = None;
             }
 
