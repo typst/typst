@@ -128,6 +128,24 @@ pub struct OutlineElem {
     /// ```
     #[default(Some(RepeatElem::new(TextElem::packed(".")).pack()))]
     pub fill: Option<Content>,
+
+    /// The location where the elements of the outline should start
+    /// being queried.
+    ///
+    /// This can be either a [labe]($func/label) or a [location]($func/locate).
+    /// In the case of a label, the outline will automatically query the instance
+    /// of the label.
+    #[default(Smart::Auto)]
+    pub from: Smart<Option<LabelOrLocation>>,
+
+    /// The location where the elements of the outline should end
+    /// being queried.
+    ///
+    /// This can be either a [labe]($func/label) or a [location]($func/locate).
+    /// In the case of a label, the outline will automatically query the instance
+    /// of the label.
+    #[default(Smart::Auto)]
+    pub to: Smart<Option<LabelOrLocation>>,
 }
 
 impl Show for OutlineElem {
@@ -152,10 +170,34 @@ impl Show for OutlineElem {
         let indent = self.indent(styles);
         let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
 
-        let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query_all(self.target(styles));
+        let start = match self.from(styles) {
+            Smart::Auto | Smart::Custom(None) => None,
+            Smart::Custom(Some(LabelOrLocation::Label(label))) => {
+                match vt.introspector.query_label(&label).map(|c| c.location()) {
+                    Ok(location) => Some(location.unwrap()),
+                    Err(err) => bail!(self.span(), "{}", err),
+                }
+            }
+            Smart::Custom(Some(LabelOrLocation::Location(location))) => Some(location),
+        };
 
-        for elem in &elems {
+        let end = match self.to(styles) {
+            Smart::Auto | Smart::Custom(None) => None,
+            Smart::Custom(Some(LabelOrLocation::Label(label))) => {
+                match vt.introspector.query_label(&label).map(|c| c.location()) {
+                    Ok(location) => Some(location.unwrap()),
+                    Err(err) => bail!(self.span(), "{}", err),
+                }
+            }
+            Smart::Custom(Some(LabelOrLocation::Location(location))) => Some(location),
+        };
+
+        let mut ancestors: Vec<&Content> = vec![];
+        let elems = vt.introspector.query(self.target(styles), start, end);
+
+        let stop_bound =
+            end.is_some().then(|| elems.len() - 1).unwrap_or_else(|| elems.len());
+        for elem in &elems[0..stop_bound] {
             let Some(refable) = elem.with::<dyn Refable>() else {
                 bail!(elem.span(), "outlined elements must be referenceable");
             };
@@ -262,5 +304,25 @@ impl LocalName for OutlineElem {
             Lang::UKRAINIAN => "Зміст",
             Lang::ENGLISH | _ => "Contents",
         }
+    }
+}
+
+/// A container for either a [`Label`] or a [`Location`].
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum LabelOrLocation {
+    Label(Label),
+    Location(Location),
+}
+
+cast_from_value! {
+    LabelOrLocation,
+    v: Label => Self::Label(v),
+    v: Location => Self::Location(v),
+}
+
+cast_to_value! {
+    v: LabelOrLocation => match v {
+        LabelOrLocation::Label(label) => Value::from(label),
+        LabelOrLocation::Location(location) => Value::from(location),
     }
 }
