@@ -1144,7 +1144,9 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
             SyntaxKind::Named => {
                 let Some(within) = child.children_mut().first_mut() else { return };
                 if !used.insert(within.text().clone()) {
-                    within.convert_to_error("at most one binding per identifier is allowed");
+                    within.convert_to_error(
+                        "at most one binding per identifier is allowed",
+                    );
                     child.make_erroneous();
                 }
 
