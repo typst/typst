@@ -14,7 +14,7 @@ $A, italic(A), upright(A), bold(A), bold(upright(A)), \
 
 ---
 // Test a few style exceptions.
-$h, bb(N), frak(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta))$
+$h, bb(N), cal(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta))$
 
 ---
 // Test font fallback.
