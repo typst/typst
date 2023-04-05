@@ -7,6 +7,8 @@ use ecow::EcoString;
 
 use super::{Array, Str, Value};
 use crate::diag::StrResult;
+use crate::eval::Type;
+use crate::geom::Length;
 use crate::syntax::Spanned;
 use crate::util::separated_list;
 
@@ -291,6 +293,14 @@ impl CastInfo {
             msg.push_str(", found ");
             msg.push_str(found.type_name());
         }
+        if_chain::if_chain! {
+            if let Value::Int(i) = found;
+            if parts.iter().any(|p| p == Length::TYPE_NAME);
+            if !matching_type;
+            then {
+                msg.push_str(&format!(": a length needs a unit – did you mean {i}pt?"));
+            }
+        };
 
         msg.into()
     }
