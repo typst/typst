@@ -1254,7 +1254,7 @@ impl ast::Pattern {
                                     let Ok(v) = value.at(key) else {
                                         bail!(ident.span(), "destructuring key not found in dictionary");
                                     };
-                                    vm.define(key.clone(), v.clone());
+                                    vm.define(ident.clone(), v.clone());
                                     used.insert(key.clone().take());
                                 }
                             }

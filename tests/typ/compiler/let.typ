@@ -33,44 +33,67 @@ Three
 #test(v3, 3)
 
 ---
-// Destructuring.
-
+// Ref: false
 // Simple destructuring.
 #let (a, b) = (1, 2)
 #test(a, 1)
 #test(b, 2)
 
+---
+// Ref: false
 // Destructuring with multiple placeholders.
 #let (a, _, c, _) = (1, 2, 3, 4)
 #test(a, 1)
 #test(c, 3)
 
+---
+// Ref: false
 // Destructuring with a sink.
 #let (a, b, ..c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, 2)
 #test(c, (3, 4, 5, 6))
 
+---
+// Ref: false
 // Destructuring with a sink in the middle.
 #let (a, ..b, c) = (1, 2, 3, 4, 5, 6)
 #test(a, 1)
 #test(b, (2, 3, 4, 5))
 #test(c, 6)
 
+---
+// Ref: false
 // Destructuring with an empty sink.
 #let (..a, b, c) = (1, 2)
 #test(a, ())
+#test(b, 1)
+#test(c, 2)
 
+---
+// Ref: false
+// Destructuring with an empty sink.
 #let (a, ..b, c) = (1, 2)
+#test(a, 1)
 #test(b, ())
+#test(c, 2)
 
+---
+// Ref: false
+// Destructuring with an empty sink.
 #let (a, b, ..c) = (1, 2)
+#test(a, 1)
+#test(b, 2)
 #test(c, ())
 
+---
+// Ref: false
 // Destructuring with an empty sink and empty array.
 #let (..a) = ()
 #test(a, ())
 
+---
+// Ref: false
 // Destructuring with unnamed sink.
 #let (a, .., b) = (1, 2, 3, 4)
 #test(a, 1)
@@ -81,6 +104,9 @@ Three
 
 // Error: 12-15 at most one destructuring sink is allowed
 #let (..a, ..a) = (1, 2)
+
+// Error: 13-14 at most one binding per identifier is allowed
+#let (a: a, a) = (a: 1, b: 2)
 
 ---
 // Error: 13-14 not enough elements to destructure
@@ -99,40 +125,47 @@ Three
 #let (a, b) = true
 
 ---
-// Destructuring dictionaries.
-
+// Ref: false
 // Simple destructuring.
 #let (a: a, b, x: c) = (a: 1, b: 2, x: 3)
 #test(a, 1)
 #test(b, 2)
 #test(c, 3)
 
+---
+// Ref: false
 // Destructuring with a sink.
 #let (a: _, ..b) = (a: 1, b: 2, c: 3)
 #test(b, (b: 2, c: 3))
 
+---
+// Ref: false
 // Destructuring with a sink in the middle.
 #let (a: _, ..b, c: _) = (a: 1, b: 2, c: 3)
 #test(b, (b: 2))
 
+---
+// Ref: false
 // Destructuring with an empty sink.
 #let (a: _, ..b) = (a: 1)
 #test(b, (:))
 
+---
+// Ref: false
 // Destructuring with an empty sink and empty dict.
 #let (..a) = (:)
 #test(a, (:))
 
+---
+// Ref: false
 // Destructuring with unnamed sink.
 #let (a, ..) = (a: 1, b: 2)
 #test(a, 1)
 
+---
 // Error: 10-13 expected identifier, found string
 // Error: 18-19 expected identifier, found integer
 #let (a: "a", b: 2) = (a: 1, b: 2)
-
-// Error: 13-14 at most one binding per identifier is allowed
-#let (a: a, a) = (a: 1, b: 2)
 
 ---
 // Error: 10-11 destructuring key not found in dictionary
