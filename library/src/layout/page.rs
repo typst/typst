@@ -326,6 +326,14 @@ impl PageElem {
 
         // Realize overlays.
         for frame in &mut fragment {
+            frame.insert(
+                0,
+                Point::zero(),
+                FrameItem::Meta(
+                    Meta::PageNumbering(self.numbering(styles).into()),
+                    Axes::new(Abs::zero(), Abs::zero()),
+                ),
+            );
             let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
             let pw = size.x - pad.left - pad.right;

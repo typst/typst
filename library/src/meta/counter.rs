@@ -301,6 +301,11 @@ impl Counter {
         Self::new(CounterKey::Selector(Selector::Elem(func, None)))
     }
 
+    /// The counter for the page number.
+    pub fn page() -> Self {
+        Self::new(CounterKey::Page)
+    }
+
     /// Call a method on counter.
     pub fn call_method(
         self,

@@ -45,7 +45,7 @@ usvg = { version = "0.22", default-features = false }
 xmp-writer = "0.1"
 
 [profile.dev]
-debug = 0
+debug = true
 
 [profile.dev.package."*"]
 opt-level = 2

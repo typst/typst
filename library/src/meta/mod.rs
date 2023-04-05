@@ -3,6 +3,7 @@
 mod bibliography;
 mod context;
 mod counter;
+mod current_page;
 mod document;
 mod figure;
 mod heading;
@@ -16,6 +17,7 @@ mod state;
 pub use self::bibliography::*;
 pub use self::context::*;
 pub use self::counter::*;
+pub use self::current_page::*;
 pub use self::document::*;
 pub use self::figure::*;
 pub use self::heading::*;
