@@ -87,20 +87,26 @@ Let bindings can be used to destructure arrays and dictionaries.
 #let (x, y) = (1, 2)
 The coordinates are #x, #y.
 
-#let (_, c1, .., c2) = "Hello World!".clusters()
-The second cluster of "Hello World!" is #c1.
-The last cluster is #c2.
+#let (a, .., b) = (1, 2, 3, 4)
+The first element is #a.
+The last element is #b.
 
-#let (Homer, Austen: jane-austen, ..books) = (
+#let (Homer: h, Austen) = (
   "Shakespeare": "Hamlet",
   "Homer": "The Odyssey",
-  "Dicken": "Oliver Twist",
+  "Austen": "Persuasion",
+)
+Homer wrote #h and 
+Austen wrote #Austen.
+
+#let (Homer, ..books) = (
+  "Shakespeare": "Hamlet",
+  "Homer": "The Odyssey",
   "Austen": "Persuasion",
 )
 #for (author, title) in books [
   #author wrote #title, 
 ]
-Homer wrote #Homer and Austen wrote #jane-austen.
 ```
 
 Note that the underscore `_` is the only identifier that can
