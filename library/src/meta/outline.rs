@@ -209,6 +209,15 @@ impl Show for OutlineElem {
             // Add the outline of the element.
             seq.push(outline.linked(Destination::Location(location)));
 
+            let page_numbering = vt
+                .introspector
+                .page_numbering(location)
+                .cast::<Option<Numbering>>()
+                .unwrap()
+                .unwrap_or_else(|| {
+                    Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
+                });
+
             // Add filler symbols between the section name and page number.
             if let Some(filler) = self.fill(styles) {
                 seq.push(SpaceElem::new().pack());
@@ -222,15 +231,6 @@ impl Show for OutlineElem {
             } else {
                 seq.push(HElem::new(Fr::one().into()).pack());
             }
-
-            let page_numbering = vt
-                .introspector
-                .page_numbering(location)
-                .cast::<Option<Numbering>>()
-                .expect("should be a numbering")
-                .unwrap_or_else(|| {
-                    Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
-                });
 
             // Add the page number and linebreak.
             let page = Counter::new(CounterKey::Page)
