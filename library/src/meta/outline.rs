@@ -150,6 +150,10 @@ pub struct OutlineElem {
 
 impl Show for OutlineElem {
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        if !vt.introspector.init() {
+            return Ok(Content::empty());
+        }
+
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
         if let Some(title) = self.title(styles) {
