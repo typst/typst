@@ -1241,7 +1241,7 @@ impl Eval for ast::LetBinding {
             None => Value::None,
         };
 
-        match self.binding() {
+        match self.kind() {
             ast::LetBindingKind::Normal(pattern) => pattern.define(vm, value),
             ast::LetBindingKind::Closure(ident) => {
                 vm.define(ident, value);

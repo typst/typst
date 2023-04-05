@@ -1096,7 +1096,7 @@ impl<'a> CompletionContext<'a> {
             let mut sibling = Some(node.clone());
             while let Some(node) = &sibling {
                 if let Some(v) = node.cast::<ast::LetBinding>() {
-                    for ident in v.binding().idents() {
+                    for ident in v.kind().idents() {
                         defined.insert(ident.take());
                     }
                 }

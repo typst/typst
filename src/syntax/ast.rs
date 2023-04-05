@@ -1678,24 +1678,24 @@ impl LetBindingKind {
 }
 
 impl LetBinding {
-    /// The binding to assign to.
-    pub fn binding(&self) -> LetBindingKind {
+    /// The kind of the let binding.
+    pub fn kind(&self) -> LetBindingKind {
         if let Some(pattern) = self.0.cast_first_match::<Pattern>() {
             LetBindingKind::Normal(pattern)
-        } else if let Some(closure) = self.0.cast_first_match::<Closure>() {
-            if let Some(ident) = closure.name() {
-                LetBindingKind::Closure(ident)
-            } else {
-                LetBindingKind::Closure(Ident::default())
-            }
         } else {
-            LetBindingKind::Normal(Pattern::default())
+            LetBindingKind::Closure(
+                self.0
+                    .cast_first_match::<Closure>()
+                    .unwrap_or_default()
+                    .name()
+                    .unwrap_or_default(),
+            )
         }
     }
 
     /// The expression the binding is initialized with.
     pub fn init(&self) -> Option<Expr> {
-        match self.binding() {
+        match self.kind() {
             LetBindingKind::Normal(_) => self.0.cast_last_match(),
             LetBindingKind::Closure(_) => self.0.cast_first_match(),
         }

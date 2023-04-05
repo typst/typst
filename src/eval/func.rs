@@ -442,7 +442,7 @@ impl<'a> CapturesVisitor<'a> {
                     self.visit(init.as_untyped());
                 }
 
-                for ident in expr.binding().idents() {
+                for ident in expr.kind().idents() {
                     self.bind(ident);
                 }
             }
