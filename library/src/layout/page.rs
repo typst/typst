@@ -324,15 +324,16 @@ impl PageElem {
         });
         let footer_descent = self.footer_descent(styles);
 
+        let numbering_meta = FrameItem::Meta(
+            Meta::PageNumbering(self.numbering(styles).into()),
+            Size::zero(),
+        );
+
         // Realize overlays.
         for frame in &mut fragment {
-            frame.insert(
-                0,
+            frame.prepend(
                 Point::zero(),
-                FrameItem::Meta(
-                    Meta::PageNumbering(self.numbering(styles).into()),
-                    Axes::new(Abs::zero(), Abs::zero()),
-                ),
+                numbering_meta.clone(),
             );
             let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
