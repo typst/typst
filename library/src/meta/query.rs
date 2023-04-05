@@ -124,6 +124,9 @@ pub fn query(
     /// [`locate`]($func/locate), but also through the
     /// [`location()`]($type/content.location) method on content returned by
     /// another query. Only one of `location`, this, and `after` shall be given.
+    ///
+    /// If both `before` and `after` are given, they form a range from `after`
+    /// to `before`. The query will return all elements that are found.
     #[named]
     #[external]
     #[default]
@@ -134,6 +137,9 @@ pub fn query(
     /// also through the [`location()`]($type/content.location) method on
     /// content returned by another query. Only one of `location`, `before`, and
     /// this shall be given.
+    ///
+    /// If both `before` and `after` are given, they form a range from `after`
+    /// to `before`. The query will return all elements that are found.
     #[named]
     #[external]
     #[default]
@@ -141,13 +147,14 @@ pub fn query(
 ) -> Value {
     let selector = target.0;
     let introspector = vm.vt.introspector;
-    let elements = if let Some(location) = args.named("before")? {
-        introspector.query_before(selector, location)
-    } else if let Some(location) = args.named("after")? {
-        introspector.query_after(selector, location)
-    } else {
-        let _: Location = args.expect("location")?;
-        introspector.query(selector)
+
+    let elements = match (args.named("after")?, args.named("before")?) {
+        (None, None) => {
+            args.expect::<Location>("location")?;
+            introspector.query_all(selector)
+        }
+        (start, end) => introspector.query(selector, start, end),
     };
-    elements.into()
+
+    Value::from(elements)
 }

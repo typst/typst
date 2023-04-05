@@ -153,7 +153,7 @@ impl Show for OutlineElem {
         let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
 
         let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query(self.target(styles));
+        let elems = vt.introspector.query_all(self.target(styles));
 
         for elem in &elems {
             let Some(refable) = elem.with::<dyn Refable>() else {

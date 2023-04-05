@@ -144,31 +144,45 @@ impl Introspector {
     }
 
     /// Query for all matching elements.
-    pub fn query(&self, selector: Selector) -> Vec<Content> {
+    pub fn query_all(&self, selector: Selector) -> Vec<Content> {
         self.all().filter(|elem| selector.matches(elem)).cloned().collect()
+    }
+
+    /// Query for all matching element in a given range.
+    pub fn query(
+        &self,
+        selector: Selector,
+        start: Option<Location>,
+        end: Option<Location>,
+    ) -> Vec<Content> {
+        let mut got_true = false;
+        self.all()
+            .skip_while(|elem| {
+                start.map_or(false, |start| elem.location() != Some(start))
+            })
+            .take_while(|v| {
+                if got_true {
+                    false
+                } else if end.map_or(false, |end| v.location() == Some(end)) {
+                    got_true = true;
+                    true
+                } else {
+                    true
+                }
+            })
+            .filter(|elem| selector.matches(elem))
+            .cloned()
+            .collect()
     }
 
     /// Query for all matching element up to the given location.
     pub fn query_before(&self, selector: Selector, location: Location) -> Vec<Content> {
-        let mut matches = vec![];
-        for elem in self.all() {
-            if selector.matches(elem) {
-                matches.push(elem.clone());
-            }
-            if elem.location() == Some(location) {
-                break;
-            }
-        }
-        matches
+        self.query(selector, None, Some(location))
     }
 
     /// Query for all matching elements starting from the given location.
     pub fn query_after(&self, selector: Selector, location: Location) -> Vec<Content> {
-        self.all()
-            .skip_while(|elem| elem.location() != Some(location))
-            .filter(|elem| selector.matches(elem))
-            .cloned()
-            .collect()
+        self.query(selector, Some(location), None)
     }
 
     /// Query for a unique element with the label.

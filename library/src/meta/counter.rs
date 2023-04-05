@@ -412,7 +412,7 @@ impl Counter {
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
-        for elem in introspector.query(self.selector()) {
+        for elem in introspector.query_all(self.selector()) {
             if self.is_page() {
                 let location = elem.location().unwrap();
                 let prev = page;
