@@ -154,6 +154,7 @@ pub fn call(
                 match method {
                     "page" => vm.vt.introspector.page(location).into(),
                     "position" => vm.vt.introspector.position(location).into(),
+                    "numbering" => vm.vt.introspector.page_numbering(location),
                     _ => return missing(),
                 }
             } else {
@@ -308,7 +309,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         ],
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
-        "location" => &[("page", false), ("position", false)],
+        "location" => &[("page", false), ("position", false), ("numbering", false)],
         "counter" => &[
             ("display", true),
             ("at", true),

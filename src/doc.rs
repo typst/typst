@@ -607,7 +607,7 @@ pub enum Meta {
     /// An identifiable element that produces something within the area this
     /// metadata is attached to.
     Elem(Content),
-    /// The numbering of the page
+    /// The numbering of the current page.
     PageNumbering(Value),
     /// Indicates that content should be hidden. This variant doesn't appear
     /// in the final frames as it is removed alongside the content that should

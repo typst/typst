@@ -84,7 +84,8 @@ impl StabilityProvider {
 pub struct Introspector {
     pages: usize,
     elems: Vec<(Content, Position)>,
-    page_numberings: Vec<(Value, Position)>,
+    // Indexed by page number.
+    page_numberings: Vec<Value>,
 }
 
 impl Introspector {
@@ -127,9 +128,7 @@ impl Introspector {
                     self.elems.push((content.clone(), Position { page, point: pos }));
                 }
                 FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
-                    let pos = pos.transform(ts);
-                    self.page_numberings
-                        .push((numbering.clone(), Position { page, point: pos }));
+                    self.page_numberings.push(numbering.clone());
                 }
                 _ => {}
             }
@@ -195,12 +194,12 @@ impl Introspector {
     }
 
     /// Gets the page numbering for the given location, if any.
-    pub fn page_numbering(&self, location: Location) -> Option<Value> {
+    pub fn page_numbering(&self, location: Location) -> Value {
         let page = self.page(location);
         self.page_numberings
-            .iter()
-            .find(|(_, pos)| pos.page == page)
-            .map(|(numbering, _)| numbering.clone())
+            .get(page.get() - 1)
+            .cloned()
+            .unwrap_or_else(|| "1".into())
     }
 
     /// Find the position for the given location.

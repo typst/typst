@@ -226,9 +226,8 @@ impl Show for OutlineElem {
             let page_numbering = vt
                 .introspector
                 .page_numbering(location)
-                .and_then(|page_numbering| {
-                    page_numbering.cast::<Option<Numbering>>().unwrap()
-                })
+                .cast::<Option<Numbering>>()
+                .expect("should be a numbering")
                 .unwrap_or_else(|| {
                     Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
                 });
