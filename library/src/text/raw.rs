@@ -6,6 +6,7 @@ use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
+use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
@@ -35,7 +36,7 @@ use crate::prelude::*;
 ///
 /// Display: Raw Text / Code
 /// Category: text
-#[element(Synthesize, Show, Finalize)]
+#[element(Synthesize, Show, Finalize, LocalName, Figurable)]
 pub struct RawElem {
     /// The raw text.
     ///
@@ -121,8 +122,9 @@ impl RawElem {
 }
 
 impl Synthesize for RawElem {
-    fn synthesize(&mut self, styles: StyleChain) {
+    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_lang(self.lang(styles));
+        Ok(())
     }
 }
 
@@ -194,6 +196,25 @@ impl Finalize for RawElem {
             .set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
         styles.set(SmartQuoteElem::set_enabled(false));
         realized.styled_with_map(styles)
+    }
+}
+
+impl LocalName for RawElem {
+    fn local_name(&self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::CHINESE => "代码",
+            Lang::ITALIAN => "Codice",
+            Lang::RUSSIAN => "код",
+            Lang::FRENCH => "Liste",
+            Lang::UKRAINIAN => "Лістинг",
+            Lang::ENGLISH | Lang::GERMAN | _ => "Listing",
+        }
+    }
+}
+
+impl Figurable for RawElem {
+    fn priority(&self, _styles: StyleChain) -> isize {
+        500
     }
 }
 

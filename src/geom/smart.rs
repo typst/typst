@@ -20,6 +20,15 @@ impl<T> Smart<T> {
         matches!(self, Self::Custom(_))
     }
 
+    /// Returns a reference the contained custom value.
+    /// If the value is [`Smart::Auto`], `None` is returned.
+    pub fn as_custom(self) -> Option<T> {
+        match self {
+            Self::Auto => None,
+            Self::Custom(x) => Some(x),
+        }
+    }
+
     /// Map the contained custom value with `f`.
     pub fn map<F, U>(self, f: F) -> Smart<U>
     where

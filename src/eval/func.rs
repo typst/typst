@@ -17,6 +17,7 @@ use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
 pub struct Func {
     /// The internal representation.
@@ -281,6 +282,7 @@ pub(super) struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
+    #[allow(clippy::too_many_arguments)]
     #[comemo::memoize]
     fn call(
         this: &Func,

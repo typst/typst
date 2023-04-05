@@ -1,5 +1,5 @@
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
-use crate::meta::LocalName;
+use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 
 /// A table of items.
@@ -9,6 +9,9 @@ use crate::prelude::*;
 /// Because tables are just grids with configurable cell properties, refer to
 /// the [grid documentation]($func/grid) for more information on how to size the
 /// table tracks.
+///
+/// To give a table a caption and make it [referenceable]($func/ref), put it
+/// into a [figure]($func/figure).
 ///
 /// ## Example
 /// ```example
@@ -32,7 +35,7 @@ use crate::prelude::*;
 ///
 /// Display: Table
 /// Category: layout
-#[element(Layout, LocalName)]
+#[element(Layout, LocalName, Figurable)]
 pub struct TableElem {
     /// Defines the column sizes. See the [grid documentation]($func/grid) for
     /// more information on track sizing.
@@ -290,7 +293,14 @@ impl LocalName for TableElem {
             Lang::PORTUGUESE => "Tabela",
             Lang::RUSSIAN => "Таблица",
             Lang::SPANISH => "Tabla",
+            Lang::UKRAINIAN => "Таблиця",
             Lang::ENGLISH | _ => "Table",
         }
+    }
+}
+
+impl Figurable for TableElem {
+    fn priority(&self, _styles: StyleChain) -> isize {
+        -1000
     }
 }
