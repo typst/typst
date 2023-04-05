@@ -34,14 +34,14 @@ use crate::prelude::*;
 /// to skip unnecessary work.
 ///
 /// - returns: dictionary
-/// 
+///
 /// ### page-numbering()
 /// Returns the page numbering pattern of the page at this location. This can be
 /// used when displaying the page counter in order to obtain the local numbering.
 /// This is useful if you are building custom indices or outlines.
-/// 
+///
 /// If the page numbering is set to `none` at that location, this function returns `none`.
-/// 
+///
 /// - returns: numbering or none
 ///
 /// Display: Locate

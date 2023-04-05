@@ -196,10 +196,7 @@ impl Introspector {
     /// Gets the page numbering for the given location, if any.
     pub fn page_numbering(&self, location: Location) -> Value {
         let page = self.page(location);
-        self.page_numberings
-            .get(page.get() - 1)
-            .cloned()
-            .unwrap_or_else(|| "1".into())
+        self.page_numberings.get(page.get() - 1).cloned().unwrap_or_default()
     }
 
     /// Find the position for the given location.
