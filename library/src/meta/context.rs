@@ -42,7 +42,7 @@ use crate::prelude::*;
 ///
 /// If the page numbering is set to `none` at that location, this function returns `none`.
 ///
-/// - returns: numbering or none
+/// - returns: string or function or none
 ///
 /// Display: Locate
 /// Category: meta
