@@ -289,6 +289,11 @@ impl LayoutMath for EquationElem {
 
 impl LayoutMath for Content {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        if let Some(realized) = ctx.realize(self)? {
+            realized.layout_math(ctx)?;
+            return Ok(());
+        }
+
         if let Some(children) = self.to_sequence() {
             for child in children {
                 child.layout_math(ctx)?;

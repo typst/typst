@@ -1,5 +1,6 @@
 use ttf_parser::math::MathValue;
 use typst::font::{FontStyle, FontWeight};
+use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
@@ -171,6 +172,10 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn styles(&self) -> StyleChain {
         self.outer.chain(&self.local)
+    }
+
+    pub fn realize(&mut self, content: &Content) -> SourceResult<Option<Content>> {
+        realize(self.vt, content, self.outer.chain(&self.local))
     }
 
     pub fn style(&mut self, style: MathStyle) {
