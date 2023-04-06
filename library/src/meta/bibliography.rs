@@ -202,14 +202,16 @@ impl LocalName for BibliographyElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
             Lang::BOKMÅL => "Bibliografi",
-            Lang::GERMAN | Lang::FRENCH => "Bibliographie",
             Lang::CHINESE => "参考文献",
+            Lang::FRENCH => "Bibliographie",
+            Lang::GERMAN => "Bibliographie",
             Lang::ITALIAN => "Bibliografia",
             Lang::NYNORSK => "Bibliografi",
-            Lang::POLISH | Lang::PORTUGUESE => "Bibliografia",
+            Lang::POLISH => "Bibliografia",
+            Lang::PORTUGUESE => "Bibliografia",
             Lang::RUSSIAN => "Библиография",
-            Lang::SPANISH => "Bibliografía",
             Lang::SLOVENIAN => "Literatura",
+            Lang::SPANISH => "Bibliografía",
             Lang::UKRAINIAN => "Бібліографія",
             Lang::ENGLISH | _ => "Bibliography",
         }
