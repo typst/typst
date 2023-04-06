@@ -6,8 +6,10 @@ use ecow::eco_format;
 
 use super::{format_str, Eval, Regex, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
+use crate::eval::Func;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
-use crate::syntax::ast::{AstNode, Binary};
+use crate::syntax::ast::{AstNode, Binary, Expr};
+use crate::syntax::{ast, SyntaxKind, SyntaxNode};
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -427,14 +429,29 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
 
 pub fn pipe(b: &Binary, vm: &mut Vm) -> SourceResult<Value> {
     use crate::diag::At;
-    let (lhs, rhs) = (b.lhs().eval(vm)?, b.rhs().eval(vm)?);
-    let x = match (lhs, rhs) {
-        (v, Func(f)) => f.call_vm(vm, crate::eval::Args::new(b.span(), vec![v])),
-        (x, y) => {
-            return Err(eco_format!("cant pipe {} in {}.", x.type_name(), y.type_name()))
-                .at(b.span());
+    let lhs = b.lhs();
+    let rhs = b.rhs();
+
+    if let Expr::FuncCall(fc) = rhs {
+        let (callee, args) = (fc.callee(), fc.args());
+        let mut args = args.eval(vm)?;
+
+        let func = callee.eval(vm)?.cast::<Func>().unwrap();
+        args.push(args.span, lhs.eval(vm)?);
+        func.call_vm(vm, args)
+    } else {
+        let lhs = b.lhs().eval(vm)?;
+        let rhs = b.rhs().eval(vm)?;
+        match (lhs, rhs) {
+            (v, Func(f)) => f.call_vm(vm, crate::eval::Args::new(b.span(), vec![v])),
+            (x, y) => {
+                return Err(eco_format!(
+                    "cant pipe {} in {}.",
+                    x.type_name(),
+                    y.type_name()
+                ))
+                .at(b.span()); //modify that span if lhs is a pipe for better errors
+            }
         }
-        _ => unreachable!(),
-    };
-    x
+    }
 }

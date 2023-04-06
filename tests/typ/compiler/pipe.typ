@@ -25,12 +25,26 @@
 #{2 |> p}
 
 ---
+
 // this should just be markdown
 #let p(x) = if type(x) == type(2) {panic()}
 
 #2 |> p
 
 #2|>p
+
+---
+
+#let sum(..x) = {
+  x.pos().fold(0, (i,j) => i+j)
+}
+
+#{
+ test(2 |> sum(1,1),4)
+}
+
+
+
 ---
 // Ref: false
 
