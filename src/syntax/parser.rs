@@ -1135,6 +1135,13 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
                         within.kind().name(),
                     ));
                     child.make_erroneous();
+                    continue;
+                }
+                if within.text() != "_" && !used.insert(within.text().clone()) {
+                    within.convert_to_error(
+                        "at most one binding per identifier is allowed",
+                    );
+                    child.make_erroneous();
                 }
                 if used_spread {
                     child.convert_to_error("at most one destructuring sink is allowed");

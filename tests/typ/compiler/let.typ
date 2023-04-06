@@ -105,6 +105,9 @@ Three
 // Error: 12-15 at most one destructuring sink is allowed
 #let (..a, ..a) = (1, 2)
 
+// Error: 12-13 at most one binding per identifier is allowed
+#let (a, ..a) = (1, 2)
+
 // Error: 13-14 at most one binding per identifier is allowed
 #let (a: a, a) = (a: 1, b: 2)
 
