@@ -57,6 +57,8 @@ use crate::meta::DocumentElem;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
+use crate::visualize::PathElem;
+use crate::visualize::PolygonElem;
 use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
 
 /// Root-level layout.
@@ -192,6 +194,8 @@ fn realize_block<'a>(
         && !content.is::<EllipseElem>()
         && !content.is::<CircleElem>()
         && !content.is::<ImageElem>()
+        && !content.is::<PolygonElem>()
+        && !content.is::<PathElem>()
         && !applicable(content, styles)
     {
         return Ok((content.clone(), styles));

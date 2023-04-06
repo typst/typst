@@ -101,7 +101,6 @@ impl Synthesize for HeadingElem {
         self.push_level(self.level(styles));
         self.push_numbering(self.numbering(styles));
         self.push_outlined(self.outlined(styles));
-
         Ok(())
     }
 }
@@ -163,7 +162,7 @@ impl Refable for HeadingElem {
         styles: StyleChain,
         supplement: Option<Content>,
     ) -> SourceResult<Content> {
-        // first we create the supplement of the heading
+        // Create the supplement of the heading.
         let mut supplement = if let Some(supplement) = supplement {
             supplement
         } else {
@@ -178,19 +177,19 @@ impl Refable for HeadingElem {
             }
         };
 
-        // we append a space if the supplement is not empty
+        // Append a non-breaking space if the supplement is not empty.
         if !supplement.is_empty() {
             supplement += TextElem::packed('\u{a0}')
         };
 
-        // we check for a numbering
+        // Check for a numbering.
         let Some(numbering) = self.numbering(styles) else {
             bail!(self.span(), "only numbered headings can be referenced");
         };
 
-        // we get the counter and display it
+        // Get the counter and display it.
         let numbers = Counter::of(Self::func())
-            .at(vt, self.0.location().expect("missing location"))?
+            .at(vt, self.0.location().unwrap())?
             .display(vt, &numbering.trimmed())?;
 
         Ok(supplement + numbers)
@@ -204,21 +203,21 @@ impl Refable for HeadingElem {
         self.numbering(styles)
     }
 
-    fn counter(&self, _styles: StyleChain) -> Counter {
+    fn counter(&self, _: StyleChain) -> Counter {
         Counter::of(Self::func())
     }
 
     fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
-        // we check if the heading is outlined
+        // Check whether the heading is outlined.
         if !self.outlined(styles) {
             return Ok(None);
         }
 
-        // We build the numbering followed by the title
+        // Build the numbering followed by the title.
         let mut start = self.body();
         if let Some(numbering) = self.numbering(StyleChain::default()) {
             let numbers = Counter::of(HeadingElem::func())
-                .at(vt, self.0.location().expect("missing location"))?
+                .at(vt, self.0.location().unwrap())?
                 .display(vt, &numbering)?;
             start = numbers + SpaceElem::new().pack() + start;
         };
@@ -236,6 +235,8 @@ impl LocalName for HeadingElem {
             Lang::ITALIAN => "Sezione",
             Lang::PORTUGUESE => "Seção",
             Lang::RUSSIAN => "Раздел",
+            Lang::SPANISH => "Sección",
+            Lang::UKRAINIAN => "Розділ",
             _ => "Section",
         }
     }

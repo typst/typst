@@ -124,7 +124,6 @@ impl RawElem {
 impl Synthesize for RawElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_lang(self.lang(styles));
-
         Ok(())
     }
 }
@@ -205,8 +204,9 @@ impl LocalName for RawElem {
         match lang {
             Lang::CHINESE => "代码",
             Lang::ITALIAN => "Codice",
-            Lang::RUSSIAN => "код",
+            Lang::RUSSIAN => "Листинг",
             Lang::FRENCH => "Liste",
+            Lang::UKRAINIAN => "Лістинг",
             _ => "Listing",
         }
     }

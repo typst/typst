@@ -1,17 +1,18 @@
-use super::{Counter, CounterKey, HeadingElem, LocalName, Refable};
+use std::str::FromStr;
+
+use super::{
+    Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
+};
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
-/// A section outline / table of contents / table of figures / table of tables / etc.
+/// A table of contents, figures, or other elements.
 ///
-/// This function generates a list of all headings in the document, up to a
-/// given depth. The [heading]($func/heading) numbering will be reproduced
-/// within the outline.
-///
-/// Alternatively, by setting the `target` parameter, the outline can be used to
-/// generate a list of all figures, tables, code blocks, etc. When the `target` parameter
-/// is set, the `depth` parameter is ignored unless it is set to `heading`.
+/// This function generates a list of all occurances of an element in the
+/// document, up to a given depth. The element's numbering and page number will
+/// be displayed in the outline alongside its title or caption. By default this
+/// generates a table of contents.
 ///
 /// ## Example
 /// ```example
@@ -24,13 +25,24 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// #lorem(10)
 /// ```
 ///
-/// ## Example: List of figures
-/// ```example
-/// #outline(target: figure.where(kind: image), title: "Table of Figures")
+/// ## Alternative outlines
+/// By setting the `target` parameter, the outline can be used to generate a
+/// list of other kinds of elements than headings. In the example below, we list
+/// all figures containing images by setting `target` to `{figure.where(kind:
+/// image)}`. We could have also set it to just `figure`, but then the list
+/// would also include figures containing tables or other material. For more
+/// details on the `where` selector, [see here]($type/content.where).
 ///
-/// #figure(caption: "A nice figure!")[
-///  #image("/tiger.jpg")
-/// ]
+/// ```example
+/// #outline(
+///   title: [List of Figures],
+///   target: figure.where(kind: image),
+/// )
+///
+/// #figure(
+///   image("tiger.jpg"),
+///   caption: [A nice figure!],
+/// )
 /// ```
 ///
 /// Display: Outline
@@ -39,28 +51,60 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 pub struct OutlineElem {
     /// The title of the outline.
     ///
-    /// - When set to `{auto}`, an appropriate title for the [text
-    ///   language]($func/text.lang) will be used. This is the default.
+    /// - When set to `{auto}`, an appropriate title for the
+    ///   [text language]($func/text.lang) will be used. This is the default.
     /// - When set to `{none}`, the outline will not have a title.
     /// - A custom title can be set by passing content.
     #[default(Some(Smart::Auto))]
     pub title: Option<Smart<Content>>,
 
-    /// The maximum depth up to which headings are included in the outline. When
-    /// this argument is `{none}`, all headings are included.
-    pub depth: Option<NonZeroUsize>,
-
     /// The type of element to include in the outline.
+    ///
+    /// To list figures containing a specific kind of element, like a table, you
+    /// can write `{figure.where(kind: table)}`.
+    ///
+    /// ```example
+    /// #outline(
+    ///   title: [List of Tables],
+    ///   target: figure.where(kind: table),
+    /// )
+    ///
+    /// #figure(
+    ///   table(
+    ///     columns: 4,
+    ///     [t], [1], [2], [3],
+    ///     [y], [0.3], [0.7], [0.5],
+    ///   ),
+    ///   caption: [Experiment results],
+    /// )
+    /// ```
     #[default(Selector::Elem(HeadingElem::func(), Some(dict! { "outlined" => true })))]
     pub target: Selector,
 
-    /// Whether to indent the subheadings to align the start of their numbering
+    /// The maximum level up to which elements are included in the outline. When
+    /// this argument is `{none}`, all elements are included.
+    ///
+    /// ```example
+    /// #set heading(numbering: "1.")
+    /// #outline(depth: 2)
+    ///
+    /// = Yes
+    /// Top-level section.
+    ///
+    /// == Still
+    /// Subsection.
+    ///
+    /// === Nope
+    /// Not included.
+    /// ```
+    pub depth: Option<NonZeroUsize>,
+
+    /// Whether to indent the sub-elements to align the start of their numbering
     /// with the title of their parents. This will only have an effect if a
     /// [heading numbering]($func/heading.numbering) is set.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")
-    ///
     /// #outline(indent: true)
     ///
     /// = About ACME Corp.
@@ -117,12 +161,11 @@ impl Show for OutlineElem {
             };
 
             let location = elem.location().expect("missing location");
-
-            if depth < refable.level(styles) {
+            if depth < refable.level(StyleChain::default()) {
                 continue;
             }
 
-            let Some(outline) = refable.outline(vt, styles)? else {
+            let Some(outline) = refable.outline(vt, StyleChain::default())? else {
                 continue;
             };
 
@@ -149,7 +192,7 @@ impl Show for OutlineElem {
                         ancestor_refable.numbering(StyleChain::default())
                     {
                         let numbers = ancestor_refable
-                            .counter(styles)
+                            .counter(StyleChain::default())
                             .at(vt, ancestor.location().unwrap())?
                             .display(vt, &numbering)?;
 
@@ -165,6 +208,15 @@ impl Show for OutlineElem {
 
             // Add the outline of the element.
             seq.push(outline.linked(Destination::Location(location)));
+
+            let page_numbering = vt
+                .introspector
+                .page_numbering(location)
+                .cast::<Option<Numbering>>()
+                .unwrap()
+                .unwrap_or_else(|| {
+                    Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
+                });
 
             // Add filler symbols between the section name and page number.
             if let Some(filler) = self.fill(styles) {
@@ -182,11 +234,10 @@ impl Show for OutlineElem {
 
             // Add the page number and linebreak.
             let page = Counter::new(CounterKey::Page)
-                // query the page counter state at location of heading
                 .at(vt, location)?
-                .first();
-            let end = TextElem::packed(eco_format!("{page}"));
-            seq.push(end.linked(Destination::Location(location)));
+                .display(vt, &page_numbering)?;
+
+            seq.push(page.linked(Destination::Location(location)));
             seq.push(LinebreakElem::new().pack());
 
             ancestors.push(elem);
@@ -207,6 +258,8 @@ impl LocalName for OutlineElem {
             Lang::ITALIAN => "Indice",
             Lang::PORTUGUESE => "Sumário",
             Lang::RUSSIAN => "Содержание",
+            Lang::SPANISH => "Índice",
+            Lang::UKRAINIAN => "Зміст",
             _ => "Contents",
         }
     }

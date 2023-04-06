@@ -135,7 +135,6 @@ impl BibliographyElem {
 impl Synthesize for BibliographyElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_style(self.style(styles));
-
         Ok(())
     }
 }
@@ -207,6 +206,8 @@ impl LocalName for BibliographyElem {
             Lang::ITALIAN => "Bibliografia",
             Lang::PORTUGUESE => "Bibliografia",
             Lang::RUSSIAN => "Библиография",
+            Lang::SPANISH => "Bibliografía",
+            Lang::UKRAINIAN => "Бібліографія",
             _ => "Bibliography",
         }
     }
@@ -322,7 +323,6 @@ impl Synthesize for CiteElem {
         self.push_supplement(self.supplement(styles));
         self.push_brackets(self.brackets(styles));
         self.push_style(self.style(styles));
-
         Ok(())
     }
 }

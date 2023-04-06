@@ -522,6 +522,8 @@ impl Lang {
     pub const ITALIAN: Self = Self(*b"it ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
+    pub const SPANISH: Self = Self(*b"es ", 2);
+    pub const UKRAINIAN: Self = Self(*b"ua ", 2);
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
@@ -607,6 +609,8 @@ pub enum Meta {
     /// An identifiable element that produces something within the area this
     /// metadata is attached to.
     Elem(Content),
+    /// The numbering of the current page.
+    PageNumbering(Value),
     /// Indicates that content should be hidden. This variant doesn't appear
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.

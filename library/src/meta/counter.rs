@@ -276,10 +276,11 @@ use crate::prelude::*;
 pub fn counter(
     /// The key that identifies this counter.
     ///
-    /// - If this is the [`page`]($func/page) function, counts through pages.
-    /// - If this is any other element function, counts through its elements.
     /// - If it is a string, creates a custom counter that is only affected by
-    ///   manual updates.
+    ///   manual updates,
+    /// - If this is a `{<label>}`, counts through all elements with that label,
+    /// - If this is an element function or selector, counts through its elements,
+    /// - If this is the [`page`]($func/page) function, counts through pages.
     key: CounterKey,
 ) -> Value {
     Value::dynamic(Counter::new(key))
@@ -485,20 +486,14 @@ cast_from_value! {
     CounterKey,
     v: Str => Self::Str(v),
     label: Label => Self::Selector(Selector::Label(label)),
-    element: ElemFunc => {
-        if element == PageElem::func() {
-            return Ok(Self::Page);
+    v: ElemFunc => {
+        if v == PageElem::func() {
+            Self::Page
+        } else {
+            Self::Selector(LocatableSelector::cast(Value::from(v))?.0)
         }
-
-        if !Content::new(element).can::<dyn Locatable>() {
-            Err(eco_format!("cannot count through {}s", element.name()))?;
-        }
-
-        Self::Selector(Selector::Elem(element, None))
     },
-    selector: Selector => {
-        Self::Selector(selector)
-    }
+    selector: LocatableSelector => Self::Selector(selector.0),
 }
 
 impl Debug for CounterKey {

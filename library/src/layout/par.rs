@@ -83,15 +83,16 @@ pub struct ParElem {
     #[default]
     pub linebreaks: Smart<Linebreaks>,
 
-    /// The indent the first line of a consecutive paragraph should have.
+    /// The indent the first line of a paragraph should have.
     ///
-    /// The first paragraph on a page will never be indented.
+    /// Only the first line of a consecutive paragraph will be intended (not
+    /// the first one in a block or on the page).
     ///
-    /// By typographic convention, paragraph breaks are indicated by either some
-    /// space between paragraphs or indented first lines. Consider turning the
-    /// [paragraph spacing]($func/block.spacing) off when using this property
-    /// (e.g. using `[#show par: set block(spacing: 0pt)]`).
-    #[resolve]
+    /// By typographic convention, paragraph breaks are indicated either by some
+    /// space between paragraphs or by indented first lines. Consider reducing
+    /// the [paragraph spacing]($func/block.spacing) to the [`leading`] when
+    /// using this property (e.g. using
+    /// `[#show par: set block(spacing: 0.65em)]`).
     pub first_line_indent: Length,
 
     /// The indent all but the first line of a paragraph should have.
@@ -498,27 +499,14 @@ fn collect<'a>(
     let mut spans = SpanMapper::new();
     let mut iter = children.iter().peekable();
 
-    if consecutive {
-        let first_line_indent = ParElem::first_line_indent_in(*styles);
-        if !first_line_indent.is_zero()
-            && children
-                .iter()
-                .find_map(|child| {
-                    if child.with::<dyn Behave>().map_or(false, |behaved| {
-                        behaved.behaviour() == Behaviour::Ignorant
-                    }) {
-                        None
-                    } else if child.is::<TextElem>() || child.is::<SmartQuoteElem>() {
-                        Some(true)
-                    } else {
-                        Some(false)
-                    }
-                })
-                .unwrap_or_default()
-        {
-            full.push(SPACING_REPLACE);
-            segments.push((Segment::Spacing(first_line_indent.into()), *styles));
-        }
+    let first_line_indent = ParElem::first_line_indent_in(*styles);
+    if !first_line_indent.is_zero()
+        && consecutive
+        && AlignElem::alignment_in(*styles).x.resolve(*styles)
+            == TextElem::dir_in(*styles).start().into()
+    {
+        full.push(SPACING_REPLACE);
+        segments.push((Segment::Spacing(first_line_indent.into()), *styles));
     }
 
     let hang = ParElem::hanging_indent_in(*styles);

@@ -1,4 +1,4 @@
-use super::{BibliographyElem, CiteElem, Counter, Numbering};
+use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
 use crate::prelude::*;
 
 /// A reference to a label or bibliography.
@@ -6,9 +6,14 @@ use crate::prelude::*;
 /// The reference function produces a textual reference to a label. For example,
 /// a reference to a heading will yield an appropriate string such as "Section
 /// 1" for a reference to the first heading. The references are also links to
-/// the respective element.
+/// the respective element. Reference syntax can also be used to
+/// [cite]($func/cite) from a bibliography.
 ///
-/// Reference syntax can also be used to [cite]($func/cite) from a bibliography.
+/// Referenceable elements include [headings]($func/heading),
+/// [figures]($func/figure), and [equations]($func/equation). To create a custom
+/// referenceable element like a theorem, you can create a figure of a custom
+/// [`kind`]($func/figure.kind) and write a show rule for it. In the future,
+/// there might be a more direct way to define a custom referenceable element.
 ///
 /// If you just want to link to a labelled element and not get an automatic
 /// textual reference, consider using the [`link`]($func/link) function instead.
@@ -108,7 +113,15 @@ impl Show for RefElem {
 
         let elem = elem.at(self.span())?;
         if !elem.can::<dyn Refable>() {
-            bail!(self.span(), "cannot reference {}", elem.func().name());
+            if elem.can::<dyn Figurable>() {
+                bail!(
+                    self.span(),
+                    "cannot reference {} directly, try putting it into a figure",
+                    elem.func().name()
+                );
+            } else {
+                bail!(self.span(), "cannot reference {}", elem.func().name());
+            }
         }
 
         let supplement = match self.supplement(styles) {

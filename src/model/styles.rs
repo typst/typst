@@ -6,8 +6,9 @@ use std::mem;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use super::{Content, ElemFunc, Element, Label, Vt};
-use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value, Vm};
+use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
+use crate::eval::{cast_from_value, Args, Cast, CastInfo, Dict, Func, Regex, Value, Vm};
+use crate::model::Locatable;
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -337,6 +338,51 @@ cast_from_value! {
     regex: Regex => Self::Regex(regex),
 }
 
+/// A selector that can be used with `query`. Hopefully, this is made obsolote
+/// by a more powerful query mechanism in the future.
+#[derive(Clone, PartialEq, Hash)]
+pub struct LocatableSelector(pub Selector);
+
+impl Cast for LocatableSelector {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Label(_) | Value::Func(_))
+            || value.type_name() == "selector"
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        fn validate(selector: &Selector) -> StrResult<()> {
+            match &selector {
+                Selector::Elem(elem, _) if !elem.can::<dyn Locatable>() => {
+                    Err(eco_format!("{} is not locatable", elem.name()))?
+                }
+                Selector::Regex(_) => Err("text is not locatable")?,
+                Selector::Any(list) | Selector::All(list) => {
+                    for selector in list {
+                        validate(selector)?;
+                    }
+                }
+                _ => {}
+            }
+            Ok(())
+        }
+
+        if !Self::is(&value) {
+            return <Self as Cast>::error(value);
+        }
+
+        let selector = Selector::cast(value)?;
+        validate(&selector)?;
+        Ok(Self(selector))
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type("label"),
+            CastInfo::Type("function"),
+            CastInfo::Type("selector"),
+        ])
+    }
+}
 /// A show rule transformation that can be applied to a match.
 #[derive(Clone, PartialEq, Hash)]
 pub enum Transform {
