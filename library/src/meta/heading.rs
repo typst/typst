@@ -235,9 +235,11 @@ impl LocalName for HeadingElem {
             Lang::GERMAN => "Abschnitt",
             Lang::ITALIAN => "Sezione",
             Lang::NYNORSK => "Kapittel",
+            Lang::POLISH => "Sekcja",
             Lang::PORTUGUESE => "Seção",
             Lang::RUSSIAN => "Раздел",
             Lang::SPANISH => "Sección",
+            Lang::SLOVENIAN => "Poglavje",
             Lang::UKRAINIAN => "Розділ",
             Lang::ENGLISH | _ => "Section",
         }
