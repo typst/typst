@@ -941,9 +941,10 @@ before the first match of the selector argument.
 
 - location: selector (positional, required)
   The selector ued to find the last element.
-- inclusive: boolean
+- inclusive: boolean (named)
   Whether the last element should match or not. This is only applicable if
   both selectors match the same type of element.
+  Defaults to `{true}`.
 
 ### after()
 Returns a new selector that will only match elements that were declared
@@ -951,9 +952,10 @@ after the first match of the selector argument.
 
 - location: selector (positional, required)
   The selector ued to find the first element.
-- inclusive: boolean
+- inclusive: boolean (named)
   Whether the first element should match or not. This is only applicable if
   both selectors match the same type of element.
+  Defaults to `{true}`.
 
 ### any()
 Allows combining any of a series of selectors. This is used to
