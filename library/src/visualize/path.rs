@@ -2,51 +2,59 @@ use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 use crate::prelude::*;
 use kurbo::{CubicBez, ParamCurveExtrema};
 
-/// A path going through a list of points, connected through Bezier curves.
+/// A path through a list of points, connected by Bezier curves.
 ///
 /// ## Example
 /// ```example
-/// #set page(height: 100pt)
-/// #path((10%, 10%), ((20%, 20%), (5%, 5%)))
-/// #path((10%, 10%), (10%, 15%))
+/// #path(
+///   fill: blue.lighten(80%),
+///   stroke: blue,
+///   closed: true,
+///   (0pt, 50pt),
+///   (100%, 50pt),
+///   ((50%, 0pt), (40pt, 0pt)),
+/// )
 /// ```
 ///
 /// Display: Path
 /// Category: visualize
 #[element(Layout)]
 pub struct PathElem {
-    /// Whether to close this path with one last bezier curve. This last curve
-    /// still takes into account the control points.
-    /// If you want to close with a straight line, simply add one last point
-    /// that's the same as the start point.
-    #[default(false)]
-    pub closed: bool,
-
-    /// How to fill the polygon. See the
+    /// How to fill the path. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
     ///
     /// Currently all paths are filled according to the
     /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
 
-    /// How to stroke the polygon. See the [lines's
-    /// documentation]($func/line.stroke) for more details.
+    /// How to stroke the path. See the
+    /// [polygon's documentation]($func/polygon.stroke) for more details.
     #[resolve]
     #[fold]
-    #[default(Some(PartialStroke::default()))]
-    pub stroke: Option<PartialStroke>,
+    pub stroke: Smart<Option<PartialStroke>>,
+
+    /// Whether to close this path with one last bezier curve. This curve will
+    /// takes into account the adjacent control points. If you want to close
+    /// with a straight line, simply add one last point that's the same as the
+    /// start point.
+    #[default(false)]
+    pub closed: bool,
 
     /// The vertices of the path.
     ///
     /// Each vertex can be defined in 3 ways:
     ///
-    /// - A regular point, like [line]($func/line)
+    /// - A regular point, as given to the [`line`]($func/line) or
+    ///   [`polygon`]($func/polygon) function.
     /// - An array of two points, the first being the vertex and the second
-    ///   being the control point.
-    ///   The control point is expressed relative to the vertex and is mirrored
-    ///    to get the second control point.
-    ///   The control point itself refers to the control point that affects the curve coming _into_ this vertex, including for the first point.
-    /// - An array of three points, the first being the vertex and the next being the control points (control point for curves coming in and out respectively)
+    ///   being the control point. The control point is expressed relative to
+    ///   the vertex and is mirrored to get the second control point. The given
+    ///   control point is the one that affects the curve coming _into_ this
+    ///   vertex (even for the first point). The mirrored control point affects
+    ///   the curve going out of this vertex.
+    /// - An array of three points, the first being the vertex and the next
+    ///   being the control points (control point for curves coming in and out,
+    ///   respectively)
     #[variadic]
     pub vertices: Vec<PathVertex>,
 }
@@ -69,20 +77,19 @@ impl Layout for PathElem {
         let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
 
         let mut size = Size::zero();
+        if points.is_empty() {
+            return Ok(Fragment::frame(Frame::new(size)));
+        }
 
         // Only create a path if there are more than zero points.
-        let path = if points.len() > 0 {
-            // Construct a closed path given all points.
-            let mut path = Path::new();
-            path.move_to(points[0]);
+        // Construct a closed path given all points.
+        let mut path = Path::new();
+        path.move_to(points[0]);
 
-            let mut add_cubic = |from_point: Point,
-                                 to_point: Point,
-                                 from: PathVertex,
-                                 to: PathVertex| {
+        let mut add_cubic =
+            |from_point: Point, to_point: Point, from: PathVertex, to: PathVertex| {
                 let from_control_point = resolve(from.control_point_from()) + from_point;
                 let to_control_point = resolve(to.control_point_to()) + to_point;
-
                 path.cubic_to(from_control_point, to_control_point, to_point);
 
                 let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
@@ -100,38 +107,35 @@ impl Layout for PathElem {
                 size.y.set_max(Abs::raw(extrema.y1));
             };
 
-            for (vertex_window, point_window) in
-                vertices.windows(2).zip(points.windows(2))
-            {
-                let from = vertex_window[0];
-                let to = vertex_window[1];
-                let from_point = point_window[0];
-                let to_point = point_window[1];
+        for (vertex_window, point_window) in vertices.windows(2).zip(points.windows(2)) {
+            let from = vertex_window[0];
+            let to = vertex_window[1];
+            let from_point = point_window[0];
+            let to_point = point_window[1];
 
-                add_cubic(from_point, to_point, from, to);
-            }
+            add_cubic(from_point, to_point, from, to);
+        }
 
-            if self.closed(styles) {
-                let from = *vertices.last().unwrap(); // We checked that we have at least one element.
-                let to = vertices[0];
-                let from_point = *points.last().unwrap();
-                let to_point = points[0];
+        if self.closed(styles) {
+            let from = *vertices.last().unwrap(); // We checked that we have at least one element.
+            let to = vertices[0];
+            let from_point = *points.last().unwrap();
+            let to_point = points[0];
 
-                add_cubic(from_point, to_point, from, to);
-            }
+            add_cubic(from_point, to_point, from, to);
+        }
 
-            Some(path)
-        } else {
-            None
+        // Prepare fill and stroke.
+        let fill = self.fill(styles);
+        let stroke = match self.stroke(styles) {
+            Smart::Auto if fill.is_none() => Some(Stroke::default()),
+            Smart::Auto => None,
+            Smart::Custom(stroke) => stroke.map(PartialStroke::unwrap_or_default),
         };
 
         let mut frame = Frame::new(size);
-        if let Some(path) = path {
-            let fill = self.fill(styles);
-            let stroke = self.stroke(styles).map(PartialStroke::unwrap_or_default);
-            let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
-            frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
-        }
+        let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
+        frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
 
         Ok(Fragment::frame(frame))
     }

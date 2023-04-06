@@ -8,7 +8,6 @@
   align: center + horizon,
   path(
     fill: red,
-    stroke: none,
     closed: true,
     ((0%, 0%), (4%, -4%)),
     ((50%, 50%), (4%, -4%)),
@@ -17,6 +16,7 @@
   ),
   path(
     fill: purple,
+    stroke: 1pt,
     (0pt, 0pt),
     (30pt, 30pt),
     (0pt, 30pt),
@@ -24,6 +24,7 @@
   ),
   path(
     fill: blue,
+    stroke: 1pt,
     closed: true,
     ((30%, 0%), (35%, 30%), (-20%, 0%)),
     ((30%, 60%), (-20%, 0%), (0%, 0%)),
