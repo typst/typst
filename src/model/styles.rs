@@ -345,18 +345,22 @@ impl Selector {
                 )
             }
             "any" => {
-                let selectors = args.all::<Selector>()?;
+                let mut selectors = args.all::<Selector>()?;
                 if selectors.is_empty() {
                     return Err("expected at least one selector").at(span);
                 }
 
+                selectors.push(selector);
+
                 Ok(Selector::Any(selectors.into_iter().collect()).into())
             }
             "all" => {
-                let selectors = args.all::<Selector>()?;
+                let mut selectors = args.all::<Selector>()?;
                 if selectors.is_empty() {
                     return Err("expected at least one selector").at(span);
                 }
+
+                selectors.push(selector);
 
                 Ok(Selector::Any(selectors.into_iter().collect()).into())
             }
