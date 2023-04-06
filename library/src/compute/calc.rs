@@ -530,7 +530,7 @@ fn binom(n: u64, k: u64) -> u64 {
     let mut result = 1;
 
     for i in 0..real_k {
-        result = result * (n - i) / (i + 1)
+        result *= (n - i) / (i + 1)
     }
 
     result
