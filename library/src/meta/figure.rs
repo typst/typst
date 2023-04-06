@@ -7,6 +7,7 @@ use crate::layout::{BlockElem, VElem};
 use crate::meta::{Refable, Supplement};
 use crate::prelude::*;
 use crate::text::TextElem;
+use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
 ///
@@ -174,10 +175,7 @@ impl Synthesize for FigureElem {
             Smart::Auto => self
                 .find_figurable(styles)
                 .map(|elem| FigureKind::Elem(elem.func()))
-                .ok_or(
-                    "unable to determine the figure's `kind`, please specify it manually",
-                )
-                .at(self.span())?,
+                .unwrap_or_else(|| FigureKind::Elem(ImageElem::func())),
             Smart::Custom(kind) => kind,
         };
 
