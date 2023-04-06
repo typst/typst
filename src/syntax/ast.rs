@@ -1570,7 +1570,7 @@ pub enum Param {
     /// A named parameter with a default value: `draw: false`.
     Named(Named),
     /// An argument sink: `..args`.
-    Sink(Ident),
+    Sink(Option<Ident>),
 }
 
 impl AstNode for Param {
@@ -1578,7 +1578,7 @@ impl AstNode for Param {
         match node.kind() {
             SyntaxKind::Ident => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => node.cast_first_match().map(Self::Sink),
+            SyntaxKind::Spread => Some(Self::Sink(node.cast_first_match())),
             _ => Option::None,
         }
     }
@@ -1587,7 +1587,7 @@ impl AstNode for Param {
         match self {
             Self::Pos(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
-            Self::Sink(v) => v.as_untyped(),
+            Self::Sink(_) => self.as_untyped(),
         }
     }
 }

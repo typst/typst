@@ -61,6 +61,17 @@ impl Args {
         Ok(None)
     }
 
+    /// Consume n positional arguments if possible.
+    pub fn consume(&mut self, n: usize) -> Option<EcoVec<Arg>> {
+        if n <= self.items.len() {
+            let vec = self.items.to_vec();
+            let (left, right) = vec.split_at(n);
+            self.items = right.into();
+            return Some(left.into());
+        }
+        None
+    }
+
     /// Consume and cast the first positional argument.
     ///
     /// Returns a `missing argument: {what}` error if no positional argument is
