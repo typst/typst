@@ -290,6 +290,8 @@ impl Array {
         let mut result = Ok(());
         let mut vec = self.0.clone();
         let mut key_ = |x: Value| match &key {
+            // NOTE: we are relying on `comemo`'s memoization of function evaluation to not
+            //       excessively reevaluate the `key`.
             Some(f) => f.call_vm(vm, Args::new(f.span(), [x])),
             None => Ok(x),
         };
