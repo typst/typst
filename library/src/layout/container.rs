@@ -362,6 +362,10 @@ impl Layout for BlockElem {
             pod.size.x = size.x;
             pod.expand = expand;
 
+            if expand.y {
+                pod.full = size.y;
+            }
+
             // Generate backlog for fixed height.
             let mut heights = vec![];
             if sizing.y.is_custom() {
@@ -373,6 +377,10 @@ impl Layout for BlockElem {
                     if Abs::zero().fits(remaining) {
                         break;
                     }
+                }
+
+                if let Some(last) = heights.last_mut() {
+                    *last += remaining;
                 }
 
                 pod.size.y = heights[0];
