@@ -1,6 +1,6 @@
-use kurbo::{CubicBez, ParamCurveExtrema};
-use crate::prelude::*;
 use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
+use crate::prelude::*;
+use kurbo::{CubicBez, ParamCurveExtrema};
 
 /// A path going through a list of points, connected through Bezier curves.
 ///
@@ -15,8 +15,10 @@ use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 /// Category: visualize
 #[element(Layout)]
 pub struct PathElem {
-    /// Whether to close this path with one last bezier curve. This last curve still takes into account the control points.
-    /// If you want to close with a straight line, simply add one last point that's the same as the start point.
+    /// Whether to close this path with one last bezier curve. This last curve
+    /// still takes into account the control points.
+    /// If you want to close with a straight line, simply add one last point
+    /// that's the same as the start point.
     #[default(false)]
     pub closed: bool,
 
@@ -39,8 +41,10 @@ pub struct PathElem {
     /// Each vertex can be defined in 3 ways:
     ///
     /// - A regular point, like [line]($func/line)
-    /// - An array of two points, the first being the vertex and the second being the control point.
-    ///   The control point is expressed relative to the vertex and is mirrored to get the second control point.
+    /// - An array of two points, the first being the vertex and the second
+    ///   being the control point.
+    ///   The control point is expressed relative to the vertex and is mirrored
+    ///    to get the second control point.
     ///   The control point itself refers to the control point that affects the curve coming _into_ this vertex, including for the first point.
     /// - An array of three points, the first being the vertex and the next being the control points (control point for curves coming in and out respectively)
     #[variadic]
@@ -48,16 +52,21 @@ pub struct PathElem {
 }
 
 impl Layout for PathElem {
-    fn layout(&self, _: &mut Vt, styles: StyleChain, regions: Regions) -> SourceResult<Fragment> {
+    fn layout(
+        &self,
+        _: &mut Vt,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
         let resolve = |axes: Axes<Rel<Length>>| {
-            axes.resolve(styles).zip(regions.base()).map(|(l, b)| l.relative_to(b)).to_point()
+            axes.resolve(styles)
+                .zip(regions.base())
+                .map(|(l, b)| l.relative_to(b))
+                .to_point()
         };
 
         let vertices: Vec<PathVertex> = self.vertices();
-        let points: Vec<Point> = vertices
-            .iter()
-            .map(|c| resolve(c.vertex()))
-            .collect();
+        let points: Vec<Point> = vertices.iter().map(|c| resolve(c.vertex())).collect();
 
         let mut size = Size::zero();
 
@@ -67,22 +76,33 @@ impl Layout for PathElem {
             let mut path = Path::new();
             path.move_to(points[0]);
 
-            let mut add_cubic = |from_point: Point, to_point: Point, from: PathVertex, to: PathVertex| {
+            let mut add_cubic = |from_point: Point,
+                                 to_point: Point,
+                                 from: PathVertex,
+                                 to: PathVertex| {
                 let from_control_point = resolve(from.control_point_from()) + from_point;
                 let to_control_point = resolve(to.control_point_to()) + to_point;
 
                 path.cubic_to(from_control_point, to_control_point, to_point);
 
                 let p0 = kurbo::Point::new(from_point.x.to_raw(), from_point.y.to_raw());
-                let p1 = kurbo::Point::new(from_control_point.x.to_raw(), from_control_point.y.to_raw());
-                let p2 = kurbo::Point::new(to_control_point.x.to_raw(), to_control_point.y.to_raw());
+                let p1 = kurbo::Point::new(
+                    from_control_point.x.to_raw(),
+                    from_control_point.y.to_raw(),
+                );
+                let p2 = kurbo::Point::new(
+                    to_control_point.x.to_raw(),
+                    to_control_point.y.to_raw(),
+                );
                 let p3 = kurbo::Point::new(to_point.x.to_raw(), to_point.y.to_raw());
                 let extrema = CubicBez::new(p0, p1, p2, p3).bounding_box();
                 size.x.set_max(Abs::raw(extrema.x1));
                 size.y.set_max(Abs::raw(extrema.y1));
             };
 
-            for (vertex_window, point_window) in vertices.windows(2).zip(points.windows(2)) {
+            for (vertex_window, point_window) in
+                vertices.windows(2).zip(points.windows(2))
+            {
                 let from = vertex_window[0];
                 let to = vertex_window[1];
                 let from_point = point_window[0];
