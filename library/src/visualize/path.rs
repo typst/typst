@@ -125,9 +125,7 @@ impl Layout for PathElem {
             None
         };
 
-        let target = regions.expand.select(regions.size, size);
-        let mut frame = Frame::new(target);
-
+        let mut frame = Frame::new(size);
         if let Some(path) = path {
             let fill = self.fill(styles);
             let stroke = self.stroke(styles).map(PartialStroke::unwrap_or_default);
