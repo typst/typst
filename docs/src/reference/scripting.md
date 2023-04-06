@@ -91,20 +91,19 @@ The coordinates are #x, #y.
 The first element is #a.
 The last element is #b.
 
-#let (Homer: h, Austen) = (
+#let books = (
   "Shakespeare": "Hamlet",
   "Homer": "The Odyssey",
   "Austen": "Persuasion",
 )
-Homer wrote #h and 
+#let (Austen) = books
 Austen wrote #Austen.
 
-#let (Homer, ..books) = (
-  "Shakespeare": "Hamlet",
-  "Homer": "The Odyssey",
-  "Austen": "Persuasion",
-)
-#for (author, title) in books [
+#let (Homer: h) = books
+Homer wrote #h.
+
+#let (Homer, ..other) = books
+#for (author, title) in other [
   #author wrote #title, 
 ]
 ```
