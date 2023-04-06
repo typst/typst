@@ -465,6 +465,27 @@ pub fn fact(
     Value::Int(factorial(number).unwrap_or_default() as i64)
 }
 
+
+fn binomial(n: u64, k: u64) -> u64 {
+    if k > n {
+        return 0
+    }
+
+    if n == k || k == 0 {
+        return 1
+    }
+
+    if n - k < k {
+        return binomial(n, n - k)
+    }
+
+    if k == 1 {
+        return n
+    }
+
+    return binomial(n-1, k-1) + binomial(n-1, k);
+}
+
 /// Calculate a permutation.
 ///
 /// ## Example
