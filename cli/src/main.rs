@@ -1,4 +1,4 @@
-mod cli;
+mod args;
 
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
@@ -27,7 +27,7 @@ use typst::util::{Buffer, PathExt};
 use typst::World;
 use walkdir::WalkDir;
 
-use crate::cli::{CliArguments, Command, CompileCommand};
+use crate::args::{CliArguments, Command, CompileCommand};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;

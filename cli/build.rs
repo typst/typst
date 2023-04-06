@@ -26,8 +26,8 @@ pub fn typst_version() -> String {
     format!("{pkg} ({hash})")
 }
 
-mod cli {
-    include!("src/cli.rs");
+mod args {
+    include!("src/args.rs");
 }
 
 fn main() {
@@ -41,7 +41,7 @@ fn main() {
     if let Some(dir) = env::var_os("GEN_ARTIFACTS") {
         let out = &Path::new(&dir);
         create_dir_all(out).unwrap();
-        let cmd = &mut cli::CliArguments::command();
+        let cmd = &mut args::CliArguments::command();
 
         Man::new(cmd.clone())
             .render(&mut File::create(out.join("typst.1")).unwrap())
