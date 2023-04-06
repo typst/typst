@@ -274,10 +274,12 @@ impl Count for EquationElem {
 impl LocalName for EquationElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::BOKMÅL => "Ligning",
             Lang::CHINESE => "等式",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
             Lang::ITALIAN => "Equazione",
+            Lang::NYNORSK => "Likning",
             Lang::POLISH => "Równanie",
             Lang::PORTUGUESE => "Equação",
             Lang::RUSSIAN => "Уравнение",

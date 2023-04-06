@@ -515,11 +515,13 @@ pub struct Glyph {
 pub struct Lang([u8; 3], u8);
 
 impl Lang {
+    pub const BOKMÅL: Self = Self(*b"nb ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
+    pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
