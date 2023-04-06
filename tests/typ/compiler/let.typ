@@ -33,6 +33,156 @@ Three
 #test(v3, 3)
 
 ---
+// Ref: false
+// Simple destructuring.
+#let (a, b) = (1, 2)
+#test(a, 1)
+#test(b, 2)
+
+---
+// Ref: false
+// Destructuring with multiple placeholders.
+#let (a, _, c, _) = (1, 2, 3, 4)
+#test(a, 1)
+#test(c, 3)
+
+---
+// Ref: false
+// Destructuring with a sink.
+#let (a, b, ..c) = (1, 2, 3, 4, 5, 6)
+#test(a, 1)
+#test(b, 2)
+#test(c, (3, 4, 5, 6))
+
+---
+// Ref: false
+// Destructuring with a sink in the middle.
+#let (a, ..b, c) = (1, 2, 3, 4, 5, 6)
+#test(a, 1)
+#test(b, (2, 3, 4, 5))
+#test(c, 6)
+
+---
+// Ref: false
+// Destructuring with an empty sink.
+#let (..a, b, c) = (1, 2)
+#test(a, ())
+#test(b, 1)
+#test(c, 2)
+
+---
+// Ref: false
+// Destructuring with an empty sink.
+#let (a, ..b, c) = (1, 2)
+#test(a, 1)
+#test(b, ())
+#test(c, 2)
+
+---
+// Ref: false
+// Destructuring with an empty sink.
+#let (a, b, ..c) = (1, 2)
+#test(a, 1)
+#test(b, 2)
+#test(c, ())
+
+---
+// Ref: false
+// Destructuring with an empty sink and empty array.
+#let (..a) = ()
+#test(a, ())
+
+---
+// Ref: false
+// Destructuring with unnamed sink.
+#let (a, .., b) = (1, 2, 3, 4)
+#test(a, 1)
+#test(b, 4)
+
+// Error: 10-11 at most one binding per identifier is allowed
+#let (a, a) = (1, 2)
+
+// Error: 12-15 at most one destructuring sink is allowed
+#let (..a, ..a) = (1, 2)
+
+// Error: 12-13 at most one binding per identifier is allowed
+#let (a, ..a) = (1, 2)
+
+// Error: 13-14 at most one binding per identifier is allowed
+#let (a: a, a) = (a: 1, b: 2)
+
+---
+// Error: 13-14 not enough elements to destructure
+#let (a, b, c) = (1, 2)
+
+---
+// Error: 6-9 too many elements to destructure
+#let (a) = (1, 2)
+
+---
+// Error: 6-20 not enough elements to destructure
+#let (..a, b, c, d) = (1, 2)
+
+---
+// Error: 6-12 cannot destructure boolean
+#let (a, b) = true
+
+---
+// Ref: false
+// Simple destructuring.
+#let (a: a, b, x: c) = (a: 1, b: 2, x: 3)
+#test(a, 1)
+#test(b, 2)
+#test(c, 3)
+
+---
+// Ref: false
+// Destructuring with a sink.
+#let (a: _, ..b) = (a: 1, b: 2, c: 3)
+#test(b, (b: 2, c: 3))
+
+---
+// Ref: false
+// Destructuring with a sink in the middle.
+#let (a: _, ..b, c: _) = (a: 1, b: 2, c: 3)
+#test(b, (b: 2))
+
+---
+// Ref: false
+// Destructuring with an empty sink.
+#let (a: _, ..b) = (a: 1)
+#test(b, (:))
+
+---
+// Ref: false
+// Destructuring with an empty sink and empty dict.
+#let (..a) = (:)
+#test(a, (:))
+
+---
+// Ref: false
+// Destructuring with unnamed sink.
+#let (a, ..) = (a: 1, b: 2)
+#test(a, 1)
+
+---
+// Error: 10-13 expected identifier, found string
+// Error: 18-19 expected identifier, found integer
+#let (a: "a", b: 2) = (a: 1, b: 2)
+
+---
+// Error: 10-11 destructuring key not found in dictionary
+#let (a, b) = (a: 1)
+
+---
+// Error: 13-14 destructuring key not found in dictionary
+#let (a, b: b) = (a: 1)
+
+---
+// Error: 7-8 cannot destructure named elements from an array
+#let (a: a, b) = (1, 2, 3)
+
+---
 // Error: 5 expected identifier
 #let
 
@@ -61,6 +211,9 @@ Three
 // Error: 18 expected expression
 // Error: 18 expected closing paren
 #let v5 = (1, 2 + ; Five
+
+// Error: 9-13 expected identifier, found boolean
+#let (..true) = false
 
 ---
 // Error: 13 expected equals sign

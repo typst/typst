@@ -1,6 +1,6 @@
 [package]
 name = "typst-library"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 
@@ -14,7 +14,7 @@ typst = { path = ".." }
 comemo = "0.2"
 csv = "1"
 ecow = "0.1"
-hayagriva = "0.2"
+hayagriva = "0.3"
 hypher = "0.1"
 kurbo = "0.8"
 lipsum = "0.9"
@@ -33,3 +33,4 @@ unicode-math-class = "0.1"
 unicode-script = "0.5"
 unicode-segmentation = "1"
 xi-unicode = "0.3"
+chinese-number = { version = "0.7", default-features = false, features = ["number-to-chinese"] }

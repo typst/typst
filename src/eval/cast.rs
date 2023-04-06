@@ -7,6 +7,8 @@ use ecow::EcoString;
 
 use super::{Array, Str, Value};
 use crate::diag::StrResult;
+use crate::eval::Type;
+use crate::geom::Length;
 use crate::syntax::Spanned;
 use crate::util::separated_list;
 
@@ -237,7 +239,7 @@ impl<T> Variadics for Vec<T> {
 }
 
 /// Describes a possible value for a cast.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd)]
 pub enum CastInfo {
     /// Any value is okay.
     Any,
@@ -291,6 +293,14 @@ impl CastInfo {
             msg.push_str(", found ");
             msg.push_str(found.type_name());
         }
+        if_chain::if_chain! {
+            if let Value::Int(i) = found;
+            if parts.iter().any(|p| p == Length::TYPE_NAME);
+            if !matching_type;
+            then {
+                msg.push_str(&format!(": a length needs a unit – did you mean {i}pt?"));
+            }
+        };
 
         msg.into()
     }
@@ -302,15 +312,23 @@ impl Add for CastInfo {
     fn add(self, rhs: Self) -> Self {
         Self::Union(match (self, rhs) {
             (Self::Union(mut lhs), Self::Union(rhs)) => {
-                lhs.extend(rhs);
+                for cast in rhs {
+                    if !lhs.contains(&cast) {
+                        lhs.push(cast);
+                    }
+                }
                 lhs
             }
             (Self::Union(mut lhs), rhs) => {
-                lhs.push(rhs);
+                if !lhs.contains(&rhs) {
+                    lhs.push(rhs);
+                }
                 lhs
             }
             (lhs, Self::Union(mut rhs)) => {
-                rhs.insert(0, lhs);
+                if !rhs.contains(&lhs) {
+                    rhs.insert(0, lhs);
+                }
                 rhs
             }
             (lhs, rhs) => vec![lhs, rhs],

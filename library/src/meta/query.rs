@@ -94,8 +94,8 @@ use crate::prelude::*;
 /// Returns: content
 #[func]
 pub fn query(
-    /// Can be an element function like a `heading` or `figure` or a
-    /// `{<label>}`.
+    /// Can be an element function like a `heading` or `figure`, a `{<label>}`
+    /// or a more complex selector like `{heading.where(level: 1)}`.
     ///
     /// Currently, only a subset of element functions is supported. Aside from
     /// headings and figures, this includes equations, references and all
@@ -104,7 +104,7 @@ pub fn query(
     /// have an explicit label attached to them. This limitation will be
     /// resolved
     /// in the future.
-    target: Target,
+    target: LocatableSelector,
 
     /// Can be any location. Why is it required then? As noted before, Typst has
     /// to evaluate parts of your code multiple times to determine the values of
@@ -150,19 +150,4 @@ pub fn query(
         introspector.query(selector)
     };
     elements.into()
-}
-
-/// A query target.
-struct Target(Selector);
-
-cast_from_value! {
-    Target,
-    label: Label => Self(Selector::Label(label)),
-    element: ElemFunc => {
-        if !Content::new(element).can::<dyn Locatable>() {
-            Err(eco_format!("cannot query for {}s", element.name()))?;
-        }
-
-        Self(Selector::Elem(element, None))
-    }
 }

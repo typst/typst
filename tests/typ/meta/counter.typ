@@ -45,8 +45,8 @@ At Beta, it was #locate(loc => {
 
 ---
 // Count figures.
-#figure(numbering: "A", caption: [Four 'A's])[_AAAA!_]
-#figure(numbering: none, caption: [Four 'B's])[_BBBB!_]
-#figure(caption: [Four 'C's])[_CCCC!_]
-#counter(figure).update(n => n + 3)
-#figure(caption: [Four 'D's])[_DDDD!_]
+#figure(numbering: "A", caption: [Four 'A's], kind: image, supplement: "Figure")[_AAAA!_]
+#figure(numbering: none, caption: [Four 'B's], kind: image, supplement: "Figure")[_BBBB!_]
+#figure(caption: [Four 'C's], kind: image, supplement: "Figure")[_CCCC!_]
+#counter(figure.where(kind: image)).update(n => n + 3)
+#figure(caption: [Four 'D's], kind: image, supplement: "Figure")[_DDDD!_]

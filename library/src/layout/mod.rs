@@ -57,6 +57,8 @@ use crate::meta::DocumentElem;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
+use crate::visualize::PathElem;
+use crate::visualize::PolygonElem;
 use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
 
 /// Root-level layout.
@@ -192,6 +194,8 @@ fn realize_block<'a>(
         && !content.is::<EllipseElem>()
         && !content.is::<CircleElem>()
         && !content.is::<ImageElem>()
+        && !content.is::<PolygonElem>()
+        && !content.is::<PathElem>()
         && !applicable(content, styles)
     {
         return Ok((content.clone(), styles));
@@ -466,8 +470,12 @@ impl<'a> FlowBuilder<'a> {
                 self.0.push(spacing.pack(), styles);
             }
 
-            let above = BlockElem::above_in(styles);
-            let below = BlockElem::below_in(styles);
+            let (above, below) = if let Some(block) = content.to::<BlockElem>() {
+                (block.above(styles), block.below(styles))
+            } else {
+                (BlockElem::above_in(styles), BlockElem::below_in(styles))
+            };
+
             self.0.push(above.pack(), styles);
             self.0.push(content.clone(), styles);
             self.0.push(below.pack(), styles);

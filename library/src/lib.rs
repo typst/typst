@@ -84,6 +84,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("ellipse", visualize::EllipseElem::func());
     global.define("circle", visualize::CircleElem::func());
     global.define("polygon", visualize::PolygonElem::func());
+    global.define("path", visualize::PathElem::func());
 
     // Meta.
     global.define("document", meta::DocumentElem::func());
@@ -96,6 +97,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("bibliography", meta::BibliographyElem::func());
     global.define("locate", meta::locate);
     global.define("style", meta::style);
+    global.define("layout", meta::layout);
     global.define("counter", meta::counter);
     global.define("numbering", meta::numbering);
     global.define("state", meta::state);

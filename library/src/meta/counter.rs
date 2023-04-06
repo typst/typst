@@ -75,6 +75,48 @@ use crate::prelude::*;
 /// Still at #counter(heading).display().
 /// ```
 ///
+/// ## Custom counters
+/// To define your own counter, call the `counter` function with a string as a
+/// key. This key identifies the counter globally.
+///
+/// ```example
+/// #let mine = counter("mycounter")
+/// #mine.display() \
+/// #mine.step()
+/// #mine.display() \
+/// #mine.update(c => c * 3)
+/// #mine.display() \
+/// ```
+///
+/// ## How to step
+/// When you define and use a custom counter, in general, you should first step
+/// the counter and then display it. This way, the stepping behaviour of a
+/// counter can depend on the element it is stepped for. If you were writing a
+/// counter for, let's say, theorems, your theorem's definition would thus first
+/// include the counter step and only then display the counter and the theorem's
+/// contents.
+///
+/// ```example
+/// #let c = counter("theorem")
+/// #let theorem(it) = block[
+///   #c.step()
+///   *Theorem #c.display():* #it
+/// ]
+///
+/// #theorem[$1 = 1$]
+/// #theorem[$2 < 3$]
+/// ```
+///
+/// The rationale behind this is best explained on the example of the heading
+/// counter: An update to the heading counter depends on the heading's level.
+/// By stepping directly before the heading, we can correctly step from `1` to
+/// `1.1` when encountering a level 2 heading. If we were to step after the
+/// heading, we wouldn't know what to step to.
+///
+/// Because counters should always be stepped before the elements they count,
+/// they always start at zero. This way, they are at one for the first display
+/// (which happens after the first step).
+///
 /// ## Page counter
 /// The page counter is special. It is automatically stepped at each pagebreak.
 /// But like other counters, you can also step it manually. For example, you
@@ -100,19 +142,6 @@ use crate::prelude::*;
 /// We also display both the current
 /// page and total number of pages in
 /// Arabic numbers.
-/// ```
-///
-/// ## Custom counters
-/// To define your own counter, call the `counter` function with a string as a
-/// key. This key identifies the counter globally.
-///
-/// ```example
-/// #let mine = counter("mycounter")
-/// #mine.display() \
-/// #mine.step()
-/// #mine.display() \
-/// #mine.update(c => c * 3)
-/// #mine.display() \
 /// ```
 ///
 /// ## Time travel
@@ -247,10 +276,11 @@ use crate::prelude::*;
 pub fn counter(
     /// The key that identifies this counter.
     ///
-    /// - If this is the [`page`]($func/page) function, counts through pages.
-    /// - If this is any other element function, counts through its elements.
     /// - If it is a string, creates a custom counter that is only affected by
-    ///   manual updates.
+    ///   manual updates,
+    /// - If this is a `{<label>}`, counts through all elements with that label,
+    /// - If this is an element function or selector, counts through its elements,
+    /// - If this is the [`page`]($func/page) function, counts through pages.
     key: CounterKey,
 ) -> Value {
     Value::dynamic(Counter::new(key))
@@ -311,6 +341,7 @@ impl Counter {
             let delta = vt.introspector.page(location).get().saturating_sub(page.get());
             state.step(NonZeroUsize::ONE, delta);
         }
+
         Ok(state)
     }
 
@@ -374,8 +405,9 @@ impl Counter {
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut vt = Vt { world, tracer, provider, introspector };
         let mut state = CounterState(match &self.0 {
-            CounterKey::Selector(_) => smallvec![0],
-            _ => smallvec![1],
+            // special case, because pages always start at one.
+            CounterKey::Page => smallvec![1],
+            _ => smallvec![0],
         });
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
@@ -454,17 +486,14 @@ cast_from_value! {
     CounterKey,
     v: Str => Self::Str(v),
     label: Label => Self::Selector(Selector::Label(label)),
-    element: ElemFunc => {
-        if element == PageElem::func() {
-            return Ok(Self::Page);
+    v: ElemFunc => {
+        if v == PageElem::func() {
+            Self::Page
+        } else {
+            Self::Selector(LocatableSelector::cast(Value::from(v))?.0)
         }
-
-        if !Content::new(element).can::<dyn Locatable>() {
-            Err(eco_format!("cannot count through {}s", element.name()))?;
-        }
-
-        Self::Selector(Selector::Elem(element, None))
-    }
+    },
+    selector: LocatableSelector => Self::Selector(selector.0),
 }
 
 impl Debug for CounterKey {

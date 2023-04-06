@@ -2,7 +2,7 @@
 
 ---
 #let variant = rect.with(width: 20pt, height: 10pt)
-#let items = for i, item in (
+#let items = for (i, item) in (
   variant(stroke: none),
   variant(),
   variant(fill: none),
@@ -15,7 +15,7 @@
   variant(fill: forest, stroke: conifer),
   variant(fill: forest, stroke: black + 2pt),
   variant(fill: forest, stroke: conifer + 2pt),
-) {
+).enumerate() {
   (align(horizon)[#(i + 1).], item, [])
 }
 

@@ -382,7 +382,7 @@ pub struct CircleElem {
     /// The circle's width. This is mutually exclusive with `radius` and
     /// `height`.
     ///
-    /// In contrast to `size`, this can be relative to the parent container's
+    /// In contrast to `radius`, this can be relative to the parent container's
     /// width.
     #[parse(
         let size = args
@@ -398,7 +398,7 @@ pub struct CircleElem {
     /// The circle's height.This is mutually exclusive with `radius` and
     /// `width`.
     ///
-    /// In contrast to `size`, this can be relative to the parent container's
+    /// In contrast to `radius`, this can be relative to the parent container's
     /// height.
     #[parse(match size {
         None => args.named("height")?,
@@ -483,7 +483,7 @@ fn layout(
 
     let mut frame;
     if let Some(child) = body {
-        let region = resolved.unwrap_or(regions.base());
+        let mut region = resolved.unwrap_or(regions.base());
         if kind.is_round() {
             inset = inset.map(|side| side + Ratio::new(0.5 - SQRT_2 / 4.0));
         }
@@ -498,10 +498,13 @@ fn layout(
         // the result is really a square or circle.
         if kind.is_quadratic() {
             let length = frame.size().max_by_side().min(region.min_by_side());
-            let size = Size::splat(length);
-            let pod = Regions::one(size, Axes::splat(true));
+            region = Size::splat(length);
+            let pod = Regions::one(region, Axes::splat(true));
             frame = child.layout(vt, styles, pod)?.into_frame();
         }
+
+        // Enforce correct size.
+        *frame.size_mut() = expand.select(region, frame.size());
     } else {
         // The default size that a shape takes on if it has no child and
         // enough space.

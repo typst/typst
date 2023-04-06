@@ -1,3 +1,5 @@
+mod args;
+
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -6,7 +8,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use clap::{ArgAction, Parser, Subcommand};
+use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use comemo::Prehashed;
@@ -25,70 +27,13 @@ use typst::util::{Buffer, PathExt};
 use typst::World;
 use walkdir::WalkDir;
 
+use crate::args::{CliArguments, Command, CompileCommand};
+
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
-const TYPST_VERSION: &str = env!("TYPST_VERSION");
-
-/// typst creates PDF files from .typ files
-#[derive(Debug, Clone, Parser)]
-#[clap(name = "typst", version = TYPST_VERSION, author)]
-pub struct CliArguments {
-    /// Add additional directories to search for fonts
-    #[clap(long = "font-path", value_name = "DIR", action = ArgAction::Append)]
-    font_paths: Vec<PathBuf>,
-
-    /// Configure the root for absolute paths
-    #[clap(long = "root", value_name = "DIR")]
-    root: Option<PathBuf>,
-
-    /// The typst command to run
-    #[command(subcommand)]
-    command: Command,
-}
-
-/// What to do.
-#[derive(Debug, Clone, Subcommand)]
-#[command()]
-enum Command {
-    /// Compiles the input file into a PDF file
-    #[command(visible_alias = "c")]
-    Compile(CompileCommand),
-
-    /// Watches the input file and recompiles on changes
-    #[command(visible_alias = "w")]
-    Watch(WatchCommand),
-
-    /// List all discovered fonts in system and custom font paths
-    Fonts(FontsCommand),
-}
-
-/// Compiles the input file into a PDF file
-#[derive(Debug, Clone, Parser)]
-pub struct CompileCommand {
-    /// Path to input Typst file
-    input: PathBuf,
-
-    /// Path to output PDF file
-    output: Option<PathBuf>,
-}
-
-/// Watches the input file and recompiles on changes
-#[derive(Debug, Clone, Parser)]
-pub struct WatchCommand {
-    /// Path to input Typst file
-    input: PathBuf,
-
-    /// Path to output PDF file
-    output: Option<PathBuf>,
-}
-
-/// List all discovered fonts in system and custom font paths
-#[derive(Debug, Clone, Parser)]
-pub struct FontsCommand {
-    /// Add additional directories to search for fonts
-    #[arg(long)]
-    variants: bool,
+pub fn typst_version() -> &'static str {
+    env!("TYPST_VERSION")
 }
 
 /// A summary of the input arguments relevant to compilation.
@@ -107,6 +52,9 @@ struct CompileSettings {
 
     /// The paths to search for fonts.
     font_paths: Vec<PathBuf>,
+
+    /// The open command to use.
+    open: Option<Option<String>>,
 }
 
 impl CompileSettings {
@@ -117,13 +65,13 @@ impl CompileSettings {
         watch: bool,
         root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
+        open: Option<Option<String>>,
     ) -> Self {
         let output = match output {
             Some(path) => path,
             None => input.with_extension("pdf"),
         };
-
-        Self { input, output, watch, root, font_paths }
+        Self { input, output, watch, root, font_paths, open }
     }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
@@ -131,12 +79,13 @@ impl CompileSettings {
     /// # Panics
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
-        let (input, output, watch) = match args.command {
-            Command::Compile(command) => (command.input, command.output, false),
-            Command::Watch(command) => (command.input, command.output, true),
+        let watch = matches!(args.command, Command::Watch(_));
+        let CompileCommand { input, output, open } = match args.command {
+            Command::Compile(command) => command,
+            Command::Watch(command) => command,
             _ => unreachable!(),
         };
-        Self::new(input, output, watch, args.root, args.font_paths)
+        Self::new(input, output, watch, args.root, args.font_paths, open)
     }
 }
 
@@ -195,7 +144,7 @@ fn print_error(msg: &str) -> io::Result<()> {
 }
 
 /// Execute a compilation command.
-fn compile(command: CompileSettings) -> StrResult<()> {
+fn compile(mut command: CompileSettings) -> StrResult<()> {
     let root = if let Some(root) = &command.root {
         root.clone()
     } else if let Some(dir) = command
@@ -215,6 +164,14 @@ fn compile(command: CompileSettings) -> StrResult<()> {
 
     // Perform initial compilation.
     let failed = compile_once(&mut world, &command)?;
+
+    // open the file if requested, this must be done on the first **successful** compilation
+    if !failed {
+        if let Some(open) = command.open.take() {
+            open_file(open.as_deref(), &command.output)?;
+        }
+    }
+
     if !command.watch {
         // Return with non-zero exit code in case of error.
         if failed {
@@ -258,6 +215,11 @@ fn compile(command: CompileSettings) -> StrResult<()> {
         if recompile {
             compile_once(&mut world, &command)?;
             comemo::evict(30);
+
+            // open the file if requested, this must be done on the first **successful** compilation
+            if let Some(open) = command.open.take() {
+                open_file(open.as_deref(), &command.output)?;
+            }
         }
     }
 }
@@ -376,6 +338,23 @@ fn print_diagnostics(
 
             term::emit(&mut w, &config, world, &help)?;
         }
+    }
+
+    Ok(())
+}
+
+/// Opens the given file using:
+/// - The default file viewer if `open` is `None`.
+/// - The given viewer provided by `open` if it is `Some`.
+fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
+    if let Some(app) = open {
+        open::with(path, app).map_err(|err| {
+            format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err)
+        })?;
+    } else {
+        open::that(path).map_err(|err| {
+            format!("failed to open `{}`, reason: {}", path.display(), err)
+        })?;
     }
 
     Ok(())
@@ -671,6 +650,10 @@ impl FontSearcher {
         add(include_bytes!("../../assets/fonts/LinLibertine_RI.ttf"));
         add(include_bytes!("../../assets/fonts/NewCMMath-Book.otf"));
         add(include_bytes!("../../assets/fonts/NewCMMath-Regular.otf"));
+        add(include_bytes!("../../assets/fonts/NewCM10-Regular.otf"));
+        add(include_bytes!("../../assets/fonts/NewCM10-Bold.otf"));
+        add(include_bytes!("../../assets/fonts/NewCM10-Italic.otf"));
+        add(include_bytes!("../../assets/fonts/NewCM10-BoldItalic.otf"));
         add(include_bytes!("../../assets/fonts/DejaVuSansMono.ttf"));
         add(include_bytes!("../../assets/fonts/DejaVuSansMono-Bold.ttf"));
         add(include_bytes!("../../assets/fonts/DejaVuSansMono-Oblique.ttf"));
