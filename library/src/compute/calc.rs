@@ -1,8 +1,8 @@
 //! Calculations and processing of numeric values.
 
+use std::cmp;
 use std::cmp::Ordering;
 use std::ops::Rem;
-use std::cmp;
 
 use typst::eval::{Module, Scope};
 
@@ -411,7 +411,9 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
     // By convention
     dbg!(start.clone());
     dbg!(end.clone());
-    if end + 1 < start { return Some(0) }
+    if end + 1 < start {
+        return Some(0);
+    }
 
     let mut count: u64 = 1;
     let real_start: u64 = cmp::max(1, start);
@@ -420,7 +422,7 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
     for i in real_start..=end {
         match count.checked_mul(i) {
             None => return None,
-            Some(s) => count = s
+            Some(s) => count = s,
         };
     }
     Some(count)
@@ -442,7 +444,7 @@ fn factorial(number: u64) -> Option<u64> {
 /// Returns: integer
 #[func]
 pub fn fact(
-    /// The number whose factorial to calculate. Must be strictly positive.
+    /// The number whose factorial to calculate. Must be positive.
     value: Spanned<Num>,
 ) -> Value {
     let number = match value.v {
@@ -456,13 +458,12 @@ pub fn fact(
         Num::Int(i) if i < 0 => {
             bail!(value.span, "a factorial argument must be strictly positive")
         }
-        Num::Int(i) => i
+        Num::Int(i) => i,
     } as u64;
 
     // Safe unwrap because we checked earlier that the factorial was less than the overflow limit, u64::MAX
     Value::Int(factorial(number).unwrap_or_default() as i64)
 }
-
 
 /// Calculate a permutation.
 ///
@@ -476,10 +477,10 @@ pub fn fact(
 /// Returns: integer
 #[func]
 pub fn perm(
-    /// The base number. Must be strictly positive.
+    /// The base number. Must be positive.
     base: Spanned<Num>,
-    /// The number of permutations. Must be strictly positive.
-    numbers: Spanned<Num>
+    /// The number of permutations. Must be positive.
+    numbers: Spanned<Num>,
 ) -> Value {
     let base_parsed = match base.v {
         Num::Float(_) => {
@@ -488,7 +489,7 @@ pub fn perm(
         Num::Int(i) if i < 0 => {
             bail!(base.span, "a permutation base argument must be positive")
         }
-        Num::Int(i) => i
+        Num::Int(i) => i,
     } as u64;
 
     let numbers_parsed = match numbers.v {
@@ -498,7 +499,7 @@ pub fn perm(
         Num::Int(i) if i < 0 => {
             bail!(base.span, "a permutation numbers argument must be positive")
         }
-        Num::Int(i) => i
+        Num::Int(i) => i,
     } as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
@@ -510,7 +511,7 @@ pub fn perm(
 
     match result {
         None => bail!(base.span, "the permutation is result is too big"),
-        Some(s) => Value::Int(s as i64)
+        Some(s) => Value::Int(s as i64),
     }
 }
 
