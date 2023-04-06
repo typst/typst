@@ -25,6 +25,13 @@
 }
 
 ---
+#set text(lang: "he")
+#for i in range(9, 21, step: 2) {
+  numbering("א.", i)
+  [ עבור #i \ ]
+}
+
+---
 #set text(lang: "zh")
 #for i in range(9,21, step: 2){
   numbering("一", i)
@@ -51,13 +58,6 @@
 #for i in range(2256, 2260) {
   numbering("イ", i)
   [ for #i \ ]
-}
-
----
-#set text(lang: "he")
-#for i in range(9, 21, step: 2) {
-  numbering("א.", i)
-  [ עבור #i \ ]
 }
 
 ---
