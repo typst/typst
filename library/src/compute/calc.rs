@@ -2,6 +2,7 @@
 
 use std::cmp::Ordering;
 use std::ops::Rem;
+use std::cmp;
 
 use typst::eval::{Module, Scope};
 
@@ -23,6 +24,8 @@ pub fn module() -> Module {
     scope.define("cosh", cosh);
     scope.define("tanh", tanh);
     scope.define("log", log);
+    scope.define("fact", fact);
+    scope.define("perm", perm);
     scope.define("floor", floor);
     scope.define("ceil", ceil);
     scope.define("round", round);
@@ -402,6 +405,113 @@ pub fn log(
     }
 
     Value::Float(result)
+}
+
+fn factorial_range(start: u64, end: u64) -> Option<u64> {
+    // By convention
+    dbg!(start.clone());
+    dbg!(end.clone());
+    if end + 1 < start { return Some(0) }
+
+    let mut count: u64 = 1;
+    let real_start: u64 = cmp::max(1, start);
+    dbg!(real_start.clone());
+
+    for i in real_start..=end {
+        match count.checked_mul(i) {
+            None => return None,
+            Some(s) => count = s
+        };
+    }
+    Some(count)
+}
+
+fn factorial(number: u64) -> Option<u64> {
+    factorial_range(1, number + 1)
+}
+
+/// Calculate the factorial of a number.
+///
+/// ## Example
+/// ```example
+/// #calc.log(100)
+/// ```
+///
+/// Display: Factorial
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn fact(
+    /// The number whose factorial to calculate. Must be strictly positive.
+    value: Spanned<Num>,
+) -> Value {
+    let number = match value.v {
+        Num::Float(_) => {
+            bail!(value.span, "a factorial argument must be an integer");
+        }
+        // Note: 20 is a hardcoded limit, as 21! > u64::MAX
+        Num::Int(i) if i > 20 => {
+            bail!(value.span, "a factorial argument should not exceed 20")
+        }
+        Num::Int(i) if i < 0 => {
+            bail!(value.span, "a factorial argument must be strictly positive")
+        }
+        Num::Int(i) => i
+    } as u64;
+
+    // Safe unwrap because we checked earlier that the factorial was less than the overflow limit, u64::MAX
+    Value::Int(factorial(number).unwrap_or_default() as i64)
+}
+
+
+/// Calculate a permutation.
+///
+/// ## Example
+/// ```example
+/// #calc.perm(10,5)
+/// ```
+///
+/// Display: Permutation
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn perm(
+    /// The base number. Must be strictly positive.
+    base: Spanned<Num>,
+    /// The number of permutations. Must be strictly positive.
+    numbers: Spanned<Num>
+) -> Value {
+    let base_parsed = match base.v {
+        Num::Float(_) => {
+            bail!(base.span, "a permutation base argument must be an integer")
+        }
+        Num::Int(i) if i < 0 => {
+            bail!(base.span, "a permutation base argument must be positive")
+        }
+        Num::Int(i) => i
+    } as u64;
+
+    let numbers_parsed = match numbers.v {
+        Num::Float(_) => {
+            bail!(base.span, "a permutation numbers argument must be an integer")
+        }
+        Num::Int(i) if i < 0 => {
+            bail!(base.span, "a permutation numbers argument must be positive")
+        }
+        Num::Int(i) => i
+    } as u64;
+
+    let result = if base_parsed + 1 > numbers_parsed {
+        factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
+    } else {
+        // By convention
+        Some(0)
+    };
+
+    match result {
+        None => bail!(base.span, "the permutation is result is too big"),
+        Some(s) => Value::Int(s as i64)
+    }
 }
 
 /// Round a number down to the nearest integer.
