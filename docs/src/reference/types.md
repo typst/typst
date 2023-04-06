@@ -901,3 +901,71 @@ You can access definitions from the module using
 >>>
 >>> #(-3)
 ```
+
+# Selector
+A filter for selecting elements within the document.
+
+You can construct a selector in the following ways:
+- you can call the `[selector]` function
+- you can use a `[position]`
+- you can use an element function
+- you can use a regex
+- you can use a `[<label>]`
+
+A selector is what you can use to query the document for certain types
+of elements. It can also be used to apply styling rules to element. You can
+combined multiple queries together using the methods on a selector.
+
+Selectors can also be passed to several of the built-in functions in typst to
+change their behaviour. Such as the [outline]($func/outline) where it can be
+use to change the type of items that are listed within the outline.
+
+## Example
+```example
+#locate(loc => {
+  repr(query(heading.where(level: 1).any(heading.where(level: 2))))
+})
+
+= This will be found by the query
+
+== So will this
+
+=== But this will not.
+
+```
+
+## Methods
+### before()
+Returns a new selector that will only match elements that were declared
+before the first match of the selector argument.
+
+- location: selector (positional, required)
+  The selector ued to find the last element.
+- inclusive: bool
+  Whether the last element should match or not. This is only applicable if
+  both selectors match the same type of element.
+
+### after()
+Returns a new selector that will only match elements that were declared
+after the first match of the selector argument.
+
+- location: selector (positional, required)
+  The selector ued to find the first element.
+- inclusive: bool
+  Whether the first element should match or not. This is only applicable if
+  both selectors match the same type of element.
+
+### any()
+Allows combining any of a series of selectors. This is used to
+select multiple components or components with different properties
+all at once.
+
+- location: selectors (variadic, required)
+  The list of selectors to match on.
+
+### all()
+Allows combining all of a series of selectors. This is used to check
+whether a component meets multiple selection rules simultaneously.
+
+- location: selectors (variadic, required)
+  The list of selectors to match on.

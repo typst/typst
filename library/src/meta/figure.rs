@@ -173,14 +173,14 @@ impl Synthesize for FigureElem {
         // Determine the figure's kind.
         let kind = match self.kind(styles) {
             Smart::Auto => self
-                .find_figurable(styles)
+                .find_figurable(vt, styles)
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::func())),
             Smart::Custom(kind) => kind,
         };
 
         let content = match &kind {
-            FigureKind::Elem(func) => self.find_of_elem(*func),
+            FigureKind::Elem(func) => self.find_of_elem(vt, *func),
             FigureKind::Name(_) => None,
         }
         .unwrap_or_else(|| self.body());
@@ -301,9 +301,9 @@ impl Refable for FigureElem {
 impl FigureElem {
     /// Determines the type of the figure by looking at the content, finding all
     /// [`Figurable`] elements and sorting them by priority then returning the highest.
-    pub fn find_figurable(&self, styles: StyleChain) -> Option<Content> {
+    pub fn find_figurable(&self, vt: &Vt, styles: StyleChain) -> Option<Content> {
         self.body()
-            .query(Selector::can::<dyn Figurable>())
+            .query(vt.introspector, Selector::can::<dyn Figurable>())
             .into_iter()
             .max_by_key(|elem| elem.with::<dyn Figurable>().unwrap().priority(styles))
             .cloned()
@@ -311,9 +311,9 @@ impl FigureElem {
 
     /// Finds the element with the given function in the figure's content.
     /// Returns `None` if no element with the given function is found.
-    pub fn find_of_elem(&self, func: ElemFunc) -> Option<Content> {
+    pub fn find_of_elem(&self, vt: &Vt, func: ElemFunc) -> Option<Content> {
         self.body()
-            .query(Selector::Elem(func, None))
+            .query(vt.introspector, Selector::Elem(func, None))
             .into_iter()
             .next()
             .cloned()

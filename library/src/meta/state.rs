@@ -282,7 +282,10 @@ impl State {
     /// Get the value of the state at the given location.
     pub fn at(self, vt: &mut Vt, location: Location) -> SourceResult<Value> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), location).len();
+        let offset = vt
+            .introspector
+            .query(Selector::Before(Box::new(self.selector()), location, true))
+            .len();
         Ok(sequence[offset].clone())
     }
 

@@ -335,7 +335,10 @@ impl Counter {
     /// Get the value of the state at the given location.
     pub fn at(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), location).len();
+        let offset = vt
+            .introspector
+            .query(Selector::Before(Box::new(self.selector()), location, true))
+            .len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
             let delta = vt.introspector.page(location).get().saturating_sub(page.get());
@@ -359,7 +362,10 @@ impl Counter {
     /// Get the current and final value of the state combined in one state.
     pub fn both(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), location).len();
+        let offset = vt
+            .introspector
+            .query(Selector::Before(Box::new(self.selector()), location, true))
+            .len();
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if self.is_page() {

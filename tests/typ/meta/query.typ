@@ -8,8 +8,8 @@
     smallcaps[Typst Academy]
     h(1fr)
     locate(it => {
-      let after = query(heading, after: it)
-      let before = query(heading, before: it)
+      let after = query(selector(heading).after(it), it)
+      let before = query(selector(heading).before(it), it)
       let elem = if before.len() != 0 {
         before.last()
       } else if after.len() != 0 {
@@ -43,7 +43,7 @@
 
 = List of Figures
 #locate(it => {
-  let elements = query(figure, after: it)
+  let elements = query(selector(figure).after(it), it)
   for it in elements [
     Figure
     #numbering(it.numbering,

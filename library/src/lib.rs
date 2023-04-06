@@ -101,6 +101,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("numbering", meta::numbering);
     global.define("state", meta::state);
     global.define("query", meta::query);
+    global.define("selector", meta::selector);
 
     // Symbols.
     global.define("sym", symbols::sym());

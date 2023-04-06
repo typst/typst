@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
@@ -84,6 +85,8 @@ impl StabilityProvider {
 pub struct Introspector {
     pages: usize,
     elems: Vec<(Content, Position)>,
+    /// A small cache of positions for faster lookups in nested queries.
+    position_cache: HashMap<Location, usize>,
     // Indexed by page number.
     page_numberings: Vec<Value>,
 }
@@ -94,6 +97,7 @@ impl Introspector {
         let mut introspector = Self {
             pages: frames.len(),
             elems: vec![],
+            position_cache: HashMap::new(),
             page_numberings: vec![],
         };
         for (i, frame) in frames.iter().enumerate() {
@@ -126,6 +130,8 @@ impl Introspector {
                 {
                     let pos = pos.transform(ts);
                     self.elems.push((content.clone(), Position { page, point: pos }));
+                    self.position_cache
+                        .insert(content.location().unwrap(), self.elems.len() - 1);
                 }
                 FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
                     self.page_numberings.push(numbering.clone());
@@ -143,32 +149,24 @@ impl Introspector {
         self.pages > 0
     }
 
+    /// Collects the element in a vec
+    pub fn to_vec(&self) -> Vec<&Content> {
+        self.elems.iter().map(|(elem, _)| elem).collect()
+    }
+
+    /// Get an element from the position cache.
+    pub fn position_cache(&self, location: &Location) -> Option<usize> {
+        self.position_cache.get(location).copied()
+    }
+
     /// Query for all matching elements.
     pub fn query(&self, selector: Selector) -> Vec<Content> {
-        self.all().filter(|elem| selector.matches(elem)).cloned().collect()
+        selector.match_iter(self).map(|(_, c)| c.clone()).collect()
     }
 
-    /// Query for all matching element up to the given location.
-    pub fn query_before(&self, selector: Selector, location: Location) -> Vec<Content> {
-        let mut matches = vec![];
-        for elem in self.all() {
-            if selector.matches(elem) {
-                matches.push(elem.clone());
-            }
-            if elem.location() == Some(location) {
-                break;
-            }
-        }
-        matches
-    }
-
-    /// Query for all matching elements starting from the given location.
-    pub fn query_after(&self, selector: Selector, location: Location) -> Vec<Content> {
-        self.all()
-            .skip_while(|elem| elem.location() != Some(location))
-            .filter(|elem| selector.matches(elem))
-            .cloned()
-            .collect()
+    /// Query for all matching elements.
+    pub fn query_first(&self, selector: Selector) -> Option<Content> {
+        selector.match_iter(self).map(|(_, c)| c.clone()).next()
     }
 
     /// Query for a unique element with the label.

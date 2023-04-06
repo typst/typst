@@ -4,7 +4,7 @@ use ecow::EcoString;
 
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
-use crate::model::Location;
+use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
 /// Call a method on a value.
@@ -157,6 +157,15 @@ pub fn call(
                     "page-numbering" => vm.vt.introspector.page_numbering(location),
                     _ => return missing(),
                 }
+            } else if let Some(selector) = dynamic.downcast::<Selector>() {
+                return selector.call_method(
+                    vm,
+                    method,
+                    selector.clone(),
+                    args,
+                    span,
+                    missing,
+                );
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);
             }
@@ -310,6 +319,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
+        "selector" => &[("before", true), ("after", true), ("any", true), ("all", true)],
         "counter" => &[
             ("display", true),
             ("at", true),
