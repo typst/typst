@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
 use ecow::EcoVec;
 
 use crate::prelude::*;
@@ -214,7 +215,8 @@ impl FromStr for NumberingPattern {
             };
 
             let prefix = pattern[handled..i].into();
-            let case = if c.is_uppercase() { Case::Upper } else { Case::Lower };
+            let case =
+                if c.is_uppercase() || c == '壹' { Case::Upper } else { Case::Lower };
             pieces.push((prefix, kind, case));
             handled = c.len_utf8() + i;
         }
@@ -257,6 +259,7 @@ enum NumberingKind {
     Roman,
     Symbol,
     Hebrew,
+    Chinese,
     HiraganaIroha,
     KatakanaIroha,
 }
@@ -270,6 +273,7 @@ impl NumberingKind {
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
+            '一' | '壹' => NumberingKind::Chinese,
             'い' => NumberingKind::HiraganaIroha,
             'イ' => NumberingKind::KatakanaIroha,
             _ => return None,
@@ -284,6 +288,7 @@ impl NumberingKind {
             Self::Roman => 'i',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
+            Self::Chinese => '一',
             Self::HiraganaIroha => 'い',
             Self::KatakanaIroha => 'イ',
         }
@@ -431,6 +436,21 @@ impl NumberingKind {
                     }
                 }
                 fmt
+            }
+            Self::Chinese => {
+                let chinesecase = match case {
+                    Case::Lower => ChineseCase::Lower,
+                    Case::Upper => ChineseCase::Upper,
+                };
+
+                match (n as u8).to_chinese(
+                    ChineseVariant::Simple,
+                    chinesecase,
+                    ChineseCountMethod::TenThousand,
+                ) {
+                    Ok(chinesestring) => EcoString::from(chinesestring),
+                    Err(_) => '-'.into(),
+                }
             }
         }
     }
