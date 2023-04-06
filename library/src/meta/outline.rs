@@ -257,6 +257,7 @@ impl LocalName for OutlineElem {
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ITALIAN => "Indice",
+            Lang::NYNORSK => "Innhald",
             Lang::PORTUGUESE => "Sumário",
             Lang::RUSSIAN => "Содержание",
             Lang::SPANISH => "Índice",

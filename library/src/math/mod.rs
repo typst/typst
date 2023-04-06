@@ -279,6 +279,7 @@ impl LocalName for EquationElem {
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
             Lang::ITALIAN => "Equazione",
+            Lang::NYNORSK => "Likning",
             Lang::PORTUGUESE => "Equação",
             Lang::RUSSIAN => "Уравнение",
             Lang::SPANISH => "Ecuación",
