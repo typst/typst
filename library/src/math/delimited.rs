@@ -77,7 +77,7 @@ impl LayoutMath for LrElem {
                     if should_scale_up {
                         should_scale_up = false;
                         printable_fragments.push(fragment.clone());
-                   } else {
+                    } else {
                         should_scale_up = true;
                     }
                     continue;
