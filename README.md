@@ -123,10 +123,10 @@ the bleeding edge version with `nix run github:typst/typst -- --version`.
 Once you have installed Typst, you can use it like this:
 ```sh
 # Creates `file.pdf` in working directory.
-typst file.typ
+typst compile file.typ
 
 # Creates PDF file at the desired path.
-typst path/to/source.typ path/to/output.pdf
+typst compile path/to/source.typ path/to/output.pdf
 ```
 
 You can also watch source files and automatically recompile on changes. This is
@@ -134,7 +134,17 @@ faster than compiling from scratch each time because Typst has incremental
 compilation.
 ```sh
 # Watches source files and recompiles on changes.
-typst --watch file.typ
+typst watch file.typ
+```
+
+Typst further allows you to add custom font paths for your project and list all
+of the fonts it discovered:
+```sh
+# Adds additional directories to search for fonts.
+typst --font-path path/to/fonts compile file.typ
+
+# Lists all of the discovered fonts in the system and the given directory.
+typst --font-path path/to/fonts fonts
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant

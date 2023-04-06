@@ -52,7 +52,7 @@ impl Layout for MoveElem {
     }
 }
 
-/// Rotate content with affecting layout.
+/// Rotate content without affecting layout.
 ///
 /// Rotate an element by a given angle. The layout will act as if the element
 /// was not rotated.

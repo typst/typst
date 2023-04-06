@@ -7,7 +7,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
-    Location, Recipe, Style, Styles, Synthesize,
+    Location, Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
@@ -16,6 +16,7 @@ use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// Composable representation of styled content.
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
 pub struct Content {
     func: ElemFunc,
@@ -102,6 +103,12 @@ impl Content {
         C: ?Sized + 'static,
     {
         (self.func.0.vtable)(TypeId::of::<C>()).is_some()
+    }
+
+    /// Whether the contained element has the given capability.
+    /// Where the capability is given by a `TypeId`.
+    pub fn can_type_id(&self, type_id: TypeId) -> bool {
+        (self.func.0.vtable)(type_id).is_some()
     }
 
     /// Cast to a trait object if the contained element has the given
@@ -345,6 +352,49 @@ impl Content {
     /// Attach a location to this content.
     pub fn set_location(&mut self, location: Location) {
         self.attrs.push(Attr::Location(location));
+    }
+
+    /// Queries the content tree for all elements that match the given selector.
+    ///
+    /// # Show rules
+    /// Elements produced in `show` rules will not be included in the results.
+    pub fn query(&self, selector: Selector) -> Vec<&Content> {
+        let mut results = Vec::new();
+        self.query_into(&selector, &mut results);
+        results
+    }
+
+    /// Queries the content tree for all elements that match the given selector
+    /// and stores the results inside of the `results` vec.
+    fn query_into<'a>(&'a self, selector: &Selector, results: &mut Vec<&'a Content>) {
+        if selector.matches(self) {
+            results.push(self);
+        }
+
+        for attr in &self.attrs {
+            match attr {
+                Attr::Child(child) => child.query_into(selector, results),
+                Attr::Value(value) => walk_value(&value, selector, results),
+                _ => {}
+            }
+        }
+
+        /// Walks a given value to find any content that matches the selector.
+        fn walk_value<'a>(
+            value: &'a Value,
+            selector: &Selector,
+            results: &mut Vec<&'a Content>,
+        ) {
+            match value {
+                Value::Content(content) => content.query_into(selector, results),
+                Value::Array(array) => {
+                    for value in array {
+                        walk_value(value, selector, results);
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 }
 

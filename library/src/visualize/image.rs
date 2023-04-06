@@ -3,7 +3,10 @@ use std::path::Path;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
-use crate::prelude::*;
+use crate::{
+    meta::{Figurable, LocalName},
+    prelude::*,
+};
 
 /// A raster or vector graphic.
 ///
@@ -22,7 +25,7 @@ use crate::prelude::*;
 ///
 /// Display: Image
 /// Category: visualize
-#[element(Layout)]
+#[element(Layout, LocalName, Figurable)]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
@@ -109,6 +112,32 @@ impl Layout for ImageElem {
         frame.meta(styles, false);
 
         Ok(Fragment::frame(frame))
+    }
+}
+
+impl LocalName for ImageElem {
+    fn local_name(&self, lang: Lang) -> &'static str {
+        match lang {
+            Lang::BOKMÅL => "Figur",
+            Lang::CHINESE => "图",
+            Lang::FRENCH => "Figure",
+            Lang::GERMAN => "Abbildung",
+            Lang::ITALIAN => "Figura",
+            Lang::NYNORSK => "Figur",
+            Lang::POLISH => "Rysunek",
+            Lang::PORTUGUESE => "Figura",
+            Lang::RUSSIAN => "Рисунок",
+            Lang::SLOVENIAN => "Slika",
+            Lang::SPANISH => "Figura",
+            Lang::UKRAINIAN => "Рисунок",
+            Lang::ENGLISH | _ => "Figure",
+        }
+    }
+}
+
+impl Figurable for ImageElem {
+    fn priority(&self, _styles: StyleChain) -> isize {
+        1000
     }
 }
 

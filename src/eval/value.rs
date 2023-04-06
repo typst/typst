@@ -241,6 +241,7 @@ impl Hash for Value {
 }
 
 /// A dynamic value.
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
 pub struct Dynamic(Arc<dyn Bounds>);
 

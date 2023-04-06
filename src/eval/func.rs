@@ -17,6 +17,7 @@ use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
+#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
 pub struct Func {
     /// The internal representation.
@@ -281,6 +282,7 @@ pub(super) struct Closure {
 
 impl Closure {
     /// Call the function in the context with the arguments.
+    #[allow(clippy::too_many_arguments)]
     #[comemo::memoize]
     fn call(
         this: &Func,
@@ -439,7 +441,10 @@ impl<'a> CapturesVisitor<'a> {
                 if let Some(init) = expr.init() {
                     self.visit(init.as_untyped());
                 }
-                self.bind(expr.binding());
+
+                for ident in expr.kind().idents() {
+                    self.bind(ident);
+                }
             }
 
             // A for loop contains one or two bindings in its pattern. These are
@@ -448,11 +453,12 @@ impl<'a> CapturesVisitor<'a> {
             Some(ast::Expr::For(expr)) => {
                 self.visit(expr.iter().as_untyped());
                 self.internal.enter();
+
                 let pattern = expr.pattern();
-                if let Some(key) = pattern.key() {
-                    self.bind(key);
+                for ident in pattern.idents() {
+                    self.bind(ident);
                 }
-                self.bind(pattern.value());
+
                 self.visit(expr.body().as_untyped());
                 self.internal.exit();
             }
@@ -548,7 +554,7 @@ mod tests {
 
         // For loop.
         test("#for x in y { x + z }", &["y", "z"]);
-        test("#for x, y in y { x + y }", &["y"]);
+        test("#for (x, y) in y { x + y }", &["y"]);
         test("#for x in y {} #x", &["x", "y"]);
 
         // Import.

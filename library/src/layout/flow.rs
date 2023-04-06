@@ -1,6 +1,8 @@
 use super::{AlignElem, BlockElem, ColbreakElem, ParElem, PlaceElem, Spacing, VElem};
 use crate::prelude::*;
-use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
+use crate::visualize::{
+    CircleElem, EllipseElem, ImageElem, PathElem, PolygonElem, RectElem, SquareElem,
+};
 
 /// Arrange spacing, paragraphs and block-level elements into a flow.
 ///
@@ -42,6 +44,8 @@ impl Layout for FlowElem {
                 || child.is::<EllipseElem>()
                 || child.is::<CircleElem>()
                 || child.is::<ImageElem>()
+                || child.is::<PolygonElem>()
+                || child.is::<PathElem>()
             {
                 let layoutable = child.with::<dyn Layout>().unwrap();
                 layouter.layout_single(vt, layoutable, styles)?;

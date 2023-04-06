@@ -1,3 +1,4 @@
+use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
@@ -5,8 +6,9 @@ use std::mem;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use super::{Content, ElemFunc, Element, Label, Vt};
-use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value, Vm};
+use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
+use crate::eval::{cast_from_value, Args, Cast, CastInfo, Dict, Func, Regex, Value, Vm};
+use crate::model::Locatable;
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -260,14 +262,23 @@ pub enum Selector {
     Label(Label),
     /// Matches text elements through a regular expression.
     Regex(Regex),
+    /// Matches elements with a specific capability.
+    Can(TypeId),
     /// Matches if any of the subselectors match.
     Any(EcoVec<Self>),
+    /// Matches if all of the subselectors match.
+    All(EcoVec<Self>),
 }
 
 impl Selector {
     /// Define a simple text selector.
     pub fn text(text: &str) -> Self {
         Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+    }
+
+    /// Define a simple [`Selector::Can`] selector.
+    pub fn can<T: ?Sized + Any>() -> Self {
+        Self::Can(TypeId::of::<T>())
     }
 
     /// Whether the selector matches for the target.
@@ -285,7 +296,9 @@ impl Selector {
                 target.func() == item!(text_func)
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
+            Self::Can(cap) => target.can_type_id(*cap),
             Self::Any(selectors) => selectors.iter().any(|sel| sel.matches(target)),
+            Self::All(selectors) => selectors.iter().all(|sel| sel.matches(target)),
         }
     }
 }
@@ -303,8 +316,9 @@ impl Debug for Selector {
             }
             Self::Label(label) => label.fmt(f),
             Self::Regex(regex) => regex.fmt(f),
-            Self::Any(selectors) => {
-                f.write_str("any")?;
+            Self::Can(cap) => cap.fmt(f),
+            Self::Any(selectors) | Self::All(selectors) => {
+                f.write_str(if matches!(self, Self::Any(_)) { "any" } else { "all" })?;
                 let pieces: Vec<_> =
                     selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
                 f.write_str(&pretty_array_like(&pieces, false))
@@ -324,6 +338,51 @@ cast_from_value! {
     regex: Regex => Self::Regex(regex),
 }
 
+/// A selector that can be used with `query`. Hopefully, this is made obsolote
+/// by a more powerful query mechanism in the future.
+#[derive(Clone, PartialEq, Hash)]
+pub struct LocatableSelector(pub Selector);
+
+impl Cast for LocatableSelector {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Label(_) | Value::Func(_))
+            || value.type_name() == "selector"
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        fn validate(selector: &Selector) -> StrResult<()> {
+            match &selector {
+                Selector::Elem(elem, _) if !elem.can::<dyn Locatable>() => {
+                    Err(eco_format!("{} is not locatable", elem.name()))?
+                }
+                Selector::Regex(_) => Err("text is not locatable")?,
+                Selector::Any(list) | Selector::All(list) => {
+                    for selector in list {
+                        validate(selector)?;
+                    }
+                }
+                _ => {}
+            }
+            Ok(())
+        }
+
+        if !Self::is(&value) {
+            return <Self as Cast>::error(value);
+        }
+
+        let selector = Selector::cast(value)?;
+        validate(&selector)?;
+        Ok(Self(selector))
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type("label"),
+            CastInfo::Type("function"),
+            CastInfo::Type("selector"),
+        ])
+    }
+}
 /// A show rule transformation that can be applied to a match.
 #[derive(Clone, PartialEq, Hash)]
 pub enum Transform {
