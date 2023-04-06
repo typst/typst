@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign};
@@ -288,81 +287,39 @@ impl Array {
         span: Span,
         key: Option<Func>,
     ) -> SourceResult<Self> {
-        match key {
-            None => {
-                let mut result = Ok(());
-                let mut vec = self.0.clone();
-                vec.make_mut().sort_by(|a, b| {
-                    PartialOrd::partial_cmp(a, b).unwrap_or_else(|| {
-                        if result.is_ok() {
-                            result = Err(eco_format!(
-                                "cannot order {} and {}",
-                                a.type_name(),
-                                b.type_name(),
-                            ))
-                            .at(span);
-                        }
-                        Ordering::Equal
-                    })
-                });
-                result.map(|_| Self::from_vec(vec))
+        let mut result = Ok(());
+        let mut vec = self.0.clone();
+        let mut key_ = |x: Value| match &key {
+            Some(f) => f.call_vm(vm, Args::new(f.span(), [x])),
+            None => Ok(x),
+        };
+        vec.make_mut().sort_by(|a, b| {
+            // Until we get `try` blocks :)
+            match (key_(a.clone()), key_(b.clone())) {
+                (Ok(a), Ok(b)) => a.partial_cmp(&b).unwrap_or_else(|| {
+                    if result.is_ok() {
+                        result = Err(eco_format!(
+                            "cannot order {} and {}",
+                            a.type_name(),
+                            b.type_name(),
+                        ))
+                        .at(span);
+                    }
+                    Ordering::Equal
+                }),
+                (Err(mut e), _) | (_, Err(mut e)) => {
+                    if result.is_ok() {
+                        e.push(SourceError::new(
+                            span,
+                            "error while evaluating key for sorting",
+                        ));
+                        result = Err(e);
+                    }
+                    Ordering::Equal
+                }
             }
-            Some(key) => {
-                struct Key<T, F: Fn(&T, &T) -> Ordering>(Option<T>, F);
-                impl<T, F: Fn(&T, &T) -> Ordering> PartialEq for Key<T, F> {
-                    fn eq(&self, other: &Self) -> bool {
-                        Ord::cmp(self, other) == Ordering::Equal
-                    }
-                }
-                impl<T, F: Fn(&T, &T) -> Ordering> Eq for Key<T, F> {}
-                impl<T, F: Fn(&T, &T) -> Ordering> PartialOrd for Key<T, F> {
-                    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-                        Some(Ord::cmp(self, other))
-                    }
-                }
-                impl<T, F: Fn(&T, &T) -> Ordering> Ord for Key<T, F> {
-                    fn cmp(&self, other: &Self) -> Ordering {
-                        match (&self.0, &other.0) {
-                            (Some(a), Some(b)) => (self.1)(a, b),
-                            (None, _) | (_, None) => Ordering::Equal, // XXX
-                        }
-                    }
-                }
-                let result = RefCell::new(Ok(()));
-                let mut vec = self.0.clone();
-                vec.make_mut().sort_by_cached_key(|x| {
-                    Key(
-                        match key.call_vm(vm, Args::new(key.span(), [x.clone()])) {
-                            Ok(x) => Some(x),
-                            Err(mut e) => {
-                                if result.borrow().is_ok() {
-                                    e.push(SourceError::new(
-                                        span,
-                                        "error while evaluating key for sorting",
-                                    ));
-                                    *result.borrow_mut() = Err(e);
-                                }
-                                None
-                            }
-                        },
-                        |a, b| {
-                            PartialOrd::partial_cmp(a, b).unwrap_or_else(|| {
-                                if result.borrow().is_ok() {
-                                    *result.borrow_mut() = Err(eco_format!(
-                                        "cannot order {} and {}",
-                                        a.type_name(),
-                                        b.type_name(),
-                                    ))
-                                    .at(span);
-                                }
-                                Ordering::Equal
-                            })
-                        },
-                    )
-                });
-                result.into_inner().map(|_| Self::from_vec(vec))
-            }
-        }
+        });
+        result.map(|_| Self::from_vec(vec))
     }
 
     /// Repeat this array `n` times.
