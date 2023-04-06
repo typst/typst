@@ -207,6 +207,7 @@ impl LocalName for BibliographyElem {
             Lang::POLISH | Lang::PORTUGUESE => "Bibliografia",
             Lang::RUSSIAN => "Библиография",
             Lang::SPANISH => "Bibliografía",
+            Lang::SLOVENIAN => "Literatura",
             Lang::UKRAINIAN => "Бібліографія",
             Lang::ENGLISH | _ => "Bibliography",
         }

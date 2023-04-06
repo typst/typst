@@ -132,6 +132,9 @@ impl Layout for BoxElem {
         let pod = Regions::one(size, expand);
         let mut frame = body.layout(vt, styles, pod)?.into_frame();
 
+        // Enforce correct size.
+        *frame.size_mut() = expand.select(size, frame.size());
+
         // Apply baseline shift.
         let shift = self.baseline(styles).relative_to(frame.height());
         if !shift.is_zero() {
@@ -377,10 +380,17 @@ impl Layout for BlockElem {
                 pod.last = None;
             }
 
-            body.layout(vt, styles, pod)?.into_frames()
+            let mut frames = body.layout(vt, styles, pod)?.into_frames();
+            for (frame, &height) in frames.iter_mut().zip(&heights) {
+                *frame.size_mut() =
+                    expand.select(Size::new(size.x, height), frame.size());
+            }
+            frames
         } else {
             let pod = Regions::one(size, expand);
-            body.layout(vt, styles, pod)?.into_frames()
+            let mut frames = body.layout(vt, styles, pod)?.into_frames();
+            *frames[0].size_mut() = expand.select(size, frames[0].size());
+            frames
         };
 
         // Clip the contents
