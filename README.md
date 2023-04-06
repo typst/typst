@@ -155,14 +155,7 @@ public beta.
 To run a prebuilt image with docker run:
 
 ```sh
-docker run -it --rm ghcr.io/typst/typst:main
-```
-
-To build and run Typst from source inside docker run following command:
-
-```sh
-docker build -t typst .
-docker run -it --rm typst
+docker run -it ghcr.io/typst/typst:main
 ```
 
 ## Build from source
