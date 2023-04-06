@@ -12,7 +12,7 @@
   rect(width: w, height: 10pt, fill: rgb(v, v, v))
 }
 
-#let items = for i, w in widths {
+#let items = for (i, w) in widths.enumerate() {
   (align(right, shaded(i, w)),)
 }
 
