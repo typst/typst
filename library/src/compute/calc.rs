@@ -465,25 +465,6 @@ pub fn fact(
     Value::Int(factorial(number).unwrap_or_default() as i64)
 }
 
-fn binomial(n: u64, k: u64) -> u64 {
-    if k > n {
-        return 0;
-    }
-
-    if n == k || k == 0 {
-        return 1;
-    }
-
-    if n - k < k {
-        return binomial(n, n - k);
-    }
-
-    if k == 1 {
-        return n;
-    }
-
-    binomial(n - 1, k - 1) + binomial(n - 1, k)
-}
 
 /// Calculate a permutation.
 ///
@@ -533,6 +514,27 @@ pub fn perm(
         None => bail!(base.span, "the permutation is result is too big"),
         Some(s) => Value::Int(s as i64),
     }
+}
+
+
+fn binomial(n: u64, k: u64) -> u64 {
+    if k > n {
+        return 0;
+    }
+
+    if n == k || k == 0 {
+        return 1;
+    }
+
+    // By symmetry
+    let real_k = cmp::min(n - k, k);
+    let mut result = 1;
+
+    for i in 0..real_k {
+        result = result * (n - i) / (i + 1)
+    }
+
+    result
 }
 
 /// Round a number down to the nearest integer.
