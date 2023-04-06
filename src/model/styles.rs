@@ -690,6 +690,15 @@ impl<T> StyleVec<T> {
         }
     }
 
+    /// Iterates (taking ownership) over the contained items and associated styles.
+    pub fn into_iter(self) -> impl Iterator<Item = (T, Styles)> {
+        self.items.into_iter().zip(
+            self.styles
+                .into_iter()
+                .flat_map(|(map, count)| iter::repeat(map).take(count)),
+        )
+    }
+
     /// Iterate over references to the contained items and associated styles.
     pub fn iter(&self) -> impl Iterator<Item = (&T, &Styles)> + '_ {
         self.items().zip(

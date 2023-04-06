@@ -103,7 +103,7 @@ pub struct ListElem {
     /// ]
     /// ```
     #[variadic]
-    pub children: Vec<ListItem>,
+    pub children: Vec<Content>,
 
     /// The nesting depth.
     #[internal]
@@ -131,11 +131,39 @@ impl Layout for ListElem {
         let marker = self.marker(styles).resolve(vt, depth)?;
 
         let mut cells = vec![];
-        for item in self.children() {
+        for child in self.children() {
+            let mut item = &child; // required so we can assign 'elem' (a reference) later
+            let outer_styles = styles;
+            let mut styles = styles;
+
+            if let Some((elem, style_map)) = item.to_styled() {
+                item = elem;
+                styles = outer_styles.chain(style_map); // for the item's specific styles
+            }
+
+            // owns the child's conversion to ListItem for the duration of this scope,
+            // if it is not a ListItem already
+            let converted_listitem;
+
+            let item = if let Some(item) = item.to::<ListItem>() {
+                item // the given item is already a listitem (the '- item' syntax was used)
+            } else {
+                // wrap given arbitrary content into a single listitem
+                // (it becomes the body)
+                styles = outer_styles; // the child's (body's) styles shouldn't apply to the marker
+
+                converted_listitem = ListItem::new(child);
+                &converted_listitem // item becomes a reference to the listitem wrapper
+            };
+
+            let styles = styles.to_map();
+            let marker = marker.clone().styled_with_map(styles.clone());
+            let body = item.body().styled_with_map(styles).styled(Self::set_depth(Depth));
+
             cells.push(Content::empty());
-            cells.push(marker.clone());
+            cells.push(marker);
             cells.push(Content::empty());
-            cells.push(item.body().styled(Self::set_depth(Depth)));
+            cells.push(body);
         }
 
         let layouter = GridLayouter::new(

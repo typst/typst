@@ -560,11 +560,8 @@ impl<'a> ListBuilder<'a> {
         let output = if item.is::<ListItem>() {
             ListElem::new(
                 items
-                    .iter()
-                    .map(|(item, local)| {
-                        let item = item.to::<ListItem>().unwrap();
-                        item.clone().with_body(item.body().styled_with_map(local.clone()))
-                    })
+                    .into_iter()
+                    .map(|(item, local)| item.styled_with_map(local))
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)
@@ -572,11 +569,8 @@ impl<'a> ListBuilder<'a> {
         } else if item.is::<EnumItem>() {
             EnumElem::new(
                 items
-                    .iter()
-                    .map(|(item, local)| {
-                        let item = item.to::<EnumItem>().unwrap();
-                        item.clone().with_body(item.body().styled_with_map(local.clone()))
-                    })
+                    .into_iter()
+                    .map(|(item, local)| item.styled_with_map(local))
                     .collect::<Vec<_>>(),
             )
             .with_tight(self.tight)

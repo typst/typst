@@ -145,7 +145,7 @@ pub struct EnumElem {
     /// ) [+ #phase]
     /// ```
     #[variadic]
-    pub children: Vec<EnumItem>,
+    pub children: Vec<Content>,
 
     /// The numbers of parent items.
     #[internal]
@@ -175,7 +175,31 @@ impl Layout for EnumElem {
         let mut parents = self.parents(styles);
         let full = self.full(styles);
 
-        for item in self.children() {
+        for child in self.children() {
+            let mut item = &child; // required so we can assign 'elem' (a reference) later
+            let outer_styles = styles;
+            let mut styles = styles;
+
+            if let Some((elem, style_map)) = item.to_styled() {
+                item = elem;
+                styles = outer_styles.chain(style_map); // for the item's specific styles
+            }
+
+            // holds the child's conversion to EnumItem for the duration of this scope,
+            // if it is not an EnumItem already
+            let converted_enumitem;
+
+            let item = if let Some(item) = item.to::<EnumItem>() {
+                item // the given item is already an enumitem (the '+ item' syntax was used)
+            } else {
+                // wrap given arbitrary content into a single enumitem
+                // (it becomes the body)
+                styles = outer_styles; // the child's (body's) styles shouldn't apply to the marker
+
+                converted_enumitem = EnumItem::new(child);
+                &converted_enumitem // item becomes a reference to the enumitem wrapper
+            };
+
             number = item.number(styles).unwrap_or(number);
 
             let resolved = if full {
@@ -192,10 +216,18 @@ impl Layout for EnumElem {
                 }
             };
 
+            let styles = styles.to_map();
+
+            let resolved = resolved.styled_with_map(styles.clone());
+            let body = item
+                .body()
+                .styled_with_map(styles)
+                .styled(Self::set_parents(Parent(number)));
+
             cells.push(Content::empty());
             cells.push(resolved);
             cells.push(Content::empty());
-            cells.push(item.body().styled(Self::set_parents(Parent(number))));
+            cells.push(body);
             number = number.saturating_add(1);
         }
 
