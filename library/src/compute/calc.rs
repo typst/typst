@@ -465,7 +465,6 @@ pub fn fact(
     Value::Int(factorial(number).unwrap_or_default() as i64)
 }
 
-
 /// Calculate a permutation.
 ///
 /// ## Example
@@ -515,7 +514,6 @@ pub fn perm(
         Some(s) => Value::Int(s as i64),
     }
 }
-
 
 fn binomial(n: u64, k: u64) -> u64 {
     if k > n {
