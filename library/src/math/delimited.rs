@@ -1,3 +1,5 @@
+use std::borrow::BorrowMut;
+
 use super::*;
 
 /// How much less high scaled delimiters can be than what they wrap.
@@ -8,10 +10,14 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 /// While matched delimiters scale by default, this can be used to scale
 /// unmatched delimiters and to control the delimiter scaling more precisely.
 ///
+/// Between the delimiters, symbols preceded by a backtick '`' will also be
+/// scaled up. To print a verbatim backtick, use '``'.
+///
 /// ## Example
 /// ```example
 /// $ lr(]a, b/2]) $
 /// $ lr(]sum_(x=1)^n] x, size: #50%) $
+/// $ lr(]integral |x| dif x `| x in X ]) $
 /// ```
 ///
 /// Display: Left/Right
@@ -47,7 +53,7 @@ impl LayoutMath for LrElem {
             }
         }
 
-        let mut fragments = ctx.layout_fragments(&body)?;
+        let fragments = ctx.layout_fragments(&body)?;
         let axis = scaled!(ctx, axis_height);
         let max_extent = fragments
             .iter()
@@ -61,7 +67,31 @@ impl LayoutMath for LrElem {
             .resolve(ctx.styles())
             .relative_to(2.0 * max_extent);
 
-        match fragments.as_mut_slice() {
+        let mut printable_fragments: Vec<MathFragment> =
+            Vec::with_capacity(fragments.len());
+
+        let mut should_scale_up = false;
+        for fragment in &fragments {
+            if let MathFragment::Glyph(glyph) = fragment {
+                if glyph.c == '`' {
+                    if should_scale_up {
+                        should_scale_up = false;
+                        printable_fragments.push(fragment.clone());
+                   } else {
+                        should_scale_up = true;
+                    }
+                    continue;
+                }
+            }
+            let mut frag = fragment.clone();
+            if should_scale_up {
+                scale(ctx, frag.borrow_mut(), height, None);
+                should_scale_up = false;
+            }
+            printable_fragments.push(frag);
+        }
+
+        match printable_fragments.as_mut_slice() {
             [one] => scale(ctx, one, height, None),
             [first, .., last] => {
                 scale(ctx, first, height, Some(MathClass::Opening));
@@ -70,7 +100,8 @@ impl LayoutMath for LrElem {
             _ => {}
         }
 
-        ctx.extend(fragments);
+        printable_fragments.shrink_to_fit();
+        ctx.extend(printable_fragments);
 
         Ok(())
     }

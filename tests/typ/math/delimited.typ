@@ -36,3 +36,12 @@ $ lr(]sum_(x=1)^n x], size: #70%)
 ---
 // Test predefined delimiter pairings.
 $floor(x/2), ceil(x/2), abs(x), norm(x)$
+
+---
+// Test scaling up in the middle
+$ { integral |x| dif x`|x|a, x in X } $
+$ { limits(A)_n`|limits(B)_n },
+  lr(angle.l limits(A)_n`|limits(B)_n angle.r),
+  | limits(A)_n `angle.r`angle.l limits(B)_n | $
+$ { a < limits(A)_n \|\| a > limits(B)_n `| a in RR } $
+$ { limits(A)_n `\u{2016} limits(B)_n "backtick:" `` `bracket.r.double } $
