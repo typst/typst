@@ -201,7 +201,7 @@ impl Synthesize for FigureElem {
                             .ok_or("unable to determine the figure's `supplement`, please specify it manually")
                             .at(self.span())?)
                     } else {
-                        None
+                        elem
                     }
                 }
                 FigureKind::Name(_) => {
