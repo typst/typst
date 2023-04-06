@@ -536,7 +536,7 @@ impl World for SystemWorld {
             false => chrono::Utc::now().naive_utc(),
         };
 
-        // Month/day/hour/minute/second are always in range of u8
+        // Month/day are always in range of u8
         (
             datetime.year(),
             datetime.month().try_into().unwrap(),
