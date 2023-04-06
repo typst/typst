@@ -1,13 +1,11 @@
+use std::env;
+use std::fs::{create_dir_all, File};
+use std::path::Path;
+use std::process::Command;
+
 use clap::{CommandFactory, ValueEnum};
 use clap_complete::{generate_to, Shell};
 use clap_mangen::Man;
-
-use std::{
-    env,
-    fs::{create_dir_all, File},
-    path::Path,
-    process::Command,
-};
 
 pub fn typst_version() -> String {
     if let Some(version) = option_env!("TYPST_VERSION") {
