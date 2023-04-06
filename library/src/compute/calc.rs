@@ -26,6 +26,7 @@ pub fn module() -> Module {
     scope.define("log", log);
     scope.define("fact", fact);
     scope.define("perm", perm);
+    scope.define("binom", binomial);
     scope.define("floor", floor);
     scope.define("ceil", ceil);
     scope.define("round", round);
@@ -515,7 +516,7 @@ pub fn perm(
     }
 }
 
-fn binomial(n: u64, k: u64) -> u64 {
+fn binom(n: u64, k: u64) -> u64 {
     if k > n {
         return 0;
     }
@@ -533,6 +534,46 @@ fn binomial(n: u64, k: u64) -> u64 {
     }
 
     result
+}
+
+/// Calculate a binomial coefficient.
+///
+/// ## Example
+/// ```example
+/// #calc.binom(10,5)
+/// ```
+///
+/// Display: Permutation
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn binomial(
+    /// The upper coefficient. Must be positive
+    n: Spanned<Num>,
+    /// The lower coefficient. Must be positive.
+    k: Spanned<Num>,
+) -> Value {
+    let n_parsed = match n.v {
+        Num::Float(_) => {
+            bail!(k.span, "a binomial coefficient must be an integer")
+        }
+        Num::Int(i) if i < 0 => {
+            bail!(k.span, "a binomial coefficient must be positive")
+        }
+        Num::Int(i) => i,
+    } as u64;
+
+    let k_parsed = match k.v {
+        Num::Float(_) => {
+            bail!(k.span, "a binomial coefficient  must be an integer")
+        }
+        Num::Int(i) if i < 0 => {
+            bail!(k.span, "a binomial coefficient must be positive")
+        }
+        Num::Int(i) => i,
+    } as u64;
+
+    Value::Int(binom(n_parsed, k_parsed) as i64)
 }
 
 /// Round a number down to the nearest integer.
