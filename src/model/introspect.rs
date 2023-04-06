@@ -166,7 +166,7 @@ impl Introspector {
                     false
                 } else if end.map_or(false, |end| v.location() == Some(end)) {
                     got_true = true;
-                    !end_inclusive
+                    end_inclusive
                 } else {
                     true
                 }
