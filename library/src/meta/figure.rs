@@ -191,14 +191,14 @@ impl Synthesize for FigureElem {
         // manually or the content identification must have succeeded.
         let supplement = match self.supplement(styles) {
             Smart::Auto => match &kind {
-                FigureKind::Elem(func) => Content::new(*func)
+                FigureKind::Elem(func) => Some(Content::new(*func)
                     .with::<dyn LocalName>()
                     .map(|c| TextElem::packed(c.local_name(TextElem::lang_in(styles))))
                     .ok_or("unable to determine the figure's `supplement`, please specify it manually")
-                    .at(self.span())?,
-                FigureKind::Name(_) => bail!(self.span(), "please specify the figure's supplement"),
+                    .at(self.span())?),
+                FigureKind::Name(_) => None,
             },
-            Smart::Custom(supp) => supp.resolve(vt, [content.into()])?,
+            Smart::Custom(supp) => Some(supp.resolve(vt, [content.into()])?),
         };
 
         // Construct the figure's counter.
@@ -210,9 +210,11 @@ impl Synthesize for FigureElem {
         )));
 
         self.push_kind(Smart::Custom(kind));
-        self.push_supplement(Smart::Custom(Supplement::Content(supplement)));
         self.push_numbering(self.numbering(styles));
         self.push_counter(Some(counter));
+        self.push_supplement(Smart::Custom(Supplement::Content(
+            supplement.unwrap_or_default(),
+        )));
 
         Ok(())
     }
