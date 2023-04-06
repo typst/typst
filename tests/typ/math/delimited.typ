@@ -40,8 +40,8 @@ $floor(x/2), ceil(x/2), abs(x), norm(x)$
 ---
 // Test scaling up in the middle
 $ { integral |x| dif x`|x|a, x in X } $
-$ { limits(A)_n`|limits(B)_n },
-  lr(angle.l limits(A)_n`|limits(B)_n angle.r),
-  | limits(A)_n `angle.r`angle.l limits(B)_n | $
-$ { a < limits(A)_n \|\| a > limits(B)_n `| a in RR } $
-$ { limits(A)_n `\u{2016} limits(B)_n "backtick:" `` `bracket.r.double } $
+$ { limits(A)_n`|a },
+  lr(angle.l limits(A)_n`|a angle.r),
+  | limits(A)_n `angle.r`angle.l a | $
+$ { a < limits(A)_n \|\| a > b `| a in RR } $
+$ { limits(A)_n `\u{2016} a "backtick:" `` `bracket.r.double } $
