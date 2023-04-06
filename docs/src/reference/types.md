@@ -923,7 +923,7 @@ use to change the type of items that are listed within the outline.
 ## Example
 ```example
 #locate(loc => {
-  repr(query(heading.where(level: 1).any(heading.where(level: 2))))
+  repr(query(heading.where(level: 1).any(heading.where(level: 2)), loc))
 })
 
 = This will be found by the query
