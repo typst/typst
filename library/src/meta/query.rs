@@ -38,7 +38,7 @@ use crate::prelude::*;
 /// >>> )
 /// #set page(header: locate(loc => {
 ///   let elems = query(
-///     heading.before(loc),
+///     selector(heading).before(loc),
 ///     loc,
 ///   )
 ///   let academy = smallcaps[
