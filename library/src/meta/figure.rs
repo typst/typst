@@ -7,6 +7,7 @@ use crate::layout::{BlockElem, VElem};
 use crate::meta::{Refable, Supplement};
 use crate::prelude::*;
 use crate::text::TextElem;
+use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
 ///
@@ -174,10 +175,7 @@ impl Synthesize for FigureElem {
             Smart::Auto => self
                 .find_figurable(styles)
                 .map(|elem| FigureKind::Elem(elem.func()))
-                .ok_or(
-                    "unable to determine the figure's `kind`, please specify it manually",
-                )
-                .at(self.span())?,
+                .unwrap_or_else(|| FigureKind::Elem(ImageElem::func())),
             Smart::Custom(kind) => kind,
         };
 
@@ -187,18 +185,34 @@ impl Synthesize for FigureElem {
         }
         .unwrap_or_else(|| self.body());
 
+        let numbering = self.numbering(styles);
+
         // We get the supplement or `None`. The supplement must either be set
         // manually or the content identification must have succeeded.
         let supplement = match self.supplement(styles) {
             Smart::Auto => match &kind {
-                FigureKind::Elem(func) => Content::new(*func)
-                    .with::<dyn LocalName>()
-                    .map(|c| TextElem::packed(c.local_name(TextElem::lang_in(styles))))
-                    .ok_or("unable to determine the figure's `supplement`, please specify it manually")
-                    .at(self.span())?,
-                FigureKind::Name(_) => bail!(self.span(), "please specify the figure's supplement"),
+                FigureKind::Elem(func) => {
+                    let elem = Content::new(*func).with::<dyn LocalName>().map(|c| {
+                        TextElem::packed(c.local_name(TextElem::lang_in(styles)))
+                    });
+
+                    if numbering.is_some() {
+                        Some(elem
+                            .ok_or("unable to determine the figure's `supplement`, please specify it manually")
+                            .at(self.span())?)
+                    } else {
+                        elem
+                    }
+                }
+                FigureKind::Name(_) => {
+                    if numbering.is_some() {
+                        bail!(self.span(), "please specify the figure's supplement")
+                    } else {
+                        None
+                    }
+                }
             },
-            Smart::Custom(supp) => supp.resolve(vt, [content.into()])?,
+            Smart::Custom(supp) => Some(supp.resolve(vt, [content.into()])?),
         };
 
         // Construct the figure's counter.
@@ -210,9 +224,11 @@ impl Synthesize for FigureElem {
         )));
 
         self.push_kind(Smart::Custom(kind));
-        self.push_supplement(Smart::Custom(Supplement::Content(supplement)));
-        self.push_numbering(self.numbering(styles));
+        self.push_numbering(numbering);
         self.push_counter(Some(counter));
+        self.push_supplement(Smart::Custom(Supplement::Content(
+            supplement.unwrap_or_default(),
+        )));
 
         Ok(())
     }
