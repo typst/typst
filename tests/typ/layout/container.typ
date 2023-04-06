@@ -10,6 +10,16 @@ Spaced \
 Apart
 
 ---
+// Test box sizing.
+#box(width: 50pt, height: 50pt, fill: yellow, path(
+  fill: purple,
+  (0pt, 0pt),
+  (30pt, 30pt),
+  (0pt, 30pt),
+  (30pt, 0pt),
+))
+
+---
 // Test fr box.
 Hello #box(width: 1fr, rect(height: 0.7em, width: 100%)) World
 
