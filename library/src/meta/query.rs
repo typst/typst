@@ -153,7 +153,7 @@ pub fn query(
             args.expect::<Location>("location")?;
             introspector.query_all(selector)
         }
-        (start, end) => introspector.query(selector, start, end),
+        (start, end) => introspector.query(selector, start, end, true),
     };
 
     Value::from(elements)

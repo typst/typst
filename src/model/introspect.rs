@@ -154,6 +154,7 @@ impl Introspector {
         selector: Selector,
         start: Option<Location>,
         end: Option<Location>,
+        end_inclusive: bool,
     ) -> Vec<Content> {
         let mut got_true = false;
         self.all()
@@ -165,7 +166,7 @@ impl Introspector {
                     false
                 } else if end.map_or(false, |end| v.location() == Some(end)) {
                     got_true = true;
-                    true
+                    !end_inclusive
                 } else {
                     true
                 }
@@ -177,12 +178,12 @@ impl Introspector {
 
     /// Query for all matching element up to the given location.
     pub fn query_before(&self, selector: Selector, location: Location) -> Vec<Content> {
-        self.query(selector, None, Some(location))
+        self.query(selector, None, Some(location), true)
     }
 
     /// Query for all matching elements starting from the given location.
     pub fn query_after(&self, selector: Selector, location: Location) -> Vec<Content> {
-        self.query(selector, Some(location), None)
+        self.query(selector, Some(location), None, true)
     }
 
     /// Query for a unique element with the label.

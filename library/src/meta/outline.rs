@@ -197,11 +197,9 @@ impl Show for OutlineElem {
         };
 
         let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query(self.target(styles), start, end);
+        let elems = vt.introspector.query(self.target(styles), start, end, false);
 
-        let stop_bound =
-            end.is_some().then(|| elems.len() - 1).unwrap_or_else(|| elems.len());
-        for elem in &elems[0..stop_bound] {
+        for elem in &elems {
             let Some(refable) = elem.with::<dyn Refable>() else {
                 bail!(elem.span(), "outlined elements must be referenceable");
             };
