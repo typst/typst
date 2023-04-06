@@ -212,6 +212,9 @@ Three
 // Error: 18 expected closing paren
 #let v5 = (1, 2 + ; Five
 
+// Error: 9-13 expected identifier, found boolean
+#let (..true) = false
+
 ---
 // Error: 13 expected equals sign
 #let func(x)

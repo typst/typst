@@ -1129,7 +1129,15 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
             }
             SyntaxKind::Spread => {
                 let Some(within) = child.children_mut().last_mut() else { continue };
-                if within.children().len() > 0 && within.kind() != SyntaxKind::Ident {
+                if used_spread {
+                    child.convert_to_error("at most one destructuring sink is allowed");
+                    continue;
+                }
+                used_spread = true;
+
+                if within.kind() == SyntaxKind::Dots {
+                    continue;
+                } else if within.kind() != SyntaxKind::Ident {
                     within.convert_to_error(eco_format!(
                         "expected identifier, found {}",
                         within.kind().name(),
@@ -1137,16 +1145,13 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
                     child.make_erroneous();
                     continue;
                 }
+
                 if within.text() != "_" && !used.insert(within.text().clone()) {
                     within.convert_to_error(
                         "at most one binding per identifier is allowed",
                     );
                     child.make_erroneous();
                 }
-                if used_spread {
-                    child.convert_to_error("at most one destructuring sink is allowed");
-                }
-                used_spread = true;
             }
             SyntaxKind::Named => {
                 let Some(within) = child.children_mut().first_mut() else { return };
