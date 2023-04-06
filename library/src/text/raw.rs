@@ -202,6 +202,7 @@ impl Finalize for RawElem {
 impl LocalName for RawElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::BOKMÅL => "Utskrift",
             Lang::CHINESE => "代码",
             Lang::ITALIAN => "Codice",
             Lang::RUSSIAN => "Листинг",
