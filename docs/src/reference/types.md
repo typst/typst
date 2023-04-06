@@ -962,12 +962,12 @@ Allows combining any of a series of selectors. This is used to
 select multiple components or components with different properties
 all at once.
 
-- location: selectors (variadic, required)
+- location: selector (variadic, required)
   The list of selectors to match on.
 
 ### all()
 Allows combining all of a series of selectors. This is used to check
 whether a component meets multiple selection rules simultaneously.
 
-- location: selectors (variadic, required)
+- location: selector (variadic, required)
   The list of selectors to match on.
