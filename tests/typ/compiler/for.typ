@@ -9,7 +9,7 @@
 
 // Dictionary is not traversed in insertion order.
 // Should output `Age: 2. Name: Typst.`.
-#for k, v in (Name: "Typst", Age: 2) [
+#for (k, v) in (Name: "Typst", Age: 2) [
   #k: #v.
 ]
 
@@ -47,22 +47,22 @@
 }
 
 // Indices and values of array.
-#for i, v in ("1", "2", "3") {
+#for (i, v) in ("1", "2", "3").enumerate() {
   test(repr(i + 1), v)
 }
 
-// Values of dictionary.
+// Pairs of dictionary.
 #for v in (a: 4, b: 5) {
   out += (v,)
 }
 
 // Keys and values of dictionary.
-#for k, v in (a: 6, b: 7) {
+#for (k, v) in (a: 6, b: 7) {
   out += (k,)
   out += (v,)
 }
 
-#test(out, (1, 2, 3, 4, 5, "a", 6, "b", 7))
+#test(out, (1, 2, 3, ("a", 4), ("b", 5), "a", 6, "b", 7))
 
 // Grapheme clusters of string.
 #let first = true
@@ -85,12 +85,19 @@
 
 ---
 // Keys and values of strings.
-// Error: 6-10 mismatched pattern
-#for k, v in "hi" {
+// Error: 6-12 cannot destructure values of string
+#for (k, v) in "hi" {
   dont-care
 }
 
 ---
+// Destructuring without parentheses.
+// Error: 7 expected keyword `in`. did you mean to use a destructuring pattern?
+// Error: 7 expected keyword `in`
+#for k, v in (a: 4, b: 5) {
+  dont-care
+}
+
 // Error: 5 expected identifier
 #for
 
