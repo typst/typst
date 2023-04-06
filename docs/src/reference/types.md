@@ -941,7 +941,7 @@ before the first match of the selector argument.
 
 - location: selector (positional, required)
   The selector ued to find the last element.
-- inclusive: bool
+- inclusive: boolean
   Whether the last element should match or not. This is only applicable if
   both selectors match the same type of element.
 
@@ -951,7 +951,7 @@ after the first match of the selector argument.
 
 - location: selector (positional, required)
   The selector ued to find the first element.
-- inclusive: bool
+- inclusive: boolean
   Whether the first element should match or not. This is only applicable if
   both selectors match the same type of element.
 
