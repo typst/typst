@@ -81,7 +81,7 @@ pub struct TermsElem {
     /// collected into term lists, even through constructs like for loops.
     ///
     /// ```example
-    /// #for year, product in (
+    /// #for (year, product) in (
     ///   "1978": "TeX",
     ///   "1984": "LaTeX",
     ///   "2019": "Typst",

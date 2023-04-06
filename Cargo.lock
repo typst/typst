@@ -98,9 +98,9 @@ checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
 name = "biblatex"
-version = "0.7.0"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bc17a7f4d461f93f5dbbae4c961746cb4aafb5c6c1a61089a86836614932a3c"
+checksum = "cc9fd60378277e44cd400ec5f35e768ce0d5a63d8d18ac7b1a9231196251dae5"
 dependencies = [
  "chrono",
  "numerals",
@@ -590,9 +590,9 @@ checksum = "8a9ee70c43aaf417c914396645a0fa852624801b24ebb7ae78fe8272889ac888"
 
 [[package]]
 name = "hayagriva"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "33f939b9606af811242f770582c89a2f8bb5de4e531c0a1df9d2d4906bcbc32a"
+checksum = "d8a21ff266f0b113789bbf4a27da16330315eebbd7df8e844f95d29f92ad556d"
 dependencies = [
  "biblatex",
  "chrono",
@@ -1003,10 +1003,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b7e5500299e16ebb147ae15a00a942af264cf3688f47923b8fc2cd5858f23ad3"
 
 [[package]]
+name = "open"
+version = "4.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "075c5203b3a2b698bc72c6c10b1f6263182135751d5013ea66e8a4b3d0562a43"
+dependencies = [
+ "pathdiff",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f746c4065a8fa3fe23974dd82f15431cc8d40779821001404d10d2e79ca7d79"
+
+[[package]]
+name = "pathdiff"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 
 [[package]]
 name = "pdf-writer"
@@ -1557,7 +1572,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typst"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bitflags",
  "bytemuck",
@@ -1593,7 +1608,7 @@ dependencies = [
 
 [[package]]
 name = "typst-cli"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
@@ -1604,6 +1619,7 @@ dependencies = [
  "memmap2",
  "notify",
  "once_cell",
+ "open",
  "same-file",
  "siphasher",
  "typst",
@@ -1613,7 +1629,7 @@ dependencies = [
 
 [[package]]
 name = "typst-docs"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "comemo",
  "heck",
@@ -1631,7 +1647,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "chinese-number",
  "comemo",
@@ -1661,7 +1677,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1672,7 +1688,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "comemo",
  "elsa",

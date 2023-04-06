@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use super::{Content, Selector};
 use crate::diag::StrResult;
 use crate::doc::{Frame, FrameItem, Meta, Position};
-use crate::eval::cast_from_value;
+use crate::eval::{cast_from_value, Value};
 use crate::geom::{Point, Transform};
 use crate::model::Label;
 use crate::util::NonZeroExt;
@@ -84,12 +84,18 @@ impl StabilityProvider {
 pub struct Introspector {
     pages: usize,
     elems: Vec<(Content, Position)>,
+    // Indexed by page number.
+    page_numberings: Vec<Value>,
 }
 
 impl Introspector {
     /// Create a new introspector.
     pub fn new(frames: &[Frame]) -> Self {
-        let mut introspector = Self { pages: frames.len(), elems: vec![] };
+        let mut introspector = Self {
+            pages: frames.len(),
+            elems: vec![],
+            page_numberings: vec![],
+        };
         for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();
             introspector.extract(frame, page, Transform::identity());
@@ -120,6 +126,9 @@ impl Introspector {
                 {
                     let pos = pos.transform(ts);
                     self.elems.push((content.clone(), Position { page, point: pos }));
+                }
+                FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
+                    self.page_numberings.push(numbering.clone());
                 }
                 _ => {}
             }
@@ -182,6 +191,12 @@ impl Introspector {
     /// Find the page number for the given location.
     pub fn page(&self, location: Location) -> NonZeroUsize {
         self.position(location).page
+    }
+
+    /// Gets the page numbering for the given location, if any.
+    pub fn page_numbering(&self, location: Location) -> Value {
+        let page = self.page(location);
+        self.page_numberings.get(page.get() - 1).cloned().unwrap_or_default()
     }
 
     /// Find the position for the given location.
