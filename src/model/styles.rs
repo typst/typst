@@ -406,6 +406,14 @@ impl Selector {
                         .is_some()
                 })
             })),
+            Self::Location(location) => Box::new(
+                introspector
+                    .position_cache(location)
+                    .and_then(|index| {
+                        introspector.get(index).map(|content| (index, content))
+                    })
+                    .into_iter(),
+            ),
             other => Box::new(parent.filter(move |(_, content)| {
                 other.matches(&|location| introspector.position_cache(location), content)
             })),

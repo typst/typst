@@ -149,6 +149,11 @@ impl Introspector {
         self.pages > 0
     }
 
+    /// Gets the element at the given index.
+    pub fn get(&self, index: usize) -> Option<&Content> {
+        self.elems.get(index).map(|(elem, _)| elem)
+    }
+
     /// Collects the element in a vec
     pub fn to_vec(&self) -> Vec<&Content> {
         self.elems.iter().map(|(elem, _)| elem).collect()
