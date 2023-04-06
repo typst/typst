@@ -59,6 +59,12 @@ pub fn module() -> Module {
     math.define("floor", floor);
     math.define("ceil", ceil);
     math.define("round", round);
+    math.define("testsigil", test_sigil);
+    math.define("set", set);
+    math.define("bra", bra);
+    math.define("ket", ket);
+    math.define("braket", braket);
+    math.define("ketbra", ketbra);
 
     // Attachments and accents.
     math.define("attach", AttachElem::func());
