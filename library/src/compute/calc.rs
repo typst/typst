@@ -410,15 +410,12 @@ pub fn log(
 
 fn factorial_range(start: u64, end: u64) -> Option<u64> {
     // By convention
-    dbg!(start.clone());
-    dbg!(end.clone());
     if end + 1 < start {
         return Some(0);
     }
 
     let mut count: u64 = 1;
     let real_start: u64 = cmp::max(1, start);
-    dbg!(real_start.clone());
 
     for i in real_start..=end {
         match count.checked_mul(i) {
