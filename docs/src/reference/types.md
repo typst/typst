@@ -916,9 +916,9 @@ A selector is what you can use to query the document for certain types
 of elements. It can also be used to apply styling rules to element. You can
 combine multiple selectors using the methods shown below.
 
-Selectors can also be passed to several of the built-in functions in typst to
-change their behaviour. Such as the [outline]($func/outline) where it can be
-use to change the type of items that are listed within the outline.
+Selectors can also be passed to several of Typst's built-in functions to configure 
+their behaviour. One such example is the [outline]($func/outline) where it can be
+use to change which elements are listed within the outline.
 
 ## Example
 ```example
