@@ -1,57 +1,5 @@
 use super::*;
 
-/// A the line cap of a stroke
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum LineCap {
-    Butt,
-    Round,
-    Square,
-}
-
-/// A the line join of a stroke
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum LineJoin {
-    Miter,
-    Round,
-    Bevel,
-}
-
-/// A the length of a dash in a line dash pattern
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum DashLength<T = Length> {
-    LineWidth,
-    Length(T),
-}
-impl From<Abs> for DashLength {
-    fn from(l: Abs) -> Self {
-        DashLength::Length(l.into())
-    }
-}
-
-impl<T> DashLength<T> {
-    fn finish(self, line_width: T) -> T {
-        match self {
-            Self::LineWidth => line_width,
-            Self::Length(l) => l,
-        }
-    }
-}
-
-/// A line dash pattern
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct DashPattern<T = Length, DT = DashLength<T>> {
-    /// The dash array.
-    pub dash_array: Vec<DT>,
-    /// The dash phase.
-    pub dash_phase: T,
-}
-
-impl<T: Default> From<Vec<DashLength<T>>> for DashPattern<T> {
-    fn from(dash_array: Vec<DashLength<T>>) -> Self {
-        Self { dash_array, dash_phase: T::default() }
-    }
-}
-
 /// A stroke of a geometric shape.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke {
@@ -111,12 +59,12 @@ impl PartialStroke<Abs> {
             .dash_pattern
             .map(|pattern| {
                 pattern.map(|pattern| DashPattern {
-                    dash_array: pattern
-                        .dash_array
+                    array: pattern
+                        .array
                         .into_iter()
                         .map(|l| l.finish(thickness))
                         .collect(),
-                    dash_phase: pattern.dash_phase,
+                    phase: pattern.phase,
                 })
             })
             .unwrap_or(default.dash_pattern);
@@ -139,13 +87,143 @@ impl PartialStroke<Abs> {
 
 impl<T: Debug> Debug for PartialStroke<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match (&self.paint, &self.thickness) {
-            (Smart::Custom(paint), Smart::Custom(thickness)) => {
-                write!(f, "{thickness:?} + {paint:?}")
+        let Self {
+            paint,
+            thickness,
+            line_cap,
+            line_join,
+            dash_pattern,
+            miter_limit,
+        } = &self;
+        if line_cap.is_auto()
+            && line_join.is_auto()
+            && dash_pattern.is_auto()
+            && miter_limit.is_auto()
+        {
+            match (&self.paint, &self.thickness) {
+                (Smart::Custom(paint), Smart::Custom(thickness)) => {
+                    write!(f, "{thickness:?} + {paint:?}")
+                }
+                (Smart::Custom(paint), Smart::Auto) => paint.fmt(f),
+                (Smart::Auto, Smart::Custom(thickness)) => thickness.fmt(f),
+                (Smart::Auto, Smart::Auto) => f.pad("<stroke>"),
             }
-            (Smart::Custom(paint), Smart::Auto) => paint.fmt(f),
-            (Smart::Auto, Smart::Custom(thickness)) => thickness.fmt(f),
-            (Smart::Auto, Smart::Auto) => f.pad("<stroke>"),
+        } else {
+            write!(f, "(")?;
+            let mut sep = "";
+            if let Smart::Custom(paint) = &paint {
+                write!(f, "{}color: {:?}", sep, paint)?;
+                sep = ", ";
+            }
+            if let Smart::Custom(thickness) = &thickness {
+                write!(f, "{}thickness: {:?}", sep, thickness)?;
+                sep = ", ";
+            }
+            if let Smart::Custom(cap) = &line_cap {
+                write!(f, "{}cap: {:?}", sep, cap)?;
+                sep = ", ";
+            }
+            if let Smart::Custom(join) = &line_join {
+                write!(f, "{}join: {:?}", sep, join)?;
+                sep = ", ";
+            }
+            if let Smart::Custom(dash) = &dash_pattern {
+                write!(f, "{}dash: {:?}", sep, dash)?;
+                sep = ", ";
+            }
+            if let Smart::Custom(miter_limit) = &miter_limit {
+                write!(f, "{}miter-limit: {:?}", sep, miter_limit)?;
+            }
+            write!(f, ")")?;
+            Ok(())
+        }
+    }
+}
+
+/// The line cap of a stroke
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum LineCap {
+    Butt,
+    Round,
+    Square,
+}
+
+impl Debug for LineCap {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            LineCap::Butt => write!(f, "\"butt\""),
+            LineCap::Round => write!(f, "\"round\""),
+            LineCap::Square => write!(f, "\"square\""),
+        }
+    }
+}
+
+/// The line join of a stroke
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub enum LineJoin {
+    Miter,
+    Round,
+    Bevel,
+}
+
+impl Debug for LineJoin {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            LineJoin::Miter => write!(f, "\"miter\""),
+            LineJoin::Round => write!(f, "\"round\""),
+            LineJoin::Bevel => write!(f, "\"bevel\""),
+        }
+    }
+}
+
+/// A line dash pattern
+#[derive(Clone, Eq, PartialEq, Hash)]
+pub struct DashPattern<T = Length, DT = DashLength<T>> {
+    /// The dash array.
+    pub array: Vec<DT>,
+    /// The dash phase.
+    pub phase: T,
+}
+
+impl<T: Debug, DT: Debug> Debug for DashPattern<T, DT> {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        write!(f, "(array: (")?;
+        for (i, elem) in self.array.iter().enumerate() {
+            if i == 0 {
+                write!(f, "{:?}", elem)?;
+            } else {
+                write!(f, ", {:?}", elem)?;
+            }
+        }
+        write!(f, "), phase: {:?})", self.phase)?;
+        Ok(())
+    }
+}
+
+impl<T: Default> From<Vec<DashLength<T>>> for DashPattern<T> {
+    fn from(array: Vec<DashLength<T>>) -> Self {
+        Self { array, phase: T::default() }
+    }
+}
+
+/// The length of a dash in a line dash pattern
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum DashLength<T = Length> {
+    LineWidth,
+    Length(T),
+}
+
+impl From<Abs> for DashLength {
+    fn from(l: Abs) -> Self {
+        DashLength::Length(l.into())
+    }
+}
+
+impl<T> DashLength<T> {
+    fn finish(self, line_width: T) -> T {
+        match self {
+            Self::LineWidth => line_width,
+            Self::Length(l) => l,
         }
     }
 }
@@ -187,30 +265,30 @@ cast_from_value! {
     // https://tex.stackexchange.com/questions/45275/tikz-get-values-for-predefined-dash-patterns
     "solid" => Vec::new().into(),
     "dotted" => vec![DashLength::LineWidth, Abs::pt(2.0).into()].into(),
-    "densely dotted" => vec![DashLength::LineWidth, Abs::pt(1.0).into()].into(),
-    "loosely dotted" => vec![DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+    "densely-dotted" => vec![DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    "loosely-dotted" => vec![DashLength::LineWidth, Abs::pt(4.0).into()].into(),
     "dashed" => vec![Abs::pt(3.0).into(), Abs::pt(3.0).into()].into(),
-    "densely dashed" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into()].into(),
-    "loosely dashed" => vec![Abs::pt(3.0).into(), Abs::pt(6.0).into()].into(),
+    "densely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into()].into(),
+    "loosely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(6.0).into()].into(),
     "dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
-    "densely dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
-    "loosely dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+    "densely-dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    "loosely-dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
     array: Vec<DashLength> => {
         Self {
-            dash_array: array.into_iter().collect(),
-            dash_phase: Length::zero(),
+            array,
+            phase: Length::zero(),
         }
     },
     mut dict: Dict => {
-        let dash_array: Vec<DashLength> = dict.take("array")?.cast()?;
-        let dash_phase = dict.take("phase").ok().map(Length::cast)
+        let array: Vec<DashLength> = dict.take("array")?.cast()?;
+        let phase = dict.take("phase").ok().map(Length::cast)
             .transpose()?.unwrap_or(Length::zero());
 
         dict.finish(&["array", "phase"])?;
 
         Self {
-            dash_array,
-            dash_phase,
+            array,
+            phase,
         }
     },
 }
@@ -220,8 +298,8 @@ impl Resolve for DashPattern {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         DashPattern {
-            dash_array: self.dash_array.into_iter().map(|l| l.resolve(styles)).collect(),
-            dash_phase: self.dash_phase.resolve(styles),
+            array: self.array.into_iter().map(|l| l.resolve(styles)).collect(),
+            phase: self.phase.resolve(styles),
         }
     }
 }
@@ -252,12 +330,12 @@ cast_from_value! {
 
         let paint = take::<Paint>(&mut dict, "color")?;
         let thickness = take::<Length>(&mut dict, "thickness")?;
-        let line_cap = take::<LineCap>(&mut dict, "line_cap")?;
-        let line_join = take::<LineJoin>(&mut dict, "line_join")?;
+        let line_cap = take::<LineCap>(&mut dict, "cap")?;
+        let line_join = take::<LineJoin>(&mut dict, "join")?;
         let dash_pattern = take::<Option<DashPattern>>(&mut dict, "dash")?;
-        let miter_limit = take::<f64>(&mut dict, "miter_limit")?;
+        let miter_limit = take::<f64>(&mut dict, "miter-limit")?;
 
-        dict.finish(&["color", "thickness", "line_cap", "line_join", "dash", "miter_limit"])?;
+        dict.finish(&["color", "thickness", "cap", "join", "dash", "miter-limit"])?;
 
         Self {
             paint,

@@ -402,40 +402,24 @@ fn render_shape(
         miter_limit,
     }) = &shape.stroke
     {
-        let line_cap = match line_cap {
-            LineCap::Butt => sk::LineCap::Butt,
-            LineCap::Round => sk::LineCap::Round,
-            LineCap::Square => sk::LineCap::Square,
-        };
-        let line_join = match line_join {
-            LineJoin::Miter => sk::LineJoin::Miter,
-            LineJoin::Round => sk::LineJoin::Round,
-            LineJoin::Bevel => sk::LineJoin::Bevel,
-        };
-
         let dash = dash_pattern.as_ref().and_then(|pattern| {
             // tiny-skia only allows dash patterns with an even number of elements,
             // while pdf allows any number.
-            let len = if pattern.dash_array.len() % 2 == 1 {
-                pattern.dash_array.len() * 2
+            let len = if pattern.array.len() % 2 == 1 {
+                pattern.array.len() * 2
             } else {
-                pattern.dash_array.len()
+                pattern.array.len()
             };
-            let dash_array = pattern
-                .dash_array
-                .iter()
-                .map(|l| l.to_f32())
-                .cycle()
-                .take(len)
-                .collect();
+            let dash_array =
+                pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
 
-            sk::StrokeDash::new(dash_array, pattern.dash_phase.to_f32())
+            sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
         });
         let paint = paint.into();
         let stroke = sk::Stroke {
             width: thickness.to_f32(),
-            line_cap,
-            line_join,
+            line_cap: line_cap.into(),
+            line_join: line_join.into(),
             dash,
             miter_limit: miter_limit.0 as f32,
         };
@@ -566,6 +550,26 @@ impl From<Color> for sk::Color {
     fn from(color: Color) -> Self {
         let c = color.to_rgba();
         sk::Color::from_rgba8(c.r, c.g, c.b, c.a)
+    }
+}
+
+impl From<&LineCap> for sk::LineCap {
+    fn from(line_cap: &LineCap) -> Self {
+        match line_cap {
+            LineCap::Butt => sk::LineCap::Butt,
+            LineCap::Round => sk::LineCap::Round,
+            LineCap::Square => sk::LineCap::Square,
+        }
+    }
+}
+
+impl From<&LineJoin> for sk::LineJoin {
+    fn from(line_join: &LineJoin) -> Self {
+        match line_join {
+            LineJoin::Miter => sk::LineJoin::Miter,
+            LineJoin::Round => sk::LineJoin::Round,
+            LineJoin::Bevel => sk::LineJoin::Bevel,
+        }
     }
 }
 

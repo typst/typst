@@ -280,26 +280,16 @@ impl PageContext<'_, '_> {
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
-                let cap = match line_cap {
-                    LineCap::Butt => LineCapStyle::ButtCap,
-                    LineCap::Round => LineCapStyle::RoundCap,
-                    LineCap::Square => LineCapStyle::ProjectingSquareCap,
-                };
-                self.content.set_line_cap(cap);
+                self.content.set_line_cap(line_cap.into());
             }
             if self.state.stroke.as_ref().map(|s| &s.line_join) != Some(line_join) {
-                let join = match line_join {
-                    LineJoin::Miter => LineJoinStyle::MiterJoin,
-                    LineJoin::Round => LineJoinStyle::RoundJoin,
-                    LineJoin::Bevel => LineJoinStyle::BevelJoin,
-                };
-                self.content.set_line_join(join);
+                self.content.set_line_join(line_join.into());
             }
             if self.state.stroke.as_ref().map(|s| &s.dash_pattern) != Some(dash_pattern) {
                 if let Some(pattern) = dash_pattern {
                     self.content.set_dash_pattern(
-                        pattern.dash_array.iter().map(|l| l.to_f32()),
-                        pattern.dash_phase.to_f32(),
+                        pattern.array.iter().map(|l| l.to_f32()),
+                        pattern.phase.to_f32(),
                     );
                 } else {
                     self.content.set_dash_pattern([], 0.0);
@@ -525,4 +515,24 @@ fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size)
     let rect = Rect::new(x1, y1, x2, y2);
 
     ctx.links.push((dest.clone(), rect));
+}
+
+impl From<&LineCap> for LineCapStyle {
+    fn from(line_cap: &LineCap) -> Self {
+        match line_cap {
+            LineCap::Butt => LineCapStyle::ButtCap,
+            LineCap::Round => LineCapStyle::RoundCap,
+            LineCap::Square => LineCapStyle::ProjectingSquareCap,
+        }
+    }
+}
+
+impl From<&LineJoin> for LineJoinStyle {
+    fn from(line_join: &LineJoin) -> Self {
+        match line_join {
+            LineJoin::Miter => LineJoinStyle::MiterJoin,
+            LineJoin::Round => LineJoinStyle::RoundJoin,
+            LineJoin::Bevel => LineJoinStyle::BevelJoin,
+        }
+    }
 }
