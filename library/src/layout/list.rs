@@ -141,7 +141,7 @@ impl Layout for ListElem {
                 styles = outer_styles.chain(style_map); // for the item's specific styles
             }
 
-            // get item styles to apply to marker and body if necessary
+            // get item styles to apply to marker if necessary
             let (styles, body) = if let Some(item) = item.to::<ListItem>() {
                 // the given item is already a listitem (the '- item' syntax was used)
                 // so we use its style and take its body
@@ -153,7 +153,7 @@ impl Layout for ListElem {
             };
 
             let marker = marker.clone().styled_with_map(styles.clone());
-            let body = body.styled_with_map(styles).styled(Self::set_depth(Depth));
+            let body = body.styled(Self::set_depth(Depth));
 
             cells.push(Content::empty());
             cells.push(marker);

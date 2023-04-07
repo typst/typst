@@ -185,11 +185,11 @@ impl Layout for EnumElem {
                 styles = outer_styles.chain(style_map); // for the item's specific styles
             }
 
-            // get item styles to apply to marker and body if necessary
+            // get item styles to apply to marker if necessary
             let (styles, body) = if let Some(item) = item.to::<EnumItem>() {
                 // the given item is already an enumitem (the '+ item' syntax was used)
                 // so we use its style and take its body
-                number = item.number(outer_styles).unwrap_or(number);
+                number = item.number(styles).unwrap_or(number);
                 (styles.to_map(), item.body())
             } else {
                 // not an enumitem, so this item (child) is simply the item body
@@ -212,8 +212,7 @@ impl Layout for EnumElem {
             };
 
             let resolved_marker = resolved.styled_with_map(styles.clone());
-            let body =
-                body.styled_with_map(styles).styled(Self::set_parents(Parent(number)));
+            let body = body.styled(Self::set_parents(Parent(number)));
 
             cells.push(Content::empty());
             cells.push(resolved_marker);
