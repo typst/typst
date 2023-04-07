@@ -906,25 +906,27 @@ You can access definitions from the module using
 A filter for selecting elements within the document.
 
 You can construct a selector in the following ways:
-- you can call the `[selector]` function
-- you can use a `[position]`
+- you can call the [`selector`]($func/selector) function
+- you can use a [`location`]($func/locate)
 - you can use an element function
-- you can use a regex
-- you can use a `[<label>]`
+- you can use a [string]($type/string) or [regular expression]($func/regex)
+- you can use a [`{<label>}`]($func/label)
 
 A selector is what you can use to query the document for certain types
 of elements. It can also be used to apply styling rules to element. You can
-combined multiple queries together using the methods on a selector.
+combine multiple selectors using the methods shown below.
 
-Selectors can also be passed to several of the built-in functions in typst to
-change their behaviour. Such as the [outline]($func/outline) where it can be
-use to change the type of items that are listed within the outline.
+Selectors can also be passed to several of Typst's built-in functions to configure 
+their behaviour. One such example is the [outline]($func/outline) where it can be
+use to change which elements are listed within the outline.
 
 ## Example
 ```example
-#locate(loc => {
-  repr(query(heading.where(level: 1).any(heading.where(level: 2)), loc))
-})
+#locate(loc => query(
+  heading.where(level: 1)
+    .any(heading.where(level: 2)), 
+  loc,
+))
 
 = This will be found by the query
 
@@ -936,13 +938,13 @@ use to change the type of items that are listed within the outline.
 
 ## Methods
 ### before()
-Returns a new selector that will only match elements that were declared
+Returns a modified selector that will only match elements that occur
 before the first match of the selector argument.
 
-- location: selector (positional, required)
-  The selector ued to find the last element.
+- target: selector (positional, required)
+  The selector used to find the last element.
 - inclusive: boolean (named)
-  Whether the last element should match or not. This is only applicable if
+  Whether the `target` element itself should match or not. This is only relevant if
   both selectors match the same type of element.
   Defaults to `{true}`.
 
