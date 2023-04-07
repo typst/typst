@@ -941,8 +941,8 @@ use to change which elements are listed within the outline.
 Returns a modified selector that will only match elements that occur
 before the first match of the selector argument.
 
-- location: selector (positional, required)
-  The selector ued to find the last element.
+- target: selector (positional, required)
+  The selector used to find the last element.
 - inclusive: boolean (named)
   Whether the `target` element itself should match or not. This is only relevant if
   both selectors match the same type of element.
