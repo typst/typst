@@ -119,6 +119,9 @@ pacman -S typst
 Nix users can use the `typst` package with `nix-shell -p typst` or build and run
 the bleeding edge version with `nix run github:typst/typst -- --version`.
 
+Docker users can run a prebuilt image with
+`docker run -it ghcr.io/typst/typst:main`.
+
 ## Usage
 Once you have installed Typst, you can use it like this:
 ```sh
