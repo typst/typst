@@ -938,7 +938,7 @@ use to change which elements are listed within the outline.
 
 ## Methods
 ### before()
-Returns a new selector that will only match elements that were declared
+Returns a modified selector that will only match elements that occur
 before the first match of the selector argument.
 
 - location: selector (positional, required)
