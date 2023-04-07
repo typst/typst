@@ -49,3 +49,23 @@ _Shopping list_
 -
 Not in list
 -Nope
+
+---
+// Apply listitem styles to markers as well.
+- This is a regular item and has a regular marker
+#text(blue)[- This has a blue marker]
+- This is a regular item and has a regular marker
+#hide[- This is a hidden item, its marker is also hidden]
+- The above was a hidden item (with a hidden marker)
+#strong[- Bold item and marker]
+
+#text(red, list[This applies red to the entire list])
+
+---
+// Do not apply styles to markers when they only apply to the item body.
+- Regular item and marker
+- #text(blue)[Blue item body, but regular marker]
+- #hide[Hidden item body, but regular marker]
+- #strong[Bold item, but regular marker]
+#text(red)[- #text(blue)[The item body is blue, but the marker is red]]
+#list(text(blue)[Marker should also be regular here, despite the blue text])
