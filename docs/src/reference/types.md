@@ -924,7 +924,7 @@ use to change which elements are listed within the outline.
 ```example
 #locate(loc => query(
   heading.where(level: 1)
-    .any(heading.where(level: 2)), 
+    .or(heading.where(level: 2)), 
   loc,
 ))
 
