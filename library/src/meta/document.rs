@@ -1,5 +1,23 @@
-use crate::layout::{LayoutRoot, PageElem};
+=use crate::layout::{LayoutRoot, PageElem};
 use crate::prelude::*;
+
+/// Use this element to define the root of your document and set metadata such as
+/// the title and author. All other content in your document should be added as
+/// children of the `DocumentElem` instance.
+/// For example, to create a two-page document with a title and author, you could
+/// define your `DocumentElem` like this:
+
+ let document = document(
+     title("My Document"),
+     author("John Doe"),
+     page(
+         // content for first page
+     ),
+     page(
+         // content for second page
+     ),
+ );
+
 
 /// The root element of a document and its metadata.
 ///
