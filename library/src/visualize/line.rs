@@ -60,7 +60,7 @@ pub struct LineElem {
     /// #stack(
     ///   line(length: 100%, stroke: 2pt + red),
     ///   v(1em),
-    ///   line(length: 100%, stroke: (color: blue, thickness: 4pt, line_cap: "round")),
+    ///   line(length: 100%, stroke: (color: blue, thickness: 4pt, cap: "round")),
     ///   v(1em),
     ///   line(length: 100%, stroke: (color: blue, thickness: 1pt, dash: "dashed")),
     ///   v(1em),
