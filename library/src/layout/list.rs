@@ -134,25 +134,32 @@ impl Layout for ListElem {
         for child in self.children() {
             let mut item = &child; // required so we can assign 'elem' (a reference) later
             let outer_styles = styles;
-            let mut styles = styles;
+            let mut styles = None;
 
             if let Some((elem, style_map)) = item.to_styled() {
                 item = elem;
-                styles = outer_styles.chain(style_map); // for the item's specific styles
+                styles = Some(style_map); // for the item's specific styles
             }
 
             // get item styles to apply to marker if necessary
             let (styles, body) = if let Some(item) = item.to::<ListItem>() {
                 // the given item is already a listitem (the '- item' syntax was used)
                 // so we use its style and take its body
-                (styles.to_map(), item.body())
+                match styles {
+                    // apply item styles only if the item styled
+                    Some(styles) => (
+                        outer_styles.chain(styles).to_map(),
+                        item.body().styled_with_map(styles.clone()),
+                    ),
+                    None => (outer_styles.to_map(), item.body()),
+                }
             } else {
                 // not a listitem, so this item (child) is simply the item body
                 // therefore, the child's (body's) styles shouldn't apply to the marker!
                 (outer_styles.to_map(), child)
             };
 
-            let marker = marker.clone().styled_with_map(styles.clone());
+            let marker = marker.clone().styled_with_map(styles);
             let body = body.styled(Self::set_depth(Depth));
 
             cells.push(Content::empty());
