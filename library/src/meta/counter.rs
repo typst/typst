@@ -452,7 +452,7 @@ impl Counter {
             Selector::Elem(UpdateElem::func(), Some(dict! { "counter" => self.clone() }));
 
         if let CounterKey::Selector(key) = &self.0 {
-            selector = Selector::Any(eco_vec![selector, key.clone()]);
+            selector = Selector::Or(eco_vec![selector, key.clone()]);
         }
 
         selector

@@ -159,14 +159,43 @@ pub fn call(
                     _ => return missing(),
                 }
             } else if let Some(selector) = dynamic.downcast::<Selector>() {
-                return selector.call_method(
-                    vm,
-                    method,
-                    selector.clone(),
-                    args,
-                    span,
-                    missing,
-                );
+                match method {
+                    "or" => selector.clone().or(args.all::<Selector>()?).into(),
+                    "and" => selector.clone().and(args.all::<Selector>()?).into(),
+                    "before" => {
+                        let other = args.expect::<Selector>("selector")?;
+                        let inclusive =
+                            args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
+                        match vm
+                            .vt
+                            .introspector
+                            .query_first(other)
+                            .and_then(|content| content.location())
+                        {
+                            Some(location) => {
+                                selector.clone().before(location, inclusive).into()
+                            }
+                            None => selector.clone().into(),
+                        }
+                    }
+                    "after" => {
+                        let other = args.expect::<Selector>("selector")?;
+                        let inclusive =
+                            args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
+                        match vm
+                            .vt
+                            .introspector
+                            .query_first(other)
+                            .and_then(|content| content.location())
+                        {
+                            Some(location) => {
+                                selector.clone().after(location, inclusive).into()
+                            }
+                            None => Selector::Never.into(),
+                        }
+                    }
+                    _ => return missing(),
+                }
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);
             }
@@ -321,7 +350,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
-        "selector" => &[("before", true), ("after", true), ("any", true), ("all", true)],
+        "selector" => &[("before", true), ("after", true), ("or", true), ("and", true)],
         "counter" => &[
             ("display", true),
             ("at", true),

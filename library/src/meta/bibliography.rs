@@ -392,7 +392,7 @@ impl Works {
         let bibliography = BibliographyElem::find(vt.introspector)?;
         let citations = vt
             .introspector
-            .query(Selector::Any(eco_vec![
+            .query(Selector::Or(eco_vec![
                 RefElem::func().select(),
                 CiteElem::func().select(),
             ]))
