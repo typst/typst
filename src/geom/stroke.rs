@@ -35,7 +35,7 @@ impl<T> DashLength<T> {
             Self::Length(l) => l,
         }
     }
-} 
+}
 
 /// A line dash pattern
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -48,10 +48,7 @@ pub struct DashPattern<T = Length, DT = DashLength<T>> {
 
 impl<T: Default> From<Vec<DashLength<T>>> for DashPattern<T> {
     fn from(dash_array: Vec<DashLength<T>>) -> Self {
-        Self {
-            dash_array: dash_array,
-            dash_phase: T::default(),
-        }
+        Self { dash_array, dash_phase: T::default() }
     }
 }
 
@@ -110,12 +107,19 @@ impl PartialStroke<Abs> {
     /// Unpack the stroke, filling missing fields from the `default`.
     pub fn unwrap_or(self, default: Stroke) -> Stroke {
         let thickness = self.thickness.unwrap_or(default.thickness);
-        let dash_pattern = self.dash_pattern.map(|pattern| 
-            pattern.map(|pattern| DashPattern {
-                dash_array: pattern.dash_array.into_iter()
-                    .map(|l| l.finish(thickness)).collect(),
-                dash_phase: pattern.dash_phase,
-            })).unwrap_or(default.dash_pattern);
+        let dash_pattern = self
+            .dash_pattern
+            .map(|pattern| {
+                pattern.map(|pattern| DashPattern {
+                    dash_array: pattern
+                        .dash_array
+                        .into_iter()
+                        .map(|l| l.finish(thickness))
+                        .collect(),
+                    dash_phase: pattern.dash_phase,
+                })
+            })
+            .unwrap_or(default.dash_pattern);
 
         Stroke {
             paint: self.paint.unwrap_or(default.paint),
@@ -216,8 +220,7 @@ impl Resolve for DashPattern {
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         DashPattern {
-            dash_array: self.dash_array.into_iter()
-                .map(|l| l.resolve(styles)).collect(),
+            dash_array: self.dash_array.into_iter().map(|l| l.resolve(styles)).collect(),
             dash_phase: self.dash_phase.resolve(styles),
         }
     }

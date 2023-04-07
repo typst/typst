@@ -121,12 +121,11 @@ fn layout(
     frame.push(
         line_pos,
         FrameItem::Shape(
-            Geometry::Line(Point::with_x(radicand.width()))
-                .stroked(Stroke {
-                    paint: TextElem::fill_in(ctx.styles()), 
-                    thickness,
-                    ..Stroke::default()
-                }),
+            Geometry::Line(Point::with_x(radicand.width())).stroked(Stroke {
+                paint: TextElem::fill_in(ctx.styles()),
+                thickness,
+                ..Stroke::default()
+            }),
             span,
         ),
     );

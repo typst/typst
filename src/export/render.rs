@@ -11,7 +11,8 @@ use usvg::{FitTo, NodeExt};
 
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::geom::{
-    self, Abs, Color, Geometry, Paint, PathItem, Shape, Size, Stroke, LineCap, LineJoin, Transform,
+    self, Abs, Color, Geometry, LineCap, LineJoin, Paint, PathItem, Shape, Size, Stroke,
+    Transform,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -392,7 +393,15 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if let Some(Stroke { paint, thickness, line_cap, line_join, dash_pattern, miter_limit }) = &shape.stroke {
+    if let Some(Stroke {
+        paint,
+        thickness,
+        line_cap,
+        line_join,
+        dash_pattern,
+        miter_limit,
+    }) = &shape.stroke
+    {
         let line_cap = match line_cap {
             LineCap::Butt => sk::LineCap::Butt,
             LineCap::Round => sk::LineCap::Round,
@@ -412,7 +421,9 @@ fn render_shape(
             } else {
                 pattern.dash_array.len()
             };
-            let dash_array = pattern.dash_array.iter()
+            let dash_array = pattern
+                .dash_array
+                .iter()
                 .map(|l| l.to_f32())
                 .cycle()
                 .take(len)
@@ -421,11 +432,11 @@ fn render_shape(
             sk::StrokeDash::new(dash_array, pattern.dash_phase.to_f32())
         });
         let paint = paint.into();
-        let stroke = sk::Stroke { 
-            width: thickness.to_f32(), 
-            line_cap, 
-            line_join, 
-            dash, 
+        let stroke = sk::Stroke {
+            width: thickness.to_f32(),
+            line_cap,
+            line_join,
+            dash,
             miter_limit: miter_limit.0 as f32,
         };
         canvas.stroke_path(&path, &paint, &stroke, ts, mask);

@@ -47,7 +47,7 @@ pub struct RectElem {
     ///   to `{1pt}`.
     /// - A stroke combined from color and thickness using the `+` operator as
     ///   in `{2pt + red}`.
-    /// - A stroke described by a dict with any of the following keys: 
+    /// - A stroke described by a dict with any of the following keys:
     ///     - `color`: the color to use for the stroke
     ///     - `thickness`: the stroke's thickness
     ///     - `line_cap`: one of `"butt"`, `"round"` or `"square"`, the line cap of the stroke
@@ -55,7 +55,7 @@ pub struct RectElem {
     ///     - `miter_limit`: the miter limit to use if `line_join` is `"miter"`, defaults to 4.0
     ///     - `dash`: the dash pattern to use. Can be any of the following:
     ///         - One of the strings `"solid"`, `"dotted"`, `"densely dotted"`, `"loosely dotted"`,
-    ///           `"dashed"`, `"densely dashed"`, `"loosely dashed"`, `"dashdotted"`, 
+    ///           `"dashed"`, `"densely dashed"`, `"loosely dashed"`, `"dashdotted"`,
     ///           `"densely dashdotted"` or `"loosely dashdotted"`
     ///         - An array with elements that specify the lengths of dashes and gaps, alternating.
     ///           Elements can also be the string `"dot"` for a length equal to the line thickness.

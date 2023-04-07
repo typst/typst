@@ -1,5 +1,7 @@
 use ecow::eco_format;
-use pdf_writer::types::{ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle};
+use pdf_writer::types::{
+    ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
+};
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
@@ -7,8 +9,8 @@ use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
-    Transform, LineCap, LineJoin
+    self, Abs, Color, Em, Geometry, LineCap, LineJoin, Numeric, Paint, Point, Ratio,
+    Shape, Size, Stroke, Transform,
 };
 use crate::image::Image;
 
@@ -296,8 +298,9 @@ impl PageContext<'_, '_> {
             if self.state.stroke.as_ref().map(|s| &s.dash_pattern) != Some(dash_pattern) {
                 if let Some(pattern) = dash_pattern {
                     self.content.set_dash_pattern(
-                        pattern.dash_array.iter().map(|l| l.to_f32()), 
-                        pattern.dash_phase.to_f32());
+                        pattern.dash_array.iter().map(|l| l.to_f32()),
+                        pattern.dash_phase.to_f32(),
+                    );
                 } else {
                     self.content.set_dash_pattern([], 0.0);
                 }

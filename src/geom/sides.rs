@@ -207,7 +207,7 @@ where
             };
 
             if let Ok(res) = try_cast() {
-                return Ok(res)
+                return Ok(res);
             }
         }
 
