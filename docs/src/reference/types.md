@@ -922,9 +922,11 @@ use to change which elements are listed within the outline.
 
 ## Example
 ```example
-#locate(loc => {
-  repr(query(heading.where(level: 1).any(heading.where(level: 2)), loc))
-})
+#locate(loc => query(
+  heading.where(level: 1)
+    .any(heading.where(level: 2)), 
+  loc,
+))
 
 = This will be found by the query
 
