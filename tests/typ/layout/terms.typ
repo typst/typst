@@ -50,3 +50,19 @@ Not in list
 ---
 // Error: 8 expected colon
 / Hello
+
+---
+// Styles applied to whole termitem must apply to term and body.
+/ Regular: this is normal.
+#text(blue)[/ Blue: This is blue.]
+#hide[/ Hidden: This is hidden.]
+#emph[/ Emph: the above is hidden.]
+#text(red)[/ Red: #text(blue)[Blue.]]
+
+---
+// Styles applied to either term or body must not apply to both.
+/ #text(blue)[This is blue]: But this is not.
+/ #hide[This is hidden]: This is not hidden.
+/ This is fine: #hide[This is hidden.]
+/ This is normal: #text(red)[This is red.]
+/ #text(green)[This is green]: #text(blue)[This is blue.]
