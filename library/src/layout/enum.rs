@@ -185,22 +185,17 @@ impl Layout for EnumElem {
                 styles = outer_styles.chain(style_map); // for the item's specific styles
             }
 
-            // holds the child's conversion to EnumItem for the duration of this scope,
-            // if it is not an EnumItem already
-            let converted_enumitem;
-
-            let item = if let Some(item) = item.to::<EnumItem>() {
-                item // the given item is already an enumitem (the '+ item' syntax was used)
+            // get item styles to apply to marker and body if necessary
+            let (styles, body) = if let Some(item) = item.to::<EnumItem>() {
+                // the given item is already an enumitem (the '+ item' syntax was used)
+                // so we use its style and take its body
+                number = item.number(outer_styles).unwrap_or(number);
+                (styles.to_map(), item.body())
             } else {
-                // wrap given arbitrary content into a single enumitem
-                // (it becomes the body)
-                styles = outer_styles; // the child's (body's) styles shouldn't apply to the marker
-
-                converted_enumitem = EnumItem::new(child);
-                &converted_enumitem // item becomes a reference to the enumitem wrapper
+                // not an enumitem, so this item (child) is simply the item body
+                // therefore, the child's (body's) styles shouldn't apply to the marker!
+                (outer_styles.to_map(), child)
             };
-
-            number = item.number(styles).unwrap_or(number);
 
             let resolved = if full {
                 parents.push(number);
@@ -216,16 +211,12 @@ impl Layout for EnumElem {
                 }
             };
 
-            let styles = styles.to_map();
-
-            let resolved = resolved.styled_with_map(styles.clone());
-            let body = item
-                .body()
-                .styled_with_map(styles)
-                .styled(Self::set_parents(Parent(number)));
+            let resolved_marker = resolved.styled_with_map(styles.clone());
+            let body =
+                body.styled_with_map(styles).styled(Self::set_parents(Parent(number)));
 
             cells.push(Content::empty());
-            cells.push(resolved);
+            cells.push(resolved_marker);
             cells.push(Content::empty());
             cells.push(body);
             number = number.saturating_add(1);

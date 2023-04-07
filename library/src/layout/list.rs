@@ -141,24 +141,19 @@ impl Layout for ListElem {
                 styles = outer_styles.chain(style_map); // for the item's specific styles
             }
 
-            // owns the child's conversion to ListItem for the duration of this scope,
-            // if it is not a ListItem already
-            let converted_listitem;
-
-            let item = if let Some(item) = item.to::<ListItem>() {
-                item // the given item is already a listitem (the '- item' syntax was used)
+            // get item styles to apply to marker and body if necessary
+            let (styles, body) = if let Some(item) = item.to::<ListItem>() {
+                // the given item is already a listitem (the '- item' syntax was used)
+                // so we use its style and take its body
+                (styles.to_map(), item.body())
             } else {
-                // wrap given arbitrary content into a single listitem
-                // (it becomes the body)
-                styles = outer_styles; // the child's (body's) styles shouldn't apply to the marker
-
-                converted_listitem = ListItem::new(child);
-                &converted_listitem // item becomes a reference to the listitem wrapper
+                // not a listitem, so this item (child) is simply the item body
+                // therefore, the child's (body's) styles shouldn't apply to the marker!
+                (outer_styles.to_map(), child)
             };
 
-            let styles = styles.to_map();
             let marker = marker.clone().styled_with_map(styles.clone());
-            let body = item.body().styled_with_map(styles).styled(Self::set_depth(Depth));
+            let body = body.styled_with_map(styles).styled(Self::set_depth(Depth));
 
             cells.push(Content::empty());
             cells.push(marker);
