@@ -119,6 +119,9 @@ pacman -S typst
 Nix users can use the `typst` package with `nix-shell -p typst` or build and run
 the bleeding edge version with `nix run github:typst/typst -- --version`.
 
+Docker users can run a prebuilt image with
+`docker run -it ghcr.io/typst/typst:main`.
+
 ## Usage
 Once you have installed Typst, you can use it like this:
 ```sh
@@ -150,13 +153,6 @@ typst --font-path path/to/fonts fonts
 If you prefer an integrated IDE-like experience with autocompletion and instant
 preview, you can also check out the [Typst web app][app], which is currently in
 public beta.
-
-## Use docker
-To run a prebuilt image with docker run:
-
-```sh
-docker run -it ghcr.io/typst/typst:main
-```
 
 ## Build from source
 To build Typst yourself, you need to have the [latest stable Rust][rust]
