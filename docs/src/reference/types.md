@@ -944,7 +944,7 @@ before the first match of the selector argument.
 - location: selector (positional, required)
   The selector ued to find the last element.
 - inclusive: boolean (named)
-  Whether the last element should match or not. This is only applicable if
+  Whether the `target` element itself should match or not. This is only relevant if
   both selectors match the same type of element.
   Defaults to `{true}`.
 
