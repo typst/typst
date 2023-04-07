@@ -377,7 +377,7 @@ impl Selector {
     ) -> Box<dyn Iterator<Item = (usize, &'a Content)> + 'a> {
         match self {
             Selector::Before(selector, location, inclusive) => {
-                if let Some(index) = introspector.position_cache(location) {
+                if let Some(index) = introspector.location(location) {
                     Box::new(selector.match_iter_inner(introspector, parent).take_while(
                         move |(i, _)| if *inclusive { *i <= index } else { *i < index },
                     ))
@@ -386,7 +386,7 @@ impl Selector {
                 }
             }
             Selector::After(selector, location, inclusive) => {
-                if let Some(index) = introspector.position_cache(location) {
+                if let Some(index) = introspector.location(location) {
                     Box::new(selector.match_iter_inner(introspector, parent).skip_while(
                         move |(i, _)| if *inclusive { *i < index } else { *i <= index },
                     ))
@@ -412,14 +412,14 @@ impl Selector {
             })),
             Self::Location(location) => Box::new(
                 introspector
-                    .position_cache(location)
+                    .location(location)
                     .and_then(|index| {
                         introspector.get(index).map(|content| (index, content))
                     })
                     .into_iter(),
             ),
             other => Box::new(parent.filter(move |(_, content)| {
-                other.matches(&|location| introspector.position_cache(location), content)
+                other.matches(&|location| introspector.location(location), content)
             })),
         }
     }

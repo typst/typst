@@ -377,7 +377,7 @@ impl Content {
         selector: &Selector,
         results: &mut Vec<&'a Content>,
     ) {
-        if selector.matches(&|location| introspector.position_cache(location), self) {
+        if selector.matches(&|location| introspector.location(location), self) {
             results.push(self);
         }
 

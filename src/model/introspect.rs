@@ -86,7 +86,7 @@ pub struct Introspector {
     pages: usize,
     elems: Vec<(Content, Position)>,
     /// A small cache of positions for faster lookups in nested queries.
-    position_cache: HashMap<Location, usize>,
+    locations: HashMap<Location, usize>,
     // Indexed by page number.
     page_numberings: Vec<Value>,
 }
@@ -97,7 +97,7 @@ impl Introspector {
         let mut introspector = Self {
             pages: frames.len(),
             elems: vec![],
-            position_cache: HashMap::new(),
+            locations: HashMap::new(),
             page_numberings: vec![],
         };
         for (i, frame) in frames.iter().enumerate() {
@@ -123,14 +123,13 @@ impl Introspector {
                     self.extract(&group.frame, page, ts);
                 }
                 FrameItem::Meta(Meta::Elem(content), _)
-                    if !self
-                        .elems
-                        .iter()
-                        .any(|(prev, _)| prev.location() == content.location()) =>
+                    if !content
+                        .location()
+                        .map_or(false, |loc| self.locations.contains_key(&loc)) =>
                 {
                     let pos = pos.transform(ts);
                     self.elems.push((content.clone(), Position { page, point: pos }));
-                    self.position_cache
+                    self.locations
                         .insert(content.location().unwrap(), self.elems.len() - 1);
                 }
                 FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
@@ -139,6 +138,11 @@ impl Introspector {
                 _ => {}
             }
         }
+    }
+
+    /// Gets the element at the given index.
+    pub fn get(&self, index: usize) -> Option<&Content> {
+        self.elems.get(index).map(|(elem, _)| elem)
     }
 }
 
@@ -149,19 +153,9 @@ impl Introspector {
         self.pages > 0
     }
 
-    /// Gets the element at the given index.
-    pub fn get(&self, index: usize) -> Option<&Content> {
-        self.elems.get(index).map(|(elem, _)| elem)
-    }
-
-    /// Collects the element in a vec
-    pub fn to_vec(&self) -> Vec<&Content> {
-        self.elems.iter().map(|(elem, _)| elem).collect()
-    }
-
     /// Get an element from the position cache.
-    pub fn position_cache(&self, location: &Location) -> Option<usize> {
-        self.position_cache.get(location).copied()
+    pub fn location(&self, location: &Location) -> Option<usize> {
+        self.locations.get(location).copied()
     }
 
     /// Query for all matching elements.

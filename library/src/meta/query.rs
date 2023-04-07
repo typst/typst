@@ -139,7 +139,7 @@ pub fn selector(
     /// [`strong`]($func/strong) elements, but you will find only those that
     /// have an explicit label attached to them. This limitation will be
     /// resolved in the future.
-    target: LocatableSelector,
+    target: Selector,
 ) -> Value {
-    target.0.into()
+    target.into()
 }
