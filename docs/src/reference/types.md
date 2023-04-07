@@ -906,11 +906,11 @@ You can access definitions from the module using
 A filter for selecting elements within the document.
 
 You can construct a selector in the following ways:
-- you can call the `[selector]` function
-- you can use a `[position]`
+- you can call the [`selector`]($func/selector) function
+- you can use a [`location`]($func/locate)
 - you can use an element function
-- you can use a regex
-- you can use a `[<label>]`
+- you can use a [string]($type/string) or [regular expression]($func/regex)
+- you can use a [`{<label>}`]($func/label)
 
 A selector is what you can use to query the document for certain types
 of elements. It can also be used to apply styling rules to element. You can
