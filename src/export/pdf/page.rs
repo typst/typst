@@ -3,12 +3,12 @@ use pdf_writer::types::{ActionType, AnnotationType, ColorSpaceOperand};
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
-use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
+use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB, PdfGradient};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, Numeric, Paint, Point, Ratio, Shape, Size, Stroke,
-    Transform,
+    Transform, Gradient
 };
 use crate::image::Image;
 
@@ -93,6 +93,14 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
     }
 
     images.finish();
+
+    let mut shadings = resources.shadings();
+    for (gradient_ref, gr) in ctx.gradient_map.pdf_indices(&ctx.gradient_refs) {
+        let name = eco_format!("Gr{}", gr);
+        shadings.pair(Name(name.as_bytes()), gradient_ref);
+    }
+
+    shadings.finish();
     resources.finish();
     pages.finish();
 }
@@ -180,6 +188,7 @@ struct State {
     fill_space: Option<Name<'static>>,
     stroke: Option<Stroke>,
     stroke_space: Option<Name<'static>>,
+    gradient: Option<Gradient>,
 }
 
 impl PageContext<'_, '_> {
@@ -215,25 +224,58 @@ impl PageContext<'_, '_> {
         }
     }
 
+    fn use_gradient(&mut self, gradient: &Gradient, size: Size) {
+        if self.state.gradient.as_ref() != Some(gradient) {
+            let ctx = &mut self.parent;
+
+            let pdf_gradient = PdfGradient { gradient: gradient.clone(), size };
+
+            ctx.gradient_map.insert(pdf_gradient.clone());
+            let str = eco_format!("Gr{}",
+                ctx.gradient_map.map(pdf_gradient.clone()));
+            let name = Name(str.as_bytes());
+            self.content.shading(name);
+        }
+    }
+
     fn set_fill(&mut self, fill: &Paint) {
         if self.state.fill.as_ref() != Some(fill) {
             let f = |c| c as f32 / 255.0;
-            let Paint::Solid(color) = fill;
-            match color {
-                Color::Luma(c) => {
-                    self.set_fill_color_space(D65_GRAY);
-                    self.content.set_fill_gray(f(c.0));
-                }
-                Color::Rgba(c) => {
-                    self.set_fill_color_space(SRGB);
-                    self.content.set_fill_color([f(c.r), f(c.g), f(c.b)]);
-                }
-                Color::Cmyk(c) => {
-                    self.reset_fill_color_space();
-                    self.content.set_fill_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
-                }
+            match fill {
+                Paint::Solid(color) => match color {
+                    Color::Luma(c) => {
+                        self.set_fill_color_space(D65_GRAY);
+                        self.content.set_fill_gray(f(c.0));
+                    }
+                    Color::Rgba(c) => {
+                        self.set_fill_color_space(SRGB);
+                        self.content.set_fill_color([f(c.r), f(c.g), f(c.b)]);
+                    }
+                    Color::Cmyk(c) => {
+                        self.reset_fill_color_space();
+                        self.content.set_fill_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
+                    }
+                },
+                Paint::Gradient(gradient) => self.save_state(),
             }
             self.state.fill = Some(fill.clone());
+        }
+    }
+
+    fn finalize_fill(&mut self, offset: Point, bounds: Size) {
+        match self.state.fill.clone() {
+            Some(Paint::Gradient(gradient)) => {
+                // TODO: Figure out how the gradient works when we also have
+                //       strokes and stuff.
+                let transform = [1.0, 0.0, 0.0, 1.0, offset.x.to_raw() as f32, offset.y.to_raw() as f32];
+                self.content.clip_nonzero();
+                self.content.end_path();
+                self.content.transform(transform);
+                self.use_gradient(&gradient, bounds);
+                self.restore_state();
+            },
+            Some(_) => {},
+            None => {},
         }
     }
 
@@ -251,20 +293,22 @@ impl PageContext<'_, '_> {
     fn set_stroke(&mut self, stroke: &Stroke) {
         if self.state.stroke.as_ref() != Some(stroke) {
             let f = |c| c as f32 / 255.0;
-            let Paint::Solid(color) = stroke.paint;
-            match color {
-                Color::Luma(c) => {
-                    self.set_stroke_color_space(D65_GRAY);
-                    self.content.set_stroke_gray(f(c.0));
-                }
-                Color::Rgba(c) => {
-                    self.set_stroke_color_space(SRGB);
-                    self.content.set_stroke_color([f(c.r), f(c.g), f(c.b)]);
-                }
-                Color::Cmyk(c) => {
-                    self.reset_stroke_color_space();
-                    self.content.set_stroke_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
-                }
+            match stroke.paint {
+                Paint::Solid(color) => match color {
+                    Color::Luma(c) => {
+                        self.set_stroke_color_space(D65_GRAY);
+                        self.content.set_stroke_gray(f(c.0));
+                    }
+                    Color::Rgba(c) => {
+                        self.set_stroke_color_space(SRGB);
+                        self.content.set_stroke_color([f(c.r), f(c.g), f(c.b)]);
+                    }
+                    Color::Cmyk(c) => {
+                        self.reset_stroke_color_space();
+                        self.content.set_stroke_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
+                    }
+                },
+                Paint::Gradient(_) => todo!()
             }
 
             self.content.set_line_width(stroke.thickness.to_f32());
@@ -379,6 +423,9 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
     items.finish();
     positioned.finish();
     ctx.content.end_text();
+
+    // TODO: Figure out the actual bounds of the text.
+    ctx.finalize_fill(Point::zero(), Size::new(Abs::raw(100.0), Abs::raw(100.0)));
 }
 
 /// Encode a geometrical shape into the content stream.
@@ -414,6 +461,7 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
         }
     }
 
+    ctx.finalize_fill(Point::raw(x as f64, y as f64), shape.geometry.bounds());
     match (&shape.fill, &shape.stroke) {
         (None, None) => unreachable!(),
         (Some(_), None) => ctx.content.fill_nonzero(),

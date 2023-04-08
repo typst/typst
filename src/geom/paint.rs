@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use crate::eval::Array;
+
 use super::*;
 
 /// How a fill or stroke should be painted.
@@ -7,6 +9,99 @@ use super::*;
 pub enum Paint {
     /// A solid color.
     Solid(Color),
+    Gradient(Gradient),
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Gradient {
+    Linear(LinearGradient),
+}
+
+impl Gradient {
+    pub fn color(&self, pos: Ratio) -> Color {
+        match self {
+            Self::Linear(gradient) => gradient.color(pos),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct LinearGradient {
+    pub stops: Vec<GradientStop>,
+    pub angle: Angle,
+}
+
+impl LinearGradient {
+    pub fn new(stops: Vec<GradientStop>, angle: Angle) -> Self {
+        LinearGradient{stops, angle}
+    }
+
+    pub fn color(&self, pos: Ratio) -> Color {
+        let mut prev_stop = None;
+        let mut next_stop = None;
+
+        for stop in &self.stops {
+            if stop.position <= pos {
+                prev_stop = Some(stop);
+            } else if next_stop.is_none() {
+                next_stop = Some(stop);
+            }
+        }
+
+        match (prev_stop, next_stop) {
+            (Some(prev), Some(next)) => {
+                let dist1 = (pos - prev.position).abs();
+                let dist2 = (pos - next.position).abs();
+                let total_dist = dist1 + dist2;
+
+                let weight = Ratio::new(dist1 / total_dist);
+                prev.color.gamma_mix(next.color, weight)
+            },
+            (Some(stop), None) => stop.color,
+            (None, Some(stop)) => stop.color,
+            (None, None) => Color::Rgba(RgbaColor { r: 0, g: 0, b: 0, a: 0 }),
+        }
+    }
+
+    /// calculate the start and end points where a line though the rectangle bounds
+    /// with the gradients angle would intersect.
+    pub fn axial_coords(&self, bounds: Size) -> (Point, Point) {
+        let st = self.angle.sin();
+        let ct = self.angle.cos();
+
+        let c = (bounds / 2.0).to_point();
+
+        let y = c.x * st / ct;
+        let x = c.y * ct / st;
+
+        let end_xy = if y.abs() < c.y {
+            (c.x, y)
+        } else {
+            (x, c.y)
+        };
+
+        let point = Point::new(end_xy.0, end_xy.1);
+        let (start, end) = (c - point, c + point);
+
+        (start, end)
+    }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct GradientStop {
+    pub position: Ratio,
+    pub color: Color,
+}
+
+cast_from_value! {
+    GradientStop,
+    array: Array => {
+        let mut iter = array.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(a), Some(b), None) => Self{position: a.cast()?, color: b.cast()?},
+            _ => Err("gradient stop array must include exactly two values")?,
+        }
+    },
 }
 
 impl<T: Into<Color>> From<T> for Paint {
@@ -19,6 +114,7 @@ impl Debug for Paint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Solid(color) => color.fmt(f),
+            Self::Gradient(grad) => grad.fmt(f),
         }
     }
 }
@@ -26,10 +122,14 @@ impl Debug for Paint {
 cast_from_value! {
     Paint,
     color: Color => Self::Solid(color),
+    gradient: Gradient => Self::Gradient(gradient)
 }
 
 cast_to_value! {
-    Paint::Solid(color): Paint => Value::Color(color)
+    paint: Paint => match paint {
+        Paint::Solid(color) => Value::Color(color),
+        Paint::Gradient(gradient) => Value::Gradient(gradient),
+    }
 }
 
 /// A color in a dynamic format.
@@ -97,6 +197,10 @@ impl Color {
             Self::Rgba(rgba) => Self::Rgba(rgba.negate()),
             Self::Cmyk(cmyk) => Self::Cmyk(cmyk.negate()),
         }
+    }
+
+    pub fn gamma_mix(self, other: Color, ratio: Ratio) -> Color {
+        Self::Rgba(self.to_rgba().gamma_mix(other.to_rgba(), ratio))
     }
 }
 
@@ -221,6 +325,27 @@ impl RgbaColor {
             b: u8::MAX - self.b,
             a: self.a,
         }
+    }
+
+    /// Mix two colors in gamma space
+    pub fn gamma_mix(self, other: RgbaColor, ratio: Ratio) -> Self {
+        let gamma = 2.2;
+
+        let mix = |a: u8, b: u8| {
+            let ag = ((a as f64) / 255.0).powf(gamma);
+            let bg = ((b as f64) / 255.0).powf(gamma);
+
+            let mixed = (ag) + (bg - ag) * ratio.get();
+
+            (mixed.powf(1.0 / gamma) * 255.0).min(255.0) as u8
+        };
+
+        let mixed_r = mix(self.r, other.r);
+        let mixed_g = mix(self.g, other.g);
+        let mixed_b = mix(self.b, other.b);
+        let mixed_a = mix(self.a, other.a);
+
+        Self::new(mixed_r, mixed_g, mixed_b, mixed_a)
     }
 }
 
@@ -411,5 +536,44 @@ mod tests {
         test("f075ff011", "color string has wrong length");
         test("hmmm", "color string contains non-hexadecimal letters");
         test("14B2AH", "color string contains non-hexadecimal letters");
+    }
+
+    #[test]
+    fn test_mix_gamma() {
+        #[track_caller]
+        fn test(hex_1: &str, hex_2: &str, mixed: &str, w: f64) {
+            let c1 = RgbaColor::from_str(hex_1).unwrap();
+            let c2 = RgbaColor::from_str(hex_2).unwrap();
+            let ratio = Ratio::new(w);
+
+            assert_eq!(RgbaColor::from_str(mixed).unwrap(), c1.gamma_mix(c2, ratio));
+        }
+
+        test("0000ff", "00ff00", "0000ff", 0.0);
+        test("0000ff", "00ff00", "00ff00", 1.0);
+        test("0000ff", "00ff00", "00baba", 0.5);
+        test("ff0000", "00ff00", "df8700", 0.25);
+    }
+
+    #[test]
+    fn test_axial_coords() {
+        #[track_caller]
+        fn test(angle: f64, b: (f64, f64), s: (f64, f64), e: (f64, f64)) {
+            let lg = LinearGradient::new(vec![], Angle::deg(angle));
+
+            let bounds = Point::raw(b.0, b.1).to_size();
+            let es = Point::raw(s.0, s.1);
+            let ee = Point::raw(e.0, e.1);
+
+            assert_eq!(lg.axial_coords(bounds), (es, ee));
+        }
+
+        // squares
+        test(0.0,   (10.0, 10.0), (0.0, 5.0), (10.0, 5.0));
+        test(90.0,  (10.0, 10.0), (5.0, 0.0), (5.0, 10.0));
+        test(180.0, (10.0, 10.0), (10.0, 5.0), (0.0, 5.0));
+
+        // rectangles
+
     }
 }

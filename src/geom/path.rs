@@ -51,4 +51,28 @@ impl Path {
     pub fn close_path(&mut self) {
         self.0.push(PathItem::ClosePath);
     }
+
+    pub fn bounds(&self) -> Size {
+        let mut min = Point::new(Abs::inf(), Abs::inf());
+        let mut max = Point::zero();
+
+        let mut cursor = Point::zero();
+
+        for item in &self.0 {
+            match item {
+                PathItem::MoveTo(new) => cursor = *new,
+                PathItem::LineTo(point) => {
+                    min = cursor.min(min);
+                    cursor = *point;
+                    max = cursor.max(max);
+                },
+                PathItem::CubicTo(p1, p2, p3) => {
+                    // TODO: consider cubic_to.
+                },
+                PathItem::ClosePath => {},
+            }
+        }
+
+        (max).to_size()
+    }
 }

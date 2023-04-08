@@ -32,4 +32,13 @@ impl Geometry {
     pub fn stroked(self, stroke: Stroke) -> Shape {
         Shape { geometry: self, fill: None, stroke: Some(stroke) }
     }
+
+    /// Calculate the geometries axis-aligned bounding-box
+    pub fn bounds(&self) -> Size {
+        match self {
+            Self::Line(point) => Size::new(point.x, point.y),
+            Self::Rect(size) => size.clone(),
+            Self::Path(path) => path.bounds(),
+        }
+    }
 }

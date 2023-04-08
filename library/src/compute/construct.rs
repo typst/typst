@@ -442,3 +442,33 @@ pub fn range(
 
     Value::Array(array)
 }
+
+/// Create a linear gradient.
+///
+/// If you pass just one positional parameter, it is interpreted as the `end` of
+/// the range. If you pass two, they describe the `start` and `end` of the
+/// range.
+///
+/// ## Example
+/// ```example
+/// #range(5) \
+/// #range(2, 5) \
+/// #range(20, step: 4) \
+/// #range(21, step: 4) \
+/// #range(5, 2, step: -1)
+/// ```
+///
+/// Display: Linear Gradient
+/// Category: construct
+/// Returns: linear gradient
+#[func]
+pub fn gradient(
+    #[named]
+    #[default]
+    angle: Angle,
+
+    #[variadic]
+    stops: Vec<GradientStop>,
+) -> Value {
+    Value::Gradient(Gradient::Linear(LinearGradient::new(stops, angle)))
+}

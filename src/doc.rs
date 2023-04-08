@@ -29,7 +29,7 @@ pub struct Document {
 }
 
 /// A finished layout with items at fixed positions.
-#[derive(Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Hash)]
 pub struct Frame {
     /// The size of the frame.
     size: Size,
@@ -393,17 +393,8 @@ impl Frame {
     }
 }
 
-impl Debug for Frame {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("Frame ")?;
-        f.debug_list()
-            .entries(self.items.iter().map(|(_, item)| item))
-            .finish()
-    }
-}
-
 /// The building block frames are composed of.
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 pub enum FrameItem {
     /// A subframe with optional transformation and clipping.
     Group(GroupItem),
@@ -415,18 +406,6 @@ pub enum FrameItem {
     Image(Image, Size, Span),
     /// Meta information and the region it applies to.
     Meta(Meta, Size),
-}
-
-impl Debug for FrameItem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Group(group) => group.fmt(f),
-            Self::Text(text) => write!(f, "{text:?}"),
-            Self::Shape(shape, _) => write!(f, "{shape:?}"),
-            Self::Image(image, _, _) => write!(f, "{image:?}"),
-            Self::Meta(meta, _) => write!(f, "{meta:?}"),
-        }
-    }
 }
 
 /// A subframe with optional transformation and clipping.
@@ -459,7 +438,7 @@ impl Debug for GroupItem {
 }
 
 /// A run of shaped text.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct TextItem {
     /// The font the glyphs are contained in.
     pub font: Font,
@@ -477,19 +456,6 @@ impl TextItem {
     /// The width of the text run.
     pub fn width(&self) -> Abs {
         self.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size)
-    }
-}
-
-impl Debug for TextItem {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        // This is only a rough approxmiation of the source text.
-        f.write_str("Text(\"")?;
-        for glyph in &self.glyphs {
-            for c in glyph.c.escape_debug() {
-                f.write_char(c)?;
-            }
-        }
-        f.write_str("\")")
     }
 }
 

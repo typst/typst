@@ -57,6 +57,10 @@ impl Point {
     pub fn to_size(self) -> Size {
         Size::new(self.x, self.y)
     }
+
+    pub fn raw(x: f64, y: f64) -> Self {
+        Point::new(Abs::raw(x), Abs::raw(y))
+    }
 }
 
 impl Numeric for Point {

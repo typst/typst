@@ -1,6 +1,8 @@
 //! Rendering into raster images.
 
+use std::f64::consts::PI;
 use std::io::Read;
+use std::ops::Neg;
 use std::sync::Arc;
 
 use image::imageops::FilterType;
@@ -11,7 +13,7 @@ use usvg::{FitTo, NodeExt};
 
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::geom::{
-    self, Abs, Color, Geometry, Paint, PathItem, Shape, Size, Stroke, Transform,
+    self, Abs, Color, Geometry, Paint, PathItem, Shape, Size, Stroke, Transform, Point, LinearGradient, Gradient, Axes, Angle,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -270,7 +272,8 @@ fn render_outline_glyph(
             builder.0.finish()?
         };
 
-        let paint = (&text.fill).into();
+        let bounds = path.bounds();
+        let paint = convert_paint(&text.fill, Size::new(Abs::raw(bounds.x().into()), Abs::raw(bounds.y().into())));
         let rule = sk::FillRule::default();
 
         // Flip vertically because font design coordinate
@@ -293,7 +296,12 @@ fn render_outline_glyph(
         let mw = bitmap.width;
         let mh = bitmap.height;
 
-        let Paint::Solid(color) = text.fill;
+        // Premultiply the text color.
+        // TODO: implement gradients for text.
+        let Paint::Solid(color) = text.fill else {
+            println!("warning: gradients for outline glyphs not implemented.");
+            return None;
+        };
         let c = color.to_rgba();
 
         // Pad the pixmap with 1 pixel in each dimension so that we do
@@ -331,7 +339,12 @@ fn render_outline_glyph(
         let bottom = top + mh;
 
         // Premultiply the text color.
-        let Paint::Solid(color) = text.fill;
+        // TODO: implement gradients for text.
+        let Paint::Solid(color) = text.fill else {
+            println!("warning: gradients for outline glyphs not implemented.");
+            return None;
+        };
+
         let c = color.to_rgba();
         let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply().get();
 
@@ -383,7 +396,7 @@ fn render_shape(
     };
 
     if let Some(fill) = &shape.fill {
-        let mut paint: sk::Paint = fill.into();
+        let mut paint: sk::Paint = convert_paint(fill, shape.geometry.bounds());
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
         }
@@ -393,7 +406,7 @@ fn render_shape(
     }
 
     if let Some(Stroke { paint, thickness }) = &shape.stroke {
-        let paint = paint.into();
+        let paint = convert_paint(paint, shape.geometry.bounds());
         let stroke = sk::Stroke { width: thickness.to_f32(), ..Default::default() };
         canvas.stroke_path(&path, &paint, &stroke, ts, mask);
     }
@@ -508,13 +521,56 @@ impl From<Transform> for sk::Transform {
     }
 }
 
-impl From<&Paint> for sk::Paint<'static> {
-    fn from(paint: &Paint) -> Self {
-        let mut sk_paint = sk::Paint::default();
-        let Paint::Solid(color) = *paint;
-        sk_paint.set_color(color.into());
-        sk_paint.anti_alias = true;
-        sk_paint
+fn convert_paint(paint: &Paint, size: Size) -> sk::Paint<'static> {
+    let mut sk_paint = sk::Paint::default();
+    sk_paint.anti_alias = true;
+    match paint {
+        Paint::Solid(color) => {
+            sk_paint.set_color((*color).into());
+        },
+        Paint::Gradient(gradient) => {
+            sk_paint.shader = match gradient {
+                Gradient::Linear(linear_gradient) => convert_linear_gradient(linear_gradient, size)
+            }
+        }
+    }
+    sk_paint
+}
+
+fn convert_linear_gradient(gradient: &LinearGradient, size: Size) -> sk::Shader<'static> {
+    let stops = gradient.stops.iter().map(|stop|
+        sk::GradientStop::new(stop.position.get() as f32, stop.color.into())
+    ).collect();
+
+    
+    let (start, end) = calculate_line_ends_in_rectangle(size, gradient.angle);
+    println!("start: {start:?}, end: {end:?}");
+    sk::LinearGradient::new(start.into(), end.into(), stops, sk::SpreadMode::Pad, sk::Transform::identity()).unwrap()
+}
+
+fn calculate_line_ends_in_rectangle(rect: Size, angle: Angle) -> (Point, Point) {
+    // TODO: doesn't work. Figure it out.
+    let rad = angle.to_rad();
+
+    let a = rect.x / Abs::raw(2.0);
+    let b = rect.y / Abs::raw(2.0);
+
+    let tan = rad.tan();
+    let (x, y) = if tan.abs() > (b / a) {
+        (if tan > 0.0 {a} else {a.neg()}, b / tan)
+    } else {
+        (a * tan, if tan < 0.0 {b} else {b.neg()})
+    };
+
+    (
+        Point::new(Abs::raw(a - x), Abs::raw(b - y)),
+        Point::new(Abs::raw(a + x), Abs::raw(b + y))
+    )
+}
+
+impl From<Point> for sk::Point {
+    fn from(point: Point) -> Self {
+        sk::Point::from_xy(point.x.to_f32(), point.y.to_f32())
     }
 }
 

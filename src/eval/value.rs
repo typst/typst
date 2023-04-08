@@ -12,7 +12,7 @@ use super::{
     Label, Module, Str, Symbol,
 };
 use crate::diag::StrResult;
-use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
+use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel, Gradient};
 use crate::model::Styles;
 use crate::syntax::{ast, Span};
 
@@ -62,6 +62,8 @@ pub enum Value {
     Args(Args),
     /// A module.
     Module(Module),
+    /// A gradient object.
+    Gradient(Gradient),
     /// A dynamic value.
     Dyn(Dynamic),
 }
@@ -111,6 +113,7 @@ impl Value {
             Self::Func(_) => Func::TYPE_NAME,
             Self::Args(_) => Args::TYPE_NAME,
             Self::Module(_) => Module::TYPE_NAME,
+            Self::Gradient(_) => Gradient::TYPE_NAME,
             Self::Dyn(v) => v.type_name(),
         }
     }
@@ -193,6 +196,7 @@ impl Debug for Value {
             Self::Func(v) => Debug::fmt(v, f),
             Self::Args(v) => Debug::fmt(v, f),
             Self::Module(v) => Debug::fmt(v, f),
+            Self::Gradient(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
@@ -235,6 +239,7 @@ impl Hash for Value {
             Self::Func(v) => v.hash(state),
             Self::Args(v) => v.hash(state),
             Self::Module(v) => v.hash(state),
+            Self::Gradient(v) => v.hash(state),
             Self::Dyn(v) => v.hash(state),
         }
     }
@@ -408,6 +413,7 @@ primitive! { Dict: "dictionary", Dict }
 primitive! { Func: "function", Func }
 primitive! { Module: "module", Module }
 primitive! { Args: "arguments", Args }
+primitive! { Gradient: "gradient", Gradient }
 
 #[cfg(test)]
 mod tests {

@@ -4,6 +4,7 @@ mod font;
 mod image;
 mod outline;
 mod page;
+mod gradient;
 
 use std::cmp::Eq;
 use std::collections::{HashMap, HashSet};
@@ -17,7 +18,7 @@ use self::outline::HeadingNode;
 use self::page::Page;
 use crate::doc::{Document, Lang};
 use crate::font::Font;
-use crate::geom::{Abs, Dir, Em};
+use crate::geom::{Abs, Dir, Em, Gradient, Size};
 use crate::image::Image;
 use crate::model::Introspector;
 
@@ -29,6 +30,7 @@ pub fn pdf(document: &Document) -> Vec<u8> {
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
+    gradient::write_gradients(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx);
     ctx.writer.finish()
@@ -49,9 +51,11 @@ pub struct PdfContext<'a> {
     page_tree_ref: Ref,
     font_refs: Vec<Ref>,
     image_refs: Vec<Ref>,
+    gradient_refs: Vec<Ref>,
     page_refs: Vec<Ref>,
     font_map: Remapper<Font>,
     image_map: Remapper<Image>,
+    gradient_map: Remapper<PdfGradient>,
     glyph_sets: HashMap<Font, HashSet<u16>>,
     languages: HashMap<Lang, usize>,
     heading_tree: Vec<HeadingNode>,
@@ -72,13 +76,21 @@ impl<'a> PdfContext<'a> {
             page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],
+            gradient_refs: vec![],
             font_map: Remapper::new(),
             image_map: Remapper::new(),
+            gradient_map: Remapper::new(),
             glyph_sets: HashMap::new(),
             languages: HashMap::new(),
             heading_tree: vec![],
         }
     }
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct PdfGradient {
+    gradient: Gradient,
+    size: Size,
 }
 
 /// Write the document catalog.

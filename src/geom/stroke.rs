@@ -69,6 +69,10 @@ cast_from_value! {
         paint: Smart::Custom(color.into()),
         thickness: Smart::Auto,
     },
+    gradient: Gradient => Self {
+        paint: Smart::Custom(Paint::Gradient(gradient)),
+        thickness: Smart::Auto,
+    }
 }
 
 impl Resolve for PartialStroke {
