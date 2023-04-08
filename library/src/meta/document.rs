@@ -7,7 +7,6 @@ use crate::prelude::*;
 ///
 /// For example, to create a two-page document with a title and author, you could
 /// define your `DocumentElem` like this:
-///
 
  let document = document(
      title("My Document"),
