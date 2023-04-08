@@ -170,17 +170,11 @@ pub fn call(
                     }
                     "add" => {
                         let duration = args.expect::<Duration>("duration")?;
-                        match datetime.add(&duration) {
-                            Ok(d) => Value::Dyn(Dynamic::new(d)),
-                            Err(msg) => bail!(args.span, msg),
-                        }
+                        Value::Dyn(Dynamic::new(datetime.add(&duration)))
                     }
                     "sub" => {
                         let duration = args.expect::<Duration>("duration")?;
-                        match datetime.sub(&duration) {
-                            Ok(d) => Value::Dyn(Dynamic::new(d)),
-                            Err(msg) => bail!(args.span, msg),
-                        }
+                        Value::Dyn(Dynamic::new(datetime.sub(&duration)))
                     }
                     "year" => datetime.year().into(),
                     "month" => datetime.month().into(),
@@ -191,17 +185,11 @@ pub fn call(
                 match method {
                     "add" => {
                         let args_duration = args.expect::<Duration>("duration")?;
-                        match duration.add(&args_duration) {
-                            Ok(d) => Value::Dyn(Dynamic::new(d)),
-                            Err(msg) => bail!(args.span, msg),
-                        }
+                        Value::Dyn(Dynamic::new(duration.add(&args_duration)))
                     }
                     "sub" => {
                         let args_duration = args.expect::<Duration>("duration")?;
-                        match duration.sub(&args_duration) {
-                            Ok(d) => Value::Dyn(Dynamic::new(d)),
-                            Err(msg) => bail!(args.span, msg),
-                        }
+                        Value::Dyn(Dynamic::new(duration.sub(&args_duration)))
                     }
                     "weeks" => duration.weeks().into(),
                     "days" => duration.days().into(),

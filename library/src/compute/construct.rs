@@ -185,7 +185,7 @@ cast_from_value! {
 
 /// Create a date.
 ///
-/// The color is specified by specifying the year, month and day of the date. By default, the
+/// The date is specified by the year, month and day. By default, the
 /// year is assumed to be '1970', the month January, and the day 1.
 ///
 /// ## Example
@@ -295,7 +295,6 @@ cast_from_value!(
 /// The date of yesterday was #show_date(d.sub(a)). \
 /// In two weeks and 1 day from now, the date will be #show_date(d.add(b).add(a)). \
 /// In three weeks, it will be #show_date(d.add(c)).
-///
 /// ```
 ///
 /// Display: Duration
@@ -315,6 +314,38 @@ pub fn duration(
     match Duration::new(weeks, days) {
         Ok(d) => Value::Dyn(Dynamic::new(d)),
         Err(e) => bail!(args.span, e),
+    }
+}
+
+/// Returns the current date.
+///
+/// By default, it will return the current UTC date. This can be changed by setting
+/// the `local` parameter to `true`, in which case the local date will be chosen.
+///
+/// ## Example
+/// ```example
+/// Today's date is #today().display("[month repr:long] [day], [year]")
+/// ```
+///
+/// Display: Today
+/// Category: construct
+/// Returns: date
+#[func]
+pub fn today(
+    /// Whether the local date should be chosen (instead of UTC). False by default.
+    #[named]
+    #[default]
+    local: bool,
+) -> Value {
+    let current_date = vm.vt.world.today(local);
+
+    match time::Date::from_calendar_date(
+        current_date.0,
+        time::Month::try_from(current_date.1).unwrap(),
+        current_date.2,
+    ) {
+        Ok(d) => Value::Dyn(Dynamic::new(Date(d))),
+        Err(_) => bail!(args.span, "unable to get today's date"),
     }
 }
 
