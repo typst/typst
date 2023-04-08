@@ -526,6 +526,11 @@ Fails with an error if the index is out of bounds.
   The index at which to retrieve the item.
 - returns: any
 
+### enumerate()
+Returns an array of the values along with their indices.
+
+- returns: array
+
 ### push()
 Add a value to the end of the array.
 
