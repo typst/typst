@@ -45,6 +45,7 @@ cast_from_value! {
 ///
 /// - Booleans are converted to `0.0` or `1.0`.
 /// - Integers are converted to the closest 64-bit float.
+/// - Ratios are divided by 100%.
 /// - Strings are parsed in base 10 to the closest 64-bit float.
 ///   Exponential notation is supported.
 ///
@@ -53,6 +54,7 @@ cast_from_value! {
 /// #float(false) \
 /// #float(true) \
 /// #float(4) \
+/// #float(40%) \
 /// #float("2.7") \
 /// #float("1e5")
 /// ```
@@ -76,6 +78,7 @@ cast_from_value! {
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
     v: f64 => Self(v),
+    v: Ratio => Self(v.get()),
     v: EcoString => Self(v.parse().map_err(|_| "not a valid float")?),
 }
 
