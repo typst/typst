@@ -1,4 +1,4 @@
-=use crate::layout::{LayoutRoot, PageElem};
+use crate::layout::{LayoutRoot, PageElem};
 use crate::prelude::*;
 
 /// Use this element to define the root of your document and set metadata such as
