@@ -204,6 +204,7 @@ impl LocalName for RawElem {
         match lang {
             Lang::BOKMÅL => "Utskrift",
             Lang::CHINESE => "代码",
+            Lang::CZECH => "Seznam",
             Lang::FRENCH => "Liste",
             Lang::GERMAN => "Listing",
             Lang::ITALIAN => "Codice",
