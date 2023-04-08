@@ -157,7 +157,7 @@ pub fn call(
                     "position" => vm.vt.introspector.position(location).into(),
                     _ => return missing(),
                 }
-            } else if let Some(&datetime) = dynamic.downcast::<Date>() {
+            } else if let Some(&date) = dynamic.downcast::<Date>() {
                 match method {
                     "display" => {
                         let pattern = args.eat()?;
