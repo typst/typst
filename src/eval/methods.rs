@@ -161,14 +161,14 @@ pub fn call(
                 match method {
                     "display" => {
                         let pattern = args.eat()?;
-                        match datetime.display(pattern) {
+                        match date.display(pattern) {
                             Ok(d) => Value::Str(d),
                             Err(msg) => bail!(args.span, msg),
                         }
                     }
-                    "year" => datetime.year().into(),
-                    "month" => datetime.month().into(),
-                    "day" => datetime.day().into(),
+                    "year" => date.year().into(),
+                    "month" => date.month().into(),
+                    "day" => date.day().into(),
                     _ => return missing(),
                 }
             } else {
