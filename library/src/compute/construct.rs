@@ -2,7 +2,7 @@ use std::num::NonZeroI64;
 use std::str::FromStr;
 use time::Month;
 
-use typst::eval::date::{Date, Duration};
+use typst::eval::date::{Date};
 use typst::eval::{Dynamic, Regex};
 
 use crate::prelude::*;
@@ -274,48 +274,6 @@ cast_from_value!(
         _ => Err("day is invalid")?
     }
 );
-
-/// Create a duration.
-///
-/// The duration is specified by the number of weeks and/or number of days.
-///
-/// ## Example
-/// ```example
-/// #let show_date(date) = {
-/// date.display("[month repr:long] [day], [year]")
-/// }
-///
-/// #let a = duration(days: 1)
-/// #let b = duration(weeks: 2)
-/// #let c = duration(weeks: 2, days: 7)
-///
-/// #let d = date(year: 2022, month: 03, day: 05)
-///
-/// The date of today is #show_date(d). \
-/// The date of yesterday was #show_date(d.sub(a)). \
-/// In two weeks and 1 day from now, the date will be #show_date(d.add(b).add(a)). \
-/// In three weeks, it will be #show_date(d.add(c)).
-/// ```
-///
-/// Display: Duration
-/// Category: construct
-/// Returns: duration
-#[func]
-pub fn duration(
-    /// The number of weeks of the duration.
-    #[named]
-    #[default]
-    weeks: i64,
-    /// The number of days of the duration.
-    #[named]
-    #[default]
-    days: i64,
-) -> Value {
-    match Duration::new(weeks, days) {
-        Ok(d) => Value::Dyn(Dynamic::new(d)),
-        Err(e) => bail!(args.span, e),
-    }
-}
 
 /// Returns the current date.
 ///

@@ -5,8 +5,6 @@ use typst::eval::date::Date;
 
 use super::{Args, Str, Value, Vm};
 use crate::diag::{bail, At, SourceResult};
-use crate::eval::date::Duration;
-use crate::eval::Dynamic;
 use crate::model::Location;
 use crate::syntax::Span;
 
@@ -168,31 +166,9 @@ pub fn call(
                             Err(msg) => bail!(args.span, msg),
                         }
                     }
-                    "add" => {
-                        let duration = args.expect::<Duration>("duration")?;
-                        Value::Dyn(Dynamic::new(datetime.add(&duration)))
-                    }
-                    "sub" => {
-                        let duration = args.expect::<Duration>("duration")?;
-                        Value::Dyn(Dynamic::new(datetime.sub(&duration)))
-                    }
                     "year" => datetime.year().into(),
                     "month" => datetime.month().into(),
                     "day" => datetime.day().into(),
-                    _ => return missing(),
-                }
-            } else if let Some(&duration) = dynamic.downcast::<Duration>() {
-                match method {
-                    "add" => {
-                        let args_duration = args.expect::<Duration>("duration")?;
-                        Value::Dyn(Dynamic::new(duration.add(&args_duration)))
-                    }
-                    "sub" => {
-                        let args_duration = args.expect::<Duration>("duration")?;
-                        Value::Dyn(Dynamic::new(duration.sub(&args_duration)))
-                    }
-                    "weeks" => duration.weeks().into(),
-                    "days" => duration.days().into(),
                     _ => return missing(),
                 }
             } else {

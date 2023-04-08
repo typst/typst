@@ -127,7 +127,6 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("yaml", compute::yaml);
     global.define("xml", compute::xml);
     global.define("date", compute::date);
-    global.define("duration", compute::duration);
     global.define("today", compute::today);
 
     // Calc.

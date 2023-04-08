@@ -174,6 +174,82 @@ Produces the negative of the color.
 
 - returns: color
 
+# Date
+
+Represents a date. Can be created by either specifying a custom date 
+using the [`date` function]($func/date) or getting the current date using the
+[`today` function]($func/today).
+
+## Methods
+### display()
+
+Displays the date in a certain way. By default, the format `(year)-(month)-(day)` is 
+used (e.g. `2022-03-04`). The format of a date is specified by providing a so-called 
+_component_ with a specified number of _modifiers_. A component represents a certain 
+part of the date that you want to display, and with the help of modifiers you can define
+how you want to display that component. In order to display a component, you wrap the name
+of the component in square brackets (e.g. "[year]" will display the year of the date).
+In order to add modifiers, you simply add a space after the component name followed
+by the name of the modifier, a colon and the value of the modifier (e.g. "[month repr:short]"
+will display the short representation of the month).
+
+The possible combination of components and their respective modifiers is as follows:
+
+- `year`: Displays the year of the date.
+  - `padding`: Can be either `zero`, `space` or `none`. Specifies how the year is padded.
+  - `repr` Can be either `full` in which case the full year is displayed or `last_two` in 
+  which case only the last two digits are displayed.
+  - `sign`: Can be either `automatic` or `mandatory`. Specified when the sign should be displayed.
+- `month`: Displays the month of the date.
+  - `padding`: Can be either `zero`, `space` or `none`. Specifies how the month is padded.
+  - `repr`: Can be either `numerical`, `long` or `short`. Specified if the month should be
+  displayed as a number or a word. Unfortunately, when choosing the word representation, it
+  can currently only display the English version. In the future, it is planned to support localization.
+- `day`: Displays the day of the date.
+  - `padding`: Can be either `zero`, `space` or `none`. Specifies how the day is padded.
+- `week_number`: Displays the week number of the date.
+  - `padding`: Can be either `zero`, `space` or `none`. Specifies how the week number is padded.
+  - `repr`: Can be either `ISO`, `sunday` or `monday`. In the case of `ISO`, week numbers are between
+  1 and 53, while the other ones are between 0 and 53.
+- `weekday`: Displays the weekday of the date.
+  - `repr` Can be either `long`, `short`, `sunday` or `monday`. In the case of `long` and `short`,
+  the corresponding English name will be displayed (as for the month, other languages are currently 
+  not supported). In the case of `sunday` and `monday`, the numerical value will be displayed
+    (assuming Sunday and Monday as the first day of the week, respectively).
+  - `one_indexed`: Can be either `true` or `false`. Defines whether the numerical representation
+  of the week starts with 0 or 1.
+
+    
+- pattern: string (positional)
+  The format used to display the date. Defaults to `[year]-[month]-[day]`
+- returns: string
+
+```example
+#let a = date(year: 0, month: 3, day: 1)
+
+Default representation: #a.display() \
+Custom representation: #a.display("Year: [year padding:zero repr:last_two] Month: [month padding:zero], Weekday: [weekday repr:monday one_indexed:true], Day: [day padding:none]") \
+Just the month: #a.display("[month repr:long]")
+```
+
+### year()
+
+Returns the year of the date.
+
+- returns: integer
+
+### month()
+
+Returns the month of the date.
+
+- returns: integer
+
+### day()
+
+Returns the day of the date.
+
+- returns: integer
+
 # Symbol
 A Unicode symbol.
 
