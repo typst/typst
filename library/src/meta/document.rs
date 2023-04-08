@@ -6,19 +6,20 @@ use crate::prelude::*;
 /// children of the `DocumentElem` instance.
 ///
 /// For example, to create a two-page document with a title and author, you could
-/// define your `DocumentElem` like this:
+/// define your `DocumentElem` like this. ///
 
- let document = document(
-     title("My Document"),
-     author("John Doe"),
-     page(
-         // content for first page
-     ),
-     page(
-         // content for second page
-     ),
- );
-
+/// ```
+/// let document = document(
+///     title("My Document"),
+///     author("John Doe"),
+///     page(
+///         // content for first page
+///     ),
+///     page(
+///         // content for second page
+///     ),
+/// );
+/// ```
 
 /// The root element of a document and its metadata.
 ///
