@@ -463,6 +463,20 @@ pub fn fact(
     Value::Int(factorial(number).unwrap_or_default() as i64)
 }
 
+macro_rules! check_perm_argument {
+    ( $value:expr ) => {
+        match $value.v {
+            Num::Float(_) => {
+                bail!($value.span, "a permutation argument must be an integer")
+            }
+            Num::Int(i) if i < 0 => {
+                bail!($value.span, "a permutation argument must be positive")
+            }
+            Num::Int(i) => i,
+        }
+    };
+}
+
 /// Calculate a permutation.
 ///
 /// ## Example
@@ -480,25 +494,9 @@ pub fn perm(
     /// The number of permutations. Must be positive.
     numbers: Spanned<Num>,
 ) -> Value {
-    let base_parsed = match base.v {
-        Num::Float(_) => {
-            bail!(base.span, "a permutation base argument must be an integer")
-        }
-        Num::Int(i) if i < 0 => {
-            bail!(base.span, "a permutation base argument must be positive")
-        }
-        Num::Int(i) => i,
-    } as u64;
+    let base_parsed = check_perm_argument!(base) as u64;
 
-    let numbers_parsed = match numbers.v {
-        Num::Float(_) => {
-            bail!(numbers.span, "a permutation numbers argument must be an integer")
-        }
-        Num::Int(i) if i < 0 => {
-            bail!(numbers.span, "a permutation numbers argument must be positive")
-        }
-        Num::Int(i) => i,
-    } as u64;
+    let numbers_parsed = check_perm_argument!(numbers) as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
         factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
@@ -533,6 +531,21 @@ fn binomial(n: u64, k: u64) -> u64 {
     result
 }
 
+
+macro_rules! check_binom_argument {
+    ( $value:expr ) => {
+        match $value.v {
+            Num::Float(_) => {
+                bail!($value.span, "a binomial coefficient must be an integer")
+            }
+            Num::Int(i) if i < 0 => {
+                bail!($value.span, "a binomial coefficient must be positive")
+            }
+            Num::Int(i) => i,
+        }
+    };
+}
+
 /// Calculate a binomial coefficient.
 ///
 /// ## Example
@@ -550,25 +563,9 @@ pub fn binom(
     /// The lower coefficient. Must be positive.
     k: Spanned<Num>,
 ) -> Value {
-    let n_parsed = match n.v {
-        Num::Float(_) => {
-            bail!(n.span, "a binomial coefficient must be an integer")
-        }
-        Num::Int(i) if i < 0 => {
-            bail!(n.span, "a binomial coefficient must be positive")
-        }
-        Num::Int(i) => i,
-    } as u64;
+    let n_parsed = check_binom_argument!(n) as u64;
 
-    let k_parsed = match k.v {
-        Num::Float(_) => {
-            bail!(k.span, "a binomial coefficient must be an integer")
-        }
-        Num::Int(i) if i < 0 => {
-            bail!(k.span, "a binomial coefficient must be positive")
-        }
-        Num::Int(i) => i,
-    } as u64;
+    let k_parsed = check_binom_argument!(k) as u64;
 
     Value::Int(binomial(n_parsed, k_parsed) as i64)
 }
