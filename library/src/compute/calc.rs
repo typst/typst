@@ -434,7 +434,7 @@ fn factorial(number: u64) -> Option<u64> {
 ///
 /// ## Example
 /// ```example
-/// #calc.log(100)
+/// #calc.fact(5)
 /// ```
 ///
 /// Display: Factorial
