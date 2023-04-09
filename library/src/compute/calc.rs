@@ -516,12 +516,13 @@ fn binomial(n: u64, k: u64) -> u64 {
         return 0;
     }
 
-    if n == k || k == 0 {
+    // By symmetry
+    let real_k = cmp::min(n - k, k);
+
+    if real_k == 0 {
         return 1;
     }
 
-    // By symmetry
-    let real_k = cmp::min(n - k, k);
     let mut result = 1;
 
     for i in 0..real_k {
