@@ -2,7 +2,7 @@ use super::*;
 
 const FRAC_AROUND: Em = Em::new(0.1);
 
-/// # Fraction
+/// Fraction
 /// A mathematical fraction.
 ///
 /// ## Example
