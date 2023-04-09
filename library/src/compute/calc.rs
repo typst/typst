@@ -531,7 +531,6 @@ fn binomial(n: u64, k: u64) -> u64 {
     result
 }
 
-
 macro_rules! check_binom_argument {
     ( $value:expr ) => {
         match $value.v {
