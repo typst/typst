@@ -463,14 +463,14 @@ pub fn fact(
     Value::Int(factorial(number).unwrap_or_default() as i64)
 }
 
-macro_rules! check_perm_argument {
-    ( $value:expr ) => {
+macro_rules! check_positive_argument {
+    ( $value:ident, $name:literal ) => {
         match $value.v {
             Num::Float(_) => {
-                bail!($value.span, "a permutation argument must be an integer")
+                bail!($value.span, format!("a {name} must be an integer", name = $name))
             }
             Num::Int(i) if i < 0 => {
-                bail!($value.span, "a permutation argument must be positive")
+                bail!($value.span, format!("a {name} must be positive", name = $name))
             }
             Num::Int(i) => i,
         }
@@ -494,9 +494,9 @@ pub fn perm(
     /// The number of permutations. Must be positive.
     numbers: Spanned<Num>,
 ) -> Value {
-    let base_parsed = check_perm_argument!(base) as u64;
+    let base_parsed = check_positive_argument!(base, "permutation argument") as u64;
 
-    let numbers_parsed = check_perm_argument!(numbers) as u64;
+    let numbers_parsed = check_positive_argument!(numbers, "permutation argument") as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
         factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
@@ -532,20 +532,6 @@ fn binomial(n: u64, k: u64) -> u64 {
     result
 }
 
-macro_rules! check_binom_argument {
-    ( $value:expr ) => {
-        match $value.v {
-            Num::Float(_) => {
-                bail!($value.span, "a binomial coefficient must be an integer")
-            }
-            Num::Int(i) if i < 0 => {
-                bail!($value.span, "a binomial coefficient must be positive")
-            }
-            Num::Int(i) => i,
-        }
-    };
-}
-
 /// Calculate a binomial coefficient.
 ///
 /// ## Example
@@ -563,9 +549,8 @@ pub fn binom(
     /// The lower coefficient. Must be positive.
     k: Spanned<Num>,
 ) -> Value {
-    let n_parsed = check_binom_argument!(n) as u64;
-
-    let k_parsed = check_binom_argument!(k) as u64;
+    let n_parsed = check_positive_argument!(n, "binomial coefficient") as u64;
+    let k_parsed = check_positive_argument!(k, "binomial coefficient") as u64;
 
     Value::Int(binomial(n_parsed, k_parsed) as i64)
 }
