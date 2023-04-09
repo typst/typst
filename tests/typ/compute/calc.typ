@@ -134,19 +134,19 @@
 #test(calc.perm(5, 5), 120)
 #test(calc.perm(5, 6), 0)
 ---
-// Error: 12-15 a permutation base argument must be an integer
+// Error: 12-15 a permutation argument must be an integer
 #calc.perm(1.5, 1)
 
 ---
-// Error: 12-14 a permutation base argument must be positive
+// Error: 12-14 a permutation argument must be positive
 #calc.perm(-1, 1)
 
 ---
-// Error: 15-18 a permutation numbers argument must be an integer
+// Error: 15-18 a permutation argument must be an integer
 #calc.perm(1, 1.5)
 
 ---
-// Error: 15-17 a permutation numbers argument must be positive
+// Error: 15-17 a permutation argument must be positive
 #calc.perm(1, -1)
 
 ---
