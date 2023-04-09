@@ -114,6 +114,68 @@
 #calc.log(10, base: -1)
 
 ---
+// Test the `fact` function.
+#test(calc.fact(0), 1)
+#test(calc.fact(5), 120)
+---
+// Error: 12-15 a factorial argument must be an integer
+#calc.fact(1.5)
+---
+// Error: 12-14 a factorial argument should not exceed 20
+#calc.fact(21)
+---
+// Error: 12-14 a factorial argument must be positive
+#calc.fact(-1)
+
+---
+// Test the `perm` function.
+#test(calc.perm(0, 0), 1)
+#test(calc.perm(5, 3), 60)
+#test(calc.perm(5, 5), 120)
+#test(calc.perm(5, 6), 0)
+---
+// Error: 12-15 a permutation base argument must be an integer
+#calc.perm(1.5, 1)
+
+---
+// Error: 12-14 a permutation base argument must be positive
+#calc.perm(-1, 1)
+
+---
+// Error: 15-18 a permutation numbers argument must be an integer
+#calc.perm(1, 1.5)
+
+---
+// Error: 15-17 a permutation numbers argument must be positive
+#calc.perm(1, -1)
+
+---
+// Error: 12-14 the permutation result is too big
+#calc.perm(21, 21)
+
+---
+// Test the `binom` function.
+#test(calc.binom(0, 0), 1)
+#test(calc.binom(5, 3), 10)
+#test(calc.binom(5, 5), 1)
+#test(calc.binom(5, 6), 0)
+---
+// Error: 13-16 a binomial coefficient must be an integer
+#calc.binom(1.5, 0)
+
+---
+// Error: 13-15 a binomial coefficient must be positive
+#calc.binom(-1, 0)
+
+---
+// Error: 16-19 a binomial coefficient must be an integer
+#calc.binom(1, 1.5)
+
+---
+// Error: 16-18 a binomial coefficient must be positive
+#calc.binom(1, -1)
+
+---
 // Error: 10-12 expected at least one value
 #calc.min()
 
