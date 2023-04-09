@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+// use typst::geom::Color;
 use clap::{ArgAction, Parser, Subcommand};
 
 /// typst creates PDF files from .typ files
@@ -47,6 +48,14 @@ pub struct CompileCommand {
     /// Opens the output file after compilation using the default PDF viewer
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
+
+    #[arg(long, short, default_value_t = false)]
+    pub image: bool,
+
+    #[arg(long, requires = "image", default_value_t = 1.0)]
+    pub pixel_per_pt: f32,
+    // #[arg(long, requires = "image")]
+    // pub fill: Color,
 }
 
 /// List all discovered fonts in system and custom font paths

@@ -1,5 +1,4 @@
 mod args;
-
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -22,6 +21,7 @@ use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::eval::Library;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
+use typst::geom::Color;
 use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
 use typst::World;
@@ -34,6 +34,11 @@ type CodespanError = codespan_reporting::files::Error;
 
 pub fn typst_version() -> &'static str {
     env!("TYPST_VERSION")
+}
+
+struct ImageSettings {
+    pixel_per_pt: f32,
+    // fill: Color,
 }
 
 /// A summary of the input arguments relevant to compilation.
@@ -55,6 +60,8 @@ struct CompileSettings {
 
     /// The open command to use.
     open: Option<Option<String>>,
+
+    image_settings: Option<ImageSettings>,
 }
 
 impl CompileSettings {
@@ -66,12 +73,23 @@ impl CompileSettings {
         root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
+        image_settings: Option<ImageSettings>,
     ) -> Self {
         let output = match output {
             Some(path) => path,
-            None => input.with_extension("pdf"),
+            None => {
+                input.with_extension(if image_settings.is_some() { "png" } else { "pdf" })
+            }
         };
-        Self { input, output, watch, root, font_paths, open }
+        Self {
+            input,
+            output,
+            watch,
+            root,
+            font_paths,
+            open,
+            image_settings,
+        }
     }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
@@ -80,12 +98,21 @@ impl CompileSettings {
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
-        let CompileCommand { input, output, open } = match args.command {
-            Command::Compile(command) => command,
-            Command::Watch(command) => command,
-            _ => unreachable!(),
-        };
-        Self::new(input, output, watch, args.root, args.font_paths, open)
+        let CompileCommand { input, output, open, image, pixel_per_pt } =
+            match args.command {
+                Command::Compile(command) => command,
+                Command::Watch(command) => command,
+                _ => unreachable!(),
+            };
+        Self::new(
+            input,
+            output,
+            watch,
+            args.root,
+            args.font_paths,
+            open,
+            if image { Some(ImageSettings { pixel_per_pt }) } else { None },
+        )
     }
 }
 
@@ -234,8 +261,33 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
     match typst::compile(world) {
         // Export the PDF.
         Ok(document) => {
-            let buffer = typst::export::pdf(&document);
-            fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
+            match command.image_settings {
+                Some(ImageSettings { pixel_per_pt }) => {
+                    let fill = Color::WHITE;
+                    let file_stem = command.output.file_stem().unwrap().to_str().unwrap();
+                    let extension = command.output.extension().unwrap();
+                    // render for each frame and save it with the file stem `{file_stem}-{i}` where i is the page number
+                    for (i, frame) in document.pages.iter().enumerate() {
+                        typst::export::render(frame, pixel_per_pt, fill)
+                            .save_png(
+                                command
+                                    .output
+                                    .with_file_name(format!(
+                                        "{}-{}",
+                                        file_stem,
+                                        (i + 1).to_string()
+                                    ))
+                                    .with_extension(extension),
+                            )
+                            .map_err(|_| "failed to write .png file")?;
+                    }
+                }
+                None => {
+                    let buffer = typst::export::pdf(&document);
+                    fs::write(&command.output, buffer)
+                        .map_err(|_| "failed to write PDF file")?;
+                }
+            }
             status(command, Status::Success).unwrap();
             Ok(false)
         }
