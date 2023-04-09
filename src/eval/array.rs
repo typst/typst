@@ -322,6 +322,17 @@ impl Array {
         usize::try_from(if index >= 0 { index } else { self.len().checked_add(index)? })
             .ok()
     }
+
+    /// Enumerate all items in the array.
+    pub fn enumerate(&self) -> Self {
+        let v = self
+            .iter()
+            .enumerate()
+            .map(|(i, value)| array![i, value.clone()])
+            .map(Value::Array)
+            .collect();
+        Self::from_vec(v)
+    }
 }
 
 impl Debug for Array {

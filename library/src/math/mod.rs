@@ -274,12 +274,16 @@ impl Count for EquationElem {
 impl LocalName for EquationElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::BOKMÅL => "Ligning",
             Lang::CHINESE => "等式",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
             Lang::ITALIAN => "Equazione",
+            Lang::NYNORSK => "Likning",
+            Lang::POLISH => "Równanie",
             Lang::PORTUGUESE => "Equação",
             Lang::RUSSIAN => "Уравнение",
+            Lang::SLOVENIAN => "Enačba",
             Lang::SPANISH => "Ecuación",
             Lang::UKRAINIAN => "Рівняння",
             _ => "Equation",
@@ -338,6 +342,11 @@ impl LayoutMath for EquationElem {
 
 impl LayoutMath for Content {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        if let Some(realized) = ctx.realize(self)? {
+            realized.layout_math(ctx)?;
+            return Ok(());
+        }
+
         if let Some(children) = self.to_sequence() {
             for child in children {
                 child.layout_math(ctx)?;

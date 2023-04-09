@@ -29,6 +29,11 @@ walkdir = "2"
 clap = { version = "4.2.1", features = ["derive"] }
 open = "4.0.1"
 
+[build-dependencies]
+clap = { version = "4.2.1", features = ["derive", "string"] }
+clap_complete = "4.2.0"
+clap_mangen = "0.2.10"
+
 [features]
 default = ["embed-fonts"]
 
@@ -36,5 +41,6 @@ default = ["embed-fonts"]
 # - text (Linux Libertine),
 # - math (New Computer Modern Math), and
 # - code (Deja Vu Sans Mono)
+# and additionally New Computer Modern for text
 # into the binary.
 embed-fonts = []

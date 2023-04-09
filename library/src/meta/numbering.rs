@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
 use ecow::EcoVec;
 
 use crate::prelude::*;
@@ -36,8 +37,9 @@ use crate::text::Case;
 pub fn numbering(
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I` and `*`. They are
-    /// replaced by the number in the sequence, in the given case.
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `い`, `イ`,
+    /// `א`, and `*`. They are replaced by the number in the sequence,
+    /// in the given case.
     ///
     /// The `*` character means that symbols should be used to count, in the
     /// order of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six
@@ -129,8 +131,8 @@ cast_to_value! {
 
 /// How to turn a number into text.
 ///
-/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`, `I`
-/// or `*`, and then a suffix.
+/// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`,
+/// `I`, `い`, `イ`, `א`, or `*`, and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
@@ -213,7 +215,8 @@ impl FromStr for NumberingPattern {
             };
 
             let prefix = pattern[handled..i].into();
-            let case = if c.is_uppercase() { Case::Upper } else { Case::Lower };
+            let case =
+                if c.is_uppercase() || c == '壹' { Case::Upper } else { Case::Lower };
             pieces.push((prefix, kind, case));
             handled = c.len_utf8() + i;
         }
@@ -256,6 +259,9 @@ enum NumberingKind {
     Roman,
     Symbol,
     Hebrew,
+    Chinese,
+    HiraganaIroha,
+    KatakanaIroha,
 }
 
 impl NumberingKind {
@@ -267,6 +273,9 @@ impl NumberingKind {
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
+            '一' | '壹' => NumberingKind::Chinese,
+            'い' => NumberingKind::HiraganaIroha,
+            'イ' => NumberingKind::KatakanaIroha,
             _ => return None,
         })
     }
@@ -279,6 +288,9 @@ impl NumberingKind {
             Self::Roman => 'i',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
+            Self::Chinese => '一',
+            Self::HiraganaIroha => 'い',
+            Self::KatakanaIroha => 'イ',
         }
     }
 
@@ -288,29 +300,37 @@ impl NumberingKind {
             Self::Arabic => {
                 eco_format!("{n}")
             }
-            Self::Letter => {
-                if n == 0 {
-                    return '-'.into();
-                }
-
-                n -= 1;
-
-                let mut letters = vec![];
-                loop {
-                    let c = b'a' + (n % 26) as u8;
-                    letters.push(match case {
-                        Case::Lower => c,
-                        Case::Upper => c.to_ascii_uppercase(),
-                    });
-                    n /= 26;
-                    if n == 0 {
-                        break;
-                    }
-                }
-
-                letters.reverse();
-                String::from_utf8(letters).unwrap().into()
-            }
+            Self::Letter => zeroless::<26>(
+                |x| match case {
+                    Case::Lower => char::from(b'a' + x as u8),
+                    Case::Upper => char::from(b'A' + x as u8),
+                },
+                n,
+            ),
+            Self::HiraganaIroha => zeroless::<47>(
+                |x| {
+                    [
+                        'い', 'ろ', 'は', 'に', 'ほ', 'へ', 'と', 'ち', 'り', 'ぬ', 'る',
+                        'を', 'わ', 'か', 'よ', 'た', 'れ', 'そ', 'つ', 'ね', 'な', 'ら',
+                        'む', 'う', 'ゐ', 'の', 'お', 'く', 'や', 'ま', 'け', 'ふ', 'こ',
+                        'え', 'て', 'あ', 'さ', 'き', 'ゆ', 'め', 'み', 'し', 'ゑ', 'ひ',
+                        'も', 'せ', 'す',
+                    ][x]
+                },
+                n,
+            ),
+            Self::KatakanaIroha => zeroless::<47>(
+                |x| {
+                    [
+                        'イ', 'ロ', 'ハ', 'ニ', 'ホ', 'ヘ', 'ト', 'チ', 'リ', 'ヌ', 'ル',
+                        'ヲ', 'ワ', 'カ', 'ヨ', 'タ', 'レ', 'ソ', 'ツ', 'ネ', 'ナ', 'ラ',
+                        'ム', 'ウ', 'ヰ', 'ノ', 'オ', 'ク', 'ヤ', 'マ', 'ケ', 'フ', 'コ',
+                        'エ', 'テ', 'ア', 'サ', 'キ', 'ユ', 'メ', 'ミ', 'シ', 'ヱ', 'ヒ',
+                        'モ', 'セ', 'ス',
+                    ][x]
+                },
+                n,
+            ),
             Self::Roman => {
                 if n == 0 {
                     return 'N'.into();
@@ -417,6 +437,61 @@ impl NumberingKind {
                 }
                 fmt
             }
+            Self::Chinese => {
+                let chinesecase = match case {
+                    Case::Lower => ChineseCase::Lower,
+                    Case::Upper => ChineseCase::Upper,
+                };
+
+                match (n as u8).to_chinese(
+                    ChineseVariant::Simple,
+                    chinesecase,
+                    ChineseCountMethod::TenThousand,
+                ) {
+                    Ok(chinesestring) => EcoString::from(chinesestring),
+                    Err(_) => '-'.into(),
+                }
+            }
         }
     }
+}
+
+/// Stringify a number using a base-N counting system with no zero digit.
+///
+/// This is best explained by example.  Suppose our digits are 'A', 'B', and 'C'.
+/// we would get the following:
+///
+/// ```text
+///  1 =>   "A"
+///  2 =>   "B"
+///  3 =>   "C"
+///  4 =>  "AA"
+///  5 =>  "AB"
+///  6 =>  "AC"
+///  7 =>  "BA"
+///  8 =>  "BB"
+///  9 =>  "BC"
+/// 10 =>  "CA"
+/// 11 =>  "CB"
+/// 12 =>  "CC"
+/// 13 => "AAA"
+///    etc.
+/// ```
+///
+/// You might be familiar with this scheme from the way spreadsheet software
+/// tends to label its columns.
+fn zeroless<const N_DIGITS: usize>(
+    mk_digit: impl Fn(usize) -> char,
+    mut n: usize,
+) -> EcoString {
+    if n == 0 {
+        return '-'.into();
+    }
+    let mut cs = vec![];
+    while n > 0 {
+        n -= 1;
+        cs.push(mk_digit(n % N_DIGITS));
+        n /= N_DIGITS;
+    }
+    cs.into_iter().rev().collect()
 }
