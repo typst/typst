@@ -427,7 +427,7 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
 }
 
 fn factorial(number: u64) -> Option<u64> {
-    factorial_range(1, number + 1)
+    factorial_range(1, number)
 }
 
 /// Calculate the factorial of a number.
