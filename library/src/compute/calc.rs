@@ -561,7 +561,7 @@ pub fn binom(
 
     match result {
         None => bail!(n.span, "the binomial result is too big"),
-        Some(r) => Value::Int(r)
+        Some(r) => Value::Int(r),
     }
 }
 
