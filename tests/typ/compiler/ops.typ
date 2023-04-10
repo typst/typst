@@ -209,9 +209,9 @@
 #((a,) = (1,))
 #test(a, 1)
 
-// #((_, a, b, _) = (1, 2, 3, 4))
-// #test(a, 2)
-// #test(b, 3)
+#((_, a, b, _) = (1, 2, 3, 4))
+#test(a, 2)
+#test(b, 3)
 
 #((a, b, ..c) = (1, 2, 3, 4, 5, 6))
 #test(a, 1)
@@ -222,6 +222,20 @@
 #test(a, 1)
 #test(b, 2)
 #test(c, 3)
+
+#let a = (1, 2)
+#((a: a.at(0), b) = (a: 3, b: 4))
+#test(a, (3, 2))
+#test(b, 4)
+
+#let a = (1, 2)
+#((a.at(0), b) = (3, 4))
+#test(a, (3, 2))
+#test(b, 4)
+
+#((a, ..b) = (1, 2, 3, 4))
+#test(a, 1)
+#test(b, (2, 3, 4))
 
 ---
 // Error: 3-6 cannot mutate a constant: box
