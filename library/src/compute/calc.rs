@@ -409,7 +409,7 @@ pub fn log(
 }
 
 /// Calculates the product of a range of numbers. Used to calculate permutations.
-/// Returns None if the result is bigger than `u64::MAX`
+/// Returns None if the result is larger than `u64::MAX`
 fn factorial_range(start: u64, end: u64) -> Option<u64> {
     // By convention
     if end + 1 < start {
@@ -429,7 +429,7 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
 }
 
 /// Calculates the factorial of an integer.
-/// Returns `None` if the result is bigger than `u64::MAX`
+/// Returns `None` if the result is larger than `u64::MAX`
 fn factorial(number: u64) -> Option<u64> {
     factorial_range(1, number)
 }
@@ -513,13 +513,13 @@ pub fn perm(
     };
 
     match result {
-        None => bail!(base.span, "the permutation result is too big"),
+        None => bail!(base.span, "the permutation result is too large"),
         Some(s) => Value::Int(s),
     }
 }
 
 /// Calculates a binomial coefficient, with `n` the upper coefficient and `k` the lower coefficient.
-/// Returns `None` if the result is bigger than `u64::MAX`
+/// Returns `None` if the result is larger than `u64::MAX`
 fn binomial(n: u64, k: u64) -> Option<u64> {
     if k > n {
         return Some(0);
@@ -567,7 +567,7 @@ pub fn binom(
     let result = binomial(n_parsed, k_parsed).and_then(|raw| i64::try_from(raw).ok());
 
     match result {
-        None => bail!(n.span, "the binomial result is too big"),
+        None => bail!(n.span, "the binomial result is too large"),
         Some(r) => Value::Int(r),
     }
 }
