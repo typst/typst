@@ -498,7 +498,9 @@ pub fn perm(
     let numbers_parsed = check_positive_argument!(numbers, "permutation argument") as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
-        if let Some(value) = factorial_range(base_parsed - numbers_parsed + 1, base_parsed) {
+        if let Some(value) =
+            factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
+        {
             i64::try_from(value).ok()
         } else {
             None
