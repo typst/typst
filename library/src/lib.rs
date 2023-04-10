@@ -221,7 +221,7 @@ fn items() -> LangItems {
         equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointElem::new().pack(),
         math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),
-        math_attach: |base, bottom, top,prebottom, pretop| {
+        math_attach: |base, bottom, top, prebottom, pretop| {
             let mut elem = math::AttachElem::new(base);
             if let Some(bottom) = bottom {
                 elem.push_bottom(Some(bottom));
