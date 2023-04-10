@@ -408,6 +408,8 @@ pub fn log(
     Value::Float(result)
 }
 
+/// Calculates the product of a range of numbers. Used to calculate permutations.
+/// Returns None if the result is bigger than `u64::MAX`
 fn factorial_range(start: u64, end: u64) -> Option<u64> {
     // By convention
     if end + 1 < start {
@@ -426,6 +428,8 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
     Some(count)
 }
 
+/// Calculates the factorial of an integer.
+/// Returns `None` if the result is bigger than `u64::MAX`
 fn factorial(number: u64) -> Option<u64> {
     factorial_range(1, number)
 }
@@ -516,25 +520,30 @@ pub fn perm(
     }
 }
 
-fn binomial(n: u64, k: u64) -> u64 {
+/// Calculates a binomial coefficient, with `n` the upper coefficient and `k` the lower coefficient.
+/// Returns `None` if the result is bigger than `u64::MAX`
+fn binomial(n: u64, k: u64) -> Option<u64> {
     if k > n {
-        return 0;
+        return Some(0);
     }
 
     // By symmetry
     let real_k = cmp::min(n - k, k);
 
     if real_k == 0 {
-        return 1;
+        return Some(1);
     }
 
-    let mut result = 1;
+    let mut result: u64 = 1;
 
     for i in 0..real_k {
-        result *= (n - i) / (i + 1)
+        match result.checked_mul((n - i) / (i + 1)) {
+            None => return None,
+            Some(s) => result = s,
+        };
     }
 
-    result
+    Some(result)
 }
 
 /// Calculate a binomial coefficient.
@@ -557,7 +566,11 @@ pub fn binom(
     let n_parsed = check_positive_argument!(n, "binomial coefficient") as u64;
     let k_parsed = check_positive_argument!(k, "binomial coefficient") as u64;
 
-    let result = i64::try_from(binomial(n_parsed, k_parsed)).ok();
+    let result = if let Some(raw) = binomial(n_parsed, k_parsed) {
+        i64::try_from(raw).ok()
+    } else {
+        None
+    };
 
     match result {
         None => bail!(n.span, "the binomial result is too big"),
