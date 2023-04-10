@@ -171,31 +171,33 @@ fn scripts(
         }
     }
 
-    macro_rules! measure {
-        ($e: ident, $attr: ident) => {
-            $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
-        };
-    }
-
     for (sup, sub) in [(&pre_sup, &pre_sub), (&sup, &sub)] {
         if let (Some(sup), Some(sub)) = (&sup, &sub) {
             let sup_bottom = shift_up - sup.descent();
             let sub_top = sub.ascent() - shift_down;
             let gap = sup_bottom - sub_top;
-            if gap < gap_min {
-                let increase = gap_min - gap;
-                let sup_only =
-                    (sup_bottom_max_with_sub - sup_bottom).clamp(Abs::zero(), increase);
-                let rest = (increase - sup_only) / 2.0;
-                shift_up += sup_only + rest;
-                shift_down += rest;
+            if gap >= gap_min {
+                continue;
             }
+
+            let increase = gap_min - gap;
+            let sup_only =
+                (sup_bottom_max_with_sub - sup_bottom).clamp(Abs::zero(), increase);
+            let rest = (increase - sup_only) / 2.0;
+            shift_up += sup_only + rest;
+            shift_down += rest;
         }
     }
 
     let italics = base.italics_correction();
     let sup_delta = Abs::zero();
     let sub_delta = -italics;
+
+    macro_rules! measure {
+        ($e: ident, $attr: ident) => {
+            $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
+        };
+    }
 
     let ascent = base
         .ascent()
@@ -209,14 +211,15 @@ fn scripts(
 
     let pre_sup_width = measure!(pre_sup, width);
     let pre_sub_width = measure!(pre_sub, width);
-    let pre_width_dif = pre_sup_width - pre_sub_width;
+    let pre_width_dif = pre_sup_width - pre_sub_width; // Could be negative.
     let pre_width_max = pre_sup_width.max(pre_sub_width);
-    let post_max_width = Abs::zero()
-        .max(sup_delta + measure!(sup, width))
-        .max(sub_delta + measure!(sub, width));
-    let width = pre_width_max + base.width() + post_max_width + space_after;
+    let post_max_width =
+        (sup_delta + measure!(sup, width)).max(sub_delta + measure!(sub, width));
 
-    let mut frame = Frame::new(Size::new(width, ascent + descent));
+    let mut frame = Frame::new(Size::new(
+        pre_width_max + base.width() + post_max_width + space_after,
+        ascent + descent,
+    ));
 
     if let Some(pre_sup) = pre_sup {
         let pos = Point::new(
