@@ -682,7 +682,11 @@ impl Eval for ast::MathAttach {
         let base = self.base().eval_display(vm)?;
         let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
         let top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
-        Ok((vm.items.math_attach)(base, bottom, top))
+        // These two are not supported via this syntax sugar, and must be
+        // invoked directly using the function.
+        let prebottom: Option<Content> = None;
+        let pretop: Option<Content> = None;
+        Ok((vm.items.math_attach)(base, bottom, top, prebottom, pretop))
     }
 }
 

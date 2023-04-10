@@ -3,8 +3,9 @@ use super::*;
 /// A base with optional attachments.
 ///
 /// ## Syntax
-/// This function also has dedicated syntax: Use the underscore (`_`) to
-/// indicate a bottom attachment and the hat (`^`) to indicate a top attachment.
+/// This function also has dedicated syntax for attachments after the base: Use the
+/// underscore (`_`) to indicate a subscript i.e. bottom attachment and the hat (`^`)
+/// to indicate a superscript i.e. top attachment.
 ///
 /// ## Example
 /// ```example
@@ -19,33 +20,45 @@ pub struct AttachElem {
     #[required]
     pub base: Content,
 
-    /// The top attachment.
+    /// The top attachment after the base.
     pub top: Option<Content>,
 
-    /// The bottom attachment.
+    /// The bottom attachment after the base.
     pub bottom: Option<Content>,
+
+    /// The bottom attachment before the base.
+    pub prebottom: Option<Content>,
+
+    /// The top attachment before base.
+    pub pretop: Option<Content>,
 }
 
 impl LayoutMath for AttachElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let base = self.base();
-        let display_limits = base.is::<LimitsElem>();
+        let display_limits = base.is::<LimitsElem>()
+            && self.prebottom(ctx.styles()).is_none()
+            && self.pretop(ctx.styles()).is_none();
         let display_scripts = base.is::<ScriptsElem>();
 
         let base = ctx.layout_fragment(&base)?;
 
+        macro_rules! take_attachment {
+            ($F: ident) => {
+                self.$F(ctx.styles())
+                    .map(|elem| ctx.layout_fragment(&elem))
+                    .transpose()?
+            };
+        }
+
         ctx.style(ctx.style.for_superscript());
-        let top = self
-            .top(ctx.styles())
-            .map(|elem| ctx.layout_fragment(&elem))
-            .transpose()?;
+        let top = take_attachment!(top);
+        let pretop = take_attachment!(pretop);
         ctx.unstyle();
 
         ctx.style(ctx.style.for_subscript());
-        let bottom = self
-            .bottom(ctx.styles())
-            .map(|elem| ctx.layout_fragment(&elem))
-            .transpose()?;
+        let bottom = take_attachment!(bottom);
+        let prebottom = take_attachment!(prebottom);
         ctx.unstyle();
 
         let display_limits = display_limits
@@ -61,7 +74,7 @@ impl LayoutMath for AttachElem {
         if display_limits {
             limits(ctx, base, top, bottom)
         } else {
-            scripts(ctx, base, top, bottom)
+            scripts(ctx, base, top, bottom, pretop, prebottom)
         }
     }
 }
@@ -116,6 +129,8 @@ fn scripts(
     base: MathFragment,
     sup: Option<MathFragment>,
     sub: Option<MathFragment>,
+    pre_sup: Option<MathFragment>,
+    pre_sub: Option<MathFragment>,
 ) -> SourceResult<()> {
     let sup_shift_up = if ctx.style.cramped {
         scaled!(ctx, superscript_shift_up_cramped)
@@ -134,34 +149,47 @@ fn scripts(
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
 
-    if let Some(sup) = &sup {
-        let ascent = match &base {
-            MathFragment::Frame(frame) => frame.base_ascent,
-            _ => base.ascent(),
+    for e in [&sup, &pre_sup] {
+        if let Some(e) = e {
+            let ascent = match &base {
+                MathFragment::Frame(frame) => frame.base_ascent,
+                _ => base.ascent(),
+            };
+
+            shift_up = shift_up
+                .max(sup_shift_up)
+                .max(ascent - sup_drop_max)
+                .max(sup_bottom_min + e.descent());
+        }
+    }
+    for e in [&sub, &pre_sub] {
+        if let Some(e) = e {
+            shift_down = shift_down
+                .max(sub_shift_down)
+                .max(base.descent() + sub_drop_min)
+                .max(e.ascent() - sub_top_max);
+        }
+    }
+
+    macro_rules! measure {
+        ($e: ident, $attr: ident) => {
+            $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
         };
-
-        shift_up = sup_shift_up
-            .max(ascent - sup_drop_max)
-            .max(sup_bottom_min + sup.descent());
     }
 
-    if let Some(sub) = &sub {
-        shift_down = sub_shift_down
-            .max(base.descent() + sub_drop_min)
-            .max(sub.ascent() - sub_top_max);
-    }
-
-    if let (Some(sup), Some(sub)) = (&sup, &sub) {
-        let sup_bottom = shift_up - sup.descent();
-        let sub_top = sub.ascent() - shift_down;
-        let gap = sup_bottom - sub_top;
-        if gap < gap_min {
-            let increase = gap_min - gap;
-            let sup_only =
-                (sup_bottom_max_with_sub - sup_bottom).clamp(Abs::zero(), increase);
-            let rest = (increase - sup_only) / 2.0;
-            shift_up += sup_only + rest;
-            shift_down += rest;
+    for (sup, sub) in [(&pre_sup, &pre_sub), (&sup, &sub)] {
+        if let (Some(sup), Some(sub)) = (&sup, &sub) {
+            let sup_bottom = shift_up - sup.descent();
+            let sub_top = sub.ascent() - shift_down;
+            let gap = sup_bottom - sub_top;
+            if gap < gap_min {
+                let increase = gap_min - gap;
+                let sup_only =
+                    (sup_bottom_max_with_sub - sup_bottom).clamp(Abs::zero(), increase);
+                let rest = (increase - sup_only) / 2.0;
+                shift_up += sup_only + rest;
+                shift_down += rest;
+            }
         }
     }
 
@@ -169,40 +197,64 @@ fn scripts(
     let sup_delta = Abs::zero();
     let sub_delta = -italics;
 
-    let mut width = Abs::zero();
-    let mut ascent = base.ascent();
-    let mut descent = base.descent();
+    let ascent = base
+        .ascent()
+        .max(shift_up + measure!(sup, ascent))
+        .max(shift_up + measure!(pre_sup, ascent));
 
-    if let Some(sup) = &sup {
-        ascent.set_max(shift_up + sup.ascent());
-        width.set_max(sup_delta + sup.width());
+    let descent = base
+        .descent()
+        .max(shift_down + measure!(sub, descent))
+        .max(shift_down + measure!(pre_sub, descent));
+
+    let pre_sup_width = measure!(pre_sup, width);
+    let pre_sub_width = measure!(pre_sub, width);
+    let pre_width_dif = pre_sup_width - pre_sub_width;
+    let pre_width_max = pre_sup_width.max(pre_sub_width);
+    let post_max_width = Abs::zero()
+        .max(sup_delta + measure!(sup, width))
+        .max(sub_delta + measure!(sub, width));
+    let width = pre_width_max + base.width() + post_max_width + space_after;
+
+    let mut frame = Frame::new(Size::new(width, ascent + descent));
+
+    if let Some(pre_sup) = pre_sup {
+        let pos = Point::new(
+            -pre_width_dif.min(Abs::zero()),
+            ascent - shift_up - pre_sup.ascent(),
+        );
+        frame.push_frame(pos, pre_sup.to_frame());
     }
 
-    if let Some(sub) = &sub {
-        descent.set_max(shift_down + sub.descent());
-        width.set_max(sub_delta + sub.width());
+    if let Some(pre_sub) = pre_sub {
+        let pos = Point::new(
+            pre_width_dif.max(Abs::zero()),
+            ascent + shift_down - pre_sub.ascent(),
+        );
+        frame.push_frame(pos, pre_sub.to_frame());
     }
 
-    width += base.width() + space_after;
-
-    let base_pos = Point::with_y(ascent - base.ascent());
+    let base_pos = Point::new(sup_delta + pre_width_max, ascent - base.ascent());
     let base_width = base.width();
     let class = base.class().unwrap_or(MathClass::Normal);
 
-    let mut frame = Frame::new(Size::new(width, ascent + descent));
     frame.set_baseline(ascent);
     frame.push_frame(base_pos, base.to_frame());
 
     if let Some(sup) = sup {
-        let sup_pos =
-            Point::new(sup_delta + base_width, ascent - shift_up - sup.ascent());
-        frame.push_frame(sup_pos, sup.to_frame());
+        let pos = Point::new(
+            sup_delta + pre_width_max + base_width,
+            ascent - shift_up - sup.ascent(),
+        );
+        frame.push_frame(pos, sup.to_frame());
     }
 
     if let Some(sub) = sub {
-        let sub_pos =
-            Point::new(sub_delta + base_width, ascent + shift_down - sub.ascent());
-        frame.push_frame(sub_pos, sub.to_frame());
+        let pos = Point::new(
+            sub_delta + pre_width_max + base_width,
+            ascent + shift_down - sub.ascent(),
+        );
+        frame.push_frame(pos, sub.to_frame());
     }
 
     ctx.push(FrameFragment::new(ctx, frame).with_class(class));
