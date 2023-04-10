@@ -557,7 +557,12 @@ pub fn binom(
     let n_parsed = check_positive_argument!(n, "binomial coefficient") as u64;
     let k_parsed = check_positive_argument!(k, "binomial coefficient") as u64;
 
-    Value::Int(binomial(n_parsed, k_parsed) as i64)
+    let result = i64::try_from(binomial(n_parsed, k_parsed)).ok();
+
+    match result {
+        None => bail!(n.span, "the binomial result is too big"),
+        Some(r) => Value::Int(r)
+    }
 }
 
 /// Round a number down to the nearest integer.
