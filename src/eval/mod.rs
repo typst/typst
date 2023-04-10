@@ -1264,6 +1264,7 @@ impl ast::Pattern {
 
                 Ok(Value::None)
             }
+            ast::PatternKind::Pipe(_) => todo!(),
         }
     }
 }

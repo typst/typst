@@ -591,6 +591,15 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
             continue;
         }
 
+        if p.eat_if(SyntaxKind::Dots) {
+            // code_expr_prec(p, false, min_prec);
+            p.wrap(m, SyntaxKind::Pattern);
+            p.expect(SyntaxKind::Pipe);
+            code_expr_prec(p, false, min_prec);
+            p.wrap(m, SyntaxKind::Binary);
+            continue;
+        }
+
         let binop =
             if ast::BinOp::NotIn.precedence() >= min_prec && p.eat_if(SyntaxKind::Not) {
                 if p.at(SyntaxKind::In) {
@@ -652,7 +661,7 @@ fn code_primary(p: &mut Parser, atomic: bool) {
         SyntaxKind::Break => break_stmt(p),
         SyntaxKind::Continue => continue_stmt(p),
         SyntaxKind::Return => return_stmt(p),
-
+        //SyntaxKind::Dots => pipe_stmt(p),
         SyntaxKind::None
         | SyntaxKind::Auto
         | SyntaxKind::Int
@@ -1022,6 +1031,17 @@ fn return_stmt(p: &mut Parser) {
     }
     p.wrap(m, SyntaxKind::FuncReturn);
 }
+
+//fn pipe_stmt(p: &mut Parser) {
+//    panic!("");
+//    let m = p.marker();
+//    p.assert(SyntaxKind::Dots);
+//    code_expr_prec(p, true, 2);
+//    p.wrap(m, SyntaxKind::Spread);
+//    p.expect(SyntaxKind::Pipe);
+//    code_expr_prec(p, true, 2);
+//    p.wrap(m, SyntaxKind::Binary);
+//}
 
 fn validate_array(p: &mut Parser, m: Marker) {
     for child in p.post_process(m) {
@@ -1450,4 +1470,10 @@ impl<'s> Parser<'s> {
                 .convert_to_error(eco_format!("unexpected {}", kind.name()));
         }
     }
+}
+
+#[test]
+fn feature() {
+    dbg!(parse_code("(1,2).. |> f"));
+    //    dbg!(parse_code("f((1,2).. |> f)"))
 }

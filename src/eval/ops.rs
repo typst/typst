@@ -8,8 +8,8 @@ use super::{format_str, Eval, Regex, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::eval::Func;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
-use crate::syntax::ast::{AstNode, Binary, Expr};
-use crate::syntax::{ast, SyntaxKind, SyntaxNode};
+use crate::syntax::ast::{self, Arg, AstNode, Binary, Expr, Ident, Pattern, PatternKind};
+use crate::syntax::{Spanned, SyntaxKind, SyntaxNode};
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -429,29 +429,79 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
 
 pub fn pipe(b: &Binary, vm: &mut Vm) -> SourceResult<Value> {
     use crate::diag::At;
-    let lhs = b.lhs();
-    let rhs = b.rhs();
+    let rhs =  b.rhs();
+    let span = b.span();
+    println!("pipe");
+    let piped_args: Vec<Value>;
 
+    if let Some(lhs) = b.lhs_pattern() {
+        println!("some pattern");    
+        let PatternKind::Pipe(expr) = &lhs.kind() else {panic!()};
+        let expr = expr.eval(vm)?;
+        match expr {
+            Array(arr) => {
+                println!("lhs is array");
+                piped_args = arr.into_iter().collect();
+            }
+            value => {
+                println!("lhs is value");
+                piped_args = vec![value];
+            }
+        };
+    } else {
+        piped_args = vec![b.lhs().eval(vm)?];
+    }
     if let Expr::FuncCall(fc) = rhs {
-        let (callee, args) = (fc.callee(), fc.args());
-        let mut args = args.eval(vm)?;
+        println!("rhs is funccall");
+        // tries to pattern
+        let (callee, syntax_args) = (fc.callee(), fc.args());
+        dbg!(&callee, &syntax_args);
+
+        let mut piped_args = piped_args.clone();
+        //let args = syntax_args.eval(vm)?;
+        //let mut args = args.items.into_iter().collect::<Vec<_>>();
+        //args.reverse();
+        piped_args.reverse();
+        let mut new_args = crate::eval::Args::new(span, vec![]);
+
+        for  arg in syntax_args.items() {
+            match arg {
+                Arg::Pos(expr) => {
+                    if let Some(ident) = expr.as_untyped().cast::<Ident>() {
+                        if ident.get() == "_" {
+                            new_args.push(span, piped_args.pop().unwrap()) // good error instead
+                        } else {
+                            let arg = expr.eval(vm)?;
+                            new_args.push(span, arg)
+                        }
+                    } else {
+                        let arg = expr.eval(vm)?;
+                        new_args.push(span, arg)
+                };
+                }
+                Arg::Named(n) => {
+                    if n.name().get() == "_" {
+                        new_args.push(span, piped_args.pop().unwrap()) // good error instead
+                    }
+                    else {
+                        let arg = n.expr().eval(vm)?;
+                        new_args.push_named(span, arg,&n.name().get());
+                    }
+                },
+                Arg::Spread(_) => todo!("dont support spread yet"),
+            }
+        }
+        for value in piped_args {
+            new_args.push(span, value)
+        }
 
         let func = callee.eval(vm)?.cast::<Func>().unwrap();
-        args.push(args.span, lhs.eval(vm)?);
-        func.call_vm(vm, args)
+        func.call_vm(vm, new_args)
+               
     } else {
-        let lhs = b.lhs().eval(vm)?;
-        let rhs = b.rhs().eval(vm)?;
-        match (lhs, rhs) {
-            (v, Func(f)) => f.call_vm(vm, crate::eval::Args::new(b.span(), vec![v])),
-            (x, y) => {
-                return Err(eco_format!(
-                    "cant pipe {} in {}.",
-                    x.type_name(),
-                    y.type_name()
-                ))
-                .at(b.span()); //modify that span if lhs is a pipe for better errors
-            }
+        match rhs.eval(vm)? {
+            Func(fc) => fc.call_vm(vm, crate::eval::Args::new(b.span(), piped_args)),
+            _ => return Err(eco_format!("cant pipe in",)).at(span), //modify that span if lhs is a pipe for better errors,
         }
     }
 }

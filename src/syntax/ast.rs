@@ -1292,6 +1292,10 @@ impl Binary {
     pub fn rhs(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
+
+    pub fn lhs_pattern(&self) -> Option<Pattern> {
+        self.0.cast_first_match()
+    }
 }
 
 /// A binary operator.
@@ -1383,12 +1387,12 @@ impl BinOp {
             Self::NotIn => 4,
             Self::And => 3,
             Self::Or => 2,
-            Self::Pipe => 1,
             Self::Assign => 1,
             Self::AddAssign => 1,
             Self::SubAssign => 1,
             Self::MulAssign => 1,
             Self::DivAssign => 1,
+            Self::Pipe => 0,
         }
     }
 

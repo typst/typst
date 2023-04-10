@@ -46,6 +46,15 @@ impl Args {
         })
     }
 
+    /// Push a named argument.
+    pub fn push_named(&mut self, span: Span, value: Value, name: &str) {
+        self.items.push(Arg {
+            span: self.span,
+            name: Some(name.into()),
+            value: Spanned::new(value, span),
+        })
+    }
+
     /// Consume and cast the first positional argument if there is one.
     pub fn eat<T>(&mut self) -> SourceResult<Option<T>>
     where
