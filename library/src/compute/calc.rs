@@ -467,7 +467,8 @@ pub fn fact(
     Value::Int(factorial(number).unwrap_or_default() as i64)
 }
 
-macro_rules! check_positive_argument {
+/// Checks to make sure that a given `Num` is a positive integer.
+macro_rules! check_positive_integer_argument {
     ( $value:ident, $name:literal ) => {
         match $value.v {
             Num::Float(_) => {
@@ -498,8 +499,8 @@ pub fn perm(
     /// The number of permutations. Must be positive.
     numbers: Spanned<Num>,
 ) -> Value {
-    let base_parsed = check_positive_argument!(base, "permutation argument") as u64;
-    let numbers_parsed = check_positive_argument!(numbers, "permutation argument") as u64;
+    let base_parsed = check_positive_integer_argument!(base, "permutation argument") as u64;
+    let numbers_parsed = check_positive_integer_argument!(numbers, "permutation argument") as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
         if let Some(value) =
@@ -563,8 +564,8 @@ pub fn binom(
     /// The lower coefficient. Must be positive.
     k: Spanned<Num>,
 ) -> Value {
-    let n_parsed = check_positive_argument!(n, "binomial coefficient") as u64;
-    let k_parsed = check_positive_argument!(k, "binomial coefficient") as u64;
+    let n_parsed = check_positive_integer_argument!(n, "binomial coefficient") as u64;
+    let k_parsed = check_positive_integer_argument!(k, "binomial coefficient") as u64;
 
     let result = if let Some(raw) = binomial(n_parsed, k_parsed) {
         i64::try_from(raw).ok()
