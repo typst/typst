@@ -55,7 +55,9 @@ impl Image {
     pub fn decode(&self) -> StrResult<Arc<DecodedImage>> {
         Ok(Arc::new(match self.format {
             ImageFormat::Vector(VectorFormat::Svg) => {
-                let opts = usvg::Options::default();
+                let mut opts = usvg::Options::default();
+                opts.fontdb = fontdb::Database::new();
+                opts.fontdb.load_system_fonts();
                 let tree = usvg::Tree::from_data(&self.data, &opts.to_ref())
                     .map_err(format_usvg_error)?;
                 DecodedImage::Svg(tree)

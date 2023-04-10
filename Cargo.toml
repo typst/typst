@@ -41,7 +41,8 @@ unicode-math-class = "0.1"
 unicode-segmentation = "1"
 unicode-xid = "0.2"
 unscanny = "0.1"
-usvg = { version = "0.22", default-features = false }
+usvg = "0.22"
+fontdb = "0.9"
 xmp-writer = "0.1"
 
 [profile.dev]
