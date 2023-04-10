@@ -499,8 +499,10 @@ pub fn perm(
     /// The number of permutations. Must be positive.
     numbers: Spanned<Num>,
 ) -> Value {
-    let base_parsed = check_positive_integer_argument!(base, "permutation argument") as u64;
-    let numbers_parsed = check_positive_integer_argument!(numbers, "permutation argument") as u64;
+    let base_parsed =
+        check_positive_integer_argument!(base, "permutation argument") as u64;
+    let numbers_parsed =
+        check_positive_integer_argument!(numbers, "permutation argument") as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
         if let Some(value) =
