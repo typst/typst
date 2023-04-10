@@ -449,7 +449,7 @@ pub fn fact(
         Num::Float(_) => {
             bail!(value.span, "a factorial argument must be an integer");
         }
-        // Note: 20 is a hardcoded limit, as 21! > u64::MAX
+        // Note: 20 is a hardcoded limit, as 21! > i64::MAX
         Num::Int(i) if i > 20 => {
             bail!(value.span, "a factorial argument should not exceed 20")
         }
@@ -459,7 +459,7 @@ pub fn fact(
         Num::Int(i) => i,
     } as u64;
 
-    // Safe unwrap because we checked earlier that the factorial was less than the overflow limit, u64::MAX
+    // Safe unwrap because we checked earlier that the factorial was less than the overflow limit, i64::MAX
     Value::Int(factorial(number).unwrap_or_default() as i64)
 }
 
