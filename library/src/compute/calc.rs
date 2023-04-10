@@ -495,7 +495,6 @@ pub fn perm(
     numbers: Spanned<Num>,
 ) -> Value {
     let base_parsed = check_positive_argument!(base, "permutation argument") as u64;
-
     let numbers_parsed = check_positive_argument!(numbers, "permutation argument") as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
