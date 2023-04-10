@@ -150,7 +150,7 @@
 #calc.perm(1, -1)
 
 ---
-// Error: 12-14 the permutation result is too big
+// Error: 12-14 the permutation result is too large
 #calc.perm(21, 21)
 
 ---
