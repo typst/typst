@@ -164,6 +164,8 @@ pub enum Expr {
     Closure(Closure),
     /// A let binding: `let x = 1`.
     Let(LetBinding),
+    //// A destructuring assignment: `(x, y) = (1, 2)`.
+    DestructAssign(DestructAssignment),
     /// A set rule: `set text(...)`.
     Set(SetRule),
     /// A show rule: `show heading: it => emph(it.body)`.
@@ -240,6 +242,7 @@ impl AstNode for Expr {
             SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
             SyntaxKind::Closure => node.cast().map(Self::Closure),
             SyntaxKind::LetBinding => node.cast().map(Self::Let),
+            SyntaxKind::DestructAssignment => node.cast().map(Self::DestructAssign),
             SyntaxKind::SetRule => node.cast().map(Self::Set),
             SyntaxKind::ShowRule => node.cast().map(Self::Show),
             SyntaxKind::Conditional => node.cast().map(Self::Conditional),
@@ -299,6 +302,7 @@ impl AstNode for Expr {
             Self::FuncCall(v) => v.as_untyped(),
             Self::Closure(v) => v.as_untyped(),
             Self::Let(v) => v.as_untyped(),
+            Self::DestructAssign(v) => v.as_untyped(),
             Self::Set(v) => v.as_untyped(),
             Self::Show(v) => v.as_untyped(),
             Self::Conditional(v) => v.as_untyped(),
@@ -1738,6 +1742,23 @@ impl LetBinding {
             LetBindingKind::Normal(_) => self.0.cast_first_match(),
             LetBindingKind::Closure(_) => self.0.cast_first_match(),
         }
+    }
+}
+
+node! {
+    /// An assignment expression `(x, y) = (1, 2)`.
+    DestructAssignment
+}
+
+impl DestructAssignment {
+    /// The pattern of the assignment.
+    pub fn pattern(&self) -> Pattern {
+        self.0.cast_first_match::<Pattern>().unwrap_or_default()
+    }
+
+    /// The expression that is assigned.
+    pub fn value(&self) -> Expr {
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 

@@ -725,7 +725,16 @@ fn with_paren(p: &mut Parser) {
         p.assert(SyntaxKind::Arrow);
         code_expr(p);
         kind = SyntaxKind::Closure;
+    } else if p.at(SyntaxKind::Eq) && kind != SyntaxKind::Parenthesized {
+        // TODO: add warning if p.at(SyntaxKind::Eq) && kind == SyntaxKind::Parenthesized
+
+        validate_destruct_pattern(p, m);
+        p.wrap(m, SyntaxKind::Destructuring);
+        p.assert(SyntaxKind::Eq);
+        code_expr(p);
+        kind = SyntaxKind::DestructAssignment;
     }
+
     match kind {
         SyntaxKind::Array => validate_array(p, m),
         SyntaxKind::Dict => validate_dict(p, m),

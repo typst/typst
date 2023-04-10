@@ -201,6 +201,29 @@
 #(x += "thing") #test(x, "something")
 
 ---
+// Test destructuring assignments.
+
+#let a = none
+#let b = none
+#let c = none
+#((a,) = (1,))
+#test(a, 1)
+
+// #((_, a, b, _) = (1, 2, 3, 4))
+// #test(a, 2)
+// #test(b, 3)
+
+#((a, b, ..c) = (1, 2, 3, 4, 5, 6))
+#test(a, 1)
+#test(b, 2)
+#test(c, (3, 4, 5, 6))
+
+#((a: a, b, x: c) = (a: 1, b: 2, x: 3))
+#test(a, 1)
+#test(b, 2)
+#test(c, 3)
+
+---
 // Error: 3-6 cannot mutate a constant: box
 #(box = 1)
 

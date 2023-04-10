@@ -101,6 +101,10 @@
 #((x) = "")
 
 ---
+// Error: 4-5 unknown variable
+#((x,) = (1,))
+
+---
 // Error: 3-8 cannot mutate a temporary value
 #(1 + 2 += 3)
 

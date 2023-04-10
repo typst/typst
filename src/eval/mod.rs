@@ -452,6 +452,7 @@ impl Eval for ast::Expr {
             Self::Unary(v) => v.eval(vm),
             Self::Binary(v) => v.eval(vm),
             Self::Let(v) => v.eval(vm),
+            Self::DestructAssign(v) => v.eval(vm),
             Self::Set(_) => bail!(forbidden("set")),
             Self::Show(_) => bail!(forbidden("show")),
             Self::Conditional(v) => v.eval(vm),
@@ -1178,8 +1179,11 @@ impl Eval for ast::Closure {
 }
 
 impl ast::Pattern {
-    // Destruct the given value into the pattern.
-    pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
+    // Destruct the given value into the pattern and apply the function to each binding.
+    fn apply<T>(&self, vm: &mut Vm, value: Value, f: T) -> SourceResult<Value>
+    where
+        T: Fn(&mut Vm, ast::Ident, Value) -> SourceResult<Value>,
+    {
         match self {
             ast::Pattern::Ident(ident) => {
                 vm.define(ident.clone(), value);
@@ -1196,20 +1200,33 @@ impl ast::Pattern {
                                     let Ok(v) = value.at(i) else {
                                         bail!(ident.span(), "not enough elements to destructure");
                                     };
-                                    vm.define(ident.clone(), v.clone());
+                                    f(vm, ident.clone(), v.clone())?;
                                     i += 1;
                                 }
                                 ast::DestructuringKind::Sink(ident) => {
-                                    (1 + value.len() as usize).checked_sub(destruct.bindings().count()).and_then(|sink_size| {
-                                        let Ok(sink) = value.slice(i, Some(i + sink_size as i64)) else {
-                                            return None;
-                                        };
+                                    let sink_size = (1 + value.len() as usize)
+                                        .checked_sub(destruct.bindings().count());
+                                    let sink = sink_size.and_then(|s| {
+                                        value.slice(i, Some(i + s as i64)).ok()
+                                    });
+
+                                    if let (Some(sink_size), Some(sink)) =
+                                        (sink_size, sink)
+                                    {
                                         if let Some(ident) = ident {
-                                            vm.define(ident, sink);
+                                            f(
+                                                vm,
+                                                ident.clone(),
+                                                Value::Array(sink.clone()),
+                                            )?;
                                         }
                                         i += sink_size as i64;
-                                        Some(())
-                                    }).ok_or("not enough elements to destructure").at(self.span())?;
+                                    } else {
+                                        bail!(
+                                            self.span(),
+                                            "not enough elements to destructure"
+                                        )
+                                    }
                                 }
                                 ast::DestructuringKind::Named(key, _) => {
                                     bail!(
@@ -1233,7 +1250,7 @@ impl ast::Pattern {
                                     let Ok(v) = value.at(&ident) else {
                                         bail!(ident.span(), "destructuring key not found in dictionary");
                                     };
-                                    vm.define(ident.clone(), v.clone());
+                                    f(vm, ident.clone(), v.clone())?;
                                     used.insert(ident.clone().take());
                                 }
                                 ast::DestructuringKind::Sink(ident) => {
@@ -1243,7 +1260,7 @@ impl ast::Pattern {
                                     let Ok(v) = value.at(&key) else {
                                         bail!(ident.span(), "destructuring key not found in dictionary");
                                     };
-                                    vm.define(ident.clone(), v.clone());
+                                    f(vm, ident.clone(), v.clone())?;
                                     used.insert(key.clone().take());
                                 }
                                 ast::DestructuringKind::Placeholder => {}
@@ -1257,7 +1274,7 @@ impl ast::Pattern {
                                     sink.insert(key, value);
                                 }
                             }
-                            vm.define(ident, Value::Dict(sink));
+                            f(vm, ident, Value::Dict(sink))?;
                         }
                     }
                     _ => {
@@ -1268,6 +1285,23 @@ impl ast::Pattern {
                 Ok(Value::None)
             }
         }
+    }
+
+    /// Destruct the value into the pattern by binding.
+    pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
+        self.apply(vm, value, |vm, ident, value| {
+            vm.define(ident, value);
+            Ok(Value::None)
+        })
+    }
+
+    /// Destruct the value into the pattern by assignment.
+    pub fn assign(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
+        self.apply(vm, value, |vm, ident, value| {
+            let location = ident.access(vm)?;
+            *location = value;
+            Ok(Value::None)
+        })
     }
 }
 
@@ -1287,6 +1321,16 @@ impl Eval for ast::LetBinding {
                 Ok(Value::None)
             }
         }
+    }
+}
+
+impl Eval for ast::DestructAssignment {
+    type Output = Value;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let value = self.value().eval(vm)?;
+        self.pattern().assign(vm, value)?;
+        Ok(Value::None)
     }
 }
 
