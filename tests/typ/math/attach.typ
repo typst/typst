@@ -13,6 +13,11 @@ $f_x + t^b + V_1^2 + attach(A, top: alpha, bottom: beta)$
   attach(a, pretop:k) = a^a^dots.up^a } k$
 
 ---
+// Test function call after subscript.
+$pi_1(Y), a_f(x), a^zeta(x) \
+ a^subset.eq(x), a_(zeta(x)), pi_(1(Y))$
+
+---
 // Test associativity and scaling.
 $ 1/(V^2^3^4^5),
   1/attach(V, pretop: attach(2, pretop: attach(3, pretop: attach(4, pretop: 5)))),
