@@ -5,7 +5,8 @@
 $f_x + t^b + V_1^2 + attach(A, top: alpha, bottom: beta)$
 
 ---
-// Test basics, prescripts.
+// Test basics, prescripts. Notably, the upper and lower prescripts need to be aligned
+// rightward, not leftward as in postscripts.
  $attach(upright(O), prebottom: 8, pretop: 16, bottom: 2, top: 2-),
   attach("Pb", prebottom: 82, pretop: 207) +
   attach(upright(e), prebottom: -1, pretop: 0) + macron(v)_e \
