@@ -6,7 +6,7 @@ use super::*;
 ///
 /// ## Example
 /// ```example
-/// $ a operator(xor) b, a xor b $
+/// $ a operator(x o r) b, a x o r b $
 /// ```
 ///
 /// Display: Math Operator
@@ -116,7 +116,7 @@ pub fn ordinary(
 ///
 /// ## Example
 /// ```example
-/// $ f : A -> B, f punct(:) A -> B $
+/// $ f : A -> B, f punctuation(:) A -> B $
 /// ```
 ///
 /// Display: Math Punctuation
@@ -131,7 +131,7 @@ pub fn punctuation(
 }
 
 /// Math content with specified math class.
-/// 
+///
 /// Display: Class
 /// Category: Math
 #[element(LayoutMath)]
@@ -156,7 +156,7 @@ impl LayoutMath for MathClassElem {
             4 => Relation,
             5 => Normal,
             6 => Punctuation,
-            _ => Normal
+            _ => Normal,
         });
         ctx.push(fragment);
         Ok(())
