@@ -34,17 +34,12 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
-        (Dyn(a), Dyn(b)) => {
-            if let (Some(a), Some(b)) =
-                (a.downcast::<PathBuilder>(), b.downcast::<PathBuilder>())
+        (Dyn(mut a), Dyn(b)) => {
+            if let (Some(path), Some(b)) =
+                (a.downcast_mut::<PathBuilder>(), b.downcast::<PathBuilder>())
             {
-                // FIXME: there should be a more efficient way of doing this
-                // the solution is probably to use the dyn-clone trait in order
-                // to use Box in Dynamic.
-                let mut path = a.clone();
-
                 path.extend(b);
-                return Ok(Value::dynamic(path));
+                return Ok(Value::Dyn(a));
             };
 
             mismatch!("cannot join {} and {}", a, b);

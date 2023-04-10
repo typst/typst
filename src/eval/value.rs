@@ -264,6 +264,34 @@ impl Dynamic {
         (*self.0).as_any().downcast_ref()
     }
 
+    /// Try to downcast to a mutable reference of a specific type.
+    /// This will clone the inner value if there are multiple references to it.
+    pub fn downcast_mut<
+        T: Type + Clone + Debug + PartialEq + Hash + Sync + Send + 'static,
+    >(
+        &mut self,
+    ) -> Option<&mut T> {
+        // This is all a bit funky because of: https://github.com/rust-lang/rust/issues/54663
+        if Arc::get_mut(&mut self.0).is_some() {
+            // By the same logic that is used to argue for `Arc::get_mut`'s safety we can be sure
+            // that this second call will never return `None` when the first returned `Some`.
+            // See: https://github.com/rust-lang/rust/blob/d4be8efc6296bace5b1e165f1b34d3c6da76aa8e/library/alloc/src/sync.rs#L1713
+            Arc::get_mut(&mut self.0).unwrap().as_any_mut().downcast_mut()
+        } else {
+            let inner = self.downcast::<T>()?.clone();
+            self.0 = Arc::new(inner);
+            // The correctness of this method depends on the fact the the below `get_mut`
+            // and `downcast_mut` calls will never fail so we unwrap them.
+            Some(
+                Arc::get_mut(&mut self.0)
+                    .unwrap()
+                    .as_any_mut()
+                    .downcast_mut()
+                    .unwrap(),
+            )
+        }
+    }
+
     /// The name of the stored value's type.
     pub fn type_name(&self) -> &'static str {
         self.0.dyn_type_name()
@@ -288,6 +316,7 @@ cast_to_value! {
 
 trait Bounds: Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_type_name(&self) -> &'static str;
     fn hash128(&self) -> u128;
@@ -298,6 +327,10 @@ where
     T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
 {
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
 
