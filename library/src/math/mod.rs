@@ -5,6 +5,7 @@ mod ctx;
 mod accent;
 mod align;
 mod attach;
+mod class;
 mod delimited;
 mod frac;
 mod fragment;
@@ -20,6 +21,7 @@ mod underover;
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
+pub use self::class::*;
 pub use self::delimited::*;
 pub use self::frac::*;
 pub use self::matrix::*;
@@ -97,6 +99,15 @@ pub fn module() -> Module {
     // Text operators.
     math.define("op", OpElem::func());
     op::define(&mut math);
+
+    // CLasses.
+    math.define("operator", operator);
+    math.define("opening", opening);
+    math.define("closing", closing);
+    math.define("binary", binary);
+    math.define("relation", relation);
+    math.define("ordinary", ordinary);
+    math.define("punctuation", punctuation);
 
     // Spacings.
     spacing::define(&mut math);
