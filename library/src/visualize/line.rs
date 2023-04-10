@@ -34,10 +34,9 @@ pub struct LineElem {
 
     /// How to stroke the line. This can be:
     ///
-    /// - A length specifying the stroke's thickness. The color is inherited,
-    ///   defaulting to black.
-    /// - A color to use for the stroke. The thickness is inherited, defaulting
-    ///   to `{1pt}`.
+    /// - A length specifying the stroke's thickness. The thickness is inherited,
+    ///   defaulting to `{1pt}`.
+    /// - A color to use for the stroke. The color is inherited, defaulting to black.
     /// - A stroke combined from color and thickness using the `+` operator as
     ///   in `{2pt + red}`.
     ///
