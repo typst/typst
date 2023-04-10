@@ -505,12 +505,9 @@ pub fn perm(
         check_positive_integer_argument!(numbers, "permutation argument") as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
-        if let Some(value) =
-            factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
-        {
-            i64::try_from(value).ok()
-        } else {
-            None
+        match factorial_range(base_parsed - numbers_parsed + 1, base_parsed) {
+            Some(value) => i64::try_from(value).ok(),
+            None => None,
         }
     } else {
         // By convention
@@ -569,10 +566,9 @@ pub fn binom(
     let n_parsed = check_positive_integer_argument!(n, "binomial coefficient") as u64;
     let k_parsed = check_positive_integer_argument!(k, "binomial coefficient") as u64;
 
-    let result = if let Some(raw) = binomial(n_parsed, k_parsed) {
-        i64::try_from(raw).ok()
-    } else {
-        None
+    let result = match binomial(n_parsed, k_parsed) {
+        Some(raw) => i64::try_from(raw).ok(),
+        None => None,
     };
 
     match result {
