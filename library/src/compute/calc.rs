@@ -499,7 +499,12 @@ pub fn perm(
     let numbers_parsed = check_positive_argument!(numbers, "permutation argument") as u64;
 
     let result = if base_parsed + 1 > numbers_parsed {
-        factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
+        let raw = factorial_range(base_parsed - numbers_parsed + 1, base_parsed);
+        if let Some(value) = raw {
+            i64::try_from(value).ok()
+        } else {
+            None
+        }
     } else {
         // By convention
         Some(0)
@@ -507,7 +512,7 @@ pub fn perm(
 
     match result {
         None => bail!(base.span, "the permutation result is too big"),
-        Some(s) => Value::Int(s as i64),
+        Some(s) => Value::Int(s),
     }
 }
 
