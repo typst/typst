@@ -96,7 +96,7 @@ The last element is #b.
   "Homer": "The Odyssey",
   "Austen": "Persuasion",
 )
-#let (Austen) = books
+#let (Austen,) = books
 Austen wrote #Austen.
 
 #let (Homer: h) = books

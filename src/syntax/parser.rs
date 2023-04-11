@@ -847,11 +847,15 @@ fn pattern(p: &mut Parser) -> PatternKind {
     let m = p.marker();
 
     if p.at(SyntaxKind::LeftParen) {
-        collection(p, false);
+        let kind = collection(p, false);
         validate_destruct_pattern(p, m);
         p.wrap(m, SyntaxKind::Pattern);
 
-        PatternKind::Destructuring
+        if kind == SyntaxKind::Parenthesized {
+            PatternKind::Normal
+        } else {
+            PatternKind::Destructuring
+        }
     } else {
         if p.expect(SyntaxKind::Ident) {
             p.wrap(m, SyntaxKind::Pattern);
