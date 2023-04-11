@@ -535,7 +535,7 @@ fn binomial(n: u64, k: u64) -> Option<u64> {
     let mut result: u64 = 1;
 
     for i in 0..real_k {
-        match result.checked_mul((n - i) / (i + 1)) {
+        match result.checked_mul(n - i).and_then(|r| r.checked_div(i + 1)) {
             None => return None,
             Some(s) => result = s,
         };
