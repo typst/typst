@@ -515,8 +515,10 @@ pub struct Glyph {
 pub struct Lang([u8; 3], u8);
 
 impl Lang {
+    pub const ARABIC: Self = Self(*b"ar ", 2);
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
+    pub const CZECH: Self = Self(*b"cs ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
@@ -528,6 +530,7 @@ impl Lang {
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
     pub const SPANISH: Self = Self(*b"es ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
+    pub const VIETNAMESE: Self = Self(*b"vi ", 2);
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {

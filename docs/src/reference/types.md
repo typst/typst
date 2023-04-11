@@ -526,6 +526,11 @@ Fails with an error if the index is out of bounds.
   The index at which to retrieve the item.
 - returns: any
 
+### enumerate()
+Returns an array of the values along with their indices.
+
+- returns: array
+
 ### push()
 Add a value to the end of the array.
 
@@ -657,6 +662,8 @@ Combine all items in the array into one.
 ### sorted()
 Return a new array with the same items, but sorted.
 
+- key: function (named)
+  If given, applies this function to the elements in the array to determine the keys to sort by.
 - returns: array
 
 # Dictionary

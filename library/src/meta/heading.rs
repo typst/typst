@@ -229,8 +229,10 @@ impl Refable for HeadingElem {
 impl LocalName for HeadingElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::ARABIC => "الفصل",
             Lang::BOKMÅL => "Kapittel",
             Lang::CHINESE => "小节",
+            Lang::CZECH => "Kapitola",
             Lang::FRENCH => "Chapitre",
             Lang::GERMAN => "Abschnitt",
             Lang::ITALIAN => "Sezione",
@@ -241,6 +243,7 @@ impl LocalName for HeadingElem {
             Lang::SLOVENIAN => "Poglavje",
             Lang::SPANISH => "Sección",
             Lang::UKRAINIAN => "Розділ",
+            Lang::VIETNAMESE => "Phần", // TODO: This may be wrong.
             Lang::ENGLISH | _ => "Section",
         }
     }

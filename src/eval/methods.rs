@@ -115,7 +115,7 @@ pub fn call(
                 let last = args.named("last")?;
                 array.join(sep, last).at(span)?
             }
-            "sorted" => Value::Array(array.sorted().at(span)?),
+            "sorted" => Value::Array(array.sorted(vm, span, args.named("key")?)?),
             "enumerate" => Value::Array(array.enumerate()),
             _ => return missing(),
         },

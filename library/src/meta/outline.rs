@@ -252,8 +252,10 @@ impl Show for OutlineElem {
 impl LocalName for OutlineElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::ARABIC => "المحتويات",
             Lang::BOKMÅL => "Innhold",
             Lang::CHINESE => "目录",
+            Lang::CZECH => "Obsah",
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ITALIAN => "Indice",
@@ -264,6 +266,7 @@ impl LocalName for OutlineElem {
             Lang::SLOVENIAN => "Kazalo",
             Lang::SPANISH => "Índice",
             Lang::UKRAINIAN => "Зміст",
+            Lang::VIETNAMESE => "Mục lục",
             Lang::ENGLISH | _ => "Contents",
         }
     }
