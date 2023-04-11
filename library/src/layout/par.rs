@@ -848,7 +848,6 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     const HYPH_COST: Cost = 0.5;
     const CONSECUTIVE_DASH_COST: Cost = 300.0;
     const MAX_COST: Cost = 1_000_000.0;
-    const MIN_COST: Cost = -MAX_COST;
     const MIN_RATIO: f64 = -1.0;
 
     // Dynamic programming table.
@@ -900,9 +899,6 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 }
             }
 
-            // At some point, it doesn't matter any more.
-            ratio = ratio.min(10.0);
-
             // Determine the cost of the line.
             let min_ratio = if attempt.justify { MIN_RATIO } else { 0.0 };
             let mut cost = if ratio < min_ratio {
@@ -918,7 +914,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // has minimum cost. All breakpoints before this one become
                 // inactive since no line can span above the mandatory break.
                 active = k;
-                MIN_COST + if attempt.justify { ratio.powi(3).abs() } else { 0.0 }
+                if attempt.justify { ratio.powi(3).abs() } else { 0.0 }
             } else {
                 // Normal line with cost of |ratio^3|.
                 ratio.powi(3).abs()
