@@ -526,11 +526,6 @@ Fails with an error if the index is out of bounds.
   The index at which to retrieve the item.
 - returns: any
 
-### enumerate()
-Returns an array of the values along with their indices.
-
-- returns: array
-
 ### push()
 Add a value to the end of the array.
 
@@ -614,6 +609,15 @@ transformed with the given function.
 
 - mapper: function (positional, required)
   The function to apply to each item.
+- returns: array
+
+### enumerate()
+Returns a new array with the values alongside their indices.
+
+The returned array consists of `(index, value)` pairs in the form of length-2
+arrays. These can be [destructured]($scripting/#bindings) with a let binding or
+for loop.
+
 - returns: array
 
 ### fold()
