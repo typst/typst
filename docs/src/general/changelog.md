@@ -5,13 +5,13 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## April 11, 2023 (v0.2.0)
 - **Breaking changes:**
   - Removed support for iterating over index and value in
     [for loops]($scripting/#loops). This is now handled via unpacking and
     enumerating. Same goes for the [`map()`]($type/array.map) method.
   - [Dictionaries]($type/dictionary) now iterate in insertion order instead of
-    alphabetical order
+    alphabetical order.
 
 - New features
   - Added [unpacking syntax]($scripting/#bindings) for let bindings, which
@@ -20,7 +20,7 @@ description: |
   - Added [`path`]($func/path) function for drawing Bézier paths
   - Added [`layout`]($func/layout) function to access the size of the
     surrounding page or container
-  - Added [`key`] parameter to [`sort()`]($type/array.sort) method
+  - Added `key` parameter to [`sorted()`]($type/array.sorted) method
 
 - Command line interface
   - Fixed `--open` flag blocking the program
@@ -30,6 +30,7 @@ description: |
     Typst
 
 - Miscellaneous improvements
+  - Fixed page numbering in outline
   - Added basic i18n for a few more languages
     (AR, NB, CS, NN, PL, SL, ES, UA, VI)
   - Added a few numbering patterns (Ihora, Chinese)
@@ -37,15 +38,14 @@ description: |
   - Fixed bug where math could not be hidden with [`hide`]($func/hide)
   - Fixed sizing issues with box, block, and shapes
   - Fixed some translations
-  - Fixed inversion of [`cal`]($func/cal) and [`frak`]($func/frak) R
-  - Fixed page numbering in outline
+  - Fixed inversion of "R" in [`cal`]($func/cal) and [`frak`]($func/frak) styles
   - Fixed some styling issues in math
   - Fixed supplements of references to headings
   - Fixed syntax highlighting of identifiers in certain scenarios
   - [Ratios]($type/ratio) can now be multiplied with more types and be converted
     to [floats]($type/float) with the [`float`]($func/float) function
 
-## April 04, 2023 (v0.1)
+## April 04, 2023 (v0.1.0)
 - **Breaking changes:**
   - When using the CLI, you now have to use subcommands:
     - `typst compile file.typ` or `typst c file.typ` to create a PDF
