@@ -461,13 +461,21 @@ impl<'a> Line<'a> {
     /// space when encountering underfull lines.
     fn justifiables(&self) -> usize {
         let mut count = 0;
-        let mut last_is_justifiable = false;
         for shaped in self.items().filter_map(Item::text) {
-            let (justifiable_count, last) = shaped.justifiables();
-            count += justifiable_count;
-            last_is_justifiable = last;
+            count += shaped.justifiables();
         }
-        count - last_is_justifiable as usize
+        // CJK character at line end should not be adjusted.
+        if self
+            .items()
+            .last()
+            .and_then(Item::text)
+            .map(|s| s.cjk_justifiable_at_last())
+            .unwrap_or(false)
+        {
+            count -= 1;
+        }
+
+        count
     }
 
     /// How much can the line stretch

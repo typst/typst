@@ -240,15 +240,17 @@ impl<'a> ShapedText<'a> {
 
     /// How many glyphs are in the text where we can insert additional
     /// space when encountering underfull lines.
-    /// The bool return value indicates whether the last glyph is justifiable.
-    pub fn justifiables(&self) -> (usize, bool) {
-        // CJK character at line end should not be adjusted.
-        let last_justifiable = self
-            .glyphs
+    pub fn justifiables(&self) -> usize {
+        self.glyphs.iter().filter(|g| g.is_justifiable()).count()
+    }
+
+    /// Whether the last glyph is a CJK character which should not be justified
+    /// on line end.
+    pub fn cjk_justifiable_at_last(&self) -> bool {
+        self.glyphs
             .last()
             .map(|g| g.is_cjk() || g.is_cjk_punctuaction())
-            .unwrap_or(false);
-        (self.glyphs.iter().filter(|g| g.is_justifiable()).count(), last_justifiable)
+            .unwrap_or(false)
     }
 
     /// The stretchability of the text.
