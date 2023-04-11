@@ -482,7 +482,7 @@ impl<'a> Line<'a> {
     fn shrinkability(&self) -> Abs {
         self.items()
             .filter_map(Item::text)
-            .map(|s| s.shirnkability())
+            .map(|s| s.shrinkability())
             .sum::<Abs>()
     }
 

@@ -247,7 +247,7 @@ impl<'a> ShapedText<'a> {
     }
 
     /// The shrinkability of the text
-    pub fn shirnkability(&self) -> Abs {
+    pub fn shrinkability(&self) -> Abs {
         self.glyphs.iter().map(|g| g.stretch().1).sum::<Em>().at(self.size)
     }
 
