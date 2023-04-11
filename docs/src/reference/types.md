@@ -953,13 +953,13 @@ Returns a new selector that will only match elements that were declared
 after the first match of the selector argument.
 
 - location: selector (positional, required)
-  The selector ued to find the first element.
+  The selector used to find the first element.
 - inclusive: boolean (named)
   Whether the first element should match or not. This is only applicable if
   both selectors match the same type of element.
   Defaults to `{true}`.
 
-### any()
+### or()
 Allows combining any of a series of selectors. This is used to
 select multiple components or components with different properties
 all at once.
@@ -967,7 +967,7 @@ all at once.
 - location: selector (variadic, required)
   The list of selectors to match on.
 
-### all()
+### and()
 Allows combining all of a series of selectors. This is used to check
 whether a component meets multiple selection rules simultaneously.
 

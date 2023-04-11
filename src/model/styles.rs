@@ -277,10 +277,10 @@ pub enum Selector {
     Location(Location),
     /// Matches all elements before the location.
     /// The [`bool`] indicates whether the location is inclusive.
-    Before(Box<Self>, Location, bool),
+    Before { selector: Box<Self>, location: Location, inclusive: bool },
     /// Matches all elements after the location.
     /// The [`bool`] indicates whether the location is inclusive.
-    After(Box<Self>, Location, bool),
+    After { selector: Box<Self>, location: Location, inclusive: bool },
 }
 
 impl Selector {
@@ -304,12 +304,12 @@ impl Selector {
 
     /// Transforms this selector into a [`Selector::Before`] selector.
     pub fn before(self, location: Location, inclusive: bool) -> Self {
-        Self::Before(Box::new(self), location, inclusive)
+        Self::Before { selector: Box::new(self), location, inclusive }
     }
 
     /// Transforms this selector into a [`Selector::After`] selector.
     pub fn after(self, location: Location, inclusive: bool) -> Self {
-        Self::After(Box::new(self), location, inclusive)
+        Self::After { selector: Box::new(self), location, inclusive }
     }
 
     /// Transforms this selector and an iterator of other selectors into a
@@ -333,7 +333,7 @@ impl Selector {
     ) -> Box<dyn Iterator<Item = (usize, &'a Content)> + 'a> {
         match self {
             Selector::Never => Box::new(std::iter::empty()),
-            Selector::Before(selector, location, inclusive) => {
+            Selector::Before { selector, location, inclusive } => {
                 if let Some(index) = introspector.location(location) {
                     Box::new(selector.match_iter_inner(introspector, parent).take_while(
                         move |(i, _)| if *inclusive { *i <= index } else { *i < index },
@@ -342,7 +342,7 @@ impl Selector {
                     Box::new(std::iter::empty())
                 }
             }
-            Selector::After(selector, location, inclusive) => {
+            Selector::After { selector, location, inclusive } => {
                 if let Some(index) = introspector.location(location) {
                     Box::new(selector.match_iter_inner(introspector, parent).skip_while(
                         move |(i, _)| if *inclusive { *i < index } else { *i <= index },
@@ -408,12 +408,12 @@ impl Selector {
                 selectors.iter().all(move |sel| sel.matches(cache_fn, target))
             }
             Self::Location(location) => target.location() == Some(*location),
-            Self::Before(pre, loc, inclusive) => {
-                if !pre.matches(cache_fn, target) {
+            Self::Before { selector, location, inclusive } => {
+                if !selector.matches(cache_fn, target) {
                     return false;
                 }
 
-                let index = cache_fn(loc).unwrap();
+                let index = cache_fn(location).unwrap();
                 let target_index = cache_fn(&target.location().unwrap()).unwrap();
 
                 if *inclusive {
@@ -422,12 +422,12 @@ impl Selector {
                     target_index < index
                 }
             }
-            Self::After(pre, loc, inclusive) => {
-                if !pre.matches(cache_fn, target) {
+            Self::After { selector, location, inclusive } => {
+                if !selector.matches(cache_fn, target) {
                     return false;
                 }
 
-                let index = cache_fn(loc).unwrap();
+                let index = cache_fn(location).unwrap();
                 let target_index = cache_fn(&target.location().unwrap()).unwrap();
 
                 if *inclusive {
@@ -462,17 +462,17 @@ impl Debug for Selector {
                 f.write_str(&pretty_array_like(&pieces, false))
             }
             Self::Location(loc) => loc.fmt(f),
-            Self::Before(selector, loc, inclusive)
-            | Self::After(selector, loc, inclusive) => {
+            Self::Before { selector, location, inclusive }
+            | Self::After { selector, location, inclusive } => {
                 selector.fmt(f)?;
 
-                if matches!(self, Self::Before(..)) {
+                if matches!(self, Self::Before { .. }) {
                     f.write_str(".before")?;
                 } else {
                     f.write_str(".after")?;
                 }
 
-                loc.fmt(f)?;
+                location.fmt(f)?;
                 if *inclusive {
                     f.write_str(", inclusive: true")?;
                 }

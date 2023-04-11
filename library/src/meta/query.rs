@@ -132,13 +132,6 @@ pub fn query(
 pub fn selector(
     /// Can be an element function like a `heading` or `figure`, a `{<label>}`
     /// or a more complex selector like `{heading.where(level: 1)}`.
-    ///
-    /// Currently, only a subset of element functions is supported. Aside from
-    /// headings and figures, this includes equations, references and all
-    /// elements with an explicit label. As a result, you _can_ query for e.g.
-    /// [`strong`]($func/strong) elements, but you will find only those that
-    /// have an explicit label attached to them. This limitation will be
-    /// resolved in the future.
     target: Selector,
 ) -> Value {
     target.into()

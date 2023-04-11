@@ -158,8 +158,8 @@ fn try_apply(
             | Selector::And(_)
             | Selector::Location(_)
             | Selector::Can(_)
-            | Selector::Before(_, _, _)
-            | Selector::After(_, _, _),
+            | Selector::Before { .. }
+            | Selector::After { .. },
         ) => Ok(None),
 
         None => Ok(None),

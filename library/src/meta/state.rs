@@ -284,7 +284,7 @@ impl State {
         let sequence = self.sequence(vt)?;
         let offset = vt
             .introspector
-            .query(Selector::Before(Box::new(self.selector()), location, true))
+            .query(Selector::before(self.selector(), location, true))
             .len();
         Ok(sequence[offset].clone())
     }

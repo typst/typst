@@ -337,7 +337,7 @@ impl Counter {
         let sequence = self.sequence(vt)?;
         let offset = vt
             .introspector
-            .query(Selector::Before(Box::new(self.selector()), location, true))
+            .query(Selector::before(self.selector(), location, true))
             .len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
@@ -364,7 +364,7 @@ impl Counter {
         let sequence = self.sequence(vt)?;
         let offset = vt
             .introspector
-            .query(Selector::Before(Box::new(self.selector()), location, true))
+            .query(Selector::before(self.selector(), location, true))
             .len();
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
