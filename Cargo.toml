@@ -43,9 +43,10 @@ unicode-xid = "0.2"
 unscanny = "0.1"
 usvg = { version = "0.22", default-features = false }
 xmp-writer = "0.1"
+tracing = "0.1.37"
 
 [profile.dev]
-debug = 0
+debug = true
 
 [profile.dev.package."*"]
 opt-level = 2

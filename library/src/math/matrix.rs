@@ -33,6 +33,7 @@ pub struct VecElem {
 }
 
 impl LayoutMath for VecElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Center)?;
@@ -115,6 +116,7 @@ pub struct MatElem {
 }
 
 impl LayoutMath for MatElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_mat_body(ctx, &self.rows())?;
@@ -161,6 +163,7 @@ pub struct CasesElem {
 }
 
 impl LayoutMath for CasesElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
         let frame = layout_vec_body(ctx, &self.children(), Align::Left)?;

@@ -85,6 +85,7 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
+    #[tracing::instrument(skip_all)]
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
         match &self.repr {
             Repr::Native(native) => {
@@ -122,6 +123,7 @@ impl Func {
     }
 
     /// Call the function with a Vt.
+    #[tracing::instrument(skip_all)]
     pub fn call_vt(
         &self,
         vt: &mut Vt,
@@ -284,6 +286,7 @@ impl Closure {
     /// Call the function in the context with the arguments.
     #[allow(clippy::too_many_arguments)]
     #[comemo::memoize]
+    #[tracing::instrument(skip_all)]
     fn call(
         this: &Func,
         world: Tracked<dyn World>,
@@ -390,6 +393,7 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Visit any node and collect all captured variables.
+    #[tracing::instrument(skip_all)]
     pub fn visit(&mut self, node: &SyntaxNode) {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.

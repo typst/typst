@@ -256,6 +256,7 @@ pub struct State {
 
 impl State {
     /// Call a method on a state.
+    #[tracing::instrument(skip(vm))]
     pub fn call_method(
         self,
         vm: &mut Vm,
@@ -280,6 +281,7 @@ impl State {
     }
 
     /// Get the value of the state at the given location.
+    #[tracing::instrument(skip(self, vt))]
     pub fn at(self, vt: &mut Vt, location: Location) -> SourceResult<Value> {
         let sequence = self.sequence(vt)?;
         let offset = vt.introspector.query_before(self.selector(), location).len();
@@ -287,6 +289,7 @@ impl State {
     }
 
     /// Get the value of the state at the final location.
+    #[tracing::instrument(skip(self, vt))]
     pub fn final_(self, vt: &mut Vt, _: Location) -> SourceResult<Value> {
         let sequence = self.sequence(vt)?;
         Ok(sequence.last().unwrap().clone())
@@ -392,6 +395,7 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
+    #[tracing::instrument(name = "DisplayElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
@@ -422,6 +426,7 @@ struct UpdateElem {
 }
 
 impl Show for UpdateElem {
+    #[tracing::instrument(name = "UpdateElem::show")]
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }

@@ -235,6 +235,7 @@ impl Synthesize for FigureElem {
 }
 
 impl Show for FigureElem {
+    #[tracing::instrument(name = "FigureElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         // We build the body of the figure.
         let mut realized = self.body();

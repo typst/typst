@@ -50,6 +50,7 @@ pub struct ImageElem {
 }
 
 impl Layout for ImageElem {
+    #[tracing::instrument(name = "ImageElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

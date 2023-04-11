@@ -1,6 +1,7 @@
 //! Typst's standard library.
 
 pub mod compute;
+pub mod debug;
 pub mod layout;
 pub mod math;
 pub mod meta;
@@ -26,6 +27,7 @@ pub fn build() -> Library {
 }
 
 /// Construct the module with global definitions.
+#[tracing::instrument(skip(math, calc))]
 fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 
@@ -165,6 +167,9 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("top", GenAlign::Specific(Align::Top));
     global.define("horizon", GenAlign::Specific(Align::Horizon));
     global.define("bottom", GenAlign::Specific(Align::Bottom));
+
+    // Debugging
+    global.define("backtrace", debug::backtrace);
 
     Module::new("global").with_scope(global)
 }

@@ -37,6 +37,7 @@ impl HeadingNode {
 }
 
 /// Write an outline item and all its children.
+#[tracing::instrument(skip_all)]
 pub fn write_outline_item(
     ctx: &mut PdfContext,
     node: &HeadingNode,

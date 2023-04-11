@@ -31,6 +31,7 @@ pub struct FracElem {
 }
 
 impl LayoutMath for FracElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.num(), &self.denom(), false, self.span())
     }

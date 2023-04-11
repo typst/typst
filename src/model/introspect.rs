@@ -90,6 +90,7 @@ pub struct Introspector {
 
 impl Introspector {
     /// Create a new introspector.
+    #[tracing::instrument(skip(frames))]
     pub fn new(frames: &[Frame]) -> Self {
         let mut introspector = Self {
             pages: frames.len(),
@@ -109,6 +110,7 @@ impl Introspector {
     }
 
     /// Extract metadata from a frame.
+    #[tracing::instrument(skip_all)]
     fn extract(&mut self, frame: &Frame, page: NonZeroUsize, ts: Transform) {
         for (pos, item) in frame.items() {
             match item {
@@ -144,11 +146,13 @@ impl Introspector {
     }
 
     /// Query for all matching elements.
+    #[tracing::instrument(skip(self))]
     pub fn query(&self, selector: Selector) -> Vec<Content> {
         self.all().filter(|elem| selector.matches(elem)).cloned().collect()
     }
 
     /// Query for all matching element up to the given location.
+    #[tracing::instrument(skip(self))]
     pub fn query_before(&self, selector: Selector, location: Location) -> Vec<Content> {
         let mut matches = vec![];
         for elem in self.all() {
@@ -163,6 +167,7 @@ impl Introspector {
     }
 
     /// Query for all matching elements starting from the given location.
+    #[tracing::instrument(skip(self))]
     pub fn query_after(&self, selector: Selector, location: Location) -> Vec<Content> {
         self.all()
             .skip_while(|elem| elem.location() != Some(location))
@@ -172,6 +177,7 @@ impl Introspector {
     }
 
     /// Query for a unique element with the label.
+    #[tracing::instrument(skip(self))]
     pub fn query_label(&self, label: &Label) -> StrResult<Content> {
         let mut found = None;
         for elem in self.all().filter(|elem| elem.label() == Some(label)) {
@@ -194,12 +200,14 @@ impl Introspector {
     }
 
     /// Gets the page numbering for the given location, if any.
+    #[tracing::instrument(skip(self))]
     pub fn page_numbering(&self, location: Location) -> Value {
         let page = self.page(location);
         self.page_numberings.get(page.get() - 1).cloned().unwrap_or_default()
     }
 
     /// Find the position for the given location.
+    #[tracing::instrument(skip(self))]
     pub fn position(&self, location: Location) -> Position {
         self.elems
             .iter()

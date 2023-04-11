@@ -19,6 +19,11 @@ use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
+use tracing::info;
+use tracing_error::ErrorLayer;
+use tracing_flame::FlameLayer;
+use tracing_subscriber::fmt;
+use tracing_subscriber::prelude::*;
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::eval::Library;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
@@ -117,6 +122,15 @@ impl FontsSettings {
 
 /// Entry point.
 fn main() {
+    let fmt_layer = fmt::Layer::default();
+    let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
+    let error_layer = ErrorLayer::default();
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(flame_layer)
+        .with(error_layer)
+        .init();
+
     let arguments = CliArguments::parse();
 
     let res = match &arguments.command {
@@ -129,6 +143,8 @@ fn main() {
     if let Err(msg) = res {
         print_error(&msg).expect("failed to print error");
     }
+
+    drop(_guard);
 }
 
 /// Print an application-level error (independent from a source file).
@@ -225,7 +241,10 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
 }
 
 /// Compile a single time.
+#[tracing::instrument(skip_all)]
 fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
+    info!("Starting compilation");
+
     status(command, Status::Compiling).unwrap();
 
     world.reset();
@@ -237,6 +256,8 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             let buffer = typst::export::pdf(&document);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
             status(command, Status::Success).unwrap();
+
+            info!("Compilation succeeded");
             Ok(false)
         }
 
@@ -245,12 +266,15 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             status(command, Status::Error).unwrap();
             print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
+
+            info!("Compilation failed");
             Ok(true)
         }
     }
 }
 
 /// Clear the terminal and render the status message.
+#[tracing::instrument(skip_all)]
 fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     if !command.watch {
         return Ok(());
@@ -444,6 +468,7 @@ impl World for SystemWorld {
         self.source(self.main)
     }
 
+    #[tracing::instrument(skip_all)]
     fn resolve(&self, path: &Path) -> FileResult<SourceId> {
         self.slot(path)?
             .source
@@ -482,6 +507,7 @@ impl World for SystemWorld {
 }
 
 impl SystemWorld {
+    #[tracing::instrument(skip_all)]
     fn slot(&self, path: &Path) -> FileResult<RefMut<PathSlot>> {
         let mut hashes = self.hashes.borrow_mut();
         let hash = match hashes.get(path).cloned() {
@@ -501,6 +527,7 @@ impl SystemWorld {
         }))
     }
 
+    #[tracing::instrument(skip_all)]
     fn insert(&self, path: &Path, text: String) -> SourceId {
         let id = SourceId::from_u16(self.sources.len() as u16);
         let source = Source::new(id, path, text);
@@ -533,6 +560,7 @@ impl SystemWorld {
                 .map_or(false, |hash| self.paths.borrow().contains_key(&hash))
     }
 
+    #[tracing::instrument(skip_all)]
     fn reset(&mut self) {
         self.sources.as_mut().clear();
         self.hashes.borrow_mut().clear();
@@ -555,6 +583,7 @@ impl PathHash {
 }
 
 /// Read a file.
+#[tracing::instrument(skip_all)]
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(path).map_err(f)?.is_dir() {

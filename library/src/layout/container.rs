@@ -99,6 +99,7 @@ pub struct BoxElem {
 }
 
 impl Layout for BoxElem {
+    #[tracing::instrument(name = "BoxElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -326,6 +327,7 @@ pub struct BlockElem {
 }
 
 impl Layout for BlockElem {
+    #[tracing::instrument(name = "BlockElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

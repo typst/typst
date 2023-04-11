@@ -122,6 +122,7 @@ pub struct TableElem {
 }
 
 impl Layout for TableElem {
+    #[tracing::instrument(name = "TableElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

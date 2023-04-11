@@ -72,6 +72,7 @@ struct LocateElem {
 }
 
 impl Show for LocateElem {
+    #[tracing::instrument(name = "LocateElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
@@ -117,6 +118,7 @@ struct StyleElem {
 }
 
 impl Show for StyleElem {
+    #[tracing::instrument(name = "StyleElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.func().call_vt(vt, [styles.to_map().into()])?.display())
     }
@@ -200,6 +202,7 @@ struct LayoutElem {
 }
 
 impl Layout for LayoutElem {
+    #[tracing::instrument(name = "LayoutElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

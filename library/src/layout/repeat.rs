@@ -34,6 +34,7 @@ pub struct RepeatElem {
 }
 
 impl Layout for RepeatElem {
+    #[tracing::instrument(name = "RepeatElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

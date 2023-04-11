@@ -106,6 +106,7 @@ impl Synthesize for HeadingElem {
 }
 
 impl Show for HeadingElem {
+    #[tracing::instrument(name = "HeadingElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {

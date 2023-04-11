@@ -7,6 +7,7 @@ use super::{deflate, PdfContext, RefExt};
 use crate::image::{DecodedImage, RasterFormat};
 
 /// Embed all used images into the PDF.
+#[tracing::instrument(skip_all)]
 pub fn write_images(ctx: &mut PdfContext) {
     for image in ctx.image_map.items() {
         let image_ref = ctx.alloc.bump();
@@ -67,6 +68,7 @@ pub fn write_images(ctx: &mut PdfContext) {
 /// whether the image has color.
 ///
 /// Skips the alpha channel as that's encoded separately.
+#[tracing::instrument(skip_all)]
 fn encode_image(
     format: RasterFormat,
     dynamic: &DynamicImage,
@@ -111,6 +113,7 @@ fn encode_image(
 }
 
 /// Encode an image's alpha channel if present.
+#[tracing::instrument(skip_all)]
 fn encode_alpha(dynamic: &DynamicImage) -> (Vec<u8>, Filter) {
     let pixels: Vec<_> = dynamic.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
     (deflate(&pixels), Filter::FlateDecode)

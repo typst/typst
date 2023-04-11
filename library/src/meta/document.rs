@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::layout::{LayoutRoot, PageElem};
 use crate::prelude::*;
 
@@ -29,7 +31,10 @@ pub struct DocumentElem {
 
 impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
+    #[tracing::instrument(name = "DocumentElem::layout_root", skip_all)]
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
+        info!("Document layout");
+
         let mut pages = vec![];
 
         for mut child in &self.children() {

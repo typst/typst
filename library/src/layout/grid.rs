@@ -102,6 +102,7 @@ pub struct GridElem {
 }
 
 impl Layout for GridElem {
+    #[tracing::instrument(name = "GridElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -289,6 +290,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
+    #[tracing::instrument(name = "grid layout", skip(self))]
     pub fn layout(mut self) -> SourceResult<GridLayout> {
         self.measure_columns()?;
 

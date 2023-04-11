@@ -302,6 +302,7 @@ impl Counter {
     }
 
     /// Call a method on counter.
+    #[tracing::instrument(skip(vm))]
     pub fn call_method(
         self,
         vm: &mut Vm,
@@ -613,6 +614,7 @@ struct DisplayElem {
 }
 
 impl Show for DisplayElem {
+    #[tracing::instrument(name = "DisplayElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
@@ -664,6 +666,7 @@ struct UpdateElem {
 }
 
 impl Show for UpdateElem {
+    #[tracing::instrument(name = "UpdateElem::show", skip(self))]
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }

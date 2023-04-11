@@ -140,6 +140,7 @@ impl Synthesize for BibliographyElem {
 }
 
 impl Show for BibliographyElem {
+    #[tracing::instrument(name = "BibliographyElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
@@ -333,6 +334,7 @@ impl Synthesize for CiteElem {
 }
 
 impl Show for CiteElem {
+    #[tracing::instrument(name = "CiteElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());

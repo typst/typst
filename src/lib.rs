@@ -54,6 +54,7 @@ pub mod syntax;
 use std::path::Path;
 
 use comemo::{Prehashed, Track};
+use tracing::info;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
@@ -63,12 +64,15 @@ use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
 
 /// Compile a source file into a fully layouted document.
+#[tracing::instrument(skip(world))]
 pub fn compile(world: &(dyn World + 'static)) -> SourceResult<Document> {
     // Evaluate the source file into a module.
     let route = Route::default();
     let mut tracer = Tracer::default();
     let module =
         eval::eval(world.track(), route.track(), tracer.track_mut(), world.main())?;
+
+    info!("Evaluation successful");
 
     // Typeset the module's contents.
     model::typeset(world.track(), tracer.track_mut(), &module.content())

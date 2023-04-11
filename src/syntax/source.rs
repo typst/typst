@@ -28,6 +28,7 @@ pub struct Source {
 
 impl Source {
     /// Create a new source file.
+    #[tracing::instrument(skip_all)]
     pub fn new(id: SourceId, path: &Path, text: String) -> Self {
         let mut root = parse(&text);
         root.numberize(id, Span::FULL).unwrap();

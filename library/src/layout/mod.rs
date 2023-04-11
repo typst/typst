@@ -47,6 +47,7 @@ pub use self::transform::*;
 
 use std::mem;
 
+use tracing::info;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::eval::Tracer;
@@ -68,6 +69,7 @@ pub trait LayoutRoot {
 }
 
 impl LayoutRoot for Content {
+    #[tracing::instrument(name = "Content::layout_root", skip_all)]
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
         #[comemo::memoize]
         fn cached(
@@ -86,6 +88,8 @@ impl LayoutRoot for Content {
                 .unwrap()
                 .layout_root(&mut vt, styles)
         }
+
+        info!("Starting layout");
 
         cached(
             self,
@@ -126,6 +130,7 @@ pub trait Layout {
 }
 
 impl Layout for Content {
+    #[tracing::instrument(name = "Content::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -151,6 +156,8 @@ impl Layout for Content {
                 .layout(&mut vt, styles, regions)
         }
 
+        info!("Layouting `Content`");
+
         cached(
             self,
             vt.world,
@@ -164,6 +171,7 @@ impl Layout for Content {
 }
 
 /// Realize into an element that is capable of root-level layout.
+#[tracing::instrument(skip_all)]
 fn realize_root<'a>(
     vt: &mut Vt,
     scratch: &'a Scratch<'a>,
@@ -245,6 +253,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn accept(
         &mut self,
         mut content: &'a Content,
@@ -310,6 +319,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn styled(
         &mut self,
         elem: &'a Content,
@@ -324,6 +334,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, local, outer))]
     fn interrupt_style(
         &mut self,
         local: &Styles,
@@ -358,6 +369,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     fn interrupt_list(&mut self) -> SourceResult<()> {
         if !self.list.items.is_empty() {
             let staged = mem::take(&mut self.list.staged);
@@ -371,6 +383,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     fn interrupt_par(&mut self) -> SourceResult<()> {
         self.interrupt_list()?;
         if !self.par.0.is_empty() {
@@ -382,6 +395,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     fn interrupt_page(&mut self, styles: Option<StyleChain<'a>>) -> SourceResult<()> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };

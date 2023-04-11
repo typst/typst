@@ -129,6 +129,7 @@ impl Synthesize for RawElem {
 }
 
 impl Show for RawElem {
+    #[tracing::instrument(name = "RawElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());

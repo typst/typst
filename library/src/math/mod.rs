@@ -170,6 +170,7 @@ impl Synthesize for EquationElem {
 }
 
 impl Show for EquationElem {
+    #[tracing::instrument(name = "EquationElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::func()));
         if self.block(styles) {
@@ -190,6 +191,7 @@ impl Finalize for EquationElem {
 }
 
 impl Layout for EquationElem {
+    #[tracing::instrument(name = "EquationElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -335,12 +337,14 @@ pub trait LayoutMath {
 }
 
 impl LayoutMath for EquationElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
 }
 
 impl LayoutMath for Content {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         if let Some(realized) = ctx.realize(self)? {
             realized.layout_math(ctx)?;
