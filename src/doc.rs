@@ -528,6 +528,7 @@ impl Lang {
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
     pub const SPANISH: Self = Self(*b"es ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
+    pub const VIETNAMESE: Self = Self(*b"vi ", 2);
 
     /// Return the language code as an all lowercase string slice.
     pub fn as_str(&self) -> &str {

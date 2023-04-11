@@ -241,6 +241,7 @@ impl LocalName for HeadingElem {
             Lang::SLOVENIAN => "Poglavje",
             Lang::SPANISH => "Sección",
             Lang::UKRAINIAN => "Розділ",
+            Lang::VIETNAMESE => "Phần", // TODO: This may be wrong.
             Lang::ENGLISH | _ => "Section",
         }
     }
