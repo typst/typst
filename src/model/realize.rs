@@ -153,8 +153,7 @@ fn try_apply(
 
         // Not supported here.
         Some(
-            Selector::Never
-            | Selector::Or(_)
+            Selector::Or(_)
             | Selector::And(_)
             | Selector::Location(_)
             | Selector::Can(_)
