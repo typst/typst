@@ -428,10 +428,17 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
     Some(count)
 }
 
-/// Calculates the factorial of an integer.
-/// Returns `None` if the result is larger than `u64::MAX`
-fn factorial(number: u64) -> Option<u64> {
-    factorial_range(1, number)
+/// Checks to make sure that a given `i64` is a positive integer.
+macro_rules! check_positive_integer_argument {
+    ( $value:ident, $name:literal ) => {
+        match u64::try_from($value.v).ok() {
+            None => bail!(
+                $value.span,
+                format!("a {name} must be positive", name = $name)
+            ),
+            Some(s) => s,
+        }
+    };
 }
 
 /// Calculate the factorial of a number.
@@ -447,39 +454,16 @@ fn factorial(number: u64) -> Option<u64> {
 #[func]
 pub fn fact(
     /// The number whose factorial to calculate. Must be positive.
-    value: Spanned<Num>,
+    value: Spanned<i64>,
 ) -> Value {
-    let number = match value.v {
-        Num::Float(_) => {
-            bail!(value.span, "a factorial argument must be an integer");
-        }
-        // Note: 20 is a hardcoded limit, as 21! > i64::MAX
-        Num::Int(i) if i > 20 => {
-            bail!(value.span, "a factorial argument should not exceed 20")
-        }
-        Num::Int(i) if i < 0 => {
-            bail!(value.span, "a factorial argument must be positive")
-        }
-        Num::Int(i) => i,
-    } as u64;
+    let number = check_positive_integer_argument!(value, "factorial argument");
 
-    // Safe unwrap because we checked earlier that the factorial was less than the overflow limit, i64::MAX
-    Value::Int(factorial(number).unwrap_or_default() as i64)
-}
+    let result = factorial_range(1, number).and_then(|r| i64::try_from(r).ok());
 
-/// Checks to make sure that a given `Num` is a positive integer.
-macro_rules! check_positive_integer_argument {
-    ( $value:ident, $name:literal ) => {
-        match $value.v {
-            Num::Float(_) => {
-                bail!($value.span, format!("a {name} must be an integer", name = $name))
-            }
-            Num::Int(i) if i < 0 => {
-                bail!($value.span, format!("a {name} must be positive", name = $name))
-            }
-            Num::Int(i) => i,
-        }
-    };
+    match result {
+        None => bail!(value.span, "the factorial result is too large"),
+        Some(s) => Value::Int(s),
+    }
 }
 
 /// Calculate a permutation.
@@ -495,14 +479,12 @@ macro_rules! check_positive_integer_argument {
 #[func]
 pub fn perm(
     /// The base number. Must be positive.
-    base: Spanned<Num>,
+    base: Spanned<i64>,
     /// The number of permutations. Must be positive.
-    numbers: Spanned<Num>,
+    numbers: Spanned<i64>,
 ) -> Value {
-    let base_parsed =
-        check_positive_integer_argument!(base, "permutation argument") as u64;
-    let numbers_parsed =
-        check_positive_integer_argument!(numbers, "permutation argument") as u64;
+    let base_parsed = check_positive_integer_argument!(base, "permutation argument");
+    let numbers_parsed = check_positive_integer_argument!(numbers, "permutation argument");
 
     let result = if base_parsed + 1 > numbers_parsed {
         factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
@@ -557,12 +539,12 @@ fn binomial(n: u64, k: u64) -> Option<u64> {
 #[func]
 pub fn binom(
     /// The upper coefficient. Must be positive
-    n: Spanned<Num>,
+    n: Spanned<i64>,
     /// The lower coefficient. Must be positive.
-    k: Spanned<Num>,
+    k: Spanned<i64>,
 ) -> Value {
-    let n_parsed = check_positive_integer_argument!(n, "binomial coefficient") as u64;
-    let k_parsed = check_positive_integer_argument!(k, "binomial coefficient") as u64;
+    let n_parsed = check_positive_integer_argument!(n, "binomial coefficient");
+    let k_parsed = check_positive_integer_argument!(k, "binomial coefficient");
 
     let result = binomial(n_parsed, k_parsed).and_then(|raw| i64::try_from(raw).ok());
 

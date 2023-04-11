@@ -117,15 +117,14 @@
 // Test the `fact` function.
 #test(calc.fact(0), 1)
 #test(calc.fact(5), 120)
----
-// Error: 12-15 a factorial argument must be an integer
-#calc.fact(1.5)
----
-// Error: 12-14 a factorial argument should not exceed 20
-#calc.fact(21)
+
 ---
 // Error: 12-14 a factorial argument must be positive
 #calc.fact(-1)
+
+---
+// Error: 12-14 the factorial result is too large
+#calc.fact(21)
 
 ---
 // Test the `perm` function.
@@ -133,17 +132,10 @@
 #test(calc.perm(5, 3), 60)
 #test(calc.perm(5, 5), 120)
 #test(calc.perm(5, 6), 0)
----
-// Error: 12-15 a permutation argument must be an integer
-#calc.perm(1.5, 1)
 
 ---
 // Error: 12-14 a permutation argument must be positive
 #calc.perm(-1, 1)
-
----
-// Error: 15-18 a permutation argument must be an integer
-#calc.perm(1, 1.5)
 
 ---
 // Error: 15-17 a permutation argument must be positive
@@ -162,16 +154,8 @@
 #test(calc.binom(6, 2), 15)
 
 ---
-// Error: 13-16 a binomial coefficient must be an integer
-#calc.binom(1.5, 0)
-
----
 // Error: 13-15 a binomial coefficient must be positive
 #calc.binom(-1, 0)
-
----
-// Error: 16-19 a binomial coefficient must be an integer
-#calc.binom(1, 1.5)
 
 ---
 // Error: 16-18 a binomial coefficient must be positive
