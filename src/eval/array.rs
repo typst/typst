@@ -5,7 +5,7 @@ use std::ops::{Add, AddAssign};
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
-use crate::diag::{At, SourceError, SourceResult, StrResult};
+use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -289,15 +289,15 @@ impl Array {
     ) -> SourceResult<Self> {
         let mut result = Ok(());
         let mut vec = self.0.clone();
-        let mut key_ = |x: Value| match &key {
-            // NOTE: we are relying on `comemo`'s memoization of function evaluation to not
-            //       excessively reevaluate the `key`.
+        let mut key_of = |x: Value| match &key {
+            // NOTE: We are relying on `comemo`'s memoization of function
+            // evaluation to not excessively reevaluate the `key`.
             Some(f) => f.call_vm(vm, Args::new(f.span(), [x])),
             None => Ok(x),
         };
         vec.make_mut().sort_by(|a, b| {
             // Until we get `try` blocks :)
-            match (key_(a.clone()), key_(b.clone())) {
+            match (key_of(a.clone()), key_of(b.clone())) {
                 (Ok(a), Ok(b)) => a.partial_cmp(&b).unwrap_or_else(|| {
                     if result.is_ok() {
                         result = Err(eco_format!(
@@ -309,12 +309,8 @@ impl Array {
                     }
                     Ordering::Equal
                 }),
-                (Err(mut e), _) | (_, Err(mut e)) => {
+                (Err(e), _) | (_, Err(e)) => {
                     if result.is_ok() {
-                        e.push(SourceError::new(
-                            span,
-                            "error while evaluating key for sorting",
-                        ));
                         result = Err(e);
                     }
                     Ordering::Equal
