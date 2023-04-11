@@ -1,7 +1,8 @@
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
+
+use indexmap::IndexMap;
 
 use super::{Content, Selector};
 use crate::diag::StrResult;
@@ -84,7 +85,7 @@ impl StabilityProvider {
 /// Can be queried for elements and their positions.
 pub struct Introspector {
     pages: usize,
-    elems: HashMap<Option<Location>, (Content, Position)>,
+    elems: IndexMap<Option<Location>, (Content, Position)>,
     // Indexed by page number.
     page_numberings: Vec<Value>,
 }
@@ -94,7 +95,7 @@ impl Introspector {
     pub fn new(frames: &[Frame]) -> Self {
         let mut introspector = Self {
             pages: frames.len(),
-            elems: HashMap::new(),
+            elems: IndexMap::new(),
             page_numberings: vec![],
         };
         for (i, frame) in frames.iter().enumerate() {
