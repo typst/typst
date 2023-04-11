@@ -90,17 +90,27 @@ impl ShapedGlyph {
         matches!(self.c, '，' | '。' | '、' | '：' | '；')
     }
 
-    /// The stretchability and shrinkability of the character.
-    pub fn stretch(&self) -> (Em, Em) {
+    /// The stretchability of the character.
+    pub fn stretchability(&self) -> Em {
         let width = self.x_advance;
         if self.is_space() {
             // The number for spaces is from Knuth-Plass' paper
-            (width / 2.0, width / 3.0)
-        } else if self.is_cjk_punctuaction() {
-            // CJK punctuactions can be shrinked, but not stretched
-            (Em::zero(), width / 2.0)
+            width / 2.0
         } else {
-            (Em::zero(), Em::zero())
+            Em::zero()
+        }
+    }
+
+    /// The shrinkability of the character.
+    pub fn shrinkability(&self) -> Em {
+        let width = self.x_advance;
+        if self.is_space() {
+            // The number for spaces is from Knuth-Plass' paper
+            width / 3.0
+        } else if self.is_cjk_punctuaction() {
+            width / 2.0
+        } else {
+            Em::zero()
         }
     }
 }
@@ -145,9 +155,9 @@ impl<'a> ShapedText<'a> {
                 .map(|glyph| {
                     let mut justification = Em::zero();
                     if justification_ratio < 0.0 {
-                        justification += glyph.stretch().1 * justification_ratio
+                        justification += glyph.shrinkability() * justification_ratio
                     } else {
-                        justification += glyph.stretch().0 * justification_ratio
+                        justification += glyph.stretchability() * justification_ratio
                     };
                     if glyph.is_justifiable() {
                         justification += Em::from_length(extra_justification, self.size)
@@ -243,12 +253,20 @@ impl<'a> ShapedText<'a> {
 
     /// The stretchability of the text.
     pub fn stretchability(&self) -> Abs {
-        self.glyphs.iter().map(|g| g.stretch().0).sum::<Em>().at(self.size)
+        self.glyphs
+            .iter()
+            .map(|g| g.stretchability())
+            .sum::<Em>()
+            .at(self.size)
     }
 
     /// The shrinkability of the text
     pub fn shrinkability(&self) -> Abs {
-        self.glyphs.iter().map(|g| g.stretch().1).sum::<Em>().at(self.size)
+        self.glyphs
+            .iter()
+            .map(|g| g.shrinkability())
+            .sum::<Em>()
+            .at(self.size)
     }
 
     /// Reshape a range of the shaped text, reusing information from this
