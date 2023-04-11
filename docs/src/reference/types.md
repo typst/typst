@@ -526,11 +526,6 @@ Fails with an error if the index is out of bounds.
   The index at which to retrieve the item.
 - returns: any
 
-### enumerate()
-Returns an array of the values along with their indices.
-
-- returns: array
-
 ### push()
 Add a value to the end of the array.
 
@@ -616,6 +611,15 @@ transformed with the given function.
   The function to apply to each item.
 - returns: array
 
+### enumerate()
+Returns a new array with the values alongside their indices.
+
+The returned array consists of `(index, value)` pairs in the form of length-2
+arrays. These can be [destructured]($scripting/#bindings) with a let binding or
+for loop.
+
+- returns: array
+
 ### fold()
 Folds all items into a single value using an accumulator function.
 
@@ -670,7 +674,9 @@ Return a new array with the same items, but sorted.
 A map from string keys to values.
 
 You can construct a dictionary by enclosing comma-separated `key: value` pairs
-in parentheses. The values do not have to be of the same type.
+in parentheses. The values do not have to be of the same type. Since empty
+parentheses already yield an empty array, you have to use the special `(:)`
+syntax to create an empty dictionary.
 
 A dictionary is conceptually similar to an array, but it is indexed by strings
 instead of integers. You can access and create dictionary entries with the
@@ -681,12 +687,8 @@ the value. Dictionaries can be added with the `+` operator and
 To check whether a key is present in the dictionary, use the `in` keyword.
 
 You can iterate over the pairs in a dictionary using a
-[for loop]($scripting/#loops).
-Dictionaries are always ordered by key.
-
-Since empty parentheses already yield an empty array, you have to use the
-special `(:)` syntax to create an empty dictionary.
-
+[for loop]($scripting/#loops). This will iterate in the order the pairs were
+inserted / declared.
 
 ## Example
 ```example
@@ -731,12 +733,12 @@ If the dictionary already contains this key, the value is updated.
   The value of the pair that should be inserted.
 
 ### keys()
-Returns the keys of the dictionary as an array in sorted order.
+Returns the keys of the dictionary as an array in insertion order.
 
 - returns: array
 
 ### values()
-Returns the values of the dictionary as an array in key-order.
+Returns the values of the dictionary as an array in insertion order.
 
 - returns: array
 

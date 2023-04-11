@@ -37,7 +37,7 @@ pub use self::value::*;
 
 pub(crate) use self::methods::methods_on;
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::mem;
 use std::path::{Path, PathBuf};
 
@@ -870,7 +870,7 @@ impl Eval for ast::Dict {
     type Output = Dict;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut map = BTreeMap::new();
+        let mut map = indexmap::IndexMap::new();
 
         for item in self.items() {
             match item {

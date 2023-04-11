@@ -7,7 +7,7 @@
 // Empty array.
 #for x in () [Nope]
 
-// Dictionary is not traversed in insertion order.
+// Dictionary is traversed in insertion order.
 // Should output `Age: 2. Name: Typst.`.
 #for (k, v) in (Name: "Typst", Age: 2) [
   #k: #v.
