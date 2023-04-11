@@ -432,10 +432,9 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
 macro_rules! check_positive_integer_argument {
     ( $value:ident, $name:literal ) => {
         match u64::try_from($value.v).ok() {
-            None => bail!(
-                $value.span,
-                format!("a {name} must be positive", name = $name)
-            ),
+            None => {
+                bail!($value.span, format!("a {name} must be positive", name = $name))
+            }
             Some(s) => s,
         }
     };
@@ -484,7 +483,8 @@ pub fn perm(
     numbers: Spanned<i64>,
 ) -> Value {
     let base_parsed = check_positive_integer_argument!(base, "permutation argument");
-    let numbers_parsed = check_positive_integer_argument!(numbers, "permutation argument");
+    let numbers_parsed =
+        check_positive_integer_argument!(numbers, "permutation argument");
 
     let result = if base_parsed + 1 > numbers_parsed {
         factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
