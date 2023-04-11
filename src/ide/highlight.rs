@@ -261,10 +261,13 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     let next_leaf = node.next_leaf();
     if let Some(next) = &next_leaf {
         if node.range().end == next.offset()
-            && next.kind() == SyntaxKind::LeftParen
-            && matches!(next.parent_kind(), Some(SyntaxKind::Args | SyntaxKind::Params))
-            || (next.kind() == SyntaxKind::LeftBracket
-                && next.parent_kind() == Some(SyntaxKind::ContentBlock))
+            && ((next.kind() == SyntaxKind::LeftParen
+                && matches!(
+                    next.parent_kind(),
+                    Some(SyntaxKind::Args | SyntaxKind::Params)
+                ))
+                || (next.kind() == SyntaxKind::LeftBracket
+                    && next.parent_kind() == Some(SyntaxKind::ContentBlock)))
         {
             return Some(Tag::Function);
         }
