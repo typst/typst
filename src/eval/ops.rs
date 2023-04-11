@@ -215,10 +215,8 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Float(a as f64 / b as f64),
         (Int(a), Float(b)) => Float(a as f64 / b),
-        (Int(a), Ratio(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),
         (Float(a), Float(b)) => Float(a / b),
-        (Float(a), Ratio(b)) => Float(a / b),
 
         (Length(a), Int(b)) => Length(a / b as f64),
         (Length(a), Float(b)) => Length(a / b),
