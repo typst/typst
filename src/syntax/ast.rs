@@ -1623,7 +1623,7 @@ impl Pattern {
         let has_sink =
             self.0.children().find(|c| c.kind() == SyntaxKind::Spread).is_some();
 
-        // Check if pattern only has one child and two parenthesese and is not a sink
+        // Check if pattern only has one child and two parentheses and is not a sink
         if self.0.children().len() <= 3 && !has_sink {
             return PatternKind::Ident(self.0.cast_first_match().unwrap_or_default());
         }
