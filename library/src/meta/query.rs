@@ -117,7 +117,7 @@ pub fn query(
     location: Location,
 ) -> Value {
     let _ = location;
-    vm.vt.introspector.query(target.0).into()
+    vm.vt.introspector.query(&target.0).into()
 }
 
 /// Turns a value into a selector. The following values are accepted:

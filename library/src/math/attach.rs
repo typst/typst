@@ -34,14 +34,14 @@ impl LayoutMath for AttachElem {
 
         let base = ctx.layout_fragment(&base)?;
 
-        ctx.style(ctx.style.for_subscript());
+        ctx.style(ctx.style.for_superscript());
         let top = self
             .top(ctx.styles())
             .map(|elem| ctx.layout_fragment(&elem))
             .transpose()?;
         ctx.unstyle();
 
-        ctx.style(ctx.style.for_superscript());
+        ctx.style(ctx.style.for_subscript());
         let bottom = self
             .bottom(ctx.styles())
             .map(|elem| ctx.layout_fragment(&elem))

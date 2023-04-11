@@ -223,12 +223,14 @@ impl Synthesize for FigureElem {
             }),
         )));
 
+        self.push_caption(self.caption(styles));
         self.push_kind(Smart::Custom(kind));
-        self.push_numbering(numbering);
-        self.push_counter(Some(counter));
         self.push_supplement(Smart::Custom(Supplement::Content(
             supplement.unwrap_or_default(),
         )));
+        self.push_numbering(numbering);
+        self.push_outlined(self.outlined(styles));
+        self.push_counter(Some(counter));
 
         Ok(())
     }
@@ -242,7 +244,7 @@ impl Show for FigureElem {
         // We build the caption, if any.
         if self.caption(styles).is_some() {
             realized += VElem::weak(self.gap(styles).into()).pack();
-            realized += self.show_caption(vt, styles)?;
+            realized += self.show_caption(vt)?;
         }
 
         // We wrap the contents in a block.
@@ -268,32 +270,32 @@ impl Refable for FigureElem {
     fn reference(
         &self,
         vt: &mut Vt,
-        styles: StyleChain,
         supplement: Option<Content>,
+        _: Lang,
     ) -> SourceResult<Content> {
         // If the figure is not numbered, we cannot reference it.
         // Otherwise we build the supplement and numbering scheme.
-        let Some(desc) = self.show_supplement_and_numbering(vt, styles, supplement)? else {
+        let Some(desc) = self.show_supplement_and_numbering(vt, supplement)? else {
             bail!(self.span(), "cannot reference unnumbered figure")
         };
 
         Ok(desc)
     }
 
-    fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
+    fn outline(&self, vt: &mut Vt, _: Lang) -> SourceResult<Option<Content>> {
         // If the figure is not outlined, it is not referenced.
-        if !self.outlined(styles) {
+        if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
 
-        self.show_caption(vt, styles).map(Some)
+        self.show_caption(vt).map(Some)
     }
 
-    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
-        self.numbering(styles)
+    fn numbering(&self) -> Option<Numbering> {
+        self.numbering(StyleChain::default())
     }
 
-    fn counter(&self, _: StyleChain) -> Counter {
+    fn counter(&self) -> Counter {
         self.counter().unwrap_or_else(|| Counter::of(Self::func()))
     }
 }
@@ -327,12 +329,13 @@ impl FigureElem {
     pub fn show_supplement_and_numbering(
         &self,
         vt: &mut Vt,
-        styles: StyleChain,
         external_supplement: Option<Content>,
     ) -> SourceResult<Option<Content>> {
         if let (Some(numbering), Some(supplement), Some(counter)) = (
-            self.numbering(styles),
-            self.supplement(styles).as_custom().and_then(|s| s.as_content()),
+            self.numbering(StyleChain::default()),
+            self.supplement(StyleChain::default())
+                .as_custom()
+                .and_then(|s| s.as_content()),
             self.counter(),
         ) {
             let mut name = external_supplement.unwrap_or(supplement);
@@ -356,12 +359,12 @@ impl FigureElem {
     ///
     /// # Errors
     /// If a numbering is specified but the [`Self::element`] is `None`.
-    pub fn show_caption(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let Some(mut caption) = self.caption(styles) else {
+    pub fn show_caption(&self, vt: &mut Vt) -> SourceResult<Content> {
+        let Some(mut caption) = self.caption(StyleChain::default()) else {
             return Ok(Content::empty());
         };
 
-        if let Some(sup_and_num) = self.show_supplement_and_numbering(vt, styles, None)? {
+        if let Some(sup_and_num) = self.show_supplement_and_numbering(vt, None)? {
             caption = sup_and_num + TextElem::packed(": ") + caption;
         }
 

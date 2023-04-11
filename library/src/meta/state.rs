@@ -284,7 +284,7 @@ impl State {
         let sequence = self.sequence(vt)?;
         let offset = vt
             .introspector
-            .query(Selector::before(self.selector(), location, true))
+            .query(&Selector::before(self.selector(), location, true))
             .len();
         Ok(sequence[offset].clone())
     }
@@ -326,7 +326,7 @@ impl State {
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];
 
-        for elem in introspector.query(self.selector()) {
+        for elem in introspector.query(&self.selector()) {
             let elem = elem.to::<UpdateElem>().unwrap();
             match elem.update() {
                 StateUpdate::Set(value) => state = value,

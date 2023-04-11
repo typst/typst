@@ -232,6 +232,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01c22dcfb410883764b29953103d9ef7bb8fe21b3fa1158bc99986c2067294bd"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_derive"
 version = "4.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -248,6 +257,16 @@ name = "clap_lex"
 version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8a2dd5a6fe8c6e3502f568a6353e5273bbb15193ad9a89e457b9970798efbea1"
+
+[[package]]
+name = "clap_mangen"
+version = "0.2.10"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4237e29de9c6949982ba87d51709204504fb8ed2fd38232fcb1e5bf7d4ba48c8"
+dependencies = [
+ "clap",
+ "roff",
+]
 
 [[package]]
 name = "codespan-reporting"
@@ -712,9 +731,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.9.2"
+version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
+checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown",
@@ -1216,6 +1235,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "roff"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b833d8d034ea094b1ea68aa6d5c740e0d04bad9d16568d08ba6f76823a114316"
+
+[[package]]
 name = "roxmltree"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1581,6 +1606,7 @@ dependencies = [
  "flate2",
  "if_chain",
  "image",
+ "indexmap",
  "log",
  "miniz_oxide 0.5.4",
  "once_cell",
@@ -1612,6 +1638,8 @@ version = "0.1.0"
 dependencies = [
  "chrono",
  "clap",
+ "clap_complete",
+ "clap_mangen",
  "codespan-reporting",
  "comemo",
  "dirs",

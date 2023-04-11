@@ -337,7 +337,7 @@ impl Counter {
         let sequence = self.sequence(vt)?;
         let offset = vt
             .introspector
-            .query(Selector::before(self.selector(), location, true))
+            .query(&Selector::before(self.selector(), location, true))
             .len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
@@ -364,7 +364,7 @@ impl Counter {
         let sequence = self.sequence(vt)?;
         let offset = vt
             .introspector
-            .query(Selector::before(self.selector(), location, true))
+            .query(&Selector::before(self.selector(), location, true))
             .len();
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
@@ -418,11 +418,10 @@ impl Counter {
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
-        for elem in introspector.query(self.selector()) {
+        for elem in introspector.query(&self.selector()) {
             if self.is_page() {
-                let location = elem.location().unwrap();
                 let prev = page;
-                page = introspector.page(location);
+                page = introspector.page(elem.location().unwrap());
 
                 let delta = page.get() - prev.get();
                 if delta > 0 {

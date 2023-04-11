@@ -115,7 +115,7 @@ pub fn call(
                 let last = args.named("last")?;
                 array.join(sep, last).at(span)?
             }
-            "sorted" => Value::Array(array.sorted().at(span)?),
+            "sorted" => Value::Array(array.sorted(vm, span, args.named("key")?)?),
             "enumerate" => Value::Array(array.enumerate()),
             _ => return missing(),
         },
@@ -151,11 +151,11 @@ pub fn call(
         },
 
         Value::Dyn(dynamic) => {
-            if let Some(&location) = dynamic.downcast::<Location>() {
+            if let Some(location) = dynamic.downcast::<Location>() {
                 match method {
-                    "page" => vm.vt.introspector.page(location).into(),
-                    "position" => vm.vt.introspector.position(location).into(),
-                    "page-numbering" => vm.vt.introspector.page_numbering(location),
+                    "page" => vm.vt.introspector.page(*location).into(),
+                    "position" => vm.vt.introspector.position(*location).into(),
+                    "page-numbering" => vm.vt.introspector.page_numbering(*location),
                     _ => return missing(),
                 }
             } else if let Some(selector) = dynamic.downcast::<Selector>() {
@@ -163,36 +163,16 @@ pub fn call(
                     "or" => selector.clone().or(args.all::<Selector>()?).into(),
                     "and" => selector.clone().and(args.all::<Selector>()?).into(),
                     "before" => {
-                        let other = args.expect::<Selector>("selector")?;
+                        let location = args.expect::<Selector>("selector")?;
                         let inclusive =
                             args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
-                        match vm
-                            .vt
-                            .introspector
-                            .query_first(other)
-                            .and_then(|content| content.location())
-                        {
-                            Some(location) => {
-                                selector.clone().before(location, inclusive).into()
-                            }
-                            None => selector.clone().into(),
-                        }
+                        selector.clone().before(location, inclusive).into()
                     }
                     "after" => {
-                        let other = args.expect::<Selector>("selector")?;
+                        let location = args.expect::<Selector>("selector")?;
                         let inclusive =
                             args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
-                        match vm
-                            .vt
-                            .introspector
-                            .query_first(other)
-                            .and_then(|content| content.location())
-                        {
-                            Some(location) => {
-                                selector.clone().after(location, inclusive).into()
-                            }
-                            None => Selector::Never.into(),
-                        }
+                        selector.clone().after(location, inclusive).into()
                     }
                     _ => return missing(),
                 }

@@ -1,7 +1,8 @@
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
+
+use indexmap::IndexMap;
 
 use super::{Content, Selector};
 use crate::diag::StrResult;
@@ -84,9 +85,7 @@ impl StabilityProvider {
 /// Can be queried for elements and their positions.
 pub struct Introspector {
     pages: usize,
-    elems: Vec<(Content, Position)>,
-    /// A small cache of positions for faster lookups in nested queries.
-    locations: HashMap<Location, usize>,
+    elems: IndexMap<Location, (Content, Position)>,
     // Indexed by page number.
     page_numberings: Vec<Value>,
 }
@@ -96,8 +95,7 @@ impl Introspector {
     pub fn new(frames: &[Frame]) -> Self {
         let mut introspector = Self {
             pages: frames.len(),
-            elems: vec![],
-            locations: HashMap::new(),
+            elems: IndexMap::new(),
             page_numberings: vec![],
         };
         for (i, frame) in frames.iter().enumerate() {
@@ -108,8 +106,8 @@ impl Introspector {
     }
 
     /// Iterate over all elements.
-    pub fn all(&self) -> impl Iterator<Item = &Content> {
-        self.elems.iter().map(|(elem, _)| elem)
+    pub fn all(&self) -> impl Iterator<Item = Content> + '_ {
+        self.elems.values().map(|(c, _)| c).cloned()
     }
 
     /// Extract metadata from a frame.
@@ -123,14 +121,14 @@ impl Introspector {
                     self.extract(&group.frame, page, ts);
                 }
                 FrameItem::Meta(Meta::Elem(content), _)
-                    if !content
-                        .location()
-                        .map_or(false, |loc| self.locations.contains_key(&loc)) =>
+                    if !self.elems.contains_key(&content.location().unwrap()) =>
                 {
                     let pos = pos.transform(ts);
-                    self.elems.push((content.clone(), Position { page, point: pos }));
-                    self.locations
-                        .insert(content.location().unwrap(), self.elems.len() - 1);
+                    let ret = self.elems.insert(
+                        content.location().unwrap(),
+                        (content.clone(), Position { page, point: pos }),
+                    );
+                    assert!(ret.is_none(), "duplicate locations");
                 }
                 FrameItem::Meta(Meta::PageNumbering(numbering), _) => {
                     self.page_numberings.push(numbering.clone());
@@ -138,11 +136,6 @@ impl Introspector {
                 _ => {}
             }
         }
-    }
-
-    /// Gets the element at the given index.
-    pub fn get(&self, index: usize) -> Option<&Content> {
-        self.elems.get(index).map(|(elem, _)| elem)
     }
 }
 
@@ -154,18 +147,32 @@ impl Introspector {
     }
 
     /// Get an element from the position cache.
-    pub fn location(&self, location: &Location) -> Option<usize> {
-        self.locations.get(location).copied()
+    pub fn location(&self, location: &Location) -> Option<Content> {
+        self.elems.get(location).map(|(c, _)| c).cloned()
     }
 
     /// Query for all matching elements.
-    pub fn query(&self, selector: Selector) -> Vec<Content> {
-        selector.match_iter(self).map(|(_, c)| c.clone()).collect()
+    pub fn query<'a>(&'a self, selector: &'a Selector) -> Vec<Content> {
+        match selector {
+            Selector::Location(location) => self
+                .elems
+                .get(location)
+                .map(|(content, _)| content)
+                .cloned()
+                .into_iter()
+                .collect(),
+            _ => selector.match_iter(self).collect(),
+        }
     }
 
     /// Query for all matching elements.
-    pub fn query_first(&self, selector: Selector) -> Option<Content> {
-        selector.match_iter(self).map(|(_, c)| c.clone()).next()
+    pub fn query_first<'a>(&'a self, selector: &'a Selector) -> Option<Content> {
+        match selector {
+            Selector::Location(location) => {
+                self.elems.get(location).map(|(content, _)| content).cloned()
+            }
+            _ => selector.match_iter(self).next(),
+        }
     }
 
     /// Query for a unique element with the label.
@@ -199,9 +206,25 @@ impl Introspector {
     /// Find the position for the given location.
     pub fn position(&self, location: Location) -> Position {
         self.elems
-            .iter()
-            .find(|(elem, _)| elem.location() == Some(location))
+            .get(&location)
             .map(|(_, loc)| *loc)
             .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
+    }
+
+    /// Checks whether `a` is before `b` in the document.
+    pub fn is_before(&self, a: Location, b: Location, inclusive: bool) -> bool {
+        let a = self.elems.get_index_of(&a).unwrap();
+        let b = self.elems.get_index_of(&b).unwrap();
+
+        if inclusive {
+            a <= b
+        } else {
+            a < b
+        }
+    }
+
+    /// Checks whether `a` is after `b` in the document.
+    pub fn is_after(&self, a: Location, b: Location, inclusive: bool) -> bool {
+        !self.is_before(a, b, !inclusive)
     }
 }
