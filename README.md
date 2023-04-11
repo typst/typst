@@ -162,10 +162,13 @@ invite you to open an issue first so we can explore the design space together.
 If you want to contribute and are wondering how everything works, also check out
 the [`ARCHITECTURE.md`][architecture] file. It explains how the compiler works.
 
-To build Typst yourself, you need to have the [latest stable Rust][rust]
-installed. Then, you can build the CLI with the following command:
+To build Typst yourself, first ensure that you have the
+[latest stable Rust][rust] installed. Then, clone this repository and build the
+CLI with the following commands:
 
 ```sh
+git clone https://github.com/typst/typst
+cd typst
 cargo build --release
 ```
 
