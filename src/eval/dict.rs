@@ -1,5 +1,5 @@
-use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
@@ -16,7 +16,7 @@ use crate::util::{pretty_array_like, separated_list, ArcExt};
 macro_rules! __dict {
     ($($key:expr => $value:expr),* $(,)?) => {{
         #[allow(unused_mut)]
-        let mut map = std::collections::BTreeMap::new();
+        let mut map = $crate::eval::IndexMap::new();
         $(map.insert($key.into(), $value.into());)*
         $crate::eval::Dict::from_map(map)
     }};
@@ -25,9 +25,12 @@ macro_rules! __dict {
 #[doc(inline)]
 pub use crate::__dict as dict;
 
+#[doc(inline)]
+pub use indexmap::IndexMap;
+
 /// A reference-counted dictionary with value semantics.
-#[derive(Default, Clone, PartialEq, Hash)]
-pub struct Dict(Arc<BTreeMap<Str, Value>>);
+#[derive(Default, Clone, PartialEq)]
+pub struct Dict(Arc<IndexMap<Str, Value>>);
 
 impl Dict {
     /// Create a new, empty dictionary.
@@ -36,7 +39,7 @@ impl Dict {
     }
 
     /// Create a new dictionary from a mapping of strings to values.
-    pub fn from_map(map: BTreeMap<Str, Value>) -> Self {
+    pub fn from_map(map: IndexMap<Str, Value>) -> Self {
         Self(Arc::new(map))
     }
 
@@ -116,7 +119,7 @@ impl Dict {
     }
 
     /// Iterate over pairs of references to the contained keys and values.
-    pub fn iter(&self) -> std::collections::btree_map::Iter<Str, Value> {
+    pub fn iter(&self) -> indexmap::map::Iter<Str, Value> {
         self.0.iter()
     }
 
@@ -171,6 +174,15 @@ impl AddAssign for Dict {
     }
 }
 
+impl Hash for Dict {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_usize(self.0.len());
+        for item in self {
+            item.hash(state);
+        }
+    }
+}
+
 impl Extend<(Str, Value)> for Dict {
     fn extend<T: IntoIterator<Item = (Str, Value)>>(&mut self, iter: T) {
         Arc::make_mut(&mut self.0).extend(iter);
@@ -185,7 +197,7 @@ impl FromIterator<(Str, Value)> for Dict {
 
 impl IntoIterator for Dict {
     type Item = (Str, Value);
-    type IntoIter = std::collections::btree_map::IntoIter<Str, Value>;
+    type IntoIter = indexmap::map::IntoIter<Str, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         Arc::take(self.0).into_iter()
@@ -194,7 +206,7 @@ impl IntoIterator for Dict {
 
 impl<'a> IntoIterator for &'a Dict {
     type Item = (&'a Str, &'a Value);
-    type IntoIter = std::collections::btree_map::Iter<'a, Str, Value>;
+    type IntoIter = indexmap::map::Iter<'a, Str, Value>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

@@ -444,6 +444,6 @@ mod tests {
         test(array![1, 2], "(1, 2)");
         test(dict![], "(:)");
         test(dict!["one" => 1], "(one: 1)");
-        test(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
+        test(dict!["two" => false, "one" => 1], "(two: false, one: 1)");
     }
 }
