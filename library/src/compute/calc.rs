@@ -408,26 +408,6 @@ pub fn log(
     Value::Float(result)
 }
 
-/// Calculates the product of a range of numbers. Used to calculate permutations.
-/// Returns None if the result is larger than `u64::MAX`
-fn factorial_range(start: u64, end: u64) -> Option<u64> {
-    // By convention
-    if end + 1 < start {
-        return Some(0);
-    }
-
-    let mut count: u64 = 1;
-    let real_start: u64 = cmp::max(1, start);
-
-    for i in real_start..=end {
-        match count.checked_mul(i) {
-            None => return None,
-            Some(s) => count = s,
-        };
-    }
-    Some(count)
-}
-
 /// Checks to make sure that a given `i64` is a positive integer.
 macro_rules! check_positive_integer_argument {
     ( $value:ident, $name:literal ) => {
@@ -465,6 +445,26 @@ pub fn fact(
     }
 }
 
+/// Calculates the product of a range of numbers. Used to calculate permutations.
+/// Returns None if the result is larger than `u64::MAX`
+fn factorial_range(start: u64, end: u64) -> Option<u64> {
+    // By convention
+    if end + 1 < start {
+        return Some(0);
+    }
+
+    let mut count: u64 = 1;
+    let real_start: u64 = cmp::max(1, start);
+
+    for i in real_start..=end {
+        match count.checked_mul(i) {
+            None => return None,
+            Some(s) => count = s,
+        };
+    }
+    Some(count)
+}
+
 /// Calculate a permutation.
 ///
 /// ## Example
@@ -500,32 +500,6 @@ pub fn perm(
     }
 }
 
-/// Calculates a binomial coefficient, with `n` the upper coefficient and `k` the lower coefficient.
-/// Returns `None` if the result is larger than `u64::MAX`
-fn binomial(n: u64, k: u64) -> Option<u64> {
-    if k > n {
-        return Some(0);
-    }
-
-    // By symmetry
-    let real_k = cmp::min(n - k, k);
-
-    if real_k == 0 {
-        return Some(1);
-    }
-
-    let mut result: u64 = 1;
-
-    for i in 0..real_k {
-        match result.checked_mul(n - i).and_then(|r| r.checked_div(i + 1)) {
-            None => return None,
-            Some(s) => result = s,
-        };
-    }
-
-    Some(result)
-}
-
 /// Calculate a binomial coefficient.
 ///
 /// ## Example
@@ -552,6 +526,32 @@ pub fn binom(
         None => bail!(n.span, "the binomial result is too large"),
         Some(r) => Value::Int(r),
     }
+}
+
+/// Calculates a binomial coefficient, with `n` the upper coefficient and `k` the lower coefficient.
+/// Returns `None` if the result is larger than `u64::MAX`
+fn binomial(n: u64, k: u64) -> Option<u64> {
+    if k > n {
+        return Some(0);
+    }
+
+    // By symmetry
+    let real_k = cmp::min(n - k, k);
+
+    if real_k == 0 {
+        return Some(1);
+    }
+
+    let mut result: u64 = 1;
+
+    for i in 0..real_k {
+        match result.checked_mul(n - i).and_then(|r| r.checked_div(i + 1)) {
+            None => return None,
+            Some(s) => result = s,
+        };
+    }
+
+    Some(result)
 }
 
 /// Round a number down to the nearest integer.
