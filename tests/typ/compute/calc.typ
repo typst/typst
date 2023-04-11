@@ -159,6 +159,8 @@
 #test(calc.binom(5, 3), 10)
 #test(calc.binom(5, 5), 1)
 #test(calc.binom(5, 6), 0)
+#test(calc.binom(6, 2), 15)
+
 ---
 // Error: 13-16 a binomial coefficient must be an integer
 #calc.binom(1.5, 0)
