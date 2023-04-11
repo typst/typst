@@ -657,6 +657,8 @@ Combine all items in the array into one.
 ### sorted()
 Return a new array with the same items, but sorted.
 
+- key: function (named)
+  If given, applies this function to the elements in the array to determine the keys to sort by.
 - returns: array
 
 # Dictionary
