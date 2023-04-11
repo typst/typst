@@ -101,26 +101,27 @@ Let's dissect what's going on:
   ```
 </details>
 
-## Installing
-You can get sources and pre-built binaries for the latest release of Typst from
-the [releases page][releases]. This will give you Typst's CLI which converts
-Typst sources into PDFs.
+## Installation
+Typst's CLI is available from different sources:
 
-Typst is also available through several package managers:
+- You can get sources and pre-built binaries for the latest release of Typst
+  from the [releases page][releases].
 
-```sh
-# macOS or Linux using Homebrew
-brew install typst
+- You can install Typst through different package managers. Note that the
+  versions in the package managers might lag behind the latest release.
+  - macOS/Linux: `brew install typst`
+  - Arch Linux: `pacman -S typst`
 
-# Arch Linux
-pacman -S typst
-```
+- If you have a [Rust][rust] toolchain installed, you can also install the
+  latest development version with
+  `cargo install --git https://github.com/typst/typst`. Note that this will
+  be a "nightly" version that may be broken or not yet properly documented.
 
-Nix users can use the `typst` package with `nix-shell -p typst` or build and run
-the bleeding edge version with `nix run github:typst/typst -- --version`.
+- Nix users can use the `typst` package with `nix-shell -p typst` or build and
+  run the bleeding edge version with `nix run github:typst/typst -- --version`.
 
-Docker users can run a prebuilt image with
-`docker run -it ghcr.io/typst/typst:main`.
+- Docker users can run a prebuilt image with
+  `docker run -it ghcr.io/typst/typst:main`.
 
 ## Usage
 Once you have installed Typst, you can use it like this:
@@ -154,16 +155,6 @@ If you prefer an integrated IDE-like experience with autocompletion and instant
 preview, you can also check out the [Typst web app][app], which is currently in
 public beta.
 
-## Build from source
-To build Typst yourself, you need to have the [latest stable Rust][rust]
-installed. Then, you can build the CLI with the following command:
-
-```sh
-cargo build -p typst-cli --release
-```
-
-The optimized binary will be stored in `target/release/`.
-
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
 feel free to open an issue or send a PR with a fix. For new features, we would
@@ -171,10 +162,17 @@ invite you to open an issue first so we can explore the design space together.
 If you want to contribute and are wondering how everything works, also check out
 the [`ARCHITECTURE.md`][architecture] file. It explains how the compiler works.
 
-## Pronunciation
-**IPA**: /taɪpst/
+To build Typst yourself, you need to have the [latest stable Rust][rust]
+installed. Then, you can build the CLI with the following command:
 
-"Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
+```sh
+cargo build --release
+```
+
+The optimized binary will be stored in `target/release/`.
+
+## Pronunciation
+IPA: /taɪpst/. "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
 
 ## Design Principles
 All of Typst has been designed with three key goals in mind: Power,
