@@ -472,10 +472,7 @@ impl<'a> Line<'a> {
 
     /// How much can the line stretch
     fn stretchability(&self) -> Abs {
-        self.items()
-            .filter_map(Item::text)
-            .map(|s| s.stretchability())
-            .sum::<Abs>()
+        self.items().filter_map(Item::text).map(|s| s.stretchability()).sum()
     }
 
     /// How much can the line shrink
@@ -875,14 +872,14 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // to make it the desired width.
             let delta = width - attempt.width;
             // Determine how much stretch are permitted.
-            let stretch = if delta >= Abs::zero() {
+            let adjust = if delta >= Abs::zero() {
                 attempt.stretchability()
             } else {
                 attempt.shrinkability()
             };
             // Ideally, the ratio should between -1.0 and 1.0, but sometimes a value above 1.0
             // is possible, in which case the line is underfull.
-            let mut ratio = delta / stretch;
+            let mut ratio = delta / adjust;
             if ratio.is_nan() {
                 // The line is not stretchable, but it just fits.
                 // This often happens with monospace fonts and CJK texts.
@@ -914,7 +911,11 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // has minimum cost. All breakpoints before this one become
                 // inactive since no line can span above the mandatory break.
                 active = k;
-                if attempt.justify { ratio.powi(3).abs() } else { 0.0 }
+                if attempt.justify {
+                    ratio.powi(3).abs()
+                } else {
+                    0.0
+                }
             } else {
                 // Normal line with cost of |ratio^3|.
                 ratio.powi(3).abs()
