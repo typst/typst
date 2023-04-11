@@ -1620,11 +1620,14 @@ pub enum DestructuringKind {
 impl Pattern {
     /// The kind of the pattern.
     pub fn kind(&self) -> PatternKind {
-        let has_sink =
-            self.0.children().find(|c| c.kind() == SyntaxKind::Spread).is_some();
-
-        // Check if pattern only has one child and two parentheses and is not a sink
-        if self.0.children().len() <= 3 && !has_sink {
+        if self
+            .0
+            .children()
+            .map(SyntaxNode::kind)
+            .skip_while(|&kind| kind == SyntaxKind::LeftParen)
+            .take_while(|&kind| kind != SyntaxKind::RightParen)
+            .eq([SyntaxKind::Ident])
+        {
             return PatternKind::Ident(self.0.cast_first_match().unwrap_or_default());
         }
 
