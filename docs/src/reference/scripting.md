@@ -81,7 +81,8 @@ It explains #name.
 Sum is #add(2, 3).
 ```
 
-Let bindings can be used to destructure arrays and dictionaries.
+Let bindings can also be used to destructure [arrays]($type/array) and
+[dictionaries]($type/dictionary).
 
 ```example
 #let (x, y) = (1, 2)
@@ -92,10 +93,11 @@ The first element is #a.
 The last element is #b.
 
 #let books = (
-  "Shakespeare": "Hamlet",
-  "Homer": "The Odyssey",
-  "Austen": "Persuasion",
+  Shakespeare: "Hamlet",
+  Homer: "The Odyssey",
+  Austen: "Persuasion",
 )
+
 #let (Austen,) = books
 Austen wrote #Austen.
 
@@ -104,14 +106,13 @@ Homer wrote #h.
 
 #let (Homer, ..other) = books
 #for (author, title) in other [
-  #author wrote #title, 
+  #author wrote #title.
 ]
 ```
 
-Note that the underscore `_` is the only identifier that can
-be used multiple times in the same assignment.
+You can use the underscore to discard elements in a destructuring pattern:
 
-```
+```example
 #let (_, y, _) = (1, 2, 3)
 The y coordinate is #y.
 ```
