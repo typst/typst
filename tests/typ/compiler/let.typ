@@ -33,11 +33,21 @@ Three
 #test(v3, 3)
 
 ---
+// Test parenthesised assignments.
+// Ref: false
+#let (a) = (1, 2)
+
+---
 // Ref: false
 // Simple destructuring.
 #let (a, b) = (1, 2)
 #test(a, 1)
 #test(b, 2)
+
+---
+// Ref: false
+#let (a,) = (1,)
+#test(a, 1)
 
 ---
 // Ref: false
@@ -114,10 +124,6 @@ Three
 ---
 // Error: 13-14 not enough elements to destructure
 #let (a, b, c) = (1, 2)
-
----
-// Error: 6-9 too many elements to destructure
-#let (a) = (1, 2)
 
 ---
 // Error: 6-20 not enough elements to destructure

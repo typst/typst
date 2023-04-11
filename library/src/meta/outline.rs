@@ -151,6 +151,7 @@ impl Show for OutlineElem {
 
         let indent = self.indent(styles);
         let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
+        let lang = TextElem::lang_in(styles);
 
         let mut ancestors: Vec<&Content> = vec![];
         let elems = vt.introspector.query(self.target(styles));
@@ -161,11 +162,11 @@ impl Show for OutlineElem {
             };
 
             let location = elem.location().expect("missing location");
-            if depth < refable.level(StyleChain::default()) {
+            if depth < refable.level() {
                 continue;
             }
 
-            let Some(outline) = refable.outline(vt, StyleChain::default())? else {
+            let Some(outline) = refable.outline(vt, lang)? else {
                 continue;
             };
 
@@ -174,10 +175,7 @@ impl Show for OutlineElem {
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Refable>())
-                .map_or(false, |last| {
-                    last.level(StyleChain::default())
-                        >= refable.level(StyleChain::default())
-                })
+                .map_or(false, |last| last.level() >= refable.level())
             {
                 ancestors.pop();
             }
@@ -188,11 +186,9 @@ impl Show for OutlineElem {
                 for ancestor in &ancestors {
                     let ancestor_refable = ancestor.with::<dyn Refable>().unwrap();
 
-                    if let Some(numbering) =
-                        ancestor_refable.numbering(StyleChain::default())
-                    {
+                    if let Some(numbering) = ancestor_refable.numbering() {
                         let numbers = ancestor_refable
-                            .counter(StyleChain::default())
+                            .counter()
                             .at(vt, ancestor.location().unwrap())?
                             .display(vt, &numbering)?;
 
@@ -252,8 +248,10 @@ impl Show for OutlineElem {
 impl LocalName for OutlineElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::ARABIC => "المحتويات",
             Lang::BOKMÅL => "Innhold",
             Lang::CHINESE => "目录",
+            Lang::CZECH => "Obsah",
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ITALIAN => "Indice",
@@ -264,6 +262,7 @@ impl LocalName for OutlineElem {
             Lang::SLOVENIAN => "Kazalo",
             Lang::SPANISH => "Índice",
             Lang::UKRAINIAN => "Зміст",
+            Lang::VIETNAMESE => "Mục lục",
             Lang::ENGLISH | _ => "Contents",
         }
     }

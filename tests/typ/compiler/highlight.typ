@@ -38,4 +38,5 @@ $ #hello() $
 $ #hello.world $
 $ #hello.world() $
 $ #box[] $
+#if foo []
 ```

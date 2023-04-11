@@ -377,5 +377,4 @@ questions, suggestions or you found a bug, please let us know on
 [contact form](https://typst.app/contact), or on
 [social media.](https://twitter.com/typstapp)
 
-So what are you waiting for? Go forth and write something! Or, if you haven't
-got access yet, [sign up for the wait list](https://typst.app).
+So what are you waiting for? [Sign up](https://typst.app) and write something!

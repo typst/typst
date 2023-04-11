@@ -93,7 +93,6 @@
 ---
 // Destructuring without parentheses.
 // Error: 7 expected keyword `in`. did you mean to use a destructuring pattern?
-// Error: 7 expected keyword `in`
 #for k, v in (a: 4, b: 5) {
   dont-care
 }

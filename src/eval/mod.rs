@@ -1461,16 +1461,16 @@ impl Eval for ast::ForLoop {
 
         match (pattern.kind(), iter.clone()) {
             (ast::PatternKind::Ident(_), Value::Str(string)) => {
-                // iterate over characters of string
+                // Iterate over graphemes of string.
                 iter!(for pattern in string.as_str().graphemes(true));
             }
             (_, Value::Dict(dict)) => {
-                // iterate over keys of dict
+                // Iterate over pairs of dict.
                 iter!(for pattern in dict.pairs());
             }
             (_, Value::Array(array)) => {
-                // iterate over values of array and allow destructuring
-                iter!(for pattern in array.into_iter());
+                // Iterate over values of array.
+                iter!(for pattern in array);
             }
             (ast::PatternKind::Ident(_), _) => {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());

@@ -1,3 +1,5 @@
+mod args;
+
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -6,7 +8,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use clap::{ArgAction, Parser, Subcommand};
+use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use comemo::Prehashed;
@@ -25,64 +27,13 @@ use typst::util::{Buffer, PathExt};
 use typst::World;
 use walkdir::WalkDir;
 
+use crate::args::{CliArguments, Command, CompileCommand};
+
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
-const TYPST_VERSION: &str = env!("TYPST_VERSION");
-
-/// typst creates PDF files from .typ files
-#[derive(Debug, Clone, Parser)]
-#[clap(name = "typst", version = TYPST_VERSION, author)]
-pub struct CliArguments {
-    /// Add additional directories to search for fonts
-    #[clap(long = "font-path", value_name = "DIR", action = ArgAction::Append)]
-    font_paths: Vec<PathBuf>,
-
-    /// Configure the root for absolute paths
-    #[clap(long = "root", value_name = "DIR")]
-    root: Option<PathBuf>,
-
-    /// The typst command to run
-    #[command(subcommand)]
-    command: Command,
-}
-
-/// What to do.
-#[derive(Debug, Clone, Subcommand)]
-#[command()]
-enum Command {
-    /// Compiles the input file into a PDF file
-    #[command(visible_alias = "c")]
-    Compile(CompileCommand),
-
-    /// Watches the input file and recompiles on changes
-    #[command(visible_alias = "w")]
-    Watch(CompileCommand),
-
-    /// List all discovered fonts in system and custom font paths
-    Fonts(FontsCommand),
-}
-
-/// Compiles the input file into a PDF file
-#[derive(Debug, Clone, Parser)]
-pub struct CompileCommand {
-    /// Path to input Typst file
-    input: PathBuf,
-
-    /// Path to output PDF file
-    output: Option<PathBuf>,
-
-    /// Opens the output file after compilation using the default PDF viewer
-    #[arg(long = "open")]
-    open: Option<Option<String>>,
-}
-
-/// List all discovered fonts in system and custom font paths
-#[derive(Debug, Clone, Parser)]
-pub struct FontsCommand {
-    /// Also list style variants of each font family
-    #[arg(long)]
-    variants: bool,
+pub fn typst_version() -> &'static str {
+    env!("TYPST_VERSION")
 }
 
 /// A summary of the input arguments relevant to compilation.
@@ -397,13 +348,9 @@ fn print_diagnostics(
 /// - The given viewer provided by `open` if it is `Some`.
 fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
     if let Some(app) = open {
-        open::with(path, app).map_err(|err| {
-            format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err)
-        })?;
+        open::with_in_background(path, app);
     } else {
-        open::that(path).map_err(|err| {
-            format!("failed to open `{}`, reason: {}", path.display(), err)
-        })?;
+        open::that_in_background(path);
     }
 
     Ok(())

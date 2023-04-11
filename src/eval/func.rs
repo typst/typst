@@ -73,17 +73,6 @@ impl Func {
         self
     }
 
-    /// The number of positional arguments this function takes, if known.
-    pub fn argc(&self) -> Option<usize> {
-        match &self.repr {
-            Repr::Closure(closure) => closure.argc(),
-            Repr::With(arc) => Some(arc.0.argc()?.saturating_sub(
-                arc.1.items.iter().filter(|arg| arg.name.is_none()).count(),
-            )),
-            _ => None,
-        }
-    }
-
     /// Call the function with the given arguments.
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
         match &self.repr {
@@ -345,15 +334,6 @@ impl Closure {
         }
 
         result
-    }
-
-    /// The number of positional arguments this closure takes, if known.
-    fn argc(&self) -> Option<usize> {
-        if self.sink.is_some() {
-            return None;
-        }
-
-        Some(self.params.iter().filter(|(_, default)| default.is_none()).count())
     }
 }
 

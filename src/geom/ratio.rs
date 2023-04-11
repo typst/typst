@@ -110,6 +110,14 @@ impl Div<f64> for Ratio {
     }
 }
 
+impl Div<Ratio> for f64 {
+    type Output = Self;
+
+    fn div(self, other: Ratio) -> Self {
+        self / other.get()
+    }
+}
+
 impl Div for Ratio {
     type Output = f64;
 

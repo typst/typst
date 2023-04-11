@@ -847,22 +847,19 @@ fn pattern(p: &mut Parser) -> PatternKind {
     let m = p.marker();
 
     if p.at(SyntaxKind::LeftParen) {
-        collection(p, false);
+        let kind = collection(p, false);
         validate_destruct_pattern(p, m);
         p.wrap(m, SyntaxKind::Pattern);
 
-        PatternKind::Destructuring
-    } else {
-        let success = p.expect(SyntaxKind::Ident);
-        if p.at(SyntaxKind::Comma) {
-            // TODO: this should only be a warning instead
-            p.expected("keyword `in`. did you mean to use a destructuring pattern?");
+        if kind == SyntaxKind::Parenthesized {
+            PatternKind::Normal
+        } else {
+            PatternKind::Destructuring
         }
-
-        if success {
+    } else {
+        if p.expect(SyntaxKind::Ident) {
             p.wrap(m, SyntaxKind::Pattern);
         }
-
         PatternKind::Normal
     }
 }
@@ -964,7 +961,13 @@ fn for_loop(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::For);
     pattern(p);
-    p.expect(SyntaxKind::In);
+    if p.at(SyntaxKind::Comma) {
+        p.expected("keyword `in`. did you mean to use a destructuring pattern?");
+        p.eat_if(SyntaxKind::Ident);
+        p.eat_if(SyntaxKind::In);
+    } else {
+        p.expect(SyntaxKind::In);
+    }
     code_expr(p);
     block(p);
     p.wrap(m, SyntaxKind::ForLoop);
