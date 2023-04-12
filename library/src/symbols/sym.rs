@@ -89,9 +89,9 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         wave.double: '〰',
     ],
     dot: [
-        '.',
-        op: '⋅',
+        '⋅',
         c: '·',
+        period: '.',
         circle: '⊙',
         circle.big: '⨀',
         square: '⊡',
