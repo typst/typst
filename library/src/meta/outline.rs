@@ -9,7 +9,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
 /// A table of contents, figures, or other elements.
 ///
-/// This function generates a list of all occurances of an element in the
+/// This function generates a list of all occurrences of an element in the
 /// document, up to a given depth. The element's numbering and page number will
 /// be displayed in the outline alongside its title or caption. By default this
 /// generates a table of contents.

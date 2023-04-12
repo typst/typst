@@ -281,7 +281,7 @@ fn convert_yaml(value: serde_yaml::Value) -> Value {
     }
 }
 
-/// Converts an arbitary YAML mapping key into a Typst Dict Key.
+/// Converts an arbitrary YAML mapping key into a Typst Dict Key.
 /// Currently it only does so for strings, everything else
 /// returns None
 fn convert_yaml_key(key: serde_yaml::Value) -> Option<Str> {
