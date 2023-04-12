@@ -33,3 +33,10 @@ $ "abc" &= c \
 ---
 // Test multiline subscript.
 $ sum_(n in NN \ n <= 5) n = (5(5+1))/2 = 15 $
+
+---
+// Test trailing line break.
+$
+"abc" &= c \ \ \
+$
+After trailing line break.
