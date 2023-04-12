@@ -326,11 +326,7 @@ impl Closure {
                 Param::Sink(ident) => {
                     sink = ident.clone();
                     if let Some(sink_size) = sink_size {
-                        if let Some(remaining_args) = args.consume(sink_size) {
-                            sink_pos_values = Some(remaining_args);
-                        } else {
-                            // TODO (Marmare): what to do here?!
-                        }
+                        sink_pos_values = Some(args.consume(sink_size)?);
                     }
                 }
                 Param::Named(ident, default) => {

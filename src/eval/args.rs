@@ -62,14 +62,14 @@ impl Args {
     }
 
     /// Consume n positional arguments if possible.
-    pub fn consume(&mut self, n: usize) -> Option<EcoVec<Arg>> {
-        if n <= self.items.len() {
-            let vec = self.items.to_vec();
-            let (left, right) = vec.split_at(n);
-            self.items = right.into();
-            return Some(left.into());
+    pub fn consume(&mut self, n: usize) -> SourceResult<EcoVec<Arg>> {
+        if n > self.items.len() {
+            bail!(self.span, "not enough arguments");
         }
-        None
+        let vec = self.items.to_vec();
+        let (left, right) = vec.split_at(n);
+        self.items = right.into();
+        return Ok(left.into());
     }
 
     /// Consume and cast the first positional argument.
