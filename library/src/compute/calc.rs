@@ -443,10 +443,7 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
     let real_start: u64 = cmp::max(1, start);
 
     for i in real_start..=end {
-        match count.checked_mul(i) {
-            None => return None,
-            Some(s) => count = s,
-        };
+        count = count.checked_mul(i)?;
     }
     Some(count)
 }
