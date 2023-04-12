@@ -10,6 +10,7 @@ use std::path::PathBuf;
 use inferno::flamegraph::Options;
 use tracing::info;
 use tracing::metadata::LevelFilter;
+use tracing::warn;
 use tracing_error::ErrorLayer;
 use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::fmt;
@@ -95,11 +96,16 @@ pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, E
         let writer = BufWriter::new(tempfile.try_clone()?);
 
         // Build the flamegraph layer.
-        let flame_layer = FlameLayer::new(writer);
+        let flame_layer = FlameLayer::new(writer)
+            .with_empty_samples(false)
+            .with_threads_collapsed(true)
+            .with_module_path(false);
         let flush_guard = flame_layer.flush_on_drop();
 
         // Build the subscriber.
         registry.with(flame_layer).init();
+
+        warn!("Flamegraph is enabled, this can create a large temporary file and slow down the compilation process.");
 
         Ok(Some(TracingGuard {
             flush_guard: Some(flush_guard),
