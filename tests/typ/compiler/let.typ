@@ -121,6 +121,12 @@ Three
 // Error: 13-14 at most one binding per identifier is allowed
 #let (a: a, a) = (a: 1, b: 2)
 
+// Error: 13-20 expected identifier, found function call
+#let (a, b: b.at(0)) = (a: 1, b: 2)
+
+// Error: 7-14 expected identifier or destructuring sink, found function call
+#let (a.at(0),) = (1,)
+
 ---
 // Error: 13-14 not enough elements to destructure
 #let (a, b, c) = (1, 2)
