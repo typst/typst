@@ -485,10 +485,7 @@ impl<'a> Line<'a> {
 
     /// How much can the line shrink
     fn shrinkability(&self) -> Abs {
-        self.items()
-            .filter_map(Item::text)
-            .map(|s| s.shrinkability())
-            .sum::<Abs>()
+        self.items().filter_map(Item::text).map(|s| s.shrinkability()).sum()
     }
 
     /// The sum of fractions in the line.
