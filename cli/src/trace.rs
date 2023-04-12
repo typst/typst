@@ -1,9 +1,13 @@
 use std::fs::File;
+use std::io::BufReader;
 use std::io::BufWriter;
+use std::io::Error;
+use std::io::ErrorKind;
+use std::io::Seek;
+use std::io::SeekFrom;
 use std::path::PathBuf;
 
 use inferno::flamegraph::Options;
-use tempfile::TempDir;
 use tracing::info;
 use tracing::metadata::LevelFilter;
 use tracing_error::ErrorLayer;
@@ -15,12 +19,12 @@ use crate::args::CliArguments;
 
 pub struct TracingGuard {
     flush_guard: Option<FlushGuard<BufWriter<File>>>,
-    tempdir: TempDir,
+    tempfile: File,
     output_svg: PathBuf,
 }
 
 impl TracingGuard {
-    pub fn finish(&mut self) -> Result<(), std::io::Error> {
+    pub fn finish(&mut self) -> Result<(), Error> {
         if self.flush_guard.is_none() {
             return Ok(());
         }
@@ -32,15 +36,19 @@ impl TracingGuard {
         // We can then read the file and generate the flamegraph.
         drop(self.flush_guard.take());
 
-        let tempfile = self.tempdir.path().join("flamegraph.folded");
+        // Reset the file pointer to the beginning.
+        self.tempfile.seek(SeekFrom::Start(0))?;
+
+        // Create the readers and writers.
+        let reader = BufReader::new(&mut self.tempfile);
         let output = BufWriter::new(File::create(&self.output_svg)?);
 
         // Create the options: default in flame chart mode
         let mut options = Options::default();
         options.flame_chart = true;
 
-        inferno::flamegraph::from_files(&mut options, &[tempfile], output)
-            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        inferno::flamegraph::from_reader(&mut options, reader, output)
+            .map_err(|e| Error::new(ErrorKind::Other, e))?;
 
         Ok(())
     }
@@ -59,9 +67,7 @@ impl Drop for TracingGuard {
 
 /// Initializes the tracing system.
 /// Returns a guard that will flush the flamegraph to disk when dropped.
-pub fn initialize_tracing(
-    args: &CliArguments,
-) -> Result<Option<TracingGuard>, std::io::Error> {
+pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, Error> {
     let flamegraph = args.command.as_compile().and_then(|c| c.flamegraph.as_ref());
 
     // Short circuit if we don't need to initialize flamegraph or debugging.
@@ -85,9 +91,8 @@ pub fn initialize_tracing(
 
     if let Some(path) = flamegraph {
         // Create a temporary file to store the flamegraph data.
-        let tempdir = tempfile::tempdir()?;
-        let tempfile = File::create(tempdir.path().join("flamegraph.folded"))?;
-        let writer = BufWriter::new(tempfile);
+        let tempfile = tempfile::tempfile()?;
+        let writer = BufWriter::new(tempfile.try_clone()?);
 
         // Build the flamegraph layer.
         let flame_layer = FlameLayer::new(writer);
@@ -98,7 +103,7 @@ pub fn initialize_tracing(
 
         Ok(Some(TracingGuard {
             flush_guard: Some(flush_guard),
-            tempdir,
+            tempfile,
             output_svg: path.clone().unwrap_or_else(|| "flamegraph.svg".into()),
         }))
     } else {
