@@ -7,6 +7,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Output};
 
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
@@ -77,14 +78,20 @@ fn main() {
         let pdf_path =
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-        ok += test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref())
-            as usize;
+        ok += test(
+            &mut world,
+            &src_path,
+            &png_path,
+            &ref_path,
+            pdf_path.as_deref(),
+            args.update,
+        ) as usize;
     }
 
     if len > 1 {
         println!("{ok} / {len} tests passed.");
         if ok != len {
-            println!("Set the UPDATE_EXPECT env var to update the reference images.");
+            println!("Set the UPDATE_EXPECT env var or the --approve flag to update the reference images.");
         }
     }
 
@@ -98,6 +105,7 @@ struct Args {
     filter: Vec<String>,
     exact: bool,
     pdf: bool,
+    update: bool,
     print: PrintConfig,
 }
 
@@ -114,6 +122,7 @@ impl Args {
         let mut filter = Vec::new();
         let mut exact = false;
         let mut pdf = false;
+        let mut update = env::var_os("UPDATE_EXPECT").is_some();
         let mut print = PrintConfig::default();
 
         for arg in args {
@@ -124,6 +133,8 @@ impl Args {
                 "--exact" => exact = true,
                 // Generate PDFs.
                 "--pdf" => pdf = true,
+                // Update the reference images.
+                "--approve" => update = true,
                 // Debug print the syntax trees.
                 "--syntax" => print.syntax = true,
                 // Debug print the model.
@@ -135,7 +146,7 @@ impl Args {
             }
         }
 
-        Self { filter, exact, pdf, print }
+        Self { filter, exact, pdf, update, print }
     }
 
     fn matches(&self, path: &Path) -> bool {
@@ -342,6 +353,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
+    update: bool,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -407,16 +419,16 @@ fn test(
                     .zip(ref_pixmap.data())
                     .any(|(&a, &b)| a.abs_diff(b) > 2)
             {
-                if env::var_os("UPDATE_EXPECT").is_some() {
-                    fs::copy(png_path, ref_path).unwrap();
+                if update {
+                    update_image(png_path, ref_path);
                 } else {
                     println!("  Does not match reference image. ❌");
                     ok = false;
                 }
             }
         } else if !document.pages.is_empty() {
-            if env::var_os("UPDATE_EXPECT").is_some() {
-                fs::copy(png_path, ref_path).unwrap();
+            if update {
+                update_image(png_path, ref_path);
             } else {
                 println!("  Failed to open reference image. ❌");
                 ok = false;
@@ -432,6 +444,23 @@ fn test(
     }
 
     ok
+}
+
+fn update_image(png_path: &Path, ref_path: &Path) {
+    let Output { status, stdout, stderr } = Command::new("oxipng")
+        .args(["--opt=max", "--out"])
+        .args([ref_path, png_path])
+        .output()
+        .unwrap();
+
+    if !status.success() {
+        println!(
+            "Stdout: {}, Stderr: {}",
+            String::from_utf8_lossy(&stdout),
+            String::from_utf8_lossy(&stderr)
+        );
+        panic!("PNG optimization failed.")
+    }
 }
 
 fn test_part(

@@ -50,16 +50,10 @@ making changes.
 testit --pdf
 ```
 
-## Creating new tests
-To keep things small, please optimize reference images before committing them.
-When you use the approve button from the Test Helper (see the `tools` folder)
-this happens automatically if you have `oxipng` installed.
+## Update tests
+Use the `UPDATE_EXPECT` env var or the `--approve` flag:
 ```bash
-# One image
-oxipng -o max path/to/image.png
-
-# All images
-oxipng -r -o max tests/ref
+testit --approve
 ```
 
 ## Making an alias
