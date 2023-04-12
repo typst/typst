@@ -297,7 +297,7 @@ fn render_outline_glyph(
         let c = color.to_rgba();
 
         // Pad the pixmap with 1 pixel in each dimension so that we do
-        // not get any problem with floating point errors along ther border
+        // not get any problem with floating point errors along their border
         let mut pixmap = sk::Pixmap::new(mw + 2, mh + 2)?;
         for x in 0..mw {
             for y in 0..mh {
