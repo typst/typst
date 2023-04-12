@@ -91,7 +91,7 @@ cast_to_value! {
 impl BibliographyElem {
     /// Find the document's bibliography.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
-        let mut iter = introspector.query(Self::func().select()).into_iter();
+        let mut iter = introspector.query(&Self::func().select()).into_iter();
         let Some(elem) = iter.next() else {
             return Err("the document does not contain a bibliography".into());
         };
@@ -106,7 +106,7 @@ impl BibliographyElem {
     /// Whether the bibliography contains the given key.
     pub fn has(vt: &Vt, key: &str) -> bool {
         vt.introspector
-            .query(Self::func().select())
+            .query(&Self::func().select())
             .into_iter()
             .flat_map(|elem| load(vt.world, &elem.to::<Self>().unwrap().path()))
             .flatten()
@@ -202,8 +202,10 @@ impl Show for BibliographyElem {
 impl LocalName for BibliographyElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::ARABIC => "المراجع",
             Lang::BOKMÅL => "Bibliografi",
             Lang::CHINESE => "参考文献",
+            Lang::CZECH => "Bibliografie",
             Lang::FRENCH => "Bibliographie",
             Lang::GERMAN => "Bibliographie",
             Lang::ITALIAN => "Bibliografia",
@@ -214,6 +216,7 @@ impl LocalName for BibliographyElem {
             Lang::SLOVENIAN => "Literatura",
             Lang::SPANISH => "Bibliografía",
             Lang::UKRAINIAN => "Бібліографія",
+            Lang::VIETNAMESE => "Tài liệu tham khảo",
             Lang::ENGLISH | _ => "Bibliography",
         }
     }
@@ -394,7 +397,7 @@ impl Works {
         let bibliography = BibliographyElem::find(vt.introspector)?;
         let citations = vt
             .introspector
-            .query(Selector::Any(eco_vec![
+            .query(&Selector::Or(eco_vec![
                 RefElem::func().select(),
                 CiteElem::func().select(),
             ]))

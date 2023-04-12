@@ -119,8 +119,10 @@ impl Layout for ImageElem {
 impl LocalName for ImageElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::ARABIC => "شكل",
             Lang::BOKMÅL => "Figur",
             Lang::CHINESE => "图",
+            Lang::CZECH => "Obrázek",
             Lang::FRENCH => "Figure",
             Lang::GERMAN => "Abbildung",
             Lang::ITALIAN => "Figura",
@@ -131,6 +133,7 @@ impl LocalName for ImageElem {
             Lang::SLOVENIAN => "Slika",
             Lang::SPANISH => "Figura",
             Lang::UKRAINIAN => "Рисунок",
+            Lang::VIETNAMESE => "Hình",
             Lang::ENGLISH | _ => "Figure",
         }
     }

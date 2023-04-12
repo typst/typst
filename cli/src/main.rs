@@ -372,13 +372,9 @@ fn print_diagnostics(
 /// - The given viewer provided by `open` if it is `Some`.
 fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
     if let Some(app) = open {
-        open::with(path, app).map_err(|err| {
-            format!("failed to open `{}` with `{}`, reason: {}", path.display(), app, err)
-        })?;
+        open::with_in_background(path, app);
     } else {
-        open::that(path).map_err(|err| {
-            format!("failed to open `{}`, reason: {}", path.display(), err)
-        })?;
+        open::that_in_background(path);
     }
 
     Ok(())

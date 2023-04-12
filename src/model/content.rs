@@ -3,11 +3,12 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
+use comemo::Tracked;
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{
-    element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
-    Location, Recipe, Selector, Style, Styles, Synthesize,
+    element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Introspector, Label,
+    Locatable, Location, Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
@@ -365,39 +366,51 @@ impl Content {
     ///
     /// # Show rules
     /// Elements produced in `show` rules will not be included in the results.
-    #[tracing::instrument()]
-    pub fn query(&self, selector: Selector) -> Vec<&Content> {
+    #[tracing::instrument(skip_all)]
+    pub fn query(
+        &self,
+        introspector: Tracked<Introspector>,
+        selector: Selector,
+    ) -> Vec<&Content> {
         let mut results = Vec::new();
-        self.query_into(&selector, &mut results);
+        self.query_into(introspector, &selector, &mut results);
         results
     }
 
     /// Queries the content tree for all elements that match the given selector
     /// and stores the results inside of the `results` vec.
-    fn query_into<'a>(&'a self, selector: &Selector, results: &mut Vec<&'a Content>) {
+    fn query_into<'a>(
+        &'a self,
+        introspector: Tracked<Introspector>,
+        selector: &Selector,
+        results: &mut Vec<&'a Content>,
+    ) {
         if selector.matches(self) {
             results.push(self);
         }
 
         for attr in &self.attrs {
             match attr {
-                Attr::Child(child) => child.query_into(selector, results),
-                Attr::Value(value) => walk_value(&value, selector, results),
+                Attr::Child(child) => child.query_into(introspector, selector, results),
+                Attr::Value(value) => walk_value(introspector, &value, selector, results),
                 _ => {}
             }
         }
 
         /// Walks a given value to find any content that matches the selector.
         fn walk_value<'a>(
+            introspector: Tracked<Introspector>,
             value: &'a Value,
             selector: &Selector,
             results: &mut Vec<&'a Content>,
         ) {
             match value {
-                Value::Content(content) => content.query_into(selector, results),
+                Value::Content(content) => {
+                    content.query_into(introspector, selector, results)
+                }
                 Value::Array(array) => {
                     for value in array {
-                        walk_value(value, selector, results);
+                        walk_value(introspector, value, selector, results);
                     }
                 }
                 _ => {}

@@ -15,8 +15,8 @@ use super::*;
 /// Typst predefines the operators `arccos`,  `arcsin`,  `arctan`,  `arg`,
 /// `cos`,  `cosh`,  `cot`, `ctg`, `coth`,  `csc`,  `deg`,  `det`,  `dim`,
 /// `exp`, `gcd`,  `hom`,  `mod`,  `inf`,  `ker`,  `lg`,  `lim`,  `ln`,  `log`,
-/// `max`, `min`,  `Pr`,  `sec`,  `sin`,  `sinh`,  `sup`,  `tan`, `tg`, `tanh`,
-/// `liminf`, and `limsup`.
+/// `max`, `min`,  `Pr`,  `sec`,  `sin`,  `sinc`,  `sinh`,  `sup`,  `tan`, `tg`,
+/// `tanh`, `liminf`, and `limsup`.
 ///
 /// Display: Text Operator
 /// Category: math
@@ -100,6 +100,7 @@ ops! {
     Pr (limits),
     sec,
     sin,
+    sinc,
     sinh,
     sup (limits),
     tan,

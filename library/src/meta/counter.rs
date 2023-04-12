@@ -336,7 +336,10 @@ impl Counter {
     /// Get the value of the state at the given location.
     pub fn at(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), location).len();
+        let offset = vt
+            .introspector
+            .query(&Selector::before(self.selector(), location, true))
+            .len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
             let delta = vt.introspector.page(location).get().saturating_sub(page.get());
@@ -360,7 +363,10 @@ impl Counter {
     /// Get the current and final value of the state combined in one state.
     pub fn both(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query_before(self.selector(), location).len();
+        let offset = vt
+            .introspector
+            .query(&Selector::before(self.selector(), location, true))
+            .len();
         let (mut at_state, at_page) = sequence[offset].clone();
         let (mut final_state, final_page) = sequence.last().unwrap().clone();
         if self.is_page() {
@@ -413,11 +419,10 @@ impl Counter {
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
-        for elem in introspector.query(self.selector()) {
+        for elem in introspector.query(&self.selector()) {
             if self.is_page() {
-                let location = elem.location().unwrap();
                 let prev = page;
-                page = introspector.page(location);
+                page = introspector.page(elem.location().unwrap());
 
                 let delta = page.get() - prev.get();
                 if delta > 0 {
@@ -447,7 +452,7 @@ impl Counter {
             Selector::Elem(UpdateElem::func(), Some(dict! { "counter" => self.clone() }));
 
         if let CounterKey::Selector(key) = &self.0 {
-            selector = Selector::Any(eco_vec![selector, key.clone()]);
+            selector = Selector::Or(eco_vec![selector, key.clone()]);
         }
 
         selector

@@ -152,7 +152,14 @@ fn try_apply(
         }
 
         // Not supported here.
-        Some(Selector::Any(_) | Selector::All(_) | Selector::Can(_)) => Ok(None),
+        Some(
+            Selector::Or(_)
+            | Selector::And(_)
+            | Selector::Location(_)
+            | Selector::Can(_)
+            | Selector::Before { .. }
+            | Selector::After { .. },
+        ) => Ok(None),
 
         None => Ok(None),
     }

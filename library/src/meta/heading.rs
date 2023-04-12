@@ -59,21 +59,6 @@ pub struct HeadingElem {
     /// ```
     pub numbering: Option<Numbering>,
 
-    /// Whether the heading should appear in the outline.
-    ///
-    /// ```example
-    /// #outline()
-    ///
-    /// #heading[Normal]
-    /// This is a normal heading.
-    ///
-    /// #heading(outlined: false)[Hidden]
-    /// This heading does not appear
-    /// in the outline.
-    /// ```
-    #[default(true)]
-    pub outlined: bool,
-
     /// A supplement for the heading.
     ///
     /// For references to headings, this is added before the
@@ -91,6 +76,21 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub supplement: Smart<Option<Supplement>>,
 
+    /// Whether the heading should appear in the outline.
+    ///
+    /// ```example
+    /// #outline()
+    ///
+    /// #heading[Normal]
+    /// This is a normal heading.
+    ///
+    /// #heading(outlined: false)[Hidden]
+    /// This heading does not appear
+    /// in the outline.
+    /// ```
+    #[default(true)]
+    pub outlined: bool,
+
     /// The heading's title.
     #[required]
     pub body: Content,
@@ -100,6 +100,7 @@ impl Synthesize for HeadingElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_level(self.level(styles));
         self.push_numbering(self.numbering(styles));
+        self.push_supplement(self.supplement(styles));
         self.push_outlined(self.outlined(styles));
         Ok(())
     }
@@ -160,17 +161,15 @@ impl Refable for HeadingElem {
     fn reference(
         &self,
         vt: &mut Vt,
-        styles: StyleChain,
         supplement: Option<Content>,
+        lang: Lang,
     ) -> SourceResult<Content> {
         // Create the supplement of the heading.
         let mut supplement = if let Some(supplement) = supplement {
             supplement
         } else {
-            match self.supplement(styles) {
-                Smart::Auto => {
-                    TextElem::packed(self.local_name(TextElem::lang_in(styles)))
-                }
+            match self.supplement(StyleChain::default()) {
+                Smart::Auto => TextElem::packed(self.local_name(lang)),
                 Smart::Custom(None) => Content::empty(),
                 Smart::Custom(Some(supplement)) => {
                     supplement.resolve(vt, std::iter::once(Value::from(self.clone())))?
@@ -184,7 +183,7 @@ impl Refable for HeadingElem {
         };
 
         // Check for a numbering.
-        let Some(numbering) = self.numbering(styles) else {
+        let Some(numbering) = self.numbering(StyleChain::default()) else {
             bail!(self.span(), "only numbered headings can be referenced");
         };
 
@@ -196,21 +195,21 @@ impl Refable for HeadingElem {
         Ok(supplement + numbers)
     }
 
-    fn level(&self, styles: StyleChain) -> usize {
-        self.level(styles).get()
+    fn level(&self) -> usize {
+        self.level(StyleChain::default()).get()
     }
 
-    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
-        self.numbering(styles)
+    fn numbering(&self) -> Option<Numbering> {
+        self.numbering(StyleChain::default())
     }
 
-    fn counter(&self, _: StyleChain) -> Counter {
+    fn counter(&self) -> Counter {
         Counter::of(Self::func())
     }
 
-    fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
+    fn outline(&self, vt: &mut Vt, _: Lang) -> SourceResult<Option<Content>> {
         // Check whether the heading is outlined.
-        if !self.outlined(styles) {
+        if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
 
@@ -230,8 +229,10 @@ impl Refable for HeadingElem {
 impl LocalName for HeadingElem {
     fn local_name(&self, lang: Lang) -> &'static str {
         match lang {
+            Lang::ARABIC => "الفصل",
             Lang::BOKMÅL => "Kapittel",
             Lang::CHINESE => "小节",
+            Lang::CZECH => "Kapitola",
             Lang::FRENCH => "Chapitre",
             Lang::GERMAN => "Abschnitt",
             Lang::ITALIAN => "Sezione",
@@ -242,6 +243,7 @@ impl LocalName for HeadingElem {
             Lang::SLOVENIAN => "Poglavje",
             Lang::SPANISH => "Sección",
             Lang::UKRAINIAN => "Розділ",
+            Lang::VIETNAMESE => "Phần", // TODO: This may be wrong.
             Lang::ENGLISH | _ => "Section",
         }
     }
