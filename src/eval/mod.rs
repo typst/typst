@@ -37,7 +37,7 @@ pub use self::value::*;
 
 pub(crate) use self::methods::methods_on;
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::HashSet;
 use std::mem;
 use std::path::{Path, PathBuf};
 
@@ -870,7 +870,7 @@ impl Eval for ast::Dict {
     type Output = Dict;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let mut map = BTreeMap::new();
+        let mut map = indexmap::IndexMap::new();
 
         for item in self.items() {
             match item {
@@ -1461,16 +1461,16 @@ impl Eval for ast::ForLoop {
 
         match (pattern.kind(), iter.clone()) {
             (ast::PatternKind::Ident(_), Value::Str(string)) => {
-                // iterate over characters of string
+                // Iterate over graphemes of string.
                 iter!(for pattern in string.as_str().graphemes(true));
             }
             (_, Value::Dict(dict)) => {
-                // iterate over keys of dict
+                // Iterate over pairs of dict.
                 iter!(for pattern in dict.pairs());
             }
             (_, Value::Array(array)) => {
-                // iterate over values of array and allow destructuring
-                iter!(for pattern in array.into_iter());
+                // Iterate over values of array.
+                iter!(for pattern in array);
             }
             (ast::PatternKind::Ident(_), _) => {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());

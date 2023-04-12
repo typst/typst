@@ -89,6 +89,16 @@ impl Show for LocateElem {
 /// In the future, the provided styles might also be directly accessed to look
 /// up styles defined by [set rules]($styling/#set-rules).
 ///
+/// ```example
+/// #let thing(body) = style(styles => {
+///   let size = measure(body, styles)
+///   [Width of "#body" is #size.width]
+/// })
+///
+/// #thing[Hey] \
+/// #thing[Welcome]
+/// ```
+///
 /// Display: Style
 /// Category: meta
 /// Returns: content
@@ -122,67 +132,61 @@ impl Show for StyleElem {
     }
 }
 
-/// Provides access to the current outer container's (or page's, if none) size (width and height).
+/// Provides access to the current outer container's (or page's, if none) size
+/// (width and height).
 ///
-/// The given function must accept a single parameter, `size`, which is a dictionary with keys
-/// `width` and `height`, both having the type [`length`]($type/length).
+/// The given function must accept a single parameter, `size`, which is a
+/// dictionary with keys `width` and `height`, both of type
+/// [`length`]($type/length).
 ///
-/// That is, if this `layout` call is done inside (for example) a box of size 800pt (width)
-/// by 400pt (height), then the specified function will be given the parameter
-/// `(width: 800pt, height: 400pt)`.
+
+/// ```example
+/// #let text = lorem(30)
+/// #layout(size => style(styles => [
+///   #let (height,) = measure(
+///     block(width: size.width, text),
+///     styles,
+///   )
+///   This text is #height high with
+///   the current page width: \
+///   #text
+/// ]))
+/// ```
 ///
-/// If, however, this `layout` call is placed directly on the page, not inside any container,
-/// then the function will be given `(width: page_width, height: page_height)`, where `page_width`
-/// and `page_height` correspond to the current page's respective dimensions, minus its margins.
+/// If the `layout` call is placed inside of a box width a width of `{800pt}`
+/// and a height of `{400pt}`, then the specified function will be given the
+/// parameter `{(width: 800pt, height: 400pt)}`. If it placed directly into the
+/// page it receives the page's dimensions minus its margins. This is mostly
+/// useful in combination with [measurement]($func/measure).
 ///
-/// This is useful, for example, to convert a [`ratio`]($type/ratio) value (such as `5%`, `100%`
-/// etc.), which are usually based upon the outer container's dimensions (precisely what this
-/// function gives), to a fixed length (in `pt`).
-///
-/// This is also useful if you're trying to make content fit a certain box, and doing certain
-/// arithmetic using `pt` (for example, comparing different lengths) is required.
-///
-/// Please note: This function may provide a width or height of `infpt` if one of the page
-/// dimensions is `auto`, under certain circumstances. This should not normally occur for
-/// usual page sizes, however.
+/// You can also use this function to resolve [`ratio`]($type/ratio) to fixed
+/// lengths. This might come in handy if you're building your own layout
+/// abstractions.
 ///
 /// ```example
-/// layout(size => {
-///     // work with the width and height of the container we're in
-///     // using size.width and size.height
+/// #layout(size => {
+///   let half = 50% * size.width
+///   [Half a page is #half wide.]
 /// })
-///
-/// layout(size => {
-///     // convert 49% (of page width) to 'pt'
-///     // note that "ratio" values are always relative to a certain, possibly arbitrary length,
-///     // but it's usually the current container's width or height (e.g., for table columns,
-///     // 15% would be relative to the width, but, for rows, it would be relative to the height).
-///     let percentage_of_width = (49% / 1%) * 0.01 * size.width
-///     // ... use the converted value ...
-/// })
-///
-/// // The following two boxes are equivalent, and will have rectangles sized 200pt and 40pt:
-///
-/// #box(width: 200pt, height: 40pt, {
-///     rect(width: 100%, height: 100%)
-/// })
-///
-/// #box(width: 200pt, height: 40pt, layout(size => {
-///     rect(width: size.width, height: size.height)
-/// }))
 /// ```
+///
+/// Note that this function will provide an infinite width or height if one of
+/// the page width or height is `auto`, respectively.
 ///
 /// Display: Layout
 /// Category: meta
 /// Returns: content
 #[func]
 pub fn layout(
-    /// A function to call with the outer container's size. Its return value is displayed
-    /// in the document.
+    /// A function to call with the outer container's size. Its return value is
+    /// displayed in the document.
+    ///
+    /// The container's size is given as a [dictionary]($type/dictionary) with
+    /// the keys `width` and `height`.
     ///
     /// This function is called once for each time the content returned by
     /// `layout` appears in the document. That makes it possible to generate
-    /// content that depends on the size of the container it is inside.
+    /// content that depends on the size of the container it is inside of.
     func: Func,
 ) -> Value {
     LayoutElem::new(func).pack().into()

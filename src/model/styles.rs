@@ -2,10 +2,11 @@ use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
+use std::sync::Arc;
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use super::{Content, ElemFunc, Element, Label, Vt};
+use super::{Content, ElemFunc, Element, Introspector, Label, Location, Vt};
 use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::eval::{cast_from_value, Args, Cast, CastInfo, Dict, Func, Regex, Value, Vm};
 use crate::model::Locatable;
@@ -258,6 +259,8 @@ pub enum Selector {
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
     Elem(ElemFunc, Option<Dict>),
+    /// Matches the element at the specified location.
+    Location(Location),
     /// Matches elements with a specific label.
     Label(Label),
     /// Matches text elements through a regular expression.
@@ -265,9 +268,13 @@ pub enum Selector {
     /// Matches elements with a specific capability.
     Can(TypeId),
     /// Matches if any of the subselectors match.
-    Any(EcoVec<Self>),
+    Or(EcoVec<Self>),
     /// Matches if all of the subselectors match.
-    All(EcoVec<Self>),
+    And(EcoVec<Self>),
+    /// Matches all matches of `selector` before `end`.
+    Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
+    /// Matches all matches of `selector` after `start`.
+    After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
 }
 
 impl Selector {
@@ -279,6 +286,107 @@ impl Selector {
     /// Define a simple [`Selector::Can`] selector.
     pub fn can<T: ?Sized + Any>() -> Self {
         Self::Can(TypeId::of::<T>())
+    }
+
+    /// Transforms this selector and an iterator of other selectors into a
+    /// [`Selector::Or`] selector.
+    pub fn and(self, others: impl IntoIterator<Item = Self>) -> Self {
+        Self::And(others.into_iter().chain(Some(self)).collect())
+    }
+
+    /// Transforms this selector and an iterator of other selectors into a
+    /// [`Selector::And`] selector.
+    pub fn or(self, others: impl IntoIterator<Item = Self>) -> Self {
+        Self::Or(others.into_iter().chain(Some(self)).collect())
+    }
+
+    /// Transforms this selector into a [`Selector::Before`] selector.
+    pub fn before(self, location: impl Into<Self>, inclusive: bool) -> Self {
+        Self::Before {
+            selector: Arc::new(self),
+            end: Arc::new(location.into()),
+            inclusive,
+        }
+    }
+
+    /// Transforms this selector into a [`Selector::After`] selector.
+    pub fn after(self, location: impl Into<Self>, inclusive: bool) -> Self {
+        Self::After {
+            selector: Arc::new(self),
+            start: Arc::new(location.into()),
+            inclusive,
+        }
+    }
+
+    /// Matches the selector for an introspector.
+    pub fn match_iter<'a>(
+        &'a self,
+        introspector: &'a Introspector,
+    ) -> Box<dyn Iterator<Item = Content> + 'a> {
+        self.match_iter_inner(introspector, introspector.all())
+    }
+
+    /// Match the selector against the given list of elements. Returns an
+    /// iterator over the matching elements.
+    fn match_iter_inner<'a>(
+        &'a self,
+        introspector: &'a Introspector,
+        parent: impl Iterator<Item = Content> + 'a,
+    ) -> Box<dyn Iterator<Item = Content> + 'a> {
+        match self {
+            Self::Location(location) => {
+                Box::new(introspector.location(location).into_iter())
+            }
+            Self::Or(selectors) => Box::new(parent.filter(|element| {
+                selectors.iter().any(|selector| {
+                    selector
+                        .match_iter_inner(introspector, std::iter::once(element.clone()))
+                        .next()
+                        .is_some()
+                })
+            })),
+            Self::And(selectors) => Box::new(parent.filter(|element| {
+                selectors.iter().all(|selector| {
+                    selector
+                        .match_iter_inner(introspector, std::iter::once(element.clone()))
+                        .next()
+                        .is_some()
+                })
+            })),
+            Self::Before { selector, end: location, inclusive } => {
+                if let Some(content) = introspector.query_first(location) {
+                    let loc = content.location().unwrap();
+                    Box::new(selector.match_iter_inner(introspector, parent).filter(
+                        move |elem| {
+                            introspector.is_before(
+                                elem.location().unwrap(),
+                                loc,
+                                *inclusive,
+                            )
+                        },
+                    ))
+                } else {
+                    Box::new(selector.match_iter_inner(introspector, parent))
+                }
+            }
+            Self::After { selector, start: location, inclusive } => {
+                if let Some(content) = introspector.query_first(location) {
+                    let loc = content.location().unwrap();
+                    Box::new(selector.match_iter_inner(introspector, parent).filter(
+                        move |elem| {
+                            introspector.is_after(
+                                elem.location().unwrap(),
+                                loc,
+                                *inclusive,
+                            )
+                        },
+                    ))
+                } else {
+                    Box::new(std::iter::empty())
+                }
+            }
+            other => Box::new(parent.filter(move |content| other.matches(content))),
+        }
     }
 
     /// Whether the selector matches for the target.
@@ -297,9 +405,19 @@ impl Selector {
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
             Self::Can(cap) => target.can_type_id(*cap),
-            Self::Any(selectors) => selectors.iter().any(|sel| sel.matches(target)),
-            Self::All(selectors) => selectors.iter().all(|sel| sel.matches(target)),
+            Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
+            Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
+            Self::Location(location) => target.location() == Some(*location),
+            Self::Before { .. } | Self::After { .. } => {
+                panic!("Cannot match a `Selector::Before` or `Selector::After` selector")
+            }
         }
+    }
+}
+
+impl From<Location> for Selector {
+    fn from(value: Location) -> Self {
+        Self::Location(value)
     }
 }
 
@@ -317,11 +435,28 @@ impl Debug for Selector {
             Self::Label(label) => label.fmt(f),
             Self::Regex(regex) => regex.fmt(f),
             Self::Can(cap) => cap.fmt(f),
-            Self::Any(selectors) | Self::All(selectors) => {
-                f.write_str(if matches!(self, Self::Any(_)) { "any" } else { "all" })?;
+            Self::Or(selectors) | Self::And(selectors) => {
+                f.write_str(if matches!(self, Self::Or(_)) { "or" } else { "and" })?;
                 let pieces: Vec<_> =
                     selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
                 f.write_str(&pretty_array_like(&pieces, false))
+            }
+            Self::Location(loc) => loc.fmt(f),
+            Self::Before { selector, end: split, inclusive }
+            | Self::After { selector, start: split, inclusive } => {
+                selector.fmt(f)?;
+
+                if matches!(self, Self::Before { .. }) {
+                    f.write_str(".before(")?;
+                } else {
+                    f.write_str(".after(")?;
+                }
+
+                split.fmt(f)?;
+                if !*inclusive {
+                    f.write_str(", inclusive: false")?;
+                }
+                f.write_char(')')
             }
         }
     }
@@ -336,9 +471,10 @@ cast_from_value! {
     label: Label => Self::Label(label),
     text: EcoString => Self::text(&text),
     regex: Regex => Self::Regex(regex),
+    location: Location => Self::Location(location),
 }
 
-/// A selector that can be used with `query`. Hopefully, this is made obsolote
+/// A selector that can be used with `query`. Hopefully, this is made obsolete
 /// by a more powerful query mechanism in the future.
 #[derive(Clone, PartialEq, Hash)]
 pub struct LocatableSelector(pub Selector);
@@ -352,16 +488,26 @@ impl Cast for LocatableSelector {
     fn cast(value: Value) -> StrResult<Self> {
         fn validate(selector: &Selector) -> StrResult<()> {
             match &selector {
-                Selector::Elem(elem, _) if !elem.can::<dyn Locatable>() => {
-                    Err(eco_format!("{} is not locatable", elem.name()))?
+                Selector::Elem(elem, _) => {
+                    if !elem.can::<dyn Locatable>() {
+                        Err(eco_format!("{} is not locatable", elem.name()))?
+                    }
                 }
+                Selector::Location(_) => {}
+                Selector::Label(_) => {}
                 Selector::Regex(_) => Err("text is not locatable")?,
-                Selector::Any(list) | Selector::All(list) => {
+                Selector::Can(_) => Err("capability is not locatable")?,
+                Selector::Or(list) | Selector::And(list) => {
                     for selector in list {
                         validate(selector)?;
                     }
                 }
-                _ => {}
+                Selector::Before { selector, end: split, .. }
+                | Selector::After { selector, start: split, .. } => {
+                    for selector in [selector, split] {
+                        validate(selector)?;
+                    }
+                }
             }
             Ok(())
         }

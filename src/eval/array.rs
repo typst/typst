@@ -6,6 +6,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
+use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// Create a new [`Array`] from values.
@@ -180,15 +181,9 @@ impl Array {
 
     /// Transform each item in the array with a function.
     pub fn map(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
-        let enumerate = func.argc() == Some(2);
         self.iter()
-            .enumerate()
-            .map(|(i, item)| {
-                let mut args = Args::new(func.span(), []);
-                if enumerate {
-                    args.push(func.span(), Value::Int(i as i64));
-                }
-                args.push(func.span(), item.clone());
+            .map(|item| {
+                let args = Args::new(func.span(), [item.clone()]);
                 func.call_vm(vm, args)
             })
             .collect()
@@ -276,23 +271,45 @@ impl Array {
         Ok(result)
     }
 
-    /// Return a sorted version of this array.
+    /// Return a sorted version of this array, optionally by a given key function.
     ///
-    /// Returns an error if two values could not be compared.
-    pub fn sorted(&self) -> StrResult<Self> {
+    /// Returns an error if two values could not be compared or if the key function (if given)
+    /// yields an error.
+    pub fn sorted(
+        &self,
+        vm: &mut Vm,
+        span: Span,
+        key: Option<Func>,
+    ) -> SourceResult<Self> {
         let mut result = Ok(());
         let mut vec = self.0.clone();
+        let mut key_of = |x: Value| match &key {
+            // NOTE: We are relying on `comemo`'s memoization of function
+            // evaluation to not excessively reevaluate the `key`.
+            Some(f) => f.call_vm(vm, Args::new(f.span(), [x])),
+            None => Ok(x),
+        };
         vec.make_mut().sort_by(|a, b| {
-            a.partial_cmp(b).unwrap_or_else(|| {
-                if result.is_ok() {
-                    result = Err(eco_format!(
-                        "cannot order {} and {}",
-                        a.type_name(),
-                        b.type_name(),
-                    ));
+            // Until we get `try` blocks :)
+            match (key_of(a.clone()), key_of(b.clone())) {
+                (Ok(a), Ok(b)) => a.partial_cmp(&b).unwrap_or_else(|| {
+                    if result.is_ok() {
+                        result = Err(eco_format!(
+                            "cannot order {} and {}",
+                            a.type_name(),
+                            b.type_name(),
+                        ))
+                        .at(span);
+                    }
+                    Ordering::Equal
+                }),
+                (Err(e), _) | (_, Err(e)) => {
+                    if result.is_ok() {
+                        result = Err(e);
+                    }
+                    Ordering::Equal
                 }
-                Ordering::Equal
-            })
+            }
         });
         result.map(|_| Self::from_vec(vec))
     }
