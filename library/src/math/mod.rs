@@ -288,8 +288,8 @@ impl LocalName for EquationElem {
             Lang::SLOVENIAN => "Enačba",
             Lang::SPANISH => "Ecuación",
             Lang::UKRAINIAN => "Рівняння",
-            _ => "Equation",
             Lang::VIETNAMESE => "Phương trình",
+            _ => "Equation",
         }
     }
 }

@@ -1211,7 +1211,7 @@ impl ast::Pattern {
                                             return None;
                                         };
                                         if let Some(ident) = ident {
-                                            vm.define(ident.clone(), sink.clone());
+                                            vm.define(ident.clone(), sink);
                                         }
                                         i += sink_size as i64;
                                         Some(())
@@ -1225,7 +1225,7 @@ impl ast::Pattern {
                                 }
                             }
                         }
-                        if i < value.len() as i64 {
+                        if i < value.len() {
                             bail!(self.span(), "too many elements to destructure");
                         }
                     }
