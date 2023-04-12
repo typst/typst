@@ -237,6 +237,11 @@
 #test(a, 1)
 #test(b, (2, 3, 4))
 
+#let a = (1, 2)
+#((b, ..a.at(0)) = (1, 2, 3, 4))
+#test(a, ((2, 3, 4), 2))
+#test(b, 1)
+
 ---
 // Error: 3-6 cannot mutate a constant: box
 #(box = 1)
