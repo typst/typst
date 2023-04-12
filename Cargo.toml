@@ -52,6 +52,7 @@ usvg = { version = "0.22", default-features = false }
 xmp-writer = "0.1"
 tracing = "0.1.37"
 indexmap = "1.9.3"
+stacker = "0.1.15"
 
 [profile.dev]
 debug = true

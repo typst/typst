@@ -286,57 +286,59 @@ impl Closure {
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
-        let closure = match &this.repr {
-            Repr::Closure(closure) => closure,
-            _ => panic!("`this` must be a closure"),
-        };
+        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, move || {
+            let closure = match &this.repr {
+                Repr::Closure(closure) => closure,
+                _ => panic!("`this` must be a closure"),
+            };
 
-        // Don't leak the scopes from the call site. Instead, we use the scope
-        // of captured variables we collected earlier.
-        let mut scopes = Scopes::new(None);
-        scopes.top = closure.captured.clone();
+            // Don't leak the scopes from the call site. Instead, we use the scope
+            // of captured variables we collected earlier.
+            let mut scopes = Scopes::new(None);
+            scopes.top = closure.captured.clone();
 
-        // Evaluate the body.
-        let vt = Vt { world, tracer, provider, introspector };
-        let mut vm = Vm::new(vt, route, closure.location, scopes);
-        vm.depth = depth;
+            // Evaluate the body.
+            let vt = Vt { world, tracer, provider, introspector };
+            let mut vm = Vm::new(vt, route, closure.location, scopes);
+            vm.depth = depth;
 
-        // Provide the closure itself for recursive calls.
-        if let Some(name) = &closure.name {
-            vm.define(name.clone(), Value::Func(this.clone()));
-        }
+            // Provide the closure itself for recursive calls.
+            if let Some(name) = &closure.name {
+                vm.define(name.clone(), Value::Func(this.clone()));
+            }
 
-        // Parse the arguments according to the parameter list.
-        for (param, default) in &closure.params {
-            vm.define(
-                param.clone(),
-                match default {
-                    Some(default) => {
-                        args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
-                    }
-                    None => args.expect::<Value>(param)?,
-                },
-            );
-        }
+            // Parse the arguments according to the parameter list.
+            for (param, default) in &closure.params {
+                vm.define(
+                    param.clone(),
+                    match default {
+                        Some(default) => {
+                            args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
+                        }
+                        None => args.expect::<Value>(param)?,
+                    },
+                );
+            }
 
-        // Put the remaining arguments into the sink.
-        if let Some(sink) = &closure.sink {
-            vm.define(sink.clone(), args.take());
-        }
+            // Put the remaining arguments into the sink.
+            if let Some(sink) = &closure.sink {
+                vm.define(sink.clone(), args.take());
+            }
 
-        // Ensure all arguments have been used.
-        args.finish()?;
+            // Ensure all arguments have been used.
+            args.finish()?;
 
-        // Handle control flow.
-        let result = closure.body.eval(&mut vm);
-        match vm.flow {
-            Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
-            Some(Flow::Return(_, None)) => {}
-            Some(flow) => bail!(flow.forbidden()),
-            None => {}
-        }
+            // Handle control flow.
+            let result = closure.body.eval(&mut vm);
+            match vm.flow {
+                Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
+                Some(Flow::Return(_, None)) => {}
+                Some(flow) => bail!(flow.forbidden()),
+                None => {}
+            }
 
-        result
+            result
+        })
     }
 }
 

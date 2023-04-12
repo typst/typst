@@ -17,6 +17,10 @@ pub struct CliArguments {
     /// The typst command to run
     #[command(subcommand)]
     pub command: Command,
+
+    /// Sets the level of verbosity: 0 = warning & error, 1 = info, 2 = debug, 3 = trace
+    #[clap(short, long, action = ArgAction::Count)]
+    pub verbosity: u8,
 }
 
 /// What to do.
@@ -35,6 +39,19 @@ pub enum Command {
     Fonts(FontsCommand),
 }
 
+impl Command {
+    /// Returns the compile command if this is a compile or watch command.
+    // TODO: there is an error where this is not recognized as dead code.
+    #[allow(dead_code)]
+    pub fn as_compile(&self) -> Option<&CompileCommand> {
+        match self {
+            Command::Compile(cmd) => Some(cmd),
+            Command::Watch(cmd) => Some(cmd),
+            Command::Fonts(_) => None,
+        }
+    }
+}
+
 /// Compiles the input file into a PDF file
 #[derive(Debug, Clone, Parser)]
 pub struct CompileCommand {
@@ -47,6 +64,11 @@ pub struct CompileCommand {
     /// Opens the output file after compilation using the default PDF viewer
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
+
+    /// Produces a flamegraph of the compilation process and saves it to the
+    /// given file or to `flamegraph.svg` in the current working directory.
+    #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
+    pub flamegraph: Option<Option<PathBuf>>,
 }
 
 /// List all discovered fonts in system and custom font paths

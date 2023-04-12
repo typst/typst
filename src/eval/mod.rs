@@ -1048,78 +1048,80 @@ impl Eval for ast::FuncCall {
             bail!(span, "maximum function call depth exceeded");
         }
 
-        let callee = self.callee();
-        let in_math = in_math(&callee);
-        let callee_span = callee.span();
-        let args = self.args();
+        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, move || {
+            let callee = self.callee();
+            let in_math = in_math(&callee);
+            let callee_span = callee.span();
+            let args = self.args();
 
-        // Try to evaluate as a method call. This is possible if the callee is a
-        // field access and does not evaluate to a module.
-        let (callee, mut args) = if let ast::Expr::FieldAccess(access) = callee {
-            let target = access.target();
-            let field = access.field();
-            let field_span = field.span();
-            let field = field.take();
-            let point = || Tracepoint::Call(Some(field.clone()));
-            if methods::is_mutating(&field) {
-                let args = args.eval(vm)?;
-                let target = target.access(vm)?;
-                if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
-                    return methods::call_mut(target, &field, args, span).trace(
-                        vm.world(),
-                        point,
-                        span,
-                    );
+            // Try to evaluate as a method call. This is possible if the callee is a
+            // field access and does not evaluate to a module.
+            let (callee, mut args) = if let ast::Expr::FieldAccess(access) = callee {
+                let target = access.target();
+                let field = access.field();
+                let field_span = field.span();
+                let field = field.take();
+                let point = || Tracepoint::Call(Some(field.clone()));
+                if methods::is_mutating(&field) {
+                    let args = args.eval(vm)?;
+                    let target = target.access(vm)?;
+                    if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
+                        return methods::call_mut(target, &field, args, span).trace(
+                            vm.world(),
+                            point,
+                            span,
+                        );
+                    }
+                    (target.field(&field).at(field_span)?, args)
+                } else {
+                    let target = target.eval(vm)?;
+                    let args = args.eval(vm)?;
+                    if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
+                        return methods::call(vm, target, &field, args, span).trace(
+                            vm.world(),
+                            point,
+                            span,
+                        );
+                    }
+                    (target.field(&field).at(field_span)?, args)
                 }
-                (target.field(&field).at(field_span)?, args)
             } else {
-                let target = target.eval(vm)?;
-                let args = args.eval(vm)?;
-                if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
-                    return methods::call(vm, target, &field, args, span).trace(
-                        vm.world(),
-                        point,
-                        span,
-                    );
-                }
-                (target.field(&field).at(field_span)?, args)
-            }
-        } else {
-            (callee.eval(vm)?, args.eval(vm)?)
-        };
+                (callee.eval(vm)?, args.eval(vm)?)
+            };
 
-        // Handle math special cases for non-functions:
-        // Combining accent symbols apply themselves while everything else
-        // simply displays the arguments verbatim.
-        if in_math && !matches!(callee, Value::Func(_)) {
-            if let Value::Symbol(sym) = &callee {
-                let c = sym.get();
-                if let Some(accent) = Symbol::combining_accent(c) {
-                    let base = args.expect("base")?;
-                    args.finish()?;
-                    return Ok(Value::Content((vm.items.math_accent)(base, accent)));
+            // Handle math special cases for non-functions:
+            // Combining accent symbols apply themselves while everything else
+            // simply displays the arguments verbatim.
+            if in_math && !matches!(callee, Value::Func(_)) {
+                if let Value::Symbol(sym) = &callee {
+                    let c = sym.get();
+                    if let Some(accent) = Symbol::combining_accent(c) {
+                        let base = args.expect("base")?;
+                        args.finish()?;
+                        return Ok(Value::Content((vm.items.math_accent)(base, accent)));
+                    }
                 }
-            }
-            let mut body = Content::empty();
-            for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
-                if i > 0 {
-                    body += (vm.items.text)(','.into());
+                let mut body = Content::empty();
+                for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
+                    if i > 0 {
+                        body += (vm.items.text)(','.into());
+                    }
+                    body += arg;
                 }
-                body += arg;
+                return Ok(Value::Content(
+                    callee.display().spanned(callee_span)
+                        + (vm.items.math_delimited)(
+                            (vm.items.text)('('.into()),
+                            body,
+                            (vm.items.text)(')'.into()),
+                        ),
+                ));
             }
-            return Ok(Value::Content(
-                callee.display().spanned(callee_span)
-                    + (vm.items.math_delimited)(
-                        (vm.items.text)('('.into()),
-                        body,
-                        (vm.items.text)(')'.into()),
-                    ),
-            ));
-        }
 
-        let callee = callee.cast::<Func>().at(callee_span)?;
-        let point = || Tracepoint::Call(callee.name().map(Into::into));
-        callee.call_vm(vm, args).trace(vm.world(), point, span)
+            let callee = callee.cast::<Func>().at(callee_span)?;
+            let point = || Tracepoint::Call(callee.name().map(Into::into));
+            callee.call_vm(vm, args).trace(vm.world(), point, span)
+        })
     }
 }
 

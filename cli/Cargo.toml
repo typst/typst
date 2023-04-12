@@ -38,7 +38,8 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.16"
 tracing-flame = "0.2.0"
 tracing-error = "0.2"
-inferno = "0.11.15"
+inferno = { version = "0.11.15", default-features = false }
+tempfile = "3.5.0"
 
 [build-dependencies]
 clap = { version = "4.2.1", features = ["derive", "string"] }

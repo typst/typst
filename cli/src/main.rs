@@ -1,4 +1,5 @@
 mod args;
+mod trace;
 
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
@@ -19,11 +20,8 @@ use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
+use trace::initialize_tracing;
 use tracing::info;
-use tracing_error::ErrorLayer;
-use tracing_flame::FlameLayer;
-use tracing_subscriber::fmt;
-use tracing_subscriber::prelude::*;
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::eval::Library;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
@@ -85,7 +83,7 @@ impl CompileSettings {
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
-        let CompileCommand { input, output, open } = match args.command {
+        let CompileCommand { input, output, open, .. } = match args.command {
             Command::Compile(command) => command,
             Command::Watch(command) => command,
             _ => unreachable!(),
@@ -122,16 +120,12 @@ impl FontsSettings {
 
 /// Entry point.
 fn main() {
-    let fmt_layer = fmt::Layer::default();
-    let (flame_layer, _guard) = FlameLayer::with_file("./tracing.folded").unwrap();
-    let error_layer = ErrorLayer::default();
-    tracing_subscriber::registry()
-        .with(fmt_layer)
-        .with(flame_layer)
-        .with(error_layer)
-        .init();
-
     let arguments = CliArguments::parse();
+
+    let Ok(_guard) = initialize_tracing(&arguments) else {
+        eprintln!("failed to initialize tracing");
+        return ();
+    };
 
     let res = match &arguments.command {
         Command::Compile(_) | Command::Watch(_) => {
