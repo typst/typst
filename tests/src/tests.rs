@@ -83,6 +83,9 @@ fn main() {
 
     if len > 1 {
         println!("{ok} / {len} tests passed.");
+        if ok != len {
+            println!("Set the UPDATE_EXPECT env var to update the reference images.");
+        }
     }
 
     if ok < len {
@@ -404,12 +407,20 @@ fn test(
                     .zip(ref_pixmap.data())
                     .any(|(&a, &b)| a.abs_diff(b) > 2)
             {
-                println!("  Does not match reference image. ❌");
-                ok = false;
+                if env::var_os("UPDATE_EXPECT").is_some() {
+                    fs::copy(png_path, ref_path).unwrap();
+                } else {
+                    println!("  Does not match reference image. ❌");
+                    ok = false;
+                }
             }
         } else if !document.pages.is_empty() {
-            println!("  Failed to open reference image. ❌");
-            ok = false;
+            if env::var_os("UPDATE_EXPECT").is_some() {
+                fs::copy(png_path, ref_path).unwrap();
+            } else {
+                println!("  Failed to open reference image. ❌");
+                ok = false;
+            }
         }
     }
 
