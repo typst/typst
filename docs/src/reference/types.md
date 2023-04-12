@@ -910,3 +910,73 @@ You can access definitions from the module using
 >>>
 >>> #(-3)
 ```
+
+# Selector
+A filter for selecting elements within the document.
+
+You can construct a selector in the following ways:
+- you can use an element function
+- you can filter for an element function with
+  [specific fields]($type/function.where)
+- you can use a [string]($type/string) or [regular expression]($func/regex)
+- you can use a [`{<label>}`]($func/label)
+- you can use a [`location`]($func/locate)
+- call the [`selector`]($func/selector) function to convert any of the above
+  types into a selector value and use the methods below to refine it
+
+A selector is what you can use to query the document for certain types
+of elements. It can also be used to apply styling rules to element. You can
+combine multiple selectors using the methods shown below.
+
+Selectors can also be passed to several of Typst's built-in functions to
+configure their behaviour. One such example is the [outline]($func/outline)
+where it can be use to change which elements are listed within the outline.
+
+## Example
+```example
+#locate(loc => query(
+  heading.where(level: 1)
+    .or(heading.where(level: 2)),
+  loc,
+))
+
+= This will be found
+== So will this
+=== But this will not.
+```
+
+## Methods
+### or()
+Allows combining any of a series of selectors. This is used to
+select multiple components or components with different properties
+all at once.
+
+- other: selector (variadic, required)
+  The list of selectors to match on.
+
+### and()
+Allows combining all of a series of selectors. This is used to check
+whether a component meets multiple selection rules simultaneously.
+
+- other: selector (variadic, required)
+  The list of selectors to match on.
+
+### before()
+Returns a modified selector that will only match elements that occur before the
+first match of the selector argument.
+
+- end: selector (positional, required)
+  The original selection will end at the first match of `end`.
+- inclusive: boolean (named)
+  Whether `end` itself should match or not. This is only relevant if both
+  selectors match the same type of element. Defaults to `{true}`.
+
+### after()
+Returns a modified selector that will only match elements that occur after the
+first match of the selector argument.
+
+- start: selector (positional, required)
+  The original selection will start at the first match of `start`.
+- inclusive: boolean (named)
+  Whether `start` itself should match or not. This is only relevant if both
+  selectors match the same type of element. Defaults to `{true}`.

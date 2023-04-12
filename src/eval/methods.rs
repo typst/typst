@@ -4,7 +4,7 @@ use ecow::EcoString;
 
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
-use crate::model::Location;
+use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
 /// Call a method on a value.
@@ -151,11 +151,29 @@ pub fn call(
         },
 
         Value::Dyn(dynamic) => {
-            if let Some(&location) = dynamic.downcast::<Location>() {
+            if let Some(location) = dynamic.downcast::<Location>() {
                 match method {
-                    "page" => vm.vt.introspector.page(location).into(),
-                    "position" => vm.vt.introspector.position(location).into(),
-                    "page-numbering" => vm.vt.introspector.page_numbering(location),
+                    "page" => vm.vt.introspector.page(*location).into(),
+                    "position" => vm.vt.introspector.position(*location).into(),
+                    "page-numbering" => vm.vt.introspector.page_numbering(*location),
+                    _ => return missing(),
+                }
+            } else if let Some(selector) = dynamic.downcast::<Selector>() {
+                match method {
+                    "or" => selector.clone().or(args.all::<Selector>()?).into(),
+                    "and" => selector.clone().and(args.all::<Selector>()?).into(),
+                    "before" => {
+                        let location = args.expect::<Selector>("selector")?;
+                        let inclusive =
+                            args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
+                        selector.clone().before(location, inclusive).into()
+                    }
+                    "after" => {
+                        let location = args.expect::<Selector>("selector")?;
+                        let inclusive =
+                            args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
+                        selector.clone().after(location, inclusive).into()
+                    }
                     _ => return missing(),
                 }
             } else {
@@ -312,6 +330,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
+        "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],
         "counter" => &[
             ("display", true),
             ("at", true),

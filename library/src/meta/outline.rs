@@ -154,14 +154,13 @@ impl Show for OutlineElem {
         let lang = TextElem::lang_in(styles);
 
         let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query(self.target(styles));
+        let elems = vt.introspector.query(&self.target(styles));
 
         for elem in &elems {
             let Some(refable) = elem.with::<dyn Refable>() else {
                 bail!(elem.span(), "outlined elements must be referenceable");
             };
 
-            let location = elem.location().expect("missing location");
             if depth < refable.level() {
                 continue;
             }
@@ -169,6 +168,8 @@ impl Show for OutlineElem {
             let Some(outline) = refable.outline(vt, lang)? else {
                 continue;
             };
+
+            let location = elem.location().unwrap();
 
             // Deals with the ancestors of the current element.
             // This is only applicable for elements with a hierarchy/level.
