@@ -408,18 +408,6 @@ pub fn log(
     Value::Float(result)
 }
 
-/// Checks to make sure that a given `i64` is a positive integer.
-macro_rules! check_positive_integer_argument {
-    ( $value:ident, $name:literal ) => {
-        match u64::try_from($value.v).ok() {
-            None => {
-                bail!($value.span, format!("a {name} must be positive", name = $name))
-            }
-            Some(s) => s,
-        }
-    };
-}
-
 /// Calculate the factorial of a number.
 ///
 /// ## Example
@@ -433,14 +421,12 @@ macro_rules! check_positive_integer_argument {
 #[func]
 pub fn fact(
     /// The number whose factorial to calculate. Must be positive.
-    value: Spanned<i64>,
+    number: Spanned<u64>,
 ) -> Value {
-    let number = check_positive_integer_argument!(value, "factorial argument");
-
-    let result = factorial_range(1, number).and_then(|r| i64::try_from(r).ok());
+    let result = factorial_range(1, number.v).and_then(|r| i64::try_from(r).ok());
 
     match result {
-        None => bail!(value.span, "the factorial result is too large"),
+        None => bail!(number.span, "the factorial result is too large"),
         Some(s) => Value::Int(s),
     }
 }
@@ -478,13 +464,12 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
 #[func]
 pub fn perm(
     /// The base number. Must be positive.
-    base: Spanned<i64>,
+    base: Spanned<u64>,
     /// The number of permutations. Must be positive.
-    numbers: Spanned<i64>,
+    numbers: Spanned<u64>,
 ) -> Value {
-    let base_parsed = check_positive_integer_argument!(base, "permutation argument");
-    let numbers_parsed =
-        check_positive_integer_argument!(numbers, "permutation argument");
+    let base_parsed = base.v;
+    let numbers_parsed = numbers.v;
 
     let result = if base_parsed + 1 > numbers_parsed {
         factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
@@ -513,14 +498,11 @@ pub fn perm(
 #[func]
 pub fn binom(
     /// The upper coefficient. Must be positive
-    n: Spanned<i64>,
+    n: Spanned<u64>,
     /// The lower coefficient. Must be positive.
-    k: Spanned<i64>,
+    k: Spanned<u64>,
 ) -> Value {
-    let n_parsed = check_positive_integer_argument!(n, "binomial coefficient");
-    let k_parsed = check_positive_integer_argument!(k, "binomial coefficient");
-
-    let result = binomial(n_parsed, k_parsed).and_then(|raw| i64::try_from(raw).ok());
+    let result = binomial(n.v, k.v).and_then(|raw| i64::try_from(raw).ok());
 
     match result {
         None => bail!(n.span, "the binomial result is too large"),
