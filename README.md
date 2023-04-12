@@ -150,7 +150,7 @@ typst --font-path path/to/fonts compile file.typ
 typst --font-path path/to/fonts fonts
 
 # Or via environement variable (Linux syntax).
-TYPST_FONT_DIR=path/to/fonts typst fonts
+TYPST_FONT_PATHS=path/to/fonts typst fonts
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant
