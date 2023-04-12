@@ -4,13 +4,13 @@
 // Test basic alignment.
 $ x &= x + y \
     &= x + 2z \
-    &= sum x dot.op 2z $
+    &= sum x dot 2z $
 
 ---
 // Test text before first alignment point.
 $ x + 1 &= a^2 + b^2 \
       y &= a + b^2 \
-      z &= alpha dot.op beta $
+      z &= alpha dot beta $
 
 ---
 // Test space between inner alignment points.
