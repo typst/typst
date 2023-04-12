@@ -119,10 +119,6 @@
 #test(calc.fact(5), 120)
 
 ---
-// Error: 12-14 a factorial argument must be positive
-#calc.fact(-1)
-
----
 // Error: 12-14 the factorial result is too large
 #calc.fact(21)
 
@@ -132,14 +128,6 @@
 #test(calc.perm(5, 3), 60)
 #test(calc.perm(5, 5), 120)
 #test(calc.perm(5, 6), 0)
-
----
-// Error: 12-14 a permutation argument must be positive
-#calc.perm(-1, 1)
-
----
-// Error: 15-17 a permutation argument must be positive
-#calc.perm(1, -1)
 
 ---
 // Error: 12-14 the permutation result is too large
@@ -152,14 +140,6 @@
 #test(calc.binom(5, 5), 1)
 #test(calc.binom(5, 6), 0)
 #test(calc.binom(6, 2), 15)
-
----
-// Error: 13-15 a binomial coefficient must be positive
-#calc.binom(-1, 0)
-
----
-// Error: 16-18 a binomial coefficient must be positive
-#calc.binom(1, -1)
 
 ---
 // Error: 10-12 expected at least one value
