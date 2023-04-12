@@ -133,12 +133,8 @@ impl MathRow {
                     .map(|slice| Self(slice.to_vec()))
                     .collect();
 
-                while let Some(row) = rows.last() {
-                    if row.0.is_empty() {
-                        rows.pop();
-                    } else {
-                        break;
-                    }
+                if matches!(rows.last(), Some(row) if row.0.is_empty()) {
+                    rows.pop();
                 }
 
                 rows

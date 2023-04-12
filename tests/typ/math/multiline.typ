@@ -35,8 +35,22 @@ $ "abc" &= c \
 $ sum_(n in NN \ n <= 5) n = (5(5+1))/2 = 15 $
 
 ---
-// Test trailing line break.
+// Test no trailing line break.
+$
+"abc" &= c
+$
+No trailing line break.
+
+---
+// Test single trailing line break.
+$
+"abc" &= c \
+$
+One trailing line break.
+
+---
+// Test multiple trailing line breaks.
 $
 "abc" &= c \ \ \
 $
-After trailing line break.
+Multiple trailing line breaks.
