@@ -330,7 +330,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
-        "selector" => &[("before", true), ("after", true), ("or", true), ("and", true)],
+        "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],
         "counter" => &[
             ("display", true),
             ("at", true),

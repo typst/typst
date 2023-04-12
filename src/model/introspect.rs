@@ -84,9 +84,11 @@ impl StabilityProvider {
 
 /// Can be queried for elements and their positions.
 pub struct Introspector {
+    /// The number of pages in the document.
     pages: usize,
+    /// All introspectable elements.
     elems: IndexMap<Location, (Content, Position)>,
-    // Indexed by page number.
+    /// The page numberings, indexed by page number minus 1.
     page_numberings: Vec<Value>,
 }
 
@@ -165,7 +167,7 @@ impl Introspector {
         }
     }
 
-    /// Query for all matching elements.
+    /// Query for the first matching element.
     pub fn query_first<'a>(&'a self, selector: &'a Selector) -> Option<Content> {
         match selector {
             Selector::Location(location) => {
@@ -215,7 +217,6 @@ impl Introspector {
     pub fn is_before(&self, a: Location, b: Location, inclusive: bool) -> bool {
         let a = self.elems.get_index_of(&a).unwrap();
         let b = self.elems.get_index_of(&b).unwrap();
-
         if inclusive {
             a <= b
         } else {

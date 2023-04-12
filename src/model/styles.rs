@@ -2,6 +2,7 @@ use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
+use std::sync::Arc;
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
@@ -258,6 +259,8 @@ pub enum Selector {
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
     Elem(ElemFunc, Option<Dict>),
+    /// Matches the element at the specified location.
+    Location(Location),
     /// Matches elements with a specific label.
     Label(Label),
     /// Matches text elements through a regular expression.
@@ -268,14 +271,10 @@ pub enum Selector {
     Or(EcoVec<Self>),
     /// Matches if all of the subselectors match.
     And(EcoVec<Self>),
-    /// Matches the element at the specified location.
-    Location(Location),
-    /// Matches all elements before the selector.
-    /// The [`bool`] indicates whether the location is inclusive.
-    Before { selector: Box<Self>, location: Box<Self>, inclusive: bool },
-    /// Matches all elements after the selector.
-    /// The [`bool`] indicates whether the location is inclusive.
-    After { selector: Box<Self>, location: Box<Self>, inclusive: bool },
+    /// Matches all matches of `selector` before `end`.
+    Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
+    /// Matches all matches of `selector` after `start`.
+    After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
 }
 
 impl Selector {
@@ -287,32 +286,6 @@ impl Selector {
     /// Define a simple [`Selector::Can`] selector.
     pub fn can<T: ?Sized + Any>() -> Self {
         Self::Can(TypeId::of::<T>())
-    }
-
-    /// Matches the selector for an introspector.
-    pub fn match_iter<'a>(
-        &'a self,
-        introspector: &'a Introspector,
-    ) -> Box<dyn Iterator<Item = Content> + 'a> {
-        self.match_iter_inner(introspector, introspector.all())
-    }
-
-    /// Transforms this selector into a [`Selector::Before`] selector.
-    pub fn before(self, location: impl Into<Self>, inclusive: bool) -> Self {
-        Self::Before {
-            selector: Box::new(self),
-            location: Box::new(location.into()),
-            inclusive,
-        }
-    }
-
-    /// Transforms this selector into a [`Selector::After`] selector.
-    pub fn after(self, location: impl Into<Self>, inclusive: bool) -> Self {
-        Self::After {
-            selector: Box::new(self),
-            location: Box::new(location.into()),
-            inclusive,
-        }
     }
 
     /// Transforms this selector and an iterator of other selectors into a
@@ -327,45 +300,42 @@ impl Selector {
         Self::Or(others.into_iter().chain(Some(self)).collect())
     }
 
-    /// Match the selector against the given list of elements.
-    /// Returns an iterator over the matching elements.
+    /// Transforms this selector into a [`Selector::Before`] selector.
+    pub fn before(self, location: impl Into<Self>, inclusive: bool) -> Self {
+        Self::Before {
+            selector: Arc::new(self),
+            end: Arc::new(location.into()),
+            inclusive,
+        }
+    }
+
+    /// Transforms this selector into a [`Selector::After`] selector.
+    pub fn after(self, location: impl Into<Self>, inclusive: bool) -> Self {
+        Self::After {
+            selector: Arc::new(self),
+            start: Arc::new(location.into()),
+            inclusive,
+        }
+    }
+
+    /// Matches the selector for an introspector.
+    pub fn match_iter<'a>(
+        &'a self,
+        introspector: &'a Introspector,
+    ) -> Box<dyn Iterator<Item = Content> + 'a> {
+        self.match_iter_inner(introspector, introspector.all())
+    }
+
+    /// Match the selector against the given list of elements. Returns an
+    /// iterator over the matching elements.
     fn match_iter_inner<'a>(
         &'a self,
         introspector: &'a Introspector,
         parent: impl Iterator<Item = Content> + 'a,
     ) -> Box<dyn Iterator<Item = Content> + 'a> {
         match self {
-            Self::Before { selector, location, inclusive } => {
-                if let Some(content) = introspector.query_first(location) {
-                    let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).filter(
-                        move |elem| {
-                            introspector.is_before(
-                                elem.location().unwrap(),
-                                loc,
-                                *inclusive,
-                            )
-                        },
-                    ))
-                } else {
-                    Box::new(selector.match_iter_inner(introspector, parent))
-                }
-            }
-            Self::After { selector, location, inclusive } => {
-                if let Some(content) = introspector.query_first(location) {
-                    let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).filter(
-                        move |elem| {
-                            introspector.is_after(
-                                elem.location().unwrap(),
-                                loc,
-                                *inclusive,
-                            )
-                        },
-                    ))
-                } else {
-                    Box::new(std::iter::empty())
-                }
+            Self::Location(location) => {
+                Box::new(introspector.location(location).into_iter())
             }
             Self::Or(selectors) => Box::new(parent.filter(|element| {
                 selectors.iter().any(|selector| {
@@ -383,8 +353,37 @@ impl Selector {
                         .is_some()
                 })
             })),
-            Self::Location(location) => {
-                Box::new(introspector.location(location).into_iter())
+            Self::Before { selector, end: location, inclusive } => {
+                if let Some(content) = introspector.query_first(location) {
+                    let loc = content.location().unwrap();
+                    Box::new(selector.match_iter_inner(introspector, parent).filter(
+                        move |elem| {
+                            introspector.is_before(
+                                elem.location().unwrap(),
+                                loc,
+                                *inclusive,
+                            )
+                        },
+                    ))
+                } else {
+                    Box::new(selector.match_iter_inner(introspector, parent))
+                }
+            }
+            Self::After { selector, start: location, inclusive } => {
+                if let Some(content) = introspector.query_first(location) {
+                    let loc = content.location().unwrap();
+                    Box::new(selector.match_iter_inner(introspector, parent).filter(
+                        move |elem| {
+                            introspector.is_after(
+                                elem.location().unwrap(),
+                                loc,
+                                *inclusive,
+                            )
+                        },
+                    ))
+                } else {
+                    Box::new(std::iter::empty())
+                }
             }
             other => Box::new(parent.filter(move |content| other.matches(content))),
         }
@@ -443,8 +442,8 @@ impl Debug for Selector {
                 f.write_str(&pretty_array_like(&pieces, false))
             }
             Self::Location(loc) => loc.fmt(f),
-            Self::Before { selector, location, inclusive }
-            | Self::After { selector, location, inclusive } => {
+            Self::Before { selector, end: split, inclusive }
+            | Self::After { selector, start: split, inclusive } => {
                 selector.fmt(f)?;
 
                 if matches!(self, Self::Before { .. }) {
@@ -453,7 +452,7 @@ impl Debug for Selector {
                     f.write_str(".after(")?;
                 }
 
-                location.fmt(f)?;
+                split.fmt(f)?;
                 if !*inclusive {
                     f.write_str(", inclusive: false")?;
                 }
@@ -489,16 +488,26 @@ impl Cast for LocatableSelector {
     fn cast(value: Value) -> StrResult<Self> {
         fn validate(selector: &Selector) -> StrResult<()> {
             match &selector {
-                Selector::Elem(elem, _) if !elem.can::<dyn Locatable>() => {
-                    Err(eco_format!("{} is not locatable", elem.name()))?
+                Selector::Elem(elem, _) => {
+                    if !elem.can::<dyn Locatable>() {
+                        Err(eco_format!("{} is not locatable", elem.name()))?
+                    }
                 }
+                Selector::Location(_) => {}
+                Selector::Label(_) => {}
                 Selector::Regex(_) => Err("text is not locatable")?,
+                Selector::Can(_) => Err("capability is not locatable")?,
                 Selector::Or(list) | Selector::And(list) => {
                     for selector in list {
                         validate(selector)?;
                     }
                 }
-                _ => {}
+                Selector::Before { selector, end: split, .. }
+                | Selector::After { selector, start: split, .. } => {
+                    for selector in [selector, split] {
+                        validate(selector)?;
+                    }
+                }
             }
             Ok(())
         }

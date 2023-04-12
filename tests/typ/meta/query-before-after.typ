@@ -11,11 +11,19 @@
 
   #set text(size: 12pt, weight: "regular")
   #outline(
-      title: "Chapter outline", 
+      title: "Chapter outline",
       indent: true,
-      target: heading.where(level: 1).or(heading.where(level: 2))
+      target: heading
+        .where(level: 1)
+        .or(heading.where(level: 2))
         .after(it.location(), inclusive: true)
-        .before(heading.where(level: 1, outlined: true).after(it.location(), inclusive: false), inclusive: false))
+        .before(
+          heading
+            .where(level: 1, outlined: true)
+            .after(it.location(), inclusive: false),
+          inclusive: false,
+        )
+  )
 ]
 
 #set heading(outlined: true, numbering: "1.")
@@ -38,7 +46,7 @@
 === Subsubsection 3
 == Subsection 3
 
---- 
+---
 
 #set page(
   paper: "a7",
@@ -48,9 +56,11 @@
 
 #set heading(outlined: true, numbering: "1.")
 
-// This is purposefully an empty 
+// This is purposefully an empty
 #locate(loc => [
-  Non-outlined elements: #query(selector(heading).and(heading.where(outlined: false)), loc).map(it => it.body).join(", ")
+  Non-outlined elements:
+  #(query(selector(heading).and(heading.where(outlined: false)), loc)
+    .map(it => it.body).join(", "))
 ])
 
 #heading("A", outlined: false)
