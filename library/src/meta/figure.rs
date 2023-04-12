@@ -42,7 +42,7 @@ use crate::visualize::ImageElem;
 /// )
 /// ```
 ///
-/// This behaviour can be overridden by explictly specifying the figure's
+/// This behaviour can be overridden by explicitly specifying the figure's
 /// `kind`. All figures of the same kind share a common counter.
 ///
 /// ## Modifying the appearance
