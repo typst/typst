@@ -127,10 +127,22 @@ impl MathRow {
                 TIGHT_LEADING.scaled(ctx)
             };
 
-            let rows: Vec<_> = fragments
-                .split(|frag| matches!(frag, MathFragment::Linebreak))
-                .map(|slice| Self(slice.to_vec()))
-                .collect();
+            let rows = {
+                let mut rows: Vec<_> = fragments
+                    .split(|frag| matches!(frag, MathFragment::Linebreak))
+                    .map(|slice| Self(slice.to_vec()))
+                    .collect();
+
+                while let Some(row) = rows.last() {
+                    if row.0.is_empty() {
+                        rows.pop();
+                    } else {
+                        break;
+                    }
+                }
+
+                rows
+            };
 
             let width = rows.iter().map(|row| row.width()).max().unwrap_or_default();
             let points = alignments(&rows);
