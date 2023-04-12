@@ -62,8 +62,20 @@ impl Drop for TracingGuard {
 pub fn initialize_tracing(
     args: &CliArguments,
 ) -> Result<Option<TracingGuard>, std::io::Error> {
+    let flamegraph = args.command.as_compile().and_then(|c| c.flamegraph.as_ref());
+
+    // Short circuit if we don't need to initialize flamegraph or debugging.
+    if flamegraph.is_none() && !args.debug {
+        tracing_subscriber::fmt()
+            .without_time()
+            .with_max_level(level_filter(args))
+            .init();
+
+        return Ok(None);
+    }
+
     // Build the FMT layer printing to the console.
-    let fmt_layer = fmt::Layer::default().with_filter(level_filter(args));
+    let fmt_layer = fmt::Layer::default().without_time().with_filter(level_filter(args));
 
     // Error layer for building backtraces
     let error_layer = ErrorLayer::default();
@@ -71,7 +83,7 @@ pub fn initialize_tracing(
     // Build the registry.
     let registry = tracing_subscriber::registry().with(fmt_layer).with(error_layer);
 
-    if let Some(path) = args.command.as_compile().and_then(|c| c.flamegraph.as_ref()) {
+    if let Some(path) = flamegraph {
         // Create a temporary file to store the flamegraph data.
         let tempdir = tempfile::tempdir()?;
         let tempfile = File::create(tempdir.path().join("flamegraph.folded"))?;
@@ -90,7 +102,6 @@ pub fn initialize_tracing(
             output_svg: path.clone().unwrap_or_else(|| "flamegraph.svg".into()),
         }))
     } else {
-        // Build the subscriber.
         registry.init();
 
         Ok(None)

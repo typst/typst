@@ -19,16 +19,16 @@ use typst::model::{Element, Styles};
 use self::layout::LayoutRoot;
 
 /// Construct the standard library.
-pub fn build() -> Library {
+pub fn build(debug: bool) -> Library {
     let math = math::module();
     let calc = compute::calc::module();
-    let global = global(math.clone(), calc);
+    let global = global(math.clone(), calc, debug);
     Library { global, math, styles: styles(), items: items() }
 }
 
 /// Construct the module with global definitions.
-#[tracing::instrument(skip(math, calc))]
-fn global(math: Module, calc: Module) -> Module {
+#[tracing::instrument(skip_all)]
+fn global(math: Module, calc: Module, debug: bool) -> Module {
     let mut global = Scope::deduplicating();
 
     // Text.
@@ -170,7 +170,9 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("bottom", GenAlign::Specific(Align::Bottom));
 
     // Debugging
-    global.define("backtrace", debug::backtrace);
+    if debug {
+        global.define("backtrace", debug::backtrace);
+    }
 
     Module::new("global").with_scope(global)
 }

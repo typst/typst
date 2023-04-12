@@ -58,6 +58,9 @@ struct CompileSettings {
 
     /// The open command to use.
     open: Option<Option<String>>,
+
+    /// Whether to enable debug mode.
+    debug: bool,
 }
 
 impl CompileSettings {
@@ -69,12 +72,21 @@ impl CompileSettings {
         root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
+        debug: bool,
     ) -> Self {
         let output = match output {
             Some(path) => path,
             None => input.with_extension("pdf"),
         };
-        Self { input, output, watch, root, font_paths, open }
+        Self {
+            input,
+            output,
+            watch,
+            root,
+            font_paths,
+            open,
+            debug,
+        }
     }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
@@ -88,7 +100,7 @@ impl CompileSettings {
             Command::Watch(command) => command,
             _ => unreachable!(),
         };
-        Self::new(input, output, watch, args.root, args.font_paths, open)
+        Self::new(input, output, watch, args.root, args.font_paths, open, args.debug)
     }
 }
 
@@ -170,7 +182,7 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
     };
 
     // Create the world that serves sources, fonts and files.
-    let mut world = SystemWorld::new(root, &command.font_paths);
+    let mut world = SystemWorld::new(root, command.debug, &command.font_paths);
 
     // Perform initial compilation.
     let failed = compile_once(&mut world, &command)?;
@@ -421,7 +433,7 @@ struct PathSlot {
 }
 
 impl SystemWorld {
-    fn new(root: PathBuf, font_paths: &[PathBuf]) -> Self {
+    fn new(root: PathBuf, debug: bool, font_paths: &[PathBuf]) -> Self {
         let mut searcher = FontSearcher::new();
         searcher.search_system();
 
@@ -434,7 +446,7 @@ impl SystemWorld {
 
         Self {
             root,
-            library: Prehashed::new(typst_library::build()),
+            library: Prehashed::new(typst_library::build(debug)),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             hashes: RefCell::default(),

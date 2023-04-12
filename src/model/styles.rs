@@ -356,7 +356,7 @@ impl Selector {
             Self::Before { selector, end: location, inclusive } => {
                 if let Some(content) = introspector.query_first(location) {
                     let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).filter(
+                    Box::new(selector.match_iter_inner(introspector, parent).take_while(
                         move |elem| {
                             introspector.is_before(
                                 elem.location().unwrap(),
@@ -372,12 +372,12 @@ impl Selector {
             Self::After { selector, start: location, inclusive } => {
                 if let Some(content) = introspector.query_first(location) {
                     let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).filter(
+                    Box::new(selector.match_iter_inner(introspector, parent).skip_while(
                         move |elem| {
-                            introspector.is_after(
+                            introspector.is_before(
                                 elem.location().unwrap(),
                                 loc,
-                                *inclusive,
+                                !*inclusive,
                             )
                         },
                     ))
