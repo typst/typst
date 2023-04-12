@@ -38,8 +38,8 @@ use crate::prelude::*;
 /// >>> )
 /// #set page(header: locate(loc => {
 ///   let elems = query(
-///     heading,
-///     before: loc,
+///     selector(heading).before(loc),
+///     loc,
 ///   )
 ///   let academy = smallcaps[
 ///     Typst Academy
@@ -102,8 +102,7 @@ pub fn query(
     /// elements with an explicit label. As a result, you _can_ query for e.g.
     /// [`strong`]($func/strong) elements, but you will find only those that
     /// have an explicit label attached to them. This limitation will be
-    /// resolved
-    /// in the future.
+    /// resolved in the future.
     target: LocatableSelector,
 
     /// Can be any location. Why is it required then? As noted before, Typst has
@@ -115,39 +114,25 @@ pub fn query(
     /// could depend on the query's result.
     ///
     /// Only one of this, `before`, and `after` shall be given.
-    #[external]
-    #[default]
     location: Location,
-
-    /// If given, returns only those elements that are before the given
-    /// location. A suitable location can be retrieved from
-    /// [`locate`]($func/locate), but also through the
-    /// [`location()`]($type/content.location) method on content returned by
-    /// another query. Only one of `location`, this, and `after` shall be given.
-    #[named]
-    #[external]
-    #[default]
-    before: Location,
-
-    /// If given, returns only those elements that are after the given location.
-    /// A suitable location can be retrieved from [`locate`]($func/locate), but
-    /// also through the [`location()`]($type/content.location) method on
-    /// content returned by another query. Only one of `location`, `before`, and
-    /// this shall be given.
-    #[named]
-    #[external]
-    #[default]
-    after: Location,
 ) -> Value {
-    let selector = target.0;
-    let introspector = vm.vt.introspector;
-    let elements = if let Some(location) = args.named("before")? {
-        introspector.query_before(selector, location)
-    } else if let Some(location) = args.named("after")? {
-        introspector.query_after(selector, location)
-    } else {
-        let _: Location = args.expect("location")?;
-        introspector.query(selector)
-    };
-    elements.into()
+    let _ = location;
+    vm.vt.introspector.query(&target.0).into()
+}
+
+/// Turns a value into a selector. The following values are accepted:
+/// - An element function like a `heading` or `figure`.
+/// - A `{<label>}`.
+/// - A more complex selector like `{heading.where(level: 1)}`.
+///
+/// Display: Selector
+/// Category: meta
+/// Returns: content
+#[func]
+pub fn selector(
+    /// Can be an element function like a `heading` or `figure`, a `{<label>}`
+    /// or a more complex selector like `{heading.where(level: 1)}`.
+    target: Selector,
+) -> Value {
+    target.into()
 }
