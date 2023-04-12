@@ -2,6 +2,7 @@
 
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::ops::Range;
@@ -11,6 +12,8 @@ use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use oxipng::{InFile, Options, OutFile};
+use rayon::iter::ParallelBridge;
+use rayon::iter::ParallelIterator;
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
@@ -78,53 +81,49 @@ impl Args {
 
 fn main() {
     let args = Args::parse();
-    let mut filtered = Vec::new();
-    // Since different tests can affect each other through the memoization
-    // cache, a deterministic order is important for reproducibility.
-    for entry in WalkDir::new("typ").sort_by_file_name() {
-        let entry = entry.unwrap();
-        if entry.depth() == 0 {
-            continue;
-        }
-
-        if entry.path().starts_with("typ/benches") {
-            continue;
-        }
-
-        let src_path = entry.into_path();
-        if src_path.extension() != Some(OsStr::new("typ")) {
-            continue;
-        }
-
-        if args.matches(&src_path) {
-            filtered.push(src_path);
-        }
-    }
-
-    let len = filtered.len();
-    if len == 1 {
-        println!("Running test ...");
-    } else if len > 1 {
-        println!("Running {len} tests");
-    }
 
     // Create loader and context.
-    let mut world = TestWorld::new(args.print);
+    let world = TestWorld::new(args.print);
 
-    // Run all the tests.
-    let mut ok = 0;
-    for src_path in filtered {
-        let path = src_path.strip_prefix(TYP_DIR).unwrap();
-        let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
-        let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
-        let pdf_path =
-            args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
+    println!("Running tests...");
+    let results = WalkDir::new("typ")
+        .into_iter()
+        .par_bridge()
+        .filter_map(|entry| {
+            let entry = entry.unwrap();
+            if entry.depth() == 0 {
+                return None;
+            }
 
-        ok +=
-            test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref(), &args)
-                as usize;
-    }
+            if entry.path().starts_with("typ/benches") {
+                return None;
+            }
 
+            let src_path = entry.into_path();
+            if src_path.extension() != Some(OsStr::new("typ")) {
+                return None;
+            }
+
+            if args.matches(&src_path) {
+                Some(src_path)
+            } else {
+                None
+            }
+        })
+        .map_with(world, |world, src_path| {
+            let path = src_path.strip_prefix(TYP_DIR).unwrap();
+            let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
+            let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
+            let pdf_path =
+                args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
+
+            test(world, &src_path, &png_path, &ref_path, pdf_path.as_deref(), &args)
+                as usize
+        })
+        .collect::<Vec<_>>();
+
+    let len = results.len();
+    let ok = results.iter().sum::<usize>();
     if len > 1 {
         println!("{ok} / {len} tests passed.");
     }
@@ -206,7 +205,21 @@ struct TestWorld {
     main: SourceId,
 }
 
-#[derive(Default)]
+impl Clone for TestWorld {
+    fn clone(&self) -> Self {
+        Self {
+            print: self.print,
+            library: self.library.clone(),
+            book: self.book.clone(),
+            fonts: self.fonts.clone(),
+            paths: self.paths.clone(),
+            sources: FrozenVec::from_iter(self.sources.iter().cloned().map(Box::new)),
+            main: self.main,
+        }
+    }
+}
+
+#[derive(Default, Clone)]
 struct PathSlot {
     source: OnceCell<FileResult<SourceId>>,
     buffer: OnceCell<FileResult<Buffer>>,
@@ -337,7 +350,6 @@ fn test(
     args: &Args,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
-    println!("Testing {}", name.display());
 
     let text = fs::read_to_string(src_path).unwrap();
 
@@ -411,7 +423,7 @@ fn test(
                     update_image(png_path, ref_path);
                     updated = true;
                 } else {
-                    println!("  Does not match reference image. ❌");
+                    println!("{} Does not match reference image. ❌", name.display());
                     ok = false;
                 }
             }
@@ -420,17 +432,14 @@ fn test(
                 update_image(png_path, ref_path);
                 updated = true;
             } else {
-                println!("  Failed to open reference image. ❌");
+                println!("{} Failed to open reference image. ❌", name.display());
                 ok = false;
             }
         }
     }
 
     if ok && !updated {
-        if world.print == PrintConfig::default() {
-            print!("\x1b[1A");
-        }
-        println!("Testing {} ✔", name.display());
+        println!("{} ✔", name.display());
     }
 
     ok

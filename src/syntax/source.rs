@@ -18,6 +18,7 @@ use crate::util::{PathExt, StrExt};
 ///
 /// All line and column indices start at zero, just like byte indices. Only for
 /// user-facing display, you should add 1 to them.
+#[derive(Clone)]
 pub struct Source {
     id: SourceId,
     path: PathBuf,
