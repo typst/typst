@@ -7,11 +7,11 @@ use clap::{ArgAction, Parser, Subcommand};
 #[clap(name = "typst", version = crate::typst_version(), author)]
 pub struct CliArguments {
     /// Add additional directories to search for fonts
-    #[clap(long = "font-path", value_name = "DIR", env = "TYPST_FONT_DIR", action = ArgAction::Append)]
+    #[clap(long = "font-path", env = "TYPST_FONT_PATHS", value_name = "DIR", action = ArgAction::Append)]
     pub font_paths: Vec<PathBuf>,
 
     /// Configure the root for absolute paths
-    #[clap(long = "root", value_name = "DIR", env = "TYPST_ROOT_DIR")]
+    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
     pub root: Option<PathBuf>,
 
     /// The typst command to run
