@@ -1,6 +1,6 @@
 pub use typst_macros::{cast_from_value, cast_to_value, Cast};
 
-use std::num::{NonZeroI64, NonZeroUsize};
+use std::num::{NonZeroI64, NonZeroU64, NonZeroUsize};
 use std::ops::Add;
 
 use ecow::EcoString;
@@ -95,8 +95,19 @@ cast_to_value! {
     v: u32 => Value::Int(v as i64)
 }
 
+cast_from_value! {
+    u64,
+    int: i64 => int.try_into().map_err(|_| {
+        if int < 0 {
+            "number must be at least zero"
+        } else {
+            "number too large"
+        }
+    })?,
+}
+
 cast_to_value! {
-    v: i32 => Value::Int(v as i64)
+    v: u64 => Value::Int(v as i64)
 }
 
 cast_from_value! {
@@ -114,19 +125,38 @@ cast_to_value! {
     v: usize => Value::Int(v as i64)
 }
 
+cast_to_value! {
+    v: i32 => Value::Int(v as i64)
+}
+
 cast_from_value! {
-    u64,
-    int: i64 => int.try_into().map_err(|_| {
-        if int < 0 {
-            "number must be at least zero"
+    NonZeroI64,
+    int: i64 => int.try_into()
+        .map_err(|_| if int == 0 {
+            "number must not be zero"
         } else {
             "number too large"
-        }
-    })?,
+        })?,
 }
 
 cast_to_value! {
-    v: u64 => Value::Int(v as i64)
+    v: NonZeroI64 => Value::Int(v.get())
+}
+
+cast_from_value! {
+    NonZeroU64,
+    int: i64 => int
+        .try_into()
+        .and_then(|int: u64| int.try_into())
+        .map_err(|_| if int <= 0 {
+            "number must be positive"
+        } else {
+            "number too large"
+        })?,
+}
+
+cast_to_value! {
+    v: NonZeroU64 => Value::Int(v.get() as i64)
 }
 
 cast_from_value! {
@@ -143,20 +173,6 @@ cast_from_value! {
 
 cast_to_value! {
     v: NonZeroUsize => Value::Int(v.get() as i64)
-}
-
-cast_from_value! {
-    NonZeroI64,
-    int: i64 => int.try_into()
-        .map_err(|_| if int <= 0 {
-            "number must be positive"
-        } else {
-            "number too large"
-        })?,
-}
-
-cast_to_value! {
-    v: NonZeroI64 => Value::Int(v.get())
 }
 
 cast_from_value! {

@@ -95,7 +95,7 @@
 #calc.pow(2, calc.pow(2.0, 10000.0))
 
 ---
-// Error: 15-18 the result is not a real number
+// Error: 10-19 the result is not a real number
 #calc.pow(-1, 0.5)
 
 ---
@@ -107,11 +107,11 @@
 #calc.log(-1)
 
 ---
-// Error: 11-12 base may not be zero, NaN, infinite, or subnormal
+// Error: 20-21 base may not be zero, NaN, infinite, or subnormal
 #calc.log(1, base: 0)
 
 ---
-// Error: 11-13 the result is not a real number
+// Error: 10-24 the result is not a real number
 #calc.log(10, base: -1)
 
 ---
@@ -120,7 +120,7 @@
 #test(calc.fact(5), 120)
 
 ---
-// Error: 12-14 the factorial result is too large
+// Error: 11-15 the result is too large
 #calc.fact(21)
 
 ---
@@ -131,7 +131,7 @@
 #test(calc.perm(5, 6), 0)
 
 ---
-// Error: 12-14 the permutation result is too large
+// Error: 11-19 the result is too large
 #calc.perm(21, 21)
 
 ---
@@ -175,5 +175,5 @@
 #range(4, step: "one")
 
 ---
-// Error: 18-19 number must be positive
+// Error: 18-19 number must not be zero
 #range(10, step: 0)
