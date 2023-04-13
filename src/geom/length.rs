@@ -43,7 +43,7 @@ impl Length {
 
         match field {
             "em" => Ok(self.em.into()),
-            "absolute" => Ok(self.abs.into()),
+            "pt" => Ok(self.abs.into()),
             "cm" => Ok(round_four_digits(self.abs.to_cm()).into()),
             "mm" => Ok(round_four_digits(self.abs.to_mm()).into()),
             "inches" => Ok(round_four_digits(self.abs.to_inches()).into()),

@@ -66,16 +66,19 @@
 ---
 // Test relative length fields.
 #test((100% + 2em + 2pt).relative, 100%)
-#test((100% + 2em + 2pt).fixed, 2em + 2pt)
+#test((100% + 2em + 2pt).absolute, 2em + 2pt)
+#test((100% + 2pt).absolute, 2pt)
+#test((100% + 2pt - 2pt).absolute, 0pt)
+#test((56% + 2pt - 56%).relative, 0%)
 
 ---
 // Test length fields.
 #test((1pt).em, 0em)
-#test((1pt).absolute, 1pt)
+#test((1pt).pt, 1pt)
 #test((3em).em, 3em)
-#test((3em).absolute, 0pt)
+#test((3em).pt, 0pt)
 #test((2em + 2pt).em, 2em)
-#test((2em + 2pt).absolute, 2pt)
+#test((2em + 2pt).pt, 2pt)
 
 ---
 // Test length unit conversions.
