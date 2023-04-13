@@ -40,3 +40,15 @@ A#"\n" B
 ---
 // Test that trailing space does not force a line break.
 LLLLLLLLLLLLLLLLLL R _L_
+
+---
+// Test punctuation after math equations.
+Loooooooongcat $n in N$. \
+Loooooooongcat $n in N$! \
+Loooooooongcat $n in N$? \
+Loooooooongcat $n in N$, \
+Loooooooongcat $n in N$; \
+Loooooooongcat $n in N$: \
+Loooooooongcat $n in N$- \
+Loooooooongcat $n in N$– \
+Loooooooongcat $n in N$— \
