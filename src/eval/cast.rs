@@ -115,6 +115,21 @@ cast_to_value! {
 }
 
 cast_from_value! {
+    u64,
+    int: i64 => int.try_into().map_err(|_| {
+        if int < 0 {
+            "number must be at least zero"
+        } else {
+            "number too large"
+        }
+    })?,
+}
+
+cast_to_value! {
+    v: u64 => Value::Int(v as i64)
+}
+
+cast_from_value! {
     NonZeroUsize,
     int: i64 => int
         .try_into()

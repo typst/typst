@@ -115,6 +115,34 @@
 #calc.log(10, base: -1)
 
 ---
+// Test the `fact` function.
+#test(calc.fact(0), 1)
+#test(calc.fact(5), 120)
+
+---
+// Error: 12-14 the factorial result is too large
+#calc.fact(21)
+
+---
+// Test the `perm` function.
+#test(calc.perm(0, 0), 1)
+#test(calc.perm(5, 3), 60)
+#test(calc.perm(5, 5), 120)
+#test(calc.perm(5, 6), 0)
+
+---
+// Error: 12-14 the permutation result is too large
+#calc.perm(21, 21)
+
+---
+// Test the `binom` function.
+#test(calc.binom(0, 0), 1)
+#test(calc.binom(5, 3), 10)
+#test(calc.binom(5, 5), 1)
+#test(calc.binom(5, 6), 0)
+#test(calc.binom(6, 2), 15)
+
+---
 // Error: 10-12 expected at least one value
 #calc.min()
 
