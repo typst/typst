@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
@@ -49,14 +50,13 @@ cast_from_value! {
 /// Provides stable identities to elements.
 #[derive(Clone, Default)]
 pub struct StabilityProvider {
-    hashes: Vec<u128>,
-    checkpoints: Vec<usize>,
+    checkpoints: Vec<HashMap<u128, usize>>,
 }
 
 impl StabilityProvider {
     /// Create a new stability provider.
     pub fn new() -> Self {
-        Self::default()
+        Self { checkpoints: vec![HashMap::new()] }
     }
 }
 
@@ -64,21 +64,24 @@ impl StabilityProvider {
 impl StabilityProvider {
     /// Produce a stable identifier for this call site.
     pub fn locate(&mut self, hash: u128) -> Location {
-        let disambiguator = self.hashes.iter().filter(|&&prev| prev == hash).count();
-        self.hashes.push(hash);
+        let disambiguator = self
+            .checkpoints
+            .iter()
+            .map(|hashes| hashes.get(&hash).copied().unwrap_or(0))
+            .sum();
+        *self.checkpoints.last_mut().unwrap().entry(hash).or_insert(0) += 1;
         Location { hash, disambiguator, variant: 0 }
     }
 
     /// Create a checkpoint of the state that can be restored.
     pub fn save(&mut self) {
-        self.checkpoints.push(self.hashes.len());
+        self.checkpoints.push(HashMap::new());
     }
 
     /// Restore the last checkpoint.
     pub fn restore(&mut self) {
-        if let Some(checkpoint) = self.checkpoints.pop() {
-            self.hashes.truncate(checkpoint);
-        }
+        assert!(self.checkpoints.len() > 1); // we want to always keep one checkpoint alive, the current one
+        self.checkpoints.pop();
     }
 }
 
