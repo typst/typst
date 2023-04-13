@@ -525,7 +525,6 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
     i64::try_from(result).ok()
 }
 
-
 /// Calculate a gcd.
 ///
 /// ## Example
