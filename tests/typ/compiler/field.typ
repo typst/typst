@@ -70,12 +70,20 @@
 
 ---
 // Test length fields.
+#test((1pt).em, 0em)
+#test((1pt).absolute, 1pt)
+#test((3em).em, 3em)
+#test((3em).absolute, 0pt)
 #test((2em + 2pt).em, 2em)
 #test((2em + 2pt).absolute, 2pt)
-#test((2em + 2pt).pt, 2)
-#test((3cm).cm, 3)
-#test((4mm).mm, 4)
-#test((5in).inches, 5)
+
+---
+// Test length unit conversions.
+#test((2em + 2.345pt).pt, 2.345)
+#test((2em).pt, 0)
+#test((3.345cm).cm, 3.345)
+#test((4.345mm).mm, 4.345)
+#test((5.345in).inches, 5.345)
 
 ---
 // Test color fields.
