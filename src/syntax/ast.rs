@@ -1620,7 +1620,14 @@ pub enum DestructuringKind {
 impl Pattern {
     /// The kind of the pattern.
     pub fn kind(&self) -> PatternKind {
-        if self.0.children().len() <= 1 {
+        if self
+            .0
+            .children()
+            .map(SyntaxNode::kind)
+            .skip_while(|&kind| kind == SyntaxKind::LeftParen)
+            .take_while(|&kind| kind != SyntaxKind::RightParen)
+            .eq([SyntaxKind::Ident])
+        {
             return PatternKind::Ident(self.0.cast_first_match().unwrap_or_default());
         }
 

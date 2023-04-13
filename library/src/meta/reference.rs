@@ -1,5 +1,6 @@
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
 use crate::prelude::*;
+use crate::text::TextElem;
 
 /// A reference to a label or bibliography.
 ///
@@ -131,10 +132,11 @@ impl Show for RefElem {
             }
         };
 
+        let lang = TextElem::lang_in(styles);
         let reference = elem
             .with::<dyn Refable>()
             .expect("element should be refable")
-            .reference(vt, styles, supplement)?;
+            .reference(vt, supplement, lang)?;
 
         Ok(reference.linked(Destination::Location(elem.location().unwrap())))
     }
@@ -212,27 +214,27 @@ pub trait Refable {
     fn reference(
         &self,
         vt: &mut Vt,
-        styles: StyleChain,
         supplement: Option<Content>,
+        lang: Lang,
     ) -> SourceResult<Content>;
 
     /// Tries to build an outline element for this element.
     /// If this returns `None`, the outline will not include this element.
     /// By default this just calls [`Refable::reference`].
-    fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
-        self.reference(vt, styles, None).map(Some)
+    fn outline(&self, vt: &mut Vt, lang: Lang) -> SourceResult<Option<Content>> {
+        self.reference(vt, None, lang).map(Some)
     }
 
     /// Returns the level of this element.
     /// This is used to determine the level of the outline.
     /// By default this returns `0`.
-    fn level(&self, _styles: StyleChain) -> usize {
+    fn level(&self) -> usize {
         0
     }
 
     /// Returns the numbering of this element.
-    fn numbering(&self, styles: StyleChain) -> Option<Numbering>;
+    fn numbering(&self) -> Option<Numbering>;
 
     /// Returns the counter of this element.
-    fn counter(&self, styles: StyleChain) -> Counter;
+    fn counter(&self) -> Counter;
 }

@@ -731,9 +731,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "1.9.2"
+version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1885e79c1fc4b10f0e172c475f458b7f7b93061064d98c3293e98c5ba0c8b399"
+checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown",
@@ -1597,7 +1597,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typst"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bitflags",
  "bytemuck",
@@ -1606,6 +1606,7 @@ dependencies = [
  "flate2",
  "if_chain",
  "image",
+ "indexmap",
  "log",
  "miniz_oxide 0.5.4",
  "once_cell",
@@ -1633,7 +1634,7 @@ dependencies = [
 
 [[package]]
 name = "typst-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "clap",
@@ -1656,7 +1657,7 @@ dependencies = [
 
 [[package]]
 name = "typst-docs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "comemo",
  "heck",
@@ -1674,7 +1675,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chinese-number",
  "comemo",
@@ -1704,7 +1705,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -1715,7 +1716,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "comemo",
  "elsa",

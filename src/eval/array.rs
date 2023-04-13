@@ -181,15 +181,9 @@ impl Array {
 
     /// Transform each item in the array with a function.
     pub fn map(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
-        let enumerate = func.argc() == Some(2);
         self.iter()
-            .enumerate()
-            .map(|(i, item)| {
-                let mut args = Args::new(func.span(), []);
-                if enumerate {
-                    args.push(func.span(), Value::Int(i as i64));
-                }
-                args.push(func.span(), item.clone());
+            .map(|item| {
+                let args = Args::new(func.span(), [item.clone()]);
                 func.call_vm(vm, args)
             })
             .collect()

@@ -483,7 +483,7 @@ fn layout(
 
     let mut frame;
     if let Some(child) = body {
-        let mut region = resolved.unwrap_or(regions.base());
+        let region = resolved.unwrap_or(regions.base());
         if kind.is_round() {
             inset = inset.map(|side| side + Ratio::new(0.5 - SQRT_2 / 4.0));
         }
@@ -494,17 +494,23 @@ fn layout(
         let pod = Regions::one(region, expand);
         frame = child.layout(vt, styles, pod)?.into_frame();
 
+        // Enforce correct size.
+        *frame.size_mut() = expand.select(region, frame.size());
+
         // Relayout with full expansion into square region to make sure
         // the result is really a square or circle.
         if kind.is_quadratic() {
+            frame.set_size(Size::splat(frame.size().max_by_side()));
             let length = frame.size().max_by_side().min(region.min_by_side());
-            region = Size::splat(length);
-            let pod = Regions::one(region, Axes::splat(true));
+            let pod = Regions::one(Size::splat(length), Axes::splat(true));
             frame = child.layout(vt, styles, pod)?.into_frame();
         }
 
-        // Enforce correct size.
+        // Enforce correct size again.
         *frame.size_mut() = expand.select(region, frame.size());
+        if kind.is_quadratic() {
+            frame.set_size(Size::splat(frame.size().max_by_side()));
+        }
     } else {
         // The default size that a shape takes on if it has no child and
         // enough space.
