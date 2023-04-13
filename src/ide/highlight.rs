@@ -194,6 +194,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Not => Some(Tag::Keyword),
         SyntaxKind::And => Some(Tag::Keyword),
         SyntaxKind::Or => Some(Tag::Keyword),
+        SyntaxKind::Xor => Some(Tag::Keyword),
         SyntaxKind::None => Some(Tag::Keyword),
         SyntaxKind::Auto => Some(Tag::Keyword),
         SyntaxKind::Let => Some(Tag::Keyword),

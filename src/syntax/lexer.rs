@@ -632,6 +632,7 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
         "not" => SyntaxKind::Not,
         "and" => SyntaxKind::And,
         "or" => SyntaxKind::Or,
+        "xor" => SyntaxKind::Xor,
         "let" => SyntaxKind::Let,
         "set" => SyntaxKind::Set,
         "show" => SyntaxKind::Show,

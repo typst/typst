@@ -146,7 +146,7 @@ impl PathExt for Path {
     }
 }
 
-/// Format pieces separated with commas and a final "and" or "or".
+/// Format pieces separated with commas and a final "and", "or" or "xor".
 pub fn separated_list(pieces: &[impl AsRef<str>], last: &str) -> String {
     let mut buf = String::new();
     for (i, part) in pieces.iter().enumerate() {

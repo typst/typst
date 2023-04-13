@@ -303,6 +303,14 @@ pub fn or(lhs: Value, rhs: Value) -> StrResult<Value> {
     }
 }
 
+/// Compute the logical "xor" of two values.
+pub fn xor(lhs: Value, rhs: Value) -> StrResult<Value> {
+    match (lhs, rhs) {
+        (Bool(a), Bool(b)) => Ok(Bool(a ^ b)),
+        (a, b) => mismatch!("cannot apply 'xor' to {} and {}", a, b),
+    }
+}
+
 /// Compute whether two values are equal.
 pub fn eq(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(Bool(equal(&lhs, &rhs)))

@@ -141,6 +141,8 @@ pub enum SyntaxKind {
     And,
     /// The `or` operator.
     Or,
+    /// The `xor` operator.
+    Xor,
     /// The `none` literal.
     None,
     /// The `auto` literal.
@@ -381,6 +383,7 @@ impl SyntaxKind {
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",
+            Self::Xor => "operator `xor`",
             Self::None => "`none`",
             Self::Auto => "`auto`",
             Self::Let => "keyword `let`",

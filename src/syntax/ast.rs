@@ -1309,6 +1309,8 @@ pub enum BinOp {
     And,
     /// The short-circuiting boolean `or`.
     Or,
+    /// The Exclusive_Or boolean operator: `xor`.
+    Xor,
     /// The equality operator: `==`.
     Eq,
     /// The inequality operator: `!=`.
@@ -1347,6 +1349,7 @@ impl BinOp {
             SyntaxKind::Slash => Self::Div,
             SyntaxKind::And => Self::And,
             SyntaxKind::Or => Self::Or,
+            SyntaxKind::Xor => Self::Xor,
             SyntaxKind::EqEq => Self::Eq,
             SyntaxKind::ExclEq => Self::Neq,
             SyntaxKind::Lt => Self::Lt,
@@ -1380,6 +1383,7 @@ impl BinOp {
             Self::NotIn => 4,
             Self::And => 3,
             Self::Or => 2,
+            Self::Xor => 2,
             Self::Assign => 1,
             Self::AddAssign => 1,
             Self::SubAssign => 1,
@@ -1397,6 +1401,7 @@ impl BinOp {
             Self::Div => Assoc::Left,
             Self::And => Assoc::Left,
             Self::Or => Assoc::Left,
+            Self::Xor => Assoc::Left,
             Self::Eq => Assoc::Left,
             Self::Neq => Assoc::Left,
             Self::Lt => Assoc::Left,
@@ -1422,6 +1427,7 @@ impl BinOp {
             Self::Div => "/",
             Self::And => "and",
             Self::Or => "or",
+            Self::Xor => "xor",
             Self::Eq => "==",
             Self::Neq => "!=",
             Self::Lt => "<",

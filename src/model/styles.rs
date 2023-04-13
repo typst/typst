@@ -269,6 +269,8 @@ pub enum Selector {
     Can(TypeId),
     /// Matches if any of the subselectors match.
     Or(EcoVec<Self>),
+    /// Matches if any of the subselectors match.
+    Xor(EcoVec<Self>),
     /// Matches if all of the subselectors match.
     And(EcoVec<Self>),
     /// Matches all matches of `selector` before `end`.
@@ -289,15 +291,21 @@ impl Selector {
     }
 
     /// Transforms this selector and an iterator of other selectors into a
-    /// [`Selector::Or`] selector.
+    /// [`Selector::And`] selector.
     pub fn and(self, others: impl IntoIterator<Item = Self>) -> Self {
         Self::And(others.into_iter().chain(Some(self)).collect())
     }
 
     /// Transforms this selector and an iterator of other selectors into a
-    /// [`Selector::And`] selector.
+    /// [`Selector::Or`] selector.
     pub fn or(self, others: impl IntoIterator<Item = Self>) -> Self {
         Self::Or(others.into_iter().chain(Some(self)).collect())
+    }
+
+    /// Transforms this selector and an iterator of other selectors into a
+    /// [`Selector::Xor`] selector.
+    pub fn xor(self, others: impl IntoIterator<Item = Self>) -> Self {
+        Self::Xor(others.into_iter().chain(Some(self)).collect())
     }
 
     /// Transforms this selector into a [`Selector::Before`] selector.
@@ -406,6 +414,7 @@ impl Selector {
             }
             Self::Can(cap) => target.can_type_id(*cap),
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
+            Self::Xor(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
             Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
             Self::Location(location) => target.location() == Some(*location),
             Self::Before { .. } | Self::After { .. } => {
@@ -435,8 +444,8 @@ impl Debug for Selector {
             Self::Label(label) => label.fmt(f),
             Self::Regex(regex) => regex.fmt(f),
             Self::Can(cap) => cap.fmt(f),
-            Self::Or(selectors) | Self::And(selectors) => {
-                f.write_str(if matches!(self, Self::Or(_)) { "or" } else { "and" })?;
+            Self::Or(selectors) | Self::Xor(selectors) | Self::And(selectors) => {
+                f.write_str(if matches!(self, Self::Or(_)) { "or" } else if matches!(self, Self::Xor(_)) { "xor" } else { "and" })?;
                 let pieces: Vec<_> =
                     selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
                 f.write_str(&pretty_array_like(&pieces, false))
@@ -497,7 +506,7 @@ impl Cast for LocatableSelector {
                 Selector::Label(_) => {}
                 Selector::Regex(_) => Err("text is not locatable")?,
                 Selector::Can(_) => Err("capability is not locatable")?,
-                Selector::Or(list) | Selector::And(list) => {
+                Selector::Or(list) | Selector::Xor(list) | Selector::And(list) => {
                     for selector in list {
                         validate(selector)?;
                     }

@@ -921,6 +921,7 @@ impl Eval for ast::Binary {
             ast::BinOp::Div => self.apply(vm, ops::div),
             ast::BinOp::And => self.apply(vm, ops::and),
             ast::BinOp::Or => self.apply(vm, ops::or),
+            ast::BinOp::Xor => self.apply(vm, ops::xor),
             ast::BinOp::Eq => self.apply(vm, ops::eq),
             ast::BinOp::Neq => self.apply(vm, ops::neq),
             ast::BinOp::Lt => self.apply(vm, ops::lt),

@@ -161,6 +161,7 @@ pub fn call(
             } else if let Some(selector) = dynamic.downcast::<Selector>() {
                 match method {
                     "or" => selector.clone().or(args.all::<Selector>()?).into(),
+                    "xor" => selector.clone().xor(args.all::<Selector>()?).into(),
                     "and" => selector.clone().and(args.all::<Selector>()?).into(),
                     "before" => {
                         let location = args.expect::<Selector>("selector")?;
@@ -330,7 +331,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
-        "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],
+        "selector" => &[("or", true), ("xor", true), ("and", true), ("before", true), ("after", true)],
         "counter" => &[
             ("display", true),
             ("at", true),

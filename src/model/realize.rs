@@ -154,6 +154,7 @@ fn try_apply(
         // Not supported here.
         Some(
             Selector::Or(_)
+            | Selector::Xor(_)
             | Selector::And(_)
             | Selector::Location(_)
             | Selector::Can(_)

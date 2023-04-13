@@ -285,6 +285,7 @@ arity (unary, binary) and precedence level (higher binds stronger).
 |  `{not}`   | Logical "not"                   | Unary  |     3      |
 |  `{and}`   | Short-circuiting logical "and"  | Binary |     3      |
 |  `{or}`    | Short-circuiting logical "or    | Binary |     2      |
+|  `{xor}`   | logical "xor                    | Binary |     2      |
 |  `{=}`     | Assignment                      | Binary |     1      |
 |  `{+=}`    | Add-Assignment                  | Binary |     1      |
 |  `{-=}`    | Subtraction-Assignment          | Binary |     1      |

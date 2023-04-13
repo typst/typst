@@ -142,6 +142,12 @@
 #test(true or false, true)
 #test(true or true, true)
 
+// Xor.
+#test(false or false, false)
+#test(false or true, true)
+#test(true or false, true)
+#test(true or true, false)
+
 // Short-circuiting.
 #test(false and dont-care, false)
 #test(true or dont-care, true)
