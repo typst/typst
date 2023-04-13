@@ -1,6 +1,6 @@
 use std::str::FromStr;
 use ecow::{eco_format, eco_vec, EcoString};
-use crate::eval::Array;
+use crate::eval::{Array, Str};
 
 use super::*;
 
@@ -103,19 +103,20 @@ impl Color {
 
     /// Get a field from this color.
     pub fn at(&self, field: &str) -> StrResult<Value> {
-        match field {
+        Ok(match field {
+            "hex" => self.to_rgba().to_hex().into(),
             "rgba" => self.to_rgba().to_array().into(),
             "cmyk" => match self {
                 Self::Cmyk(cmyk) => cmyk.to_array().into(),
                 Self::Luma(luma) => luma.to_cmyk().to_array().into(),
-                _ => Ok(Value::None),  // no rgba -> cmyk conversion
+                _ => Value::None,  // no rgba -> cmyk conversion
             }
             "luma" => match self {
                 Self::Luma(luma) => luma.0.into(),
-                _ => Ok(Value::None),
+                _ => Value::None,
             }
-            _ => Err(missing_field(field)),
-        }
+            _ => return Err(missing_field(field)),
+        })
     }
 }
 
@@ -242,6 +243,15 @@ impl RgbaColor {
         }
     }
 
+    /// Converts this color to a RGB Hex Code.
+    pub fn to_hex(self) -> EcoString {
+        if self.a != 255 {
+            eco_format!("#{:02x}{:02x}{:02x}{:02x}", self.r, self.g, self.b, self.a)
+        } else {
+            eco_format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
+        }
+    }
+
     /// Converts this color to an array of R, G, B, A components.
     pub fn to_array(self) -> Array {
         Array::from_vec(
@@ -301,11 +311,7 @@ impl Debug for RgbaColor {
         if f.alternate() {
             write!(f, "rgba({}, {}, {}, {})", self.r, self.g, self.b, self.a,)?;
         } else {
-            write!(f, "rgb(\"#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
-            if self.a != 255 {
-                write!(f, "{:02x}", self.a)?;
-            }
-            write!(f, "\")")?;
+            write!(f, "rgb(\"{}\")", self.to_hex())?;
         }
         Ok(())
     }
@@ -388,12 +394,13 @@ impl CmykColor {
 
     /// Converts this color to an array of C, M, Y, K components.
     pub fn to_array(self) -> Array {
+        let g = |c| Ratio::new(c as f64 / 255.0);
         Array::from_vec(
             eco_vec![
-                self.c.into(),
-                self.m.into(),
-                self.y.into(),
-                self.k.into()
+                g(self.c).into(),
+                g(self.m).into(),
+                g(self.y).into(),
+                g(self.k).into()
             ]
         )
     }
