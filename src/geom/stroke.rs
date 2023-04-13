@@ -141,7 +141,7 @@ impl<T: Debug> Debug for PartialStroke<T> {
 }
 
 /// The line cap of a stroke
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Cast, Clone, Eq, PartialEq, Hash)]
 pub enum LineCap {
     Butt,
     Round,
@@ -159,7 +159,7 @@ impl Debug for LineCap {
 }
 
 /// The line join of a stroke
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Cast, Clone, Eq, PartialEq, Hash)]
 pub enum LineJoin {
     Miter,
     Round,
@@ -226,20 +226,6 @@ impl<T> DashLength<T> {
             Self::Length(l) => l,
         }
     }
-}
-
-cast_from_value! {
-    LineCap: "line cap",
-    "butt" => Self::Butt,
-    "round" => Self::Round,
-    "square" => Self::Square,
-}
-
-cast_from_value! {
-    LineJoin: "line join",
-    "miter" => Self::Miter,
-    "round" => Self::Round,
-    "bevel" => Self::Bevel,
 }
 
 cast_from_value! {
