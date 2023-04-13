@@ -12,7 +12,7 @@ use super::{
     Label, Module, Str, Symbol,
 };
 use crate::diag::StrResult;
-use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
+use crate::geom::{Abs, Angle, Color, Em, Fr, Length, PartialStroke, Ratio, Rel};
 use crate::model::Styles;
 use crate::syntax::{ast, Span};
 
@@ -128,6 +128,14 @@ impl Value {
             Self::Content(content) => content.at(field, None),
             Self::Module(module) => module.get(field).cloned(),
             Self::Func(func) => func.get(field).cloned(),
+            Self::Relative(rel) => rel.at(field),
+            d @ Self::Dyn(dynamic) => {
+                if let Some(stroke) = dynamic.downcast::<PartialStroke>() {
+                    stroke.at(field)
+                } else {
+                    Err(eco_format!("cannot access fields on type {}", d.type_name()))
+                }
+            }
             v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
         }
     }
