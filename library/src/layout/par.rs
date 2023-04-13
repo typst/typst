@@ -457,22 +457,35 @@ impl<'a> Line<'a> {
         self.items().skip(start).take(end - start)
     }
 
-    /// How many justifiable glyphs the line contains.
+    /// How many glyphs are in the text where we can insert additional
+    /// space when encountering underfull lines.
     fn justifiables(&self) -> usize {
         let mut count = 0;
         for shaped in self.items().filter_map(Item::text) {
             count += shaped.justifiables();
         }
+        // CJK character at line end should not be adjusted.
+        if self
+            .items()
+            .last()
+            .and_then(Item::text)
+            .map(|s| s.cjk_justifiable_at_last())
+            .unwrap_or(false)
+        {
+            count -= 1;
+        }
+
         count
     }
 
-    /// How much of the line is stretchable spaces.
-    fn stretch(&self) -> Abs {
-        let mut stretch = Abs::zero();
-        for shaped in self.items().filter_map(Item::text) {
-            stretch += shaped.stretch();
-        }
-        stretch
+    /// How much can the line stretch
+    fn stretchability(&self) -> Abs {
+        self.items().filter_map(Item::text).map(|s| s.stretchability()).sum()
+    }
+
+    /// How much can the line shrink
+    fn shrinkability(&self) -> Abs {
+        self.items().filter_map(Item::text).map(|s| s.shrinkability()).sum()
     }
 
     /// The sum of fractions in the line.
@@ -835,10 +848,9 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
 
     // Cost parameters.
     const HYPH_COST: Cost = 0.5;
-    const CONSECUTIVE_DASH_COST: Cost = 30.0;
+    const CONSECUTIVE_DASH_COST: Cost = 300.0;
     const MAX_COST: Cost = 1_000_000.0;
-    const MIN_COST: Cost = -MAX_COST;
-    const MIN_RATIO: f64 = -0.15;
+    const MIN_RATIO: f64 = -1.0;
 
     // Dynamic programming table.
     let mut active = 0;
@@ -864,13 +876,30 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // Determine how much the line's spaces would need to be stretched
             // to make it the desired width.
             let delta = width - attempt.width;
-            let mut ratio = delta / attempt.stretch();
-            if ratio.is_infinite() {
-                ratio = delta / (em / 2.0);
+            // Determine how much stretch are permitted.
+            let adjust = if delta >= Abs::zero() {
+                attempt.stretchability()
+            } else {
+                attempt.shrinkability()
+            };
+            // Ideally, the ratio should between -1.0 and 1.0, but sometimes a value above 1.0
+            // is possible, in which case the line is underfull.
+            let mut ratio = delta / adjust;
+            if ratio.is_nan() {
+                // The line is not stretchable, but it just fits.
+                // This often happens with monospace fonts and CJK texts.
+                ratio = 0.0;
             }
-
-            // At some point, it doesn't matter any more.
-            ratio = ratio.min(10.0);
+            if ratio.is_infinite() {
+                // The line's not stretchable, we calculate the ratio in another way...
+                ratio = delta / (em / 2.0);
+                // ...and because it is underfull/overfull, make sure the ratio is at least 1.0.
+                if ratio > 0.0 {
+                    ratio += 1.0;
+                } else {
+                    ratio -= 1.0;
+                }
+            }
 
             // Determine the cost of the line.
             let min_ratio = if attempt.justify { MIN_RATIO } else { 0.0 };
@@ -883,11 +912,15 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 active = i + 1;
                 MAX_COST
             } else if mandatory || eof {
-                // This is a mandatory break and the line is not overfull, so it
-                // has minimum cost. All breakpoints before this one become
-                // inactive since no line can span above the mandatory break.
+                // This is a mandatory break and the line is not overfull, so
+                // all breakpoints before this one become inactive since no line
+                // can span above the mandatory break.
                 active = k;
-                MIN_COST + if attempt.justify { ratio.powi(3).abs() } else { 0.0 }
+                if attempt.justify {
+                    ratio.powi(3).abs()
+                } else {
+                    0.0
+                }
             } else {
                 // Normal line with cost of |ratio^3|.
                 ratio.powi(3).abs()
@@ -897,6 +930,12 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             if hyphen {
                 cost += HYPH_COST;
             }
+
+            // In Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
+            // where r is the ratio, p=50 is penaty, and a=3000 is consecutive penaty.
+            // We divide the whole formula by 10, resulting (0.01 + |r|^3 + p)^2 + a,
+            // where p=0.5 and a=300
+            cost = (0.01 + cost).powi(2);
 
             // Penalize two consecutive dashes (not necessarily hyphens) extra.
             if attempt.dash && pred.line.dash {
@@ -1233,13 +1272,32 @@ fn commit(
         }
     }
 
-    // Determine how much to justify each space.
+    // Determine how much addtional space is needed.
+    // The justicication_ratio is for the first step justification,
+    // extra_justification is for the last step.
+    // For more info on multi-step justification, see Procedures for Inter-
+    // Character Space Expansion in W3C document Chinese Layout Requirements.
     let fr = line.fr();
-    let mut justification = Abs::zero();
-    if remaining < Abs::zero() || (line.justify && fr.is_zero()) {
+    let mut justification_ratio = 0.0;
+    let mut extra_justification = Abs::zero();
+
+    let shrink = line.shrinkability();
+    let stretch = line.stretchability();
+    if remaining < Abs::zero() && shrink > Abs::zero() {
+        // Attempt to reduce the length of the line, using shrinkability.
+        justification_ratio = (remaining / shrink).max(-1.0);
+        remaining = (remaining + shrink).min(Abs::zero());
+    } else if line.justify && fr.is_zero() {
+        // Attempt to increase the length of the line, using stretchability.
+        if stretch > Abs::zero() {
+            justification_ratio = (remaining / stretch).min(1.0);
+            remaining = (remaining - stretch).max(Abs::zero());
+        }
+
         let justifiables = line.justifiables();
-        if justifiables > 0 {
-            justification = remaining / justifiables as f64;
+        if justifiables > 0 && remaining > Abs::zero() {
+            // Underfull line, distribute the extra space.
+            extra_justification = remaining / justifiables as f64;
             remaining = Abs::zero();
         }
     }
@@ -1275,7 +1333,7 @@ fn commit(
                 }
             }
             Item::Text(shaped) => {
-                let frame = shaped.build(vt, justification);
+                let frame = shaped.build(vt, justification_ratio, extra_justification);
                 push(&mut offset, frame);
             }
             Item::Frame(frame) => {
