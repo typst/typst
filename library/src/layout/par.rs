@@ -1285,15 +1285,13 @@ fn commit(
     let stretch = line.stretchability();
     if remaining < Abs::zero() && shrink > Abs::zero() {
         // Attempt to reduce the length of the line, using shrinkability.
-        let new_remaining = Abs::min(remaining + shrink, Abs::zero());
-        justification_ratio = (remaining - new_remaining) / shrink;
-        remaining = new_remaining;
+        justification_ratio = (remaining / shrink).max(-1.0);
+        remaining = (remaining + shrink).min(Abs::zero());
     } else if line.justify && fr.is_zero() {
         // Attempt to increase the length of the line, using stretchability.
         if stretch > Abs::zero() {
-            let new_remaining = Abs::max(remaining - stretch, Abs::zero());
-            justification_ratio = (remaining - new_remaining) / stretch;
-            remaining = new_remaining;
+            justification_ratio = (remaining / stretch).min(1.0);
+            remaining = (remaining - stretch).max(Abs::zero());
         }
 
         let justifiables = line.justifiables();
