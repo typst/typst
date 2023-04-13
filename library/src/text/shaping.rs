@@ -70,15 +70,8 @@ impl ShapedGlyph {
     }
 
     /// Whether the glyph is justifiable.
-    ///
-    /// Typst's basic justification strategy is to stretch all the spaces
-    /// in a line until the line fills the available width. However, some
-    /// scripts (notably Chinese and Japanese) don't use spaces.
-    ///
-    /// In Japanese/Chinese typography, the convention is to insert space evenly
-    /// between all glyphs.
     pub fn is_justifiable(&self) -> bool {
-        self.is_space() || self.is_cjk() || self.is_cjk_punctuaction()
+        self.is_space() || self.is_cjk() || self.is_cjk_punctuation()
     }
 
     pub fn is_cjk(&self) -> bool {
@@ -86,7 +79,7 @@ impl ShapedGlyph {
         matches!(self.c.script(), Hiragana | Katakana | Han)
     }
 
-    pub fn is_cjk_punctuaction(&self) -> bool {
+    pub fn is_cjk_punctuation(&self) -> bool {
         matches!(self.c, '，' | '。' | '、' | '：' | '；')
     }
 
@@ -107,7 +100,7 @@ impl ShapedGlyph {
         if self.is_space() {
             // The number for spaces is from Knuth-Plass' paper
             width / 3.0
-        } else if self.is_cjk_punctuaction() {
+        } else if self.is_cjk_punctuation() {
             width / 2.0
         } else {
             Em::zero()
@@ -249,7 +242,7 @@ impl<'a> ShapedText<'a> {
     pub fn cjk_justifiable_at_last(&self) -> bool {
         self.glyphs
             .last()
-            .map(|g| g.is_cjk() || g.is_cjk_punctuaction())
+            .map(|g| g.is_cjk() || g.is_cjk_punctuation())
             .unwrap_or(false)
     }
 

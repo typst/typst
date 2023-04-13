@@ -1273,6 +1273,10 @@ fn commit(
     }
 
     // Determine how much addtional space is needed.
+    // The justicication_ratio is for the first step justification,
+    // extra_justification is for the last step.
+    // For more info on multi-step justification, see Procedures for Inter-
+    // Character Space Expansion in W3C document Chinese Layout Requirements.
     let fr = line.fr();
     let mut justification_ratio = 0.0;
     let mut extra_justification = Abs::zero();
