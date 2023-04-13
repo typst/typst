@@ -314,40 +314,41 @@ impl Closure {
                 vm.define(name.clone(), Value::Func(this.clone()));
             }
 
-        // Parse the arguments according to the parameter list.
-        let num_pos_params =
-            closure.params.iter().filter(|p| matches!(p, Param::Pos(_))).count();
-        let num_pos_args = args.to_pos().len() as usize;
-        let sink_size = num_pos_args.checked_sub(num_pos_params);
+            // Parse the arguments according to the parameter list.
+            let num_pos_params =
+                closure.params.iter().filter(|p| matches!(p, Param::Pos(_))).count();
+            let num_pos_args = args.to_pos().len() as usize;
+            let sink_size = num_pos_args.checked_sub(num_pos_params);
 
-        let mut sink = None;
-        let mut sink_pos_values = None;
-        for p in &closure.params {
-            match p {
-                Param::Pos(ident) => {
-                    vm.define(ident.clone(), args.expect::<Value>(ident)?);
-                }
-                Param::Sink(ident) => {
-                    sink = ident.clone();
-                    if let Some(sink_size) = sink_size {
-                        sink_pos_values = Some(args.consume(sink_size)?);
+            let mut sink = None;
+            let mut sink_pos_values = None;
+            for p in &closure.params {
+                match p {
+                    Param::Pos(ident) => {
+                        vm.define(ident.clone(), args.expect::<Value>(ident)?);
+                    }
+                    Param::Sink(ident) => {
+                        sink = ident.clone();
+                        if let Some(sink_size) = sink_size {
+                            sink_pos_values = Some(args.consume(sink_size)?);
+                        }
+                    }
+                    Param::Named(ident, default) => {
+                        let value = args
+                            .named::<Value>(ident)?
+                            .unwrap_or_else(|| default.clone());
+                        vm.define(ident.clone(), value);
                     }
                 }
-                Param::Named(ident, default) => {
-                    let value =
-                        args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
-                    vm.define(ident.clone(), value);
-                }
             }
-        }
 
-        if let Some(sink) = sink {
-            let mut remaining_args = args.take();
-            if let Some(sink_pos_values) = sink_pos_values {
-                remaining_args.items.extend(sink_pos_values);
+            if let Some(sink) = sink {
+                let mut remaining_args = args.take();
+                if let Some(sink_pos_values) = sink_pos_values {
+                    remaining_args.items.extend(sink_pos_values);
+                }
+                vm.define(sink, remaining_args);
             }
-            vm.define(sink, remaining_args);
-        }
 
             // Ensure all arguments have been used.
             args.finish()?;
