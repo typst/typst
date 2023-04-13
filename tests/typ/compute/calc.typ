@@ -147,6 +147,20 @@
 #test(calc.binom(6, 2), 15)
 
 ---
+// Test the `gcd` function.
+#test(calc.gcd(112, 77), 7)
+#test(calc.gcd(12, 96), 12)
+#test(calc.gcd(13, 9), 1)
+#test(calc.gcd(1, 1), 1)
+
+---
+// Test the `lcm` function.
+#test(calc.lcm(112, 77), 1232)
+#test(calc.lcm(12, 96), 96)
+#test(calc.lcm(13, 9), 117)
+#test(calc.lcm(1, 1), 1)
+
+---
 // Error: 10-12 expected at least one value
 #calc.min()
 
