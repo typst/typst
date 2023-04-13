@@ -445,7 +445,13 @@ impl Debug for Selector {
             Self::Regex(regex) => regex.fmt(f),
             Self::Can(cap) => cap.fmt(f),
             Self::Or(selectors) | Self::Xor(selectors) | Self::And(selectors) => {
-                f.write_str(if matches!(self, Self::Or(_)) { "or" } else if matches!(self, Self::Xor(_)) { "xor" } else { "and" })?;
+                f.write_str(if matches!(self, Self::Or(_)) {
+                    "or"
+                } else if matches!(self, Self::Xor(_)) {
+                    "xor"
+                } else {
+                    "and"
+                })?;
                 let pieces: Vec<_> =
                     selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
                 f.write_str(&pretty_array_like(&pieces, false))
