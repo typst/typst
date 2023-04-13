@@ -1,38 +1,64 @@
+=== Brakets
 
 $⟨x | 1/(1/2)⟩$
 
-${ x | x < 1 / (1/2) }$
-
-$lr(scale: "delim", \{ x | x < 1 / (1/2) \})$
-
-$lr(scale: "sigil", \{ x `| x < 1 / (1/2) \})$
-
-$set(x | x < 1 / (1/2))$
-
-$lr(|x><1/(1/2)|)$
-
 $lr(angle.l x | 1 / (1/2)  z angle.r)$
 
-${ x `? 1 / (1/2) }$
+$⟨x | 1/(1/2) | y⟩$
 
-$testsigil( x `? 1 / (1/2) )$
+$⟨x | 1/(1/2)abs(a) | y⟩$
 
-$testsigil( x `|  a | b 1 / (1/2) )$
+parser interferes: $⟨x | 1/(1/2)|a| | y⟩$
 
-${ | y | }$
-
-$bra(x)$
-
-$ket(y)$
+parser interferes: $⟨x | 1/(1/2)a | b | y⟩$
 
 $braket(x | 1/(1/2) | y)$
 
-$lr(< x | 1/(1/2) | y >)$
+todo, replace <>?: $lr(< x | 1/(1/2) | y >)$
 
-$ketbra(x><y 1/planck.reduce)$
+=== Sets
 
-$ket(x)bra(y 1/2)$
+${ x | x < 1 / (1/2) }$
 
-$lr(|x><y 1/planck.reduce|)$
+${ x | |x| < 1 / (1/2) }$
 
-$P lr((A `| 1 / (1/2) ))$
+must use abs (though no better way to do this): ${ x | abs(1/(1/x)) < 3 }$
+
+escape scaling: $lr(scale: "delim", \{ x | x < 1 / (1/2) \})$
+
+$set(x | x < 1 / (1/2))$
+
+=== `mid`
+
+${ x mid(|) x < 1 / (1/2) }$
+
+${ x mid(()) x < 1 / (1/2) }$
+
+=== Ketbra (projection operators)
+
+$|1/(1/2)><x|$
+
+not interpreted as bracketed $|1/(1/2)⟩⟨x|$ <= `$|..⟩⟨x|$`
+
+doesn't compile `$lr(|x⟩⟨x|)$`
+
+```
+error: expected closing paren
+   ┌─ test.typ:39:11
+   │
+39 │ $lr(|x⟩⟨x|)$
+   │            ^
+```
+
+$lr(|x><1/(1/2)|)$
+
+$lr(|x><1/(1/2)|)$
+
+spacing breaks it: $ketbra(x angle.r angle.l 1/(1/planck.reduce))$ <= `$ketbra(x angle.r angle.l ..)$`
+
+$ketbra(x><y 1/(1/planck.reduce))$
+
+unscaled: $ket(x)bra(y 1/(1/2))$
+
+=== Probability
+$P(A | 1 / (1/2) )$

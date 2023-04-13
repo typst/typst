@@ -54,12 +54,12 @@ pub fn module() -> Module {
 
     // Grouping.
     math.define("lr", LrElem::func());
+    math.define("mid", MidElem::func());
     math.define("abs", abs);
     math.define("norm", norm);
     math.define("floor", floor);
     math.define("ceil", ceil);
     math.define("round", round);
-    math.define("testsigil", test_sigil);
     math.define("set", set);
     math.define("bra", bra);
     math.define("ket", ket);

@@ -40,6 +40,35 @@ pub struct LrElem {
     pub body: Content,
 }
 
+/// Scale fence between delimeters.
+///
+/// While unambiguous fences scale by default, some cases must be marked explicitely.
+/// When used within matched brackets or an `lr`, this function will cause its
+/// content to scale to the same height as the closest surrounding delimeters.
+///
+/// ## Example
+/// ```example
+/// $ lr({a mid(|) |a| < 3 }) $
+/// ```
+///
+/// Display: Mid
+/// Category: math
+#[element(LayoutMath)]
+pub struct MidElem {
+    #[required]
+    #[parse(
+        let mut body = Content::empty();
+        for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
+            if i > 0 {
+                body += TextElem::packed(',');
+            }
+            body += arg;
+        }
+        body
+    )]
+    pub body: Content,
+}
+
 impl LayoutMath for LrElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         println!("{:?}", self.scale(ctx.styles()));
@@ -51,6 +80,7 @@ impl LayoutMath for LrElem {
         }
 
         let mut fragments = ctx.layout_fragments(&body)?;
+        println!("{:?}", fragments);
         let axis = scaled!(ctx, axis_height);
         let max_extent = fragments
             .iter()
@@ -64,86 +94,163 @@ impl LayoutMath for LrElem {
             .resolve(ctx.styles())
             .relative_to(2.0 * max_extent);
 
-        let ScalingRulesInternal {
-            has_scaled_opening,
-            has_scaled_closing,
-            scale_fences,
-        } = *ScalingRules::get_rules(&self.scale(ctx.styles()), &fragments);
-        let (content_start, mut content_len) =
-            match (has_scaled_opening, has_scaled_closing, fragments.as_mut_slice()) {
-                // TODO: ???
-                (_, _, [one]) => {
-                    scale(ctx, one, height, None);
-                    (0, 0)
-                }
-                (true, true, [first, content @ .., last]) => {
-                    scale(ctx, first, height, Some(MathClass::Opening));
-                    scale(ctx, last, height, Some(MathClass::Closing));
-                    (1, content.len())
-                }
-                (true, false, [first, content @ ..]) => {
-                    scale(ctx, first, height, Some(MathClass::Opening));
-                    (1, content.len())
-                }
-                (false, true, [content @ .., last]) => {
-                    scale(ctx, last, height, Some(MathClass::Closing));
-                    (0, content.len())
-                }
-                (false, false, content) => (0, content.len()),
-                (_, _, []) => (0, 0),
-            };
-
-        'fence_types: for fence in scale_fences {
-            println!("fence type: {:?}", fence.search);
-            let mut content_idx = 0;
-            'math_fragments_in_content: while content_idx < content_len {
-                let content = &fragments[content_start..content_start + content_len];
-                // Find start of fence in content
-                if content.len() <= content_idx + fence.search.len() {
-                    continue 'fence_types;
-                }
-                let mut search_idx = 0;
-                while search_idx < fence.search.len() {
-                    match &content[content_idx + search_idx] {
-                        MathFragment::Glyph(g) if g.c == fence.search[search_idx] => (),
-                        MathFragment::Variant(v) if v.c == fence.search[search_idx] => (),
-                        _ => {
-                            content_idx += 1;
-                            continue 'math_fragments_in_content;
-                        }
-                    };
-                    search_idx += 1;
-                }
-
-                // Fence is found, make replacements
-                println!("before:{:?}", content);
-                let fragments_len_prev = fragments.len();
-                let scale_len = (fence.replace)(
-                    ctx,
-                    &mut fragments,
-                    content_start + content_idx,
-                    fence.search.len(),
-                );
-                // Preserve this order of operations, to avoid negative numbers
-                content_len = (content_len + fragments.len()) - fragments_len_prev;
-
-                // Scale fence
-                let content = &mut fragments[content_start..content_start + content_len];
-                println!(" after:{:?}", content);
-                for i in 0..scale_len {
-                    scale(
-                        ctx,
-                        &mut content[content_idx + i],
-                        height,
-                        Some(MathClass::Fence),
-                    );
-                }
-
-                content_idx += 1;
+        let rules = &self.scale(ctx.styles());
+        let scale_fences = ScalingRules::get_fences(rules, &fragments);
+        match fragments.as_mut_slice() {
+            // TODO: ???
+            [one] => {
+                scale(ctx, one, height, None);
             }
+            [first, _content @ .., last] => {
+                scale(ctx, first, height, Some(MathClass::Opening));
+                scale(ctx, last, height, Some(MathClass::Closing));
+
+                // Scale `mid(..)` elems
+                let mut i = 1;
+                while i < fragments.len() - 1 {
+                    if matches!(
+                        fragments[i],
+                        MathFragment::Glyph(GlyphFragment { c: MidElem::START_CHAR, .. })
+                    ) {
+                        let end = i
+                            + 1
+                            + fragments
+                                .iter()
+                                .skip(i + 1)
+                                .position(|x| {
+                                    matches!(
+                                        x,
+                                        MathFragment::Glyph(GlyphFragment {
+                                            c: MidElem::END_CHAR,
+                                            ..
+                                        })
+                                    )
+                                })
+                                .expect("unparied MidElem::START_CHAR");
+                        fragments.remove(end);
+                        fragments.remove(i);
+                        for j in i..end - 1 {
+                            scale(ctx, &mut fragments[j], height, Some(MathClass::Fence));
+                        }
+                    }
+                    i += 1;
+                }
+
+                let [_, content @ .., _] = fragments.as_mut_slice()  else{ unreachable!() };
+                for fence in scale_fences {
+                    let mut from_start = fence.scale_from_start;
+                    let mut from_end = fence.scale_from_end;
+
+                    println!("fence type: {:?}", fence.search);
+                    println!("before:{:?}", content);
+                    let mut i = 0;
+                    let mut forward = true;
+                    let mut end_backward = 0;
+                    // for i in 0..content.len() - (fence.search.len() - 1) {
+                    'content: loop {
+                        if forward {
+                            if from_start == 0 {
+                                forward = false;
+                                end_backward = i;
+                                i = content.len() - 1;
+                            } else if i == content.len() {
+                                break;
+                            }
+                        }
+                        if !forward && (i == end_backward - 1 || from_end == 0) {
+                            break;
+                        }
+
+                        for search_idx in 0..fence.search.len() {
+                            let c = match &content[i + search_idx] {
+                                MathFragment::Glyph(g) => Some(g.c),
+                                MathFragment::Variant(v) => Some(v.c),
+                                _ => None,
+                            };
+                            if c != Some(fence.search[search_idx].0) {
+                                if forward {
+                                    i += 1;
+                                } else {
+                                    if i == 0 {
+                                        break 'content;
+                                    }
+                                    i -= 1;
+                                }
+                                continue 'content;
+                            }
+                        }
+
+                        for j in 0..fence.search.len() {
+                            match &mut content[i + j] {
+                                MathFragment::Glyph(g) if g.c != fence.search[j].1 => {
+                                    content[i + j] =
+                                        MathFragment::Glyph(GlyphFragment::new(
+                                            ctx,
+                                            fence.search[j].1,
+                                            g.span,
+                                        ));
+                                }
+                                MathFragment::Variant(v) if v.c != fence.search[j].1 => {
+                                    content[i + j] =
+                                        MathFragment::Glyph(GlyphFragment::new(
+                                            ctx,
+                                            fence.search[j].1,
+                                            v.span,
+                                        ));
+                                }
+                                _ => (),
+                            }
+                            println!("after:{:?}", content);
+                            scale(
+                                ctx,
+                                &mut content[i + j],
+                                height,
+                                Some(MathClass::Fence),
+                            );
+                            println!("after 2:{:?}", content);
+                        }
+
+                        if forward {
+                            from_start -= 1;
+                            i += 1;
+                        } else {
+                            if i == 0 {
+                                break;
+                            }
+                            from_end -= 1;
+                            i -= 1;
+                        }
+                    }
+                }
+            }
+            [] => (),
         }
 
         ctx.extend(fragments);
+
+        Ok(())
+    }
+}
+
+impl MidElem {
+    const START_CHAR: char = '\u{E000}';
+    const END_CHAR: char = '\u{E001}';
+}
+
+impl LayoutMath for MidElem {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        let fragments = ctx.layout_fragments(&self.body())?;
+        ctx.extend(vec![MathFragment::Glyph(GlyphFragment::new(
+            ctx,
+            Self::START_CHAR,
+            Span::detached(),
+        ))]);
+        ctx.extend(fragments);
+        ctx.extend(vec![MathFragment::Glyph(GlyphFragment::new(
+            ctx,
+            Self::END_CHAR,
+            Span::detached(),
+        ))]);
 
         Ok(())
     }
@@ -153,12 +260,6 @@ impl LayoutMath for LrElem {
 enum ScalingRules {
     #[string("delim")]
     DelimetersOnly,
-    #[string("opening")]
-    OpeningDelimeterOnly,
-    #[string("closing")]
-    ClosingDelimeterOnly,
-    #[string("sigil")]
-    FenceSigil,
     #[string("set")]
     Set,
     #[string("braket")]
@@ -168,167 +269,71 @@ enum ScalingRules {
 }
 
 impl ScalingRules {
-    fn get_rules<'a>(
-        rules: &'a Smart<Self>,
-        fragments: &[MathFragment],
-    ) -> &'a ScalingRulesInternal {
+    fn get_fences<'a>(rules: &'a Smart<Self>, fragments: &[MathFragment]) -> &'a [Fence] {
         match rules {
-            Smart::Auto => Self::get_rules_auto(fragments),
-            Smart::Custom(x) => x.get_rules_specified(),
+            Smart::Auto => Self::get_fences_auto(fragments),
+            Smart::Custom(x) => x.get_fences_specified(),
         }
     }
 
-    fn get_rules_auto(fragments: &[MathFragment]) -> &'static ScalingRulesInternal {
+    fn get_fences_auto(fragments: &[MathFragment]) -> &'static [Fence] {
         if let [MathFragment::Glyph(GlyphFragment { c: open, .. })
         | MathFragment::Variant(VariantFragment { c: open, .. }), .., MathFragment::Glyph(GlyphFragment { c: close, .. })
         | MathFragment::Variant(VariantFragment { c: close, .. })] = fragments
         {
             println!("open close {:?} {:?}", open, close);
             match (open, close) {
-                ('{', '}') => &SCALE_SET,
-                ('(', ')') => &SCALE_FENCE_BY_SIGIL,
+                // Use set scaling for parentheses as well, for `P(A | B)`.
+                ('(', ')') | ('{', '}') => &SCALE_SET,
                 // TODO: transform '<', '>' into angle brackets
                 // TODO: prevent parser pairing '|' within `lr(< x | y | z>)`
-                ('⟨', '⟩') | ('<', '>') => &SCALE_BRAKET,
-                ('|', '|') => &SCALE_KETBRA_PROJECTION,
-                _ => &SCALE_DELIMS_ONLY,
+                ('⟨', '⟩') | ('<', '>') => SCALE_BRAKET,
+                ('|', '|') => SCALE_KETBRA_PROJECTION,
+                _ => SCALE_DELIMS_ONLY,
             }
         } else {
             &SCALE_DELIMS_ONLY
         }
     }
 
-    fn get_rules_specified(&self) -> &ScalingRulesInternal {
+    fn get_fences_specified(&self) -> &[Fence] {
         match self {
-            ScalingRules::DelimetersOnly => &SCALE_DELIMS_ONLY,
-            ScalingRules::OpeningDelimeterOnly => &SCALE_OPENING_DELIM_ONLY,
-            ScalingRules::ClosingDelimeterOnly => &SCALE_CLOSING_DELIM_ONLY,
-            ScalingRules::FenceSigil => &SCALE_FENCE_BY_SIGIL,
-            ScalingRules::Set => &SCALE_SET,
-            ScalingRules::Braket => &SCALE_BRAKET,
-            ScalingRules::Ketbra => &SCALE_KETBRA_PROJECTION,
+            ScalingRules::DelimetersOnly => SCALE_DELIMS_ONLY,
+            ScalingRules::Set => SCALE_SET,
+            ScalingRules::Braket => SCALE_BRAKET,
+            ScalingRules::Ketbra => SCALE_KETBRA_PROJECTION,
         }
     }
 }
 
-struct ScalingRulesInternal {
-    /// Has opening grapheme needing scaling
-    has_scaled_opening: bool,
-    /// Has closing grapheme needing scaling
-    has_scaled_closing: bool,
-    scale_fences: &'static [Fence],
-}
-
 struct Fence {
-    search: &'static [char],
-    /// Passed matching string and one grapheme after, and the index between them.
-    ///
-    /// Returns value to be used in output and scaled, and how much of input to replace.
-    ///
-    /// This is very contrived, and mainly designed to support three cases
-    /// - Fence string, e.g. `{ x | x < 3 }`, [`Fence::replace_self`].
-    /// - Fence sigil which promotes next grapheme, e.g. `{ x `| x < 3 }` uses the backtick as a sigil, [`Fence::replace_next`].
-    /// - Fence replacement string, e.g. `|x><y|` replaces the "><" with "⟩⟨", which isn't as easy to type.
-    replace: fn(&mut MathContext, &mut Vec<MathFragment>, usize, usize) -> usize,
+    scale_from_start: usize,
+    scale_from_end: usize,
+    search: &'static [(char, char)],
 }
-impl Fence {
-    pub fn new(fence: &'static [char]) -> Self {
-        Self { search: fence, replace: Self::replace_self }
-    }
-
-    pub fn new_sigil(sigil: &'static [char]) -> Self {
-        Self { search: sigil, replace: Self::replace_next }
-    }
-
-    fn replace_self(
-        _ctx: &mut MathContext,
-        _content: &mut Vec<MathFragment>,
-        _idx_start: usize,
-        search_len: usize,
-    ) -> usize {
-        search_len
-    }
-
-    fn replace_next(
-        _ctx: &mut MathContext,
-        content: &mut Vec<MathFragment>,
-        idx_start: usize,
-        search_len: usize,
-    ) -> usize {
-        content.splice(idx_start..idx_start + search_len, std::iter::empty());
-        1
-    }
-}
-
-const SCALE_DELIMS_ONLY: ScalingRulesInternal = ScalingRulesInternal {
-    has_scaled_opening: true,
-    has_scaled_closing: true,
-    scale_fences: &[],
-};
-const SCALE_OPENING_DELIM_ONLY: ScalingRulesInternal = ScalingRulesInternal {
-    has_scaled_opening: true,
-    has_scaled_closing: false,
-    scale_fences: &[],
-};
-const SCALE_CLOSING_DELIM_ONLY: ScalingRulesInternal = ScalingRulesInternal {
-    has_scaled_opening: false,
-    has_scaled_closing: true,
-    scale_fences: &[],
-};
-const SCALE_FENCE_BY_SIGIL: ScalingRulesInternal = ScalingRulesInternal {
-    has_scaled_opening: true,
-    has_scaled_closing: true,
-    // scale_fences: &[Fence::new_sigil(&['`'])],
-    scale_fences: &[Fence { search: &['`'], replace: Fence::replace_next }],
-};
-const SCALE_SET: ScalingRulesInternal = ScalingRulesInternal {
-    has_scaled_opening: true,
-    has_scaled_closing: true,
-    // scale_fences: &[Fence::new(&['|'])],
-    scale_fences: &[Fence { search: &['|'], replace: Fence::replace_self }],
-};
-const SCALE_BRAKET: ScalingRulesInternal = ScalingRulesInternal {
-    has_scaled_opening: true,
-    has_scaled_closing: true,
-    // scale_fences: &[Fence::new(&['|'])],
-    scale_fences: &[Fence { search: &['|'], replace: Fence::replace_self }],
-};
-fn replace_ketbra(
-    ctx: &mut MathContext,
-    content: &mut Vec<MathFragment>,
-    idx_start: usize,
-    search_len: usize,
-) -> usize {
-    let span0 = match &content[idx_start] {
-        MathFragment::Glyph(g) => g.span,
-        MathFragment::Variant(v) => v.span,
-        _ => todo!(),
-    };
-    let span1 = match &content[idx_start + 1] {
-        MathFragment::Glyph(g) => g.span,
-        MathFragment::Variant(v) => v.span,
-        _ => todo!(),
-    };
-    content.splice(
-        idx_start..idx_start + search_len,
-        [
-            MathFragment::Glyph(GlyphFragment::new(ctx, '⟩', span0)),
-            MathFragment::Glyph(GlyphFragment::new(ctx, '⟨', span1)),
-        ],
-    );
-    2
-}
-const SCALE_KETBRA_PROJECTION: ScalingRulesInternal = ScalingRulesInternal {
-    has_scaled_opening: true,
-    has_scaled_closing: true,
-    // Fence::new(&['⟩', '⟨']),
-    scale_fences: &[
-        Fence {
-            search: &['⟩', '⟨'], replace: Fence::replace_self
-        },
-        Fence { search: &['>', '<'], replace: replace_ketbra },
-    ],
-};
+const SCALE_DELIMS_ONLY: &[Fence] = &[];
+const SCALE_SET: &[Fence] = &[Fence {
+    scale_from_start: 1,
+    scale_from_end: 0,
+    search: &[('|', '|')],
+}];
+const SCALE_BRAKET: &[Fence] = &[Fence {
+    scale_from_start: 1,
+    scale_from_end: 1,
+    search: &[('|', '|')],
+}];
+const SCALE_KETBRA_PROJECTION: &[Fence] = &[
+    Fence {
+        scale_from_start: 1,
+        scale_from_end: 0,
+        search: &[('⟩', '⟩'), ('⟨', '⟨')],
+    },
+    Fence {
+        scale_from_start: 1,
+        scale_from_end: 0,
+        search: &[('>', '⟩'), ('<', '⟨')],
+    },
+];
 
 /// Scale a math fragment to a height.
 fn scale(
@@ -448,14 +453,6 @@ pub fn norm(
     body: Content,
 ) -> Value {
     delimited(body, '‖', '‖', Smart::Custom(ScalingRules::DelimetersOnly))
-}
-
-/// Display: Norm
-/// Category: math
-/// Returns: content
-#[func]
-pub fn test_sigil(body: Content) -> Value {
-    delimited(body, '{', '}', Smart::Custom(ScalingRules::FenceSigil))
 }
 
 /// Display: Norm
