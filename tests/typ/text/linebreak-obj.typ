@@ -15,4 +15,10 @@ which is the authorative source.
 
 We prove $1 < 2$. \
 We prove $1 < 2$! \
+We prove $1 < 2$? \
+We prove $1 < 2$, \
+We prove $1 < 2$; \
+We prove $1 < 2$: \
+We prove $1 < 2$- \
 We prove $1 < 2$– \
+We prove $1 < 2$— \
