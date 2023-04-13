@@ -90,33 +90,32 @@ pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, E
     // Build the registry.
     let registry = tracing_subscriber::registry().with(fmt_layer).with(error_layer);
 
-    if let Some(path) = flamegraph {
-        // Create a temporary file to store the flamegraph data.
-        let tempfile = tempfile::tempfile()?;
-        let writer = BufWriter::new(tempfile.try_clone()?);
-
-        // Build the flamegraph layer.
-        let flame_layer = FlameLayer::new(writer)
-            .with_empty_samples(false)
-            .with_threads_collapsed(true)
-            .with_module_path(false);
-        let flush_guard = flame_layer.flush_on_drop();
-
-        // Build the subscriber.
-        registry.with(flame_layer).init();
-
-        warn!("Flamegraph is enabled, this can create a large temporary file and slow down the compilation process.");
-
-        Ok(Some(TracingGuard {
-            flush_guard: Some(flush_guard),
-            tempfile,
-            output_svg: path.clone().unwrap_or_else(|| "flamegraph.svg".into()),
-        }))
-    } else {
+    let Some(path) = flamegraph else {
         registry.init();
+        return Ok(None);
+    };
 
-        Ok(None)
-    }
+    // Create a temporary file to store the flamegraph data.
+    let tempfile = tempfile::tempfile()?;
+    let writer = BufWriter::new(tempfile.try_clone()?);
+
+    // Build the flamegraph layer.
+    let flame_layer = FlameLayer::new(writer)
+        .with_empty_samples(false)
+        .with_threads_collapsed(true)
+        .with_module_path(false);
+    let flush_guard = flame_layer.flush_on_drop();
+
+    // Build the subscriber.
+    registry.with(flame_layer).init();
+
+    warn!("Flamegraph is enabled, this can create a large temporary file and slow down the compilation process.");
+
+    Ok(Some(TracingGuard {
+        flush_guard: Some(flush_guard),
+        tempfile,
+        output_svg: path.clone().unwrap_or_else(|| "flamegraph.svg".into()),
+    }))
 }
 
 /// Returns the log level filter for the given verbosity level.
