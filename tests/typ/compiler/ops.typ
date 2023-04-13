@@ -143,10 +143,10 @@
 #test(true or true, true)
 
 // Xor.
-#test(false or false, false)
-#test(false or true, true)
-#test(true or false, true)
-#test(true or true, false)
+#test(false xor false, false)
+#test(false xor true, true)
+#test(true xor false, true)
+#test(true xor true, false)
 
 // Short-circuiting.
 #test(false and dont-care, false)
