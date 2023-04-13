@@ -86,7 +86,7 @@ pub struct RefElem {
     #[synthesized]
     pub citation: Option<CiteElem>,
 
-    /// Content of the referee, it should be referable.
+    /// Content of the element, it should be referable.
     ///
     /// ```example
     /// #set heading(numbering: (..nums) => {
@@ -94,12 +94,12 @@ pub struct RefElem {
     ///   }, supplement: [Chapt])
     ///
     /// #show ref: it => {
-    ///   if it.has("referee") and it.referee.func() == heading {
-    ///     let referee = it.referee
+    ///   if it.has("element") and it.element.func() == heading {
+    ///     let element = it.element
     ///     "["
-    ///     referee.supplement
+    ///     element.supplement
     ///     "-"
-    ///     numbering(referee.numbering, ..counter(heading).at(referee.location()))
+    ///     numbering(element.numbering, ..counter(heading).at(element.location()))
     ///     "]"
     ///   } else {
     ///     it
@@ -116,7 +116,7 @@ pub struct RefElem {
     /// @sub
     /// ```
     #[synthesized]
-    pub referee: Option<Content>,
+    pub element: Option<Content>,
 }
 
 impl Synthesize for RefElem {
@@ -125,22 +125,20 @@ impl Synthesize for RefElem {
         self.push_citation(Some(citation));
 
         if !vt.introspector.init() {
+            self.push_element(None);
             return Ok(());
         }
 
-        // find the referee element
+        // find the element content
         let target = self.target();
         let elem = vt.introspector.query_label(&self.target());
-
-        if BibliographyElem::has(vt, &target.0) {
-            // only push bib element if it is not in the document
-            if elem.is_err() {
-                self.push_referee(Some(self.to_citation(vt, styles)?.pack()));
-            }
-        } else if let Ok(elem) = elem.at(self.span()) {
-            if elem.can::<dyn Refable>() {
-                self.push_referee(Some(elem));
-            }
+        // not in bibliography, but in document, then push the element
+        if let (false, Ok(elem)) =
+            (BibliographyElem::has(vt, &target.0), elem.at(self.span()))
+        {
+            self.push_element(Some(elem));
+        } else {
+            self.push_element(None);
         }
 
         Ok(())

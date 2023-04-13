@@ -23,12 +23,12 @@ As seen in @intro, we proceed.
 ---
 
 #show ref: it => {
-  if it.has("referee") and it.referee.func() == figure {
-    let referee = it.referee
+  if it.element != none and it.element.func() == figure {
+    let element = it.element
     "["
-    referee.supplement
+    element.supplement
     "-"
-    str(referee.counter.at(referee.location()).at(0))
+    str(element.counter.at(element.location()).at(0))
     "]"
     // it
   } else {
@@ -66,12 +66,12 @@ As seen in @intro, we proceed.
   }, supplement: [Chapt])
 
 #show ref: it => {
-  if it.has("referee") and it.referee.func() == heading {
-    let referee = it.referee
+  if it.element != none and it.element.func() == heading {
+    let element = it.element
     "["
-    emph(referee.supplement)
+    emph(element.supplement)
     "-"
-    numbering(referee.numbering, ..counter(heading).at(referee.location()))
+    numbering(element.numbering, ..counter(heading).at(element.location()))
     "]"
   } else {
     it
@@ -93,16 +93,30 @@ As seen in @intro, we proceed.
 ---
 
 #show ref: it => {
-  if it.has("referee") and it.referee.func() == cite {
-    let referee = it.referee
-    "["
-    referee.keys.at(0)
-    "]"
+  if it.element != none {
+    if it.element.func() == text {
+      let element = it.element
+      "["
+      element
+      "]"
+    } else if it.element.func() == underline {
+      let element = it.element
+      "{"
+      element
+      "}"
+    } else {
+      it
+    }
   } else {
     it
   }
 }
 
-@arrgh
+@txt
 
-#bibliography("/works.bib")
+Ref something unreferable <txt>
+
+@under
+#underline[
+Some underline text.
+] <under>
