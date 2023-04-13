@@ -1,4 +1,6 @@
 use std::str::FromStr;
+use ecow::{eco_format, eco_vec, EcoString};
+use crate::eval::Array;
 
 use super::*;
 
@@ -96,6 +98,23 @@ impl Color {
             Self::Luma(luma) => Self::Luma(luma.negate()),
             Self::Rgba(rgba) => Self::Rgba(rgba.negate()),
             Self::Cmyk(cmyk) => Self::Cmyk(cmyk.negate()),
+        }
+    }
+
+    /// Get a field from this color.
+    pub fn at(&self, field: &str) -> StrResult<Value> {
+        match field {
+            "rgba" => self.to_rgba().to_array().into(),
+            "cmyk" => match self {
+                Self::Cmyk(cmyk) => cmyk.to_array().into(),
+                Self::Luma(luma) => luma.to_cmyk().to_array().into(),
+                _ => Ok(Value::None),  // no rgba -> cmyk conversion
+            }
+            "luma" => match self {
+                Self::Luma(luma) => luma.0.into(),
+                _ => Ok(Value::None),
+            }
+            _ => Err(missing_field(field)),
         }
     }
 }
@@ -221,6 +240,18 @@ impl RgbaColor {
             b: u8::MAX - self.b,
             a: self.a,
         }
+    }
+
+    /// Converts this color to an array of R, G, B, A components.
+    pub fn to_array(self) -> Array {
+        Array::from_vec(
+            eco_vec![
+                self.r.into(),
+                self.g.into(),
+                self.b.into(),
+                self.a.into()
+            ]
+        )
     }
 }
 
@@ -354,6 +385,18 @@ impl CmykColor {
             k: self.k,
         }
     }
+
+    /// Converts this color to an array of C, M, Y, K components.
+    pub fn to_array(self) -> Array {
+        Array::from_vec(
+            eco_vec![
+                self.c.into(),
+                self.m.into(),
+                self.y.into(),
+                self.k.into()
+            ]
+        )
+    }
 }
 
 impl Debug for CmykColor {
@@ -412,4 +455,11 @@ mod tests {
         test("hmmm", "color string contains non-hexadecimal letters");
         test("14B2AH", "color string contains non-hexadecimal letters");
     }
+}
+
+/// The missing key access error message.
+#[cold]
+#[track_caller]
+fn missing_field(key: &str) -> EcoString {
+    eco_format!("color does not contain field {:?}", Str::from(key))
 }
