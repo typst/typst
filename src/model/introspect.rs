@@ -1,9 +1,7 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
-use std::sync::Arc;
 
 use indexmap::IndexMap;
 
@@ -52,15 +50,13 @@ cast_from_value! {
 /// Provides stable identities to elements.
 #[derive(Clone, Default)]
 pub struct StabilityProvider {
-    checkpoints: Arc<RefCell<Vec<HashMap<u128, usize>>>>,
+    checkpoints: Vec<HashMap<u128, usize>>,
 }
 
 impl StabilityProvider {
     /// Create a new stability provider.
     pub fn new() -> Self {
-        Self {
-            checkpoints: Arc::new(RefCell::new(vec![HashMap::new()])),
-        }
+        Self { checkpoints: vec![HashMap::new()] }
     }
 }
 
@@ -70,29 +66,22 @@ impl StabilityProvider {
     pub fn locate(&mut self, hash: u128) -> Location {
         let disambiguator = self
             .checkpoints
-            .borrow()
             .iter()
             .map(|hashes| hashes.get(&hash).copied().unwrap_or(0))
             .sum();
-        *self
-            .checkpoints
-            .borrow_mut()
-            .last_mut()
-            .unwrap()
-            .entry(hash)
-            .or_insert(0) += 1;
+        *self.checkpoints.last_mut().unwrap().entry(hash).or_insert(0) += 1;
         Location { hash, disambiguator, variant: 0 }
     }
 
     /// Create a checkpoint of the state that can be restored.
     pub fn save(&mut self) {
-        self.checkpoints.borrow_mut().push(HashMap::new());
+        self.checkpoints.push(HashMap::new());
     }
 
     /// Restore the last checkpoint.
     pub fn restore(&mut self) {
-        assert!(self.checkpoints.borrow().len() > 1); // we want to always keep one checkpoint alive, the current one
-        self.checkpoints.borrow_mut().pop();
+        assert!(self.checkpoints.len() > 1); // we want to always keep one checkpoint alive, the current one
+        self.checkpoints.pop();
     }
 }
 
