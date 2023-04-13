@@ -51,5 +51,5 @@
 #rect(radius: (left: 10pt, cake: 5pt))
 
 ---
-// Error: 15-21 expected length, color, stroke, none, dictionary, or auto, found array
+// Error: 15-21 expected length, color, dictionary, stroke, none, or auto, found array
 #rect(stroke: (1, 2))

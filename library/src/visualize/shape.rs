@@ -47,8 +47,22 @@ pub struct RectElem {
     ///   to `{1pt}`.
     /// - A stroke combined from color and thickness using the `+` operator as
     ///   in `{2pt + red}`.
-    /// - A dictionary: With a dictionary, the stroke for each side can be set
-    ///   individually. The dictionary can contain the following keys in order
+    /// - A stroke described by a dictionary with any of the following keys:
+    ///     - `color`: the color to use for the stroke
+    ///     - `thickness`: the stroke's thickness
+    ///     - `cap`: one of `"butt"`, `"round"` or `"square"`, the line cap of the stroke
+    ///     - `join`: one of `"miter"`, `"round"` or `"bevel"`, the line join of the stroke
+    ///     - `miter-limit`: the miter limit to use if `join` is `"miter"`, defaults to 4.0
+    ///     - `dash`: the dash pattern to use. Can be any of the following:
+    ///         - One of the strings `"solid"`, `"dotted"`, `"densely-dotted"`, `"loosely-dotted"`,
+    ///           `"dashed"`, `"densely-dashed"`, `"loosely-dashed"`, `"dashdotted"`,
+    ///           `"densely-dashdotted"` or `"loosely-dashdotted"`
+    ///         - An array with elements that specify the lengths of dashes and gaps, alternating.
+    ///           Elements can also be the string `"dot"` for a length equal to the line thickness.
+    ///         - A dict with the keys `array`, same as the array above, and `phase`, the offset to
+    ///           the start of the first dash.
+    /// - Another dictionary describing the stroke for each side inidvidually.
+    ///   The dictionary can contain the following keys in order
     ///   of precedence:
     ///   - `top`: The top stroke.
     ///   - `right`: The right stroke.

@@ -40,9 +40,32 @@ pub struct LineElem {
     ///   to `{1pt}`.
     /// - A stroke combined from color and thickness using the `+` operator as
     ///   in `{2pt + red}`.
+    /// - A stroke described by a dictionary with any of the following keys:
+    ///     - `color`: the color to use for the stroke
+    ///     - `thickness`: the stroke's thickness
+    ///     - `cap`: one of `"butt"`, `"round"` or `"square"`, the line cap of the stroke
+    ///     - `join`: one of `"miter"`, `"round"` or `"bevel"`, the line join of the stroke
+    ///     - `miter-limit`: the miter limit to use if `join` is `"miter"`, defaults to 4.0
+    ///     - `dash`: the dash pattern to use. Can be any of the following:
+    ///         - One of the strings `"solid"`, `"dotted"`, `"densely-dotted"`, `"loosely-dotted"`,
+    ///           `"dashed"`, `"densely-dashed"`, `"loosely-dashed"`, `"dashdotted"`,
+    ///           `"densely-dashdotted"` or `"loosely-dashdotted"`
+    ///         - An array with elements that specify the lengths of dashes and gaps, alternating.
+    ///           Elements can also be the string `"dot"` for a length equal to the line thickness.
+    ///         - A dict with the keys `array`, same as the array above, and `phase`, the offset to
+    ///           the start of the first dash.
+    ///     
     ///
     /// ```example
-    /// #line(length: 100%, stroke: 2pt + red)
+    /// #stack(
+    ///   line(length: 100%, stroke: 2pt + red),
+    ///   v(1em),
+    ///   line(length: 100%, stroke: (color: blue, thickness: 4pt, cap: "round")),
+    ///   v(1em),
+    ///   line(length: 100%, stroke: (color: blue, thickness: 1pt, dash: "dashed")),
+    ///   v(1em),
+    ///   line(length: 100%, stroke: (color: blue, thickness: 1pt, dash: ("dot", 2pt, 4pt, 2pt))),
+    /// )
     /// ```
     #[resolve]
     #[fold]
