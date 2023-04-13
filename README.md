@@ -107,6 +107,10 @@ Typst's CLI is available from different sources:
 - You can get sources and pre-built binaries for the latest release of Typst
   from the [releases page][releases].
 
+  We have convenient scripts to download them to `$HOME/.typst`:
+  - Windows: `irm https://raw.githubusercontent.com/typst/typst/main/tools/install-scripts/install.ps1 | iex`
+  - MacOS, Linux: `curl -fsSL https://raw.githubusercontent.com/typst/typst/main/tools/install-scripts/install.sh | sh`
+
 - You can install Typst through different package managers. Note that the
   versions in the package managers might lag behind the latest release.
   - macOS/Linux: `brew install typst`
