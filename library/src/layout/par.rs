@@ -912,9 +912,9 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 active = i + 1;
                 MAX_COST
             } else if mandatory || eof {
-                // This is a mandatory break and the line is not overfull, so it
-                // has minimum cost. All breakpoints before this one become
-                // inactive since no line can span above the mandatory break.
+                // This is a mandatory break and the line is not overfull, so
+                // all breakpoints before this one become inactive since no line
+                // can span above the mandatory break.
                 active = k;
                 if attempt.justify {
                     ratio.powi(3).abs()
