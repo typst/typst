@@ -91,6 +91,10 @@
 #calc.pow(2, 10000000000000000)
 
 ---
+// Error: 10-25 the result is too large
+#calc.pow(2, 2147483647)
+
+---
 // Error: 14-36 exponent may not be infinite, subnormal, or NaN
 #calc.pow(2, calc.pow(2.0, 10000.0))
 
