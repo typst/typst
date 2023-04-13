@@ -111,7 +111,11 @@ pub fn pow(
     };
 
     let result = match (base, exponent.v) {
-        (Num::Int(a), Num::Int(b)) if b >= 0 => Num::Int(a.pow(b as u32)),
+        (Num::Int(a), Num::Int(b)) if b >= 0 => a
+            .checked_pow(b as u32)
+            .map(Num::Int)
+            .ok_or("the result is too large")
+            .at(args.span)?,
         (a, Num::Int(b)) => Num::Float(a.float().powi(b as i32)),
         (a, b) => Num::Float(a.float().powf(b.float())),
     };
