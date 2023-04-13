@@ -394,7 +394,9 @@ impl CmykColor {
 
     /// Converts this color to an array of C, M, Y, K components.
     pub fn to_array(self) -> Array {
-        let g = |c| Ratio::new(c as f64 / 255.0);
+        // multiply and divide by 1000 so we round to one digit after the dot
+        let g = |c| Ratio::new(((c as f64 / 255.0) * 1000.0).round() / 1000.0);
+
         Array::from_vec(
             eco_vec![
                 g(self.c).into(),
