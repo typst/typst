@@ -64,11 +64,18 @@
 #{false.true}
 
 ---
-// Test relative length and length fields.
+// Test relative length fields.
 #test((100% + 2em + 2pt).relative, 100%)
 #test((100% + 2em + 2pt).fixed, 2em + 2pt)
-#test((100% + 2em + 2pt).fixed.em, 2em)
-#test((100% + 2em + 2pt).fixed.absolute, 2pt)
+
+---
+// Test length fields.
+#test((2em + 2pt).em, 2em)
+#test((2em + 2pt).absolute, 2pt)
+#test((2em + 2pt).pt, 2)
+#test((3cm).cm, 3)
+#test((4mm).mm, 4)
+#test((5in).inches, 5)
 
 ---
 // Test color fields.

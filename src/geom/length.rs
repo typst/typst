@@ -39,9 +39,15 @@ impl Length {
 
     /// Get a field from this length.
     pub fn at(&self, field: &str) -> StrResult<Value> {
+        let round_four_digits = |n| ((n as f64) * 1e4).round() / 1e4;
+
         match field {
             "em" => Ok(self.em.into()),
             "absolute" => Ok(self.abs.into()),
+            "pt" => Ok(round_four_digits(self.abs.to_pt()).into()),
+            "cm" => Ok(round_four_digits(self.abs.to_cm()).into()),
+            "mm" => Ok(round_four_digits(self.abs.to_mm()).into()),
+            "inches" => Ok(round_four_digits(self.abs.to_inches()).into()),
             _ => Err(missing_field(field)),
         }
     }
