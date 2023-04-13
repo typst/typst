@@ -82,4 +82,4 @@
 ---
 // Test stroke fields.
 #test((1em + blue).thickness, 1em)
-#test((1em + blue).paint, blue)
+#test((1em + blue).color, blue)

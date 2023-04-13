@@ -120,7 +120,7 @@ impl PartialStroke<Length> {
     /// Get a field from this stroke.
     pub fn at(&self, field: &str) -> StrResult<Value> {
         match field {
-            "paint" => Ok(self.paint.clone().into()),
+            "color" => Ok(self.paint.clone().into()),
             "thickness" => {
                 Ok(self.thickness.as_custom().map(Value::Length).unwrap_or(Value::Auto))
             }
