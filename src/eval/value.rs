@@ -129,6 +129,7 @@ impl Value {
             Self::Module(module) => module.get(field).cloned(),
             Self::Func(func) => func.get(field).cloned(),
             Self::Color(color) => color.at(field),
+            Self::Length(length) => length.at(field),
             Self::Relative(rel) => rel.at(field),
             d @ Self::Dyn(dynamic) => {
                 if let Some(stroke) = dynamic.downcast::<PartialStroke>() {

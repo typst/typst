@@ -68,7 +68,7 @@ impl Rel<Length> {
     pub fn at(&self, field: &str) -> StrResult<Value> {
         match field {
             "relative" => Ok(self.rel.into()),
-            "absolute" => Ok(self.abs.into()),
+            "fixed" => Ok(self.abs.into()),
             _ => Err(missing_field(field)),
         }
     }

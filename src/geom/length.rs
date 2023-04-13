@@ -1,4 +1,6 @@
 use super::*;
+use crate::eval::Str;
+use ecow::{eco_format, EcoString};
 
 /// A length, possibly expressed with contextual units.
 ///
@@ -32,6 +34,15 @@ impl Length {
             Some(self.abs / other.abs)
         } else {
             None
+        }
+    }
+
+    /// Get a field from this length.
+    pub fn at(&self, field: &str) -> StrResult<Value> {
+        match field {
+            "em" => Ok(self.em.into()),
+            "absolute" => Ok(self.abs.into()),
+            _ => Err(missing_field(field)),
         }
     }
 }
@@ -125,4 +136,11 @@ impl Resolve for Length {
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.abs + self.em.resolve(styles)
     }
+}
+
+/// The missing key access error message.
+#[cold]
+#[track_caller]
+fn missing_field(key: &str) -> EcoString {
+    eco_format!("length does not contain field {:?}", Str::from(key))
 }
