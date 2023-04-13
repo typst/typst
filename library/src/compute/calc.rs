@@ -545,7 +545,8 @@ pub fn gcd(
     Value::Int(calculate_gcd(a, b).into())
 }
 
-/// Calculates the greatest common divisor between two non-zero integers.
+/// Calculates the greatest common divisor between two non-zero integers
+/// It is always strictly positive.
 #[allow(unused_assignments)]
 fn calculate_gcd(a: NonZeroI64, b: NonZeroI64) -> NonZeroI64 {
     let mut x = b.get();
@@ -586,6 +587,7 @@ pub fn lcm(
 
 /// Calculates the least common multiple between two non-zero integers
 /// Returns None if the value cannot be computed
+/// It is always strictly positive.
 fn calculate_lcm(a: NonZeroI64, b: NonZeroI64) -> Option<NonZeroI64> {
     a.get()
         .checked_mul(b.get())?
