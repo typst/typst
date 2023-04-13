@@ -319,7 +319,8 @@ impl Segment<'_> {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
             Self::Box(_, true) => SPACING_REPLACE.len_utf8(),
-            Self::Equation(_) | Self::Box(_, _) | Self::Meta => OBJ_REPLACE.len_utf8(),
+            Self::Equation(_) | Self::Box(_, _) => OBJ_REPLACE.len_utf8(),
+            Self::Meta => 0,
         }
     }
 }
@@ -335,6 +336,8 @@ enum Item<'a> {
     Fractional(Fr, Option<(&'a BoxElem, StyleChain<'a>)>),
     /// Layouted inline-level content.
     Frame(Frame),
+    /// Metadata.
+    Meta(Frame),
 }
 
 impl<'a> Item<'a> {
@@ -352,6 +355,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.text.len(),
             Self::Absolute(_) | Self::Fractional(_, _) => SPACING_REPLACE.len_utf8(),
             Self::Frame(_) => OBJ_REPLACE.len_utf8(),
+            Self::Meta(_) => 0,
         }
     }
 
@@ -361,7 +365,7 @@ impl<'a> Item<'a> {
             Self::Text(shaped) => shaped.width,
             Self::Absolute(v) => *v,
             Self::Frame(frame) => frame.width(),
-            Self::Fractional(_, _) => Abs::zero(),
+            Self::Fractional(_, _) | Self::Meta(_) => Abs::zero(),
         }
     }
 }
@@ -586,7 +590,6 @@ fn collect<'a>(
             full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
             Segment::Box(elem, frac)
         } else if child.is::<MetaElem>() {
-            full.push(OBJ_REPLACE);
             Segment::Meta
         } else {
             bail!(child.span(), "unexpected paragraph child");
@@ -671,7 +674,7 @@ fn prepare<'a>(
             Segment::Meta => {
                 let mut frame = Frame::new(Size::zero());
                 frame.meta(styles, true);
-                items.push(Item::Frame(frame));
+                items.push(Item::Meta(frame));
             }
         }
 
@@ -1337,7 +1340,7 @@ fn commit(
                 let frame = shaped.build(vt, justification_ratio, extra_justification);
                 push(&mut offset, frame);
             }
-            Item::Frame(frame) => {
+            Item::Frame(frame) | Item::Meta(frame) => {
                 push(&mut offset, frame.clone());
             }
         }

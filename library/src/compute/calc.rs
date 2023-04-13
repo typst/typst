@@ -94,28 +94,27 @@ pub fn pow(
     /// The exponent of the power. Must be non-negative.
     exponent: Spanned<Num>,
 ) -> Value {
-    let Spanned { v: exp, span } = exponent;
-    match exp {
-        _ if exp.float() == 0.0 && base.float() == 0.0 => {
+    match exponent.v {
+        _ if exponent.v.float() == 0.0 && base.float() == 0.0 => {
             bail!(args.span, "zero to the power of zero is undefined")
         }
         Num::Int(i) if i32::try_from(i).is_err() => {
-            bail!(span, "exponent is too large")
+            bail!(exponent.span, "exponent is too large")
         }
         Num::Float(f) if !f.is_normal() && f != 0.0 => {
-            bail!(span, "exponent may not be infinite, subnormal, or NaN")
+            bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
     };
 
-    let result = match (base, exp) {
+    let result = match (base, exponent.v) {
         (Num::Int(a), Num::Int(b)) if b >= 0 => Num::Int(a.pow(b as u32)),
         (a, Num::Int(b)) => Num::Float(a.float().powi(b as i32)),
         (a, b) => Num::Float(a.float().powf(b.float())),
     };
 
     if result.float().is_nan() {
-        bail!(span, "the result is not a real number")
+        bail!(args.span, "the result is not a real number")
     }
 
     result.value()
@@ -381,28 +380,28 @@ pub fn log(
     value: Spanned<Num>,
     /// The base of the logarithm. Defaults to `{10}` and may not be zero.
     #[named]
-    #[default(10.0)]
-    base: f64,
+    #[default(Spanned::new(10.0, Span::detached()))]
+    base: Spanned<f64>,
 ) -> Value {
     let number = value.v.float();
     if number <= 0.0 {
         bail!(value.span, "value must be strictly positive")
     }
 
-    if !base.is_normal() {
-        bail!(value.span, "base may not be zero, NaN, infinite, or subnormal")
+    if !base.v.is_normal() {
+        bail!(base.span, "base may not be zero, NaN, infinite, or subnormal")
     }
 
-    let result = if base == 2.0 {
+    let result = if base.v == 2.0 {
         number.log2()
-    } else if base == 10.0 {
+    } else if base.v == 10.0 {
         number.log10()
     } else {
-        number.log(base)
+        number.log(base.v)
     };
 
     if result.is_infinite() || result.is_nan() {
-        bail!(value.span, "the result is not a real number")
+        bail!(args.span, "the result is not a real number")
     }
 
     Value::Float(result)
@@ -420,39 +419,37 @@ pub fn log(
 /// Returns: integer
 #[func]
 pub fn fact(
-    /// The number whose factorial to calculate. Must be positive.
-    number: Spanned<u64>,
+    /// The number whose factorial to calculate. Must be non-negative.
+    number: u64,
 ) -> Value {
-    let result = factorial_range(1, number.v).and_then(|r| i64::try_from(r).ok());
-
-    match result {
-        None => bail!(number.span, "the factorial result is too large"),
-        Some(s) => Value::Int(s),
-    }
+    factorial_range(1, number)
+        .map(Value::Int)
+        .ok_or("the result is too large")
+        .at(args.span)?
 }
 
-/// Calculates the product of a range of numbers. Used to calculate permutations.
-/// Returns None if the result is larger than `u64::MAX`
-fn factorial_range(start: u64, end: u64) -> Option<u64> {
+/// Calculates the product of a range of numbers. Used to calculate
+/// permutations. Returns None if the result is larger than `i64::MAX`
+fn factorial_range(start: u64, end: u64) -> Option<i64> {
     // By convention
     if end + 1 < start {
         return Some(0);
     }
 
-    let mut count: u64 = 1;
     let real_start: u64 = cmp::max(1, start);
-
+    let mut count: u64 = 1;
     for i in real_start..=end {
         count = count.checked_mul(i)?;
     }
-    Some(count)
+
+    i64::try_from(count).ok()
 }
 
 /// Calculate a permutation.
 ///
 /// ## Example
 /// ```example
-/// #calc.perm(10,5)
+/// #calc.perm(10, 5)
 /// ```
 ///
 /// Display: Permutation
@@ -460,74 +457,65 @@ fn factorial_range(start: u64, end: u64) -> Option<u64> {
 /// Returns: integer
 #[func]
 pub fn perm(
-    /// The base number. Must be positive.
-    base: Spanned<u64>,
-    /// The number of permutations. Must be positive.
-    numbers: Spanned<u64>,
+    /// The base number. Must be non-negative.
+    base: u64,
+    /// The number of permutations. Must be non-negative.
+    numbers: u64,
 ) -> Value {
-    let base_parsed = base.v;
-    let numbers_parsed = numbers.v;
-
-    let result = if base_parsed + 1 > numbers_parsed {
-        factorial_range(base_parsed - numbers_parsed + 1, base_parsed)
-            .and_then(|value| i64::try_from(value).ok())
-    } else {
-        // By convention
-        Some(0)
-    };
-
-    match result {
-        None => bail!(base.span, "the permutation result is too large"),
-        Some(s) => Value::Int(s),
+    // By convention.
+    if base + 1 <= numbers {
+        return Ok(Value::Int(0));
     }
+
+    factorial_range(base - numbers + 1, base)
+        .map(Value::Int)
+        .ok_or("the result is too large")
+        .at(args.span)?
 }
 
 /// Calculate a binomial coefficient.
 ///
 /// ## Example
 /// ```example
-/// #calc.binom(10,5)
+/// #calc.binom(10, 5)
 /// ```
 ///
-/// Display: Permutation
+/// Display: Binomial
 /// Category: calculate
 /// Returns: integer
 #[func]
 pub fn binom(
-    /// The upper coefficient. Must be positive
-    n: Spanned<u64>,
-    /// The lower coefficient. Must be positive.
-    k: Spanned<u64>,
+    /// The upper coefficient. Must be non-negative.
+    n: u64,
+    /// The lower coefficient. Must be non-negative.
+    k: u64,
 ) -> Value {
-    let result = binomial(n.v, k.v).and_then(|raw| i64::try_from(raw).ok());
-
-    match result {
-        None => bail!(n.span, "the binomial result is too large"),
-        Some(r) => Value::Int(r),
-    }
+    binomial(n, k)
+        .map(Value::Int)
+        .ok_or("the result is too large")
+        .at(args.span)?
 }
 
-/// Calculates a binomial coefficient, with `n` the upper coefficient and `k` the lower coefficient.
-/// Returns `None` if the result is larger than `u64::MAX`
-fn binomial(n: u64, k: u64) -> Option<u64> {
+/// Calculates a binomial coefficient, with `n` the upper coefficient and `k`
+/// the lower coefficient. Returns `None` if the result is larger than
+/// `i64::MAX`
+fn binomial(n: u64, k: u64) -> Option<i64> {
     if k > n {
         return Some(0);
     }
 
     // By symmetry
     let real_k = cmp::min(n - k, k);
-
     if real_k == 0 {
         return Some(1);
     }
 
     let mut result: u64 = 1;
-
     for i in 0..real_k {
-        result = result.checked_mul(n - i).and_then(|r| r.checked_div(i + 1))?;
+        result = result.checked_mul(n - i)?.checked_div(i + 1)?;
     }
 
-    Some(result)
+    i64::try_from(result).ok()
 }
 
 /// Round a number down to the nearest integer.

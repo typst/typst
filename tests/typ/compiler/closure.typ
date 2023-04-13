@@ -156,6 +156,10 @@
 #let f(a, b, a: none, b: none, c, b) = none
 
 ---
+// Error: 13-14 duplicate parameter
+#let f(a, ..a) = none
+
+---
 // Error: 7-17 expected identifier, named pair or argument sink, found keyed pair
 #((a, "named": b) => none)
 

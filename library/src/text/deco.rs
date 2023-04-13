@@ -274,6 +274,7 @@ pub(super) fn decorate(
     let stroke = deco.stroke.clone().unwrap_or(Stroke {
         paint: text.fill.clone(),
         thickness: metrics.thickness.at(text.size),
+        ..Stroke::default()
     });
 
     let gap_padding = 0.08 * text.size;
