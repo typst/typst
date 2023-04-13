@@ -308,8 +308,11 @@ fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
 }
 
 /// The syntect syntax definitions.
-static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(syntect::parsing::SyntaxSet::load_defaults_nonewlines);
+static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> = Lazy::new(|| {
+    syntect::dumps::from_binary(
+        include_bytes!("../../../assets/syntect/syntaxes.bin")
+    )
+});
 
 /// The default theme used for syntax highlighting.
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
