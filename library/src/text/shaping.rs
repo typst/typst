@@ -151,10 +151,10 @@ impl<'a> ShapedText<'a> {
                         justification += glyph.shrinkability() * justification_ratio
                     } else {
                         justification += glyph.stretchability() * justification_ratio
-                    };
+                    }
                     if glyph.is_justifiable() {
                         justification += Em::from_length(extra_justification, self.size)
-                    };
+                    }
                     frame.size_mut().x += justification.at(self.size);
                     Glyph {
                         id: glyph.glyph_id,
