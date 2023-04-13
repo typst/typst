@@ -260,13 +260,20 @@ pub(super) struct Closure {
     pub name: Option<Ident>,
     /// Captured values from outer scopes.
     pub captured: Scope,
-    /// The parameter names and default values. Parameters with default value
-    /// are named parameters.
-    pub params: Vec<(Ident, Option<Value>)>,
-    /// The name of an argument sink where remaining arguments are placed.
-    pub sink: Option<Ident>,
+    /// The list of parameters.
+    pub params: Vec<Param>,
     /// The expression the closure should evaluate to.
     pub body: Expr,
+}
+
+#[derive(Hash)]
+pub enum Param {
+    /// A positional parameter: `x`.
+    Pos(Ident),
+    /// A named parameter with a default value: `draw: false`.
+    Named(Ident, Value),
+    /// An argument sink: `..args`.
+    Sink(Option<Ident>),
 }
 
 impl Closure {
@@ -304,21 +311,38 @@ impl Closure {
         }
 
         // Parse the arguments according to the parameter list.
-        for (param, default) in &closure.params {
-            vm.define(
-                param.clone(),
-                match default {
-                    Some(default) => {
-                        args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
+        let num_pos_params =
+            closure.params.iter().filter(|p| matches!(p, Param::Pos(_))).count();
+        let num_pos_args = args.to_pos().len() as usize;
+        let sink_size = num_pos_args.checked_sub(num_pos_params);
+
+        let mut sink = None;
+        let mut sink_pos_values = None;
+        for p in &closure.params {
+            match p {
+                Param::Pos(ident) => {
+                    vm.define(ident.clone(), args.expect::<Value>(ident)?);
+                }
+                Param::Sink(ident) => {
+                    sink = ident.clone();
+                    if let Some(sink_size) = sink_size {
+                        sink_pos_values = Some(args.consume(sink_size)?);
                     }
-                    None => args.expect::<Value>(param)?,
-                },
-            );
+                }
+                Param::Named(ident, default) => {
+                    let value =
+                        args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
+                    vm.define(ident.clone(), value);
+                }
+            }
         }
 
-        // Put the remaining arguments into the sink.
-        if let Some(sink) = &closure.sink {
-            vm.define(sink.clone(), args.take());
+        if let Some(sink) = sink {
+            let mut remaining_args = args.take();
+            if let Some(sink_pos_values) = sink_pos_values {
+                remaining_args.items.extend(sink_pos_values);
+            }
+            vm.define(sink, remaining_args);
         }
 
         // Ensure all arguments have been used.
@@ -407,7 +431,8 @@ impl<'a> CapturesVisitor<'a> {
                     match param {
                         ast::Param::Pos(ident) => self.bind(ident),
                         ast::Param::Named(named) => self.bind(named.name()),
-                        ast::Param::Sink(ident) => self.bind(ident),
+                        ast::Param::Sink(Some(ident)) => self.bind(ident),
+                        _ => {}
                     }
                 }
 

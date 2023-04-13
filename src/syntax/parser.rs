@@ -1069,6 +1069,7 @@ fn validate_dict(p: &mut Parser, m: Marker) {
 }
 
 fn validate_params(p: &mut Parser, m: Marker) {
+    let mut used_spread = false;
     let mut used = HashSet::new();
     for child in p.post_process(m) {
         match child.kind() {
@@ -1086,11 +1087,23 @@ fn validate_params(p: &mut Parser, m: Marker) {
             }
             SyntaxKind::Spread => {
                 let Some(within) = child.children_mut().last_mut() else { continue };
-                if within.kind() != SyntaxKind::Ident {
+                if used_spread {
+                    child.convert_to_error("only one argument sink is allowed");
+                    continue;
+                }
+                used_spread = true;
+                if within.kind() == SyntaxKind::Dots {
+                    continue;
+                } else if within.kind() != SyntaxKind::Ident {
                     within.convert_to_error(eco_format!(
                         "expected identifier, found {}",
                         within.kind().name(),
                     ));
+                    child.make_erroneous();
+                    continue;
+                }
+                if !used.insert(within.text().clone()) {
+                    within.convert_to_error("duplicate parameter");
                     child.make_erroneous();
                 }
             }
