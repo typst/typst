@@ -2,6 +2,7 @@
 
 use std::cmp;
 use std::cmp::Ordering;
+use std::num::NonZeroI64;
 use std::ops::Rem;
 
 use typst::eval::{Module, Scope};
@@ -27,6 +28,8 @@ pub fn module() -> Module {
     scope.define("fact", fact);
     scope.define("perm", perm);
     scope.define("binom", binom);
+    scope.define("gcd", gcd);
+    scope.define("lcm", lcm);
     scope.define("floor", floor);
     scope.define("ceil", ceil);
     scope.define("round", round);
@@ -516,6 +519,75 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
     }
 
     i64::try_from(result).ok()
+}
+
+
+/// Calculate a gcd.
+///
+/// ## Example
+/// ```example
+/// #calc.gcd(7, 42)
+/// ```
+///
+/// Display: GCD
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn gcd(
+    /// The first number.
+    a: NonZeroI64,
+    /// The second number.
+    b: NonZeroI64,
+) -> Value {
+    Value::Int(calculate_gcd(a, b).into())
+}
+
+/// Calculates the greatest common divisor between two non-zero integers.
+#[allow(unused_assignments)]
+fn calculate_gcd(a: NonZeroI64, b: NonZeroI64) -> NonZeroI64 {
+    let mut x = b.get();
+    let mut y = b.get();
+    let mut z = a.get();
+
+    while y != 0 {
+        x = y;
+        y = z % y;
+        z = x;
+    }
+
+    NonZeroI64::new(z.abs()).unwrap()
+}
+
+/// Calculate a least common multiple.
+///
+/// ## Example
+/// ```example
+/// #calc.lcm(96, 13)
+/// ```
+///
+/// Display: Least Common Multiple
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn lcm(
+    /// The first number.
+    a: NonZeroI64,
+    /// The second number.
+    b: NonZeroI64,
+) -> Value {
+    calculate_lcm(a, b)
+        .map(|v| Value::Int(v.into()))
+        .ok_or("the return value is too large")
+        .at(args.span)?
+}
+
+/// Calculates the least common multiple between two non-zero integers
+/// Returns None if the value cannot be computed
+fn calculate_lcm(a: NonZeroI64, b: NonZeroI64) -> Option<NonZeroI64> {
+    a.get()
+        .checked_mul(b.get())?
+        .checked_div(calculate_gcd(a, b).get())
+        .map(|v| NonZeroI64::new(v.abs()).unwrap())
 }
 
 /// Round a number down to the nearest integer.
