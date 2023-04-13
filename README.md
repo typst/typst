@@ -111,6 +111,8 @@ Typst's CLI is available from different sources:
   - Powershell (Windows): `irm https://raw.githubusercontent.com/typst/typst/main/tools/install-scripts/install.ps1 | iex`
   - Shell (MacOS, Linux): `curl -fsSL https://raw.githubusercontent.com/typst/typst/main/tools/install-scripts/install.sh | sh`
 
+  You may need to follow the instructions on the screen to add the executable to PATH in order to run.
+
 - You can install Typst through different package managers. Note that the
   versions in the package managers might lag behind the latest release.
   - macOS/Linux: `brew install typst`
