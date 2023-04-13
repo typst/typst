@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
-use comemo::Tracked;
+use comemo::{Prehashed, Tracked};
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{
@@ -29,8 +29,8 @@ pub struct Content {
 enum Attr {
     Span(Span),
     Field(EcoString),
-    Value(Value),
-    Child(Content),
+    Value(Prehashed<Value>),
+    Child(Prehashed<Content>),
     Styles(Styles),
     Prepared,
     Guard(Guard),
@@ -57,9 +57,11 @@ impl Content {
         let Some(first) = iter.next() else { return Self::empty() };
         let Some(second) = iter.next() else { return first };
         let mut content = Content::empty();
-        content.attrs.push(Attr::Child(first));
-        content.attrs.push(Attr::Child(second));
-        content.attrs.extend(iter.map(Attr::Child));
+        content.attrs.push(Attr::Child(Prehashed::new(first)));
+        content.attrs.push(Attr::Child(Prehashed::new(second)));
+        content
+            .attrs
+            .extend(iter.map(|child| Attr::Child(Prehashed::new(child))));
         content
     }
 
@@ -170,10 +172,10 @@ impl Content {
             Attr::Field(field) => *field == name,
             _ => false,
         }) {
-            self.attrs.make_mut()[i + 1] = Attr::Value(value.into());
+            self.attrs.make_mut()[i + 1] = Attr::Value(Prehashed::new(value.into()));
         } else {
             self.attrs.push(Attr::Field(name));
-            self.attrs.push(Attr::Value(value.into()));
+            self.attrs.push(Attr::Value(Prehashed::new(value.into())));
         }
     }
 
@@ -292,7 +294,7 @@ impl Content {
             self
         } else {
             let mut content = Content::new(StyledElem::func());
-            content.attrs.push(Attr::Child(self));
+            content.attrs.push(Attr::Child(Prehashed::new(self)));
             content.attrs.push(Attr::Styles(styles));
             content
         }
@@ -474,11 +476,11 @@ impl Add for Content {
                 lhs
             }
             (true, false) => {
-                lhs.attrs.push(Attr::Child(rhs));
+                lhs.attrs.push(Attr::Child(Prehashed::new(rhs)));
                 lhs
             }
             (false, true) => {
-                rhs.attrs.insert(0, Attr::Child(lhs));
+                rhs.attrs.insert(0, Attr::Child(Prehashed::new(lhs)));
                 rhs
             }
             (false, false) => Self::sequence([lhs, rhs]),

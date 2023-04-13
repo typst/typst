@@ -102,6 +102,7 @@ impl Synthesize for HeadingElem {
         self.push_numbering(self.numbering(styles));
         self.push_supplement(self.supplement(styles));
         self.push_outlined(self.outlined(styles));
+        self.push_supplement(self.supplement(styles));
         Ok(())
     }
 }

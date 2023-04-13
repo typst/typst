@@ -2,8 +2,10 @@ use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
+use std::ptr;
 use std::sync::Arc;
 
+use comemo::Prehashed;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
 use super::{Content, ElemFunc, Element, Introspector, Label, Location, Vt};
@@ -15,7 +17,7 @@ use crate::util::pretty_array_like;
 
 /// A list of style properties.
 #[derive(Default, PartialEq, Clone, Hash)]
-pub struct Styles(EcoVec<Style>);
+pub struct Styles(EcoVec<Prehashed<Style>>);
 
 impl Styles {
     /// Create a new, empty style list.
@@ -34,7 +36,7 @@ impl Styles {
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
     pub fn set(&mut self, style: impl Into<Style>) {
-        self.0.push(style.into());
+        self.0.push(Prehashed::new(style.into()));
     }
 
     /// Remove the style that was last set.
@@ -51,20 +53,22 @@ impl Styles {
     /// Apply one outer styles. Like [`chain_one`](StyleChain::chain_one), but
     /// in-place.
     pub fn apply_one(&mut self, outer: Style) {
-        self.0.insert(0, outer);
+        self.0.insert(0, Prehashed::new(outer));
     }
 
     /// Apply a slice of outer styles.
-    pub fn apply_slice(&mut self, outer: &[Style]) {
+    pub fn apply_slice(&mut self, outer: &[Prehashed<Style>]) {
         self.0 = outer.iter().cloned().chain(mem::take(self).0.into_iter()).collect();
     }
 
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
-            if let Style::Property(property) = entry {
-                property.span = Some(span);
-            }
+            entry.update(|entry| {
+                if let Style::Property(property) = entry {
+                    property.span = Some(span);
+                }
+            });
         }
         self
     }
@@ -73,7 +77,7 @@ impl Styles {
     /// styles for the given element.
     pub fn interruption<T: Element>(&self) -> Option<Option<Span>> {
         let func = T::func();
-        self.0.iter().find_map(|entry| match entry {
+        self.0.iter().find_map(|entry| match &**entry {
             Style::Property(property) => property.is_of(func).then_some(property.span),
             Style::Recipe(recipe) => recipe.is_of(func).then_some(Some(recipe.span)),
         })
@@ -82,7 +86,7 @@ impl Styles {
 
 impl From<Style> for Styles {
     fn from(entry: Style) -> Self {
-        Self(eco_vec![entry])
+        Self(eco_vec![Prehashed::new(entry)])
     }
 }
 
@@ -566,7 +570,7 @@ cast_from_value! {
 #[derive(Default, Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
     /// The first link of this chain.
-    head: &'a [Style],
+    head: &'a [Prehashed<Style>],
     /// The remaining links in the chain.
     tail: Option<&'a Self>,
 }
@@ -588,15 +592,6 @@ impl<'a> StyleChain<'a> {
             *self
         } else {
             StyleChain { head: &local.0, tail: Some(self) }
-        }
-    }
-
-    /// Make the given style the first link of the this chain.
-    #[tracing::instrument(skip_all)]
-    pub fn chain_one<'b>(&'b self, style: &'b Style) -> StyleChain<'b> {
-        StyleChain {
-            head: std::slice::from_ref(style),
-            tail: Some(self),
         }
     }
 
@@ -740,16 +735,6 @@ impl<'a> StyleChain<'a> {
     fn pop(&mut self) {
         *self = self.tail.copied().unwrap_or_default();
     }
-
-    /// Whether two style chains contain the same pointers.
-    fn ptr_eq(self, other: Self) -> bool {
-        std::ptr::eq(self.head, other.head)
-            && match (self.tail, other.tail) {
-                (Some(a), Some(b)) => std::ptr::eq(a, b),
-                (None, None) => true,
-                _ => false,
-            }
-    }
 }
 
 impl Debug for StyleChain<'_> {
@@ -763,13 +748,18 @@ impl Debug for StyleChain<'_> {
 
 impl PartialEq for StyleChain<'_> {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr_eq(*other) || crate::util::hash128(self) == crate::util::hash128(other)
+        ptr::eq(self.head, other.head)
+            && match (self.tail, other.tail) {
+                (Some(a), Some(b)) => ptr::eq(a, b),
+                (None, None) => true,
+                _ => false,
+            }
     }
 }
 
 /// An iterator over the entries in a style chain.
 struct Entries<'a> {
-    inner: std::slice::Iter<'a, Style>,
+    inner: std::slice::Iter<'a, Prehashed<Style>>,
     links: Links<'a>,
 }
 
@@ -794,7 +784,7 @@ impl<'a> Iterator for Entries<'a> {
 struct Links<'a>(Option<StyleChain<'a>>);
 
 impl<'a> Iterator for Links<'a> {
-    type Item = &'a [Style];
+    type Item = &'a [Prehashed<Style>];
 
     fn next(&mut self) -> Option<Self::Item> {
         let StyleChain { head, tail } = self.0?;

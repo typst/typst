@@ -149,6 +149,9 @@ typst --font-path path/to/fonts compile file.typ
 
 # Lists all of the discovered fonts in the system and the given directory.
 typst --font-path path/to/fonts fonts
+
+# Or via environement variable (Linux syntax).
+TYPST_FONT_PATHS=path/to/fonts typst fonts
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant

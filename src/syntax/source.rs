@@ -111,9 +111,7 @@ impl Source {
     pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
         let start_byte = replace.start;
         let start_utf16 = self.byte_to_utf16(replace.start).unwrap();
-        let mut text = std::mem::take(&mut self.text).into_inner();
-        text.replace_range(replace.clone(), with);
-        self.text = Prehashed::new(text);
+        self.text.update(|text| text.replace_range(replace.clone(), with));
 
         // Remove invalidated line starts.
         let line = self.byte_to_line(start_byte).unwrap();
@@ -129,10 +127,8 @@ impl Source {
             .extend(lines_from(start_byte, start_utf16, &self.text[start_byte..]));
 
         // Incrementally reparse the replaced range.
-        let mut root = std::mem::take(&mut self.root).into_inner();
-        let range = reparse(&mut root, &self.text, replace, with.len());
-        self.root = Prehashed::new(root);
-        range
+        self.root
+            .update(|root| reparse(root, &self.text, replace, with.len()))
     }
 
     /// Get the length of the file in UTF-8 encoded bytes.
