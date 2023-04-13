@@ -78,3 +78,8 @@
 #test(rgb(1, 2, 3, 4).hex, "#01020304")
 #test(repr(cmyk(4%, 5%, 6%, 7%).cmyk), repr((3.9%, 5.1%, 5.9%, 7.1%)))
 #test(luma(40).luma, 40)
+
+---
+// Test stroke fields.
+#test((1em + blue).thickness, 1em)
+#test((1em + blue).paint, blue)
