@@ -2,7 +2,6 @@
 
 use std::cmp;
 use std::cmp::Ordering;
-use std::num::NonZeroI64;
 use std::ops::Rem;
 
 use typst::eval::{Module, Scope};
@@ -525,7 +524,7 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
     i64::try_from(result).ok()
 }
 
-/// Calculate a gcd.
+/// Calculate a gcd between two integers.
 ///
 /// ## Example
 /// ```example
@@ -538,18 +537,18 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
 #[func]
 pub fn gcd(
     /// The first number.
-    a: NonZeroI64,
+    a: i64,
     /// The second number.
-    b: NonZeroI64,
+    b: i64,
 ) -> Value {
     Value::Int(calculate_gcd(a, b).into())
 }
 
 /// Calculates the greatest common divisor between two non-zero integers
-/// It is always strictly positive.
-fn calculate_gcd(a: NonZeroI64, b: NonZeroI64) -> NonZeroI64 {
-    let mut y = b.get();
-    let mut z = a.get();
+/// It is always non-negative.
+fn calculate_gcd(a: i64, b: i64) -> i64 {
+    let mut y = b;
+    let mut z = a;
 
     while y != 0 {
         let temp = y;
@@ -557,10 +556,10 @@ fn calculate_gcd(a: NonZeroI64, b: NonZeroI64) -> NonZeroI64 {
         z = temp;
     }
 
-    NonZeroI64::new(z.abs()).unwrap()
+    z.abs()
 }
 
-/// Calculate a least common multiple.
+/// Calculate a least common multiple between two integers.
 ///
 /// ## Example
 /// ```example
@@ -573,9 +572,9 @@ fn calculate_gcd(a: NonZeroI64, b: NonZeroI64) -> NonZeroI64 {
 #[func]
 pub fn lcm(
     /// The first number.
-    a: NonZeroI64,
+    a: i64,
     /// The second number.
-    b: NonZeroI64,
+    b: i64,
 ) -> Value {
     calculate_lcm(a, b)
         .map(|v| Value::Int(v.into()))
@@ -585,12 +584,13 @@ pub fn lcm(
 
 /// Calculates the least common multiple between two non-zero integers
 /// Returns None if the value cannot be computed
-/// It is always strictly positive.
-fn calculate_lcm(a: NonZeroI64, b: NonZeroI64) -> Option<NonZeroI64> {
-    a.get()
-        .checked_div(calculate_gcd(a, b).get())?
-        .checked_mul(b.get())
-        .map(|v| NonZeroI64::new(v.abs()).unwrap())
+/// It is always non-negative.
+fn calculate_lcm(a: i64, b: i64) -> Option<i64> {
+    if a == 0 && b == 0 {
+        return Some(0);
+    }
+
+    a.checked_div(calculate_gcd(a, b))?.checked_mul(b).map(|v| v.abs())
 }
 
 /// Round a number down to the nearest integer.
