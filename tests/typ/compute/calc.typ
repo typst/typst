@@ -161,6 +161,10 @@
 #test(calc.lcm(1, 1), 1)
 
 ---
+// Error: 10-41 the return value is too large
+#calc.lcm(15486487489457, 4874879896543)
+
+---
 // Error: 10-12 expected at least one value
 #calc.min()
 
