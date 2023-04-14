@@ -546,17 +546,15 @@ pub fn gcd(
 
 /// Calculates the greatest common divisor between two non-zero integers
 /// It is always non-negative.
-fn calculate_gcd(a: i64, b: i64) -> i64 {
-    let mut y = b;
-    let mut z = a;
+fn calculate_gcd(mut a: i64, mut b: i64) -> i64 {
 
-    while y != 0 {
-        let temp = y;
-        y = z % y;
-        z = temp;
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
     }
 
-    z.abs()
+    a.abs()
 }
 
 /// Calculate a least common multiple between two integers.
