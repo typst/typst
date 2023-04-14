@@ -151,14 +151,18 @@
 #test(calc.gcd(112, 77), 7)
 #test(calc.gcd(12, 96), 12)
 #test(calc.gcd(13, 9), 1)
+#test(calc.gcd(13, -9), 1)
 #test(calc.gcd(0, 0), 0)
+#test(calc.gcd(7, 0), 7)
 
 ---
 // Test the `lcm` function.
 #test(calc.lcm(112, 77), 1232)
 #test(calc.lcm(12, 96), 96)
 #test(calc.lcm(13, 9), 117)
+#test(calc.lcm(13, -9), 117)
 #test(calc.lcm(0, 0), 0)
+#test(calc.lcm(8, 0), 0)
 
 ---
 // Error: 10-41 the return value is too large
