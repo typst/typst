@@ -251,8 +251,7 @@ pub fn toml(
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
 
-    let value: toml::Value =
-        toml::from_str(raw).map_err(format_toml_error).at(span)?;
+    let value: toml::Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
     convert_toml(value)
 }
 
@@ -263,16 +262,14 @@ fn convert_toml(value: toml::Value) -> Value {
         toml::Value::Integer(v) => Value::Int(v),
         toml::Value::Float(v) => Value::Float(v),
         toml::Value::Boolean(v) => Value::Bool(v),
-        toml::Value::Array(v) => {
-            Value::Array(v.into_iter().map(convert_toml).collect())
-        }
+        toml::Value::Array(v) => Value::Array(v.into_iter().map(convert_toml).collect()),
         toml::Value::Table(v) => Value::Dict(
             v.into_iter()
                 .map(|(key, value)| (key.into(), convert_toml(value)))
                 .collect(),
         ),
         // Todo: make it use native date/time object(s) once it is implemented.
-        toml::Value::Datetime(v) => Value::Str(v.to_string().into())
+        toml::Value::Datetime(v) => Value::Str(v.to_string().into()),
     }
 }
 
@@ -280,9 +277,14 @@ fn convert_toml(value: toml::Value) -> Value {
 #[track_caller]
 fn format_toml_error(error: toml::de::Error) -> String {
     if let Some(range) = error.span() {
-        format!("failed to parse toml file: {message}, index {start}-{end}", message=error.message(), start=range.start, end=range.end)
+        format!(
+            "failed to parse toml file: {message}, index {start}-{end}",
+            message = error.message(),
+            start = range.start,
+            end = range.end
+        )
     } else {
-        format!("failed to parse toml file: {message}", message=error.message())
+        format!("failed to parse toml file: {message}", message = error.message())
     }
 }
 
