@@ -135,6 +135,7 @@ impl ParElem {
         expand: bool,
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
+        #[allow(clippy::too_many_arguments)]
         fn cached(
             par: &ParElem,
             world: Tracked<dyn World>,
