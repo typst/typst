@@ -20,6 +20,11 @@ $a + cancel(x, invert: #true) - cancel(x, invert: #true) + 10 + cancel(y) - canc
 $ x + cancel("abcdefg", invert: #true) $
 
 ---
+// Cross
+$a + cancel(b + c + d, cross: #true, stroke: #red) + e$
+$ a + cancel(b + c + d, cross: #true) + e $
+
+---
 // Resized and styled
 #set page(width: 200pt, height: auto)
 $a + cancel(x, length: #200%) - cancel(x, length: #50%, stroke: #{red + 1.1pt})$
