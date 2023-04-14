@@ -133,7 +133,7 @@ impl LocalName for ImageElem {
             Lang::SPANISH => "Figura",
             Lang::UKRAINIAN => "Рисунок",
             Lang::VIETNAMESE => "Hình",
-            _ => "Figure",
+            Lang::ENGLISH | _ => "Figure",
         }
     }
 }
