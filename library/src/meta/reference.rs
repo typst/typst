@@ -85,12 +85,62 @@ pub struct RefElem {
     /// A synthesized citation.
     #[synthesized]
     pub citation: Option<CiteElem>,
+
+    /// Content of the element, it should be referable.
+    ///
+    /// ```example
+    /// #set heading(numbering: (..nums) => {
+    ///   nums.pos().map(str).join(".")
+    ///   }, supplement: [Chapt])
+    ///
+    /// #show ref: it => {
+    ///   if it.has("element") and it.element.func() == heading {
+    ///     let element = it.element
+    ///     "["
+    ///     element.supplement
+    ///     "-"
+    ///     numbering(element.numbering, ..counter(heading).at(element.location()))
+    ///     "]"
+    ///   } else {
+    ///     it
+    ///   }
+    /// }
+    ///
+    /// = Introduction <intro>
+    /// = Summary <sum>
+    /// == Subsection <sub>
+    /// @intro
+    ///
+    /// @sum
+    ///
+    /// @sub
+    /// ```
+    #[synthesized]
+    pub element: Option<Content>,
 }
 
 impl Synthesize for RefElem {
     fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         let citation = self.to_citation(vt, styles)?;
         self.push_citation(Some(citation));
+
+        if !vt.introspector.init() {
+            self.push_element(None);
+            return Ok(());
+        }
+
+        // find the element content
+        let target = self.target();
+        let elem = vt.introspector.query_label(&self.target());
+        // not in bibliography, but in document, then push the element
+        if let (false, Ok(elem)) =
+            (BibliographyElem::has(vt, &target.0), elem.at(self.span()))
+        {
+            self.push_element(Some(elem));
+        } else {
+            self.push_element(None);
+        }
+
         Ok(())
     }
 }

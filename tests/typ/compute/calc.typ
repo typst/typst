@@ -91,11 +91,15 @@
 #calc.pow(2, 10000000000000000)
 
 ---
+// Error: 10-25 the result is too large
+#calc.pow(2, 2147483647)
+
+---
 // Error: 14-36 exponent may not be infinite, subnormal, or NaN
 #calc.pow(2, calc.pow(2.0, 10000.0))
 
 ---
-// Error: 15-18 the result is not a real number
+// Error: 10-19 the result is not a real number
 #calc.pow(-1, 0.5)
 
 ---
@@ -107,12 +111,40 @@
 #calc.log(-1)
 
 ---
-// Error: 11-12 base may not be zero, NaN, infinite, or subnormal
+// Error: 20-21 base may not be zero, NaN, infinite, or subnormal
 #calc.log(1, base: 0)
 
 ---
-// Error: 11-13 the result is not a real number
+// Error: 10-24 the result is not a real number
 #calc.log(10, base: -1)
+
+---
+// Test the `fact` function.
+#test(calc.fact(0), 1)
+#test(calc.fact(5), 120)
+
+---
+// Error: 11-15 the result is too large
+#calc.fact(21)
+
+---
+// Test the `perm` function.
+#test(calc.perm(0, 0), 1)
+#test(calc.perm(5, 3), 60)
+#test(calc.perm(5, 5), 120)
+#test(calc.perm(5, 6), 0)
+
+---
+// Error: 11-19 the result is too large
+#calc.perm(21, 21)
+
+---
+// Test the `binom` function.
+#test(calc.binom(0, 0), 1)
+#test(calc.binom(5, 3), 10)
+#test(calc.binom(5, 5), 1)
+#test(calc.binom(5, 6), 0)
+#test(calc.binom(6, 2), 15)
 
 ---
 // Error: 10-12 expected at least one value
@@ -147,5 +179,5 @@
 #range(4, step: "one")
 
 ---
-// Error: 18-19 number must be positive
+// Error: 18-19 number must not be zero
 #range(10, step: 0)
