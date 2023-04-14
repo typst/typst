@@ -64,7 +64,7 @@ impl LayoutMath for CancelElem {
         let diagonal = Abs::pt(diagonal_pt);
 
         let length = self
-            .length(ctx.styles())  // empirically pleasant default
+            .length(ctx.styles()) // empirically pleasant default
             .unwrap_or(Rel::new(Ratio::one(), Abs::pt(3.0).into()))
             .resolve(ctx.styles())
             .relative_to(diagonal.into());
