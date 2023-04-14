@@ -588,8 +588,8 @@ pub fn lcm(
 /// It is always strictly positive.
 fn calculate_lcm(a: NonZeroI64, b: NonZeroI64) -> Option<NonZeroI64> {
     a.get()
-        .checked_mul(b.get())?
-        .checked_div(calculate_gcd(a, b).get())
+        .checked_div(calculate_gcd(a, b).get())?
+        .checked_mul(b.get())
         .map(|v| NonZeroI64::new(v.abs()).unwrap())
 }
 
