@@ -1,6 +1,5 @@
 use super::*;
 
-/// # Cancel
 /// Displays a diagonal line over math content.
 ///
 /// ## Example
@@ -26,7 +25,7 @@ pub struct CancelElem {
     /// The length of the line, relative to the length of the main diagonal spanning the whole
     /// element being "cancelled".
     ///
-    /// Defaults to `{100% + 2pt}`.
+    /// Defaults to `{100% + 3pt}`.
     pub length: Smart<Rel<Length>>,
 
     /// If the cancel line should be inverted (heading northwest instead of northeast).
@@ -55,16 +54,22 @@ impl LayoutMath for CancelElem {
         let (width, height) = (size.x, size.y);
         let (width_pt, height_pt) = (width.to_pt(), height.to_pt());
 
+        //              /|
+        // diagonal_pt / |  height_pt
+        //            /  |
+        //           /   |
+        //           -----
+        //          width_pt
         let diagonal_pt = width_pt.hypot(height_pt);
         let diagonal = Abs::pt(diagonal_pt);
 
         let length = self
-            .length(ctx.styles())
-            .unwrap_or(Rel::new(Ratio::one(), Abs::pt(2.0).into()))
+            .length(ctx.styles())  // empirically pleasant default
+            .unwrap_or(Rel::new(Ratio::one(), Abs::pt(3.0).into()))
             .resolve(ctx.styles())
             .relative_to(diagonal.into());
 
-        // default stroke has 0.5pt
+        // default stroke has 0.5pt for better visuals
         let stroke = self.stroke(ctx.styles()).unwrap_or(Stroke {
             paint: TextElem::fill_in(ctx.styles()),
             thickness: Abs::pt(0.5),
@@ -74,17 +79,17 @@ impl LayoutMath for CancelElem {
         let mid_y = height / 2.0;
 
         let invert = self.invert(ctx.styles());
-
         let angle = self.rotate(ctx.styles());
 
         // scale the amount needed such that the cancel line has the given 'length'
         // (reference length is the whole diagonal)
+        // scales from the center.
         let scale = length.to_pt() / diagonal_pt;
 
         // invert horizontally if 'invert' was given
         let scale_x = scale * invert.then_some(-1.0).unwrap_or(1.0);
         let scale_y = scale;
-        let scale_axes = Axes::new(scale_x, scale_y);
+        let scales = Axes::new(scale_x, scale_y);
 
         // draw a line from bottom left to top right of the given element,
         // where the origin represents the very middle of that element
@@ -92,9 +97,9 @@ impl LayoutMath for CancelElem {
         // (sign is inverted in the y-axis)
         // after applying the scale, the line will have the correct length and orientation
         // (inverted if needed)
-        let start = Axes::new(-mid_x, mid_y).zip(scale_axes).map(|(l, s)| l * s);
+        let start = Axes::new(-mid_x, mid_y).zip(scales).map(|(l, s)| l * s);
 
-        let delta = Axes::new(width, -height).zip(scale_axes).map(|(l, s)| l * s);
+        let delta = Axes::new(width, -height).zip(scales).map(|(l, s)| l * s);
 
         let mut cancel_line_frame = Frame::new(size);
         cancel_line_frame.push(
@@ -105,6 +110,7 @@ impl LayoutMath for CancelElem {
             ),
         );
 
+        // having the middle of the line at the origin is convenient here
         cancel_line_frame.transform(Transform::rotate(angle));
 
         // the origin of our line is the very middle of the element
