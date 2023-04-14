@@ -20,7 +20,7 @@ use super::*;
 /// Category: math
 #[element(LayoutMath)]
 pub struct CancelElem {
-    /// The content which the line should be placed.
+    /// The content over which the line should be placed.
     #[required]
     pub body: Content,
 
