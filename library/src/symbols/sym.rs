@@ -236,6 +236,10 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
         small: '﹥',
         tilde: '≳',
         tilde.not: '≵',
+        tri: '⊳',
+        tri.eq: '⊵',
+        tri.eq.not: '⋭',
+        tri.not: '⋫',
         triple: '⋙',
         triple.nested: '⫸',
     ],
@@ -256,6 +260,10 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
         small: '﹤',
         tilde: '≲',
         tilde.not: '≴',
+        tri: '⊲',
+        tri.eq: '⊴',
+        tri.eq.not: '⋬',
+        tri.not: '⋪',
         triple: '⋘',
         triple.nested: '⫷',
     ],
@@ -403,16 +411,6 @@ pub(crate) const SYM: &[(&'static str, Symbol)] = symbols! {
 
     // Algebra.
     wreath: '≀',
-    tri: [
-        l: '⊲',
-        l.eq: '⊴',
-        l.not: '⋪',
-        l.eq.not: '⋬',
-        r: '⊳',
-        r.eq: '⊵',
-        r.not: '⋫',
-        r.eq.not: '⋭',
-    ],
 
     // Geometry.
     parallel: ['∥', circle: '⦷', not: '∦'],
