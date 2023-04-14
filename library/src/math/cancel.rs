@@ -73,6 +73,7 @@ impl LayoutMath for CancelElem {
         let stroke = self.stroke(ctx.styles()).unwrap_or(Stroke {
             paint: TextElem::fill_in(ctx.styles()),
             thickness: Abs::pt(0.5),
+            ..Default::default()
         });
 
         let mid_x = width / 2.0;
