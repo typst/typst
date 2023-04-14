@@ -178,6 +178,8 @@ pub enum SyntaxKind {
     Code,
     /// An identifier: `it`.
     Ident,
+    /// A placeholder: `_`.
+    Placeholder,
     /// A boolean: `true`, `false`.
     Bool,
     /// An integer: `120`.
@@ -397,6 +399,7 @@ impl SyntaxKind {
             Self::As => "keyword `as`",
             Self::Code => "code",
             Self::Ident => "identifier",
+            Self::Placeholder => "placeholder",
             Self::Bool => "boolean",
             Self::Int => "integer",
             Self::Float => "float",

@@ -787,16 +787,21 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
         return SyntaxKind::Spread;
     }
 
-    code_expr(p);
+    if !p.eat_if(SyntaxKind::Placeholder) {
+        code_expr(p);
+    }
 
     if !p.eat_if(SyntaxKind::Colon) {
         return SyntaxKind::Int;
     }
 
-    code_expr(p);
+    if !p.eat_if(SyntaxKind::Placeholder) {
+        code_expr(p);
+    }
 
     let kind = match p.node(m).map(SyntaxNode::kind) {
         Some(SyntaxKind::Ident) => SyntaxKind::Named,
+        Some(SyntaxKind::Placeholder) => SyntaxKind::Placeholder,
         Some(SyntaxKind::Str) if keyed => SyntaxKind::Keyed,
         _ => {
             for child in p.post_process(m) {
@@ -843,7 +848,7 @@ enum PatternKind {
     Destructuring,
 }
 
-fn pattern(p: &mut Parser) -> PatternKind {
+fn pattern(p: &mut Parser, allow_placeholder: bool) -> PatternKind {
     let m = p.marker();
 
     if p.at(SyntaxKind::LeftParen) {
@@ -857,8 +862,19 @@ fn pattern(p: &mut Parser) -> PatternKind {
             PatternKind::Destructuring
         }
     } else {
-        p.expect(SyntaxKind::Ident);
-        PatternKind::Ident
+        let success;
+        if allow_placeholder {
+            success = p.eat_if(SyntaxKind::Ident) || p.eat_if(SyntaxKind::Placeholder);
+            if !success {
+                p.expected(&format!("identifier or placeholder"));
+            }
+        } else {
+            success = p.expect(SyntaxKind::Ident);
+        }
+        if success {
+            p.wrap(m, SyntaxKind::Pattern);
+        }
+        PatternKind::Normal
     }
 }
 
@@ -869,7 +885,8 @@ fn let_binding(p: &mut Parser) {
     let m2 = p.marker();
     let mut closure = false;
     let mut destructuring = false;
-    match pattern(p) {
+    // TODO: this should also be true (ie allow let _ = 3)
+    match pattern(p, false) {
         PatternKind::Ident => {
             closure = p.directly_at(SyntaxKind::LeftParen);
             if closure {
@@ -958,10 +975,12 @@ fn while_loop(p: &mut Parser) {
 fn for_loop(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::For);
-    pattern(p);
+    pattern(p, true);
     if p.at(SyntaxKind::Comma) {
         p.expected("keyword `in`. did you mean to use a destructuring pattern?");
-        p.eat_if(SyntaxKind::Ident);
+        if !p.eat_if(SyntaxKind::Ident) {
+            p.eat_if(SyntaxKind::Placeholder);
+        }
         p.eat_if(SyntaxKind::In);
     } else {
         p.expect(SyntaxKind::In);
@@ -1135,7 +1154,7 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
     for child in p.post_process(m) {
         match child.kind() {
             SyntaxKind::Ident => {
-                if child.text() != "_" && !used.insert(child.text().clone()) {
+                if !used.insert(child.text().clone()) {
                     child.convert_to_error(
                         "at most one binding per identifier is allowed",
                     );
@@ -1160,7 +1179,7 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
                     continue;
                 }
 
-                if within.text() != "_" && !used.insert(within.text().clone()) {
+                if !used.insert(within.text().clone()) {
                     within.convert_to_error(
                         "at most one binding per identifier is allowed",
                     );
@@ -1177,7 +1196,7 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
                 }
 
                 let Some(within) = child.children_mut().last_mut() else { return };
-                if within.kind() != SyntaxKind::Ident {
+                if within.kind() != SyntaxKind::Ident && within.kind() != SyntaxKind::Placeholder {
                     within.convert_to_error(eco_format!(
                         "expected identifier, found {}",
                         within.kind().name(),
@@ -1185,7 +1204,7 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
                     child.make_erroneous();
                 }
             }
-            SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
+            SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma | SyntaxKind::Placeholder => {}
             kind => {
                 child.convert_to_error(eco_format!(
                     "expected identifier or destructuring sink, found {}",

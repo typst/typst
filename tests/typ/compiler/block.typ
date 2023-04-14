@@ -126,7 +126,7 @@
 
 // Should output `3`.
 #{
-  // Error: 6 expected identifier
+  // Error: 6 expected identifier or placeholder
   // Error: 10 expected block
   for "v"
 

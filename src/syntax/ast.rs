@@ -1603,6 +1603,8 @@ pub enum DestructuringKind {
     Sink(Option<Ident>),
     /// Named arguments: `x: 1`.
     Named(Ident, Ident),
+    /// A placeholder: `_`.
+    Placeholder,
 }
 
 impl Destructuring {

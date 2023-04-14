@@ -527,7 +527,11 @@ impl Lexer<'_> {
             }
         }
 
-        SyntaxKind::Ident
+        if ident == "_" {
+            SyntaxKind::Placeholder
+        } else {
+            SyntaxKind::Ident
+        }
     }
 
     fn number(&mut self, mut start: usize, c: char) -> SyntaxKind {

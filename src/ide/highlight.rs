@@ -213,6 +213,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
 
         SyntaxKind::Code => None,
         SyntaxKind::Ident => highlight_ident(node),
+        SyntaxKind::Placeholder => highlight_ident(node),
         SyntaxKind::Bool => Some(Tag::Keyword),
         SyntaxKind::Int => Some(Tag::Number),
         SyntaxKind::Float => Some(Tag::Number),
