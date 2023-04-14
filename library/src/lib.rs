@@ -131,6 +131,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("read", compute::read);
     global.define("csv", compute::csv);
     global.define("json", compute::json);
+    global.define("toml", compute::toml);
     global.define("yaml", compute::yaml);
     global.define("xml", compute::xml);
 
