@@ -8,6 +8,11 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::EcoString;
+use image::codecs::gif::GifDecoder;
+use image::codecs::jpeg::JpegDecoder;
+use image::codecs::png::PngDecoder;
+use image::io::Limits;
+use image::ImageDecoder;
 
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::util::Buffer;
@@ -171,8 +176,8 @@ impl From<ttf_parser::RasterImageFormat> for ImageFormat {
 
 /// A decoded image.
 pub enum DecodedImage {
-    /// A decoded pixel raster.
-    Raster(image::DynamicImage, RasterFormat),
+    /// A decoded pixel raster with its ICC profile.
+    Raster(image::DynamicImage, Option<Vec<u8>>, RasterFormat),
     /// An decoded SVG tree.
     Svg(usvg::Tree),
 }

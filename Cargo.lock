@@ -1415,8 +1415,7 @@ checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
 [[package]]
 name = "pdf-writer"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "249f9b33a3192626f2cd9f4b0cd66c1ec32d65968d58cf4d8239977feddddead"
+source = "git+https://github.com/typst/pdf-writer?branch=main#09a49969ccc5ab3b8fe456f70164f4efcbc98415"
 dependencies = [
  "bitflags 1.3.2",
  "itoa",
@@ -1985,8 +1984,6 @@ checksum = "09eab8a83bff89ba2200bd4c59be45c7c787f988431b936099a5a266c957f2f9"
 [[package]]
 name = "svg2pdf"
 version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd5736713f3850a24060c3cdd7ac9efdc0c5138779386c6c8975b46d54d2d3d5"
 dependencies = [
  "image",
  "miniz_oxide 0.5.4",

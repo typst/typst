@@ -139,7 +139,7 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
-                .destination_direct()
+                .destination()
                 .page(ctx.page_refs[index])
                 .xyz(pos.point.x.to_f32(), height - y.to_f32(), None);
         }
