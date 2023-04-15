@@ -348,7 +348,13 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 /// Create the element's `Pack` implementation.
 fn create_pack_impl(element: &Elem) -> TokenStream {
     let Elem {
-        ident, name, display, category, docs, scope_builder, ..
+        ident,
+        name,
+        display,
+        category,
+        docs,
+        scope_builder,
+        ..
     } = element;
     let vtable_func = create_vtable_func(element);
     let infos = element
@@ -358,7 +364,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
         .map(create_param_info);
     let scope = match scope_builder {
         Some(scope_builder) => quote! { ::std::option::Option::Some(#scope_builder()) },
-        None => quote! { None }
+        None => quote! { None },
     };
     quote! {
         impl ::typst::model::Element for #ident {

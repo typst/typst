@@ -1066,7 +1066,8 @@ impl Eval for ast::FuncCall {
             if methods::is_mutating(&field) {
                 let args = args.eval(vm)?;
                 let target = target.access(vm)?;
-                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_)) {
+                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
+                {
                     return methods::call_mut(target, &field, args, span).trace(
                         vm.world(),
                         point,
@@ -1077,7 +1078,8 @@ impl Eval for ast::FuncCall {
             } else {
                 let target = target.eval(vm)?;
                 let args = args.eval(vm)?;
-                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_)) {
+                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
+                {
                     return methods::call(vm, target, &field, args, span).trace(
                         vm.world(),
                         point,

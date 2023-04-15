@@ -119,7 +119,7 @@ fn create(func: &Func) -> TokenStream {
     let params = params.iter().map(create_param_info);
     let scope = match scope_builder {
         Some(scope_builder) => quote! { ::std::option::Option::Some(#scope_builder()) },
-        None => quote! { None }
+        None => quote! { None },
     };
     quote! {
         #[doc = #docs]

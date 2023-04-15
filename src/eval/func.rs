@@ -156,19 +156,30 @@ impl Func {
         }
 
         match &this_func.repr {
-            Repr::Native(func) => func.info
-                .scope
-                .as_ref()
-                .map(|s| s.get(field)).flatten()
-                .ok_or_else(|| {
-                    eco_format!("function `{}` does not contain field `{}`", func.info.name, field)
-                }),
-            Repr::Elem(func) => func.info().scope.as_ref().map(|s| s.get(field)).flatten()
-                .ok_or_else(|| {
-                    eco_format!("function `{}` does not contain field `{}`", func.name(), field)
-                }),
+            Repr::Native(func) => {
+                func.info.scope.as_ref().map(|s| s.get(field)).flatten().ok_or_else(
+                    || {
+                        eco_format!(
+                            "function `{}` does not contain field `{}`",
+                            func.info.name,
+                            field
+                        )
+                    },
+                )
+            }
+            Repr::Elem(func) => {
+                func.info().scope.as_ref().map(|s| s.get(field)).flatten().ok_or_else(
+                    || {
+                        eco_format!(
+                            "function `{}` does not contain field `{}`",
+                            func.name(),
+                            field
+                        )
+                    },
+                )
+            }
             Repr::Closure(_) => Err(eco_format!("cannot access fields on closures")),
-            _ => Err(eco_format!("cannot access fields on this function"))
+            _ => Err(eco_format!("cannot access fields on this function")),
         }
     }
 }
