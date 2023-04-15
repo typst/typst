@@ -222,13 +222,25 @@ fn items() -> LangItems {
         equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointElem::new().pack(),
         math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),
-        math_attach: |base, bottom, top| {
+        math_attach: |base, top, bottom, topleft, bottomleft, topright, bottomright| {
             let mut elem = math::AttachElem::new(base);
+            if let Some(top) = top {
+                elem.push_top(Some(top));
+            }
             if let Some(bottom) = bottom {
                 elem.push_bottom(Some(bottom));
             }
-            if let Some(top) = top {
-                elem.push_top(Some(top));
+            if let Some(topleft) = topleft {
+                elem.push_topleft(Some(topleft));
+            }
+            if let Some(bottomleft) = bottomleft {
+                elem.push_bottomleft(Some(bottomleft));
+            }
+            if let Some(topright) = topright {
+                elem.push_topright(Some(topright));
+            }
+            if let Some(bottomright) = bottomright {
+                elem.push_bottomright(Some(bottomright));
             }
             elem.pack()
         },
