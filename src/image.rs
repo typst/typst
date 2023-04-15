@@ -27,14 +27,20 @@ struct Repr {
     format: ImageFormat,
     /// The decoded image.
     decoded: DecodedImage,
+    /// A text describing the image.
+    alt: Option<EcoString>,
 }
 
 impl Image {
     /// Create an image from a buffer and a format.
-    pub fn new(data: Buffer, format: ImageFormat) -> StrResult<Self> {
+    pub fn new(
+        data: Buffer,
+        format: ImageFormat,
+        alt: Option<EcoString>,
+    ) -> StrResult<Self> {
         match format {
-            ImageFormat::Raster(format) => decode_raster(data, format),
-            ImageFormat::Vector(VectorFormat::Svg) => decode_svg(data),
+            ImageFormat::Raster(format) => decode_raster(data, format, alt),
+            ImageFormat::Vector(VectorFormat::Svg) => decode_svg(data, alt),
         }
     }
 
@@ -44,11 +50,12 @@ impl Image {
         format: ImageFormat,
         world: Tracked<dyn World>,
         fallback_family: Option<&str>,
+        alt: Option<EcoString>,
     ) -> StrResult<Self> {
         match format {
-            ImageFormat::Raster(format) => decode_raster(data, format),
+            ImageFormat::Raster(format) => decode_raster(data, format, alt),
             ImageFormat::Vector(VectorFormat::Svg) => {
-                decode_svg_with_fonts(data, world, fallback_family)
+                decode_svg_with_fonts(data, world, fallback_family, alt)
             }
         }
     }
@@ -76,6 +83,11 @@ impl Image {
     /// The height of the image in pixels.
     pub fn height(&self) -> u32 {
         self.decoded().height()
+    }
+
+    /// A text describing the image.
+    pub fn alt(&self) -> Option<&str> {
+        self.0.alt.as_deref()
     }
 }
 
@@ -183,7 +195,11 @@ impl DecodedImage {
 
 /// Decode a raster image.
 #[comemo::memoize]
-fn decode_raster(data: Buffer, format: RasterFormat) -> StrResult<Image> {
+fn decode_raster(
+    data: Buffer,
+    format: RasterFormat,
+    alt: Option<EcoString>,
+) -> StrResult<Image> {
     let cursor = io::Cursor::new(&data);
     let reader = image::io::Reader::with_format(cursor, format.into());
     let dynamic = reader.decode().map_err(format_image_error)?;
@@ -191,18 +207,20 @@ fn decode_raster(data: Buffer, format: RasterFormat) -> StrResult<Image> {
         data,
         format: ImageFormat::Raster(format),
         decoded: DecodedImage::Raster(dynamic, format),
+        alt,
     })))
 }
 
 /// Decode an SVG image.
 #[comemo::memoize]
-fn decode_svg(data: Buffer) -> StrResult<Image> {
+fn decode_svg(data: Buffer, alt: Option<EcoString>) -> StrResult<Image> {
     let opts = usvg::Options::default();
     let tree = usvg::Tree::from_data(&data, &opts.to_ref()).map_err(format_usvg_error)?;
     Ok(Image(Arc::new(Repr {
         data,
         format: ImageFormat::Vector(VectorFormat::Svg),
         decoded: DecodedImage::Svg(tree),
+        alt,
     })))
 }
 
@@ -212,6 +230,7 @@ fn decode_svg_with_fonts(
     data: Buffer,
     world: Tracked<dyn World>,
     fallback_family: Option<&str>,
+    alt: Option<EcoString>,
 ) -> StrResult<Image> {
     // Parse XML.
     let xml = std::str::from_utf8(&data)
@@ -243,6 +262,7 @@ fn decode_svg_with_fonts(
         data,
         format: ImageFormat::Vector(VectorFormat::Svg),
         decoded: DecodedImage::Svg(tree),
+        alt,
     })))
 }
 

@@ -32,7 +32,7 @@ pub struct ImageElem {
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
         let path: EcoString = vm.locate(&path).at(span)?.to_string_lossy().into();
-        let _ = load(vm.world(), &path, None).at(span)?;
+        let _ = load(vm.world(), &path, None, None).at(span)?;
         path
     )]
     pub path: EcoString,
@@ -42,6 +42,9 @@ pub struct ImageElem {
 
     /// The height of the image.
     pub height: Smart<Rel<Length>>,
+
+    /// A text describing the image.
+    pub alt: Option<EcoString>,
 
     /// How the image should adjust itself to a given area.
     #[default(ImageFit::Cover)]
@@ -57,7 +60,8 @@ impl Layout for ImageElem {
     ) -> SourceResult<Fragment> {
         let first = families(styles).next();
         let fallback_family = first.as_ref().map(|f| f.as_str());
-        let image = load(vt.world, &self.path(), fallback_family).unwrap();
+        let image =
+            load(vt.world, &self.path(), fallback_family, self.alt(styles)).unwrap();
         let sizing = Axes::new(self.width(styles), self.height(styles));
         let region = sizing
             .zip(regions.base())
@@ -163,6 +167,7 @@ fn load(
     world: Tracked<dyn World>,
     full: &str,
     fallback_family: Option<&str>,
+    alt: Option<EcoString>,
 ) -> StrResult<Image> {
     let full = Path::new(full);
     let buffer = world.file(full)?;
@@ -174,5 +179,5 @@ fn load(
         "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
         _ => return Err("unknown image format".into()),
     };
-    Image::with_fonts(buffer, format, world, fallback_family)
+    Image::with_fonts(buffer, format, world, fallback_family, alt)
 }
