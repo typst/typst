@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
@@ -50,13 +50,13 @@ cast_from_value! {
 /// Provides stable identities to elements.
 #[derive(Clone, Default)]
 pub struct StabilityProvider {
-    checkpoints: Vec<BTreeMap<u128, usize>>,
+    checkpoints: Vec<HashMap<u128, usize>>,
 }
 
 impl StabilityProvider {
     /// Create a new stability provider.
     pub fn new() -> Self {
-        Self { checkpoints: vec![BTreeMap::new()] }
+        Self { checkpoints: vec![HashMap::new()] }
     }
 }
 
@@ -75,7 +75,7 @@ impl StabilityProvider {
 
     /// Create a checkpoint of the state that can be restored.
     pub fn save(&mut self) {
-        self.checkpoints.push(BTreeMap::new());
+        self.checkpoints.push(HashMap::new());
     }
 
     /// Restore the last checkpoint.
