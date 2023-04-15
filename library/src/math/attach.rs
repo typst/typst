@@ -20,45 +20,67 @@ pub struct AttachElem {
     #[required]
     pub base: Content,
 
-    /// The top attachment after the base.
+    /// The top attachment, smartly placed at top-right or above the base.
+    /// This argument is ignored if either topleft or topright is set.
     pub top: Option<Content>,
 
-    /// The bottom attachment after the base.
+    /// The bottom attachment, smartly placed at the bottom-right or below the base.
+    /// This argument is ignored if either bottomleft or bottomright is set.
     pub bottom: Option<Content>,
 
-    /// The bottom attachment before the base.
-    pub prebottom: Option<Content>,
+    /// The top-left attachment before the base.
+    pub topleft: Option<Content>,
 
-    /// The top attachment before base.
-    pub pretop: Option<Content>,
+    /// The bottom-left attachment before base.
+    pub bottomleft: Option<Content>,
+
+    /// The top-right attachment after the base.
+    pub topright: Option<Content>,
+
+    /// The bottom-right attachment after the base.
+    pub bottomright: Option<Content>,
 }
+
+type GetAttachmentContent =
+    fn(&AttachElem, styles: ::typst::model::StyleChain) -> Option<Content>;
 
 impl LayoutMath for AttachElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let base = self.base();
         let display_limits = base.is::<LimitsElem>()
-            && self.prebottom(ctx.styles()).is_none()
-            && self.pretop(ctx.styles()).is_none();
+            && self.topright(ctx.styles()).is_none()
+            && self.bottomright(ctx.styles()).is_none()
+            && self.topleft(ctx.styles()).is_none()
+            && self.bottomleft(ctx.styles()).is_none();
         let display_scripts = base.is::<ScriptsElem>();
 
         let base = ctx.layout_fragment(&base)?;
 
-        macro_rules! take_attachment {
-            ($F: ident) => {
-                self.$F(ctx.styles())
-                    .map(|elem| ctx.layout_fragment(&elem))
-                    .transpose()?
-            };
-        }
+        let get_fragment = |ctx: &mut MathContext, getter: GetAttachmentContent| {
+            getter(self, ctx.styles())
+                .map(|elem| ctx.layout_fragment(&elem))
+                .transpose()
+                .unwrap()
+        };
 
         ctx.style(ctx.style.for_superscript());
-        let top = take_attachment!(top);
-        let pretop = take_attachment!(pretop);
+        let topleft = get_fragment(ctx, Self::topleft);
+        let topright = get_fragment(ctx, Self::topright);
+        let top = if topleft.is_none() && topright.is_none() {
+            get_fragment(ctx, Self::top)
+        } else {
+            Option::<MathFragment>::None
+        };
         ctx.unstyle();
 
         ctx.style(ctx.style.for_subscript());
-        let bottom = take_attachment!(bottom);
-        let prebottom = take_attachment!(prebottom);
+        let bottomleft = get_fragment(ctx, Self::bottomleft);
+        let bottomright = get_fragment(ctx, Self::bottomright);
+        let bottom = if bottomleft.is_none() || bottomright.is_none() {
+            get_fragment(ctx, Self::bottom)
+        } else {
+            Option::<MathFragment>::None
+        };
         ctx.unstyle();
 
         let display_limits = display_limits
@@ -74,7 +96,14 @@ impl LayoutMath for AttachElem {
         if display_limits {
             limits(ctx, base, top, bottom)
         } else {
-            scripts(ctx, base, top, bottom, pretop, prebottom)
+            scripts(
+                ctx,
+                base,
+                if top.is_some() { top } else { topright },
+                if bottom.is_some() { bottom } else { bottomright },
+                topleft,
+                bottomleft,
+            )
         }
     }
 }
@@ -127,10 +156,10 @@ impl LayoutMath for LimitsElem {
 fn scripts(
     ctx: &mut MathContext,
     base: MathFragment,
-    sup: Option<MathFragment>,
-    sub: Option<MathFragment>,
-    pre_sup: Option<MathFragment>,
-    pre_sub: Option<MathFragment>,
+    topright: Option<MathFragment>,
+    bottomright: Option<MathFragment>,
+    topleft: Option<MathFragment>,
+    bottomleft: Option<MathFragment>,
 ) -> SourceResult<()> {
     let sup_shift_up = if ctx.style.cramped {
         scaled!(ctx, superscript_shift_up_cramped)
@@ -149,7 +178,7 @@ fn scripts(
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
 
-    for e in [&sup, &pre_sup] {
+    for e in [&topleft, &topright] {
         if let Some(e) = e {
             let ascent = match &base {
                 MathFragment::Frame(frame) => frame.base_ascent,
@@ -162,7 +191,7 @@ fn scripts(
                 .max(sup_bottom_min + e.descent());
         }
     }
-    for e in [&sub, &pre_sub] {
+    for e in [&bottomleft, &bottomright] {
         if let Some(e) = e {
             shift_down = shift_down
                 .max(sub_shift_down)
@@ -171,7 +200,7 @@ fn scripts(
         }
     }
 
-    for (sup, sub) in [(&pre_sup, &pre_sub), (&sup, &sub)] {
+    for (sup, sub) in [(&topleft, &bottomleft), (&topright, &bottomright)] {
         if let (Some(sup), Some(sub)) = (&sup, &sub) {
             let sup_bottom = shift_up - sup.descent();
             let sub_top = sub.ascent() - shift_down;
@@ -201,40 +230,40 @@ fn scripts(
 
     let ascent = base
         .ascent()
-        .max(shift_up + measure!(sup, ascent))
-        .max(shift_up + measure!(pre_sup, ascent));
+        .max(shift_up + measure!(topright, ascent))
+        .max(shift_up + measure!(topleft, ascent));
 
     let descent = base
         .descent()
-        .max(shift_down + measure!(sub, descent))
-        .max(shift_down + measure!(pre_sub, descent));
+        .max(shift_down + measure!(bottomright, descent))
+        .max(shift_down + measure!(bottomleft, descent));
 
-    let pre_sup_width = measure!(pre_sup, width);
-    let pre_sub_width = measure!(pre_sub, width);
+    let pre_sup_width = measure!(topleft, width);
+    let pre_sub_width = measure!(bottomleft, width);
     let pre_width_dif = pre_sup_width - pre_sub_width; // Could be negative.
     let pre_width_max = pre_sup_width.max(pre_sub_width);
-    let post_max_width =
-        (sup_delta + measure!(sup, width)).max(sub_delta + measure!(sub, width));
+    let post_max_width = (sup_delta + measure!(topright, width))
+        .max(sub_delta + measure!(bottomright, width));
 
     let mut frame = Frame::new(Size::new(
         pre_width_max + base.width() + post_max_width + space_after,
         ascent + descent,
     ));
 
-    if let Some(pre_sup) = pre_sup {
+    if let Some(topleft) = topleft {
         let pos = Point::new(
             -pre_width_dif.min(Abs::zero()),
-            ascent - shift_up - pre_sup.ascent(),
+            ascent - shift_up - topleft.ascent(),
         );
-        frame.push_frame(pos, pre_sup.to_frame());
+        frame.push_frame(pos, topleft.to_frame());
     }
 
-    if let Some(pre_sub) = pre_sub {
+    if let Some(bottomleft) = bottomleft {
         let pos = Point::new(
             pre_width_dif.max(Abs::zero()),
-            ascent + shift_down - pre_sub.ascent(),
+            ascent + shift_down - bottomleft.ascent(),
         );
-        frame.push_frame(pos, pre_sub.to_frame());
+        frame.push_frame(pos, bottomleft.to_frame());
     }
 
     let base_pos = Point::new(sup_delta + pre_width_max, ascent - base.ascent());
@@ -244,20 +273,20 @@ fn scripts(
     frame.set_baseline(ascent);
     frame.push_frame(base_pos, base.to_frame());
 
-    if let Some(sup) = sup {
+    if let Some(topright) = topright {
         let pos = Point::new(
             sup_delta + pre_width_max + base_width,
-            ascent - shift_up - sup.ascent(),
+            ascent - shift_up - topright.ascent(),
         );
-        frame.push_frame(pos, sup.to_frame());
+        frame.push_frame(pos, topright.to_frame());
     }
 
-    if let Some(sub) = sub {
+    if let Some(bottomright) = bottomright {
         let pos = Point::new(
             sub_delta + pre_width_max + base_width,
-            ascent + shift_down - sub.ascent(),
+            ascent + shift_down - bottomright.ascent(),
         );
-        frame.push_frame(pos, sub.to_frame());
+        frame.push_frame(pos, bottomright.to_frame());
     }
 
     ctx.push(FrameFragment::new(ctx, frame).with_class(class));

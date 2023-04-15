@@ -87,10 +87,14 @@ pub struct LangItems {
     /// A base with optional attachments in math: `a_1^2`.
     pub math_attach: fn(
         base: Content,
-        bottom: Option<Content>,
+        // Positioned smartly.
         top: Option<Content>,
-        prebottom: Option<Content>,
-        pretop: Option<Content>,
+        bottom: Option<Content>,
+        // Fixed positions.
+        topleft: Option<Content>,
+        bottomleft: Option<Content>,
+        topright: Option<Content>,
+        bottomright: Option<Content>,
     ) -> Content,
     /// A base with an accent: `arrow(x)`.
     pub math_accent: fn(base: Content, accent: char) -> Content,
