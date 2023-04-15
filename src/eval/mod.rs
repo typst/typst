@@ -1066,7 +1066,10 @@ impl Eval for ast::FuncCall {
             if methods::is_mutating(&field) {
                 let args = args.eval(vm)?;
                 let target = target.access(vm)?;
+
+                // prioritize the type's own methods over its fields
                 if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
+                    || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
                 {
                     return methods::call_mut(target, &field, args, span).trace(
                         vm.world(),
@@ -1078,7 +1081,10 @@ impl Eval for ast::FuncCall {
             } else {
                 let target = target.eval(vm)?;
                 let args = args.eval(vm)?;
+
+                // prioritize the type's own methods over its fields
                 if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
+                    || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
                 {
                     return methods::call(vm, target, &field, args, span).trace(
                         vm.world(),
