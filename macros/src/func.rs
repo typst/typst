@@ -18,6 +18,7 @@ struct Func {
     params: Vec<Param>,
     returns: Vec<String>,
     body: syn::Block,
+    scope_builder: Option<syn::Path>,
 }
 
 struct Param {
@@ -72,7 +73,8 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         validate_attrs(&attrs)?;
     }
 
-    let docs = documentation(&item.attrs);
+    let mut attrs = item.attrs.clone();
+    let docs = documentation(&attrs);
     let mut lines = docs.split('\n').collect();
     let returns = meta_line(&mut lines, "Returns")?
         .split(" or ")
@@ -92,9 +94,10 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         params,
         returns,
         body: (*item.block).clone(),
+        scope_builder: parse_attr::<syn::Path>(&mut attrs, "scope_builder")?.flatten(),
     };
 
-    validate_attrs(&item.attrs)?;
+    validate_attrs(&attrs)?;
     Ok(func)
 }
 
@@ -109,10 +112,15 @@ fn create(func: &Func) -> TokenStream {
         params,
         returns,
         body,
+        scope_builder,
         ..
     } = func;
     let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
     let params = params.iter().map(create_param_info);
+    let scope = match scope_builder {
+        Some(scope_builder) => quote! { ::std::option::Option::Some(#scope_builder()) },
+        None => quote! { None }
+    };
     quote! {
         #[doc = #docs]
         #vis fn #ident() -> &'static ::typst::eval::NativeFunc {
@@ -129,6 +137,7 @@ fn create(func: &Func) -> TokenStream {
                     params: ::std::vec![#(#params),*],
                     returns: ::std::vec![#(#returns),*],
                     category: #category,
+                    scope: #scope,
                 }),
             };
             &FUNC
