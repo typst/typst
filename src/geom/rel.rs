@@ -255,8 +255,8 @@ cast_to_value! {
     v: Rel<Abs> => v.map(Length::from).into()
 }
 
-/// The missing key access error message.
+/// The missing field access error message.
 #[track_caller]
-fn missing_field(key: &str) -> EcoString {
-    eco_format!("relative length does not contain field {:?}", Str::from(key))
+fn missing_field(field: &str) -> EcoString {
+    eco_format!("relative length does not contain field {:?}", Str::from(field))
 }
