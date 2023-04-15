@@ -85,7 +85,7 @@ pub struct ParElem {
 
     /// The indent the first line of a paragraph should have.
     ///
-    /// Only the first line of a consecutive paragraph will be intended (not
+    /// Only the first line of a consecutive paragraph will be indented (not
     /// the first one in a block or on the page).
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
