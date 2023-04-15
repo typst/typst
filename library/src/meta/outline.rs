@@ -143,7 +143,6 @@ impl Show for OutlineElem {
             seq.push(
                 HeadingElem::new(title)
                     .with_level(NonZeroUsize::ONE)
-                    .with_numbering(None)
                     .with_outlined(false)
                     .pack(),
             );

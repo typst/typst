@@ -151,12 +151,7 @@ impl Show for BibliographyElem {
                     .spanned(self.span())
             });
 
-            seq.push(
-                HeadingElem::new(title)
-                    .with_level(NonZeroUsize::ONE)
-                    .with_numbering(None)
-                    .pack(),
-            );
+            seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
 
         if !vt.introspector.init() {
