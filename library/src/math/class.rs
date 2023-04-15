@@ -17,7 +17,7 @@ pub fn operator(
     /// The content to style.
     body: Content,
 ) -> Value {
-    MathClassElem::new(body).with_class(0).pack().into()
+    MathClassElem::new(MathClass::Large, body).pack().into()
 }
 
 /// Math opening class.
@@ -37,7 +37,7 @@ pub fn opening(
     /// The content to style.
     body: Content,
 ) -> Value {
-    MathClassElem::new(body).with_class(1).pack().into()
+    MathClassElem::new(MathClass::Opening, body).pack().into()
 }
 
 /// Math closing class.
@@ -51,7 +51,7 @@ pub fn closing(
     /// The content to style.
     body: Content,
 ) -> Value {
-    MathClassElem::new(body).with_class(2).pack().into()
+    MathClassElem::new(MathClass::Closing, body).pack().into()
 }
 
 /// Math binary operator class.
@@ -70,7 +70,7 @@ pub fn binary(
     /// The content to style.
     body: Content,
 ) -> Value {
-    MathClassElem::new(body).with_class(3).pack().into()
+    MathClassElem::new(MathClass::Binary, body).pack().into()
 }
 
 /// Math relation class.
@@ -89,7 +89,7 @@ pub fn relation(
     /// The content to style.
     body: Content,
 ) -> Value {
-    MathClassElem::new(body).with_class(4).pack().into()
+    MathClassElem::new(MathClass::Relation, body).pack().into()
 }
 
 /// Math ordinary class.
@@ -108,7 +108,7 @@ pub fn ordinary(
     /// The content to style.
     body: Content,
 ) -> Value {
-    MathClassElem::new(body).with_class(5).pack().into()
+    MathClassElem::new(MathClass::Normal, body).pack().into()
 }
 
 /// Math punctuation class.
@@ -127,7 +127,7 @@ pub fn punctuation(
     /// The content to style.
     body: Content,
 ) -> Value {
-    MathClassElem::new(body).with_class(6).pack().into()
+    MathClassElem::new(MathClass::Punctuation, body).pack().into()
 }
 
 /// Math content with specified math class.
@@ -136,28 +136,19 @@ pub fn punctuation(
 /// Category: Math
 #[element(LayoutMath)]
 pub struct MathClassElem {
+    /// specified math class of the content.
+    #[required]
+    pub class: MathClass,
+
     /// The math content.
     #[required]
     pub body: Content,
-
-    /// specified math class of the content.
-    pub class: i64,
 }
 
 impl LayoutMath for MathClassElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        use MathClass::*;
         let mut fragment = ctx.layout_fragment(&self.body())?;
-        fragment.set_class(match self.class(StyleChain::default()) {
-            0 => Large,
-            1 => Opening,
-            2 => Closing,
-            3 => Binary,
-            4 => Relation,
-            5 => Normal,
-            6 => Punctuation,
-            _ => Normal,
-        });
+        fragment.set_class(self.class());
         ctx.push(fragment);
         Ok(())
     }

@@ -4,6 +4,7 @@ use std::num::{NonZeroI64, NonZeroUsize};
 use std::ops::Add;
 
 use ecow::EcoString;
+use unicode_math_class::MathClass;
 
 use super::{Array, Str, Value};
 use crate::diag::StrResult;
@@ -179,6 +180,30 @@ cast_from_value! {
 
 cast_to_value! {
     v: String => Value::Str(v.into())
+}
+
+cast_from_value! {
+    MathClass,
+    "operator" => MathClass::Large,
+    "opening" => MathClass::Opening,
+    "closing" => MathClass::Closing,
+    "binary" => MathClass::Binary,
+    "relation" => MathClass::Relation,
+    "normal" => MathClass::Normal,
+    "punctuation" => MathClass::Punctuation,
+}
+
+cast_to_value! {
+    v: MathClass => Value::from(match v {
+        MathClass::Large => "operator",
+        MathClass::Opening => "opening",
+        MathClass::Closing => "closing",
+        MathClass::Binary => "binary",
+        MathClass::Relation => "relation",
+        MathClass::Normal => "normal",
+        MathClass::Punctuation => "punctuation",
+        _ => "unused math class",
+    })
 }
 
 impl<T: Cast> Cast for Option<T> {

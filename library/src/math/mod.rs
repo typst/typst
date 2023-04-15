@@ -101,6 +101,7 @@ pub fn module() -> Module {
     op::define(&mut math);
 
     // CLasses.
+    math.define("class", MathClassElem::func());
     math.define("operator", operator);
     math.define("opening", opening);
     math.define("closing", closing);
