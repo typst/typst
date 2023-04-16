@@ -1041,7 +1041,7 @@ fn return_stmt(p: &mut Parser) {
 fn validate_array(p: &mut Parser, m: Marker) {
     for child in p.post_process(m) {
         let kind = child.kind();
-        if kind == SyntaxKind::Named || kind == SyntaxKind::Keyed {
+        if kind == SyntaxKind::Named || kind == SyntaxKind::Keyed || kind == SyntaxKind::Underscore {
             child.convert_to_error(eco_format!(
                 "expected expression, found {}",
                 kind.name()
@@ -1140,6 +1140,8 @@ fn validate_args(p: &mut Parser, m: Marker) {
                 within.convert_to_error("duplicate argument");
                 child.make_erroneous();
             }
+        } else if child.kind() == SyntaxKind::Underscore {
+            child.convert_to_error("unexpected underscore");
         }
     }
 }
