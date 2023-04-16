@@ -76,7 +76,7 @@ impl LayoutMath for AttachElem {
         ctx.style(ctx.style.for_subscript());
         let bottomleft = get_fragment(ctx, Self::bottomleft);
         let bottomright = get_fragment(ctx, Self::bottomright);
-        let bottom = if bottomleft.is_none() || bottomright.is_none() {
+        let bottom = if bottomleft.is_none() && bottomright.is_none() {
             get_fragment(ctx, Self::bottom)
         } else {
             Option::<MathFragment>::None

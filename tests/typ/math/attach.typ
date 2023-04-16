@@ -5,13 +5,18 @@
 $f_x + t^b + V_1^2 + attach(A, top: alpha, bottom: beta)$
 
 ---
-// Test basics, prescripts. Notably, the upper and lower prescripts need to be aligned
-// rightward, not leftward as in postscripts.
- $attach(upright(O), bottomleft: 8, topleft: 16, bottomright: 2, topright: 2-),
-  attach("Pb", bottomleft: 82, topleft: 207) +
-  attach(upright(e), bottomleft: -1, topleft: 0) + macron(v)_e \
-  attach(C, bottomleft: n, bottomright: r) = mat(n;r),
-  attach(a, topleft:k) = a^a^dots.up^a } k$
+// Test basics, prescripts. Notably, the upper and lower prescripts' content need to be
+// aligned on the right edge of their bounding boxes, not on the left as in postscripts.
+$
+attach(upright(O), bottomleft: 8, topleft: 16, bottomright: 2, topright: 2-),
+attach("Pb", bottomleft: 82, topleft: 207) +
+attach(upright(e), bottomleft: -1, topleft: 0) + macron(v)_e \
+attach(C, bottomleft: n, bottomright: r) = mat(n;r),
+attach(a, topleft:k) = a^a^dots.up^a } k \
+attach(lim, top: n -> 1), attach(lim, bottom: n -> 1),
+attach(a, topleft: q, top: "ignored"), attach(a, topright: q, top: "ignored"),
+attach(a, bottomleft: q, bottom: "ignored"), attach(a, bottomright: q, bottom: "ignored")
+$
 
 ---
 // Test function call after subscript.
