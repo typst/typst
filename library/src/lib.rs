@@ -1,3 +1,4 @@
+#![allow(clippy::wildcard_in_or_patterns)]
 //! Typst's standard library.
 
 pub mod compute;

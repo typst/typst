@@ -135,6 +135,7 @@ impl ParElem {
         expand: bool,
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
+        #[allow(clippy::too_many_arguments)]
         fn cached(
             par: &ParElem,
             world: Tracked<dyn World>,
@@ -760,7 +761,7 @@ fn shared_get<T: PartialEq>(
         .iter()
         .filter_map(|child| child.to_styled())
         .all(|(_, local)| getter(styles.chain(local)) == value)
-        .then(|| value)
+        .then_some(value)
 }
 
 /// Find suitable linebreaks.

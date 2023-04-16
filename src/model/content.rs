@@ -386,7 +386,7 @@ impl Content {
         for attr in &self.attrs {
             match attr {
                 Attr::Child(child) => child.query_into(introspector, selector, results),
-                Attr::Value(value) => walk_value(introspector, &value, selector, results),
+                Attr::Value(value) => walk_value(introspector, value, selector, results),
                 _ => {}
             }
         }

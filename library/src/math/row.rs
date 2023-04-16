@@ -9,12 +9,12 @@ pub struct MathRow(Vec<MathFragment>);
 
 impl MathRow {
     pub fn new(fragments: Vec<MathFragment>) -> Self {
-        let mut iter = fragments.into_iter().peekable();
+        let iter = fragments.into_iter().peekable();
         let mut last: Option<usize> = None;
         let mut space: Option<MathFragment> = None;
         let mut resolved: Vec<MathFragment> = vec![];
 
-        while let Some(mut fragment) = iter.next() {
+        for mut fragment in iter {
             match fragment {
                 // Keep space only if supported by spaced fragments.
                 MathFragment::Space(_) => {
@@ -180,9 +180,9 @@ impl MathRow {
             }
         }
 
-        let mut fragments = self.0.into_iter().peekable();
+        let fragments = self.0.into_iter().peekable();
         let mut i = 0;
-        while let Some(fragment) = fragments.next() {
+        for fragment in fragments {
             if matches!(fragment, MathFragment::Align) {
                 if let Some(&point) = points.get(i) {
                     x = point;
