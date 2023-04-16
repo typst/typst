@@ -1041,7 +1041,10 @@ fn return_stmt(p: &mut Parser) {
 fn validate_array(p: &mut Parser, m: Marker) {
     for child in p.post_process(m) {
         let kind = child.kind();
-        if kind == SyntaxKind::Named || kind == SyntaxKind::Keyed || kind == SyntaxKind::Underscore {
+        if kind == SyntaxKind::Named
+            || kind == SyntaxKind::Keyed
+            || kind == SyntaxKind::Underscore
+        {
             child.convert_to_error(eco_format!(
                 "expected expression, found {}",
                 kind.name()
