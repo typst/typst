@@ -1621,6 +1621,7 @@ impl Destructuring {
                 let ident = filtered.next().unwrap_or_default();
                 Some(DestructuringKind::Named(key, ident))
             }
+            SyntaxKind::Placeholder => Some(DestructuringKind::Placeholder),
             _ => Option::None,
         })
     }
@@ -1631,6 +1632,7 @@ impl Destructuring {
             DestructuringKind::Ident(ident) => Some(ident),
             DestructuringKind::Sink(ident) => ident,
             DestructuringKind::Named(_, ident) => Some(ident),
+            DestructuringKind::Placeholder => Option::None,
         })
     }
 }
@@ -1640,6 +1642,8 @@ impl Destructuring {
 pub enum Pattern {
     /// A single identifier: `x`.
     Ident(Ident),
+    /// A placeholder: `_`.
+    Placeholder,
     /// A destructuring pattern: `(x, _, ..y)`.
     Destructuring(Destructuring),
 }
@@ -1649,6 +1653,7 @@ impl AstNode for Pattern {
         match node.kind() {
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
+            SyntaxKind::Placeholder => Some(Self::Placeholder),
             _ => Option::None,
         }
     }
@@ -1657,6 +1662,7 @@ impl AstNode for Pattern {
         match self {
             Self::Ident(v) => v.as_untyped(),
             Self::Destructuring(v) => v.as_untyped(),
+            Self::Placeholder => self.as_untyped(),
         }
     }
 }
@@ -1667,6 +1673,7 @@ impl Pattern {
         match self {
             Pattern::Ident(ident) => vec![ident.clone()],
             Pattern::Destructuring(destruct) => destruct.idents().collect(),
+            Pattern::Placeholder => vec![],
         }
     }
 }
@@ -1724,7 +1731,7 @@ impl LetBinding {
             LetBindingKind::Normal(Pattern::Ident(_)) => {
                 self.0.children().filter_map(SyntaxNode::cast).nth(1)
             }
-            LetBindingKind::Normal(Pattern::Destructuring(_)) => {
+            LetBindingKind::Normal(_) => {
                 self.0.cast_first_match()
             }
             LetBindingKind::Closure(_) => self.0.cast_first_match(),

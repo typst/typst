@@ -1184,7 +1184,7 @@ impl ast::Pattern {
                 vm.define(ident.clone(), value);
                 Ok(Value::None)
             }
-            ast::PatternKind::Placeholder => Ok(Value::None),
+            ast::Pattern::Placeholder => Ok(Value::None),
             ast::Pattern::Destructuring(destruct) => {
                 match value {
                     Value::Array(value) => {

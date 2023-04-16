@@ -845,6 +845,7 @@ fn args(p: &mut Parser) {
 
 enum PatternKind {
     Ident,
+    Placeholder,
     Destructuring,
 }
 
@@ -862,13 +863,14 @@ fn pattern(p: &mut Parser) -> PatternKind {
             PatternKind::Destructuring
         }
     } else {
-        if p.eat_if(SyntaxKind::Ident) || p.eat_if(SyntaxKind::Placeholder) {
-            p.wrap(m, SyntaxKind::Pattern);
+        if p.eat_if(SyntaxKind::Ident) {
+            return PatternKind::Ident;
+        } else if p.eat_if(SyntaxKind::Placeholder) {
+            return PatternKind::Placeholder;
         } else {
-            p.expected(&format!("identifier"));
+            p.expected("identifier");
+            return PatternKind::Ident;
         }
-
-        PatternKind::Normal
     }
 }
 
@@ -889,6 +891,7 @@ fn let_binding(p: &mut Parser) {
                 p.wrap(m3, SyntaxKind::Params);
             }
         }
+        PatternKind::Placeholder => {}
         PatternKind::Destructuring => destructuring = true,
     }
 
