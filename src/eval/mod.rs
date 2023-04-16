@@ -1179,16 +1179,16 @@ impl Eval for ast::Closure {
 impl ast::Pattern {
     // Destruct the given value into the pattern.
     pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
-        match self.kind() {
-            ast::PatternKind::Ident(ident) => {
-                vm.define(ident, value);
+        match self {
+            ast::Pattern::Ident(ident) => {
+                vm.define(ident.clone(), value);
                 Ok(Value::None)
             }
-            ast::PatternKind::Destructure(pattern) => {
+            ast::Pattern::Destructuring(pattern) => {
                 match value {
                     Value::Array(value) => {
                         let mut i = 0;
-                        for p in &pattern {
+                        for p in pattern.bindings() {
                             match p {
                                 ast::DestructuringKind::Ident(ident) => {
                                     let Ok(v) = value.at(i) else {
@@ -1198,7 +1198,7 @@ impl ast::Pattern {
                                     i += 1;
                                 }
                                 ast::DestructuringKind::Sink(ident) => {
-                                    (1 + value.len() as usize).checked_sub(pattern.len()).and_then(|sink_size| {
+                                    (1 + value.len() as usize).checked_sub(pattern.bindings().len()).and_then(|sink_size| {
                                         let Ok(sink) = value.slice(i, Some(i + sink_size as i64)) else {
                                             return None;
                                         };
@@ -1224,10 +1224,10 @@ impl ast::Pattern {
                     Value::Dict(value) => {
                         let mut sink = None;
                         let mut used = HashSet::new();
-                        for p in &pattern {
+                        for p in pattern.bindings() {
                             match p {
                                 ast::DestructuringKind::Ident(ident) => {
-                                    let Ok(v) = value.at(ident) else {
+                                    let Ok(v) = value.at(&ident) else {
                                         bail!(ident.span(), "destructuring key not found in dictionary");
                                     };
                                     vm.define(ident.clone(), v.clone());
@@ -1237,7 +1237,7 @@ impl ast::Pattern {
                                     sink = ident.clone()
                                 }
                                 ast::DestructuringKind::Named(key, ident) => {
-                                    let Ok(v) = value.at(key) else {
+                                    let Ok(v) = value.at(&key) else {
                                         bail!(ident.span(), "destructuring key not found in dictionary");
                                     };
                                     vm.define(ident.clone(), v.clone());
@@ -1451,8 +1451,8 @@ impl Eval for ast::ForLoop {
         let iter = self.iter().eval(vm)?;
         let pattern = self.pattern();
 
-        match (pattern.kind(), iter.clone()) {
-            (ast::PatternKind::Ident(_), Value::Str(string)) => {
+        match (&pattern, iter.clone()) {
+            (ast::Pattern::Ident(_), Value::Str(string)) => {
                 // Iterate over graphemes of string.
                 iter!(for pattern in string.as_str().graphemes(true));
             }
@@ -1464,7 +1464,7 @@ impl Eval for ast::ForLoop {
                 // Iterate over values of array.
                 iter!(for pattern in array);
             }
-            (ast::PatternKind::Ident(_), _) => {
+            (ast::Pattern::Ident(_), _) => {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
             }
             (_, _) => {

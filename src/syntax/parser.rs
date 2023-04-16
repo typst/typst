@@ -839,7 +839,7 @@ fn args(p: &mut Parser) {
 }
 
 enum PatternKind {
-    Normal,
+    Ident,
     Destructuring,
 }
 
@@ -849,18 +849,16 @@ fn pattern(p: &mut Parser) -> PatternKind {
     if p.at(SyntaxKind::LeftParen) {
         let kind = collection(p, false);
         validate_destruct_pattern(p, m);
-        p.wrap(m, SyntaxKind::Pattern);
 
         if kind == SyntaxKind::Parenthesized {
-            PatternKind::Normal
+            PatternKind::Ident
         } else {
+            p.wrap(m, SyntaxKind::Destructuring);
             PatternKind::Destructuring
         }
     } else {
-        if p.expect(SyntaxKind::Ident) {
-            p.wrap(m, SyntaxKind::Pattern);
-        }
-        PatternKind::Normal
+        p.expect(SyntaxKind::Ident);
+        PatternKind::Ident
     }
 }
 
@@ -872,7 +870,7 @@ fn let_binding(p: &mut Parser) {
     let mut closure = false;
     let mut destructuring = false;
     match pattern(p) {
-        PatternKind::Normal => {
+        PatternKind::Ident => {
             closure = p.directly_at(SyntaxKind::LeftParen);
             if closure {
                 let m3 = p.marker();
