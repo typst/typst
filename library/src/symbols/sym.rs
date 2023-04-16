@@ -191,8 +191,10 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         circle: '⊗',
         circle.big: '⨂',
         div: '⋇',
-        l: '⋋',
-        r: '⋌',
+        three.l: '⋋',
+        three.r: '⋌',
+        l: '⋉',
+        r: '⋊',
         square: '⊠',
         triangle: '⨻',
     ],
@@ -234,6 +236,10 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         small: '﹥',
         tilde: '≳',
         tilde.not: '≵',
+        tri: '⊳',
+        tri.eq: '⊵',
+        tri.eq.not: '⋭',
+        tri.not: '⋫',
         triple: '⋙',
         triple.nested: '⫸',
     ],
@@ -254,6 +260,10 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         small: '﹤',
         tilde: '≲',
         tilde.not: '≴',
+        tri: '⊲',
+        tri.eq: '⊴',
+        tri.eq.not: '⋬',
+        tri.not: '⋪',
         triple: '⋘',
         triple.nested: '⫷',
     ],
@@ -400,6 +410,9 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     divides: ['∣', not: '∤'],
     perp: ['⟂', circle: '⦹'],
 
+    // Algebra.
+    wreath: '≀',
+
     // Geometry.
     parallel: ['∥', circle: '⦷', not: '∦'],
 
@@ -408,7 +421,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     join: ['⨝', r: '⟖', l: '⟕', l.r: '⟗'],
     degree: ['°', c: '℃', f: '℉'],
     smash: '⨳',
-    wreath: '≀',
 
     // Currency.
     bitcoin: '₿',
