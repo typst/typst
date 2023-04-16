@@ -528,7 +528,7 @@ impl Lexer<'_> {
         }
 
         if ident == "_" {
-            SyntaxKind::Placeholder
+            SyntaxKind::Underscore
         } else {
             SyntaxKind::Ident
         }

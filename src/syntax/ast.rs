@@ -1621,7 +1621,7 @@ impl Destructuring {
                 let ident = filtered.next().unwrap_or_default();
                 Some(DestructuringKind::Named(key, ident))
             }
-            SyntaxKind::Placeholder => Some(DestructuringKind::Placeholder),
+            SyntaxKind::Underscore => Some(DestructuringKind::Placeholder),
             _ => Option::None,
         })
     }
@@ -1653,7 +1653,7 @@ impl AstNode for Pattern {
         match node.kind() {
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
-            SyntaxKind::Placeholder => Some(Self::Placeholder),
+            SyntaxKind::Underscore => Some(Self::Placeholder),
             _ => Option::None,
         }
     }
@@ -1731,9 +1731,7 @@ impl LetBinding {
             LetBindingKind::Normal(Pattern::Ident(_)) => {
                 self.0.children().filter_map(SyntaxNode::cast).nth(1)
             }
-            LetBindingKind::Normal(_) => {
-                self.0.cast_first_match()
-            }
+            LetBindingKind::Normal(_) => self.0.cast_first_match(),
             LetBindingKind::Closure(_) => self.0.cast_first_match(),
         }
     }

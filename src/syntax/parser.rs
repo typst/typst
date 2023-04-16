@@ -787,7 +787,7 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
         return SyntaxKind::Spread;
     }
 
-    if !p.eat_if(SyntaxKind::Placeholder) {
+    if !p.eat_if(SyntaxKind::Underscore) {
         code_expr(p);
     }
 
@@ -795,13 +795,13 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
         return SyntaxKind::Int;
     }
 
-    if !p.eat_if(SyntaxKind::Placeholder) {
+    if !p.eat_if(SyntaxKind::Underscore) {
         code_expr(p);
     }
 
     let kind = match p.node(m).map(SyntaxNode::kind) {
         Some(SyntaxKind::Ident) => SyntaxKind::Named,
-        Some(SyntaxKind::Placeholder) => SyntaxKind::Placeholder,
+        Some(SyntaxKind::Underscore) => SyntaxKind::Underscore,
         Some(SyntaxKind::Str) if keyed => SyntaxKind::Keyed,
         _ => {
             for child in p.post_process(m) {
@@ -865,7 +865,7 @@ fn pattern(p: &mut Parser) -> PatternKind {
     } else {
         if p.eat_if(SyntaxKind::Ident) {
             return PatternKind::Ident;
-        } else if p.eat_if(SyntaxKind::Placeholder) {
+        } else if p.eat_if(SyntaxKind::Underscore) {
             return PatternKind::Placeholder;
         } else {
             p.expected("identifier");
@@ -975,7 +975,7 @@ fn for_loop(p: &mut Parser) {
     if p.at(SyntaxKind::Comma) {
         p.expected("keyword `in`. did you mean to use a destructuring pattern?");
         if !p.eat_if(SyntaxKind::Ident) {
-            p.eat_if(SyntaxKind::Placeholder);
+            p.eat_if(SyntaxKind::Underscore);
         }
         p.eat_if(SyntaxKind::In);
     } else {
@@ -1192,7 +1192,9 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
                 }
 
                 let Some(within) = child.children_mut().last_mut() else { return };
-                if within.kind() != SyntaxKind::Ident && within.kind() != SyntaxKind::Placeholder {
+                if within.kind() != SyntaxKind::Ident
+                    && within.kind() != SyntaxKind::Underscore
+                {
                     within.convert_to_error(eco_format!(
                         "expected identifier, found {}",
                         within.kind().name(),
@@ -1200,7 +1202,10 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker) {
                     child.make_erroneous();
                 }
             }
-            SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma | SyntaxKind::Placeholder => {}
+            SyntaxKind::LeftParen
+            | SyntaxKind::RightParen
+            | SyntaxKind::Comma
+            | SyntaxKind::Underscore => {}
             kind => {
                 child.convert_to_error(eco_format!(
                     "expected identifier or destructuring sink, found {}",
