@@ -49,8 +49,23 @@ $
 One trailing line break.
 
 ---
+// Test single leading line break.
+One leading line break.
+$
+\ "abc" &= c
+$
+
+---
 // Test multiple trailing line breaks.
 $
 "abc" &= c \ \ \
 $
 Multiple trailing line breaks.
+
+
+---
+// Test multiple leading line breaks.
+Multiple leading line breaks.
+$
+\ \ \ "abc" &= c
+$

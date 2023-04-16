@@ -135,6 +135,9 @@ impl MathRow {
             if matches!(rows.last(), Some(row) if row.0.is_empty()) {
                 rows.pop();
             }
+            if matches!(rows.first(), Some(row) if row.0.is_empty()) {
+                rows.remove(0);
+            }
 
             let width = rows.iter().map(|row| row.width()).max().unwrap_or_default();
             let points = alignments(&rows);
