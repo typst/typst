@@ -848,7 +848,7 @@ enum PatternKind {
     Destructuring,
 }
 
-fn pattern(p: &mut Parser, allow_placeholder: bool) -> PatternKind {
+fn pattern(p: &mut Parser) -> PatternKind {
     let m = p.marker();
 
     if p.at(SyntaxKind::LeftParen) {
@@ -862,18 +862,12 @@ fn pattern(p: &mut Parser, allow_placeholder: bool) -> PatternKind {
             PatternKind::Destructuring
         }
     } else {
-        let success;
-        if allow_placeholder {
-            success = p.eat_if(SyntaxKind::Ident) || p.eat_if(SyntaxKind::Placeholder);
-            if !success {
-                p.expected(&format!("identifier or placeholder"));
-            }
-        } else {
-            success = p.expect(SyntaxKind::Ident);
-        }
-        if success {
+        if p.eat_if(SyntaxKind::Ident) || p.eat_if(SyntaxKind::Placeholder) {
             p.wrap(m, SyntaxKind::Pattern);
+        } else {
+            p.expected(&format!("identifier"));
         }
+
         PatternKind::Normal
     }
 }
@@ -885,8 +879,7 @@ fn let_binding(p: &mut Parser) {
     let m2 = p.marker();
     let mut closure = false;
     let mut destructuring = false;
-    // TODO: this should also be true (ie allow let _ = 3)
-    match pattern(p, false) {
+    match pattern(p) {
         PatternKind::Ident => {
             closure = p.directly_at(SyntaxKind::LeftParen);
             if closure {
@@ -975,7 +968,7 @@ fn while_loop(p: &mut Parser) {
 fn for_loop(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::For);
-    pattern(p, true);
+    pattern(p);
     if p.at(SyntaxKind::Comma) {
         p.expected("keyword `in`. did you mean to use a destructuring pattern?");
         if !p.eat_if(SyntaxKind::Ident) {
