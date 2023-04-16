@@ -1608,34 +1608,28 @@ pub enum DestructuringKind {
 impl Destructuring {
     /// The bindings of the destructuring.
     pub fn bindings(&self) -> impl Iterator<Item = DestructuringKind> + '_ {
-        self.0.children().filter_map(|child| {
-            match child.kind() {
-                SyntaxKind::Ident => {
-                    Some(DestructuringKind::Ident(child.cast().unwrap_or_default()))
-                }
-                SyntaxKind::Spread => {
-                    Some(DestructuringKind::Sink(child.cast_first_match()))
-                }
-                SyntaxKind::Named => {
-                    let mut filtered = child.children().filter_map(SyntaxNode::cast);
-                    let key = filtered.next().unwrap_or_default();
-                    let ident = filtered.next().unwrap_or_default();
-                    Some(DestructuringKind::Named(key, ident))
-                }
-                _ => Option::None,
+        self.0.children().filter_map(|child| match child.kind() {
+            SyntaxKind::Ident => {
+                Some(DestructuringKind::Ident(child.cast().unwrap_or_default()))
             }
+            SyntaxKind::Spread => Some(DestructuringKind::Sink(child.cast_first_match())),
+            SyntaxKind::Named => {
+                let mut filtered = child.children().filter_map(SyntaxNode::cast);
+                let key = filtered.next().unwrap_or_default();
+                let ident = filtered.next().unwrap_or_default();
+                Some(DestructuringKind::Named(key, ident))
+            }
+            _ => Option::None,
         })
     }
 
     // Returns a list of all identifiers in the pattern.
     pub fn idents(&self) -> impl Iterator<Item = Ident> + '_ {
-        self.bindings()
-            .into_iter()
-            .filter_map(|binding| match binding {
-                DestructuringKind::Ident(ident) => Some(ident),
-                DestructuringKind::Sink(ident) => ident,
-                DestructuringKind::Named(_, ident) => Some(ident),
-            })
+        self.bindings().into_iter().filter_map(|binding| match binding {
+            DestructuringKind::Ident(ident) => Some(ident),
+            DestructuringKind::Sink(ident) => ident,
+            DestructuringKind::Named(_, ident) => Some(ident),
+        })
     }
 }
 
@@ -1838,15 +1832,11 @@ impl ForLoop {
 
     /// The expression to iterate over.
     pub fn iter(&self) -> Expr {
-        match self.pattern() {
-            Pattern::Ident(_) => self
-                .0
-                .children()
-                .filter_map(SyntaxNode::cast)
-                .nth(1)
-                .unwrap_or_default(),
-            Pattern::Destructuring(_) => self.0.cast_first_match().unwrap_or_default(),
-        }
+        self.0
+            .children()
+            .skip_while(|&c| c.kind() != SyntaxKind::In)
+            .find_map(SyntaxNode::cast)
+            .unwrap_or_default()
     }
 
     /// The expression to evaluate for each iteration.
