@@ -1664,7 +1664,7 @@ impl Pattern {
     pub fn idents(&self) -> Vec<Ident> {
         match self {
             Pattern::Ident(ident) => vec![ident.clone()],
-            Pattern::Destructuring(bindings) => bindings.idents().collect(),
+            Pattern::Destructuring(destruct) => destruct.idents().collect(),
         }
     }
 }

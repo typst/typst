@@ -1184,11 +1184,11 @@ impl ast::Pattern {
                 vm.define(ident.clone(), value);
                 Ok(Value::None)
             }
-            ast::Pattern::Destructuring(pattern) => {
+            ast::Pattern::Destructuring(destruct) => {
                 match value {
                     Value::Array(value) => {
                         let mut i = 0;
-                        for p in pattern.bindings() {
+                        for p in destruct.bindings() {
                             match p {
                                 ast::DestructuringKind::Ident(ident) => {
                                     let Ok(v) = value.at(i) else {
@@ -1198,7 +1198,7 @@ impl ast::Pattern {
                                     i += 1;
                                 }
                                 ast::DestructuringKind::Sink(ident) => {
-                                    (1 + value.len() as usize).checked_sub(pattern.bindings().count()).and_then(|sink_size| {
+                                    (1 + value.len() as usize).checked_sub(destruct.bindings().count()).and_then(|sink_size| {
                                         let Ok(sink) = value.slice(i, Some(i + sink_size as i64)) else {
                                             return None;
                                         };
@@ -1224,7 +1224,7 @@ impl ast::Pattern {
                     Value::Dict(value) => {
                         let mut sink = None;
                         let mut used = HashSet::new();
-                        for p in pattern.bindings() {
+                        for p in destruct.bindings() {
                             match p {
                                 ast::DestructuringKind::Ident(ident) => {
                                     let Ok(v) = value.at(&ident) else {
