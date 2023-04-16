@@ -1198,7 +1198,7 @@ impl ast::Pattern {
                                     i += 1;
                                 }
                                 ast::DestructuringKind::Sink(ident) => {
-                                    (1 + value.len() as usize).checked_sub(pattern.bindings().len()).and_then(|sink_size| {
+                                    (1 + value.len() as usize).checked_sub(pattern.bindings().count()).and_then(|sink_size| {
                                         let Ok(sink) = value.slice(i, Some(i + sink_size as i64)) else {
                                             return None;
                                         };

@@ -1607,32 +1607,28 @@ pub enum DestructuringKind {
 
 impl Destructuring {
     /// The bindings of the destructuring.
-    pub fn bindings(&self) -> Vec<DestructuringKind> {
-        let mut bindings = Vec::new();
-        for child in self.0.children() {
+    pub fn bindings(&self) -> impl Iterator<Item = DestructuringKind> + '_ {
+        self.0.children().filter_map(|child| {
             match child.kind() {
                 SyntaxKind::Ident => {
-                    bindings
-                        .push(DestructuringKind::Ident(child.cast().unwrap_or_default()));
+                    Some(DestructuringKind::Ident(child.cast().unwrap_or_default()))
                 }
                 SyntaxKind::Spread => {
-                    bindings.push(DestructuringKind::Sink(child.cast_first_match()));
+                    Some(DestructuringKind::Sink(child.cast_first_match()))
                 }
                 SyntaxKind::Named => {
                     let mut filtered = child.children().filter_map(SyntaxNode::cast);
                     let key = filtered.next().unwrap_or_default();
                     let ident = filtered.next().unwrap_or_default();
-                    bindings.push(DestructuringKind::Named(key, ident));
+                    Some(DestructuringKind::Named(key, ident))
                 }
-                _ => (),
+                _ => Option::None,
             }
-        }
-
-        bindings
+        })
     }
 
     // Returns a list of all identifiers in the pattern.
-    pub fn idents(&self) -> Vec<Ident> {
+    pub fn idents(&self) -> impl Iterator<Item = Ident> + '_ {
         self.bindings()
             .into_iter()
             .filter_map(|binding| match binding {
@@ -1640,7 +1636,6 @@ impl Destructuring {
                 DestructuringKind::Sink(ident) => ident,
                 DestructuringKind::Named(_, ident) => Some(ident),
             })
-            .collect()
     }
 }
 
@@ -1675,7 +1670,7 @@ impl Pattern {
     pub fn idents(&self) -> Vec<Ident> {
         match self {
             Pattern::Ident(ident) => vec![ident.clone()],
-            Pattern::Destructuring(bindings) => bindings.idents(),
+            Pattern::Destructuring(bindings) => bindings.idents().collect(),
         }
     }
 }
