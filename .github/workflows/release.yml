@@ -42,7 +42,7 @@ jobs:
     - name: Build release binary
       shell: bash
       run: |
-        if [ ${{ matrix.crossBuildDocker}} ]; then
+        if ${{ matrix.crossBuildDocker}}; then
           cargo install cross --git https://github.com/cross-rs/cross
           git clone https://github.com/cross-rs/cross
           cd cross
@@ -50,7 +50,7 @@ jobs:
           cargo build-docker-image ${{ matrix.target }}-cross
           # cd ..
         fi
-        if [ ${{matrix.cross }}]; then
+        if ${{matrix.cross }}; then
           echo test
         else
           cargo build -p typst-cli --release
