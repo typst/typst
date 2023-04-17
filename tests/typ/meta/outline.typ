@@ -32,5 +32,5 @@ Ok ...
 
 #set heading(numbering: "(I)")
 
-= Zusammenfassung
+= #text(blue)[Zusammen]fassung
 #lorem(10)

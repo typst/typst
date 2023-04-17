@@ -85,7 +85,7 @@ pub struct ParElem {
 
     /// The indent the first line of a paragraph should have.
     ///
-    /// Only the first line of a consecutive paragraph will be intended (not
+    /// Only the first line of a consecutive paragraph will be indented (not
     /// the first one in a block or on the page).
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
@@ -136,6 +136,7 @@ impl ParElem {
         expand: bool,
     ) -> SourceResult<Fragment> {
         #[comemo::memoize]
+        #[allow(clippy::too_many_arguments)]
         fn cached(
             par: &ParElem,
             world: Tracked<dyn World>,
@@ -761,7 +762,7 @@ fn shared_get<T: PartialEq>(
         .iter()
         .filter_map(|child| child.to_styled())
         .all(|(_, local)| getter(styles.chain(local)) == value)
-        .then(|| value)
+        .then_some(value)
 }
 
 /// Find suitable linebreaks.

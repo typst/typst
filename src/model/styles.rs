@@ -632,13 +632,13 @@ impl<'a> StyleChain<'a> {
     ) -> T::Output {
         fn next<T: Fold>(
             mut values: impl Iterator<Item = T>,
-            styles: StyleChain,
+            _styles: StyleChain,
             default: &impl Fn() -> T::Output,
         ) -> T::Output {
             values
                 .next()
-                .map(|value| value.fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+                .map(|value| value.fold(next(values, _styles, default)))
+                .unwrap_or_else(default)
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }
@@ -668,7 +668,7 @@ impl<'a> StyleChain<'a> {
             values
                 .next()
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+                .unwrap_or_else(default)
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }

@@ -184,22 +184,15 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "chinese-number"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "365a2e504d6cb41e85fba5d01a6baf7f13cad4424102859193c4674e7fdff933"
+checksum = "9f9a8cffacecd7f477f8395021158af07c8a3f74523e9b90e4e4bb0105deaa74"
 dependencies = [
- "chinese-numerals",
  "chinese-variant",
  "enum-ordinalize",
  "num-bigint",
  "num-traits",
 ]
-
-[[package]]
-name = "chinese-numerals"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76a5a40575256b55eebe3e39fa41e53bdaea5d67ac5a7092fa8756020c798d1e"
 
 [[package]]
 name = "chinese-variant"

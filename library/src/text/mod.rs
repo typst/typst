@@ -40,7 +40,7 @@ use crate::prelude::*;
 ///
 /// Display: Text
 /// Category: text
-#[element(Construct)]
+#[element(Construct, PlainText)]
 pub struct TextElem {
     /// A prioritized sequence of font families.
     ///
@@ -494,6 +494,12 @@ impl Construct for TextElem {
         let styles = Self::set(args)?;
         let body = args.expect::<Content>("body")?;
         Ok(body.styled_with_map(styles))
+    }
+}
+
+impl PlainText for TextElem {
+    fn plain_text(&self, text: &mut EcoString) {
+        text.push_str(&self.text());
     }
 }
 

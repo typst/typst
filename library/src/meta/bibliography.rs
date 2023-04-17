@@ -491,7 +491,7 @@ fn create(
                         &mut *citation_style,
                         &[Citation {
                             entry,
-                            supplement: supplement.is_some().then(|| SUPPLEMENT),
+                            supplement: supplement.is_some().then_some(SUPPLEMENT),
                         }],
                     )
                     .display;

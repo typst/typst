@@ -151,3 +151,9 @@ impl Debug for Label {
 
 /// Indicates that an element cannot be labelled.
 pub trait Unlabellable {}
+
+/// Tries to extract the plain-text representation of the element.
+pub trait PlainText {
+    /// Write this element's plain text into the given buffer.
+    fn plain_text(&self, text: &mut EcoString);
+}

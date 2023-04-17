@@ -246,7 +246,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Self {
             vt,
             scratch,
-            doc: top.then(|| DocBuilder::default()),
+            doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
             par: ParBuilder::default(),
             list: ListBuilder::default(),
@@ -304,7 +304,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             .to::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
-        self.interrupt_page(keep.then(|| styles))?;
+        self.interrupt_page(keep.then_some(styles))?;
 
         if let Some(doc) = &mut self.doc {
             if doc.accept(content, styles) {

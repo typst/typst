@@ -71,7 +71,7 @@ cast_from_value! {
     v: i64 => Self(Value::Int(v.abs())),
     v: f64 => Self(Value::Float(v.abs())),
     v: Length => Self(Value::Length(v.try_abs()
-        .ok_or_else(|| "cannot take absolute value of this length")?)),
+        .ok_or("cannot take absolute value of this length")?)),
     v: Angle => Self(Value::Angle(v.abs())),
     v: Ratio => Self(Value::Ratio(v.abs())),
     v: Fr => Self(Value::Fraction(v.abs())),
@@ -108,7 +108,11 @@ pub fn pow(
     };
 
     let result = match (base, exponent.v) {
-        (Num::Int(a), Num::Int(b)) if b >= 0 => Num::Int(a.pow(b as u32)),
+        (Num::Int(a), Num::Int(b)) if b >= 0 => a
+            .checked_pow(b as u32)
+            .map(Num::Int)
+            .ok_or("the result is too large")
+            .at(args.span)?,
         (a, Num::Int(b)) => Num::Float(a.float().powi(b as i32)),
         (a, b) => Num::Float(a.float().powf(b.float())),
     };
