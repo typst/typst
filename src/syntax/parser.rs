@@ -637,11 +637,16 @@ fn code_primary(p: &mut Parser, atomic: bool) {
             }
         }
         SyntaxKind::Underscore if !atomic => {
+            let m_underscore = p.marker();
             p.eat();
             p.wrap(m, SyntaxKind::Params);
-            p.expect(SyntaxKind::Arrow);
-            code_expr(p);
-            p.wrap(m, SyntaxKind::Closure);
+            if p.at(SyntaxKind::Arrow) {
+                p.eat();
+                code_expr(p);
+                p.wrap(m, SyntaxKind::Closure);
+            } else {
+                p.unexpected_at(m_underscore, "underscore");
+            }
         }
 
         SyntaxKind::LeftBrace => code_block(p),
@@ -1498,5 +1503,11 @@ impl<'s> Parser<'s> {
             self.nodes[offset]
                 .convert_to_error(eco_format!("unexpected {}", kind.name()));
         }
+    }
+
+    fn unexpected_at(&mut self, m: Marker, thing: &str) {
+        let message = eco_format!("unexpected {}", thing);
+        let error = SyntaxNode::error(message, "", ErrorPos::Full);
+        self.nodes.insert(m.0, error);
     }
 }

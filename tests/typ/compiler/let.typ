@@ -235,6 +235,9 @@ Three
 // Error: 3-4 expected expression, found underscore
 #(_,)
 
+// Error: 3 unexpected underscore
+#{_}
+
 ---
 // Error: 13 expected equals sign
 #let func(x)
