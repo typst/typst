@@ -20,10 +20,10 @@ jobs:
           cross: false
         - target: aarch64-unknown-linux-musl
           os: ubuntu-latest
-          cross: false
+          cross: true
         - target: riscv64gc-unknown-linux-gnu
           os: ubuntu-latest
-          cross: false
+          cross: true
         - target: x86_64-apple-darwin
           os: macos-latest
           cross: false
