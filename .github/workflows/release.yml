@@ -51,13 +51,13 @@ jobs:
         mkdir $directory
         cp README.md LICENSE NOTICE $directory
         ls target/release
-        if [ -f target/release/typst ]; then
+        if [ -f target/${{ matrix.target }}/release/typst ]; then
           echo test1
-          cp target/release/typst $directory
+          cp target/${{ matrix.target }}/release/typst $directory
           tar cJf $directory.tar.xz $directory
-        elif [ -f target/release/typst.exe ]; then
+        elif [ -f target/${{ matrix.target }}/release/typst.exe ]; then
           echo test2
-          cp target/release/typst.exe $directory
+          cp target/${{ matrix.target }}/release/typst.exe $directory
           7z a -r $directory.zip $directory
         fi
 
