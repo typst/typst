@@ -105,9 +105,9 @@ impl MathFragment {
         }
     }
 
-    pub fn to_frame(self) -> Frame {
+    pub fn into_frame(self) -> Frame {
         match self {
-            Self::Glyph(glyph) => glyph.to_frame(),
+            Self::Glyph(glyph) => glyph.into_frame(),
             Self::Variant(variant) => variant.frame,
             Self::Frame(fragment) => fragment.frame,
             _ => Frame::new(self.size()),
@@ -201,7 +201,7 @@ impl GlyphFragment {
         self.ascent + self.descent
     }
 
-    pub fn to_variant(self) -> VariantFragment {
+    pub fn into_variant(self) -> VariantFragment {
         VariantFragment {
             c: self.c,
             id: Some(self.id),
@@ -210,11 +210,11 @@ impl GlyphFragment {
             italics_correction: self.italics_correction,
             class: self.class,
             span: self.span,
-            frame: self.to_frame(),
+            frame: self.into_frame(),
         }
     }
 
-    pub fn to_frame(self) -> Frame {
+    pub fn into_frame(self) -> Frame {
         let item = TextItem {
             font: self.font.clone(),
             size: self.font_size,
