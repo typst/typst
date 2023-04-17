@@ -524,21 +524,21 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
     i64::try_from(result).ok()
 }
 
-/// Calculate a gcd between two integers.
+/// Calculate a greatedt common divisor between two integers.
 ///
 /// ## Example
 /// ```example
 /// #calc.gcd(7, 42)
 /// ```
 ///
-/// Display: GCD
+/// Display: Greatest Common Divisor
 /// Category: calculate
 /// Returns: integer
 #[func]
 pub fn gcd(
-    /// The first number.
+    /// The first integer.
     a: i64,
-    /// The second number.
+    /// The second integer.
     b: i64,
 ) -> Value {
     Value::Int(calculate_gcd(a, b).into())
@@ -568,9 +568,9 @@ fn calculate_gcd(mut a: i64, mut b: i64) -> i64 {
 /// Returns: integer
 #[func]
 pub fn lcm(
-    /// The first number.
+    /// The first integer.
     a: i64,
-    /// The second number.
+    /// The second integer.
     b: i64,
 ) -> Value {
     calculate_lcm(a, b)
