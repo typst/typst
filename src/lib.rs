@@ -1,3 +1,4 @@
+#![allow(clippy::comparison_chain)]
 //! The compiler for the _Typst_ markup language.
 //!
 //! # Steps
