@@ -725,6 +725,7 @@ fn with_paren(p: &mut Parser) {
     match kind {
         SyntaxKind::Array => validate_array(p, m),
         SyntaxKind::Dict => validate_dict(p, m),
+        SyntaxKind::Parenthesized => validate_parenthesized(p, m),
         _ => {}
     }
     p.wrap(m, kind);
@@ -1044,6 +1045,18 @@ fn return_stmt(p: &mut Parser) {
         code_expr(p);
     }
     p.wrap(m, SyntaxKind::FuncReturn);
+}
+
+fn validate_parenthesized(p: &mut Parser, m: Marker) {
+    for child in p.post_process(m) {
+        let kind = child.kind();
+        if kind == SyntaxKind::Underscore {
+            child.convert_to_error(eco_format!(
+                "expected expression, found {}",
+                kind.name()
+            ));
+        }
+    }
 }
 
 fn validate_array(p: &mut Parser, m: Marker) {
