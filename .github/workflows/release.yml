@@ -9,16 +9,19 @@ on:
 jobs:
   build-release:
     name: release ${{ matrix.target }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
         - target: x86_64-unknown-linux-gnu
           archive: tar.gz
+          os: ubuntu-latest
         - target: x86_64-apple-darwin
           archive: tar.gz
+          os: macos-latest
         - target: x86_64-pc-windows-msvc
           archive: zip
+          os: windows-latest
 
     steps:
     - uses: actions/checkout@v3
