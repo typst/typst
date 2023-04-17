@@ -39,6 +39,10 @@ jobs:
         cp README.md LICENCE NOTICE $directory
         if [ -e target/release/typst ]; then cp target/release/typst $directory; else cp target/release/typst.exe $directory; fi
         if [ ${{ matrix.archive}} == zip ]; then zip $directory; else tar -czvf directory; fi
+
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: "directory*"
     # - name: Strip binary (Linux and macOS)
     #   if: matrix.build == 'linux' || matrix.build == 'macos'
     #   run: strip "target/release/typst"
