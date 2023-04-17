@@ -574,7 +574,7 @@ pub fn lcm(
     b: i64,
 ) -> Value {
     calculate_lcm(a, b)
-        .map(|v| Value::Int(v.into()))
+        .map(Value::Int)
         .ok_or("the return value is too large")
         .at(args.span)?
 }
