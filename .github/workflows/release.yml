@@ -49,6 +49,7 @@ jobs:
           cargo build-docker-image ${{ matrix.target }}-cross
           # cd ..
         if [ ${{matrix.cross }}]; then
+          echo test
         else
           cargo build -p typst-cli --release
         fi
