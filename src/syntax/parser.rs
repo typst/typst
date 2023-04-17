@@ -1243,8 +1243,8 @@ fn validate_destruct_pattern(p: &mut Parser, m: Marker, forbid_expressions: bool
                 if forbid_expressions {
                     let Some(within) = child.children_mut().last_mut() else { return };
                     if within.kind() != SyntaxKind::Ident
-                    && within.kind() != SyntaxKind::Underscore
-                {
+                        && within.kind() != SyntaxKind::Underscore
+                    {
                         within.convert_to_error(eco_format!(
                             "expected identifier, found {}",
                             within.kind().name(),
