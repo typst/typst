@@ -39,7 +39,7 @@ jobs:
       run: |
         directory=typst-${{ matrix.target }}
         mkdir $directory
-        cp README.md LICENCE NOTICE $directory
+        cp README.md LICENSE NOTICE $directory
         if [ -e target/release/typst ]; then cp target/release/typst $directory; else cp target/release/typst.exe $directory; fi
         if [ ${{ matrix.archive}} == zip ]; then zip $directory; else tar -czvf directory; fi
 
