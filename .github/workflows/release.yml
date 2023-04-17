@@ -50,7 +50,6 @@ jobs:
         directory=typst-${{ matrix.target }}
         mkdir $directory
         cp README.md LICENSE NOTICE $directory
-        ls target/release
         if [ -f target/${{ matrix.target }}/release/typst ]; then
           echo test1
           cp target/${{ matrix.target }}/release/typst $directory
@@ -64,3 +63,4 @@ jobs:
     - uses: ncipollo/release-action@v1
       with:
         artifacts: "directory.*"
+        allowUpdates: true
