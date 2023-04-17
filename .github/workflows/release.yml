@@ -53,7 +53,7 @@ jobs:
           echo test1
           cp target/release/typst $directory
           tar cJf $directory.tar.xz $directory
-        elif [ -f target/release/typst.exe]; then
+        elif [ -f target/release/typst.exe ]; then
           echo test2
           cp target/release/typst.exe $directory
           7z a -r $directory.zip $directory
