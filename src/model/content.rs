@@ -1,10 +1,14 @@
+mod inner;
+
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
 use comemo::Prehashed;
-use ecow::{eco_format, EcoString, EcoVec};
+use ecow::{eco_format, EcoString};
+
+use self::inner::{ContentInner, ContentTailItem};
 
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
@@ -21,26 +25,13 @@ use crate::util::pretty_array_like;
 #[derive(Clone, Hash)]
 pub struct Content {
     func: ElemFunc,
-    attrs: EcoVec<Attr>,
-}
-
-/// Attributes that can be attached to content.
-#[derive(Debug, Clone, PartialEq, Hash)]
-enum Attr {
-    Span(Span),
-    Field(EcoString),
-    Value(Prehashed<Value>),
-    Child(Prehashed<Content>),
-    Styles(Styles),
-    Prepared,
-    Guard(Guard),
-    Location(Location),
+    inner: ContentInner,
 }
 
 impl Content {
     /// Create an empty element.
     pub fn new(func: ElemFunc) -> Self {
-        Self { func, attrs: EcoVec::new() }
+        Self { func, inner: ContentInner::new() }
     }
 
     /// Create empty content.
@@ -49,17 +40,17 @@ impl Content {
     }
 
     /// Create a new sequence element from multiples elements.
-    pub fn sequence(iter: impl IntoIterator<Item = Self>) -> Self {
-        let mut iter = iter.into_iter();
-        let Some(first) = iter.next() else { return Self::empty() };
-        let Some(second) = iter.next() else { return first };
-        let mut content = Content::empty();
-        content.attrs.push(Attr::Child(Prehashed::new(first)));
-        content.attrs.push(Attr::Child(Prehashed::new(second)));
-        content
-            .attrs
-            .extend(iter.map(|child| Attr::Child(Prehashed::new(child))));
-        content
+    pub fn sequence<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Self>,
+        I::IntoIter: ExactSizeIterator,
+    {
+        Self {
+            func: SequenceElem::func(),
+            inner: ContentInner::with_iter(
+                iter.into_iter().map(Prehashed::new).map(ContentTailItem::Child),
+            ),
+        }
     }
 
     /// The element function of the contained content.
@@ -69,7 +60,7 @@ impl Content {
 
     /// Whether the content is an empty sequence.
     pub fn is_empty(&self) -> bool {
-        self.is::<SequenceElem>() && self.attrs.is_empty()
+        self.is::<SequenceElem>() && self.inner.is_childless()
     }
 
     /// Whether the contained element is of type `T`.
@@ -87,7 +78,7 @@ impl Content {
         if !self.is::<SequenceElem>() {
             return None;
         }
-        Some(self.attrs.iter().filter_map(Attr::child))
+        Some(self.inner.children())
     }
 
     /// Access the child and styles.
@@ -95,8 +86,8 @@ impl Content {
         if !self.is::<StyledElem>() {
             return None;
         }
-        let child = self.attrs.iter().find_map(Attr::child)?;
-        let styles = self.attrs.iter().find_map(Attr::styles)?;
+        let child = self.inner.children().next()?;
+        let styles = self.inner.style()?;
         Some((child, styles))
     }
 
@@ -138,14 +129,15 @@ impl Content {
 
     /// The content's span.
     pub fn span(&self) -> Span {
-        self.attrs.iter().find_map(Attr::span).unwrap_or(Span::detached())
+        self.inner.span().copied().unwrap_or(Span::detached())
     }
 
     /// Attach a span to the content if it doesn't already have one.
     pub fn spanned(mut self, span: Span) -> Self {
         if self.span().is_detached() {
-            self.attrs.push(Attr::Span(span));
+            self.inner.push_span(span);
         }
+
         self
     }
 
@@ -156,21 +148,12 @@ impl Content {
         value: impl Into<Value>,
     ) -> Self {
         self.push_field(name, value);
+
         self
     }
 
-    /// Attach a field to the content.
     pub fn push_field(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
-        let name = name.into();
-        if let Some(i) = self.attrs.iter().position(|attr| match attr {
-            Attr::Field(field) => *field == name,
-            _ => false,
-        }) {
-            self.attrs.make_mut()[i + 1] = Attr::Value(Prehashed::new(value.into()));
-        } else {
-            self.attrs.push(Attr::Field(name));
-            self.attrs.push(Attr::Value(Prehashed::new(value.into())));
-        }
+        self.inner.push_field(name.into(), value.into());
     }
 
     /// Access a field on the content.
@@ -217,12 +200,7 @@ impl Content {
     ///
     /// Does not include synthesized fields for sequence and styled elements.
     pub fn fields_ref(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
-        let mut iter = self.attrs.iter();
-        std::iter::from_fn(move || {
-            let field = iter.find_map(Attr::field)?;
-            let value = iter.next()?.value()?;
-            Some((field, value))
-        })
+        self.inner.fields()
     }
 
     /// Try to access a field on the content as a specified type.
@@ -265,9 +243,7 @@ impl Content {
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
         if self.is::<StyledElem>() {
-            let prev =
-                self.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
-            prev.apply_one(style.into());
+            self.inner.push_style(Styles::from(style.into()));
             self
         } else {
             self.styled_with_map(style.into().into())
@@ -279,16 +255,13 @@ impl Content {
         if styles.is_empty() {
             return self;
         }
-
         if self.is::<StyledElem>() {
-            let prev =
-                self.attrs.make_mut().iter_mut().find_map(Attr::styles_mut).unwrap();
-            prev.apply(styles);
+            self.inner.push_style(styles);
             self
         } else {
             let mut content = Content::new(StyledElem::func());
-            content.attrs.push(Attr::Child(Prehashed::new(self)));
-            content.attrs.push(Attr::Styles(styles));
+            content.inner.push_child(self);
+            content.inner.push_style(styles);
             content
         }
     }
@@ -312,28 +285,28 @@ impl Content {
 
     /// Disable a show rule recipe.
     pub fn guarded(mut self, guard: Guard) -> Self {
-        self.attrs.push(Attr::Guard(guard));
+        self.inner.push_guard(guard);
         self
     }
 
     /// Check whether a show rule recipe is disabled.
     pub fn is_guarded(&self, guard: Guard) -> bool {
-        self.attrs.contains(&Attr::Guard(guard))
+        self.inner.guards().any(|g| g == &guard)
     }
 
     /// Whether no show rule was executed for this content so far.
     pub fn is_pristine(&self) -> bool {
-        !self.attrs.iter().any(|modifier| matches!(modifier, Attr::Guard(_)))
+        self.inner.guards().next().is_none()
     }
 
     /// Whether this content has already been prepared.
     pub fn is_prepared(&self) -> bool {
-        self.attrs.contains(&Attr::Prepared)
+        self.inner.is_prepared()
     }
 
     /// Mark this content as prepared.
     pub fn mark_prepared(&mut self) {
-        self.attrs.push(Attr::Prepared);
+        self.inner.set_prepared(true);
     }
 
     /// Whether the content needs to be realized specially.
@@ -346,15 +319,12 @@ impl Content {
 
     /// This content's location in the document flow.
     pub fn location(&self) -> Option<Location> {
-        self.attrs.iter().find_map(|modifier| match modifier {
-            Attr::Location(location) => Some(*location),
-            _ => None,
-        })
+        self.inner.location()
     }
 
     /// Attach a location to this content.
     pub fn set_location(&mut self, location: Location) {
-        self.attrs.push(Attr::Location(location));
+        self.inner.push_location(location);
     }
 
     /// Queries the content tree for all elements that match the given selector.
@@ -388,10 +358,10 @@ impl Content {
     {
         f(self);
 
-        for attr in &self.attrs {
-            match attr {
-                Attr::Child(child) => child.traverse(f),
-                Attr::Value(value) => walk_value(value, f),
+        for item in self.inner.slice() {
+            match item {
+                ContentTailItem::Child(child) => child.traverse(f),
+                ContentTailItem::Field(_, value) => walk_value(value, f),
                 _ => {}
             }
         }
@@ -465,15 +435,15 @@ impl Add for Content {
         let mut lhs = self;
         match (lhs.is::<SequenceElem>(), rhs.is::<SequenceElem>()) {
             (true, true) => {
-                lhs.attrs.extend(rhs.attrs);
+                lhs.inner.extend(rhs.inner);
                 lhs
             }
             (true, false) => {
-                lhs.attrs.push(Attr::Child(Prehashed::new(rhs)));
+                lhs.inner.push_child(rhs);
                 lhs
             }
             (false, true) => {
-                rhs.attrs.insert(0, Attr::Child(Prehashed::new(lhs)));
+                rhs.inner.insert(0, ContentTailItem::Child(Prehashed::new(lhs)));
                 rhs
             }
             (false, false) => Self::sequence([lhs, rhs]),
@@ -489,51 +459,7 @@ impl AddAssign for Content {
 
 impl Sum for Content {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self::sequence(iter)
-    }
-}
-
-impl Attr {
-    fn child(&self) -> Option<&Content> {
-        match self {
-            Self::Child(child) => Some(child),
-            _ => None,
-        }
-    }
-
-    fn styles(&self) -> Option<&Styles> {
-        match self {
-            Self::Styles(styles) => Some(styles),
-            _ => None,
-        }
-    }
-
-    fn styles_mut(&mut self) -> Option<&mut Styles> {
-        match self {
-            Self::Styles(styles) => Some(styles),
-            _ => None,
-        }
-    }
-
-    fn field(&self) -> Option<&EcoString> {
-        match self {
-            Self::Field(field) => Some(field),
-            _ => None,
-        }
-    }
-
-    fn value(&self) -> Option<&Value> {
-        match self {
-            Self::Value(value) => Some(value),
-            _ => None,
-        }
-    }
-
-    fn span(&self) -> Option<Span> {
-        match self {
-            Self::Span(span) => Some(*span),
-            _ => None,
-        }
+        Self::sequence(iter.collect::<Vec<_>>().into_iter())
     }
 }
 

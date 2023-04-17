@@ -1501,6 +1501,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "thin-dst"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "db3c46be180f1af9673ebb27bc1235396f61ef6965b3fe0dbb2e624deb604f0e"
+
+[[package]]
 name = "thin-vec"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1613,6 +1619,7 @@ dependencies = [
  "siphasher",
  "subsetter",
  "svg2pdf",
+ "thin-dst",
  "thin-vec",
  "tiny-skia",
  "ttf-parser 0.18.1",

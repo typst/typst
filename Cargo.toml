@@ -51,9 +51,10 @@ unscanny = "0.1"
 usvg = { version = "0.22", default-features = false }
 xmp-writer = "0.1"
 indexmap = "1.9.3"
+thin-dst = "1.1.0"
 
 [profile.dev]
-debug = 0
+debug = true
 
 [profile.dev.package."*"]
 opt-level = 2
