@@ -35,6 +35,7 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
 
     - name: Build release binary
+      shell: bash
       run: |
         if [ ${{ matrix.cross }} ]; then
           cargo install cross --git https://github.com/cross-rs/cross
