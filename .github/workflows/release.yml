@@ -17,18 +17,22 @@ jobs:
           archive: tar.gz
           os: ubuntu-latest
           cross: false
+          crossBuildDocker: false
         - target: x86_64-apple-darwin
           archive: tar.gz
           os: macos-latest
-          cross: true
+          cross: false
+          crossBuildDocker: false
         - target: aarch64-apple-darwin
           archive: tar.gz
           os: macos-latest
-          cross: false
+          cross: true
+          crossBuildDocker: true
         - target: x86_64-pc-windows-msvc
           archive: zip
           os: windows-latest
           cross: false
+          crossBuildDocker: false
 
     steps:
     - uses: actions/checkout@v3
@@ -37,13 +41,14 @@ jobs:
     - name: Build release binary
       shell: bash
       run: |
-        if [ ${{ matrix.cross }} ]; then
+        if [ ${{ matrix.crossBuildDocker}} ]; then
           cargo install cross --git https://github.com/cross-rs/cross
           git clone https://github.com/cross-rs/cross
           cd cross
           git submodule update --init --remote
-          cargo build-docker-image aarch64-apple-darwin-cross
-          cd ..
+          cargo build-docker-image ${{ matrix.target }}-cross
+          # cd ..
+        if [ ${{matrix.cross }}]; then
         else
           cargo build -p typst-cli --release
         fi
