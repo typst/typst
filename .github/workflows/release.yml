@@ -49,6 +49,7 @@ jobs:
         directory=typst-${{ matrix.target }}
         mkdir $directory
         cp README.md LICENSE NOTICE $directory
+        ls target/release
         if [ -f target/release/typst ]; then
           echo test1
           cp target/release/typst $directory
