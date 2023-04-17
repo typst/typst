@@ -50,14 +50,12 @@ jobs:
         directory=typst-${{ matrix.target }}
         mkdir $directory
         cp README.md LICENSE NOTICE $directory
-        if [ -f target/${{ matrix.target }}/release/typst ]; then
-          echo test1
-          cp target/${{ matrix.target }}/release/typst $directory
-          tar cJf $directory.tar.xz $directory
-        elif [ -f target/${{ matrix.target }}/release/typst.exe ]; then
-          echo test2
+        if [ -f target/${{ matrix.target }}/release/typst.exe ]; then
           cp target/${{ matrix.target }}/release/typst.exe $directory
           7z a -r $directory.zip $directory
+        else
+          cp target/${{ matrix.target }}/release/typst $directory
+          tar cJf $directory.tar.xz $directory
         fi
 
     - uses: ncipollo/release-action@v1
