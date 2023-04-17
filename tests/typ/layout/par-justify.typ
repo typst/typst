@@ -25,3 +25,9 @@ D E F #linebreak(justify: true)
 // basically empty paragraph.
 #set par(justify: true)
 #""
+
+---
+// Test that the last line can be shrinked
+#set page(width: 155pt)
+#set par(justify: true)
+This text can be fitted in one line.

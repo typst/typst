@@ -906,7 +906,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             }
 
             // Determine the cost of the line.
-            let min_ratio = if attempt.justify { MIN_RATIO } else { 0.0 };
+            let min_ratio = if p.justify { MIN_RATIO } else { 0.0 };
             let mut cost = if ratio < min_ratio {
                 // The line is overfull. This is the case if
                 // - justification is on, but we'd need to shrink too much
@@ -920,7 +920,9 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // all breakpoints before this one become inactive since no line
                 // can span above the mandatory break.
                 active = k;
-                if attempt.justify {
+                // If ratio > 0, we need to stretch the line only when justify is needed.
+                // If ratio < 0, we always need to shrink the line.
+                if (ratio > 0.0 && attempt.justify) || ratio < 0.0 {
                     ratio.powi(3).abs()
                 } else {
                     0.0
