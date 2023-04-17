@@ -5,12 +5,13 @@ name: Build Release Binaries
 on:
   release:
     types: [created]
-  workflow_dispatch:
 
 jobs:
   build-release:
     name: release ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -63,32 +64,3 @@ jobs:
     - uses: ncipollo/release-action@v1
       with:
         artifacts: "directory.*"
-    # - name: Strip binary (Linux and macOS)
-    #   if: matrix.build == 'linux' || matrix.build == 'macos'
-    #   run: strip "target/release/typst"
-
-    # - name: Build archive
-    #   shell: bash
-    #   run: |
-    #     directory="typst-${{ matrix.target }}"
-    #     mkdir "$directory"
-    #     cp {README.md,LICENSE,NOTICE} "$directory/"
-    #     if [ "${{ matrix.os }}" = "windows-2022" ]; then
-    #       cp "target/release/typst.exe" "$directory/"
-    #       7z a "$directory.zip" "$directory"
-    #       echo "ASSET=$directory.zip" >> $GITHUB_ENV
-    #     else
-    #       cp "target/release/typst" "$directory/"
-    #       tar czf "$directory.tar.gz" "$directory"
-    #       echo "ASSET=$directory.tar.gz" >> $GITHUB_ENV
-    #     fi
-
-    # - name: Upload release archive
-    #   uses: actions/upload-release-asset@v1.0.2
-    #   env:
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #   with:
-    #     upload_url: ${{ github.event.release.upload_url }}
-    #     asset_path: ${{ env.ASSET }}
-    #     asset_name: ${{ env.ASSET }}
-    #     asset_content_type: application/octet-stream
