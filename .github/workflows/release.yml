@@ -13,12 +13,16 @@ jobs:
     permissions:
       contents: write
     strategy:
+      fail-fast: false
       matrix:
         include:
         - target: x86_64-unknown-linux-musl
           os: ubuntu-latest
           cross: false
         - target: aarch64-unknown-linux-musl
+          os: ubuntu-latest
+          cross: true
+        - target: armv7-unknown-linux-musleabi
           os: ubuntu-latest
           cross: true
         - target: riscv64gc-unknown-linux-gnu
@@ -33,6 +37,9 @@ jobs:
         - target: x86_64-pc-windows-msvc
           os: windows-latest
           cross: false
+        - target: aarch64-pc-windows-msvc
+          os: windows-latest
+          cross: true
 
     steps:
     - uses: actions/checkout@v3
