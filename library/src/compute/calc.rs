@@ -524,7 +524,7 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
     i64::try_from(result).ok()
 }
 
-/// Calculate a greatedt common divisor between two integers.
+/// Calculate a greatest common divisor between two integers.
 ///
 /// ## Example
 /// ```example
