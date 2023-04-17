@@ -13,26 +13,39 @@ jobs:
     strategy:
       matrix:
         include:
-        - target: x86_64-unknown-linux-gnu
+        - target: x86_64-unknown-linux-musl
           archive: tar.gz
           os: ubuntu-latest
+          cross: false
         - target: x86_64-apple-darwin
           archive: tar.gz
           os: macos-latest
+          cross: true
         - target: aarch64-apple-darwin
           archive: tar.gz
           os: macos-latest
+          cross: false
         - target: x86_64-pc-windows-msvc
           archive: zip
           os: windows-latest
+          cross: false
 
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@stable
-    - run: cargo install cross --git https://github.com/cross-rs/cross
 
     - name: Build release binary
-      run: cross build -p typst-cli --release --target ${{ matrix.target }}
+      run: |
+        if [ ${{ matrix.cross }} ]; then
+          cargo install cross --git https://github.com/cross-rs/cross
+          git clone https://github.com/cross-rs/cross
+          cd cross
+          git submodule update --init --remote
+          cargo build-docker-image aarch64-apple-darwin-cross
+          cd ..
+        else
+          cargo build -p typst-cli --release
+        fi
 
     - name: create artifact directory
       shell: bash
