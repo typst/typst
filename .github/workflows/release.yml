@@ -50,9 +50,11 @@ jobs:
         mkdir $directory
         cp README.md LICENSE NOTICE $directory
         if [ -f target/release/typst ]; then
+          echo test1
           cp target/release/typst $directory
           tar cJf $directory.tar.xz $directory
-        else
+        elif [ -f target/release/typst.exe]; then
+          echo test2
           cp target/release/typst.exe $directory
           7z a -r $directory.zip $directory
         fi
