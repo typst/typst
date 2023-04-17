@@ -636,6 +636,13 @@ fn code_primary(p: &mut Parser, atomic: bool) {
                 p.wrap(m, SyntaxKind::Closure);
             }
         }
+        SyntaxKind::Underscore if !atomic => {
+            p.eat();
+            p.wrap(m, SyntaxKind::Params);
+            p.expect(SyntaxKind::Arrow);
+            code_expr(p);
+            p.wrap(m, SyntaxKind::Closure);
+        }
 
         SyntaxKind::LeftBrace => code_block(p),
         SyntaxKind::LeftBracket => content_block(p),
@@ -789,6 +796,8 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
 
     if !p.eat_if(SyntaxKind::Underscore) {
         code_expr(p);
+    } else {
+        return SyntaxKind::Underscore;
     }
 
     if !p.eat_if(SyntaxKind::Colon) {
@@ -801,7 +810,6 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
 
     let kind = match p.node(m).map(SyntaxNode::kind) {
         Some(SyntaxKind::Ident) => SyntaxKind::Named,
-        Some(SyntaxKind::Underscore) => SyntaxKind::Underscore,
         Some(SyntaxKind::Str) if keyed => SyntaxKind::Keyed,
         _ => {
             for child in p.post_process(m) {
@@ -1123,7 +1131,10 @@ fn validate_params(p: &mut Parser, m: Marker) {
                     child.make_erroneous();
                 }
             }
-            SyntaxKind::LeftParen | SyntaxKind::RightParen | SyntaxKind::Comma => {}
+            SyntaxKind::LeftParen
+            | SyntaxKind::RightParen
+            | SyntaxKind::Comma
+            | SyntaxKind::Underscore => {}
             kind => {
                 child.convert_to_error(eco_format!(
                     "expected identifier, named pair or argument sink, found {}",

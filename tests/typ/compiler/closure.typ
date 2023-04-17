@@ -170,3 +170,7 @@
 ---
 // Error: 10-14 expected identifier, found `none`
 #let foo(none: b) = key
+
+---
+// Error: 11 expected comma
+#let foo(_: 3) = none

@@ -1160,6 +1160,7 @@ impl Eval for ast::Closure {
                     params.push(Param::Named(named.name(), named.expr().eval(vm)?));
                 }
                 ast::Param::Sink(name) => params.push(Param::Sink(name)),
+                ast::Param::Placeholder => params.push(Param::Placeholder),
             }
         }
 

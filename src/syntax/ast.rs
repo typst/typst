@@ -1568,6 +1568,8 @@ pub enum Param {
     Named(Named),
     /// An argument sink: `..args`.
     Sink(Option<Ident>),
+    /// A placeholder: `_`.
+    Placeholder,
 }
 
 impl AstNode for Param {
@@ -1576,6 +1578,7 @@ impl AstNode for Param {
             SyntaxKind::Ident => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Spread => Some(Self::Sink(node.cast_first_match())),
+            SyntaxKind::Underscore => Some(Self::Placeholder),
             _ => Option::None,
         }
     }
@@ -1585,6 +1588,7 @@ impl AstNode for Param {
             Self::Pos(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
             Self::Sink(_) => self.as_untyped(),
+            Self::Placeholder => self.as_untyped(),
         }
     }
 }

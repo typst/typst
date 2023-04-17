@@ -274,6 +274,8 @@ pub enum Param {
     Named(Ident, Value),
     /// An argument sink: `..args`.
     Sink(Option<Ident>),
+    /// A placeholder: `_`.
+    Placeholder,
 }
 
 impl Closure {
@@ -333,6 +335,9 @@ impl Closure {
                     let value =
                         args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
                     vm.define(ident.clone(), value);
+                }
+                Param::Placeholder => {
+                    args.eat::<Value>()?;
                 }
             }
         }

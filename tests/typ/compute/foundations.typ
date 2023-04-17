@@ -87,7 +87,7 @@ image("/tiger.jpg")
 #show raw: it => eval("[" + it.text + "]")
 
 ```
-#show emph: it => image("/giraffe.jpg")
+#show emph: _ => image("/giraffe.jpg")
 _No relative giraffe!_
 ```
 
