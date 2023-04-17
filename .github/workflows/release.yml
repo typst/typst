@@ -62,5 +62,5 @@ jobs:
 
     - uses: ncipollo/release-action@v1
       with:
-        artifacts: "directory.*"
+        artifacts: "typst-${{ matrix.target }}.*"
         allowUpdates: true
