@@ -48,6 +48,7 @@ jobs:
           git submodule update --init --remote
           cargo build-docker-image ${{ matrix.target }}-cross
           # cd ..
+        fi
         if [ ${{matrix.cross }}]; then
           echo test
         else
