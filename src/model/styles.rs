@@ -1,4 +1,5 @@
 use std::any::{Any, TypeId};
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
@@ -942,15 +943,19 @@ impl<'a, T> StyleVecBuilder<'a, T> {
         let mut shared = trunk.links().count();
         for &(mut chain, _) in iter {
             let len = chain.links().count();
-            if len < shared {
-                for _ in 0..shared - len {
-                    trunk.pop();
+            match len.cmp(&shared) {
+                Ordering::Less => {
+                    for _ in 0..shared - len {
+                        trunk.pop();
+                    }
+                    shared = len;
                 }
-                shared = len;
-            } else if len > shared {
-                for _ in 0..len - shared {
-                    chain.pop();
+                Ordering::Greater => {
+                    for _ in 0..len - shared {
+                        chain.pop();
+                    }
                 }
+                _ => {}
             }
 
             while shared > 0 && chain != trunk {

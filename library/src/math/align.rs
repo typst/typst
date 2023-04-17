@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use super::*;
 
 /// A math alignment point: `&`, `&&`.
@@ -33,10 +35,14 @@ pub(super) fn alignments(rows: &[MathRow]) -> Vec<Abs> {
             let mut i = 0;
             for fragment in row.iter() {
                 if matches!(fragment, MathFragment::Align) {
-                    if i < current {
-                        x = points[i];
-                    } else if i == current {
-                        points[i].set_max(x);
+                    match i.cmp(&current) {
+                        Ordering::Less => {
+                            x = points[i];
+                        }
+                        Ordering::Equal => {
+                            points[i].set_max(x);
+                        }
+                        _ => {}
                     }
                     i += 1;
                 }
