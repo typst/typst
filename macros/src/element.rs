@@ -393,7 +393,7 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
         quote! {
             if id == ::std::any::TypeId::of::<dyn #capability>() {
                 return Some(unsafe {
-                    ::typst::util::fat::vtable(&*null as &dyn #capability)
+                    ::typst::util::fat::vtable(&null as &dyn #capability)
                 });
             }
         }
@@ -401,11 +401,9 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
 
     quote! {
         |id| {
-            let null = unsafe {
-                ::std::mem::ManuallyDrop::new(Self(::typst::model::Content::dangling(
-                    <#ident as ::typst::model::Element>::func()
-                )))
-            };
+            let null = Self(::typst::model::Content::new(
+                <#ident as ::typst::model::Element>::func()
+            ));
             #(#checks)*
             None
         }
