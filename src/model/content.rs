@@ -39,6 +39,13 @@ impl Content {
         Self::new(SequenceElem::func())
     }
 
+    /// Create a new dangling element.
+    /// Calling any method on the returned element is undefined behaviour.
+    #[doc(hidden)]
+    pub const unsafe fn dangling(func: ElemFunc) -> Self {
+        Self { func, inner: ContentInner::dangling() }
+    }
+
     /// Create a new sequence element from multiples elements.
     pub fn sequence<I>(iter: I) -> Self
     where
