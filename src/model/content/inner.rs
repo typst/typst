@@ -498,11 +498,8 @@ impl Drop for ContentInner {
             }
         }
 
-        // Safety:
-        // The vector has a header, so `self.allocation()` points to an
-        // allocation with the layout of current capacity.
         let _dealloc = Dealloc(self.ptr.as_ptr().cast(), Self::layout(self.capacity()));
-
+        
         // Deallocate the children:
         unsafe {
             ptr::drop_in_place(ptr::slice_from_raw_parts_mut(
@@ -522,6 +519,15 @@ impl Hash for ContentInner {
 
 #[derive(Debug)]
 pub struct ContentHeader {
+    /// The strong reference count of this element.
+    strong: AtomicUsize,
+
+    /// The length of the initialized tail.
+    len: usize,
+
+    /// The capacity of the tail.
+    cap: usize,
+
     /// The span of this element.
     span: Option<Span>,
 
@@ -533,15 +539,6 @@ pub struct ContentHeader {
 
     /// Whether this element is prepared or not.
     prepared: bool,
-
-    /// The strong reference count of this element.
-    strong: AtomicUsize,
-
-    /// The length of the initialized tail.
-    len: usize,
-
-    /// The capacity of the tail.
-    cap: usize,
 }
 
 impl ContentHeader {
