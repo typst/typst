@@ -593,7 +593,7 @@ fn code_expr_prec(p: &mut Parser, atomic: bool, min_prec: usize) {
 
         if p.eat_if(SyntaxKind::Dots) {
             // code_expr_prec(p, false, min_prec);
-            p.wrap(m, SyntaxKind::Pattern);
+            p.wrap(m, SyntaxKind::PipedSpread);
             p.expect(SyntaxKind::Pipe);
             code_expr_prec(p, false, min_prec);
             p.wrap(m, SyntaxKind::Binary);
@@ -1475,5 +1475,6 @@ impl<'s> Parser<'s> {
 #[test]
 fn feature() {
     dbg!(parse_code("(1,2).. |> f"));
+  //  dbg!(parse_code("let _ = 4"));
     //    dbg!(parse_code("f((1,2).. |> f)"))
 }

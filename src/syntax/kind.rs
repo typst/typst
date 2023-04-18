@@ -216,6 +216,8 @@ pub enum SyntaxKind {
     Args,
     /// Spread arguments or an argument sink: `..x`.
     Spread,
+    /// x..
+    PipedSpread,
     /// A closure: `(x, y) => z`.
     Closure,
     /// A closure's parameters: `(x, y)`.
@@ -246,7 +248,6 @@ pub enum SyntaxKind {
     FuncReturn,
     /// A destructuring pattern: `(x, _, ..y)`.
     Destructuring,
-
     /// A line comment: `// ...`.
     LineComment,
     /// A block comment: `/* ... */`.
@@ -318,6 +319,7 @@ impl SyntaxKind {
     pub fn name(self) -> &'static str {
         match self {
             Self::Pipe => "pipe",
+            Self::PipedSpread => "pipe spread",
             Self::Markup => "markup",
             Self::Text => "text",
             Self::Space => "space",

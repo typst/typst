@@ -231,6 +231,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::FuncCall => None,
         SyntaxKind::Args => None,
         SyntaxKind::Spread => None,
+        SyntaxKind::PipedSpread => None,
         SyntaxKind::Closure => None,
         SyntaxKind::Params => None,
         SyntaxKind::LetBinding => None,

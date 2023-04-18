@@ -1293,7 +1293,7 @@ impl Binary {
         self.0.cast_last_match().unwrap_or_default()
     }
 
-    pub fn lhs_pattern(&self) -> Option<Pattern> {
+    pub fn lhs_cast_pipe(&self) -> Option<PipedSpread> {
         self.0.cast_first_match()
     }
 }
@@ -1683,6 +1683,10 @@ impl Default for Pattern {
     fn default() -> Self {
         Self::Ident(Ident::default())
     }
+}
+
+node!{
+    PipedSpread
 }
 
 node! {

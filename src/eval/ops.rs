@@ -8,7 +8,7 @@ use super::{format_str, Eval, Regex, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::eval::Func;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
-use crate::syntax::ast::{self, Arg, AstNode, Binary, Expr, Ident, Pattern, PatternKind};
+use crate::syntax::ast::{self, Arg, AstNode, Binary, Expr, Ident, Pattern};
 use crate::syntax::{Spanned, SyntaxKind, SyntaxNode};
 use Value::*;
 
@@ -433,15 +433,17 @@ pub fn pipe(b: &Binary, vm: &mut Vm) -> SourceResult<Value> {
     let span = b.span();
     println!("pipe");
     let piped_args: Vec<Value>;
-
-    if let Some(lhs) = b.lhs_pattern() {
-        println!("some pattern");    
-        let PatternKind::Pipe(expr) = &lhs.kind() else {panic!()};
+    if let Some(lhs) = b.lhs_cast_pipe() {// is it needed??
+        println!("some pipe spread");    
+        let Some(expr) = &lhs.as_untyped().cast_first_match::<Expr>() else {panic!()};
         let expr = expr.eval(vm)?;
         match expr {
             Array(arr) => {
                 println!("lhs is array");
                 piped_args = arr.into_iter().collect();
+            }
+            Dict(dict) => {
+                panic!("dicts not supported yet")
             }
             value => {
                 println!("lhs is value");
@@ -504,4 +506,4 @@ pub fn pipe(b: &Binary, vm: &mut Vm) -> SourceResult<Value> {
             _ => return Err(eco_format!("cant pipe in",)).at(span), //modify that span if lhs is a pipe for better errors,
         }
     }
-}
+ }
