@@ -53,7 +53,7 @@ xmp-writer = "0.1"
 indexmap = "1.9.3"
 
 [profile.dev]
-debug = false
+debug = 0
 
 [profile.dev.package."*"]
 opt-level = 2
