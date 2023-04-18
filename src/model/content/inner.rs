@@ -21,6 +21,7 @@ use crate::{
 
 use super::Content;
 
+/// The metadata of the content.
 pub struct ContentInner {
     ptr: NonNull<ContentHeader>,
 }
@@ -44,6 +45,7 @@ impl Default for ContentInner {
 }
 
 impl ContentInner {
+    /// The base capacity of the content tail.
     pub const BASE_CAPACITY: usize = 4;
 
     /// Creates a new content inner with a base capacity.
@@ -93,8 +95,12 @@ impl ContentInner {
 
         header.cap = capacity;
         header.strong = AtomicUsize::new(1);
+
+        // Safety:
+        // - The pointer is valid because it was allocated above and
+        //   the allocation was checked.
         unsafe {
-            ptr::write(ptr.as_ptr(), header);
+            ptr.as_ptr().write(header);
         }
 
         let mut this = Self { ptr };
@@ -125,6 +131,9 @@ impl ContentInner {
             *self = self.deep_clone();
         }
 
+        // Safety:
+        // - We have exclusive access to the pointer as is ensured
+        //   by the above if statement.
         unsafe { self.inner_mut_unchecked() }
     }
 
@@ -145,10 +154,16 @@ impl ContentInner {
 
     /// Returns the inner value.
     pub fn inner(&self) -> &ContentHeader {
+        // Safety:
+        // - The pointer is valid as long as we have not dropped.
         unsafe { self.ptr.as_ref() }
     }
 
     /// Returns a mutable reference to the inner value.
+    /// 
+    /// # Safety
+    /// This function is unsafe because it does not check whether
+    /// it has exclusive access to the inner value.
     pub unsafe fn inner_mut_unchecked(&mut self) -> &mut ContentHeader {
         self.ptr.as_mut()
     }
@@ -165,6 +180,10 @@ impl ContentInner {
             return None;
         }
 
+        // Safety:
+        // - We have exclusive access to the pointer as is ensured
+        //   by the above if statement.
+        // - We know we have up to `len` initialized items.
         Some(unsafe { std::slice::from_raw_parts_mut(self.data_mut(), self.len()) })
     }
 
@@ -249,6 +268,9 @@ impl ContentInner {
                 let layout = Self::layout(target);
                 let new_size = Self::size(target);
 
+                // Safety:
+                // - The pointer is valid as long as we have not dropped.
+                // - The pointer is valid for the current capacity.
                 let new_ptr: *mut ContentHeader = std::alloc::realloc(
                     ptr.cast(),
                     Self::layout(self.capacity()),
@@ -260,6 +282,11 @@ impl ContentInner {
                     std::alloc::handle_alloc_error(layout);
                 }
 
+                // Safety:
+                // - The pointer is valid as we have just allocated it and checked
+                //   that it is valid.
+                // - The pointer is valid for the new capacity.
+                // - `realloc` ensures that existing data is copied to the new pointer.
                 self.ptr = NonNull::new_unchecked(new_ptr);
                 self.inner_mut_unchecked().cap = target;
             }
@@ -270,10 +297,16 @@ impl ContentInner {
     pub fn extend(&mut self, mut other: Self) {
         let other_len = other.len();
 
+        // We make sure that there is some room available
+        // in the content inner.
         if self.capacity() <= self.len() + other_len {
             self.grow((self.len() + other_len).max(self.capacity() * 2));
+        } else {
+            self.make_mut();
         }
 
+        // If there are other strong references to the other content,
+        // we clone the items.
         if other.strong_count() > 1 {
             for value in other.slice() {
                 self.push(value.clone());
@@ -283,16 +316,20 @@ impl ContentInner {
         }
 
         unsafe {
-            // We make sure that there is some room available
-            // in the content inner.
-
             // We write the data
+            // Safety:
+            // - We have exclusive access to the pointer as is ensured
+            //   by the `make_mut` call.
+            // - We know we have up to `len` initialized items.
+            // - We know we have a valid pointer up to `cap` items.
+            // - We know that the other content has `other_len` items.
             ptr::copy_nonoverlapping(
                 other.data(),
                 self.data_mut().add(self.len()),
                 other_len,
             );
 
+            // Increment the length
             self.inner_mut_unchecked().len += other_len;
 
             // We prevent the other content from dropping its data.
@@ -306,45 +343,67 @@ impl ContentInner {
             out_of_bounds(index, self.len());
         }
 
+        // We make sure that there is some room available
+        // in the content inner.
+        if self.len() == self.capacity() {
+            self.grow(self.capacity() * 2);
+        } else {
+            self.make_mut();
+        }
         unsafe {
-            // We make sure that there is some room available
-            // in the content inner.
-            if self.len() == self.capacity() {
-                self.grow(self.capacity() * 2);
-            } else {
-                self.make_mut();
-            }
-
+            // Safety:
+            // - We have exclusive access to the pointer as is ensured
+            //   by the `make_mut` call.
+            // - We know we have up to `len` initialized items.
+            // - We know that `index` is below the `len`.
             let first = self.data_mut().add(index);
+            
+            // Safety:
+            // - See above
             ptr::copy(first, first.add(1), self.len() - index);
 
             first.write(child);
 
+            // Safety:
+            // - See above
             self.inner_mut_unchecked().len += 1;
         }
     }
 
     /// Pushes a new item to the tail.
     pub fn push(&mut self, item: ContentTailItem) {
-        self.make_mut();
+        // We make sure that there is some room available
+        // in the content inner.
+        if self.capacity() <= self.len() + 1 {
+            self.grow(self.capacity() * 2);
+        } else {
+            self.make_mut();
+        }
 
         unsafe {
-            // We make sure that there is some room available
-            // in the content inner.
-            if self.capacity() <= self.len() + 1 {
-                self.grow(self.capacity() * 2);
-            }
-
             // We write the data
+            // Safety:
+            // - We have exclusive access to the pointer as is ensured
+            //   by the `make_mut` call.
+            // - We know we have up to `len` initialized items.
+            // - We know we have a valid pointer up to `cap` items.
             self.data_mut().add(self.len()).write(item);
 
+            // Safety:
+            // - See above
             self.inner_mut_unchecked().len += 1;
         }
     }
 
     /// Pushes a new field to the content.
     pub fn push_field(&mut self, name: EcoString, value: Value) {
-        self.make_mut();
+        // We make sure that there is some room available
+        // in the content inner.
+        if self.capacity() < self.len() + 1 {
+            self.grow(self.capacity() * 2);
+        } else {
+            self.make_mut();
+        }
 
         if let Some((_, local)) =
             self.fields_mut().and_then(|mut i| i.find(|(key, _)| *key == &name))
@@ -354,13 +413,13 @@ impl ContentInner {
         }
 
         unsafe {
-            // We make sure that there is some room available
-            // in the content inner.
-            if self.capacity() < self.len() + 1 {
-                self.grow(self.capacity() * 2);
-            }
-
             // We write the data
+            // Safety:
+            // - We have exclusive access to the pointer as is ensured
+            //   by the `make_mut` call.
+            // - We know we have up to `len` initialized items.
+            // - We know we have a valid pointer up to `cap` items.
+            // - We have checked that we have enough capacity.
             self.data_mut().add(self.len()).write(ContentTailItem::Field(
                 Prehashed::new(name),
                 Prehashed::new(value),
@@ -420,11 +479,19 @@ impl ContentInner {
 
     /// Returns an immutable pointer to the tail.
     fn data(&self) -> *const ContentTailItem {
+        // Safety:
+        // - We know that the pointer is valid.
+        // - We know that that we have at least `Self::BASE_CAPACITY` capacity
+        //   therefore the pointer is valid after the header.
         unsafe { self.ptr.as_ptr().add(1).cast::<ContentTailItem>() }
     }
 
     /// Returns a mutable pointer to the tail.
     fn data_mut(&mut self) -> *mut ContentTailItem {
+        // Safety:
+        // - We know that the pointer is valid.
+        // - We know that that we have at least `Self::BASE_CAPACITY` capacity
+        //   therefore the pointer is valid after the header.
         unsafe { self.ptr.as_ptr().add(1).cast::<ContentTailItem>() }
     }
 
