@@ -467,7 +467,7 @@ pub fn perm(
     numbers: u64,
 ) -> Value {
     // By convention.
-    if base + 1 <= numbers {
+    if base < numbers {
         return Ok(Value::Int(0));
     }
 

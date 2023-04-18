@@ -1625,7 +1625,7 @@ impl Destructuring {
 
     // Returns a list of all identifiers in the pattern.
     pub fn idents(&self) -> impl Iterator<Item = Ident> + '_ {
-        self.bindings().into_iter().filter_map(|binding| match binding {
+        self.bindings().filter_map(|binding| match binding {
             DestructuringKind::Ident(ident) => Some(ident),
             DestructuringKind::Sink(ident) => ident,
             DestructuringKind::Named(_, ident) => Some(ident),

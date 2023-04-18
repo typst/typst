@@ -99,21 +99,21 @@ impl MathRow {
         self.iter().map(MathFragment::descent).max().unwrap_or_default()
     }
 
-    pub fn to_frame(self, ctx: &MathContext) -> Frame {
+    pub fn into_frame(self, ctx: &MathContext) -> Frame {
         let styles = ctx.styles();
         let align = AlignElem::alignment_in(styles).x.resolve(styles);
-        self.to_aligned_frame(ctx, &[], align)
+        self.into_aligned_frame(ctx, &[], align)
     }
 
-    pub fn to_fragment(self, ctx: &MathContext) -> MathFragment {
+    pub fn into_fragment(self, ctx: &MathContext) -> MathFragment {
         if self.0.len() == 1 {
             self.0.into_iter().next().unwrap()
         } else {
-            FrameFragment::new(ctx, self.to_frame(ctx)).into()
+            FrameFragment::new(ctx, self.into_frame(ctx)).into()
         }
     }
 
-    pub fn to_aligned_frame(
+    pub fn into_aligned_frame(
         mut self,
         ctx: &MathContext,
         points: &[Abs],
@@ -141,7 +141,7 @@ impl MathRow {
             let mut frame = Frame::new(Size::zero());
 
             for (i, row) in rows.into_iter().enumerate() {
-                let sub = row.to_line_frame(&points, align);
+                let sub = row.into_line_frame(&points, align);
                 let size = frame.size_mut();
                 if i > 0 {
                     size.y += leading;
@@ -157,11 +157,11 @@ impl MathRow {
             }
             frame
         } else {
-            self.to_line_frame(points, align)
+            self.into_line_frame(points, align)
         }
     }
 
-    fn to_line_frame(self, points: &[Abs], align: Align) -> Frame {
+    fn into_line_frame(self, points: &[Abs], align: Align) -> Frame {
         let ascent = self.ascent();
         let descent = self.descent();
         let size = Size::new(Abs::zero(), ascent + descent);
@@ -194,7 +194,7 @@ impl MathRow {
             let y = ascent - fragment.ascent();
             let pos = Point::new(x, y);
             x += fragment.width();
-            frame.push_frame(pos, fragment.to_frame());
+            frame.push_frame(pos, fragment.into_frame());
         }
 
         frame.size_mut().x = x;

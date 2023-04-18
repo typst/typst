@@ -1,72 +1,106 @@
 //! Image handling.
 
+use std::collections::BTreeSet;
+use std::fmt::{self, Debug, Formatter};
+use std::hash::{Hash, Hasher};
 use std::io;
 use std::sync::Arc;
 
+use comemo::Tracked;
+use ecow::EcoString;
+
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::util::Buffer;
+use crate::World;
 
 /// A raster or vector image.
 ///
 /// Values of this type are cheap to clone and hash.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Image {
+#[derive(Clone)]
+pub struct Image(Arc<Repr>);
+
+/// The internal representation.
+struct Repr {
     /// The raw, undecoded image data.
     data: Buffer,
     /// The format of the encoded `buffer`.
     format: ImageFormat,
-    /// The width in pixels.
-    width: u32,
-    /// The height in pixels.
-    height: u32,
+    /// The decoded image.
+    decoded: DecodedImage,
 }
 
 impl Image {
     /// Create an image from a buffer and a format.
-    ///
-    /// Extracts the width and height.
     pub fn new(data: Buffer, format: ImageFormat) -> StrResult<Self> {
-        let (width, height) = determine_size(&data, format)?;
-        Ok(Self { data, format, width, height })
+        match format {
+            ImageFormat::Raster(format) => decode_raster(data, format),
+            ImageFormat::Vector(VectorFormat::Svg) => decode_svg(data),
+        }
+    }
+
+    /// Create a font-dependant image from a buffer and a format.
+    pub fn with_fonts(
+        data: Buffer,
+        format: ImageFormat,
+        world: Tracked<dyn World>,
+        fallback_family: Option<&str>,
+    ) -> StrResult<Self> {
+        match format {
+            ImageFormat::Raster(format) => decode_raster(data, format),
+            ImageFormat::Vector(VectorFormat::Svg) => {
+                decode_svg_with_fonts(data, world, fallback_family)
+            }
+        }
     }
 
     /// The raw image data.
     pub fn data(&self) -> &Buffer {
-        &self.data
+        &self.0.data
     }
 
     /// The format of the image.
     pub fn format(&self) -> ImageFormat {
-        self.format
+        self.0.format
+    }
+
+    /// The decoded version of the image.
+    pub fn decoded(&self) -> &DecodedImage {
+        &self.0.decoded
     }
 
     /// The width of the image in pixels.
     pub fn width(&self) -> u32 {
-        self.width
+        self.decoded().width()
     }
 
     /// The height of the image in pixels.
     pub fn height(&self) -> u32 {
-        self.height
+        self.decoded().height()
     }
+}
 
-    /// Decode the image.
-    #[comemo::memoize]
-    pub fn decode(&self) -> StrResult<Arc<DecodedImage>> {
-        Ok(Arc::new(match self.format {
-            ImageFormat::Vector(VectorFormat::Svg) => {
-                let opts = usvg::Options::default();
-                let tree = usvg::Tree::from_data(&self.data, &opts.to_ref())
-                    .map_err(format_usvg_error)?;
-                DecodedImage::Svg(tree)
-            }
-            ImageFormat::Raster(format) => {
-                let cursor = io::Cursor::new(&self.data);
-                let reader = image::io::Reader::with_format(cursor, format.into());
-                let dynamic = reader.decode().map_err(format_image_error)?;
-                DecodedImage::Raster(dynamic, format)
-            }
-        }))
+impl Debug for Image {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.debug_struct("Image")
+            .field("format", &self.format())
+            .field("width", &self.width())
+            .field("height", &self.height())
+            .finish()
+    }
+}
+
+impl Eq for Image {}
+
+impl PartialEq for Image {
+    fn eq(&self, other: &Self) -> bool {
+        self.data() == other.data() && self.format() == other.format()
+    }
+}
+
+impl Hash for Image {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.data().hash(state);
+        self.format().hash(state);
     }
 }
 
@@ -129,30 +163,138 @@ pub enum DecodedImage {
     Svg(usvg::Tree),
 }
 
-/// Determine the image size in pixels.
-#[comemo::memoize]
-fn determine_size(data: &Buffer, format: ImageFormat) -> StrResult<(u32, u32)> {
-    match format {
-        ImageFormat::Raster(format) => {
-            let cursor = io::Cursor::new(&data);
-            let reader = image::io::Reader::with_format(cursor, format.into());
-            Ok(reader.into_dimensions().map_err(format_image_error)?)
+impl DecodedImage {
+    /// The width of the image in pixels.
+    pub fn width(&self) -> u32 {
+        match self {
+            Self::Raster(dynamic, _) => dynamic.width(),
+            Self::Svg(tree) => tree.svg_node().size.width().ceil() as u32,
         }
-        ImageFormat::Vector(VectorFormat::Svg) => {
-            let opts = usvg::Options::default();
-            let tree =
-                usvg::Tree::from_data(data, &opts.to_ref()).map_err(format_usvg_error)?;
+    }
 
-            let size = tree.svg_node().size;
-            let width = size.width().ceil() as u32;
-            let height = size.height().ceil() as u32;
-            Ok((width, height))
+    /// The height of the image in pixels.
+    pub fn height(&self) -> u32 {
+        match self {
+            Self::Raster(dynamic, _) => dynamic.height(),
+            Self::Svg(tree) => tree.svg_node().size.height().ceil() as u32,
         }
     }
 }
 
+/// Decode a raster image.
+#[comemo::memoize]
+fn decode_raster(data: Buffer, format: RasterFormat) -> StrResult<Image> {
+    let cursor = io::Cursor::new(&data);
+    let reader = image::io::Reader::with_format(cursor, format.into());
+    let dynamic = reader.decode().map_err(format_image_error)?;
+    Ok(Image(Arc::new(Repr {
+        data,
+        format: ImageFormat::Raster(format),
+        decoded: DecodedImage::Raster(dynamic, format),
+    })))
+}
+
+/// Decode an SVG image.
+#[comemo::memoize]
+fn decode_svg(data: Buffer) -> StrResult<Image> {
+    let opts = usvg::Options::default();
+    let tree = usvg::Tree::from_data(&data, &opts.to_ref()).map_err(format_usvg_error)?;
+    Ok(Image(Arc::new(Repr {
+        data,
+        format: ImageFormat::Vector(VectorFormat::Svg),
+        decoded: DecodedImage::Svg(tree),
+    })))
+}
+
+/// Decode an SVG image with access to fonts.
+#[comemo::memoize]
+fn decode_svg_with_fonts(
+    data: Buffer,
+    world: Tracked<dyn World>,
+    fallback_family: Option<&str>,
+) -> StrResult<Image> {
+    // Parse XML.
+    let xml = std::str::from_utf8(&data)
+        .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str))?;
+    let document = roxmltree::Document::parse(xml)
+        .map_err(|err| format_xml_like_error("svg", err))?;
+
+    // Parse SVG.
+    let mut opts = usvg::Options {
+        fontdb: load_svg_fonts(&document, world, fallback_family),
+        ..Default::default()
+    };
+
+    // Recover the non-lowercased version of the family because
+    // usvg is case sensitive.
+    let book = world.book();
+    if let Some(family) = fallback_family
+        .and_then(|lowercase| book.select_family(lowercase).next())
+        .and_then(|index| book.info(index))
+        .map(|info| info.family.clone())
+    {
+        opts.font_family = family;
+    }
+
+    let tree =
+        usvg::Tree::from_xmltree(&document, &opts.to_ref()).map_err(format_usvg_error)?;
+
+    Ok(Image(Arc::new(Repr {
+        data,
+        format: ImageFormat::Vector(VectorFormat::Svg),
+        decoded: DecodedImage::Svg(tree),
+    })))
+}
+
+/// Discover and load the fonts referenced by an SVG.
+fn load_svg_fonts(
+    document: &roxmltree::Document,
+    world: Tracked<dyn World>,
+    fallback_family: Option<&str>,
+) -> fontdb::Database {
+    // Find out which font families are referenced by the SVG. We simply do a
+    // search for `font-family` attributes. This won't help with CSS, but usvg
+    // 22.0 doesn't seem to support it anyway. Once we bump to the latest usvg,
+    // this can be replaced by a scan for text elements in the SVG:
+    // https://github.com/RazrFalcon/resvg/issues/555
+    let mut referenced = BTreeSet::<EcoString>::new();
+    traverse_xml(&document.root(), &mut |node| {
+        if let Some(list) = node.attribute("font-family") {
+            for family in list.split(',') {
+                referenced.insert(EcoString::from(family.trim()).to_lowercase());
+            }
+        }
+    });
+
+    // Prepare font database.
+    let mut fontdb = fontdb::Database::new();
+    for family in referenced.iter().map(|family| family.as_str()).chain(fallback_family) {
+        // We load all variants for the family, since we don't know which will
+        // be used.
+        for id in world.book().select_family(family) {
+            if let Some(font) = world.font(id) {
+                let source = Arc::new(font.data().clone());
+                fontdb.load_font_source(fontdb::Source::Binary(source));
+            }
+        }
+    }
+
+    fontdb
+}
+
+/// Search for all font families referenced by an SVG.
+fn traverse_xml<F>(node: &roxmltree::Node, f: &mut F)
+where
+    F: FnMut(&roxmltree::Node),
+{
+    f(node);
+    for child in node.children() {
+        traverse_xml(&child, f);
+    }
+}
+
 /// Format the user-facing raster graphic decoding error message.
-fn format_image_error(error: image::ImageError) -> String {
+fn format_image_error(error: image::ImageError) -> EcoString {
     match error {
         image::ImageError::Limits(_) => "file is too large".into(),
         _ => "failed to decode image".into(),
@@ -160,7 +302,7 @@ fn format_image_error(error: image::ImageError) -> String {
 }
 
 /// Format the user-facing SVG decoding error message.
-fn format_usvg_error(error: usvg::Error) -> String {
+fn format_usvg_error(error: usvg::Error) -> EcoString {
     match error {
         usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),
         usvg::Error::MalformedGZip => "file is not compressed correctly".into(),

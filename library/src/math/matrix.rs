@@ -268,7 +268,7 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
         let points = alignments(&col);
         let mut y = Abs::zero();
         for ((cell, &ascent), &descent) in col.into_iter().zip(&ascents).zip(&descents) {
-            let cell = cell.to_aligned_frame(ctx, &points, Align::Center);
+            let cell = cell.into_aligned_frame(ctx, &points, Align::Center);
             let pos =
                 Point::new(x + (rcol - cell.width()) / 2.0, y + ascent - cell.ascent());
             frame.push_frame(pos, cell);

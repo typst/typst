@@ -1,3 +1,5 @@
+#![allow(clippy::comparison_chain)]
+
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::env;
@@ -324,10 +326,10 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
         .unwrap_or_else(|_| path.into());
 
     let f = |e| FileError::from_io(e, &suffix);
-    if fs::metadata(&path).map_err(f)?.is_dir() {
+    if fs::metadata(path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(&path).map_err(f)
+        fs::read(path).map_err(f)
     }
 }
 
@@ -379,7 +381,7 @@ fn test(
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
             let pdf_data = typst::export::pdf(&document);
-            fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
+            fs::create_dir_all(pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
@@ -390,7 +392,7 @@ fn test(
         }
 
         let canvas = render(&document.pages);
-        fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
+        fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
@@ -438,7 +440,7 @@ fn test_part(
         println!("Syntax Tree:\n{:#?}\n", source.root())
     }
 
-    let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
+    let (local_compare_ref, mut ref_errors) = parse_metadata(source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     ok &= test_spans(source.root());
@@ -482,14 +484,14 @@ fn test_part(
         for error in errors.iter() {
             if !ref_errors.contains(error) {
                 print!("    Not annotated | ");
-                print_error(&source, line, error);
+                print_error(source, line, error);
             }
         }
 
         for error in ref_errors.iter() {
             if !errors.contains(error) {
                 print!("    Not emitted   | ");
-                print_error(&source, line, error);
+                print_error(source, line, error);
             }
         }
     }
