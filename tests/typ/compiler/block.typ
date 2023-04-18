@@ -61,7 +61,7 @@
 // Block directly in markup also creates a scope.
 #{ let x = 1 }
 
-// Error: 7-8 unknown variable
+// Error: 7-8 unknown variable: x
 #test(x, 1)
 
 ---
@@ -73,7 +73,7 @@
 
 #test(a, 1)
 
-// Error: 3-4 unknown variable
+// Error: 3-4 unknown variable: b
 #{b}
 
 ---
@@ -83,7 +83,7 @@
   test(b, 1)
 }}
 
-// Error: 2-3 unknown variable
+// Error: 2-3 unknown variable: b
 #b
 
 ---
@@ -106,13 +106,13 @@
 // Content blocks also create a scope.
 #[#let x = 1]
 
-// Error: 2-3 unknown variable
+// Error: 2-3 unknown variable: x
 #x
 
 ---
 // Multiple unseparated expressions in one line.
 
-// Error: 2-4 invalid number suffix
+// Error: 2-4 invalid number suffix: u
 #1u
 
 // Should output `1`.
