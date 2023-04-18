@@ -216,7 +216,7 @@ pub enum SyntaxKind {
     Args,
     /// Spread arguments or an argument sink: `..x`.
     Spread,
-    /// x..
+    /// A value to be piped to the right: `(2,x)..`
     PipedSpread,
     /// A closure: `(x, y) => z`.
     Closure,

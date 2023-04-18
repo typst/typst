@@ -1,6 +1,5 @@
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
-use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::ops::Range;

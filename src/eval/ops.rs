@@ -8,8 +8,7 @@ use super::{format_str, Eval, Regex, Value, Vm};
 use crate::diag::{SourceResult, StrResult};
 use crate::eval::Func;
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
-use crate::syntax::ast::{self, Arg, AstNode, Binary, Expr, Ident, Pattern};
-use crate::syntax::{Spanned, SyntaxKind, SyntaxNode};
+use crate::syntax::ast::{self, Arg, AstNode, Binary, Expr, Ident};
 use Value::*;
 
 /// Bail with a type mismatch error.
@@ -429,49 +428,53 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
 
 pub fn pipe(b: &Binary, vm: &mut Vm) -> SourceResult<Value> {
     use crate::diag::At;
-    let rhs =  b.rhs();
+    let rhs = b.rhs();
     let span = b.span();
-    println!("pipe");
-    let piped_args: Vec<Value>;
-    if let Some(lhs) = b.lhs_cast_pipe() {// is it needed??
-        println!("some pipe spread");    
-        let Some(expr) = &lhs.as_untyped().cast_first_match::<Expr>() else {panic!()};
+    let mut piped_args: Vec<Value>;
+    if let Some(lhs) = b.as_untyped().cast_first_match::<ast::PipedSpread>() {
+        let Some(expr) = &lhs.as_untyped().cast_first_match::<Expr>() else {unreachable!()};
         let expr = expr.eval(vm)?;
         match expr {
             Array(arr) => {
-                println!("lhs is array");
                 piped_args = arr.into_iter().collect();
             }
-            Dict(dict) => {
-                panic!("dicts not supported yet")
-            }
+            // Dict(dict) => {
+            //     panic!("dicts not supported yet")
+            // } // trickier than it looks like + is it really useful?
             value => {
-                println!("lhs is value");
-                piped_args = vec![value];
+                return Err(eco_format!(
+                    "Can't spread on a single value of type {}, only array are allowed.",
+                    value.type_name()
+                ))
+                .at(span);
             }
         };
     } else {
         piped_args = vec![b.lhs().eval(vm)?];
     }
+
     if let Expr::FuncCall(fc) = rhs {
-        println!("rhs is funccall");
+        piped_args.reverse();
+        let mut pop_arg = move |span| {
+            if let Some(arg) = piped_args.pop() {
+                Ok(arg)
+            } else {
+                Err(eco_format!("not enough value to pipe",)).at(span)
+            }
+        };
         // tries to pattern
         let (callee, syntax_args) = (fc.callee(), fc.args());
-        dbg!(&callee, &syntax_args);
 
-        let mut piped_args = piped_args.clone();
         //let args = syntax_args.eval(vm)?;
         //let mut args = args.items.into_iter().collect::<Vec<_>>();
         //args.reverse();
-        piped_args.reverse();
         let mut new_args = crate::eval::Args::new(span, vec![]);
-
-        for  arg in syntax_args.items() {
+        for arg in syntax_args.items() {
             match arg {
                 Arg::Pos(expr) => {
                     if let Some(ident) = expr.as_untyped().cast::<Ident>() {
                         if ident.get() == "_" {
-                            new_args.push(span, piped_args.pop().unwrap()) // good error instead
+                            new_args.push(span, pop_arg(span)?) // good error instead
                         } else {
                             let arg = expr.eval(vm)?;
                             new_args.push(span, arg)
@@ -479,31 +482,34 @@ pub fn pipe(b: &Binary, vm: &mut Vm) -> SourceResult<Value> {
                     } else {
                         let arg = expr.eval(vm)?;
                         new_args.push(span, arg)
-                };
+                    };
                 }
                 Arg::Named(n) => {
-                    if n.name().get() == "_" {
-                        new_args.push(span, piped_args.pop().unwrap()) // good error instead
-                    }
-                    else {
-                        let arg = n.expr().eval(vm)?;
-                        new_args.push_named(span, arg,&n.name().get());
-                    }
-                },
+                    if_chain::if_chain!(
+                        if let Some(ident) = n.expr().as_untyped().cast::<Ident>();
+                        if ident.get() == "_";
+                        then {
+                            new_args.push_named(span, pop_arg(span)?, &n.name().get());
+                        }
+                        else {
+                            let arg = n.expr().eval(vm)?;
+                            new_args.push_named(span, arg, &n.name().get());
+                        }
+                    );
+                }
                 Arg::Spread(_) => todo!("dont support spread yet"),
             }
         }
-        for value in piped_args {
+        while let Ok(value) = pop_arg(span) {
             new_args.push(span, value)
         }
 
         let func = callee.eval(vm)?.cast::<Func>().unwrap();
         func.call_vm(vm, new_args)
-               
     } else {
         match rhs.eval(vm)? {
             Func(fc) => fc.call_vm(vm, crate::eval::Args::new(b.span(), piped_args)),
             _ => return Err(eco_format!("cant pipe in",)).at(span), //modify that span if lhs is a pipe for better errors,
         }
     }
- }
+}

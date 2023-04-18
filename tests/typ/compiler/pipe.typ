@@ -50,6 +50,35 @@
 
 ---
 // Ref: false
+#let f(..x) = {
+  test(x.pos().at(0), (2,4))
+  test(x.pos().at(1), "value")
+}
+#{  
+  (2,4) |> f(_,"value") // test array is not spread
+}  
+
+---
+// Ref: false
+#let f(..x) = {
+    x.named().at("x")
+}
+#{  
+  test(2 |> f(x : _), 2)
+}  
+
+---
+// Ref: false
+
+#let named(..x) = x.named()
+#{
+  // Error: 1:8-1:41  Can't spread on a single value of type dictionary, only array are allowed.
+  test((x : 2, y: 4).. |> named(1,_,3,_), (x : 2, y : 4))
+}  
+
+---
+
+// Ref: false
 
 //should not crash or anything
 #{
@@ -58,24 +87,25 @@
 }
 
 ---
+
 // Ref: false
 
 #let pos(..x) = x.pos() 
 #{  
-test((2,4).. |> pos(1,_,3,_), pos(1,2,3,4))
+  test((2,4).. |> pos(1,_,3,_), pos(1,2,3,4))
 }  
 
 ---
 // Ref: false
 
-//#let named(..x) = x.named()
-//#{  
-//  test((x : 2, y: 4).. |> named(1,_,3,_), (x : 2, y : 4))
-//}  
+#let pos(..x) = none
+#{  
+  // Error: 1:3-1:26 not enough value to pipe
+  (2,4).. |> pos(1,_,_,_)
+}  
 
 ---
 // Ref: true
-approve if you have two identical looking results.
 #{
   [Lorem Ipsum] |> text(size:14pt) |> align(left) |> box(stroke : 1mm, inset : 20pt)
 

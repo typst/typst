@@ -1292,10 +1292,6 @@ impl Binary {
     pub fn rhs(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
-
-    pub fn lhs_cast_pipe(&self) -> Option<PipedSpread> {
-        self.0.cast_first_match()
-    }
 }
 
 /// A binary operator.
@@ -1685,7 +1681,7 @@ impl Default for Pattern {
     }
 }
 
-node!{
+node! {
     PipedSpread
 }
 
