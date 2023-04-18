@@ -25,7 +25,7 @@ use crate::util::pretty_array_like;
 #[derive(Clone, Hash)]
 pub struct Content {
     func: ElemFunc,
-    inner: ContentInner,
+    pub inner: ContentInner,
 }
 
 impl Content {
@@ -45,10 +45,18 @@ impl Content {
         I: IntoIterator<Item = Self>,
         I::IntoIter: ExactSizeIterator,
     {
+        let mut iter = iter.into_iter();
+        let Some(first) = iter.next() else { return Self::empty() };
+        let Some(second) = iter.next() else { return first };
+
         Self {
             func: SequenceElem::func(),
             inner: ContentInner::with_iter(
-                iter.into_iter().map(Prehashed::new).map(ContentTailItem::Child),
+                [first, second]
+                    .into_iter()
+                    .chain(iter)
+                    .map(Prehashed::new)
+                    .map(ContentTailItem::Child),
             ),
         }
     }
@@ -243,7 +251,7 @@ impl Content {
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
         if self.is::<StyledElem>() {
-            self.inner.apply_style(Styles::from(style.into()));
+            self.inner.apply_style(style.into());
             self
         } else {
             self.styled_with_map(style.into().into())
@@ -256,12 +264,12 @@ impl Content {
             return self;
         }
         if self.is::<StyledElem>() {
-            self.inner.apply_style(styles);
+            self.inner.apply_styles(styles);
             self
         } else {
             let mut content = Content::new(StyledElem::func());
             content.inner.push_child(self);
-            content.inner.push_style(styles);
+            content.inner.apply_styles(styles);
             content
         }
     }

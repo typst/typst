@@ -1,12 +1,13 @@
 use std::{
     alloc::Layout,
     cmp,
+    fmt::Debug,
     hash::Hash,
     mem,
     process::abort,
     ptr,
     ptr::NonNull,
-    sync::atomic::{self, AtomicUsize, Ordering}, fmt::Debug,
+    sync::atomic::{self, AtomicUsize, Ordering},
 };
 
 use comemo::Prehashed;
@@ -14,7 +15,7 @@ use ecow::EcoString;
 
 use crate::{
     eval::Value,
-    model::{Guard, Location, Styles},
+    model::{Guard, Location, Style, Styles},
     syntax::Span,
 };
 
@@ -37,7 +38,7 @@ impl Debug for ContentInner {
 }
 
 impl ContentInner {
-    pub const BASE_CAPACITY: usize = 400;
+    pub const BASE_CAPACITY: usize = 4;
 
     /// Creates a new content inner with a base capacity.
     pub fn new() -> Self {
@@ -175,24 +176,32 @@ impl ContentInner {
         inner.span = Some(span);
     }
 
-    /// Sets the styles of the content.
-    pub fn push_style(&mut self, style: Styles) {
+    /// Applies the given styles to the content.
+    pub fn apply_style(&mut self, style: Style) {
         let inner = self.make_mut();
-        inner.style = Some(style);
+        if let Some(local) = &mut inner.style {
+            local.apply_one(style);
+        } else {
+            inner.style = Some(style.into());
+        }
     }
 
     /// Applies the given styles to the content.
-    pub fn apply_style(&mut self, style: Styles) {
+    pub fn apply_styles(&mut self, styles: Styles) {
         let inner = self.make_mut();
         if let Some(local) = &mut inner.style {
-            local.apply(style);
+            local.apply(styles);
         } else {
-            inner.style = Some(style);
+            inner.style = Some(styles);
         }
     }
 
     /// Sets the location of the content.
     pub fn push_location(&mut self, location: Location) {
+        if self.location().is_some(){
+            return;
+        }
+
         let inner = self.make_mut();
         inner.location = Some(location);
     }
@@ -209,7 +218,7 @@ impl ContentInner {
     }
 
     /// Grows the content inner to the given capacity.
-    unsafe fn grow(&mut self, target: usize) {
+    fn grow(&mut self, target: usize) {
         debug_assert!(target > self.capacity());
 
         // Maintain the `capacity <= isize::MAX` invariant.
@@ -222,42 +231,47 @@ impl ContentInner {
         let ptr = self.ptr.as_ptr();
         let cap = self.capacity();
 
-        let header = ContentHeader {
-            cap: target,
-            len: self.len(),
-            strong: AtomicUsize::new(1),
-            span: self.inner().span,
-            style: self.inner_mut_unchecked().style.take(),
-            location: self.location(),
-            prepared: self.is_prepared(),
-        };
-
         if target >= cap {
-            let layout = Self::layout(target);
-            let new_size = Self::size(target);
+            unsafe {
+                let layout = Self::layout(target);
+                let new_size = Self::size(target);
 
-            let new_ptr: *mut ContentHeader =
-                std::alloc::realloc(ptr.cast(), Self::layout(self.capacity()), new_size).cast();
+                let new_ptr: *mut ContentHeader = std::alloc::realloc(
+                    ptr.cast(),
+                    Self::layout(self.capacity()),
+                    new_size,
+                )
+                .cast();
 
-            if new_ptr.is_null() {
-                std::alloc::handle_alloc_error(layout);
+                if new_ptr.is_null() {
+                    std::alloc::handle_alloc_error(layout);
+                }
+
+                self.ptr = NonNull::new_unchecked(new_ptr);
+                self.inner_mut_unchecked().cap = target;
             }
-
-            self.ptr = NonNull::new_unchecked(new_ptr);
-
-            ptr::write(self.ptr.as_ptr(), header);
         }
     }
 
+    /// Extends this content with the given content.
     pub fn extend(&mut self, mut other: Self) {
         let other_len = other.len();
+
+        if self.capacity() <= self.len() + other_len {
+            self.grow((self.len() + other_len).max(self.capacity() * 2));
+        }
+
+        if other.strong_count() > 1 {
+            for value in other.slice() {
+                self.push(value.clone());
+            }
+
+            return;
+        }
 
         unsafe {
             // We make sure that there is some room available
             // in the content inner.
-            if self.capacity() <= self.len() + other_len {
-                self.grow((self.len() + other_len).max(self.capacity() * 2));
-            }
 
             // We write the data
             ptr::copy_nonoverlapping(
@@ -297,17 +311,19 @@ impl ContentInner {
         }
     }
 
-    /// Pushes a new child to the tail.
-    pub fn push(&mut self, child: ContentTailItem) {
+    /// Pushes a new item to the tail.
+    pub fn push(&mut self, item: ContentTailItem) {
+        self.make_mut();
+
         unsafe {
             // We make sure that there is some room available
             // in the content inner.
-            if self.capacity() <= self.len() {
+            if self.capacity() <= self.len() + 1 {
                 self.grow(self.capacity() * 2);
             }
 
             // We write the data
-            self.data_mut().add(self.len()).write(child);
+            self.data_mut().add(self.len()).write(item);
 
             self.inner_mut_unchecked().len += 1;
         }
@@ -432,6 +448,8 @@ impl ContentInner {
 
 impl Clone for ContentInner {
     fn clone(&self) -> Self {
+        // Note: See [`Arc::clone`] for the reasoning behind the ordering.
+
         let old_size = self.inner().strong.fetch_add(1, Ordering::Relaxed);
 
         if old_size > (isize::MAX) as usize {
@@ -444,6 +462,9 @@ impl Clone for ContentInner {
 
 impl Drop for ContentInner {
     fn drop(&mut self) {
+        // Note: See [`Arc::drop`] for the reasoning behind the ordering.
+        // Note: See [`EcoVec::drop`] for the reasoning behind the dealloc.
+
         if self.inner().strong.fetch_sub(1, Ordering::Release) != 1 {
             return;
         }
