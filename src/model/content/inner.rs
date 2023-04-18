@@ -499,6 +499,11 @@ impl Drop for ContentInner {
         }
 
         let _dealloc = Dealloc(self.ptr.as_ptr().cast(), Self::layout(self.capacity()));
+
+        // Deallocate the header:
+        unsafe {
+            ptr::drop_in_place(self.ptr.as_ptr());
+        }
         
         // Deallocate the children:
         unsafe {
