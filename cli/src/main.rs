@@ -722,7 +722,7 @@ impl FontSearcher {
     fn search_file(&mut self, path: impl AsRef<Path>) {
         let path = path.as_ref();
         if let Ok(file) = File::open(path) {
-            if let Ok(mmap) = unsafe { std::fs::read(&path) } {
+            if let Ok(mmap) = unsafe { Mmap::map(&file) } {
                 for (i, info) in FontInfo::iter(&mmap).enumerate() {
                     self.book.push(info);
                     self.fonts.push(FontSlot {
