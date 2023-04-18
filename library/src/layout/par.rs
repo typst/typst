@@ -506,6 +506,7 @@ impl<'a> Line<'a> {
 
 /// Collect all text of the paragraph into one string. This also performs
 /// string-level preprocessing like case transformations.
+#[allow(clippy::type_complexity)]
 fn collect<'a>(
     children: &'a [Content],
     styles: &'a StyleChain<'a>,
@@ -715,7 +716,7 @@ fn shape_range<'a>(
     let mut cursor = range.start;
 
     // Group by embedding level and script.
-    for i in cursor..range.end {
+    for i in range.clone() {
         if !bidi.text.is_char_boundary(i) {
             continue;
         }
