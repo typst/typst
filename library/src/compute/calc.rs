@@ -524,7 +524,7 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
     i64::try_from(result).ok()
 }
 
-/// Calculate a greatest common divisor between two integers.
+/// Calculate the greatest common divisor of two integers.
 ///
 /// ## Example
 /// ```example
@@ -544,7 +544,7 @@ pub fn gcd(
     Value::Int(calculate_gcd(a, b).into())
 }
 
-/// Calculates the greatest common divisor between two non-zero integers
+/// Calculates the greatest common divisor of two integers
 /// It is always non-negative.
 fn calculate_gcd(mut a: i64, mut b: i64) -> i64 {
     while b != 0 {
@@ -556,7 +556,7 @@ fn calculate_gcd(mut a: i64, mut b: i64) -> i64 {
     a.abs()
 }
 
-/// Calculate a least common multiple between two integers.
+/// Calculate the least common multiple of two integers.
 ///
 /// ## Example
 /// ```example
@@ -580,11 +580,11 @@ pub fn lcm(
 }
 
 /// Calculates the least common multiple between two non-zero integers
-/// Returns None if the value cannot be computed
+/// Returns None if the value cannot be computed.
 /// It is always non-negative.
 fn calculate_lcm(a: i64, b: i64) -> Option<i64> {
-    if a == 0 && b == 0 {
-        return Some(0);
+    if a == b {
+        return Some(a.abs());
     }
 
     a.checked_div(calculate_gcd(a, b))?.checked_mul(b).map(|v| v.abs())
