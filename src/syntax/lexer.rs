@@ -512,7 +512,7 @@ impl Lexer<'_> {
 
             c if is_id_start(c) => self.ident(start),
 
-            _ => self.error("this character is not valid in code"),
+            c => self.error(eco_format!("the character `{c}` is not valid in code")),
         }
     }
 
