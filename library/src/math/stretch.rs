@@ -57,7 +57,7 @@ fn stretch_glyph(
     // If the base glyph is good enough, use it.
     let advance = if horizontal { base.width } else { base.height() };
     if short_target <= advance {
-        return base.to_variant();
+        return base.into_variant();
     }
 
     // Search for a pre-made variant with a good advance.
@@ -73,7 +73,7 @@ fn stretch_glyph(
 
     // This is either good or the best we've got.
     if short_target <= best_advance || construction.assembly.is_none() {
-        return GlyphFragment::with_id(ctx, base.c, best_id, base.span).to_variant();
+        return GlyphFragment::with_id(ctx, base.c, best_id, base.span).into_variant();
     }
 
     // Assemble from parts.
@@ -169,7 +169,7 @@ fn assemble(
         } else {
             Point::with_y(full - offset - fragment.height())
         };
-        frame.push_frame(pos, fragment.to_frame());
+        frame.push_frame(pos, fragment.into_frame());
         offset += advance;
     }
 
