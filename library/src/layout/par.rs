@@ -506,6 +506,7 @@ impl<'a> Line<'a> {
 
 /// Collect all text of the paragraph into one string. This also performs
 /// string-level preprocessing like case transformations.
+#[allow(clippy::type_complexity)]
 fn collect<'a>(
     children: &'a [Content],
     styles: &'a StyleChain<'a>,
@@ -715,7 +716,7 @@ fn shape_range<'a>(
     let mut cursor = range.start;
 
     // Group by embedding level and script.
-    for i in cursor..range.end {
+    for i in range.clone() {
         if !bidi.text.is_char_boundary(i) {
             continue;
         }
@@ -906,7 +907,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             }
 
             // Determine the cost of the line.
-            let min_ratio = if attempt.justify { MIN_RATIO } else { 0.0 };
+            let min_ratio = if p.justify { MIN_RATIO } else { 0.0 };
             let mut cost = if ratio < min_ratio {
                 // The line is overfull. This is the case if
                 // - justification is on, but we'd need to shrink too much
@@ -920,7 +921,9 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // all breakpoints before this one become inactive since no line
                 // can span above the mandatory break.
                 active = k;
-                if attempt.justify {
+                // If ratio > 0, we need to stretch the line only when justify is needed.
+                // If ratio < 0, we always need to shrink the line.
+                if (ratio > 0.0 && attempt.justify) || ratio < 0.0 {
                     ratio.powi(3).abs()
                 } else {
                     0.0

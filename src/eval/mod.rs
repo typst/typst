@@ -1203,7 +1203,7 @@ impl ast::Pattern {
                                             return None;
                                         };
                                         if let Some(ident) = ident {
-                                            vm.define(ident.clone(), sink);
+                                            vm.define(ident, sink);
                                         }
                                         i += sink_size as i64;
                                         Some(())

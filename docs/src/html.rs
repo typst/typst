@@ -33,7 +33,7 @@ impl Html {
     pub fn markdown(resolver: &dyn Resolver, md: &str) -> Self {
         let mut text = md;
         let mut description = None;
-        let document = YamlFrontMatter::parse::<Metadata>(&md);
+        let document = YamlFrontMatter::parse::<Metadata>(md);
         if let Ok(document) = &document {
             text = &document.content;
             description = Some(document.metadata.description.clone())
@@ -43,7 +43,7 @@ impl Html {
 
         let mut handler = Handler::new(resolver);
         let iter = md::Parser::new_ext(text, options)
-            .filter_map(|mut event| handler.handle(&mut event).then(|| event));
+            .filter_map(|mut event| handler.handle(&mut event).then_some(event));
 
         let mut raw = String::new();
         md::html::push_html(&mut raw, iter);
@@ -168,8 +168,8 @@ impl<'a> Handler<'a> {
     }
 
     fn handle_image(&self, link: &str) -> String {
-        if let Some(file) = IMAGES.get_file(link) {
-            self.resolver.image(&link, file.contents()).into()
+        if let Some(file) = FILES.get_file(link) {
+            self.resolver.image(link, file.contents())
         } else if let Some(url) = self.resolver.link(link) {
             url
         } else {

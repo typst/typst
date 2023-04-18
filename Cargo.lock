@@ -279,9 +279,9 @@ checksum = "3d7b894f5411737b7867f4827955924d7c254fc9f4d91a6aad6b097804b1018b"
 
 [[package]]
 name = "comemo"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70b396e6f0a1a7d2c1d588fd8a255a8c30a8edeef65bc96b4afb3fdb8a8bf281"
+checksum = "1ba423e212681b51c5452a458bb24e88165f4c09857a783c802719cc46313f3f"
 dependencies = [
  "comemo-macros",
  "siphasher",
@@ -289,9 +289,9 @@ dependencies = [
 
 [[package]]
 name = "comemo-macros"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "421c3e125e48959f3b6a18c0d266f3c228f6e28464c73cc44cff24e808fcda2d"
+checksum = "fca5ceeb99665bad04a32fe297d1581a68685e36fb6da92a1c9b7d9693638c01"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -545,6 +545,17 @@ name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f9eec918d3f24069decb9af1554cad7c880e2da24a9afd88aca000531ab82c1"
+
+[[package]]
+name = "fontdb"
+version = "0.9.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d52186a39c335aa6f79fc0bf1c3cf854870b6ad4e50a7bb8a59b4ba1331f478a"
+dependencies = [
+ "log",
+ "memmap2",
+ "ttf-parser 0.17.1",
+]
 
 [[package]]
 name = "form_urlencoded"
@@ -1597,6 +1608,7 @@ dependencies = [
  "comemo",
  "ecow",
  "flate2",
+ "fontdb",
  "if_chain",
  "image",
  "indexmap",
@@ -1808,6 +1820,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1dd624098567895118886609431a7c3b8f516e41d30e0643f03d94592a147e36"
 
 [[package]]
+name = "unicode-vo"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1d386ff53b415b7fe27b50bb44679e2cc4660272694b7b6f3326d8480823a94"
+
+[[package]]
 name = "unicode-width"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1852,14 +1870,20 @@ dependencies = [
  "data-url",
  "flate2",
  "float-cmp",
+ "fontdb",
  "kurbo",
  "log",
  "pico-args",
  "rctree",
  "roxmltree",
+ "rustybuzz",
  "simplecss",
  "siphasher",
  "svgtypes",
+ "ttf-parser 0.15.2",
+ "unicode-bidi",
+ "unicode-script",
+ "unicode-vo",
 ]
 
 [[package]]

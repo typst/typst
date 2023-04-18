@@ -241,8 +241,8 @@ impl Hash for Value {
 }
 
 /// A dynamic value.
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
@@ -426,7 +426,7 @@ mod tests {
         test(Value::None, "none");
         test(false, "false");
         test(12i64, "12");
-        test(3.14, "3.14");
+        test(3.24, "3.24");
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");
         test(Ratio::one() / 2.0, "50%");
