@@ -243,7 +243,7 @@ impl Content {
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
         if self.is::<StyledElem>() {
-            self.inner.push_style(Styles::from(style.into()));
+            self.inner.apply_style(Styles::from(style.into()));
             self
         } else {
             self.styled_with_map(style.into().into())
@@ -256,7 +256,7 @@ impl Content {
             return self;
         }
         if self.is::<StyledElem>() {
-            self.inner.push_style(styles);
+            self.inner.apply_style(styles);
             self
         } else {
             let mut content = Content::new(StyledElem::func());

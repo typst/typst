@@ -6,7 +6,7 @@ use std::{
     process::abort,
     ptr,
     ptr::NonNull,
-    sync::atomic::{self, AtomicUsize, Ordering},
+    sync::atomic::{self, AtomicUsize, Ordering}, fmt::Debug,
 };
 
 use comemo::Prehashed;
@@ -27,8 +27,17 @@ pub struct ContentInner {
 unsafe impl Send for ContentInner {}
 unsafe impl Sync for ContentInner {}
 
+impl Debug for ContentInner {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContentInner")
+            .field("inner", &self.inner())
+            .field("tail", &self.slice())
+            .finish()
+    }
+}
+
 impl ContentInner {
-    pub const BASE_CAPACITY: usize = 4;
+    pub const BASE_CAPACITY: usize = 400;
 
     /// Creates a new content inner with a base capacity.
     pub fn new() -> Self {
@@ -80,7 +89,7 @@ impl ContentInner {
             this.push(item);
         }
 
-        Self { ptr }
+        this
     }
 
     /// Creates a deep copy of the content inner. This means that the new
@@ -172,6 +181,16 @@ impl ContentInner {
         inner.style = Some(style);
     }
 
+    /// Applies the given styles to the content.
+    pub fn apply_style(&mut self, style: Styles) {
+        let inner = self.make_mut();
+        if let Some(local) = &mut inner.style {
+            local.apply(style);
+        } else {
+            inner.style = Some(style);
+        }
+    }
+
     /// Sets the location of the content.
     pub fn push_location(&mut self, location: Location) {
         let inner = self.make_mut();
@@ -242,7 +261,7 @@ impl ContentInner {
 
             // We write the data
             ptr::copy_nonoverlapping(
-                other.data_mut(),
+                other.data(),
                 self.data_mut().add(self.len()),
                 other_len,
             );
@@ -254,18 +273,19 @@ impl ContentInner {
         }
     }
 
+    /// Inserts a new child at a given position in the tail.
     pub fn insert(&mut self, index: usize, child: ContentTailItem) {
         if index > self.len() {
             out_of_bounds(index, self.len());
         }
-
-        self.make_mut();
 
         unsafe {
             // We make sure that there is some room available
             // in the content inner.
             if self.len() == self.capacity() {
                 self.grow(self.capacity() * 2);
+            } else {
+                self.make_mut();
             }
 
             let first = self.data_mut().add(index);
@@ -277,11 +297,14 @@ impl ContentInner {
         }
     }
 
+    /// Pushes a new child to the tail.
     pub fn push(&mut self, child: ContentTailItem) {
         unsafe {
             // We make sure that there is some room available
             // in the content inner.
-            self.grow(self.len() + 1);
+            if self.capacity() <= self.len() {
+                self.grow(self.capacity() * 2);
+            }
 
             // We write the data
             self.data_mut().add(self.len()).write(child);
@@ -366,11 +389,13 @@ impl ContentInner {
         self.slice().iter().filter_map(ContentTailItem::guard)
     }
 
-    pub fn data(&self) -> *const ContentTailItem {
+    /// Returns an immutable pointer to the tail.
+    fn data(&self) -> *const ContentTailItem {
         unsafe { self.ptr.as_ptr().add(1).cast::<ContentTailItem>() }
     }
 
-    pub fn data_mut(&mut self) -> *mut ContentTailItem {
+    /// Returns a mutable pointer to the tail.
+    fn data_mut(&mut self) -> *mut ContentTailItem {
         unsafe { self.ptr.as_ptr().add(1).cast::<ContentTailItem>() }
     }
 
@@ -457,6 +482,7 @@ impl Drop for ContentInner {
 impl Hash for ContentInner {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.inner().hash(state);
+        self.slice().hash(state);
     }
 }
 
@@ -499,9 +525,9 @@ impl ContentHeader {
 
     pub fn cloned(&self) -> Self {
         Self {
-            span: self.span.clone(),
+            span: self.span,
             style: self.style.clone(),
-            location: self.location.clone(),
+            location: self.location,
             prepared: self.prepared,
             strong: AtomicUsize::new(1),
             len: 0,
@@ -512,12 +538,13 @@ impl ContentHeader {
 
 impl Hash for ContentHeader {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // Note: we hash the slice separately and therefore we don't need
+        // to hash the length and capacity.
+        // Note: we don't hash the strong reference count.
         self.span.hash(state);
         self.style.hash(state);
         self.location.hash(state);
         self.prepared.hash(state);
-        self.len.hash(state);
-        self.cap.hash(state);
     }
 }
 
