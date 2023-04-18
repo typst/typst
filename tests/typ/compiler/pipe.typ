@@ -4,6 +4,7 @@
 #let test(x,y) = if x != y {panic()}
 
 ---
+// Ref: false
 
 #let add2(x) = x + 2
 #{
@@ -27,6 +28,7 @@
 #{2 |> p}
 
 ---
+// Ref: false
 
 // this should just be markdown
 #let p(x) = if type(x) == type(2) {panic()}
@@ -36,6 +38,7 @@
 #2|>p
 
 ---
+// Ref: false
 
 #let sum(..x) = {
   x.pos().fold(0, (i,j) => i+j)
@@ -46,24 +49,7 @@
 }
 
 ---
-
-// Subset 6
-#let pos(..x) = x.pos()
-#{
-  test( 2 |> pos(1,_,3),(1,2,3))
-}
-
----
-
-#let pos(..x) = x.pos()
-
-#{
-  let x = (2,4).. |> pos(1,_,3,_) 
-  let y = (1,2,3,4)
-  test(x, y)
-}
-
----
+// Ref: false
 
 //should not crash or anything
 #{
@@ -73,9 +59,26 @@
 
 ---
 // Ref: false
+
+#let pos(..x) = x.pos() 
+#{  
+test((2,4).. |> pos(1,_,3,_), pos(1,2,3,4))
+}  
+
+---
+// Ref: false
+
+//#let named(..x) = x.named()
+//#{  
+//  test((x : 2, y: 4).. |> named(1,_,3,_), (x : 2, y : 4))
+//}  
+
+---
+// Ref: true
+approve if you have two identical looking results.
 #{
-[Lorem Ipsum] |> text(size:14pt) |> align(center) |> box(stroke : 1mm, inset : 10pt) |> align(right)
+  [Lorem Ipsum] |> text(size:14pt) |> align(left) |> box(stroke : 1mm, inset : 20pt)
+
+  box(stroke: 1mm, inset : 20pt, align(left,text(size : 14pt, [Lorem Ipsum])))
 }
 
-
-//#test(2, (1,1) |> f )

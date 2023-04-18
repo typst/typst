@@ -1711,6 +1711,8 @@ dependencies = [
 name = "typst-tests"
 version = "0.2.0"
 dependencies = [
+ "clap",
+ "clap_complete",
  "comemo",
  "elsa",
  "iai",
