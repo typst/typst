@@ -25,7 +25,7 @@ use crate::util::pretty_array_like;
 #[derive(Clone, Hash)]
 pub struct Content {
     func: ElemFunc,
-    pub inner: ContentInner,
+    inner: ContentInner,
 }
 
 impl Content {
