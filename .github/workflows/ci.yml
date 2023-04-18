@@ -9,5 +9,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
+      - run: cargo clippy --all-targets
       - run: cargo build --workspace
       - run: cargo test --workspace --no-fail-fast
