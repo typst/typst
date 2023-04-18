@@ -318,7 +318,6 @@ fn print_diagnostics(
     let config = term::Config { tab_width: 2, ..Default::default() };
 
     for error in errors {
-        eprintln!("{:#?}", error);
         // The main diagnostic.
         let range = error.range(world);
         let diag = Diagnostic::error()
