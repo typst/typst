@@ -229,7 +229,7 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     for group in grouped {
         let mut functions = vec![];
         for name in &group.functions {
-            let value = focus.get(&name).unwrap();
+            let value = focus.get(name).unwrap();
             let Value::Func(func) = value else { panic!("not a function") };
             let info = func.info().unwrap();
             functions.push(func_model(resolver, func, info));
@@ -335,7 +335,7 @@ fn func_model(resolver: &dyn Resolver, func: &Func, info: &FuncInfo) -> FuncMode
     let mut s = unscanny::Scanner::new(info.docs);
     let docs = s.eat_until("\n## Methods").trim();
     FuncModel {
-        name: info.name.into(),
+        name: info.name,
         display: info.display,
         oneliner: oneliner(docs),
         showable: func.element().is_some(),
@@ -721,7 +721,7 @@ pub fn urlify(title: &str) -> String {
 
 /// Extract the first line of documentation.
 fn oneliner(docs: &str) -> &str {
-    docs.lines().next().unwrap_or_default().into()
+    docs.lines().next().unwrap_or_default()
 }
 
 /// The order of types in the documentation.
