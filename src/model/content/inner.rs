@@ -160,7 +160,7 @@ impl ContentInner {
     }
 
     /// Returns a mutable reference to the inner value.
-    /// 
+    ///
     /// # Safety
     /// This function is unsafe because it does not check whether
     /// it has exclusive access to the inner value.
@@ -357,7 +357,7 @@ impl ContentInner {
             // - We know we have up to `len` initialized items.
             // - We know that `index` is below the `len`.
             let first = self.data_mut().add(index);
-            
+
             // Safety:
             // - See above
             ptr::copy(first, first.add(1), self.len() - index);
@@ -571,7 +571,7 @@ impl Drop for ContentInner {
         unsafe {
             ptr::drop_in_place(self.ptr.as_ptr());
         }
-        
+
         // Deallocate the children:
         unsafe {
             ptr::drop_in_place(ptr::slice_from_raw_parts_mut(
