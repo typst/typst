@@ -51,6 +51,13 @@ impl ContentInner {
         Self::with_capacity(Self::BASE_CAPACITY)
     }
 
+    /// Create a new dangling inner.
+    /// Calling any method on the returned element is undefined behaviour.
+    #[doc(hidden)]
+    pub const unsafe fn dangling() -> Self {
+        Self { ptr: NonNull::dangling() }
+    }
+
     /// Creates a new content inner with the given capacity.
     pub fn with_capacity(capacity: usize) -> Self {
         Self::with_header_iter_cap(
