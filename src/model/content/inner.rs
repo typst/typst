@@ -37,6 +37,12 @@ impl Debug for ContentInner {
     }
 }
 
+impl Default for ContentInner {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ContentInner {
     pub const BASE_CAPACITY: usize = 4;
 
@@ -198,7 +204,7 @@ impl ContentInner {
 
     /// Sets the location of the content.
     pub fn push_location(&mut self, location: Location) {
-        if self.location().is_some(){
+        if self.location().is_some() {
             return;
         }
 
@@ -377,7 +383,7 @@ impl ContentInner {
 
     /// Returns true if the content has no children.
     pub fn is_childless(&self) -> bool {
-        !self.children().next().is_none()
+        self.children().next().is_none()
     }
 
     /// Returns an iterator over the fields of the content.
