@@ -23,7 +23,7 @@ bench = false
 typst-macros = { path = "macros" }
 bitflags = "1"
 bytemuck = "1"
-comemo = "0.2.1"
+comemo = "0.2.2"
 ecow = "0.1"
 flate2 = "1"
 if_chain = "1"

@@ -3,12 +3,12 @@ use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
-use comemo::{Prehashed, Tracked};
+use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{
-    element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Introspector, Label,
-    Locatable, Location, Recipe, Selector, Style, Styles, Synthesize,
+    element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
+    Location, PlainText, Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
@@ -359,52 +359,53 @@ impl Content {
 
     /// Queries the content tree for all elements that match the given selector.
     ///
-    /// # Show rules
     /// Elements produced in `show` rules will not be included in the results.
-    pub fn query(
-        &self,
-        introspector: Tracked<Introspector>,
-        selector: Selector,
-    ) -> Vec<&Content> {
+    pub fn query(&self, selector: Selector) -> Vec<&Content> {
         let mut results = Vec::new();
-        self.query_into(introspector, &selector, &mut results);
+        self.traverse(&mut |element| {
+            if selector.matches(element) {
+                results.push(element);
+            }
+        });
         results
     }
 
-    /// Queries the content tree for all elements that match the given selector
-    /// and stores the results inside of the `results` vec.
-    fn query_into<'a>(
-        &'a self,
-        introspector: Tracked<Introspector>,
-        selector: &Selector,
-        results: &mut Vec<&'a Content>,
-    ) {
-        if selector.matches(self) {
-            results.push(self);
-        }
+    /// Extracts the plain text of this content.
+    pub fn plain_text(&self) -> EcoString {
+        let mut text = EcoString::new();
+        self.traverse(&mut |element| {
+            if let Some(textable) = element.with::<dyn PlainText>() {
+                textable.plain_text(&mut text);
+            }
+        });
+        text
+    }
+
+    /// Traverse this content.
+    fn traverse<'a, F>(&'a self, f: &mut F)
+    where
+        F: FnMut(&'a Content),
+    {
+        f(self);
 
         for attr in &self.attrs {
             match attr {
-                Attr::Child(child) => child.query_into(introspector, selector, results),
-                Attr::Value(value) => walk_value(introspector, &value, selector, results),
+                Attr::Child(child) => child.traverse(f),
+                Attr::Value(value) => walk_value(value, f),
                 _ => {}
             }
         }
 
         /// Walks a given value to find any content that matches the selector.
-        fn walk_value<'a>(
-            introspector: Tracked<Introspector>,
-            value: &'a Value,
-            selector: &Selector,
-            results: &mut Vec<&'a Content>,
-        ) {
+        fn walk_value<'a, F>(value: &'a Value, f: &mut F)
+        where
+            F: FnMut(&'a Content),
+        {
             match value {
-                Value::Content(content) => {
-                    content.query_into(introspector, selector, results)
-                }
+                Value::Content(content) => content.traverse(f),
                 Value::Array(array) => {
                     for value in array {
-                        walk_value(introspector, value, selector, results);
+                        walk_value(value, f);
                     }
                 }
                 _ => {}

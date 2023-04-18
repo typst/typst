@@ -168,7 +168,7 @@ impl<'a> Handler<'a> {
     }
 
     fn handle_image(&self, link: &str) -> String {
-        if let Some(file) = IMAGES.get_file(link) {
+        if let Some(file) = FILES.get_file(link) {
             self.resolver.image(&link, file.contents()).into()
         } else if let Some(url) = self.resolver.link(link) {
             url

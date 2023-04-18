@@ -72,6 +72,8 @@ pub struct LangItems {
     ) -> Vec<(EcoString, Option<EcoString>)>,
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
+    /// The heading function.
+    pub heading_func: ElemFunc,
     /// An item in a bullet list: `- ...`.
     pub list_item: fn(body: Content) -> Content,
     /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.

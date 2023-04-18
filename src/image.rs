@@ -3,6 +3,8 @@
 use std::io;
 use std::sync::Arc;
 
+use ecow::EcoString;
+
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::util::Buffer;
 
@@ -152,7 +154,7 @@ fn determine_size(data: &Buffer, format: ImageFormat) -> StrResult<(u32, u32)> {
 }
 
 /// Format the user-facing raster graphic decoding error message.
-fn format_image_error(error: image::ImageError) -> String {
+fn format_image_error(error: image::ImageError) -> EcoString {
     match error {
         image::ImageError::Limits(_) => "file is too large".into(),
         _ => "failed to decode image".into(),
@@ -160,7 +162,7 @@ fn format_image_error(error: image::ImageError) -> String {
 }
 
 /// Format the user-facing SVG decoding error message.
-fn format_usvg_error(error: usvg::Error) -> String {
+fn format_usvg_error(error: usvg::Error) -> EcoString {
     match error {
         usvg::Error::NotAnUtf8Str => "file is not valid utf-8".into(),
         usvg::Error::MalformedGZip => "file is not compressed correctly".into(),

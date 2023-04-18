@@ -69,7 +69,7 @@ impl Args {
         let vec = self.items.to_vec();
         let (left, right) = vec.split_at(n);
         self.items = right.into();
-        return Ok(left.into());
+        Ok(left.into())
     }
 
     /// Consume and cast the first positional argument.

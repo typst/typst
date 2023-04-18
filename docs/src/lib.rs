@@ -23,7 +23,6 @@ use unscanny::Scanner;
 
 static SRC: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src");
 static FILES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../assets/files");
-static IMAGES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../assets/images");
 static DETAILS: Lazy<yaml::Mapping> = Lazy::new(|| yaml("reference/details.yml"));
 static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| yaml("reference/groups.yml"));
 
