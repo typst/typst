@@ -20,6 +20,7 @@ pub fn module() -> Module {
     scope.define("asin", asin);
     scope.define("acos", acos);
     scope.define("atan", atan);
+    scope.define("atan2", atan2);
     scope.define("sinh", sinh);
     scope.define("cosh", cosh);
     scope.define("tanh", tanh);
@@ -291,6 +292,29 @@ pub fn atan(
     value: Num,
 ) -> Value {
     Value::Angle(Angle::rad(value.float().atan()))
+}
+
+/// Calculate the four-quadrant arctangent of a coordinate.
+///
+/// The arguments are `(x, y)`, not `(y, x)`.
+///
+/// ## Example
+/// ```example
+/// #calc.atan2(1, 1) \
+/// #calc.atan2(-2, -3)
+/// ```
+///
+/// Display: Four-quadrant Arctangent
+/// Category: calculate
+/// Returns: angle
+#[func]
+pub fn atan2(
+    /// The X coordinate.
+    x: Num,
+    /// The Y coordinate.
+    y: Num,
+) -> Value {
+    Value::Angle(Angle::rad(f64::atan2(y.float(), x.float())))
 }
 
 /// Calculate the hyperbolic sine of an angle.
