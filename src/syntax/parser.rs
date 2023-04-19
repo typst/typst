@@ -1047,7 +1047,7 @@ fn validate_dict(p: &mut Parser, m: Marker) {
                 };
 
                 if !used.insert(key.clone()) {
-                    first.convert_to_error(eco_format!("duplicate key: {}", key));
+                    first.convert_to_error(eco_format!("duplicate key: {key}"));
                     child.make_erroneous();
                 }
             }

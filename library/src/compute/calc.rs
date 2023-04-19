@@ -541,7 +541,7 @@ pub fn gcd(
     /// The second integer.
     b: i64,
 ) -> Value {
-    Value::Int(calculate_gcd(a, b).into())
+    Value::Int(calculate_gcd(a, b))
 }
 
 /// Calculates the greatest common divisor of two integers

@@ -38,20 +38,20 @@ impl<'a> Scopes<'a> {
 
     /// Try to access a variable immutably.
     pub fn get(&self, var: &str) -> StrResult<&Value> {
-        Ok(std::iter::once(&self.top)
+        std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .chain(self.base.map(|base| base.global.scope()))
             .find_map(|scope| scope.get(var))
-            .ok_or(eco_format!("unknown variable: {}", var))?)
+            .ok_or_else(|| eco_format!("unknown variable: {}", var))
     }
 
     /// Try to access a variable immutably in math.
     pub fn get_in_math(&self, var: &str) -> StrResult<&Value> {
-        Ok(std::iter::once(&self.top)
+        std::iter::once(&self.top)
             .chain(self.scopes.iter().rev())
             .chain(self.base.map(|base| base.math.scope()))
             .find_map(|scope| scope.get(var))
-            .ok_or(eco_format!("unknown variable: {}", var))?)
+            .ok_or_else(|| eco_format!("unknown variable: {}", var))
     }
 
     /// Try to access a variable mutably.
