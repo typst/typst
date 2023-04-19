@@ -700,7 +700,7 @@ pub fn trunc(
 /// ```example
 /// #assert(calc.fract(3) == 0)
 /// #assert(calc.fract(-3.7) == 0.7)
-/// #assert(calc.fract(15.9) == 0.9)
+/// #assert(calc.fract(15.3) == 0.3)
 /// ```
 ///
 /// Display: Fractional
