@@ -674,8 +674,8 @@ pub fn ceil(
 /// ## Example
 /// ```example
 /// #assert(calc.trunc(3) == 3)
-/// #assert(calc.floor(-3.7) == -3.0)
-/// #assert(calc.floor(15.9) == 15)
+/// #assert(calc.trunc(-3.7) == -3)
+/// #assert(calc.trunc(15.9) == 15)
 /// ```
 ///
 /// Display: Truncate
@@ -699,8 +699,7 @@ pub fn trunc(
 /// ## Example
 /// ```example
 /// #assert(calc.fract(3) == 0)
-/// #assert(calc.fract(-3.7) == 0.7)
-/// #assert(calc.fract(15.3) == 0.3)
+/// #calc.fract(-3.1)
 /// ```
 ///
 /// Display: Fractional
