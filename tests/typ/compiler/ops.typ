@@ -116,11 +116,11 @@
 #test(0xA + 0xa, 0x14)
 
 ---
-// Error: 2-7 invalid binary number
+// Error: 2-7 invalid binary number: 0b123
 #0b123
 
 ---
-// Error: 2-8 invalid hexadecimal number
+// Error: 2-8 invalid hexadecimal number: 0x123z
 #0x123z
 
 ---
@@ -201,7 +201,7 @@
 #(x += "thing") #test(x, "something")
 
 ---
-// Error: 3-6 cannot mutate a constant
+// Error: 3-6 cannot mutate a constant: box
 #(box = 1)
 
 ---

@@ -224,7 +224,7 @@
 // Error: 4-6 unexpected end of block comment
 #(1*/2)
 
-// Error: 6-8 invalid number suffix
+// Error: 6-8 invalid number suffix: u
 #(1, 1u 2)
 
 // Error: 3-4 unexpected comma
