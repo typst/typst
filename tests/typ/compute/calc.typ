@@ -71,6 +71,22 @@
 #calc.mod(3.0, 0.0)
 
 ---
+// Test the `quo` function.
+#test(calc.quo(1, 1), 1)
+#test(calc.quo(5, 3), 1)
+#test(calc.quo(5, -3), -1)
+#test(calc.quo(22.5, 10), 2)
+#test(calc.quo(9, 4.5), 2)
+
+---
+// Error: 14-15 divisor must not be zero
+#calc.quo(5, 0)
+
+---
+// Error: 16-19 divisor must not be zero
+#calc.quo(3.0, 0.0)
+
+---
 // Test the `min` and `max` functions.
 #test(calc.min(2, -4), -4)
 #test(calc.min(3.5, 1e2, -0.1, 3), -0.1)

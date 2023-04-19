@@ -2,7 +2,7 @@
 
 use std::cmp;
 use std::cmp::Ordering;
-use std::ops::Rem;
+use std::ops::{Div, Rem};
 
 use typst::eval::{Module, Scope};
 
@@ -32,6 +32,8 @@ pub fn module() -> Module {
     scope.define("lcm", lcm);
     scope.define("floor", floor);
     scope.define("ceil", ceil);
+    scope.define("trunc", trunc);
+    scope.define("fract", fract);
     scope.define("round", round);
     scope.define("clamp", clamp);
     scope.define("min", min);
@@ -39,6 +41,7 @@ pub fn module() -> Module {
     scope.define("even", even);
     scope.define("odd", odd);
     scope.define("mod", mod_);
+    scope.define("quo", quo);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
     scope.define("pi", Value::Float(std::f64::consts::PI));
@@ -664,6 +667,56 @@ pub fn ceil(
     }
 }
 
+/// Returns the integer part of a number.
+///
+/// If the number is already an integer, it is returned unchanged.
+///
+/// ## Example
+/// ```example
+/// #assert(calc.trunc(3) == 3)
+/// #assert(calc.floor(-3.7) == -3.0)
+/// #assert(calc.floor(15.9) == 15)
+/// ```
+///
+/// Display: Truncate
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn trunc(
+    /// The number to truncate.
+    value: Num,
+) -> Value {
+    Value::Int(match value {
+        Num::Int(n) => n,
+        Num::Float(n) => n.trunc() as i64,
+    })
+}
+
+/// Returns the fractional part of a number.
+///
+/// If the number is an integer, it returns `0`.
+///
+/// ## Example
+/// ```example
+/// #assert(calc.fract(3) == 0)
+/// #assert(calc.fract(-3.7) == 0.7)
+/// #assert(calc.fract(15.9) == 0.9)
+/// ```
+///
+/// Display: Fractional
+/// Category: calculate
+/// Returns: integer or float
+#[func]
+pub fn fract(
+    /// The number to truncate.
+    value: Num,
+) -> Value {
+    match value {
+        Num::Int(_) => Value::Int(0),
+        Num::Float(n) => Value::Float(n.fract()),
+    }
+}
+
 /// Round a number to the nearest integer.
 ///
 /// Optionally, a number of decimal places can be specified.
@@ -721,7 +774,7 @@ pub fn clamp(
     if max.v.float() < min.float() {
         bail!(max.span, "max must be greater than or equal to min")
     }
-    value.apply3(min, max.v, i64::clamp, f64::clamp)
+    value.apply3(min, max.v, i64::clamp, f64::clamp).value()
 }
 
 /// Determine the minimum of a sequence of values.
@@ -857,7 +910,36 @@ pub fn mod_(
     if divisor.v.float() == 0.0 {
         bail!(divisor.span, "divisor must not be zero");
     }
-    dividend.apply2(divisor.v, Rem::rem, Rem::rem)
+    dividend.apply2(divisor.v, Rem::rem, Rem::rem).value()
+}
+
+/// Calculate the quotient of two numbers.
+///
+/// ## Example
+/// ```example
+/// #calc.quo(14, 5) \
+/// #calc.quo(3.46, 0.5)
+/// ```
+///
+/// Display: Quotient
+/// Category: calculate
+/// Returns: integer or float
+#[func]
+pub fn quo(
+    /// The dividend of the quotient.
+    dividend: Num,
+    /// The divisor of the quotient.
+    divisor: Spanned<Num>,
+) -> Value {
+    if divisor.v.float() == 0.0 {
+        bail!(divisor.span, "divisor must not be zero");
+    }
+
+    let result = dividend.apply2(divisor.v, Div::div, Div::div);
+    Value::Int(match result {
+        Num::Int(i) => i,
+        Num::Float(f) => f.floor() as i64, // Note: the result should be an integer but floats doesn't have the same precision as i64.
+    })
 }
 
 /// A value which can be passed to functions that work with integers and floats.
@@ -873,10 +955,10 @@ impl Num {
         other: Self,
         int: impl FnOnce(i64, i64) -> i64,
         float: impl FnOnce(f64, f64) -> f64,
-    ) -> Value {
+    ) -> Num {
         match (self, other) {
-            (Self::Int(a), Self::Int(b)) => Value::Int(int(a, b)),
-            (a, b) => Value::Float(float(a.float(), b.float())),
+            (Self::Int(a), Self::Int(b)) => Num::Int(int(a, b)),
+            (a, b) => Num::Float(float(a.float(), b.float())),
         }
     }
 
@@ -886,10 +968,10 @@ impl Num {
         third: Self,
         int: impl FnOnce(i64, i64, i64) -> i64,
         float: impl FnOnce(f64, f64, f64) -> f64,
-    ) -> Value {
+    ) -> Num {
         match (self, other, third) {
-            (Self::Int(a), Self::Int(b), Self::Int(c)) => Value::Int(int(a, b, c)),
-            (a, b, c) => Value::Float(float(a.float(), b.float(), c.float())),
+            (Self::Int(a), Self::Int(b), Self::Int(c)) => Num::Int(int(a, b, c)),
+            (a, b, c) => Num::Float(float(a.float(), b.float(), c.float())),
         }
     }
 
