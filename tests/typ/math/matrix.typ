@@ -3,12 +3,12 @@
 ---
 // Test semicolon syntax.
 #set align(center)
-$mat() dot.op
- mat(;) dot.op
- mat(1, 2) dot.op
+$mat() dot
+ mat(;) dot
+ mat(1, 2) dot
  mat(1, 2;) \
- mat(1; 2) dot.op
- mat(1, 2; 3, 4) dot.op
+ mat(1; 2) dot
+ mat(1, 2; 3, 4) dot
  mat(1 + &2, 1/2; &3, 4)$
 
 ---

@@ -12,6 +12,10 @@ $ underline(f' : NN -> RR) \
     2 * 3 &"if" n != 5,
     1 - 0 thick &...,
   ) $
+  
+---
+// Test common symbols.
+$ dot \ dots \ ast \ tilde \ star $
 
 ---
 // Error: 1:3 expected dollar sign
