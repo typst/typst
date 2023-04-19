@@ -13,3 +13,8 @@ $ 1 + sqrt(x/2) + sqrt(#hide($x/2$)) $
 $ a x #link("url", $+ b$) $
 $ f f1 f2 $
 $ vec(1,2) * 2 $
+
+---
+$ x^2 #hide[$(>= phi.alt) union y^2 0$] z^2 $
+Hello #hide[there $x$]
+and #hide[$ f(x) := x^2 $]

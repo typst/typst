@@ -1,6 +1,9 @@
 name: Continuous integration
 on: [push, pull_request]
 
+env:
+  RUSTFLAGS: "-Dwarnings"
+
 jobs:
   ci:
     runs-on: ubuntu-latest

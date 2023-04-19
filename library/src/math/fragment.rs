@@ -233,9 +233,9 @@ impl GlyphFragment {
         };
         let size = Size::new(self.width, self.ascent + self.descent);
         let mut frame = Frame::new(size);
-        frame.meta_iter(self.meta);
         frame.set_baseline(self.ascent);
         frame.push(Point::with_y(self.ascent), FrameItem::Text(item));
+        frame.meta_iter(self.meta);
         frame
     }
 }
