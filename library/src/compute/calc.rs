@@ -27,6 +27,8 @@ pub fn module() -> Module {
     scope.define("fact", fact);
     scope.define("perm", perm);
     scope.define("binom", binom);
+    scope.define("gcd", gcd);
+    scope.define("lcm", lcm);
     scope.define("floor", floor);
     scope.define("ceil", ceil);
     scope.define("round", round);
@@ -520,6 +522,72 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
     }
 
     i64::try_from(result).ok()
+}
+
+/// Calculate the greatest common divisor of two integers.
+///
+/// ## Example
+/// ```example
+/// #calc.gcd(7, 42)
+/// ```
+///
+/// Display: Greatest Common Divisor
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn gcd(
+    /// The first integer.
+    a: i64,
+    /// The second integer.
+    b: i64,
+) -> Value {
+    Value::Int(calculate_gcd(a, b).into())
+}
+
+/// Calculates the greatest common divisor of two integers
+/// It is always non-negative.
+fn calculate_gcd(mut a: i64, mut b: i64) -> i64 {
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+
+    a.abs()
+}
+
+/// Calculate the least common multiple of two integers.
+///
+/// ## Example
+/// ```example
+/// #calc.lcm(96, 13)
+/// ```
+///
+/// Display: Least Common Multiple
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn lcm(
+    /// The first integer.
+    a: i64,
+    /// The second integer.
+    b: i64,
+) -> Value {
+    calculate_lcm(a, b)
+        .map(Value::Int)
+        .ok_or("the return value is too large")
+        .at(args.span)?
+}
+
+/// Calculates the least common multiple between two non-zero integers
+/// Returns None if the value cannot be computed.
+/// It is always non-negative.
+fn calculate_lcm(a: i64, b: i64) -> Option<i64> {
+    if a == b {
+        return Some(a.abs());
+    }
+
+    a.checked_div(calculate_gcd(a, b))?.checked_mul(b).map(|v| v.abs())
 }
 
 /// Round a number down to the nearest integer.
