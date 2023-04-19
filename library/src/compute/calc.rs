@@ -273,10 +273,12 @@ pub fn atan(
 
 /// Calculate the four-quadrant arctangent of a coordinate.
 ///
+/// The arguments are `(x, y)`, not `(y, x)`.
+///
 /// ## Example
 /// ```example
-/// #calc.atan(1, 1) \
-/// #calc.atan(-2, -3)
+/// #calc.atan2(1, 1) \
+/// #calc.atan2(-2, -3)
 /// ```
 ///
 /// Display: Four-quadrant Arctangent
