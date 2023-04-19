@@ -1,9 +1,11 @@
+#set heading(numbering: none)
 #set page("a7", margin: 20pt, numbering: "1")
-#set heading(numbering: "(1/a)")
 #show heading.where(level: 1): set text(12pt)
 #show heading.where(level: 2): set text(10pt)
 
 #outline()
+
+#set heading(numbering: "(1/a)")
 
 = Einleitung
 #lorem(12)

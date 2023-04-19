@@ -10,6 +10,7 @@
   #it
 
   #set text(size: 12pt, weight: "regular")
+  #set heading(numbering: none)
   #outline(
       title: "Chapter outline",
       indent: true,
