@@ -148,6 +148,7 @@ pub struct GlyphFragment {
     pub font_size: Abs,
     pub class: Option<MathClass>,
     pub span: Span,
+    pub meta: Vec<Meta>,
 }
 
 impl GlyphFragment {
@@ -194,6 +195,7 @@ impl GlyphFragment {
                 _ => unicode_math_class::class(c),
             },
             span,
+            meta: MetaElem::data_in(ctx.styles()),
         }
     }
 
@@ -231,6 +233,7 @@ impl GlyphFragment {
         };
         let size = Size::new(self.width, self.ascent + self.descent);
         let mut frame = Frame::new(size);
+        frame.meta_iter(self.meta);
         frame.set_baseline(self.ascent);
         frame.push(Point::with_y(self.ascent), FrameItem::Text(item));
         frame
@@ -273,8 +276,9 @@ pub struct FrameFragment {
 }
 
 impl FrameFragment {
-    pub fn new(ctx: &MathContext, frame: Frame) -> Self {
+    pub fn new(ctx: &MathContext, mut frame: Frame) -> Self {
         let base_ascent = frame.ascent();
+        frame.meta(ctx.styles(), false);
         Self {
             frame,
             font_size: ctx.size,

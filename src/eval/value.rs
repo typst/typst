@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use siphasher::sip128::{Hasher128, SipHasher};
+use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
     cast_to_value, format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func,
@@ -313,7 +313,7 @@ where
     fn hash128(&self) -> u128 {
         // Also hash the TypeId since values with different types but
         // equal data should be different.
-        let mut state = SipHasher::new();
+        let mut state = SipHasher13::new();
         self.type_id().hash(&mut state);
         self.hash(&mut state);
         state.finish128().as_u128()

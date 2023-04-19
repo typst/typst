@@ -158,7 +158,13 @@ impl Args {
     /// argument.
     pub fn finish(self) -> SourceResult<()> {
         if let Some(arg) = self.items.first() {
-            bail!(arg.span, "unexpected argument");
+            bail!(
+                arg.span,
+                match &arg.name {
+                    Some(name) => eco_format!("unexpected argument: {}", name),
+                    _ => eco_format!("unexpected argument"),
+                }
+            )
         }
         Ok(())
     }
