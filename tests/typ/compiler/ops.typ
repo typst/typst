@@ -43,7 +43,6 @@
 #test(4cm - 2cm, 2cm)
 #test(1e+2-1e-2, 99.99)
 
-
 // Multiplication.
 #test(2 * 4, 8)
 
