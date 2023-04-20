@@ -2,11 +2,13 @@
 
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
-use std::env;
 use std::ffi::OsStr;
+use std::fmt::Write as FmtWrite;
 use std::fs;
+use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::{env, io};
 
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
@@ -157,14 +159,15 @@ fn library() -> Library {
     /// Returns:
     #[func]
     fn print(#[variadic] values: Vec<Value>) -> Value {
-        print!("> ");
+        let mut stdout = io::stdout().lock();
+        write!(stdout, "> ").unwrap();
         for (i, value) in values.into_iter().enumerate() {
             if i > 0 {
-                print!(", ")
+                write!(stdout, ", ").unwrap();
             }
-            print!("{value:?}");
+            write!(stdout, "{value:?}").unwrap();
         }
-        println!();
+        writeln!(stdout).unwrap();
         Value::None
     }
 
@@ -235,7 +238,7 @@ impl TestWorld {
             .filter_map(|e| e.ok())
             .filter(|entry| entry.file_type().is_file())
         {
-            let data = std::fs::read(entry.path()).unwrap();
+            let data = fs::read(entry.path()).unwrap();
             fonts.extend(Font::iter(data.into()));
         }
 
@@ -353,6 +356,7 @@ fn test(
 
     let text = fs::read_to_string(src_path).unwrap();
 
+    let mut output = String::new();
     let mut ok = true;
     let mut updated = false;
     let mut frames = vec![];
@@ -382,8 +386,16 @@ fn test(
                 }
             }
         } else {
-            let (part_ok, compare_here, part_frames) =
-                test_part(world, src_path, part.into(), i, compare_ref, line, &mut rng);
+            let (part_ok, compare_here, part_frames) = test_part(
+                &mut output,
+                world,
+                src_path,
+                part.into(),
+                i,
+                compare_ref,
+                line,
+                &mut rng,
+            );
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -402,7 +414,7 @@ fn test(
 
         if world.print.frames {
             for frame in &document.pages {
-                println!("Frame:\n{:#?}\n", frame);
+                writeln!(output, "{:#?}\n", frame).unwrap();
             }
         }
 
@@ -423,7 +435,7 @@ fn test(
                     update_image(png_path, ref_path);
                     updated = true;
                 } else {
-                    println!("{} Does not match reference image. ❌", name.display());
+                    writeln!(output, "  Does not match reference image.").unwrap();
                     ok = false;
                 }
             }
@@ -432,21 +444,32 @@ fn test(
                 update_image(png_path, ref_path);
                 updated = true;
             } else {
-                println!("{} Failed to open reference image. ❌", name.display());
+                writeln!(output, "  Failed to open reference image.").unwrap();
                 ok = false;
             }
         }
     }
 
-    if ok && !updated {
-        println!("{} ✔", name.display());
+    {
+        let mut stdout = io::stdout().lock();
+        stdout.write_all(name.to_string_lossy().as_bytes()).unwrap();
+        if ok {
+            writeln!(stdout, " ✔").unwrap();
+        } else {
+            writeln!(stdout, " ❌").unwrap();
+        }
+        if updated {
+            writeln!(stdout, "  Updated reference image.").unwrap();
+        }
+        if !output.is_empty() {
+            stdout.write_all(output.as_bytes()).unwrap();
+        }
     }
 
     ok
 }
 
 fn update_image(png_path: &Path, ref_path: &Path) {
-    println!("  Updated reference image. ✔");
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
         &OutFile::Path(Some(ref_path.to_owned())),
@@ -455,7 +478,9 @@ fn update_image(png_path: &Path, ref_path: &Path) {
     .unwrap();
 }
 
+#[allow(clippy::too_many_arguments)]
 fn test_part(
+    output: &mut String,
     world: &mut TestWorld,
     src_path: &Path,
     text: String,
@@ -469,14 +494,14 @@ fn test_part(
     let id = world.set(src_path, text);
     let source = world.source(id);
     if world.print.syntax {
-        println!("Syntax Tree:\n{:#?}\n", source.root())
+        writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
     }
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
-    ok &= test_spans(source.root());
-    ok &= test_reparse(world.source(id).text(), i, rng);
+    ok &= test_spans(output, source.root());
+    ok &= test_reparse(output, world.source(id).text(), i, rng);
 
     if world.print.model {
         let world = (world as &dyn World).track();
@@ -484,7 +509,7 @@ fn test_part(
         let mut tracer = typst::eval::Tracer::default();
         let module =
             typst::eval::eval(world, route.track(), tracer.track_mut(), source).unwrap();
-        println!("Model:\n{:#?}\n", module.content());
+        writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
     let (mut frames, errors) = match typst::compile(world) {
@@ -509,21 +534,21 @@ fn test_part(
     ref_errors.sort_by_key(|error| error.0.start);
 
     if errors != ref_errors {
-        println!("  Subtest {i} does not match expected errors. ❌");
+        writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
         ok = false;
 
         let source = world.source(id);
         for error in errors.iter() {
             if !ref_errors.contains(error) {
-                print!("    Not annotated | ");
-                print_error(source, line, error);
+                write!(output, "    Not annotated | ").unwrap();
+                print_error(output, source, line, error);
             }
         }
 
         for error in ref_errors.iter() {
             if !errors.contains(error) {
-                print!("    Not emitted   | ");
-                print_error(source, line, error);
+                write!(output, "    Not emitted   | ").unwrap();
+                print_error(output, source, line, error);
             }
         }
     }
@@ -572,12 +597,18 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
     (compare_ref, errors)
 }
 
-fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, String)) {
+fn print_error(
+    output: &mut String,
+    source: &Source,
+    line: usize,
+    (range, message): &(Range<usize>, String),
+) {
     let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
     let start_col = 1 + source.byte_to_column(range.start).unwrap();
     let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
     let end_col = 1 + source.byte_to_column(range.end).unwrap();
-    println!("Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}");
+    writeln!(output, "Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
+        .unwrap();
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the
@@ -586,7 +617,12 @@ fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, S
 /// The method will first inject 10 strings once every 400 source characters
 /// and then select 5 leaf node boundaries to inject an additional, randomly
 /// chosen string from the injection list.
-fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
+fn test_reparse(
+    output: &mut String,
+    text: &str,
+    i: usize,
+    rng: &mut LinearShift,
+) -> bool {
     let supplements = [
         "[",
         "]",
@@ -617,7 +653,7 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
 
     let mut ok = true;
 
-    let apply = |replace: std::ops::Range<usize>, with| {
+    let mut apply = |replace: Range<usize>, with| {
         let mut incr_source = Source::detached(text);
         if incr_source.root().len() != text.len() {
             println!(
@@ -636,7 +672,7 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
         let mut incr_root = incr_source.root().clone();
 
         // Ensures that the span numbering invariants hold.
-        let spans_ok = test_spans(&ref_root) && test_spans(&incr_root);
+        let spans_ok = test_spans(output, &ref_root) && test_spans(output, &incr_root);
 
         // Remove all spans so that the comparison works out.
         let tree_ok = {
@@ -646,13 +682,19 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
         };
 
         if !tree_ok {
-            println!(
+            writeln!(
+                output,
                 "    Subtest {i} reparse differs from clean parse when inserting '{with}' at {}-{} ❌\n",
                 replace.start, replace.end,
-            );
-            println!("    Expected reference tree:\n{ref_root:#?}\n");
-            println!("    Found incremental tree:\n{incr_root:#?}");
-            println!("    Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
+            ).unwrap();
+            writeln!(output, "    Expected reference tree:\n{ref_root:#?}\n").unwrap();
+            writeln!(output, "    Found incremental tree:\n{incr_root:#?}").unwrap();
+            writeln!(
+                output,
+                "    Full source ({}):\n\"{edited_src:?}\"",
+                edited_src.len()
+            )
+            .unwrap();
         }
 
         spans_ok && tree_ok
@@ -696,22 +738,27 @@ fn leafs(node: &SyntaxNode) -> Vec<SyntaxNode> {
 
 /// Ensure that all spans are properly ordered (and therefore unique).
 #[track_caller]
-fn test_spans(root: &SyntaxNode) -> bool {
-    test_spans_impl(root, 0..u64::MAX)
+fn test_spans(output: &mut String, root: &SyntaxNode) -> bool {
+    test_spans_impl(output, root, 0..u64::MAX)
 }
 
 #[track_caller]
-fn test_spans_impl(node: &SyntaxNode, within: Range<u64>) -> bool {
+fn test_spans_impl(output: &mut String, node: &SyntaxNode, within: Range<u64>) -> bool {
     if !within.contains(&node.span().number()) {
-        eprintln!("    Node: {node:#?}");
-        eprintln!("    Wrong span order: {} not in {within:?} ❌", node.span().number(),);
+        writeln!(output, "    Node: {node:#?}").unwrap();
+        writeln!(
+            output,
+            "    Wrong span order: {} not in {within:?} ❌",
+            node.span().number()
+        )
+        .unwrap();
     }
 
     let start = node.span().number() + 1;
     let mut children = node.children().peekable();
     while let Some(child) = children.next() {
         let end = children.peek().map_or(within.end, |next| next.span().number());
-        if !test_spans_impl(child, start..end) {
+        if !test_spans_impl(output, child, start..end) {
             return false;
         }
     }
