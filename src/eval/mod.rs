@@ -682,7 +682,7 @@ impl Eval for ast::MathAttach {
         let base = self.base().eval_display(vm)?;
         let top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
         let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
-        Ok((vm.items.math_attach)(base, top, bottom, None, None, None, None))
+        Ok((vm.items.math_attach_smart)(base, top, bottom))
     }
 }
 

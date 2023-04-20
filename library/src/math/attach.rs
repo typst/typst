@@ -1,15 +1,76 @@
 use super::*;
 
-/// A base with optional attachments.
+/// A base with smartly placed optional attachments.
 ///
 /// ## Syntax
-/// This function also has dedicated syntax for attachments after the base: Use the
+/// This function is normally used via its dedicated syntax: Use the
 /// underscore (`_`) to indicate a subscript i.e. bottom attachment and the hat (`^`)
-/// to indicate a superscript i.e. top attachment.
+/// to indicate a superscript i.e. top attachment. Typst automatically computes whether
+/// the rendering style should be "scripts" or "limits". One can also override the
+/// decision with scripts() and limits().
 ///
 /// ## Example
 /// ```example
 /// $ sum_(i=0)^n a_i = 2^(1+i) $
+/// ```
+///
+/// Display: Attachment
+/// Category: math
+#[element(LayoutMath)]
+pub struct SmartAttachElem {
+    /// The base to which things are attached.
+    #[required]
+    pub base: Content,
+
+    /// The top attachment.
+    pub t: Option<Content>,
+
+    /// The bottom attachment.
+    pub b: Option<Content>,
+}
+
+impl LayoutMath for SmartAttachElem {
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        let base = ctx.layout_fragment(&self.base())?;
+        let render_as_limits = self.base().is::<LimitsElem>()
+            || (!self.base().is::<ScriptsElem>()
+                && ctx.style.size == MathSize::Display
+                && base.class() == Some(MathClass::Large)
+                && match &base {
+                    MathFragment::Variant(variant) => LIMITS.contains(&variant.c),
+                    MathFragment::Frame(fragment) => fragment.limits,
+                    _ => false,
+                });
+
+        ctx.style(ctx.style.for_superscript());
+        let top = self
+            .t(ctx.styles())
+            .map(|elem| ctx.layout_fragment(&elem))
+            .transpose()?;
+        ctx.unstyle();
+
+        ctx.style(ctx.style.for_subscript());
+        let bottom = self
+            .b(ctx.styles())
+            .map(|elem| ctx.layout_fragment(&elem))
+            .transpose()?;
+        ctx.unstyle();
+
+        if render_as_limits {
+            limits(ctx, base, top, bottom)
+        } else {
+            scripts(ctx, base, None, None, top, None, None, bottom)
+        }
+    }
+}
+
+/// A base with optional attachments at the fixed positions.
+///
+/// The positions are: top-left, top, top-right, bottom-left, bottom, bottom-right.
+///
+/// ## Example
+/// ```example
+/// $ attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y) $
 /// ```
 ///
 /// Display: Attachment
@@ -20,10 +81,10 @@ pub struct AttachElem {
     #[required]
     pub base: Content,
 
-    /// The top attachment, smartly placed at top-right or above the base.
+    /// The top attachment.
     pub t: Option<Content>,
 
-    /// The bottom attachment, smartly placed at the bottom-right or below the base.
+    /// The bottom attachment.
     pub b: Option<Content>,
 
     /// The top-left attachment before the base.
@@ -54,44 +115,18 @@ impl LayoutMath for AttachElem {
         };
 
         ctx.style(ctx.style.for_superscript());
-        let arg_tl = get_fragment(ctx, Self::tl);
-        let arg_tr = get_fragment(ctx, Self::tr);
-        let arg_t = get_fragment(ctx, Self::t);
+        let tl = get_fragment(ctx, Self::tl);
+        let tr = get_fragment(ctx, Self::tr);
+        let t = get_fragment(ctx, Self::t);
         ctx.unstyle();
 
         ctx.style(ctx.style.for_subscript());
-        let arg_bl = get_fragment(ctx, Self::bl);
-        let arg_br = get_fragment(ctx, Self::br);
-        let arg_b = get_fragment(ctx, Self::b);
+        let bl = get_fragment(ctx, Self::bl);
+        let br = get_fragment(ctx, Self::br);
+        let b = get_fragment(ctx, Self::b);
         ctx.unstyle();
 
-        let render_as_limits =
-            [&arg_tl, &arg_tr, &arg_bl, &arg_br].iter().all(|e| e.is_none())
-                && (self.base().is::<LimitsElem>()
-                    || (!self.base().is::<ScriptsElem>()
-                        && ctx.style.size == MathSize::Display
-                        && base.class() == Some(MathClass::Large)
-                        && match &base {
-                            MathFragment::Variant(variant) => LIMITS.contains(&variant.c),
-                            MathFragment::Frame(fragment) => fragment.limits,
-                            _ => false,
-                        }));
-
-        if render_as_limits {
-            limits(ctx, base, arg_t, arg_b)
-            // scripts(ctx, base, None, arg_t, None, None, arg_b, None)
-        } else {
-            scripts(
-                ctx,
-                base,
-                arg_tl,
-                if arg_tr.is_some() { arg_t.clone() } else { None },
-                if arg_tr.is_some() { arg_tr } else { arg_t },
-                arg_bl,
-                if arg_br.is_some() { arg_b.clone() } else { None },
-                if arg_br.is_some() { arg_br } else { arg_b },
-            )
-        }
+        scripts(ctx, base, tl, t, tr, bl, b, br)
     }
 }
 

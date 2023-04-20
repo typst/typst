@@ -61,6 +61,7 @@ pub fn module() -> Module {
     math.define("round", round);
 
     // Attachments and accents.
+    math.define("smart_attach", SmartAttachElem::func());
     math.define("attach", AttachElem::func());
     math.define("scripts", ScriptsElem::func());
     math.define("limits", LimitsElem::func());
