@@ -33,10 +33,16 @@
 #test((1, 2) + (3, 4), (1, 2, 3, 4))
 #test((a: 1) + (b: 2, c: 3), (a: 1, b: 2, c: 3))
 
+---
+// Error: 2-7 value is too big or too small
+#(9223372036854775807 + 1)
+
+---
 // Subtraction.
 #test(1-4, 3*-1)
 #test(4cm - 2cm, 2cm)
 #test(1e+2-1e-2, 99.99)
+
 
 // Multiplication.
 #test(2 * 4, 8)
