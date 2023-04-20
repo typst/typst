@@ -90,9 +90,13 @@ fn main() {
 
     if len > 1 {
         println!("{ok} / {len} tests passed.");
-        if ok != len {
-            println!("Set the UPDATE_EXPECT env var or the --update flag to update the reference images.");
-        }
+    }
+
+    if ok != len {
+        println!(
+            "Set the UPDATE_EXPECT environment variable or pass the \
+             --update flag to update the reference image(s)."
+        );
     }
 
     if ok < len {
@@ -361,6 +365,7 @@ fn test(
     let text = fs::read_to_string(src_path).unwrap();
 
     let mut ok = true;
+    let mut updated = false;
     let mut frames = vec![];
     let mut line = 0;
     let mut compare_ref = true;
@@ -421,6 +426,7 @@ fn test(
             {
                 if update {
                     update_image(png_path, ref_path);
+                    updated = true;
                 } else {
                     println!("  Does not match reference image. ❌");
                     ok = false;
@@ -429,6 +435,7 @@ fn test(
         } else if !document.pages.is_empty() {
             if update {
                 update_image(png_path, ref_path);
+                updated = true;
             } else {
                 println!("  Failed to open reference image. ❌");
                 ok = false;
@@ -436,7 +443,7 @@ fn test(
         }
     }
 
-    if ok {
+    if ok && !updated {
         if world.print == PrintConfig::default() {
             print!("\x1b[1A");
         }
@@ -447,6 +454,7 @@ fn test(
 }
 
 fn update_image(png_path: &Path, ref_path: &Path) {
+    println!("  Updated reference image. ✔");
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
         &OutFile::Path(Some(ref_path.to_owned())),

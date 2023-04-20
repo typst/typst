@@ -50,11 +50,18 @@ making changes.
 testit --pdf
 ```
 
-## Update tests
-Use the `UPDATE_EXPECT` env var or the `--update` flag:
+## Update expected images
+If you created a new test or fixed a bug in an existing test, you need to update
+the reference image used for comparison. For this, you can use the
+`UPDATE_EXPECT` environment varariable or the `--update` flag:
 ```bash
-testit --update
+testit mytest --update
 ```
+
+If you use the VS Code test helper extension (see the `tools` folder), you can
+alternatively use the checkmark button to update the reference image. In that
+case you should also install `oxipng` on your system so that the test helper
+can optimize the reference images.
 
 ## Making an alias
 If you want to have a quicker way to run the tests, consider adding a shortcut
