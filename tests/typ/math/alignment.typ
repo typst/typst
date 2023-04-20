@@ -16,6 +16,16 @@ $
 $
 & "right" \
 "a very long line" \
+"left" \
+$
+
+---
+// Test no alignment.
+#set page(width: 300pt)
+$
+"right" \
+"a very long line" \
+"left" \
 $
 
 ---
@@ -26,3 +36,69 @@ $
 "abc abc" & "abc abc" & "abc" \
 "abc abc abc" & "abc" & "abc abc abc" \
 $
+
+---
+// Test alternating alignment in a vector.
+#set page(width: 300pt)
+$
+vec(
+"abc" & "abc abc abc" & "abc abc",
+"abc abc" & "abc abc" & "abc",
+"abc abc abc" & "abc" & "abc abc abc",
+)
+$
+
+---
+// Test alternating explicit alignment in a matrix.
+#set page(width: 300pt)
+$
+mat(
+"abc" & "abc abc abc" & "abc abc";
+"abc abc" & "abc abc" & "abc";
+"abc abc abc" & "abc" & "abc abc abc";
+)
+$
+
+---
+// Test alternating alignment in a matrix.
+#set page(width: 300pt)
+$
+mat(
+"abc", "abc abc abc", "abc abc";
+"abc abc", "abc abc", "abc";
+"abc abc abc", "abc", "abc abc abc";
+)
+$
+
+---
+// Test #460 equations.
+$
+a &=b & quad c&=d \
+e &=f & g&=h
+$
+
+$
+mat(&a+b,c;&d, e)
+$
+
+$
+mat(&a+b&,c;&d&, e)
+$
+
+$
+mat(&&&a+b,c;&&&d, e)
+$
+
+$
+mat(.&a+b&.,c;.....&d&....., e)
+$
+
+---
+// Test #454 equations.
+$ mat(-1, 1, 1; 1, -1, 1; 1, 1, -1) $
+
+$ mat(-1&, 1&, 1&; 1&, -1&, 1&; 1&, 1&, -1&) $
+
+$ mat(-1&, 1&, 1&; 1, -1, 1; 1, 1, -1) $
+
+$ mat(&-1, &1, &1; 1, -1, 1; 1, 1, -1) $
