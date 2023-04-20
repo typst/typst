@@ -62,14 +62,23 @@ impl Args {
     }
 
     /// Consume n positional arguments if possible.
-    pub fn consume(&mut self, n: usize) -> SourceResult<EcoVec<Arg>> {
-        if n > self.items.len() {
+    pub fn consume(&mut self, n: usize) -> SourceResult<Vec<Arg>> {
+        let mut list = vec![];
+
+        let mut i = 0;
+        while i < self.items.len() && list.len() < n {
+            if self.items[i].name.is_none() {
+                list.push(self.items.remove(i));
+            } else {
+                i += 1;
+            }
+        }
+
+        if list.len() < n {
             bail!(self.span, "not enough arguments");
         }
-        let vec = self.items.to_vec();
-        let (left, right) = vec.split_at(n);
-        self.items = right.into();
-        return Ok(left.into());
+
+        Ok(list)
     }
 
     /// Consume and cast the first positional argument.
@@ -158,7 +167,13 @@ impl Args {
     /// argument.
     pub fn finish(self) -> SourceResult<()> {
         if let Some(arg) = self.items.first() {
-            bail!(arg.span, "unexpected argument");
+            bail!(
+                arg.span,
+                match &arg.name {
+                    Some(name) => eco_format!("unexpected argument: {}", name),
+                    _ => eco_format!("unexpected argument"),
+                }
+            )
         }
         Ok(())
     }

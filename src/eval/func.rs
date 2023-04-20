@@ -17,8 +17,8 @@ use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
     /// The internal representation.
     repr: Repr,
@@ -278,8 +278,8 @@ pub enum Param {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    #[allow(clippy::too_many_arguments)]
     #[comemo::memoize]
+    #[allow(clippy::too_many_arguments)]
     fn call(
         this: &Func,
         world: Tracked<dyn World>,

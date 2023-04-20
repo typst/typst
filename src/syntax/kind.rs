@@ -230,8 +230,6 @@ pub enum SyntaxKind {
     WhileLoop,
     /// A for loop: `for x in y { z }`.
     ForLoop,
-    /// A for loop's destructuring pattern: `x` or `x, y`.
-    ForPattern,
     /// A module import: `import a, b, c from "utils.typ"`.
     ModuleImport,
     /// Items to import from a module: `a, b, c`.
@@ -244,8 +242,8 @@ pub enum SyntaxKind {
     LoopContinue,
     /// A return from a function: `return`, `return x + 1`.
     FuncReturn,
-    /// A destructuring pattern: `x`, `(x, _, ..y)`.
-    Pattern,
+    /// A destructuring pattern: `(x, _, ..y)`.
+    Destructuring,
 
     /// A line comment: `// ...`.
     LineComment,
@@ -425,14 +423,13 @@ impl SyntaxKind {
             Self::Conditional => "`if` expression",
             Self::WhileLoop => "while-loop expression",
             Self::ForLoop => "for-loop expression",
-            Self::ForPattern => "for-loop destructuring pattern",
             Self::ModuleImport => "`import` expression",
             Self::ImportItems => "import items",
             Self::ModuleInclude => "`include` expression",
             Self::LoopBreak => "`break` expression",
             Self::LoopContinue => "`continue` expression",
             Self::FuncReturn => "`return` expression",
-            Self::Pattern => "destructuring pattern",
+            Self::Destructuring => "destructuring pattern",
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
             Self::Error => "syntax error",

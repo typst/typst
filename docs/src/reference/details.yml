@@ -31,7 +31,7 @@ math: |
 
   ```example
   $ A = pi r^2 $
-  $ "area" = pi dot.op "radius"^2 $
+  $ "area" = pi dot "radius"^2 $
   $ cal(A) :=
       { x in RR | x "is natural" } $
   #let x = 5
@@ -39,7 +39,7 @@ math: |
   ```
 
   Math mode makes a wide selection of [symbols]($category/symbols/sym) like
-  `pi`, `dot.op`, or `RR` available. Many mathematical symbols are available in
+  `pi`, `dot`, or `RR` available. Many mathematical symbols are available in
   different variants. You can select between different variants by applying
   [modifiers]($type/symbol) to the symbol. Typst further recognizes a number of
   shorthand sequences like `=>` that approximate a symbol. When such a shorthand

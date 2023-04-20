@@ -97,7 +97,7 @@
 }
 
 ---
-// Error: 4-5 unknown variable
+// Error: 4-5 unknown variable: x
 #((x) = "")
 
 ---
@@ -110,15 +110,15 @@
 #(not x = "a")
 
 ---
-// Error: 7-8 unknown variable
+// Error: 7-8 unknown variable: x
 #(1 + x += 3)
 
 ---
-// Error: 3-4 unknown variable
+// Error: 3-4 unknown variable: z
 #(z = 1)
 
 ---
-// Error: 3-7 cannot mutate a constant
+// Error: 3-7 cannot mutate a constant: rect
 #(rect = "hi")
 
 ---

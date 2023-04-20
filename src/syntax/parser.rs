@@ -839,7 +839,7 @@ fn args(p: &mut Parser) {
 }
 
 enum PatternKind {
-    Normal,
+    Ident,
     Destructuring,
 }
 
@@ -849,18 +849,16 @@ fn pattern(p: &mut Parser) -> PatternKind {
     if p.at(SyntaxKind::LeftParen) {
         let kind = collection(p, false);
         validate_destruct_pattern(p, m);
-        p.wrap(m, SyntaxKind::Pattern);
 
         if kind == SyntaxKind::Parenthesized {
-            PatternKind::Normal
+            PatternKind::Ident
         } else {
+            p.wrap(m, SyntaxKind::Destructuring);
             PatternKind::Destructuring
         }
     } else {
-        if p.expect(SyntaxKind::Ident) {
-            p.wrap(m, SyntaxKind::Pattern);
-        }
-        PatternKind::Normal
+        p.expect(SyntaxKind::Ident);
+        PatternKind::Ident
     }
 }
 
@@ -872,7 +870,7 @@ fn let_binding(p: &mut Parser) {
     let mut closure = false;
     let mut destructuring = false;
     match pattern(p) {
-        PatternKind::Normal => {
+        PatternKind::Ident => {
             closure = p.directly_at(SyntaxKind::LeftParen);
             if closure {
                 let m3 = p.marker();
@@ -1048,8 +1046,8 @@ fn validate_dict(p: &mut Parser, m: Marker) {
                     None => first.text().clone(),
                 };
 
-                if !used.insert(key) {
-                    first.convert_to_error("duplicate key");
+                if !used.insert(key.clone()) {
+                    first.convert_to_error(eco_format!("duplicate key: {key}"));
                     child.make_erroneous();
                 }
             }
@@ -1075,13 +1073,19 @@ fn validate_params(p: &mut Parser, m: Marker) {
         match child.kind() {
             SyntaxKind::Ident => {
                 if !used.insert(child.text().clone()) {
-                    child.convert_to_error("duplicate parameter");
+                    child.convert_to_error(eco_format!(
+                        "duplicate parameter: {}",
+                        child.text()
+                    ));
                 }
             }
             SyntaxKind::Named => {
                 let Some(within) = child.children_mut().first_mut() else { return };
                 if !used.insert(within.text().clone()) {
-                    within.convert_to_error("duplicate parameter");
+                    within.convert_to_error(eco_format!(
+                        "duplicate parameter: {}",
+                        within.text()
+                    ));
                     child.make_erroneous();
                 }
             }
@@ -1103,7 +1107,10 @@ fn validate_params(p: &mut Parser, m: Marker) {
                     continue;
                 }
                 if !used.insert(within.text().clone()) {
-                    within.convert_to_error("duplicate parameter");
+                    within.convert_to_error(eco_format!(
+                        "duplicate parameter: {}",
+                        within.text()
+                    ));
                     child.make_erroneous();
                 }
             }
@@ -1124,7 +1131,10 @@ fn validate_args(p: &mut Parser, m: Marker) {
         if child.kind() == SyntaxKind::Named {
             let Some(within) = child.children_mut().first_mut() else { return };
             if !used.insert(within.text().clone()) {
-                within.convert_to_error("duplicate argument");
+                within.convert_to_error(eco_format!(
+                    "duplicate argument: {}",
+                    within.text()
+                ));
                 child.make_erroneous();
             }
         }

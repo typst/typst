@@ -56,11 +56,11 @@
 #test(dict, (a: 3, b: 1))
 
 ---
-// Error: 24-29 duplicate key
+// Error: 24-29 duplicate key: first
 #(first: 1, second: 2, first: 3)
 
 ---
-// Error: 17-20 duplicate key
+// Error: 17-20 duplicate key: a
 #(a: 1, "b": 2, "a": 3)
 
 ---

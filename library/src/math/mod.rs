@@ -344,9 +344,18 @@ impl LayoutMath for EquationElem {
 
 impl LayoutMath for Content {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        // Directly layout the body of nested equations instead of handling it
+        // like a normal equation so that things like this work:
+        // ```
+        // #let my = $pi$
+        // $ my r^2 $
+        // ```
+        if let Some(elem) = self.to::<EquationElem>() {
+            return elem.layout_math(ctx);
+        }
+
         if let Some(realized) = ctx.realize(self)? {
-            realized.layout_math(ctx)?;
-            return Ok(());
+            return realized.layout_math(ctx);
         }
 
         if let Some(children) = self.to_sequence() {
