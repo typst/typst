@@ -41,7 +41,7 @@
 
 #while x < 8 {
   i += 1
-  if calc.mod(i, 3) == 0 {
+  if calc.rem(i, 3) == 0 {
     continue
   }
   x += i
@@ -55,7 +55,7 @@
 
 #let x = for i in range(5) {
   "a"
-  if calc.mod(i, 3) == 0 {
+  if calc.rem(i, 3) == 0 {
     "_"
     continue
   }

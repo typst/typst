@@ -40,7 +40,7 @@ pub fn module() -> Module {
     scope.define("max", max);
     scope.define("even", even);
     scope.define("odd", odd);
-    scope.define("mod", mod_);
+    scope.define("rem", rem);
     scope.define("quo", quo);
     scope.define("euclid_div", euclid_div);
     scope.define("inf", Value::Float(f64::INFINITY));
@@ -889,22 +889,22 @@ pub fn odd(
     Value::Bool(value % 2 != 0)
 }
 
-/// Calculate the modulus of two numbers.
+/// Calculate the remainder of two numbers.
 ///
 /// ## Example
 /// ```example
-/// #calc.mod(20, 6) \
-/// #calc.mod(1.75, 0.5)
+/// #calc.rem(20, 6) \
+/// #calc.rem(1.75, 0.5)
 /// ```
 ///
-/// Display: Modulus
+/// Display: Remainder
 /// Category: calculate
 /// Returns: integer or float
 #[func]
-pub fn mod_(
-    /// The dividend of the modulus.
+pub fn rem(
+    /// The dividend of the remainder.
     dividend: Num,
-    /// The divisor of the modulus.
+    /// The divisor of the remainder.
     divisor: Spanned<Num>,
 ) -> Value {
     if divisor.v.float() == 0.0 {

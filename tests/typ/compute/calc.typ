@@ -55,20 +55,20 @@
 #test(calc.even(-11), false)
 
 ---
-// Test the `mod` function.
-#test(calc.mod(1, 1), 0)
-#test(calc.mod(5, 3), 2)
-#test(calc.mod(5, -3), 2)
-#test(calc.mod(22.5, 10), 2.5)
-#test(calc.mod(9, 4.5), 0)
+// Test the `rem` function.
+#test(calc.rem(1, 1), 0)
+#test(calc.rem(5, 3), 2)
+#test(calc.rem(5, -3), 2)
+#test(calc.rem(22.5, 10), 2.5)
+#test(calc.rem(9, 4.5), 0)
 
 ---
 // Error: 14-15 divisor must not be zero
-#calc.mod(5, 0)
+#calc.rem(5, 0)
 
 ---
 // Error: 16-19 divisor must not be zero
-#calc.mod(3.0, 0.0)
+#calc.rem(3.0, 0.0)
 
 ---
 // Test the `quo` function.
