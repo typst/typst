@@ -954,9 +954,9 @@ pub fn quo(
 /// Returns: Dictionnary with `rem` and `quo` keys. The values are integers or floats, depending on the input.
 #[func]
 pub fn euclid_div(
-    /// The dividend of the quotient.
+    /// The dividend.
     dividend: Num,
-    /// The divisor of the quotient.
+    /// The divisor.
     divisor: Spanned<Num>,
 ) -> Value {
     if divisor.v.float() == 0.0 {
