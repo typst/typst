@@ -11,11 +11,13 @@ $
 attach(upright(O), bl: 8, tl: 16, br: 2, tr: 2-),
 attach("Pb", bl: 82, tl: 207) +
 attach(upright(e), bl: -1, tl: 0) + macron(v)_e \
-attach(C, bl: n, br: r) = mat(n;r),
-attach(a, tl:k) = a^a^dots.up^a } k \
-attach(lim, t: n -> 1), attach(lim, b: n -> 1),
-attach(a, tl: q, t: "ignored"), attach(a, tr: q, t: "ignored"),
-attach(a, bl: q, b: "ignored"), attach(a, br: q, b: "ignored")
+attach(a, tl: u), attach(a, tr: v), attach(a, bl: x),
+attach(a, br: y), limits(a)^t, limits(a)_b,
+attach(a, tr: v, t: t), attach(a, br: y, b: b) \
+attach(a, tl: u, tr: v), attach(a, bl: x, br: y),
+attach(a, tl: u, bl: x), attach(a, tr: v, br: y),
+attach(a, tl: u, br: y), attach(a, bl: x, tr: v) \
+limits(a)^t_b, attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
 $
 
 ---
