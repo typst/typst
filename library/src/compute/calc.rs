@@ -42,7 +42,6 @@ pub fn module() -> Module {
     scope.define("odd", odd);
     scope.define("rem", rem);
     scope.define("quo", quo);
-    scope.define("euclid_div", euclid_div);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
     scope.define("pi", Value::Float(std::f64::consts::PI));
@@ -939,37 +938,6 @@ pub fn quo(
         Num::Int(i) => i,
         Num::Float(f) => f.floor() as i64, // Note: the result should be an integer but floats doesn't have the same precision as i64.
     })
-}
-
-/// Calculate the euclidean division of two numbers.
-///
-/// ## Example
-/// ```example
-/// #assert(calc.euclid_div(14, 5) == ("rem": 4, "quo": 2)) \
-/// #calc.euclid_div(3.46, 0.5)
-/// ```
-///
-/// Display: Euclidian Divison
-/// Category: calculate
-/// Returns: Dictionnary with `rem` and `quo` keys. The values are integers or floats, depending on the input.
-#[func]
-pub fn euclid_div(
-    /// The dividend.
-    dividend: Num,
-    /// The divisor.
-    divisor: Spanned<Num>,
-) -> Value {
-    if divisor.v.float() == 0.0 {
-        bail!(divisor.span, "divisor must not be zero");
-    }
-
-    let rem = dividend.apply2(divisor.v, Rem::rem, Rem::rem);
-    let quo = Num::Int(match dividend.apply2(divisor.v, Div::div, Div::div) {
-        Num::Int(i) => i,
-        Num::Float(f) => f.floor() as i64, // Note: the result should be an integer but floats doesn't have the same precision as i64.
-    });
-
-    Value::Dict(dict!["rem" => rem.value(), "quo" => quo.value()])
 }
 
 /// A value which can be passed to functions that work with integers and floats.
