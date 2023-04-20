@@ -1,6 +1,7 @@
+//! Typst's standard library.
+
 #![allow(clippy::wildcard_in_or_patterns)]
 #![allow(clippy::comparison_chain)]
-//! Typst's standard library.
 
 pub mod compute;
 pub mod layout;

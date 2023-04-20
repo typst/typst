@@ -106,7 +106,7 @@
 ---
 // Don't leak environment.
 #{
-  // Error: 16-17 unknown variable
+  // Error: 16-17 unknown variable: x
   let func() = x
   let x = "hi"
   func()
@@ -141,22 +141,22 @@
   test(greet("Typst"), "Hey, Typst!")
   test(greet("Typst", birthday: true), "Happy Birthday, Typst!")
 
-  // Error: 23-35 unexpected argument
+  // Error: 23-35 unexpected argument: whatever
   test(greet("Typst", whatever: 10))
 }
 
 ---
-// Error: 11-12 duplicate parameter
+// Error: 11-12 duplicate parameter: x
 #let f(x, x) = none
 
 ---
-// Error: 14-15 duplicate parameter
-// Error: 23-24 duplicate parameter
-// Error: 35-36 duplicate parameter
+// Error: 14-15 duplicate parameter: a
+// Error: 23-24 duplicate parameter: b
+// Error: 35-36 duplicate parameter: b
 #let f(a, b, a: none, b: none, c, b) = none
 
 ---
-// Error: 13-14 duplicate parameter
+// Error: 13-14 duplicate parameter: a
 #let f(a, ..a) = none
 
 ---
@@ -170,3 +170,7 @@
 ---
 // Error: 10-14 expected identifier, found `none`
 #let foo(none: b) = key
+
+---
+// Error: 11 expected comma
+#let foo(_: 3) = none

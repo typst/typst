@@ -1,3 +1,5 @@
+#![allow(clippy::comparison_chain)]
+
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::env;
@@ -9,6 +11,7 @@ use std::path::{Path, PathBuf};
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
+use oxipng::{InFile, Options, OutFile};
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
@@ -75,12 +78,25 @@ fn main() {
         let pdf_path =
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-        ok += test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref())
-            as usize;
+        ok += test(
+            &mut world,
+            &src_path,
+            &png_path,
+            &ref_path,
+            pdf_path.as_deref(),
+            args.update,
+        ) as usize;
     }
 
     if len > 1 {
         println!("{ok} / {len} tests passed.");
+    }
+
+    if ok != len {
+        println!(
+            "Set the UPDATE_EXPECT environment variable or pass the \
+             --update flag to update the reference image(s)."
+        );
     }
 
     if ok < len {
@@ -93,6 +109,7 @@ struct Args {
     filter: Vec<String>,
     exact: bool,
     pdf: bool,
+    update: bool,
     print: PrintConfig,
 }
 
@@ -109,6 +126,7 @@ impl Args {
         let mut filter = Vec::new();
         let mut exact = false;
         let mut pdf = false;
+        let mut update = env::var_os("UPDATE_EXPECT").is_some();
         let mut print = PrintConfig::default();
 
         for arg in args {
@@ -119,6 +137,8 @@ impl Args {
                 "--exact" => exact = true,
                 // Generate PDFs.
                 "--pdf" => pdf = true,
+                // Update the reference images.
+                "--update" => update = true,
                 // Debug print the syntax trees.
                 "--syntax" => print.syntax = true,
                 // Debug print the model.
@@ -130,7 +150,7 @@ impl Args {
             }
         }
 
-        Self { filter, exact, pdf, print }
+        Self { filter, exact, pdf, update, print }
     }
 
     fn matches(&self, path: &Path) -> bool {
@@ -324,10 +344,10 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
         .unwrap_or_else(|_| path.into());
 
     let f = |e| FileError::from_io(e, &suffix);
-    if fs::metadata(&path).map_err(f)?.is_dir() {
+    if fs::metadata(path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(&path).map_err(f)
+        fs::read(path).map_err(f)
     }
 }
 
@@ -337,6 +357,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
+    update: bool,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -344,6 +365,7 @@ fn test(
     let text = fs::read_to_string(src_path).unwrap();
 
     let mut ok = true;
+    let mut updated = false;
     let mut frames = vec![];
     let mut line = 0;
     let mut compare_ref = true;
@@ -379,7 +401,7 @@ fn test(
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
             let pdf_data = typst::export::pdf(&document);
-            fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
+            fs::create_dir_all(pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
@@ -390,7 +412,7 @@ fn test(
         }
 
         let canvas = render(&document.pages);
-        fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
+        fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
@@ -402,16 +424,26 @@ fn test(
                     .zip(ref_pixmap.data())
                     .any(|(&a, &b)| a.abs_diff(b) > 2)
             {
-                println!("  Does not match reference image. ❌");
-                ok = false;
+                if update {
+                    update_image(png_path, ref_path);
+                    updated = true;
+                } else {
+                    println!("  Does not match reference image. ❌");
+                    ok = false;
+                }
             }
         } else if !document.pages.is_empty() {
-            println!("  Failed to open reference image. ❌");
-            ok = false;
+            if update {
+                update_image(png_path, ref_path);
+                updated = true;
+            } else {
+                println!("  Failed to open reference image. ❌");
+                ok = false;
+            }
         }
     }
 
-    if ok {
+    if ok && !updated {
         if world.print == PrintConfig::default() {
             print!("\x1b[1A");
         }
@@ -419,6 +451,16 @@ fn test(
     }
 
     ok
+}
+
+fn update_image(png_path: &Path, ref_path: &Path) {
+    println!("  Updated reference image. ✔");
+    oxipng::optimize(
+        &InFile::Path(png_path.to_owned()),
+        &OutFile::Path(Some(ref_path.to_owned())),
+        &Options::max_compression(),
+    )
+    .unwrap();
 }
 
 fn test_part(
@@ -438,7 +480,7 @@ fn test_part(
         println!("Syntax Tree:\n{:#?}\n", source.root())
     }
 
-    let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
+    let (local_compare_ref, mut ref_errors) = parse_metadata(source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     ok &= test_spans(source.root());
@@ -482,14 +524,14 @@ fn test_part(
         for error in errors.iter() {
             if !ref_errors.contains(error) {
                 print!("    Not annotated | ");
-                print_error(&source, line, error);
+                print_error(source, line, error);
             }
         }
 
         for error in ref_errors.iter() {
             if !errors.contains(error) {
                 print!("    Not emitted   | ");
-                print_error(&source, line, error);
+                print_error(source, line, error);
             }
         }
     }

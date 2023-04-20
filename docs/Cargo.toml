@@ -22,3 +22,4 @@ heck = "0.4"
 yaml-front-matter = "0.1"
 unicode_names2 = "0.6.0"
 once_cell = "1"
+ureq = { version = "2.6", features = ["json"] }

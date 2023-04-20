@@ -1,7 +1,7 @@
 {
   "name": "typst-test-helper",
   "displayName": "Typst Test Helper",
-  "description": "Helps to run, compare and approve Typst tests.",
+  "description": "Helps to run, compare and update Typst tests.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.53.0"
@@ -13,7 +13,7 @@
     "onCommand:ShortcutMenuBar.testOpen",
     "onCommand:ShortcutMenuBar.testRefresh",
     "onCommand:ShortcutMenuBar.testRerun",
-    "onCommand:ShortcutMenuBar.testApprove"
+    "onCommand:ShortcutMenuBar.testUpdate"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -46,12 +46,12 @@
         }
       },
       {
-        "command": "ShortcutMenuBar.testApprove",
-        "title": "Approve output",
+        "command": "ShortcutMenuBar.testUpdate",
+        "title": "Update reference image",
         "category": "ShortcutMenuBar",
         "icon": {
-          "light": "images/approve-light.svg",
-          "dark": "images/approve-dark.svg"
+          "light": "images/update-light.svg",
+          "dark": "images/update-dark.svg"
         }
       }
     ],
@@ -74,7 +74,7 @@
         },
         {
           "when": "resourceExtname == .typ && resourcePath =~ /.*tests.*/",
-          "command": "ShortcutMenuBar.testApprove",
+          "command": "ShortcutMenuBar.testUpdate",
           "group": "navigation@3"
         }
       ]

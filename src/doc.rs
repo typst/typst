@@ -273,13 +273,18 @@ impl Frame {
     /// Attach the metadata from this style chain to the frame.
     pub fn meta(&mut self, styles: StyleChain, force: bool) {
         if force || !self.is_empty() {
-            for meta in MetaElem::data_in(styles) {
-                if matches!(meta, Meta::Hide) {
-                    self.clear();
-                    break;
-                }
-                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
+            self.meta_iter(MetaElem::data_in(styles));
+        }
+    }
+
+    /// Attach metadata from an iterator.
+    pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
+        for meta in iter {
+            if matches!(meta, Meta::Hide) {
+                self.clear();
+                break;
             }
+            self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
         }
     }
 

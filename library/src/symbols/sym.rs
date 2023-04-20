@@ -64,12 +64,12 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Punctuation.
     amp: ['&', inv: '⅋'],
     ast: [
-        '*',
+        basic: '*',
+        op: '∗',
         low: '⁎',
         double: '⁑',
         triple: '⁂',
         small: '﹡',
-        op: '∗',
         circle: '⊛',
         sq: '⧆',
     ],
@@ -89,8 +89,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         wave.double: '〰',
     ],
     dot: [
-        '.',
         op: '⋅',
+        basic: '.',
         c: '·',
         circle: '⊙',
         circle.big: '⨀',
@@ -111,10 +111,10 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     section: '§',
     semi: [';', rev: '⁏'],
     slash: ['/', double: '⫽', triple: '⫻'],
-    dots: [h: '…', h.c: '⋯', v: '⋮', down: '⋱', up: '⋰'],
+    dots: [h.c: '⋯', h: '…', v: '⋮', down: '⋱', up: '⋰'],
     tilde: [
-        '~',
         op: '∼',
+        basic: '~',
         eq: '≃',
         eq.not: '≄',
         eq.rev: '⋍',

@@ -162,6 +162,7 @@ fn assemble(
     let mut frame = Frame::new(size);
     let mut offset = Abs::zero();
     frame.set_baseline(baseline);
+    frame.meta_iter(base.meta);
 
     for (fragment, advance) in selected {
         let pos = if horizontal {

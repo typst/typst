@@ -27,7 +27,7 @@ let f() , ; : | + - /= == 12 "string"
 
 ---
 // Unicode codepoint does not exist.
-// Error: 1-11 invalid unicode escape sequence
+// Error: 1-11 invalid unicode codepoint: FFFFFF
 \u{FFFFFF}
 
 ---

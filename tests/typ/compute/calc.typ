@@ -147,6 +147,30 @@
 #test(calc.binom(6, 2), 15)
 
 ---
+// Test the `gcd` function.
+#test(calc.gcd(112, 77), 7)
+#test(calc.gcd(12, 96), 12)
+#test(calc.gcd(13, 9), 1)
+#test(calc.gcd(13, -9), 1)
+#test(calc.gcd(272557, 272557), 272557)
+#test(calc.gcd(0, 0), 0)
+#test(calc.gcd(7, 0), 7)
+
+---
+// Test the `lcm` function.
+#test(calc.lcm(112, 77), 1232)
+#test(calc.lcm(12, 96), 96)
+#test(calc.lcm(13, 9), 117)
+#test(calc.lcm(13, -9), 117)
+#test(calc.lcm(272557, 272557), 272557)
+#test(calc.lcm(0, 0), 0)
+#test(calc.lcm(8, 0), 0)
+
+---
+// Error: 10-41 the return value is too large
+#calc.lcm(15486487489457, 4874879896543)
+
+---
 // Error: 10-12 expected at least one value
 #calc.min()
 
