@@ -178,26 +178,22 @@ fn scripts(
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
 
-    for e in [&topleft, &topright] {
-        if let Some(e) = e {
-            let ascent = match &base {
-                MathFragment::Frame(frame) => frame.base_ascent,
-                _ => base.ascent(),
-            };
+    for e in [&topleft, &topright].into_iter().flatten() {
+        let ascent = match &base {
+            MathFragment::Frame(frame) => frame.base_ascent,
+            _ => base.ascent(),
+        };
 
-            shift_up = shift_up
-                .max(sup_shift_up)
-                .max(ascent - sup_drop_max)
-                .max(sup_bottom_min + e.descent());
-        }
+        shift_up = shift_up
+            .max(sup_shift_up)
+            .max(ascent - sup_drop_max)
+            .max(sup_bottom_min + e.descent());
     }
-    for e in [&bottomleft, &bottomright] {
-        if let Some(e) = e {
-            shift_down = shift_down
-                .max(sub_shift_down)
-                .max(base.descent() + sub_drop_min)
-                .max(e.ascent() - sub_top_max);
-        }
+    for e in [&bottomleft, &bottomright].into_iter().flatten() {
+        shift_down = shift_down
+            .max(sub_shift_down)
+            .max(base.descent() + sub_drop_min)
+            .max(e.ascent() - sub_top_max);
     }
 
     for (sup, sub) in [(&topleft, &bottomleft), (&topright, &bottomright)] {

@@ -87,6 +87,7 @@ pub struct LangItems {
     /// Matched delimiters in math: `[x + y]`.
     pub math_delimited: fn(open: Content, body: Content, close: Content) -> Content,
     /// A base with optional attachments in math: `a_1^2`.
+    #[allow(clippy::type_complexity)]
     pub math_attach: fn(
         base: Content,
         // Positioned smartly.
