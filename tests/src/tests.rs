@@ -7,11 +7,11 @@ use std::ffi::OsStr;
 use std::fs;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
 
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
+use oxipng::{InFile, Options, OutFile};
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
@@ -447,20 +447,12 @@ fn test(
 }
 
 fn update_image(png_path: &Path, ref_path: &Path) {
-    let Output { status, stdout, stderr } = Command::new("oxipng")
-        .args(["--opt=max", "--out"])
-        .args([ref_path, png_path])
-        .output()
-        .unwrap();
-
-    if !status.success() {
-        println!(
-            "Stdout: {}, Stderr: {}",
-            String::from_utf8_lossy(&stdout),
-            String::from_utf8_lossy(&stderr)
-        );
-        panic!("PNG optimization failed.")
-    }
+    oxipng::optimize(
+        &InFile::Path(png_path.to_owned()),
+        &OutFile::Path(Some(ref_path.to_owned())),
+        &Options::max_compression(),
+    )
+    .unwrap();
 }
 
 fn test_part(
