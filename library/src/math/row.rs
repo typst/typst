@@ -87,10 +87,6 @@ impl MathRow {
         self.iter().map(MathFragment::width).sum()
     }
 
-    pub fn height(&self) -> Abs {
-        self.ascent() + self.descent()
-    }
-
     pub fn ascent(&self) -> Abs {
         self.iter().map(MathFragment::ascent).max().unwrap_or_default()
     }
@@ -136,8 +132,7 @@ impl MathRow {
                 rows.pop();
             }
 
-            let width = rows.iter().map(|row| row.width()).max().unwrap_or_default();
-            let points = alignments(&rows);
+            let AlignmentResult { points, width } = alignments(&rows);
             let mut frame = Frame::new(Size::zero());
 
             for (i, row) in rows.into_iter().enumerate() {
