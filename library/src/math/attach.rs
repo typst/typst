@@ -22,23 +22,23 @@ pub struct AttachElem {
 
     /// The top attachment, smartly placed at top-right or above the base.
     /// This argument is ignored if either topleft or topright is set.
-    pub top: Option<Content>,
+    pub t: Option<Content>,
 
     /// The bottom attachment, smartly placed at the bottom-right or below the base.
     /// This argument is ignored if either bottomleft or bottomright is set.
-    pub bottom: Option<Content>,
+    pub b: Option<Content>,
 
     /// The top-left attachment before the base.
-    pub topleft: Option<Content>,
+    pub tl: Option<Content>,
 
     /// The bottom-left attachment before base.
-    pub bottomleft: Option<Content>,
+    pub bl: Option<Content>,
 
     /// The top-right attachment after the base.
-    pub topright: Option<Content>,
+    pub tr: Option<Content>,
 
     /// The bottom-right attachment after the base.
-    pub bottomright: Option<Content>,
+    pub br: Option<Content>,
 }
 
 type GetAttachmentContent =
@@ -48,10 +48,10 @@ impl LayoutMath for AttachElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let base = self.base();
         let display_limits = base.is::<LimitsElem>()
-            && self.topright(ctx.styles()).is_none()
-            && self.bottomright(ctx.styles()).is_none()
-            && self.topleft(ctx.styles()).is_none()
-            && self.bottomleft(ctx.styles()).is_none();
+            && self.tr(ctx.styles()).is_none()
+            && self.br(ctx.styles()).is_none()
+            && self.tl(ctx.styles()).is_none()
+            && self.bl(ctx.styles()).is_none();
         let display_scripts = base.is::<ScriptsElem>();
 
         let base = ctx.layout_fragment(&base)?;
@@ -64,20 +64,20 @@ impl LayoutMath for AttachElem {
         };
 
         ctx.style(ctx.style.for_superscript());
-        let topleft = get_fragment(ctx, Self::topleft);
-        let topright = get_fragment(ctx, Self::topright);
+        let topleft = get_fragment(ctx, Self::tl);
+        let topright = get_fragment(ctx, Self::tr);
         let top = if topleft.is_none() && topright.is_none() {
-            get_fragment(ctx, Self::top)
+            get_fragment(ctx, Self::t)
         } else {
             Option::<MathFragment>::None
         };
         ctx.unstyle();
 
         ctx.style(ctx.style.for_subscript());
-        let bottomleft = get_fragment(ctx, Self::bottomleft);
-        let bottomright = get_fragment(ctx, Self::bottomright);
+        let bottomleft = get_fragment(ctx, Self::bl);
+        let bottomright = get_fragment(ctx, Self::br);
         let bottom = if bottomleft.is_none() && bottomright.is_none() {
-            get_fragment(ctx, Self::bottom)
+            get_fragment(ctx, Self::b)
         } else {
             Option::<MathFragment>::None
         };

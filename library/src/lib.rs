@@ -229,22 +229,22 @@ fn items() -> LangItems {
         math_attach: |base, top, bottom, topleft, bottomleft, topright, bottomright| {
             let mut elem = math::AttachElem::new(base);
             if let Some(top) = top {
-                elem.push_top(Some(top));
+                elem.push_t(Some(top));
             }
             if let Some(bottom) = bottom {
-                elem.push_bottom(Some(bottom));
+                elem.push_b(Some(bottom));
             }
             if let Some(topleft) = topleft {
-                elem.push_topleft(Some(topleft));
+                elem.push_tl(Some(topleft));
             }
             if let Some(bottomleft) = bottomleft {
-                elem.push_bottomleft(Some(bottomleft));
+                elem.push_bl(Some(bottomleft));
             }
             if let Some(topright) = topright {
-                elem.push_topright(Some(topright));
+                elem.push_tr(Some(topright));
             }
             if let Some(bottomright) = bottomright {
-                elem.push_bottomright(Some(bottomright));
+                elem.push_br(Some(bottomright));
             }
             elem.pack()
         },
