@@ -1,0 +1,10 @@
+name: 'Update flake lock file'
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'
+
+jobs:
+  createPullRequest:
+    uses: loophp/flake-lock-update-workflow/.github/workflows/upgrade-flakes.yaml@main
