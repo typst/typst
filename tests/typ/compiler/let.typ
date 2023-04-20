@@ -235,8 +235,11 @@ Three
 // Error: 3-4 expected expression, found underscore
 #(_,)
 
-// Error: 3 unexpected underscore
+// Error: 3-4 expected expression, found underscore
 #{_}
+
+// Error: 8-9 expected expression, found underscore
+#{ 1 + _ }
 
 ---
 // Error: 13 expected equals sign

@@ -637,15 +637,14 @@ fn code_primary(p: &mut Parser, atomic: bool) {
             }
         }
         SyntaxKind::Underscore if !atomic => {
-            let m_underscore = p.marker();
             p.eat();
-            p.wrap(m, SyntaxKind::Params);
             if p.at(SyntaxKind::Arrow) {
+                p.wrap(m, SyntaxKind::Params);
                 p.eat();
                 code_expr(p);
                 p.wrap(m, SyntaxKind::Closure);
-            } else {
-                p.unexpected_at(m_underscore, "underscore");
+            } else if let Some(underscore) = p.node_mut(m) {
+                underscore.convert_to_error("expected expression, found underscore");
             }
         }
 
@@ -865,7 +864,6 @@ enum PatternKind {
 
 fn pattern(p: &mut Parser) -> PatternKind {
     let m = p.marker();
-
     if p.at(SyntaxKind::LeftParen) {
         let kind = collection(p, false);
         validate_destruct_pattern(p, m);
@@ -876,15 +874,11 @@ fn pattern(p: &mut Parser) -> PatternKind {
             p.wrap(m, SyntaxKind::Destructuring);
             PatternKind::Destructuring
         }
+    } else if p.eat_if(SyntaxKind::Underscore) {
+        PatternKind::Placeholder
     } else {
-        if p.eat_if(SyntaxKind::Ident) {
-            return PatternKind::Ident;
-        } else if p.eat_if(SyntaxKind::Underscore) {
-            return PatternKind::Placeholder;
-        } else {
-            p.expected("identifier");
-            return PatternKind::Ident;
-        }
+        p.expect(SyntaxKind::Ident);
+        PatternKind::Ident
     }
 }
 
@@ -1355,6 +1349,10 @@ impl<'s> Parser<'s> {
         self.nodes.get(m.0)
     }
 
+    fn node_mut(&mut self, m: Marker) -> Option<&mut SyntaxNode> {
+        self.nodes.get_mut(m.0)
+    }
+
     fn post_process(&mut self, m: Marker) -> impl Iterator<Item = &mut SyntaxNode> {
         self.nodes[m.0..]
             .iter_mut()
@@ -1503,11 +1501,5 @@ impl<'s> Parser<'s> {
             self.nodes[offset]
                 .convert_to_error(eco_format!("unexpected {}", kind.name()));
         }
-    }
-
-    fn unexpected_at(&mut self, m: Marker, thing: &str) {
-        let message = eco_format!("unexpected {}", thing);
-        let error = SyntaxNode::error(message, "", ErrorPos::Full);
-        self.nodes.insert(m.0, error);
     }
 }
