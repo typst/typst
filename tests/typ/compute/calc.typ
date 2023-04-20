@@ -87,6 +87,22 @@
 #calc.quo(3.0, 0.0)
 
 ---
+// Test the `euclid_div` function.
+#test(calc.euclid_div(1, 1), ("rem": 0, "quo": 1))
+#test(calc.euclid_div(5, 3), ("rem": 2, "quo": 1))
+#test(calc.euclid_div(5, -3), ("rem": 2, "quo": -1))
+#test(calc.euclid_div(22.5, 10), ("rem": 2.5, "quo": 2))
+#test(calc.euclid_div(9, 4.5), ("rem": 0, "quo": 2))
+
+---
+// Error: 21-22 divisor must not be zero
+#calc.euclid_div(5, 0)
+
+---
+// Error: 23-26 divisor must not be zero
+#calc.euclid_div(3.0, 0.0)
+
+---
 // Test the `min` and `max` functions.
 #test(calc.min(2, -4), -4)
 #test(calc.min(3.5, 1e2, -0.1, 3), -0.1)
