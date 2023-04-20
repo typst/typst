@@ -1,6 +1,7 @@
 [package]
 name = "typst"
 version = "0.2.0"
+rust-version = "1.65"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 description = "A new markup-based typesetting system that is powerful and easy to learn."
