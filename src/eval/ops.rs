@@ -503,8 +503,9 @@ pub fn pipe(b: &Binary, vm: &mut Vm) -> SourceResult<Value> {
         while let Ok(value) = pop_arg(span) {
             new_args.push(span, value)
         }
-
+        dbg!(&callee);
         let func = callee.eval(vm)?.cast::<Func>().unwrap();
+        println!("else!!!!!!!!!!");
         func.call_vm(vm, new_args)
     } else {
         match rhs.eval(vm)? {

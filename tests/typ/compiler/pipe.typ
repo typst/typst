@@ -106,9 +106,24 @@
 
 ---
 // Ref: true
+three identical results:
 #{
-  [Lorem Ipsum] |> text(size:14pt) |> align(left) |> box(stroke : 1mm, inset : 20pt)
+  [Lorem Ipsum] |> text(size: 14pt) |> align(left) |> box(stroke : 1mm, inset: 20pt) |> align(right)
 
-  box(stroke: 1mm, inset : 20pt, align(left,text(size : 14pt, [Lorem Ipsum])))
+  align(right, box(stroke: 1mm, inset : 20pt, align(left, text(size: 14pt, [Lorem Ipsum]))))
 }
 
+---
+// Ref: true
+#{
+    [Lorem Ipsum] |> (text.with(size: 14pt)) |> (align.with(left)) |> (box.with(stroke: 1mm, inset: 20pt))
+    box.with(stroke: 1mm, inset : 20pt, align.with(left, text.with(size: 14pt, [Lorem Ipsum])())())()
+}
+
+---
+// Ref: false
+
+#{
+  let a = text.with
+  //[Lorem Ipsum] |> text.with(size: 14pt)
+}

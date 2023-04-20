@@ -127,7 +127,9 @@ impl Value {
             Self::Dict(dict) => dict.at(field).cloned(),
             Self::Content(content) => content.at(field),
             Self::Module(module) => module.get(field).cloned(),
-            v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
+            v => {
+                println!("{}",std::backtrace::Backtrace::force_capture()) ;
+                Err(eco_format!("cannot access fields on type {}", v.type_name()))},
         }
     }
 
