@@ -51,9 +51,9 @@ testit --pdf
 ```
 
 ## Update tests
-Use the `UPDATE_EXPECT` env var or the `--approve` flag:
+Use the `UPDATE_EXPECT` env var or the `--update` flag:
 ```bash
-testit --approve
+testit --update
 ```
 
 ## Making an alias

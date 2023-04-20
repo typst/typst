@@ -91,7 +91,7 @@ fn main() {
     if len > 1 {
         println!("{ok} / {len} tests passed.");
         if ok != len {
-            println!("Set the UPDATE_EXPECT env var or the --approve flag to update the reference images.");
+            println!("Set the UPDATE_EXPECT env var or the --update flag to update the reference images.");
         }
     }
 
@@ -134,7 +134,7 @@ impl Args {
                 // Generate PDFs.
                 "--pdf" => pdf = true,
                 // Update the reference images.
-                "--approve" => update = true,
+                "--update" => update = true,
                 // Debug print the syntax trees.
                 "--syntax" => print.syntax = true,
                 // Debug print the model.
