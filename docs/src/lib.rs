@@ -1,7 +1,9 @@
 //! Documentation provider for Typst.
 
+mod contribs;
 mod html;
 
+pub use contribs::contributors;
 pub use html::Html;
 
 use std::fmt::{self, Debug, Formatter};

@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 use comemo::Prehashed;
 use md::escape::escape_html;
 use pulldown_cmark as md;
@@ -108,14 +110,19 @@ impl<'a> Handler<'a> {
 
             // Rewrite HTML images.
             md::Event::Html(html) if html.starts_with("<img") => {
-                let needle = "src=\"";
-                let offset = html.find(needle).unwrap() + needle.len();
-                let len = html[offset..].find('"').unwrap();
-                let range = offset..offset + len;
+                let range = html_attr_range(html, "src").unwrap();
                 let path = &html[range.clone()];
                 let mut buf = html.to_string();
                 buf.replace_range(range, &self.handle_image(path));
                 *html = buf.into();
+            }
+
+            // Rewrite contributor sectinos.
+            md::Event::Html(html) if html.starts_with("<contributors") => {
+                let from = html_attr(html, "from").unwrap();
+                let to = html_attr(html, "to").unwrap();
+                let Some(output) = contributors(from, to) else { return false };
+                *html = output.raw.into();
             }
 
             // Rewrite links.
@@ -325,6 +332,19 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     }
 
     resolver.example(highlighted, &frames)
+}
+
+/// Extract an attribute value from an HTML element.
+fn html_attr<'a>(html: &'a str, attr: &str) -> Option<&'a str> {
+    html.get(html_attr_range(html, attr)?)
+}
+
+/// Extract the range of the attribute value of an HTML element.
+fn html_attr_range(html: &str, attr: &str) -> Option<Range<usize>> {
+    let needle = format!("{attr}=\"");
+    let offset = html.find(&needle)? + needle.len();
+    let len = html[offset..].find('"')?;
+    Some(offset..offset + len)
 }
 
 /// World for example compilations.

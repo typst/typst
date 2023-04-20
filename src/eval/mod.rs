@@ -1160,6 +1160,7 @@ impl Eval for ast::Closure {
                     params.push(Param::Named(named.name(), named.expr().eval(vm)?));
                 }
                 ast::Param::Sink(name) => params.push(Param::Sink(name)),
+                ast::Param::Placeholder => params.push(Param::Placeholder),
             }
         }
 
@@ -1184,6 +1185,7 @@ impl ast::Pattern {
                 vm.define(ident.clone(), value);
                 Ok(Value::None)
             }
+            ast::Pattern::Placeholder => Ok(Value::None),
             ast::Pattern::Destructuring(destruct) => {
                 match value {
                     Value::Array(value) => {
@@ -1215,6 +1217,7 @@ impl ast::Pattern {
                                         "cannot destructure named elements from an array"
                                     )
                                 }
+                                ast::DestructuringKind::Placeholder => i += 1,
                             }
                         }
                         if i < value.len() {
@@ -1243,6 +1246,7 @@ impl ast::Pattern {
                                     vm.define(ident.clone(), v.clone());
                                     used.insert(key.clone().take());
                                 }
+                                ast::DestructuringKind::Placeholder => {}
                             }
                         }
 
