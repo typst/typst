@@ -34,7 +34,7 @@
 #test((a: 1) + (b: 2, c: 3), (a: 1, b: 2, c: 3))
 
 ---
-// Error: 2-7 value is too big or too small
+// Error: 3-26 value is too big or too small
 #(9223372036854775807 + 1)
 
 ---
