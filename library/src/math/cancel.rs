@@ -87,7 +87,6 @@ impl LayoutMath for CancelElem {
         let styles = ctx.styles();
         let body_size = body.size();
         let span = self.span();
-
         let length = self
             .length(styles)
             .resolve(styles);
@@ -104,7 +103,6 @@ impl LayoutMath for CancelElem {
         let angle = self.rotation(styles);
 
         let invert_first_line = !cross && invert;
-
         let first_line = draw_cancel_line(
             length,
             stroke.clone(),
@@ -147,26 +145,22 @@ fn draw_cancel_line(
     body_size: Size,
     span: Span,
 ) -> Frame {
-    let (width, height) = (body_size.x, body_size.y);
-    let (width_pt, height_pt) = (width.to_pt(), height.to_pt());
-
-    //              /|
-    // diagonal_pt / |  height_pt
-    //            /  |
-    //           /   |
-    //           -----
-    //          width_pt
-    let diagonal_pt = width_pt.hypot(height_pt);
-    let diagonal = Abs::pt(diagonal_pt);
-
+    //            B
+    //           /|
+    // diagonal / | height
+    //         /  |
+    //        /   |
+    //       O ----
+    //         width
+    let diagonal = body_size.to_point().hypot();
     let length = length.relative_to(diagonal);
-
+    let (width, height) = (body_size.x, body_size.y);
     let mid = body_size / 2.0;
 
     // Scale the amount needed such that the cancel line has the given 'length'
     // (reference length, or 100%, is the whole diagonal).
     // Scales from the center.
-    let scale = length.to_pt() / diagonal_pt;
+    let scale = length.to_raw() / diagonal.to_raw();
 
     // invert horizontally if 'invert' was given
     let scale_x = scale * invert.then_some(-1.0).unwrap_or(1.0);
@@ -180,7 +174,6 @@ fn draw_cancel_line(
     // After applying the scale, the line will have the correct length and orientation
     // (inverted if needed).
     let start = Axes::new(-mid.x, mid.y).zip(scales).map(|(l, s)| l * s);
-
     let delta = Axes::new(width, -height).zip(scales).map(|(l, s)| l * s);
 
     let mut frame = Frame::new(body_size);
@@ -191,6 +184,5 @@ fn draw_cancel_line(
 
     // Having the middle of the line at the origin is convenient here.
     frame.transform(Transform::rotate(angle));
-
     frame
 }
