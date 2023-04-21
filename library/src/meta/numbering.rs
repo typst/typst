@@ -260,6 +260,13 @@ enum NumberingKind {
     Symbol,
     Hebrew,
     Chinese,
+    // TODO: Pick the numbering pattern based on languages choice.
+    // As the `1st` numbering character of Chinese (Simplifed) and
+    // Chinese (Traditional) is same, we are unable to determine
+    // if the context is Simplified or Traditional by only this
+    // character.
+    #[allow(unused)]
+    TradChinese,
     HiraganaIroha,
     KatakanaIroha,
 }
@@ -289,6 +296,7 @@ impl NumberingKind {
             Self::Symbol => '*',
             Self::Hebrew => 'א',
             Self::Chinese => '一',
+            Self::TradChinese => '一',
             Self::HiraganaIroha => 'い',
             Self::KatakanaIroha => 'イ',
         }
@@ -437,14 +445,18 @@ impl NumberingKind {
                 }
                 fmt
             }
-            Self::Chinese => {
+            l @ (Self::Chinese | Self::TradChinese) => {
                 let chinesecase = match case {
                     Case::Lower => ChineseCase::Lower,
                     Case::Upper => ChineseCase::Upper,
                 };
 
                 match (n as u8).to_chinese(
-                    ChineseVariant::Simple,
+                    match l {
+                        Self::Chinese => ChineseVariant::Simple,
+                        Self::TradChinese => ChineseVariant::Traditional,
+                        _ => unreachable!(),
+                    },
                     chinesecase,
                     ChineseCountMethod::TenThousand,
                 ) {
