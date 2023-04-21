@@ -525,8 +525,6 @@ impl Lang {
     pub const ARABIC: Self = Self(*b"ar ", 2);
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
 
-    #[deprecated = "use Lang::SIMP_CHINESE instead"]
-    pub const CHINESE: Self = Self::SIMP_CHINESE;
     /// Simplified Chinese.
     pub const CHINESE_SIMPLIFIED: Self = Self(*b"zh ", 2);
     /// Traditional Chinese.

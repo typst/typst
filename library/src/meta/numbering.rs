@@ -259,14 +259,14 @@ enum NumberingKind {
     Roman,
     Symbol,
     Hebrew,
-    Chinese,
+    ChineseSimplified,
     // TODO: Pick the numbering pattern based on languages choice.
     // As the `1st` numbering character of Chinese (Simplifed) and
     // Chinese (Traditional) is same, we are unable to determine
     // if the context is Simplified or Traditional by only this
     // character.
     #[allow(unused)]
-    TradChinese,
+    ChineseTraditional,
     HiraganaIroha,
     KatakanaIroha,
 }
@@ -280,7 +280,7 @@ impl NumberingKind {
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
-            '一' | '壹' => NumberingKind::Chinese,
+            '一' | '壹' => NumberingKind::ChineseSimplified,
             'い' => NumberingKind::HiraganaIroha,
             'イ' => NumberingKind::KatakanaIroha,
             _ => return None,
@@ -295,8 +295,8 @@ impl NumberingKind {
             Self::Roman => 'i',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
-            Self::Chinese => '一',
-            Self::TradChinese => '一',
+            Self::ChineseSimplified => '一',
+            Self::ChineseTraditional => '一',
             Self::HiraganaIroha => 'い',
             Self::KatakanaIroha => 'イ',
         }
@@ -445,7 +445,7 @@ impl NumberingKind {
                 }
                 fmt
             }
-            l @ (Self::Chinese | Self::TradChinese) => {
+            l @ (Self::ChineseSimplified | Self::ChineseTraditional) => {
                 let chinesecase = match case {
                     Case::Lower => ChineseCase::Lower,
                     Case::Upper => ChineseCase::Upper,
@@ -453,8 +453,8 @@ impl NumberingKind {
 
                 match (n as u8).to_chinese(
                     match l {
-                        Self::Chinese => ChineseVariant::Simple,
-                        Self::TradChinese => ChineseVariant::Traditional,
+                        Self::ChineseSimplified => ChineseVariant::Simple,
+                        Self::ChineseTraditional => ChineseVariant::Traditional,
                         _ => unreachable!(),
                     },
                     chinesecase,
