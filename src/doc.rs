@@ -528,12 +528,9 @@ impl Lang {
     #[deprecated = "use Lang::SIMP_CHINESE instead"]
     pub const CHINESE: Self = Self::SIMP_CHINESE;
     /// Simplified Chinese.
-    // TODO: change to `zhs` for next breaking version
-    //       to distinguish from another Chinese:
-    //       `zht` (traditional Chinese)
-    pub const SIMP_CHINESE: Self = Self(*b"zh ", 2);
+    pub const CHINESE_SIMPLIFIED: Self = Self(*b"zh ", 2);
     /// Traditional Chinese.
-    pub const TRAD_CHINESE: Self = Self(*b"zht", 3);
+    pub const CHINESE_TRADITIONAL: Self = Self(*b"zht", 3);
 
     pub const CZECH: Self = Self(*b"cs ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);

@@ -203,8 +203,8 @@ impl LocalName for BibliographyElem {
         match lang {
             Lang::ARABIC => "المراجع",
             Lang::BOKMÅL => "Bibliografi",
-            Lang::SIMP_CHINESE => "参考文献",
-            Lang::TRAD_CHINESE => "書目",
+            Lang::CHINESE_SIMPLIFIED => "参考文献",
+            Lang::CHINESE_TRADITIONAL => "書目",
             Lang::CZECH => "Bibliografie",
             Lang::FRENCH => "Bibliographie",
             Lang::GERMAN => "Bibliographie",
