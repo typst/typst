@@ -1,5 +1,8 @@
 //! Typst's standard library.
 
+#![allow(clippy::wildcard_in_or_patterns)]
+#![allow(clippy::comparison_chain)]
+
 pub mod compute;
 pub mod layout;
 pub mod math;
@@ -210,6 +213,7 @@ fn items() -> LangItems {
         },
         bibliography_keys: meta::BibliographyElem::keys,
         heading: |level, title| meta::HeadingElem::new(title).with_level(level).pack(),
+        heading_func: meta::HeadingElem::func(),
         list_item: |body| layout::ListItem::new(body).pack(),
         enum_item: |number, body| {
             let mut elem = layout::EnumItem::new(body);

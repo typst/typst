@@ -113,11 +113,11 @@ impl Default for Delimiter {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(error: csv::Error, line: usize) -> String {
+fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
     match error.kind() {
         csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
         csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
-            format!(
+            eco_format!(
                 "failed to parse csv file: found {len} instead of {expected_len} fields in line {line}"
             )
         }
@@ -202,9 +202,9 @@ fn convert_json(value: serde_json::Value) -> Value {
 
 /// Format the user-facing JSON error message.
 #[track_caller]
-fn format_json_error(error: serde_json::Error) -> String {
+fn format_json_error(error: serde_json::Error) -> EcoString {
     assert!(error.is_syntax() || error.is_eof());
-    format!("failed to parse json file: syntax error in line {}", error.line())
+    eco_format!("failed to parse json file: syntax error in line {}", error.line())
 }
 
 /// Read structured data from a YAML file.
@@ -293,8 +293,8 @@ fn convert_yaml_key(key: serde_yaml::Value) -> Option<Str> {
 
 /// Format the user-facing YAML error message.
 #[track_caller]
-fn format_yaml_error(error: serde_yaml::Error) -> String {
-    format!("failed to parse yaml file: {}", error.to_string().trim())
+fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
+    eco_format!("failed to parse yaml file: {}", error.to_string().trim())
 }
 
 /// Read structured data from an XML file.
@@ -388,6 +388,6 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 }
 
 /// Format the user-facing XML error message.
-fn format_xml_error(error: roxmltree::Error) -> String {
+fn format_xml_error(error: roxmltree::Error) -> EcoString {
     format_xml_like_error("xml file", error)
 }

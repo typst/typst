@@ -1533,10 +1533,7 @@ impl Closure {
     ///
     /// This only exists if you use the function syntax sugar: `let f(x) = y`.
     pub fn name(&self) -> Option<Ident> {
-        match self.0.cast_first_match::<Pattern>()?.kind() {
-            PatternKind::Ident(ident) => Some(ident),
-            _ => Option::None,
-        }
+        self.0.children().next()?.cast()
     }
 
     /// The parameter bindings.
@@ -1571,6 +1568,8 @@ pub enum Param {
     Named(Named),
     /// An argument sink: `..args`.
     Sink(Option<Ident>),
+    /// A placeholder: `_`.
+    Placeholder,
 }
 
 impl AstNode for Param {
@@ -1579,6 +1578,7 @@ impl AstNode for Param {
             SyntaxKind::Ident => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Spread => Some(Self::Sink(node.cast_first_match())),
+            SyntaxKind::Underscore => Some(Self::Placeholder),
             _ => Option::None,
         }
     }
@@ -1588,22 +1588,14 @@ impl AstNode for Param {
             Self::Pos(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
             Self::Sink(_) => self.as_untyped(),
+            Self::Placeholder => self.as_untyped(),
         }
     }
 }
 
 node! {
     /// A destructuring pattern: `x` or `(x, _, ..y)`.
-    Pattern
-}
-
-/// The kind of a pattern.
-#[derive(Debug, Clone, Hash)]
-pub enum PatternKind {
-    /// A single identifier: `x`.
-    Ident(Ident),
-    /// A destructuring pattern: `(x, _, ..y)`.
-    Destructure(Vec<DestructuringKind>),
+    Destructuring
 }
 
 /// The kind of an element in a destructuring pattern.
@@ -1615,58 +1607,84 @@ pub enum DestructuringKind {
     Sink(Option<Ident>),
     /// Named arguments: `x: 1`.
     Named(Ident, Ident),
+    /// A placeholder: `_`.
+    Placeholder,
 }
 
-impl Pattern {
-    /// The kind of the pattern.
-    pub fn kind(&self) -> PatternKind {
-        if self
-            .0
-            .children()
-            .map(SyntaxNode::kind)
-            .skip_while(|&kind| kind == SyntaxKind::LeftParen)
-            .take_while(|&kind| kind != SyntaxKind::RightParen)
-            .eq([SyntaxKind::Ident])
-        {
-            return PatternKind::Ident(self.0.cast_first_match().unwrap_or_default());
-        }
-
-        let mut bindings = Vec::new();
-        for child in self.0.children() {
-            match child.kind() {
-                SyntaxKind::Ident => {
-                    bindings
-                        .push(DestructuringKind::Ident(child.cast().unwrap_or_default()));
-                }
-                SyntaxKind::Spread => {
-                    bindings.push(DestructuringKind::Sink(child.cast_first_match()));
-                }
-                SyntaxKind::Named => {
-                    let mut filtered = child.children().filter_map(SyntaxNode::cast);
-                    let key = filtered.next().unwrap_or_default();
-                    let ident = filtered.next().unwrap_or_default();
-                    bindings.push(DestructuringKind::Named(key, ident));
-                }
-                _ => (),
+impl Destructuring {
+    /// The bindings of the destructuring.
+    pub fn bindings(&self) -> impl Iterator<Item = DestructuringKind> + '_ {
+        self.0.children().filter_map(|child| match child.kind() {
+            SyntaxKind::Ident => {
+                Some(DestructuringKind::Ident(child.cast().unwrap_or_default()))
             }
-        }
-
-        PatternKind::Destructure(bindings)
+            SyntaxKind::Spread => Some(DestructuringKind::Sink(child.cast_first_match())),
+            SyntaxKind::Named => {
+                let mut filtered = child.children().filter_map(SyntaxNode::cast);
+                let key = filtered.next().unwrap_or_default();
+                let ident = filtered.next().unwrap_or_default();
+                Some(DestructuringKind::Named(key, ident))
+            }
+            SyntaxKind::Underscore => Some(DestructuringKind::Placeholder),
+            _ => Option::None,
+        })
     }
 
     // Returns a list of all identifiers in the pattern.
-    pub fn idents(&self) -> Vec<Ident> {
-        match self.kind() {
-            PatternKind::Ident(ident) => vec![ident],
-            PatternKind::Destructure(bindings) => bindings
-                .into_iter()
-                .filter_map(|binding| match binding {
-                    DestructuringKind::Ident(ident) => Some(ident),
-                    DestructuringKind::Sink(ident) => ident,
-                    DestructuringKind::Named(_, ident) => Some(ident),
-                })
-                .collect(),
+    pub fn idents(&self) -> impl Iterator<Item = Ident> + '_ {
+        self.bindings().filter_map(|binding| match binding {
+            DestructuringKind::Ident(ident) => Some(ident),
+            DestructuringKind::Sink(ident) => ident,
+            DestructuringKind::Named(_, ident) => Some(ident),
+            DestructuringKind::Placeholder => Option::None,
+        })
+    }
+}
+
+/// The kind of a pattern.
+#[derive(Debug, Clone, Hash)]
+pub enum Pattern {
+    /// A single identifier: `x`.
+    Ident(Ident),
+    /// A placeholder: `_`.
+    Placeholder,
+    /// A destructuring pattern: `(x, _, ..y)`.
+    Destructuring(Destructuring),
+}
+
+impl AstNode for Pattern {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Ident => node.cast().map(Self::Ident),
+            SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
+            SyntaxKind::Underscore => Some(Self::Placeholder),
+            _ => Option::None,
         }
+    }
+
+    fn as_untyped(&self) -> &SyntaxNode {
+        match self {
+            Self::Ident(v) => v.as_untyped(),
+            Self::Destructuring(v) => v.as_untyped(),
+            Self::Placeholder => self.as_untyped(),
+        }
+    }
+}
+
+impl Pattern {
+    // Returns a list of all identifiers in the pattern.
+    pub fn idents(&self) -> Vec<Ident> {
+        match self {
+            Pattern::Ident(ident) => vec![ident.clone()],
+            Pattern::Destructuring(destruct) => destruct.idents().collect(),
+            Pattern::Placeholder => vec![],
+        }
+    }
+}
+
+impl Default for Pattern {
+    fn default() -> Self {
+        Self::Ident(Ident::default())
     }
 }
 
@@ -1675,6 +1693,7 @@ node! {
     LetBinding
 }
 
+#[derive(Debug)]
 pub enum LetBindingKind {
     /// A normal binding: `let x = 1`.
     Normal(Pattern),
@@ -1713,7 +1732,10 @@ impl LetBinding {
     /// The expression the binding is initialized with.
     pub fn init(&self) -> Option<Expr> {
         match self.kind() {
-            LetBindingKind::Normal(_) => self.0.cast_last_match(),
+            LetBindingKind::Normal(Pattern::Ident(_)) => {
+                self.0.children().filter_map(SyntaxNode::cast).nth(1)
+            }
+            LetBindingKind::Normal(_) => self.0.cast_first_match(),
             LetBindingKind::Closure(_) => self.0.cast_first_match(),
         }
     }
@@ -1821,7 +1843,11 @@ impl ForLoop {
 
     /// The expression to iterate over.
     pub fn iter(&self) -> Expr {
-        self.0.cast_first_match().unwrap_or_default()
+        self.0
+            .children()
+            .skip_while(|&c| c.kind() != SyntaxKind::In)
+            .find_map(SyntaxNode::cast)
+            .unwrap_or_default()
     }
 
     /// The expression to evaluate for each iteration.

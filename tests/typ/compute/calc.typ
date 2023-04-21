@@ -55,20 +55,36 @@
 #test(calc.even(-11), false)
 
 ---
-// Test the `mod` function.
-#test(calc.mod(1, 1), 0)
-#test(calc.mod(5, 3), 2)
-#test(calc.mod(5, -3), 2)
-#test(calc.mod(22.5, 10), 2.5)
-#test(calc.mod(9, 4.5), 0)
+// Test the `rem` function.
+#test(calc.rem(1, 1), 0)
+#test(calc.rem(5, 3), 2)
+#test(calc.rem(5, -3), 2)
+#test(calc.rem(22.5, 10), 2.5)
+#test(calc.rem(9, 4.5), 0)
 
 ---
 // Error: 14-15 divisor must not be zero
-#calc.mod(5, 0)
+#calc.rem(5, 0)
 
 ---
 // Error: 16-19 divisor must not be zero
-#calc.mod(3.0, 0.0)
+#calc.rem(3.0, 0.0)
+
+---
+// Test the `quo` function.
+#test(calc.quo(1, 1), 1)
+#test(calc.quo(5, 3), 1)
+#test(calc.quo(5, -3), -1)
+#test(calc.quo(22.5, 10), 2)
+#test(calc.quo(9, 4.5), 2)
+
+---
+// Error: 14-15 divisor must not be zero
+#calc.quo(5, 0)
+
+---
+// Error: 16-19 divisor must not be zero
+#calc.quo(3.0, 0.0)
 
 ---
 // Test the `min` and `max` functions.
@@ -89,6 +105,10 @@
 ---
 // Error: 14-31 exponent is too large
 #calc.pow(2, 10000000000000000)
+
+---
+// Error: 10-25 the result is too large
+#calc.pow(2, 2147483647)
 
 ---
 // Error: 14-36 exponent may not be infinite, subnormal, or NaN
@@ -141,6 +161,30 @@
 #test(calc.binom(5, 5), 1)
 #test(calc.binom(5, 6), 0)
 #test(calc.binom(6, 2), 15)
+
+---
+// Test the `gcd` function.
+#test(calc.gcd(112, 77), 7)
+#test(calc.gcd(12, 96), 12)
+#test(calc.gcd(13, 9), 1)
+#test(calc.gcd(13, -9), 1)
+#test(calc.gcd(272557, 272557), 272557)
+#test(calc.gcd(0, 0), 0)
+#test(calc.gcd(7, 0), 7)
+
+---
+// Test the `lcm` function.
+#test(calc.lcm(112, 77), 1232)
+#test(calc.lcm(12, 96), 96)
+#test(calc.lcm(13, 9), 117)
+#test(calc.lcm(13, -9), 117)
+#test(calc.lcm(272557, 272557), 272557)
+#test(calc.lcm(0, 0), 0)
+#test(calc.lcm(8, 0), 0)
+
+---
+// Error: 10-41 the return value is too large
+#calc.lcm(15486487489457, 4874879896543)
 
 ---
 // Error: 10-12 expected at least one value
