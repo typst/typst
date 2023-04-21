@@ -146,6 +146,8 @@ impl<'s> Quotes<'s> {
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
+            // we prefer “「『』」” classically
+            "zh" if matches!(region, Some("TW")) => ("『", "』", "「", "」"),
             _ => return Self::default(),
         };
 
