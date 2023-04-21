@@ -26,7 +26,7 @@ pub struct CancelElem {
     /// ## Example
     ///
     /// ```example
-    /// $ a + cancel(x, length: #200%) - b - $cancel(x, length: #200%) $
+    /// $ a + cancel(x, length: #200%) - b - cancel(x, length: #200%) $
     /// ```
     #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
     pub length: Rel<Length>,
