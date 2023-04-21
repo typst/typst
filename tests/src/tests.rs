@@ -10,6 +10,7 @@ use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::{env, io};
 
+use clap::Parser;
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
@@ -17,6 +18,9 @@ use oxipng::{InFile, Options, OutFile};
 use rayon::iter::ParallelBridge;
 use rayon::iter::ParallelIterator;
 use tiny_skia as sk;
+use unscanny::Scanner;
+use walkdir::WalkDir;
+
 use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{func, Library, Value};
@@ -27,8 +31,6 @@ use typst::util::{Buffer, PathExt};
 use typst::World;
 use typst_library::layout::PageElem;
 use typst_library::text::{TextElem, TextSize};
-use unscanny::Scanner;
-use walkdir::WalkDir;
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
@@ -36,8 +38,6 @@ const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../assets/fonts";
 const FILE_DIR: &str = "../assets/files";
-
-use clap::Parser;
 
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
@@ -48,7 +48,7 @@ struct Args {
     subtest: Option<usize>,
     #[arg(long)]
     exact: bool,
-    #[arg(long)]
+    #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
     update: bool,
     #[arg(long)]
     pdf: bool,
@@ -369,7 +369,7 @@ fn test(
     for (i, &part) in parts.iter().enumerate() {
         if let Some(x) = args.subtest {
             if x != i {
-                println!("skipped subtest {i}");
+                writeln!(output, "  Skipped subtest {i}.").unwrap();
                 continue;
             }
         }
@@ -585,7 +585,7 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
             source.line_column_to_byte(line, column).unwrap()
         };
 
-        let Some(rest) = line.strip_prefix("// Error: ") else { continue };
+        let Some(rest) = line.strip_prefix("// Error: ") else { continue; };
         let mut s = Scanner::new(rest);
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
