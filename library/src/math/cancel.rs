@@ -87,9 +87,7 @@ impl LayoutMath for CancelElem {
         let styles = ctx.styles();
         let body_size = body.size();
         let span = self.span();
-        let length = self
-            .length(styles)
-            .resolve(styles);
+        let length = self.length(styles).resolve(styles);
 
         // Default stroke has 0.5pt for better visuals.
         let stroke = self.stroke(styles).unwrap_or(Stroke {
@@ -118,14 +116,8 @@ impl LayoutMath for CancelElem {
 
         if cross {
             // Draw the second line.
-            let second_line = draw_cancel_line(
-                length,
-                stroke,
-                true,
-                angle,
-                body_size,
-                span,
-            );
+            let second_line =
+                draw_cancel_line(length, stroke, true, angle, body_size, span);
 
             body.push_frame(center, second_line);
         }
