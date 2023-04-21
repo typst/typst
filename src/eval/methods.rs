@@ -15,10 +15,15 @@ pub fn call(
     mut args: Args,
     span: Span,
 ) -> SourceResult<Value> {
-    let name = value.type_name();
-    let missing = || Err(missing_method(name, method)).at(span);
+    let precision = value.type_name();
+    let missing = || Err(missing_method(precision, method)).at(span);
 
     let output = match value {
+        Value::Float(f) => match method {
+            "format" => format_float(&mut args, span, f)?, //
+            _ => return missing(),
+        },
+
         Value::Color(color) => match method {
             "lighten" => Value::Color(color.lighten(args.expect("amount")?)),
             "darken" => Value::Color(color.darken(args.expect("amount")?)),
@@ -186,6 +191,39 @@ pub fn call(
 
     args.finish()?;
     Ok(output)
+}
+
+fn format_float(
+    args: &mut Args,
+    span: Span,
+    f: f64,
+) -> SourceResult<Value> {
+    let mut fmt = numfmt::Formatter::new();
+    let (digits, significance) =
+        (args.named::<usize>("digits")?, args.named::<usize>("significance")?);
+    if let (Some(_), Some(_)) = (digits, significance) {
+        return Err("You cannot specify both `digits` and `significance` as they are incompatible.").at(span);
+    }
+    let check = |p, s| {
+        if p > u8::MAX.into() {
+            Err(format!("value provided to {} is too big, max is: {}", s, u8::MAX))
+        } else {
+            Ok(())
+        }
+    };
+    if let Some(p) = digits {
+        check(p, "digits").at(span)?;
+        fmt = fmt.precision(numfmt::Precision::Decimals(p as _));
+    }
+    if let Some(p) = significance {
+        check(p, "significance").at(span)?;
+        fmt = fmt.precision(numfmt::Precision::Significance(p as _));
+    }
+//    if let Some(sep) = args.named::<char>("separator")? {
+//        fmt = fmt.separator(sep).map_err(|err| format!("{}", err)).at(span)?;
+//    }
+    let s = fmt.fmt(f);
+    Ok(Value::Str(s.into()))
 }
 
 /// Call a mutating method on a value.

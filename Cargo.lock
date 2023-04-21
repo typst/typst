@@ -524,6 +524,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "dtoa"
+version = "1.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65d09067bfacaa79114679b279d7f5885b53295b1e2cfb4e79c8e4bd3d633169"
+
+[[package]]
 name = "ecow"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1220,6 +1226,16 @@ name = "numerals"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e25be21376a772d15f97ae789845340a9651d3c4246ff5ebb6a2b35f9c37bd31"
+
+[[package]]
+name = "numfmt"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99458e8f460fb1628dc6ba8e69b0392cd4b75ab5212c0a3bfe77b54cb5618e44"
+dependencies = [
+ "dtoa",
+ "itoa",
+]
 
 [[package]]
 name = "once_cell"
@@ -1971,6 +1987,7 @@ dependencies = [
  "indexmap",
  "log",
  "miniz_oxide 0.5.4",
+ "numfmt",
  "once_cell",
  "pdf-writer",
  "pixglyph",
