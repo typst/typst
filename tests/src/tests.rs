@@ -1,5 +1,6 @@
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::ops::Range;
@@ -29,64 +30,10 @@ const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../assets/fonts";
 const FILE_DIR: &str = "../assets/files";
 
-use clap::{ArgAction::*, Parser};
-
-#[derive(Debug, Clone, Parser)]
-#[clap(name = "typst-test", author)]
-struct Args {
-    filter: Vec<String>,
-    // runs only the subtest specified
-    #[arg(short, long)]
-    subtest: Option<usize>,
-    #[arg(long, action = SetTrue)]
-    exact: bool,
-    #[arg(long, action = SetTrue)]
-    pdf: bool,
-    #[arg(long, action = SetTrue)]
-    syntax: bool,
-    #[arg(long, action = SetTrue)]
-    model: bool,
-    #[arg(long, action = SetTrue)]
-    frame: bool,
-    #[arg(long, action = Count)]
-    nocapture: u8, // simply ignores the argument
-}
-
-/// Which things to print out for debugging.
-#[derive(Default, Debug, Copy, Clone, Eq, PartialEq)]
-struct PrintConfig {
-    syntax: bool,
-    model: bool,
-    frames: bool,
-}
-
-impl PrintConfig {
-    fn from_arg(arg: &Args) -> Self {
-        Self {
-            syntax: arg.syntax,
-            model: arg.model,
-            frames: arg.frame,
-        }
-    }
-}
-
-impl Args {
-    fn matches(&self, path: &Path) -> bool {
-        if self.exact {
-            let name = path.file_name().unwrap().to_string_lossy();
-            self.filter.iter().any(|v| v == &name)
-        } else {
-            let path = path.to_string_lossy();
-            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
-        }
-    }
-}
-
 fn main() {
-    let args = Args::parse();
-    let print_config = PrintConfig::from_arg(&args);
-    //    let args = Args::new(env::args().skip(1));
+    let args = Args::new(env::args().skip(1));
     let mut filtered = Vec::new();
+
     // Since different tests can affect each other through the memoization
     // cache, a deterministic order is important for reproducibility.
     for entry in WalkDir::new("typ").sort_by_file_name() {
@@ -117,7 +64,7 @@ fn main() {
     }
 
     // Create loader and context.
-    let mut world = TestWorld::new(print_config);
+    let mut world = TestWorld::new(args.print);
 
     // Run all the tests.
     let mut ok = 0;
@@ -128,14 +75,8 @@ fn main() {
         let pdf_path =
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-        ok += test(
-            &mut world,
-            &src_path,
-            &png_path,
-            &ref_path,
-            pdf_path.as_deref(),
-            args.subtest,
-        ) as usize;
+        ok += test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref())
+            as usize;
     }
 
     if len > 1 {
@@ -144,6 +85,62 @@ fn main() {
 
     if ok < len {
         std::process::exit(1);
+    }
+}
+
+/// Parsed command line arguments.
+struct Args {
+    filter: Vec<String>,
+    exact: bool,
+    pdf: bool,
+    print: PrintConfig,
+}
+
+/// Which things to print out for debugging.
+#[derive(Default, Copy, Clone, Eq, PartialEq)]
+struct PrintConfig {
+    syntax: bool,
+    model: bool,
+    frames: bool,
+}
+
+impl Args {
+    fn new(args: impl Iterator<Item = String>) -> Self {
+        let mut filter = Vec::new();
+        let mut exact = false;
+        let mut pdf = false;
+        let mut print = PrintConfig::default();
+
+        for arg in args {
+            match arg.as_str() {
+                // Ignore this, its for cargo.
+                "--nocapture" => {}
+                // Match only the exact filename.
+                "--exact" => exact = true,
+                // Generate PDFs.
+                "--pdf" => pdf = true,
+                // Debug print the syntax trees.
+                "--syntax" => print.syntax = true,
+                // Debug print the model.
+                "--model" => print.model = true,
+                // Debug print the frames.
+                "--frames" => print.frames = true,
+                // Everything else is a file filter.
+                _ => filter.push(arg),
+            }
+        }
+
+        Self { filter, exact, pdf, print }
+    }
+
+    fn matches(&self, path: &Path) -> bool {
+        if self.exact {
+            let name = path.file_name().unwrap().to_string_lossy();
+            self.filter.iter().any(|v| v == &name)
+        } else {
+            let path = path.to_string_lossy();
+            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
+        }
     }
 }
 
@@ -340,7 +337,6 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
-    subset_range: Option<usize>,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -356,12 +352,6 @@ fn test(
 
     let parts: Vec<_> = text.split("\n---").collect();
     for (i, &part) in parts.iter().enumerate() {
-        if let Some(x) = subset_range {
-            if x != i {
-                println!("skipped subtest {i}");
-                continue;
-            }
-        }
         let is_header = i == 0
             && parts.len() > 1
             && part
@@ -416,7 +406,7 @@ fn test(
                 ok = false;
             }
         } else if !document.pages.is_empty() {
-            println!("  Failed to open reference image for subtest. ❌");
+            println!("  Failed to open reference image. ❌");
             ok = false;
         }
     }

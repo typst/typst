@@ -16,9 +16,6 @@ tiny-skia = "0.6.2"
 ttf-parser = "0.17"
 unscanny = "0.1"
 walkdir = "2"
-clap = { version = "4.2.1", features = ["derive", "env"] }
-clap_complete = "4.2.0"
-
 
 [[test]]
 name = "tests"
