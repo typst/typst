@@ -524,7 +524,15 @@ pub struct Lang([u8; 3], u8);
 impl Lang {
     pub const ARABIC: Self = Self(*b"ar ", 2);
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
-    pub const CHINESE: Self = Self(*b"zh ", 2);
+
+    #[deprecated = "use Lang::SIMP_CHINESE instead"]
+    pub const CHINESE: Self = Self::SIMP_CHINESE;
+    /// Simplified Chinese.
+    // TODO: change to `zhs` for next breaking version
+    //       to distinguish from another Chinese:
+    //       `zht` (traditional Chinese)
+    pub const SIMP_CHINESE: Self = Self(*b"zh ", 2);
+
     pub const CZECH: Self = Self(*b"cs ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);

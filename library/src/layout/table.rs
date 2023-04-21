@@ -288,7 +288,7 @@ impl LocalName for TableElem {
         match lang {
             Lang::ARABIC => "جدول",
             Lang::BOKMÅL => "Tabell",
-            Lang::CHINESE => "表",
+            Lang::SIMP_CHINESE => "表",
             Lang::CZECH => "Tabulka",
             Lang::FRENCH => "Tableau",
             Lang::GERMAN => "Tabelle",
