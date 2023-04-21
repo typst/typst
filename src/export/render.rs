@@ -403,7 +403,9 @@ fn render_shape(
     }) = &shape.stroke
     {
         let width = thickness.to_f32();
-        if width > 0.0 {  // Don't draw zero-pt stroke.
+
+        // Don't draw zero-pt stroke.
+        if width > 0.0 {
             let dash = dash_pattern.as_ref().and_then(|pattern| {
                 // tiny-skia only allows dash patterns with an even number of elements,
                 // while pdf allows any number.
