@@ -155,7 +155,7 @@ fn draw_cancel_line(
     let scale = length.to_raw() / diagonal.to_raw();
 
     // invert horizontally if 'invert' was given
-    let scale_x = scale * invert.then_some(-1.0).unwrap_or(1.0);
+    let scale_x = scale * if invert { -1.0 } else { 1.0 };
     let scale_y = scale;
     let scales = Axes::new(scale_x, scale_y);
 
