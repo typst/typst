@@ -232,6 +232,7 @@ impl LocalName for HeadingElem {
             Lang::ARABIC => "الفصل",
             Lang::BOKMÅL => "Kapittel",
             Lang::SIMP_CHINESE => "小节",
+            Lang::TRAD_CHINESE => "小節",
             Lang::CZECH => "Kapitola",
             Lang::FRENCH => "Chapitre",
             Lang::GERMAN => "Abschnitt",

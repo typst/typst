@@ -277,6 +277,7 @@ impl LocalName for EquationElem {
             Lang::ARABIC => "معادلة",
             Lang::BOKMÅL => "Ligning",
             Lang::SIMP_CHINESE => "等式",
+            Lang::TRAD_CHINESE => "方程式",
             Lang::CZECH => "Rovnice",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",

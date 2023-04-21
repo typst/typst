@@ -252,6 +252,7 @@ impl LocalName for OutlineElem {
             Lang::ARABIC => "المحتويات",
             Lang::BOKMÅL => "Innhold",
             Lang::SIMP_CHINESE => "目录",
+            Lang::TRAD_CHINESE => "目錄",
             Lang::CZECH => "Obsah",
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
