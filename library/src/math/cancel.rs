@@ -5,15 +5,8 @@ use super::*;
 /// ## Example
 ///
 /// ```example
-/// Here, we can simplify: $ (a dot.c b dot.c cancel(x)) / cancel(x) $
-///
-/// We can also invert the line: $ (a cancel((b + c), invert: #true)) / cancel(b + c, invert: #true) $
-///
-/// Or draw two lines (a cross): $ x + cancel(a + b + c, cross: #true) $
-///
-/// Or set its length, relative to the diagonal: $cancel(x, length: #200%)$
-///
-/// Rotating and even making it red and thicker is possible: $ cancel(x, rotate: #30deg, stroke: #{red + 1.5pt}) $
+/// Here, we can simplify:
+/// $ (a dot.c b dot.c cancel(x)) / cancel(x) $
 /// ```
 ///
 /// Display: Cancel
@@ -24,32 +17,64 @@ pub struct CancelElem {
     #[required]
     pub body: Content,
 
-    /// The length of the line, relative to the length of the main diagonal spanning the whole
-    /// element being "cancelled".
+    /// The length of the line, relative to the length of the diagonal spanning the whole
+    /// element being "cancelled". A value of `{100%}` would then have the line span precisely
+    /// the element's diagonal.
     ///
     /// Defaults to `{100% + 3pt}`.
-    pub length: Smart<Rel<Length>>,
+    ///
+    /// ## Example
+    ///
+    /// ```example
+    /// $ a + cancel(x, length: #200%) - b - $cancel(x, length: #200%) $
+    /// ```
+    #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
+    pub length: Rel<Length>,
 
     /// If the cancel line should be inverted (heading northwest instead of northeast).
     ///
     /// Defaults to `{false}`.
+    ///
+    /// ## Example
+    ///
+    /// ```example
+    /// $ (a cancel((b + c), inverted: #true)) / cancel(b + c, inverted: #true) $
+    /// ```
     #[default(false)]
-    pub invert: bool,
+    pub inverted: bool,
 
     /// If two opposing cancel lines should be drawn, forming a cross over the element.
-    /// Overrides `invert`.
+    /// Overrides `inverted`.
     ///
     /// Defaults to `{false}`.
+    ///
+    /// ## Example
+    ///
+    /// ```example
+    /// $ cancel(x, cross: #true) $
+    /// ```
     #[default(false)]
     pub cross: bool,
 
     /// Rotate the cancel line by a certain angle. See the
     /// [line's documentation]($func/line.angle) for more details.
+    ///
+    /// ## Example
+    ///
+    /// ```example
+    /// $ cancel(x, rotation: #30deg) $
+    /// ```
     #[default(Angle::zero())]
-    pub rotate: Angle,
+    pub rotation: Angle,
 
     /// How to stroke the cancel line. See the
     /// [line's documentation]($func/line.stroke) for more details.
+    ///
+    /// ## Example
+    ///
+    /// ```example
+    /// $ cancel(x, stroke: #{red + 1.5pt}) $
+    /// ```
     #[resolve]
     #[fold]
     pub stroke: PartialStroke,
@@ -59,24 +84,24 @@ impl LayoutMath for CancelElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = ctx.layout_frame(&self.body())?;
 
-        let size = body.size();
-        let (width, height) = (size.x, size.y);
+        let styles = ctx.styles();
+        let body_size = body.size();
+        let span = self.span();
 
         let length = self
-            .length(ctx.styles()) // empirically pleasant default
-            .unwrap_or(Rel::new(Ratio::one(), Abs::pt(3.0).into()))
-            .resolve(ctx.styles());
+            .length(styles)
+            .resolve(styles);
 
-        // default stroke has 0.5pt for better visuals
-        let stroke = self.stroke(ctx.styles()).unwrap_or(Stroke {
-            paint: TextElem::fill_in(ctx.styles()),
+        // Default stroke has 0.5pt for better visuals.
+        let stroke = self.stroke(styles).unwrap_or(Stroke {
+            paint: TextElem::fill_in(styles),
             thickness: Abs::pt(0.5),
             ..Default::default()
         });
 
-        let invert = self.invert(ctx.styles());
-        let cross = self.cross(ctx.styles());
-        let angle = self.rotate(ctx.styles());
+        let invert = self.inverted(styles);
+        let cross = self.cross(styles);
+        let angle = self.rotation(styles);
 
         let invert_first_line = !cross && invert;
 
@@ -85,25 +110,26 @@ impl LayoutMath for CancelElem {
             stroke.clone(),
             invert_first_line,
             angle,
-            size,
-            self.span(),
+            body_size,
+            span,
         );
 
-        // the origin of our line is the very middle of the element
-        body.push_frame(Point::new(width / 2.0, height / 2.0), first_line);
+        // The origin of our line is the very middle of the element.
+        let center = body_size.to_point() / 2.0;
+        body.push_frame(center, first_line);
 
         if cross {
-            // draw the second line
+            // Draw the second line.
             let second_line = draw_cancel_line(
                 length,
                 stroke,
-                /*invert:*/ true,
+                true,
                 angle,
-                size,
-                self.span(),
+                body_size,
+                span,
             );
 
-            body.push_frame(Point::new(width / 2.0, height / 2.0), second_line);
+            body.push_frame(center, second_line);
         }
 
         ctx.push(FrameFragment::new(ctx, body));
@@ -135,12 +161,11 @@ fn draw_cancel_line(
 
     let length = length.relative_to(diagonal);
 
-    let mid_x = width / 2.0;
-    let mid_y = height / 2.0;
+    let mid = body_size / 2.0;
 
-    // scale the amount needed such that the cancel line has the given 'length'
-    // (reference length is the whole diagonal)
-    // scales from the center.
+    // Scale the amount needed such that the cancel line has the given 'length'
+    // (reference length, or 100%, is the whole diagonal).
+    // Scales from the center.
     let scale = length.to_pt() / diagonal_pt;
 
     // invert horizontally if 'invert' was given
@@ -148,24 +173,24 @@ fn draw_cancel_line(
     let scale_y = scale;
     let scales = Axes::new(scale_x, scale_y);
 
-    // draw a line from bottom left to top right of the given element,
+    // Draw a line from bottom left to top right of the given element,
     // where the origin represents the very middle of that element
     // that is, a line from (-width / 2, height / 2) with length components (width, -height)
-    // (sign is inverted in the y-axis)
-    // after applying the scale, the line will have the correct length and orientation
-    // (inverted if needed)
-    let start = Axes::new(-mid_x, mid_y).zip(scales).map(|(l, s)| l * s);
+    // (sign is inverted in the y-axis).
+    // After applying the scale, the line will have the correct length and orientation
+    // (inverted if needed).
+    let start = Axes::new(-mid.x, mid.y).zip(scales).map(|(l, s)| l * s);
 
     let delta = Axes::new(width, -height).zip(scales).map(|(l, s)| l * s);
 
-    let mut cancel_line_frame = Frame::new(body_size);
-    cancel_line_frame.push(
+    let mut frame = Frame::new(body_size);
+    frame.push(
         start.to_point(),
         FrameItem::Shape(Geometry::Line(delta.to_point()).stroked(stroke), span),
     );
 
-    // having the middle of the line at the origin is convenient here
-    cancel_line_frame.transform(Transform::rotate(angle));
+    // Having the middle of the line at the origin is convenient here.
+    frame.transform(Transform::rotate(angle));
 
-    cancel_line_frame
+    frame
 }
