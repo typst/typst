@@ -42,7 +42,13 @@ impl<'a> Scopes<'a> {
             .chain(self.scopes.iter().rev())
             .chain(self.base.map(|base| base.global.scope()))
             .find_map(|scope| scope.get(var))
-            .ok_or_else(|| eco_format!("unknown variable: {}", var))
+            .ok_or_else(|| {
+                if let Some((a, b)) = var.split_once("-") {
+                    eco_format!("unknown variable: {} – did you mean {} - {}?", var, a, b)
+                } else {
+                    eco_format!("unknown variable: {}", var)
+                }
+            })
     }
 
     /// Try to access a variable immutably in math.
