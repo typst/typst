@@ -1,9 +1,8 @@
 use super::*;
 
-/// Displays a diagonal line over math content.
+/// Displays a diagonal line over a part of an equation.
 ///
 /// ## Example
-///
 /// ```example
 /// Here, we can simplify:
 /// $ (a dot.c b dot.c cancel(x)) / cancel(x) $
@@ -17,13 +16,11 @@ pub struct CancelElem {
     #[required]
     pub body: Content,
 
-    /// The length of the line, relative to the length of the diagonal spanning the whole
-    /// element being "cancelled". A value of `{100%}` would then have the line span precisely
-    /// the element's diagonal.
+    /// The length of the line, relative to the length of the diagonal spanning
+    /// the whole element being "cancelled". A value of `{100%}` would then have
+    /// the line span precisely the element's diagonal.
     ///
     /// Defaults to `{100% + 3pt}`.
-    ///
-    /// ## Example
     ///
     /// ```example
     /// $ a + cancel(x, length: #200%) - b - cancel(x, length: #200%) $
@@ -31,11 +28,10 @@ pub struct CancelElem {
     #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
     pub length: Rel<Length>,
 
-    /// If the cancel line should be inverted (heading northwest instead of northeast).
+    /// If the cancel line should be inverted (heading northwest instead of
+    /// northeast).
     ///
     /// Defaults to `{false}`.
-    ///
-    /// ## Example
     ///
     /// ```example
     /// $ (a cancel((b + c), inverted: #true)) / cancel(b + c, inverted: #true) $
@@ -43,12 +39,10 @@ pub struct CancelElem {
     #[default(false)]
     pub inverted: bool,
 
-    /// If two opposing cancel lines should be drawn, forming a cross over the element.
-    /// Overrides `inverted`.
+    /// If two opposing cancel lines should be drawn, forming a cross over the
+    /// element. Overrides `inverted`.
     ///
     /// Defaults to `{false}`.
-    ///
-    /// ## Example
     ///
     /// ```example
     /// $ cancel(x, cross: #true) $
@@ -59,8 +53,6 @@ pub struct CancelElem {
     /// Rotate the cancel line by a certain angle. See the
     /// [line's documentation]($func/line.angle) for more details.
     ///
-    /// ## Example
-    ///
     /// ```example
     /// $ cancel(x, rotation: #30deg) $
     /// ```
@@ -69,8 +61,6 @@ pub struct CancelElem {
 
     /// How to stroke the cancel line. See the
     /// [line's documentation]($func/line.stroke) for more details.
-    ///
-    /// ## Example
     ///
     /// ```example
     /// $ cancel(x, stroke: #{red + 1.5pt}) $
@@ -159,12 +149,11 @@ fn draw_cancel_line(
     let scale_y = scale;
     let scales = Axes::new(scale_x, scale_y);
 
-    // Draw a line from bottom left to top right of the given element,
-    // where the origin represents the very middle of that element
-    // that is, a line from (-width / 2, height / 2) with length components (width, -height)
-    // (sign is inverted in the y-axis).
-    // After applying the scale, the line will have the correct length and orientation
-    // (inverted if needed).
+    // Draw a line from bottom left to top right of the given element, where the
+    // origin represents the very middle of that element, that is, a line from
+    // (-width / 2, height / 2) with length components (width, -height) (sign is
+    // inverted in the y-axis). After applying the scale, the line will have the
+    // correct length and orientation (inverted if needed).
     let start = Axes::new(-mid.x, mid.y).zip(scales).map(|(l, s)| l * s);
     let delta = Axes::new(width, -height).zip(scales).map(|(l, s)| l * s);
 
