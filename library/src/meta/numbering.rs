@@ -446,7 +446,7 @@ impl NumberingKind {
                 fmt
             }
             l @ (Self::ChineseSimplified | Self::ChineseTraditional) => {
-                let chinesecase = match case {
+                let chinese_case = match case {
                     Case::Lower => ChineseCase::Lower,
                     Case::Upper => ChineseCase::Upper,
                 };
@@ -457,7 +457,7 @@ impl NumberingKind {
                         Self::ChineseTraditional => ChineseVariant::Traditional,
                         _ => unreachable!(),
                     },
-                    chinesecase,
+                    chinese_case,
                     ChineseCountMethod::TenThousand,
                 ) {
                     Ok(chinesestring) => EcoString::from(chinesestring),
