@@ -289,7 +289,6 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 math_expr_prec(p, 2, stop);
                 math_unparen(p, m2);
                 p.wrap(m, SyntaxKind::MathRoot);
-                continuable = true;
             }
         }
 
