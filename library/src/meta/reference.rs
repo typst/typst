@@ -273,7 +273,12 @@ pub trait Refable {
     /// Tries to build an outline element for this element.
     /// If this returns `None`, the outline will not include this element.
     /// By default this just calls [`Refable::reference`].
-    fn outline(&self, vt: &mut Vt, lang: Lang, region: Option<Region>) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        lang: Lang,
+        region: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
         self.reference(vt, None, lang, region).map(Some)
     }
 

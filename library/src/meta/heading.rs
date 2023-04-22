@@ -208,7 +208,12 @@ impl Refable for HeadingElem {
         Counter::of(Self::func())
     }
 
-    fn outline(&self, vt: &mut Vt, _: Lang, _: Option<Region>) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        _: Lang,
+        _: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
         // Check whether the heading is outlined.
         if !self.outlined(StyleChain::default()) {
             return Ok(None);

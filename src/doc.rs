@@ -597,10 +597,7 @@ impl Region {
             panic!("not a valid region code – region code should be 2-byte")
         }
 
-        let bytes = [
-            bytes[0].to_ascii_uppercase(),
-            bytes[1].to_ascii_uppercase()
-        ];
+        let bytes = [bytes[0].to_ascii_uppercase(), bytes[1].to_ascii_uppercase()];
 
         if !bytes[0].is_ascii() || !bytes[1].is_ascii() {
             panic!("not a valid region code – non-ascii characters inside");
