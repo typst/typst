@@ -272,6 +272,7 @@ impl Refable for FigureElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         _: Lang,
+        _: Option<Region>,
     ) -> SourceResult<Content> {
         // If the figure is not numbered, we cannot reference it.
         // Otherwise we build the supplement and numbering scheme.

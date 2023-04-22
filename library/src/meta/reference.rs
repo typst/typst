@@ -258,14 +258,15 @@ pub trait Refable {
     ///
     /// # Arguments
     /// - `vt` - The virtual typesetter.
-    /// - `styles` - The styles of the reference.
-    /// - `location` - The location where the reference is being created.
     /// - `supplement` - The supplement of the reference.
+    /// - `lang`: The language of the reference.
+    /// - `region`: The region of the reference.
     fn reference(
         &self,
         vt: &mut Vt,
         supplement: Option<Content>,
         lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content>;
 
     /// Tries to build an outline element for this element.

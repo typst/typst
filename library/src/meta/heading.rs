@@ -163,6 +163,7 @@ impl Refable for HeadingElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content> {
         // Create the supplement of the heading.
         let mut supplement = if let Some(supplement) = supplement {
