@@ -862,7 +862,7 @@ node! {
 }
 
 impl MathRoot {
-    /// The degree of the root.
+    /// The index of the root.
     pub fn index(&self) -> Option<usize> {
         match self.0.children().next().map(|node| node.text().as_str()) {
             Some("∜") => Some(4),
