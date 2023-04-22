@@ -643,20 +643,24 @@ impl FontSearcher {
         };
 
         // Embed default fonts.
+        search(include_bytes!("../../assets/fonts/AtkinsonHyperlegible-Bold.otf"));
+        search(include_bytes!("../../assets/fonts/AtkinsonHyperlegible-BoldItalic.otf"));
+        search(include_bytes!("../../assets/fonts/AtkinsonHyperlegible-Italic.otf"));
+        search(include_bytes!("../../assets/fonts/AtkinsonHyperlegible-Regular.otf"));
+        search(include_bytes!("../../assets/fonts/DejaVuSansMono-Bold.ttf"));
+        search(include_bytes!("../../assets/fonts/DejaVuSansMono-BoldOblique.ttf"));
+        search(include_bytes!("../../assets/fonts/DejaVuSansMono-Oblique.ttf"));
+        search(include_bytes!("../../assets/fonts/DejaVuSansMono.ttf"));
         search(include_bytes!("../../assets/fonts/LinLibertine_R.ttf"));
         search(include_bytes!("../../assets/fonts/LinLibertine_RB.ttf"));
         search(include_bytes!("../../assets/fonts/LinLibertine_RBI.ttf"));
         search(include_bytes!("../../assets/fonts/LinLibertine_RI.ttf"));
+        search(include_bytes!("../../assets/fonts/NewCM10-Bold.otf"));
+        search(include_bytes!("../../assets/fonts/NewCM10-BoldItalic.otf"));
+        search(include_bytes!("../../assets/fonts/NewCM10-Italic.otf"));
+        search(include_bytes!("../../assets/fonts/NewCM10-Regular.otf"));
         search(include_bytes!("../../assets/fonts/NewCMMath-Book.otf"));
         search(include_bytes!("../../assets/fonts/NewCMMath-Regular.otf"));
-        search(include_bytes!("../../assets/fonts/NewCM10-Regular.otf"));
-        search(include_bytes!("../../assets/fonts/NewCM10-Bold.otf"));
-        search(include_bytes!("../../assets/fonts/NewCM10-Italic.otf"));
-        search(include_bytes!("../../assets/fonts/NewCM10-BoldItalic.otf"));
-        search(include_bytes!("../../assets/fonts/DejaVuSansMono.ttf"));
-        search(include_bytes!("../../assets/fonts/DejaVuSansMono-Bold.ttf"));
-        search(include_bytes!("../../assets/fonts/DejaVuSansMono-Oblique.ttf"));
-        search(include_bytes!("../../assets/fonts/DejaVuSansMono-BoldOblique.ttf"));
     }
 
     /// Search for fonts in the linux system font directories.
