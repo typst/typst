@@ -1,5 +1,5 @@
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
-use crate::meta::{Figurable, LocalName, OptRegion};
+use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 
 /// A table of items.
@@ -284,7 +284,7 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
 }
 
 impl LocalName for TableElem {
-    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match (lang, region) {
             (Lang::ARABIC, _) => "جدول",
             (Lang::BOKMÅL, _) => "Tabell",

@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use super::{Counter, CounterUpdate, LocalName, Numbering, Refable, OptRegion};
+use super::{Counter, CounterUpdate, LocalName, Numbering, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
 use crate::meta::{Count, Supplement};
 use crate::prelude::*;
@@ -227,7 +227,7 @@ impl Refable for HeadingElem {
 }
 
 impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match (lang, region) {
             (Lang::ARABIC, _) => "الفصل",
             (Lang::BOKMÅL, _) => "Kapittel",

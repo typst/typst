@@ -8,7 +8,7 @@ use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
 
-use super::{LinkElem, LocalName, RefElem, OptRegion};
+use super::{LinkElem, LocalName, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
 use crate::meta::HeadingElem;
 use crate::prelude::*;
@@ -199,7 +199,7 @@ impl Show for BibliographyElem {
 }
 
 impl LocalName for BibliographyElem {
-    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match (lang, region) {
             (Lang::ARABIC, _) => "المراجع",
             (Lang::BOKMÅL, _) => "Bibliografi",

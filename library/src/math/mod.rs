@@ -41,7 +41,6 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
-use crate::meta::OptRegion;
 use crate::meta::Refable;
 use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
 use crate::prelude::*;
@@ -276,7 +275,7 @@ impl Count for EquationElem {
 }
 
 impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match (lang, region) {
             (Lang::ARABIC, _) => "معادلة",
             (Lang::BOKMÅL, _) => "Ligning",

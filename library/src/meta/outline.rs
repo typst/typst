@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use super::{
-    Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable, OptRegion,
+    Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
 };
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
@@ -247,7 +247,7 @@ impl Show for OutlineElem {
 }
 
 impl LocalName for OutlineElem {
-    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match (lang, region) {
             (Lang::ARABIC, _) => "المحتويات",
             (Lang::BOKMÅL, _) => "Innhold",

@@ -27,12 +27,10 @@ pub use self::reference::*;
 pub use self::state::*;
 
 use typst::doc::Lang;
-
-pub type Region<'a> = &'a str;
-pub type OptRegion<'a> = Option<Region<'a>>;
+use typst::doc::Region;
 
 /// The named with which an element is referenced.
 pub trait LocalName {
     /// Get the name in the given language and (optionally) region.
-    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str;
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str;
 }

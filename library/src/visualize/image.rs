@@ -3,7 +3,7 @@ use std::path::Path;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
-use crate::meta::{Figurable, LocalName, OptRegion};
+use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 use crate::text::families;
 
@@ -121,7 +121,7 @@ impl Layout for ImageElem {
 }
 
 impl LocalName for ImageElem {
-    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match (lang, region) {
             (Lang::ARABIC, _) => "شكل",
             (Lang::BOKMÅL, _) => "Figur",

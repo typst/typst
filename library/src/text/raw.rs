@@ -6,7 +6,7 @@ use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
-use crate::meta::{Figurable, LocalName, OptRegion};
+use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 
 /// Raw text with optional syntax highlighting.
@@ -200,7 +200,7 @@ impl Finalize for RawElem {
 }
 
 impl LocalName for RawElem {
-    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match (lang, region) {
             (Lang::ARABIC, _) => "قائمة",
             (Lang::BOKMÅL, _) => "Utskrift",
