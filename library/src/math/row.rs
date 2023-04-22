@@ -1,3 +1,5 @@
+use std::iter::once;
+
 use crate::layout::AlignElem;
 
 use super::*;
@@ -158,31 +160,53 @@ impl MathRow {
 
     fn into_line_frame(self, points: &[Abs], align: Align) -> Frame {
         let ascent = self.ascent();
-        let descent = self.descent();
-        let size = Size::new(Abs::zero(), ascent + descent);
-        let mut frame = Frame::new(size);
-        let mut x = Abs::zero();
+        let mut frame = Frame::new(Size::new(Abs::zero(), ascent + self.descent()));
         frame.set_baseline(ascent);
 
-        if let (Some(&first), Align::Center) = (points.first(), align) {
-            let mut offset = first;
-            for fragment in self.iter() {
-                offset -= fragment.width();
-                if matches!(fragment, MathFragment::Align) {
-                    x = offset;
-                    break;
+        let mut next_x = {
+            let widths = if points.is_empty() || align == Align::Left {
+                Vec::new()
+            } else {
+                let mut widths = Vec::new();
+
+                let mut width = Abs::zero();
+                for fragment in self.iter() {
+                    if matches!(fragment, MathFragment::Align) {
+                        widths.push(width);
+                        width = Abs::zero();
+                    } else {
+                        width += fragment.width();
+                    }
+                }
+                widths.push(width);
+
+                widths
+            };
+
+            let mut prev_points = once(Abs::zero()).chain(points.iter().copied());
+            let mut point_widths = points.iter().copied().zip(widths);
+            let mut alternator = point_widths
+                .clone()
+                .zip(prev_points.clone())
+                .zip(LeftRightAlternator::Right);
+            move || match align {
+                Align::Left => prev_points.next(),
+                Align::Right => point_widths.next().map(|(point, width)| point - width),
+                _ => {
+                    alternator.next().map(|(((point, width), prev_point), alternator)| {
+                        match alternator {
+                            LeftRightAlternator::Left => prev_point,
+                            LeftRightAlternator::Right => point - width,
+                        }
+                    })
                 }
             }
-        }
+        };
+        let mut x = next_x().unwrap_or_default();
 
-        let fragments = self.0.into_iter().peekable();
-        let mut i = 0;
-        for fragment in fragments {
+        for fragment in self.0.into_iter() {
             if matches!(fragment, MathFragment::Align) {
-                if let Some(&point) = points.get(i) {
-                    x = point;
-                }
-                i += 1;
+                x = next_x().unwrap_or(x);
                 continue;
             }
 
