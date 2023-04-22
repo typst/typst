@@ -741,4 +741,16 @@ mod tests {
     fn test_from_const_str_invalid_c2() {
         Region::from_const_str("È");
     }
+
+    #[test]
+    fn test_from_const_str_partialeq_str() {
+        let region = Region::from_const_str("US");
+        assert_eq!(region, "US");
+    }
+
+    #[test]
+    fn test_from_const_str_partialeq_bytes() {
+        let region = Region::from_const_str("US");
+        assert_eq!(region, [b'U', b'S']);
+    }
 }
