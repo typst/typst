@@ -1,6 +1,6 @@
 use typst::font::FontWeight;
 
-use super::{Counter, CounterUpdate, LocalName, Numbering, Refable};
+use super::{Counter, CounterUpdate, LocalName, Numbering, Refable, OptRegion};
 use crate::layout::{BlockElem, HElem, VElem};
 use crate::meta::{Count, Supplement};
 use crate::prelude::*;
@@ -227,24 +227,24 @@ impl Refable for HeadingElem {
 }
 
 impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
-            Lang::ARABIC => "الفصل",
-            Lang::BOKMÅL => "Kapittel",
-            Lang::CHINESE => "小节",
-            Lang::CZECH => "Kapitola",
-            Lang::FRENCH => "Chapitre",
-            Lang::GERMAN => "Abschnitt",
-            Lang::ITALIAN => "Sezione",
-            Lang::NYNORSK => "Kapittel",
-            Lang::POLISH => "Sekcja",
-            Lang::PORTUGUESE => "Seção",
-            Lang::RUSSIAN => "Раздел",
-            Lang::SLOVENIAN => "Poglavje",
-            Lang::SPANISH => "Sección",
-            Lang::UKRAINIAN => "Розділ",
-            Lang::VIETNAMESE => "Phần", // TODO: This may be wrong.
-            Lang::ENGLISH | _ => "Section",
+    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+        match (lang, region) {
+            (Lang::ARABIC, _) => "الفصل",
+            (Lang::BOKMÅL, _) => "Kapittel",
+            (Lang::CHINESE, _) => "小节",
+            (Lang::CZECH, _) => "Kapitola",
+            (Lang::FRENCH, _) => "Chapitre",
+            (Lang::GERMAN, _) => "Abschnitt",
+            (Lang::ITALIAN, _) => "Sezione",
+            (Lang::NYNORSK, _) => "Kapittel",
+            (Lang::POLISH, _) => "Sekcja",
+            (Lang::PORTUGUESE, _) => "Seção",
+            (Lang::RUSSIAN, _) => "Раздел",
+            (Lang::SLOVENIAN, _) => "Poglavje",
+            (Lang::SPANISH, _) => "Sección",
+            (Lang::UKRAINIAN, _) => "Розділ",
+            (Lang::VIETNAMESE, _) => "Phần", // TODO: This may be wrong.
+            (Lang::ENGLISH | _, _) => "Section",
         }
     }
 }

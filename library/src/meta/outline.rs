@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use super::{
-    Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
+    Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable, OptRegion,
 };
 use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
 use crate::prelude::*;
@@ -247,24 +247,24 @@ impl Show for OutlineElem {
 }
 
 impl LocalName for OutlineElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
-            Lang::ARABIC => "المحتويات",
-            Lang::BOKMÅL => "Innhold",
-            Lang::CHINESE => "目录",
-            Lang::CZECH => "Obsah",
-            Lang::FRENCH => "Table des matières",
-            Lang::GERMAN => "Inhaltsverzeichnis",
-            Lang::ITALIAN => "Indice",
-            Lang::NYNORSK => "Innhald",
-            Lang::POLISH => "Spis treści",
-            Lang::PORTUGUESE => "Sumário",
-            Lang::RUSSIAN => "Содержание",
-            Lang::SLOVENIAN => "Kazalo",
-            Lang::SPANISH => "Índice",
-            Lang::UKRAINIAN => "Зміст",
-            Lang::VIETNAMESE => "Mục lục",
-            Lang::ENGLISH | _ => "Contents",
+    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+        match (lang, region) {
+            (Lang::ARABIC, _) => "المحتويات",
+            (Lang::BOKMÅL, _) => "Innhold",
+            (Lang::CHINESE, _) => "目录",
+            (Lang::CZECH, _) => "Obsah",
+            (Lang::FRENCH, _) => "Table des matières",
+            (Lang::GERMAN, _) => "Inhaltsverzeichnis",
+            (Lang::ITALIAN, _) => "Indice",
+            (Lang::NYNORSK, _) => "Innhald",
+            (Lang::POLISH, _) => "Spis treści",
+            (Lang::PORTUGUESE, _) => "Sumário",
+            (Lang::RUSSIAN, _) => "Содержание",
+            (Lang::SLOVENIAN, _) => "Kazalo",
+            (Lang::SPANISH, _) => "Índice",
+            (Lang::UKRAINIAN, _) => "Зміст",
+            (Lang::VIETNAMESE, _) => "Mục lục",
+            (Lang::ENGLISH | _, _) => "Contents",
         }
     }
 }

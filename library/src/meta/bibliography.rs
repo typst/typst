@@ -8,7 +8,7 @@ use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
 
-use super::{LinkElem, LocalName, RefElem};
+use super::{LinkElem, LocalName, RefElem, OptRegion};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
 use crate::meta::HeadingElem;
 use crate::prelude::*;
@@ -199,24 +199,24 @@ impl Show for BibliographyElem {
 }
 
 impl LocalName for BibliographyElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
-        match lang {
-            Lang::ARABIC => "المراجع",
-            Lang::BOKMÅL => "Bibliografi",
-            Lang::CHINESE => "参考文献",
-            Lang::CZECH => "Bibliografie",
-            Lang::FRENCH => "Bibliographie",
-            Lang::GERMAN => "Bibliographie",
-            Lang::ITALIAN => "Bibliografia",
-            Lang::NYNORSK => "Bibliografi",
-            Lang::POLISH => "Bibliografia",
-            Lang::PORTUGUESE => "Bibliografia",
-            Lang::RUSSIAN => "Библиография",
-            Lang::SLOVENIAN => "Literatura",
-            Lang::SPANISH => "Bibliografía",
-            Lang::UKRAINIAN => "Бібліографія",
-            Lang::VIETNAMESE => "Tài liệu tham khảo",
-            Lang::ENGLISH | _ => "Bibliography",
+    fn local_name(&self, lang: Lang, region: OptRegion<'_>) -> &'static str {
+        match (lang, region) {
+            (Lang::ARABIC, _) => "المراجع",
+            (Lang::BOKMÅL, _) => "Bibliografi",
+            (Lang::CHINESE, _) => "参考文献",
+            (Lang::CZECH, _) => "Bibliografie",
+            (Lang::FRENCH, _) => "Bibliographie",
+            (Lang::GERMAN, _) => "Bibliographie",
+            (Lang::ITALIAN, _) => "Bibliografia",
+            (Lang::NYNORSK, _) => "Bibliografi",
+            (Lang::POLISH, _) => "Bibliografia",
+            (Lang::PORTUGUESE, _) => "Bibliografia",
+            (Lang::RUSSIAN, _) => "Библиография",
+            (Lang::SLOVENIAN, _) => "Literatura",
+            (Lang::SPANISH, _) => "Bibliografía",
+            (Lang::UKRAINIAN, _) => "Бібліографія",
+            (Lang::VIETNAMESE, _) => "Tài liệu tham khảo",
+            (Lang::ENGLISH | _, _) => "Bibliography",
         }
     }
 }
