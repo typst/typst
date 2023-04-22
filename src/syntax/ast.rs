@@ -863,12 +863,12 @@ node! {
 
 impl MathRoot {
     /// The degree of the root.
-    pub fn index(&self) -> usize {
-        match self.0.children().next().expect("").text().as_str() {
-            "∜" => 4,
-            "∛" => 3,
-            "√" => 2,
-            _ => 2,
+    pub fn index(&self) -> Option<usize> {
+        match self.0.children().next().map(|node| node.text().as_str()) {
+            Some("∜") => Some(4),
+            Some("∛") => Some(3),
+            Some("√") => Option::None,
+            _ => Option::None,
         }
     }
 
