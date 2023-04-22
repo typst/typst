@@ -152,6 +152,7 @@ impl Show for OutlineElem {
         let indent = self.indent(styles);
         let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
         let lang = TextElem::lang_in(styles);
+        let region = TextElem::region_in(styles);
 
         let mut ancestors: Vec<&Content> = vec![];
         let elems = vt.introspector.query(&self.target(styles));
@@ -165,7 +166,7 @@ impl Show for OutlineElem {
                 continue;
             }
 
-            let Some(outline) = refable.outline(vt, lang)? else {
+            let Some(outline) = refable.outline(vt, lang, region)? else {
                 continue;
             };
 

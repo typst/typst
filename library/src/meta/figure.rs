@@ -283,7 +283,7 @@ impl Refable for FigureElem {
         Ok(desc)
     }
 
-    fn outline(&self, vt: &mut Vt, _: Lang) -> SourceResult<Option<Content>> {
+    fn outline(&self, vt: &mut Vt, _: Lang, _: Option<Region>) -> SourceResult<Option<Content>> {
         // If the figure is not outlined, it is not referenced.
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
