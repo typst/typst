@@ -610,6 +610,18 @@ impl Region {
     }
 }
 
+impl PartialEq<&str> for Region {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl PartialEq<[u8; 2]> for Region {
+    fn eq(&self, other: &[u8; 2]) -> bool {
+        self.0 == *other
+    }
+}
+
 impl FromStr for Region {
     type Err = &'static str;
 
