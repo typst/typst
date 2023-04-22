@@ -193,7 +193,7 @@ impl Synthesize for FigureElem {
             Smart::Auto => match &kind {
                 FigureKind::Elem(func) => {
                     let elem = Content::new(*func).with::<dyn LocalName>().map(|c| {
-                        TextElem::packed(c.local_name(TextElem::lang_in(styles)))
+                        TextElem::packed(c.local_name(TextElem::lang_in(styles), TextElem::region_in(styles)))
                     });
 
                     if numbering.is_some() {

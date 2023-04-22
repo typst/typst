@@ -147,7 +147,7 @@ impl Show for BibliographyElem {
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
             let title = title.unwrap_or_else(|| {
-                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+                TextElem::packed(self.local_name(TextElem::lang_in(styles), TextElem::region_in(styles)))
                     .spanned(self.span())
             });
 

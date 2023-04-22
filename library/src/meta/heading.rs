@@ -170,7 +170,7 @@ impl Refable for HeadingElem {
             supplement
         } else {
             match self.supplement(StyleChain::default()) {
-                Smart::Auto => TextElem::packed(self.local_name(lang)),
+                Smart::Auto => TextElem::packed(self.local_name(lang, region)),
                 Smart::Custom(None) => Content::empty(),
                 Smart::Custom(Some(supplement)) => {
                     supplement.resolve(vt, std::iter::once(Value::from(self.clone())))?

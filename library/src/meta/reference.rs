@@ -183,10 +183,11 @@ impl Show for RefElem {
         };
 
         let lang = TextElem::lang_in(styles);
+        let region = TextElem::region_in(styles);
         let reference = elem
             .with::<dyn Refable>()
             .expect("element should be refable")
-            .reference(vt, supplement, lang)?;
+            .reference(vt, supplement, lang, region)?;
 
         Ok(reference.linked(Destination::Location(elem.location().unwrap())))
     }
