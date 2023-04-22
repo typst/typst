@@ -282,6 +282,17 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             p.eat();
         }
 
+        SyntaxKind::Root => {
+            if min_prec < 3 {
+                p.eat();
+                let m2 = p.marker();
+                math_expr_prec(p, 2, stop);
+                math_unparen(p, m2);
+                p.wrap(m, SyntaxKind::MathRoot);
+                continuable = true;
+            }
+        }
+
         _ => p.expected("expression"),
     }
 

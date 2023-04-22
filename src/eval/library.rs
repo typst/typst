@@ -93,6 +93,8 @@ pub struct LangItems {
     pub math_accent: fn(base: Content, accent: char) -> Content,
     /// A fraction in math: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
+    /// A root in math: `√x`, `∛x` or `∜x`.
+    pub math_root: fn(degree: Content, radicand: Content) -> Content,
     /// Dispatch a method on a library value.
     pub library_method: fn(
         vm: &mut Vm,
@@ -136,6 +138,7 @@ impl Hash for LangItems {
         self.math_attach.hash(state);
         self.math_accent.hash(state);
         self.math_frac.hash(state);
+        self.math_root.hash(state);
     }
 }
 

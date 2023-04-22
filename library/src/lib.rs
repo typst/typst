@@ -240,6 +240,9 @@ fn items() -> LangItems {
             math::AccentElem::new(base, math::Accent::new(accent)).pack()
         },
         math_frac: |num, denom| math::FracElem::new(num, denom).pack(),
+        math_root: |index, radicand| {
+            math::RootElem::new(radicand).with_index(Some(index)).pack()
+        },
         library_method: |vm, dynamic, method, args, span| {
             if let Some(counter) = dynamic.downcast::<meta::Counter>().cloned() {
                 counter.call_method(vm, method, args, span)

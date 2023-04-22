@@ -67,6 +67,8 @@ pub enum SyntaxKind {
     MathAttach,
     /// A fraction in math: `x/2`.
     MathFrac,
+    /// A root in math: `√x`, `∛x` or `∜x`.
+    MathRoot,
 
     /// A hashtag that switches into code mode: `#`.
     Hashtag,
@@ -134,6 +136,8 @@ pub enum SyntaxKind {
     Dots,
     /// An arrow between a closure's parameters and body: `=>`.
     Arrow,
+    /// A root: `√`, `∛` or `∜`.
+    Root,
 
     /// The `not` operator.
     Not,
@@ -345,6 +349,7 @@ impl SyntaxKind {
             Self::MathDelimited => "delimited math",
             Self::MathAttach => "math attachments",
             Self::MathFrac => "math fraction",
+            Self::MathRoot => "math root",
             Self::Hashtag => "hashtag",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",
@@ -376,6 +381,7 @@ impl SyntaxKind {
             Self::SlashEq => "divide-assign operator",
             Self::Dots => "dots",
             Self::Arrow => "arrow",
+            Self::Root => "root",
             Self::Not => "operator `not`",
             Self::And => "operator `and`",
             Self::Or => "operator `or`",
