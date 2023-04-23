@@ -136,8 +136,6 @@ fn main() {
     if let Err(msg) = res {
         print_error(&msg).expect("failed to print error");
     }
-
-    drop(_guard);
 }
 
 /// Print an application-level error (independent from a source file).
