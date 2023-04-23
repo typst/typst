@@ -13,7 +13,7 @@
 #set text(lang: "de", region: "CH")
 "Das Pferd frisst keinen Gurkensalat" war der erste jemals am 'Fernsprecher' gesagte Satz.
 
-#set text(lang: "es")
+#set text(lang: "es", region: none)
 "El caballo no come ensalada de pepino" fue la primera frase pronunciada por 'teléfono'.
 
 #set text(lang: "es", region: "MX")
