@@ -66,6 +66,7 @@ pub struct UnderlineElem {
 }
 
 impl Show for UnderlineElem {
+    #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Underline,
@@ -145,6 +146,7 @@ pub struct OverlineElem {
 }
 
 impl Show for OverlineElem {
+    #[tracing::instrument(name = "OverlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Overline,
@@ -209,6 +211,7 @@ pub struct StrikeElem {
 }
 
 impl Show for StrikeElem {
+    #[tracing::instrument(name = "StrikeElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Strikethrough,

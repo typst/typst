@@ -94,6 +94,7 @@ pub struct Introspector {
 
 impl Introspector {
     /// Create a new introspector.
+    #[tracing::instrument(skip(frames))]
     pub fn new(frames: &[Frame]) -> Self {
         let mut introspector = Self {
             pages: frames.len(),
@@ -113,6 +114,7 @@ impl Introspector {
     }
 
     /// Extract metadata from a frame.
+    #[tracing::instrument(skip_all)]
     fn extract(&mut self, frame: &Frame, page: NonZeroUsize, ts: Transform) {
         for (pos, item) in frame.items() {
             match item {
@@ -154,6 +156,7 @@ impl Introspector {
     }
 
     /// Query for all matching elements.
+    #[tracing::instrument(skip_all)]
     pub fn query<'a>(&'a self, selector: &'a Selector) -> Vec<Content> {
         match selector {
             Selector::Location(location) => self
@@ -168,6 +171,7 @@ impl Introspector {
     }
 
     /// Query for the first matching element.
+    #[tracing::instrument(skip_all)]
     pub fn query_first<'a>(&'a self, selector: &'a Selector) -> Option<Content> {
         match selector {
             Selector::Location(location) => {
@@ -178,6 +182,7 @@ impl Introspector {
     }
 
     /// Query for a unique element with the label.
+    #[tracing::instrument(skip(self))]
     pub fn query_label(&self, label: &Label) -> StrResult<Content> {
         let mut found = None;
         for elem in self.all().filter(|elem| elem.label() == Some(label)) {
@@ -200,12 +205,14 @@ impl Introspector {
     }
 
     /// Gets the page numbering for the given location, if any.
+    #[tracing::instrument(skip(self))]
     pub fn page_numbering(&self, location: Location) -> Value {
         let page = self.page(location);
         self.page_numberings.get(page.get() - 1).cloned().unwrap_or_default()
     }
 
     /// Find the position for the given location.
+    #[tracing::instrument(skip(self))]
     pub fn position(&self, location: Location) -> Position {
         self.elems
             .get(&location)

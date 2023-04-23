@@ -60,6 +60,7 @@ pub struct PathElem {
 }
 
 impl Layout for PathElem {
+    #[tracing::instrument(name = "PathElem::layout", skip_all)]
     fn layout(
         &self,
         _: &mut Vt,

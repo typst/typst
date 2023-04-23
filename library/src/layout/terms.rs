@@ -92,6 +92,7 @@ pub struct TermsElem {
 }
 
 impl Layout for TermsElem {
+    #[tracing::instrument(name = "TermsElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

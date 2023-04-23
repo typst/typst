@@ -154,6 +154,7 @@ pub struct RectElem {
 }
 
 impl Layout for RectElem {
+    #[tracing::instrument(name = "RectElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -264,6 +265,7 @@ pub struct SquareElem {
 }
 
 impl Layout for SquareElem {
+    #[tracing::instrument(name = "SquareElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -346,6 +348,7 @@ pub struct EllipseElem {
 }
 
 impl Layout for EllipseElem {
+    #[tracing::instrument(name = "EllipseElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -453,6 +456,7 @@ pub struct CircleElem {
 }
 
 impl Layout for CircleElem {
+    #[tracing::instrument(name = "CircleElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -477,6 +481,7 @@ impl Layout for CircleElem {
 }
 
 /// Layout a shape.
+#[tracing::instrument(name = "shape::layout", skip_all)]
 #[allow(clippy::too_many_arguments)]
 fn layout(
     vt: &mut Vt,

@@ -112,6 +112,7 @@ pub struct ListElem {
 }
 
 impl Layout for ListElem {
+    #[tracing::instrument(name = "ListElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

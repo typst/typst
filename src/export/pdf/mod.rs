@@ -23,6 +23,7 @@ use crate::model::Introspector;
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
+#[tracing::instrument(skip_all)]
 pub fn pdf(document: &Document) -> Vec<u8> {
     let mut ctx = PdfContext::new(document);
     page::construct_pages(&mut ctx, &document.pages);
@@ -79,6 +80,7 @@ impl<'a> PdfContext<'a> {
 }
 
 /// Write the document catalog.
+#[tracing::instrument(skip_all)]
 fn write_catalog(ctx: &mut PdfContext) {
     let lang = ctx
         .languages
@@ -140,6 +142,7 @@ fn write_catalog(ctx: &mut PdfContext) {
 }
 
 /// Compress data with the DEFLATE algorithm.
+#[tracing::instrument(skip_all)]
 fn deflate(data: &[u8]) -> Vec<u8> {
     const COMPRESSION_LEVEL: u8 = 6;
     miniz_oxide::deflate::compress_to_vec_zlib(data, COMPRESSION_LEVEL)

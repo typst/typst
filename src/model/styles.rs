@@ -360,7 +360,7 @@ impl Selector {
             Self::Before { selector, end: location, inclusive } => {
                 if let Some(content) = introspector.query_first(location) {
                     let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).filter(
+                    Box::new(selector.match_iter_inner(introspector, parent).take_while(
                         move |elem| {
                             introspector.is_before(
                                 elem.location().unwrap(),
@@ -376,12 +376,12 @@ impl Selector {
             Self::After { selector, start: location, inclusive } => {
                 if let Some(content) = introspector.query_first(location) {
                     let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).filter(
+                    Box::new(selector.match_iter_inner(introspector, parent).skip_while(
                         move |elem| {
-                            introspector.is_after(
+                            introspector.is_before(
                                 elem.location().unwrap(),
                                 loc,
-                                *inclusive,
+                                !*inclusive,
                             )
                         },
                     ))
@@ -586,6 +586,7 @@ impl<'a> StyleChain<'a> {
     /// The resulting style chain contains styles from `local` as well as
     /// `self`. The ones from `local` take precedence over the ones from
     /// `self`. For folded properties `local` contributes the inner value.
+    #[tracing::instrument(skip_all)]
     pub fn chain<'b>(&'b self, local: &'b Styles) -> StyleChain<'b> {
         if local.is_empty() {
             *self
@@ -595,6 +596,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn get<T: Cast>(
         self,
         func: ElemFunc,
@@ -608,6 +610,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn get_resolve<T: Cast + Resolve>(
         self,
         func: ElemFunc,
@@ -619,6 +622,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn get_fold<T: Cast + Fold>(
         self,
         func: ElemFunc,
@@ -640,6 +644,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn get_resolve_fold<T>(
         self,
         func: ElemFunc,
@@ -674,6 +679,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn properties<T: Cast + 'a>(
         self,
         func: ElemFunc,

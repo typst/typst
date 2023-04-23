@@ -1,4 +1,5 @@
 mod args;
+mod trace;
 
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
@@ -28,6 +29,7 @@ use typst::World;
 use walkdir::WalkDir;
 
 use crate::args::{CliArguments, Command, CompileCommand};
+use crate::trace::init_tracing;
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -80,7 +82,7 @@ impl CompileSettings {
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
-        let CompileCommand { input, output, open } = match args.command {
+        let CompileCommand { input, output, open, .. } = match args.command {
             Command::Compile(command) => command,
             Command::Watch(command) => command,
             _ => unreachable!(),
@@ -118,6 +120,13 @@ impl FontsSettings {
 /// Entry point.
 fn main() {
     let arguments = CliArguments::parse();
+    let _guard = match init_tracing(&arguments) {
+        Ok(guard) => guard,
+        Err(err) => {
+            eprintln!("failed to initialize tracing, reason: {}", err);
+            return;
+        }
+    };
 
     let res = match &arguments.command {
         Command::Compile(_) | Command::Watch(_) => {
@@ -225,7 +234,10 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
 }
 
 /// Compile a single time.
+#[tracing::instrument(skip_all)]
 fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
+    tracing::info!("Starting compilation");
+
     status(command, Status::Compiling).unwrap();
 
     world.reset();
@@ -237,6 +249,8 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             let buffer = typst::export::pdf(&document);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
             status(command, Status::Success).unwrap();
+
+            tracing::info!("Compilation succeeded");
             Ok(false)
         }
 
@@ -245,12 +259,15 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             status(command, Status::Error).unwrap();
             print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
+
+            tracing::info!("Compilation failed");
             Ok(true)
         }
     }
 }
 
 /// Clear the terminal and render the status message.
+#[tracing::instrument(skip_all)]
 fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     if !command.watch {
         return Ok(());
@@ -431,6 +448,7 @@ impl World for SystemWorld {
         self.source(self.main)
     }
 
+    #[tracing::instrument(skip_all)]
     fn resolve(&self, path: &Path) -> FileResult<SourceId> {
         self.slot(path)?
             .source
@@ -469,6 +487,7 @@ impl World for SystemWorld {
 }
 
 impl SystemWorld {
+    #[tracing::instrument(skip_all)]
     fn slot(&self, path: &Path) -> FileResult<RefMut<PathSlot>> {
         let mut hashes = self.hashes.borrow_mut();
         let hash = match hashes.get(path).cloned() {
@@ -488,6 +507,7 @@ impl SystemWorld {
         }))
     }
 
+    #[tracing::instrument(skip_all)]
     fn insert(&self, path: &Path, text: String) -> SourceId {
         let id = SourceId::from_u16(self.sources.len() as u16);
         let source = Source::new(id, path, text);
@@ -520,6 +540,7 @@ impl SystemWorld {
                 .map_or(false, |hash| self.paths.borrow().contains_key(&hash))
     }
 
+    #[tracing::instrument(skip_all)]
     fn reset(&mut self) {
         self.sources.as_mut().clear();
         self.hashes.borrow_mut().clear();
@@ -542,6 +563,7 @@ impl PathHash {
 }
 
 /// Read a file.
+#[tracing::instrument(skip_all)]
 fn read(path: &Path) -> FileResult<Vec<u8>> {
     let f = |e| FileError::from_io(e, path);
     if fs::metadata(path).map_err(f)?.is_dir() {

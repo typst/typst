@@ -21,6 +21,7 @@ pub struct UnderlineElem {
 }
 
 impl LayoutMath for UnderlineElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false, self.span())
     }
@@ -43,6 +44,7 @@ pub struct OverlineElem {
 }
 
 impl LayoutMath for OverlineElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true, self.span())
     }
@@ -69,6 +71,7 @@ pub struct UnderbraceElem {
 }
 
 impl LayoutMath for UnderbraceElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -103,6 +106,7 @@ pub struct OverbraceElem {
 }
 
 impl LayoutMath for OverbraceElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -137,6 +141,7 @@ pub struct UnderbracketElem {
 }
 
 impl LayoutMath for UnderbracketElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -171,6 +176,7 @@ pub struct OverbracketElem {
 }
 
 impl LayoutMath for OverbracketElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,

@@ -126,6 +126,7 @@ impl Construct for ParElem {
 
 impl ParElem {
     /// Layout the paragraph into a collection of lines.
+    #[tracing::instrument(name = "ParElement::layout", skip_all)]
     pub fn layout(
         &self,
         vt: &mut Vt,
