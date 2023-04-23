@@ -121,9 +121,12 @@ impl FontsSettings {
 fn main() {
     let arguments = CliArguments::parse();
 
-    let Ok(_guard) = initialize_tracing(&arguments) else {
-        eprintln!("failed to initialize tracing");
-        return;
+    let _guard = match initialize_tracing(&arguments) {
+        Ok(guard) => guard,
+        Err(err) => {
+            eprintln!("failed to initialize tracing, reason: {}", err);
+            return;
+        }
     };
 
     let res = match &arguments.command {
