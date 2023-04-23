@@ -50,6 +50,12 @@ impl Command {
             Command::Fonts(_) => None,
         }
     }
+
+    /// Returns whether this is a watch command.
+    #[allow(dead_code)]
+    pub fn is_watch(&self) -> bool {
+        matches!(self, Command::Watch(_))
+    }
 }
 
 /// Compiles the input file into a PDF file
