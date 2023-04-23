@@ -60,13 +60,35 @@ mat(
 $
 
 ---
-// Test alternating alignment in a matrix.
+// Test alignment in a matrix.
 #set page(width: 300pt)
 $
 mat(
 "abc", "abc abc abc", "abc abc";
 "abc abc", "abc abc", "abc";
 "abc abc abc", "abc", "abc abc abc";
+)
+$
+
+---
+// Test explicit left alignment in a matrix.
+#set page(width: 300pt)
+$
+mat(
+&"abc", &"abc abc abc", &"abc abc";
+&"abc abc", &"abc abc", &"abc";
+&"abc abc abc", &"abc", &"abc abc abc";
+)
+$
+
+---
+// Test explicit right alignment in a matrix.
+#set page(width: 300pt)
+$
+mat(
+"abc"&, "abc abc abc"&, "abc abc"&;
+"abc abc"&, "abc abc"&, "abc"&;
+"abc abc abc"&, "abc"&, "abc abc abc"&;
 )
 $
 
