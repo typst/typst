@@ -130,7 +130,7 @@ impl<'s> Quotes<'s> {
     ///
     /// Currently, the supported languages are: English, Czech, Danish, German,
     /// Swiss / Liechtensteinian German, Estonian, Icelandic, Lithuanian,
-    /// Latvian, Slovak, Slovenian, Bosnian, Finnish, Swedish, French,
+    /// Latvian, Slovak, Slovenian, Spanish, Bosnian, Finnish, Swedish, French,
     /// Hungarian, Polish, Romanian, Japanese, Traditional Chinese, Russian, and
     /// Norwegian.
     ///
@@ -139,6 +139,8 @@ impl<'s> Quotes<'s> {
         let region = region.as_ref().map(Region::as_str);
         let (single_open, single_close, double_open, double_close) = match lang.as_str() {
             "de" if matches!(region, Some("CH" | "LI")) => ("‹", "›", "«", "»"),
+            "es" if matches!(region, Some("MX")) => return Self::default(),
+            "es" => ("“", "”", "«", "»"),
             "cs" | "da" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => {
                 ("‚", "‘", "„", "“")
             }
