@@ -8,7 +8,8 @@ use crate::layout::AlignElem;
 use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
-    shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartQuoteElem, SpaceElem, TextElem,
+    is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartQuoteElem,
+    SpaceElem, TextElem,
 };
 
 /// Arrange text, spacing and inline-level elements into a paragraph.
@@ -343,6 +344,13 @@ enum Item<'a> {
 impl<'a> Item<'a> {
     /// If this a text item, return it.
     fn text(&self) -> Option<&ShapedText<'a>> {
+        match self {
+            Self::Text(shaped) => Some(shaped),
+            _ => None,
+        }
+    }
+
+    fn text_mut(&mut self) -> Option<&mut ShapedText<'a>> {
         match self {
             Self::Text(shaped) => Some(shaped),
             _ => None,
@@ -895,15 +903,11 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // This often happens with monospace fonts and CJK texts.
                 ratio = 0.0;
             }
-            if ratio.is_infinite() {
-                // The line's not stretchable, we calculate the ratio in another way...
-                ratio = delta / (em / 2.0);
-                // ...and because it is underfull/overfull, make sure the ratio is at least 1.0.
-                if ratio > 0.0 {
-                    ratio += 1.0;
-                } else {
-                    ratio -= 1.0;
-                }
+            if ratio > 1.0 {
+                // We should stretch the line above its stretchability. Now calculate the extra amount.
+                let extra_stretch = (delta - adjust) / attempt.justifiables() as f64;
+                // Normalize the amount by half Em size.
+                ratio = 1.0 + extra_stretch / (em / 2.0);
             }
 
             // Determine the cost of the line.
@@ -943,6 +947,8 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // We divide the whole formula by 10, resulting (0.01 + |r|^3 + p)^2 + a,
             // where p=0.5 and a=300
             cost = (0.01 + cost).powi(2);
+
+            // println!("{:?} cost={cost} ratio={ratio} delta={delta:?} adjust={adjust:?}", &attempt.bidi.text[start..end]);
 
             // Penalize two consecutive dashes (not necessarily hyphens) extra.
             if attempt.dash && pred.line.dash {
@@ -1115,12 +1121,20 @@ fn line<'a>(
         let start = range.start.max(base);
         let text = &p.bidi.text[start..range.end];
         let trimmed = text.trim_end();
+        // U+200B ZERO WIDTH SPACE is used to provide a line break opportunity,
+        // we want to trim it too.
+        let trimmed = trimmed.trim_end_matches("\u{200B}");
         range.end = start + trimmed.len();
 
         // Deal with hyphens, dashes and justification.
         let shy = trimmed.ends_with('\u{ad}');
         dash = hyphen || shy || trimmed.ends_with(['-', '–', '—']);
         justify |= text.ends_with('\u{2028}');
+
+        // Deal with CJK punctuation at line ends.
+        let gb_style = is_gb_style(p.styles);
+        let end_cjk_punct = trimmed
+            .ends_with(['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」']);
 
         // Usually, we don't want to shape an empty string because:
         // - We don't want the height of trimmed whitespace in a different
@@ -1131,12 +1145,20 @@ fn line<'a>(
         // need the shaped empty string to make the line the appropriate
         // height. That is the case exactly if the string is empty and there
         // are no other items in the line.
-        if hyphen || start + shaped.text.len() > range.end {
+        if hyphen || start + shaped.text.len() > range.end || end_cjk_punct {
             if hyphen || start < range.end || before.is_empty() {
                 let shifted = start - base..range.end - base;
                 let mut reshaped = shaped.reshape(vt, &p.spans, shifted);
                 if hyphen || shy {
                     reshaped.push_hyphen(vt);
+                }
+                let punct = reshaped.glyphs.to_mut().last_mut();
+                if let Some(punct) = punct {
+                    if punct.is_cjk_left_aligned_punctuation(gb_style) {
+                        let shrink_amount = punct.shrinkability().1;
+                        punct.shrink_right(shrink_amount);
+                        reshaped.width -= shrink_amount.at(reshaped.size);
+                    }
                 }
                 width += reshaped.width;
                 last = Some(Item::Text(reshaped));
@@ -1146,6 +1168,10 @@ fn line<'a>(
         }
     }
 
+    // Deal with CJK punctuation at line starts.
+    let text = &p.bidi.text[range.start..end];
+    let start_cjk_punct = text.starts_with(['“', '‘', '《', '（', '『', '「']);
+
     // Reshape the start item if it's split in half.
     let mut first = None;
     if let Some((Item::Text(shaped), after)) = inner.split_first() {
@@ -1154,8 +1180,8 @@ fn line<'a>(
         let end = range.end.min(base + shaped.text.len());
 
         // Reshape if necessary.
-        if range.start + shaped.text.len() > end {
-            if range.start < end {
+        if range.start + shaped.text.len() > end || start_cjk_punct {
+            if range.start < end || start_cjk_punct {
                 let shifted = range.start - base..end - base;
                 let reshaped = shaped.reshape(vt, &p.spans, shifted);
                 width += reshaped.width;
@@ -1163,6 +1189,21 @@ fn line<'a>(
             }
 
             inner = after;
+        }
+    }
+
+    if start_cjk_punct {
+        let reshaped = first.as_mut().or(last.as_mut()).and_then(Item::text_mut);
+        if let Some(reshaped) = reshaped {
+            if let Some(punct) = reshaped.glyphs.to_mut().first_mut() {
+                if punct.is_cjk_right_aligned_punctuation() {
+                    let shrink_amount = punct.shrinkability().0;
+                    punct.shrink_left(shrink_amount);
+                    let amount_abs = shrink_amount.at(reshaped.size);
+                    reshaped.width -= amount_abs;
+                    width -= amount_abs;
+                }
+            }
         }
     }
 
