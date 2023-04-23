@@ -1123,7 +1123,7 @@ fn line<'a>(
         let trimmed = text.trim_end();
         // U+200B ZERO WIDTH SPACE is used to provide a line break opportunity,
         // we want to trim it too.
-        let trimmed = trimmed.trim_end_matches("\u{200B}");
+        let trimmed = trimmed.trim_end_matches('\u{200B}');
         range.end = start + trimmed.len();
 
         // Deal with hyphens, dashes and justification.
