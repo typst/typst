@@ -340,18 +340,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "color-spantrace"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ba75b3d9449ecdccb27ecbc479fdc0b87fa2dd43d2f8298f9bf0e59aacc8dce"
-dependencies = [
- "once_cell",
- "owo-colors",
- "tracing-core",
- "tracing-error",
-]
-
-[[package]]
 name = "color_quant"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1367,12 +1355,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b15813163c1d831bf4a13c3610c05c0d03b39feb07f7e09fa234dac9b15aaf39"
 
 [[package]]
-name = "owo-colors"
-version = "3.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1b04fb49957986fdce4d6ee7a65027d55d4b6d2265e5848bbb507b58ccfdb6f"
-
-[[package]]
 name = "oxipng"
 version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2257,7 +2239,6 @@ version = "0.2.0"
 dependencies = [
  "bitflags",
  "bytemuck",
- "color-spantrace",
  "comemo",
  "ecow",
  "flate2",
@@ -2282,7 +2263,6 @@ dependencies = [
  "thin-vec",
  "tiny-skia",
  "tracing",
- "tracing-error",
  "ttf-parser 0.18.1",
  "typst-macros",
  "unicode-math-class",

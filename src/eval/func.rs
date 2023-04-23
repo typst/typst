@@ -74,8 +74,12 @@ impl Func {
     }
 
     /// Call the function with the given arguments.
-    #[tracing::instrument(skip_all)]
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
+        let _span = tracing::info_span!(
+            "call", 
+            name = self.name().unwrap_or("<anon>"),
+        );
+
         match &self.repr {
             Repr::Native(native) => {
                 let value = (native.func)(vm, &mut args)?;

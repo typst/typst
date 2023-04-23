@@ -101,7 +101,8 @@ pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, E
     let flame_layer = FlameLayer::new(writer)
         .with_empty_samples(false)
         .with_threads_collapsed(true)
-        .with_module_path(false);
+        .with_module_path(false)
+        .with_file_and_line(true);
     let flush_guard = flame_layer.flush_on_drop();
 
     // Build the subscriber.
