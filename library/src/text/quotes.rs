@@ -139,12 +139,13 @@ impl<'s> Quotes<'s> {
         let region = region.as_ref().map(Region::as_str);
         let (single_open, single_close, double_open, double_close) = match lang.as_str() {
             "de" if matches!(region, Some("CH" | "LI")) => ("‹", "›", "«", "»"),
+            "es" if matches!(region, Some("MX")) => return Self::default(),
+            "es" => ("“", "”", "«", "»"),
             "cs" | "da" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => {
                 ("‚", "‘", "„", "“")
             }
             "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
-            "es" => ("“", "”", "«", "»"),
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
             _ => return Self::default(),

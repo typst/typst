@@ -16,6 +16,9 @@
 #set text(lang: "es")
 "El caballo no come ensalada de pepino" fue la primera frase pronunciada por 'teléfono'.
 
+#set text(lang: "es", region: "MX")
+"El caballo no come ensalada de pepino" fue la primera frase pronunciada por 'teléfono'.
+
 #set text(lang: "fr", region: none)
 "Le cheval ne mange pas de salade de concombres" est la première phrase jamais prononcée au 'téléphone'.
 
