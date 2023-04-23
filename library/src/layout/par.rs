@@ -948,8 +948,6 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // where p=0.5 and a=300
             cost = (0.01 + cost).powi(2);
 
-            // println!("{:?} cost={cost} ratio={ratio} delta={delta:?} adjust={adjust:?}", &attempt.bidi.text[start..end]);
-
             // Penalize two consecutive dashes (not necessarily hyphens) extra.
             if attempt.dash && pred.line.dash {
                 cost += CONSECUTIVE_DASH_COST;
