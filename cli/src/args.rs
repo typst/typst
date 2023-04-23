@@ -41,8 +41,6 @@ pub enum Command {
 
 impl Command {
     /// Returns the compile command if this is a compile or watch command.
-    // TODO: there is an error where this is not recognized as dead code.
-    #[allow(dead_code)]
     pub fn as_compile(&self) -> Option<&CompileCommand> {
         match self {
             Command::Compile(cmd) => Some(cmd),
@@ -52,7 +50,6 @@ impl Command {
     }
 
     /// Returns whether this is a watch command.
-    #[allow(dead_code)]
     pub fn is_watch(&self) -> bool {
         matches!(self, Command::Watch(_))
     }

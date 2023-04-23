@@ -20,7 +20,6 @@ use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
-use trace::initialize_tracing;
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::eval::Library;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
@@ -30,6 +29,7 @@ use typst::World;
 use walkdir::WalkDir;
 
 use crate::args::{CliArguments, Command, CompileCommand};
+use crate::trace::init_tracing;
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -120,8 +120,7 @@ impl FontsSettings {
 /// Entry point.
 fn main() {
     let arguments = CliArguments::parse();
-
-    let _guard = match initialize_tracing(&arguments) {
+    let _guard = match init_tracing(&arguments) {
         Ok(guard) => guard,
         Err(err) => {
             eprintln!("failed to initialize tracing, reason: {}", err);

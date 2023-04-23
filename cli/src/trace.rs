@@ -1,10 +1,5 @@
 use std::fs::File;
-use std::io::BufReader;
-use std::io::BufWriter;
-use std::io::Error;
-use std::io::ErrorKind;
-use std::io::Seek;
-use std::io::SeekFrom;
+use std::io::{BufReader, BufWriter, Error, ErrorKind, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use inferno::flamegraph::Options;
@@ -16,9 +11,10 @@ use tracing_subscriber::prelude::*;
 
 use crate::args::CliArguments;
 
+/// Will flush the flamegraph to disk when dropped.
 pub struct TracingGuard {
     flush_guard: Option<FlushGuard<BufWriter<File>>>,
-    tempfile: File,
+    temp_file: File,
     output_svg: PathBuf,
 }
 
@@ -36,10 +32,10 @@ impl TracingGuard {
         drop(self.flush_guard.take());
 
         // Reset the file pointer to the beginning.
-        self.tempfile.seek(SeekFrom::Start(0))?;
+        self.temp_file.seek(SeekFrom::Start(0))?;
 
         // Create the readers and writers.
-        let reader = BufReader::new(&mut self.tempfile);
+        let reader = BufReader::new(&mut self.temp_file);
         let output = BufWriter::new(File::create(&self.output_svg)?);
 
         // Create the options: default in flame chart mode
@@ -57,22 +53,23 @@ impl Drop for TracingGuard {
     fn drop(&mut self) {
         if !std::thread::panicking() {
             if let Err(e) = self.finish() {
-                // Since we are finished, we cannot rely on tracing to log the error.
+                // Since we are finished, we cannot rely on tracing to log the
+                // error.
                 eprintln!("Failed to flush tracing flamegraph: {e}");
             }
         }
     }
 }
 
-/// Initializes the tracing system.
-/// Returns a guard that will flush the flamegraph to disk when dropped.
-pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, Error> {
+/// Initializes the tracing system and returns a guard that will flush the
+/// flamegraph to disk when dropped.
+pub fn init_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, Error> {
     let flamegraph = args.command.as_compile().and_then(|c| c.flamegraph.as_ref());
 
     if flamegraph.is_some() && args.command.is_watch() {
         return Err(Error::new(
             ErrorKind::InvalidInput,
-            "Cannot use --flamegraph with watch command",
+            "cannot use --flamegraph with watch command",
         ));
     }
 
@@ -101,8 +98,8 @@ pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, E
     };
 
     // Create a temporary file to store the flamegraph data.
-    let tempfile = tempfile::tempfile()?;
-    let writer = BufWriter::new(tempfile.try_clone()?);
+    let temp_file = tempfile::tempfile()?;
+    let writer = BufWriter::new(temp_file.try_clone()?);
 
     // Build the flamegraph layer.
     let flame_layer = FlameLayer::new(writer)
@@ -115,17 +112,20 @@ pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, E
     // Build the subscriber.
     registry.with(flame_layer).init();
 
-    tracing::warn!("Flamegraph is enabled, this can create a large temporary file and slow down the compilation process.");
+    tracing::warn!(
+        "Flamegraph is enabled, this can create a large temporary \
+         file and slow down the compilation process."
+    );
 
     Ok(Some(TracingGuard {
         flush_guard: Some(flush_guard),
-        tempfile,
+        temp_file,
         output_svg: path.clone().unwrap_or_else(|| "flamegraph.svg".into()),
     }))
 }
 
 /// Returns the log level filter for the given verbosity level.
-pub fn level_filter(args: &CliArguments) -> LevelFilter {
+fn level_filter(args: &CliArguments) -> LevelFilter {
     match args.verbosity {
         0 => LevelFilter::WARN,
         1 => LevelFilter::INFO,
