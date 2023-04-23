@@ -65,6 +65,11 @@ impl Dict {
             .ok_or_else(|| missing_key(key))
     }
 
+    /// Borrow the value of the given key or return a given default value
+    pub fn get<'a>(&'a self, key: &str, default: &'a Value) -> &Value {
+        self.0.get(key).unwrap_or(default)
+    }
+
     /// Remove the value if the dictionary contains the given key.
     pub fn take(&mut self, key: &str) -> StrResult<Value> {
         Arc::make_mut(&mut self.0)

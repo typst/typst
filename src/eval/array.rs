@@ -87,6 +87,11 @@ impl Array {
             .ok_or_else(|| out_of_bounds(index, len))
     }
 
+    /// Borrow the value of the given key or return a given default value
+    pub fn get<'a>(&'a self, index: i64, default: &'a Value) -> &Value {
+        self.locate(index).and_then(|i| self.0.get(i)).unwrap_or(default)
+    }
+
     /// Push a value to the end of the array.
     pub fn push(&mut self, value: Value) {
         self.0.push(value);

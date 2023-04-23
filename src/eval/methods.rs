@@ -87,6 +87,9 @@ pub fn call(
             "first" => array.first().at(span)?.clone(),
             "last" => array.last().at(span)?.clone(),
             "at" => array.at(args.expect("index")?).at(span)?.clone(),
+            "get" => array
+                .get(args.expect("index")?, &args.expect::<Value>("default")?)
+                .clone(),
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -123,6 +126,9 @@ pub fn call(
         Value::Dict(dict) => match method {
             "len" => Value::Int(dict.len()),
             "at" => dict.at(&args.expect::<Str>("key")?).at(span)?.clone(),
+            "get" => dict
+                .get(&args.expect::<Str>("key")?, &args.expect::<Value>("default")?)
+                .clone(),
             "keys" => Value::Array(dict.keys()),
             "values" => Value::Array(dict.values()),
             "pairs" => Value::Array(dict.pairs()),
@@ -297,6 +303,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("all", true),
             ("any", true),
             ("at", true),
+            ("get", true),
             ("contains", true),
             ("filter", true),
             ("find", true),
@@ -320,6 +327,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         ],
         "dictionary" => &[
             ("at", true),
+            ("get", true),
             ("insert", true),
             ("keys", false),
             ("len", false),

@@ -88,3 +88,12 @@
   // Error: 3-9 expected dictionary, found none
   object.property = "value"
 }
+
+---
+// Test get
+#{
+  let dict = (a: 1, b: 2)
+  test(dict.get("a", 0), 1)
+  test(dict.get("b", 0), 2)
+  test(dict.get("c", 0), 0)
+}
