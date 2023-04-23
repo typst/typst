@@ -43,7 +43,7 @@ use crate::text::TextElem;
 ///
 /// Display: Bibliography
 /// Category: meta
-#[element(Locatable, Synthesize, Show, LocalName)]
+#[element(Locatable, Synthesize, Show, Finalize, LocalName)]
 pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
@@ -66,6 +66,11 @@ pub struct BibliographyElem {
     ///   language]($func/text.lang) will be used. This is the default.
     /// - When set to `{none}`, the bibliography will not have a title.
     /// - A custom title can be set by passing content.
+    ///
+    /// The bibliography's heading will not be numbered by default, but you can
+    /// force it to be with a show-set rule:
+    /// `{show bibliography: set heading(numbering: "1.")}`
+    /// ```
     #[default(Some(Smart::Auto))]
     pub title: Option<Smart<Content>>,
 
@@ -152,12 +157,7 @@ impl Show for BibliographyElem {
                     .spanned(self.span())
             });
 
-            seq.push(
-                HeadingElem::new(title)
-                    .with_level(NonZeroUsize::ONE)
-                    .with_numbering(None)
-                    .pack(),
-            );
+            seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
 
         if !vt.introspector.init() {
@@ -196,6 +196,12 @@ impl Show for BibliographyElem {
         }
 
         Ok(Content::sequence(seq))
+    }
+}
+
+impl Finalize for BibliographyElem {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+        realized.styled(HeadingElem::set_numbering(None))
     }
 }
 
