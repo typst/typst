@@ -169,7 +169,7 @@ fn library() -> Library {
         Value::None
     }
 
-    let mut lib = typst_library::build(false);
+    let mut lib = typst_library::build();
 
     // Set page width to 120pt with 10pt margins, so that the inner page is
     // exactly 100pt wide. Page height is unbounded and font size is 10pt so

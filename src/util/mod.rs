@@ -226,3 +226,11 @@ pub fn pretty_array_like(parts: &[impl AsRef<str>], trailing_comma: bool) -> Str
     buf.push(')');
     buf
 }
+
+/// Prints an instrumentation based stacktrace in the console.
+///
+/// This is a debugging utility provided as a convinience function.
+pub fn print_backtrace() {
+    let span_trace = tracing_error::SpanTrace::capture();
+    println!("{}", color_spantrace::colorize(&span_trace));
+}

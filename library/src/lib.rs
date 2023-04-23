@@ -4,7 +4,6 @@
 #![allow(clippy::comparison_chain)]
 
 pub mod compute;
-pub mod debug;
 pub mod layout;
 pub mod math;
 pub mod meta;
@@ -22,16 +21,16 @@ use typst::model::{Element, Styles};
 use self::layout::LayoutRoot;
 
 /// Construct the standard library.
-pub fn build(debug: bool) -> Library {
+pub fn build() -> Library {
     let math = math::module();
     let calc = compute::calc::module();
-    let global = global(math.clone(), calc, debug);
+    let global = global(math.clone(), calc);
     Library { global, math, styles: styles(), items: items() }
 }
 
 /// Construct the module with global definitions.
 #[tracing::instrument(skip_all)]
-fn global(math: Module, calc: Module, debug: bool) -> Module {
+fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 
     // Text.
@@ -171,11 +170,6 @@ fn global(math: Module, calc: Module, debug: bool) -> Module {
     global.define("top", GenAlign::Specific(Align::Top));
     global.define("horizon", GenAlign::Specific(Align::Horizon));
     global.define("bottom", GenAlign::Specific(Align::Bottom));
-
-    // Debugging
-    if debug {
-        global.define("backtrace", debug::backtrace);
-    }
 
     Module::new("global").with_scope(global)
 }

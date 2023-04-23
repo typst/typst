@@ -482,6 +482,7 @@ impl Layout for CircleElem {
 
 /// Layout a shape.
 #[tracing::instrument(name = "shape::layout", skip_all)]
+#[allow(clippy::too_many_arguments)]
 fn layout(
     vt: &mut Vt,
     styles: StyleChain,

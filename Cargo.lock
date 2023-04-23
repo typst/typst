@@ -2257,6 +2257,7 @@ version = "0.2.0"
 dependencies = [
  "bitflags",
  "bytemuck",
+ "color-spantrace",
  "comemo",
  "ecow",
  "flate2",
@@ -2281,6 +2282,7 @@ dependencies = [
  "thin-vec",
  "tiny-skia",
  "tracing",
+ "tracing-error",
  "ttf-parser 0.18.1",
  "typst-macros",
  "unicode-math-class",
@@ -2344,7 +2346,6 @@ name = "typst-library"
 version = "0.2.0"
 dependencies = [
  "chinese-number",
- "color-spantrace",
  "comemo",
  "csv",
  "ecow",
@@ -2361,7 +2362,6 @@ dependencies = [
  "smallvec",
  "syntect",
  "tracing",
- "tracing-error",
  "ttf-parser 0.18.1",
  "typed-arena",
  "typst",

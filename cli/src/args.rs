@@ -18,13 +18,9 @@ pub struct CliArguments {
     #[command(subcommand)]
     pub command: Command,
 
-    /// Sets the level of verbosity: 0 = warning & error, 1 = info, 2 = debug, 3 = trace
+    /// Sets the level of verbosity: 0 = none, 1 = warning & error, 2 = info, 3 = debug, 4 = trace
     #[clap(short, long, action = ArgAction::Count)]
     pub verbosity: u8,
-
-    /// Whether to enable debug mode
-    #[clap(long)]
-    pub debug: bool,
 }
 
 /// What to do.

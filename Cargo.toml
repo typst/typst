@@ -54,6 +54,8 @@ xmp-writer = "0.1"
 tracing = "0.1.37"
 indexmap = "1.9.3"
 stacker = "0.1.15"
+color-spantrace = "0.2"
+tracing-error = "0.2"
 
 [profile.dev]
 debug = false

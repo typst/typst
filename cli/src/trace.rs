@@ -70,7 +70,7 @@ pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, E
     let flamegraph = args.command.as_compile().and_then(|c| c.flamegraph.as_ref());
 
     // Short circuit if we don't need to initialize flamegraph or debugging.
-    if flamegraph.is_none() && !args.debug {
+    if flamegraph.is_none() && args.verbosity == 0 {
         tracing_subscriber::fmt()
             .without_time()
             .with_max_level(level_filter(args))
