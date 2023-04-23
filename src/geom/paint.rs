@@ -463,8 +463,6 @@ mod tests {
 }
 
 /// The missing field access error message.
-#[cold]
-#[track_caller]
 fn missing_field(field: &str) -> EcoString {
     eco_format!("color does not contain field {:?}", Str::from(field))
 }

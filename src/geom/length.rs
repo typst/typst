@@ -144,8 +144,6 @@ impl Resolve for Length {
 }
 
 /// The missing field access error message.
-#[cold]
-#[track_caller]
 fn missing_field(field: &str) -> EcoString {
     eco_format!("length does not contain field {:?}", Str::from(field))
 }
