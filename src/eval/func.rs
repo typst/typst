@@ -340,9 +340,8 @@ impl Closure {
                     }
                 }
                 Param::Named(ident, default) => {
-                    let value = args
-                        .named::<Value>(ident)?
-                        .unwrap_or_else(|| default.clone());
+                    let value =
+                        args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
                     vm.define(ident.clone(), value);
                 }
                 Param::Placeholder => {
