@@ -3,15 +3,24 @@
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::ffi::OsStr;
+use std::fmt::Write as FmtWrite;
 use std::fs;
+use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
+use std::{env, io};
 
+use clap::Parser;
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use oxipng::{InFile, Options, OutFile};
+use rayon::iter::ParallelBridge;
+use rayon::iter::ParallelIterator;
 use tiny_skia as sk;
+use unscanny::Scanner;
+use walkdir::WalkDir;
+
 use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{func, Library, Value};
@@ -22,8 +31,6 @@ use typst::util::{Buffer, PathExt};
 use typst::World;
 use typst_library::layout::PageElem;
 use typst_library::text::{TextElem, TextSize};
-use unscanny::Scanner;
-use walkdir::WalkDir;
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
@@ -31,8 +38,6 @@ const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../assets/fonts";
 const FILE_DIR: &str = "../assets/files";
-
-use clap::Parser;
 
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
@@ -43,7 +48,7 @@ struct Args {
     subtest: Option<usize>,
     #[arg(long)]
     exact: bool,
-    #[arg(long)]
+    #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
     update: bool,
     #[arg(long)]
     pdf: bool,
@@ -78,53 +83,49 @@ impl Args {
 
 fn main() {
     let args = Args::parse();
-    let mut filtered = Vec::new();
-    // Since different tests can affect each other through the memoization
-    // cache, a deterministic order is important for reproducibility.
-    for entry in WalkDir::new("typ").sort_by_file_name() {
-        let entry = entry.unwrap();
-        if entry.depth() == 0 {
-            continue;
-        }
-
-        if entry.path().starts_with("typ/benches") {
-            continue;
-        }
-
-        let src_path = entry.into_path();
-        if src_path.extension() != Some(OsStr::new("typ")) {
-            continue;
-        }
-
-        if args.matches(&src_path) {
-            filtered.push(src_path);
-        }
-    }
-
-    let len = filtered.len();
-    if len == 1 {
-        println!("Running test ...");
-    } else if len > 1 {
-        println!("Running {len} tests");
-    }
 
     // Create loader and context.
-    let mut world = TestWorld::new(args.print);
+    let world = TestWorld::new(args.print);
 
-    // Run all the tests.
-    let mut ok = 0;
-    for src_path in filtered {
-        let path = src_path.strip_prefix(TYP_DIR).unwrap();
-        let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
-        let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
-        let pdf_path =
-            args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
+    println!("Running tests...");
+    let results = WalkDir::new("typ")
+        .into_iter()
+        .par_bridge()
+        .filter_map(|entry| {
+            let entry = entry.unwrap();
+            if entry.depth() == 0 {
+                return None;
+            }
 
-        ok +=
-            test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref(), &args)
-                as usize;
-    }
+            if entry.path().starts_with("typ/benches") {
+                return None;
+            }
 
+            let src_path = entry.into_path();
+            if src_path.extension() != Some(OsStr::new("typ")) {
+                return None;
+            }
+
+            if args.matches(&src_path) {
+                Some(src_path)
+            } else {
+                None
+            }
+        })
+        .map_with(world, |world, src_path| {
+            let path = src_path.strip_prefix(TYP_DIR).unwrap();
+            let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
+            let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
+            let pdf_path =
+                args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
+
+            test(world, &src_path, &png_path, &ref_path, pdf_path.as_deref(), &args)
+                as usize
+        })
+        .collect::<Vec<_>>();
+
+    let len = results.len();
+    let ok = results.iter().sum::<usize>();
     if len > 1 {
         println!("{ok} / {len} tests passed.");
     }
@@ -158,14 +159,15 @@ fn library() -> Library {
     /// Returns:
     #[func]
     fn print(#[variadic] values: Vec<Value>) -> Value {
-        print!("> ");
+        let mut stdout = io::stdout().lock();
+        write!(stdout, "> ").unwrap();
         for (i, value) in values.into_iter().enumerate() {
             if i > 0 {
-                print!(", ")
+                write!(stdout, ", ").unwrap();
             }
-            print!("{value:?}");
+            write!(stdout, "{value:?}").unwrap();
         }
-        println!();
+        writeln!(stdout).unwrap();
         Value::None
     }
 
@@ -206,7 +208,21 @@ struct TestWorld {
     main: SourceId,
 }
 
-#[derive(Default)]
+impl Clone for TestWorld {
+    fn clone(&self) -> Self {
+        Self {
+            print: self.print,
+            library: self.library.clone(),
+            book: self.book.clone(),
+            fonts: self.fonts.clone(),
+            paths: self.paths.clone(),
+            sources: FrozenVec::from_iter(self.sources.iter().cloned().map(Box::new)),
+            main: self.main,
+        }
+    }
+}
+
+#[derive(Default, Clone)]
 struct PathSlot {
     source: OnceCell<FileResult<SourceId>>,
     buffer: OnceCell<FileResult<Buffer>>,
@@ -222,7 +238,7 @@ impl TestWorld {
             .filter_map(|e| e.ok())
             .filter(|entry| entry.file_type().is_file())
         {
-            let data = std::fs::read(entry.path()).unwrap();
+            let data = fs::read(entry.path()).unwrap();
             fonts.extend(Font::iter(data.into()));
         }
 
@@ -337,10 +353,10 @@ fn test(
     args: &Args,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
-    println!("Testing {}", name.display());
 
     let text = fs::read_to_string(src_path).unwrap();
 
+    let mut output = String::new();
     let mut ok = true;
     let mut updated = false;
     let mut frames = vec![];
@@ -353,7 +369,7 @@ fn test(
     for (i, &part) in parts.iter().enumerate() {
         if let Some(x) = args.subtest {
             if x != i {
-                println!("skipped subtest {i}");
+                writeln!(output, "  Skipped subtest {i}.").unwrap();
                 continue;
             }
         }
@@ -370,8 +386,16 @@ fn test(
                 }
             }
         } else {
-            let (part_ok, compare_here, part_frames) =
-                test_part(world, src_path, part.into(), i, compare_ref, line, &mut rng);
+            let (part_ok, compare_here, part_frames) = test_part(
+                &mut output,
+                world,
+                src_path,
+                part.into(),
+                i,
+                compare_ref,
+                line,
+                &mut rng,
+            );
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);
@@ -390,7 +414,7 @@ fn test(
 
         if world.print.frames {
             for frame in &document.pages {
-                println!("Frame:\n{:#?}\n", frame);
+                writeln!(output, "{:#?}\n", frame).unwrap();
             }
         }
 
@@ -411,7 +435,7 @@ fn test(
                     update_image(png_path, ref_path);
                     updated = true;
                 } else {
-                    println!("  Does not match reference image. ❌");
+                    writeln!(output, "  Does not match reference image.").unwrap();
                     ok = false;
                 }
             }
@@ -420,24 +444,32 @@ fn test(
                 update_image(png_path, ref_path);
                 updated = true;
             } else {
-                println!("  Failed to open reference image. ❌");
+                writeln!(output, "  Failed to open reference image.").unwrap();
                 ok = false;
             }
         }
     }
 
-    if ok && !updated {
-        if world.print == PrintConfig::default() {
-            print!("\x1b[1A");
+    {
+        let mut stdout = io::stdout().lock();
+        stdout.write_all(name.to_string_lossy().as_bytes()).unwrap();
+        if ok {
+            writeln!(stdout, " ✔").unwrap();
+        } else {
+            writeln!(stdout, " ❌").unwrap();
         }
-        println!("Testing {} ✔", name.display());
+        if updated {
+            writeln!(stdout, "  Updated reference image.").unwrap();
+        }
+        if !output.is_empty() {
+            stdout.write_all(output.as_bytes()).unwrap();
+        }
     }
 
     ok
 }
 
 fn update_image(png_path: &Path, ref_path: &Path) {
-    println!("  Updated reference image. ✔");
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
         &OutFile::Path(Some(ref_path.to_owned())),
@@ -446,7 +478,9 @@ fn update_image(png_path: &Path, ref_path: &Path) {
     .unwrap();
 }
 
+#[allow(clippy::too_many_arguments)]
 fn test_part(
+    output: &mut String,
     world: &mut TestWorld,
     src_path: &Path,
     text: String,
@@ -460,14 +494,14 @@ fn test_part(
     let id = world.set(src_path, text);
     let source = world.source(id);
     if world.print.syntax {
-        println!("Syntax Tree:\n{:#?}\n", source.root())
+        writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
     }
 
     let (local_compare_ref, mut ref_errors) = parse_metadata(source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
-    ok &= test_spans(source.root());
-    ok &= test_reparse(world.source(id).text(), i, rng);
+    ok &= test_spans(output, source.root());
+    ok &= test_reparse(output, world.source(id).text(), i, rng);
 
     if world.print.model {
         let world = (world as &dyn World).track();
@@ -475,7 +509,7 @@ fn test_part(
         let mut tracer = typst::eval::Tracer::default();
         let module =
             typst::eval::eval(world, route.track(), tracer.track_mut(), source).unwrap();
-        println!("Model:\n{:#?}\n", module.content());
+        writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
     let (mut frames, errors) = match typst::compile(world) {
@@ -500,21 +534,21 @@ fn test_part(
     ref_errors.sort_by_key(|error| error.0.start);
 
     if errors != ref_errors {
-        println!("  Subtest {i} does not match expected errors. ❌");
+        writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
         ok = false;
 
         let source = world.source(id);
         for error in errors.iter() {
             if !ref_errors.contains(error) {
-                print!("    Not annotated | ");
-                print_error(source, line, error);
+                write!(output, "    Not annotated | ").unwrap();
+                print_error(output, source, line, error);
             }
         }
 
         for error in ref_errors.iter() {
             if !errors.contains(error) {
-                print!("    Not emitted   | ");
-                print_error(source, line, error);
+                write!(output, "    Not emitted   | ").unwrap();
+                print_error(output, source, line, error);
             }
         }
     }
@@ -551,7 +585,7 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
             source.line_column_to_byte(line, column).unwrap()
         };
 
-        let Some(rest) = line.strip_prefix("// Error: ") else { continue };
+        let Some(rest) = line.strip_prefix("// Error: ") else { continue; };
         let mut s = Scanner::new(rest);
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
@@ -563,12 +597,18 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
     (compare_ref, errors)
 }
 
-fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, String)) {
+fn print_error(
+    output: &mut String,
+    source: &Source,
+    line: usize,
+    (range, message): &(Range<usize>, String),
+) {
     let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
     let start_col = 1 + source.byte_to_column(range.start).unwrap();
     let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
     let end_col = 1 + source.byte_to_column(range.end).unwrap();
-    println!("Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}");
+    writeln!(output, "Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
+        .unwrap();
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the
@@ -577,7 +617,12 @@ fn print_error(source: &Source, line: usize, (range, message): &(Range<usize>, S
 /// The method will first inject 10 strings once every 400 source characters
 /// and then select 5 leaf node boundaries to inject an additional, randomly
 /// chosen string from the injection list.
-fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
+fn test_reparse(
+    output: &mut String,
+    text: &str,
+    i: usize,
+    rng: &mut LinearShift,
+) -> bool {
     let supplements = [
         "[",
         "]",
@@ -608,7 +653,7 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
 
     let mut ok = true;
 
-    let apply = |replace: std::ops::Range<usize>, with| {
+    let mut apply = |replace: Range<usize>, with| {
         let mut incr_source = Source::detached(text);
         if incr_source.root().len() != text.len() {
             println!(
@@ -627,7 +672,7 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
         let mut incr_root = incr_source.root().clone();
 
         // Ensures that the span numbering invariants hold.
-        let spans_ok = test_spans(&ref_root) && test_spans(&incr_root);
+        let spans_ok = test_spans(output, &ref_root) && test_spans(output, &incr_root);
 
         // Remove all spans so that the comparison works out.
         let tree_ok = {
@@ -637,13 +682,19 @@ fn test_reparse(text: &str, i: usize, rng: &mut LinearShift) -> bool {
         };
 
         if !tree_ok {
-            println!(
+            writeln!(
+                output,
                 "    Subtest {i} reparse differs from clean parse when inserting '{with}' at {}-{} ❌\n",
                 replace.start, replace.end,
-            );
-            println!("    Expected reference tree:\n{ref_root:#?}\n");
-            println!("    Found incremental tree:\n{incr_root:#?}");
-            println!("    Full source ({}):\n\"{edited_src:?}\"", edited_src.len());
+            ).unwrap();
+            writeln!(output, "    Expected reference tree:\n{ref_root:#?}\n").unwrap();
+            writeln!(output, "    Found incremental tree:\n{incr_root:#?}").unwrap();
+            writeln!(
+                output,
+                "    Full source ({}):\n\"{edited_src:?}\"",
+                edited_src.len()
+            )
+            .unwrap();
         }
 
         spans_ok && tree_ok
@@ -687,22 +738,27 @@ fn leafs(node: &SyntaxNode) -> Vec<SyntaxNode> {
 
 /// Ensure that all spans are properly ordered (and therefore unique).
 #[track_caller]
-fn test_spans(root: &SyntaxNode) -> bool {
-    test_spans_impl(root, 0..u64::MAX)
+fn test_spans(output: &mut String, root: &SyntaxNode) -> bool {
+    test_spans_impl(output, root, 0..u64::MAX)
 }
 
 #[track_caller]
-fn test_spans_impl(node: &SyntaxNode, within: Range<u64>) -> bool {
+fn test_spans_impl(output: &mut String, node: &SyntaxNode, within: Range<u64>) -> bool {
     if !within.contains(&node.span().number()) {
-        eprintln!("    Node: {node:#?}");
-        eprintln!("    Wrong span order: {} not in {within:?} ❌", node.span().number(),);
+        writeln!(output, "    Node: {node:#?}").unwrap();
+        writeln!(
+            output,
+            "    Wrong span order: {} not in {within:?} ❌",
+            node.span().number()
+        )
+        .unwrap();
     }
 
     let start = node.span().number() + 1;
     let mut children = node.children().peekable();
     while let Some(child) = children.next() {
         let end = children.peek().map_or(within.end, |next| next.span().number());
-        if !test_spans_impl(child, start..end) {
+        if !test_spans_impl(output, child, start..end) {
             return false;
         }
     }
