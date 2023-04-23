@@ -46,7 +46,7 @@ pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
 
 /// A heading in the outline panel.
 #[derive(Debug, Clone)]
-pub struct HeadingNode {
+struct HeadingNode {
     element: Content,
     level: NonZeroUsize,
     children: Vec<HeadingNode>,
@@ -83,7 +83,7 @@ impl HeadingNode {
 
 /// Write an outline item and all its children.
 #[tracing::instrument(skip_all)]
-pub fn write_outline_item(
+fn write_outline_item(
     ctx: &mut PdfContext,
     node: &HeadingNode,
     parent_ref: Ref,
