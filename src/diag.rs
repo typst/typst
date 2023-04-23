@@ -249,31 +249,31 @@ impl From<FileError> for EcoString {
 }
 
 /// Format a user-facing error message for an XML-like file format.
-pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> String {
+pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString {
     match error {
         roxmltree::Error::UnexpectedCloseTag { expected, actual, pos } => {
-            format!(
+            eco_format!(
                 "failed to parse {format}: found closing tag '{actual}' \
                  instead of '{expected}' in line {}",
                 pos.row
             )
         }
         roxmltree::Error::UnknownEntityReference(entity, pos) => {
-            format!(
+            eco_format!(
                 "failed to parse {format}: unknown entity '{entity}' in line {}",
                 pos.row
             )
         }
         roxmltree::Error::DuplicatedAttribute(attr, pos) => {
-            format!(
+            eco_format!(
                 "failed to parse {format}: duplicate attribute '{attr}' in line {}",
                 pos.row
             )
         }
         roxmltree::Error::NoRootNode => {
-            format!("failed to parse {format}: missing root node")
+            eco_format!("failed to parse {format}: missing root node")
         }
         roxmltree::Error::SizeLimit => "file is too large".into(),
-        _ => format!("failed to parse {format}"),
+        _ => eco_format!("failed to parse {format}"),
     }
 }

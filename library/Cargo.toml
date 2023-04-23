@@ -16,7 +16,7 @@ bench = false
 
 [dependencies]
 typst = { path = ".." }
-comemo = "0.2.1"
+comemo = "0.2.2"
 csv = "1"
 ecow = "0.1"
 hayagriva = "0.3"

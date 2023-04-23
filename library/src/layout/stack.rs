@@ -240,7 +240,7 @@ impl<'a> StackLayouter<'a> {
         // the region expands.
         let mut size = self
             .expand
-            .select(self.initial, self.used.to_axes(self.axis))
+            .select(self.initial, self.used.into_axes(self.axis))
             .min(self.initial);
 
         // Expand fully if there are fr spacings.
@@ -321,7 +321,7 @@ impl<T> Gen<T> {
     }
 
     /// Convert to the specific representation, given the current main axis.
-    fn to_axes(self, main: Axis) -> Axes<T> {
+    fn into_axes(self, main: Axis) -> Axes<T> {
         match main {
             Axis::X => Axes::new(self.main, self.cross),
             Axis::Y => Axes::new(self.cross, self.main),
@@ -337,6 +337,6 @@ impl Gen<Abs> {
 
     /// Convert to a point.
     fn to_point(self, main: Axis) -> Point {
-        self.to_axes(main).to_point()
+        self.into_axes(main).to_point()
     }
 }

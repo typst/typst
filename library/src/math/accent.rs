@@ -92,7 +92,7 @@ impl LayoutMath for AccentElem {
         let mut frame = Frame::new(size);
         frame.set_baseline(baseline);
         frame.push_frame(accent_pos, accent);
-        frame.push_frame(base_pos, base.to_frame());
+        frame.push_frame(base_pos, base.into_frame());
         ctx.push(FrameFragment::new(ctx, frame).with_base_ascent(base_ascent));
 
         Ok(())

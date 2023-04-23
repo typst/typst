@@ -10,7 +10,7 @@ const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 ///
 /// ## Example
 /// ```example
-/// $ vec(a, b, c) dot.op vec(1, 2, 3)
+/// $ vec(a, b, c) dot vec(1, 2, 3)
 ///     = a + 2b + 3c $
 /// ```
 ///
@@ -137,7 +137,7 @@ impl LayoutMath for MatElem {
 /// ## Example
 /// ```example
 /// $ f(x, y) := cases(
-///   1 "if" (x dot.op y)/2 <= 0,
+///   1 "if" (x dot y)/2 <= 0,
 ///   2 "if" x "is even",
 ///   3 "if" x in NN,
 ///   4 "else",
@@ -271,7 +271,7 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
         let points = alignments(&col);
         let mut y = Abs::zero();
         for ((cell, &ascent), &descent) in col.into_iter().zip(&ascents).zip(&descents) {
-            let cell = cell.to_aligned_frame(ctx, &points, Align::Center);
+            let cell = cell.into_aligned_frame(ctx, &points, Align::Center);
             let pos =
                 Point::new(x + (rcol - cell.width()) / 2.0, y + ascent - cell.ascent());
             frame.push_frame(pos, cell);

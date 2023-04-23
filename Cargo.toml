@@ -23,9 +23,10 @@ bench = false
 typst-macros = { path = "macros" }
 bitflags = "1"
 bytemuck = "1"
-comemo = "0.2.1"
+comemo = "0.2.2"
 ecow = "0.1"
 flate2 = "1"
+fontdb = "0.9"
 if_chain = "1"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
 log = "0.4"
@@ -48,7 +49,7 @@ unicode-math-class = "0.1"
 unicode-segmentation = "1"
 unicode-xid = "0.2"
 unscanny = "0.1"
-usvg = { version = "0.22", default-features = false }
+usvg = { version = "0.22", default-features = false, features = ["text"] }
 xmp-writer = "0.1"
 tracing = "0.1.37"
 indexmap = "1.9.3"

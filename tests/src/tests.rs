@@ -1,6 +1,7 @@
+#![allow(clippy::comparison_chain)]
+
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
-use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::ops::Range;
@@ -9,6 +10,7 @@ use std::path::{Path, PathBuf};
 use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
+use oxipng::{InFile, Options, OutFile};
 use tiny_skia as sk;
 use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
@@ -30,10 +32,53 @@ const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../assets/fonts";
 const FILE_DIR: &str = "../assets/files";
 
-fn main() {
-    let args = Args::new(env::args().skip(1));
-    let mut filtered = Vec::new();
+use clap::Parser;
 
+#[derive(Debug, Clone, Parser)]
+#[clap(name = "typst-test", author)]
+struct Args {
+    filter: Vec<String>,
+    /// runs only the specified subtest
+    #[arg(short, long)]
+    subtest: Option<usize>,
+    #[arg(long)]
+    exact: bool,
+    #[arg(long)]
+    update: bool,
+    #[arg(long)]
+    pdf: bool,
+    #[command(flatten)]
+    print: PrintConfig,
+    #[arg(long)]
+    nocapture: bool, // simply ignores the argument
+}
+
+/// Which things to print out for debugging.
+#[derive(Default, Debug, Copy, Clone, Eq, PartialEq, Parser)]
+struct PrintConfig {
+    #[arg(long)]
+    syntax: bool,
+    #[arg(long)]
+    model: bool,
+    #[arg(long)]
+    frames: bool,
+}
+
+impl Args {
+    fn matches(&self, path: &Path) -> bool {
+        if self.exact {
+            let name = path.file_name().unwrap().to_string_lossy();
+            self.filter.iter().any(|v| v == &name)
+        } else {
+            let path = path.to_string_lossy();
+            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
+        }
+    }
+}
+
+fn main() {
+    let args = Args::parse();
+    let mut filtered = Vec::new();
     // Since different tests can affect each other through the memoization
     // cache, a deterministic order is important for reproducibility.
     for entry in WalkDir::new("typ").sort_by_file_name() {
@@ -75,72 +120,24 @@ fn main() {
         let pdf_path =
             args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-        ok += test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref())
-            as usize;
+        ok +=
+            test(&mut world, &src_path, &png_path, &ref_path, pdf_path.as_deref(), &args)
+                as usize;
     }
 
     if len > 1 {
         println!("{ok} / {len} tests passed.");
     }
 
+    if ok != len {
+        println!(
+            "Set the UPDATE_EXPECT environment variable or pass the \
+             --update flag to update the reference image(s)."
+        );
+    }
+
     if ok < len {
         std::process::exit(1);
-    }
-}
-
-/// Parsed command line arguments.
-struct Args {
-    filter: Vec<String>,
-    exact: bool,
-    pdf: bool,
-    print: PrintConfig,
-}
-
-/// Which things to print out for debugging.
-#[derive(Default, Copy, Clone, Eq, PartialEq)]
-struct PrintConfig {
-    syntax: bool,
-    model: bool,
-    frames: bool,
-}
-
-impl Args {
-    fn new(args: impl Iterator<Item = String>) -> Self {
-        let mut filter = Vec::new();
-        let mut exact = false;
-        let mut pdf = false;
-        let mut print = PrintConfig::default();
-
-        for arg in args {
-            match arg.as_str() {
-                // Ignore this, its for cargo.
-                "--nocapture" => {}
-                // Match only the exact filename.
-                "--exact" => exact = true,
-                // Generate PDFs.
-                "--pdf" => pdf = true,
-                // Debug print the syntax trees.
-                "--syntax" => print.syntax = true,
-                // Debug print the model.
-                "--model" => print.model = true,
-                // Debug print the frames.
-                "--frames" => print.frames = true,
-                // Everything else is a file filter.
-                _ => filter.push(arg),
-            }
-        }
-
-        Self { filter, exact, pdf, print }
-    }
-
-    fn matches(&self, path: &Path) -> bool {
-        if self.exact {
-            let name = path.file_name().unwrap().to_string_lossy();
-            self.filter.iter().any(|v| v == &name)
-        } else {
-            let path = path.to_string_lossy();
-            self.filter.is_empty() || self.filter.iter().any(|v| path.contains(v))
-        }
     }
 }
 
@@ -324,10 +321,10 @@ fn read(path: &Path) -> FileResult<Vec<u8>> {
         .unwrap_or_else(|_| path.into());
 
     let f = |e| FileError::from_io(e, &suffix);
-    if fs::metadata(&path).map_err(f)?.is_dir() {
+    if fs::metadata(path).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(&path).map_err(f)
+        fs::read(path).map_err(f)
     }
 }
 
@@ -337,6 +334,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
+    args: &Args,
 ) -> bool {
     let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     println!("Testing {}", name.display());
@@ -344,6 +342,7 @@ fn test(
     let text = fs::read_to_string(src_path).unwrap();
 
     let mut ok = true;
+    let mut updated = false;
     let mut frames = vec![];
     let mut line = 0;
     let mut compare_ref = true;
@@ -352,6 +351,12 @@ fn test(
 
     let parts: Vec<_> = text.split("\n---").collect();
     for (i, &part) in parts.iter().enumerate() {
+        if let Some(x) = args.subtest {
+            if x != i {
+                println!("skipped subtest {i}");
+                continue;
+            }
+        }
         let is_header = i == 0
             && parts.len() > 1
             && part
@@ -379,7 +384,7 @@ fn test(
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
             let pdf_data = typst::export::pdf(&document);
-            fs::create_dir_all(&pdf_path.parent().unwrap()).unwrap();
+            fs::create_dir_all(pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
 
@@ -390,7 +395,7 @@ fn test(
         }
 
         let canvas = render(&document.pages);
-        fs::create_dir_all(&png_path.parent().unwrap()).unwrap();
+        fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
@@ -402,16 +407,26 @@ fn test(
                     .zip(ref_pixmap.data())
                     .any(|(&a, &b)| a.abs_diff(b) > 2)
             {
-                println!("  Does not match reference image. ❌");
-                ok = false;
+                if args.update {
+                    update_image(png_path, ref_path);
+                    updated = true;
+                } else {
+                    println!("  Does not match reference image. ❌");
+                    ok = false;
+                }
             }
         } else if !document.pages.is_empty() {
-            println!("  Failed to open reference image. ❌");
-            ok = false;
+            if args.update {
+                update_image(png_path, ref_path);
+                updated = true;
+            } else {
+                println!("  Failed to open reference image. ❌");
+                ok = false;
+            }
         }
     }
 
-    if ok {
+    if ok && !updated {
         if world.print == PrintConfig::default() {
             print!("\x1b[1A");
         }
@@ -419,6 +434,16 @@ fn test(
     }
 
     ok
+}
+
+fn update_image(png_path: &Path, ref_path: &Path) {
+    println!("  Updated reference image. ✔");
+    oxipng::optimize(
+        &InFile::Path(png_path.to_owned()),
+        &OutFile::Path(Some(ref_path.to_owned())),
+        &Options::max_compression(),
+    )
+    .unwrap();
 }
 
 fn test_part(
@@ -438,7 +463,7 @@ fn test_part(
         println!("Syntax Tree:\n{:#?}\n", source.root())
     }
 
-    let (local_compare_ref, mut ref_errors) = parse_metadata(&source);
+    let (local_compare_ref, mut ref_errors) = parse_metadata(source);
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     ok &= test_spans(source.root());
@@ -482,14 +507,14 @@ fn test_part(
         for error in errors.iter() {
             if !ref_errors.contains(error) {
                 print!("    Not annotated | ");
-                print_error(&source, line, error);
+                print_error(source, line, error);
             }
         }
 
         for error in ref_errors.iter() {
             if !errors.contains(error) {
                 print!("    Not emitted   | ");
-                print_error(&source, line, error);
+                print_error(source, line, error);
             }
         }
     }

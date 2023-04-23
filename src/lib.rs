@@ -33,6 +33,7 @@
 //! [raster images]: export::render
 
 #![recursion_limit = "1000"]
+#![allow(clippy::comparison_chain)]
 
 extern crate self as typst;
 

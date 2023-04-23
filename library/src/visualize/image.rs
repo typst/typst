@@ -3,10 +3,9 @@ use std::path::Path;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 
-use crate::{
-    meta::{Figurable, LocalName},
-    prelude::*,
-};
+use crate::meta::{Figurable, LocalName};
+use crate::prelude::*;
+use crate::text::families;
 
 /// A raster or vector graphic.
 ///
@@ -33,7 +32,7 @@ pub struct ImageElem {
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
         let path: EcoString = vm.locate(&path).at(span)?.to_string_lossy().into();
-        let _ = load(vm.world(), &path).at(span)?;
+        let _ = load(vm.world(), &path, None, None).at(span)?;
         path
     )]
     pub path: EcoString,
@@ -43,6 +42,9 @@ pub struct ImageElem {
 
     /// The height of the image.
     pub height: Smart<Rel<Length>>,
+
+    /// A text describing the image.
+    pub alt: Option<EcoString>,
 
     /// How the image should adjust itself to a given area.
     #[default(ImageFit::Cover)]
@@ -57,7 +59,10 @@ impl Layout for ImageElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let image = load(vt.world, &self.path()).unwrap();
+        let first = families(styles).next();
+        let fallback_family = first.as_ref().map(|f| f.as_str());
+        let image =
+            load(vt.world, &self.path(), fallback_family, self.alt(styles)).unwrap();
         let sizing = Axes::new(self.width(styles), self.height(styles));
         let region = sizing
             .zip(regions.base())
@@ -159,7 +164,12 @@ pub enum ImageFit {
 
 /// Load an image from a path.
 #[comemo::memoize]
-fn load(world: Tracked<dyn World>, full: &str) -> StrResult<Image> {
+fn load(
+    world: Tracked<dyn World>,
+    full: &str,
+    fallback_family: Option<&str>,
+    alt: Option<EcoString>,
+) -> StrResult<Image> {
     let full = Path::new(full);
     let buffer = world.file(full)?;
     let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
@@ -170,5 +180,5 @@ fn load(world: Tracked<dyn World>, full: &str) -> StrResult<Image> {
         "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
         _ => return Err("unknown image format".into()),
     };
-    Image::new(buffer, format)
+    Image::with_fonts(buffer, format, world, fallback_family, alt)
 }

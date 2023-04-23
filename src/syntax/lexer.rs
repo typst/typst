@@ -217,7 +217,7 @@ impl Lexer<'_> {
                 .and_then(std::char::from_u32)
                 .is_none()
             {
-                return self.error("invalid unicode escape sequence");
+                return self.error(eco_format!("invalid unicode codepoint: {}", hex));
             }
 
             return SyntaxKind::Escape;
@@ -512,7 +512,7 @@ impl Lexer<'_> {
 
             c if is_id_start(c) => self.ident(start),
 
-            _ => self.error("this character is not valid in code"),
+            c => self.error(eco_format!("the character `{c}` is not valid in code")),
         }
     }
 
@@ -527,7 +527,11 @@ impl Lexer<'_> {
             }
         }
 
-        SyntaxKind::Ident
+        if ident == "_" {
+            SyntaxKind::Underscore
+        } else {
+            SyntaxKind::Ident
+        }
     }
 
     fn number(&mut self, mut start: usize, c: char) -> SyntaxKind {
@@ -585,10 +589,10 @@ impl Lexer<'_> {
             SyntaxKind::Float
         } else {
             return self.error(match base {
-                2 => "invalid binary number",
-                8 => "invalid octal number",
-                16 => "invalid hexadecimal number",
-                _ => "invalid number",
+                2 => eco_format!("invalid binary number: 0b{}", number),
+                8 => eco_format!("invalid octal number: 0o{}", number),
+                16 => eco_format!("invalid hexadecimal number: 0x{}", number),
+                _ => eco_format!("invalid number: {}", number),
             });
         };
 
@@ -600,7 +604,7 @@ impl Lexer<'_> {
             suffix,
             "pt" | "mm" | "cm" | "in" | "deg" | "rad" | "em" | "fr" | "%"
         ) {
-            return self.error("invalid number suffix");
+            return self.error(eco_format!("invalid number suffix: {}", suffix));
         }
 
         SyntaxKind::Numeric

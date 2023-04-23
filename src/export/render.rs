@@ -238,7 +238,7 @@ fn render_bitmap_glyph(
     let size = text.size.to_f32();
     let ppem = size * ts.sy;
     let raster = text.font.ttf().glyph_raster_image(id, ppem as u16)?;
-    let image = Image::new(raster.data.into(), raster.format.into()).ok()?;
+    let image = Image::new(raster.data.into(), raster.format.into(), None).ok()?;
 
     // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
     // and maybe also for Noto Color Emoji. And: Is the size calculation
@@ -499,7 +499,7 @@ fn render_image(
 #[comemo::memoize]
 fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
-    match image.decode().unwrap().as_ref() {
+    match image.decoded() {
         DecodedImage::Raster(dynamic, _) => {
             let downscale = w < image.width();
             let filter =

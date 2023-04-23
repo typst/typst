@@ -487,7 +487,21 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
     let h = size.y.to_f32();
     ctx.content.save_state();
     ctx.content.transform([w, 0.0, 0.0, -h, x, y + h]);
-    ctx.content.x_object(Name(name.as_bytes()));
+
+    if let Some(alt) = image.alt() {
+        let mut image_span =
+            ctx.content.begin_marked_content_with_properties(Name(b"Span"));
+        let mut image_alt = image_span.properties_direct();
+        image_alt.pair(Name(b"Alt"), pdf_writer::Str(alt.as_bytes()));
+        image_alt.finish();
+        image_span.finish();
+
+        ctx.content.x_object(Name(name.as_bytes()));
+        ctx.content.end_marked_content();
+    } else {
+        ctx.content.x_object(Name(name.as_bytes()));
+    }
+
     ctx.content.restore_state();
 }
 

@@ -17,8 +17,8 @@ use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// Composable representation of styled content.
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content {
     func: ElemFunc,
     attrs: EcoVec<Attr>,

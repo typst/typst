@@ -30,8 +30,8 @@ fn bench_decode(iai: &mut Iai) {
         // We don't use chars().count() because that has a special
         // superfast implementation.
         let mut count = 0;
-        let mut chars = black_box(TEXT).chars();
-        while let Some(_) = chars.next() {
+        let chars = black_box(TEXT).chars();
+        for _ in chars {
             count += 1;
         }
         count
@@ -42,7 +42,7 @@ fn bench_scan(iai: &mut Iai) {
     iai.run(|| {
         let mut count = 0;
         let mut scanner = Scanner::new(black_box(TEXT));
-        while let Some(_) = scanner.eat() {
+        while scanner.eat().is_some() {
             count += 1;
         }
         count

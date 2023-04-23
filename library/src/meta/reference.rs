@@ -160,7 +160,7 @@ impl Show for RefElem {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
 
-            return Ok(self.to_citation(vt, styles)?.pack());
+            return Ok(self.to_citation(vt, styles)?.pack().spanned(self.span()));
         }
 
         let elem = elem.at(self.span())?;

@@ -5,6 +5,7 @@ mod ctx;
 mod accent;
 mod align;
 mod attach;
+mod cancel;
 mod delimited;
 mod frac;
 mod fragment;
@@ -20,6 +21,7 @@ mod underover;
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
+pub use self::cancel::*;
 pub use self::delimited::*;
 pub use self::frac::*;
 pub use self::matrix::*;
@@ -71,6 +73,7 @@ pub fn module() -> Module {
     math.define("overbrace", OverbraceElem::func());
     math.define("underbracket", UnderbracketElem::func());
     math.define("overbracket", OverbracketElem::func());
+    math.define("cancel", CancelElem::func());
 
     // Fractions and matrix-likes.
     math.define("frac", FracElem::func());
@@ -348,9 +351,18 @@ impl LayoutMath for EquationElem {
 impl LayoutMath for Content {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        // Directly layout the body of nested equations instead of handling it
+        // like a normal equation so that things like this work:
+        // ```
+        // #let my = $pi$
+        // $ my r^2 $
+        // ```
+        if let Some(elem) = self.to::<EquationElem>() {
+            return elem.layout_math(ctx);
+        }
+
         if let Some(realized) = ctx.realize(self)? {
-            realized.layout_math(ctx)?;
-            return Ok(());
+            return realized.layout_math(ctx);
         }
 
         if let Some(children) = self.to_sequence() {
