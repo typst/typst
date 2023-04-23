@@ -1047,7 +1047,7 @@ impl Eval for ast::FuncCall {
         if vm.depth >= MAX_CALL_DEPTH {
             bail!(span, "maximum function call depth exceeded");
         }
-        
+
         let callee = self.callee();
         let in_math = in_math(&callee);
         let callee_span = callee.span();
