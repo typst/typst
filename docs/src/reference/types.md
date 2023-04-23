@@ -630,6 +630,15 @@ Folds all items into a single value using an accumulator function.
   and one for an item.
 - returns: any
 
+### zip()
+Zips the array with another array. 
+If the two arrays are of unequal length, it will
+only zip up until the last element of the smaller array 
+and the rest will be ignored.
+
+- other: array (positional, required)
+  The other array which should be zipped with the current one.
+
 ### any()
 Whether the given function returns `{true}` for any item in the array.
 

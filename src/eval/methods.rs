@@ -116,6 +116,7 @@ pub fn call(
                 array.join(sep, last).at(span)?
             }
             "sorted" => Value::Array(array.sorted(vm, span, args.named("key")?)?),
+            "zip" => Value::Array(array.zip(args.expect("other")?)),
             "enumerate" => Value::Array(array.enumerate()),
             _ => return missing(),
         },
@@ -317,6 +318,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("slice", true),
             ("sorted", false),
             ("enumerate", false),
+            ("zip", true),
         ],
         "dictionary" => &[
             ("at", true),
