@@ -6,8 +6,8 @@ use std::ops::{Add, AddAssign, Deref};
 use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{cast_from_value, dict, Array, Dict, Value, Vm, Func};
-use crate::diag::{StrResult, SourceResult, At};
+use super::{cast_from_value, dict, Array, Dict, Func, Value, Vm};
+use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::Args;
 use crate::geom::GenAlign;
 
@@ -261,13 +261,21 @@ impl Str {
     /// Replace at most `count` occurrences of the given pattern with a
     /// replacement string or function (beginning from the start). If no count is given,
     /// all occurences are replaced
-    pub fn replace(&self, vm: &mut Vm, span: Span, pattern: StrPattern, with: Replacement, count: Option<usize>) -> SourceResult<Self> {
+    pub fn replace(
+        &self,
+        vm: &mut Vm,
+        span: Span,
+        pattern: StrPattern,
+        with: Replacement,
+        count: Option<usize>,
+    ) -> SourceResult<Self> {
         match with {
             Replacement::Func(func) => match &pattern {
                 StrPattern::Str(pat) => {
                     // call `func` with the pattern string and use the output to either replace
                     // n many occurences or all
-                    let args = Args::new(func.span(), [Value::Str(Str::from(pat.as_str()))]);
+                    let args =
+                        Args::new(func.span(), [Value::Str(Str::from(pat.as_str()))]);
                     let res = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
                     let new = if let Some(n) = count {
                         self.0.replacen(pat.as_str(), res.as_str(), n)
@@ -287,8 +295,18 @@ impl Str {
                     for match_dict in matches_dicts {
                         // safety: we can unwrap here since we know due to the definition of `captures_to_dict`
                         // what the keys are
-                        let start = match_dict.at("start").unwrap().clone().cast::<usize>().at(span)?;
-                        let end = match_dict.at("end").unwrap().clone().cast::<usize>().at(span)?;
+                        let start = match_dict
+                            .at("start")
+                            .unwrap()
+                            .clone()
+                            .cast::<usize>()
+                            .at(span)?;
+                        let end = match_dict
+                            .at("end")
+                            .unwrap()
+                            .clone()
+                            .cast::<usize>()
+                            .at(span)?;
                         // push everything until the mathc
                         new.push_str(&self.as_str()[last_match..start]);
                         let args = Args::new(func.span(), [match_dict.into()]);
@@ -300,17 +318,17 @@ impl Str {
                     new.push_str(&self.as_str()[last_match..]);
                     Ok(new.into())
                 }
-            }
+            },
             Replacement::Str(s) => match pattern {
-                    StrPattern::Str(pat) => match count {
-                        Some(n) => Ok(self.0.replacen(pat.as_str(), &s, n).into()),
-                        None => Ok(self.0.replace(pat.as_str(), &s).into()),
-                    },
-                    StrPattern::Regex(re) => match count {
-                        Some(n) => Ok(re.replacen(self, n, s.as_str()).into()),
-                        None => Ok(re.replace_all(self, s.as_str()).into()),
-                    },
-            }
+                StrPattern::Str(pat) => match count {
+                    Some(n) => Ok(self.0.replacen(pat.as_str(), &s, n).into()),
+                    None => Ok(self.0.replace(pat.as_str(), &s).into()),
+                },
+                StrPattern::Regex(re) => match count {
+                    Some(n) => Ok(re.replacen(self, n, s.as_str()).into()),
+                    None => Ok(re.replace_all(self, s.as_str()).into()),
+                },
+            },
         }
     }
 
@@ -570,7 +588,7 @@ pub enum Replacement {
     Str(Str),
     /// Either of type `Dict -> Str` (see `captures_to_dict`) if the match occured
     /// by regex or `Str -> Str` if matched by Str.
-    Func(Func)
+    Func(Func),
 }
 
 cast_from_value! {
