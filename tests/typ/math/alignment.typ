@@ -2,7 +2,7 @@
 
 ---
 // Test alignment step functions.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 "abc" &= c \
 &= c + 1 & "By definition" \
@@ -12,7 +12,7 @@ $
 
 ---
 // Test post-fix alignment.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 & "right" \
 "a very long line" \
@@ -21,7 +21,7 @@ $
 
 ---
 // Test no alignment.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 "right" \
 "a very long line" \
@@ -30,7 +30,7 @@ $
 
 ---
 // Test alternating alignment.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 "abc" & "abc abc abc" & "abc abc" \
 "abc abc" & "abc abc" & "abc" \
@@ -39,7 +39,7 @@ $
 
 ---
 // Test alternating alignment in a vector.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 vec(
 "abc" & "abc abc abc" & "abc abc",
@@ -50,7 +50,7 @@ $
 
 ---
 // Test alternating explicit alignment in a matrix.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 mat(
 "abc" & "abc abc abc" & "abc abc";
@@ -61,7 +61,7 @@ $
 
 ---
 // Test alignment in a matrix.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 mat(
 "abc", "abc abc abc", "abc abc";
@@ -72,7 +72,7 @@ $
 
 ---
 // Test explicit left alignment in a matrix.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 mat(
 &"abc", &"abc abc abc", &"abc abc";
@@ -83,7 +83,7 @@ $
 
 ---
 // Test explicit right alignment in a matrix.
-#set page(width: 300pt)
+#set page(width: 250pt)
 $
 mat(
 "abc"&, "abc abc abc"&, "abc abc"&;
