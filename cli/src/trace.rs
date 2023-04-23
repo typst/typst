@@ -72,7 +72,8 @@ pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, E
     if flamegraph.is_some() && args.command.is_watch() {
         return Err(Error::new(
             ErrorKind::InvalidInput,
-            "Cannot use --flamegraph with watch command",))
+            "Cannot use --flamegraph with watch command",
+        ));
     }
 
     // Short circuit if we don't need to initialize flamegraph or debugging.
