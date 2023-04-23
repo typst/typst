@@ -75,7 +75,11 @@ impl Func {
 
     /// Call the function with the given arguments.
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
-        let _span = tracing::info_span!("call", name = self.name().unwrap_or("<anon>"),);
+        let _span = tracing::info_span!(
+            "call",
+            name = self.name().unwrap_or("<anon>"),
+            file = 0,
+        );
 
         match &self.repr {
             Repr::Native(native) => {
@@ -296,80 +300,78 @@ impl Closure {
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
-        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, move || {
-            let closure = match &this.repr {
-                Repr::Closure(closure) => closure,
-                _ => panic!("`this` must be a closure"),
-            };
+        let closure = match &this.repr {
+            Repr::Closure(closure) => closure,
+            _ => panic!("`this` must be a closure"),
+        };
 
-            // Don't leak the scopes from the call site. Instead, we use the scope
-            // of captured variables we collected earlier.
-            let mut scopes = Scopes::new(None);
-            scopes.top = closure.captured.clone();
+        // Don't leak the scopes from the call site. Instead, we use the scope
+        // of captured variables we collected earlier.
+        let mut scopes = Scopes::new(None);
+        scopes.top = closure.captured.clone();
 
-            // Evaluate the body.
-            let vt = Vt { world, tracer, provider, introspector };
-            let mut vm = Vm::new(vt, route, closure.location, scopes);
-            vm.depth = depth;
+        // Evaluate the body.
+        let vt = Vt { world, tracer, provider, introspector };
+        let mut vm = Vm::new(vt, route, closure.location, scopes);
+        vm.depth = depth;
 
-            // Provide the closure itself for recursive calls.
-            if let Some(name) = &closure.name {
-                vm.define(name.clone(), Value::Func(this.clone()));
-            }
+        // Provide the closure itself for recursive calls.
+        if let Some(name) = &closure.name {
+            vm.define(name.clone(), Value::Func(this.clone()));
+        }
 
-            // Parse the arguments according to the parameter list.
-            let num_pos_params =
-                closure.params.iter().filter(|p| matches!(p, Param::Pos(_))).count();
-            let num_pos_args = args.to_pos().len() as usize;
-            let sink_size = num_pos_args.checked_sub(num_pos_params);
+        // Parse the arguments according to the parameter list.
+        let num_pos_params =
+            closure.params.iter().filter(|p| matches!(p, Param::Pos(_))).count();
+        let num_pos_args = args.to_pos().len() as usize;
+        let sink_size = num_pos_args.checked_sub(num_pos_params);
 
-            let mut sink = None;
-            let mut sink_pos_values = None;
-            for p in &closure.params {
-                match p {
-                    Param::Pos(ident) => {
-                        vm.define(ident.clone(), args.expect::<Value>(ident)?);
-                    }
-                    Param::Sink(ident) => {
-                        sink = ident.clone();
-                        if let Some(sink_size) = sink_size {
-                            sink_pos_values = Some(args.consume(sink_size)?);
-                        }
-                    }
-                    Param::Named(ident, default) => {
-                        let value = args
-                            .named::<Value>(ident)?
-                            .unwrap_or_else(|| default.clone());
-                        vm.define(ident.clone(), value);
-                    }
-                    Param::Placeholder => {
-                        args.eat::<Value>()?;
+        let mut sink = None;
+        let mut sink_pos_values = None;
+        for p in &closure.params {
+            match p {
+                Param::Pos(ident) => {
+                    vm.define(ident.clone(), args.expect::<Value>(ident)?);
+                }
+                Param::Sink(ident) => {
+                    sink = ident.clone();
+                    if let Some(sink_size) = sink_size {
+                        sink_pos_values = Some(args.consume(sink_size)?);
                     }
                 }
-            }
-
-            if let Some(sink) = sink {
-                let mut remaining_args = args.take();
-                if let Some(sink_pos_values) = sink_pos_values {
-                    remaining_args.items.extend(sink_pos_values);
+                Param::Named(ident, default) => {
+                    let value = args
+                        .named::<Value>(ident)?
+                        .unwrap_or_else(|| default.clone());
+                    vm.define(ident.clone(), value);
                 }
-                vm.define(sink, remaining_args);
+                Param::Placeholder => {
+                    args.eat::<Value>()?;
+                }
             }
+        }
 
-            // Ensure all arguments have been used.
-            args.finish()?;
-
-            // Handle control flow.
-            let result = closure.body.eval(&mut vm);
-            match vm.flow {
-                Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
-                Some(Flow::Return(_, None)) => {}
-                Some(flow) => bail!(flow.forbidden()),
-                None => {}
+        if let Some(sink) = sink {
+            let mut remaining_args = args.take();
+            if let Some(sink_pos_values) = sink_pos_values {
+                remaining_args.items.extend(sink_pos_values);
             }
+            vm.define(sink, remaining_args);
+        }
 
-            result
-        })
+        // Ensure all arguments have been used.
+        args.finish()?;
+
+        // Handle control flow.
+        let result = closure.body.eval(&mut vm);
+        match vm.flow {
+            Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
+            Some(Flow::Return(_, None)) => {}
+            Some(flow) => bail!(flow.forbidden()),
+            None => {}
+        }
+
+        result
     }
 }
 
