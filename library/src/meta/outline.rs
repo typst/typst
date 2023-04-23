@@ -131,6 +131,7 @@ pub struct OutlineElem {
 }
 
 impl Show for OutlineElem {
+    #[tracing::instrument(name = "OutlineElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.

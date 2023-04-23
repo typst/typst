@@ -8,6 +8,7 @@ use crate::model::Content;
 use crate::util::NonZeroExt;
 
 /// Construct the outline for the document.
+#[tracing::instrument(skip_all)]
 pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
     for heading in ctx.introspector.query(&item!(heading_func).select()) {
@@ -81,6 +82,7 @@ impl HeadingNode {
 }
 
 /// Write an outline item and all its children.
+#[tracing::instrument(skip_all)]
 fn write_outline_item(
     ctx: &mut PdfContext,
     node: &HeadingNode,

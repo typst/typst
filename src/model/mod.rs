@@ -23,11 +23,13 @@ use crate::World;
 
 /// Typeset content into a fully layouted document.
 #[comemo::memoize]
+#[tracing::instrument(skip(world, tracer, content))]
 pub fn typeset(
     world: Tracked<dyn World>,
     mut tracer: TrackedMut<Tracer>,
     content: &Content,
 ) -> SourceResult<Document> {
+    tracing::info!("Starting layout");
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
@@ -38,6 +40,8 @@ pub fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
+        tracing::info!("Layout iteration {iter}");
+
         let constraint = Constraint::new();
         let mut provider = StabilityProvider::new();
         let mut vt = Vt {

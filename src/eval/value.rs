@@ -310,6 +310,7 @@ where
         T::TYPE_NAME
     }
 
+    #[tracing::instrument(skip_all)]
     fn hash128(&self) -> u128 {
         // Also hash the TypeId since values with different types but
         // equal data should be different.

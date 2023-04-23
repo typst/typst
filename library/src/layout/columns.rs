@@ -50,6 +50,7 @@ pub struct ColumnsElem {
 }
 
 impl Layout for ColumnsElem {
+    #[tracing::instrument(name = "ColumnsElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

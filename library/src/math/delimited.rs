@@ -39,6 +39,7 @@ pub struct LrElem {
 }
 
 impl LayoutMath for LrElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut body = self.body();
         if let Some(elem) = body.to::<LrElem>() {
