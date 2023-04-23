@@ -47,7 +47,6 @@ pub use self::transform::*;
 
 use std::mem;
 
-use tracing::info;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::eval::Tracer;
@@ -89,7 +88,7 @@ impl LayoutRoot for Content {
                 .layout_root(&mut vt, styles)
         }
 
-        info!("Starting layout");
+        tracing::info!("Starting layout");
 
         cached(
             self,
@@ -156,7 +155,7 @@ impl Layout for Content {
                 .layout(&mut vt, styles, regions)
         }
 
-        info!("Layouting `Content`");
+        tracing::info!("Layouting `Content`");
 
         cached(
             self,

@@ -8,9 +8,7 @@ use std::io::SeekFrom;
 use std::path::PathBuf;
 
 use inferno::flamegraph::Options;
-use tracing::info;
 use tracing::metadata::LevelFilter;
-use tracing::warn;
 use tracing_error::ErrorLayer;
 use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::fmt;
@@ -30,7 +28,7 @@ impl TracingGuard {
             return Ok(());
         }
 
-        info!("Flushing tracing flamegraph...");
+        tracing::info!("Flushing tracing flamegraph...");
 
         // At this point, we're done tracing, so we can drop the guard.
         // This will flush the tracing output to disk.
@@ -109,7 +107,7 @@ pub fn initialize_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, E
     // Build the subscriber.
     registry.with(flame_layer).init();
 
-    warn!("Flamegraph is enabled, this can create a large temporary file and slow down the compilation process.");
+    tracing::warn!("Flamegraph is enabled, this can create a large temporary file and slow down the compilation process.");
 
     Ok(Some(TracingGuard {
         flush_guard: Some(flush_guard),

@@ -12,7 +12,6 @@ pub use self::introspect::*;
 pub use self::realize::*;
 pub use self::styles::*;
 
-use tracing::info;
 pub use typst_macros::element;
 
 use comemo::{Constraint, Track, Tracked, TrackedMut};
@@ -30,7 +29,7 @@ pub fn typeset(
     mut tracer: TrackedMut<Tracer>,
     content: &Content,
 ) -> SourceResult<Document> {
-    info!("Starting layout");
+    tracing::info!("Starting layout");
     let library = world.library();
     let styles = StyleChain::new(&library.styles);
 
@@ -41,7 +40,7 @@ pub fn typeset(
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
-        info!("Layout iteration {iter}");
+        tracing::info!("Layout iteration {iter}");
 
         let constraint = Constraint::new();
         let mut provider = StabilityProvider::new();

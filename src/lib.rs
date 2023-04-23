@@ -55,7 +55,6 @@ pub mod syntax;
 use std::path::Path;
 
 use comemo::{Prehashed, Track};
-use tracing::info;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
@@ -73,7 +72,7 @@ pub fn compile(world: &(dyn World + 'static)) -> SourceResult<Document> {
     let module =
         eval::eval(world.track(), route.track(), tracer.track_mut(), world.main())?;
 
-    info!("Evaluation successful");
+    tracing::info!("Evaluation successful");
 
     // Typeset the module's contents.
     model::typeset(world.track(), tracer.track_mut(), &module.content())

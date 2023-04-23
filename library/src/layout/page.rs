@@ -1,8 +1,6 @@
 use std::ptr;
 use std::str::FromStr;
 
-use tracing::info;
-
 use super::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, Numbering};
 use crate::prelude::*;
@@ -276,7 +274,7 @@ impl PageElem {
     /// Layout the page run into a sequence of frames, one per page.
     #[tracing::instrument(skip_all)]
     pub fn layout(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Fragment> {
-        info!("Page layout");
+        tracing::info!("Page layout");
 
         // When one of the lengths is infinite the page fits its content along
         // that axis.
@@ -336,7 +334,7 @@ impl PageElem {
 
         // Realize overlays.
         for (i, frame) in fragment.iter_mut().enumerate() {
-            info!("Layouting page #{i}");
+            tracing::info!("Layouting page #{i}");
             frame.prepend(Point::zero(), numbering_meta.clone());
             let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
@@ -347,7 +345,7 @@ impl PageElem {
                 ("background", &background),
                 ("foreground", &foreground),
             ] {
-                info!("Layouting {name}");
+                tracing::info!("Layouting {name}");
 
                 let Some(content) = marginal else { continue };
 

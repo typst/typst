@@ -21,7 +21,6 @@ use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use trace::initialize_tracing;
-use tracing::info;
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::eval::Library;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
@@ -249,7 +248,7 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
 /// Compile a single time.
 #[tracing::instrument(skip_all)]
 fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
-    info!("Starting compilation");
+    tracing::info!("Starting compilation");
 
     status(command, Status::Compiling).unwrap();
 
@@ -263,7 +262,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
             status(command, Status::Success).unwrap();
 
-            info!("Compilation succeeded");
+            tracing::info!("Compilation succeeded");
             Ok(false)
         }
 
@@ -273,7 +272,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
 
-            info!("Compilation failed");
+            tracing::info!("Compilation failed");
             Ok(true)
         }
     }
