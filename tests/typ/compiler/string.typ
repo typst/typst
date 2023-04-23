@@ -112,6 +112,8 @@
 
 ---
 // Test the `replace` method.
+
+// with `Str` replacements
 #test("ABC".replace("", "-"), "-A-B-C-")
 #test("Ok".replace("Ok", "Nope", count: 0), "Ok")
 #test("to add?".replace("", "How ", count: 1), "How to add?")
@@ -125,6 +127,45 @@
 )
 #test("123".replace(regex("\d$"), "_"), "12_")
 #test("123".replace(regex("\d{1,2}$"), "__"), "1__")
+
+// with `Func` replacements
+
+//  with regex
+//    multiple matches
+#test("abc".replace(regex("[a-z]"), m => {
+  str(m.start) + m.text + str(m.end)
+}), "0a11b22c3")
+#test("abcd, efgh".replace(regex("\w+"), m => {
+  upper(m.text)
+}), "ABCD, EFGH")
+//    with capture groups - one match
+#test("hello : world".replace(regex("^(.+)\s*(:)\s*(.+)$"), m => {
+  upper(m.captures.at(0)) + m.captures.at(1) + " " + upper(m.captures.at(2))
+}), "HELLO : WORLD")
+//    with capture groups - multiple matches
+#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), m => {
+  m.captures.at(1) + " " + m.captures.at(0)
+}), "world hello, ipsum lorem")
+#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), m => {
+  m.captures.at(1) + " " + m.captures.at(0)
+}, count: 1), "world hello, lorem ipsum")
+//    no matches
+#test("123 456".replace(regex("[a-z]+"), "a"), "123 456")
+//  with str
+//    multiple matches
+#test("abc".replace("", s => "-"), "-a-b-c-")
+#test("abc".replace("", s => "-", count: 1), "-abc")
+//    no matches
+#test("123".replace("abc", s => ""), "123")
+#test("123".replace("abc", s => "", count: 2), "123")
+
+---
+// Error: 23-24 expected string, found integer
+#"123".replace("123", s => 1)
+
+---
+// Error: 23-32 expected string or function, found array
+#"123".replace("123", (1, 2, 3))
 
 ---
 // Test the `trim` method.

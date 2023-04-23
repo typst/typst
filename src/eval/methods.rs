@@ -56,9 +56,9 @@ pub fn call(
             "matches" => Value::Array(string.matches(args.expect("pattern")?)),
             "replace" => {
                 let pattern = args.expect("pattern")?;
-                let with = args.expect("replacement string")?;
+                let with = args.expect("function or string")?;
                 let count = args.named("count")?;
-                Value::Str(string.replace(pattern, with, count))
+                Value::Str(string.replace(vm, span, pattern, with, count)?)
             }
             "trim" => {
                 let pattern = args.eat()?;

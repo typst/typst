@@ -6,8 +6,9 @@ use std::ops::{Add, AddAssign, Deref};
 use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{cast_from_value, dict, Array, Dict, Value};
-use crate::diag::StrResult;
+use super::{cast_from_value, dict, Array, Dict, Value, Vm, Func};
+use crate::diag::{StrResult, SourceResult, At};
+use crate::eval::Args;
 use crate::geom::GenAlign;
 
 /// Create a new [`Str`] from a format string.
@@ -21,6 +22,7 @@ macro_rules! __format_str {
 
 #[doc(inline)]
 pub use crate::__format_str as format_str;
+use crate::syntax::Span;
 #[doc(hidden)]
 pub use ecow::eco_format;
 
@@ -257,17 +259,58 @@ impl Str {
     }
 
     /// Replace at most `count` occurrences of the given pattern with a
-    /// replacement string (beginning from the start).
-    pub fn replace(&self, pattern: StrPattern, with: Self, count: Option<usize>) -> Self {
-        match pattern {
-            StrPattern::Str(pat) => match count {
-                Some(n) => self.0.replacen(pat.as_str(), &with, n).into(),
-                None => self.0.replace(pat.as_str(), &with).into(),
-            },
-            StrPattern::Regex(re) => match count {
-                Some(n) => re.replacen(self, n, with.as_str()).into(),
-                None => re.replace(self, with.as_str()).into(),
-            },
+    /// replacement string or function (beginning from the start). If no count is given,
+    /// all occurences are replaced
+    pub fn replace(&self, vm: &mut Vm, span: Span, pattern: StrPattern, with: Replacement, count: Option<usize>) -> SourceResult<Self> {
+        match with {
+            Replacement::Func(func) => match &pattern {
+                StrPattern::Str(pat) => {
+                    // call `func` with the pattern string and use the output to either replace
+                    // n many occurences or all
+                    let args = Args::new(func.span(), [Value::Str(Str::from(pat.as_str()))]);
+                    let res = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
+                    let new = if let Some(n) = count {
+                        self.0.replacen(pat.as_str(), res.as_str(), n)
+                    } else {
+                        self.0.replace(pat.as_str(), res.as_str())
+                    };
+                    Ok(new.into())
+                }
+                StrPattern::Regex(re) => {
+                    // heuristic: assume the new string is about the same length as the current string
+                    let mut new = String::with_capacity(self.as_str().len());
+                    let mut last_match = 0;
+                    let matches_dicts = re
+                        .captures_iter(self)
+                        .map(captures_to_dict)
+                        .take(count.unwrap_or(usize::MAX));
+                    for match_dict in matches_dicts {
+                        // safety: we can unwrap here since we know due to the definition of `captures_to_dict`
+                        // what the keys are
+                        let start = match_dict.at("start").unwrap().clone().cast::<usize>().at(span)?;
+                        let end = match_dict.at("end").unwrap().clone().cast::<usize>().at(span)?;
+                        // push everything until the mathc
+                        new.push_str(&self.as_str()[last_match..start]);
+                        let args = Args::new(func.span(), [match_dict.into()]);
+                        let res = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
+                        new.push_str(res.as_str());
+                        last_match = end;
+                    }
+                    // push the remainder
+                    new.push_str(&self.as_str()[last_match..]);
+                    Ok(new.into())
+                }
+            }
+            Replacement::Str(s) => match pattern {
+                    StrPattern::Str(pat) => match count {
+                        Some(n) => Ok(self.0.replacen(pat.as_str(), &s, n).into()),
+                        None => Ok(self.0.replace(pat.as_str(), &s).into()),
+                    },
+                    StrPattern::Regex(re) => match count {
+                        Some(n) => Ok(re.replacen(self, n, s.as_str()).into()),
+                        None => Ok(re.replace_all(self, s.as_str()).into()),
+                    },
+            }
         }
     }
 
@@ -520,4 +563,18 @@ cast_from_value! {
         GenAlign::End => Self::End,
         _ => Err("expected either `start` or `end`")?,
     },
+}
+
+/// A replacement for a matched [`Str`]
+pub enum Replacement {
+    Str(Str),
+    /// Either of type `Dict -> Str` (see `captures_to_dict`) if the match occured
+    /// by regex or `Str -> Str` if matched by Str.
+    Func(Func)
+}
+
+cast_from_value! {
+    Replacement,
+    text: Str => Self::Str(text),
+    func: Func => Self::Func(func)
 }
