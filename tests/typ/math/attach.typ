@@ -9,15 +9,36 @@ $f_x + t^b + V_1^2 + attach(A, t: alpha, b: beta)$
 // aligned on the right edge of their bounding boxes, not on the left as in postscripts.
 $
 attach(upright(O), bl: 8, tl: 16, br: 2, tr: 2-),
-attach("Pb", bl: 82, tl: 207) +
-attach(upright(e), bl: -1, tl: 0) + macron(v)_e \
-attach(a, tl: u), attach(a, tr: v), attach(a, bl: x),
-attach(a, br: y), limits(a)^t, limits(a)_b,
-attach(a, tr: v, t: t), attach(a, br: y, b: b) \
-attach(a, tl: u, tr: v), attach(a, bl: x, br: y),
-attach(a, tl: u, bl: x), attach(a, tr: v, br: y),
-attach(a, tl: u, br: y), attach(a, bl: x, tr: v) \
-limits(a)^t_b, attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
+attach("Pb", bl: 82, tl: 207) + attach(upright(e), bl: -1, tl: 0) + macron(v)_e \
+$
+
+---
+// A mixture of attachment positioning schemes.
+$
+attach(a, tl: u),   attach(a, tr: v),   attach(a, bl: x),
+attach(a, br: y),   limits(a)^t,        limits(a)_b \
+
+attach(a, tr: v, t: t),
+attach(a, tr: v, br: y),
+attach(a, br: y, b: b),
+attach(limits(a), b: b, bl: x),
+attach(a, tl: u, bl: x),
+attach(limits(a), t: t, tl: u) \
+
+attach(a, tl: u, tr: v),
+attach(limits(a), t: t, br: y),
+attach(limits(a), b: b, tr: v),
+attach(a, bl: x, br: y),
+attach(limits(a), b: b, tl: u),
+attach(limits(a), t: t, bl: u),
+limits(a)^t_b \
+
+attach(a, tl: u, tr: v, bl: x, br: y),
+attach(limits(a), t: t, bl: x, br: y, b: b),
+attach(limits(a), t: t, tl: u, tr: v, b: b),
+attach(limits(a), tl: u, bl: x, t: t, b: b),
+attach(limits(a), t: t, b: b, tr: v, br: y),
+attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
 $
 
 ---
@@ -39,9 +60,9 @@ $
 
 ---
 // Test high subscript and superscript.
-$ sqrt(a_(1/2)^zeta), sqrt(a_alpha^(1/2)), sqrt(a_(1/2)^(3/4)) $
-$ sqrt(attach(a, tl: 1/2 alpha, bl: 3/4 beta)),
-  sqrt(attach(a, tl: 1/2 alpha, bl: 3/4 beta, tr: 1/2 alpha, br: 3/4 beta)) $
+$ sqrt(a_(1/2)^zeta), sqrt(a_alpha^(1/2)), sqrt(a_(1/2)^(3/4)) \
+  sqrt(attach(a, tl: 1/2, bl: 3/4)),
+  sqrt(attach(a, tl: 1/2, bl: 3/4, tr: 1/2, br: 3/4)) $
 
 ---
 // Test frame base.
