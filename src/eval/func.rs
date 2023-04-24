@@ -75,6 +75,12 @@ impl Func {
 
     /// Call the function with the given arguments.
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
+        let _span = tracing::info_span!(
+            "call",
+            name = self.name().unwrap_or("<anon>"),
+            file = 0,
+        );
+
         match &self.repr {
             Repr::Native(native) => {
                 let value = (native.func)(vm, &mut args)?;
@@ -111,6 +117,7 @@ impl Func {
     }
 
     /// Call the function with a Vt.
+    #[tracing::instrument(skip_all)]
     pub fn call_vt(
         &self,
         vt: &mut Vt,
@@ -281,6 +288,7 @@ pub enum Param {
 impl Closure {
     /// Call the function in the context with the arguments.
     #[comemo::memoize]
+    #[tracing::instrument(skip_all)]
     #[allow(clippy::too_many_arguments)]
     fn call(
         this: &Func,
@@ -399,6 +407,7 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Visit any node and collect all captured variables.
+    #[tracing::instrument(skip_all)]
     pub fn visit(&mut self, node: &SyntaxNode) {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.

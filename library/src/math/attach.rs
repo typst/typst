@@ -27,6 +27,7 @@ pub struct AttachElem {
 }
 
 impl LayoutMath for AttachElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let base = self.base();
         let display_limits = base.is::<LimitsElem>();
@@ -83,6 +84,7 @@ pub struct ScriptsElem {
 }
 
 impl LayoutMath for ScriptsElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
@@ -105,6 +107,7 @@ pub struct LimitsElem {
 }
 
 impl LayoutMath for LimitsElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }

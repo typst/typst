@@ -154,6 +154,7 @@ pub struct EnumElem {
 }
 
 impl Layout for EnumElem {
+    #[tracing::instrument(name = "EnumElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
