@@ -43,8 +43,8 @@ impl<'a> Scopes<'a> {
             .chain(self.base.map(|base| base.global.scope()))
             .find_map(|scope| scope.get(var))
             .ok_or_else(|| {
-                if let Some((a, b)) = var.split_once('-') {
-                    eco_format!("unknown variable: {} – did you mean {} - {}?", var, a, b)
+                if var.contains('-') {
+                    eco_format!("unknown variable: {} – if you meant to use subtraction, try adding space around the minus sign.", var)
                 } else {
                     eco_format!("unknown variable: {}", var)
                 }
@@ -68,7 +68,13 @@ impl<'a> Scopes<'a> {
             .ok_or_else(|| {
                 match self.base.and_then(|base| base.global.scope().get(var)) {
                     Some(_) => eco_format!("cannot mutate a constant: {}", var),
-                    _ => eco_format!("unknown variable: {}", var),
+                    _ => {
+                        if var.contains('-') {
+                            eco_format!("unknown variable: {} – if you meant to use subtraction, try adding space around the minus sign.", var)
+                        } else {
+                            eco_format!("unknown variable: {}", var)
+                        }
+                    },
                 }
             })?
     }
