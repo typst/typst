@@ -533,8 +533,8 @@ pub fn shape<'a>(
         shape_segment(&mut ctx, 0, text, families(styles));
     }
 
-    calculate_adjustability(&mut ctx);
     track_and_space(&mut ctx);
+    calculate_adjustability(&mut ctx);
 
     ShapedText {
         base,
