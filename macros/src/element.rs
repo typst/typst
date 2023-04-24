@@ -402,7 +402,7 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
     quote! {
         |id| {
             let null = unsafe {
-                ::std::mem::ManuallyDrop::new(Self(::typst::model::Content::dangling(
+                ::std::mem::ManuallyDrop::new(Self(::typst::model::Content::new(
                     <#ident as ::typst::model::Element>::func()
                 )))
             };
