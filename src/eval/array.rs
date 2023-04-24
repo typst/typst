@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::iter::zip;
 use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
@@ -275,13 +274,12 @@ impl Array {
     /// Zips the array with another array. If the two arrays are of unequal length, it will
     /// only zip up until the last element of the smaller array and the rest will be ignored.
     pub fn zip(&self, other: Array) -> Array {
-        let mut zipped_result = Array::new();
-        for (first, second) in zip(self.iter(), other.iter()) {
-            let pair =
-                Value::Array(Array::from_vec(eco_vec![first.clone(), second.clone()]));
-            zipped_result.push(pair);
-        }
-        zipped_result
+        self.iter()
+            .zip(other)
+            .map(|(first, second)| {
+                Value::Array(Array::from_vec(eco_vec![first.clone(), second.clone()]))
+            })
+            .collect()
     }
 
     /// Return a sorted version of this array, optionally by a given key function.

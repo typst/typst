@@ -1,4 +1,5 @@
 # None
+
 A value that indicates the absence of any other value.
 
 The none type has exactly one value: `{none}`.
@@ -9,11 +10,13 @@ It can be [joined]($scripting/#blocks) with any value, yielding
 the other value.
 
 ## Example
+
 ```example
 Not visible: #none
 ```
 
 # Auto
+
 A value that indicates a smart default.
 
 The auto type has exactly one value: `{auto}`.
@@ -24,12 +27,14 @@ Setting it to `{auto}` lets Typst automatically determine the direction from the
 [text language]($func/text.lang).
 
 # Boolean
+
 Either `{true}` or `{false}`.
 
 The boolean type has two values: `{true}` and `{false}`. It denotes whether
 something is active or enabled.
 
 ## Example
+
 ```example
 #false \
 #true \
@@ -37,16 +42,19 @@ something is active or enabled.
 ```
 
 # Integer
+
 A whole number.
 
 The number can be negative, zero, or positive. As Typst uses 64 bits to store
-integers, integers cannot be smaller than `{-9223372036854775808}` or larger than
+integers, integers cannot be smaller than `{-9223372036854775808}` or larger
+than
 `{9223372036854775807}`.
 
 The number can also be specified as hexadecimal, octal, or binary by starting it
 with a zero followed by either `x`, `o`, or `b`.
 
 ## Example
+
 ```example
 #(1 + 2) \
 #(2 - 5) \
@@ -58,6 +66,7 @@ with a zero followed by either `x`, `o`, or `b`.
 ```
 
 # Float
+
 A floating-pointer number.
 
 A limited-precision representation of a real number. Typst uses 64 bits to
@@ -65,6 +74,7 @@ store floats. Wherever a float is expected, you can also pass an
 [integer]($type/integer).
 
 ## Example
+
 ```example
 #3.14 \
 #1e4 \
@@ -72,6 +82,7 @@ store floats. Wherever a float is expected, you can also pass an
 ```
 
 # Length
+
 A size or distance, possibly expressed with contextual units.
 Typst supports the following length units:
 
@@ -82,6 +93,7 @@ Typst supports the following length units:
 - Relative to font size: `{2.5em}`
 
 ## Example
+
 ```example
 #rect(width: 20pt)
 #rect(width: 2em)
@@ -89,6 +101,7 @@ Typst supports the following length units:
 ```
 
 # Angle
+
 An angle describing a rotation.
 Typst supports the following angular units:
 
@@ -96,16 +109,19 @@ Typst supports the following angular units:
 - Radians: `{3.14rad}`
 
 ## Example
+
 ```example
 #rotate(10deg)[Hello there!]
 ```
 
 # Ratio
+
 A ratio of a whole.
 
 Written as a number, followed by a percent sign.
 
 ## Example
+
 ```example
 #set align(center)
 #scale(x: 150%)[
@@ -114,6 +130,7 @@ Written as a number, followed by a percent sign.
 ```
 
 # Relative Length
+
 A length in relation to some known length.
 
 This type is a combination of a [length]($type/length) with a
@@ -122,11 +139,13 @@ of a length and a ratio. Wherever a relative length is expected, you can also
 use a bare length or ratio.
 
 ## Example
+
 ```example
 #rect(width: 100% - 50pt)
 ```
 
 # Fraction
+
 Defines how the the remaining space in a layout is distributed.
 
 Each fractionally sized element gets space based on the ratio of its fraction to
@@ -136,14 +155,17 @@ For more details, also see the [h]($func/h) and [v]($func/v) functions and the
 [grid function]($func/grid).
 
 ## Example
+
 ```example
 Left #h(1fr) Left-ish #h(2fr) Right
 ```
 
 # Color
+
 A color in a specific color space.
 
 Typst supports:
+
 - sRGB through the [`rgb` function]($func/rgb)
 - Device CMYK through [`cmyk` function]($func/cmyk)
 - D65 Gray through the [`luma` function]($func/luma)
@@ -155,7 +177,9 @@ Furthermore, Typst provides the following built-in colors:
 `lime`.
 
 ## Methods
+
 ### lighten()
+
 Lightens a color.
 
 - amount: ratio (positional, required)
@@ -163,6 +187,7 @@ Lightens a color.
 - returns: color
 
 ### darken()
+
 Darkens a color.
 
 - amount: ratio (positional, required)
@@ -170,11 +195,13 @@ Darkens a color.
 - returns: color
 
 ### negate()
+
 Produces the negative of the color.
 
 - returns: color
 
 # Symbol
+
 A Unicode symbol.
 
 Typst defines common symbols so that they can easily be written with standard
@@ -206,6 +233,7 @@ $arrow.t.quad$
 ```
 
 # String
+
 A sequence of Unicode codepoints.
 
 You can iterate over the grapheme clusters of the string using a
@@ -222,6 +250,7 @@ quite versatile.
 All lengths and indices are expressed in terms of UTF-8 bytes.
 
 ### Example
+
 ```example
 #"hello world!" \
 #"\"hello\n  world\"!" \
@@ -232,7 +261,9 @@ All lengths and indices are expressed in terms of UTF-8 bytes.
 ```
 
 ### Escape sequences
+
 Just like in markup, you can escape a few symbols in strings:
+
 - `[\\]` for a backslash
 - `[\"]` for a quote
 - `[\n]` for a newline
@@ -241,24 +272,29 @@ Just like in markup, you can escape a few symbols in strings:
 - `[\u{1f600}]` for a hexadecimal Unicode escape sequence
 
 ## Methods
+
 ### len()
+
 The length of the string in UTF-8 encoded bytes.
 
 - returns: integer
 
 ### first()
+
 Extract the first grapheme cluster of the string.
 Fails with an error if the string is empty.
 
 - returns: any
 
 ### last()
+
 Extract the last grapheme cluster of the string.
 Fails with an error if the string is empty.
 
 - returns: any
 
 ### at()
+
 Extract the first grapheme cluster after the specified index. Fails with an
 error if the index is out of bounds.
 
@@ -267,13 +303,15 @@ error if the index is out of bounds.
 - returns: string
 
 ### slice()
+
 Extract a substring of the string.
 Fails with an error if the start or end index is out of bounds.
 
 - start: integer (positional, required)
   The start byte index (inclusive).
 - end: integer (positional)
-  The end byte index (exclusive). If omitted, the whole slice until the end of the
+  The end byte index (exclusive). If omitted, the whole slice until the end of
+  the
   string is extracted.
 - count: integer (named)
   The number of bytes to extract. This is equivalent to passing `start + count`
@@ -281,16 +319,19 @@ Fails with an error if the start or end index is out of bounds.
 - returns: string
 
 ### clusters()
+
 Returns the grapheme clusters of the string as an array of substrings.
 
 - returns: array
 
 ### codepoints()
+
 Returns the Unicode codepoints of the string as an array of substrings.
 
 - returns: array
 
 ### contains()
+
 Whether the string contains the specified pattern.
 
 This method also has dedicated syntax: You can write `{"bc" in "abcd"}` instead
@@ -301,6 +342,7 @@ of `{"abcd".contains("bc")}`.
 - returns: boolean
 
 ### starts-with()
+
 Whether the string starts with the specified pattern.
 
 - pattern: string or regex (positional, required)
@@ -308,6 +350,7 @@ Whether the string starts with the specified pattern.
 - returns: boolean
 
 ### ends-with()
+
 Whether the string ends with the specified pattern.
 
 - pattern: string or regex (positional, required)
@@ -315,6 +358,7 @@ Whether the string ends with the specified pattern.
 - returns: boolean
 
 ### find()
+
 Searches for the specified pattern in the string and returns the first match
 as a string or `{none}` if there is no match.
 
@@ -323,6 +367,7 @@ as a string or `{none}` if there is no match.
 - returns: string or none
 
 ### position()
+
 Searches for the specified pattern in the string and returns the index of the
 first match as an integer or `{none}` if there is no match.
 
@@ -331,10 +376,12 @@ first match as an integer or `{none}` if there is no match.
 - returns: integer or none
 
 ### match()
+
 Searches for the specified pattern in the string and returns a dictionary
 with details about the first match or `{none}` if there is no match.
 
 The returned dictionary has the following keys:
+
 * `start`: The start offset of the match
 * `end`: The end offset of the match
 * `text`: The text that matched.
@@ -347,6 +394,7 @@ The returned dictionary has the following keys:
 - returns: dictionary or none
 
 ### matches()
+
 Searches for the specified pattern in the string and returns an array of
 dictionaries with details about all matches. For details about the returned
 dictionaries, see above.
@@ -356,6 +404,7 @@ dictionaries, see above.
 - returns: array
 
 ### replace()
+
 Replaces all or a specified number of matches of a pattern with a replacement
 string and returns the resulting string.
 
@@ -368,6 +417,7 @@ string and returns the resulting string.
 - returns: string
 
 ### trim()
+
 Removes matches of a pattern from one or both sides of the string, once or
 repeatedly and returns the resulting string.
 
@@ -382,6 +432,7 @@ repeatedly and returns the resulting string.
 - returns: string
 
 ### split()
+
 Splits a string at matches of a specified pattern and returns an array of
 the resulting parts.
 
@@ -390,6 +441,7 @@ the resulting parts.
 - returns: array
 
 # Content
+
 A piece of document content.
 
 This type is at the heart of Typst. All markup you write and most
@@ -408,6 +460,7 @@ integers. Wherever content is expected, you can also pass a
 [string]($type/string) or `{none}`.
 
 ## Representation
+
 Content consists of elements with fields. When constructing an element with
 its _element function,_ you provide these fields as arguments and when you have
 a content value, you can access its fields with
@@ -434,7 +487,9 @@ elements the content is composed of and what fields they have. Alternatively,
 you can inspect the output of the [`repr`]($func/repr) function.
 
 ## Methods
+
 ### func()
+
 The content's element function. This function can be used to create the element
 contained in this content. It can be used in set and show rules for the element.
 Can be compared with global functions to check whether you have a specific
@@ -443,6 +498,7 @@ kind of element.
 - returns: function
 
 ### has()
+
 Whether the content has the specified field.
 
 - field: string (positional, required)
@@ -450,6 +506,7 @@ Whether the content has the specified field.
 - returns: boolean
 
 ### at()
+
 Access the specified field on the content.
 
 - field: string (positional, required)
@@ -457,6 +514,7 @@ Access the specified field on the content.
 - returns: any
 
 ### location()
+
 The location of the content. This is only available on content returned by
 [query]($func/query), for other content it will fail with an error. The
 resulting location can be used with [counters]($func/counter),
@@ -465,6 +523,7 @@ resulting location can be used with [counters]($func/counter),
 - returns: location
 
 # Array
+
 A sequence of values.
 
 You can construct an array by enclosing a comma-separated sequence of values
@@ -482,6 +541,7 @@ to disambiguate from a simple parenthesized expressions like `{(1 + 2) * 3}`.
 An empty array is written as `{()}`.
 
 ## Example
+
 ```example
 #let values = (1, 7, 4, -3, 2)
 
@@ -498,12 +558,15 @@ An empty array is written as `{()}`.
 ```
 
 ## Methods
+
 ### len()
+
 The number of values in the array.
 
 - returns: integer
 
 ### first()
+
 Returns the first item in the array.
 May be used on the left-hand side of an assignment.
 Fails with an error if the array is empty.
@@ -511,6 +574,7 @@ Fails with an error if the array is empty.
 - returns: any
 
 ### last()
+
 Returns the last item in the array.
 May be used on the left-hand side of an assignment.
 Fails with an error if the array is empty.
@@ -518,6 +582,7 @@ Fails with an error if the array is empty.
 - returns: any
 
 ### at()
+
 Returns the item at the specified index in the array.
 May be used on the left-hand side of an assignment.
 Fails with an error if the index is out of bounds.
@@ -527,12 +592,14 @@ Fails with an error if the index is out of bounds.
 - returns: any
 
 ### push()
+
 Add a value to the end of the array.
 
 - value: any (positional, required)
   The value to insert at the end of the array.
 
 ### pop()
+
 Remove the last item from the array and return it.
 Fails with an error if the array is empty.
 
@@ -540,6 +607,7 @@ Fails with an error if the array is empty.
   The removed last value.
 
 ### insert()
+
 Insert a value into the array at the specified index.
 Fails with an error if the index is out of bounds.
 
@@ -549,6 +617,7 @@ Fails with an error if the index is out of bounds.
   The value to insert into the array.
 
 ### remove()
+
 Remove the value at the specified index from the array and return it.
 
 - index: integer (positional, required)
@@ -556,6 +625,7 @@ Remove the value at the specified index from the array and return it.
 - returns: any
 
 ### slice()
+
 Extract a subslice of the array.
 Fails with an error if the start or index is out of bounds.
 
@@ -570,6 +640,7 @@ Fails with an error if the start or index is out of bounds.
 - returns: array
 
 ### contains()
+
 Whether the array contains the specified value.
 
 This method also has dedicated syntax: You can write `{2 in (1, 2, 3)}` instead
@@ -580,6 +651,7 @@ of `{(1, 2, 3).contains(2)}`.
 - returns: boolean
 
 ### find()
+
 Searches for an item for which the given function returns `{true}` and
 returns the first match or `{none}` if there is no match.
 
@@ -588,6 +660,7 @@ returns the first match or `{none}` if there is no match.
 - returns: any or none
 
 ### position()
+
 Searches for an item for which the given function returns `{true}` and
 returns the index of the first match or `{none}` if there is no match.
 
@@ -596,6 +669,7 @@ returns the index of the first match or `{none}` if there is no match.
 - returns: integer or none
 
 ### filter()
+
 Produces a new array with only the items from the original one for which the
 given function returns true.
 
@@ -604,6 +678,7 @@ given function returns true.
 - returns: array
 
 ### map()
+
 Produces a new array in which all items from the original one were
 transformed with the given function.
 
@@ -612,6 +687,7 @@ transformed with the given function.
 - returns: array
 
 ### enumerate()
+
 Returns a new array with the values alongside their indices.
 
 The returned array consists of `(index, value)` pairs in the form of length-2
@@ -621,6 +697,7 @@ for loop.
 - returns: array
 
 ### fold()
+
 Folds all items into a single value using an accumulator function.
 
 - init: any (positional, required)
@@ -631,15 +708,18 @@ Folds all items into a single value using an accumulator function.
 - returns: any
 
 ### zip()
-Zips the array with another array. 
-If the two arrays are of unequal length, it will
-only zip up until the last element of the smaller array 
-and the rest will be ignored.
+
+Zips the array with another array. If the two arrays are of unequal length, it
+will only zip up until the last element of the smaller array and the remaining
+elements will be ignored. The return value is an array where each element is yet
+another array of size 2.
 
 - other: array (positional, required)
   The other array which should be zipped with the current one.
+- returns: array
 
 ### any()
+
 Whether the given function returns `{true}` for any item in the array.
 
 - test: function (positional, required)
@@ -647,6 +727,7 @@ Whether the given function returns `{true}` for any item in the array.
 - returns: boolean
 
 ### all()
+
 Whether the given function returns `{true}` for all items in the array.
 
 - test: function (positional, required)
@@ -654,16 +735,19 @@ Whether the given function returns `{true}` for all items in the array.
 - returns: boolean
 
 ### flatten()
+
 Combine all nested arrays into a single flat one.
 
 - returns: array
 
 ### rev()
+
 Return a new array with the same items, but in reverse order.
 
 - returns: array
 
 ### join()
+
 Combine all items in the array into one.
 
 - separator: any (positional)
@@ -673,13 +757,16 @@ Combine all items in the array into one.
 - returns: any
 
 ### sorted()
+
 Return a new array with the same items, but sorted.
 
 - key: function (named)
-  If given, applies this function to the elements in the array to determine the keys to sort by.
+  If given, applies this function to the elements in the array to determine the
+  keys to sort by.
 - returns: array
 
 # Dictionary
+
 A map from string keys to values.
 
 You can construct a dictionary by enclosing comma-separated `key: value` pairs
@@ -700,6 +787,7 @@ You can iterate over the pairs in a dictionary using a
 inserted / declared.
 
 ## Example
+
 ```example
 #let dict = (
   name: "Typst",
@@ -717,12 +805,15 @@ inserted / declared.
 ```
 
 ## Methods
+
 ### len()
+
 The number of pairs in the dictionary.
 
 - returns: integer
 
 ### at()
+
 Returns the value associated with the specified key in the dictionary.
 May be used on the left-hand side of an assignment if the key is already
 present in the dictionary.
@@ -733,6 +824,7 @@ Fails with an error if the key is not part of the dictionary.
 - returns: any
 
 ### insert()
+
 Insert a new pair into the dictionary and return the value.
 If the dictionary already contains this key, the value is updated.
 
@@ -742,22 +834,26 @@ If the dictionary already contains this key, the value is updated.
   The value of the pair that should be inserted.
 
 ### keys()
+
 Returns the keys of the dictionary as an array in insertion order.
 
 - returns: array
 
 ### values()
+
 Returns the values of the dictionary as an array in insertion order.
 
 - returns: array
 
 ### pairs()
+
 Returns the keys and values of the dictionary as an array of pairs. Each pair is
 represented as an array of length two.
 
 - returns: array
 
 ### remove()
+
 Remove a pair from the dictionary by key and return the value.
 
 - key: string (positional, required)
@@ -765,6 +861,7 @@ Remove a pair from the dictionary by key and return the value.
 - returns: any
 
 # Function
+
 A mapping from argument values to a return value.
 
 You can call a function by writing a comma-separated list of function
@@ -779,6 +876,7 @@ Within math mode, function calls have special behaviour. See the
 [math documentation]($category/math) for more details.
 
 ### Example
+
 ```example
 // Call a function.
 #list([A], [B])
@@ -800,6 +898,7 @@ documentation about [set]($styling/#set-rules) and
 you can work with functions in Typst.
 
 ### Defining functions { #definitions }
+
 You can define your own function with a
 [let binding]($scripting/#bindings) that has a parameter list after
 the binding's name. The parameter list can contain positional parameters,
@@ -830,6 +929,7 @@ defines the function's return value and can depend on the parameters.
 ```
 
 ### Unnamed functions { #unnamed }
+
 You can also created an unnamed function without creating a binding by
 specifying a parameter list followed by `=>` and the function body. If your
 function has just one parameter, the parentheses around the parameter list are
@@ -843,6 +943,7 @@ once?
 ```
 
 ### Notable fact
+
 In Typst, all functions are _pure._ This means that for the same
 arguments, they always return the same result. They cannot "remember" things to
 produce another value when they are called a second time.
@@ -852,7 +953,9 @@ The only exception are built-in methods like
 called on.
 
 ## Methods
+
 ### with()
+
 Returns a new function that has the given arguments pre-applied.
 
 - arguments: any (variadic)
@@ -860,6 +963,7 @@ Returns a new function that has the given arguments pre-applied.
 - returns: function
 
 ### where()
+
 Returns a selector that filters for elements belonging to this function
 whose fields have the values of the given arguments.
 
@@ -868,6 +972,7 @@ whose fields have the values of the given arguments.
 - returns: selector
 
 # Arguments
+
 Captured arguments to a function.
 
 Like built-in functions, custom functions can also take a variable number of
@@ -875,10 +980,12 @@ arguments. You can specify an _argument sink_ which collects all excess
 arguments as `..sink`. The resulting `sink` value is of the `arguments` type. It
 exposes methods to access the positional and named arguments and is iterable
 with a [for loop]($scripting/#loops). Inversely, you can spread
-arguments, arrays and dictionaries into a function call with the spread operator:
+arguments, arrays and dictionaries into a function call with the spread
+operator:
 `{func(..args)}`.
 
 ## Example
+
 ```example
 #let format(title, ..authors) = [
   *#title* \
@@ -891,17 +998,21 @@ arguments, arrays and dictionaries into a function call with the spread operator
 ```
 
 ## Methods
+
 ### pos()
+
 Returns the captured positional arguments as an array.
 
 - returns: array
 
 ### named()
+
 Returns the captured named arguments as a dictionary.
 
 - returns: dictionary
 
 # Module
+
 An evaluated module, either built-in or resulting from a file.
 
 You can access definitions from the module using
@@ -909,6 +1020,7 @@ You can access definitions from the module using
 [import and include syntaxes]($scripting/#modules).
 
 ## Example
+
 ```example
 <<< #import "utils.typ"
 <<< #utils.add(2, 5)
@@ -921,9 +1033,11 @@ You can access definitions from the module using
 ```
 
 # Selector
+
 A filter for selecting elements within the document.
 
 You can construct a selector in the following ways:
+
 - you can use an element function
 - you can filter for an element function with
   [specific fields]($type/function.where)
@@ -942,6 +1056,7 @@ configure their behaviour. One such example is the [outline]($func/outline)
 where it can be use to change which elements are listed within the outline.
 
 ## Example
+
 ```example
 #locate(loc => query(
   heading.where(level: 1)
@@ -955,7 +1070,9 @@ where it can be use to change which elements are listed within the outline.
 ```
 
 ## Methods
+
 ### or()
+
 Allows combining any of a series of selectors. This is used to
 select multiple components or components with different properties
 all at once.
@@ -964,6 +1081,7 @@ all at once.
   The list of selectors to match on.
 
 ### and()
+
 Allows combining all of a series of selectors. This is used to check
 whether a component meets multiple selection rules simultaneously.
 
@@ -971,6 +1089,7 @@ whether a component meets multiple selection rules simultaneously.
   The list of selectors to match on.
 
 ### before()
+
 Returns a modified selector that will only match elements that occur before the
 first match of the selector argument.
 
@@ -981,6 +1100,7 @@ first match of the selector argument.
   selectors match the same type of element. Defaults to `{true}`.
 
 ### after()
+
 Returns a modified selector that will only match elements that occur after the
 first match of the selector argument.
 
