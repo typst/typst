@@ -86,14 +86,14 @@ pub struct LangItems {
     pub math_align_point: fn() -> Content,
     /// Matched delimiters in math: `[x + y]`.
     pub math_delimited: fn(open: Content, body: Content, close: Content) -> Content,
-    /// A base with smartly placed optional attachments in math: `a_1^2`.
-    pub math_attach_smart:
-        fn(base: Content, top: Option<Content>, bottom: Option<Content>) -> Content,
+    /// A base with optional attachments in math: `a_1^2`.
     #[allow(clippy::type_complexity)]
     pub math_attach: fn(
         base: Content,
+        // Positioned smartly.
         top: Option<Content>,
         bottom: Option<Content>,
+        // Fixed positions.
         topleft: Option<Content>,
         bottomleft: Option<Content>,
         topright: Option<Content>,

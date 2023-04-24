@@ -226,16 +226,6 @@ fn items() -> LangItems {
         equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointElem::new().pack(),
         math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),
-        math_attach_smart: |base, top, bottom| {
-            let mut elem = math::SmartAttachElem::new(base);
-            if let Some(top) = top {
-                elem.push_t(Some(top));
-            }
-            if let Some(bottom) = bottom {
-                elem.push_b(Some(bottom));
-            }
-            elem.pack()
-        },
         math_attach: |base, top, bottom, topleft, bottomleft, topright, bottomright| {
             let mut elem = math::AttachElem::new(base);
             if let Some(top) = top {

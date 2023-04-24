@@ -13,7 +13,7 @@
       } else {
         panic("unknown math variable: " + text)
       }
-    } else if func == math.smart_attach {
+    } else if func == math.attach {
       let value = f(elem.base)
       if elem.has("t") {
         value = calc.pow(value, f(elem.t))

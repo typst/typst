@@ -2,7 +2,7 @@
 
 ---
 // Test basics, postscripts.
-$f_x + t^b + V_1^2 + A^alpha_beta$
+$f_x + t^b + V_1^2 + attach(A, t: alpha, b: beta)$
 
 ---
 // Test basics, prescripts. Notably, the upper and lower prescripts' content need to be
@@ -12,12 +12,12 @@ attach(upright(O), bl: 8, tl: 16, br: 2, tr: 2-),
 attach("Pb", bl: 82, tl: 207) +
 attach(upright(e), bl: -1, tl: 0) + macron(v)_e \
 attach(a, tl: u), attach(a, tr: v), attach(a, bl: x),
-attach(a, br: y), attach(a, t: t), attach(a, b: b) \
-attach(a, tr: v, t: t), attach(a, tr: v, br: y), attach(a, br: y, b: b),
-attach(a, b: b, bl: x), attach(a, tl: u, bl: x), attach(a, t: t, tl: u) \
-attach(a, tl: u, tr: v), attach(a, bl: x, br: y), attach(a, t: t, b: b),
-attach(a, bl: x, br: y, t: t, b: b), attach(a, tl: u, tr: v, t: t, b: b),
-attach(a, tl: u, tr: v, bl: x, br: y), attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
+attach(a, br: y), limits(a)^t, limits(a)_b,
+attach(a, tr: v, t: t), attach(a, br: y, b: b) \
+attach(a, tl: u, tr: v), attach(a, bl: x, br: y),
+attach(a, tl: u, bl: x), attach(a, tr: v, br: y),
+attach(a, tl: u, br: y), attach(a, bl: x, tr: v) \
+limits(a)^t_b, attach(a, tl: u, t: t, tr: v, bl: x, b: b, br: y)
 $
 
 ---
