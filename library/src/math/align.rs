@@ -15,10 +15,16 @@ impl LayoutMath for AlignPointElem {
     }
 }
 
+pub(super) struct AlignmentResult {
+    pub points: Vec<Abs>,
+    pub width: Abs,
+}
+
 /// Determine the position of the alignment points.
-pub(super) fn alignments(rows: &[MathRow]) -> Vec<Abs> {
+pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
     let mut widths = Vec::<Abs>::new();
 
+    let mut pending_width = Abs::zero();
     for row in rows {
         let mut width = Abs::zero();
         let mut alignment_index = 0;
@@ -28,6 +34,7 @@ pub(super) fn alignments(rows: &[MathRow]) -> Vec<Abs> {
                     widths[alignment_index].set_max(width);
                 } else {
                     widths.push(width);
+                    pending_width = Abs::zero();
                 }
                 width = Abs::zero();
                 alignment_index += 1;
@@ -35,6 +42,7 @@ pub(super) fn alignments(rows: &[MathRow]) -> Vec<Abs> {
                 width += fragment.width();
             }
         }
+        pending_width.set_max(width);
     }
 
     let mut points = widths;
@@ -42,5 +50,8 @@ pub(super) fn alignments(rows: &[MathRow]) -> Vec<Abs> {
         let prev = points[i - 1];
         points[i] += prev;
     }
-    points
+    AlignmentResult {
+        width: points.last().copied().unwrap_or_default() + pending_width,
+        points,
+    }
 }

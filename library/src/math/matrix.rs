@@ -242,16 +242,13 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
         return Ok(Frame::new(Size::zero()));
     }
 
-    let mut widths = vec![Abs::zero(); ncols];
-    let mut ascents = vec![Abs::zero(); nrows];
-    let mut descents = vec![Abs::zero(); nrows];
+    let mut heights = vec![(Abs::zero(), Abs::zero()); nrows];
 
     ctx.style(ctx.style.for_denominator());
     let mut cols = vec![vec![]; ncols];
-    for ((row, ascent), descent) in rows.iter().zip(&mut ascents).zip(&mut descents) {
-        for ((cell, rcol), col) in row.iter().zip(&mut widths).zip(&mut cols) {
+    for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
+        for (cell, col) in row.iter().zip(&mut cols) {
             let cell = ctx.layout_row(cell)?;
-            rcol.set_max(cell.width());
             ascent.set_max(cell.ascent());
             descent.set_max(cell.descent());
             col.push(cell);
@@ -259,18 +256,15 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
     }
     ctx.unstyle();
 
-    let width = widths.iter().sum::<Abs>() + col_gap * (ncols - 1) as f64;
-    let height = ascents.iter().sum::<Abs>()
-        + descents.iter().sum::<Abs>()
-        + row_gap * (nrows - 1) as f64;
-    let size = Size::new(width, height);
-
-    let mut frame = Frame::new(size);
+    let mut frame = Frame::new(Size::new(
+        Abs::zero(),
+        heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + row_gap * (nrows - 1) as f64,
+    ));
     let mut x = Abs::zero();
-    for (col, &rcol) in cols.into_iter().zip(&widths) {
-        let points = alignments(&col);
+    for col in cols {
+        let AlignmentResult { points, width: rcol } = alignments(&col);
         let mut y = Abs::zero();
-        for ((cell, &ascent), &descent) in col.into_iter().zip(&ascents).zip(&descents) {
+        for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
             let cell = cell.into_aligned_frame(ctx, &points, Align::Center);
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
@@ -281,6 +275,7 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
         }
         x += rcol + col_gap;
     }
+    frame.size_mut().x = x - col_gap;
 
     Ok(frame)
 }
