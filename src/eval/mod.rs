@@ -1228,6 +1228,100 @@ impl Eval for ast::Closure {
 }
 
 impl ast::Pattern {
+    fn destruct_array<T>(
+        &self,
+        vm: &mut Vm,
+        value: Array,
+        f: T,
+        destruct: &ast::Destructuring,
+    ) -> SourceResult<Value>
+    where
+        T: Fn(&mut Vm, ast::Ident, Value) -> SourceResult<Value>,
+    {
+        let mut i = 0;
+        for p in destruct.bindings() {
+            match p {
+                ast::DestructuringKind::Ident(ident) => {
+                    let Ok(v) = value.at(i) else {
+                        bail!(ident.span(), "not enough elements to destructure");
+                    };
+                    f(vm, ident.clone(), v.clone())?;
+                    i += 1;
+                }
+                ast::DestructuringKind::Sink(ident) => {
+                    let sink_size = (1 + value.len() as usize)
+                        .checked_sub(destruct.bindings().count());
+                    let sink =
+                        sink_size.and_then(|s| value.slice(i, Some(i + s as i64)).ok());
+
+                    if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
+                        if let Some(ident) = ident {
+                            f(vm, ident.clone(), Value::Array(sink.clone()))?;
+                        }
+                        i += sink_size as i64;
+                    } else {
+                        bail!(self.span(), "not enough elements to destructure")
+                    }
+                }
+                ast::DestructuringKind::Named(key, _) => {
+                    bail!(key.span(), "cannot destructure named elements from an array")
+                }
+                ast::DestructuringKind::Placeholder => i += 1,
+            }
+        }
+        if i < value.len() {
+            bail!(self.span(), "too many elements to destructure");
+        }
+
+        Ok(Value::None)
+    }
+
+    fn destruct_dict<T>(
+        &self,
+        vm: &mut Vm,
+        value: Dict,
+        f: T,
+        destruct: &ast::Destructuring,
+    ) -> SourceResult<Value>
+    where
+        T: Fn(&mut Vm, ast::Ident, Value) -> SourceResult<Value>,
+    {
+        let mut sink = None;
+        let mut used = HashSet::new();
+        for p in destruct.bindings() {
+            match p {
+                ast::DestructuringKind::Ident(ident) => {
+                    let Ok(v) = value.at(&ident) else {
+                                        bail!(ident.span(), "destructuring key not found in dictionary");
+                                    };
+                    f(vm, ident.clone(), v.clone())?;
+                    used.insert(ident.clone().take());
+                }
+                ast::DestructuringKind::Sink(ident) => sink = ident.clone(),
+                ast::DestructuringKind::Named(key, ident) => {
+                    let Ok(v) = value.at(&key) else {
+                                        bail!(ident.span(), "destructuring key not found in dictionary");
+                                    };
+                    f(vm, ident.clone(), v.clone())?;
+                    used.insert(key.clone().take());
+                }
+                ast::DestructuringKind::Placeholder => {}
+            }
+        }
+
+        if let Some(ident) = sink {
+            let mut sink = Dict::new();
+            for (key, value) in value {
+                if !used.contains(key.as_str()) {
+                    sink.insert(key, value);
+                }
+            }
+            f(vm, ident, Value::Dict(sink))?;
+        }
+
+        Ok(Value::None)
+    }
+
     /// Destruct the given value into the pattern and apply the function to each binding.
     #[tracing::instrument(skip_all)]
     fn apply<T>(&self, vm: &mut Vm, value: Value, f: T) -> SourceResult<Value>
@@ -1240,100 +1334,11 @@ impl ast::Pattern {
                 Ok(Value::None)
             }
             ast::Pattern::Placeholder => Ok(Value::None),
-            ast::Pattern::Destructuring(destruct) => {
-                match value {
-                    Value::Array(value) => {
-                        let mut i = 0;
-                        for p in destruct.bindings() {
-                            match p {
-                                ast::DestructuringKind::Ident(ident) => {
-                                    let Ok(v) = value.at(i) else {
-                                        bail!(ident.span(), "not enough elements to destructure");
-                                    };
-                                    f(vm, ident.clone(), v.clone())?;
-                                    i += 1;
-                                }
-                                ast::DestructuringKind::Sink(ident) => {
-                                    let sink_size = (1 + value.len() as usize)
-                                        .checked_sub(destruct.bindings().count());
-                                    let sink = sink_size.and_then(|s| {
-                                        value.slice(i, Some(i + s as i64)).ok()
-                                    });
-
-                                    if let (Some(sink_size), Some(sink)) =
-                                        (sink_size, sink)
-                                    {
-                                        if let Some(ident) = ident {
-                                            f(
-                                                vm,
-                                                ident.clone(),
-                                                Value::Array(sink.clone()),
-                                            )?;
-                                        }
-                                        i += sink_size as i64;
-                                    } else {
-                                        bail!(
-                                            self.span(),
-                                            "not enough elements to destructure"
-                                        )
-                                    }
-                                }
-                                ast::DestructuringKind::Named(key, _) => {
-                                    bail!(
-                                        key.span(),
-                                        "cannot destructure named elements from an array"
-                                    )
-                                }
-                                ast::DestructuringKind::Placeholder => i += 1,
-                            }
-                        }
-                        if i < value.len() {
-                            bail!(self.span(), "too many elements to destructure");
-                        }
-                    }
-                    Value::Dict(value) => {
-                        let mut sink = None;
-                        let mut used = HashSet::new();
-                        for p in destruct.bindings() {
-                            match p {
-                                ast::DestructuringKind::Ident(ident) => {
-                                    let Ok(v) = value.at(&ident) else {
-                                        bail!(ident.span(), "destructuring key not found in dictionary");
-                                    };
-                                    f(vm, ident.clone(), v.clone())?;
-                                    used.insert(ident.clone().take());
-                                }
-                                ast::DestructuringKind::Sink(ident) => {
-                                    sink = ident.clone()
-                                }
-                                ast::DestructuringKind::Named(key, ident) => {
-                                    let Ok(v) = value.at(&key) else {
-                                        bail!(ident.span(), "destructuring key not found in dictionary");
-                                    };
-                                    f(vm, ident.clone(), v.clone())?;
-                                    used.insert(key.clone().take());
-                                }
-                                ast::DestructuringKind::Placeholder => {}
-                            }
-                        }
-
-                        if let Some(ident) = sink {
-                            let mut sink = Dict::new();
-                            for (key, value) in value {
-                                if !used.contains(key.as_str()) {
-                                    sink.insert(key, value);
-                                }
-                            }
-                            f(vm, ident, Value::Dict(sink))?;
-                        }
-                    }
-                    _ => {
-                        bail!(self.span(), "cannot destructure {}", value.type_name());
-                    }
-                }
-
-                Ok(Value::None)
-            }
+            ast::Pattern::Destructuring(destruct) => match value {
+                Value::Array(value) => self.destruct_array(vm, value, f, destruct),
+                Value::Dict(value) => self.destruct_dict(vm, value, f, destruct),
+                _ => bail!(self.span(), "cannot destructure {}", value.type_name()),
+            },
         }
     }
 
