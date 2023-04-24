@@ -26,6 +26,7 @@ macro_rules! __array {
 pub use crate::__array as array;
 #[doc(hidden)]
 pub use ecow::eco_vec;
+use crate::eval::ops::{add, mul};
 
 /// A reference counted array with value semantics.
 #[derive(Default, Clone, PartialEq, Hash)]
@@ -195,6 +196,30 @@ impl Array {
         for item in self.iter() {
             let args = Args::new(func.span(), [acc, item.clone()]);
             acc = func.call_vm(vm, args)?;
+        }
+        Ok(acc)
+    }
+
+    /// Calculates the sum of the array's items
+    pub fn sum(&self, default: Option<Value>, span: Span) -> SourceResult<Value> {
+        let mut acc = self.first().map(|x| x.clone())
+            .or(
+                default.ok_or_else(|| eco_format!("cannot calculate sum of empty array with no default"))
+            ).at(span)?;
+        for i in self.iter().skip(1) {
+            acc = add(acc, i.clone()).at(span)?;
+        }
+        Ok(acc)
+    }
+
+    /// Calculates the product of the array's items
+    pub fn product(&self, default: Option<Value>, span: Span) -> SourceResult<Value> {
+        let mut acc = self.first().map(|x| x.clone())
+            .or(
+                default.ok_or_else(|| eco_format!("cannot calculate product of empty array with no default"))
+            ).at(span)?;
+        for i in self.iter().skip(1) {
+            acc = mul(acc, i.clone()).at(span)?;
         }
         Ok(acc)
     }
