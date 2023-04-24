@@ -29,6 +29,7 @@ pub fn build() -> Library {
 }
 
 /// Construct the module with global definitions.
+#[tracing::instrument(skip_all)]
 fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 

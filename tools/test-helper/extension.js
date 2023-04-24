@@ -51,7 +51,7 @@ function activate(context) {
         )
     })
 
-    const approveCmd = vscode.commands.registerCommand("ShortcutMenuBar.testApprove", () => {
+    const updateCmd = vscode.commands.registerCommand("ShortcutMenuBar.testUpdate", () => {
         const uri = vscode.window.activeTextEditor.document.uri
         const { pngPath, refPath } = getPaths(uri)
 
@@ -66,7 +66,7 @@ function activate(context) {
     context.subscriptions.push(openCmd)
     context.subscriptions.push(refreshCmd)
     context.subscriptions.push(rerunCmd)
-    context.subscriptions.push(approveCmd)
+    context.subscriptions.push(updateCmd)
 }
 
 function getPaths(uri) {

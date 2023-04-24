@@ -47,7 +47,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 ///
 /// Display: Outline
 /// Category: meta
-#[element(Show, LocalName)]
+#[element(Show, Finalize, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -55,6 +55,11 @@ pub struct OutlineElem {
     ///   [text language]($func/text.lang) will be used. This is the default.
     /// - When set to `{none}`, the outline will not have a title.
     /// - A custom title can be set by passing content.
+    ///
+    /// The outline's heading will not be numbered by default, but you can
+    /// force it to be with a show-set rule:
+    /// `{show outline: set heading(numbering: "1.")}`
+    /// ```
     #[default(Some(Smart::Auto))]
     pub title: Option<Smart<Content>>,
 
@@ -131,6 +136,7 @@ pub struct OutlineElem {
 }
 
 impl Show for OutlineElem {
+    #[tracing::instrument(name = "OutlineElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
@@ -140,13 +146,7 @@ impl Show for OutlineElem {
                     .spanned(self.span())
             });
 
-            seq.push(
-                HeadingElem::new(title)
-                    .with_level(NonZeroUsize::ONE)
-                    .with_numbering(None)
-                    .with_outlined(false)
-                    .pack(),
-            );
+            seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
 
         let indent = self.indent(styles);
@@ -243,6 +243,14 @@ impl Show for OutlineElem {
         seq.push(ParbreakElem::new().pack());
 
         Ok(Content::sequence(seq))
+    }
+}
+
+impl Finalize for OutlineElem {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+        realized
+            .styled(HeadingElem::set_outlined(false))
+            .styled(HeadingElem::set_numbering(None))
     }
 }
 

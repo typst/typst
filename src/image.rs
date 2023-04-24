@@ -17,25 +17,30 @@ use crate::World;
 ///
 /// Values of this type are cheap to clone and hash.
 #[derive(Clone)]
-pub struct Image(Arc<Repr>);
-
-/// The internal representation.
-struct Repr {
+pub struct Image {
     /// The raw, undecoded image data.
     data: Buffer,
     /// The format of the encoded `buffer`.
     format: ImageFormat,
     /// The decoded image.
-    decoded: DecodedImage,
+    decoded: Arc<DecodedImage>,
+    /// A text describing the image.
+    alt: Option<EcoString>,
 }
 
 impl Image {
     /// Create an image from a buffer and a format.
-    pub fn new(data: Buffer, format: ImageFormat) -> StrResult<Self> {
-        match format {
-            ImageFormat::Raster(format) => decode_raster(data, format),
-            ImageFormat::Vector(VectorFormat::Svg) => decode_svg(data),
-        }
+    pub fn new(
+        data: Buffer,
+        format: ImageFormat,
+        alt: Option<EcoString>,
+    ) -> StrResult<Self> {
+        let decoded = match format {
+            ImageFormat::Raster(format) => decode_raster(&data, format)?,
+            ImageFormat::Vector(VectorFormat::Svg) => decode_svg(&data)?,
+        };
+
+        Ok(Self { data, format, decoded, alt })
     }
 
     /// Create a font-dependant image from a buffer and a format.
@@ -44,28 +49,31 @@ impl Image {
         format: ImageFormat,
         world: Tracked<dyn World>,
         fallback_family: Option<&str>,
+        alt: Option<EcoString>,
     ) -> StrResult<Self> {
-        match format {
-            ImageFormat::Raster(format) => decode_raster(data, format),
+        let decoded = match format {
+            ImageFormat::Raster(format) => decode_raster(&data, format)?,
             ImageFormat::Vector(VectorFormat::Svg) => {
-                decode_svg_with_fonts(data, world, fallback_family)
+                decode_svg_with_fonts(&data, world, fallback_family)?
             }
-        }
+        };
+
+        Ok(Self { data, format, decoded, alt })
     }
 
     /// The raw image data.
     pub fn data(&self) -> &Buffer {
-        &self.0.data
+        &self.data
     }
 
     /// The format of the image.
     pub fn format(&self) -> ImageFormat {
-        self.0.format
+        self.format
     }
 
     /// The decoded version of the image.
     pub fn decoded(&self) -> &DecodedImage {
-        &self.0.decoded
+        &self.decoded
     }
 
     /// The width of the image in pixels.
@@ -77,6 +85,11 @@ impl Image {
     pub fn height(&self) -> u32 {
         self.decoded().height()
     }
+
+    /// A text describing the image.
+    pub fn alt(&self) -> Option<&str> {
+        self.alt.as_deref()
+    }
 }
 
 impl Debug for Image {
@@ -85,6 +98,7 @@ impl Debug for Image {
             .field("format", &self.format())
             .field("width", &self.width())
             .field("height", &self.height())
+            .field("alt", &self.alt())
             .finish()
     }
 }
@@ -183,38 +197,30 @@ impl DecodedImage {
 
 /// Decode a raster image.
 #[comemo::memoize]
-fn decode_raster(data: Buffer, format: RasterFormat) -> StrResult<Image> {
+fn decode_raster(data: &Buffer, format: RasterFormat) -> StrResult<Arc<DecodedImage>> {
     let cursor = io::Cursor::new(&data);
     let reader = image::io::Reader::with_format(cursor, format.into());
     let dynamic = reader.decode().map_err(format_image_error)?;
-    Ok(Image(Arc::new(Repr {
-        data,
-        format: ImageFormat::Raster(format),
-        decoded: DecodedImage::Raster(dynamic, format),
-    })))
+    Ok(Arc::new(DecodedImage::Raster(dynamic, format)))
 }
 
 /// Decode an SVG image.
 #[comemo::memoize]
-fn decode_svg(data: Buffer) -> StrResult<Image> {
+fn decode_svg(data: &Buffer) -> StrResult<Arc<DecodedImage>> {
     let opts = usvg::Options::default();
-    let tree = usvg::Tree::from_data(&data, &opts.to_ref()).map_err(format_usvg_error)?;
-    Ok(Image(Arc::new(Repr {
-        data,
-        format: ImageFormat::Vector(VectorFormat::Svg),
-        decoded: DecodedImage::Svg(tree),
-    })))
+    let tree = usvg::Tree::from_data(data, &opts.to_ref()).map_err(format_usvg_error)?;
+    Ok(Arc::new(DecodedImage::Svg(tree)))
 }
 
 /// Decode an SVG image with access to fonts.
 #[comemo::memoize]
 fn decode_svg_with_fonts(
-    data: Buffer,
+    data: &Buffer,
     world: Tracked<dyn World>,
     fallback_family: Option<&str>,
-) -> StrResult<Image> {
+) -> StrResult<Arc<DecodedImage>> {
     // Parse XML.
-    let xml = std::str::from_utf8(&data)
+    let xml = std::str::from_utf8(data)
         .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str))?;
     let document = roxmltree::Document::parse(xml)
         .map_err(|err| format_xml_like_error("svg", err))?;
@@ -239,11 +245,7 @@ fn decode_svg_with_fonts(
     let tree =
         usvg::Tree::from_xmltree(&document, &opts.to_ref()).map_err(format_usvg_error)?;
 
-    Ok(Image(Arc::new(Repr {
-        data,
-        format: ImageFormat::Vector(VectorFormat::Svg),
-        decoded: DecodedImage::Svg(tree),
-    })))
+    Ok(Arc::new(DecodedImage::Svg(tree)))
 }
 
 /// Discover and load the fonts referenced by an SVG.

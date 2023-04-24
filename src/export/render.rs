@@ -238,7 +238,7 @@ fn render_bitmap_glyph(
     let size = text.size.to_f32();
     let ppem = size * ts.sy;
     let raster = text.font.ttf().glyph_raster_image(id, ppem as u16)?;
-    let image = Image::new(raster.data.into(), raster.format.into()).ok()?;
+    let image = Image::new(raster.data.into(), raster.format.into(), None).ok()?;
 
     // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
     // and maybe also for Noto Color Emoji. And: Is the size calculation
@@ -402,28 +402,33 @@ fn render_shape(
         miter_limit,
     }) = &shape.stroke
     {
-        let dash = dash_pattern.as_ref().and_then(|pattern| {
-            // tiny-skia only allows dash patterns with an even number of elements,
-            // while pdf allows any number.
-            let len = if pattern.array.len() % 2 == 1 {
-                pattern.array.len() * 2
-            } else {
-                pattern.array.len()
-            };
-            let dash_array =
-                pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
+        let width = thickness.to_f32();
 
-            sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
-        });
-        let paint = paint.into();
-        let stroke = sk::Stroke {
-            width: thickness.to_f32(),
-            line_cap: line_cap.into(),
-            line_join: line_join.into(),
-            dash,
-            miter_limit: miter_limit.0 as f32,
-        };
-        canvas.stroke_path(&path, &paint, &stroke, ts, mask);
+        // Don't draw zero-pt stroke.
+        if width > 0.0 {
+            let dash = dash_pattern.as_ref().and_then(|pattern| {
+                // tiny-skia only allows dash patterns with an even number of elements,
+                // while pdf allows any number.
+                let len = if pattern.array.len() % 2 == 1 {
+                    pattern.array.len() * 2
+                } else {
+                    pattern.array.len()
+                };
+                let dash_array =
+                    pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
+
+                sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
+            });
+            let paint = paint.into();
+            let stroke = sk::Stroke {
+                width,
+                line_cap: line_cap.into(),
+                line_join: line_join.into(),
+                dash,
+                miter_limit: miter_limit.0 as f32,
+            };
+            canvas.stroke_path(&path, &paint, &stroke, ts, mask);
+        }
     }
 
     Some(())

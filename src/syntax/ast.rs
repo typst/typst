@@ -1568,6 +1568,8 @@ pub enum Param {
     Named(Named),
     /// An argument sink: `..args`.
     Sink(Option<Ident>),
+    /// A placeholder: `_`.
+    Placeholder,
 }
 
 impl AstNode for Param {
@@ -1576,6 +1578,7 @@ impl AstNode for Param {
             SyntaxKind::Ident => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Spread => Some(Self::Sink(node.cast_first_match())),
+            SyntaxKind::Underscore => Some(Self::Placeholder),
             _ => Option::None,
         }
     }
@@ -1585,6 +1588,7 @@ impl AstNode for Param {
             Self::Pos(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
             Self::Sink(_) => self.as_untyped(),
+            Self::Placeholder => self.as_untyped(),
         }
     }
 }
@@ -1603,6 +1607,8 @@ pub enum DestructuringKind {
     Sink(Option<Ident>),
     /// Named arguments: `x: 1`.
     Named(Ident, Ident),
+    /// A placeholder: `_`.
+    Placeholder,
 }
 
 impl Destructuring {
@@ -1619,6 +1625,7 @@ impl Destructuring {
                 let ident = filtered.next().unwrap_or_default();
                 Some(DestructuringKind::Named(key, ident))
             }
+            SyntaxKind::Underscore => Some(DestructuringKind::Placeholder),
             _ => Option::None,
         })
     }
@@ -1629,6 +1636,7 @@ impl Destructuring {
             DestructuringKind::Ident(ident) => Some(ident),
             DestructuringKind::Sink(ident) => ident,
             DestructuringKind::Named(_, ident) => Some(ident),
+            DestructuringKind::Placeholder => Option::None,
         })
     }
 }
@@ -1638,6 +1646,8 @@ impl Destructuring {
 pub enum Pattern {
     /// A single identifier: `x`.
     Ident(Ident),
+    /// A placeholder: `_`.
+    Placeholder,
     /// A destructuring pattern: `(x, _, ..y)`.
     Destructuring(Destructuring),
 }
@@ -1647,6 +1657,7 @@ impl AstNode for Pattern {
         match node.kind() {
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
+            SyntaxKind::Underscore => Some(Self::Placeholder),
             _ => Option::None,
         }
     }
@@ -1655,6 +1666,7 @@ impl AstNode for Pattern {
         match self {
             Self::Ident(v) => v.as_untyped(),
             Self::Destructuring(v) => v.as_untyped(),
+            Self::Placeholder => self.as_untyped(),
         }
     }
 }
@@ -1665,6 +1677,7 @@ impl Pattern {
         match self {
             Pattern::Ident(ident) => vec![ident.clone()],
             Pattern::Destructuring(destruct) => destruct.idents().collect(),
+            Pattern::Placeholder => vec![],
         }
     }
 }
@@ -1722,9 +1735,7 @@ impl LetBinding {
             LetBindingKind::Normal(Pattern::Ident(_)) => {
                 self.0.children().filter_map(SyntaxNode::cast).nth(1)
             }
-            LetBindingKind::Normal(Pattern::Destructuring(_)) => {
-                self.0.cast_first_match()
-            }
+            LetBindingKind::Normal(_) => self.0.cast_first_match(),
             LetBindingKind::Closure(_) => self.0.cast_first_match(),
         }
     }

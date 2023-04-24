@@ -15,6 +15,7 @@ use crate::geom::{
 use crate::image::Image;
 
 /// Construct page objects.
+#[tracing::instrument(skip_all)]
 pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
     for frame in frames {
         construct_page(ctx, frame);
@@ -22,6 +23,7 @@ pub fn construct_pages(ctx: &mut PdfContext, frames: &[Frame]) {
 }
 
 /// Construct a page object.
+#[tracing::instrument(skip_all)]
 pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
     let page_ref = ctx.alloc.bump();
     ctx.page_refs.push(page_ref);
@@ -64,6 +66,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
 }
 
 /// Write the page tree.
+#[tracing::instrument(skip_all)]
 pub fn write_page_tree(ctx: &mut PdfContext) {
     for page in std::mem::take(&mut ctx.pages).into_iter() {
         write_page(ctx, page);
@@ -100,6 +103,7 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 }
 
 /// Write a page tree node.
+#[tracing::instrument(skip_all)]
 fn write_page(ctx: &mut PdfContext, page: Page) {
     let content_id = ctx.alloc.bump();
 
@@ -483,7 +487,21 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
     let h = size.y.to_f32();
     ctx.content.save_state();
     ctx.content.transform([w, 0.0, 0.0, -h, x, y + h]);
-    ctx.content.x_object(Name(name.as_bytes()));
+
+    if let Some(alt) = image.alt() {
+        let mut image_span =
+            ctx.content.begin_marked_content_with_properties(Name(b"Span"));
+        let mut image_alt = image_span.properties_direct();
+        image_alt.pair(Name(b"Alt"), pdf_writer::Str(alt.as_bytes()));
+        image_alt.finish();
+        image_span.finish();
+
+        ctx.content.x_object(Name(name.as_bytes()));
+        ctx.content.end_marked_content();
+    } else {
+        ctx.content.x_object(Name(name.as_bytes()));
+    }
+
     ctx.content.restore_state();
 }
 

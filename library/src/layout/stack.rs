@@ -38,6 +38,7 @@ pub struct StackElem {
 }
 
 impl Layout for StackElem {
+    #[tracing::instrument(name = "StackElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -161,6 +162,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Add spacing along the spacing direction.
+    #[tracing::instrument(name = "StackLayouter::layout_spacing", skip_all)]
     fn layout_spacing(&mut self, spacing: Spacing) {
         match spacing {
             Spacing::Rel(v) => {
@@ -184,6 +186,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Layout an arbitrary block.
+    #[tracing::instrument(name = "StackLayouter::layout_block", skip_all)]
     fn layout_block(
         &mut self,
         vt: &mut Vt,

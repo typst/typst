@@ -73,6 +73,7 @@ pub struct LineElem {
 }
 
 impl Layout for LineElem {
+    #[tracing::instrument(name = "LineElem::layout", skip_all)]
     fn layout(
         &self,
         _: &mut Vt,

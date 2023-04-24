@@ -45,6 +45,8 @@ description: |
   - [Ratios]($type/ratio) can now be multiplied with more types and be converted
     to [floats]($type/float) with the [`float`]($func/float) function
 
+<contributors from="v0.1.0" to="v0.2.0" />
+
 ## April 04, 2023 (v0.1.0)
 - **Breaking changes:**
   - When using the CLI, you now have to use subcommands:
@@ -113,7 +115,7 @@ description: |
   - Fixed line number in error message for CSV parsing
   - Fixed invalid autocompletion after certain markup elements
 
-Thanks to everybody who contributed to this release!
+<contributors from="v23-03-28" to="v0.1.0" />
 
 ## March 28, 2023
 - **Breaking changes:**
@@ -153,7 +155,7 @@ Thanks to everybody who contributed to this release!
   - Links in bibliographies are now affected by link styling
   - Fixed hovering over comments in web app
 
-Thanks to everybody who contributed to this release!
+<contributors from="v23-03-21" to="v23-03-28" />
 
 ## March 21, 2023
 - Reference and bibliography management

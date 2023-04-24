@@ -146,6 +146,7 @@ impl Synthesize for RefElem {
 }
 
 impl Show for RefElem {
+    #[tracing::instrument(name = "RefElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());

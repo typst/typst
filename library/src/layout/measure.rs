@@ -3,6 +3,8 @@ use crate::prelude::*;
 /// Measure the layouted size of content.
 ///
 /// The `measure` function lets you determine the layouted size of content.
+/// Note that an infinite space is assumed, therefore the measured height/width
+/// may not necessarily match the final height/width of the measured content.
 /// The same content can have a different size depending on the styles that
 /// are active when it is layouted. For example, in the example below
 /// `[#content]` is of course bigger when we increase the font size.

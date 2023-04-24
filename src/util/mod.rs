@@ -34,6 +34,7 @@ where
 }
 
 /// Calculate a 128-bit siphash of a value.
+#[tracing::instrument(skip_all)]
 pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
     let mut state = SipHasher13::new();
     value.hash(&mut state);
@@ -128,6 +129,7 @@ pub trait PathExt {
 }
 
 impl PathExt for Path {
+    #[tracing::instrument(skip_all)]
     fn normalize(&self) -> PathBuf {
         let mut out = PathBuf::new();
         for component in self.components() {

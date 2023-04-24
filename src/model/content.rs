@@ -30,11 +30,13 @@ pub struct Content {
 
 impl Content {
     /// Create an empty element.
+    #[tracing::instrument()]
     pub fn new(func: ElemFunc) -> Self {
         Self { func, inner: ContentInner::new() }
     }
 
     /// Create empty content.
+    #[tracing::instrument()]
     pub fn empty() -> Self {
         Self::new(SequenceElem::func())
     }
@@ -47,11 +49,8 @@ impl Content {
     }
 
     /// Create a new sequence element from multiples elements.
-    pub fn sequence<I>(iter: I) -> Self
-    where
-        I: IntoIterator<Item = Self>,
-        I::IntoIter: ExactSizeIterator,
-    {
+    #[tracing::instrument(skip_all)]
+    pub fn sequence(iter: impl IntoIterator<Item = Self>) -> Self {
         let mut iter = iter.into_iter();
         let Some(first) = iter.next() else { return Self::empty() };
         let Some(second) = iter.next() else { return first };
@@ -97,6 +96,7 @@ impl Content {
     }
 
     /// Access the child and styles.
+    #[tracing::instrument(skip_all)]
     pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
         if !self.is::<StyledElem>() {
             return None;
@@ -122,6 +122,7 @@ impl Content {
 
     /// Cast to a trait object if the contained element has the given
     /// capability.
+    #[tracing::instrument(skip_all)]
     pub fn with<C>(&self) -> Option<&C>
     where
         C: ?Sized + 'static,
@@ -133,6 +134,7 @@ impl Content {
 
     /// Cast to a mutable trait object if the contained element has the given
     /// capability.
+    #[tracing::instrument(skip_all)]
     pub fn with_mut<C>(&mut self) -> Option<&mut C>
     where
         C: ?Sized + 'static,
@@ -172,6 +174,7 @@ impl Content {
     }
 
     /// Access a field on the content.
+    #[tracing::instrument(skip_all)]
     pub fn field(&self, name: &str) -> Option<Value> {
         if let (Some(iter), "children") = (self.to_sequence(), name) {
             Some(Value::Array(iter.cloned().map(Value::Content).collect()))
@@ -345,6 +348,7 @@ impl Content {
     /// Queries the content tree for all elements that match the given selector.
     ///
     /// Elements produced in `show` rules will not be included in the results.
+    #[tracing::instrument(skip_all)]
     pub fn query(&self, selector: Selector) -> Vec<&Content> {
         let mut results = Vec::new();
         self.traverse(&mut |element| {

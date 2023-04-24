@@ -9,6 +9,7 @@ use super::{deflate, EmExt, PdfContext, RefExt};
 use crate::util::SliceExt;
 
 /// Embed all used fonts into the PDF.
+#[tracing::instrument(skip_all)]
 pub fn write_fonts(ctx: &mut PdfContext) {
     for font in ctx.font_map.items() {
         let type0_ref = ctx.alloc.bump();
