@@ -36,7 +36,7 @@ pub struct Content {
     prepared: bool,
 
     /// The fields of this element.
-    fields: EcoVec<(Prehashed<EcoString>, Prehashed<Value>)>,
+    fields: EcoVec<(EcoString, Prehashed<Value>)>,
 
     /// The children of this element.
     children: EcoVec<Prehashed<Content>>,
@@ -200,7 +200,7 @@ impl Content {
             v.update(|v| *v = value.into());
             return;
         } else {
-            self.fields.push((Prehashed::new(name), Prehashed::new(value.into())));
+            self.fields.push((name, Prehashed::new(value.into())));
         }
     }
 
@@ -249,7 +249,7 @@ impl Content {
     ///
     /// Does not include synthesized fields for sequence and styled elements.
     pub fn fields_ref(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
-        self.fields.iter().map(|(name, value)| (&**name, &**value))
+        self.fields.iter().map(|(name, value)| (name, &**value))
     }
 
     /// Try to access a field on the content as a specified type.
