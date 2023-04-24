@@ -57,9 +57,6 @@ indexmap = "1.9.3"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = "0.1.15"
 
-[profile.dev]
-debug = false
-
 [profile.dev.package."*"]
 opt-level = 2
 
