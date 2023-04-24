@@ -271,13 +271,14 @@ impl Array {
         Ok(result)
     }
 
-    /// Zips the array with another array. If the two arrays are of unequal length, it will
-    /// only zip up until the last element of the smaller array and the rest will be ignored.
+    /// Zips the array with another array. If the two arrays are of unequal length, it will only
+    /// zip up until the last element of the smaller array and the remaining elements will be
+    /// ignored. The return value is an array where each element is yet another array of size 2.
     pub fn zip(&self, other: Array) -> Array {
         self.iter()
             .zip(other)
             .map(|(first, second)| {
-                Value::Array(Array::from_vec(eco_vec![first.clone(), second.clone()]))
+                Value::Array(Array::from_vec(eco_vec![first.clone(), second]))
             })
             .collect()
     }
