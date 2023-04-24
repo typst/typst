@@ -83,13 +83,13 @@ impl ShapedGlyph {
     pub fn is_justifiable(&self) -> bool {
         // GB style is not relevant here.
         self.is_space()
-            || self.is_cjk()
+            || self.is_cjk_script()
             || self.is_cjk_left_aligned_punctuation(true)
             || self.is_cjk_right_aligned_punctuation()
             || self.is_cjk_center_aligned_punctuation(true)
     }
 
-    pub fn is_cjk(&self) -> bool {
+    pub fn is_cjk_script(&self) -> bool {
         use Script::*;
         // U+30FC: Katakana-Hiragana Prolonged Sound Mark
         matches!(self.c.script(), Hiragana | Katakana | Han) || self.c == '\u{30FC}'
@@ -342,7 +342,7 @@ impl<'a> ShapedText<'a> {
     pub fn cjk_justifiable_at_last(&self) -> bool {
         self.glyphs
             .last()
-            .map(|g| g.is_cjk() || g.is_cjk_adjustable())
+            .map(|g| g.is_cjk_script() || g.is_cjk_adjustable())
             .unwrap_or(false)
     }
 
