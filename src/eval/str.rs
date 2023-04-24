@@ -22,7 +22,6 @@ macro_rules! __format_str {
 
 #[doc(inline)]
 pub use crate::__format_str as format_str;
-use crate::syntax::Span;
 #[doc(hidden)]
 pub use ecow::eco_format;
 
@@ -260,65 +259,61 @@ impl Str {
 
     /// Replace at most `count` occurrences of the given pattern with a
     /// replacement string or function (beginning from the start). If no count is given,
-    /// all occurences are replaced
+    /// all occurrences are replaced.
     pub fn replace(
         &self,
         vm: &mut Vm,
-        span: Span,
         pattern: StrPattern,
         with: Replacement,
         count: Option<usize>,
     ) -> SourceResult<Self> {
         match with {
-            Replacement::Func(func) => match &pattern {
-                StrPattern::Str(pat) => {
-                    // call `func` with the pattern string and use the output to either replace
-                    // n many occurences or all
-                    let args =
-                        Args::new(func.span(), [Value::Str(Str::from(pat.as_str()))]);
-                    let res = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
-                    let new = if let Some(n) = count {
-                        self.0.replacen(pat.as_str(), res.as_str(), n)
-                    } else {
-                        self.0.replace(pat.as_str(), res.as_str())
-                    };
-                    Ok(new.into())
-                }
-                StrPattern::Regex(re) => {
-                    // heuristic: assume the new string is about the same length as the current string
-                    let mut new = String::with_capacity(self.as_str().len());
-                    let mut last_match = 0;
-                    let matches_dicts = re
-                        .captures_iter(self)
-                        .map(captures_to_dict)
-                        .take(count.unwrap_or(usize::MAX));
-                    for match_dict in matches_dicts {
-                        // safety: we can unwrap here since we know due to the definition of `captures_to_dict`
-                        // what the keys are
-                        let start = match_dict
-                            .at("start")
-                            .unwrap()
-                            .clone()
-                            .cast::<usize>()
-                            .at(span)?;
-                        let end = match_dict
-                            .at("end")
-                            .unwrap()
-                            .clone()
-                            .cast::<usize>()
-                            .at(span)?;
-                        // push everything until the mathc
-                        new.push_str(&self.as_str()[last_match..start]);
-                        let args = Args::new(func.span(), [match_dict.into()]);
-                        let res = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
-                        new.push_str(res.as_str());
-                        last_match = end;
+            Replacement::Func(func) => {
+                // heuristic: assume the new string is about the same length as the current string
+                let mut new = String::with_capacity(self.as_str().len());
+                let mut last_match = 0;
+                match &pattern {
+                    StrPattern::Str(pat) => {
+                        let matches = self
+                            .0
+                            .match_indices(pat.as_str())
+                            .map(|(start, s)| (start, start + s.len(), s))
+                            .take(count.unwrap_or(usize::MAX));
+                        for (start, end, text) in matches {
+                            // push everything until the match
+                            new.push_str(&self.as_str()[last_match..start]);
+                            let args = Args::new(
+                                func.span(),
+                                [match_to_dict((start, text)).into()],
+                            );
+                            let res =
+                                func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
+                            new.push_str(res.as_str());
+                            last_match = end;
+                        }
                     }
-                    // push the remainder
-                    new.push_str(&self.as_str()[last_match..]);
-                    Ok(new.into())
+                    StrPattern::Regex(re) => {
+                        let all_captures =
+                            re.captures_iter(self).take(count.unwrap_or(usize::MAX));
+                        for caps in all_captures {
+                            // `caps.get(0)` returns the entire match over all capture groups
+                            let (start, end) =
+                                caps.get(0).map(|c| (c.start(), c.end())).unwrap();
+                            // push everything until the match
+                            new.push_str(&self.as_str()[last_match..start]);
+                            let args =
+                                Args::new(func.span(), [captures_to_dict(caps).into()]);
+                            let res =
+                                func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
+                            new.push_str(res.as_str());
+                            last_match = end;
+                        }
+                    }
                 }
-            },
+                // push the remainder
+                new.push_str(&self.as_str()[last_match..]);
+                Ok(new.into())
+            }
             Replacement::Str(s) => match pattern {
                 StrPattern::Str(pat) => match count {
                     Some(n) => Ok(self.0.replacen(pat.as_str(), &s, n).into()),
@@ -585,9 +580,10 @@ cast_from_value! {
 
 /// A replacement for a matched [`Str`]
 pub enum Replacement {
+    /// A string a match is replaced with.
     Str(Str),
-    /// Either of type `Dict -> Str` (see `captures_to_dict`) if the match occured
-    /// by regex or `Str -> Str` if matched by Str.
+    /// Function of type Dict -> Str (see `captures_to_dict` or `match_to_dict`)
+    /// whose output is inserted for the match.
     Func(Func),
 }
 
