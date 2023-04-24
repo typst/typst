@@ -2,6 +2,7 @@ use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter::Sum;
 use std::ops::{Add, AddAssign, Deref};
+use std::sync::Arc;
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
@@ -23,6 +24,11 @@ pub struct Content {
     /// The element function of the contained content.
     func: ElemFunc,
 
+    header: Option<Arc<ContentHeader>>,
+}
+
+#[derive(Clone, Hash, Default)]
+pub struct ContentHeader {
     /// The span of this element.
     span: Option<Span>,
 
@@ -49,16 +55,7 @@ impl Content {
     /// Create an empty element.
     #[tracing::instrument()]
     pub fn new(func: ElemFunc) -> Self {
-        Self{
-            func,
-            span: None,
-            style: None,
-            location: None,
-            prepared: false,
-            fields: EcoVec::new(),
-            children: EcoVec::new(),
-            guards: EcoVec::new(),
-        }
+        Self { func, header: None }
     }
 
     /// Create empty content.
@@ -76,18 +73,40 @@ impl Content {
 
         Self {
             func: SequenceElem::func(),
-            span: None,
-            style: None,
-            location: None,
-            prepared: false,
-            fields: EcoVec::new(),
-            children: [first, second]
-                .into_iter()
-                .chain(iter)
-                .map(Prehashed::new)
-                .collect(),
-            guards: EcoVec::new(),
+            header: Some(Arc::new(ContentHeader {
+                span: None,
+                style: None,
+                location: None,
+                prepared: false,
+                fields: EcoVec::new(),
+                children: [first, second]
+                    .into_iter()
+                    .chain(iter)
+                    .map(Prehashed::new)
+                    .collect(),
+                guards: EcoVec::new(),
+            })),
         }
+    }
+
+    fn header(&self) -> Option<&ContentHeader> {
+        self.header.as_deref()
+    }
+
+    fn header_mut(&mut self) -> &mut ContentHeader {
+        if self.header.is_none() {
+            self.header = Some(Arc::new(ContentHeader::default()));
+        }
+
+        Arc::make_mut(self.header.as_mut().unwrap())
+    }
+
+    fn children_slice(&self) -> &[Prehashed<Content>] {
+        self.header().map_or(&[], |h| &h.children)
+    }
+
+    fn fields_slice(&self) -> &[(EcoString, Prehashed<Value>)] {
+        self.header().map_or(&[], |h| &h.fields)
     }
 
     /// The element function of the contained content.
@@ -97,7 +116,7 @@ impl Content {
 
     /// Whether the content is an empty sequence.
     pub fn is_empty(&self) -> bool {
-        self.is::<SequenceElem>() && self.children.is_empty()
+        self.is::<SequenceElem>() && self.header().map_or(true, |h| h.children.is_empty())
     }
 
     /// Whether the contained element is of type `T`.
@@ -115,7 +134,12 @@ impl Content {
         if !self.is::<SequenceElem>() {
             return None;
         }
-        Some(self.children.iter().map(Deref::deref))
+
+        Some(
+            self.header()
+                .into_iter()
+                .flat_map(|h| h.children.iter().map(Prehashed::deref)),
+        )
     }
 
     /// Access the child and styles.
@@ -124,8 +148,10 @@ impl Content {
         if !self.is::<StyledElem>() {
             return None;
         }
-        let child = self.children.first()?;
-        let styles = self.style.as_ref()?;
+
+        let header = self.header()?;
+        let child = header.children.first()?;
+        let styles = header.style.as_ref()?;
         Some((child, styles))
     }
 
@@ -169,13 +195,13 @@ impl Content {
 
     /// The content's span.
     pub fn span(&self) -> Span {
-        self.span.unwrap_or(Span::detached())
+        self.header().and_then(|h| h.span).unwrap_or_else(Span::detached)
     }
 
     /// Attach a span to the content if it doesn't already have one.
     pub fn spanned(mut self, span: Span) -> Self {
         if self.span().is_detached() {
-            self.span = Some(span);
+            self.header_mut().span = Some(span);
         }
 
         self
@@ -195,12 +221,13 @@ impl Content {
     pub fn push_field(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
         let name = name.into();
 
-        let mut iter = self.fields.make_mut().into_iter();
+        let header = self.header_mut();
+        let mut iter = header.fields.make_mut().into_iter();
         if let Some((_, v)) = iter.find(|(n, _)| &**n == &name) {
             v.update(|v| *v = value.into());
             return;
         } else {
-            self.fields.push((name, Prehashed::new(value.into())));
+            header.fields.push((name, Prehashed::new(value.into())));
         }
     }
 
@@ -249,7 +276,9 @@ impl Content {
     ///
     /// Does not include synthesized fields for sequence and styled elements.
     pub fn fields_ref(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
-        self.fields.iter().map(|(name, value)| (name, &**value))
+        self.header()
+            .into_iter()
+            .flat_map(|h| h.fields.iter().map(|(n, v)| (n, &**v)))
     }
 
     /// Try to access a field on the content as a specified type.
@@ -292,10 +321,11 @@ impl Content {
     /// Style this content with a style entry.
     pub fn styled(mut self, style: impl Into<Style>) -> Self {
         if self.is::<StyledElem>() {
-            if let Some(s) = &mut self.style {
+            let header = self.header_mut();
+            if let Some(s) = &mut header.style {
                 s.apply_one(style.into());
             } else {
-                self.style = Some(style.into().into());
+                header.style = Some(style.into().into());
             }
 
             self
@@ -310,16 +340,18 @@ impl Content {
             return self;
         }
         if self.is::<StyledElem>() {
-            if let Some(s) = &mut self.style {
+            let header = self.header_mut();
+            if let Some(s) = &mut header.style {
                 s.apply(styles);
             } else {
-                self.style = Some(styles);
+                header.style = Some(styles);
             }
             self
         } else {
             let mut content = Content::new(StyledElem::func());
-            content.children.push(Prehashed::new(self));
-            content.style = Some(styles);
+            let mut header = content.header_mut();
+            header.children.push(Prehashed::new(self));
+            header.style = Some(styles);
             content
         }
     }
@@ -343,28 +375,28 @@ impl Content {
 
     /// Disable a show rule recipe.
     pub fn guarded(mut self, guard: Guard) -> Self {
-        self.guards.push(guard);
+        self.header_mut().guards.push(guard);
         self
     }
 
     /// Check whether a show rule recipe is disabled.
     pub fn is_guarded(&self, guard: Guard) -> bool {
-        self.guards.iter().any(|g| g == &guard)
+        self.header().map_or(false, |h| h.guards.iter().any(|g| g == &guard))
     }
 
     /// Whether no show rule was executed for this content so far.
     pub fn is_pristine(&self) -> bool {
-        self.guards.is_empty()
+        self.header().map_or(true, |h| h.guards.is_empty())
     }
 
     /// Whether this content has already been prepared.
     pub fn is_prepared(&self) -> bool {
-        self.prepared
+        self.header().map_or(false, |h| h.prepared)
     }
 
     /// Mark this content as prepared.
     pub fn mark_prepared(&mut self) {
-        self.prepared = true;
+        self.header_mut().prepared = true;
     }
 
     /// Whether the content needs to be realized specially.
@@ -377,13 +409,13 @@ impl Content {
 
     /// This content's location in the document flow.
     pub fn location(&self) -> Option<Location> {
-        self.location
+        self.header().and_then(|h| h.location)
     }
 
     /// Attach a location to this content.
     pub fn set_location(&mut self, location: Location) {
-        if self.location.is_none() {
-            self.location = Some(location);
+        if self.location().is_none() {
+            self.header_mut().location = Some(location);
         }
     }
 
@@ -419,11 +451,11 @@ impl Content {
     {
         f(self);
 
-        for item in self.children.iter() {
+        for item in self.children_slice() {
             item.traverse(f);
         }
 
-        for (_, item) in self.fields.iter() {
+        for (_, item) in self.fields_slice() {
             walk_value(item, f);
         }
 
@@ -496,15 +528,15 @@ impl Add for Content {
         let mut lhs = self;
         match (lhs.is::<SequenceElem>(), rhs.is::<SequenceElem>()) {
             (true, true) => {
-                lhs.children.extend(rhs.children);
+                lhs.header_mut().children.extend(rhs.children_slice().iter().cloned());
                 lhs
             }
             (true, false) => {
-                lhs.children.push(Prehashed::new(rhs));
+                lhs.header_mut().children.push(Prehashed::new(rhs));
                 lhs
             }
             (false, true) => {
-                rhs.children.insert(0, Prehashed::new(lhs));
+                rhs.header_mut().children.insert(0, Prehashed::new(lhs));
                 rhs
             }
             (false, false) => Self::sequence([lhs, rhs]),
