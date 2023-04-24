@@ -29,19 +29,13 @@ pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
         let mut width = Abs::zero();
         let mut alignment_index = 0;
 
-        macro_rules! update_width {
-            () => {
+        for fragment in row.iter() {
+            if matches!(fragment, MathFragment::Align) {
                 if alignment_index < widths.len() {
                     widths[alignment_index].set_max(width);
                 } else {
                     widths.push(width.max(pending_width));
                 }
-            };
-        }
-
-        for fragment in row.iter() {
-            if matches!(fragment, MathFragment::Align) {
-                update_width!();
                 width = Abs::zero();
                 alignment_index += 1;
             } else {
@@ -50,8 +44,10 @@ pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
         }
         if widths.is_empty() {
             pending_width.set_max(width);
+        } else if alignment_index < widths.len() {
+            widths[alignment_index].set_max(width);
         } else {
-            update_width!();
+            widths.push(width.max(pending_width));
         }
     }
 
