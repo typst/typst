@@ -1183,6 +1183,10 @@ impl Named {
     pub fn expr(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
     }
+
+    pub fn expr_ident(&self) -> Option<Ident> {
+        self.0.cast_last_match()
+    }
 }
 
 node! {
@@ -1563,6 +1567,24 @@ impl Params {
     }
 }
 
+node! {
+    Spread
+}
+
+impl Spread {
+    pub fn name(&self) -> Option<Ident> {
+        self.0.cast_first_match()
+    }
+
+    pub fn expr(&self) -> Option<Expr> {
+        self.0.cast_first_match()
+    }
+}
+
+node! {
+    Underscore
+}
+
 /// A parameter to a closure.
 #[derive(Debug, Clone, Hash)]
 pub enum Param {
@@ -1571,9 +1593,9 @@ pub enum Param {
     /// A named parameter with a default value: `draw: false`.
     Named(Named),
     /// An argument sink: `..args`.
-    Sink(Option<Ident>),
+    Sink(Spread),
     /// A placeholder: `_`.
-    Placeholder,
+    Placeholder(Underscore),
 }
 
 impl AstNode for Param {
@@ -1581,8 +1603,8 @@ impl AstNode for Param {
         match node.kind() {
             SyntaxKind::Ident => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
-            SyntaxKind::Spread => Some(Self::Sink(node.cast_first_match())),
-            SyntaxKind::Underscore => Some(Self::Placeholder),
+            SyntaxKind::Spread => node.cast().map(Self::Sink),
+            SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
             _ => Option::None,
         }
     }
@@ -1591,8 +1613,8 @@ impl AstNode for Param {
         match self {
             Self::Pos(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
-            Self::Sink(_) => self.as_untyped(),
-            Self::Placeholder => self.as_untyped(),
+            Self::Sink(v) => v.as_untyped(),
+            Self::Placeholder(v) => v.as_untyped(),
         }
     }
 }
@@ -1602,46 +1624,53 @@ node! {
     Destructuring
 }
 
-/// The kind of an element in a destructuring pattern.
-#[derive(Debug, Clone, Hash)]
-pub enum DestructuringKind {
-    /// An identifier: `x`.
-    Ident(Ident),
-    /// An argument sink: `..y`.
-    Sink(Option<Ident>),
-    /// Named arguments: `x: 1`.
-    Named(Ident, Ident),
-    /// A placeholder: `_`.
-    Placeholder,
-}
-
 impl Destructuring {
     /// The bindings of the destructuring.
     pub fn bindings(&self) -> impl Iterator<Item = DestructuringKind> + '_ {
-        self.0.children().filter_map(|child| match child.kind() {
-            SyntaxKind::Ident => {
-                Some(DestructuringKind::Ident(child.cast().unwrap_or_default()))
-            }
-            SyntaxKind::Spread => Some(DestructuringKind::Sink(child.cast_first_match())),
-            SyntaxKind::Named => {
-                let mut filtered = child.children().filter_map(SyntaxNode::cast);
-                let key = filtered.next().unwrap_or_default();
-                let ident = filtered.next().unwrap_or_default();
-                Some(DestructuringKind::Named(key, ident))
-            }
-            SyntaxKind::Underscore => Some(DestructuringKind::Placeholder),
-            _ => Option::None,
-        })
+        self.0.children().filter_map(SyntaxNode::cast)
     }
 
     // Returns a list of all identifiers in the pattern.
     pub fn idents(&self) -> impl Iterator<Item = Ident> + '_ {
         self.bindings().filter_map(|binding| match binding {
-            DestructuringKind::Ident(ident) => Some(ident),
-            DestructuringKind::Sink(ident) => ident,
-            DestructuringKind::Named(_, ident) => Some(ident),
-            DestructuringKind::Placeholder => Option::None,
+            DestructuringKind::Normal(Expr::Ident(ident)) => Some(ident),
+            DestructuringKind::Sink(spread) => spread.name(),
+            DestructuringKind::Named(named) => named.expr_ident(),
+            _ => Option::None,
         })
+    }
+}
+
+/// The kind of an element in a destructuring pattern.
+#[derive(Debug, Clone, Hash)]
+pub enum DestructuringKind {
+    /// An identifier: `x`.
+    Normal(Expr),
+    /// An argument sink: `..y`.
+    Sink(Spread),
+    /// Named arguments: `x: 1`.
+    Named(Named),
+    /// A placeholder: `_`.
+    Placeholder(Underscore),
+}
+
+impl AstNode for DestructuringKind {
+    fn from_untyped(node: &SyntaxNode) -> Option<Self> {
+        match node.kind() {
+            SyntaxKind::Named => node.cast().map(Self::Named),
+            SyntaxKind::Spread => node.cast().map(Self::Sink),
+            SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
+            _ => node.cast().map(Self::Normal),
+        }
+    }
+
+    fn as_untyped(&self) -> &SyntaxNode {
+        match self {
+            Self::Normal(v) => v.as_untyped(),
+            Self::Named(v) => v.as_untyped(),
+            Self::Sink(v) => v.as_untyped(),
+            Self::Placeholder(v) => v.as_untyped(),
+        }
     }
 }
 
@@ -1651,7 +1680,7 @@ pub enum Pattern {
     /// A single identifier: `x`.
     Ident(Ident),
     /// A placeholder: `_`.
-    Placeholder,
+    Placeholder(Underscore),
     /// A destructuring pattern: `(x, _, ..y)`.
     Destructuring(Destructuring),
 }
@@ -1661,7 +1690,7 @@ impl AstNode for Pattern {
         match node.kind() {
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
-            SyntaxKind::Underscore => Some(Self::Placeholder),
+            SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
             _ => Option::None,
         }
     }
@@ -1670,7 +1699,7 @@ impl AstNode for Pattern {
         match self {
             Self::Ident(v) => v.as_untyped(),
             Self::Destructuring(v) => v.as_untyped(),
-            Self::Placeholder => self.as_untyped(),
+            Self::Placeholder(v) => v.as_untyped(),
         }
     }
 }
@@ -1681,7 +1710,7 @@ impl Pattern {
         match self {
             Pattern::Ident(ident) => vec![ident.clone()],
             Pattern::Destructuring(destruct) => destruct.idents().collect(),
-            Pattern::Placeholder => vec![],
+            _ => vec![],
         }
     }
 }

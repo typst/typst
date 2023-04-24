@@ -187,11 +187,11 @@ Three
 #let (a, b) = (a: 1)
 
 ---
-// Error: 13-14 destructuring key not found in dictionary
+// Error: 10-11 destructuring key not found in dictionary
 #let (a, b: b) = (a: 1)
 
 ---
-// Error: 7-8 cannot destructure named elements from an array
+// Error: 7-11 cannot destructure named elements from an array
 #let (a: a, b) = (1, 2, 3)
 
 ---
