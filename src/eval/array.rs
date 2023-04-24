@@ -24,9 +24,9 @@ macro_rules! __array {
 
 #[doc(inline)]
 pub use crate::__array as array;
+use crate::eval::ops::{add, mul};
 #[doc(hidden)]
 pub use ecow::eco_vec;
-use crate::eval::ops::{add, mul};
 
 /// A reference counted array with value semantics.
 #[derive(Default, Clone, PartialEq, Hash)]
@@ -202,10 +202,13 @@ impl Array {
 
     /// Calculates the sum of the array's items
     pub fn sum(&self, default: Option<Value>, span: Span) -> SourceResult<Value> {
-        let mut acc = self.first().map(|x| x.clone())
-            .or(
-                default.ok_or_else(|| eco_format!("cannot calculate sum of empty array with no default"))
-            ).at(span)?;
+        let mut acc = self
+            .first()
+            .map(|x| x.clone())
+            .or(default.ok_or_else(|| {
+                eco_format!("cannot calculate sum of empty array with no default")
+            }))
+            .at(span)?;
         for i in self.iter().skip(1) {
             acc = add(acc, i.clone()).at(span)?;
         }
@@ -214,10 +217,13 @@ impl Array {
 
     /// Calculates the product of the array's items
     pub fn product(&self, default: Option<Value>, span: Span) -> SourceResult<Value> {
-        let mut acc = self.first().map(|x| x.clone())
-            .or(
-                default.ok_or_else(|| eco_format!("cannot calculate product of empty array with no default"))
-            ).at(span)?;
+        let mut acc = self
+            .first()
+            .map(|x| x.clone())
+            .or(default.ok_or_else(|| {
+                eco_format!("cannot calculate product of empty array with no default")
+            }))
+            .at(span)?;
         for i in self.iter().skip(1) {
             acc = mul(acc, i.clone()).at(span)?;
         }
