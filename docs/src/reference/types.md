@@ -620,6 +620,16 @@ for loop.
 
 - returns: array
 
+### zip()
+Zips the array with another array. If the two arrays are of unequal length, it
+will only zip up until the last element of the smaller array and the remaining
+elements will be ignored. The return value is an array where each element is yet
+another array of size 2.
+
+- other: array (positional, required)
+  The other array which should be zipped with the current one.
+- returns: array
+
 ### fold()
 Folds all items into a single value using an accumulator function.
 

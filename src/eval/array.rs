@@ -306,6 +306,18 @@ impl Array {
         Ok(result)
     }
 
+    /// Zips the array with another array. If the two arrays are of unequal length, it will only
+    /// zip up until the last element of the smaller array and the remaining elements will be
+    /// ignored. The return value is an array where each element is yet another array of size 2.
+    pub fn zip(&self, other: Array) -> Array {
+        self.iter()
+            .zip(other)
+            .map(|(first, second)| {
+                Value::Array(Array::from_vec(eco_vec![first.clone(), second]))
+            })
+            .collect()
+    }
+
     /// Return a sorted version of this array, optionally by a given key function.
     ///
     /// Returns an error if two values could not be compared or if the key function (if given)
