@@ -105,6 +105,8 @@ pub fn call(
             "fold" => {
                 array.fold(vm, args.expect("initial value")?, args.expect("function")?)?
             }
+            "sum" => array.sum(args.named("default")?, span)?,
+            "product" => array.product(args.named("default")?, span)?,
             "any" => Value::Bool(array.any(vm, args.expect("function")?)?),
             "all" => Value::Bool(array.all(vm, args.expect("function")?)?),
             "flatten" => Value::Array(array.flatten()),

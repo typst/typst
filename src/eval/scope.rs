@@ -42,7 +42,7 @@ impl<'a> Scopes<'a> {
             .chain(self.scopes.iter().rev())
             .chain(self.base.map(|base| base.global.scope()))
             .find_map(|scope| scope.get(var))
-            .ok_or_else(|| eco_format!("unknown variable: {}", var))
+            .ok_or_else(|| unknown_variable(var))
     }
 
     /// Try to access a variable immutably in math.
@@ -62,9 +62,19 @@ impl<'a> Scopes<'a> {
             .ok_or_else(|| {
                 match self.base.and_then(|base| base.global.scope().get(var)) {
                     Some(_) => eco_format!("cannot mutate a constant: {}", var),
-                    _ => eco_format!("unknown variable: {}", var),
+                    _ => unknown_variable(var),
                 }
             })?
+    }
+}
+
+/// The error message when a variable is not found.
+#[cold]
+fn unknown_variable(var: &str) -> EcoString {
+    if var.contains('-') {
+        eco_format!("unknown variable: {} – if you meant to use subtraction, try adding spaces around the minus sign.", var)
+    } else {
+        eco_format!("unknown variable: {}", var)
     }
 }
 

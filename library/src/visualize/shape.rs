@@ -132,7 +132,7 @@ pub struct RectElem {
     /// current [text edges]($func/text.top-edge).
     ///
     /// ```example
-    /// #rect(inset: 0pt)[Tight])
+    /// #rect(inset: 0pt)[Tight]
     /// ```
     #[resolve]
     #[fold]

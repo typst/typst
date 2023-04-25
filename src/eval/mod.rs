@@ -1119,10 +1119,14 @@ impl Eval for ast::FuncCall {
 
         let callee = callee.cast::<Func>().at(callee_span)?;
         let point = || Tracepoint::Call(callee.name().map(Into::into));
+        let f = || callee.call_vm(vm, args).trace(vm.world(), point, span);
 
-        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, || {
-            callee.call_vm(vm, args).trace(vm.world(), point, span)
-        })
+        // Stacker is broken on WASM.
+        #[cfg(target_arch = "wasm32")]
+        return f();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        stacker::maybe_grow(32 * 1024, 2 * 1024 * 1024, f)
     }
 }
 
