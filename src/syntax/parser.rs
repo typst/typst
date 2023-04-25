@@ -760,10 +760,17 @@ fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
         let prev = p.prev_end();
         match item(p, keyed) {
             SyntaxKind::Spread => parenthesized = false,
-            SyntaxKind::Named | SyntaxKind::Keyed if kind.is_none() => {
-                kind = Some(SyntaxKind::Dict);
+            SyntaxKind::Named | SyntaxKind::Keyed => {
+                match kind {
+                    Some(SyntaxKind::Array) => kind = Some(SyntaxKind::Destructuring),
+                    _ => kind = Some(SyntaxKind::Dict),
+                }
                 parenthesized = false;
             }
+            SyntaxKind::Int => match kind {
+                Some(SyntaxKind::Array) | None => kind = Some(SyntaxKind::Array),
+                Some(_) => kind = Some(SyntaxKind::Destructuring),
+            },
             _ if kind.is_none() => kind = Some(SyntaxKind::Array),
             _ => {}
         }
@@ -1161,6 +1168,10 @@ fn validate_params(p: &mut Parser, m: Marker) {
                     child.make_erroneous();
                 }
             }
+            SyntaxKind::Array | SyntaxKind::Dict | SyntaxKind::Destructuring => {
+                validate_pattern(child.children_mut().iter_mut(), &mut used, false);
+                child.convert_to_kind(SyntaxKind::Destructuring);
+            }
             SyntaxKind::LeftParen
             | SyntaxKind::RightParen
             | SyntaxKind::Comma
@@ -1194,9 +1205,17 @@ fn validate_args(p: &mut Parser, m: Marker) {
 }
 
 fn validate_destruct_pattern(p: &mut Parser, m: Marker, forbid_expressions: bool) {
-    let mut used_spread = false;
     let mut used = HashSet::new();
-    for child in p.post_process(m) {
+    validate_pattern(p.post_process(m), &mut used, forbid_expressions);
+}
+
+fn validate_pattern<'a>(
+    children: impl Iterator<Item = &'a mut SyntaxNode>,
+    used: &mut HashSet<EcoString>,
+    forbid_expressions: bool,
+) {
+    let mut used_spread = false;
+    for child in children {
         match child.kind() {
             SyntaxKind::Ident => {
                 if !used.insert(child.text().clone()) {

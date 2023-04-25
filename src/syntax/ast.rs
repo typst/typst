@@ -1594,23 +1594,19 @@ node! {
 #[derive(Debug, Clone, Hash)]
 pub enum Param {
     /// A positional parameter: `x`.
-    Pos(Ident),
+    Pos(Pattern),
     /// A named parameter with a default value: `draw: false`.
     Named(Named),
     /// An argument sink: `..args`.
     Sink(Spread),
-    /// A placeholder: `_`.
-    Placeholder(Underscore),
 }
 
 impl AstNode for Param {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Ident => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Spread => node.cast().map(Self::Sink),
-            SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
-            _ => Option::None,
+            _ => node.cast().map(Self::Pos),
         }
     }
 
@@ -1619,7 +1615,6 @@ impl AstNode for Param {
             Self::Pos(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
             Self::Sink(v) => v.as_untyped(),
-            Self::Placeholder(v) => v.as_untyped(),
         }
     }
 }

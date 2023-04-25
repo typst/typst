@@ -1207,14 +1207,13 @@ impl Eval for ast::Closure {
         let mut params = Vec::new();
         for param in self.params().children() {
             match param {
-                ast::Param::Pos(name) => {
-                    params.push(Param::Pos(name));
+                ast::Param::Pos(pattern) => {
+                    params.push(Param::Pos(pattern))
                 }
                 ast::Param::Named(named) => {
                     params.push(Param::Named(named.name(), named.expr().eval(vm)?));
                 }
                 ast::Param::Sink(spread) => params.push(Param::Sink(spread.name())),
-                ast::Param::Placeholder(_) => params.push(Param::Placeholder),
             }
         }
 
