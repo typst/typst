@@ -244,6 +244,8 @@ pub enum SyntaxKind {
     FuncReturn,
     /// A destructuring pattern: `(x, _, ..y)`.
     Destructuring,
+    /// A destructuring assignment expression: `(x, y) = (1, 2)`.
+    DestructAssignment,
 
     /// A line comment: `// ...`.
     LineComment,
@@ -430,6 +432,7 @@ impl SyntaxKind {
             Self::LoopContinue => "`continue` expression",
             Self::FuncReturn => "`return` expression",
             Self::Destructuring => "destructuring pattern",
+            Self::DestructAssignment => "destructuring assignment expression",
             Self::LineComment => "line comment",
             Self::BlockComment => "block comment",
             Self::Error => "syntax error",
