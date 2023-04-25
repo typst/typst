@@ -451,7 +451,24 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     /// regions.
     fn layout_auto_row(&mut self, y: usize) -> SourceResult<()> {
         let mut resolved: Vec<Abs> = vec![];
-        let mut skip = false;
+
+        // Determine if the first region should be skipped, since it can be empty
+        // for some cells.
+        for (x, &rcol) in self.rcols.iter().enumerate() {
+            if let Some(cell) = self.cell(x, y) {
+                let mut pod = self.regions;
+                pod.size.x = rcol;
+
+                let frames = cell.measure(self.vt, self.styles, pod)?.into_frames();
+                if let [first, rest @ ..] = frames.as_slice() {
+                    if first.is_empty() && rest.iter().any(|frame| !frame.is_empty()) {
+                        // Skip the first region, since one cell in it is empty.
+                        self.finish_region()?;
+                        break;
+                    }
+                }
+            }
+        }
 
         // Determine the size for each region of the row.
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -460,11 +477,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
                 pod.size.x = rcol;
 
                 let frames = cell.measure(self.vt, self.styles, pod)?.into_frames();
-                if let [first, rest @ ..] = frames.as_slice() {
-                    skip |=
-                        first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
-                }
-
                 // For each region, we want to know the maximum height any
                 // column requires.
                 let mut sizes = frames.iter().map(|frame| frame.height());
@@ -488,12 +500,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             let frame = self.layout_single_row(first, y)?;
             self.push_row(frame, y);
             return Ok(());
-        }
-
-        // Skip the first region if it's empty for some cell.
-        if skip && !self.regions.in_last() {
-            self.finish_region()?;
-            resolved.remove(0);
         }
 
         // Expand all but the last region.
