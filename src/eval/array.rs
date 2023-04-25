@@ -205,9 +205,11 @@ impl Array {
         let mut acc = self
             .first()
             .map(|x| x.clone())
-            .or(default.ok_or_else(|| {
-                eco_format!("cannot calculate sum of empty array with no default")
-            }))
+            .or_else(|_| {
+                default.ok_or_else(|| {
+                    eco_format!("cannot calculate sum of empty array with no default")
+                })
+            })
             .at(span)?;
         for i in self.iter().skip(1) {
             acc = add(acc, i.clone()).at(span)?;
@@ -220,9 +222,11 @@ impl Array {
         let mut acc = self
             .first()
             .map(|x| x.clone())
-            .or(default.ok_or_else(|| {
-                eco_format!("cannot calculate product of empty array with no default")
-            }))
+            .or_else(|_| {
+                default.ok_or_else(|| {
+                    eco_format!("cannot calculate product of empty array with no default")
+                })
+            })
             .at(span)?;
         for i in self.iter().skip(1) {
             acc = mul(acc, i.clone()).at(span)?;
