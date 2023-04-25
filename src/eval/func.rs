@@ -451,7 +451,7 @@ impl<'a> CapturesVisitor<'a> {
                             for ident in pattern.idents() {
                                 self.bind(ident);
                             }
-                        },
+                        }
                         ast::Param::Named(named) => self.bind(named.name()),
                         ast::Param::Sink(spread) => {
                             self.bind(spread.name().unwrap_or_default())
