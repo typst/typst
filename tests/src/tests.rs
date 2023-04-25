@@ -368,7 +368,7 @@ fn test(
     let parts: Vec<_> = text.split("\n---").collect();
     for (i, &part) in parts.iter().enumerate() {
         if let Some(x) = args.subtest {
-            if x != i {
+            if !(x == i || (i == parts.len() - 1 && x >= parts.len())) {
                 writeln!(output, "  Skipped subtest {i}.").unwrap();
                 continue;
             }
