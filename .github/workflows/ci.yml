@@ -18,7 +18,7 @@ jobs:
       - run: cargo build --workspace
       - run: cargo test --workspace --no-fail-fast
   msrv:
-    name: MSRV
+    name: MSRV (${{ env.rust_min }})
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
