@@ -167,6 +167,27 @@
 #(1, 2, 3).fold(0, () => none)
 
 ---
+// Test the `sum` method.
+#test(().sum(default: 0), 0)
+#test(().sum(default: []), [])
+#test((1, 2, 3).sum(), 6)
+
+---
+// Error: 2-10 cannot calculate sum of empty array with no default
+#().sum()
+
+---
+// Test the `product` method.
+#test(().product(default: 0), 0)
+#test(().product(default: []), [])
+#test(([ab], 3).product(), [ab]*3)
+#test((1, 2, 3).product(), 6)
+
+---
+// Error: 2-14 cannot calculate product of empty array with no default
+#().product()
+
+---
 // Test the `rev` method.
 #test(range(3).rev(), (2, 1, 0))
 

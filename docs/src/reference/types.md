@@ -630,6 +630,20 @@ Folds all items into a single value using an accumulator function.
   and one for an item.
 - returns: any
 
+### sum()
+Sums all items (works for any types that can be added).
+
+- default: any (named)
+  If set and the array is empty, sum will return this.
+- returns: any
+
+### product()
+Calculates the product all items (works for any types that can be multiplied)
+
+- default: any (named)
+  If set and the array is empty, sum will return this.
+- returns: any
+
 ### any()
 Whether the given function returns `{true}` for any item in the array.
 
