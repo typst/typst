@@ -7,3 +7,4 @@ $vec(..#(1, 2, 3).map(i => $#i$))$
 ---
 $#math.mat(..range(4).map(row => range(4).map(col => $u_(#row #col)$)))$
 $mat(..#range(4).map(row => range(4).map(col => $u_(#row #col)$)))$
+#let array = ((1, 2), (3, 4)); $mat(..array)$

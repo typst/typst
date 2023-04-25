@@ -431,11 +431,6 @@ impl Lexer<'_> {
             '~' if self.s.eat_if('>') => SyntaxKind::Shorthand,
             '*' | '\'' | '-' => SyntaxKind::Shorthand,
 
-            '.' if self.s.eat_if(".#") => {
-                self.s.uneat();
-                SyntaxKind::Dots
-            }
-
             '#' => SyntaxKind::Hashtag,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
@@ -450,7 +445,18 @@ impl Lexer<'_> {
             }
 
             // Other math atoms.
-            _ => self.math_text(start, c),
+            _ => {
+                if c == '.' && self.s.eat_if('.') {
+                    if self.s.after().chars().next().map(char::is_whitespace)
+                        == Some(false)
+                    {
+                        return SyntaxKind::Dots;
+                    }
+                    self.s.uneat();
+                }
+
+                self.math_text(start, c)
+            }
         }
     }
 

@@ -242,12 +242,9 @@ fn math_expr(p: &mut Parser) {
 fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let m = p.marker();
     let mut continuable = false;
+    let spread = p.eat_if(SyntaxKind::Dots);
+
     match p.current() {
-        SyntaxKind::Dots => {
-            p.eat();
-            embedded_code_expr(p);
-            p.wrap(m, SyntaxKind::Spread);
-        }
         SyntaxKind::Hashtag => embedded_code_expr(p),
         SyntaxKind::MathIdent => {
             continuable = true;
@@ -288,6 +285,10 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         _ => p.expected("expression"),
+    }
+
+    if spread {
+        p.wrap(m, SyntaxKind::Spread);
     }
 
     if continuable
@@ -497,7 +498,7 @@ fn math_args(p: &mut Parser) {
 
 fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
     let exprs = p.post_process(arg).filter(|node| node.is::<ast::Expr>()).count();
-    if exprs != 1 {
+    if exprs > 1 {
         p.wrap(arg, SyntaxKind::Math);
     }
 
