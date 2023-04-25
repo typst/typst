@@ -271,9 +271,19 @@ pub struct PageElem {
 }
 
 impl PageElem {
-    /// Layout the page run into a sequence of frames, one per page.
+    /// A document can consist of multiple `PageElem`s, one per run of pages
+    /// with equal properties (not one per actual output page!). The `number` is
+    /// the physical page number of the first page of this run. It is mutated
+    /// while we post-process the pages in this function. This function returns
+    /// a fragment consisting of multiple frames, one per output page of this
+    /// page run.
     #[tracing::instrument(skip_all)]
-    pub fn layout(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Fragment> {
+    pub fn layout(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        mut number: NonZeroUsize,
+    ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
         // When one of the lengths is infinite the page fits its content along
@@ -333,8 +343,8 @@ impl PageElem {
         );
 
         // Realize overlays.
-        for (i, frame) in fragment.iter_mut().enumerate() {
-            tracing::info!("Layouting page #{i}");
+        for frame in fragment.iter_mut() {
+            tracing::info!("Layouting page #{number}");
             frame.prepend(Point::zero(), numbering_meta.clone());
             let size = frame.size();
             let pad = padding.resolve(styles).relative_to(size);
@@ -382,6 +392,8 @@ impl PageElem {
             if let Some(fill) = &fill {
                 frame.fill(fill.clone());
             }
+
+            number = number.saturating_add(1);
         }
 
         Ok(fragment)
