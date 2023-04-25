@@ -70,9 +70,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (a, None) => a,
         (None, b) => b,
 
-        (Int(a), Int(b)) => {
-            Int(a.checked_add(b).ok_or("value is too large")?)
-        }
+        (Int(a), Int(b)) => Int(a.checked_add(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
         (Float(a), Float(b)) => Float(a + b),
@@ -139,9 +137,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 /// Compute the difference of two values.
 pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => {
-            Int(a.checked_sub(b).ok_or("value is too large")?)
-        }
+        (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 - b),
         (Float(a), Int(b)) => Float(a - b as f64),
         (Float(a), Float(b)) => Float(a - b),
@@ -169,9 +165,7 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 /// Compute the product of two values.
 pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => {
-            Int(a.checked_mul(b).ok_or("value is too large")?)
-        }
+        (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
         (Float(a), Float(b)) => Float(a * b),
