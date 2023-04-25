@@ -7,7 +7,7 @@ env:
 
 jobs:
   ci:
-    name: 'Test'
+    name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -18,18 +18,20 @@ jobs:
       - run: cargo build --workspace
       - run: cargo test --workspace --no-fail-fast
   msrv:
-    name: 'MSRV'
+    name: MSRV
     runs-on: ubuntu-latest
     steps:
       -
-      - name: 'Checkout sources'
+      - name: Checkout sources
         uses: actions/checkout@v3
 
       - name: Install toolchain (${{ env.rust_min }})
         run: |
           rustup install --profile minimal ${{ env.rust_min }}
           rustup override set ${{ env.rust_min }}
-      - uses: Swatinem/rust-cache@v2
 
-      - name: 'Build'
+      - name: Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build
         run: cargo build --workspace
