@@ -409,11 +409,8 @@ fn render_shape(
             let dash = dash_pattern.as_ref().and_then(|pattern| {
                 // tiny-skia only allows dash patterns with an even number of elements,
                 // while pdf allows any number.
-                let len = if pattern.array.len() % 2 == 1 {
-                    pattern.array.len() * 2
-                } else {
-                    pattern.array.len()
-                };
+                let double_if_odd = |x| { if x % 2 == 1 { x * 2 } else { x } };
+                let len = double_if_odd(pattern.array.len());
                 let dash_array =
                     pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
 
