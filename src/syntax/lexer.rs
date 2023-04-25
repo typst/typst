@@ -431,6 +431,11 @@ impl Lexer<'_> {
             '~' if self.s.eat_if('>') => SyntaxKind::Shorthand,
             '*' | '\'' | '-' => SyntaxKind::Shorthand,
 
+            '.' if self.s.eat_if(".#") => {
+                self.s.uneat();
+                SyntaxKind::Dots
+            }
+
             '#' => SyntaxKind::Hashtag,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,

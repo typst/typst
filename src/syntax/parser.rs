@@ -243,6 +243,11 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let m = p.marker();
     let mut continuable = false;
     match p.current() {
+        SyntaxKind::Dots => {
+            p.eat();
+            embedded_code_expr(p);
+            p.wrap(m, SyntaxKind::Spread);
+        }
         SyntaxKind::Hashtag => embedded_code_expr(p),
         SyntaxKind::MathIdent => {
             continuable = true;
