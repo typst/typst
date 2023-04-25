@@ -708,9 +708,9 @@ impl Eval for ast::MathAttach {
     #[tracing::instrument(name = "MathAttach::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let base = self.base().eval_display(vm)?;
-        let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
         let top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
-        Ok((vm.items.math_attach)(base, bottom, top))
+        let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
+        Ok((vm.items.math_attach)(base, top, bottom, None, None, None, None))
     }
 }
 

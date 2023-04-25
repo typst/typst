@@ -15,8 +15,8 @@
       }
     } else if func == math.attach {
       let value = f(elem.base)
-      if elem.has("top") {
-        value = calc.pow(value, f(elem.top))
+      if elem.has("t") {
+        value = calc.pow(value, f(elem.t))
       }
       value
     } else if elem.has("children") {

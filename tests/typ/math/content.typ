@@ -11,7 +11,7 @@ $ x := #table(columns: 2)[x][y]/mat(1, 2, 3)
      = #table[A][B][C] $
 ---
 // Test non-equation math directly in content.
-#math.attach($a$, top: [b])
+#math.attach($a$, t: [b])
 
 ---
 // Test font switch.
