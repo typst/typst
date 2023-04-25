@@ -174,6 +174,7 @@ pub struct FontInfo {
 
 bitflags::bitflags! {
     /// Bitflags describing characteristics of a font.
+    #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct FontFlags: u32 {
