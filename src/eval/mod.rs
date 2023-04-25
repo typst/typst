@@ -1332,8 +1332,8 @@ impl ast::Pattern {
         T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
     {
         match self {
-            ast::Pattern::Ident(ident) => {
-                f(vm, ast::Expr::Ident(ident.clone()), value)?;
+            ast::Pattern::Normal(expr) => {
+                f(vm, expr.clone(), value)?;
                 Ok(Value::None)
             }
             ast::Pattern::Placeholder(_) => Ok(Value::None),
@@ -1565,7 +1565,7 @@ impl Eval for ast::ForLoop {
         let pattern = self.pattern();
 
         match (&pattern, iter.clone()) {
-            (ast::Pattern::Ident(_), Value::Str(string)) => {
+            (ast::Pattern::Normal(_), Value::Str(string)) => {
                 // Iterate over graphemes of string.
                 iter!(for pattern in string.as_str().graphemes(true));
             }
@@ -1577,7 +1577,7 @@ impl Eval for ast::ForLoop {
                 // Iterate over values of array.
                 iter!(for pattern in array);
             }
-            (ast::Pattern::Ident(_), _) => {
+            (ast::Pattern::Normal(_), _) => {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
             }
             (_, _) => {

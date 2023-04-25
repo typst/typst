@@ -1184,6 +1184,7 @@ impl Named {
         self.0.cast_last_match().unwrap_or_default()
     }
 
+    /// The right-hand side of the pair as an identifier.
     pub fn expr_ident(&self) -> Option<Ident> {
         self.0.cast_last_match()
     }
@@ -1568,20 +1569,24 @@ impl Params {
 }
 
 node! {
+    /// A spread: `..x` or `..x.at(0)`.
     Spread
 }
 
 impl Spread {
+    /// Try to get an identifier.
     pub fn name(&self) -> Option<Ident> {
         self.0.cast_first_match()
     }
 
+    /// Try to get an expression.
     pub fn expr(&self) -> Option<Expr> {
         self.0.cast_first_match()
     }
 }
 
 node! {
+    /// An underscore: `_`
     Underscore
 }
 
@@ -1644,7 +1649,7 @@ impl Destructuring {
 /// The kind of an element in a destructuring pattern.
 #[derive(Debug, Clone, Hash)]
 pub enum DestructuringKind {
-    /// An identifier: `x`.
+    /// An expression: `x`.
     Normal(Expr),
     /// An argument sink: `..y`.
     Sink(Spread),
@@ -1677,8 +1682,8 @@ impl AstNode for DestructuringKind {
 /// The kind of a pattern.
 #[derive(Debug, Clone, Hash)]
 pub enum Pattern {
-    /// A single identifier: `x`.
-    Ident(Ident),
+    /// A single expression: `x`.
+    Normal(Expr),
     /// A placeholder: `_`.
     Placeholder(Underscore),
     /// A destructuring pattern: `(x, _, ..y)`.
@@ -1688,16 +1693,15 @@ pub enum Pattern {
 impl AstNode for Pattern {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::Destructuring => node.cast().map(Self::Destructuring),
             SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
-            _ => Option::None,
+            _ => node.cast().map(Self::Normal),
         }
     }
 
     fn as_untyped(&self) -> &SyntaxNode {
         match self {
-            Self::Ident(v) => v.as_untyped(),
+            Self::Normal(v) => v.as_untyped(),
             Self::Destructuring(v) => v.as_untyped(),
             Self::Placeholder(v) => v.as_untyped(),
         }
@@ -1708,7 +1712,7 @@ impl Pattern {
     // Returns a list of all identifiers in the pattern.
     pub fn idents(&self) -> Vec<Ident> {
         match self {
-            Pattern::Ident(ident) => vec![ident.clone()],
+            Pattern::Normal(Expr::Ident(ident)) => vec![ident.clone()],
             Pattern::Destructuring(destruct) => destruct.idents().collect(),
             _ => vec![],
         }
@@ -1717,7 +1721,7 @@ impl Pattern {
 
 impl Default for Pattern {
     fn default() -> Self {
-        Self::Ident(Ident::default())
+        Self::Normal(Expr::default())
     }
 }
 
@@ -1749,23 +1753,18 @@ impl LetBindingKind {
 impl LetBinding {
     /// The kind of the let binding.
     pub fn kind(&self) -> LetBindingKind {
-        if let Some(pattern) = self.0.cast_first_match::<Pattern>() {
-            LetBindingKind::Normal(pattern)
-        } else {
-            LetBindingKind::Closure(
-                self.0
-                    .cast_first_match::<Closure>()
-                    .unwrap_or_default()
-                    .name()
-                    .unwrap_or_default(),
-            )
+        match self.0.cast_first_match::<Pattern>() {
+            Some(Pattern::Normal(Expr::Closure(closure))) => {
+                LetBindingKind::Closure(closure.name().unwrap_or_default())
+            }
+            pattern => LetBindingKind::Normal(pattern.unwrap_or_default()),
         }
     }
 
     /// The expression the binding is initialized with.
     pub fn init(&self) -> Option<Expr> {
         match self.kind() {
-            LetBindingKind::Normal(Pattern::Ident(_)) => {
+            LetBindingKind::Normal(Pattern::Normal(_)) => {
                 self.0.children().filter_map(SyntaxNode::cast).nth(1)
             }
             LetBindingKind::Normal(_) => self.0.cast_first_match(),
