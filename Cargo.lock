@@ -255,9 +255,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "3.2.23"
+version = "3.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71655c45cb9845d3270c9d6df84ebe72b4dad3c2ba3f7023ad47c144e4e473a5"
+checksum = "eef2b3ded6a26dfaec672a742c93c8cf6b689220324da509ec5caa20de55dc83"
 dependencies = [
  "atty",
  "bitflags 1.3.2",
@@ -1091,15 +1091,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kurbo"
-version = "0.9.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28a2d0c1781729f69dbea30f968608cadfaeb6582e5ce903a167a5216b53cd0f"
-dependencies = [
- "arrayvec 0.7.2",
-]
-
-[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1379,7 +1370,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "630638e107fb436644c300e781d3f17e1b04656138ba0d40564be4be3b06db32"
 dependencies = [
  "bitvec",
- "clap 3.2.23",
+ "clap 3.2.24",
  "crossbeam-channel",
  "filetime",
  "image",
@@ -1770,23 +1761,7 @@ dependencies = [
  "ttf-parser 0.15.2",
  "unicode-bidi-mirroring",
  "unicode-ccc",
- "unicode-general-category 0.4.0",
- "unicode-script",
-]
-
-[[package]]
-name = "rustybuzz"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "162bdf42e261bee271b3957691018634488084ef577dddeb6420a9684cab2a6a"
-dependencies = [
- "bitflags 1.3.2",
- "bytemuck",
- "smallvec",
- "ttf-parser 0.18.1",
- "unicode-bidi-mirroring",
- "unicode-ccc",
- "unicode-general-category 0.6.0",
+ "unicode-general-category",
  "unicode-script",
 ]
 
@@ -2166,11 +2141,10 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tracing"
-version = "0.1.37"
+version = "0.1.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ce8c33a8d48bd45d624a6e523445fd21ec13d3653cd51f681abf67418f54eb8"
+checksum = "cf9cf6a813d3f40c88b0b6b6f29a5c95c6cdbf97c1f9cc53fb820200f5ad814d"
 dependencies = [
- "cfg-if",
  "pin-project-lite",
  "tracing-attributes",
  "tracing-core",
@@ -2288,7 +2262,7 @@ dependencies = [
  "regex",
  "resvg",
  "roxmltree",
- "rustybuzz 0.7.0",
+ "rustybuzz",
  "serde",
  "siphasher",
  "stacker",
@@ -2364,12 +2338,12 @@ dependencies = [
  "ecow",
  "hayagriva",
  "hypher",
- "kurbo 0.9.3",
+ "kurbo",
  "lipsum",
  "log",
  "once_cell",
  "roxmltree",
- "rustybuzz 0.7.0",
+ "rustybuzz",
  "serde_json",
  "serde_yaml",
  "smallvec",
@@ -2464,12 +2438,6 @@ name = "unicode-general-category"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07547e3ee45e28326cc23faac56d44f58f16ab23e413db526debce3b0bfd2742"
-
-[[package]]
-name = "unicode-general-category"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2281c8c1d221438e373249e065ca4989c4c36952c211ff21a0ee91c44a3869e7"
 
 [[package]]
 name = "unicode-ident"
@@ -2580,12 +2548,12 @@ dependencies = [
  "flate2",
  "float-cmp",
  "fontdb",
- "kurbo 0.8.3",
+ "kurbo",
  "log",
  "pico-args",
  "rctree",
  "roxmltree",
- "rustybuzz 0.5.1",
+ "rustybuzz",
  "simplecss",
  "siphasher",
  "svgtypes",
