@@ -28,13 +28,13 @@ pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
     for row in rows {
         let mut width = Abs::zero();
         let mut alignment_index = 0;
+
         for fragment in row.iter() {
             if matches!(fragment, MathFragment::Align) {
                 if alignment_index < widths.len() {
                     widths[alignment_index].set_max(width);
                 } else {
-                    widths.push(width);
-                    pending_width = Abs::zero();
+                    widths.push(width.max(pending_width));
                 }
                 width = Abs::zero();
                 alignment_index += 1;
@@ -42,7 +42,13 @@ pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
                 width += fragment.width();
             }
         }
-        pending_width.set_max(width);
+        if widths.is_empty() {
+            pending_width.set_max(width);
+        } else if alignment_index < widths.len() {
+            widths[alignment_index].set_max(width);
+        } else {
+            widths.push(width.max(pending_width));
+        }
     }
 
     let mut points = widths;
@@ -51,7 +57,7 @@ pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
         points[i] += prev;
     }
     AlignmentResult {
-        width: points.last().copied().unwrap_or_default() + pending_width,
+        width: points.last().copied().unwrap_or(pending_width),
         points,
     }
 }
