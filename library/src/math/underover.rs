@@ -242,22 +242,18 @@ pub(super) fn stack(
     gap: Abs,
     baseline: usize,
 ) -> Frame {
-    let mut width = Abs::zero();
-    let mut height = rows.len().saturating_sub(1) as f64 * gap;
-
-    let points = alignments(&rows);
+    let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
         .map(|row| row.into_aligned_frame(ctx, &points, align))
         .collect();
 
-    for row in &rows {
-        height += row.height();
-        width.set_max(row.width());
-    }
-
     let mut y = Abs::zero();
-    let mut frame = Frame::new(Size::new(width, height));
+    let mut frame = Frame::new(Size::new(
+        width,
+        rows.iter().map(|row| row.height()).sum::<Abs>()
+            + rows.len().saturating_sub(1) as f64 * gap,
+    ));
 
     for (i, row) in rows.into_iter().enumerate() {
         let x = align.position(width - row.width());
