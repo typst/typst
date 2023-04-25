@@ -40,3 +40,4 @@ unicode-segmentation = "1"
 xi-unicode = "0.3"
 chinese-number = { version = "0.7.1", default-features = false, features = ["number-to-chinese"] }
 tracing = "0.1.37"
+toml = { version = "0.7.3", default-features = false, features = ["parse"]}
