@@ -45,7 +45,8 @@ struct Args {
     filter: Vec<String>,
     /// runs only the specified subtest
     #[arg(short, long)]
-    subtest: Option<usize>,
+    #[arg(allow_hyphen_values = true)]
+    subtest: Option<isize>,
     #[arg(long)]
     exact: bool,
     #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
@@ -368,7 +369,11 @@ fn test(
     let parts: Vec<_> = text.split("\n---").collect();
     for (i, &part) in parts.iter().enumerate() {
         if let Some(x) = args.subtest {
-            if !(x == i || (i == parts.len() - 1 && x >= parts.len())) {
+            let x = usize::try_from(
+                x.rem_euclid(isize::try_from(parts.len()).unwrap_or_default()),
+            )
+            .unwrap();
+            if x != i {
                 writeln!(output, "  Skipped subtest {i}.").unwrap();
                 continue;
             }
