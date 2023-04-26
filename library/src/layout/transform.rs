@@ -37,6 +37,7 @@ pub struct MoveElem {
 }
 
 impl Layout for MoveElem {
+    #[tracing::instrument(name = "MoveElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -105,6 +106,7 @@ pub struct RotateElem {
 }
 
 impl Layout for RotateElem {
+    #[tracing::instrument(name = "RotateElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -173,6 +175,7 @@ pub struct ScaleElem {
 }
 
 impl Layout for ScaleElem {
+    #[tracing::instrument(name = "ScaleElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

@@ -19,7 +19,7 @@ use crate::text::TextElem;
 /// If you just want to link to a labelled element and not get an automatic
 /// textual reference, consider using the [`link`]($func/link) function instead.
 ///
-/// # Example
+/// ## Example
 /// ```example
 /// #set heading(numbering: "1.")
 /// #set math.equation(numbering: "(1)")
@@ -50,6 +50,36 @@ use crate::text::TextElem;
 ///
 /// To customize the supplement, add content in square brackets after the
 /// reference: `[@intro[Chapter]]`.
+///
+/// ## Customization
+/// If you write a show rule for references, you can access the referenced
+/// element through the `element` field of the reference. The `element` may
+/// be `{none}` even if it exists if Typst hasn't discovered it yet, so you
+/// always need to handle that case in your code.
+///
+/// ```example
+/// #set heading(numbering: "1.")
+/// #set math.equation(numbering: "(1)")
+///
+/// #show ref: it => {
+///   let eq = math.equation
+///   let el = it.element
+///   if el != none and el.func() == eq {
+///     // Override equation references.
+///     numbering(
+///       el.numbering,
+///       ..counter(eq).at(el.location())
+///     )
+///   } else {
+///     // Other references as usual.
+///     it
+///   }
+/// }
+///
+/// = Beginnings <beginning>
+/// In @beginning we prove @pythagoras.
+/// $ a^2 + b^2 = c^2 $ <pythagoras>
+/// ```
 ///
 /// Display: Reference
 /// Category: meta
@@ -86,35 +116,7 @@ pub struct RefElem {
     #[synthesized]
     pub citation: Option<CiteElem>,
 
-    /// Content of the element, it should be referable.
-    ///
-    /// ```example
-    /// #set heading(numbering: (..nums) => {
-    ///   nums.pos().map(str).join(".")
-    ///   }, supplement: [Chapt])
-    ///
-    /// #show ref: it => {
-    ///   if it.has("element") and it.element.func() == heading {
-    ///     let element = it.element
-    ///     "["
-    ///     element.supplement
-    ///     "-"
-    ///     numbering(element.numbering, ..counter(heading).at(element.location()))
-    ///     "]"
-    ///   } else {
-    ///     it
-    ///   }
-    /// }
-    ///
-    /// = Introduction <intro>
-    /// = Summary <sum>
-    /// == Subsection <sub>
-    /// @intro
-    ///
-    /// @sum
-    ///
-    /// @sub
-    /// ```
+    /// The referenced element.
     #[synthesized]
     pub element: Option<Content>,
 }
@@ -123,22 +125,14 @@ impl Synthesize for RefElem {
     fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         let citation = self.to_citation(vt, styles)?;
         self.push_citation(Some(citation));
+        self.push_element(None);
 
-        if !vt.introspector.init() {
-            self.push_element(None);
-            return Ok(());
-        }
-
-        // find the element content
         let target = self.target();
-        let elem = vt.introspector.query_label(&self.target());
-        // not in bibliography, but in document, then push the element
-        if let (false, Ok(elem)) =
-            (BibliographyElem::has(vt, &target.0), elem.at(self.span()))
-        {
-            self.push_element(Some(elem));
-        } else {
-            self.push_element(None);
+        if vt.introspector.init() && !BibliographyElem::has(vt, &target.0) {
+            if let Ok(elem) = vt.introspector.query_label(&target) {
+                self.push_element(Some(elem));
+                return Ok(());
+            }
         }
 
         Ok(())
@@ -146,6 +140,7 @@ impl Synthesize for RefElem {
 }
 
 impl Show for RefElem {
+    #[tracing::instrument(name = "RefElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
@@ -183,10 +178,11 @@ impl Show for RefElem {
         };
 
         let lang = TextElem::lang_in(styles);
+        let region = TextElem::region_in(styles);
         let reference = elem
             .with::<dyn Refable>()
             .expect("element should be refable")
-            .reference(vt, supplement, lang)?;
+            .reference(vt, supplement, lang, region)?;
 
         Ok(reference.linked(Destination::Location(elem.location().unwrap())))
     }
@@ -258,21 +254,27 @@ pub trait Refable {
     ///
     /// # Arguments
     /// - `vt` - The virtual typesetter.
-    /// - `styles` - The styles of the reference.
-    /// - `location` - The location where the reference is being created.
     /// - `supplement` - The supplement of the reference.
+    /// - `lang`: The language of the reference.
+    /// - `region`: The region of the reference.
     fn reference(
         &self,
         vt: &mut Vt,
         supplement: Option<Content>,
         lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content>;
 
     /// Tries to build an outline element for this element.
     /// If this returns `None`, the outline will not include this element.
     /// By default this just calls [`Refable::reference`].
-    fn outline(&self, vt: &mut Vt, lang: Lang) -> SourceResult<Option<Content>> {
-        self.reference(vt, None, lang).map(Some)
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        lang: Lang,
+        region: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
+        self.reference(vt, None, lang, region).map(Some)
     }
 
     /// Returns the level of this element.

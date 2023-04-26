@@ -38,7 +38,7 @@ pub fn contributors(from: &str, to: &str) -> Option<Html> {
         .collect();
 
     // Sort by highest number of commits.
-    contributors.sort_by_key(|c| Reverse(c.contributions));
+    contributors.sort_by_key(|c| (Reverse(c.contributions), c.login.clone()));
     if contributors.is_empty() {
         return None;
     }

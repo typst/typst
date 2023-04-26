@@ -43,7 +43,10 @@ impl Construct for DocumentElem {
 
 impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
+    #[tracing::instrument(name = "DocumentElem::layout_root", skip_all)]
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
+        tracing::info!("Document layout");
+
         let mut pages = vec![];
 
         for mut child in &self.children() {
@@ -55,7 +58,8 @@ impl LayoutRoot for DocumentElem {
             }
 
             if let Some(page) = child.to::<PageElem>() {
-                let fragment = page.layout(vt, styles)?;
+                let number = NonZeroUsize::ONE.saturating_add(pages.len());
+                let fragment = page.layout(vt, styles, number)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");

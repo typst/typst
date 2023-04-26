@@ -24,6 +24,7 @@ macro_rules! __array {
 
 #[doc(inline)]
 pub use crate::__array as array;
+use crate::eval::ops::{add, mul};
 #[doc(hidden)]
 pub use ecow::eco_vec;
 
@@ -199,6 +200,40 @@ impl Array {
         Ok(acc)
     }
 
+    /// Calculates the sum of the array's items
+    pub fn sum(&self, default: Option<Value>, span: Span) -> SourceResult<Value> {
+        let mut acc = self
+            .first()
+            .map(|x| x.clone())
+            .or_else(|_| {
+                default.ok_or_else(|| {
+                    eco_format!("cannot calculate sum of empty array with no default")
+                })
+            })
+            .at(span)?;
+        for i in self.iter().skip(1) {
+            acc = add(acc, i.clone()).at(span)?;
+        }
+        Ok(acc)
+    }
+
+    /// Calculates the product of the array's items
+    pub fn product(&self, default: Option<Value>, span: Span) -> SourceResult<Value> {
+        let mut acc = self
+            .first()
+            .map(|x| x.clone())
+            .or_else(|_| {
+                default.ok_or_else(|| {
+                    eco_format!("cannot calculate product of empty array with no default")
+                })
+            })
+            .at(span)?;
+        for i in self.iter().skip(1) {
+            acc = mul(acc, i.clone()).at(span)?;
+        }
+        Ok(acc)
+    }
+
     /// Whether any item matches.
     pub fn any(&self, vm: &mut Vm, func: Func) -> SourceResult<bool> {
         for item in self.iter() {
@@ -269,6 +304,18 @@ impl Array {
         }
 
         Ok(result)
+    }
+
+    /// Zips the array with another array. If the two arrays are of unequal length, it will only
+    /// zip up until the last element of the smaller array and the remaining elements will be
+    /// ignored. The return value is an array where each element is yet another array of size 2.
+    pub fn zip(&self, other: Array) -> Array {
+        self.iter()
+            .zip(other)
+            .map(|(first, second)| {
+                Value::Array(Array::from_vec(eco_vec![first.clone(), second]))
+            })
+            .collect()
     }
 
     /// Return a sorted version of this array, optionally by a given key function.

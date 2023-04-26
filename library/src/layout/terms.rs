@@ -8,16 +8,16 @@ use crate::prelude::*;
 /// descriptions span over multiple lines, they use hanging indent to
 /// communicate the visual hierarchy.
 ///
-/// ## Syntax
-/// This function also has dedicated syntax: Starting a line with a slash,
-/// followed by a term, a colon and a description creates a term list item.
-///
 /// ## Example
 /// ```example
 /// / Ligature: A merged glyph.
 /// / Kerning: A spacing adjustment
 ///   between two adjacent letters.
 /// ```
+///
+/// ## Syntax
+/// This function also has dedicated syntax: Starting a line with a slash,
+/// followed by a term, a colon and a description creates a term list item.
 ///
 /// Display: Term List
 /// Category: layout
@@ -92,6 +92,7 @@ pub struct TermsElem {
 }
 
 impl Layout for TermsElem {
+    #[tracing::instrument(name = "TermsElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

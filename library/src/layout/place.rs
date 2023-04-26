@@ -54,6 +54,7 @@ pub struct PlaceElem {
 }
 
 impl Layout for PlaceElem {
+    #[tracing::instrument(name = "PlaceElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

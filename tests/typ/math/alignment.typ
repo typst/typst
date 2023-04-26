@@ -2,9 +2,9 @@
 
 ---
 // Test alignment step functions.
-#set page(width: 300pt)
+#set page(width: 225pt)
 $
-"abc" &= c \
+"a" &= c \
 &= c + 1 & "By definition" \
 &= d + 100 + 1000 \
 &= x && "Even longer" \
@@ -12,17 +12,23 @@ $
 
 ---
 // Test post-fix alignment.
-#set page(width: 300pt)
 $
 & "right" \
 "a very long line" \
+"left" \
 $
 
 ---
-// Test alternating alignment.
-#set page(width: 300pt)
+// Test no alignment.
 $
-"abc" & "abc abc abc" & "abc abc" \
-"abc abc" & "abc abc" & "abc" \
-"abc abc abc" & "abc" & "abc abc abc" \
+"right" \
+"a very long line" \
+"left" \
+$
+
+---
+// Test #460 equations.
+$
+a &=b & quad c&=d \
+e &=f & g&=h
 $

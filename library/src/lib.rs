@@ -29,6 +29,7 @@ pub fn build() -> Library {
 }
 
 /// Construct the module with global definitions.
+#[tracing::instrument(skip_all)]
 fn global(math: Module, calc: Module) -> Module {
     let mut global = Scope::deduplicating();
 
@@ -130,6 +131,7 @@ fn global(math: Module, calc: Module) -> Module {
     global.define("read", compute::read);
     global.define("csv", compute::csv);
     global.define("json", compute::json);
+    global.define("toml", compute::toml);
     global.define("yaml", compute::yaml);
     global.define("xml", compute::xml);
 
@@ -226,13 +228,25 @@ fn items() -> LangItems {
         equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointElem::new().pack(),
         math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),
-        math_attach: |base, bottom, top| {
+        math_attach: |base, t, b, tl, bl, tr, br| {
             let mut elem = math::AttachElem::new(base);
-            if let Some(bottom) = bottom {
-                elem.push_bottom(Some(bottom));
+            if let Some(t) = t {
+                elem.push_t(Some(t));
             }
-            if let Some(top) = top {
-                elem.push_top(Some(top));
+            if let Some(b) = b {
+                elem.push_b(Some(b));
+            }
+            if let Some(tl) = tl {
+                elem.push_tl(Some(tl));
+            }
+            if let Some(bl) = bl {
+                elem.push_bl(Some(bl));
+            }
+            if let Some(tr) = tr {
+                elem.push_tr(Some(tr));
+            }
+            if let Some(br) = br {
+                elem.push_br(Some(br));
             }
             elem.pack()
         },

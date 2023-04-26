@@ -31,6 +31,9 @@ pub fn type_(
 /// in monospace with syntax-highlighting. The exceptions are `{none}`,
 /// integers, floats, strings, content, and functions.
 ///
+/// **Note:** This function is for debugging purposes. Its output should not be
+/// considered stable and may change at any time!
+///
 /// ## Example
 /// ```example
 /// #none vs #repr(none) \

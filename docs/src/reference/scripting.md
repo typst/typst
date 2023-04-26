@@ -64,7 +64,7 @@ Content and code blocks can be nested arbitrarily. In the example below,
 }
 ```
 
-## Let bindings { #bindings }
+## Bindings and Destructuring { #bindings }
 As already demonstrated above, variables can be defined with `{let}` bindings.
 The variable is assigned the value of the expression that follows the `=` sign.
 The assignment of a value is optional, if no value is assigned, the variable
@@ -82,7 +82,10 @@ Sum is #add(2, 3).
 ```
 
 Let bindings can also be used to destructure [arrays]($type/array) and
-[dictionaries]($type/dictionary).
+[dictionaries]($type/dictionary). In this case, the left-hand side of the
+assignment should mirror an array or dictionary. The `..` operator can be used
+once in the pattern to collect the remainder of the array's or dictionary's
+items.
 
 ```example
 #let (x, y) = (1, 2)
@@ -115,6 +118,28 @@ You can use the underscore to discard elements in a destructuring pattern:
 ```example
 #let (_, y, _) = (1, 2, 3)
 The y coordinate is #y.
+```
+
+Destructuring also work in argument lists of functions ...
+
+```example
+#let left = (2, 4, 5)
+#let right = (3, 2, 6)
+#left.zip(right).map(
+  ((a,b)) => a + b
+)
+```
+
+... and on the left-hand side of normal assignments. This can be useful to
+swap variables among other things.
+
+```example
+#{
+  let a = 1
+  let b = 2
+  (a, b) = (b, a)
+  [a = #a, b = #b]
+}
 ```
 
 ## Conditionals { #conditionals }
@@ -206,12 +231,19 @@ can be either:
 - a [dictionary]($type/dictionary) that has the specified key,
 - a [symbol]($type/symbol) that has the specified modifier,
 - a [module]($type/module) containing the specified definition,
-- [content]($type/content) that has the specified field.
+- [content]($type/content) consisting of an element that has the specified
+  field. The available fields match the arguments of the
+  [element function]($type/function/#element-functions) that were given when
+  the element was constructed.
 
 ```example
 #let dict = (greet: "Hello")
 #dict.greet \
 #emoji.face
+
+#let it = [= Heading]
+#it.body \
+#it.level
 ```
 
 ## Methods { #methods }

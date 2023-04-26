@@ -112,6 +112,7 @@ pub struct ListElem {
 }
 
 impl Layout for ListElem {
+    #[tracing::instrument(name = "ListElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -128,7 +129,11 @@ impl Layout for ListElem {
         };
 
         let depth = self.depth(styles);
-        let marker = self.marker(styles).resolve(vt, depth)?;
+        let marker = self
+            .marker(styles)
+            .resolve(vt, depth)?
+            // avoid '#set align' interference with the list
+            .aligned(Align::LEFT_TOP.into());
 
         let mut cells = vec![];
         for item in self.children() {

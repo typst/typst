@@ -43,7 +43,7 @@ use crate::text::TextElem;
 ///
 /// Display: Bibliography
 /// Category: meta
-#[element(Locatable, Synthesize, Show, LocalName)]
+#[element(Locatable, Synthesize, Show, Finalize, LocalName)]
 pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
@@ -66,6 +66,11 @@ pub struct BibliographyElem {
     ///   language]($func/text.lang) will be used. This is the default.
     /// - When set to `{none}`, the bibliography will not have a title.
     /// - A custom title can be set by passing content.
+    ///
+    /// The bibliography's heading will not be numbered by default, but you can
+    /// force it to be with a show-set rule:
+    /// `{show bibliography: set heading(numbering: "1.")}`
+    /// ```
     #[default(Some(Smart::Auto))]
     pub title: Option<Smart<Content>>,
 
@@ -140,23 +145,23 @@ impl Synthesize for BibliographyElem {
 }
 
 impl Show for BibliographyElem {
+    #[tracing::instrument(name = "BibliographyElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         const COLUMN_GUTTER: Em = Em::new(0.65);
         const INDENT: Em = Em::new(1.5);
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
-            let title = title.unwrap_or_else(|| {
-                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+            let title =
+                title.unwrap_or_else(|| {
+                    TextElem::packed(self.local_name(
+                        TextElem::lang_in(styles),
+                        TextElem::region_in(styles),
+                    ))
                     .spanned(self.span())
-            });
+                });
 
-            seq.push(
-                HeadingElem::new(title)
-                    .with_level(NonZeroUsize::ONE)
-                    .with_numbering(None)
-                    .pack(),
-            );
+            seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
 
         if !vt.introspector.init() {
@@ -198,8 +203,14 @@ impl Show for BibliographyElem {
     }
 }
 
+impl Finalize for BibliographyElem {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+        realized.styled(HeadingElem::set_numbering(None))
+    }
+}
+
 impl LocalName for BibliographyElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "المراجع",
             Lang::BOKMÅL => "Bibliografi",
@@ -336,6 +347,7 @@ impl Synthesize for CiteElem {
 }
 
 impl Show for CiteElem {
+    #[tracing::instrument(name = "CiteElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
