@@ -311,7 +311,7 @@ impl PageElem {
 
         // Determine the margins.
         let default = Rel::from(0.1190 * min);
-        let mut margin = self
+        let margin = self
             .margin(styles)
             .map(|side| side.unwrap_or(default))
             .resolve(styles)
@@ -356,19 +356,19 @@ impl PageElem {
         for frame in fragment.iter_mut() {
             tracing::info!("Layouting page #{number}");
 
-            // Two-sided documents use the same margin sizes for even and odd
-            // pages, but the right and left margins are switched every other
-            // page.
-            if self.two_sided(styles) {
-                std::mem::swap(&mut margin.left, &mut margin.right);
-            }
-
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
             // Realize margins.
             frame.set_size(frame.size() + margin.sum_by_axis());
-            frame.translate(Point::new(margin.left, margin.top));
+            // Swap right and left margins if the document is two-sided and the
+            // page number is even.
+            let margin_x = if self.two_sided(styles) && number.get() % 2 == 0 {
+                margin.right
+            } else {
+                margin.left
+            };
+            frame.translate(Point::new(margin_x, margin.top));
             frame.push(Point::zero(), numbering_meta.clone());
 
             // The page size with margins.
