@@ -590,32 +590,11 @@ impl Region {
         std::str::from_utf8(&self.0).unwrap_or_default()
     }
 
-    /// Statically construct a region from its two-byte ISO 3166-1 alpha-2 code.
-    pub const fn from_const_str(iso: &'static str) -> Self {
-        let bytes = iso.as_bytes();
-        if bytes.len() != 2 {
-            panic!("not a valid region code – region code should be 2-byte")
-        }
-
-        let bytes = [bytes[0].to_ascii_uppercase(), bytes[1].to_ascii_uppercase()];
-
-        if !bytes[0].is_ascii() || !bytes[1].is_ascii() {
-            panic!("not a valid region code – non-ascii characters inside");
-        }
-
-        Self(bytes)
-    }
 }
 
 impl PartialEq<&str> for Region {
     fn eq(&self, other: &&str) -> bool {
         self.as_str() == *other
-    }
-}
-
-impl PartialEq<[u8; 2]> for Region {
-    fn eq(&self, other: &[u8; 2]) -> bool {
-        self.0 == *other
     }
 }
 
@@ -722,32 +701,8 @@ mod tests {
     use crate::doc::Region;
 
     #[test]
-    fn test_from_const_str() {
-        let result = Region::from_const_str("us");
-        assert_eq!(result, Region([b'U', b'S']));
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_from_const_str_invalid_c1() {
-        Region::from_const_str("usd");
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_from_const_str_invalid_c2() {
-        Region::from_const_str("È");
-    }
-
-    #[test]
     fn test_from_const_str_partialeq_str() {
-        let region = Region::from_const_str("US");
+        let region = Region([b'U', b'S']);
         assert_eq!(region, "US");
-    }
-
-    #[test]
-    fn test_from_const_str_partialeq_bytes() {
-        let region = Region::from_const_str("US");
-        assert_eq!(region, [b'U', b'S']);
     }
 }
