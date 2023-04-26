@@ -16,6 +16,7 @@ bench = false
 
 [dependencies]
 typst = { path = ".." }
+chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 comemo = "0.2.2"
 csv = "1"
 ecow = "0.1"
@@ -31,6 +32,8 @@ serde_json = "1"
 serde_yaml = "0.8"
 smallvec = "1.10"
 syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
+toml = { version = "0.7.3", default-features = false, features = ["parse"] }
+tracing = "0.1.37"
 ttf-parser = "0.18.1"
 typed-arena = "2"
 unicode-bidi = "0.3.13"
@@ -38,6 +41,3 @@ unicode-math-class = "0.1"
 unicode-script = "0.5"
 unicode-segmentation = "1"
 xi-unicode = "0.3"
-chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
-tracing = "0.1.37"
-toml = { version = "0.7.3", default-features = false, features = ["parse"]}

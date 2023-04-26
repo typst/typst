@@ -16,7 +16,7 @@ doctest = false
 bench = false
 
 [dependencies]
+heck = "0.4"
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "1", features = ["full", "extra-traits"] }
-heck = "0.4"

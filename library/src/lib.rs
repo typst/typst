@@ -228,25 +228,25 @@ fn items() -> LangItems {
         equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointElem::new().pack(),
         math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),
-        math_attach: |base, top, bottom, topleft, bottomleft, topright, bottomright| {
+        math_attach: |base, t, b, tl, bl, tr, br| {
             let mut elem = math::AttachElem::new(base);
-            if let Some(top) = top {
-                elem.push_t(Some(top));
+            if let Some(t) = t {
+                elem.push_t(Some(t));
             }
-            if let Some(bottom) = bottom {
-                elem.push_b(Some(bottom));
+            if let Some(b) = b {
+                elem.push_b(Some(b));
             }
-            if let Some(topleft) = topleft {
-                elem.push_tl(Some(topleft));
+            if let Some(tl) = tl {
+                elem.push_tl(Some(tl));
             }
-            if let Some(bottomleft) = bottomleft {
-                elem.push_bl(Some(bottomleft));
+            if let Some(bl) = bl {
+                elem.push_bl(Some(bl));
             }
-            if let Some(topright) = topright {
-                elem.push_tr(Some(topright));
+            if let Some(tr) = tr {
+                elem.push_tr(Some(tr));
             }
-            if let Some(bottomright) = bottomright {
-                elem.push_br(Some(bottomright));
+            if let Some(br) = br {
+                elem.push_br(Some(br));
             }
             elem.pack()
         },

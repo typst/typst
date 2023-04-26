@@ -48,8 +48,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
+use crate::model::ShowableSelector;
 use crate::model::{
-    Content, Introspector, Label, Recipe, Selector, StabilityProvider, Styles, Transform,
+    Content, Introspector, Label, Recipe, StabilityProvider, Styles, Transform,
     Unlabellable, Vt,
 };
 use crate::syntax::ast::AstNode;
@@ -1428,8 +1429,9 @@ impl Eval for ast::ShowRule {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let selector = self
             .selector()
-            .map(|sel| sel.eval(vm)?.cast::<Selector>().at(sel.span()))
-            .transpose()?;
+            .map(|sel| sel.eval(vm)?.cast::<ShowableSelector>().at(sel.span()))
+            .transpose()?
+            .map(|selector| selector.0);
 
         let transform = self.transform();
         let span = transform.span();

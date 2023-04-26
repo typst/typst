@@ -41,6 +41,7 @@ pub fn module() -> Module {
     scope.define("even", even);
     scope.define("odd", odd);
     scope.define("rem", rem);
+    scope.define("mod", mod_);
     scope.define("quo", quo);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
@@ -901,6 +902,27 @@ pub fn odd(
 /// Returns: integer or float
 #[func]
 pub fn rem(
+    /// The dividend of the remainder.
+    dividend: Num,
+    /// The divisor of the remainder.
+    divisor: Spanned<Num>,
+) -> Value {
+    if divisor.v.float() == 0.0 {
+        bail!(divisor.span, "divisor must not be zero");
+    }
+    dividend.apply2(divisor.v, Rem::rem, Rem::rem).value()
+}
+
+/// Calculate the modulus of two numbers. (Deprecated)
+///
+/// **This function is deprecated in favor of `rem`. It will be removed in
+/// a future update.**
+///
+/// Display: Modulus
+/// Category: calculate
+/// Returns: integer or float
+#[func]
+pub fn mod_(
     /// The dividend of the remainder.
     dividend: Num,
     /// The divisor of the remainder.

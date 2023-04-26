@@ -644,14 +644,14 @@ Folds all items into a single value using an accumulator function.
 Sums all items (works for any types that can be added).
 
 - default: any (named)
-  If set and the array is empty, sum will return this.
+  What to return if the array is empty. Must be set if the array can be empty.
 - returns: any
 
 ### product()
 Calculates the product all items (works for any types that can be multiplied)
 
 - default: any (named)
-  If set and the array is empty, sum will return this.
+  What to return if the array is empty. Must be set if the array can be empty.
 - returns: any
 
 ### any()
@@ -814,6 +814,13 @@ documentation about [set]($styling/#set-rules) and
 [show]($styling/#show-rules) rules to learn about additional ways
 you can work with functions in Typst.
 
+### Element functions { #element-functions }
+Some functions are associated with _elements_ like [headings]($func/heading) or
+[tables]($func/table). When called, these create an element of their respective
+kind. In contrast to normal functions, they can further be used in
+[set rules]($styling/#set-rules), [show rules]($styling/#show-rules), and
+[selectors]($type/selector).
+
 ### Defining functions { #definitions }
 You can define your own function with a
 [let binding]($scripting/#bindings) that has a parameter list after
@@ -916,30 +923,11 @@ Returns the captured named arguments as a dictionary.
 
 - returns: dictionary
 
-# Module
-An evaluated module, either built-in or resulting from a file.
-
-You can access definitions from the module using
-[field access notation]($scripting/#fields) and interact with it using the
-[import and include syntaxes]($scripting/#modules).
-
-## Example
-```example
-<<< #import "utils.typ"
-<<< #utils.add(2, 5)
-
-<<< #import utils: sub
-<<< #sub(1, 4)
->>> #7
->>>
->>> #(-3)
-```
-
 # Selector
 A filter for selecting elements within the document.
 
 You can construct a selector in the following ways:
-- you can use an element function
+- you can use an element [function]($type/function)
 - you can filter for an element function with
   [specific fields]($type/function.where)
 - you can use a [string]($type/string) or [regular expression]($func/regex)
@@ -948,13 +936,16 @@ You can construct a selector in the following ways:
 - call the [`selector`]($func/selector) function to convert any of the above
   types into a selector value and use the methods below to refine it
 
-A selector is what you can use to query the document for certain types
-of elements. It can also be used to apply styling rules to element. You can
-combine multiple selectors using the methods shown below.
+Selectors are used to [apply styling rules]($styling/#show-rules) to elements.
+You can also use selectors to [query]($func/query) the document for certain
+types of elements.
 
-Selectors can also be passed to several of Typst's built-in functions to
+Furthermore, you can pass a selector to several of Typst's built-in functions to
 configure their behaviour. One such example is the [outline]($func/outline)
-where it can be use to change which elements are listed within the outline.
+where it can be used to change which elements are listed within the outline.
+
+Multiple selectors can be combined using the methods shown below. However, not
+all kinds of selectors are supported in all places, at the moment.
 
 ## Example
 ```example
@@ -1004,3 +995,22 @@ first match of the selector argument.
 - inclusive: boolean (named)
   Whether `start` itself should match or not. This is only relevant if both
   selectors match the same type of element. Defaults to `{true}`.
+
+# Module
+An evaluated module, either built-in or resulting from a file.
+
+You can access definitions from the module using
+[field access notation]($scripting/#fields) and interact with it using the
+[import and include syntaxes]($scripting/#modules).
+
+## Example
+```example
+<<< #import "utils.typ"
+<<< #utils.add(2, 5)
+
+<<< #import utils: sub
+<<< #sub(1, 4)
+>>> #7
+>>>
+>>> #(-3)
+```

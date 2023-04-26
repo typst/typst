@@ -2,15 +2,22 @@ use super::*;
 
 /// A base with optional attachments.
 ///
-/// ## Syntax
-/// This function also has dedicated syntax for attachments after the base: Use the
-/// underscore (`_`) to indicate a subscript i.e. bottom attachment and the hat (`^`)
-/// to indicate a superscript i.e. top attachment.
-///
 /// ## Example
 /// ```example
+/// // With syntax.
 /// $ sum_(i=0)^n a_i = 2^(1+i) $
+///
+/// // With function call.
+/// $ attach(
+///   Pi, t: alpha, b: beta,
+///   tl: 1, tr: 2, bl: 3, br: 4,
+/// ) $
 /// ```
+///
+/// ## Syntax
+/// This function also has dedicated syntax for attachments after the base: Use
+/// the underscore (`_`) to indicate a subscript i.e. bottom attachment and the
+/// hat (`^`) to indicate a superscript i.e. top attachment.
 ///
 /// Display: Attachment
 /// Category: math
@@ -21,40 +28,41 @@ pub struct AttachElem {
     pub base: Content,
 
     /// The top attachment, smartly positioned at top-right or above the base.
-    /// Use limits() or scripts() on the base to override the smart positioning.
+    ///
+    /// You can wrap the base in `{limits()}` or `{scripts()}` to override the
+    /// smart positioning.
     pub t: Option<Content>,
 
-    /// The bottom attachment, smartly positioned at the bottom-right or below the base.
-    /// Use limits() or scripts() on the base to override the smart positioning.
+    /// The bottom attachment, smartly positioned at the bottom-right or below
+    /// the base. You can wrap the base in `{limits()}` or `{scripts()}` to
+    /// override the smart positioning.
     pub b: Option<Content>,
 
-    /// The top-left attachment before the base.
+    /// The top-left attachment (before the base).
     pub tl: Option<Content>,
 
-    /// The bottom-left attachment before base.
+    /// The bottom-left attachment (before base).
     pub bl: Option<Content>,
 
-    /// The top-right attachment after the base.
+    /// The top-right attachment (after the base).
     pub tr: Option<Content>,
 
-    /// The bottom-right attachment after the base.
+    /// The bottom-right attachment (after the base).
     pub br: Option<Content>,
 }
-
-type GetAttachmentContent =
-    fn(&AttachElem, styles: ::typst::model::StyleChain) -> Option<Content>;
 
 impl LayoutMath for AttachElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let base = ctx.layout_fragment(&self.base())?;
-
-        let getarg = |ctx: &mut MathContext, getter: GetAttachmentContent| {
+        type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
+        let getarg = |ctx: &mut MathContext, getter: GetAttachment| {
             getter(self, ctx.styles())
                 .map(|elem| ctx.layout_fragment(&elem))
                 .transpose()
                 .unwrap()
         };
+
+        let base = ctx.layout_fragment(&self.base())?;
 
         ctx.style(ctx.style.for_superscript());
         let arg_tl = getarg(ctx, Self::tl);

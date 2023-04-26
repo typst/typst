@@ -43,7 +43,7 @@
 
 ---
 // Test reading TOML data.
-#let data = toml("/toml_types.toml")
+#let data = toml("/toml-types.toml")
 #test(data.string, "wonderful")
 #test(data.integer, 42)
 #test(data.float, 3.14)
@@ -60,7 +60,7 @@
 
 ---
 // Test reading YAML data
-#let data = yaml("/yamltypes.yaml")
+#let data = yaml("/yaml-types.yaml")
 #test(data.len(), 7)
 #test(data.null_key, (none, none))
 #test(data.string, "text")

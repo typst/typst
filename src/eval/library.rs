@@ -91,13 +91,13 @@ pub struct LangItems {
     pub math_attach: fn(
         base: Content,
         // Positioned smartly.
-        top: Option<Content>,
-        bottom: Option<Content>,
+        t: Option<Content>,
+        b: Option<Content>,
         // Fixed positions.
-        topleft: Option<Content>,
-        bottomleft: Option<Content>,
-        topright: Option<Content>,
-        bottomright: Option<Content>,
+        tl: Option<Content>,
+        bl: Option<Content>,
+        tr: Option<Content>,
+        br: Option<Content>,
     ) -> Content,
     /// A base with an accent: `arrow(x)`.
     pub math_accent: fn(base: Content, accent: char) -> Content,

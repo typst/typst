@@ -850,11 +850,18 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
         return SyntaxKind::Spread;
     }
 
-    if !p.eat_if(SyntaxKind::Underscore) {
-        code_expr_or_pattern(p);
-    } else {
-        return SyntaxKind::Underscore;
+    if p.at(SyntaxKind::Underscore) {
+        // This is a temporary workaround to fix `v.map(_ => {})`.
+        let mut lexer = p.lexer.clone();
+        let next =
+            std::iter::from_fn(|| Some(lexer.next())).find(|kind| !kind.is_trivia());
+        if next != Some(SyntaxKind::Arrow) {
+            p.eat();
+            return SyntaxKind::Underscore;
+        }
     }
+
+    code_expr_or_pattern(p);
 
     if !p.eat_if(SyntaxKind::Colon) {
         return SyntaxKind::Int;

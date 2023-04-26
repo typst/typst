@@ -201,7 +201,6 @@ fn convert_json(value: serde_json::Value) -> Value {
 }
 
 /// Format the user-facing JSON error message.
-#[track_caller]
 fn format_json_error(error: serde_json::Error) -> EcoString {
     assert!(error.is_syntax() || error.is_eof());
     eco_format!("failed to parse json file: syntax error in line {}", error.line())
@@ -209,30 +208,24 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 
 /// Read structured data from a TOML file.
 ///
-/// The file must contain a valid TOML table. Tables will be
+/// The file must contain a valid TOML table. TOML tables will be
 /// converted into Typst dictionaries, and TOML arrays will be converted into
 /// Typst arrays. Strings and booleans will be converted into the Typst
-/// equivalents, numbers will be converted to floats or integers depending on
-/// whether they are whole numbers. TOML DateTim will be converted to strings.
+/// equivalents and numbers will be converted to floats or integers depending on
+/// whether they are whole numbers. For the time being, datetimes will be
+/// converted to strings as Typst does not have a built-in datetime yet.
 ///
-/// The function returns a dictionary.
-///
-/// The JSON files in the example contain objects with the keys `temperature`,
-/// `unit`, and `weather`.
+/// The TOML file in the example consists of a table with the keys `title`,
+/// `version`, and `authors`.
 ///
 /// ## Example
 /// ```example
-/// #let informations(content) = {
-///     [This work is made by #content.authors.join(", ", last: " and "). We are currently at version #content.version.
-///     The favorites series of the audience are ]
-///         for serie in content.series [
-///             - #serie.name with #serie.fans fans.
-///         ]
-///     [We need to submit our work in #content.informations.location, we currently have #content.informations.pages pages.]
-///     }
+/// #let details = toml("details.toml")
 ///
-///
-/// #informations(toml("informations.toml"))
+/// Title: #details.title \
+/// Version: #details.version \
+/// Authors: #(details.authors
+///   .join(", ", last: " and "))
 /// ```
 ///
 /// Display: TOML
@@ -268,23 +261,22 @@ fn convert_toml(value: toml::Value) -> Value {
                 .map(|(key, value)| (key.into(), convert_toml(value)))
                 .collect(),
         ),
-        // Todo: make it use native date/time object(s) once it is implemented.
+        // TODO: Make it use native date/time object(s) once it is implemented.
         toml::Value::Datetime(v) => Value::Str(v.to_string().into()),
     }
 }
 
 /// Format the user-facing TOML error message.
-#[track_caller]
-fn format_toml_error(error: toml::de::Error) -> String {
+fn format_toml_error(error: toml::de::Error) -> EcoString {
     if let Some(range) = error.span() {
-        format!(
-            "failed to parse toml file: {message}, index {start}-{end}",
-            message = error.message(),
-            start = range.start,
-            end = range.end
+        eco_format!(
+            "failed to parse toml file: {}, index {}-{}",
+            error.message(),
+            range.start,
+            range.end
         )
     } else {
-        format!("failed to parse toml file: {message}", message = error.message())
+        eco_format!("failed to parse toml file: {}", error.message())
     }
 }
 
@@ -373,7 +365,6 @@ fn convert_yaml_key(key: serde_yaml::Value) -> Option<Str> {
 }
 
 /// Format the user-facing YAML error message.
-#[track_caller]
 fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
     eco_format!("failed to parse yaml file: {}", error.to_string().trim())
 }

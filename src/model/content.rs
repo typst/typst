@@ -584,7 +584,6 @@ impl Fold for Vec<Meta> {
 
 /// The missing key access error message.
 #[cold]
-#[track_caller]
 fn missing_field(key: &str) -> EcoString {
     eco_format!("content does not contain field {:?}", Str::from(key))
 }
