@@ -589,7 +589,6 @@ impl Region {
     pub fn as_str(&self) -> &str {
         std::str::from_utf8(&self.0).unwrap_or_default()
     }
-
 }
 
 impl PartialEq<&str> for Region {
