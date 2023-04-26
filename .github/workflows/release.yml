@@ -18,7 +18,7 @@ jobs:
         include:
         - target: x86_64-unknown-linux-musl
           os: ubuntu-latest
-          cross: false
+          cross: true
         - target: aarch64-unknown-linux-musl
           os: ubuntu-latest
           cross: true
