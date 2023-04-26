@@ -224,3 +224,13 @@ pub fn pretty_array_like(parts: &[impl AsRef<str>], trailing_comma: bool) -> Str
     buf.push(')');
     buf
 }
+
+/// Check if the [`Option`]-wrapped L is same to R.
+///
+/// This is the stable version of [`Option::contains`].
+pub fn option_eq<L, R>(left: Option<L>, other: R) -> bool
+where
+    L: PartialEq<R>
+{
+    left.map(|v| v == other).unwrap_or(false)
+}
