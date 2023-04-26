@@ -33,10 +33,10 @@ smallvec = "1.10"
 syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
 ttf-parser = "0.18.1"
 typed-arena = "2"
-unicode-bidi = "0.3.5"
+unicode-bidi = "0.3.13"
 unicode-math-class = "0.1"
 unicode-script = "0.5"
 unicode-segmentation = "1"
 xi-unicode = "0.3"
-chinese-number = { version = "0.7.1", default-features = false, features = ["number-to-chinese"] }
+chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 tracing = "0.1.37"
