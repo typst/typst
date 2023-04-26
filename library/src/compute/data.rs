@@ -207,6 +207,87 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
     eco_format!("failed to parse json file: syntax error in line {}", error.line())
 }
 
+/// Read structured data from a TOML file.
+///
+/// The file must contain a valid TOML table. Tables will be
+/// converted into Typst dictionaries, and TOML arrays will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents, numbers will be converted to floats or integers depending on
+/// whether they are whole numbers. TOML DateTim will be converted to strings.
+///
+/// The function returns a dictionary.
+///
+/// The JSON files in the example contain objects with the keys `temperature`,
+/// `unit`, and `weather`.
+///
+/// ## Example
+/// ```example
+/// #let informations(content) = {
+///     [This work is made by #content.authors.join(", ", last: " and "). We are currently at version #content.version.
+///     The favorites series of the audience are ]
+///         for serie in content.series [
+///             - #serie.name with #serie.fans fans.
+///         ]
+///     [We need to submit our work in #content.informations.location, we currently have #content.informations.pages pages.]
+///     }
+///
+///
+/// #informations(toml("informations.toml"))
+/// ```
+///
+/// Display: TOML
+/// Category: data-loading
+/// Returns: dictionary
+#[func]
+pub fn toml(
+    /// Path to a TOML file.
+    path: Spanned<EcoString>,
+) -> Value {
+    let Spanned { v: path, span } = path;
+    let path = vm.locate(&path).at(span)?;
+    let data = vm.world().file(&path).at(span)?;
+
+    let raw = std::str::from_utf8(&data)
+        .map_err(|_| "file is not valid utf-8")
+        .at(span)?;
+
+    let value: toml::Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
+    convert_toml(value)
+}
+
+/// Convert a TOML value to a Typst value.
+fn convert_toml(value: toml::Value) -> Value {
+    match value {
+        toml::Value::String(v) => Value::Str(v.into()),
+        toml::Value::Integer(v) => Value::Int(v),
+        toml::Value::Float(v) => Value::Float(v),
+        toml::Value::Boolean(v) => Value::Bool(v),
+        toml::Value::Array(v) => Value::Array(v.into_iter().map(convert_toml).collect()),
+        toml::Value::Table(v) => Value::Dict(
+            v.into_iter()
+                .map(|(key, value)| (key.into(), convert_toml(value)))
+                .collect(),
+        ),
+        // Todo: make it use native date/time object(s) once it is implemented.
+        toml::Value::Datetime(v) => Value::Str(v.to_string().into()),
+    }
+}
+
+/// Format the user-facing TOML error message.
+#[track_caller]
+fn format_toml_error(error: toml::de::Error) -> String {
+    if let Some(range) = error.span() {
+        format!(
+            "failed to parse toml file: {message}, index {start}-{end}",
+            message = error.message(),
+            start = range.start,
+            end = range.end
+        )
+    } else {
+        format!("failed to parse toml file: {message}", message = error.message())
+    }
+}
+
 /// Read structured data from a YAML file.
 ///
 /// The file must contain a valid YAML object or array. YAML mappings will be
