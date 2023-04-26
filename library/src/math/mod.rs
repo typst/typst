@@ -277,7 +277,7 @@ impl Count for EquationElem {
 }
 
 impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "معادلة",
             Lang::BOKMÅL => "Ligning",
@@ -305,10 +305,11 @@ impl Refable for EquationElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content> {
         // first we create the supplement of the heading
         let mut supplement =
-            supplement.unwrap_or_else(|| TextElem::packed(self.local_name(lang)));
+            supplement.unwrap_or_else(|| TextElem::packed(self.local_name(lang, region)));
 
         // we append a space if the supplement is not empty
         if !supplement.is_empty() {

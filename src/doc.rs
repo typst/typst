@@ -591,6 +591,12 @@ impl Region {
     }
 }
 
+impl PartialEq<&str> for Region {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
 impl FromStr for Region {
     type Err = &'static str;
 
@@ -687,4 +693,24 @@ cast_to_value! {
         "x" => Value::Length(v.point.x.into()),
         "y" => Value::Length(v.point.y.into()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{doc::Region, util::option_eq};
+
+    #[test]
+    fn test_partialeq_str() {
+        let region = Region([b'U', b'S']);
+        assert_eq!(region, "US");
+        assert_ne!(region, "AB");
+    }
+
+    #[test]
+    fn test_region_option_eq() {
+        let region = Some(Region([b'U', b'S']));
+
+        assert!(option_eq(region, "US"));
+        assert!(!option_eq(region, "AB"));
+    }
 }

@@ -184,10 +184,11 @@ impl Show for RefElem {
         };
 
         let lang = TextElem::lang_in(styles);
+        let region = TextElem::region_in(styles);
         let reference = elem
             .with::<dyn Refable>()
             .expect("element should be refable")
-            .reference(vt, supplement, lang)?;
+            .reference(vt, supplement, lang, region)?;
 
         Ok(reference.linked(Destination::Location(elem.location().unwrap())))
     }
@@ -259,21 +260,27 @@ pub trait Refable {
     ///
     /// # Arguments
     /// - `vt` - The virtual typesetter.
-    /// - `styles` - The styles of the reference.
-    /// - `location` - The location where the reference is being created.
     /// - `supplement` - The supplement of the reference.
+    /// - `lang`: The language of the reference.
+    /// - `region`: The region of the reference.
     fn reference(
         &self,
         vt: &mut Vt,
         supplement: Option<Content>,
         lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content>;
 
     /// Tries to build an outline element for this element.
     /// If this returns `None`, the outline will not include this element.
     /// By default this just calls [`Refable::reference`].
-    fn outline(&self, vt: &mut Vt, lang: Lang) -> SourceResult<Option<Content>> {
-        self.reference(vt, None, lang).map(Some)
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        lang: Lang,
+        region: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
+        self.reference(vt, None, lang, region).map(Some)
     }
 
     /// Returns the level of this element.

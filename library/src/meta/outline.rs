@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use typst::util::option_eq;
+
 use super::{
     Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
 };
@@ -141,10 +143,14 @@ impl Show for OutlineElem {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
         if let Some(title) = self.title(styles) {
-            let title = title.unwrap_or_else(|| {
-                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+            let title =
+                title.unwrap_or_else(|| {
+                    TextElem::packed(self.local_name(
+                        TextElem::lang_in(styles),
+                        TextElem::region_in(styles),
+                    ))
                     .spanned(self.span())
-            });
+                });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
@@ -152,6 +158,7 @@ impl Show for OutlineElem {
         let indent = self.indent(styles);
         let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
         let lang = TextElem::lang_in(styles);
+        let region = TextElem::region_in(styles);
 
         let mut ancestors: Vec<&Content> = vec![];
         let elems = vt.introspector.query(&self.target(styles));
@@ -165,7 +172,7 @@ impl Show for OutlineElem {
                 continue;
             }
 
-            let Some(outline) = refable.outline(vt, lang)? else {
+            let Some(outline) = refable.outline(vt, lang, region)? else {
                 continue;
             };
 
@@ -255,10 +262,11 @@ impl Finalize for OutlineElem {
 }
 
 impl LocalName for OutlineElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "المحتويات",
             Lang::BOKMÅL => "Innhold",
+            Lang::CHINESE if option_eq(region, "TW") => "目錄",
             Lang::CHINESE => "目录",
             Lang::CZECH => "Obsah",
             Lang::FRENCH => "Table des matières",
