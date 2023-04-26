@@ -87,6 +87,15 @@ pub struct PageElem {
     #[default(false)]
     pub flipped: bool,
 
+    /// Whether the document, normally a book, should have two-sided pages. When
+    /// true, the left margin acts as the outer margin and the right margin acts
+    /// as the inner margin.
+    /// ```
+    /// #set page(two-sided: true, margin: (left: 1in, right: 1.25in))
+    /// ```
+    #[default(false)]
+    pub two_sided: bool,
+
     /// The page's margins.
     ///
     /// - A single length: The same margin on all sides.
@@ -302,7 +311,7 @@ impl PageElem {
 
         // Determine the margins.
         let default = Rel::from(0.1190 * min);
-        let margin = self
+        let mut margin = self
             .margin(styles)
             .map(|side| side.unwrap_or(default))
             .resolve(styles)
@@ -346,6 +355,13 @@ impl PageElem {
         // Post-process pages.
         for frame in fragment.iter_mut() {
             tracing::info!("Layouting page #{number}");
+
+            // Two-sided documents use the same margin sizes for even and odd
+            // pages, but the right and left margins are switched every other
+            // page.
+            if self.two_sided(styles) {
+                std::mem::swap(&mut margin.left, &mut margin.right);
+            }
 
             // The padded width of the page's content without margins.
             let pw = frame.width();
