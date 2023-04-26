@@ -29,12 +29,12 @@ macro_rules! __bail {
 #[doc(inline)]
 pub use crate::__bail as bail;
 
-/// Construct a [`SourceError`].
+/// Construct a [`SourceDiagnostic`] with severity Error.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
     ($span:expr, $message:expr $(,)?) => {
-        $crate::diag::SourceError::new($span, $message)
+        $crate::diag::SourceDiagnostic::new_error($span, $message)
     };
 
     ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
@@ -42,20 +42,50 @@ macro_rules! __error {
     };
 }
 
+/// Construct a [`SourceDiagnostic`] with severity Warning.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __warning {
+    ($span:expr, $message:expr $(,)?) => {
+        $crate::diag::SourceDiagnostic::new_warning($span, $message)
+    };
+
+    ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
+        $crate::diag::warning!($span, $crate::diag::eco_format!($fmt, $($arg),+))
+    };
+}
+
+/// Construct a [`SourceDiagnostic`] with severity Hint.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __hint {
+    ($span:expr, $message:expr $(,)?) => {
+        $crate::diag::SourceDiagnostic::new_hint($span, $message)
+    };
+
+    ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
+        $crate::diag::hint!($span, $crate::diag::eco_format!($fmt, $($arg),+))
+    };
+}
+
 #[doc(inline)]
 pub use crate::__error as error;
+#[doc(inline)]
+pub use crate::__hint as hint;
+#[doc(inline)]
+pub use crate::__warning as warning;
 #[doc(hidden)]
 pub use ecow::eco_format;
 
 /// A result that can carry multiple source errors.
-pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;
+pub type SourceResult<T> = Result<T, Box<Vec<SourceDiagnostic>>>;
 
 /// An error in a source file.
 ///
 /// The contained spans will only be detached if any of the input source files
 /// were detached.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct SourceError {
+pub struct SourceDiagnostic {
     /// The span of the erroneous node in the source code.
     pub span: Span,
     /// The position in the node where the error should be annotated.
@@ -64,17 +94,55 @@ pub struct SourceError {
     pub message: EcoString,
     /// The trace of function calls leading to the error.
     pub trace: Vec<Spanned<Tracepoint>>,
+    /// The severity of the diagnostic.
+    pub severity: Severity,
 }
 
-impl SourceError {
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum Severity {
+    Error,
+    Warning,
+    Hint,
+}
+
+impl fmt::Display for Severity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
+impl SourceDiagnostic {
     /// Create a new, bare error.
     #[track_caller]
-    pub fn new(span: Span, message: impl Into<EcoString>) -> Self {
+    pub fn new_error(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             span,
             pos: ErrorPos::Full,
             trace: vec![],
             message: message.into(),
+            severity: Severity::Error,
+        }
+    }
+
+    /// Create a new, bare warning.
+    pub fn new_warning(span: Span, message: impl Into<EcoString>) -> Self {
+        Self {
+            span,
+            pos: ErrorPos::Full,
+            trace: vec![],
+            message: message.into(),
+            severity: Severity::Warning,
+        }
+    }
+
+    /// Create a new, bare hint.
+    pub fn new_hint(span: Span, message: impl Into<EcoString>) -> Self {
+        Self {
+            span,
+            pos: ErrorPos::Full,
+            trace: vec![],
+            message: message.into(),
+            severity: Severity::Hint,
         }
     }
 

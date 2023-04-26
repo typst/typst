@@ -21,7 +21,7 @@ use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
-use typst::diag::{bail, FileError, FileResult};
+use typst::diag::{bail, FileError, FileResult, Severity};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{func, Library, Value};
 use typst::font::{Font, FontBook};
@@ -513,8 +513,11 @@ fn test_part(
     }
 
     let (mut frames, errors) = match typst::compile(world) {
-        Ok(document) => (document.pages, vec![]),
-        Err(errors) => (vec![], *errors),
+        (Ok(document), warnings) => (document.pages, warnings),
+        (Err(mut errors), mut warnings) => {
+            warnings.append(&mut *errors);
+            (vec![], warnings)
+        }
     };
 
     // Don't retain frames if we don't wanna compare with reference images.
@@ -527,7 +530,13 @@ fn test_part(
     let mut errors: Vec<_> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)
-        .map(|error| (error.range(world), error.message.replace('\\', "/")))
+        .map(|error| {
+            (
+                error.range(world),
+                error.message.replace('\\', "/"),
+                error.severity.to_string(),
+            )
+        })
         .collect();
 
     errors.sort_by_key(|error| error.0.start);
@@ -556,7 +565,9 @@ fn test_part(
     (ok, compare_ref, frames)
 }
 
-fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>) {
+fn parse_metadata(
+    source: &Source,
+) -> (Option<bool>, Vec<(Range<usize>, String, String)>) {
     let mut compare_ref = None;
     let mut errors = vec![];
 
@@ -585,13 +596,26 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
             source.line_column_to_byte(line, column).unwrap()
         };
 
-        let Some(rest) = line.strip_prefix("// Error: ") else { continue; };
+        let severity;
+        let rest;
+        if let Some(postfix) = line.strip_prefix("// Error: ") {
+            severity = Severity::Error.to_string();
+            rest = postfix;
+        } else if let Some(postfix) = line.strip_prefix("// Warning: ") {
+            severity = Severity::Warning.to_string();
+            rest = postfix;
+        } else if let Some(postfix) = line.strip_prefix("// Hint: ") {
+            severity = Severity::Hint.to_string();
+            rest = postfix;
+        } else {
+            continue;
+        }
         let mut s = Scanner::new(rest);
         let start = pos(&mut s);
         let end = if s.eat_if('-') { pos(&mut s) } else { start };
         let range = start..end;
 
-        errors.push((range, s.after().trim().to_string()));
+        errors.push((range, s.after().trim().to_string(), severity));
     }
 
     (compare_ref, errors)
@@ -601,14 +625,17 @@ fn print_error(
     output: &mut String,
     source: &Source,
     line: usize,
-    (range, message): &(Range<usize>, String),
+    (range, message, severity): &(Range<usize>, String, String),
 ) {
     let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
     let start_col = 1 + source.byte_to_column(range.start).unwrap();
     let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
     let end_col = 1 + source.byte_to_column(range.end).unwrap();
-    writeln!(output, "Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
-        .unwrap();
+    writeln!(
+        output,
+        "{severity}: {start_line}:{start_col}-{end_line}:{end_col}: {message}"
+    )
+    .unwrap();
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the

@@ -46,7 +46,7 @@ use ecow::EcoVec;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{
-    bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
+    bail, error, At, SourceDiagnostic, SourceResult, StrResult, Trace, Tracepoint,
 };
 use crate::model::{
     Content, Introspector, Label, Recipe, Selector, StabilityProvider, Styles, Transform,
@@ -245,7 +245,7 @@ pub enum Flow {
 
 impl Flow {
     /// Return an error stating that this control flow is forbidden.
-    pub fn forbidden(&self) -> SourceError {
+    pub fn forbidden(&self) -> SourceDiagnostic {
         match *self {
             Self::Break(span) => {
                 error!(span, "cannot break outside of loop")

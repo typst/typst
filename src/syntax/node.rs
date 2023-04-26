@@ -7,7 +7,7 @@ use ecow::EcoString;
 
 use super::ast::AstNode;
 use super::{SourceId, Span, SyntaxKind};
-use crate::diag::SourceError;
+use crate::diag::SourceDiagnostic;
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -139,13 +139,14 @@ impl SyntaxNode {
     }
 
     /// The error messages for this node and its descendants.
-    pub fn errors(&self) -> Vec<SourceError> {
+    pub fn errors(&self) -> Vec<SourceDiagnostic> {
         if !self.erroneous() {
             return vec![];
         }
 
         if let Repr::Error(error) = &self.0 {
-            vec![SourceError::new(error.span, error.message.clone()).with_pos(error.pos)]
+            vec![SourceDiagnostic::new_error(error.span, error.message.clone())
+                .with_pos(error.pos)]
         } else {
             self.children()
                 .filter(|node| node.erroneous())

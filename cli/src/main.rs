@@ -20,7 +20,7 @@ use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
-use typst::diag::{FileError, FileResult, SourceError, StrResult};
+use typst::diag::{FileError, FileResult, Severity, SourceDiagnostic, StrResult};
 use typst::eval::Library;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::syntax::{Source, SourceId};
@@ -245,19 +245,26 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
 
     match typst::compile(world) {
         // Export the PDF.
-        Ok(document) => {
+        (Ok(document), warnings) => {
             let buffer = typst::export::pdf(&document);
             fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
-            status(command, Status::Success).unwrap();
+
+            if warnings.is_empty() {
+                status(command, Status::Success).unwrap();
+            } else {
+                status(command, Status::PartialSuccess).unwrap();
+                print_diagnostics(world, vec![], warnings)
+                    .map_err(|_| "failed to print diagnostics")?;
+            }
 
             tracing::info!("Compilation succeeded");
             Ok(false)
         }
 
         // Print diagnostics.
-        Err(errors) => {
+        (Err(errors), warnings) => {
             status(command, Status::Error).unwrap();
-            print_diagnostics(world, *errors)
+            print_diagnostics(world, *errors, warnings)
                 .map_err(|_| "failed to print diagnostics")?;
 
             tracing::info!("Compilation failed");
@@ -305,6 +312,7 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
 enum Status {
     Compiling,
     Success,
+    PartialSuccess,
     Error,
 }
 
@@ -313,6 +321,7 @@ impl Status {
         match self {
             Self::Compiling => "compiling ...",
             Self::Success => "compiled successfully",
+            Self::PartialSuccess => "compiled with warnings",
             Self::Error => "compiled with errors",
         }
     }
@@ -321,6 +330,7 @@ impl Status {
         let styles = term::Styles::default();
         match self {
             Self::Error => styles.header_error,
+            Self::PartialSuccess => styles.header_warning,
             _ => styles.header_note,
         }
     }
@@ -329,22 +339,27 @@ impl Status {
 /// Print diagnostic messages to the terminal.
 fn print_diagnostics(
     world: &SystemWorld,
-    errors: Vec<SourceError>,
+    errors: Vec<SourceDiagnostic>,
+    warnings: Vec<SourceDiagnostic>,
 ) -> Result<(), codespan_reporting::files::Error> {
     let mut w = StandardStream::stderr(ColorChoice::Auto);
     let config = term::Config { tab_width: 2, ..Default::default() };
 
-    for error in errors {
+    for diagnostic in errors.iter().chain(warnings.iter()) {
         // The main diagnostic.
-        let range = error.range(world);
-        let diag = Diagnostic::error()
-            .with_message(error.message)
-            .with_labels(vec![Label::primary(error.span.source(), range)]);
+        let range = diagnostic.range(world);
+        let diag = match diagnostic.severity {
+            Severity::Error => Diagnostic::error(),
+            Severity::Warning => Diagnostic::warning(),
+            Severity::Hint => Diagnostic::help(),
+        }
+        .with_message(diagnostic.message.clone())
+        .with_labels(vec![Label::primary(diagnostic.span.source(), range)]);
 
         term::emit(&mut w, &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
-        for point in error.trace {
+        for point in &diagnostic.trace {
             let message = point.v.to_string();
             let help = Diagnostic::help().with_message(message).with_labels(vec![
                 Label::primary(

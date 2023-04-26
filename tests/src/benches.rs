@@ -90,7 +90,7 @@ fn bench_compile(iai: &mut Iai) {
 
 fn bench_render(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let document = typst::compile(&world).unwrap();
+    let document = typst::compile(&world).0.unwrap();
     iai.run(|| typst::export::render(&document.pages[0], 1.0, Color::WHITE))
 }
 
