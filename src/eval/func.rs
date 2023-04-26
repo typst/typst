@@ -276,13 +276,11 @@ pub(super) struct Closure {
 #[derive(Hash)]
 pub enum Param {
     /// A positional parameter: `x`.
-    Pos(Ident),
+    Pos(ast::Pattern),
     /// A named parameter with a default value: `draw: false`.
     Named(Ident, Value),
     /// An argument sink: `..args`.
     Sink(Option<Ident>),
-    /// A placeholder: `_`.
-    Placeholder,
 }
 
 impl Closure {
@@ -330,9 +328,18 @@ impl Closure {
         let mut sink_pos_values = None;
         for p in &closure.params {
             match p {
-                Param::Pos(ident) => {
-                    vm.define(ident.clone(), args.expect::<Value>(ident)?);
-                }
+                Param::Pos(pattern) => match pattern {
+                    ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
+                        vm.define(ident.clone(), args.expect::<Value>(ident)?)
+                    }
+                    ast::Pattern::Normal(_) => unreachable!(),
+                    _ => {
+                        pattern.define(
+                            &mut vm,
+                            args.expect::<Value>("pattern parameter")?,
+                        )?;
+                    }
+                },
                 Param::Sink(ident) => {
                     sink = ident.clone();
                     if let Some(sink_size) = sink_size {
@@ -343,9 +350,6 @@ impl Closure {
                     let value =
                         args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
                     vm.define(ident.clone(), value);
-                }
-                Param::Placeholder => {
-                    args.eat::<Value>()?;
                 }
             }
         }
@@ -443,12 +447,15 @@ impl<'a> CapturesVisitor<'a> {
 
                 for param in expr.params().children() {
                     match param {
-                        ast::Param::Pos(ident) => self.bind(ident),
+                        ast::Param::Pos(pattern) => {
+                            for ident in pattern.idents() {
+                                self.bind(ident);
+                            }
+                        }
                         ast::Param::Named(named) => self.bind(named.name()),
                         ast::Param::Sink(spread) => {
                             self.bind(spread.name().unwrap_or_default())
                         }
-                        _ => {}
                     }
                 }
 
