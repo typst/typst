@@ -53,15 +53,20 @@ impl Dict {
         self.0.len() as i64
     }
 
-    /// Borrow the value the given `key` maps to.
-    pub fn at(&self, key: &str) -> StrResult<&Value> {
-        self.0.get(key).ok_or_else(|| missing_key(key))
+    /// Borrow the value the given `key` maps to,
+    pub fn at<'a>(&'a self, key: &str, default: Option<&'a Value>) -> StrResult<&Value> {
+        self.0.get(key).or(default).ok_or_else(|| missing_key(key))
     }
 
     /// Mutably borrow the value the given `key` maps to.
-    pub fn at_mut(&mut self, key: &str) -> StrResult<&mut Value> {
+    pub fn at_mut<'a>(
+        &'a mut self,
+        key: &str,
+        default: Option<&'a mut Value>,
+    ) -> StrResult<&mut Value> {
         Arc::make_mut(&mut self.0)
             .get_mut(key)
+            .or(default)
             .ok_or_else(|| missing_key(key))
     }
 

@@ -74,17 +74,23 @@ impl Array {
     }
 
     /// Borrow the value at the given index.
-    pub fn at(&self, index: i64) -> StrResult<&Value> {
+    pub fn at<'a>(&'a self, index: i64, default: Option<&'a Value>) -> StrResult<&Value> {
         self.locate(index)
             .and_then(|i| self.0.get(i))
+            .or(default)
             .ok_or_else(|| out_of_bounds(index, self.len()))
     }
 
     /// Mutably borrow the value at the given index.
-    pub fn at_mut(&mut self, index: i64) -> StrResult<&mut Value> {
+    pub fn at_mut<'a>(
+        &'a mut self,
+        index: i64,
+        default: Option<&'a mut Value>,
+    ) -> StrResult<&mut Value> {
         let len = self.len();
         self.locate(index)
             .and_then(move |i| self.0.make_mut().get_mut(i))
+            .or(default)
             .ok_or_else(|| out_of_bounds(index, len))
     }
 

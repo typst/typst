@@ -59,6 +59,13 @@
 }
 
 ---
+// Test default value.
+#{
+  let array = (1, 2, 3)
+  test(array.at(3, 5), 5)
+}
+
+---
 // Test bad lvalue.
 // Error: 2:3-2:14 cannot mutate a temporary value
 #let array = (1, 2, 3)

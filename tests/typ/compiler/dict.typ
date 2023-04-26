@@ -36,6 +36,13 @@
 }
 
 ---
+// Test default value.
+#{
+  let dict = (a: 1, b: 2)
+  test(dict.at("c", 3), 3)
+}
+
+---
 // Missing lvalue is not automatically none-initialized.
 #{
   let dict = (:)
