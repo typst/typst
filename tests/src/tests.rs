@@ -567,9 +567,7 @@ fn test_part(
 
 type ErrorData = (Range<usize>, String, String);
 
-fn parse_metadata(
-    source: &Source,
-) -> (Option<bool>, Vec<ErrorData>) {
+fn parse_metadata(source: &Source) -> (Option<bool>, Vec<ErrorData>) {
     let mut compare_ref = None;
     let mut errors = vec![];
 
