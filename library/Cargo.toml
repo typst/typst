@@ -1,6 +1,6 @@
 [package]
 name = "typst-library"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 description = "The standard library for Typst."
