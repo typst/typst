@@ -16,6 +16,9 @@ description: |
     in patterns
   - Removed `before` and `after` arguments from [`query`]($func/query). This is
     now handled through flexible [selectors]($type/selector) combinator methods
+  - Added support for [attachments]($func/attach) (sub-, superscripts) that
+    precede the base symbol. The `top` and `bottom` arguments have been renamed
+    to `t` and `b`.
 
 - New features
   - Added support for more complex [strokes]($func/line.stroke)
@@ -27,8 +30,6 @@ description: |
   - Added [`toml`]($func/toml) function for loading data from a TOML file
   - Added [`zip`]($type/array.zip), [`sum`]($type/array.sum), and
     [`product`]($type/array.product) methods for arrays
-  - Added support for [attachments]($func/attach) (sub-, superscripts) that
-    precede the base symbol
   - Added `fact`, `perm`, `binom`, `gcd`, `lcm`, `atan2`, `quo`, `trunc`, and
     `fract` [calculation]($category/calculate)
 
