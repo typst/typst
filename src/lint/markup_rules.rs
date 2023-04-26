@@ -4,6 +4,7 @@ use crate::diag::{warning, SourceDiagnostic};
 use crate::syntax::ast::Strong;
 use crate::syntax::{SyntaxKind, SyntaxNode};
 
+#[derive(Clone)]
 pub struct EmptyStrong;
 impl Rule for EmptyStrong {
     fn accept(&self, node: &SyntaxNode) -> bool {

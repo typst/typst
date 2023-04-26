@@ -27,11 +27,11 @@ trait Rule {
 
     fn lint(&self, node: &SyntaxNode) -> Vec<SourceDiagnostic>;
 
-    fn as_dyn(self) -> Box<dyn Rule>
+    fn as_dyn(&self) -> Box<dyn Rule>
     where
-        Self: Sized + 'static,
+        Self: Clone + Sized + 'static,
     {
-        Box::new(self)
+        Box::new(self.clone())
     }
 }
 

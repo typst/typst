@@ -565,9 +565,11 @@ fn test_part(
     (ok, compare_ref, frames)
 }
 
+type ErrorData = (Range<usize>, String, String);
+
 fn parse_metadata(
     source: &Source,
-) -> (Option<bool>, Vec<(Range<usize>, String, String)>) {
+) -> (Option<bool>, Vec<ErrorData>) {
     let mut compare_ref = None;
     let mut errors = vec![];
 
@@ -625,7 +627,7 @@ fn print_error(
     output: &mut String,
     source: &Source,
     line: usize,
-    (range, message, severity): &(Range<usize>, String, String),
+    (range, message, severity): &ErrorData,
 ) {
     let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
     let start_col = 1 + source.byte_to_column(range.start).unwrap();
