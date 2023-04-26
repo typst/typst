@@ -275,24 +275,24 @@ impl Count for EquationElem {
 }
 
 impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
-        match (lang, region) {
-            (Lang::ARABIC, _) => "معادلة",
-            (Lang::BOKMÅL, _) => "Ligning",
-            (Lang::CHINESE, _) => "等式",
-            (Lang::CZECH, _) => "Rovnice",
-            (Lang::FRENCH, _) => "Équation",
-            (Lang::GERMAN, _) => "Gleichung",
-            (Lang::ITALIAN, _) => "Equazione",
-            (Lang::NYNORSK, _) => "Likning",
-            (Lang::POLISH, _) => "Równanie",
-            (Lang::PORTUGUESE, _) => "Equação",
-            (Lang::RUSSIAN, _) => "Уравнение",
-            (Lang::SLOVENIAN, _) => "Enačba",
-            (Lang::SPANISH, _) => "Ecuación",
-            (Lang::UKRAINIAN, _) => "Рівняння",
-            (Lang::VIETNAMESE, _) => "Phương trình",
-            (Lang::ENGLISH | _, _) => "Equation",
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
+        match lang {
+            Lang::ARABIC => "معادلة",
+            Lang::BOKMÅL => "Ligning",
+            Lang::CHINESE => "等式",
+            Lang::CZECH => "Rovnice",
+            Lang::FRENCH => "Équation",
+            Lang::GERMAN => "Gleichung",
+            Lang::ITALIAN => "Equazione",
+            Lang::NYNORSK => "Likning",
+            Lang::POLISH => "Równanie",
+            Lang::PORTUGUESE => "Equação",
+            Lang::RUSSIAN => "Уравнение",
+            Lang::SLOVENIAN => "Enačba",
+            Lang::SPANISH => "Ecuación",
+            Lang::UKRAINIAN => "Рівняння",
+            Lang::VIETNAMESE => "Phương trình",
+            Lang::ENGLISH | _ => "Equation",
         }
     }
 }

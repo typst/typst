@@ -200,22 +200,22 @@ impl Finalize for RawElem {
 }
 
 impl LocalName for RawElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
-        match (lang, region) {
-            (Lang::ARABIC, _) => "قائمة",
-            (Lang::BOKMÅL, _) => "Utskrift",
-            (Lang::CHINESE, _) => "代码",
-            (Lang::CZECH, _) => "Seznam",
-            (Lang::FRENCH, _) => "Liste",
-            (Lang::GERMAN, _) => "Listing",
-            (Lang::ITALIAN, _) => "Codice",
-            (Lang::NYNORSK, _) => "Utskrift",
-            (Lang::POLISH, _) => "Program",
-            (Lang::RUSSIAN, _) => "Листинг",
-            (Lang::SLOVENIAN, _) => "Program",
-            (Lang::UKRAINIAN, _) => "Лістинг",
-            (Lang::VIETNAMESE, _) => "Chương trình", // TODO: This may be wrong.
-            (Lang::ENGLISH | _, _) => "Listing",
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
+        match lang {
+            Lang::ARABIC => "قائمة",
+            Lang::BOKMÅL => "Utskrift",
+            Lang::CHINESE => "代码",
+            Lang::CZECH => "Seznam",
+            Lang::FRENCH => "Liste",
+            Lang::GERMAN => "Listing",
+            Lang::ITALIAN => "Codice",
+            Lang::NYNORSK => "Utskrift",
+            Lang::POLISH => "Program",
+            Lang::RUSSIAN => "Листинг",
+            Lang::SLOVENIAN => "Program",
+            Lang::UKRAINIAN => "Лістинг",
+            Lang::VIETNAMESE => "Chương trình", // TODO: This may be wrong.
+            Lang::ENGLISH | _ => "Listing",
         }
     }
 }

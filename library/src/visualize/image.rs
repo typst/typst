@@ -121,24 +121,24 @@ impl Layout for ImageElem {
 }
 
 impl LocalName for ImageElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
-        match (lang, region) {
-            (Lang::ARABIC, _) => "شكل",
-            (Lang::BOKMÅL, _) => "Figur",
-            (Lang::CHINESE, _) => "图",
-            (Lang::CZECH, _) => "Obrázek",
-            (Lang::FRENCH, _) => "Figure",
-            (Lang::GERMAN, _) => "Abbildung",
-            (Lang::ITALIAN, _) => "Figura",
-            (Lang::NYNORSK, _) => "Figur",
-            (Lang::POLISH, _) => "Rysunek",
-            (Lang::PORTUGUESE, _) => "Figura",
-            (Lang::RUSSIAN, _) => "Рисунок",
-            (Lang::SLOVENIAN, _) => "Slika",
-            (Lang::SPANISH, _) => "Figura",
-            (Lang::UKRAINIAN, _) => "Рисунок",
-            (Lang::VIETNAMESE, _) => "Hình",
-            (Lang::ENGLISH | _, _) => "Figure",
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
+        match lang {
+            Lang::ARABIC => "شكل",
+            Lang::BOKMÅL => "Figur",
+            Lang::CHINESE => "图",
+            Lang::CZECH => "Obrázek",
+            Lang::FRENCH => "Figure",
+            Lang::GERMAN => "Abbildung",
+            Lang::ITALIAN => "Figura",
+            Lang::NYNORSK => "Figur",
+            Lang::POLISH => "Rysunek",
+            Lang::PORTUGUESE => "Figura",
+            Lang::RUSSIAN => "Рисунок",
+            Lang::SLOVENIAN => "Slika",
+            Lang::SPANISH => "Figura",
+            Lang::UKRAINIAN => "Рисунок",
+            Lang::VIETNAMESE => "Hình",
+            Lang::ENGLISH | _ => "Figure",
         }
     }
 }

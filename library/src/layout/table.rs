@@ -284,24 +284,24 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
 }
 
 impl LocalName for TableElem {
-    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
-        match (lang, region) {
-            (Lang::ARABIC, _) => "جدول",
-            (Lang::BOKMÅL, _) => "Tabell",
-            (Lang::CHINESE, _) => "表",
-            (Lang::CZECH, _) => "Tabulka",
-            (Lang::FRENCH, _) => "Tableau",
-            (Lang::GERMAN, _) => "Tabelle",
-            (Lang::ITALIAN, _) => "Tabella",
-            (Lang::NYNORSK, _) => "Tabell",
-            (Lang::POLISH, _) => "Tabela",
-            (Lang::PORTUGUESE, _) => "Tabela",
-            (Lang::RUSSIAN, _) => "Таблица",
-            (Lang::SLOVENIAN, _) => "Tabela",
-            (Lang::SPANISH, _) => "Tabla",
-            (Lang::UKRAINIAN, _) => "Таблиця",
-            (Lang::VIETNAMESE, _) => "Bảng",
-            (Lang::ENGLISH | _, _) => "Table",
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
+        match lang {
+            Lang::ARABIC => "جدول",
+            Lang::BOKMÅL => "Tabell",
+            Lang::CHINESE => "表",
+            Lang::CZECH => "Tabulka",
+            Lang::FRENCH => "Tableau",
+            Lang::GERMAN => "Tabelle",
+            Lang::ITALIAN => "Tabella",
+            Lang::NYNORSK => "Tabell",
+            Lang::POLISH => "Tabela",
+            Lang::PORTUGUESE => "Tabela",
+            Lang::RUSSIAN => "Таблица",
+            Lang::SLOVENIAN => "Tabela",
+            Lang::SPANISH => "Tabla",
+            Lang::UKRAINIAN => "Таблиця",
+            Lang::VIETNAMESE => "Bảng",
+            Lang::ENGLISH | _ => "Table",
         }
     }
 }

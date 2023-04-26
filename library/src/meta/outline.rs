@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use typst::util::option_eq;
+
 use super::{
     Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
 };
@@ -253,24 +255,24 @@ impl Show for OutlineElem {
 
 impl LocalName for OutlineElem {
     fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
-        match (lang, region) {
-            (Lang::ARABIC, _) => "المحتويات",
-            (Lang::BOKMÅL, _) => "Innhold",
-            (Lang::CHINESE, Some(v)) if v == "TW" => "目錄",
-            (Lang::CHINESE, _) => "目录",
-            (Lang::CZECH, _) => "Obsah",
-            (Lang::FRENCH, _) => "Table des matières",
-            (Lang::GERMAN, _) => "Inhaltsverzeichnis",
-            (Lang::ITALIAN, _) => "Indice",
-            (Lang::NYNORSK, _) => "Innhald",
-            (Lang::POLISH, _) => "Spis treści",
-            (Lang::PORTUGUESE, _) => "Sumário",
-            (Lang::RUSSIAN, _) => "Содержание",
-            (Lang::SLOVENIAN, _) => "Kazalo",
-            (Lang::SPANISH, _) => "Índice",
-            (Lang::UKRAINIAN, _) => "Зміст",
-            (Lang::VIETNAMESE, _) => "Mục lục",
-            (Lang::ENGLISH | _, _) => "Contents",
+        match lang {
+            Lang::ARABIC => "المحتويات",
+            Lang::BOKMÅL => "Innhold",
+            Lang::CHINESE if option_eq(region, "TW") => "目錄",
+            Lang::CHINESE => "目录",
+            Lang::CZECH => "Obsah",
+            Lang::FRENCH => "Table des matières",
+            Lang::GERMAN => "Inhaltsverzeichnis",
+            Lang::ITALIAN => "Indice",
+            Lang::NYNORSK => "Innhald",
+            Lang::POLISH => "Spis treści",
+            Lang::PORTUGUESE => "Sumário",
+            Lang::RUSSIAN => "Содержание",
+            Lang::SLOVENIAN => "Kazalo",
+            Lang::SPANISH => "Índice",
+            Lang::UKRAINIAN => "Зміст",
+            Lang::VIETNAMESE => "Mục lục",
+            Lang::ENGLISH | _ => "Contents",
         }
     }
 }
