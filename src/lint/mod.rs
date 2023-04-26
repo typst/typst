@@ -14,7 +14,7 @@ pub fn lint(source: &Source) -> Vec<SourceDiagnostic> {
         let node = parents.pop().unwrap();
         parents.extend(node.children().rev());
 
-        for rule in rules.iter().filter(|&r| r.accept(&node)) {
+        for rule in rules.iter().filter(|&r| r.accept(node)) {
             warnings.append(&mut rule.lint(node));
         }
     }
@@ -27,7 +27,7 @@ trait Rule {
 
     fn lint(&self, node: &SyntaxNode) -> Vec<SourceDiagnostic>;
 
-    fn as_dyn(self: Self) -> Box<dyn Rule>
+    fn as_dyn(self) -> Box<dyn Rule>
     where
         Self: Sized + 'static,
     {
