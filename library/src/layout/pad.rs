@@ -60,6 +60,7 @@ pub struct PadElem {
 }
 
 impl Layout for PadElem {
+    #[tracing::instrument(name = "PadElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,

@@ -113,11 +113,11 @@ impl Default for Delimiter {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(error: csv::Error, line: usize) -> String {
+fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
     match error.kind() {
         csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
         csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
-            format!(
+            eco_format!(
                 "failed to parse csv file: found {len} instead of {expected_len} fields in line {line}"
             )
         }
@@ -201,10 +201,83 @@ fn convert_json(value: serde_json::Value) -> Value {
 }
 
 /// Format the user-facing JSON error message.
-#[track_caller]
-fn format_json_error(error: serde_json::Error) -> String {
+fn format_json_error(error: serde_json::Error) -> EcoString {
     assert!(error.is_syntax() || error.is_eof());
-    format!("failed to parse json file: syntax error in line {}", error.line())
+    eco_format!("failed to parse json file: syntax error in line {}", error.line())
+}
+
+/// Read structured data from a TOML file.
+///
+/// The file must contain a valid TOML table. TOML tables will be
+/// converted into Typst dictionaries, and TOML arrays will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents and numbers will be converted to floats or integers depending on
+/// whether they are whole numbers. For the time being, datetimes will be
+/// converted to strings as Typst does not have a built-in datetime yet.
+///
+/// The TOML file in the example consists of a table with the keys `title`,
+/// `version`, and `authors`.
+///
+/// ## Example
+/// ```example
+/// #let details = toml("details.toml")
+///
+/// Title: #details.title \
+/// Version: #details.version \
+/// Authors: #(details.authors
+///   .join(", ", last: " and "))
+/// ```
+///
+/// Display: TOML
+/// Category: data-loading
+/// Returns: dictionary
+#[func]
+pub fn toml(
+    /// Path to a TOML file.
+    path: Spanned<EcoString>,
+) -> Value {
+    let Spanned { v: path, span } = path;
+    let path = vm.locate(&path).at(span)?;
+    let data = vm.world().file(&path).at(span)?;
+
+    let raw = std::str::from_utf8(&data)
+        .map_err(|_| "file is not valid utf-8")
+        .at(span)?;
+
+    let value: toml::Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
+    convert_toml(value)
+}
+
+/// Convert a TOML value to a Typst value.
+fn convert_toml(value: toml::Value) -> Value {
+    match value {
+        toml::Value::String(v) => Value::Str(v.into()),
+        toml::Value::Integer(v) => Value::Int(v),
+        toml::Value::Float(v) => Value::Float(v),
+        toml::Value::Boolean(v) => Value::Bool(v),
+        toml::Value::Array(v) => Value::Array(v.into_iter().map(convert_toml).collect()),
+        toml::Value::Table(v) => Value::Dict(
+            v.into_iter()
+                .map(|(key, value)| (key.into(), convert_toml(value)))
+                .collect(),
+        ),
+        // TODO: Make it use native date/time object(s) once it is implemented.
+        toml::Value::Datetime(v) => Value::Str(v.to_string().into()),
+    }
+}
+
+/// Format the user-facing TOML error message.
+fn format_toml_error(error: toml::de::Error) -> EcoString {
+    if let Some(range) = error.span() {
+        eco_format!(
+            "failed to parse toml file: {}, index {}-{}",
+            error.message(),
+            range.start,
+            range.end
+        )
+    } else {
+        eco_format!("failed to parse toml file: {}", error.message())
+    }
 }
 
 /// Read structured data from a YAML file.
@@ -292,9 +365,8 @@ fn convert_yaml_key(key: serde_yaml::Value) -> Option<Str> {
 }
 
 /// Format the user-facing YAML error message.
-#[track_caller]
-fn format_yaml_error(error: serde_yaml::Error) -> String {
-    format!("failed to parse yaml file: {}", error.to_string().trim())
+fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
+    eco_format!("failed to parse yaml file: {}", error.to_string().trim())
 }
 
 /// Read structured data from an XML file.
@@ -388,6 +460,6 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 }
 
 /// Format the user-facing XML error message.
-fn format_xml_error(error: roxmltree::Error) -> String {
+fn format_xml_error(error: roxmltree::Error) -> EcoString {
     format_xml_like_error("xml file", error)
 }

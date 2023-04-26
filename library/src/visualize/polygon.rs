@@ -49,6 +49,7 @@ pub struct PolygonElem {
 }
 
 impl Layout for PolygonElem {
+    #[tracing::instrument(name = "PolygonElem::layout", skip_all)]
     fn layout(
         &self,
         _: &mut Vt,

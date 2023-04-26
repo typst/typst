@@ -45,6 +45,11 @@ impl Point {
         Self { x: self.x.max(other.x), y: self.y.max(other.y) }
     }
 
+    /// The distance between this point and the origin.
+    pub fn hypot(self) -> Abs {
+        Abs::raw(self.x.to_raw().hypot(self.y.to_raw()))
+    }
+
     /// Transform the point with the given transformation.
     pub fn transform(self, ts: Transform) -> Self {
         Self::new(

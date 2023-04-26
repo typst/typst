@@ -72,6 +72,8 @@ pub struct LangItems {
     ) -> Vec<(EcoString, Option<EcoString>)>,
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
+    /// The heading function.
+    pub heading_func: ElemFunc,
     /// An item in a bullet list: `- ...`.
     pub list_item: fn(body: Content) -> Content,
     /// An item in an enumeration (numbered list): `+ ...` or `1. ...`.
@@ -85,8 +87,18 @@ pub struct LangItems {
     /// Matched delimiters in math: `[x + y]`.
     pub math_delimited: fn(open: Content, body: Content, close: Content) -> Content,
     /// A base with optional attachments in math: `a_1^2`.
-    pub math_attach:
-        fn(base: Content, bottom: Option<Content>, top: Option<Content>) -> Content,
+    #[allow(clippy::type_complexity)]
+    pub math_attach: fn(
+        base: Content,
+        // Positioned smartly.
+        t: Option<Content>,
+        b: Option<Content>,
+        // Fixed positions.
+        tl: Option<Content>,
+        bl: Option<Content>,
+        tr: Option<Content>,
+        br: Option<Content>,
+    ) -> Content,
     /// A base with an accent: `arrow(x)`.
     pub math_accent: fn(base: Content, accent: char) -> Content,
     /// A fraction in math: `x/2`.

@@ -21,3 +21,16 @@
 
   専門家によるオンライン百科事典プロジェクトNupedia（ヌーペディア）を前身として、2001年1月、ラリー・サンガーとジミー・ウェールズ（英: Jimmy Donal "Jimbo" Wales）により英語でプロジェクトが開始された。
 ]
+
+---
+// Test punctuation whitespace adjustment
+#set page(width: auto)
+#set text(lang: "zh", font: "Noto Serif CJK SC", overhang: false)
+#set par(justify: true)
+#rect(inset: 0pt, width: 80pt, fill: rgb("eee"))[
+  “引号测试”，还，
+  
+  《书名》《测试》下一行
+  
+  《书名》《测试》。
+]

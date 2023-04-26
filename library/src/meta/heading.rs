@@ -108,6 +108,7 @@ impl Synthesize for HeadingElem {
 }
 
 impl Show for HeadingElem {
+    #[tracing::instrument(name = "HeadingElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {
@@ -163,13 +164,14 @@ impl Refable for HeadingElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content> {
         // Create the supplement of the heading.
         let mut supplement = if let Some(supplement) = supplement {
             supplement
         } else {
             match self.supplement(StyleChain::default()) {
-                Smart::Auto => TextElem::packed(self.local_name(lang)),
+                Smart::Auto => TextElem::packed(self.local_name(lang, region)),
                 Smart::Custom(None) => Content::empty(),
                 Smart::Custom(Some(supplement)) => {
                     supplement.resolve(vt, std::iter::once(Value::from(self.clone())))?
@@ -207,7 +209,12 @@ impl Refable for HeadingElem {
         Counter::of(Self::func())
     }
 
-    fn outline(&self, vt: &mut Vt, _: Lang) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        _: Lang,
+        _: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
         // Check whether the heading is outlined.
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
@@ -227,7 +234,7 @@ impl Refable for HeadingElem {
 }
 
 impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "الفصل",
             Lang::BOKMÅL => "Kapittel",

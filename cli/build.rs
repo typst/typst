@@ -24,9 +24,9 @@ pub fn typst_version() -> String {
     format!("{pkg} ({hash})")
 }
 
-mod args {
-    include!("src/args.rs");
-}
+#[path = "src/args.rs"]
+#[allow(dead_code)]
+mod args;
 
 fn main() {
     println!("cargo:rerun-if-env-changed=TYPST_VERSION");

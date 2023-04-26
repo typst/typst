@@ -173,14 +173,14 @@ impl Synthesize for FigureElem {
         // Determine the figure's kind.
         let kind = match self.kind(styles) {
             Smart::Auto => self
-                .find_figurable(vt, styles)
+                .find_figurable(styles)
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::func())),
             Smart::Custom(kind) => kind,
         };
 
         let content = match &kind {
-            FigureKind::Elem(func) => self.find_of_elem(vt, *func),
+            FigureKind::Elem(func) => self.find_of_elem(*func),
             FigureKind::Name(_) => None,
         }
         .unwrap_or_else(|| self.body());
@@ -193,7 +193,10 @@ impl Synthesize for FigureElem {
             Smart::Auto => match &kind {
                 FigureKind::Elem(func) => {
                     let elem = Content::new(*func).with::<dyn LocalName>().map(|c| {
-                        TextElem::packed(c.local_name(TextElem::lang_in(styles)))
+                        TextElem::packed(c.local_name(
+                            TextElem::lang_in(styles),
+                            TextElem::region_in(styles),
+                        ))
                     });
 
                     if numbering.is_some() {
@@ -237,6 +240,7 @@ impl Synthesize for FigureElem {
 }
 
 impl Show for FigureElem {
+    #[tracing::instrument(name = "FigureElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         // We build the body of the figure.
         let mut realized = self.body();
@@ -272,6 +276,7 @@ impl Refable for FigureElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         _: Lang,
+        _: Option<Region>,
     ) -> SourceResult<Content> {
         // If the figure is not numbered, we cannot reference it.
         // Otherwise we build the supplement and numbering scheme.
@@ -282,7 +287,12 @@ impl Refable for FigureElem {
         Ok(desc)
     }
 
-    fn outline(&self, vt: &mut Vt, _: Lang) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        _: Lang,
+        _: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
         // If the figure is not outlined, it is not referenced.
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
@@ -303,9 +313,9 @@ impl Refable for FigureElem {
 impl FigureElem {
     /// Determines the type of the figure by looking at the content, finding all
     /// [`Figurable`] elements and sorting them by priority then returning the highest.
-    pub fn find_figurable(&self, vt: &Vt, styles: StyleChain) -> Option<Content> {
+    pub fn find_figurable(&self, styles: StyleChain) -> Option<Content> {
         self.body()
-            .query(vt.introspector, Selector::can::<dyn Figurable>())
+            .query(Selector::can::<dyn Figurable>())
             .into_iter()
             .max_by_key(|elem| elem.with::<dyn Figurable>().unwrap().priority(styles))
             .cloned()
@@ -313,9 +323,9 @@ impl FigureElem {
 
     /// Finds the element with the given function in the figure's content.
     /// Returns `None` if no element with the given function is found.
-    pub fn find_of_elem(&self, vt: &Vt, func: ElemFunc) -> Option<Content> {
+    pub fn find_of_elem(&self, func: ElemFunc) -> Option<Content> {
         self.body()
-            .query(vt.introspector, Selector::Elem(func, None))
+            .query(Selector::Elem(func, None))
             .into_iter()
             .next()
             .cloned()

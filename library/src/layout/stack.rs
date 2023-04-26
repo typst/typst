@@ -38,6 +38,7 @@ pub struct StackElem {
 }
 
 impl Layout for StackElem {
+    #[tracing::instrument(name = "StackElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -161,6 +162,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Add spacing along the spacing direction.
+    #[tracing::instrument(name = "StackLayouter::layout_spacing", skip_all)]
     fn layout_spacing(&mut self, spacing: Spacing) {
         match spacing {
             Spacing::Rel(v) => {
@@ -184,6 +186,7 @@ impl<'a> StackLayouter<'a> {
     }
 
     /// Layout an arbitrary block.
+    #[tracing::instrument(name = "StackLayouter::layout_block", skip_all)]
     fn layout_block(
         &mut self,
         vt: &mut Vt,
@@ -237,7 +240,7 @@ impl<'a> StackLayouter<'a> {
         // the region expands.
         let mut size = self
             .expand
-            .select(self.initial, self.used.to_axes(self.axis))
+            .select(self.initial, self.used.into_axes(self.axis))
             .min(self.initial);
 
         // Expand fully if there are fr spacings.
@@ -318,7 +321,7 @@ impl<T> Gen<T> {
     }
 
     /// Convert to the specific representation, given the current main axis.
-    fn to_axes(self, main: Axis) -> Axes<T> {
+    fn into_axes(self, main: Axis) -> Axes<T> {
         match main {
             Axis::X => Axes::new(self.main, self.cross),
             Axis::Y => Axes::new(self.cross, self.main),
@@ -334,6 +337,6 @@ impl Gen<Abs> {
 
     /// Convert to a point.
     fn to_point(self, main: Axis) -> Point {
-        self.to_axes(main).to_point()
+        self.into_axes(main).to_point()
     }
 }

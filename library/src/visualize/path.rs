@@ -60,6 +60,7 @@ pub struct PathElem {
 }
 
 impl Layout for PathElem {
+    #[tracing::instrument(name = "PathElem::layout", skip_all)]
     fn layout(
         &self,
         _: &mut Vt,
@@ -123,6 +124,7 @@ impl Layout for PathElem {
             let to_point = points[0];
 
             add_cubic(from_point, to_point, from, to);
+            path.close_path();
         }
 
         // Prepare fill and stroke.

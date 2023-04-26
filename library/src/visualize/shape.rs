@@ -55,8 +55,8 @@ pub struct RectElem {
     ///     - `miter-limit`: the miter limit to use if `join` is `"miter"`, defaults to 4.0
     ///     - `dash`: the dash pattern to use. Can be any of the following:
     ///         - One of the strings `"solid"`, `"dotted"`, `"densely-dotted"`, `"loosely-dotted"`,
-    ///           `"dashed"`, `"densely-dashed"`, `"loosely-dashed"`, `"dashdotted"`,
-    ///           `"densely-dashdotted"` or `"loosely-dashdotted"`
+    ///           `"dashed"`, `"densely-dashed"`, `"loosely-dashed"`, `"dash-dotted"`,
+    ///           `"densely-dash-dotted"` or `"loosely-dash-dotted"`
     ///         - An array with elements that specify the lengths of dashes and gaps, alternating.
     ///           Elements can also be the string `"dot"` for a length equal to the line thickness.
     ///         - A dict with the keys `array`, same as the array above, and `phase`, the offset to
@@ -132,7 +132,7 @@ pub struct RectElem {
     /// current [text edges]($func/text.top-edge).
     ///
     /// ```example
-    /// #rect(inset: 0pt)[Tight])
+    /// #rect(inset: 0pt)[Tight]
     /// ```
     #[resolve]
     #[fold]
@@ -154,6 +154,7 @@ pub struct RectElem {
 }
 
 impl Layout for RectElem {
+    #[tracing::instrument(name = "RectElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -264,6 +265,7 @@ pub struct SquareElem {
 }
 
 impl Layout for SquareElem {
+    #[tracing::instrument(name = "SquareElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -346,6 +348,7 @@ pub struct EllipseElem {
 }
 
 impl Layout for EllipseElem {
+    #[tracing::instrument(name = "EllipseElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -453,6 +456,7 @@ pub struct CircleElem {
 }
 
 impl Layout for CircleElem {
+    #[tracing::instrument(name = "CircleElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -477,6 +481,7 @@ impl Layout for CircleElem {
 }
 
 /// Layout a shape.
+#[tracing::instrument(name = "shape::layout", skip_all)]
 #[allow(clippy::too_many_arguments)]
 fn layout(
     vt: &mut Vt,

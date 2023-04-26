@@ -17,8 +17,8 @@ use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
     /// The internal representation.
     repr: Repr,
@@ -75,6 +75,12 @@ impl Func {
 
     /// Call the function with the given arguments.
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
+        let _span = tracing::info_span!(
+            "call",
+            name = self.name().unwrap_or("<anon>"),
+            file = 0,
+        );
+
         match &self.repr {
             Repr::Native(native) => {
                 let value = (native.func)(vm, &mut args)?;
@@ -111,6 +117,7 @@ impl Func {
     }
 
     /// Call the function with a Vt.
+    #[tracing::instrument(skip_all)]
     pub fn call_vt(
         &self,
         vt: &mut Vt,
@@ -269,7 +276,7 @@ pub(super) struct Closure {
 #[derive(Hash)]
 pub enum Param {
     /// A positional parameter: `x`.
-    Pos(Ident),
+    Pos(ast::Pattern),
     /// A named parameter with a default value: `draw: false`.
     Named(Ident, Value),
     /// An argument sink: `..args`.
@@ -278,8 +285,9 @@ pub enum Param {
 
 impl Closure {
     /// Call the function in the context with the arguments.
-    #[allow(clippy::too_many_arguments)]
     #[comemo::memoize]
+    #[tracing::instrument(skip_all)]
+    #[allow(clippy::too_many_arguments)]
     fn call(
         this: &Func,
         world: Tracked<dyn World>,
@@ -320,9 +328,18 @@ impl Closure {
         let mut sink_pos_values = None;
         for p in &closure.params {
             match p {
-                Param::Pos(ident) => {
-                    vm.define(ident.clone(), args.expect::<Value>(ident)?);
-                }
+                Param::Pos(pattern) => match pattern {
+                    ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
+                        vm.define(ident.clone(), args.expect::<Value>(ident)?)
+                    }
+                    ast::Pattern::Normal(_) => unreachable!(),
+                    _ => {
+                        pattern.define(
+                            &mut vm,
+                            args.expect::<Value>("pattern parameter")?,
+                        )?;
+                    }
+                },
                 Param::Sink(ident) => {
                     sink = ident.clone();
                     if let Some(sink_size) = sink_size {
@@ -394,6 +411,7 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Visit any node and collect all captured variables.
+    #[tracing::instrument(skip_all)]
     pub fn visit(&mut self, node: &SyntaxNode) {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.
@@ -429,10 +447,15 @@ impl<'a> CapturesVisitor<'a> {
 
                 for param in expr.params().children() {
                     match param {
-                        ast::Param::Pos(ident) => self.bind(ident),
+                        ast::Param::Pos(pattern) => {
+                            for ident in pattern.idents() {
+                                self.bind(ident);
+                            }
+                        }
                         ast::Param::Named(named) => self.bind(named.name()),
-                        ast::Param::Sink(Some(ident)) => self.bind(ident),
-                        _ => {}
+                        ast::Param::Sink(spread) => {
+                            self.bind(spread.name().unwrap_or_default())
+                        }
                     }
                 }
 

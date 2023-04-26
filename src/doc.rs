@@ -273,13 +273,18 @@ impl Frame {
     /// Attach the metadata from this style chain to the frame.
     pub fn meta(&mut self, styles: StyleChain, force: bool) {
         if force || !self.is_empty() {
-            for meta in MetaElem::data_in(styles) {
-                if matches!(meta, Meta::Hide) {
-                    self.clear();
-                    break;
-                }
-                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
+            self.meta_iter(MetaElem::data_in(styles));
+        }
+    }
+
+    /// Attach metadata from an iterator.
+    pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
+        for meta in iter {
+            if matches!(meta, Meta::Hide) {
+                self.clear();
+                break;
             }
+            self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
         }
     }
 
@@ -586,6 +591,12 @@ impl Region {
     }
 }
 
+impl PartialEq<&str> for Region {
+    fn eq(&self, other: &&str) -> bool {
+        self.as_str() == *other
+    }
+}
+
 impl FromStr for Region {
     type Err = &'static str;
 
@@ -682,4 +693,24 @@ cast_to_value! {
         "x" => Value::Length(v.point.x.into()),
         "y" => Value::Length(v.point.y.into()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{doc::Region, util::option_eq};
+
+    #[test]
+    fn test_partialeq_str() {
+        let region = Region([b'U', b'S']);
+        assert_eq!(region, "US");
+        assert_ne!(region, "AB");
+    }
+
+    #[test]
+    fn test_region_option_eq() {
+        let region = Some(Region([b'U', b'S']));
+
+        assert!(option_eq(region, "US"));
+        assert!(!option_eq(region, "AB"));
+    }
 }

@@ -49,3 +49,9 @@ _Shopping list_
 -
 Not in list
 -Nope
+
+---
+// Alignment shouldn't affect marker
+#set align(horizon)
+
+- ABCDEF\ GHIJKL\ MNOPQR

@@ -9,18 +9,10 @@ use crate::layout::BlockElem;
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 
-/// Raw text with optional syntax highlighting.
+/// Raw text with optionalw syntax highlighting.
 ///
 /// Displays the text verbatim and in a monospace font. This is typically used
 /// to embed computer code into your document.
-///
-/// ## Syntax
-/// This function also has dedicated syntax. You can enclose text in 1 or 3+
-/// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
-/// When you use three or more backticks, you can additionally specify a
-/// language tag for syntax highlighting directly after the opening backticks.
-/// Within raw blocks, everything is rendered as is, in particular, there are no
-/// escape sequences.
 ///
 /// ## Example
 /// ````example
@@ -33,6 +25,14 @@ use crate::prelude::*;
 /// }
 /// ```
 /// ````
+///
+/// ## Syntax
+/// This function also has dedicated syntax. You can enclose text in 1 or 3+
+/// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
+/// When you use three or more backticks, you can additionally specify a
+/// language tag for syntax highlighting directly after the opening backticks.
+/// Within raw blocks, everything is rendered as is, in particular, there are no
+/// escape sequences.
 ///
 /// Display: Raw Text / Code
 /// Category: text
@@ -129,6 +129,7 @@ impl Synthesize for RawElem {
 }
 
 impl Show for RawElem {
+    #[tracing::instrument(name = "RawElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
@@ -200,7 +201,7 @@ impl Finalize for RawElem {
 }
 
 impl LocalName for RawElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "قائمة",
             Lang::BOKMÅL => "Utskrift",

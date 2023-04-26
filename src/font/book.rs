@@ -39,6 +39,11 @@ impl FontBook {
         self.infos.push(info);
     }
 
+    /// Get the font info for the given index.
+    pub fn info(&self, index: usize) -> Option<&FontInfo> {
+        self.infos.get(index)
+    }
+
     /// An ordered iterator over all font families this book knows and details
     /// about the fonts that are part of them.
     pub fn families(
@@ -53,13 +58,23 @@ impl FontBook {
         })
     }
 
-    /// Try to find and load a font from the given `family` that matches
-    /// the given `variant` as closely as possible.
+    /// Try to find a font from the given `family` that matches the given
+    /// `variant` as closely as possible.
     ///
     /// The `family` should be all lowercase.
     pub fn select(&self, family: &str, variant: FontVariant) -> Option<usize> {
         let ids = self.families.get(family)?;
         self.find_best_variant(None, variant, ids.iter().copied())
+    }
+
+    /// Iterate over all variants of a family.
+    pub fn select_family(&self, family: &str) -> impl Iterator<Item = usize> + '_ {
+        self.families
+            .get(family)
+            .map(|vec| vec.as_slice())
+            .unwrap_or_default()
+            .iter()
+            .copied()
     }
 
     /// Try to find and load a fallback font that
@@ -159,6 +174,7 @@ pub struct FontInfo {
 
 bitflags::bitflags! {
     /// Bitflags describing characteristics of a font.
+    #[derive(Copy, Clone, Eq, PartialEq, Hash, Debug)]
     #[derive(Serialize, Deserialize)]
     #[serde(transparent)]
     pub struct FontFlags: u32 {

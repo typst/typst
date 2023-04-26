@@ -167,6 +167,27 @@
 #(1, 2, 3).fold(0, () => none)
 
 ---
+// Test the `sum` method.
+#test(().sum(default: 0), 0)
+#test(().sum(default: []), [])
+#test((1, 2, 3).sum(), 6)
+
+---
+// Error: 2-10 cannot calculate sum of empty array with no default
+#().sum()
+
+---
+// Test the `product` method.
+#test(().product(default: 0), 0)
+#test(().product(default: []), [])
+#test(([ab], 3).product(), [ab]*3)
+#test((1, 2, 3).product(), 6)
+
+---
+// Error: 2-14 cannot calculate product of empty array with no default
+#().product()
+
+---
 // Test the `rev` method.
 #test(range(3).rev(), (2, 1, 0))
 
@@ -203,6 +224,17 @@
 #test((2, 1, 3, -10, -5, 8, 6, -7, 2).sorted(key: x => x * x), (1, 2, 2, 3, -5, 6, -7, 8, -10))
 
 ---
+// Test the `zip` method.
+#test(().zip(()), ())
+#test((1,).zip(()), ())
+#test((1,).zip((2,)), ((1, 2),))
+#test((1, 2).zip((3, 4)), ((1, 3), (2, 4)))
+#test((1, 2, 3, 4).zip((5, 6)), ((1, 5), (2, 6)))
+#test(((1, 2), 3).zip((4, 5)), (((1, 2), 4), (3, 5)))
+#test((1, "hi").zip((true, false)), ((1, true), ("hi", false)))
+
+
+---
 // Error: 32-37 cannot divide by zero
 #(1, 2, 0, 3).sorted(key: x => 5 / x)
 
@@ -224,7 +256,7 @@
 // Error: 4-6 unexpected end of block comment
 #(1*/2)
 
-// Error: 6-8 invalid number suffix
+// Error: 6-8 invalid number suffix: u
 #(1, 1u 2)
 
 // Error: 3-4 unexpected comma
