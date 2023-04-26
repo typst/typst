@@ -5,7 +5,7 @@
 #set page(width: 162pt)
 
 They can look for the details in @netwok,
-which is the authorative source.
+which is the authoritative source.
 
 #bibliography("/works.bib")
 
