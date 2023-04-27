@@ -417,7 +417,15 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
 
 /// Encode a geometrical shape into the content stream.
 fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
-    if shape.fill.is_none() && shape.stroke.is_none() {
+    let stroke = shape.stroke.as_ref().and_then(|stroke| {
+        if stroke.thickness.to_f32() > 0.0 {
+            Some(stroke)
+        } else {
+            None
+        }
+    });
+
+    if shape.fill.is_none() && stroke.is_none() {
         return;
     }
 
@@ -425,7 +433,7 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
         ctx.set_fill(fill);
     }
 
-    if let Some(stroke) = &shape.stroke {
+    if let Some(stroke) = stroke {
         ctx.set_stroke(stroke);
     }
 
@@ -448,7 +456,7 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
         }
     }
 
-    match (&shape.fill, &shape.stroke) {
+    match (&shape.fill, stroke) {
         (None, None) => unreachable!(),
         (Some(_), None) => ctx.content.fill_nonzero(),
         (None, Some(_)) => ctx.content.stroke(),
