@@ -10,7 +10,7 @@ use super::*;
 /// // With function call.
 /// $ attach(
 ///   Pi, t: alpha, b: beta,
-///   tl: 1, tr: 2, bl: 3, br: 4,
+///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
 /// ```
 ///
@@ -34,8 +34,10 @@ pub struct AttachElem {
     pub t: Option<Content>,
 
     /// The bottom attachment, smartly positioned at the bottom-right or below
-    /// the base. You can wrap the base in `{limits()}` or `{scripts()}` to
-    /// override the smart positioning.
+    /// the base.
+    ///
+    /// You can wrap the base in `{limits()}` or `{scripts()}` to override the
+    /// smart positioning.
     pub b: Option<Content>,
 
     /// The top-left attachment (before the base).
