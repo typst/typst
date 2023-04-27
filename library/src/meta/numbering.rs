@@ -259,7 +259,14 @@ enum NumberingKind {
     Roman,
     Symbol,
     Hebrew,
-    Chinese,
+    SimplifiedChinese,
+    // TODO: Pick the numbering pattern based on languages choice.
+    // As the `1st` numbering character of Chinese (Simplifed) and
+    // Chinese (Traditional) is same, we are unable to determine
+    // if the context is Simplified or Traditional by only this
+    // character.
+    #[allow(unused)]
+    TraditionalChinese,
     HiraganaIroha,
     KatakanaIroha,
 }
@@ -273,7 +280,7 @@ impl NumberingKind {
             'i' => NumberingKind::Roman,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
-            '一' | '壹' => NumberingKind::Chinese,
+            '一' | '壹' => NumberingKind::SimplifiedChinese,
             'い' => NumberingKind::HiraganaIroha,
             'イ' => NumberingKind::KatakanaIroha,
             _ => return None,
@@ -288,7 +295,8 @@ impl NumberingKind {
             Self::Roman => 'i',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
-            Self::Chinese => '一',
+            Self::SimplifiedChinese => '一',
+            Self::TraditionalChinese => '一',
             Self::HiraganaIroha => 'い',
             Self::KatakanaIroha => 'イ',
         }
@@ -437,18 +445,22 @@ impl NumberingKind {
                 }
                 fmt
             }
-            Self::Chinese => {
-                let chinesecase = match case {
+            l @ (Self::SimplifiedChinese | Self::TraditionalChinese) => {
+                let chinese_case = match case {
                     Case::Lower => ChineseCase::Lower,
                     Case::Upper => ChineseCase::Upper,
                 };
 
                 match (n as u8).to_chinese(
-                    ChineseVariant::Simple,
-                    chinesecase,
+                    match l {
+                        Self::SimplifiedChinese => ChineseVariant::Simple,
+                        Self::TraditionalChinese => ChineseVariant::Traditional,
+                        _ => unreachable!(),
+                    },
+                    chinese_case,
                     ChineseCountMethod::TenThousand,
                 ) {
-                    Ok(chinesestring) => EcoString::from(chinesestring),
+                    Ok(num_str) => EcoString::from(num_str),
                     Err(_) => '-'.into(),
                 }
             }
