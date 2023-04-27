@@ -64,8 +64,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     // Punctuation.
     amp: ['&', inv: '⅋'],
     ast: [
-        basic: '*',
         op: '∗',
+        basic: '*',
         low: '⁎',
         double: '⁑',
         triple: '⁂',
