@@ -112,8 +112,6 @@ pub fn query(
     /// the query's result is reduced. If you could call it directly at the top
     /// level of a module, the evaluation of the whole module and its exports
     /// could depend on the query's result.
-    ///
-    /// Only one of this, `before`, and `after` shall be given.
     location: Location,
 ) -> Value {
     let _ = location;
