@@ -338,6 +338,7 @@ fn compute_shifts_up_and_down(
 }
 
 /// Unicode codepoints that should have sub- and superscripts attached as limits.
+#[rustfmt::skip]
 const LIMITS: &[char] = &[
     /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
     /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
