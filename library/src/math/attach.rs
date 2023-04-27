@@ -337,8 +337,12 @@ fn compute_shifts_up_and_down(
     (shift_up, shift_down)
 }
 
-/// Codepoints that should have sub- and superscripts attached as limits.
+/// Unicode codepoints that should have sub- and superscripts attached as limits.
 const LIMITS: &[char] = &[
-    '\u{2210}', '\u{22C1}', '\u{22C0}', '\u{2A04}', '\u{22C2}', '\u{22C3}', '\u{220F}',
-    '\u{2211}', '\u{2A02}', '\u{2A01}', '\u{2A00}', '\u{2A06}',
+    /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
+    /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
+    /* ⋂ */ '\u{22C2}', /* ⋃ */ '\u{22C3}',
+    /* ⨀ */ '\u{2A00}', /* ⨁ */ '\u{2A01}', /* ⨂ */ '\u{2A02}',
+    /* ⨃ */ '\u{2A03}', /* ⨄ */ '\u{2A04}',
+    /* ⨅ */ '\u{2A05}', /* ⨆ */ '\u{2A06}',
 ];
