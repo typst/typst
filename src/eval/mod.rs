@@ -1268,7 +1268,13 @@ impl ast::Pattern {
                 ast::DestructuringKind::Named(named) => {
                     bail!(named.span(), "cannot destructure named elements from an array")
                 }
-                ast::DestructuringKind::Placeholder(_) => i += 1,
+                ast::DestructuringKind::Placeholder(underscore) => {
+                    if i < value.len() {
+                        i += 1
+                    } else {
+                        bail!(underscore.span(), "not enough elements to destructure")
+                    }
+                }
             }
         }
         if i < value.len() {
