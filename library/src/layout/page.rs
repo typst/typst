@@ -359,16 +359,19 @@ impl PageElem {
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
-            // Realize margins.
-            frame.set_size(frame.size() + margin.sum_by_axis());
+            // Make a clone of the original margin in case you need to modify
+            // the margins for a two-sided document.
+            let mut margin = margin.clone();
+
             // Swap right and left margins if the document is two-sided and the
             // page number is even.
-            let margin_x = if self.two_sided(styles) && number.get() % 2 == 0 {
-                margin.right
-            } else {
-                margin.left
-            };
-            frame.translate(Point::new(margin_x, margin.top));
+            if self.two_sided(styles) && number.get() % 2 == 0 {
+                std::mem::swap(&mut margin.left, &mut margin.right);
+            }
+
+            // Realize margins.
+            frame.set_size(frame.size() + margin.sum_by_axis());
+            frame.translate(Point::new(margin.left, margin.top));
             frame.push(Point::zero(), numbering_meta.clone());
 
             // The page size with margins.
