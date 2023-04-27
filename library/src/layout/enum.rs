@@ -194,7 +194,8 @@ impl Layout for EnumElem {
             };
 
             cells.push(Content::empty());
-            cells.push(resolved);
+            // avoid '#set align' interference with the enum
+            cells.push(resolved.aligned(Align::LEFT_TOP.into()));
             cells.push(Content::empty());
             cells.push(item.body().styled(Self::set_parents(Parent(number))));
             number = number.saturating_add(1);

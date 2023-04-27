@@ -1,6 +1,6 @@
 [package]
 name = "typst-macros"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 description = "Proc-macros for Typst."
@@ -16,8 +16,7 @@ doctest = false
 bench = false
 
 [dependencies]
+heck = "0.4"
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "1", features = ["full", "extra-traits"] }
-unscanny = "0.1"
-heck = "0.4"

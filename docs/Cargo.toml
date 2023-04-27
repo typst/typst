@@ -1,6 +1,6 @@
 [package]
 name = "typst-docs"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 publish = false
@@ -12,14 +12,14 @@ bench = false
 [dependencies]
 typst = { path = ".." }
 typst-library = { path = "../library" }
-unscanny = "0.1"
-include_dir = "0.7"
-pulldown-cmark = "0.9"
 comemo = "0.2.2"
+heck = "0.4"
+include_dir = "0.7"
+once_cell = "1"
+pulldown-cmark = "0.9"
 serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
-heck = "0.4"
-yaml-front-matter = "0.1"
 unicode_names2 = "0.6.0"
-once_cell = "1"
+unscanny = "0.1"
 ureq = { version = "2.6", features = ["json"] }
+yaml-front-matter = "0.1"

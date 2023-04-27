@@ -129,7 +129,11 @@ impl Layout for ListElem {
         };
 
         let depth = self.depth(styles);
-        let marker = self.marker(styles).resolve(vt, depth)?;
+        let marker = self
+            .marker(styles)
+            .resolve(vt, depth)?
+            // avoid '#set align' interference with the list
+            .aligned(Align::LEFT_TOP.into());
 
         let mut cells = vec![];
         for item in self.children() {

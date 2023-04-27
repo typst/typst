@@ -48,8 +48,9 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
+use crate::model::ShowableSelector;
 use crate::model::{
-    Content, Introspector, Label, Recipe, Selector, StabilityProvider, Styles, Transform,
+    Content, Introspector, Label, Recipe, StabilityProvider, Styles, Transform,
     Unlabellable, Vt,
 };
 use crate::syntax::ast::AstNode;
@@ -456,6 +457,7 @@ impl Eval for ast::Expr {
             Self::Unary(v) => v.eval(vm),
             Self::Binary(v) => v.eval(vm),
             Self::Let(v) => v.eval(vm),
+            Self::DestructAssign(v) => v.eval(vm),
             Self::Set(_) => bail!(forbidden("set")),
             Self::Show(_) => bail!(forbidden("show")),
             Self::Conditional(v) => v.eval(vm),
@@ -707,9 +709,9 @@ impl Eval for ast::MathAttach {
     #[tracing::instrument(name = "MathAttach::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let base = self.base().eval_display(vm)?;
-        let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
         let top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
-        Ok((vm.items.math_attach)(base, bottom, top))
+        let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
+        Ok((vm.items.math_attach)(base, top, bottom, None, None, None, None))
     }
 }
 
@@ -1206,14 +1208,11 @@ impl Eval for ast::Closure {
         let mut params = Vec::new();
         for param in self.params().children() {
             match param {
-                ast::Param::Pos(name) => {
-                    params.push(Param::Pos(name));
-                }
+                ast::Param::Pos(pattern) => params.push(Param::Pos(pattern)),
                 ast::Param::Named(named) => {
                     params.push(Param::Named(named.name(), named.expr().eval(vm)?));
                 }
-                ast::Param::Sink(name) => params.push(Param::Sink(name)),
-                ast::Param::Placeholder => params.push(Param::Placeholder),
+                ast::Param::Sink(spread) => params.push(Param::Sink(spread.name())),
             }
         }
 
@@ -1231,97 +1230,141 @@ impl Eval for ast::Closure {
 }
 
 impl ast::Pattern {
-    // Destruct the given value into the pattern.
-    #[tracing::instrument(skip_all)]
-    pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
-        match self {
-            ast::Pattern::Ident(ident) => {
-                vm.define(ident.clone(), value);
-                Ok(Value::None)
-            }
-            ast::Pattern::Placeholder => Ok(Value::None),
-            ast::Pattern::Destructuring(destruct) => {
-                match value {
-                    Value::Array(value) => {
-                        let mut i = 0;
-                        for p in destruct.bindings() {
-                            match p {
-                                ast::DestructuringKind::Ident(ident) => {
-                                    let Ok(v) = value.at(i) else {
-                                        bail!(ident.span(), "not enough elements to destructure");
-                                    };
-                                    vm.define(ident.clone(), v.clone());
-                                    i += 1;
-                                }
-                                ast::DestructuringKind::Sink(ident) => {
-                                    (1 + value.len() as usize).checked_sub(destruct.bindings().count()).and_then(|sink_size| {
-                                        let Ok(sink) = value.slice(i, Some(i + sink_size as i64)) else {
-                                            return None;
-                                        };
-                                        if let Some(ident) = ident {
-                                            vm.define(ident, sink);
-                                        }
-                                        i += sink_size as i64;
-                                        Some(())
-                                    }).ok_or("not enough elements to destructure").at(self.span())?;
-                                }
-                                ast::DestructuringKind::Named(key, _) => {
-                                    bail!(
-                                        key.span(),
-                                        "cannot destructure named elements from an array"
-                                    )
-                                }
-                                ast::DestructuringKind::Placeholder => i += 1,
-                            }
-                        }
-                        if i < value.len() {
-                            bail!(self.span(), "too many elements to destructure");
-                        }
-                    }
-                    Value::Dict(value) => {
-                        let mut sink = None;
-                        let mut used = HashSet::new();
-                        for p in destruct.bindings() {
-                            match p {
-                                ast::DestructuringKind::Ident(ident) => {
-                                    let Ok(v) = value.at(&ident) else {
-                                        bail!(ident.span(), "destructuring key not found in dictionary");
-                                    };
-                                    vm.define(ident.clone(), v.clone());
-                                    used.insert(ident.clone().take());
-                                }
-                                ast::DestructuringKind::Sink(ident) => {
-                                    sink = ident.clone()
-                                }
-                                ast::DestructuringKind::Named(key, ident) => {
-                                    let Ok(v) = value.at(&key) else {
-                                        bail!(ident.span(), "destructuring key not found in dictionary");
-                                    };
-                                    vm.define(ident.clone(), v.clone());
-                                    used.insert(key.clone().take());
-                                }
-                                ast::DestructuringKind::Placeholder => {}
-                            }
-                        }
+    fn destruct_array<T>(
+        &self,
+        vm: &mut Vm,
+        value: Array,
+        f: T,
+        destruct: &ast::Destructuring,
+    ) -> SourceResult<Value>
+    where
+        T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+    {
+        let mut i = 0;
+        for p in destruct.bindings() {
+            match p {
+                ast::DestructuringKind::Normal(expr) => {
+                    let Ok(v) = value.at(i) else {
+                        bail!(expr.span(), "not enough elements to destructure");
+                    };
+                    f(vm, expr, v.clone())?;
+                    i += 1;
+                }
+                ast::DestructuringKind::Sink(spread) => {
+                    let sink_size = (1 + value.len() as usize)
+                        .checked_sub(destruct.bindings().count());
+                    let sink =
+                        sink_size.and_then(|s| value.slice(i, Some(i + s as i64)).ok());
 
-                        if let Some(ident) = sink {
-                            let mut sink = Dict::new();
-                            for (key, value) in value {
-                                if !used.contains(key.as_str()) {
-                                    sink.insert(key, value);
-                                }
-                            }
-                            vm.define(ident, Value::Dict(sink));
+                    if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
+                        if let Some(expr) = spread.expr() {
+                            f(vm, expr, Value::Array(sink.clone()))?;
                         }
-                    }
-                    _ => {
-                        bail!(self.span(), "cannot destructure {}", value.type_name());
+                        i += sink_size as i64;
+                    } else {
+                        bail!(self.span(), "not enough elements to destructure")
                     }
                 }
-
-                Ok(Value::None)
+                ast::DestructuringKind::Named(named) => {
+                    bail!(named.span(), "cannot destructure named elements from an array")
+                }
+                ast::DestructuringKind::Placeholder(_) => i += 1,
             }
         }
+        if i < value.len() {
+            bail!(self.span(), "too many elements to destructure");
+        }
+
+        Ok(Value::None)
+    }
+
+    fn destruct_dict<T>(
+        &self,
+        vm: &mut Vm,
+        value: Dict,
+        f: T,
+        destruct: &ast::Destructuring,
+    ) -> SourceResult<Value>
+    where
+        T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+    {
+        let mut sink = None;
+        let mut used = HashSet::new();
+        for p in destruct.bindings() {
+            match p {
+                ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
+                    let Ok(v) = value.at(&ident) else {
+                                        bail!(ident.span(), "destructuring key not found in dictionary");
+                                    };
+                    f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
+                    used.insert(ident.take());
+                }
+                ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
+                ast::DestructuringKind::Named(named) => {
+                    let Ok(v) = value.at(named.name().as_str()) else {
+                                        bail!(named.name().span(), "destructuring key not found in dictionary");
+                                    };
+                    f(vm, named.expr(), v.clone())?;
+                    used.insert(named.name().take());
+                }
+                ast::DestructuringKind::Placeholder(_) => {}
+                ast::DestructuringKind::Normal(expr) => {
+                    bail!(expr.span(), "expected key, found expression");
+                }
+            }
+        }
+
+        if let Some(expr) = sink {
+            let mut sink = Dict::new();
+            for (key, value) in value {
+                if !used.contains(key.as_str()) {
+                    sink.insert(key, value);
+                }
+            }
+            f(vm, expr, Value::Dict(sink))?;
+        }
+
+        Ok(Value::None)
+    }
+
+    /// Destruct the given value into the pattern and apply the function to each binding.
+    #[tracing::instrument(skip_all)]
+    fn apply<T>(&self, vm: &mut Vm, value: Value, f: T) -> SourceResult<Value>
+    where
+        T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+    {
+        match self {
+            ast::Pattern::Normal(expr) => {
+                f(vm, expr.clone(), value)?;
+                Ok(Value::None)
+            }
+            ast::Pattern::Placeholder(_) => Ok(Value::None),
+            ast::Pattern::Destructuring(destruct) => match value {
+                Value::Array(value) => self.destruct_array(vm, value, f, destruct),
+                Value::Dict(value) => self.destruct_dict(vm, value, f, destruct),
+                _ => bail!(self.span(), "cannot destructure {}", value.type_name()),
+            },
+        }
+    }
+
+    /// Destruct the value into the pattern by binding.
+    pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
+        self.apply(vm, value, |vm, expr, value| match expr {
+            ast::Expr::Ident(ident) => {
+                vm.define(ident, value);
+                Ok(Value::None)
+            }
+            _ => unreachable!(),
+        })
+    }
+
+    /// Destruct the value into the pattern by assignment.
+    pub fn assign(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
+        self.apply(vm, value, |vm, expr, value| {
+            let location = expr.access(vm)?;
+            *location = value;
+            Ok(Value::None)
+        })
     }
 }
 
@@ -1342,6 +1385,16 @@ impl Eval for ast::LetBinding {
                 Ok(Value::None)
             }
         }
+    }
+}
+
+impl Eval for ast::DestructAssignment {
+    type Output = Value;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let value = self.value().eval(vm)?;
+        self.pattern().assign(vm, value)?;
+        Ok(Value::None)
     }
 }
 
@@ -1376,8 +1429,9 @@ impl Eval for ast::ShowRule {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let selector = self
             .selector()
-            .map(|sel| sel.eval(vm)?.cast::<Selector>().at(sel.span()))
-            .transpose()?;
+            .map(|sel| sel.eval(vm)?.cast::<ShowableSelector>().at(sel.span()))
+            .transpose()?
+            .map(|selector| selector.0);
 
         let transform = self.transform();
         let span = transform.span();
@@ -1514,7 +1568,7 @@ impl Eval for ast::ForLoop {
         let pattern = self.pattern();
 
         match (&pattern, iter.clone()) {
-            (ast::Pattern::Ident(_), Value::Str(string)) => {
+            (ast::Pattern::Normal(_), Value::Str(string)) => {
                 // Iterate over graphemes of string.
                 iter!(for pattern in string.as_str().graphemes(true));
             }
@@ -1526,7 +1580,7 @@ impl Eval for ast::ForLoop {
                 // Iterate over values of array.
                 iter!(for pattern in array);
             }
-            (ast::Pattern::Ident(_), _) => {
+            (ast::Pattern::Normal(_), _) => {
                 bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
             }
             (_, _) => {

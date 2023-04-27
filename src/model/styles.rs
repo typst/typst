@@ -412,9 +412,7 @@ impl Selector {
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
             Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
             Self::Location(location) => target.location() == Some(*location),
-            Self::Before { .. } | Self::After { .. } => {
-                panic!("Cannot match a `Selector::Before` or `Selector::After` selector")
-            }
+            Self::Before { .. } | Self::After { .. } => false,
         }
     }
 }
@@ -491,7 +489,7 @@ impl Cast for LocatableSelector {
 
     fn cast(value: Value) -> StrResult<Self> {
         fn validate(selector: &Selector) -> StrResult<()> {
-            match &selector {
+            match selector {
                 Selector::Elem(elem, _) => {
                     if !elem.can::<dyn Locatable>() {
                         Err(eco_format!("{} is not locatable", elem.name()))?
@@ -533,6 +531,56 @@ impl Cast for LocatableSelector {
         ])
     }
 }
+
+/// A selector that can be used with show rules.
+#[derive(Clone, PartialEq, Hash)]
+pub struct ShowableSelector(pub Selector);
+
+impl Cast for ShowableSelector {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Str(_) | Value::Label(_) | Value::Func(_))
+            || value.type_name() == "regular expression"
+            || value.type_name() == "selector"
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        fn validate(selector: &Selector) -> StrResult<()> {
+            match selector {
+                Selector::Elem(_, _) => {}
+                Selector::Label(_) => {}
+                Selector::Regex(_) => {}
+                Selector::Or(_)
+                | Selector::And(_)
+                | Selector::Location(_)
+                | Selector::Can(_)
+                | Selector::Before { .. }
+                | Selector::After { .. } => {
+                    Err("this selector cannot be used with show")?
+                }
+            }
+            Ok(())
+        }
+
+        if !Self::is(&value) {
+            return <Self as Cast>::error(value);
+        }
+
+        let selector = Selector::cast(value)?;
+        validate(&selector)?;
+        Ok(Self(selector))
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type("function"),
+            CastInfo::Type("label"),
+            CastInfo::Type("string"),
+            CastInfo::Type("regular expression"),
+            CastInfo::Type("selector"),
+        ])
+    }
+}
+
 /// A show rule transformation that can be applied to a match.
 #[derive(Clone, PartialEq, Hash)]
 pub enum Transform {

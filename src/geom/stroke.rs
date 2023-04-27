@@ -256,9 +256,9 @@ cast_from_value! {
     "dashed" => vec![Abs::pt(3.0).into(), Abs::pt(3.0).into()].into(),
     "densely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into()].into(),
     "loosely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(6.0).into()].into(),
-    "dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
-    "densely-dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
-    "loosely-dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+    "dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
+    "densely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    "loosely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
     array: Vec<DashLength> => {
         Self {
             array,
@@ -314,14 +314,14 @@ cast_from_value! {
                 .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto))
         }
 
-        let paint = take::<Paint>(&mut dict, "color")?;
+        let paint = take::<Paint>(&mut dict, "paint")?;
         let thickness = take::<Length>(&mut dict, "thickness")?;
         let line_cap = take::<LineCap>(&mut dict, "cap")?;
         let line_join = take::<LineJoin>(&mut dict, "join")?;
         let dash_pattern = take::<Option<DashPattern>>(&mut dict, "dash")?;
         let miter_limit = take::<f64>(&mut dict, "miter-limit")?;
 
-        dict.finish(&["color", "thickness", "cap", "join", "dash", "miter-limit"])?;
+        dict.finish(&["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
 
         Self {
             paint,

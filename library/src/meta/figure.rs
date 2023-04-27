@@ -193,7 +193,10 @@ impl Synthesize for FigureElem {
             Smart::Auto => match &kind {
                 FigureKind::Elem(func) => {
                     let elem = Content::new(*func).with::<dyn LocalName>().map(|c| {
-                        TextElem::packed(c.local_name(TextElem::lang_in(styles)))
+                        TextElem::packed(c.local_name(
+                            TextElem::lang_in(styles),
+                            TextElem::region_in(styles),
+                        ))
                     });
 
                     if numbering.is_some() {
@@ -273,6 +276,7 @@ impl Refable for FigureElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         _: Lang,
+        _: Option<Region>,
     ) -> SourceResult<Content> {
         // If the figure is not numbered, we cannot reference it.
         // Otherwise we build the supplement and numbering scheme.
@@ -283,7 +287,12 @@ impl Refable for FigureElem {
         Ok(desc)
     }
 
-    fn outline(&self, vt: &mut Vt, _: Lang) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        _: Lang,
+        _: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
         // If the figure is not outlined, it is not referenced.
         if !self.outlined(StyleChain::default()) {
             return Ok(None);

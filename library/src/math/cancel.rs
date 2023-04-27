@@ -2,10 +2,14 @@ use super::*;
 
 /// Displays a diagonal line over a part of an equation.
 ///
+/// This is commonly used to show the eliminiation of a term.
+///
 /// ## Example
 /// ```example
+/// >>> #set page(width: 140pt)
 /// Here, we can simplify:
-/// $ (a dot.c b dot.c cancel(x)) / cancel(x) $
+/// $ (a dot b dot cancel(x)) /
+///     cancel(x) $
 /// ```
 ///
 /// Display: Cancel
@@ -23,18 +27,22 @@ pub struct CancelElem {
     /// Defaults to `{100% + 3pt}`.
     ///
     /// ```example
-    /// $ a + cancel(x, length: #200%) - b - cancel(x, length: #200%) $
+    /// >>> #set page(width: 140pt)
+    /// $ a + cancel(x, length: #200%)
+    ///     - cancel(x, length: #200%) $
     /// ```
     #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
     pub length: Rel<Length>,
 
-    /// If the cancel line should be inverted (heading northwest instead of
-    /// northeast).
+    /// If the cancel line should be inverted (pointing to the top left instead
+    /// of top right).
     ///
     /// Defaults to `{false}`.
     ///
     /// ```example
-    /// $ (a cancel((b + c), inverted: #true)) / cancel(b + c, inverted: #true) $
+    /// >>> #set page(width: 140pt)
+    /// $ (a cancel((b + c), inverted: #true)) /
+    ///     cancel(b + c, inverted: #true) $
     /// ```
     #[default(false)]
     pub inverted: bool,
@@ -45,7 +53,8 @@ pub struct CancelElem {
     /// Defaults to `{false}`.
     ///
     /// ```example
-    /// $ cancel(x, cross: #true) $
+    /// >>> #set page(width: 140pt)
+    /// $ cancel(Pi, cross: #true) $
     /// ```
     #[default(false)]
     pub cross: bool,
@@ -54,7 +63,8 @@ pub struct CancelElem {
     /// [line's documentation]($func/line.angle) for more details.
     ///
     /// ```example
-    /// $ cancel(x, rotation: #30deg) $
+    /// >>> #set page(width: 140pt)
+    /// $ cancel(Pi, rotation: #30deg) $
     /// ```
     #[default(Angle::zero())]
     pub rotation: Angle,
@@ -63,7 +73,15 @@ pub struct CancelElem {
     /// [line's documentation]($func/line.stroke) for more details.
     ///
     /// ```example
-    /// $ cancel(x, stroke: #{red + 1.5pt}) $
+    /// >>> #set page(width: 140pt)
+    /// $ cancel(
+    ///   sum x,
+    ///   stroke: #(
+    ///     paint: red,
+    ///     thickness: 1.5pt,
+    ///     dash: "dashed",
+    ///   ),
+    /// ) $
     /// ```
     #[resolve]
     #[fold]

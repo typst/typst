@@ -2,6 +2,7 @@
 
 ---
 // Test alignment step functions.
+#set page(width: 225pt)
 $
 "a" &= c \
 &= c + 1 & "By definition" \

@@ -58,7 +58,8 @@ impl LayoutRoot for DocumentElem {
             }
 
             if let Some(page) = child.to::<PageElem>() {
-                let fragment = page.layout(vt, styles)?;
+                let number = NonZeroUsize::ONE.saturating_add(pages.len());
+                let fragment = page.layout(vt, styles, number)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");

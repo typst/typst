@@ -105,6 +105,8 @@ pub fn call(
             "fold" => {
                 array.fold(vm, args.expect("initial value")?, args.expect("function")?)?
             }
+            "sum" => array.sum(args.named("default")?, span)?,
+            "product" => array.product(args.named("default")?, span)?,
             "any" => Value::Bool(array.any(vm, args.expect("function")?)?),
             "all" => Value::Bool(array.all(vm, args.expect("function")?)?),
             "flatten" => Value::Array(array.flatten()),
@@ -116,6 +118,7 @@ pub fn call(
                 array.join(sep, last).at(span)?
             }
             "sorted" => Value::Array(array.sorted(vm, span, args.named("key")?)?),
+            "zip" => Value::Array(array.zip(args.expect("other")?)),
             "enumerate" => Value::Array(array.enumerate()),
             _ => return missing(),
         },
@@ -317,6 +320,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("slice", true),
             ("sorted", false),
             ("enumerate", false),
+            ("zip", true),
         ],
         "dictionary" => &[
             ("at", true),
