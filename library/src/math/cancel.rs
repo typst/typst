@@ -90,7 +90,10 @@ pub struct CancelElem {
 
 impl LayoutMath for CancelElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut body = ctx.layout_frame(&self.body())?;
+        let body = ctx.layout_fragment(&self.body())?;
+        // Use the same math class as the body, in order to preserve automatic spacing around it.
+        let body_class = body.class().unwrap_or(MathClass::Special);
+        let mut body = body.into_frame();
 
         let styles = ctx.styles();
         let body_size = body.size();
@@ -130,7 +133,7 @@ impl LayoutMath for CancelElem {
             body.push_frame(center, second_line);
         }
 
-        ctx.push(FrameFragment::new(ctx, body));
+        ctx.push(FrameFragment::new(ctx, body).with_class(body_class));
 
         Ok(())
     }
