@@ -221,3 +221,10 @@
 ---
 // Error: 18-19 number must not be zero
 #range(10, step: 0)
+
+---
+ 
+#assert(calc.random(seed: 1) == calc.random(seed: 1))
+#assert(calc.random() == calc.random()) // Even if not explicitly seed, the function uses an internal seed, so it should return the same.
+#assert(calc.random(1, 2) < 2) // v Checking for ranges (maybe test a few times) 
+#assert(calc.random(1, 2) > 0) // <

@@ -4,6 +4,7 @@ use std::cmp;
 use std::cmp::Ordering;
 use std::ops::{Div, Rem};
 
+use fastrand;
 use typst::eval::{Module, Scope};
 
 use crate::prelude::*;
@@ -43,6 +44,7 @@ pub fn module() -> Module {
     scope.define("rem", rem);
     scope.define("mod", mod_);
     scope.define("quo", quo);
+    scope.define("random", random);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
     scope.define("pi", Value::Float(std::f64::consts::PI));
@@ -960,6 +962,35 @@ pub fn quo(
         Num::Int(i) => i,
         Num::Float(f) => f.floor() as i64, // Note: the result should be an integer but floats doesn't have the same precision as i64.
     })
+}
+
+#[comemo::memoize]
+#[func]
+/// Returns a random number
+///
+///
+/// ## Example
+/// ```example
+/// #assert(calc.random() != calc.random())
+/// ```
+///
+/// Display: Random
+/// Category: Calculate
+/// Returns: integer
+pub fn random(
+    /// The seed, optional
+    #[named]
+    #[default(0x4d595df4d0f33173)]
+    seed: u64,
+    #[default(0)] min: i64,
+    #[default(100)] max: i64,
+) -> Value {
+    if seed != 0x4d595df4d0f33173 {
+        fastrand::seed(seed);
+        Value::Int(fastrand::i64(min..max))
+    } else {
+        Value::Int(fastrand::i64(min..max))
+    }
 }
 
 /// A value which can be passed to functions that work with integers and floats.

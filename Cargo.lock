@@ -646,6 +646,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fastrand"
+version = "1.9.0"
+source = "git+https://github.com/smol-rs/fastrand.git#46527e07b095a2a00be75cb5ee521cc27fe6c571"
+dependencies = [
+ "instant",
+]
+
+[[package]]
 name = "fdeflate"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2055,7 +2063,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9fbec84f381d5795b08656e4912bec604d162bff9291d6189a78f4c8ab87998"
 dependencies = [
  "cfg-if",
- "fastrand",
+ "fastrand 1.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "redox_syscall 0.3.5",
  "rustix",
  "windows-sys 0.45.0",
@@ -2378,6 +2386,7 @@ dependencies = [
  "comemo",
  "csv",
  "ecow",
+ "fastrand 1.9.0 (git+https://github.com/smol-rs/fastrand.git)",
  "hayagriva",
  "hypher",
  "kurbo",
