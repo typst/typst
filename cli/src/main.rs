@@ -8,6 +8,7 @@ use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
+use chrono::{Datelike, Timelike};
 
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -483,6 +484,23 @@ impl World for SystemWorld {
             .buffer
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
+    }
+
+    fn now(&self, local: bool) -> (i32, u8, u8, u8, u8, u8) {
+        let datetime = match local {
+            true => chrono::Local::now().naive_local(),
+            false => chrono::Utc::now().naive_utc(),
+        };
+
+        // Month/day are always in range of u8
+        (
+            datetime.year(),
+            datetime.month().try_into().unwrap(),
+            datetime.day().try_into().unwrap(),
+            datetime.hour().try_into().unwrap(),
+            datetime.minute().try_into().unwrap(),
+            datetime.second().try_into().unwrap()
+        )
     }
 }
 

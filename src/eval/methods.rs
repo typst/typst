@@ -1,9 +1,10 @@
 //! Methods on values.
 
 use ecow::EcoString;
+use typst::eval::date::Datetime;
 
 use super::{Args, Str, Value, Vm};
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, bail, SourceResult};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -177,6 +178,41 @@ pub fn call(
                             args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
                         selector.clone().after(location, inclusive).into()
                     }
+                    _ => return missing(),
+                }
+            } else if let Some(&datetime) = dynamic.downcast::<Datetime>() {
+                match method {
+                    "display" => {
+                        let pattern = args.eat()?;
+                        match datetime.display(pattern) {
+                            Ok(d) => Value::Str(Str::from(d)),
+                            Err(msg) => bail!(args.span, msg),
+                        }
+                    }
+                    "year" => match datetime.date() {
+                        Some(date) => Value::Int(date.year().into()),
+                        None => Value::None,
+                    },
+                    "month" => match datetime.date() {
+                        Some(date) => Value::Int((date.month() as u8).into()),
+                        None => Value::None,
+                    },
+                    "day" => match datetime.date() {
+                        Some(date) => Value::Int(date.day().into()),
+                        None => Value::None,
+                    },
+                    "hour" => match datetime.time() {
+                        Some(time) => Value::Int(time.hour().into()),
+                        None => Value::None,
+                    },
+                    "minute" => match datetime.time() {
+                        Some(time) => Value::Int(time.minute().into()),
+                        None => Value::None,
+                    },
+                    "second" => match datetime.time() {
+                        Some(time) => Value::Int(time.second().into()),
+                        None => Value::None,
+                    },
                     _ => return missing(),
                 }
             } else {
