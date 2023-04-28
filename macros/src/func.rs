@@ -192,7 +192,7 @@ fn create_param_parser(param: &Param) -> TokenStream {
 fn create_scope_builder(func: &Func) -> TokenStream {
     if let Some(BlockWithReturn { prefix, expr }) = &func.scope {
         quote! { {
-            let mut scope = Scope::deduplicating();
+            let mut scope = ::typst::eval::Scope::deduplicating();
             #(#prefix);*
             #expr
         } }

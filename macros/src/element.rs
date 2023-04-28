@@ -531,7 +531,7 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
 fn create_scope_builder(elem: &Elem) -> TokenStream {
     if let Some(BlockWithReturn { prefix, expr }) = &elem.scope {
         quote! { {
-            let mut scope = Scope::deduplicating();
+            let mut scope = ::typst::eval::Scope::deduplicating();
             #(#prefix);*
             #expr
         } }
