@@ -42,7 +42,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::EcoVec;
+use ecow::{EcoString, EcoVec};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{
@@ -1604,6 +1604,42 @@ impl Eval for ast::ForLoop {
     }
 }
 
+/// Applies imports from `import` to the current scope.
+fn apply_imports<V: Into<Value>>(
+    imports: Option<ast::Imports>,
+    vm: &mut Vm,
+    source_value: V,
+    name: impl Fn(&V) -> EcoString,
+    scope: impl Fn(&V) -> &Scope,
+) -> SourceResult<()> {
+    match imports {
+        None => {
+            vm.scopes.top.define(name(&source_value), source_value);
+        }
+        Some(ast::Imports::Wildcard) => {
+            for (var, value) in scope(&source_value).iter() {
+                vm.scopes.top.define(var.clone(), value.clone());
+            }
+        }
+        Some(ast::Imports::Items(idents)) => {
+            let mut errors = vec![];
+            let scope = scope(&source_value);
+            for ident in idents {
+                if let Some(value) = scope.get(&ident) {
+                    vm.define(ident, value.clone());
+                } else {
+                    errors.push(error!(ident.span(), "unresolved import"));
+                }
+            }
+            if !errors.is_empty() {
+                return Err(Box::new(errors));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 impl Eval for ast::ModuleImport {
     type Output = Value;
 
@@ -1611,30 +1647,26 @@ impl Eval for ast::ModuleImport {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
-        let module = import(vm, source, span)?;
-
-        match self.imports() {
-            None => {
-                vm.scopes.top.define(module.name().clone(), module);
+        if let Value::Func(func) = source {
+            if func.info().is_none() {
+                bail!(span, "cannot import from closures or user-defined functions");
             }
-            Some(ast::Imports::Wildcard) => {
-                for (var, value) in module.scope().iter() {
-                    vm.scopes.top.define(var.clone(), value.clone());
-                }
-            }
-            Some(ast::Imports::Items(idents)) => {
-                let mut errors = vec![];
-                for ident in idents {
-                    if let Some(value) = module.scope().get(&ident) {
-                        vm.define(ident, value.clone());
-                    } else {
-                        errors.push(error!(ident.span(), "unresolved import"));
-                    }
-                }
-                if !errors.is_empty() {
-                    return Err(Box::new(errors));
-                }
-            }
+            apply_imports(
+                self.imports(),
+                vm,
+                func,
+                |func| func.info().unwrap().name.into(),
+                |func| &func.info().unwrap().scope,
+            )?;
+        } else {
+            let module = import(vm, source, span)?;
+            apply_imports(
+                self.imports(),
+                vm,
+                module,
+                |module| module.name().clone(),
+                |module| module.scope(),
+            )?;
         }
 
         Ok(Value::None)
