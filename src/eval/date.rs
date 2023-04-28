@@ -44,7 +44,7 @@ impl Datetime {
                 InvalidFormatDescription::NotSupported { context, what, .. } => {
                     format!("{} is not supported in {}", what, context)
                 }
-                _ => "invalid datetime format".to_string(),
+                _ => "unable to parse datetime format".to_string(),
             })?;
 
         let formatted_result = match self {
@@ -55,7 +55,7 @@ impl Datetime {
 
         let unwrapped_result = formatted_result.map_err(|e| match e {
             Format::InvalidComponent(name) => format!("found invalid component {}", name),
-            _ => "couldn't parse the datetime".to_string(),
+            _ => "unable to format datetime in requested format".to_string(),
         })?;
 
         Ok(unwrapped_result.into())

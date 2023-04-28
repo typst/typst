@@ -187,21 +187,6 @@ cast_from_value! {
 }
 
 /// Create a date.
-///
-/// The date is specified by the year, month and day. By default, the
-/// year is assumed to be '1970', the month January, and the day 1.
-///
-/// ## Example
-/// ```example
-/// #let a = date()
-/// #let b = date(year: 2013, month: 4)
-/// #let c = date(year: 2022, month: 6, day: 8)
-///
-/// The default date is #a.display(). \
-/// The month of the second date is #b.display("[month repr:long]"). \
-/// The third date is #c.display("[month repr:short] [day], [year]").
-/// ```
-///
 /// Display: Date
 /// Category: construct
 /// Returns: date
@@ -230,7 +215,7 @@ pub fn datetime(
         (Some(hour), Some(minute), Some(second)) => {
             match time::Time::from_hms(hour.0, minute.0, second.0) {
                 Ok(time) => Some(time),
-                Err(_) => bail!(args.span, "time must be valid"),
+                Err(_) => bail!(args.span, "time is invalid"),
             }
         }
         _ => None,
@@ -240,7 +225,7 @@ pub fn datetime(
         (Some(year), Some(month), Some(day)) => {
             match time::Date::from_calendar_date(year.0, month.0, day.0) {
                 Ok(date) => Some(date),
-                Err(_) => bail!(args.span, "date must be valid"),
+                Err(_) => bail!(args.span, "date is invalid"),
             }
         }
         _ => None,
@@ -399,7 +384,7 @@ pub fn now(
 ) -> Value {
     let current_datetime = vm.vt.world.now(local);
 
-    let date =  match time::Date::from_calendar_date(
+    let date = match time::Date::from_calendar_date(
         current_datetime.0,
         time::Month::try_from(current_datetime.1).unwrap(),
         current_datetime.2,
@@ -408,7 +393,7 @@ pub fn now(
         Err(_) => bail!(args.span, "unable to get current date"),
     };
 
-    let time =  match time::Time::from_hms(
+    let time = match time::Time::from_hms(
         current_datetime.3,
         current_datetime.4,
         current_datetime.5,

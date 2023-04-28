@@ -4,7 +4,7 @@ use ecow::EcoString;
 use typst::eval::date::Datetime;
 
 use super::{Args, Str, Value, Vm};
-use crate::diag::{At, bail, SourceResult};
+use crate::diag::{bail, At, SourceResult};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 

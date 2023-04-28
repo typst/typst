@@ -1,6 +1,7 @@
 mod args;
 mod trace;
 
+use chrono::{Datelike, Timelike};
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -8,7 +9,6 @@ use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
-use chrono::{Datelike, Timelike};
 
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -492,14 +492,14 @@ impl World for SystemWorld {
             false => chrono::Utc::now().naive_utc(),
         };
 
-        // Month/day are always in range of u8
+        // Month/day/hour/minute/second are always in range of u8
         (
             datetime.year(),
             datetime.month().try_into().unwrap(),
             datetime.day().try_into().unwrap(),
             datetime.hour().try_into().unwrap(),
             datetime.minute().try_into().unwrap(),
-            datetime.second().try_into().unwrap()
+            datetime.second().try_into().unwrap(),
         )
     }
 }
