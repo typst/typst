@@ -43,4 +43,4 @@ unicode-math-class = "0.1"
 unicode-script = "0.5"
 unicode-segmentation = "1"
 xi-unicode = "0.3"
-fastrand = {git = "https://github.com/smol-rs/fastrand.git"}
+fastrand = "1.9.0"

@@ -971,7 +971,8 @@ pub fn quo(
 ///
 /// ## Example
 /// ```example
-/// #assert(calc.random() != calc.random())
+/// #assert(calc.random(seed: 1) == calc.random(seed: 1))
+/// #assert(calc.random(seed: 1) == calc.random(seed: 2))
 /// ```
 ///
 /// Display: Random
@@ -982,8 +983,12 @@ pub fn random(
     #[named]
     #[default(0x4d595df4d0f33173)]
     seed: u64,
-    #[default(0)] min: i64,
-    #[default(100)] max: i64,
+    /// The minimum number that can be returned
+    #[default(0)]
+    min: i64,
+    /// The maximum number that can be returned
+    #[default(100)]
+    max: i64,
 ) -> Value {
     if seed != 0x4d595df4d0f33173 {
         fastrand::seed(seed);
