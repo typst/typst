@@ -18,7 +18,7 @@ struct Func {
     params: Vec<Param>,
     returns: Vec<String>,
     body: syn::Block,
-    with_scope: Option<BlockWithReturn>,
+    scope: Option<BlockWithReturn>,
 }
 
 struct Param {
@@ -94,7 +94,7 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         params,
         returns,
         body: (*item.block).clone(),
-        with_scope: parse_attr(&mut attrs, "with_scope")?.flatten(),
+        scope: parse_attr(&mut attrs, "scope")?.flatten(),
     };
 
     validate_attrs(&attrs)?;
@@ -190,7 +190,7 @@ fn create_param_parser(param: &Param) -> TokenStream {
 
 /// Creates a block responsible for building a Scope.
 fn create_scope_builder(func: &Func) -> TokenStream {
-    if let Some(BlockWithReturn { prefix, expr }) = &func.with_scope {
+    if let Some(BlockWithReturn { prefix, expr }) = &func.scope {
         quote! { {
             let mut scope = Scope::deduplicating();
             #(#prefix);*

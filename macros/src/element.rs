@@ -15,7 +15,7 @@ struct Elem {
     ident: Ident,
     capable: Vec<Ident>,
     fields: Vec<Field>,
-    with_scope: Option<BlockWithReturn>,
+    scope: Option<BlockWithReturn>,
 }
 
 struct Field {
@@ -139,7 +139,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         ident: body.ident.clone(),
         capable,
         fields,
-        with_scope: parse_attr(&mut attrs, "with_scope")?.flatten(),
+        scope: parse_attr(&mut attrs, "scope")?.flatten(),
     };
 
     validate_attrs(&attrs)?;
@@ -529,7 +529,7 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
 
 /// Creates a block responsible for building a Scope.
 fn create_scope_builder(elem: &Elem) -> TokenStream {
-    if let Some(BlockWithReturn { prefix, expr }) = &elem.with_scope {
+    if let Some(BlockWithReturn { prefix, expr }) = &elem.scope {
         quote! { {
             let mut scope = Scope::deduplicating();
             #(#prefix);*
