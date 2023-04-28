@@ -520,10 +520,12 @@ Fails with an error if the array is empty.
 ### at()
 Returns the item at the specified index in the array.
 May be used on the left-hand side of an assignment.
-Fails with an error if the index is out of bounds.
+If the key is out of bounds, the default value is returned.
+Fails with an error if no default value was specified.
 
 - index: integer (positional, required)
   The index at which to retrieve the item.
+- default: any (named)
 - returns: any
 
 ### push()
@@ -741,10 +743,12 @@ The number of pairs in the dictionary.
 Returns the value associated with the specified key in the dictionary.
 May be used on the left-hand side of an assignment if the key is already
 present in the dictionary.
-Fails with an error if the key is not part of the dictionary.
+If the key is not part of the dictionary, the default value is returned.
+Fails with an error if no default value was specified.
 
 - key: string (positional, required)
   The key at which to retrieve the item.
+- default: any (named)
 - returns: any
 
 ### insert()
