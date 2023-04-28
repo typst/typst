@@ -983,10 +983,10 @@ pub fn random(
     #[named]
     #[default(0x4d595df4d0f33173)]
     seed: u64,
-    /// The minimum number that can be returned
+    /// The minimum number that can be returned, inclusive
     #[default(0)]
     min: i64,
-    /// The maximum number that can be returned
+    /// The maximum number that can be returned, exclusive
     #[default(100)]
     max: i64,
 ) -> Value {
