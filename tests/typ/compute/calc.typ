@@ -225,6 +225,13 @@
 ---
  
 #assert(calc.random(seed: 1) == calc.random(seed: 1))
+#assert(calc.random(seed: 1) != calc.random(seed: 2))
 #assert(calc.random() == calc.random()) // Even if not explicitly seed, the function uses an internal seed, so it should return the same.
 #assert(calc.random(1, 2) < 2) // v Checking for ranges (maybe test a few times) 
 #assert(calc.random(1, 2) > 0) // <
+
+---
+
+#assert(calc.random_float(seed: 1) == calc.random_float(seed: 1))
+#assert(calc.random(seed: 1) != calc.random(seed: 2))
+#assert(calc.random() == calc.random())

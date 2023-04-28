@@ -45,6 +45,7 @@ pub fn module() -> Module {
     scope.define("mod", mod_);
     scope.define("quo", quo);
     scope.define("random", random);
+    scope.define("random_float", random_float);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
     scope.define("pi", Value::Float(std::f64::consts::PI));
@@ -995,6 +996,33 @@ pub fn random(
         Value::Int(fastrand::i64(min..max))
     } else {
         Value::Int(fastrand::i64(min..max))
+    }
+}
+
+#[comemo::memoize]
+#[func]
+/// Returns a random number between 0 and 1
+///
+/// ## Example
+/// ```example
+/// #assert(calc.random_float(seed: 1) == calc.random_float(seed: 1))
+/// #assert(calc.random_float(seed: 1) != calc.random_float(seed: 2))
+/// ```
+///
+/// Display: Random
+/// Category: Calculate
+/// Returns: float
+pub fn random_float(
+    /// The seed, optional
+    #[named]
+    #[default(0x4d595df4d0f33173)]
+    seed: u64,
+) -> Value {
+    if seed != 0x4d595df4d0f33173 {
+        fastrand::seed(seed);
+        Value::Float(fastrand::f64())
+    } else {
+        Value::Float(fastrand::f64())
     }
 }
 
