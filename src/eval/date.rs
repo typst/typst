@@ -36,7 +36,7 @@ impl Datetime {
                     format!("expected {}", what)
                 }
                 InvalidFormatDescription::MissingComponentName { .. } => {
-                    format!("found missing component name",)
+                    "found missing component name".to_string()
                 }
                 InvalidFormatDescription::MissingRequiredModifier { name, .. } => {
                     format!("missing required modifier {}", name)
@@ -58,7 +58,7 @@ impl Datetime {
             _ => "unable to format datetime in requested format".to_string(),
         })?;
 
-        Ok(unwrapped_result.into())
+        Ok(unwrapped_result)
     }
 
     pub fn date(&self) -> Option<time::Date> {
