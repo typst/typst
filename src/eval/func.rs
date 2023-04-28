@@ -149,15 +149,9 @@ impl Func {
     /// Get a field from this function's scope,
     /// if possible.
     pub fn get(&self, field: &str) -> StrResult<&Value> {
-        let mut this_func = self;
-
-        while let Repr::With(arc) = &this_func.repr {
-            this_func = &arc.0;
-        }
-
-        match &this_func.repr {
+        match &self.repr {
             Repr::Native(func) => {
-                func.info.scope.as_ref().map(|s| s.get(field)).flatten().ok_or_else(
+                func.info.scope.get(field).ok_or_else(
                     || {
                         eco_format!(
                             "function `{}` does not contain field `{}`",
@@ -168,7 +162,7 @@ impl Func {
                 )
             }
             Repr::Elem(func) => {
-                func.info().scope.as_ref().map(|s| s.get(field)).flatten().ok_or_else(
+                func.info().scope.get(field).ok_or_else(
                     || {
                         eco_format!(
                             "function `{}` does not contain field `{}`",
@@ -178,8 +172,10 @@ impl Func {
                     },
                 )
             }
-            Repr::Closure(_) => Err(eco_format!("cannot access fields on closures")),
-            _ => Err(eco_format!("cannot access fields on this function")),
+            Repr::Closure(_) => Err(
+                eco_format!("cannot access fields on closures and user-defined functions")
+            ),
+            Repr::With(arc) => arc.0.get(field),
         }
     }
 }
@@ -264,7 +260,7 @@ pub struct FuncInfo {
     /// Which category the function is part of.
     pub category: &'static str,
     /// The function's own scope of fields and sub-functions.
-    pub scope: Option<Scope>,
+    pub scope: Scope,
 }
 
 impl FuncInfo {

@@ -118,8 +118,8 @@ fn create(func: &Func) -> TokenStream {
     let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
     let params = params.iter().map(create_param_info);
     let scope = match scope_builder {
-        Some(scope_builder) => quote! { ::std::option::Option::Some(#scope_builder()) },
-        None => quote! { None },
+        Some(scope_builder) => quote! { #scope_builder() },
+        None => quote! { ::typst::eval::Scope::deduplicating() },
     };
     quote! {
         #[doc = #docs]

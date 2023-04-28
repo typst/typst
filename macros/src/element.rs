@@ -363,8 +363,8 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
         .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
     let scope = match scope_builder {
-        Some(scope_builder) => quote! { ::std::option::Option::Some(#scope_builder()) },
-        None => quote! { None },
+        Some(scope_builder) => quote! { #scope_builder() },
+        None => quote! { ::typst::eval::Scope::deduplicating() },
     };
     quote! {
         impl ::typst::model::Element for #ident {
