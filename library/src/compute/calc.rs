@@ -972,7 +972,7 @@ pub fn quo(
 /// ## Example
 /// ```example
 /// #assert(calc.random(seed: 1) == calc.random(seed: 1))
-/// #assert(calc.random(seed: 1) == calc.random(seed: 2))
+/// #assert(calc.random(seed: 1) != calc.random(seed: 2))
 /// ```
 ///
 /// Display: Random
