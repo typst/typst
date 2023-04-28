@@ -44,8 +44,8 @@ pub fn module() -> Module {
     scope.define("rem", rem);
     scope.define("mod", mod_);
     scope.define("quo", quo);
-    scope.define("random", random);
-    scope.define("random_float", random_float);
+    scope.define("rand_int", rand_int);
+    scope.define("rand_float", rand_float);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
     scope.define("pi", Value::Float(std::f64::consts::PI));
@@ -972,14 +972,14 @@ pub fn quo(
 ///
 /// ## Example
 /// ```example
-/// #assert(calc.random(seed: 1) == calc.random(seed: 1))
-/// #assert(calc.random(seed: 1) != calc.random(seed: 2))
+/// #assert(calc.rand_int(seed: 1) == calc.rand_int(seed: 1))
+/// #assert(calc.rand_int(seed: 1) != calc.rand_int(seed: 2))
 /// ```
 ///
-/// Display: Random
+/// Display: Random integer
 /// Category: Calculate
 /// Returns: integer
-pub fn random(
+pub fn rand_int(
     /// The seed, optional
     #[named]
     #[default(0x4d595df4d0f33173)]
@@ -1005,14 +1005,14 @@ pub fn random(
 ///
 /// ## Example
 /// ```example
-/// #assert(calc.random_float(seed: 1) == calc.random_float(seed: 1))
-/// #assert(calc.random_float(seed: 1) != calc.random_float(seed: 2))
+/// #assert(calc.rand_float(seed: 1) == calc.rand_float(seed: 1))
+/// #assert(calc.rand_float(seed: 1) != calc.rand_float(seed: 2))
 /// ```
 ///
-/// Display: Random
+/// Display: Random float
 /// Category: Calculate
 /// Returns: float
-pub fn random_float(
+pub fn rand_float(
     /// The seed, optional
     #[named]
     #[default(0x4d595df4d0f33173)]

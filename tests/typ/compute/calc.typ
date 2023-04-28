@@ -224,14 +224,14 @@
 
 ---
  
-#assert(calc.random(seed: 1) == calc.random(seed: 1))
-#assert(calc.random(seed: 1) != calc.random(seed: 2))
-#assert(calc.random() == calc.random()) // Even if not explicitly seed, the function uses an internal seed, so it should return the same.
-#assert(calc.random(1, 2) < 2) // v Checking for ranges (maybe test a few times) 
-#assert(calc.random(1, 2) > 0) // <
+#assert(calc.rand_int(seed: 1) == calc.rand_int(seed: 1))
+#assert(calc.rand_int(seed: 1) != calc.rand_int(seed: 2))
+#assert(calc.rand_int() == calc.rand_int()) // Even if not explicitly seed, the function uses an internal seed, so it should return the same.
+#assert(calc.rand_int(1, 2) < 2) // v Checking for ranges (maybe test a few times) 
+#assert(calc.rand_int(1, 2) > 0) // <
 
 ---
 
-#assert(calc.random_float(seed: 1) == calc.random_float(seed: 1))
-#assert(calc.random(seed: 1) != calc.random(seed: 2))
-#assert(calc.random() == calc.random())
+#assert(calc.rand_float(seed: 1) == calc.rand_float(seed: 1))
+#assert(calc.rand_float(seed: 1) != calc.rand_float(seed: 2))
+#assert(calc.rand_float() == calc.rand_float())
