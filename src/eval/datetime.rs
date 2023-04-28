@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
+use ecow::{eco_vec, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::format_description;
 use typst_macros::cast_from_value;
@@ -80,7 +81,13 @@ impl Datetime {
 
 impl Debug for Datetime {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "datetime({})", self.display(None).unwrap())
+        let year = self.date().map_or("".to_string(), |d| format!("year: {}", d.year()));
+        let month = self.date().map_or("".to_string(), |d| format!("month: {}", d.month() as u8));
+        let day = self.date().map_or("".to_string(), |d| format!("day: {}", d.day()));
+        let hour = self.time().map_or("".to_string(), |d| format!("hour: {}", d.hour()));
+        let minute = self.time().map_or("".to_string(), |d| format!("minute: {}", d.minute()));
+        let second = self.time().map_or("".to_string(), |d| format!("second: {}", d.second()));
+        write!(f, "datetime({})", eco_vec![year, month, day, hour, minute, second].into_iter().filter(|e| !e.is_empty()).collect::<EcoVec<String>>().join(", "))
     }
 }
 

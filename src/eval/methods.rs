@@ -1,7 +1,7 @@
 //! Methods on values.
 
 use ecow::EcoString;
-use typst::eval::date::Datetime;
+use typst::eval::datetime::Datetime;
 
 use super::{Args, Str, Value, Vm};
 use crate::diag::{bail, At, SourceResult};

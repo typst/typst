@@ -13,7 +13,7 @@ mod str;
 #[macro_use]
 mod value;
 mod args;
-pub mod date;
+pub mod datetime;
 mod func;
 mod methods;
 mod module;

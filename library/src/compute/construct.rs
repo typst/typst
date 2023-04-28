@@ -2,7 +2,7 @@ use std::num::NonZeroI64;
 use std::str::FromStr;
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::date::Datetime;
+use typst::eval::datetime::Datetime;
 use typst::eval::{Dynamic, Regex};
 
 use crate::prelude::*;
