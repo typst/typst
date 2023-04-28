@@ -1661,7 +1661,7 @@ impl Eval for ast::ModuleImport {
                 |func| &func.info().unwrap().scope,
             )?;
         } else {
-            let module = import(vm, source, span)?;
+            let module = import(vm, source, span, true)?;
             apply_imports(
                 self.imports(),
                 vm,
@@ -1682,17 +1682,23 @@ impl Eval for ast::ModuleInclude {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
-        let module = import(vm, source, span)?;
+        let module = import(vm, source, span, false)?;
         Ok(module.content())
     }
 }
 
 /// Process an import of a module relative to the current location.
-fn import(vm: &mut Vm, source: Value, span: Span) -> SourceResult<Module> {
+fn import(vm: &mut Vm, source: Value, span: Span, accept_functions: bool) -> SourceResult<Module> {
     let path = match source {
         Value::Str(path) => path,
         Value::Module(module) => return Ok(module),
-        v => bail!(span, "expected path or module, found {}", v.type_name()),
+        v => {
+            if accept_functions {
+                bail!(span, "expected path, module or function, found {}", v.type_name())
+            } else {
+                bail!(span, "expected path or module, found {}", v.type_name())
+            }
+        },
     };
 
     // Load the source file.

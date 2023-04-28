@@ -99,6 +99,10 @@
 #import () => {5}: x
 
 ---
+// Error: 9-10 expected path, module or function, found integer
+#import 5: something
+
+---
 // Error: 9-11 failed to load file (is a directory)
 #import "": name
 
