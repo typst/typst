@@ -1,7 +1,7 @@
 mod args;
 mod trace;
 
-use chrono::{Datelike, Timelike};
+use chrono::Datelike;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -486,21 +486,18 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn now(&self, local: bool) -> (i32, u8, u8, u8, u8, u8) {
+    fn today(&self, local: bool) -> Option<(i32, u8, u8)> {
         let datetime = match local {
             true => chrono::Local::now().naive_local(),
             false => chrono::Utc::now().naive_utc(),
         };
 
-        // Month/day/hour/minute/second are always in range of u8
-        (
+        // Month/day are always in range of u8
+        Some((
             datetime.year(),
             datetime.month().try_into().unwrap(),
             datetime.day().try_into().unwrap(),
-            datetime.hour().try_into().unwrap(),
-            datetime.minute().try_into().unwrap(),
-            datetime.second().try_into().unwrap(),
-        )
+        ))
     }
 }
 

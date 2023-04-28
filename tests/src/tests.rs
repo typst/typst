@@ -298,8 +298,8 @@ impl World for TestWorld {
             .clone()
     }
 
-    fn now(&self, _: bool) -> (i32, u8, u8, u8, u8, u8) {
-        (1970, 1, 1, 0, 0, 0)
+    fn today(&self, _: bool) -> Option<(i32, u8, u8)> {
+        Some((1970, 1, 1))
     }
 }
 
