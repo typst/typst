@@ -15,7 +15,7 @@ struct Elem {
     ident: Ident,
     capable: Vec<Ident>,
     fields: Vec<Field>,
-    scope_builder: Option<syn::Path>,
+    with_scope: Option<BlockWithReturn>,
 }
 
 struct Field {
@@ -29,7 +29,7 @@ struct Field {
     synthesized: bool,
     fold: bool,
     resolve: bool,
-    parse: Option<FieldParser>,
+    parse: Option<BlockWithReturn>,
     default: syn::Expr,
     vis: syn::Visibility,
     ident: Ident,
@@ -48,21 +48,6 @@ impl Field {
 
     fn settable(&self) -> bool {
         !self.inherent()
-    }
-}
-
-struct FieldParser {
-    prefix: Vec<syn::Stmt>,
-    expr: syn::Stmt,
-}
-
-impl Parse for FieldParser {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let mut stmts = syn::Block::parse_within(input)?;
-        let Some(expr) = stmts.pop() else {
-            return Err(input.error("expected at least on expression"));
-        };
-        Ok(Self { prefix: stmts, expr })
     }
 }
 
@@ -154,7 +139,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         ident: body.ident.clone(),
         capable,
         fields,
-        scope_builder: parse_attr::<syn::Path>(&mut attrs, "scope_builder")?.flatten(),
+        with_scope: parse_attr(&mut attrs, "with_scope")?.flatten(),
     };
 
     validate_attrs(&attrs)?;
@@ -347,25 +332,14 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 
 /// Create the element's `Pack` implementation.
 fn create_pack_impl(element: &Elem) -> TokenStream {
-    let Elem {
-        ident,
-        name,
-        display,
-        category,
-        docs,
-        scope_builder,
-        ..
-    } = element;
+    let Elem { ident, name, display, category, docs, .. } = element;
     let vtable_func = create_vtable_func(element);
     let infos = element
         .fields
         .iter()
         .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
-    let scope = match scope_builder {
-        Some(scope_builder) => quote! { #scope_builder() },
-        None => quote! { ::typst::eval::Scope::deduplicating() },
-    };
+    let scope = create_scope_builder(element);
     quote! {
         impl ::typst::model::Element for #ident {
             fn pack(self) -> ::typst::model::Content {
@@ -535,7 +509,7 @@ fn create_set_impl(element: &Elem) -> TokenStream {
 
 /// Create argument parsing code for a field.
 fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
-    if let Some(FieldParser { prefix, expr }) = &field.parse {
+    if let Some(BlockWithReturn { prefix, expr }) = &field.parse {
         return (quote! { #(#prefix);* }, quote! { #expr });
     }
 
@@ -551,4 +525,17 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
     };
 
     (quote! {}, value)
+}
+
+/// Creates a block responsible for building a Scope.
+fn create_scope_builder(elem: &Elem) -> TokenStream {
+    if let Some(BlockWithReturn { prefix, expr }) = &elem.with_scope {
+        quote! { {
+            let mut scope = Scope::deduplicating();
+            #(#prefix);*
+            #expr
+        } }
+    } else {
+        quote! { ::typst::eval::Scope::new() }
+    }
 }

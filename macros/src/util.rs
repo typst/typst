@@ -18,6 +18,27 @@ macro_rules! bail {
     };
 }
 
+/// For parsing attributes of the form:
+/// #[attr(
+///   statement;
+///   statement;
+///   returned_expression
+/// )]
+pub struct BlockWithReturn {
+    pub prefix: Vec<syn::Stmt>,
+    pub expr: syn::Stmt,
+}
+
+impl Parse for BlockWithReturn {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut stmts = syn::Block::parse_within(input)?;
+        let Some(expr) = stmts.pop() else {
+            return Err(input.error("expected at least one expression"));
+        };
+        Ok(Self { prefix: stmts, expr })
+    }
+}
+
 /// Whether an attribute list has a specified attribute.
 pub fn has_attr(attrs: &mut Vec<syn::Attribute>, target: &str) -> bool {
     take_attr(attrs, target).is_some()

@@ -18,7 +18,7 @@ struct Func {
     params: Vec<Param>,
     returns: Vec<String>,
     body: syn::Block,
-    scope_builder: Option<syn::Path>,
+    with_scope: Option<BlockWithReturn>,
 }
 
 struct Param {
@@ -94,7 +94,7 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         params,
         returns,
         body: (*item.block).clone(),
-        scope_builder: parse_attr::<syn::Path>(&mut attrs, "scope_builder")?.flatten(),
+        with_scope: parse_attr(&mut attrs, "with_scope")?.flatten(),
     };
 
     validate_attrs(&attrs)?;
@@ -112,15 +112,11 @@ fn create(func: &Func) -> TokenStream {
         params,
         returns,
         body,
-        scope_builder,
         ..
     } = func;
     let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
     let params = params.iter().map(create_param_info);
-    let scope = match scope_builder {
-        Some(scope_builder) => quote! { #scope_builder() },
-        None => quote! { ::typst::eval::Scope::deduplicating() },
-    };
+    let scope = create_scope_builder(func);
     quote! {
         #[doc = #docs]
         #vis fn #ident() -> &'static ::typst::eval::NativeFunc {
@@ -190,4 +186,17 @@ fn create_param_parser(param: &Param) -> TokenStream {
     }
 
     quote! { let #ident: #ty = #value; }
+}
+
+/// Creates a block responsible for building a Scope.
+fn create_scope_builder(func: &Func) -> TokenStream {
+    if let Some(BlockWithReturn { prefix, expr }) = &func.with_scope {
+        quote! { {
+            let mut scope = Scope::deduplicating();
+            #(#prefix);*
+            #expr
+        } }
+    } else {
+        quote! { ::typst::eval::Scope::new() }
+    }
 }
