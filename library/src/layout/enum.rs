@@ -36,8 +36,8 @@ use super::GridLayouter;
 /// + Don't forget step two
 /// ```
 ///
-/// You can also use [`enum.item`]($func/enum.item) to programmatically customize the number
-/// for each item in the enumeration:
+/// You can also use [`enum.item`]($func/enum.item) to programmatically
+/// customize the number of each item in the enumeration:
 /// ```example
 /// #enum(
 ///     enum.item(1)[First step],

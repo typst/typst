@@ -88,8 +88,8 @@ pub fn panic(
 /// Fails with an error if the condition is not fulfilled. Does not
 /// produce any output in the document.
 ///
-/// If you wish to test equality between two values, see [`assert.eq`]($func/assert.eq)
-/// and [`assert.ne`]($func/assert.ne).
+/// If you wish to test equality between two values, see
+/// [`assert.eq`]($func/assert.eq) and [`assert.ne`]($func/assert.ne).
 ///
 /// ## Example
 /// ```typ
