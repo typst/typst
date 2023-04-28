@@ -289,7 +289,13 @@ cast_from_value!(
 cast_from_value!(
     DayComponent,
     v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
+        Ok(n) => {
+            if n <= 31 {
+                Self(n)
+            }   else    {
+                Err("day is invalid")?
+            }
+        },
         _ => Err("day is invalid")?
     }
 );
@@ -297,7 +303,13 @@ cast_from_value!(
 cast_from_value!(
     HourComponent,
     v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
+        Ok(n) => {
+            if n <= 24 {
+                Self(n)
+            }   else   {
+                Err("hour is invalid")?
+            }
+        },
         _ => Err("hour is invalid")?
     }
 );
@@ -305,7 +317,13 @@ cast_from_value!(
 cast_from_value!(
     MinuteComponent,
     v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
+        Ok(n) => {
+            if n <= 60 {
+                Self(n)
+            }   else   {
+                Err("minute is invalid")?
+            }
+        },
         _ => Err("minute is invalid")?
     }
 );
@@ -313,7 +331,13 @@ cast_from_value!(
 cast_from_value!(
     SecondComponent,
     v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
+        Ok(n) => {
+            if n <= 60 {
+                Self(n)
+            }   else   {
+                Err("second is invalid")?
+            }
+        },
         _ => Err("second is invalid")?
     }
 );
@@ -330,7 +354,7 @@ cast_from_value!(
 ///
 /// Display: Today
 /// Category: construct
-/// Returns: date
+/// Returns: datetime
 #[func]
 pub fn today(
     /// Whether the local date should be chosen (instead of UTC). False by default.
@@ -338,16 +362,59 @@ pub fn today(
     #[default]
     local: bool,
 ) -> Value {
-    let current_date = vm.vt.world.today(local);
+    let current_datetime = vm.vt.world.now(local);
 
     match time::Date::from_calendar_date(
-        current_date.0,
-        time::Month::try_from(current_date.1).unwrap(),
-        current_date.2,
+        current_datetime.0,
+        time::Month::try_from(current_datetime.1).unwrap(),
+        current_datetime.2,
     ) {
         Ok(d) => Value::Dyn(Dynamic::new(Datetime::Date(d))),
-        Err(_) => bail!(args.span, "unable to get today's date"),
+        Err(_) => bail!(args.span, "unable to get current date"),
     }
+}
+
+/// Returns the current date.
+///
+/// By default, it will return the current UTC date. This can be changed by setting
+/// the `local` parameter to `true`, in which case the local date will be chosen.
+///
+/// ## Example
+/// ```example
+/// Today's date is #today().display("[month repr:long] [day], [year]")
+/// ```
+///
+/// Display: Today
+/// Category: construct
+/// Returns: datetime
+#[func]
+pub fn now(
+    /// Whether the local date should be chosen (instead of UTC). False by default.
+    #[named]
+    #[default]
+    local: bool,
+) -> Value {
+    let current_datetime = vm.vt.world.now(local);
+
+    let date =  match time::Date::from_calendar_date(
+        current_datetime.0,
+        time::Month::try_from(current_datetime.1).unwrap(),
+        current_datetime.2,
+    ) {
+        Ok(d) => d,
+        Err(_) => bail!(args.span, "unable to get current date"),
+    };
+
+    let time =  match time::Time::from_hms(
+        current_datetime.3,
+        current_datetime.4,
+        current_datetime.5,
+    ) {
+        Ok(d) => d,
+        Err(_) => bail!(args.span, "unable to get current time"),
+    };
+
+    Value::Dyn(Dynamic::new(Datetime::Datetime(PrimitiveDateTime::new(date, time))))
 }
 
 /// Create a CMYK color.

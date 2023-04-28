@@ -168,27 +168,27 @@ pub fn call(
                     }
                     "year" => match datetime.date() {
                         Some(date) => Value::Int(date.year().into()),
-                        None => bail!(span, "datetime has no year"),
+                        None => Value::None,
                     },
                     "month" => match datetime.date() {
                         Some(date) => Value::Int((date.month() as u8).into()),
-                        None => bail!(span, "datetime has no month"),
+                        None => Value::None,
                     },
                     "day" => match datetime.date() {
                         Some(date) => Value::Int(date.day().into()),
-                        None => bail!(span, "datetime has no day"),
+                        None => Value::None,
                     },
                     "hour" => match datetime.time() {
                         Some(time) => Value::Int(time.hour().into()),
-                        None => bail!(span, "datetime has no hour"),
+                        None => Value::None,
                     },
                     "minute" => match datetime.time() {
                         Some(time) => Value::Int(time.minute().into()),
-                        None => bail!(span, "datetime has no minute"),
+                        None => Value::None,
                     },
                     "second" => match datetime.time() {
                         Some(time) => Value::Int(time.second().into()),
-                        None => bail!(span, "datetime has no second"),
+                        None => Value::None,
                     },
                     _ => return missing(),
                 }

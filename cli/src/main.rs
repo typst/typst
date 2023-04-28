@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
-use chrono::Datelike;
+use chrono::{Datelike, Timelike};
 use clap::{ArgAction, Parser, Subcommand};
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
@@ -530,7 +530,7 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn today(&self, local: bool) -> (i32, u8, u8) {
+    fn now(&self, local: bool) -> (i32, u8, u8, u8, u8, u8) {
         let datetime = match local {
             true => chrono::Local::now().naive_local(),
             false => chrono::Utc::now().naive_utc(),
@@ -541,6 +541,9 @@ impl World for SystemWorld {
             datetime.year(),
             datetime.month().try_into().unwrap(),
             datetime.day().try_into().unwrap(),
+            datetime.hour().try_into().unwrap(),
+            datetime.minute().try_into().unwrap(),
+            datetime.second().try_into().unwrap()
         )
     }
 }
