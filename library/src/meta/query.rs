@@ -89,6 +89,13 @@ use crate::prelude::*;
 /// })
 /// ```
 ///
+/// ## Migration Hints
+/// 
+/// Since version 0.3.0, Typst have removed `before` and `after` arguments from query.
+/// This is now handled through flexible selectors combinator methods.
+/// For example, you can replace `query(heading, before: loc)` to `query(heading.before(loc), loc)`.
+/// Please refer to [selectors]($type/selector) for a detailed explaination on how to use selectors.
+///
 /// Display: Query
 /// Category: meta
 /// Returns: content
@@ -112,8 +119,6 @@ pub fn query(
     /// the query's result is reduced. If you could call it directly at the top
     /// level of a module, the evaluation of the whole module and its exports
     /// could depend on the query's result.
-    ///
-    /// Only one of this, `before`, and `after` shall be given.
     location: Location,
 ) -> Value {
     let _ = location;
