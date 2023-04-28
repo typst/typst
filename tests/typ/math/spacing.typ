@@ -29,3 +29,11 @@ $a - b ident c quad (mod 2)$
 // Test spacing for set comprehension.
 #set page(width: auto)
 $ { x in RR | x "is natural" and x < 10 } $
+
+---
+// Test spacing for operators with decorations and modifiers on them
+$a ident b + c - d => e$ \
+$a cancel(ident) b overline(+) c arrow(-) d hat(=>) e$ \
+$a overbrace(ident) b underline(+) c grave(-) d underbracket(=>) e$ \
+\
+$a attach(ident, tl: a, tr: b) b attach(limits(+), t: a, b: b) c tilde(-) d breve(=>) e$
