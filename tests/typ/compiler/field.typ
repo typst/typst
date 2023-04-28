@@ -23,7 +23,7 @@
 - C
 
 ---
-// Error: 6-13 dictionary does not contain key "invalid"
+// Error: 6-13 no default value was specified and dictionary does not contain key "invalid"
 #(:).invalid
 
 ---
