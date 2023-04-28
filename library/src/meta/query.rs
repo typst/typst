@@ -90,7 +90,7 @@ use crate::prelude::*;
 /// ```
 ///
 /// ## Migration Hints
-/// 
+///
 /// Since version 0.3.0, Typst have removed `before` and `after` arguments from query.
 /// This is now handled through flexible selectors combinator methods.
 /// For example, you can replace `query(heading, before: loc)` to `query(heading.before(loc), loc)`.
