@@ -745,9 +745,9 @@ fn with_paren(p: &mut Parser, allow_destructuring: bool) {
     }
 
     match kind {
-        SyntaxKind::Array => validate_array(p, m),
-        SyntaxKind::Dict => validate_dict(p, m),
-        SyntaxKind::Parenthesized => validate_parenthesized(p, m),
+        SyntaxKind::Array if !allow_destructuring => validate_array(p, m),
+        SyntaxKind::Dict if !allow_destructuring => validate_dict(p, m),
+        SyntaxKind::Parenthesized if !allow_destructuring => validate_parenthesized(p, m),
         SyntaxKind::Destructuring if !allow_destructuring => {
             invalidate_destructuring(p, m)
         }
