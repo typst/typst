@@ -1688,7 +1688,12 @@ impl Eval for ast::ModuleInclude {
 }
 
 /// Process an import of a module relative to the current location.
-fn import(vm: &mut Vm, source: Value, span: Span, accept_functions: bool) -> SourceResult<Module> {
+fn import(
+    vm: &mut Vm,
+    source: Value,
+    span: Span,
+    accept_functions: bool,
+) -> SourceResult<Module> {
     let path = match source {
         Value::Str(path) => path,
         Value::Module(module) => return Ok(module),
@@ -1698,7 +1703,7 @@ fn import(vm: &mut Vm, source: Value, span: Span, accept_functions: bool) -> Sou
             } else {
                 bail!(span, "expected path or module, found {}", v.type_name())
             }
-        },
+        }
     };
 
     // Load the source file.
