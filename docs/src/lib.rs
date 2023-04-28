@@ -743,7 +743,7 @@ const TYPE_ORDER: &[&str] = &[
     "relative length",
     "fraction",
     "color",
-    "date",
+    "datetime",
     "string",
     "regex",
     "label",

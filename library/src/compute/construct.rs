@@ -1,8 +1,8 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
-use time::Month;
+use time::{Month, PrimitiveDateTime};
 
-use typst::eval::date::Date;
+use typst::eval::date::Datetime;
 use typst::eval::{Dynamic, Regex};
 
 use crate::prelude::*;
@@ -203,50 +203,69 @@ cast_from_value! {
 /// Category: construct
 /// Returns: date
 #[func]
-pub fn date(
-    /// The year of the date.
+pub fn datetime(
+    /// The year of the datetime.
     #[named]
-    #[default]
-    year: YearComponent,
-    /// The month of the date.
+    year: Option<YearComponent>,
+    /// The month of the datetime.
     #[named]
-    #[default]
-    month: MonthComponent,
-    /// The day of the date.
+    month: Option<MonthComponent>,
+    /// The day of the datetime.
     #[named]
-    #[default]
-    day: DayComponent,
+    day: Option<DayComponent>,
+    /// The hour of the datetime.
+    #[named]
+    hour: Option<HourComponent>,
+    /// The minute of the datetime.
+    #[named]
+    minute: Option<MinuteComponent>,
+    /// The second of the datetime.
+    #[named]
+    second: Option<SecondComponent>,
 ) -> Value {
-    let date = match time::Date::from_calendar_date(year.0, month.0, day.0) {
-        Ok(date) => date,
-        Err(_) => bail!(args.span, "date must be valid"),
+    let time = match (hour, minute, second) {
+        (Some(hour), Some(minute), Some(second)) => {
+            match time::Time::from_hms(hour.0, minute.0, second.0) {
+                Ok(time) => Some(time),
+                Err(_) => bail!(args.span, "time must be valid"),
+            }
+        }
+        _ => None,
     };
-    Value::Dyn(Dynamic::new(Date(date)))
+
+    let date = match (year, month, day) {
+        (Some(year), Some(month), Some(day)) => {
+            match time::Date::from_calendar_date(year.0, month.0, day.0) {
+                Ok(date) => Some(date),
+                Err(_) => bail!(args.span, "date must be valid"),
+            }
+        }
+        _ => None,
+    };
+
+    match (date, time) {
+        (Some(date), Some(time)) => Value::Dyn(Dynamic::new(Datetime::Datetime(
+            PrimitiveDateTime::new(date, time),
+        ))),
+        (Some(date), None) => Value::Dyn(Dynamic::new(Datetime::Date(date))),
+        (None, Some(time)) => Value::Dyn(Dynamic::new(Datetime::Time(time))),
+        (None, None) => {
+            bail!(args.span, "at least one of date or time must be fully specified")
+        }
+    }
 }
 
 struct YearComponent(i32);
 
-impl Default for YearComponent {
-    fn default() -> Self {
-        YearComponent(1970)
-    }
-}
-
 struct MonthComponent(Month);
-
-impl Default for MonthComponent {
-    fn default() -> Self {
-        MonthComponent(Month::January)
-    }
-}
 
 struct DayComponent(u8);
 
-impl Default for DayComponent {
-    fn default() -> Self {
-        DayComponent(1)
-    }
-}
+struct HourComponent(u8);
+
+struct MinuteComponent(u8);
+
+struct SecondComponent(u8);
 
 cast_from_value!(
     YearComponent,
@@ -272,6 +291,30 @@ cast_from_value!(
     v: i64 => match u8::try_from(v) {
         Ok(n) => Self(n),
         _ => Err("day is invalid")?
+    }
+);
+
+cast_from_value!(
+    HourComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("hour is invalid")?
+    }
+);
+
+cast_from_value!(
+    MinuteComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("minute is invalid")?
+    }
+);
+
+cast_from_value!(
+    SecondComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("second is invalid")?
     }
 );
 
@@ -302,7 +345,7 @@ pub fn today(
         time::Month::try_from(current_date.1).unwrap(),
         current_date.2,
     ) {
-        Ok(d) => Value::Dyn(Dynamic::new(Date(d))),
+        Ok(d) => Value::Dyn(Dynamic::new(Datetime::Date(d))),
         Err(_) => bail!(args.span, "unable to get today's date"),
     }
 }

@@ -1,7 +1,7 @@
 //! Methods on values.
 
 use ecow::EcoString;
-use typst::eval::date::Date;
+use typst::eval::date::Datetime;
 
 use super::{Args, Str, Value, Vm};
 use crate::diag::{bail, At, SourceResult};
@@ -157,18 +157,39 @@ pub fn call(
                     "position" => vm.vt.introspector.position(location).into(),
                     _ => return missing(),
                 }
-            } else if let Some(&date) = dynamic.downcast::<Date>() {
+            } else if let Some(&datetime) = dynamic.downcast::<Datetime>() {
                 match method {
                     "display" => {
                         let pattern = args.eat()?;
-                        match date.display(pattern) {
-                            Ok(d) => Value::Str(d),
+                        match datetime.display(pattern) {
+                            Ok(d) => Value::Str(Str::from(d)),
                             Err(msg) => bail!(args.span, msg),
                         }
                     }
-                    "year" => date.year().into(),
-                    "month" => date.month().into(),
-                    "day" => date.day().into(),
+                    "year" => match datetime.date() {
+                        Some(date) => Value::Int(date.year().into()),
+                        None => bail!(span, "datetime has no year"),
+                    },
+                    "month" => match datetime.date() {
+                        Some(date) => Value::Int((date.month() as u8).into()),
+                        None => bail!(span, "datetime has no month"),
+                    },
+                    "day" => match datetime.date() {
+                        Some(date) => Value::Int(date.day().into()),
+                        None => bail!(span, "datetime has no day"),
+                    },
+                    "hour" => match datetime.time() {
+                        Some(time) => Value::Int(time.hour().into()),
+                        None => bail!(span, "datetime has no hour"),
+                    },
+                    "minute" => match datetime.time() {
+                        Some(time) => Value::Int(time.minute().into()),
+                        None => bail!(span, "datetime has no minute"),
+                    },
+                    "second" => match datetime.time() {
+                        Some(time) => Value::Int(time.second().into()),
+                        None => bail!(span, "datetime has no second"),
+                    },
                     _ => return missing(),
                 }
             } else {
