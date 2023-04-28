@@ -39,6 +39,7 @@ pub struct RootElem {
 }
 
 impl LayoutMath for RootElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, self.index(ctx.styles()).as_ref(), &self.radicand(), self.span())
     }
@@ -121,8 +122,11 @@ fn layout(
     frame.push(
         line_pos,
         FrameItem::Shape(
-            Geometry::Line(Point::with_x(radicand.width()))
-                .stroked(Stroke { paint: TextElem::fill_in(ctx.styles()), thickness }),
+            Geometry::Line(Point::with_x(radicand.width())).stroked(Stroke {
+                paint: TextElem::fill_in(ctx.styles()),
+                thickness,
+                ..Stroke::default()
+            }),
             span,
         ),
     );

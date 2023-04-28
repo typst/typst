@@ -7,8 +7,8 @@ use super::{Content, Scope, Value};
 use crate::diag::StrResult;
 
 /// An evaluated module, ready for importing or typesetting.
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module(Arc<Repr>);
 
 /// The internal representation.

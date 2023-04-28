@@ -3,12 +3,12 @@
 ---
 // Test semicolon syntax.
 #set align(center)
-$mat() dot.op
- mat(;) dot.op
- mat(1, 2) dot.op
+$mat() dot
+ mat(;) dot
+ mat(1, 2) dot
  mat(1, 2;) \
- mat(1; 2) dot.op
- mat(1, 2; 3, 4) dot.op
+ mat(1; 2) dot
+ mat(1, 2; 3, 4) dot
  mat(1 + &2, 1/2; &3, 4)$
 
 ---
@@ -23,10 +23,10 @@ $ mat(
 ---
 // Test baseline alignment.
 $ mat(
-    a, b^2;
-    sum_(x \ y) x, a^(1/2);
-    zeta, alpha;
-  ) $
+  a, b^2;
+  sum_(x \ y) x, a^(1/2);
+  zeta, alpha;
+) $
 
 ---
 // Test alternative delimiter with set rule.

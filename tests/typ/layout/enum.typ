@@ -34,3 +34,11 @@ See 0.3. \
 Empty \
 +Nope \
 a + 0.
+
+---
+// Alignment shouldn't affect number
+#set align(horizon)
+
++ ABCDEF\ GHIJKL\ MNOPQR
+   + INNER\ INNER\ INNER
++ BACK\ HERE

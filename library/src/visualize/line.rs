@@ -5,8 +5,13 @@ use crate::prelude::*;
 /// ## Example
 /// ```example
 /// #set page(height: 100pt)
+///
 /// #line(length: 100%)
 /// #line(end: (50%, 50%))
+/// #line(
+///   length: 4cm,
+///   stroke: 2pt + maroon,
+/// )
 /// ```
 ///
 /// Display: Line
@@ -40,9 +45,39 @@ pub struct LineElem {
     ///   to `{1pt}`.
     /// - A stroke combined from color and thickness using the `+` operator as
     ///   in `{2pt + red}`.
+    /// - A stroke described by a dictionary with any of the following keys:
+    ///   - `paint`: The [color]($type/color) to use for the stroke.
+    ///   - `thickness`: The stroke's thickness as a [length]($type/length).
+    ///   - `cap`: How the line terminates. One of `{"butt"}`, `{"round"}`, or
+    ///     `{"square"}`.
+    ///   - `join`: How sharp turns of a contour are rendered. One of
+    ///     `{"miter"}`, `{"round"}`, or `{"bevel"}`. Not applicable to lines
+    ///     but to [polygons]($func/polygon) or [paths]($func/path).
+    ///   - `miter-limit`: Number at which protruding sharp angles are rendered
+    ///     with a bevel instead. The higher the number, the sharper an angle
+    ///     can be before it is bevelled. Only applicable if `join` is
+    ///     `{"miter"}`. Defaults to `{4.0}`.
+    ///   - `dash`: The dash pattern to use. Can be any of the following:
+    ///     - One of the predefined patterns `{"solid"}`, `{"dotted"}`,
+    ///       `{"densely-dotted"}`, `{"loosely-dotted"}`, `{"dashed"}`,
+    ///       `{"densely-dashed"}`, `{"loosely-dashed"}`, `{"dash-dotted"}`,
+    ///       `{"densely-dash-dotted"}` or `{"loosely-dash-dotted"}`
+    ///     - An [array]($type/array) with alternating lengths for dashes and
+    ///       gaps. You can also use the string `{"dot"}` for a length equal to
+    ///       the line thickness.
+    ///     - A [dictionary]($type/dictionary) with the keys `array` (same as
+    ///       the array above), and `phase` (of type [length]($type/length)),
+    ///       which defines where in the pattern to start drawing.
     ///
     /// ```example
-    /// #line(length: 100%, stroke: 2pt + red)
+    /// #set line(length: 100%)
+    /// #stack(
+    ///   spacing: 1em,
+    ///   line(stroke: 2pt + red),
+    ///   line(stroke: (paint: blue, thickness: 4pt, cap: "round")),
+    ///   line(stroke: (paint: blue, thickness: 1pt, dash: "dashed")),
+    ///   line(stroke: (paint: blue, thickness: 1pt, dash: ("dot", 2pt, 4pt, 2pt))),
+    /// )
     /// ```
     #[resolve]
     #[fold]
@@ -50,6 +85,7 @@ pub struct LineElem {
 }
 
 impl Layout for LineElem {
+    #[tracing::instrument(name = "LineElem::layout", skip_all)]
     fn layout(
         &self,
         _: &mut Vt,

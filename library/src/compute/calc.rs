@@ -1,7 +1,8 @@
 //! Calculations and processing of numeric values.
 
+use std::cmp;
 use std::cmp::Ordering;
-use std::ops::Rem;
+use std::ops::{Div, Rem};
 
 use typst::eval::{Module, Scope};
 
@@ -19,19 +20,29 @@ pub fn module() -> Module {
     scope.define("asin", asin);
     scope.define("acos", acos);
     scope.define("atan", atan);
+    scope.define("atan2", atan2);
     scope.define("sinh", sinh);
     scope.define("cosh", cosh);
     scope.define("tanh", tanh);
     scope.define("log", log);
+    scope.define("fact", fact);
+    scope.define("perm", perm);
+    scope.define("binom", binom);
+    scope.define("gcd", gcd);
+    scope.define("lcm", lcm);
     scope.define("floor", floor);
     scope.define("ceil", ceil);
+    scope.define("trunc", trunc);
+    scope.define("fract", fract);
     scope.define("round", round);
     scope.define("clamp", clamp);
     scope.define("min", min);
     scope.define("max", max);
     scope.define("even", even);
     scope.define("odd", odd);
+    scope.define("rem", rem);
     scope.define("mod", mod_);
+    scope.define("quo", quo);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
     scope.define("pi", Value::Float(std::f64::consts::PI));
@@ -67,7 +78,7 @@ cast_from_value! {
     v: i64 => Self(Value::Int(v.abs())),
     v: f64 => Self(Value::Float(v.abs())),
     v: Length => Self(Value::Length(v.try_abs()
-        .ok_or_else(|| "cannot take absolute value of this length")?)),
+        .ok_or("cannot take absolute value of this length")?)),
     v: Angle => Self(Value::Angle(v.abs())),
     v: Ratio => Self(Value::Ratio(v.abs())),
     v: Fr => Self(Value::Fraction(v.abs())),
@@ -90,28 +101,31 @@ pub fn pow(
     /// The exponent of the power. Must be non-negative.
     exponent: Spanned<Num>,
 ) -> Value {
-    let Spanned { v: exp, span } = exponent;
-    match exp {
-        _ if exp.float() == 0.0 && base.float() == 0.0 => {
+    match exponent.v {
+        _ if exponent.v.float() == 0.0 && base.float() == 0.0 => {
             bail!(args.span, "zero to the power of zero is undefined")
         }
         Num::Int(i) if i32::try_from(i).is_err() => {
-            bail!(span, "exponent is too large")
+            bail!(exponent.span, "exponent is too large")
         }
         Num::Float(f) if !f.is_normal() && f != 0.0 => {
-            bail!(span, "exponent may not be infinite, subnormal, or NaN")
+            bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
         }
         _ => {}
     };
 
-    let result = match (base, exp) {
-        (Num::Int(a), Num::Int(b)) if b >= 0 => Num::Int(a.pow(b as u32)),
+    let result = match (base, exponent.v) {
+        (Num::Int(a), Num::Int(b)) if b >= 0 => a
+            .checked_pow(b as u32)
+            .map(Num::Int)
+            .ok_or("the result is too large")
+            .at(args.span)?,
         (a, Num::Int(b)) => Num::Float(a.float().powi(b as i32)),
         (a, b) => Num::Float(a.float().powf(b.float())),
     };
 
     if result.float().is_nan() {
-        bail!(span, "the result is not a real number")
+        bail!(args.span, "the result is not a real number")
     }
 
     result.value()
@@ -284,6 +298,29 @@ pub fn atan(
     Value::Angle(Angle::rad(value.float().atan()))
 }
 
+/// Calculate the four-quadrant arctangent of a coordinate.
+///
+/// The arguments are `(x, y)`, not `(y, x)`.
+///
+/// ## Example
+/// ```example
+/// #calc.atan2(1, 1) \
+/// #calc.atan2(-2, -3)
+/// ```
+///
+/// Display: Four-quadrant Arctangent
+/// Category: calculate
+/// Returns: angle
+#[func]
+pub fn atan2(
+    /// The X coordinate.
+    x: Num,
+    /// The Y coordinate.
+    y: Num,
+) -> Value {
+    Value::Angle(Angle::rad(f64::atan2(y.float(), x.float())))
+}
+
 /// Calculate the hyperbolic sine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
@@ -377,31 +414,208 @@ pub fn log(
     value: Spanned<Num>,
     /// The base of the logarithm. Defaults to `{10}` and may not be zero.
     #[named]
-    #[default(10.0)]
-    base: f64,
+    #[default(Spanned::new(10.0, Span::detached()))]
+    base: Spanned<f64>,
 ) -> Value {
     let number = value.v.float();
     if number <= 0.0 {
         bail!(value.span, "value must be strictly positive")
     }
 
-    if !base.is_normal() {
-        bail!(value.span, "base may not be zero, NaN, infinite, or subnormal")
+    if !base.v.is_normal() {
+        bail!(base.span, "base may not be zero, NaN, infinite, or subnormal")
     }
 
-    let result = if base == 2.0 {
+    let result = if base.v == 2.0 {
         number.log2()
-    } else if base == 10.0 {
+    } else if base.v == 10.0 {
         number.log10()
     } else {
-        number.log(base)
+        number.log(base.v)
     };
 
     if result.is_infinite() || result.is_nan() {
-        bail!(value.span, "the result is not a real number")
+        bail!(args.span, "the result is not a real number")
     }
 
     Value::Float(result)
+}
+
+/// Calculate the factorial of a number.
+///
+/// ## Example
+/// ```example
+/// #calc.fact(5)
+/// ```
+///
+/// Display: Factorial
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn fact(
+    /// The number whose factorial to calculate. Must be non-negative.
+    number: u64,
+) -> Value {
+    factorial_range(1, number)
+        .map(Value::Int)
+        .ok_or("the result is too large")
+        .at(args.span)?
+}
+
+/// Calculates the product of a range of numbers. Used to calculate
+/// permutations. Returns None if the result is larger than `i64::MAX`
+fn factorial_range(start: u64, end: u64) -> Option<i64> {
+    // By convention
+    if end + 1 < start {
+        return Some(0);
+    }
+
+    let real_start: u64 = cmp::max(1, start);
+    let mut count: u64 = 1;
+    for i in real_start..=end {
+        count = count.checked_mul(i)?;
+    }
+
+    i64::try_from(count).ok()
+}
+
+/// Calculate a permutation.
+///
+/// ## Example
+/// ```example
+/// #calc.perm(10, 5)
+/// ```
+///
+/// Display: Permutation
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn perm(
+    /// The base number. Must be non-negative.
+    base: u64,
+    /// The number of permutations. Must be non-negative.
+    numbers: u64,
+) -> Value {
+    // By convention.
+    if base < numbers {
+        return Ok(Value::Int(0));
+    }
+
+    factorial_range(base - numbers + 1, base)
+        .map(Value::Int)
+        .ok_or("the result is too large")
+        .at(args.span)?
+}
+
+/// Calculate a binomial coefficient.
+///
+/// ## Example
+/// ```example
+/// #calc.binom(10, 5)
+/// ```
+///
+/// Display: Binomial
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn binom(
+    /// The upper coefficient. Must be non-negative.
+    n: u64,
+    /// The lower coefficient. Must be non-negative.
+    k: u64,
+) -> Value {
+    binomial(n, k)
+        .map(Value::Int)
+        .ok_or("the result is too large")
+        .at(args.span)?
+}
+
+/// Calculates a binomial coefficient, with `n` the upper coefficient and `k`
+/// the lower coefficient. Returns `None` if the result is larger than
+/// `i64::MAX`
+fn binomial(n: u64, k: u64) -> Option<i64> {
+    if k > n {
+        return Some(0);
+    }
+
+    // By symmetry
+    let real_k = cmp::min(n - k, k);
+    if real_k == 0 {
+        return Some(1);
+    }
+
+    let mut result: u64 = 1;
+    for i in 0..real_k {
+        result = result.checked_mul(n - i)?.checked_div(i + 1)?;
+    }
+
+    i64::try_from(result).ok()
+}
+
+/// Calculate the greatest common divisor of two integers.
+///
+/// ## Example
+/// ```example
+/// #calc.gcd(7, 42)
+/// ```
+///
+/// Display: Greatest Common Divisor
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn gcd(
+    /// The first integer.
+    a: i64,
+    /// The second integer.
+    b: i64,
+) -> Value {
+    Value::Int(calculate_gcd(a, b))
+}
+
+/// Calculates the greatest common divisor of two integers
+/// It is always non-negative.
+fn calculate_gcd(mut a: i64, mut b: i64) -> i64 {
+    while b != 0 {
+        let temp = b;
+        b = a % b;
+        a = temp;
+    }
+
+    a.abs()
+}
+
+/// Calculate the least common multiple of two integers.
+///
+/// ## Example
+/// ```example
+/// #calc.lcm(96, 13)
+/// ```
+///
+/// Display: Least Common Multiple
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn lcm(
+    /// The first integer.
+    a: i64,
+    /// The second integer.
+    b: i64,
+) -> Value {
+    calculate_lcm(a, b)
+        .map(Value::Int)
+        .ok_or("the return value is too large")
+        .at(args.span)?
+}
+
+/// Calculates the least common multiple between two non-zero integers
+/// Returns None if the value cannot be computed.
+/// It is always non-negative.
+fn calculate_lcm(a: i64, b: i64) -> Option<i64> {
+    if a == b {
+        return Some(a.abs());
+    }
+
+    a.checked_div(calculate_gcd(a, b))?.checked_mul(b).map(|v| v.abs())
 }
 
 /// Round a number down to the nearest integer.
@@ -451,6 +665,55 @@ pub fn ceil(
     match value {
         Num::Int(n) => Value::Int(n),
         Num::Float(n) => Value::Int(n.ceil() as i64),
+    }
+}
+
+/// Returns the integer part of a number.
+///
+/// If the number is already an integer, it is returned unchanged.
+///
+/// ## Example
+/// ```example
+/// #assert(calc.trunc(3) == 3)
+/// #assert(calc.trunc(-3.7) == -3)
+/// #assert(calc.trunc(15.9) == 15)
+/// ```
+///
+/// Display: Truncate
+/// Category: calculate
+/// Returns: integer
+#[func]
+pub fn trunc(
+    /// The number to truncate.
+    value: Num,
+) -> Value {
+    Value::Int(match value {
+        Num::Int(n) => n,
+        Num::Float(n) => n.trunc() as i64,
+    })
+}
+
+/// Returns the fractional part of a number.
+///
+/// If the number is an integer, it returns `0`.
+///
+/// ## Example
+/// ```example
+/// #assert(calc.fract(3) == 0)
+/// #calc.fract(-3.1)
+/// ```
+///
+/// Display: Fractional
+/// Category: calculate
+/// Returns: integer or float
+#[func]
+pub fn fract(
+    /// The number to truncate.
+    value: Num,
+) -> Value {
+    match value {
+        Num::Int(_) => Value::Int(0),
+        Num::Float(n) => Value::Float(n.fract()),
     }
 }
 
@@ -511,7 +774,7 @@ pub fn clamp(
     if max.v.float() < min.float() {
         bail!(max.span, "max must be greater than or equal to min")
     }
-    value.apply3(min, max.v, i64::clamp, f64::clamp)
+    value.apply3(min, max.v, i64::clamp, f64::clamp).value()
 }
 
 /// Determine the minimum of a sequence of values.
@@ -626,28 +889,77 @@ pub fn odd(
     Value::Bool(value % 2 != 0)
 }
 
-/// Calculate the modulus of two numbers.
+/// Calculate the remainder of two numbers.
 ///
 /// ## Example
 /// ```example
-/// #calc.mod(20, 6) \
-/// #calc.mod(1.75, 0.5)
+/// #calc.rem(20, 6) \
+/// #calc.rem(1.75, 0.5)
 /// ```
+///
+/// Display: Remainder
+/// Category: calculate
+/// Returns: integer or float
+#[func]
+pub fn rem(
+    /// The dividend of the remainder.
+    dividend: Num,
+    /// The divisor of the remainder.
+    divisor: Spanned<Num>,
+) -> Value {
+    if divisor.v.float() == 0.0 {
+        bail!(divisor.span, "divisor must not be zero");
+    }
+    dividend.apply2(divisor.v, Rem::rem, Rem::rem).value()
+}
+
+/// Calculate the modulus of two numbers. (Deprecated)
+///
+/// **This function is deprecated in favor of `rem`. It will be removed in
+/// a future update.**
 ///
 /// Display: Modulus
 /// Category: calculate
 /// Returns: integer or float
 #[func]
 pub fn mod_(
-    /// The dividend of the modulus.
+    /// The dividend of the remainder.
     dividend: Num,
-    /// The divisor of the modulus.
+    /// The divisor of the remainder.
     divisor: Spanned<Num>,
 ) -> Value {
     if divisor.v.float() == 0.0 {
         bail!(divisor.span, "divisor must not be zero");
     }
-    dividend.apply2(divisor.v, Rem::rem, Rem::rem)
+    dividend.apply2(divisor.v, Rem::rem, Rem::rem).value()
+}
+
+/// Calculate the quotient of two numbers.
+///
+/// ## Example
+/// ```example
+/// #calc.quo(14, 5) \
+/// #calc.quo(3.46, 0.5)
+/// ```
+///
+/// Display: Quotient
+/// Category: calculate
+/// Returns: integer or float
+#[func]
+pub fn quo(
+    /// The dividend of the quotient.
+    dividend: Num,
+    /// The divisor of the quotient.
+    divisor: Spanned<Num>,
+) -> Value {
+    if divisor.v.float() == 0.0 {
+        bail!(divisor.span, "divisor must not be zero");
+    }
+
+    Value::Int(match dividend.apply2(divisor.v, Div::div, Div::div) {
+        Num::Int(i) => i,
+        Num::Float(f) => f.floor() as i64, // Note: the result should be an integer but floats doesn't have the same precision as i64.
+    })
 }
 
 /// A value which can be passed to functions that work with integers and floats.
@@ -663,10 +975,10 @@ impl Num {
         other: Self,
         int: impl FnOnce(i64, i64) -> i64,
         float: impl FnOnce(f64, f64) -> f64,
-    ) -> Value {
+    ) -> Num {
         match (self, other) {
-            (Self::Int(a), Self::Int(b)) => Value::Int(int(a, b)),
-            (a, b) => Value::Float(float(a.float(), b.float())),
+            (Self::Int(a), Self::Int(b)) => Num::Int(int(a, b)),
+            (a, b) => Num::Float(float(a.float(), b.float())),
         }
     }
 
@@ -676,10 +988,10 @@ impl Num {
         third: Self,
         int: impl FnOnce(i64, i64, i64) -> i64,
         float: impl FnOnce(f64, f64, f64) -> f64,
-    ) -> Value {
+    ) -> Num {
         match (self, other, third) {
-            (Self::Int(a), Self::Int(b), Self::Int(c)) => Value::Int(int(a, b, c)),
-            (a, b, c) => Value::Float(float(a.float(), b.float(), c.float())),
+            (Self::Int(a), Self::Int(b), Self::Int(c)) => Num::Int(int(a, b, c)),
+            (a, b, c) => Num::Float(float(a.float(), b.float(), c.float())),
         }
     }
 

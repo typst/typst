@@ -63,6 +63,14 @@ pub struct ShapedGlyph {
     pub offset: u16,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Adjustability {
+    /// The left and right strechability
+    pub stretchability: (Em, Em),
+    /// The left and right shrinkability
+    pub shrinkability: (Em, Em),
+}
+
 impl ShapedGlyph {
     /// Whether the glyph is a space.
     pub fn is_space(&self) -> bool {
@@ -70,22 +78,73 @@ impl ShapedGlyph {
     }
 
     /// Whether the glyph is justifiable.
-    ///
-    /// Typst's basic justification strategy is to stretch all the spaces
-    /// in a line until the line fills the available width. However, some
-    /// scripts (notably Chinese and Japanese) don't use spaces.
-    ///
-    /// In Japanese typography, the convention is to insert space evenly
-    /// between all glyphs. I assume it's the same in Chinese.
     pub fn is_justifiable(&self) -> bool {
-        self.is_space() || is_spaceless(self.c.script())
+        self.is_space()
+            || self.is_cjk()
+            || self.is_cjk_left_aligned_punctuation()
+            || self.is_cjk_right_aligned_punctuation()
     }
-}
 
-/// Does this script separate its words using spaces?
-fn is_spaceless(script: Script) -> bool {
-    use Script::*;
-    matches!(script, Hiragana | Katakana | Han)
+    pub fn is_cjk(&self) -> bool {
+        use Script::*;
+        // U+30FC: Katakana-Hiragana Prolonged Sound Mark
+        matches!(self.c.script(), Hiragana | Katakana | Han) || self.c == '\u{30FC}'
+    }
+
+    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    pub fn is_cjk_left_aligned_punctuation(&self) -> bool {
+        // CJK quotation marks shares codepoints with latin quotation marks.
+        // But only the CJK ones have full width.
+        if matches!(self.c, '”' | '’') && self.x_advance == Em::one() {
+            return true;
+        }
+
+        matches!(self.c, '，' | '。' | '、' | '：' | '；' | '》' | '）' | '』' | '」')
+    }
+
+    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    pub fn is_cjk_right_aligned_punctuation(&self) -> bool {
+        // CJK quotation marks shares codepoints with latin quotation marks.
+        // But only the CJK ones have full width.
+        if matches!(self.c, '“' | '‘') && self.x_advance == Em::one() {
+            return true;
+        }
+
+        matches!(self.c, '《' | '（' | '『' | '「')
+    }
+
+    pub fn adjustability(&self) -> Adjustability {
+        let width = self.x_advance;
+        if self.is_space() {
+            Adjustability {
+                // The number for spaces is from Knuth-Plass' paper
+                stretchability: (Em::zero(), width / 2.0),
+                shrinkability: (Em::zero(), width / 3.0),
+            }
+        } else if self.is_cjk_left_aligned_punctuation() {
+            Adjustability {
+                stretchability: (Em::zero(), Em::zero()),
+                shrinkability: (Em::zero(), width / 2.0),
+            }
+        } else if self.is_cjk_right_aligned_punctuation() {
+            Adjustability {
+                stretchability: (Em::zero(), Em::zero()),
+                shrinkability: (width / 2.0, Em::zero()),
+            }
+        } else {
+            Adjustability::default()
+        }
+    }
+
+    /// The stretchability of the character.
+    pub fn stretchability(&self) -> (Em, Em) {
+        self.adjustability().stretchability
+    }
+
+    /// The shrinkability of the character.
+    pub fn shrinkability(&self) -> (Em, Em) {
+        self.adjustability().shrinkability
+    }
 }
 
 /// A side you can go toward.
@@ -101,7 +160,12 @@ impl<'a> ShapedText<'a> {
     ///
     /// The `justification` defines how much extra advance width each
     /// [justifiable glyph](ShapedGlyph::is_justifiable) will get.
-    pub fn build(&self, vt: &Vt, justification: Abs) -> Frame {
+    pub fn build(
+        &self,
+        vt: &Vt,
+        justification_ratio: f64,
+        extra_justification: Abs,
+    ) -> Frame {
         let (top, bottom) = self.measure(vt);
         let size = Size::new(self.width, top + bottom);
 
@@ -120,19 +184,38 @@ impl<'a> ShapedText<'a> {
             let pos = Point::new(offset, top + shift - y_offset.at(self.size));
             let glyphs = group
                 .iter()
-                .map(|glyph| Glyph {
-                    id: glyph.glyph_id,
-                    x_advance: glyph.x_advance
-                        + if glyph.is_justifiable() {
-                            frame.size_mut().x += justification;
-                            Em::from_length(justification, self.size)
-                        } else {
-                            Em::zero()
-                        },
-                    x_offset: glyph.x_offset,
-                    c: glyph.c,
-                    span: glyph.span,
-                    offset: glyph.offset,
+                .map(|glyph| {
+                    let adjustability_left = if justification_ratio < 0.0 {
+                        glyph.shrinkability().0
+                    } else {
+                        glyph.stretchability().0
+                    };
+                    let adjustability_right = if justification_ratio < 0.0 {
+                        glyph.shrinkability().1
+                    } else {
+                        glyph.stretchability().1
+                    };
+                    let justification_left = adjustability_left * justification_ratio;
+
+                    let mut justification_right =
+                        adjustability_right * justification_ratio;
+                    if glyph.is_justifiable() {
+                        justification_right +=
+                            Em::from_length(extra_justification, self.size)
+                    }
+
+                    frame.size_mut().x += justification_left.at(self.size)
+                        + justification_right.at(self.size);
+                    Glyph {
+                        id: glyph.glyph_id,
+                        x_advance: glyph.x_advance
+                            + justification_left
+                            + justification_right,
+                        x_offset: glyph.x_offset + justification_left,
+                        c: glyph.c,
+                        span: glyph.span,
+                        offset: glyph.offset,
+                    }
                 })
                 .collect();
 
@@ -200,17 +283,35 @@ impl<'a> ShapedText<'a> {
         (top, bottom)
     }
 
-    /// How many justifiable glyphs the text contains.
+    /// How many glyphs are in the text where we can insert additional
+    /// space when encountering underfull lines.
     pub fn justifiables(&self) -> usize {
         self.glyphs.iter().filter(|g| g.is_justifiable()).count()
     }
 
-    /// The width of the spaces in the text.
-    pub fn stretch(&self) -> Abs {
+    /// Whether the last glyph is a CJK character which should not be justified
+    /// on line end.
+    pub fn cjk_justifiable_at_last(&self) -> bool {
+        self.glyphs
+            .last()
+            .map(|g| g.is_cjk() || g.is_cjk_left_aligned_punctuation())
+            .unwrap_or(false)
+    }
+
+    /// The stretchability of the text.
+    pub fn stretchability(&self) -> Abs {
         self.glyphs
             .iter()
-            .filter(|g| g.is_justifiable())
-            .map(|g| g.x_advance)
+            .map(|g| g.stretchability().0 + g.stretchability().1)
+            .sum::<Em>()
+            .at(self.size)
+    }
+
+    /// The shrinkability of the text
+    pub fn shrinkability(&self) -> Abs {
+        self.glyphs
+            .iter()
+            .map(|g| g.shrinkability().0 + g.shrinkability().1)
             .sum::<Em>()
             .at(self.size)
     }
@@ -330,7 +431,7 @@ impl<'a> ShapedText<'a> {
         // RTL needs offset one because the left side of the range should be
         // exclusive and the right side inclusive, contrary to the normal
         // behaviour of ranges.
-        self.glyphs[idx].safe_to_break.then(|| idx + (!ltr) as usize)
+        self.glyphs[idx].safe_to_break.then_some(idx + usize::from(!ltr))
     }
 }
 

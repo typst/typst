@@ -14,5 +14,9 @@ $ underline(f' : NN -> RR) \
   ) $
 
 ---
+// Test common symbols.
+$ dot \ dots \ ast \ tilde \ star $
+
+---
 // Error: 1:3 expected dollar sign
 $a

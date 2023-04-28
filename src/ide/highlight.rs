@@ -239,13 +239,14 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Conditional => None,
         SyntaxKind::WhileLoop => None,
         SyntaxKind::ForLoop => None,
-        SyntaxKind::ForPattern => None,
         SyntaxKind::ModuleImport => None,
         SyntaxKind::ImportItems => None,
         SyntaxKind::ModuleInclude => None,
         SyntaxKind::LoopBreak => None,
         SyntaxKind::LoopContinue => None,
         SyntaxKind::FuncReturn => None,
+        SyntaxKind::Destructuring => None,
+        SyntaxKind::DestructAssignment => None,
 
         SyntaxKind::LineComment => Some(Tag::Comment),
         SyntaxKind::BlockComment => Some(Tag::Comment),
@@ -260,10 +261,13 @@ fn highlight_ident(node: &LinkedNode) -> Option<Tag> {
     let next_leaf = node.next_leaf();
     if let Some(next) = &next_leaf {
         if node.range().end == next.offset()
-            && next.kind() == SyntaxKind::LeftParen
-            && matches!(next.parent_kind(), Some(SyntaxKind::Args | SyntaxKind::Params))
-            || (next.kind() == SyntaxKind::LeftBracket
-                && next.parent_kind() == Some(SyntaxKind::ContentBlock))
+            && ((next.kind() == SyntaxKind::LeftParen
+                && matches!(
+                    next.parent_kind(),
+                    Some(SyntaxKind::Args | SyntaxKind::Params)
+                ))
+                || (next.kind() == SyntaxKind::LeftBracket
+                    && next.parent_kind() == Some(SyntaxKind::ContentBlock)))
         {
             return Some(Tag::Function);
         }

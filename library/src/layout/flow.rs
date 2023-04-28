@@ -1,6 +1,8 @@
 use super::{AlignElem, BlockElem, ColbreakElem, ParElem, PlaceElem, Spacing, VElem};
 use crate::prelude::*;
-use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
+use crate::visualize::{
+    CircleElem, EllipseElem, ImageElem, PathElem, PolygonElem, RectElem, SquareElem,
+};
 
 /// Arrange spacing, paragraphs and block-level elements into a flow.
 ///
@@ -17,6 +19,7 @@ pub struct FlowElem {
 }
 
 impl Layout for FlowElem {
+    #[tracing::instrument(name = "FlowElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -42,6 +45,8 @@ impl Layout for FlowElem {
                 || child.is::<EllipseElem>()
                 || child.is::<CircleElem>()
                 || child.is::<ImageElem>()
+                || child.is::<PolygonElem>()
+                || child.is::<PathElem>()
             {
                 let layoutable = child.with::<dyn Layout>().unwrap();
                 layouter.layout_single(vt, layoutable, styles)?;
@@ -118,6 +123,7 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout vertical spacing.
+    #[tracing::instrument(name = "FlowLayouter::layout_spacing", skip_all)]
     fn layout_spacing(&mut self, v: &VElem, styles: StyleChain) {
         self.layout_item(match v.amount() {
             Spacing::Rel(rel) => FlowItem::Absolute(
@@ -129,6 +135,7 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout a paragraph.
+    #[tracing::instrument(name = "FlowLayouter::layout_par", skip_all)]
     fn layout_par(
         &mut self,
         vt: &mut Vt,
@@ -175,6 +182,7 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout into a single region.
+    #[tracing::instrument(name = "FlowLayouter::layout_single", skip_all)]
     fn layout_single(
         &mut self,
         vt: &mut Vt,
@@ -233,6 +241,7 @@ impl<'a> FlowLayouter<'a> {
     }
 
     /// Layout a finished frame.
+    #[tracing::instrument(name = "FlowLayouter::layout_item", skip_all)]
     fn layout_item(&mut self, item: FlowItem) {
         match item {
             FlowItem::Absolute(v, _) => self.regions.size.y -= v,

@@ -53,7 +53,7 @@ pub fn pos(value: Value) -> StrResult<Value> {
 /// Compute the negation of a value.
 pub fn neg(value: Value) -> StrResult<Value> {
     Ok(match value {
-        Int(v) => Int(-v),
+        Int(v) => Int(v.checked_neg().ok_or("value is too large")?),
         Float(v) => Float(-v),
         Length(v) => Length(-v),
         Angle(v) => Angle(-v),
@@ -70,7 +70,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (a, None) => a,
         (None, b) => b,
 
-        (Int(a), Int(b)) => Int(a + b),
+        (Int(a), Int(b)) => Int(a.checked_add(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
         (Float(a), Float(b)) => Float(a + b),
@@ -108,6 +108,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
             Value::dynamic(PartialStroke {
                 paint: Smart::Custom(color.into()),
                 thickness: Smart::Custom(thickness),
+                ..PartialStroke::default()
             })
         }
 
@@ -136,7 +137,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 /// Compute the difference of two values.
 pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Int(a - b),
+        (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 - b),
         (Float(a), Int(b)) => Float(a - b as f64),
         (Float(a), Float(b)) => Float(a - b),
@@ -164,35 +165,44 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 /// Compute the product of two values.
 pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Int(a * b),
+        (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
         (Float(a), Float(b)) => Float(a * b),
 
         (Length(a), Int(b)) => Length(a * b as f64),
         (Length(a), Float(b)) => Length(a * b),
+        (Length(a), Ratio(b)) => Length(a * b.get()),
         (Int(a), Length(b)) => Length(b * a as f64),
         (Float(a), Length(b)) => Length(b * a),
+        (Ratio(a), Length(b)) => Length(b * a.get()),
 
         (Angle(a), Int(b)) => Angle(a * b as f64),
         (Angle(a), Float(b)) => Angle(a * b),
+        (Angle(a), Ratio(b)) => Angle(a * b.get()),
         (Int(a), Angle(b)) => Angle(a as f64 * b),
         (Float(a), Angle(b)) => Angle(a * b),
+        (Ratio(a), Angle(b)) => Angle(a.get() * b),
 
+        (Ratio(a), Ratio(b)) => Ratio(a * b),
         (Ratio(a), Int(b)) => Ratio(a * b as f64),
         (Ratio(a), Float(b)) => Ratio(a * b),
-        (Float(a), Ratio(b)) => Ratio(a * b),
         (Int(a), Ratio(b)) => Ratio(a as f64 * b),
+        (Float(a), Ratio(b)) => Ratio(a * b),
 
         (Relative(a), Int(b)) => Relative(a * b as f64),
         (Relative(a), Float(b)) => Relative(a * b),
+        (Relative(a), Ratio(b)) => Relative(a * b.get()),
         (Int(a), Relative(b)) => Relative(a as f64 * b),
         (Float(a), Relative(b)) => Relative(a * b),
+        (Ratio(a), Relative(b)) => Relative(a.get() * b),
 
-        (Float(a), Fraction(b)) => Fraction(a * b),
         (Fraction(a), Int(b)) => Fraction(a * b as f64),
         (Fraction(a), Float(b)) => Fraction(a * b),
+        (Fraction(a), Ratio(b)) => Fraction(a * b.get()),
         (Int(a), Fraction(b)) => Fraction(a as f64 * b),
+        (Float(a), Fraction(b)) => Fraction(a * b),
+        (Ratio(a), Fraction(b)) => Fraction(a.get() * b),
 
         (Str(a), Int(b)) => Str(a.repeat(b)?),
         (Int(a), Str(b)) => Str(b.repeat(a)?),

@@ -271,8 +271,21 @@ pub struct PageElem {
 }
 
 impl PageElem {
-    /// Layout the page run into a sequence of frames, one per page.
-    pub fn layout(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Fragment> {
+    /// A document can consist of multiple `PageElem`s, one per run of pages
+    /// with equal properties (not one per actual output page!). The `number` is
+    /// the physical page number of the first page of this run. It is mutated
+    /// while we post-process the pages in this function. This function returns
+    /// a fragment consisting of multiple frames, one per output page of this
+    /// page run.
+    #[tracing::instrument(skip_all)]
+    pub fn layout(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        mut number: NonZeroUsize,
+    ) -> SourceResult<Fragment> {
+        tracing::info!("Page layout");
+
         // When one of the lengths is infinite the page fits its content along
         // that axis.
         let width = self.width(styles).unwrap_or(Abs::inf());
@@ -289,21 +302,22 @@ impl PageElem {
 
         // Determine the margins.
         let default = Rel::from(0.1190 * min);
-        let padding = self.margin(styles).map(|side| side.unwrap_or(default));
-
-        let mut child = self.body();
+        let margin = self
+            .margin(styles)
+            .map(|side| side.unwrap_or(default))
+            .resolve(styles)
+            .relative_to(size);
 
         // Realize columns.
+        let mut child = self.body();
         let columns = self.columns(styles);
         if columns.get() > 1 {
             child = ColumnsElem::new(child).with_count(columns).pack();
         }
 
-        // Realize margins.
-        child = child.padded(padding);
-
         // Layout the child.
-        let regions = Regions::repeat(size, size.map(Abs::is_finite));
+        let area = size - margin.sum_by_axis();
+        let regions = Regions::repeat(area, area.map(Abs::is_finite));
         let mut fragment = child.layout(vt, styles, regions)?;
 
         let fill = self.fill(styles);
@@ -324,24 +338,47 @@ impl PageElem {
         });
         let footer_descent = self.footer_descent(styles);
 
-        // Realize overlays.
-        for frame in &mut fragment {
+        let numbering_meta = FrameItem::Meta(
+            Meta::PageNumbering(self.numbering(styles).into()),
+            Size::zero(),
+        );
+
+        // Post-process pages.
+        for frame in fragment.iter_mut() {
+            tracing::info!("Layouting page #{number}");
+
+            // The padded width of the page's content without margins.
+            let pw = frame.width();
+
+            // Realize margins.
+            frame.set_size(frame.size() + margin.sum_by_axis());
+            frame.translate(Point::new(margin.left, margin.top));
+            frame.push(Point::zero(), numbering_meta.clone());
+
+            // The page size with margins.
             let size = frame.size();
-            let pad = padding.resolve(styles).relative_to(size);
-            let pw = size.x - pad.left - pad.right;
-            for marginal in [&header, &footer, &background, &foreground] {
+
+            // Realize overlays.
+            for (name, marginal) in [
+                ("header", &header),
+                ("footer", &footer),
+                ("background", &background),
+                ("foreground", &foreground),
+            ] {
+                tracing::info!("Layouting {name}");
+
                 let Some(content) = marginal else { continue };
 
                 let (pos, area, align);
                 if ptr::eq(marginal, &header) {
-                    let ascent = header_ascent.relative_to(pad.top);
-                    pos = Point::with_x(pad.left);
-                    area = Size::new(pw, pad.top - ascent);
+                    let ascent = header_ascent.relative_to(margin.top);
+                    pos = Point::with_x(margin.left);
+                    area = Size::new(pw, margin.top - ascent);
                     align = Align::Bottom.into();
                 } else if ptr::eq(marginal, &footer) {
-                    let descent = footer_descent.relative_to(pad.bottom);
-                    pos = Point::new(pad.left, size.y - pad.bottom + descent);
-                    area = Size::new(pw, pad.bottom - descent);
+                    let descent = footer_descent.relative_to(margin.bottom);
+                    pos = Point::new(margin.left, size.y - margin.bottom + descent);
+                    area = Size::new(pw, margin.bottom - descent);
                     align = Align::Top.into();
                 } else {
                     pos = Point::zero();
@@ -355,6 +392,7 @@ impl PageElem {
                     .styled(AlignElem::set_alignment(align))
                     .layout(vt, styles, pod)?
                     .into_frame();
+
                 if ptr::eq(marginal, &header) || ptr::eq(marginal, &background) {
                     frame.prepend_frame(pos, sub);
                 } else {
@@ -365,6 +403,8 @@ impl PageElem {
             if let Some(fill) = &fill {
                 frame.fill(fill.clone());
             }
+
+            number = number.saturating_add(1);
         }
 
         Ok(fragment)

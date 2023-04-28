@@ -17,8 +17,8 @@ use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
     /// The internal representation.
     repr: Repr,
@@ -73,19 +73,14 @@ impl Func {
         self
     }
 
-    /// The number of positional arguments this function takes, if known.
-    pub fn argc(&self) -> Option<usize> {
-        match &self.repr {
-            Repr::Closure(closure) => closure.argc(),
-            Repr::With(arc) => Some(arc.0.argc()?.saturating_sub(
-                arc.1.items.iter().filter(|arg| arg.name.is_none()).count(),
-            )),
-            _ => None,
-        }
-    }
-
     /// Call the function with the given arguments.
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
+        let _span = tracing::info_span!(
+            "call",
+            name = self.name().unwrap_or("<anon>"),
+            file = 0,
+        );
+
         match &self.repr {
             Repr::Native(native) => {
                 let value = (native.func)(vm, &mut args)?;
@@ -122,6 +117,7 @@ impl Func {
     }
 
     /// Call the function with a Vt.
+    #[tracing::instrument(skip_all)]
     pub fn call_vt(
         &self,
         vt: &mut Vt,
@@ -271,19 +267,27 @@ pub(super) struct Closure {
     pub name: Option<Ident>,
     /// Captured values from outer scopes.
     pub captured: Scope,
-    /// The parameter names and default values. Parameters with default value
-    /// are named parameters.
-    pub params: Vec<(Ident, Option<Value>)>,
-    /// The name of an argument sink where remaining arguments are placed.
-    pub sink: Option<Ident>,
+    /// The list of parameters.
+    pub params: Vec<Param>,
     /// The expression the closure should evaluate to.
     pub body: Expr,
 }
 
+#[derive(Hash)]
+pub enum Param {
+    /// A positional parameter: `x`.
+    Pos(ast::Pattern),
+    /// A named parameter with a default value: `draw: false`.
+    Named(Ident, Value),
+    /// An argument sink: `..args`.
+    Sink(Option<Ident>),
+}
+
 impl Closure {
     /// Call the function in the context with the arguments.
-    #[allow(clippy::too_many_arguments)]
     #[comemo::memoize]
+    #[tracing::instrument(skip_all)]
+    #[allow(clippy::too_many_arguments)]
     fn call(
         this: &Func,
         world: Tracked<dyn World>,
@@ -315,21 +319,47 @@ impl Closure {
         }
 
         // Parse the arguments according to the parameter list.
-        for (param, default) in &closure.params {
-            vm.define(
-                param.clone(),
-                match default {
-                    Some(default) => {
-                        args.named::<Value>(param)?.unwrap_or_else(|| default.clone())
+        let num_pos_params =
+            closure.params.iter().filter(|p| matches!(p, Param::Pos(_))).count();
+        let num_pos_args = args.to_pos().len() as usize;
+        let sink_size = num_pos_args.checked_sub(num_pos_params);
+
+        let mut sink = None;
+        let mut sink_pos_values = None;
+        for p in &closure.params {
+            match p {
+                Param::Pos(pattern) => match pattern {
+                    ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
+                        vm.define(ident.clone(), args.expect::<Value>(ident)?)
                     }
-                    None => args.expect::<Value>(param)?,
+                    ast::Pattern::Normal(_) => unreachable!(),
+                    _ => {
+                        pattern.define(
+                            &mut vm,
+                            args.expect::<Value>("pattern parameter")?,
+                        )?;
+                    }
                 },
-            );
+                Param::Sink(ident) => {
+                    sink = ident.clone();
+                    if let Some(sink_size) = sink_size {
+                        sink_pos_values = Some(args.consume(sink_size)?);
+                    }
+                }
+                Param::Named(ident, default) => {
+                    let value =
+                        args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
+                    vm.define(ident.clone(), value);
+                }
+            }
         }
 
-        // Put the remaining arguments into the sink.
-        if let Some(sink) = &closure.sink {
-            vm.define(sink.clone(), args.take());
+        if let Some(sink) = sink {
+            let mut remaining_args = args.take();
+            if let Some(sink_pos_values) = sink_pos_values {
+                remaining_args.items.extend(sink_pos_values);
+            }
+            vm.define(sink, remaining_args);
         }
 
         // Ensure all arguments have been used.
@@ -345,15 +375,6 @@ impl Closure {
         }
 
         result
-    }
-
-    /// The number of positional arguments this closure takes, if known.
-    fn argc(&self) -> Option<usize> {
-        if self.sink.is_some() {
-            return None;
-        }
-
-        Some(self.params.iter().filter(|(_, default)| default.is_none()).count())
     }
 }
 
@@ -390,6 +411,7 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Visit any node and collect all captured variables.
+    #[tracing::instrument(skip_all)]
     pub fn visit(&mut self, node: &SyntaxNode) {
         match node.cast() {
             // Every identifier is a potential variable that we need to capture.
@@ -425,9 +447,15 @@ impl<'a> CapturesVisitor<'a> {
 
                 for param in expr.params().children() {
                     match param {
-                        ast::Param::Pos(ident) => self.bind(ident),
+                        ast::Param::Pos(pattern) => {
+                            for ident in pattern.idents() {
+                                self.bind(ident);
+                            }
+                        }
                         ast::Param::Named(named) => self.bind(named.name()),
-                        ast::Param::Sink(ident) => self.bind(ident),
+                        ast::Param::Sink(spread) => {
+                            self.bind(spread.name().unwrap_or_default())
+                        }
                     }
                 }
 
@@ -441,7 +469,10 @@ impl<'a> CapturesVisitor<'a> {
                 if let Some(init) = expr.init() {
                     self.visit(init.as_untyped());
                 }
-                self.bind(expr.binding());
+
+                for ident in expr.kind().idents() {
+                    self.bind(ident);
+                }
             }
 
             // A for loop contains one or two bindings in its pattern. These are
@@ -450,11 +481,12 @@ impl<'a> CapturesVisitor<'a> {
             Some(ast::Expr::For(expr)) => {
                 self.visit(expr.iter().as_untyped());
                 self.internal.enter();
+
                 let pattern = expr.pattern();
-                if let Some(key) = pattern.key() {
-                    self.bind(key);
+                for ident in pattern.idents() {
+                    self.bind(ident);
                 }
-                self.bind(pattern.value());
+
                 self.visit(expr.body().as_untyped());
                 self.internal.exit();
             }
@@ -550,7 +582,7 @@ mod tests {
 
         // For loop.
         test("#for x in y { x + z }", &["y", "z"]);
-        test("#for x, y in y { x + y }", &["y"]);
+        test("#for (x, y) in y { x + y }", &["y"]);
         test("#for x in y {} #x", &["x", "y"]);
 
         // Import.

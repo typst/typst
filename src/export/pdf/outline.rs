@@ -1,32 +1,77 @@
-use ecow::EcoString;
+use std::num::NonZeroUsize;
+
 use pdf_writer::{Finish, Ref, TextStr};
 
 use super::{AbsExt, PdfContext, RefExt};
-use crate::geom::{Abs, Point};
+use crate::geom::Abs;
+use crate::model::Content;
+use crate::util::NonZeroExt;
+
+/// Construct the outline for the document.
+#[tracing::instrument(skip_all)]
+pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
+    let mut tree: Vec<HeadingNode> = vec![];
+    for heading in ctx.introspector.query(&item!(heading_func).select()) {
+        let leaf = HeadingNode::leaf(heading);
+        if let Some(last) = tree.last_mut() {
+            if last.try_insert(leaf.clone(), NonZeroUsize::ONE) {
+                continue;
+            }
+        }
+
+        tree.push(leaf);
+    }
+
+    if tree.is_empty() {
+        return None;
+    }
+
+    let root_id = ctx.alloc.bump();
+    let start_ref = ctx.alloc;
+    let len = tree.len();
+
+    let mut prev_ref = None;
+    for (i, node) in tree.iter().enumerate() {
+        prev_ref = Some(write_outline_item(ctx, node, root_id, prev_ref, i + 1 == len));
+    }
+
+    ctx.writer
+        .outline(root_id)
+        .first(start_ref)
+        .last(Ref::new(ctx.alloc.get() - 1))
+        .count(tree.len() as i32);
+
+    Some(root_id)
+}
 
 /// A heading in the outline panel.
 #[derive(Debug, Clone)]
-pub struct HeadingNode {
-    pub content: EcoString,
-    pub level: usize,
-    pub position: Point,
-    pub page: Ref,
-    pub children: Vec<HeadingNode>,
+struct HeadingNode {
+    element: Content,
+    level: NonZeroUsize,
+    children: Vec<HeadingNode>,
 }
 
 impl HeadingNode {
-    pub fn len(&self) -> usize {
+    fn leaf(element: Content) -> Self {
+        HeadingNode {
+            level: element.expect_field::<NonZeroUsize>("level"),
+            element,
+            children: Vec::new(),
+        }
+    }
+
+    fn len(&self) -> usize {
         1 + self.children.iter().map(Self::len).sum::<usize>()
     }
 
-    #[allow(unused)]
-    pub fn try_insert(&mut self, child: Self, level: usize) -> bool {
+    fn try_insert(&mut self, child: Self, level: NonZeroUsize) -> bool {
         if level >= child.level {
             return false;
         }
 
         if let Some(last) = self.children.last_mut() {
-            if last.try_insert(child.clone(), level + 1) {
+            if last.try_insert(child.clone(), level.saturating_add(1)) {
                 return true;
             }
         }
@@ -37,7 +82,8 @@ impl HeadingNode {
 }
 
 /// Write an outline item and all its children.
-pub fn write_outline_item(
+#[tracing::instrument(skip_all)]
+fn write_outline_item(
     ctx: &mut PdfContext,
     node: &HeadingNode,
     parent_ref: Ref,
@@ -65,12 +111,19 @@ pub fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    outline.title(TextStr(&node.content));
-    outline.dest_direct().page(node.page).xyz(
-        node.position.x.to_f32(),
-        (node.position.y + Abs::pt(3.0)).to_f32(),
-        None,
-    );
+    outline.title(TextStr(node.element.plain_text().trim()));
+
+    let loc = node.element.location().unwrap();
+    let pos = ctx.introspector.position(loc);
+    let index = pos.page.get() - 1;
+    if let Some(&height) = ctx.page_heights.get(index) {
+        let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
+        outline.dest_direct().page(ctx.page_refs[index]).xyz(
+            pos.point.x.to_f32(),
+            height - y.to_f32(),
+            None,
+        );
+    }
 
     outline.finish();
 

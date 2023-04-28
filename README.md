@@ -101,32 +101,37 @@ Let's dissect what's going on:
   ```
 </details>
 
-## Installing
-You can get sources and pre-built binaries for the latest release of Typst from
-the [releases page][releases]. This will give you Typst's CLI which converts
-Typst sources into PDFs.
+## Installation
+Typst's CLI is available from different sources:
 
-Typst is also available through several package managers:
+- You can get sources and pre-built binaries for the latest release of Typst
+  from the [releases page][releases].
 
-```sh
-# macOS or Linux using Homebrew
-brew install typst
+- You can install Typst through different package managers. Note that the
+  versions in the package managers might lag behind the latest release.
+  - macOS/Linux: `brew install typst`
+  - Arch Linux: `pacman -S typst`
+  - Void Linux: `xbps-install typst`
 
-# Arch Linux
-pacman -S typst
-```
+- If you have a [Rust][rust] toolchain installed, you can also install the
+  latest development version with
+  `cargo install --git https://github.com/typst/typst`. Note that this will
+  be a "nightly" version that may be broken or not yet properly documented.
 
-Nix users can use the `typst` package with `nix-shell -p typst` or build and run
-the bleeding edge version with `nix run github:typst/typst -- --version`.
+- Nix users can use the `typst` package with `nix-shell -p typst` or build and
+  run the bleeding edge version with `nix run github:typst/typst -- --version`.
+
+- Docker users can run a prebuilt image with
+  `docker run -it ghcr.io/typst/typst:main`.
 
 ## Usage
 Once you have installed Typst, you can use it like this:
 ```sh
 # Creates `file.pdf` in working directory.
-typst file.typ
+typst compile file.typ
 
 # Creates PDF file at the desired path.
-typst path/to/source.typ path/to/output.pdf
+typst compile path/to/source.typ path/to/output.pdf
 ```
 
 You can also watch source files and automatically recompile on changes. This is
@@ -134,22 +139,25 @@ faster than compiling from scratch each time because Typst has incremental
 compilation.
 ```sh
 # Watches source files and recompiles on changes.
-typst --watch file.typ
+typst watch file.typ
+```
+
+Typst further allows you to add custom font paths for your project and list all
+of the fonts it discovered:
+```sh
+# Adds additional directories to search for fonts.
+typst --font-path path/to/fonts compile file.typ
+
+# Lists all of the discovered fonts in the system and the given directory.
+typst --font-path path/to/fonts fonts
+
+# Or via environment variable (Linux syntax).
+TYPST_FONT_PATHS=path/to/fonts typst fonts
 ```
 
 If you prefer an integrated IDE-like experience with autocompletion and instant
 preview, you can also check out the [Typst web app][app], which is currently in
 public beta.
-
-## Build from source
-To build Typst yourself, you need to have the [latest stable Rust][rust]
-installed. Then, you can build the CLI with the following command:
-
-```sh
-cargo build -p typst-cli --release
-```
-
-The optimized binary will be stored in `target/release/`.
 
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
@@ -158,10 +166,20 @@ invite you to open an issue first so we can explore the design space together.
 If you want to contribute and are wondering how everything works, also check out
 the [`ARCHITECTURE.md`][architecture] file. It explains how the compiler works.
 
-## Pronunciation
-**IPA**: /taɪpst/
+To build Typst yourself, first ensure that you have the
+[latest stable Rust][rust] installed. Then, clone this repository and build the
+CLI with the following commands:
 
-"Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
+```sh
+git clone https://github.com/typst/typst
+cd typst
+cargo build --release
+```
+
+The optimized binary will be stored in `target/release/`.
+
+## Pronunciation
+IPA: /taɪpst/. "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
 
 ## Design Principles
 All of Typst has been designed with three key goals in mind: Power,

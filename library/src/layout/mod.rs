@@ -57,6 +57,8 @@ use crate::meta::DocumentElem;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
+use crate::visualize::PathElem;
+use crate::visualize::PolygonElem;
 use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
 
 /// Root-level layout.
@@ -66,6 +68,7 @@ pub trait LayoutRoot {
 }
 
 impl LayoutRoot for Content {
+    #[tracing::instrument(name = "Content::layout_root", skip_all)]
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
         #[comemo::memoize]
         fn cached(
@@ -84,6 +87,8 @@ impl LayoutRoot for Content {
                 .unwrap()
                 .layout_root(&mut vt, styles)
         }
+
+        tracing::info!("Starting layout");
 
         cached(
             self,
@@ -124,6 +129,7 @@ pub trait Layout {
 }
 
 impl Layout for Content {
+    #[tracing::instrument(name = "Content::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -149,6 +155,8 @@ impl Layout for Content {
                 .layout(&mut vt, styles, regions)
         }
 
+        tracing::info!("Layouting `Content`");
+
         cached(
             self,
             vt.world,
@@ -162,6 +170,7 @@ impl Layout for Content {
 }
 
 /// Realize into an element that is capable of root-level layout.
+#[tracing::instrument(skip_all)]
 fn realize_root<'a>(
     vt: &mut Vt,
     scratch: &'a Scratch<'a>,
@@ -192,6 +201,8 @@ fn realize_block<'a>(
         && !content.is::<EllipseElem>()
         && !content.is::<CircleElem>()
         && !content.is::<ImageElem>()
+        && !content.is::<PolygonElem>()
+        && !content.is::<PathElem>()
         && !applicable(content, styles)
     {
         return Ok((content.clone(), styles));
@@ -234,13 +245,14 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Self {
             vt,
             scratch,
-            doc: top.then(|| DocBuilder::default()),
+            doc: top.then(DocBuilder::default),
             flow: FlowBuilder::default(),
             par: ParBuilder::default(),
             list: ListBuilder::default(),
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn accept(
         &mut self,
         mut content: &'a Content,
@@ -291,7 +303,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             .to::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
-        self.interrupt_page(keep.then(|| styles))?;
+        self.interrupt_page(keep.then_some(styles))?;
 
         if let Some(doc) = &mut self.doc {
             if doc.accept(content, styles) {
@@ -306,6 +318,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     fn styled(
         &mut self,
         elem: &'a Content,
@@ -320,6 +333,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self, local, outer))]
     fn interrupt_style(
         &mut self,
         local: &Styles,
@@ -354,6 +368,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     fn interrupt_list(&mut self) -> SourceResult<()> {
         if !self.list.items.is_empty() {
             let staged = mem::take(&mut self.list.staged);
@@ -367,6 +382,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     fn interrupt_par(&mut self) -> SourceResult<()> {
         self.interrupt_list()?;
         if !self.par.0.is_empty() {
@@ -378,6 +394,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
+    #[tracing::instrument(skip_all)]
     fn interrupt_page(&mut self, styles: Option<StyleChain<'a>>) -> SourceResult<()> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };

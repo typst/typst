@@ -2,18 +2,22 @@ use std::any::{Any, TypeId};
 use std::fmt::{self, Debug, Formatter, Write};
 use std::iter;
 use std::mem;
+use std::ptr;
+use std::sync::Arc;
 
+use comemo::Prehashed;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use super::{Content, ElemFunc, Element, Label, Vt};
-use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast_from_value, Args, Cast, Dict, Func, Regex, Value, Vm};
+use super::{Content, ElemFunc, Element, Introspector, Label, Location, Vt};
+use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
+use crate::eval::{cast_from_value, Args, Cast, CastInfo, Dict, Func, Regex, Value, Vm};
+use crate::model::Locatable;
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// A list of style properties.
 #[derive(Default, PartialEq, Clone, Hash)]
-pub struct Styles(EcoVec<Style>);
+pub struct Styles(EcoVec<Prehashed<Style>>);
 
 impl Styles {
     /// Create a new, empty style list.
@@ -32,7 +36,7 @@ impl Styles {
     /// style map, `self` contributes the outer values and `value` is the inner
     /// one.
     pub fn set(&mut self, style: impl Into<Style>) {
-        self.0.push(style.into());
+        self.0.push(Prehashed::new(style.into()));
     }
 
     /// Remove the style that was last set.
@@ -49,20 +53,22 @@ impl Styles {
     /// Apply one outer styles. Like [`chain_one`](StyleChain::chain_one), but
     /// in-place.
     pub fn apply_one(&mut self, outer: Style) {
-        self.0.insert(0, outer);
+        self.0.insert(0, Prehashed::new(outer));
     }
 
     /// Apply a slice of outer styles.
-    pub fn apply_slice(&mut self, outer: &[Style]) {
+    pub fn apply_slice(&mut self, outer: &[Prehashed<Style>]) {
         self.0 = outer.iter().cloned().chain(mem::take(self).0.into_iter()).collect();
     }
 
     /// Add an origin span to all contained properties.
     pub fn spanned(mut self, span: Span) -> Self {
         for entry in self.0.make_mut() {
-            if let Style::Property(property) = entry {
-                property.span = Some(span);
-            }
+            entry.update(|entry| {
+                if let Style::Property(property) = entry {
+                    property.span = Some(span);
+                }
+            });
         }
         self
     }
@@ -71,7 +77,7 @@ impl Styles {
     /// styles for the given element.
     pub fn interruption<T: Element>(&self) -> Option<Option<Span>> {
         let func = T::func();
-        self.0.iter().find_map(|entry| match entry {
+        self.0.iter().find_map(|entry| match &**entry {
             Style::Property(property) => property.is_of(func).then_some(property.span),
             Style::Recipe(recipe) => recipe.is_of(func).then_some(Some(recipe.span)),
         })
@@ -80,7 +86,7 @@ impl Styles {
 
 impl From<Style> for Styles {
     fn from(entry: Style) -> Self {
-        Self(eco_vec![entry])
+        Self(eco_vec![Prehashed::new(entry)])
     }
 }
 
@@ -257,6 +263,8 @@ pub enum Selector {
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
     Elem(ElemFunc, Option<Dict>),
+    /// Matches the element at the specified location.
+    Location(Location),
     /// Matches elements with a specific label.
     Label(Label),
     /// Matches text elements through a regular expression.
@@ -264,9 +272,13 @@ pub enum Selector {
     /// Matches elements with a specific capability.
     Can(TypeId),
     /// Matches if any of the subselectors match.
-    Any(EcoVec<Self>),
+    Or(EcoVec<Self>),
     /// Matches if all of the subselectors match.
-    All(EcoVec<Self>),
+    And(EcoVec<Self>),
+    /// Matches all matches of `selector` before `end`.
+    Before { selector: Arc<Self>, end: Arc<Self>, inclusive: bool },
+    /// Matches all matches of `selector` after `start`.
+    After { selector: Arc<Self>, start: Arc<Self>, inclusive: bool },
 }
 
 impl Selector {
@@ -278,6 +290,107 @@ impl Selector {
     /// Define a simple [`Selector::Can`] selector.
     pub fn can<T: ?Sized + Any>() -> Self {
         Self::Can(TypeId::of::<T>())
+    }
+
+    /// Transforms this selector and an iterator of other selectors into a
+    /// [`Selector::Or`] selector.
+    pub fn and(self, others: impl IntoIterator<Item = Self>) -> Self {
+        Self::And(others.into_iter().chain(Some(self)).collect())
+    }
+
+    /// Transforms this selector and an iterator of other selectors into a
+    /// [`Selector::And`] selector.
+    pub fn or(self, others: impl IntoIterator<Item = Self>) -> Self {
+        Self::Or(others.into_iter().chain(Some(self)).collect())
+    }
+
+    /// Transforms this selector into a [`Selector::Before`] selector.
+    pub fn before(self, location: impl Into<Self>, inclusive: bool) -> Self {
+        Self::Before {
+            selector: Arc::new(self),
+            end: Arc::new(location.into()),
+            inclusive,
+        }
+    }
+
+    /// Transforms this selector into a [`Selector::After`] selector.
+    pub fn after(self, location: impl Into<Self>, inclusive: bool) -> Self {
+        Self::After {
+            selector: Arc::new(self),
+            start: Arc::new(location.into()),
+            inclusive,
+        }
+    }
+
+    /// Matches the selector for an introspector.
+    pub fn match_iter<'a>(
+        &'a self,
+        introspector: &'a Introspector,
+    ) -> Box<dyn Iterator<Item = Content> + 'a> {
+        self.match_iter_inner(introspector, introspector.all())
+    }
+
+    /// Match the selector against the given list of elements. Returns an
+    /// iterator over the matching elements.
+    fn match_iter_inner<'a>(
+        &'a self,
+        introspector: &'a Introspector,
+        parent: impl Iterator<Item = Content> + 'a,
+    ) -> Box<dyn Iterator<Item = Content> + 'a> {
+        match self {
+            Self::Location(location) => {
+                Box::new(introspector.location(location).into_iter())
+            }
+            Self::Or(selectors) => Box::new(parent.filter(|element| {
+                selectors.iter().any(|selector| {
+                    selector
+                        .match_iter_inner(introspector, std::iter::once(element.clone()))
+                        .next()
+                        .is_some()
+                })
+            })),
+            Self::And(selectors) => Box::new(parent.filter(|element| {
+                selectors.iter().all(|selector| {
+                    selector
+                        .match_iter_inner(introspector, std::iter::once(element.clone()))
+                        .next()
+                        .is_some()
+                })
+            })),
+            Self::Before { selector, end: location, inclusive } => {
+                if let Some(content) = introspector.query_first(location) {
+                    let loc = content.location().unwrap();
+                    Box::new(selector.match_iter_inner(introspector, parent).take_while(
+                        move |elem| {
+                            introspector.is_before(
+                                elem.location().unwrap(),
+                                loc,
+                                *inclusive,
+                            )
+                        },
+                    ))
+                } else {
+                    Box::new(selector.match_iter_inner(introspector, parent))
+                }
+            }
+            Self::After { selector, start: location, inclusive } => {
+                if let Some(content) = introspector.query_first(location) {
+                    let loc = content.location().unwrap();
+                    Box::new(selector.match_iter_inner(introspector, parent).skip_while(
+                        move |elem| {
+                            introspector.is_before(
+                                elem.location().unwrap(),
+                                loc,
+                                !*inclusive,
+                            )
+                        },
+                    ))
+                } else {
+                    Box::new(std::iter::empty())
+                }
+            }
+            other => Box::new(parent.filter(move |content| other.matches(content))),
+        }
     }
 
     /// Whether the selector matches for the target.
@@ -296,9 +409,17 @@ impl Selector {
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
             Self::Can(cap) => target.can_type_id(*cap),
-            Self::Any(selectors) => selectors.iter().any(|sel| sel.matches(target)),
-            Self::All(selectors) => selectors.iter().all(|sel| sel.matches(target)),
+            Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
+            Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
+            Self::Location(location) => target.location() == Some(*location),
+            Self::Before { .. } | Self::After { .. } => false,
         }
+    }
+}
+
+impl From<Location> for Selector {
+    fn from(value: Location) -> Self {
+        Self::Location(value)
     }
 }
 
@@ -316,11 +437,28 @@ impl Debug for Selector {
             Self::Label(label) => label.fmt(f),
             Self::Regex(regex) => regex.fmt(f),
             Self::Can(cap) => cap.fmt(f),
-            Self::Any(selectors) | Self::All(selectors) => {
-                f.write_str(if matches!(self, Self::Any(_)) { "any" } else { "all" })?;
+            Self::Or(selectors) | Self::And(selectors) => {
+                f.write_str(if matches!(self, Self::Or(_)) { "or" } else { "and" })?;
                 let pieces: Vec<_> =
                     selectors.iter().map(|sel| eco_format!("{sel:?}")).collect();
                 f.write_str(&pretty_array_like(&pieces, false))
+            }
+            Self::Location(loc) => loc.fmt(f),
+            Self::Before { selector, end: split, inclusive }
+            | Self::After { selector, start: split, inclusive } => {
+                selector.fmt(f)?;
+
+                if matches!(self, Self::Before { .. }) {
+                    f.write_str(".before(")?;
+                } else {
+                    f.write_str(".after(")?;
+                }
+
+                split.fmt(f)?;
+                if !*inclusive {
+                    f.write_str(", inclusive: false")?;
+                }
+                f.write_char(')')
             }
         }
     }
@@ -335,6 +473,112 @@ cast_from_value! {
     label: Label => Self::Label(label),
     text: EcoString => Self::text(&text),
     regex: Regex => Self::Regex(regex),
+    location: Location => Self::Location(location),
+}
+
+/// A selector that can be used with `query`. Hopefully, this is made obsolete
+/// by a more powerful query mechanism in the future.
+#[derive(Clone, PartialEq, Hash)]
+pub struct LocatableSelector(pub Selector);
+
+impl Cast for LocatableSelector {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Label(_) | Value::Func(_))
+            || value.type_name() == "selector"
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        fn validate(selector: &Selector) -> StrResult<()> {
+            match selector {
+                Selector::Elem(elem, _) => {
+                    if !elem.can::<dyn Locatable>() {
+                        Err(eco_format!("{} is not locatable", elem.name()))?
+                    }
+                }
+                Selector::Location(_) => {}
+                Selector::Label(_) => {}
+                Selector::Regex(_) => Err("text is not locatable")?,
+                Selector::Can(_) => Err("capability is not locatable")?,
+                Selector::Or(list) | Selector::And(list) => {
+                    for selector in list {
+                        validate(selector)?;
+                    }
+                }
+                Selector::Before { selector, end: split, .. }
+                | Selector::After { selector, start: split, .. } => {
+                    for selector in [selector, split] {
+                        validate(selector)?;
+                    }
+                }
+            }
+            Ok(())
+        }
+
+        if !Self::is(&value) {
+            return <Self as Cast>::error(value);
+        }
+
+        let selector = Selector::cast(value)?;
+        validate(&selector)?;
+        Ok(Self(selector))
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type("label"),
+            CastInfo::Type("function"),
+            CastInfo::Type("selector"),
+        ])
+    }
+}
+
+/// A selector that can be used with show rules.
+#[derive(Clone, PartialEq, Hash)]
+pub struct ShowableSelector(pub Selector);
+
+impl Cast for ShowableSelector {
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Str(_) | Value::Label(_) | Value::Func(_))
+            || value.type_name() == "regular expression"
+            || value.type_name() == "selector"
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        fn validate(selector: &Selector) -> StrResult<()> {
+            match selector {
+                Selector::Elem(_, _) => {}
+                Selector::Label(_) => {}
+                Selector::Regex(_) => {}
+                Selector::Or(_)
+                | Selector::And(_)
+                | Selector::Location(_)
+                | Selector::Can(_)
+                | Selector::Before { .. }
+                | Selector::After { .. } => {
+                    Err("this selector cannot be used with show")?
+                }
+            }
+            Ok(())
+        }
+
+        if !Self::is(&value) {
+            return <Self as Cast>::error(value);
+        }
+
+        let selector = Selector::cast(value)?;
+        validate(&selector)?;
+        Ok(Self(selector))
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type("function"),
+            CastInfo::Type("label"),
+            CastInfo::Type("string"),
+            CastInfo::Type("regular expression"),
+            CastInfo::Type("selector"),
+        ])
+    }
 }
 
 /// A show rule transformation that can be applied to a match.
@@ -374,7 +618,7 @@ cast_from_value! {
 #[derive(Default, Clone, Copy, Hash)]
 pub struct StyleChain<'a> {
     /// The first link of this chain.
-    head: &'a [Style],
+    head: &'a [Prehashed<Style>],
     /// The remaining links in the chain.
     tail: Option<&'a Self>,
 }
@@ -390,6 +634,7 @@ impl<'a> StyleChain<'a> {
     /// The resulting style chain contains styles from `local` as well as
     /// `self`. The ones from `local` take precedence over the ones from
     /// `self`. For folded properties `local` contributes the inner value.
+    #[tracing::instrument(skip_all)]
     pub fn chain<'b>(&'b self, local: &'b Styles) -> StyleChain<'b> {
         if local.is_empty() {
             *self
@@ -398,15 +643,8 @@ impl<'a> StyleChain<'a> {
         }
     }
 
-    /// Make the given style the first link of the this chain.
-    pub fn chain_one<'b>(&'b self, style: &'b Style) -> StyleChain<'b> {
-        StyleChain {
-            head: std::slice::from_ref(style),
-            tail: Some(self),
-        }
-    }
-
     /// Cast the first value for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn get<T: Cast>(
         self,
         func: ElemFunc,
@@ -420,6 +658,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn get_resolve<T: Cast + Resolve>(
         self,
         func: ElemFunc,
@@ -431,6 +670,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn get_fold<T: Cast + Fold>(
         self,
         func: ElemFunc,
@@ -440,18 +680,19 @@ impl<'a> StyleChain<'a> {
     ) -> T::Output {
         fn next<T: Fold>(
             mut values: impl Iterator<Item = T>,
-            styles: StyleChain,
+            _styles: StyleChain,
             default: &impl Fn() -> T::Output,
         ) -> T::Output {
             values
                 .next()
-                .map(|value| value.fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+                .map(|value| value.fold(next(values, _styles, default)))
+                .unwrap_or_else(default)
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }
 
     /// Cast the first value for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn get_resolve_fold<T>(
         self,
         func: ElemFunc,
@@ -475,7 +716,7 @@ impl<'a> StyleChain<'a> {
             values
                 .next()
                 .map(|value| value.resolve(styles).fold(next(values, styles, default)))
-                .unwrap_or_else(|| default())
+                .unwrap_or_else(default)
         }
         next(self.properties::<T>(func, name, inherent), self, &default)
     }
@@ -486,6 +727,7 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
+    #[tracing::instrument(skip_all)]
     pub fn properties<T: Cast + 'a>(
         self,
         func: ElemFunc,
@@ -541,16 +783,6 @@ impl<'a> StyleChain<'a> {
     fn pop(&mut self) {
         *self = self.tail.copied().unwrap_or_default();
     }
-
-    /// Whether two style chains contain the same pointers.
-    fn ptr_eq(self, other: Self) -> bool {
-        std::ptr::eq(self.head, other.head)
-            && match (self.tail, other.tail) {
-                (Some(a), Some(b)) => std::ptr::eq(a, b),
-                (None, None) => true,
-                _ => false,
-            }
-    }
 }
 
 impl Debug for StyleChain<'_> {
@@ -564,13 +796,18 @@ impl Debug for StyleChain<'_> {
 
 impl PartialEq for StyleChain<'_> {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr_eq(*other) || crate::util::hash128(self) == crate::util::hash128(other)
+        ptr::eq(self.head, other.head)
+            && match (self.tail, other.tail) {
+                (Some(a), Some(b)) => ptr::eq(a, b),
+                (None, None) => true,
+                _ => false,
+            }
     }
 }
 
 /// An iterator over the entries in a style chain.
 struct Entries<'a> {
-    inner: std::slice::Iter<'a, Style>,
+    inner: std::slice::Iter<'a, Prehashed<Style>>,
     links: Links<'a>,
 }
 
@@ -595,7 +832,7 @@ impl<'a> Iterator for Entries<'a> {
 struct Links<'a>(Option<StyleChain<'a>>);
 
 impl<'a> Iterator for Links<'a> {
-    type Item = &'a [Style];
+    type Item = &'a [Prehashed<Style>];
 
     fn next(&mut self) -> Option<Self::Item> {
         let StyleChain { head, tail } = self.0?;

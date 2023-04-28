@@ -1,11 +1,10 @@
 //! Methods on values.
 
 use ecow::EcoString;
-use typst::eval::date::Datetime;
 
 use super::{Args, Str, Value, Vm};
-use crate::diag::{bail, At, SourceResult};
-use crate::model::Location;
+use crate::diag::{At, SourceResult};
+use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
 /// Call a method on a value.
@@ -106,6 +105,8 @@ pub fn call(
             "fold" => {
                 array.fold(vm, args.expect("initial value")?, args.expect("function")?)?
             }
+            "sum" => array.sum(args.named("default")?, span)?,
+            "product" => array.product(args.named("default")?, span)?,
             "any" => Value::Bool(array.any(vm, args.expect("function")?)?),
             "all" => Value::Bool(array.all(vm, args.expect("function")?)?),
             "flatten" => Value::Array(array.flatten()),
@@ -116,7 +117,9 @@ pub fn call(
                 let last = args.named("last")?;
                 array.join(sep, last).at(span)?
             }
-            "sorted" => Value::Array(array.sorted().at(span)?),
+            "sorted" => Value::Array(array.sorted(vm, span, args.named("key")?)?),
+            "zip" => Value::Array(array.zip(args.expect("other")?)),
+            "enumerate" => Value::Array(array.enumerate()),
             _ => return missing(),
         },
 
@@ -151,45 +154,29 @@ pub fn call(
         },
 
         Value::Dyn(dynamic) => {
-            if let Some(&location) = dynamic.downcast::<Location>() {
+            if let Some(location) = dynamic.downcast::<Location>() {
                 match method {
-                    "page" => vm.vt.introspector.page(location).into(),
-                    "position" => vm.vt.introspector.position(location).into(),
+                    "page" => vm.vt.introspector.page(*location).into(),
+                    "position" => vm.vt.introspector.position(*location).into(),
+                    "page-numbering" => vm.vt.introspector.page_numbering(*location),
                     _ => return missing(),
                 }
-            } else if let Some(&datetime) = dynamic.downcast::<Datetime>() {
+            } else if let Some(selector) = dynamic.downcast::<Selector>() {
                 match method {
-                    "display" => {
-                        let pattern = args.eat()?;
-                        match datetime.display(pattern) {
-                            Ok(d) => Value::Str(Str::from(d)),
-                            Err(msg) => bail!(args.span, msg),
-                        }
+                    "or" => selector.clone().or(args.all::<Selector>()?).into(),
+                    "and" => selector.clone().and(args.all::<Selector>()?).into(),
+                    "before" => {
+                        let location = args.expect::<Selector>("selector")?;
+                        let inclusive =
+                            args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
+                        selector.clone().before(location, inclusive).into()
                     }
-                    "year" => match datetime.date() {
-                        Some(date) => Value::Int(date.year().into()),
-                        None => Value::None,
-                    },
-                    "month" => match datetime.date() {
-                        Some(date) => Value::Int((date.month() as u8).into()),
-                        None => Value::None,
-                    },
-                    "day" => match datetime.date() {
-                        Some(date) => Value::Int(date.day().into()),
-                        None => Value::None,
-                    },
-                    "hour" => match datetime.time() {
-                        Some(time) => Value::Int(time.hour().into()),
-                        None => Value::None,
-                    },
-                    "minute" => match datetime.time() {
-                        Some(time) => Value::Int(time.minute().into()),
-                        None => Value::None,
-                    },
-                    "second" => match datetime.time() {
-                        Some(time) => Value::Int(time.second().into()),
-                        None => Value::None,
-                    },
+                    "after" => {
+                        let location = args.expect::<Selector>("selector")?;
+                        let inclusive =
+                            args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
+                        selector.clone().after(location, inclusive).into()
+                    }
                     _ => return missing(),
                 }
             } else {
@@ -332,6 +319,8 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("rev", false),
             ("slice", true),
             ("sorted", false),
+            ("enumerate", false),
+            ("zip", true),
         ],
         "dictionary" => &[
             ("at", true),
@@ -344,7 +333,8 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         ],
         "function" => &[("where", true), ("with", true)],
         "arguments" => &[("named", false), ("pos", false)],
-        "location" => &[("page", false), ("position", false)],
+        "location" => &[("page", false), ("position", false), ("page-numbering", false)],
+        "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],
         "counter" => &[
             ("display", true),
             ("at", true),

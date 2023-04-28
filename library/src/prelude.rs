@@ -23,8 +23,9 @@ pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
     element, Behave, Behaviour, Construct, Content, ElemFunc, Element, Finalize, Fold,
-    Introspector, Label, Locatable, Location, MetaElem, Resolve, Selector, Set, Show,
-    StabilityProvider, StyleChain, StyleVec, Styles, Synthesize, Unlabellable, Vt,
+    Introspector, Label, Locatable, LocatableSelector, Location, MetaElem, PlainText,
+    Resolve, Selector, Set, Show, StabilityProvider, StyleChain, StyleVec, Styles,
+    Synthesize, Unlabellable, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};

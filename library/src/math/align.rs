@@ -8,42 +8,56 @@ use super::*;
 pub struct AlignPointElem {}
 
 impl LayoutMath for AlignPointElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         ctx.push(MathFragment::Align);
         Ok(())
     }
 }
 
-/// Determine the position of the alignment points.
-pub(super) fn alignments(rows: &[MathRow]) -> Vec<Abs> {
-    let count = rows
-        .iter()
-        .map(|row| {
-            row.iter()
-                .filter(|fragment| matches!(fragment, MathFragment::Align))
-                .count()
-        })
-        .max()
-        .unwrap_or(0);
+pub(super) struct AlignmentResult {
+    pub points: Vec<Abs>,
+    pub width: Abs,
+}
 
-    let mut points = vec![Abs::zero(); count];
-    for current in 0..count {
-        for row in rows {
-            let mut x = Abs::zero();
-            let mut i = 0;
-            for fragment in row.iter() {
-                if matches!(fragment, MathFragment::Align) {
-                    if i < current {
-                        x = points[i];
-                    } else if i == current {
-                        points[i].set_max(x);
-                    }
-                    i += 1;
+/// Determine the position of the alignment points.
+pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
+    let mut widths = Vec::<Abs>::new();
+
+    let mut pending_width = Abs::zero();
+    for row in rows {
+        let mut width = Abs::zero();
+        let mut alignment_index = 0;
+
+        for fragment in row.iter() {
+            if matches!(fragment, MathFragment::Align) {
+                if alignment_index < widths.len() {
+                    widths[alignment_index].set_max(width);
+                } else {
+                    widths.push(width.max(pending_width));
                 }
-                x += fragment.width();
+                width = Abs::zero();
+                alignment_index += 1;
+            } else {
+                width += fragment.width();
             }
+        }
+        if widths.is_empty() {
+            pending_width.set_max(width);
+        } else if alignment_index < widths.len() {
+            widths[alignment_index].set_max(width);
+        } else {
+            widths.push(width.max(pending_width));
         }
     }
 
-    points
+    let mut points = widths;
+    for i in 1..points.len() {
+        let prev = points[i - 1];
+        points[i] += prev;
+    }
+    AlignmentResult {
+        width: points.last().copied().unwrap_or(pending_width),
+        points,
+    }
 }

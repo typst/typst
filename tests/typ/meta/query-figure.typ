@@ -1,35 +1,4 @@
-// Test the query function.
-
----
-#set page(
-  paper: "a7",
-  margin: (y: 1cm, x: 0.5cm),
-  header: {
-    smallcaps[Typst Academy]
-    h(1fr)
-    locate(it => {
-      let after = query(heading, after: it)
-      let before = query(heading, before: it)
-      let elem = if before.len() != 0 {
-        before.last()
-      } else if after.len() != 0 {
-        after.first()
-      }
-      emph(elem.body)
-    })
-  }
-)
-
-#outline()
-
-= Introduction
-#lorem(35)
-
-= Background
-#lorem(35)
-
-= Approach
-#lorem(60)
+// Test a list of figures.
 
 ---
 #set page(
@@ -43,7 +12,7 @@
 
 = List of Figures
 #locate(it => {
-  let elements = query(figure, after: it)
+  let elements = query(selector(figure).after(it), it)
   for it in elements [
     Figure
     #numbering(it.numbering,

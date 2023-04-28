@@ -1,20 +1,24 @@
 [package]
 name = "typst-tests"
-version = "0.0.0"
+version = "0.3.0"
 authors = ["The Typst Project Developers"]
 edition = "2021"
+publish = false
 
 [dev-dependencies]
 typst = { path = ".." }
 typst-library = { path = "../library" }
-comemo = "0.2"
-elsa = "1.7"
+comemo = "0.2.2"
+elsa = "1.8"
 iai = { git = "https://github.com/reknih/iai" }
 once_cell = "1"
-tiny-skia = "0.6.2"
-ttf-parser = "0.17"
+oxipng = "8.0.0"
+rayon = "1.7.0"
+tiny-skia = "0.6.6"
+ttf-parser = "0.18.1"
 unscanny = "0.1"
 walkdir = "2"
+clap = { version = "4.2.4", features = ["derive"] }
 
 [[test]]
 name = "tests"

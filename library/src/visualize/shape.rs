@@ -47,8 +47,22 @@ pub struct RectElem {
     ///   to `{1pt}`.
     /// - A stroke combined from color and thickness using the `+` operator as
     ///   in `{2pt + red}`.
-    /// - A dictionary: With a dictionary, the stroke for each side can be set
-    ///   individually. The dictionary can contain the following keys in order
+    /// - A stroke described by a dictionary with any of the following keys:
+    ///     - `color`: the color to use for the stroke
+    ///     - `thickness`: the stroke's thickness
+    ///     - `cap`: one of `"butt"`, `"round"` or `"square"`, the line cap of the stroke
+    ///     - `join`: one of `"miter"`, `"round"` or `"bevel"`, the line join of the stroke
+    ///     - `miter-limit`: the miter limit to use if `join` is `"miter"`, defaults to 4.0
+    ///     - `dash`: the dash pattern to use. Can be any of the following:
+    ///         - One of the strings `"solid"`, `"dotted"`, `"densely-dotted"`, `"loosely-dotted"`,
+    ///           `"dashed"`, `"densely-dashed"`, `"loosely-dashed"`, `"dash-dotted"`,
+    ///           `"densely-dash-dotted"` or `"loosely-dash-dotted"`
+    ///         - An array with elements that specify the lengths of dashes and gaps, alternating.
+    ///           Elements can also be the string `"dot"` for a length equal to the line thickness.
+    ///         - A dict with the keys `array`, same as the array above, and `phase`, the offset to
+    ///           the start of the first dash.
+    /// - Another dictionary describing the stroke for each side inidvidually.
+    ///   The dictionary can contain the following keys in order
     ///   of precedence:
     ///   - `top`: The top stroke.
     ///   - `right`: The right stroke.
@@ -118,7 +132,7 @@ pub struct RectElem {
     /// current [text edges]($func/text.top-edge).
     ///
     /// ```example
-    /// #rect(inset: 0pt)[Tight])
+    /// #rect(inset: 0pt)[Tight]
     /// ```
     #[resolve]
     #[fold]
@@ -140,6 +154,7 @@ pub struct RectElem {
 }
 
 impl Layout for RectElem {
+    #[tracing::instrument(name = "RectElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -250,6 +265,7 @@ pub struct SquareElem {
 }
 
 impl Layout for SquareElem {
+    #[tracing::instrument(name = "SquareElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -332,6 +348,7 @@ pub struct EllipseElem {
 }
 
 impl Layout for EllipseElem {
+    #[tracing::instrument(name = "EllipseElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -439,6 +456,7 @@ pub struct CircleElem {
 }
 
 impl Layout for CircleElem {
+    #[tracing::instrument(name = "CircleElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -463,6 +481,8 @@ impl Layout for CircleElem {
 }
 
 /// Layout a shape.
+#[tracing::instrument(name = "shape::layout", skip_all)]
+#[allow(clippy::too_many_arguments)]
 fn layout(
     vt: &mut Vt,
     styles: StyleChain,
@@ -494,13 +514,22 @@ fn layout(
         let pod = Regions::one(region, expand);
         frame = child.layout(vt, styles, pod)?.into_frame();
 
+        // Enforce correct size.
+        *frame.size_mut() = expand.select(region, frame.size());
+
         // Relayout with full expansion into square region to make sure
         // the result is really a square or circle.
         if kind.is_quadratic() {
+            frame.set_size(Size::splat(frame.size().max_by_side()));
             let length = frame.size().max_by_side().min(region.min_by_side());
-            let size = Size::splat(length);
-            let pod = Regions::one(size, Axes::splat(true));
+            let pod = Regions::one(Size::splat(length), Axes::splat(true));
             frame = child.layout(vt, styles, pod)?.into_frame();
+        }
+
+        // Enforce correct size again.
+        *frame.size_mut() = expand.select(region, frame.size());
+        if kind.is_quadratic() {
+            frame.set_size(Size::splat(frame.size().max_by_side()));
         }
     } else {
         // The default size that a shape takes on if it has no child and

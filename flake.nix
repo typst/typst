@@ -10,6 +10,7 @@
         ;
       inherit (nixpkgs.lib)
         genAttrs
+        importTOML
         optionals
         ;
 
@@ -39,11 +40,23 @@
           allowBuiltinFetchGit = true;
         };
 
+        nativeBuildInputs = [
+          pkgs.installShellFiles
+        ];
+
         buildInputs = optionals pkgs.stdenv.isDarwin [
           pkgs.darwin.apple_sdk.frameworks.CoreServices
         ];
 
-        TYPST_VERSION = rev "(unknown version)";
+        postInstall = ''
+          installManPage cli/artifacts/*.1
+          installShellCompletion \
+            cli/artifacts/typst.{bash,fish} \
+            --zsh cli/artifacts/_typst
+        '';
+
+        GEN_ARTIFACTS = "artifacts";
+        TYPST_VERSION = "${(importTOML ./cli/Cargo.toml).package.version} (${rev "unknown hash"})";
       };
     in
     {

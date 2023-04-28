@@ -66,6 +66,7 @@ pub struct UnderlineElem {
 }
 
 impl Show for UnderlineElem {
+    #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Underline,
@@ -145,6 +146,7 @@ pub struct OverlineElem {
 }
 
 impl Show for OverlineElem {
+    #[tracing::instrument(name = "OverlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Overline,
@@ -209,6 +211,7 @@ pub struct StrikeElem {
 }
 
 impl Show for StrikeElem {
+    #[tracing::instrument(name = "StrikeElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Strikethrough,
@@ -271,6 +274,7 @@ pub(super) fn decorate(
     let stroke = deco.stroke.clone().unwrap_or(Stroke {
         paint: text.fill.clone(),
         thickness: metrics.thickness.at(text.size),
+        ..Stroke::default()
     });
 
     let gap_padding = 0.08 * text.size;
@@ -314,11 +318,13 @@ pub(super) fn decorate(
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
-        if bbox.map_or(false, |bbox| {
+        let intersect = bbox.map_or(false, |bbox| {
             let y_min = -text.font.to_em(bbox.y_max).at(text.size);
             let y_max = -text.font.to_em(bbox.y_min).at(text.size);
             offset >= y_min && offset <= y_max
-        }) {
+        });
+
+        if intersect {
             // Find all intersections of segments with the line.
             intersections.extend(
                 path.segments()

@@ -5,85 +5,229 @@ description: |
 ---
 
 # Changelog
-## Unreleased
-- **Breaking:** When using the CLI, you now have to use subcommands:
-  - `typst compile file.typ` or `typst c file.typ` to create a PDF
-  - `typst watch file.typ` or `typst w file.typ` to compile and watch
-  - `typst fonts` to list all fonts
-- **Breaking:** Manual counters now start at zero. Read the "How to step"
-  section [here]($func/counter) for more details
-- **Breaking:** Renamed the `{"author-date"}` and `{"author-title"}`
-  [bibliography styles]($func/bibliography.style) to `{"chicago-author-date"}`
-  and `{"chicago-author-title"}`
-- Added support for clipping in [boxes]($func/box.clip) and
-  [blocks]($func/block.clip)
-- Added [`polygon`]($func/polygon) function for drawing polygons
-- Added [`yaml`]($func/yaml) function to load data from YAML files
-- The [`link`]($func/link) function now accepts [labels]($func/label)
-- The [`bibliography`]($func/bibliography) now also accepts multiple
-  bibliography paths (as an array)
-- Parsing of BibLaTeX files is now more permissive (accepts non-numeric edition,
-  pages, volumes, dates, and Jabref-style comments, fixed abbreviation parsing)
-- Labels and references can now include `:` and `.` if not at the end
-- Added basic i18n for a few more languages (IT, RU, ZH, FR, PT)
-- Added numbering support for Hebrew
-- Added support for [integers]($type/integer) with base 2, 8, and 16
-- Added symbols for double bracket and laplace operator
-- The link syntax now allows more characters
-- Improved justification of Japanese and Chinese text
-- Calculation functions behave more consistently w.r.t to non-real results
-- Replaced deprecated angle brackets
-- Reduced maximum function call depth from 256 to 64
-- CLI now returns with non-zero status code if there is an error
-- CLI now watches the root directory instead of the current one
-- CLI now puts PDF file next to input file by default
-- CLI now accepts more kinds of input files (e.g. `/dev/stdin`)
-- CLI now has an `--open` flag to directly open the PDF
-- Fixed block spacing, e.g. in `{block(above: 1cm, below: 1cm, ..)}`
-- Fixed extraneous spacing in unary operators in equations
-- Fixed APA bibliography ordering
-- Fixed styling of text operators in math
-- Fixed invalid parsing of language tag in raw block with a single backtick
-- Fixed bugs with displaying counters and state
-- Fixed crash related to page counter
-- Fixed crash when [`symbol`]($func/symbol) function is called without arguments
-- Fixed crash in bibliography generation
-- Fixed access to label of certain content elements
-- Fixed line number in error message for CSV parsing
-- Fixed invalid autocompletion after certain markup elements
+## April 26, 2023 (v0.3.0)
+- **Breaking changes:**
+  - Renamed a few symbols: What was previous `dot.op` is now just `dot` and the
+    basic dot is `dot.basic`. The same applies to `ast` and `tilde`.
+  - Renamed `mod` to [`rem`]($category/calculate/rem) to more accurately reflect
+    the behaviour. It will remain available as `mod` until the next update as a
+    grace period.
+  - A lone underscore is not a valid identifier anymore, it can now only be used
+    in patterns
+  - Removed `before` and `after` arguments from [`query`]($func/query). This is
+    now handled through flexible [selectors]($type/selector) combinator methods
+  - Added support for [attachments]($func/attach) (sub-, superscripts) that
+    precede the base symbol. The `top` and `bottom` arguments have been renamed
+    to `t` and `b`.
+
+- New features
+  - Added support for more complex [strokes]($func/line.stroke)
+    (configurable caps, joins, and dash patterns)
+  - Added [`cancel`]($func/cancel) function for equations
+  - Added support for [destructuring]($scripting/#bindings) in argument lists
+    and assignments
+  - Added [`alt`]($func/image.alt) text argument to image function
+  - Added [`toml`]($func/toml) function for loading data from a TOML file
+  - Added [`zip`]($type/array.zip), [`sum`]($type/array.sum), and
+    [`product`]($type/array.product) methods for arrays
+  - Added `fact`, `perm`, `binom`, `gcd`, `lcm`, `atan2`, `quo`, `trunc`, and
+    `fract` [calculation]($category/calculate)
+
+- Improvements
+  - Text in SVGs now displays properly
+  - Typst now generates a PDF heading outline
+  - [References]($func/ref) now provides the referenced element as a field in
+    show rules
+  - Refined linebreak algorithm for better Chinese justification
+  - Locations are now a valid kind of selector
+  - Added a few symbols for algebra
+  - Added Spanish smart quote support
+  - Added [`selector`]($func/selector) function to turn a selector-like value
+    into a selector on which combinator methods can be called
+  - Improved some error messages
+  - The outline and bibliography headings can now be styled with show-set rules
+  - Operations on numbers now produce an error instead of overflowing
+
+- Bug fixes
+  - Fixed wrong linebreak before punctuation that follows inline equations,
+    citations, and other elements
+  - Fixed a bug with [argument sinks]($type/arguments)
+  - Fixed strokes with thickness zero
+  - Fixed hiding and show rules in math
+  - Fixed alignment in matrices
+  - Fixed some alignment bugs in equations
+  - Fixed grid cell alignment
+  - Fixed alignment of list marker and enum markers in presence of global
+    alignment settings
+  - Fixed [path]($func/path) closing
+  - Fixed compiler crash with figure references
+  - A single trailing line breaks is now ignored in math, just like in text
+
+- Command line interface
+  - Font path and compilation root can now be set with the environment
+    variables `TYPST_FONT_PATHS` and `TYPST_ROOT`
+  - The output of `typst fonts` now includes the embedded fonts
+
+- Development
+  - Added instrumentation for debugging and optimization
+  - Added `--update` flag and `UPDATE_EXPECT` environment variable to update
+    reference images for tests
+  - You can now run a specific subset with `--subtest`
+  - Tests now run on multiple threads
+
+<contributors from="v0.2.0" to="v0.3.0" />
+
+## April 11, 2023 (v0.2.0)
+- **Breaking changes:**
+  - Removed support for iterating over index and value in
+    [for loops]($scripting/#loops). This is now handled via unpacking and
+    enumerating. Same goes for the [`map()`]($type/array.map) method.
+  - [Dictionaries]($type/dictionary) now iterate in insertion order instead of
+    alphabetical order.
+
+- New features
+  - Added [unpacking syntax]($scripting/#bindings) for let bindings, which
+    allows things like `{let (1, 2) = array}`
+  - Added [`enumerate()`]($type/array.enumerate) method
+  - Added [`path`]($func/path) function for drawing Bézier paths
+  - Added [`layout`]($func/layout) function to access the size of the
+    surrounding page or container
+  - Added `key` parameter to [`sorted()`]($type/array.sorted) method
+
+- Command line interface
+  - Fixed `--open` flag blocking the program
+  - New Computer Modern font is now embedded into the binary
+  - Shell completions and man pages can now be generated by setting the
+    `GEN_ARTIFACTS` environment variable to a target directory and then building
+    Typst
+
+- Miscellaneous improvements
+  - Fixed page numbering in outline
+  - Added basic i18n for a few more languages
+    (AR, NB, CS, NN, PL, SL, ES, UA, VI)
+  - Added a few numbering patterns (Ihora, Chinese)
+  - Added `sinc` [operator]($func/op)
+  - Fixed bug where math could not be hidden with [`hide`]($func/hide)
+  - Fixed sizing issues with box, block, and shapes
+  - Fixed some translations
+  - Fixed inversion of "R" in [`cal`]($func/cal) and [`frak`]($func/frak) styles
+  - Fixed some styling issues in math
+  - Fixed supplements of references to headings
+  - Fixed syntax highlighting of identifiers in certain scenarios
+  - [Ratios]($type/ratio) can now be multiplied with more types and be converted
+    to [floats]($type/float) with the [`float`]($func/float) function
+
+<contributors from="v0.1.0" to="v0.2.0" />
+
+## April 04, 2023 (v0.1.0)
+- **Breaking changes:**
+  - When using the CLI, you now have to use subcommands:
+    - `typst compile file.typ` or `typst c file.typ` to create a PDF
+    - `typst watch file.typ` or `typst w file.typ` to compile and watch
+    - `typst fonts` to list all fonts
+  - Manual counters now start at zero. Read the "How to step" section
+    [here]($func/counter) for more details
+  - The [bibliography styles]($func/bibliography.style)
+    `{"author-date"}` and `{"author-title"}` were renamed to
+    `{"chicago-author-date"}` and `{"chicago-author-title"}`
+
+- Figure improvements
+  - Figures now automatically detect their content and adapt their
+    behaviour. Figures containing tables, for instance, are automatically
+    prefixed with "Table X" and have a separate counter
+  - The figure's supplement (e.g. "Figure" or "Table") can now be customized
+  - In addition, figures can now be completely customized because the show rule
+    gives access to the automatically resolved kind, supplement, and counter
+
+- Bibliography improvements
+  - The [`bibliography`]($func/bibliography) now also accepts multiple
+    bibliography paths (as an array)
+  - Parsing of BibLaTeX files is now more permissive (accepts non-numeric
+    edition, pages, volumes, dates, and Jabref-style comments; fixed
+    abbreviation parsing)
+  - Labels and references can now include `:` and `.` except at the end
+  - Fixed APA bibliography ordering
+
+- Drawing additions
+  - Added [`polygon`]($func/polygon) function for drawing polygons
+  - Added support for clipping in [boxes]($func/box.clip) and
+    [blocks]($func/block.clip)
+
+- Command line interface
+  - Now returns with non-zero status code if there is an error
+  - Now watches the root directory instead of the current one
+  - Now puts the PDF file next to input file by default
+  - Now accepts more kinds of input files (e.g. `/dev/stdin`)
+  - Added `--open` flag to directly open the PDF
+
+- Miscellaneous improvements
+  - Added [`yaml`]($func/yaml) function to load data from YAML files
+  - Added basic i18n for a few more languages (IT, RU, ZH, FR, PT)
+  - Added numbering support for Hebrew
+  - Added support for [integers]($type/integer) with base 2, 8, and 16
+  - Added symbols for double bracket and laplace operator
+  - The [`link`]($func/link) function now accepts [labels]($func/label)
+  - The link syntax now allows more characters
+  - Improved justification of Japanese and Chinese text
+  - Calculation functions behave more consistently w.r.t to non-real results
+  - Replaced deprecated angle brackets
+  - Reduced maximum function call depth from 256 to 64
+  - Fixed [`first-line-indent`]($func/par.first-line-indent) being not applied
+    when a paragraph starts with styled text
+  - Fixed extraneous spacing in unary operators in equations
+  - Fixed block spacing, e.g. in `{block(above: 1cm, below: 1cm, ..)}`
+  - Fixed styling of text operators in math
+  - Fixed invalid parsing of language tag in raw block with a single backtick
+  - Fixed bugs with displaying counters and state
+  - Fixed crash related to page counter
+  - Fixed crash when [`symbol`]($func/symbol) function was called without
+    arguments
+  - Fixed crash in bibliography generation
+  - Fixed access to label of certain content elements
+  - Fixed line number in error message for CSV parsing
+  - Fixed invalid autocompletion after certain markup elements
+
+<contributors from="v23-03-28" to="v0.1.0" />
 
 ## March 28, 2023
-- **Breaking:** Enumerations now require a space after their marker, that is,
-  `[1.ok]` must now be written as `[1. ok]`
-- **Breaking:** Changed default style for [term lists]($func/terms): Does not
-  include a colon anymore and has a bit more indent
-- Fixed bibliography ordering in IEEE style
-- Fixed parsing of decimals in math: `[$1.2/3.4$]`
-- Fixed parsing of unbalanced delimiters in fractions: `[$1/(2 (x)$]`
-- Fixed unexpected parsing of numbers as enumerations, e.g. in `[1.2]`
-- Fixed combination of page fill and header
-- Fixed compiler crash if [`repeat`]($func/repeat) is used in page with
-  automatic width
-- Fixed [matrices]($func/mat) with explicit delimiter
-- Fixed build of CLI if `git` is not installed
-- Links in bibliographies are now affected by link styling
-- Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
-  delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
-  `[$mat(delim: #none, 1, 2; 3, 4)$]`.
-- Added [`separator`]($func/terms.separator) argument to term lists
-- Fixed [`indent`]($func/terms.indent) property of term lists
-- Added [`round`]($func/round) function for equations
-- Numberings now allow zeros. To reset a counter, you can write
-  `[#counter(..).update(0)]`
-- Added `--font-path` argument for CLI
-- Added Nix flake
-- Numerous documentation fixes
-- Added documentation for `{page()}` and `{position()}` methods on
-  [`location`]($func/locate) type
-- Added symbols for double, triple, and quadruple dot accent
-- Added smart quotes for Norwegian Bokmål
-- Fixed hovering over comments in web app
-- Embedded default fonts in CLI binary
+- **Breaking changes:**
+  - Enumerations now require a space after their marker, that is, `[1.ok]` must
+    now be written as `[1. ok]`
+  - Changed default style for [term lists]($func/terms): Does not include a
+    colon anymore and has a bit more indent
+
+- Command line interface
+  - Added `--font-path` argument for CLI
+  - Embedded default fonts in CLI binary
+  - Fixed build of CLI if `git` is not installed
+
+- Miscellaneous improvements
+  - Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
+    delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
+    `[$mat(delim: #none, 1, 2; 3, 4)$]`.
+  - Added [`separator`]($func/terms.separator) argument to term lists
+  - Added [`round`]($func/round) function for equations
+  - Numberings now allow zeros. To reset a counter, you can write
+    `[#counter(..).update(0)]`
+  - Added documentation for `{page()}` and `{position()}` methods on
+    [`location`]($func/locate) type
+  - Added symbols for double, triple, and quadruple dot accent
+  - Added smart quotes for Norwegian Bokmål
+  - Added Nix flake
+  - Fixed bibliography ordering in IEEE style
+  - Fixed parsing of decimals in math: `[$1.2/3.4$]`
+  - Fixed parsing of unbalanced delimiters in fractions: `[$1/(2 (x)$]`
+  - Fixed unexpected parsing of numbers as enumerations, e.g. in `[1.2]`
+  - Fixed combination of page fill and header
+  - Fixed compiler crash if [`repeat`]($func/repeat) is used in page with
+    automatic width
+  - Fixed [matrices]($func/mat) with explicit delimiter
+  - Fixed [`indent`]($func/terms.indent) property of term lists
+  - Numerous documentation fixes
+  - Links in bibliographies are now affected by link styling
+  - Fixed hovering over comments in web app
+
+<contributors from="v23-03-21" to="v23-03-28" />
 
 ## March 21, 2023
 - Reference and bibliography management

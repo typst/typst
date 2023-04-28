@@ -1,19 +1,25 @@
-use super::{BibliographyElem, CiteElem, Counter, Numbering};
+use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
 use crate::prelude::*;
+use crate::text::TextElem;
 
 /// A reference to a label or bibliography.
 ///
 /// The reference function produces a textual reference to a label. For example,
 /// a reference to a heading will yield an appropriate string such as "Section
 /// 1" for a reference to the first heading. The references are also links to
-/// the respective element.
+/// the respective element. Reference syntax can also be used to
+/// [cite]($func/cite) from a bibliography.
 ///
-/// Reference syntax can also be used to [cite]($func/cite) from a bibliography.
+/// Referenceable elements include [headings]($func/heading),
+/// [figures]($func/figure), and [equations]($func/equation). To create a custom
+/// referenceable element like a theorem, you can create a figure of a custom
+/// [`kind`]($func/figure.kind) and write a show rule for it. In the future,
+/// there might be a more direct way to define a custom referenceable element.
 ///
 /// If you just want to link to a labelled element and not get an automatic
 /// textual reference, consider using the [`link`]($func/link) function instead.
 ///
-/// # Example
+/// ## Example
 /// ```example
 /// #set heading(numbering: "1.")
 /// #set math.equation(numbering: "(1)")
@@ -44,6 +50,36 @@ use crate::prelude::*;
 ///
 /// To customize the supplement, add content in square brackets after the
 /// reference: `[@intro[Chapter]]`.
+///
+/// ## Customization
+/// If you write a show rule for references, you can access the referenced
+/// element through the `element` field of the reference. The `element` may
+/// be `{none}` even if it exists if Typst hasn't discovered it yet, so you
+/// always need to handle that case in your code.
+///
+/// ```example
+/// #set heading(numbering: "1.")
+/// #set math.equation(numbering: "(1)")
+///
+/// #show ref: it => {
+///   let eq = math.equation
+///   let el = it.element
+///   if el != none and el.func() == eq {
+///     // Override equation references.
+///     numbering(
+///       el.numbering,
+///       ..counter(eq).at(el.location())
+///     )
+///   } else {
+///     // Other references as usual.
+///     it
+///   }
+/// }
+///
+/// = Beginnings <beginning>
+/// In @beginning we prove @pythagoras.
+/// $ a^2 + b^2 = c^2 $ <pythagoras>
+/// ```
 ///
 /// Display: Reference
 /// Category: meta
@@ -79,17 +115,32 @@ pub struct RefElem {
     /// A synthesized citation.
     #[synthesized]
     pub citation: Option<CiteElem>,
+
+    /// The referenced element.
+    #[synthesized]
+    pub element: Option<Content>,
 }
 
 impl Synthesize for RefElem {
     fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         let citation = self.to_citation(vt, styles)?;
         self.push_citation(Some(citation));
+        self.push_element(None);
+
+        let target = self.target();
+        if vt.introspector.init() && !BibliographyElem::has(vt, &target.0) {
+            if let Ok(elem) = vt.introspector.query_label(&target) {
+                self.push_element(Some(elem));
+                return Ok(());
+            }
+        }
+
         Ok(())
     }
 }
 
 impl Show for RefElem {
+    #[tracing::instrument(name = "RefElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         if !vt.introspector.init() {
             return Ok(Content::empty());
@@ -103,12 +154,20 @@ impl Show for RefElem {
                 bail!(self.span(), "label occurs in the document and its bibliography");
             }
 
-            return Ok(self.to_citation(vt, styles)?.pack());
+            return Ok(self.to_citation(vt, styles)?.pack().spanned(self.span()));
         }
 
         let elem = elem.at(self.span())?;
         if !elem.can::<dyn Refable>() {
-            bail!(self.span(), "cannot reference {}", elem.func().name());
+            if elem.can::<dyn Figurable>() {
+                bail!(
+                    self.span(),
+                    "cannot reference {} directly, try putting it into a figure",
+                    elem.func().name()
+                );
+            } else {
+                bail!(self.span(), "cannot reference {}", elem.func().name());
+            }
         }
 
         let supplement = match self.supplement(styles) {
@@ -118,10 +177,12 @@ impl Show for RefElem {
             }
         };
 
+        let lang = TextElem::lang_in(styles);
+        let region = TextElem::region_in(styles);
         let reference = elem
             .with::<dyn Refable>()
             .expect("element should be refable")
-            .reference(vt, styles, supplement)?;
+            .reference(vt, supplement, lang, region)?;
 
         Ok(reference.linked(Destination::Location(elem.location().unwrap())))
     }
@@ -193,33 +254,39 @@ pub trait Refable {
     ///
     /// # Arguments
     /// - `vt` - The virtual typesetter.
-    /// - `styles` - The styles of the reference.
-    /// - `location` - The location where the reference is being created.
     /// - `supplement` - The supplement of the reference.
+    /// - `lang`: The language of the reference.
+    /// - `region`: The region of the reference.
     fn reference(
         &self,
         vt: &mut Vt,
-        styles: StyleChain,
         supplement: Option<Content>,
+        lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content>;
 
     /// Tries to build an outline element for this element.
     /// If this returns `None`, the outline will not include this element.
     /// By default this just calls [`Refable::reference`].
-    fn outline(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Option<Content>> {
-        self.reference(vt, styles, None).map(Some)
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        lang: Lang,
+        region: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
+        self.reference(vt, None, lang, region).map(Some)
     }
 
     /// Returns the level of this element.
     /// This is used to determine the level of the outline.
     /// By default this returns `0`.
-    fn level(&self, _styles: StyleChain) -> usize {
+    fn level(&self) -> usize {
         0
     }
 
     /// Returns the numbering of this element.
-    fn numbering(&self, styles: StyleChain) -> Option<Numbering>;
+    fn numbering(&self) -> Option<Numbering>;
 
     /// Returns the counter of this element.
-    fn counter(&self, styles: StyleChain) -> Counter;
+    fn counter(&self) -> Counter;
 }

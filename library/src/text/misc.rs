@@ -5,7 +5,7 @@ use crate::prelude::*;
 ///
 /// Display: Space
 /// Category: text
-#[element(Unlabellable, Behave)]
+#[element(Behave, Unlabellable, PlainText)]
 pub struct SpaceElem {}
 
 impl Behave for SpaceElem {
@@ -15,6 +15,12 @@ impl Behave for SpaceElem {
 }
 
 impl Unlabellable for SpaceElem {}
+
+impl PlainText for SpaceElem {
+    fn plain_text(&self, text: &mut EcoString) {
+        text.push(' ');
+    }
+}
 
 /// Inserts a line break.
 ///
@@ -99,6 +105,7 @@ pub struct StrongElem {
 }
 
 impl Show for StrongElem {
+    #[tracing::instrument(name = "StrongElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_delta(Delta(self.delta(styles)))))
     }
@@ -159,6 +166,7 @@ pub struct EmphElem {
 }
 
 impl Show for EmphElem {
+    #[tracing::instrument(name = "EmphElem::show", skip(self))]
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_emph(Toggle)))
     }

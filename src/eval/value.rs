@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use siphasher::sip128::{Hasher128, SipHasher};
+use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
     cast_to_value, format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func,
@@ -241,8 +241,8 @@ impl Hash for Value {
 }
 
 /// A dynamic value.
-#[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
 impl Dynamic {
@@ -310,10 +310,11 @@ where
         T::TYPE_NAME
     }
 
+    #[tracing::instrument(skip_all)]
     fn hash128(&self) -> u128 {
         // Also hash the TypeId since values with different types but
         // equal data should be different.
-        let mut state = SipHasher::new();
+        let mut state = SipHasher13::new();
         self.type_id().hash(&mut state);
         self.hash(&mut state);
         state.finish128().as_u128()
@@ -426,7 +427,7 @@ mod tests {
         test(Value::None, "none");
         test(false, "false");
         test(12i64, "12");
-        test(3.14, "3.14");
+        test(3.24, "3.24");
         test(Abs::pt(5.5), "5.5pt");
         test(Angle::deg(90.0), "90deg");
         test(Ratio::one() / 2.0, "50%");
@@ -444,6 +445,6 @@ mod tests {
         test(array![1, 2], "(1, 2)");
         test(dict![], "(:)");
         test(dict!["one" => 1], "(one: 1)");
-        test(dict!["two" => false, "one" => 1], "(one: 1, two: false)");
+        test(dict!["two" => false, "one" => 1], "(two: false, one: 1)");
     }
 }

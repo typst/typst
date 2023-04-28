@@ -48,19 +48,19 @@
 #let dict = (a: 3, c: 2, b: 1)
 #test("c" in dict, true)
 #test(dict.len(), 3)
-#test(dict.values(), (3, 1, 2))
-#test(dict.pairs().map(p => p.first() + str(p.last())).join(), "a3b1c2")
+#test(dict.values(), (3, 2, 1))
+#test(dict.pairs().map(p => p.first() + str(p.last())).join(), "a3c2b1")
 
 #dict.remove("c")
 #test("c" in dict, false)
 #test(dict, (a: 3, b: 1))
 
 ---
-// Error: 24-29 duplicate key
+// Error: 24-29 duplicate key: first
 #(first: 1, second: 2, first: 3)
 
 ---
-// Error: 17-20 duplicate key
+// Error: 17-20 duplicate key: a
 #(a: 1, "b": 2, "a": 3)
 
 ---

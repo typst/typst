@@ -687,6 +687,25 @@ transformed with the given function.
   The function to apply to each item.
 - returns: array
 
+### enumerate()
+Returns a new array with the values alongside their indices.
+
+The returned array consists of `(index, value)` pairs in the form of length-2
+arrays. These can be [destructured]($scripting/#bindings) with a let binding or
+for loop.
+
+- returns: array
+
+### zip()
+Zips the array with another array. If the two arrays are of unequal length, it
+will only zip up until the last element of the smaller array and the remaining
+elements will be ignored. The return value is an array where each element is yet
+another array of size 2.
+
+- other: array (positional, required)
+  The other array which should be zipped with the current one.
+- returns: array
+
 ### fold()
 Folds all items into a single value using an accumulator function.
 
@@ -695,6 +714,20 @@ Folds all items into a single value using an accumulator function.
 - folder: function (positional, required)
   The folding function. Must have two parameters: One for the accumulated value
   and one for an item.
+- returns: any
+
+### sum()
+Sums all items (works for any types that can be added).
+
+- default: any (named)
+  What to return if the array is empty. Must be set if the array can be empty.
+- returns: any
+
+### product()
+Calculates the product all items (works for any types that can be multiplied)
+
+- default: any (named)
+  What to return if the array is empty. Must be set if the array can be empty.
 - returns: any
 
 ### any()
@@ -733,13 +766,17 @@ Combine all items in the array into one.
 ### sorted()
 Return a new array with the same items, but sorted.
 
+- key: function (named)
+  If given, applies this function to the elements in the array to determine the keys to sort by.
 - returns: array
 
 # Dictionary
 A map from string keys to values.
 
 You can construct a dictionary by enclosing comma-separated `key: value` pairs
-in parentheses. The values do not have to be of the same type.
+in parentheses. The values do not have to be of the same type. Since empty
+parentheses already yield an empty array, you have to use the special `(:)`
+syntax to create an empty dictionary.
 
 A dictionary is conceptually similar to an array, but it is indexed by strings
 instead of integers. You can access and create dictionary entries with the
@@ -750,12 +787,8 @@ the value. Dictionaries can be added with the `+` operator and
 To check whether a key is present in the dictionary, use the `in` keyword.
 
 You can iterate over the pairs in a dictionary using a
-[for loop]($scripting/#loops).
-Dictionaries are always ordered by key.
-
-Since empty parentheses already yield an empty array, you have to use the
-special `(:)` syntax to create an empty dictionary.
-
+[for loop]($scripting/#loops). This will iterate in the order the pairs were
+inserted / declared.
 
 ## Example
 ```example
@@ -800,12 +833,12 @@ If the dictionary already contains this key, the value is updated.
   The value of the pair that should be inserted.
 
 ### keys()
-Returns the keys of the dictionary as an array in sorted order.
+Returns the keys of the dictionary as an array in insertion order.
 
 - returns: array
 
 ### values()
-Returns the values of the dictionary as an array in key-order.
+Returns the values of the dictionary as an array in insertion order.
 
 - returns: array
 
@@ -856,6 +889,13 @@ available functions and how you can use them. Please also refer to the
 documentation about [set]($styling/#set-rules) and
 [show]($styling/#show-rules) rules to learn about additional ways
 you can work with functions in Typst.
+
+### Element functions { #element-functions }
+Some functions are associated with _elements_ like [headings]($func/heading) or
+[tables]($func/table). When called, these create an element of their respective
+kind. In contrast to normal functions, they can further be used in
+[set rules]($styling/#set-rules), [show rules]($styling/#show-rules), and
+[selectors]($type/selector).
 
 ### Defining functions { #definitions }
 You can define your own function with a
@@ -958,6 +998,79 @@ Returns the captured positional arguments as an array.
 Returns the captured named arguments as a dictionary.
 
 - returns: dictionary
+
+# Selector
+A filter for selecting elements within the document.
+
+You can construct a selector in the following ways:
+- you can use an element [function]($type/function)
+- you can filter for an element function with
+  [specific fields]($type/function.where)
+- you can use a [string]($type/string) or [regular expression]($func/regex)
+- you can use a [`{<label>}`]($func/label)
+- you can use a [`location`]($func/locate)
+- call the [`selector`]($func/selector) function to convert any of the above
+  types into a selector value and use the methods below to refine it
+
+Selectors are used to [apply styling rules]($styling/#show-rules) to elements.
+You can also use selectors to [query]($func/query) the document for certain
+types of elements.
+
+Furthermore, you can pass a selector to several of Typst's built-in functions to
+configure their behaviour. One such example is the [outline]($func/outline)
+where it can be used to change which elements are listed within the outline.
+
+Multiple selectors can be combined using the methods shown below. However, not
+all kinds of selectors are supported in all places, at the moment.
+
+## Example
+```example
+#locate(loc => query(
+  heading.where(level: 1)
+    .or(heading.where(level: 2)),
+  loc,
+))
+
+= This will be found
+== So will this
+=== But this will not.
+```
+
+## Methods
+### or()
+Allows combining any of a series of selectors. This is used to
+select multiple components or components with different properties
+all at once.
+
+- other: selector (variadic, required)
+  The list of selectors to match on.
+
+### and()
+Allows combining all of a series of selectors. This is used to check
+whether a component meets multiple selection rules simultaneously.
+
+- other: selector (variadic, required)
+  The list of selectors to match on.
+
+### before()
+Returns a modified selector that will only match elements that occur before the
+first match of the selector argument.
+
+- end: selector (positional, required)
+  The original selection will end at the first match of `end`.
+- inclusive: boolean (named)
+  Whether `end` itself should match or not. This is only relevant if both
+  selectors match the same type of element. Defaults to `{true}`.
+
+### after()
+Returns a modified selector that will only match elements that occur after the
+first match of the selector argument.
+
+- start: selector (positional, required)
+  The original selection will start at the first match of `start`.
+- inclusive: boolean (named)
+  Whether `start` itself should match or not. This is only relevant if both
+  selectors match the same type of element. Defaults to `{true}`.
 
 # Module
 An evaluated module, either built-in or resulting from a file.

@@ -2,7 +2,6 @@ use super::*;
 
 const FRAC_AROUND: Em = Em::new(0.1);
 
-/// # Fraction
 /// A mathematical fraction.
 ///
 /// ## Example
@@ -31,6 +30,7 @@ pub struct FracElem {
 }
 
 impl LayoutMath for FracElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.num(), &self.denom(), false, self.span())
     }
@@ -136,6 +136,7 @@ fn layout(
                 Geometry::Line(Point::with_x(line_width)).stroked(Stroke {
                     paint: TextElem::fill_in(ctx.styles()),
                     thickness,
+                    ..Stroke::default()
                 }),
                 span,
             ),

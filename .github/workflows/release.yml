@@ -8,55 +8,70 @@ on:
 
 jobs:
   build-release:
-    name: build-release
+    name: release ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
     strategy:
+      fail-fast: false
       matrix:
-        build: [linux, macos, win-msvc]
         include:
-        - build: linux
-          os: ubuntu-22.04
-          target: x86_64-unknown-linux-gnu
-        - build: macos
-          os: macos-12
-          target: x86_64-apple-darwin
-        - build: win-msvc
-          os: windows-2022
-          target: x86_64-pc-windows-msvc
+        - target: x86_64-unknown-linux-musl
+          os: ubuntu-latest
+          cross: true
+        - target: aarch64-unknown-linux-musl
+          os: ubuntu-latest
+          cross: true
+        - target: armv7-unknown-linux-musleabi
+          os: ubuntu-latest
+          cross: true
+        - target: riscv64gc-unknown-linux-gnu
+          os: ubuntu-latest
+          cross: true
+        - target: x86_64-apple-darwin
+          os: macos-latest
+          cross: false
+        - target: aarch64-apple-darwin
+          os: macos-latest
+          cross: false
+        - target: x86_64-pc-windows-msvc
+          os: windows-latest
+          cross: false
+        - target: aarch64-pc-windows-msvc
+          os: windows-latest
+          cross: true
 
     steps:
     - uses: actions/checkout@v3
     - uses: dtolnay/rust-toolchain@stable
+      with:
+        target: ${{ matrix.target }}
 
-    - name: Build release binary
-      run: cargo build -p typst-cli --release
+    - name: Run Cross
+      if: ${{ matrix.cross}}
+      run: |
+        cargo install cross --git https://github.com/cross-rs/cross.git
+        cross build -p typst-cli --release --target ${{ matrix.target }}
 
-    - name: Strip binary (Linux and macOS)
-      if: matrix.build == 'linux' || matrix.build == 'macos'
-      run: strip "target/release/typst"
+    - name: Run Cargo
+      if: ${{ !matrix.cross }}
+      run: cargo build -p typst-cli --release --target ${{ matrix.target }}
 
-    - name: Build archive
+    - name: create artifact directory
       shell: bash
       run: |
-        directory="typst-${{ matrix.target }}"
-        mkdir "$directory"
-        cp {README.md,LICENSE,NOTICE} "$directory/"
-        if [ "${{ matrix.os }}" = "windows-2022" ]; then
-          cp "target/release/typst.exe" "$directory/"
-          7z a "$directory.zip" "$directory"
-          echo "ASSET=$directory.zip" >> $GITHUB_ENV
+        directory=typst-${{ matrix.target }}
+        mkdir $directory
+        cp README.md LICENSE NOTICE $directory
+        if [ -f target/${{ matrix.target }}/release/typst.exe ]; then
+          cp target/${{ matrix.target }}/release/typst.exe $directory
+          7z a -r $directory.zip $directory
         else
-          cp "target/release/typst" "$directory/"
-          tar czf "$directory.tar.gz" "$directory"
-          echo "ASSET=$directory.tar.gz" >> $GITHUB_ENV
+          cp target/${{ matrix.target }}/release/typst $directory
+          tar cJf $directory.tar.xz $directory
         fi
 
-    - name: Upload release archive
-      uses: actions/upload-release-asset@v1.0.2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - uses: ncipollo/release-action@v1
       with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: ${{ env.ASSET }}
-        asset_name: ${{ env.ASSET }}
-        asset_content_type: application/octet-stream
+        artifacts: "typst-${{ matrix.target }}.*"
+        allowUpdates: true

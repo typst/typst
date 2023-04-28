@@ -5,6 +5,7 @@ mod ctx;
 mod accent;
 mod align;
 mod attach;
+mod cancel;
 mod delimited;
 mod frac;
 mod fragment;
@@ -20,6 +21,7 @@ mod underover;
 pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
+pub use self::cancel::*;
 pub use self::delimited::*;
 pub use self::frac::*;
 pub use self::matrix::*;
@@ -32,6 +34,7 @@ use ttf_parser::{GlyphId, Rect};
 use typst::eval::{Module, Scope};
 use typst::font::{Font, FontWeight};
 use typst::model::Guard;
+use typst::util::option_eq;
 use unicode_math_class::MathClass;
 
 use self::ctx::*;
@@ -71,6 +74,7 @@ pub fn module() -> Module {
     math.define("overbrace", OverbraceElem::func());
     math.define("underbracket", UnderbracketElem::func());
     math.define("overbracket", OverbracketElem::func());
+    math.define("cancel", CancelElem::func());
 
     // Fractions and matrix-likes.
     math.define("frac", FracElem::func());
@@ -165,12 +169,12 @@ impl Synthesize for EquationElem {
     fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_block(self.block(styles));
         self.push_numbering(self.numbering(styles));
-
         Ok(())
     }
 }
 
 impl Show for EquationElem {
+    #[tracing::instrument(name = "EquationElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::func()));
         if self.block(styles) {
@@ -191,6 +195,7 @@ impl Finalize for EquationElem {
 }
 
 impl Layout for EquationElem {
+    #[tracing::instrument(name = "EquationElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -257,6 +262,9 @@ impl Layout for EquationElem {
             frame.size_mut().y = ascent + descent;
         }
 
+        // Apply metadata.
+        frame.meta(styles, false);
+
         Ok(Fragment::frame(frame))
     }
 }
@@ -270,14 +278,24 @@ impl Count for EquationElem {
 }
 
 impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
+            Lang::ARABIC => "معادلة",
+            Lang::BOKMÅL => "Ligning",
+            Lang::CHINESE if option_eq(region, "TW") => "方程式",
             Lang::CHINESE => "等式",
+            Lang::CZECH => "Rovnice",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
             Lang::ITALIAN => "Equazione",
+            Lang::NYNORSK => "Likning",
+            Lang::POLISH => "Równanie",
             Lang::PORTUGUESE => "Equação",
             Lang::RUSSIAN => "Уравнение",
+            Lang::SLOVENIAN => "Enačba",
+            Lang::SPANISH => "Ecuación",
+            Lang::UKRAINIAN => "Рівняння",
+            Lang::VIETNAMESE => "Phương trình",
             Lang::ENGLISH | _ => "Equation",
         }
     }
@@ -287,13 +305,13 @@ impl Refable for EquationElem {
     fn reference(
         &self,
         vt: &mut Vt,
-        styles: StyleChain,
         supplement: Option<Content>,
+        lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content> {
         // first we create the supplement of the heading
-        let mut supplement = supplement.unwrap_or_else(|| {
-            TextElem::packed(self.local_name(TextElem::lang_in(styles)))
-        });
+        let mut supplement =
+            supplement.unwrap_or_else(|| TextElem::packed(self.local_name(lang, region)));
 
         // we append a space if the supplement is not empty
         if !supplement.is_empty() {
@@ -301,7 +319,7 @@ impl Refable for EquationElem {
         };
 
         // we check for a numbering
-        let Some(numbering) = self.numbering(styles) else {
+        let Some(numbering) = self.numbering(StyleChain::default()) else {
             bail!(self.span(), "only numbered equations can be referenced");
         };
 
@@ -313,11 +331,11 @@ impl Refable for EquationElem {
         Ok(supplement + numbers)
     }
 
-    fn numbering(&self, styles: StyleChain) -> Option<Numbering> {
-        self.numbering(styles)
+    fn numbering(&self) -> Option<Numbering> {
+        self.numbering(StyleChain::default())
     }
 
-    fn counter(&self, _styles: StyleChain) -> Counter {
+    fn counter(&self) -> Counter {
         Counter::of(Self::func())
     }
 }
@@ -327,13 +345,29 @@ pub trait LayoutMath {
 }
 
 impl LayoutMath for EquationElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         self.body().layout_math(ctx)
     }
 }
 
 impl LayoutMath for Content {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        // Directly layout the body of nested equations instead of handling it
+        // like a normal equation so that things like this work:
+        // ```
+        // #let my = $pi$
+        // $ my r^2 $
+        // ```
+        if let Some(elem) = self.to::<EquationElem>() {
+            return elem.layout_math(ctx);
+        }
+
+        if let Some(realized) = ctx.realize(self)? {
+            return realized.layout_math(ctx);
+        }
+
         if let Some(children) = self.to_sequence() {
             for child in children {
                 child.layout_math(ctx)?;

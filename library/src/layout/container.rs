@@ -99,6 +99,7 @@ pub struct BoxElem {
 }
 
 impl Layout for BoxElem {
+    #[tracing::instrument(name = "BoxElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -131,6 +132,9 @@ impl Layout for BoxElem {
         // on whether it is automatically or relatively sized.
         let pod = Regions::one(size, expand);
         let mut frame = body.layout(vt, styles, pod)?.into_frame();
+
+        // Enforce correct size.
+        *frame.size_mut() = expand.select(size, frame.size());
 
         // Apply baseline shift.
         let shift = self.baseline(styles).relative_to(frame.height());
@@ -323,6 +327,7 @@ pub struct BlockElem {
 }
 
 impl Layout for BlockElem {
+    #[tracing::instrument(name = "BlockElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -359,6 +364,10 @@ impl Layout for BlockElem {
             pod.size.x = size.x;
             pod.expand = expand;
 
+            if expand.y {
+                pod.full = size.y;
+            }
+
             // Generate backlog for fixed height.
             let mut heights = vec![];
             if sizing.y.is_custom() {
@@ -372,15 +381,26 @@ impl Layout for BlockElem {
                     }
                 }
 
+                if let Some(last) = heights.last_mut() {
+                    *last += remaining;
+                }
+
                 pod.size.y = heights[0];
                 pod.backlog = &heights[1..];
                 pod.last = None;
             }
 
-            body.layout(vt, styles, pod)?.into_frames()
+            let mut frames = body.layout(vt, styles, pod)?.into_frames();
+            for (frame, &height) in frames.iter_mut().zip(&heights) {
+                *frame.size_mut() =
+                    expand.select(Size::new(size.x, height), frame.size());
+            }
+            frames
         } else {
             let pod = Regions::one(size, expand);
-            body.layout(vt, styles, pod)?.into_frames()
+            let mut frames = body.layout(vt, styles, pod)?.into_frames();
+            *frames[0].size_mut() = expand.select(size, frames[0].size());
+            frames
         };
 
         // Clip the contents

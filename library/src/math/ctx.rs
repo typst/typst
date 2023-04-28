@@ -1,5 +1,6 @@
 use ttf_parser::math::MathValue;
 use typst::font::{FontStyle, FontWeight};
+use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
@@ -97,7 +98,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         elem: &dyn LayoutMath,
     ) -> SourceResult<MathFragment> {
         let row = self.layout_fragments(elem)?;
-        Ok(MathRow::new(row).to_fragment(self))
+        Ok(MathRow::new(row).into_fragment(self))
     }
 
     pub fn layout_fragments(
@@ -115,7 +116,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     pub fn layout_frame(&mut self, elem: &dyn LayoutMath) -> SourceResult<Frame> {
-        Ok(self.layout_fragment(elem)?.to_frame())
+        Ok(self.layout_fragment(elem)?.into_frame())
     }
 
     pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {
@@ -150,7 +151,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 let c = self.style.styled_char(c);
                 fragments.push(GlyphFragment::new(self, c, span).into());
             }
-            let frame = MathRow::new(fragments).to_frame(self);
+            let frame = MathRow::new(fragments).into_frame(self);
             FrameFragment::new(self, frame).into()
         } else {
             // Anything else is handled by Typst's standard text layout.
@@ -171,6 +172,10 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn styles(&self) -> StyleChain {
         self.outer.chain(&self.local)
+    }
+
+    pub fn realize(&mut self, content: &Content) -> SourceResult<Option<Content>> {
+        realize(self.vt, content, self.outer.chain(&self.local))
     }
 
     pub fn style(&mut self, style: MathStyle) {

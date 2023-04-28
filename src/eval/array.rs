@@ -6,6 +6,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{ops, Args, Func, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
+use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
 /// Create a new [`Array`] from values.
@@ -23,6 +24,7 @@ macro_rules! __array {
 
 #[doc(inline)]
 pub use crate::__array as array;
+use crate::eval::ops::{add, mul};
 #[doc(hidden)]
 pub use ecow::eco_vec;
 
@@ -180,15 +182,9 @@ impl Array {
 
     /// Transform each item in the array with a function.
     pub fn map(&self, vm: &mut Vm, func: Func) -> SourceResult<Self> {
-        let enumerate = func.argc() == Some(2);
         self.iter()
-            .enumerate()
-            .map(|(i, item)| {
-                let mut args = Args::new(func.span(), []);
-                if enumerate {
-                    args.push(func.span(), Value::Int(i as i64));
-                }
-                args.push(func.span(), item.clone());
+            .map(|item| {
+                let args = Args::new(func.span(), [item.clone()]);
                 func.call_vm(vm, args)
             })
             .collect()
@@ -200,6 +196,40 @@ impl Array {
         for item in self.iter() {
             let args = Args::new(func.span(), [acc, item.clone()]);
             acc = func.call_vm(vm, args)?;
+        }
+        Ok(acc)
+    }
+
+    /// Calculates the sum of the array's items
+    pub fn sum(&self, default: Option<Value>, span: Span) -> SourceResult<Value> {
+        let mut acc = self
+            .first()
+            .map(|x| x.clone())
+            .or_else(|_| {
+                default.ok_or_else(|| {
+                    eco_format!("cannot calculate sum of empty array with no default")
+                })
+            })
+            .at(span)?;
+        for i in self.iter().skip(1) {
+            acc = add(acc, i.clone()).at(span)?;
+        }
+        Ok(acc)
+    }
+
+    /// Calculates the product of the array's items
+    pub fn product(&self, default: Option<Value>, span: Span) -> SourceResult<Value> {
+        let mut acc = self
+            .first()
+            .map(|x| x.clone())
+            .or_else(|_| {
+                default.ok_or_else(|| {
+                    eco_format!("cannot calculate product of empty array with no default")
+                })
+            })
+            .at(span)?;
+        for i in self.iter().skip(1) {
+            acc = mul(acc, i.clone()).at(span)?;
         }
         Ok(acc)
     }
@@ -276,23 +306,57 @@ impl Array {
         Ok(result)
     }
 
-    /// Return a sorted version of this array.
+    /// Zips the array with another array. If the two arrays are of unequal length, it will only
+    /// zip up until the last element of the smaller array and the remaining elements will be
+    /// ignored. The return value is an array where each element is yet another array of size 2.
+    pub fn zip(&self, other: Array) -> Array {
+        self.iter()
+            .zip(other)
+            .map(|(first, second)| {
+                Value::Array(Array::from_vec(eco_vec![first.clone(), second]))
+            })
+            .collect()
+    }
+
+    /// Return a sorted version of this array, optionally by a given key function.
     ///
-    /// Returns an error if two values could not be compared.
-    pub fn sorted(&self) -> StrResult<Self> {
+    /// Returns an error if two values could not be compared or if the key function (if given)
+    /// yields an error.
+    pub fn sorted(
+        &self,
+        vm: &mut Vm,
+        span: Span,
+        key: Option<Func>,
+    ) -> SourceResult<Self> {
         let mut result = Ok(());
         let mut vec = self.0.clone();
+        let mut key_of = |x: Value| match &key {
+            // NOTE: We are relying on `comemo`'s memoization of function
+            // evaluation to not excessively reevaluate the `key`.
+            Some(f) => f.call_vm(vm, Args::new(f.span(), [x])),
+            None => Ok(x),
+        };
         vec.make_mut().sort_by(|a, b| {
-            a.partial_cmp(b).unwrap_or_else(|| {
-                if result.is_ok() {
-                    result = Err(eco_format!(
-                        "cannot order {} and {}",
-                        a.type_name(),
-                        b.type_name(),
-                    ));
+            // Until we get `try` blocks :)
+            match (key_of(a.clone()), key_of(b.clone())) {
+                (Ok(a), Ok(b)) => a.partial_cmp(&b).unwrap_or_else(|| {
+                    if result.is_ok() {
+                        result = Err(eco_format!(
+                            "cannot order {} and {}",
+                            a.type_name(),
+                            b.type_name(),
+                        ))
+                        .at(span);
+                    }
+                    Ordering::Equal
+                }),
+                (Err(e), _) | (_, Err(e)) => {
+                    if result.is_ok() {
+                        result = Err(e);
+                    }
+                    Ordering::Equal
                 }
-                Ordering::Equal
-            })
+            }
         });
         result.map(|_| Self::from_vec(vec))
     }
@@ -321,6 +385,17 @@ impl Array {
     fn locate(&self, index: i64) -> Option<usize> {
         usize::try_from(if index >= 0 { index } else { self.len().checked_add(index)? })
             .ok()
+    }
+
+    /// Enumerate all items in the array.
+    pub fn enumerate(&self) -> Self {
+        let v = self
+            .iter()
+            .enumerate()
+            .map(|(i, value)| array![i, value.clone()])
+            .map(Value::Array)
+            .collect();
+        Self::from_vec(v)
     }
 }
 

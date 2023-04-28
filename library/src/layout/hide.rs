@@ -23,6 +23,7 @@ pub struct HideElem {
 }
 
 impl Show for HideElem {
+    #[tracing::instrument(name = "HideElem::show", skip(self))]
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(MetaElem::set_data(vec![Meta::Hide])))
     }

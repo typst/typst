@@ -199,6 +199,7 @@ pub struct MathStyleElem {
 }
 
 impl LayoutMath for MathStyleElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut style = ctx.style;
         if let Some(variant) = self.variant(StyleChain::default()) {
@@ -470,11 +471,11 @@ fn latin_exception(
         ('I', Cal, false, _) => 'ℐ',
         ('L', Cal, false, _) => 'ℒ',
         ('M', Cal, false, _) => 'ℳ',
-        ('R', Cal, false, _) => 'ℜ',
+        ('R', Cal, false, _) => 'ℛ',
         ('C', Frak, false, _) => 'ℭ',
         ('H', Frak, false, _) => 'ℌ',
         ('I', Frak, false, _) => 'ℑ',
-        ('R', Frak, false, _) => 'ℛ',
+        ('R', Frak, false, _) => 'ℜ',
         ('Z', Frak, false, _) => 'ℨ',
         ('C', Bb, ..) => 'ℂ',
         ('H', Bb, ..) => 'ℍ',

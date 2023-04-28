@@ -1,12 +1,14 @@
 pub use typst_macros::{cast_from_value, cast_to_value, Cast};
 
-use std::num::{NonZeroI64, NonZeroUsize};
+use std::num::{NonZeroI64, NonZeroU64, NonZeroUsize};
 use std::ops::Add;
 
 use ecow::EcoString;
 
 use super::{Array, Str, Value};
 use crate::diag::StrResult;
+use crate::eval::Type;
+use crate::geom::Length;
 use crate::syntax::Spanned;
 use crate::util::separated_list;
 
@@ -93,8 +95,19 @@ cast_to_value! {
     v: u32 => Value::Int(v as i64)
 }
 
+cast_from_value! {
+    u64,
+    int: i64 => int.try_into().map_err(|_| {
+        if int < 0 {
+            "number must be at least zero"
+        } else {
+            "number too large"
+        }
+    })?,
+}
+
 cast_to_value! {
-    v: i32 => Value::Int(v as i64)
+    v: u64 => Value::Int(v as i64)
 }
 
 cast_from_value! {
@@ -112,6 +125,40 @@ cast_to_value! {
     v: usize => Value::Int(v as i64)
 }
 
+cast_to_value! {
+    v: i32 => Value::Int(v as i64)
+}
+
+cast_from_value! {
+    NonZeroI64,
+    int: i64 => int.try_into()
+        .map_err(|_| if int == 0 {
+            "number must not be zero"
+        } else {
+            "number too large"
+        })?,
+}
+
+cast_to_value! {
+    v: NonZeroI64 => Value::Int(v.get())
+}
+
+cast_from_value! {
+    NonZeroU64,
+    int: i64 => int
+        .try_into()
+        .and_then(|int: u64| int.try_into())
+        .map_err(|_| if int <= 0 {
+            "number must be positive"
+        } else {
+            "number too large"
+        })?,
+}
+
+cast_to_value! {
+    v: NonZeroU64 => Value::Int(v.get() as i64)
+}
+
 cast_from_value! {
     NonZeroUsize,
     int: i64 => int
@@ -126,20 +173,6 @@ cast_from_value! {
 
 cast_to_value! {
     v: NonZeroUsize => Value::Int(v.get() as i64)
-}
-
-cast_from_value! {
-    NonZeroI64,
-    int: i64 => int.try_into()
-        .map_err(|_| if int <= 0 {
-            "number must be positive"
-        } else {
-            "number too large"
-        })?,
-}
-
-cast_to_value! {
-    v: NonZeroI64 => Value::Int(v.get())
 }
 
 cast_from_value! {
@@ -237,7 +270,7 @@ impl<T> Variadics for Vec<T> {
 }
 
 /// Describes a possible value for a cast.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, PartialOrd)]
 pub enum CastInfo {
     /// Any value is okay.
     Any,
@@ -291,6 +324,14 @@ impl CastInfo {
             msg.push_str(", found ");
             msg.push_str(found.type_name());
         }
+        if_chain::if_chain! {
+            if let Value::Int(i) = found;
+            if parts.iter().any(|p| p == Length::TYPE_NAME);
+            if !matching_type;
+            then {
+                msg.push_str(&format!(": a length needs a unit – did you mean {i}pt?"));
+            }
+        };
 
         msg.into()
     }
@@ -302,15 +343,23 @@ impl Add for CastInfo {
     fn add(self, rhs: Self) -> Self {
         Self::Union(match (self, rhs) {
             (Self::Union(mut lhs), Self::Union(rhs)) => {
-                lhs.extend(rhs);
+                for cast in rhs {
+                    if !lhs.contains(&cast) {
+                        lhs.push(cast);
+                    }
+                }
                 lhs
             }
             (Self::Union(mut lhs), rhs) => {
-                lhs.push(rhs);
+                if !lhs.contains(&rhs) {
+                    lhs.push(rhs);
+                }
                 lhs
             }
             (lhs, Self::Union(mut rhs)) => {
-                rhs.insert(0, lhs);
+                if !rhs.contains(&lhs) {
+                    rhs.insert(0, lhs);
+                }
                 rhs
             }
             (lhs, rhs) => vec![lhs, rhs],

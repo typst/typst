@@ -21,6 +21,7 @@ pub struct UnderlineElem {
 }
 
 impl LayoutMath for UnderlineElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false, self.span())
     }
@@ -43,6 +44,7 @@ pub struct OverlineElem {
 }
 
 impl LayoutMath for OverlineElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true, self.span())
     }
@@ -69,6 +71,7 @@ pub struct UnderbraceElem {
 }
 
 impl LayoutMath for UnderbraceElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -103,6 +106,7 @@ pub struct OverbraceElem {
 }
 
 impl LayoutMath for OverbraceElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -137,6 +141,7 @@ pub struct UnderbracketElem {
 }
 
 impl LayoutMath for UnderbracketElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -171,6 +176,7 @@ pub struct OverbracketElem {
 }
 
 impl LayoutMath for OverbracketElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         layout(
             ctx,
@@ -196,6 +202,7 @@ fn layout(
 ) -> SourceResult<()> {
     let gap = gap.scaled(ctx);
     let body = ctx.layout_row(body)?;
+    let body_class = body.class();
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
@@ -220,7 +227,7 @@ fn layout(
     }
 
     let frame = stack(ctx, rows, Align::Center, gap, baseline);
-    ctx.push(FrameFragment::new(ctx, frame));
+    ctx.push(FrameFragment::new(ctx, frame).with_class(body_class));
 
     Ok(())
 }
@@ -236,22 +243,18 @@ pub(super) fn stack(
     gap: Abs,
     baseline: usize,
 ) -> Frame {
-    let mut width = Abs::zero();
-    let mut height = rows.len().saturating_sub(1) as f64 * gap;
-
-    let points = alignments(&rows);
+    let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
-        .map(|row| row.to_aligned_frame(ctx, &points, align))
+        .map(|row| row.into_aligned_frame(ctx, &points, align))
         .collect();
 
-    for row in &rows {
-        height += row.height();
-        width.set_max(row.width());
-    }
-
     let mut y = Abs::zero();
-    let mut frame = Frame::new(Size::new(width, height));
+    let mut frame = Frame::new(Size::new(
+        width,
+        rows.iter().map(|row| row.height()).sum::<Abs>()
+            + rows.len().saturating_sub(1) as f64 * gap,
+    ));
 
     for (i, row) in rows.into_iter().enumerate() {
         let x = align.position(width - row.width());

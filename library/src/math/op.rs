@@ -15,8 +15,8 @@ use super::*;
 /// Typst predefines the operators `arccos`,  `arcsin`,  `arctan`,  `arg`,
 /// `cos`,  `cosh`,  `cot`, `ctg`, `coth`,  `csc`,  `deg`,  `det`,  `dim`,
 /// `exp`, `gcd`,  `hom`,  `mod`,  `inf`,  `ker`,  `lg`,  `lim`,  `ln`,  `log`,
-/// `max`, `min`,  `Pr`,  `sec`,  `sin`,  `sinh`,  `sup`,  `tan`, `tg`, `tanh`,
-/// `liminf`, and `limsup`.
+/// `max`, `min`,  `Pr`,  `sec`,  `sin`,  `sinc`,  `sinh`,  `sup`,  `tan`, `tg`,
+/// `tanh`, `liminf`, and `limsup`.
 ///
 /// Display: Text Operator
 /// Category: math
@@ -34,11 +34,12 @@ pub struct OpElem {
 }
 
 impl LayoutMath for OpElem {
+    #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let fragment =
             ctx.layout_text(&TextElem::new(self.text()).spanned(self.span()))?;
         ctx.push(
-            FrameFragment::new(ctx, fragment.to_frame())
+            FrameFragment::new(ctx, fragment.into_frame())
                 .with_class(MathClass::Large)
                 .with_limits(self.limits(ctx.styles())),
         );
@@ -99,6 +100,7 @@ ops! {
     Pr (limits),
     sec,
     sin,
+    sinc,
     sinh,
     sup (limits),
     tan,

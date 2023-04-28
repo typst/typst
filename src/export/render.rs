@@ -11,7 +11,8 @@ use usvg::{FitTo, NodeExt};
 
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::geom::{
-    self, Abs, Color, Geometry, Paint, PathItem, Shape, Size, Stroke, Transform,
+    self, Abs, Color, Geometry, LineCap, LineJoin, Paint, PathItem, Shape, Size, Stroke,
+    Transform,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -61,6 +62,7 @@ fn render_frame(
             FrameItem::Meta(meta, _) => match meta {
                 Meta::Link(_) => {}
                 Meta::Elem(_) => {}
+                Meta::PageNumbering(_) => {}
                 Meta::Hide => {}
             },
         }
@@ -236,7 +238,7 @@ fn render_bitmap_glyph(
     let size = text.size.to_f32();
     let ppem = size * ts.sy;
     let raster = text.font.ttf().glyph_raster_image(id, ppem as u16)?;
-    let image = Image::new(raster.data.into(), raster.format.into()).ok()?;
+    let image = Image::new(raster.data.into(), raster.format.into(), None).ok()?;
 
     // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
     // and maybe also for Noto Color Emoji. And: Is the size calculation
@@ -296,7 +298,7 @@ fn render_outline_glyph(
         let c = color.to_rgba();
 
         // Pad the pixmap with 1 pixel in each dimension so that we do
-        // not get any problem with floating point errors along ther border
+        // not get any problem with floating point errors along their border
         let mut pixmap = sk::Pixmap::new(mw + 2, mh + 2)?;
         for x in 0..mw {
             for y in 0..mh {
@@ -391,10 +393,40 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if let Some(Stroke { paint, thickness }) = &shape.stroke {
-        let paint = paint.into();
-        let stroke = sk::Stroke { width: thickness.to_f32(), ..Default::default() };
-        canvas.stroke_path(&path, &paint, &stroke, ts, mask);
+    if let Some(Stroke {
+        paint,
+        thickness,
+        line_cap,
+        line_join,
+        dash_pattern,
+        miter_limit,
+    }) = &shape.stroke
+    {
+        let width = thickness.to_f32();
+
+        // Don't draw zero-pt stroke.
+        if width > 0.0 {
+            let dash = dash_pattern.as_ref().and_then(|pattern| {
+                // tiny-skia only allows dash patterns with an even number of elements,
+                // while pdf allows any number.
+                let pattern_len = pattern.array.len();
+                let len =
+                    if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
+                let dash_array =
+                    pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
+
+                sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
+            });
+            let paint = paint.into();
+            let stroke = sk::Stroke {
+                width,
+                line_cap: line_cap.into(),
+                line_join: line_join.into(),
+                dash,
+                miter_limit: miter_limit.0 as f32,
+            };
+            canvas.stroke_path(&path, &paint, &stroke, ts, mask);
+        }
     }
 
     Some(())
@@ -470,7 +502,7 @@ fn render_image(
 #[comemo::memoize]
 fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
-    match image.decode().unwrap().as_ref() {
+    match image.decoded() {
         DecodedImage::Raster(dynamic, _) => {
             let downscale = w < image.width();
             let filter =
@@ -521,6 +553,26 @@ impl From<Color> for sk::Color {
     fn from(color: Color) -> Self {
         let c = color.to_rgba();
         sk::Color::from_rgba8(c.r, c.g, c.b, c.a)
+    }
+}
+
+impl From<&LineCap> for sk::LineCap {
+    fn from(line_cap: &LineCap) -> Self {
+        match line_cap {
+            LineCap::Butt => sk::LineCap::Butt,
+            LineCap::Round => sk::LineCap::Round,
+            LineCap::Square => sk::LineCap::Square,
+        }
+    }
+}
+
+impl From<&LineJoin> for sk::LineJoin {
+    fn from(line_join: &LineJoin) -> Self {
+        match line_join {
+            LineJoin::Miter => sk::LineJoin::Miter,
+            LineJoin::Round => sk::LineJoin::Round,
+            LineJoin::Bevel => sk::LineJoin::Bevel,
+        }
     }
 }
 

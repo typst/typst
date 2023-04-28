@@ -10,6 +10,9 @@ use crate::prelude::*;
 /// the [grid documentation]($func/grid) for more information on how to size the
 /// table tracks.
 ///
+/// To give a table a caption and make it [referenceable]($func/ref), put it
+/// into a [figure]($func/figure).
+///
 /// ## Example
 /// ```example
 /// #table(
@@ -119,6 +122,7 @@ pub struct TableElem {
 }
 
 impl Layout for TableElem {
+    #[tracing::instrument(name = "TableElem::layout", skip_all)]
     fn layout(
         &self,
         vt: &mut Vt,
@@ -281,14 +285,23 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
 }
 
 impl LocalName for TableElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
+            Lang::ARABIC => "جدول",
+            Lang::BOKMÅL => "Tabell",
             Lang::CHINESE => "表",
+            Lang::CZECH => "Tabulka",
             Lang::FRENCH => "Tableau",
             Lang::GERMAN => "Tabelle",
             Lang::ITALIAN => "Tabella",
+            Lang::NYNORSK => "Tabell",
+            Lang::POLISH => "Tabela",
             Lang::PORTUGUESE => "Tabela",
             Lang::RUSSIAN => "Таблица",
+            Lang::SLOVENIAN => "Tabela",
+            Lang::SPANISH => "Tabla",
+            Lang::UKRAINIAN => "Таблиця",
+            Lang::VIETNAMESE => "Bảng",
             Lang::ENGLISH | _ => "Table",
         }
     }
