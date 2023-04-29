@@ -21,22 +21,22 @@ and #hide[$ f(x) := x^2 $]
 
 ---
 // Test equations can embed equation pieces built by functions
-#let foo(upper, lower) = {
+#let foo(v1, v2) = {
   // Return an equation piece that would've been rendered in
   // inline style if the piece is not embedded
-  $(upper/lower)^2$
+  $v1 v2^2$
 }
-#let bar(upper, lower) = {
+#let bar(v1, v2) = {
   // Return an equation piece that would've been rendered in
   // block style if the piece is not embedded
-  $ (upper/lower)^2 $
+  $ v1 v2^2 $
 }
 
-Inline $foo(alpha, M+1)+sigma^2$.
+Inline $2 foo(alpha, (M+foo(a, b)))$.
 
-Inline $bar(alpha, M+1)+sigma^2$.
+Inline $2 bar(alpha, (M+foo(a, b)))$.
 
 Block:
-$ foo(alpha, M+1)+sigma^2 $
+$ 2 foo(alpha, (M+foo(a, b))) $
 Block:
-$ bar(alpha, M+1)+sigma^2 $
+$ 2 bar(alpha, (M+foo(a, b))) $
