@@ -108,10 +108,11 @@ pub struct RawElem {
     /// this is not a raw block (specified `block: false` or single backticks
     /// were used in markup mode).
     ///
-    /// By default, this is set to `{left}`, meaning that raw text is
-    /// left-aligned inside the block by default, regardless of the current
-    /// context's alignment (allowing you to center the raw block itself
-    /// without centering the text inside it, for example).
+    /// By default, this is set to `{start}`, meaning that raw text is
+    /// aligned towards the start of the text direction inside the block
+    /// by default, regardless of the current context's alignment (allowing
+    /// you to center the raw block itself without centering the text inside
+    /// it, for example).
     ///
     /// ````example
     /// #set raw(align: right)
