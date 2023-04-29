@@ -194,7 +194,7 @@ _components_ with a specified number of _modifiers_. A component represents a
 certain part of the datetime that you want to display, and with the help of 
 modifiers you can define how you want to display that component. In order to 
 display a component, you wrap the name of the component in square brackets 
-(e.g. `[year]` will display the year of the date). In order to add modifiers, 
+(e.g. `[year]` will display the year). In order to add modifiers, 
 you add a space after the component name followed by the name of the modifier, 
 a colon and the value of the modifier (e.g. `[month repr:short]` will display 
 the short representation of the month).
@@ -207,27 +207,27 @@ follows:
   is padded.
   * `repr` Can be either `full` in which case the full year is displayed or 
   `last_two` in which case only the last two digits are displayed.
-  * `sign`: Can be either `automatic` or `mandatory`. Specified when the sign 
+  * `sign`: Can be either `automatic` or `mandatory`. Specifies when the sign 
   should be displayed.
 * `month`: Displays the month of the datetime.
   * `padding`: Can be either `zero`, `space` or `none`. Specifies how the month 
   is padded.
-  * `repr`: Can be either `numerical`, `long` or `short`. Specified if the month 
+  * `repr`: Can be either `numerical`, `long` or `short`. Specifies if the month 
   should be displayed as a number or a word. Unfortunately, when choosing the 
   word representation, it can currently only display the English version. In 
   the future, it is planned to support localization.
-* `day`: Displays the day of the date.
+* `day`: Displays the day of the datetime.
   * `padding`: Can be either `zero`, `space` or `none`. Specifies how the day 
   is padded.
-* `week_number`: Displays the week number of the date.
+* `week_number`: Displays the week number of the datetime.
   * `padding`: Can be either `zero`, `space` or `none`. Specifies how the week 
   number is padded.
   * `repr`: Can be either `ISO`, `sunday` or `monday`. In the case of `ISO`, 
   week numbers are between 1 and 53, while the other ones are between 0 and 53.
 * `weekday`: Displays the weekday of the date.
   * `repr` Can be either `long`, `short`, `sunday` or `monday`. In the case of 
-  `long` and `short`, the corresponding English name will be displayed (as for 
-  the month, other languages are currently not supported). In the case of 
+  `long` and `short`, the corresponding English name will be displayed (same as 
+  for the month, other languages are currently not supported). In the case of 
   `sunday` and `monday`, the numerical value will be displayed (assuming Sunday 
   and Monday as the first day of the week, respectively).
   * `one_indexed`: Can be either `true` or `false`. Defines whether the 
@@ -249,8 +249,9 @@ follows:
 
 Keep in mind that not always all components can be used. For example, if
 you create a new datetime with `#datetime(year: 2023, month: 10, day: 13)`, it
-will be stored as a plain date internally, meaning that you cannot use the
-`hour` or `minute` components.
+will be stored as a plain date internally, meaning that you cannot use 
+components such as `hour` or `minute`, which would only work on datetimes 
+that have a specified time.
 
 - pattern: string (positional)
   The format used to display the datetime.
@@ -266,7 +267,6 @@ Custom representation: #date.display("Last two digits of year: [year padding:zer
 
 Default representation: #time.display() \
 Custom representation: #time.display("Hour: [hour repr:12] ([period]), Minute: [minute padding:none], Second: [second]")
-
 ```
 
 ### year()
@@ -279,31 +279,31 @@ Returns the year of the datetime, if it exists. Otherwise, it returns `none`.
 
 Returns the month of the datetime, if it exists. Otherwise, it returns `none`.
 
-- returns: integer
+- returns: integer or none
 
 ### day()
 
 Returns the day of the datetime, if it exists. Otherwise, it returns `none`.
 
-- returns: integer
+- returns: integer or none
 
 ### hour()
 
 Returns the hour of the datetime, if it exists. Otherwise, it returns `none`.
 
-- returns: integer
+- returns: integer or none
 
 ### minute()
 
 Returns the minute of the datetime, if it exists. Otherwise, it returns `none`.
 
-- returns: integer
+- returns: integer or none
 
 ### second()
 
 Returns the second of the datetime, if it exists. Otherwise, it returns `none`.
 
-- returns: integer
+- returns: integer or none
 
 
 # Symbol

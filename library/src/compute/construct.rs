@@ -192,10 +192,10 @@ cast_from_value! {
 ///
 /// _Note_: Depending on which components of the datetime you specify, Typst will store them in
 /// one of the following three ways:
-/// * If you specify the year, month and day, Typst will store it as a date.
-/// * If you specity the hour, minute and second, Typst will store it as a time.
+/// * If you specify the year, month and day, Typst will store it as a date internally.
+/// * If you specity the hour, minute and second, Typst will store it as a time internally.
 /// * If you specify all of year, month, day, hour, minute and second, Typst will store it as a
-/// datetime.
+/// datetime internally.
 ///
 /// Depending on how it is stored, the `display` method will choose a different formatting by
 /// default.
