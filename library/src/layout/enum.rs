@@ -147,6 +147,36 @@ pub struct EnumElem {
     /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
     pub spacing: Smart<Spacing>,
 
+    /// The alignment that enum numbers should have, or `{auto}` to
+    /// inherit the text alignment from the context.
+    ///
+    /// By default, this is set to `{end + top}`, which aligns enum numbers
+    /// towards the top and the end of the current text direction (in
+    /// left-to-right script, this is the same as `{right + top}`). The choice
+    /// of `{end}` for horizontal alignment is usually better than `{start}`,
+    /// as numbers then grow away from the text instead of towards it, and
+    /// the choice of `{top}` for vertical alignment avoids inheriting `{horizon}`
+    /// or `{bottom}` alignment from the context, which positions numbers away
+    /// from the text, in a strange manner. This option lets you override this
+    /// behavior, however.
+    ///
+    /// ````example
+    /// #set enum(number-align: left)
+    ///
+    /// #lorem(40)
+    /// #align(right + horizon)[
+    ///     1. Numbers here are left-aligned,
+    ///     9. overriding the default of
+    ///    10. right-aligned. However, even if
+    ///    11. there is horizon alignment, \
+    ///          the numbers are still \
+    ///          top-aligned.
+    /// ]
+    /// #lorem(40)
+    /// ````
+    #[default(Smart::Custom(Axes::new(GenAlign::End, GenAlign::Specific(Align::Top)).into()))]
+    pub number_align: Smart<Axes<Option<GenAlign>>>,
+
     /// The numbered list's items.
     ///
     /// When using the enum syntax, adjacent items are automatically collected
@@ -190,6 +220,12 @@ impl Layout for EnumElem {
         let mut number = self.start(styles);
         let mut parents = self.parents(styles);
         let full = self.full(styles);
+        let number_align = self.number_align(styles).map(|alignment| {
+            // Default missing components to end + top.
+            alignment
+                .unwrap_or(Axes::new(GenAlign::End, GenAlign::Specific(Align::Top)))
+                .map(Some)
+        });
 
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
@@ -208,9 +244,14 @@ impl Layout for EnumElem {
                 }
             };
 
+            let resolved = if let Smart::Custom(alignment) = number_align {
+                resolved.aligned(alignment)
+            } else {
+                resolved
+            };
+
             cells.push(Content::empty());
-            // avoid '#set align' interference with the enum
-            cells.push(resolved.aligned(Align::LEFT_TOP.into()));
+            cells.push(resolved);
             cells.push(Content::empty());
             cells.push(item.body().styled(Self::set_parents(Parent(number))));
             number = number.saturating_add(1);
