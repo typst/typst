@@ -31,12 +31,17 @@ and #hide[$ f(x) := x^2 $]
   // block style if the piece is not embedded
   $ v1 v2^2 $
 }
+#let baz(..sink) = {
+  // Return an equation piece built by joining arrays
+  sink.pos().map(x => $hat(#x)$).join(sym.and)
+}
 
 Inline $2 foo(alpha, (M+foo(a, b)))$.
 
 Inline $2 bar(alpha, (M+foo(a, b)))$.
 
-Block:
+Inline $2 baz(x,y,baz(u, v))$.
+
 $ 2 foo(alpha, (M+foo(a, b))) $
-Block:
 $ 2 bar(alpha, (M+foo(a, b))) $
+$ 2 baz(x,y,baz(u, v)) $
