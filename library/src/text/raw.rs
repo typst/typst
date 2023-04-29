@@ -102,6 +102,30 @@ pub struct RawElem {
     /// ```
     /// ````
     pub lang: Option<EcoString>,
+
+    /// The alignment that each line in a raw block should have, or `{auto}` to
+    /// inherit the text alignment from the context. This option is ignored if
+    /// this is not a raw block (specified `block: false` or single backticks
+    /// were used in markup mode).
+    ///
+    /// By default, this is set to `{left}`, meaning that raw text is
+    /// left-aligned inside the block by default, regardless of the current
+    /// context's alignment (allowing you to center the raw block itself
+    /// without centering the text inside it, for example).
+    ///
+    /// ````example
+    /// #set raw(align: right)
+    ///
+    /// #lorem(40)
+    /// #align(center, ```typ
+    /// #let f(x) = x
+    /// Text in this block is right-aligned,
+    /// but the block itself is center-aligned.
+    /// ```)
+    /// #lorem(40)
+    /// ````
+    #[default(Smart::Custom(Axes::new(Some(GenAlign::Start), None)))]
+    pub align: Smart<Axes<Option<GenAlign>>>,
 }
 
 impl RawElem {
@@ -180,6 +204,11 @@ impl Show for RawElem {
         };
 
         if self.block(styles) {
+            // Align the text before inserting it inside a block.
+            if let Smart::Custom(align) = self.align(styles) {
+                realized = realized.aligned(align);
+            }
+
             realized = BlockElem::new().with_body(Some(realized)).pack();
         }
 
