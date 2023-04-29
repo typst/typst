@@ -109,3 +109,16 @@ pub fn meta_line<'a>(lines: &mut Vec<&'a str>, key: &str) -> Result<&'a str> {
         None => bail!(callsite, "missing metadata key: {}", key),
     }
 }
+
+/// Creates a block responsible for building a Scope.
+pub fn create_scope_builder(scope_block: Option<&BlockWithReturn>) -> TokenStream {
+    if let Some(BlockWithReturn { prefix, expr }) = scope_block {
+        quote! { {
+            let mut scope = ::typst::eval::Scope::deduplicating();
+            #(#prefix);*
+            #expr
+        } }
+    } else {
+        quote! { ::typst::eval::Scope::new() }
+    }
+}

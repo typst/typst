@@ -339,7 +339,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
         .iter()
         .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
-    let scope = create_scope_builder(element);
+    let scope = create_scope_builder(element.scope.as_ref());
     quote! {
         impl ::typst::model::Element for #ident {
             fn pack(self) -> ::typst::model::Content {
@@ -525,17 +525,4 @@ fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
     };
 
     (quote! {}, value)
-}
-
-/// Creates a block responsible for building a Scope.
-fn create_scope_builder(elem: &Elem) -> TokenStream {
-    if let Some(BlockWithReturn { prefix, expr }) = &elem.scope {
-        quote! { {
-            let mut scope = ::typst::eval::Scope::deduplicating();
-            #(#prefix);*
-            #expr
-        } }
-    } else {
-        quote! { ::typst::eval::Scope::new() }
-    }
 }

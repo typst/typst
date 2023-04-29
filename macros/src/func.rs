@@ -116,7 +116,7 @@ fn create(func: &Func) -> TokenStream {
     } = func;
     let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
     let params = params.iter().map(create_param_info);
-    let scope = create_scope_builder(func);
+    let scope = create_scope_builder(func.scope.as_ref());
     quote! {
         #[doc = #docs]
         #vis fn #ident() -> &'static ::typst::eval::NativeFunc {
@@ -186,17 +186,4 @@ fn create_param_parser(param: &Param) -> TokenStream {
     }
 
     quote! { let #ident: #ty = #value; }
-}
-
-/// Creates a block responsible for building a Scope.
-fn create_scope_builder(func: &Func) -> TokenStream {
-    if let Some(BlockWithReturn { prefix, expr }) = &func.scope {
-        quote! { {
-            let mut scope = ::typst::eval::Scope::deduplicating();
-            #(#prefix);*
-            #expr
-        } }
-    } else {
-        quote! { ::typst::eval::Scope::new() }
-    }
 }
