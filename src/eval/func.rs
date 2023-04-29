@@ -146,8 +146,7 @@ impl Func {
         }
     }
 
-    /// Get a field from this function's scope,
-    /// if possible.
+    /// Get a field from this function's scope, if possible.
     pub fn get(&self, field: &str) -> StrResult<&Value> {
         match &self.repr {
             Repr::Native(func) => func.info.scope.get(field).ok_or_else(|| {
@@ -164,9 +163,9 @@ impl Func {
                     field
                 )
             }),
-            Repr::Closure(_) => Err(eco_format!(
-                "cannot access fields on closures and user-defined functions"
-            )),
+            Repr::Closure(_) => {
+                Err(eco_format!("cannot access fields on user-defined functions"))
+            }
             Repr::With(arc) => arc.0.get(field),
         }
     }

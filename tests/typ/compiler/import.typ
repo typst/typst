@@ -85,17 +85,17 @@
 ---
 // Can't import from closures.
 #let f(x) = x
-// Error: 9-10 cannot import from closures or user-defined functions
+// Error: 9-10 cannot import from user-defined functions
 #import f: x
 
 ---
 // Can't import from closures, despite modifiers.
 #let f(x) = x
-// Error: 9-18 cannot import from closures or user-defined functions
+// Error: 9-18 cannot import from user-defined functions
 #import f.with(5): x
 
 ---
-// Error: 9-18 cannot import from closures or user-defined functions
+// Error: 9-18 cannot import from user-defined functions
 #import () => {5}: x
 
 ---

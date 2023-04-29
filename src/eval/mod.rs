@@ -1067,10 +1067,11 @@ impl Eval for ast::FuncCall {
                 let args = args.eval(vm)?;
                 let target = target.access(vm)?;
 
-                // Prioritize a function's own methods (with, where) over its fields.
-                // This is fine as we define each field of a function, if it has any.
-                // ('methods_on' will be empty for Symbol and Module - their method calls
-                // always refer to their fields.)
+                // Prioritize a function's own methods (with, where) over its
+                // fields. This is fine as we define each field of a function,
+                // if it has any.
+                // ('methods_on' will be empty for Symbol and Module - their
+                // method calls always refer to their fields.)
                 if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
                     || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
                 {
@@ -1085,10 +1086,6 @@ impl Eval for ast::FuncCall {
                 let target = target.eval(vm)?;
                 let args = args.eval(vm)?;
 
-                // Prioritize a function's own methods (with, where) over its fields.
-                // This is fine as we define each field of a function, if it has any.
-                // ('methods_on' will be empty for Symbol and Module - their method calls
-                // always refer to their fields.)
                 if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
                     || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
                 {
@@ -1655,7 +1652,7 @@ impl Eval for ast::ModuleImport {
         let source = self.source().eval(vm)?;
         if let Value::Func(func) = source {
             if func.info().is_none() {
-                bail!(span, "cannot import from closures or user-defined functions");
+                bail!(span, "cannot import from user-defined functions");
             }
             apply_imports(
                 self.imports(),
