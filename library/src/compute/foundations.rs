@@ -125,8 +125,8 @@ pub fn assert(
 
 /// Ensure that two values are equal.
 ///
-/// Fails with an error if the first value (expected) is not equal to the
-/// second (actual). Does not produce any output in the document.
+/// Fails with an error if the first value is not equal to the second. Does not
+/// produce any output in the document.
 ///
 /// ## Example
 /// ```example
@@ -138,27 +138,27 @@ pub fn assert(
 /// Returns:
 #[func]
 pub fn assert_eq(
-    /// The expected value.
-    expected: Value,
+    /// The first value to compare.
+    left: Value,
 
-    /// The actual value.
-    actual: Value,
+    /// The second value to compare.
+    right: Value,
 
-    /// An optional message to display on error
-    /// instead of the representations of the compared values.
+    /// An optional message to display on error instead of the representations
+    /// of the compared values.
     #[named]
     #[default]
     message: Option<EcoString>,
 ) -> Value {
-    if expected != actual {
+    if left != right {
         if let Some(message) = message {
             bail!(args.span, "equality assertion failed: {}", message);
         } else {
             bail!(
                 args.span,
-                "equality assertion failed: expected {:?}, found {:?}",
-                expected,
-                actual
+                "equality assertion failed: value {:?} was not equal to {:?}",
+                left,
+                right
             );
         }
     }
@@ -167,8 +167,8 @@ pub fn assert_eq(
 
 /// Ensure that two values are not equal.
 ///
-/// Fails with an error if the first value (unexpected) is equal to the
-/// second (actual). Does not produce any output in the document.
+/// Fails with an error if the first value is equal to the second. Does not
+/// produce any output in the document.
 ///
 /// ## Example
 /// ```example
@@ -180,27 +180,27 @@ pub fn assert_eq(
 /// Returns:
 #[func]
 pub fn assert_ne(
-    /// The unexpected value.
-    unexpected: Value,
+    /// The first value to compare.
+    left: Value,
 
-    /// The actual value.
-    actual: Value,
+    /// The second value to compare.
+    right: Value,
 
-    /// An optional message to display on error
-    /// instead of the representations of the compared values.
+    /// An optional message to display on error instead of the representations
+    /// of the compared values.
     #[named]
     #[default]
     message: Option<EcoString>,
 ) -> Value {
-    if unexpected == actual {
+    if left == right {
         if let Some(message) = message {
             bail!(args.span, "inequality assertion failed: {}", message);
         } else {
             bail!(
                 args.span,
                 "inequality assertion failed: value {:?} was equal to {:?}",
-                actual,
-                unexpected
+                left,
+                right
             );
         }
     }
