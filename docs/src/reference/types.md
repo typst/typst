@@ -271,19 +271,37 @@ Custom representation: #time.display("Hour: [hour repr:12] ([period]), Minute: [
 
 ### year()
 
-Returns the year of the date.
+Returns the year of the datetime, if it exists. Otherwise, it returns `none`.
 
-- returns: integer
+- returns: integer or none
 
 ### month()
 
-Returns the month of the date.
+Returns the month of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer
 
 ### day()
 
-Returns the day of the date.
+Returns the day of the datetime, if it exists. Otherwise, it returns `none`.
+
+- returns: integer
+
+### hour()
+
+Returns the hour of the datetime, if it exists. Otherwise, it returns `none`.
+
+- returns: integer
+
+### minute()
+
+Returns the minute of the datetime, if it exists. Otherwise, it returns `none`.
+
+- returns: integer
+
+### second()
+
+Returns the second of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer
 

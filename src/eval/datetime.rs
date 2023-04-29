@@ -28,16 +28,16 @@ impl Datetime {
                     "found unclosed bracket".to_string()
                 }
                 InvalidFormatDescription::InvalidComponentName { name, .. } => {
-                    format!("{} is not a valid component.", name)
+                    format!("{} is not a valid component", name)
                 }
                 InvalidFormatDescription::InvalidModifier { value, .. } => {
-                    format!("modifier {} is invalid.", value)
+                    format!("modifier {} is invalid", value)
                 }
                 InvalidFormatDescription::Expected { what, .. } => {
                     format!("expected {}", what)
                 }
                 InvalidFormatDescription::MissingComponentName { .. } => {
-                    "found missing component name".to_string()
+                    "a component name is missing".to_string()
                 }
                 InvalidFormatDescription::MissingRequiredModifier { name, .. } => {
                     format!("missing required modifier {}", name)
@@ -56,7 +56,7 @@ impl Datetime {
 
         let unwrapped_result = formatted_result.map_err(|e| match e {
             Format::InvalidComponent(name) => format!("found invalid component {}", name),
-            _ => "unable to format datetime in requested format".to_string(),
+            _ => "unable to format datetime in the requested format".to_string(),
         })?;
 
         Ok(unwrapped_result)

@@ -73,3 +73,54 @@
 
 ---
 #assert(range(2, 5) == (2, 3, 4))
+
+---
+// Test displaying of dates.
+#test(datetime(year: 2023, month: 4, day: 29).display(), "2023-04-29")
+#test(datetime(year: 2023, month: 4, day: 29).display("[year]"), "2023")
+#test(datetime(year: 2023, month: 4, day: 29).display("[year repr:last_two]"), "23")
+#test(datetime(year: 2023, month: 4, day: 29).display("[year] [month repr:long] [day] [week_number] [weekday]"), "2023 April 29 17 Saturday")
+
+// Test displaying of times
+#test(datetime(hour: 14, minute: 26, second: 50).display(), "14:26:50")
+#test(datetime(hour: 14, minute: 26, second: 50).display("[hour]"), "14")
+#test(datetime(hour: 14, minute: 26, second: 50).display("[hour repr:12 padding:none]"), "2")
+#test(datetime(hour: 14, minute: 26, second: 50).display("[hour], [minute], [second]"), "14, 26, 50")
+
+// Test displaying of datetimes
+#test(datetime(year: 2023, month: 4, day: 29, hour: 14, minute: 26, second: 50).display(), "2023-04-29 14:26:50")
+
+// Test today
+#test(today().display(), "1970-01-01")
+
+---
+// Error: 10-12 at least one of date or time must be fully specified
+#datetime()
+
+---
+// Error: 10-42 time is invalid
+#datetime(hour: 25, minute: 0, second: 0)
+
+---
+// Error: 10-41 date is invalid
+#datetime(year: 2000, month: 2, day: 30)
+
+---
+// Error: 17-26 found unclosed bracket
+#today().display("[year")
+
+---
+// Error: 17-30 nothing is not a valid component
+#today().display("[nothing]")
+
+---
+// Error: 17-42 modifier wrong is invalid
+#today().display("[year wrong:last_two]")
+
+---
+// Error: 17-23 a component name is missing
+#today().display("[]")
+
+---
+// Error: 17-27 unable to format datetime in the requested format
+#today().display("[hour]")
