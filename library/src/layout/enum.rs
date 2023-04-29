@@ -251,7 +251,9 @@ impl Layout for EnumElem {
             };
 
             cells.push(Content::empty());
-            cells.push(resolved);
+            // Disable overhang as a workaround to end-aligned dots glitching
+            // and decreasing spacing
+            cells.push(resolved.styled(TextElem::set_overhang(false)));
             cells.push(Content::empty());
             cells.push(item.body().styled(Self::set_parents(Parent(number))));
             number = number.saturating_add(1);
