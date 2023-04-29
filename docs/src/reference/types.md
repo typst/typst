@@ -259,11 +259,13 @@ Fails with an error if the string is empty.
 - returns: any
 
 ### at()
-Extract the first grapheme cluster after the specified index. Fails with an
-error if the index is out of bounds.
+Extract the first grapheme cluster after the specified index.
+If the index is out of bounds, the default value is returned.
+Fails with an error if no default value was specified.
 
 - index: integer (positional, required)
   The byte index.
+- default: any (named)
 - returns: string
 
 ### slice()
@@ -450,10 +452,11 @@ Whether the content has the specified field.
 - returns: boolean
 
 ### at()
-Access the specified field on the content.
+Access the specified field on the content. Returns the default value if the field does not exist. Fails with an error if no default value was specified.
 
 - field: string (positional, required)
   The field to access.
+- default: any (named)
 - returns: any
 
 ### location()
