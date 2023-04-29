@@ -54,3 +54,26 @@ a + 0.
 + ABCDEF\ GHIJKL\ MNOPQR
    + INNER\ INNER\ INNER
 + BACK\ HERE
+
+---
+// Enum number alignment
+1. a
+10. b
+100. c
+
+#set enum(number-align: start)
+1.  a
+8.  b
+16.  c
+
+---
+// External and number alignment together
+#set align(center)
+#set enum(number-align: start)
+
+4.  c
+8.  d
+16. e
+   2.  f
+   32. g
+   64. h
