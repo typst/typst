@@ -243,7 +243,7 @@ impl Layout for EnumElem {
             };
 
             // Disable overhang as a workaround to end-aligned dots glitching
-            // and decreasing spacing between numbers and items
+            // and decreasing spacing between numbers and items.
             let resolved =
                 resolved.aligned(number_align).styled(TextElem::set_overhang(false));
 
