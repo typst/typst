@@ -68,12 +68,13 @@ impl Str {
     }
 
     /// Extract the grapheme cluster at the given index.
-    pub fn at(&self, index: i64) -> StrResult<Self> {
+    pub fn at<'a>(&'a self, index: i64, default: Option<&'a str>) -> StrResult<Self> {
         let len = self.len();
         let grapheme = self.0[self.locate(index)?..]
             .graphemes(true)
             .next()
-            .ok_or_else(|| out_of_bounds(index, len))?;
+            .or(default)
+            .ok_or_else(|| no_default_and_out_of_bounds(index, len))?;
         Ok(grapheme.into())
     }
 
@@ -303,6 +304,12 @@ impl Str {
 #[cold]
 fn out_of_bounds(index: i64, len: i64) -> EcoString {
     eco_format!("string index out of bounds (index: {}, len: {})", index, len)
+}
+
+/// The out of bounds access error message when no default value was given.
+#[cold]
+fn no_default_and_out_of_bounds(index: i64, len: i64) -> EcoString {
+    eco_format!("no default value was specified and string index out of bounds (index: {}, len: {})", index, len)
 }
 
 /// The char boundary access error message.

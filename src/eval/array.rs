@@ -469,7 +469,7 @@ fn out_of_bounds(index: i64, len: i64) -> EcoString {
     eco_format!("array index out of bounds (index: {}, len: {})", index, len)
 }
 
-/// The out of bounds access error message.
+/// The out of bounds access error message when no default value was given.
 #[cold]
 fn no_default_and_out_of_bounds(index: i64, len: i64) -> EcoString {
     eco_format!("no default value was specified and array index out of bounds (index: {}, len: {})", index, len)

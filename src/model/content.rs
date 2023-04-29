@@ -252,8 +252,10 @@ impl Content {
     }
 
     /// Borrow the value of the given field.
-    pub fn at(&self, field: &str) -> StrResult<Value> {
-        self.field(field).ok_or_else(|| missing_field(field))
+    pub fn at(&self, field: &str, default: Option<Value>) -> StrResult<Value> {
+        self.field(field)
+            .or(default)
+            .ok_or_else(|| no_default_and_missing_field(field))
     }
 
     /// The content's label.
@@ -582,8 +584,11 @@ impl Fold for Vec<Meta> {
     }
 }
 
-/// The missing key access error message.
+/// The missing key access error message when no default value was given.
 #[cold]
-fn missing_field(key: &str) -> EcoString {
-    eco_format!("content does not contain field {:?}", Str::from(key))
+fn no_default_and_missing_field(key: &str) -> EcoString {
+    eco_format!(
+        "no default value was specified and content does not contain field {:?}",
+        Str::from(key)
+    )
 }

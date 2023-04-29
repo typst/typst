@@ -31,7 +31,7 @@
 #false.ok
 
 ---
-// Error: 25-28 content does not contain field "fun"
+// Error: 25-28 no default value was specified and content does not contain field "fun"
 #show heading: it => it.fun
 = A
 
