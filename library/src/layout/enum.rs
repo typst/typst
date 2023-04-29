@@ -147,35 +147,26 @@ pub struct EnumElem {
     /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
     pub spacing: Smart<Spacing>,
 
-    /// The alignment that enum numbers should have, or `{auto}` to
+    /// The horizontal alignment that enum numbers should have, or `{auto}` to
     /// inherit the text alignment from the context.
     ///
-    /// By default, this is set to `{end + top}`, which aligns enum numbers
-    /// towards the top and the end of the current text direction (in
-    /// left-to-right script, this is the same as `{right + top}`). The choice
-    /// of `{end}` for horizontal alignment is usually better than `{start}`,
-    /// as numbers then grow away from the text instead of towards it, and
-    /// the choice of `{top}` for vertical alignment avoids inheriting `{horizon}`
-    /// or `{bottom}` alignment from the context, which positions numbers away
-    /// from the text, in a strange manner. This option lets you override this
+    /// By default, this is set to `{end}`, which aligns enum numbers
+    /// towards end of the current text direction (in left-to-right script,
+    /// for example, this is the same as `{right}`). The choice of `{end}`
+    /// for horizontal alignment of enum numbers is usually preferred over
+    /// `{start}`, as numbers then grow away from the text instead of towards
+    /// it, avoiding certain visual issues. This option lets you override this
     /// behavior, however.
     ///
     /// ````example
-    /// #set enum(number-align: left)
+    /// #set enum(number-align: start)
     ///
-    /// #lorem(40)
-    /// #align(right + horizon)[
-    ///     1. Numbers here are left-aligned,
-    ///     9. overriding the default of
-    ///    10. right-aligned. However, even if
-    ///    11. there is horizon alignment, \
-    ///          the numbers are still \
-    ///          top-aligned.
-    /// ]
-    /// #lorem(40)
+    /// 1.  Numbers here are start-aligned,
+    /// 9.  overriding the default of
+    /// 10. end-aligned.
     /// ````
-    #[default(Smart::Custom(Axes::new(GenAlign::End, GenAlign::Specific(Align::Top)).into()))]
-    pub number_align: Smart<Axes<Option<GenAlign>>>,
+    #[default(Smart::Custom(GenAlign::End))]
+    pub number_align: Smart<GenAlign>,
 
     /// The numbered list's items.
     ///
@@ -220,12 +211,19 @@ impl Layout for EnumElem {
         let mut number = self.start(styles);
         let mut parents = self.parents(styles);
         let full = self.full(styles);
-        let number_align = self.number_align(styles).map(|alignment| {
-            // Default missing components to end + top.
-            alignment
-                .unwrap_or(Axes::new(GenAlign::End, GenAlign::Specific(Align::Top)))
-                .map(Some)
+        let number_align_x = self.number_align(styles).as_custom().map(|align| {
+            // If given a vertical alignment, just default horizontal
+            // alignment to 'end'.
+            match align.axis() {
+                Axis::X => align,
+                Axis::Y => GenAlign::End,
+            }
         });
+
+        // Vertically align to the top to avoid inheriting 'horizon' or
+        // 'bottom' alignment from the context and having the number be
+        // displaced in relation to the item it refers to.
+        let number_align = Axes::new(number_align_x, Some(Align::Top.into()));
 
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
@@ -244,16 +242,13 @@ impl Layout for EnumElem {
                 }
             };
 
-            let resolved = if let Smart::Custom(alignment) = number_align {
-                resolved.aligned(alignment)
-            } else {
-                resolved
-            };
+            // Disable overhang as a workaround to end-aligned dots glitching
+            // and decreasing spacing between numbers and items
+            let resolved =
+                resolved.aligned(number_align).styled(TextElem::set_overhang(false));
 
             cells.push(Content::empty());
-            // Disable overhang as a workaround to end-aligned dots glitching
-            // and decreasing spacing
-            cells.push(resolved.styled(TextElem::set_overhang(false)));
+            cells.push(resolved);
             cells.push(Content::empty());
             cells.push(item.body().styled(Self::set_parents(Parent(number))));
             number = number.saturating_add(1);
