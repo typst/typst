@@ -186,10 +186,30 @@ cast_from_value! {
     },
 }
 
-/// Create a date.
-/// Display: Date
+/// Create a new datetime.
+///
+/// You can specify the datetime using a year, month, day, hour, minute and second.
+///
+/// _Note_: Depending on which components of the datetime you specify, Typst will store them in
+/// one of the following three ways:
+/// * If you specify the year, month and day, Typst will store it as a date.
+/// * If you specity the hour, minute and second, Typst will store it as a time.
+/// * If you specify all of year, month, day, hour, minute and second, Typst will store it as a
+/// datetime.
+///
+/// Depending on how it is stored, the `display` method will choose a different formatting by
+/// default.
+///
+/// ## Example
+/// ```example
+/// #datetime(year: 2012, month: 8, day: 3).display() \
+/// #datetime(hour: 2, minute: 28, second: 35).display() \
+/// #datetime(year: 2023, month: 4, day: 25, hour: 14, minute: 46, second: 59).display() \
+/// ```
+///
+/// Display: Datetime
 /// Category: construct
-/// Returns: date
+/// Returns: datetime
 #[func]
 pub fn datetime(
     /// The year of the datetime.
@@ -277,13 +297,7 @@ cast_from_value!(
 cast_from_value!(
     DayComponent,
     v: i64 => match u8::try_from(v) {
-        Ok(n) => {
-            if n <= 31 {
-                Self(n)
-            }   else    {
-                Err("day is invalid")?
-            }
-        },
+        Ok(n) => Self(n),
         _ => Err("day is invalid")?
     }
 );
@@ -291,13 +305,7 @@ cast_from_value!(
 cast_from_value!(
     HourComponent,
     v: i64 => match u8::try_from(v) {
-        Ok(n) => {
-            if n <= 24 {
-                Self(n)
-            }   else   {
-                Err("hour is invalid")?
-            }
-        },
+        Ok(n) => Self(n),
         _ => Err("hour is invalid")?
     }
 );
@@ -305,13 +313,7 @@ cast_from_value!(
 cast_from_value!(
     MinuteComponent,
     v: i64 => match u8::try_from(v) {
-        Ok(n) => {
-            if n <= 60 {
-                Self(n)
-            }   else   {
-                Err("minute is invalid")?
-            }
-        },
+        Ok(n) => Self(n),
         _ => Err("minute is invalid")?
     }
 );
@@ -319,21 +321,15 @@ cast_from_value!(
 cast_from_value!(
     SecondComponent,
     v: i64 => match u8::try_from(v) {
-        Ok(n) => {
-            if n <= 60 {
-                Self(n)
-            }   else   {
-                Err("second is invalid")?
-            }
-        },
+        Ok(n) => Self(n),
         _ => Err("second is invalid")?
     }
 );
 
 /// Returns the current date.
 ///
-/// By default, it will return the current UTC date. This can be changed by setting
-/// the `local` parameter to `true`, in which case the local date will be chosen.
+/// By default, it will return the local date. This can be changed by setting
+/// the `local` parameter to `false`, in which case the current UTC date will be chosen.
 ///
 /// ## Example
 /// ```example
@@ -345,14 +341,13 @@ cast_from_value!(
 /// Returns: datetime
 #[func]
 pub fn today(
-    /// Whether the local date should be chosen (instead of UTC). False by default.
+    /// Whether the local date should be chosen (instead of UTC). True by default.
     #[named]
-    #[default]
+    #[default(true)]
     local: bool,
 ) -> Value {
     let current_date = match vm.vt.world.today(local) {
         Some(d) => d,
-        //TODO: Is there some way I can access the whole span here?
         None => bail!(args.span, "unable to get the current date"),
     };
 
@@ -362,7 +357,7 @@ pub fn today(
         current_date.2,
     ) {
         Ok(d) => Value::Dyn(Dynamic::new(Datetime::Date(d))),
-        Err(_) => bail!(args.span, "unable to process the system date"),
+        Err(_) => bail!(args.span, "unable to read the system date"),
     }
 }
 
