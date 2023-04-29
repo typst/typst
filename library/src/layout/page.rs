@@ -87,10 +87,10 @@ pub struct PageElem {
     #[default(false)]
     pub flipped: bool,
 
-    /// Whether the document, normally a book, should have two-sided pages. When
-    /// true, the left margin acts as the outer margin and the right margin acts
-    /// as the inner margin.
-    /// ```
+    ///When `{true}`, the left and right margins will be swapped on even pages
+    ///to achieve inside and outside margins. This is commonly used when writing
+    ///books, for example. Defaults to `{false}`.
+    /// ```example
     /// #set page(two-sided: true, margin: (left: 1in, right: 1.25in))
     /// ```
     #[default(false)]
