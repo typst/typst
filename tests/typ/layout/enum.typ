@@ -42,9 +42,9 @@ a + 0.
 5. fifth
 
 #enum(
-    enum.item(1)[First],
-    [Second],
-    enum.item(5)[Fifth]
+   enum.item(1)[First],
+   [Second],
+   enum.item(5)[Fifth]
 )
 
 ---

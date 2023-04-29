@@ -42,8 +42,8 @@
 #import assert.with(true): *
 
 #enum(
-    item(1)[First],
-    item(5)[Fifth]
+   item(1)[First],
+   item(5)[Fifth]
 )
 #eq(10, 10)
 #ne(5, 6)

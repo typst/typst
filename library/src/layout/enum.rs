@@ -38,11 +38,12 @@ use super::GridLayouter;
 ///
 /// You can also use [`enum.item`]($func/enum.item) to programmatically
 /// customize the number of each item in the enumeration:
+///
 /// ```example
 /// #enum(
-///     enum.item(1)[First step],
-///     enum.item(5)[Fifth step],
-///     enum.item(10)[Tenth step]
+///   enum.item(1)[First step],
+///   enum.item(5)[Fifth step],
+///   enum.item(10)[Tenth step]
 /// )
 /// ```
 ///
