@@ -150,7 +150,7 @@ pub fn assert_eq(
     #[default]
     message: Option<EcoString>,
 ) -> Value {
-    if !typst::eval::ops::equal(&expected, &actual) {
+    if expected != actual {
         if let Some(message) = message {
             bail!(args.span, "equality assertion failed: {}", message);
         } else {
@@ -192,7 +192,7 @@ pub fn assert_ne(
     #[default]
     message: Option<EcoString>,
 ) -> Value {
-    if typst::eval::ops::equal(&unexpected, &actual) {
+    if unexpected == actual {
         if let Some(message) = message {
             bail!(args.span, "inequality assertion failed: {}", message);
         } else {

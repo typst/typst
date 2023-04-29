@@ -12,13 +12,11 @@ mod dict;
 mod str;
 #[macro_use]
 mod value;
-
-pub mod ops;
-
 mod args;
 mod func;
 mod methods;
 mod module;
+mod ops;
 mod scope;
 mod symbol;
 
