@@ -328,8 +328,8 @@ cast_from_value!(
 
 /// Returns the current date.
 ///
-/// By default, it will return the local date. This can be changed by setting
-/// the `local` parameter to `false`, in which case the current UTC date will be chosen.
+/// If no offset is specified, the date according to the local time will be chosen.
+/// If an offset is specified, the current UTC date with the applied offset will be chosen.
 ///
 /// ## Example
 /// ```example
@@ -341,12 +341,12 @@ cast_from_value!(
 /// Returns: datetime
 #[func]
 pub fn today(
-    /// Whether the local date should be chosen (instead of UTC). True by default.
+    /// Whether an offset should be applied. If none is specified, the local date will be chosen.
+    /// If an offset is specified, it will be applied to the current UTC date.
     #[named]
-    #[default(true)]
-    local: bool,
+    offset: Option<i64>,
 ) -> Value {
-    let current_date = match vm.vt.world.today(local) {
+    let current_date = match vm.vt.world.today(offset) {
         Some(d) => d,
         None => bail!(args.span, "unable to get the current date"),
     };

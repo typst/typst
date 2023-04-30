@@ -111,5 +111,5 @@ pub trait World {
 
     /// Get the current date (using either UTC or the local date).
     /// Returns a tuple in the form (year, month, day).
-    fn today(&self, local: bool) -> Option<(i32, u8, u8)>;
+    fn today(&self, offset: Option<i64>) -> Option<(i32, u8, u8)>;
 }

@@ -384,7 +384,7 @@ impl World for DocWorld {
             .into())
     }
 
-    fn today(&self, _: bool) -> Option<(i32, u8, u8)> {
+    fn today(&self, _: Option<i64>) -> Option<(i32, u8, u8)> {
         Some((1970, 1, 1))
     }
 }

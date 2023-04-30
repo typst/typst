@@ -486,10 +486,10 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn today(&self, local: bool) -> Option<(i32, u8, u8)> {
-        let datetime = match local {
-            true => chrono::Local::now().naive_local(),
-            false => chrono::Utc::now().naive_utc(),
+    fn today(&self, offset: Option<i64>) -> Option<(i32, u8, u8)> {
+        let datetime = match offset {
+            None => chrono::Local::now().naive_local(),
+            Some(o) => chrono::Utc::now() + chrono::Duration::hours(o),
         };
 
         // Month/day are always in range of u8
