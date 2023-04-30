@@ -105,6 +105,7 @@ impl Show for LinkElem {
 
         Ok(body
             .linked(dest)
+            .styled(TextElem::set_fractions(false))
             .styled(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false)))))
     }
 }
