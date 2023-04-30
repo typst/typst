@@ -361,7 +361,7 @@ impl PageElem {
 
             // Make a clone of the original margin in case you need to modify
             // the margins for a two-sided document.
-            let mut margin = margin.clone();
+            let mut margin = margin;
 
             // Swap right and left margins if the document is two-sided and the
             // page number is even.
