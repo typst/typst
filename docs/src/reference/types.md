@@ -281,6 +281,13 @@ Returns the month of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
 
+### weekday()
+
+Returns the weekday of the datetime as a number starting with 1 from Monday, if 
+it exists. Otherwise, it returns `none`.
+
+- returns: integer or none
+
 ### day()
 
 Returns the day of the datetime, if it exists. Otherwise, it returns `none`.

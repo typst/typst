@@ -195,6 +195,9 @@ pub fn call(
                     "month" => datetime
                         .date()
                         .map_or(Value::None, |d| Value::Int((d.month() as u8).into())),
+                    "weekday" => datetime.date().map_or(Value::None, |d| {
+                        Value::Int(d.weekday().number_from_monday().into())
+                    }),
                     "day" => datetime
                         .date()
                         .map_or(Value::None, |d| Value::Int(d.day().into())),
