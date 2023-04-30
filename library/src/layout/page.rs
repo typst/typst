@@ -360,8 +360,8 @@ impl PageElem {
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
-            // Make a clone of the original margin in case you need to modify
-            // the margins for a two-sided document.
+            // Make a copy of the original margin in case you need to modify the
+            // margins for a two-sided document.
             let mut margin = margin;
 
             // Swap right and left margins if the document is two-sided and the
