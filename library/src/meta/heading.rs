@@ -1,4 +1,5 @@
 use typst::font::FontWeight;
+use typst::util::option_eq;
 
 use super::{Counter, CounterUpdate, LocalName, Numbering, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
@@ -234,10 +235,11 @@ impl Refable for HeadingElem {
 }
 
 impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "الفصل",
             Lang::BOKMÅL => "Kapittel",
+            Lang::CHINESE if option_eq(region, "TW") => "小節",
             Lang::CHINESE => "小节",
             Lang::CZECH => "Kapitola",
             Lang::FRENCH => "Chapitre",

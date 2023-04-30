@@ -29,9 +29,9 @@
 #set par(justify: true)
 #rect(inset: 0pt, width: 80pt, fill: rgb("eee"))[
   “引号测试”，还，
-  
+
   《书名》《测试》下一行
-  
+
   《书名》《测试》。
 ]
 

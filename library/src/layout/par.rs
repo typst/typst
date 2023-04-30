@@ -1319,7 +1319,7 @@ fn commit(
         }
     }
 
-    // Determine how much addtional space is needed.
+    // Determine how much additional space is needed.
     // The justicication_ratio is for the first step justification,
     // extra_justification is for the last step.
     // For more info on multi-step justification, see Procedures for Inter-

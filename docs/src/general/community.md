@@ -20,7 +20,7 @@ welcome to connect with us on social media
 ([Twitter](https://twitter.com/typstapp/),
 [Instagram](https://instagram.com/typstapp/),
 [LinkedIn](https://linkedin.com/company/typst), and
-[Github](https://github.com/typst)).
+[GitHub](https://github.com/typst)).
 
 ## What to share?
 For our community, we want to foster versatility and inclusivity.
@@ -44,6 +44,15 @@ We will update the members of our Discord server and our social media followers
 when new features become available in the preview. We'll also update you on the
 development progress of large features. A development tracker will become
 available on the documentation pages soon.
+
+## How to support Typst
+If you want to support Typst, there are multiple ways to do that! You can
+[contribute to the code](https://github.com/typst/typst) or
+[translate the strings in Typst](https://github.com/search?q=repo%3Atypst%2Ftypst+impl+LocalName+for&type=code)
+to your native language if it's not supported yet. You can also help us by
+[sponsoring us!](https://github.com/sponsors/typst) Multiple recurring
+sponsorship tiers are available and all of them come with a set of goodies.
+No matter how you contribute, thank you for your support!
 
 ## Community Rules
 We want to make our community a safe and inclusive space for everyone.

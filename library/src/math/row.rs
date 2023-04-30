@@ -95,6 +95,20 @@ impl MathRow {
         self.iter().map(MathFragment::descent).max().unwrap_or_default()
     }
 
+    pub fn class(&self) -> MathClass {
+        // Predict the class of the output of 'into_fragment'
+        if self.0.len() == 1 {
+            self.0
+                .first()
+                .and_then(|fragment| fragment.class())
+                .unwrap_or(MathClass::Special)
+        } else {
+            // FrameFragment::new() (inside 'into_fragment' in this branch) defaults
+            // to MathClass::Normal for its class.
+            MathClass::Normal
+        }
+    }
+
     pub fn into_frame(self, ctx: &MathContext) -> Frame {
         let styles = ctx.styles();
         let align = AlignElem::alignment_in(styles).x.resolve(styles);
