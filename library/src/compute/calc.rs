@@ -9,6 +9,8 @@ use typst::eval::{Module, Scope};
 
 use crate::prelude::*;
 
+const DEFAULT_SEED: u64 = 0x4d595df4d0f33173;
+
 /// A module with computational functions.
 pub fn module() -> Module {
     let mut scope = Scope::new();
@@ -982,7 +984,7 @@ pub fn quo(
 pub fn rand_int(
     /// The seed, optional
     #[named]
-    #[default(0x4d595df4d0f33173)]
+    #[default(DEFAULT_SEED)]
     seed: u64,
     /// The minimum number that can be returned, inclusive
     #[default(0)]
@@ -991,7 +993,7 @@ pub fn rand_int(
     #[default(100)]
     max: i64,
 ) -> Value {
-    if seed != 0x4d595df4d0f33173 {
+    if seed != DEFAULT_SEED {
         fastrand::seed(seed);
         Value::Int(fastrand::i64(min..max))
     } else {
@@ -1015,10 +1017,10 @@ pub fn rand_int(
 pub fn rand_float(
     /// The seed, optional
     #[named]
-    #[default(0x4d595df4d0f33173)]
+    #[default(DEFAULT_SEED)]
     seed: u64,
 ) -> Value {
-    if seed != 0x4d595df4d0f33173 {
+    if seed != DEFAULT_SEED {
         fastrand::seed(seed);
         Value::Float(fastrand::f64())
     } else {
