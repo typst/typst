@@ -155,7 +155,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             FrameFragment::new(self, frame).into()
         } else {
             // Anything else is handled by Typst's standard text layout.
-            let spaced = text.graphemes(true).count() > 1;
+            let spaced = text.graphemes(true).nth(1).is_some();
             let mut style = self.style;
             if self.style.italic == Smart::Auto {
                 style = style.with_italic(false);
