@@ -729,7 +729,7 @@ fn with_paren(p: &mut Parser, allow_destructuring: bool) {
     let m = p.marker();
     let mut kind = collection(p, true);
     if p.at(SyntaxKind::Arrow) {
-        validate_params(p, m);
+        validate_params_at(p, m);
         p.wrap(m, SyntaxKind::Params);
         p.assert(SyntaxKind::Arrow);
         code_expr(p);
@@ -737,7 +737,7 @@ fn with_paren(p: &mut Parser, allow_destructuring: bool) {
     } else if p.at(SyntaxKind::Eq) && kind != SyntaxKind::Parenthesized {
         // TODO: add warning if p.at(SyntaxKind::Eq) && kind == SyntaxKind::Parenthesized
 
-        validate_destruct_pattern(p, m, false);
+        validate_pattern_at(p, m, false);
         p.wrap(m, SyntaxKind::Destructuring);
         p.assert(SyntaxKind::Eq);
         code_expr(p);
@@ -745,9 +745,11 @@ fn with_paren(p: &mut Parser, allow_destructuring: bool) {
     }
 
     match kind {
-        SyntaxKind::Array if !allow_destructuring => validate_array(p, m),
-        SyntaxKind::Dict if !allow_destructuring => validate_dict(p, m),
-        SyntaxKind::Parenthesized if !allow_destructuring => validate_parenthesized(p, m),
+        SyntaxKind::Array if !allow_destructuring => validate_array_at(p, m),
+        SyntaxKind::Dict if !allow_destructuring => validate_dict_at(p, m),
+        SyntaxKind::Parenthesized if !allow_destructuring => {
+            validate_parenthesized_at(p, m)
+        }
         SyntaxKind::Destructuring if !allow_destructuring => {
             invalidate_destructuring(p, m)
         }
@@ -904,7 +906,7 @@ fn args(p: &mut Parser) {
     let m = p.marker();
     if p.at(SyntaxKind::LeftParen) {
         collection(p, false);
-        validate_args(p, m);
+        validate_args_at(p, m);
     }
 
     while p.directly_at(SyntaxKind::LeftBracket) {
@@ -924,7 +926,7 @@ fn pattern(p: &mut Parser) -> PatternKind {
     let m = p.marker();
     if p.at(SyntaxKind::LeftParen) {
         let kind = collection(p, false);
-        validate_destruct_pattern(p, m, true);
+        validate_pattern_at(p, m, true);
 
         if kind == SyntaxKind::Parenthesized {
             PatternKind::Ident
@@ -953,7 +955,7 @@ fn let_binding(p: &mut Parser) {
             if closure {
                 let m3 = p.marker();
                 collection(p, false);
-                validate_params(p, m3);
+                validate_params_at(p, m3);
                 p.wrap(m3, SyntaxKind::Params);
             }
         }
@@ -1104,36 +1106,51 @@ fn return_stmt(p: &mut Parser) {
     p.wrap(m, SyntaxKind::FuncReturn);
 }
 
-fn validate_parenthesized(p: &mut Parser, m: Marker) {
+fn validate_parenthesized_at(p: &mut Parser, m: Marker) {
     for child in p.post_process(m) {
         let kind = child.kind();
-        if kind == SyntaxKind::Underscore {
-            child.convert_to_error(eco_format!(
-                "expected expression, found {}",
-                kind.name()
-            ));
+        match kind {
+            SyntaxKind::Array => validate_array(child.children_mut().iter_mut()),
+            SyntaxKind::Dict => validate_dict(child.children_mut().iter_mut()),
+            SyntaxKind::Underscore => {
+                child.convert_to_error(eco_format!(
+                    "expected expression, found {}",
+                    kind.name()
+                ));
+            }
+            _ => {}
         }
     }
 }
 
-fn validate_array(p: &mut Parser, m: Marker) {
-    for child in p.post_process(m) {
+fn validate_array_at(p: &mut Parser, m: Marker) {
+    validate_array(p.post_process(m))
+}
+
+fn validate_array<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
+    for child in children {
         let kind = child.kind();
-        if kind == SyntaxKind::Named
-            || kind == SyntaxKind::Keyed
-            || kind == SyntaxKind::Underscore
-        {
-            child.convert_to_error(eco_format!(
-                "expected expression, found {}",
-                kind.name()
-            ));
+        match kind {
+            SyntaxKind::Array => validate_array(child.children_mut().iter_mut()),
+            SyntaxKind::Dict => validate_dict(child.children_mut().iter_mut()),
+            SyntaxKind::Named | SyntaxKind::Keyed | SyntaxKind::Underscore => {
+                child.convert_to_error(eco_format!(
+                    "expected expression, found {}",
+                    kind.name()
+                ));
+            }
+            _ => {}
         }
     }
 }
 
-fn validate_dict(p: &mut Parser, m: Marker) {
+fn validate_dict_at(p: &mut Parser, m: Marker) {
+    validate_dict(p.post_process(m))
+}
+
+fn validate_dict<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
     let mut used = HashSet::new();
-    for child in p.post_process(m) {
+    for child in children {
         match child.kind() {
             SyntaxKind::Named | SyntaxKind::Keyed => {
                 let Some(first) = child.children_mut().first_mut() else { continue };
@@ -1162,7 +1179,7 @@ fn validate_dict(p: &mut Parser, m: Marker) {
     }
 }
 
-fn validate_params(p: &mut Parser, m: Marker) {
+fn validate_params_at(p: &mut Parser, m: Marker) {
     let mut used_spread = false;
     let mut used = HashSet::new();
     for child in p.post_process(m) {
@@ -1228,7 +1245,7 @@ fn validate_params(p: &mut Parser, m: Marker) {
     }
 }
 
-fn validate_args(p: &mut Parser, m: Marker) {
+fn validate_args_at(p: &mut Parser, m: Marker) {
     let mut used = HashSet::new();
     for child in p.post_process(m) {
         if child.kind() == SyntaxKind::Named {
@@ -1246,7 +1263,7 @@ fn validate_args(p: &mut Parser, m: Marker) {
     }
 }
 
-fn validate_destruct_pattern(p: &mut Parser, m: Marker, forbid_expressions: bool) {
+fn validate_pattern_at(p: &mut Parser, m: Marker, forbid_expressions: bool) {
     let mut used = HashSet::new();
     validate_pattern(p.post_process(m), &mut used, forbid_expressions);
 }
