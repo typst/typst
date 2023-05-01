@@ -16,6 +16,18 @@ keywords = ["markup", "typesetting"]
 members = ["cli", "docs", "library", "macros", "tests"]
 default-members = ["cli"]
 
+[workspace.package]
+version = "0.3.0"
+rust-version = "1.65"
+authors = ["The Typst Project Developers"]
+edition = "2021"
+homepage = "https://typst.app"
+repository = "https://github.com/typst/typst"
+readme = "README.md"
+license = "Apache-2.0"
+categories = ["compilers", "science"]
+keywords = ["typst"]
+
 [lib]
 doctest = false
 bench = false
