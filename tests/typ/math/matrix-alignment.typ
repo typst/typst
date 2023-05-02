@@ -45,7 +45,7 @@ $ mat(
 $ mat(&a+b,c;&d, e) $
 $ mat(&a+b&,c;&d&, e) $
 $ mat(&&&a+b,c;&&&d, e) $
-$ mat(.&a+b&.,c;......&d&......, e) $
+$ mat(.&a+b&.,c;.....&d&....., e) $
 
 ---
 // Test #454 equations.

@@ -447,8 +447,11 @@ impl Lexer<'_> {
             // Other math atoms.
             _ => {
                 if c == '.' && self.s.eat_if('.') {
-                    if self.s.after().chars().next().map(char::is_whitespace)
-                        == Some(false)
+                    let next = self.s.after().chars().next();
+                    if next.map(char::is_whitespace) == Some(false)
+                        && next != Some(',')
+                        && next != Some(';')
+                        && next != Some('&')
                     {
                         return SyntaxKind::Dots;
                     }
