@@ -14,7 +14,7 @@ iai = { git = "https://github.com/reknih/iai" }
 once_cell = "1"
 oxipng = "8.0.0"
 rayon = "1.7.0"
-tiny-skia = "0.6.6"
+tiny-skia = "0.9.0"
 ttf-parser = "0.18.1"
 unscanny = "0.1"
 walkdir = "2"

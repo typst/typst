@@ -273,7 +273,6 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString
         roxmltree::Error::NoRootNode => {
             eco_format!("failed to parse {format}: missing root node")
         }
-        roxmltree::Error::SizeLimit => "file is too large".into(),
         _ => eco_format!("failed to parse {format}"),
     }
 }

@@ -139,7 +139,7 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
-                .destination_direct()
+                .destination()
                 .page(ctx.page_refs[index])
                 .xyz(pos.point.x.to_f32(), height - y.to_f32(), None);
         }
@@ -499,7 +499,7 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
     if let Some(alt) = image.alt() {
         let mut image_span =
             ctx.content.begin_marked_content_with_properties(Name(b"Span"));
-        let mut image_alt = image_span.properties_direct();
+        let mut image_alt = image_span.properties();
         image_alt.pair(Name(b"Alt"), pdf_writer::Str(alt.as_bytes()));
         image_alt.finish();
         image_span.finish();
