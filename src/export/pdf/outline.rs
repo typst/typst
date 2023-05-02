@@ -118,7 +118,7 @@ fn write_outline_item(
     let index = pos.page.get() - 1;
     if let Some(&height) = ctx.page_heights.get(index) {
         let y = (pos.point.y - Abs::pt(10.0)).max(Abs::zero());
-        outline.dest_direct().page(ctx.page_refs[index]).xyz(
+        outline.dest().page(ctx.page_refs[index]).xyz(
             pos.point.x.to_f32(),
             height - y.to_f32(),
             None,

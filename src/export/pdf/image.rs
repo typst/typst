@@ -19,7 +19,7 @@ pub fn write_images(ctx: &mut PdfContext) {
 
         // Add the primary image.
         // TODO: Error if image could not be encoded.
-        match image.decode() {
+        match image.decoded() {
             DecodedImage::Raster(dynamic, icc, format) => {
                 // TODO: Error if image could not be encoded.
                 let (data, filter, has_color) = encode_image(*format, dynamic).unwrap();
@@ -59,7 +59,7 @@ pub fn write_images(ctx: &mut PdfContext) {
                 }
 
                 if let Some(icc) = icc {
-                    let compressed = deflate(icc);
+                    let compressed = deflate(&icc.0);
                     let mut icc_stream = ctx.writer.icc_profile(icc_ref, &compressed);
                     icc_stream.filter(Filter::FlateDecode);
                     if has_color {
