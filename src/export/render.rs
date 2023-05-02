@@ -80,7 +80,7 @@ fn render_group(
     let ts = ts.pre_concat(group.transform.into());
 
     let mut mask = mask;
-    let mut storage = None;
+    let storage;
     if group.clips {
         let size = group.frame.size();
         let w = size.x.to_f32();
@@ -90,31 +90,33 @@ fn render_group(
             .and_then(|path| path.transform(ts))
         {
             if let Some(mask) = mask {
-                let mut _s = mask.clone();
-                _s.intersect_path(
+                let mut mask = mask.clone();
+                mask.intersect_path(
                     &path,
                     sk::FillRule::default(),
                     false,
                     sk::Transform::default(),
                 );
-                storage = Some(_s);
+                storage = mask;
             } else {
                 let pxw = canvas.width();
                 let pxh = canvas.height();
-                if let Some(mut _s) = sk::Mask::new(pxw, pxh) {
-                    _s.fill_path(
-                        &path,
-                        sk::FillRule::default(),
-                        false,
-                        sk::Transform::default(),
-                    );
-                    storage = Some(_s);
-                }
+                let Some(mut mask) = sk::Mask::new(pxw, pxh) else {
+                    // Fails if clipping rect is empty. In that case we just
+                    // clip everything by returning.
+                    return;
+                };
+
+                mask.fill_path(
+                    &path,
+                    sk::FillRule::default(),
+                    false,
+                    sk::Transform::default(),
+                );
+                storage = mask;
             };
 
-            // Clipping fails if clipping rect is empty. In that case we just
-            // clip everything by returning.
-            mask = storage.as_ref();
+            mask = Some(&storage);
         }
     }
 

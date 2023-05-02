@@ -58,17 +58,15 @@ pub fn write_images(ctx: &mut PdfContext) {
 
                 if let Some(icc) = icc {
                     let compressed = deflate(&icc.0);
-                    let mut icc_stream = ctx.writer.icc_profile(icc_ref, &compressed);
-                    icc_stream.filter(Filter::FlateDecode);
+                    let mut stream = ctx.writer.icc_profile(icc_ref, &compressed);
+                    stream.filter(Filter::FlateDecode);
                     if has_color {
-                        icc_stream.n(3);
-                        icc_stream.alternate().srgb();
+                        stream.n(3);
+                        stream.alternate().srgb();
                     } else {
-                        icc_stream.n(1);
-                        icc_stream.alternate().d65_gray();
+                        stream.n(1);
+                        stream.alternate().d65_gray();
                     }
-
-                    icc_stream.finish();
                 }
             }
             DecodedImage::Svg(svg) => {

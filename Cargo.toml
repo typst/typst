@@ -42,7 +42,7 @@ rustybuzz = "0.7"
 serde = { version = "1", features = ["derive"] }
 siphasher = "0.3"
 subsetter = "0.1.1"
-svg2pdf = {git = "https://github.com/typst/svg2pdf"}
+svg2pdf = { git = "https://github.com/typst/svg2pdf" }
 tiny-skia = "0.9.0"
 tracing = "0.1.37"
 ttf-parser = "0.18.1"

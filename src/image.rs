@@ -201,33 +201,28 @@ impl DecodedImage {
     }
 }
 
+/// Raw data for of an ICC profile.
 pub struct IccProfile(pub Vec<u8>);
 
 /// Decode a raster image.
 #[comemo::memoize]
 fn decode_raster(data: &Buffer, format: RasterFormat) -> StrResult<Arc<DecodedImage>> {
-    let cursor = io::Cursor::new(data);
-
     fn decode_with<'a, T: ImageDecoder<'a>>(
-        mut decoder: T,
+        decoder: ImageResult<T>,
     ) -> ImageResult<(image::DynamicImage, Option<IccProfile>)> {
+        let mut decoder = decoder?;
         let icc = decoder.icc_profile().map(IccProfile);
         decoder.set_limits(Limits::default())?;
         let dynamic = image::DynamicImage::from_decoder(decoder)?;
         Ok((dynamic, icc))
     }
 
-    let (dynamic, icc) = (match format {
-        RasterFormat::Jpg => {
-            decode_with(JpegDecoder::new(cursor).map_err(format_image_error)?)
-        }
-        RasterFormat::Png => {
-            decode_with(PngDecoder::new(cursor).map_err(format_image_error)?)
-        }
-        RasterFormat::Gif => {
-            decode_with(GifDecoder::new(cursor).map_err(format_image_error)?)
-        }
-    })
+    let cursor = io::Cursor::new(data);
+    let (dynamic, icc) = match format {
+        RasterFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
+        RasterFormat::Png => decode_with(PngDecoder::new(cursor)),
+        RasterFormat::Gif => decode_with(GifDecoder::new(cursor)),
+    }
     .map_err(format_image_error)?;
 
     Ok(Arc::new(DecodedImage::Raster(dynamic, icc, format)))
