@@ -53,7 +53,7 @@ testit --pdf
 ## Update expected images
 If you created a new test or fixed a bug in an existing test, you need to update
 the reference image used for comparison. For this, you can use the
-`UPDATE_EXPECT` environment varariable or the `--update` flag:
+`UPDATE_EXPECT` environment variable or the `--update` flag:
 ```bash
 testit mytest --update
 ```
