@@ -32,12 +32,10 @@ pub fn write_images(ctx: &mut PdfContext) {
                 let space = image.color_space();
                 if icc.is_some() {
                     space.icc_based(icc_ref);
+                } else if has_color {
+                    space.device_rgb();
                 } else {
-                    if has_color {
-                        space.device_rgb();
-                    } else {
-                        space.device_gray();
-                    }
+                    space.device_gray();
                 }
 
                 // Add a second gray-scale image containing the alpha values if

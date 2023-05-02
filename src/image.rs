@@ -211,7 +211,7 @@ fn decode_raster(data: &Buffer, format: RasterFormat) -> StrResult<Arc<DecodedIm
     fn decode_with<'a, T: ImageDecoder<'a>>(
         mut decoder: T,
     ) -> ImageResult<(image::DynamicImage, Option<IccProfile>)> {
-        let icc = decoder.icc_profile().map(|profile| IccProfile(profile));
+        let icc = decoder.icc_profile().map(IccProfile);
         decoder.set_limits(Limits::default())?;
         let dynamic = image::DynamicImage::from_decoder(decoder)?;
         Ok((dynamic, icc))
@@ -262,7 +262,7 @@ fn decode_svg_with_fonts(
         opts.font_family = family.clone();
     }
 
-    let mut tree = usvg::Tree::from_data(&data, &opts).map_err(format_usvg_error)?;
+    let mut tree = usvg::Tree::from_data(data, &opts).map_err(format_usvg_error)?;
     if tree.has_text_nodes() {
         let fontdb = load_svg_fonts(&tree, world, fallback_family.as_deref());
         tree.convert_text(&fontdb);
