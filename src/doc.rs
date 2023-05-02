@@ -489,7 +489,7 @@ impl TextItem {
 
 impl Debug for TextItem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        // This is only a rough approxmiation of the source text.
+        // This is only a rough approximation of the source text.
         f.write_str("Text(\"")?;
         for glyph in &self.glyphs {
             for c in glyph.c.escape_debug() {
