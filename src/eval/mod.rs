@@ -1255,7 +1255,7 @@ impl ast::Pattern {
         for p in destruct.bindings() {
             match p {
                 ast::DestructuringKind::Normal(expr) => {
-                    let Ok(v) = value.at(i) else {
+                    let Ok(v) = value.at(i, None) else {
                         bail!(expr.span(), "not enough elements to destructure");
                     };
                     f(vm, expr, v.clone())?;
@@ -1310,17 +1310,17 @@ impl ast::Pattern {
         for p in destruct.bindings() {
             match p {
                 ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
-                    let Ok(v) = value.at(&ident) else {
-                                        bail!(ident.span(), "destructuring key not found in dictionary");
-                                    };
+                    let Ok(v) = value.at(&ident, None) else {
+                        bail!(ident.span(), "destructuring key not found in dictionary");
+                    };
                     f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
                     used.insert(ident.take());
                 }
                 ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
                 ast::DestructuringKind::Named(named) => {
-                    let Ok(v) = value.at(named.name().as_str()) else {
-                                        bail!(named.name().span(), "destructuring key not found in dictionary");
-                                    };
+                    let Ok(v) = value.at(named.name().as_str(), None) else {
+                        bail!(named.name().span(), "destructuring key not found in dictionary");
+                    };
                     f(vm, named.expr(), v.clone())?;
                     used.insert(named.name().take());
                 }
