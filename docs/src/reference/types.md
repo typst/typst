@@ -923,6 +923,11 @@ Returns the captured named arguments as a dictionary.
 
 - returns: dictionary
 
+### len()
+The number of positional arguments passed to the function.
+
+- returns: integer
+
 # Selector
 A filter for selecting elements within the document.
 

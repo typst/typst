@@ -150,6 +150,7 @@ pub fn call(
         Value::Args(args) => match method {
             "pos" => Value::Array(args.to_pos()),
             "named" => Value::Dict(args.to_named()),
+            "len" => Value::Int(args.len()),
             _ => return missing(),
         },
 

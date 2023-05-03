@@ -194,6 +194,10 @@ impl Args {
             .filter_map(|item| item.name.clone().map(|name| (name, item.value.v.clone())))
             .collect()
     }
+
+    pub fn len(&self) -> i64 {
+        self.items.len() as i64
+    }
 }
 
 impl Debug for Args {
