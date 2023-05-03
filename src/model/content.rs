@@ -255,7 +255,7 @@ impl Content {
     pub fn at(&self, field: &str, default: Option<Value>) -> StrResult<Value> {
         self.field(field)
             .or(default)
-            .ok_or_else(|| no_default_and_missing_field(field))
+            .ok_or_else(|| missing_field_no_default(field))
     }
 
     /// The content's label.
@@ -586,9 +586,10 @@ impl Fold for Vec<Meta> {
 
 /// The missing key access error message when no default value was given.
 #[cold]
-fn no_default_and_missing_field(key: &str) -> EcoString {
+fn missing_field_no_default(key: &str) -> EcoString {
     eco_format!(
-        "no default value was specified and content does not contain field {:?}",
+        "content does not contain field {:?} and \
+         no default value was specified",
         Str::from(key)
     )
 }

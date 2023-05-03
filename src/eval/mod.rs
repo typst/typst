@@ -1294,16 +1294,16 @@ impl ast::Pattern {
             match p {
                 ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
                     let Ok(v) = value.at(&ident, None) else {
-                                        bail!(ident.span(), "destructuring key not found in dictionary");
-                                    };
+                        bail!(ident.span(), "destructuring key not found in dictionary");
+                    };
                     f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
                     used.insert(ident.take());
                 }
                 ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
                 ast::DestructuringKind::Named(named) => {
                     let Ok(v) = value.at(named.name().as_str(), None) else {
-                                        bail!(named.name().span(), "destructuring key not found in dictionary");
-                                    };
+                        bail!(named.name().span(), "destructuring key not found in dictionary");
+                    };
                     f(vm, named.expr(), v.clone())?;
                     used.insert(named.name().take());
                 }
@@ -1747,9 +1747,7 @@ impl Access for ast::Parenthesized {
 
 impl Access for ast::FieldAccess {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
-        self.access_dict(vm)?
-            .at_mut(&self.field().take(), None)
-            .at(self.span())
+        self.access_dict(vm)?.at_mut(&self.field().take()).at(self.span())
     }
 }
 

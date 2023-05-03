@@ -86,14 +86,10 @@ pub fn call(
             "len" => Value::Int(array.len()),
             "first" => array.first().at(span)?.clone(),
             "last" => array.last().at(span)?.clone(),
-            "at" => {
-                let key = args.expect("index")?;
-                let mut default = args.eat()?;
-                if default.is_none() {
-                    default = args.named("default")?;
-                }
-                array.at(key, default.as_ref()).at(span)?.clone()
-            }
+            "at" => array
+                .at(args.expect("index")?, args.named("default")?.as_ref())
+                .at(span)?
+                .clone(),
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -132,14 +128,10 @@ pub fn call(
 
         Value::Dict(dict) => match method {
             "len" => Value::Int(dict.len()),
-            "at" => {
-                let key = args.expect::<Str>("key")?;
-                let mut default = args.eat()?;
-                if default.is_none() {
-                    default = args.named("default")?;
-                }
-                dict.at(key.as_str(), default.as_ref()).at(span)?.clone()
-            }
+            "at" => dict
+                .at(&args.expect::<Str>("key")?, args.named("default")?.as_ref())
+                .at(span)?
+                .clone(),
             "keys" => Value::Array(dict.keys()),
             "values" => Value::Array(dict.values()),
             "pairs" => Value::Array(dict.pairs()),
@@ -256,11 +248,11 @@ pub fn call_access<'a>(
         Value::Array(array) => match method {
             "first" => array.first_mut().at(span)?,
             "last" => array.last_mut().at(span)?,
-            "at" => array.at_mut(args.expect("index")?, None).at(span)?,
+            "at" => array.at_mut(args.expect("index")?).at(span)?,
             _ => return missing(),
         },
         Value::Dict(dict) => match method {
-            "at" => dict.at_mut(&args.expect::<Str>("key")?, None).at(span)?,
+            "at" => dict.at_mut(&args.expect::<Str>("key")?).at(span)?,
             _ => return missing(),
         },
         _ => return missing(),
