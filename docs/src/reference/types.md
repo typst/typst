@@ -361,8 +361,8 @@ string and returns the resulting string.
 
 - pattern: string or regex (positional, required)
   The pattern to search for.
-- replacement: string (positional, required)
-  The string to replace the matches with.
+- replacement: string or function (positional, required)
+  The string to replace the matches with or a function that is passed a match dictionary if a regex was used.
 - count: integer (named)
   If given, only the first `count` matches of the pattern are placed.
 - returns: string
