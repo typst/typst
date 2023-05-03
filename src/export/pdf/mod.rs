@@ -6,9 +6,10 @@ mod outline;
 mod page;
 
 use std::cmp::Eq;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 
+use ecow::EcoString;
 use pdf_writer::types::Direction;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 use xmp_writer::{LangId, RenditionClass, XmpWriter};
@@ -52,7 +53,13 @@ pub struct PdfContext<'a> {
     page_refs: Vec<Ref>,
     font_map: Remapper<Font>,
     image_map: Remapper<Image>,
-    glyph_sets: HashMap<Font, HashSet<u16>>,
+    /// For each font a mapping from used glyphs to their text representation.
+    /// May contain multiple chars in case of ligatures or similar things. The
+    /// same glyph can have a different text representation within one document,
+    /// then we just save the first one. The resulting strings are used for the
+    /// PDF's /ToUnicode map for glyphs that don't have an entry in the font's
+    /// cmap. This is important for copy-paste and searching.
+    glyph_sets: HashMap<Font, BTreeMap<u16, EcoString>>,
     languages: HashMap<Lang, usize>,
 }
 

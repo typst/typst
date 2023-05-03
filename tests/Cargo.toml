@@ -1,8 +1,9 @@
 [package]
 name = "typst-tests"
-version = "0.3.0"
-authors = ["The Typst Project Developers"]
-edition = "2021"
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
 publish = false
 
 [dev-dependencies]
@@ -14,7 +15,7 @@ iai = { git = "https://github.com/reknih/iai" }
 once_cell = "1"
 oxipng = "8.0.0"
 rayon = "1.7.0"
-tiny-skia = "0.6.6"
+tiny-skia = "0.9.0"
 ttf-parser = "0.18.1"
 unscanny = "0.1"
 walkdir = "2"

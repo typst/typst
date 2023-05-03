@@ -1,6 +1,6 @@
 //! Image handling.
 
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::io;
@@ -8,6 +8,12 @@ use std::sync::Arc;
 
 use comemo::Tracked;
 use ecow::EcoString;
+use image::codecs::gif::GifDecoder;
+use image::codecs::jpeg::JpegDecoder;
+use image::codecs::png::PngDecoder;
+use image::io::Limits;
+use image::{ImageDecoder, ImageResult};
+use usvg::{TreeParsing, TreeTextToPath};
 
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::util::Buffer;
@@ -171,8 +177,8 @@ impl From<ttf_parser::RasterImageFormat> for ImageFormat {
 
 /// A decoded image.
 pub enum DecodedImage {
-    /// A decoded pixel raster.
-    Raster(image::DynamicImage, RasterFormat),
+    /// A decoded pixel raster with its ICC profile.
+    Raster(image::DynamicImage, Option<IccProfile>, RasterFormat),
     /// An decoded SVG tree.
     Svg(usvg::Tree),
 }
@@ -181,34 +187,52 @@ impl DecodedImage {
     /// The width of the image in pixels.
     pub fn width(&self) -> u32 {
         match self {
-            Self::Raster(dynamic, _) => dynamic.width(),
-            Self::Svg(tree) => tree.svg_node().size.width().ceil() as u32,
+            Self::Raster(dynamic, _, _) => dynamic.width(),
+            Self::Svg(tree) => tree.size.width().ceil() as u32,
         }
     }
 
     /// The height of the image in pixels.
     pub fn height(&self) -> u32 {
         match self {
-            Self::Raster(dynamic, _) => dynamic.height(),
-            Self::Svg(tree) => tree.svg_node().size.height().ceil() as u32,
+            Self::Raster(dynamic, _, _) => dynamic.height(),
+            Self::Svg(tree) => tree.size.height().ceil() as u32,
         }
     }
 }
 
+/// Raw data for of an ICC profile.
+pub struct IccProfile(pub Vec<u8>);
+
 /// Decode a raster image.
 #[comemo::memoize]
 fn decode_raster(data: &Buffer, format: RasterFormat) -> StrResult<Arc<DecodedImage>> {
-    let cursor = io::Cursor::new(&data);
-    let reader = image::io::Reader::with_format(cursor, format.into());
-    let dynamic = reader.decode().map_err(format_image_error)?;
-    Ok(Arc::new(DecodedImage::Raster(dynamic, format)))
+    fn decode_with<'a, T: ImageDecoder<'a>>(
+        decoder: ImageResult<T>,
+    ) -> ImageResult<(image::DynamicImage, Option<IccProfile>)> {
+        let mut decoder = decoder?;
+        let icc = decoder.icc_profile().map(IccProfile);
+        decoder.set_limits(Limits::default())?;
+        let dynamic = image::DynamicImage::from_decoder(decoder)?;
+        Ok((dynamic, icc))
+    }
+
+    let cursor = io::Cursor::new(data);
+    let (dynamic, icc) = match format {
+        RasterFormat::Jpg => decode_with(JpegDecoder::new(cursor)),
+        RasterFormat::Png => decode_with(PngDecoder::new(cursor)),
+        RasterFormat::Gif => decode_with(GifDecoder::new(cursor)),
+    }
+    .map_err(format_image_error)?;
+
+    Ok(Arc::new(DecodedImage::Raster(dynamic, icc, format)))
 }
 
 /// Decode an SVG image.
 #[comemo::memoize]
 fn decode_svg(data: &Buffer) -> StrResult<Arc<DecodedImage>> {
     let opts = usvg::Options::default();
-    let tree = usvg::Tree::from_data(data, &opts.to_ref()).map_err(format_usvg_error)?;
+    let tree = usvg::Tree::from_data(data, &opts).map_err(format_usvg_error)?;
     Ok(Arc::new(DecodedImage::Svg(tree)))
 }
 
@@ -219,79 +243,89 @@ fn decode_svg_with_fonts(
     world: Tracked<dyn World>,
     fallback_family: Option<&str>,
 ) -> StrResult<Arc<DecodedImage>> {
-    // Parse XML.
-    let xml = std::str::from_utf8(data)
-        .map_err(|_| format_usvg_error(usvg::Error::NotAnUtf8Str))?;
-    let document = roxmltree::Document::parse(xml)
-        .map_err(|err| format_xml_like_error("svg", err))?;
-
-    // Parse SVG.
-    let mut opts = usvg::Options {
-        fontdb: load_svg_fonts(&document, world, fallback_family),
-        ..Default::default()
-    };
+    let mut opts = usvg::Options::default();
 
     // Recover the non-lowercased version of the family because
     // usvg is case sensitive.
     let book = world.book();
-    if let Some(family) = fallback_family
+    let fallback_family = fallback_family
         .and_then(|lowercase| book.select_family(lowercase).next())
         .and_then(|index| book.info(index))
-        .map(|info| info.family.clone())
-    {
-        opts.font_family = family;
+        .map(|info| info.family.clone());
+
+    if let Some(family) = &fallback_family {
+        opts.font_family = family.clone();
     }
 
-    let tree =
-        usvg::Tree::from_xmltree(&document, &opts.to_ref()).map_err(format_usvg_error)?;
+    let mut tree = usvg::Tree::from_data(data, &opts).map_err(format_usvg_error)?;
+    if tree.has_text_nodes() {
+        let fontdb = load_svg_fonts(&tree, world, fallback_family.as_deref());
+        tree.convert_text(&fontdb);
+    }
 
     Ok(Arc::new(DecodedImage::Svg(tree)))
 }
 
 /// Discover and load the fonts referenced by an SVG.
 fn load_svg_fonts(
-    document: &roxmltree::Document,
+    tree: &usvg::Tree,
     world: Tracked<dyn World>,
     fallback_family: Option<&str>,
 ) -> fontdb::Database {
-    // Find out which font families are referenced by the SVG. We simply do a
-    // search for `font-family` attributes. This won't help with CSS, but usvg
-    // 22.0 doesn't seem to support it anyway. Once we bump to the latest usvg,
-    // this can be replaced by a scan for text elements in the SVG:
-    // https://github.com/RazrFalcon/resvg/issues/555
-    let mut referenced = BTreeSet::<EcoString>::new();
-    traverse_xml(&document.root(), &mut |node| {
-        if let Some(list) = node.attribute("font-family") {
-            for family in list.split(',') {
-                referenced.insert(EcoString::from(family.trim()).to_lowercase());
-            }
-        }
-    });
-
-    // Prepare font database.
+    let mut referenced = BTreeMap::<EcoString, bool>::new();
     let mut fontdb = fontdb::Database::new();
-    for family in referenced.iter().map(|family| family.as_str()).chain(fallback_family) {
+    let mut load = |family: &str| {
+        let lower = EcoString::from(family.trim()).to_lowercase();
+        if let Some(&success) = referenced.get(&lower) {
+            return success;
+        }
+
         // We load all variants for the family, since we don't know which will
         // be used.
-        for id in world.book().select_family(family) {
+        let mut success = false;
+        for id in world.book().select_family(&lower) {
             if let Some(font) = world.font(id) {
                 let source = Arc::new(font.data().clone());
                 fontdb.load_font_source(fontdb::Source::Binary(source));
+                success = true;
             }
         }
+
+        referenced.insert(lower, success);
+        success
+    };
+
+    // Load fallback family.
+    if let Some(family) = fallback_family {
+        load(family);
     }
+
+    // Find out which font families are referenced by the SVG.
+    traverse_svg(&tree.root, &mut |node| {
+        let usvg::NodeKind::Text(text) = &mut *node.borrow_mut() else { return };
+        for chunk in &mut text.chunks {
+            for span in &mut chunk.spans {
+                for family in &mut span.font.families {
+                    if !load(family) {
+                        let Some(fallback) = fallback_family else { continue };
+                        *family = fallback.into();
+                    }
+                }
+            }
+        }
+    });
 
     fontdb
 }
 
 /// Search for all font families referenced by an SVG.
-fn traverse_xml<F>(node: &roxmltree::Node, f: &mut F)
+fn traverse_svg<F>(node: &usvg::Node, f: &mut F)
 where
-    F: FnMut(&roxmltree::Node),
+    F: FnMut(&usvg::Node),
 {
     f(node);
     for child in node.children() {
-        traverse_xml(&child, f);
+        traverse_svg(&child, f);
     }
 }
 

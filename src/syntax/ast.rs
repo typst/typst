@@ -126,6 +126,8 @@ pub enum Expr {
     MathAttach(MathAttach),
     /// A fraction in math: `x/2`.
     MathFrac(MathFrac),
+    /// A root in math: `√x`, `∛x` or `∜x`.
+    MathRoot(MathRoot),
     /// An identifier: `left`.
     Ident(Ident),
     /// The `none` literal.
@@ -223,6 +225,7 @@ impl AstNode for Expr {
             SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
             SyntaxKind::MathAttach => node.cast().map(Self::MathAttach),
             SyntaxKind::MathFrac => node.cast().map(Self::MathFrac),
+            SyntaxKind::MathRoot => node.cast().map(Self::MathRoot),
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::None => node.cast().map(Self::None),
             SyntaxKind::Auto => node.cast().map(Self::Auto),
@@ -283,6 +286,7 @@ impl AstNode for Expr {
             Self::MathDelimited(v) => v.as_untyped(),
             Self::MathAttach(v) => v.as_untyped(),
             Self::MathFrac(v) => v.as_untyped(),
+            Self::MathRoot(v) => v.as_untyped(),
             Self::Ident(v) => v.as_untyped(),
             Self::None(v) => v.as_untyped(),
             Self::Auto(v) => v.as_untyped(),
@@ -853,6 +857,28 @@ impl MathFrac {
     /// The denominator.
     pub fn denom(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
+    }
+}
+
+node! {
+    /// A root in math: `√x`, `∛x` or `∜x`.
+    MathRoot
+}
+
+impl MathRoot {
+    /// The index of the root.
+    pub fn index(&self) -> Option<usize> {
+        match self.0.children().next().map(|node| node.text().as_str()) {
+            Some("∜") => Some(4),
+            Some("∛") => Some(3),
+            Some("√") => Option::None,
+            _ => Option::None,
+        }
+    }
+
+    /// The radicand.
+    pub fn radicand(&self) -> Expr {
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 
