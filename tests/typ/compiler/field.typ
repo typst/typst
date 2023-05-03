@@ -23,6 +23,30 @@
 - C
 
 ---
+// Test fields on function scopes.
+#enum.item
+#assert.eq
+#assert.ne
+
+---
+// Error: 9-16 function `assert` does not contain field `invalid`
+#assert.invalid
+
+---
+// Error: 7-14 function `enum` does not contain field `invalid`
+#enum.invalid
+
+---
+// Error: 7-14 function `enum` does not contain field `invalid`
+#enum.invalid()
+
+---
+// Closures cannot have fields.
+#let f(x) = x
+// Error: 4-11 cannot access fields on user-defined functions
+#f.invalid
+
+---
 // Error: 6-13 dictionary does not contain key "invalid" and no default value was specified
 #(:).invalid
 

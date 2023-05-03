@@ -15,6 +15,7 @@ struct Elem {
     ident: Ident,
     capable: Vec<Ident>,
     fields: Vec<Field>,
+    scope: Option<BlockWithReturn>,
 }
 
 struct Field {
@@ -28,7 +29,7 @@ struct Field {
     synthesized: bool,
     fold: bool,
     resolve: bool,
-    parse: Option<FieldParser>,
+    parse: Option<BlockWithReturn>,
     default: syn::Expr,
     vis: syn::Visibility,
     ident: Ident,
@@ -47,21 +48,6 @@ impl Field {
 
     fn settable(&self) -> bool {
         !self.inherent()
-    }
-}
-
-struct FieldParser {
-    prefix: Vec<syn::Stmt>,
-    expr: syn::Stmt,
-}
-
-impl Parse for FieldParser {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let mut stmts = syn::Block::parse_within(input)?;
-        let Some(expr) = stmts.pop() else {
-            return Err(input.error("expected at least on expression"));
-        };
-        Ok(Self { prefix: stmts, expr })
     }
 }
 
@@ -137,7 +123,8 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         .into_iter()
         .collect();
 
-    let docs = documentation(&body.attrs);
+    let mut attrs = body.attrs.clone();
+    let docs = documentation(&attrs);
     let mut lines = docs.split('\n').collect();
     let category = meta_line(&mut lines, "Category")?.into();
     let display = meta_line(&mut lines, "Display")?.into();
@@ -152,9 +139,10 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         ident: body.ident.clone(),
         capable,
         fields,
+        scope: parse_attr(&mut attrs, "scope")?.flatten(),
     };
 
-    validate_attrs(&body.attrs)?;
+    validate_attrs(&attrs)?;
     Ok(element)
 }
 
@@ -351,6 +339,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
         .iter()
         .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
+    let scope = create_scope_builder(element.scope.as_ref());
     quote! {
         impl ::typst::model::Element for #ident {
             fn pack(self) -> ::typst::model::Content {
@@ -377,6 +366,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
                         params: ::std::vec![#(#infos),*],
                         returns: ::std::vec!["content"],
                         category: #category,
+                        scope: #scope,
                     }),
                 };
                 (&NATIVE).into()
@@ -519,7 +509,7 @@ fn create_set_impl(element: &Elem) -> TokenStream {
 
 /// Create argument parsing code for a field.
 fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
-    if let Some(FieldParser { prefix, expr }) = &field.parse {
+    if let Some(BlockWithReturn { prefix, expr }) = &field.parse {
         return (quote! { #(#prefix);* }, quote! { #expr });
     }
 
