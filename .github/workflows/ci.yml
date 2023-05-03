@@ -3,11 +3,20 @@ on: [push, pull_request]
 
 env:
   RUSTFLAGS: "-Dwarnings"
-  rust_min: 1.65.0
 
 jobs:
-  ci:
-    name: Test
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --workspace
+      - run: cargo test --workspace --no-fail-fast
+
+  checks:
+    name: Check formatting and clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -15,22 +24,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check --all
       - run: cargo clippy --workspace --all-targets
-      - run: cargo build --workspace
-      - run: cargo test --workspace --no-fail-fast
-  msrv:
-    name: MSRV
+
+  min-version:
+    name: Check mininum Rust version
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Install toolchain (${{ env.rust_min }})
-        run: |
-          rustup install --profile minimal ${{ env.rust_min }}
-          rustup override set ${{ env.rust_min }}
-
-      - name: Cache
-        uses: Swatinem/rust-cache@v2
-
-      - name: Build
-        run: cargo build --workspace
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@1.65.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace
