@@ -1,8 +1,9 @@
 [package]
 name = "typst-tests"
-version = "0.3.0"
-authors = ["The Typst Project Developers"]
-edition = "2021"
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
 publish = false
 
 [dev-dependencies]

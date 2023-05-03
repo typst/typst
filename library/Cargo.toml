@@ -1,13 +1,14 @@
 [package]
 name = "typst-library"
-version = "0.3.0"
-authors = ["The Typst Project Developers"]
-edition = "2021"
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
 description = "The standard library for Typst."
-homepage = "https://typst.app"
-repository = "https://github.com/typst/typst"
-license = "Apache-2.0"
-keywords = ["typst"]
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
 
 [lib]
 test = false
