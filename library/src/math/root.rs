@@ -35,7 +35,7 @@ pub struct RootElem {
 
     /// The expression to take the root of.
     #[required]
-    radicand: Content,
+    pub radicand: Content,
 }
 
 impl LayoutMath for RootElem {

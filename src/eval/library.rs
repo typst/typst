@@ -126,9 +126,12 @@ impl Hash for LangItems {
         self.strong.hash(state);
         self.emph.hash(state);
         self.raw.hash(state);
+        self.raw_languages.hash(state);
         self.link.hash(state);
         self.reference.hash(state);
+        (self.bibliography_keys as usize).hash(state);
         self.heading.hash(state);
+        self.heading_func.hash(state);
         self.list_item.hash(state);
         self.enum_item.hash(state);
         self.term_item.hash(state);
@@ -139,6 +142,7 @@ impl Hash for LangItems {
         self.math_accent.hash(state);
         self.math_frac.hash(state);
         self.math_root.hash(state);
+        (self.library_method as usize).hash(state);
     }
 }
 
