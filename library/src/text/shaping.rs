@@ -750,31 +750,23 @@ fn calculate_adjustability(ctx: &mut ShapingContext) {
     while let Some(glyph) = glyphs.next() {
         glyph.adjustability = glyph.base_adjustability(gb_style);
 
-        if glyph.is_cjk_adjustable() {
-            // Only GB style needs further adjustment.
-            if !gb_style {
-                continue;
-            }
+        // Only GB style needs further adjustment.
+        if glyph.is_cjk_adjustable() && !gb_style {
+            continue;
+        }
 
-            // Now we apply consecutive punctuation adjustment, specified in Chinese Layout
-            // Requirements, section 3.1.6.1 Punctuation Adjustment Space, and Japanese Layout
-            // Requirements, section 3.1 Line Composition Rules for Punctuation Marks
-            if let Some(next) = glyphs.peek_mut() {
-                let width = glyph.x_advance;
-                let delta = width / 2.0;
-                if next.is_cjk_adjustable()
-                    && (glyph.shrinkability().1 + next.shrinkability().0) >= delta
-                {
-                    let left_delta = glyph.shrinkability().1.min(delta);
-                    let right_delta = delta - left_delta;
-
-                    // Adjust left punctuation.
-                    glyph.shrink_right(left_delta);
-
-                    // Adjust right punctuation.
-                    next.shrink_left(right_delta);
-                }
-            }
+        // Now we apply consecutive punctuation adjustment, specified in Chinese Layout
+        // Requirements, section 3.1.6.1 Punctuation Adjustment Space, and Japanese Layout
+        // Requirements, section 3.1 Line Composition Rules for Punctuation Marks
+        let Some(next) = glyphs.peek_mut() else { continue };
+        let width = glyph.x_advance;
+        let delta = width / 2.0;
+        if next.is_cjk_adjustable()
+            && (glyph.shrinkability().1 + next.shrinkability().0) >= delta
+        {
+            let left_delta = glyph.shrinkability().1.min(delta);
+            glyph.shrink_right(left_delta);
+            next.shrink_left(delta - left_delta);
         }
     }
 }

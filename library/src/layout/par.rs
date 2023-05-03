@@ -1124,10 +1124,9 @@ fn line<'a>(
         let base = expanded.end - shaped.text.len();
         let start = range.start.max(base);
         let text = &p.bidi.text[start..range.end];
-        let trimmed = text.trim_end();
         // U+200B ZERO WIDTH SPACE is used to provide a line break opportunity,
         // we want to trim it too.
-        let trimmed = trimmed.trim_end_matches('\u{200B}');
+        let trimmed = text.trim_end().trim_end_matches('\u{200B}');
         range.end = start + trimmed.len();
 
         // Deal with hyphens, dashes and justification.
