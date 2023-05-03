@@ -1154,10 +1154,11 @@ fn line<'a>(
                 if hyphen || shy {
                     reshaped.push_hyphen(vt);
                 }
-                let punct = reshaped.glyphs.to_mut().last_mut();
+                let punct = reshaped.glyphs.last();
                 if let Some(punct) = punct {
                     if punct.is_cjk_left_aligned_punctuation(gb_style) {
                         let shrink_amount = punct.shrinkability().1;
+                        let punct = reshaped.glyphs.to_mut().last_mut().unwrap();
                         punct.shrink_right(shrink_amount);
                         reshaped.width -= shrink_amount.at(reshaped.size);
                     }
@@ -1196,9 +1197,10 @@ fn line<'a>(
     if start_cjk_punct {
         let reshaped = first.as_mut().or(last.as_mut()).and_then(Item::text_mut);
         if let Some(reshaped) = reshaped {
-            if let Some(punct) = reshaped.glyphs.to_mut().first_mut() {
+            if let Some(punct) = reshaped.glyphs.first() {
                 if punct.is_cjk_right_aligned_punctuation() {
                     let shrink_amount = punct.shrinkability().0;
+                    let punct = reshaped.glyphs.to_mut().first_mut().unwrap();
                     punct.shrink_left(shrink_amount);
                     let amount_abs = shrink_amount.at(reshaped.size);
                     reshaped.width -= amount_abs;
