@@ -164,11 +164,8 @@ impl MathRow {
         frame.set_baseline(ascent);
 
         let mut next_x = {
-            let widths = if points.is_empty() || align == Align::Left {
-                Vec::new()
-            } else {
-                let mut widths = Vec::new();
-
+            let mut widths = Vec::new();
+            if !points.is_empty() && align != Align::Left {
                 let mut width = Abs::zero();
                 for fragment in self.iter() {
                     if matches!(fragment, MathFragment::Align) {
@@ -179,27 +176,23 @@ impl MathRow {
                     }
                 }
                 widths.push(width);
-
-                widths
-            };
+            }
+            let widths = widths;
 
             let mut prev_points = once(Abs::zero()).chain(points.iter().copied());
             let mut point_widths = points.iter().copied().zip(widths);
-            let mut alternator = point_widths
-                .clone()
-                .zip(prev_points.clone())
-                .zip(LeftRightAlternator::Right);
+            let mut alternator = LeftRightAlternator::Right;
             move || match align {
                 Align::Left => prev_points.next(),
                 Align::Right => point_widths.next().map(|(point, width)| point - width),
-                _ => {
-                    alternator.next().map(|(((point, width), prev_point), alternator)| {
-                        match alternator {
-                            LeftRightAlternator::Left => prev_point,
-                            LeftRightAlternator::Right => point - width,
-                        }
-                    })
-                }
+                _ => point_widths
+                    .next()
+                    .zip(prev_points.next())
+                    .zip(alternator.next())
+                    .map(|(((point, width), prev_point), alternator)| match alternator {
+                        LeftRightAlternator::Left => prev_point,
+                        LeftRightAlternator::Right => point - width,
+                    }),
             }
         };
         let mut x = next_x().unwrap_or_default();
