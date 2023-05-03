@@ -526,6 +526,7 @@ struct ShapingContext<'a> {
 }
 
 /// Shape text into [`ShapedText`].
+#[allow(clippy::too_many_arguments)]
 pub fn shape<'a>(
     vt: &Vt,
     base: usize,
