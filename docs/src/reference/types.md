@@ -362,7 +362,7 @@ string and returns the resulting string.
 - pattern: string or regex (positional, required)
   The pattern to search for.
 - replacement: string or function (positional, required)
-  The string to replace the matches with or a function that is passed a match dictionary if a regex was used.
+  The string to replace the matches with or a function that gets a dictionary for each match and can return individual replacement strings.
 - count: integer (named)
   If given, only the first `count` matches of the pattern are placed.
 - returns: string

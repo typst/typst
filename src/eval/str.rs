@@ -1,7 +1,7 @@
 use std::borrow::{Borrow, Cow};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
-use std::ops::{Add, AddAssign, Deref};
+use std::ops::{Add, AddAssign, Deref, Range};
 
 use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
@@ -258,8 +258,8 @@ impl Str {
     }
 
     /// Replace at most `count` occurrences of the given pattern with a
-    /// replacement string or function (beginning from the start). If no count is given,
-    /// all occurrences are replaced.
+    /// replacement string or function (beginning from the start). If no count
+    /// is given, all occurrences are replaced.
     pub fn replace(
         &self,
         vm: &mut Vm,
@@ -267,64 +267,51 @@ impl Str {
         with: Replacement,
         count: Option<usize>,
     ) -> SourceResult<Self> {
-        match with {
-            Replacement::Func(func) => {
-                // heuristic: assume the new string is about the same length as the current string
-                let mut new = String::with_capacity(self.as_str().len());
-                let mut last_match = 0;
-                match &pattern {
-                    StrPattern::Str(pat) => {
-                        let matches = self
-                            .0
-                            .match_indices(pat.as_str())
-                            .map(|(start, s)| (start, start + s.len(), s))
-                            .take(count.unwrap_or(usize::MAX));
-                        for (start, end, text) in matches {
-                            // push everything until the match
-                            new.push_str(&self.as_str()[last_match..start]);
-                            let args = Args::new(
-                                func.span(),
-                                [match_to_dict((start, text)).into()],
-                            );
-                            let res =
-                                func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
-                            new.push_str(res.as_str());
-                            last_match = end;
-                        }
-                    }
-                    StrPattern::Regex(re) => {
-                        let all_captures =
-                            re.captures_iter(self).take(count.unwrap_or(usize::MAX));
-                        for caps in all_captures {
-                            // `caps.get(0)` returns the entire match over all capture groups
-                            let (start, end) =
-                                caps.get(0).map(|c| (c.start(), c.end())).unwrap();
-                            // push everything until the match
-                            new.push_str(&self.as_str()[last_match..start]);
-                            let args =
-                                Args::new(func.span(), [captures_to_dict(caps).into()]);
-                            let res =
-                                func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
-                            new.push_str(res.as_str());
-                            last_match = end;
-                        }
-                    }
+        // Heuristic: Assume the new string is about the same length as
+        // the current string.
+        let mut output = EcoString::with_capacity(self.as_str().len());
+
+        // Replace one match of a pattern with the replacement.
+        let mut last_match = 0;
+        let mut handle_match = |range: Range<usize>, dict: Dict| -> SourceResult<()> {
+            // Push everything until the match.
+            output.push_str(&self[last_match..range.start]);
+            last_match = range.end;
+
+            // Determine and push the replacement.
+            match &with {
+                Replacement::Str(s) => output.push_str(s),
+                Replacement::Func(func) => {
+                    let args = Args::new(func.span(), [dict.into()]);
+                    let piece = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
+                    output.push_str(&piece);
                 }
-                // push the remainder
-                new.push_str(&self.as_str()[last_match..]);
-                Ok(new.into())
             }
-            Replacement::Str(s) => match pattern {
-                StrPattern::Str(pat) => match count {
-                    Some(n) => Ok(self.0.replacen(pat.as_str(), &s, n).into()),
-                    None => Ok(self.0.replace(pat.as_str(), &s).into()),
-                },
-                StrPattern::Regex(re) => match count {
-                    Some(n) => Ok(re.replacen(self, n, s.as_str()).into()),
-                    None => Ok(re.replace_all(self, s.as_str()).into()),
-                },
-            },
+
+            Ok(())
+        };
+
+        // Iterate over the matches of the `pattern`.
+        let count = count.unwrap_or(usize::MAX);
+        match &pattern {
+            StrPattern::Str(pat) => {
+                for m in self.match_indices(pat.as_str()).take(count) {
+                    let (start, text) = m;
+                    handle_match(start..start + text.len(), match_to_dict(m))?;
+                }
+            }
+            StrPattern::Regex(re) => {
+                for caps in re.captures_iter(self).take(count) {
+                    // Extract the entire match over all capture groups.
+                    let m = caps.get(0).unwrap();
+                    handle_match(m.start()..m.end(), captures_to_dict(caps))?;
+                }
+            }
         }
+
+        // Push the remainder.
+        output.push_str(&self[last_match..]);
+        Ok(output.into())
     }
 
     /// Repeat the string a number of times.
