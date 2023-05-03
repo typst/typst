@@ -37,3 +37,9 @@ $ root(2, x) quad
   root(3/(2/1), x) quad
   root(1/11, x) quad
   root(1/2/3, 1) $
+
+---
+// Test shorthand.
+$ √2^3 = sqrt(2^3) $
+$ √(x+y) quad ∛x quad ∜x $
+$ (√2+3) = (sqrt(2)+3) $

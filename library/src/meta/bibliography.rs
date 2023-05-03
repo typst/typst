@@ -614,19 +614,21 @@ fn load(
     }
 }
 
-/// Parse a bibliography file (bib/yml)
+/// Parse a bibliography file (bib/yml/yaml)
 fn parse_bib(path_str: &str, src: &str) -> StrResult<Vec<hayagriva::Entry>> {
     let path = Path::new(path_str);
     let ext = path.extension().and_then(OsStr::to_str).unwrap_or_default();
     match ext.to_lowercase().as_str() {
-        "yml" => hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error),
+        "yml" | "yaml" => {
+            hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error)
+        }
         "bib" => hayagriva::io::from_biblatex_str(src).map_err(|err| {
             err.into_iter()
                 .next()
                 .map(|error| format_biblatex_error(path_str, src, error))
                 .unwrap_or_else(|| eco_format!("failed to parse {path_str}"))
         }),
-        _ => Err("unknown bibliography format".into()),
+        _ => Err("unknown bibliography format (must be .yml/.yaml or .bib)".into()),
     }
 }
 

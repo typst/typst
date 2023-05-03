@@ -202,6 +202,7 @@ fn layout(
 ) -> SourceResult<()> {
     let gap = gap.scaled(ctx);
     let body = ctx.layout_row(body)?;
+    let body_class = body.class();
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
@@ -226,7 +227,7 @@ fn layout(
     }
 
     let frame = stack(ctx, rows, Align::Center, gap, baseline);
-    ctx.push(FrameFragment::new(ctx, frame));
+    ctx.push(FrameFragment::new(ctx, frame).with_class(body_class));
 
     Ok(())
 }

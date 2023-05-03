@@ -8,7 +8,7 @@ use crate::prelude::*;
 ///
 /// ```example
 /// #locate(loc => [
-///   My locatation: \
+///   My location: \
 ///   #loc.position()!
 /// ])
 /// ```

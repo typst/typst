@@ -222,13 +222,13 @@ impl GlyphFragment {
             size: self.font_size,
             fill: self.fill,
             lang: self.lang,
+            text: self.c.into(),
             glyphs: vec![Glyph {
                 id: self.id.0,
-                c: self.c,
                 x_advance: Em::from_length(self.width, self.font_size),
                 x_offset: Em::zero(),
-                span: self.span,
-                offset: 0,
+                range: 0..self.c.len_utf8() as u16,
+                span: (self.span, 0),
             }],
         };
         let size = Size::new(self.width, self.ascent + self.descent);

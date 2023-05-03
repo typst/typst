@@ -709,6 +709,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
             | Some(SyntaxKind::Math)
             | Some(SyntaxKind::MathFrac)
             | Some(SyntaxKind::MathAttach)
+            | Some(SyntaxKind::MathRoot)
     ) {
         return false;
     }

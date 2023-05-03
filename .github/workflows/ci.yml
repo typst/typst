@@ -5,7 +5,18 @@ env:
   RUSTFLAGS: "-Dwarnings"
 
 jobs:
-  ci:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --workspace
+      - run: cargo test --workspace --no-fail-fast
+
+  checks:
+    name: Check formatting and clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -13,5 +24,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check --all
       - run: cargo clippy --workspace --all-targets
-      - run: cargo build --workspace
-      - run: cargo test --workspace --no-fail-fast
+
+  min-version:
+    name: Check mininum Rust version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@1.65.0
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace

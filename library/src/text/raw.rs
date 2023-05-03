@@ -9,7 +9,7 @@ use crate::layout::BlockElem;
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 
-/// Raw text with optionalw syntax highlighting.
+/// Raw text with optional syntax highlighting.
 ///
 /// Displays the text verbatim and in a monospace font. This is typically used
 /// to embed computer code into your document.

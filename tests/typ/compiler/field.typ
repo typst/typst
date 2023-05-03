@@ -47,7 +47,7 @@
 #f.invalid
 
 ---
-// Error: 6-13 dictionary does not contain key "invalid"
+// Error: 6-13 dictionary does not contain key "invalid" and no default value was specified
 #(:).invalid
 
 ---
@@ -55,7 +55,7 @@
 #false.ok
 
 ---
-// Error: 25-28 content does not contain field "fun"
+// Error: 25-28 content does not contain field "fun" and no default value was specified
 #show heading: it => it.fun
 = A
 

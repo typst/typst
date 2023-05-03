@@ -448,7 +448,6 @@ fn convert_xml(node: roxmltree::Node) -> Value {
     let tag: Str = node.tag_name().name().into();
     let attrs: Dict = node
         .attributes()
-        .iter()
         .map(|attr| (attr.name().into(), attr.value().into()))
         .collect();
 

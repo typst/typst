@@ -353,9 +353,18 @@ fn test(
     pdf_path: Option<&Path>,
     args: &Args,
 ) -> bool {
-    let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
+    struct PanicGuard<'a>(&'a Path);
+    impl Drop for PanicGuard<'_> {
+        fn drop(&mut self) {
+            if std::thread::panicking() {
+                println!("Panicked in {}", self.0.display());
+            }
+        }
+    }
 
+    let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     let text = fs::read_to_string(src_path).unwrap();
+    let _guard = PanicGuard(name);
 
     let mut output = String::new();
     let mut ok = true;
@@ -401,6 +410,7 @@ fn test(
                 line,
                 &mut rng,
             );
+
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);

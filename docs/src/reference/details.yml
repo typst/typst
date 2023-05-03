@@ -159,7 +159,7 @@ construct: |
 data-loading: |
   Data loading from external files.
 
-  These functions help you with embedding data from experiments and APIs in your
+  These functions help you with embedding data from experiments in your
   documents.
 
 utility: |

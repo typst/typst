@@ -437,6 +437,7 @@ impl Lexer<'_> {
             '/' => SyntaxKind::Slash,
             '^' => SyntaxKind::Hat,
             '&' => SyntaxKind::MathAlignPoint,
+            '√' | '∛' | '∜' => SyntaxKind::Root,
 
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {

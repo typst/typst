@@ -5,9 +5,10 @@ use std::sync::Arc;
 
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
+use resvg::FitTo;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use usvg::{FitTo, NodeExt};
+use usvg::{NodeExt, TreeParsing};
 
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::geom::{
@@ -38,7 +39,7 @@ pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
 fn render_frame(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
+    mask: Option<&sk::Mask>,
     frame: &Frame,
 ) {
     for (pos, item) in frame.items() {
@@ -73,13 +74,13 @@ fn render_frame(
 fn render_group(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
+    mask: Option<&sk::Mask>,
     group: &GroupItem,
 ) {
     let ts = ts.pre_concat(group.transform.into());
 
     let mut mask = mask;
-    let mut storage;
+    let storage;
     if group.clips {
         let size = group.frame.size();
         let w = size.x.to_f32();
@@ -88,21 +89,32 @@ fn render_group(
             .map(sk::PathBuilder::from_rect)
             .and_then(|path| path.transform(ts))
         {
-            let result = if let Some(mask) = mask {
-                storage = mask.clone();
-                storage.intersect_path(&path, sk::FillRule::default(), false)
+            if let Some(mask) = mask {
+                let mut mask = mask.clone();
+                mask.intersect_path(
+                    &path,
+                    sk::FillRule::default(),
+                    false,
+                    sk::Transform::default(),
+                );
+                storage = mask;
             } else {
                 let pxw = canvas.width();
                 let pxh = canvas.height();
-                storage = sk::ClipMask::new();
-                storage.set_path(pxw, pxh, &path, sk::FillRule::default(), false)
-            };
+                let Some(mut mask) = sk::Mask::new(pxw, pxh) else {
+                    // Fails if clipping rect is empty. In that case we just
+                    // clip everything by returning.
+                    return;
+                };
 
-            // Clipping fails if clipping rect is empty. In that case we just
-            // clip everything by returning.
-            if result.is_none() {
-                return;
-            }
+                mask.fill_path(
+                    &path,
+                    sk::FillRule::default(),
+                    false,
+                    sk::Transform::default(),
+                );
+                storage = mask;
+            };
 
             mask = Some(&storage);
         }
@@ -115,7 +127,7 @@ fn render_group(
 fn render_text(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
+    mask: Option<&sk::Mask>,
     text: &TextItem,
 ) {
     let mut x = 0.0;
@@ -136,7 +148,7 @@ fn render_text(
 fn render_svg_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
+    mask: Option<&sk::Mask>,
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
@@ -157,8 +169,8 @@ fn render_svg_glyph(
 
     // Parse SVG.
     let opts = usvg::Options::default();
-    let tree = usvg::Tree::from_xmltree(&document, &opts.to_ref()).ok()?;
-    let view_box = tree.svg_node().view_box.rect;
+    let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    let view_box = tree.view_box.rect;
 
     // If there's no viewbox defined, use the em square for our scale
     // transformation ...
@@ -182,7 +194,7 @@ fn render_svg_glyph(
     // See https://github.com/RazrFalcon/resvg/issues/602 for why
     // using the svg size is problematic here.
     let mut bbox = usvg::Rect::new_bbox();
-    for node in tree.root().descendants() {
+    for node in tree.root.descendants() {
         if let Some(rect) = node.calculate_bbox().and_then(|b| b.to_rect()) {
             bbox = bbox.expand(rect);
         }
@@ -224,14 +236,16 @@ fn render_svg_glyph(
         &sk::PixmapPaint::default(),
         sk::Transform::identity(),
         mask,
-    )
+    );
+
+    Some(())
 }
 
 /// Render a bitmap glyph into the canvas.
 fn render_bitmap_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
+    mask: Option<&sk::Mask>,
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
@@ -255,7 +269,7 @@ fn render_bitmap_glyph(
 fn render_outline_glyph(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
+    mask: Option<&sk::Mask>,
     text: &TextItem,
     id: GlyphId,
 ) -> Option<()> {
@@ -278,7 +292,7 @@ fn render_outline_glyph(
         // system is Y-up.
         let scale = text.size.to_f32() / text.font.units_per_em() as f32;
         let ts = ts.pre_scale(scale, -scale);
-        canvas.fill_path(&path, &paint, rule, ts, mask)?;
+        canvas.fill_path(&path, &paint, rule, ts, mask);
         return Some(());
     }
 
@@ -318,7 +332,9 @@ fn render_outline_glyph(
             &sk::PixmapPaint::default(),
             sk::Transform::identity(),
             mask,
-        )
+        );
+
+        Some(())
     } else {
         let cw = canvas.width() as i32;
         let ch = canvas.height() as i32;
@@ -365,7 +381,7 @@ fn render_outline_glyph(
 fn render_shape(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
+    mask: Option<&sk::Mask>,
     shape: &Shape,
 ) -> Option<()> {
     let path = match shape.geometry {
@@ -409,11 +425,9 @@ fn render_shape(
             let dash = dash_pattern.as_ref().and_then(|pattern| {
                 // tiny-skia only allows dash patterns with an even number of elements,
                 // while pdf allows any number.
-                let len = if pattern.array.len() % 2 == 1 {
-                    pattern.array.len() * 2
-                } else {
-                    pattern.array.len()
-                };
+                let pattern_len = pattern.array.len();
+                let len =
+                    if pattern_len % 2 == 1 { 2 * pattern_len } else { pattern_len };
                 let dash_array =
                     pattern.array.iter().map(|l| l.to_f32()).cycle().take(len).collect();
 
@@ -467,7 +481,7 @@ fn convert_path(path: &geom::Path) -> Option<sk::Path> {
 fn render_image(
     canvas: &mut sk::Pixmap,
     ts: sk::Transform,
-    mask: Option<&sk::ClipMask>,
+    mask: Option<&sk::Mask>,
     image: &Image,
     size: Size,
 ) -> Option<()> {
@@ -505,7 +519,7 @@ fn render_image(
 fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
     match image.decoded() {
-        DecodedImage::Raster(dynamic, _) => {
+        DecodedImage::Raster(dynamic, _, _) => {
             let downscale = w < image.width();
             let filter =
                 if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };

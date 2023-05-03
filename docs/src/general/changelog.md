@@ -72,7 +72,7 @@ description: |
   - Added instrumentation for debugging and optimization
   - Added `--update` flag and `UPDATE_EXPECT` environment variable to update
     reference images for tests
-  - You can now run a specific subset with `--subtest`
+  - You can now run a specific subtest with `--subtest`
   - Tests now run on multiple threads
 
 <contributors from="v0.2.0" to="v0.3.0" />

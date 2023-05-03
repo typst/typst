@@ -10,7 +10,7 @@ use super::*;
 /// // With function call.
 /// $ attach(
 ///   Pi, t: alpha, b: beta,
-///   tl: 1, tr: 2, bl: 3, br: 4,
+///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
 /// ```
 ///
@@ -34,8 +34,10 @@ pub struct AttachElem {
     pub t: Option<Content>,
 
     /// The bottom attachment, smartly positioned at the bottom-right or below
-    /// the base. You can wrap the base in `{limits()}` or `{scripts()}` to
-    /// override the smart positioning.
+    /// the base.
+    ///
+    /// You can wrap the base in `{limits()}` or `{scripts()}` to override the
+    /// smart positioning.
     pub b: Option<Content>,
 
     /// The top-left attachment (before the base).
@@ -337,8 +339,13 @@ fn compute_shifts_up_and_down(
     (shift_up, shift_down)
 }
 
-/// Codepoints that should have sub- and superscripts attached as limits.
+/// Unicode codepoints that should have sub- and superscripts attached as limits.
+#[rustfmt::skip]
 const LIMITS: &[char] = &[
-    '\u{2210}', '\u{22C1}', '\u{22C0}', '\u{2A04}', '\u{22C2}', '\u{22C3}', '\u{220F}',
-    '\u{2211}', '\u{2A02}', '\u{2A01}', '\u{2A00}', '\u{2A06}',
+    /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
+    /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
+    /* ⋂ */ '\u{22C2}', /* ⋃ */ '\u{22C3}',
+    /* ⨀ */ '\u{2A00}', /* ⨁ */ '\u{2A01}', /* ⨂ */ '\u{2A02}',
+    /* ⨃ */ '\u{2A03}', /* ⨄ */ '\u{2A04}',
+    /* ⨅ */ '\u{2A05}', /* ⨆ */ '\u{2A06}',
 ];
