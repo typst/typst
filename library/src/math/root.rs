@@ -31,11 +31,11 @@ pub fn sqrt(
 pub struct RootElem {
     /// Which root of the radicand to take.
     #[positional]
-    index: Option<Content>,
+    pub index: Option<Content>,
 
     /// The expression to take the root of.
     #[required]
-    radicand: Content,
+    pub radicand: Content,
 }
 
 impl LayoutMath for RootElem {

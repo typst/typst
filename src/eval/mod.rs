@@ -438,6 +438,7 @@ impl Eval for ast::Expr {
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
             Self::MathAttach(v) => v.eval(vm).map(Value::Content),
             Self::MathFrac(v) => v.eval(vm).map(Value::Content),
+            Self::MathRoot(v) => v.eval(vm).map(Value::Content),
             Self::Ident(v) => v.eval(vm),
             Self::None(v) => v.eval(vm),
             Self::Auto(v) => v.eval(vm),
@@ -723,6 +724,16 @@ impl Eval for ast::MathFrac {
         let num = self.num().eval_display(vm)?;
         let denom = self.denom().eval_display(vm)?;
         Ok((vm.items.math_frac)(num, denom))
+    }
+}
+
+impl Eval for ast::MathRoot {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let index = self.index().map(|i| (vm.items.text)(eco_format!("{i}")));
+        let radicand = self.radicand().eval_display(vm)?;
+        Ok((vm.items.math_root)(index, radicand))
     }
 }
 
