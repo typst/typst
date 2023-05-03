@@ -23,6 +23,10 @@ pub struct ShapedText<'a> {
     pub text: &'a str,
     /// The text direction.
     pub dir: Dir,
+    /// The text language.
+    pub lang: Lang,
+    /// The text region.
+    pub region: Option<Region>,
     /// The text's style properties.
     pub styles: StyleChain<'a>,
     /// The font variant.
@@ -387,6 +391,8 @@ impl<'a> ShapedText<'a> {
                 base: text_range.start,
                 text,
                 dir: self.dir,
+                lang: self.lang,
+                region: self.region,
                 styles: self.styles,
                 size: self.size,
                 variant: self.variant,
@@ -394,7 +400,16 @@ impl<'a> ShapedText<'a> {
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(vt, text_range.start, text, spans, self.styles, self.dir)
+            shape(
+                vt,
+                text_range.start,
+                text,
+                spans,
+                self.styles,
+                self.dir,
+                self.lang,
+                self.region,
+            )
         }
     }
 
@@ -518,6 +533,8 @@ pub fn shape<'a>(
     spans: &SpanMapper,
     styles: StyleChain<'a>,
     dir: Dir,
+    lang: Lang,
+    region: Option<Region>,
 ) -> ShapedText<'a> {
     let size = TextElem::size_in(styles);
     let mut ctx = ShapingContext {
@@ -544,6 +561,8 @@ pub fn shape<'a>(
         base,
         text,
         dir,
+        lang,
+        region,
         styles,
         variant: ctx.variant,
         size,

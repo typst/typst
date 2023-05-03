@@ -721,7 +721,10 @@ fn shape_range<'a>(
 ) {
     let mut process = |range: Range, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let shaped = shape(vt, range.start, &bidi.text[range], spans, styles, dir);
+        let lang = TextElem::lang_in(styles);
+        let region = TextElem::region_in(styles);
+        let shaped =
+            shape(vt, range.start, &bidi.text[range], spans, styles, dir, lang, region);
         items.push(Item::Text(shaped));
     };
 
