@@ -16,6 +16,7 @@ bench = false
 
 [dependencies]
 typst = { path = ".." }
+az = "1.2"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 comemo = "0.2.2"
 csv = "1"
