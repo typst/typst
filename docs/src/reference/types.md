@@ -178,7 +178,7 @@ Produces the negative of the color.
 
 Represents a datetime. Can be created by either specifying a custom datetime
 using the [`datetime` function]($func/datetime) or getting the current date 
-using the [`today` function]($func/today).
+using the `today` function.
 
 ## Methods
 ### display()

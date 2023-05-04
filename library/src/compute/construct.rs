@@ -211,6 +211,10 @@ cast_from_value! {
 /// Category: construct
 /// Returns: datetime
 #[func]
+#[scope(
+    scope.define("today", today);
+    scope
+)]
 pub fn datetime(
     /// The year of the datetime.
     #[named]
