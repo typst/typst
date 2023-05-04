@@ -556,7 +556,7 @@ pub fn shape<'a>(
     }
 
     track_and_space(&mut ctx);
-    calculate_adjustability(&mut ctx);
+    calculate_adjustability(&mut ctx, lang, region);
 
     ShapedText {
         base,
@@ -751,10 +751,7 @@ fn track_and_space(ctx: &mut ShapingContext) {
     }
 }
 
-pub fn is_gb_style(styles: StyleChain) -> bool {
-    let lang = TextElem::lang_in(styles);
-    let region = TextElem::region_in(styles);
-
+pub fn is_gb_style(lang: Lang, region: Option<Region>) -> bool {
     // Most CJK variants, including zh-CN, ja-JP, zh-SG, zh-MY use GB-style punctuation,
     // while zh-HK and zh-TW use alternative style. We default to use GB-style.
     !(lang == Lang::CHINESE
@@ -763,8 +760,8 @@ pub fn is_gb_style(styles: StyleChain) -> bool {
 
 /// Calculate stretchability and shrinkability of each glyph,
 /// and CJK punctuation adjustments according to Chinese Layout Requirements.
-fn calculate_adjustability(ctx: &mut ShapingContext) {
-    let gb_style = is_gb_style(ctx.styles);
+fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
+    let gb_style = is_gb_style(lang, region);
 
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {

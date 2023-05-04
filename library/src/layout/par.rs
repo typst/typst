@@ -719,10 +719,10 @@ fn shape_range<'a>(
     spans: &SpanMapper,
     styles: StyleChain<'a>,
 ) {
+    let lang = TextElem::lang_in(styles);
+    let region = TextElem::region_in(styles);
     let mut process = |range: Range, level: BidiLevel| {
         let dir = if level.is_ltr() { Dir::LTR } else { Dir::RTL };
-        let lang = TextElem::lang_in(styles);
-        let region = TextElem::region_in(styles);
         let shaped =
             shape(vt, range.start, &bidi.text[range], spans, styles, dir, lang, region);
         items.push(Item::Text(shaped));
@@ -1138,7 +1138,7 @@ fn line<'a>(
         justify |= text.ends_with('\u{2028}');
 
         // Deal with CJK punctuation at line ends.
-        let gb_style = is_gb_style(p.styles);
+        let gb_style = is_gb_style(shaped.lang, shaped.region);
         let end_cjk_punct = trimmed
             .ends_with(['”', '’', '，', '。', '、', '：', '；', '》', '）', '』', '」']);
 
