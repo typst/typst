@@ -31,7 +31,7 @@
 #"🏳️‍🌈".at(2)
 
 ---
-// Error: 2-15 string index out of bounds (index: 5, len: 5)
+// Error: 2-15 no default value was specified and string index out of bounds (index: 5, len: 5)
 #"Hello".at(5)
 
 ---
@@ -111,7 +111,7 @@
 #test(timesum("1:20, 2:10, 0:40"), "4:10")
 
 ---
-// Test the `replace` method.
+// Test the `replace` method with `Str` replacements.
 #test("ABC".replace("", "-"), "-A-B-C-")
 #test("Ok".replace("Ok", "Nope", count: 0), "Ok")
 #test("to add?".replace("", "How ", count: 1), "How to add?")
@@ -125,6 +125,47 @@
 )
 #test("123".replace(regex("\d$"), "_"), "12_")
 #test("123".replace(regex("\d{1,2}$"), "__"), "1__")
+
+---
+// Test the `replace` method with `Func` replacements.
+
+#test("abc".replace(regex("[a-z]"), m => {
+  str(m.start) + m.text + str(m.end)
+}), "0a11b22c3")
+#test("abcd, efgh".replace(regex("\w+"), m => {
+  upper(m.text)
+}), "ABCD, EFGH")
+#test("hello : world".replace(regex("^(.+)\s*(:)\s*(.+)$"), m => {
+  upper(m.captures.at(0)) + m.captures.at(1) + " " + upper(m.captures.at(2))
+}), "HELLO : WORLD")
+#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), m => {
+  m.captures.at(1) + " " + m.captures.at(0)
+}), "world hello, ipsum lorem")
+#test("hello world, lorem ipsum".replace(regex("(\w+) (\w+)"), count: 1, m => {
+  m.captures.at(1) + " " + m.captures.at(0)
+}), "world hello, lorem ipsum")
+#test("123 456".replace(regex("[a-z]+"), "a"), "123 456")
+
+#test("abc".replace("", m => "-"), "-a-b-c-")
+#test("abc".replace("", m => "-", count: 1), "-abc")
+#test("123".replace("abc", m => ""), "123")
+#test("123".replace("abc", m => "", count: 2), "123")
+#test("a123b123c".replace("123", m => {
+  str(m.start) + "-" + str(m.end)
+}), "a1-4b5-8c")
+#test("halla warld".replace("a", m => {
+  if m.start == 1 { "e" }
+  else if m.start == 4 or m.start == 7 { "o" }
+}), "hello world")
+#test("aaa".replace("a", m => str(m.captures.len())), "000")
+
+---
+// Error: 23-24 expected string, found integer
+#"123".replace("123", m => 1)
+
+---
+// Error: 23-32 expected string or function, found array
+#"123".replace("123", (1, 2, 3))
 
 ---
 // Test the `trim` method.

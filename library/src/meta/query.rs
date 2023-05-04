@@ -89,6 +89,13 @@ use crate::prelude::*;
 /// })
 /// ```
 ///
+/// ## Migration Hints
+/// The `before` and `after` arguments have been removed in version 0.3.0. You
+/// can now use flexible selector combinator methods instead. For example,
+/// `query(heading, before: loc)` becomes `query(heading.before(loc), loc)`.
+/// Please refer to the [selector documentation]($type/selector) for more
+/// details.
+///
 /// Display: Query
 /// Category: meta
 /// Returns: content
@@ -112,8 +119,6 @@ pub fn query(
     /// the query's result is reduced. If you could call it directly at the top
     /// level of a module, the evaluation of the whole module and its exports
     /// could depend on the query's result.
-    ///
-    /// Only one of this, `before`, and `after` shall be given.
     location: Location,
 ) -> Value {
     let _ = location;

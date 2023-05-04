@@ -88,6 +88,9 @@ pub fn panic(
 /// Fails with an error if the condition is not fulfilled. Does not
 /// produce any output in the document.
 ///
+/// If you wish to test equality between two values, see
+/// [`assert.eq`]($func/assert.eq) and [`assert.ne`]($func/assert.ne).
+///
 /// ## Example
 /// ```typ
 /// #assert(1 < 2, message: "math broke")
@@ -97,6 +100,11 @@ pub fn panic(
 /// Category: foundations
 /// Returns:
 #[func]
+#[scope(
+    scope.define("eq", assert_eq);
+    scope.define("ne", assert_ne);
+    scope
+)]
 pub fn assert(
     /// The condition that must be true for the assertion to pass.
     condition: bool,
@@ -110,6 +118,90 @@ pub fn assert(
             bail!(args.span, "assertion failed: {}", message);
         } else {
             bail!(args.span, "assertion failed");
+        }
+    }
+    Value::None
+}
+
+/// Ensure that two values are equal.
+///
+/// Fails with an error if the first value is not equal to the second. Does not
+/// produce any output in the document.
+///
+/// ## Example
+/// ```example
+/// #assert.eq(10, 10)
+/// ```
+///
+/// Display: Assert Equals
+/// Category: foundations
+/// Returns:
+#[func]
+pub fn assert_eq(
+    /// The first value to compare.
+    left: Value,
+
+    /// The second value to compare.
+    right: Value,
+
+    /// An optional message to display on error instead of the representations
+    /// of the compared values.
+    #[named]
+    #[default]
+    message: Option<EcoString>,
+) -> Value {
+    if left != right {
+        if let Some(message) = message {
+            bail!(args.span, "equality assertion failed: {}", message);
+        } else {
+            bail!(
+                args.span,
+                "equality assertion failed: value {:?} was not equal to {:?}",
+                left,
+                right
+            );
+        }
+    }
+    Value::None
+}
+
+/// Ensure that two values are not equal.
+///
+/// Fails with an error if the first value is equal to the second. Does not
+/// produce any output in the document.
+///
+/// ## Example
+/// ```example
+/// #assert.ne(3, 4)
+/// ```
+///
+/// Display: Assert Not Equals
+/// Category: foundations
+/// Returns:
+#[func]
+pub fn assert_ne(
+    /// The first value to compare.
+    left: Value,
+
+    /// The second value to compare.
+    right: Value,
+
+    /// An optional message to display on error instead of the representations
+    /// of the compared values.
+    #[named]
+    #[default]
+    message: Option<EcoString>,
+) -> Value {
+    if left == right {
+        if let Some(message) = message {
+            bail!(args.span, "inequality assertion failed: {}", message);
+        } else {
+            bail!(
+                args.span,
+                "inequality assertion failed: value {:?} was equal to {:?}",
+                left,
+                right
+            );
         }
     }
     Value::None

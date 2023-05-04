@@ -47,16 +47,21 @@
 
 ---
 // Test rvalue out of bounds.
-// Error: 2-17 array index out of bounds (index: 5, len: 3)
+// Error: 2-17 array index out of bounds (index: 5, len: 3) and no default value was specified
 #(1, 2, 3).at(5)
 
 ---
 // Test lvalue out of bounds.
 #{
   let array = (1, 2, 3)
-  // Error: 3-14 array index out of bounds (index: 3, len: 3)
+  // Error: 3-14 array index out of bounds (index: 3, len: 3) and no default value was specified
   array.at(3) = 5
 }
+
+---
+// Test default value.
+#test((1, 2, 3).at(2, default: 5), 3)
+#test((1, 2, 3).at(3, default: 5), 5)
 
 ---
 // Test bad lvalue.
@@ -243,7 +248,7 @@
 #([Hi], [There]).sorted()
 
 ---
-// Error: 2-18 array index out of bounds (index: -4, len: 3)
+// Error: 2-18 array index out of bounds (index: -4, len: 3) and no default value was specified
 #(1, 2, 3).at(-4)
 
 ---

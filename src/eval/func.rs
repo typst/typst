@@ -5,12 +5,13 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked, TrackedMut};
+use ecow::eco_format;
 use once_cell::sync::Lazy;
 
 use super::{
     cast_to_value, Args, CastInfo, Eval, Flow, Route, Scope, Scopes, Tracer, Value, Vm,
 };
-use crate::diag::{bail, SourceResult};
+use crate::diag::{bail, SourceResult, StrResult};
 use crate::model::{ElemFunc, Introspector, StabilityProvider, Vt};
 use crate::syntax::ast::{self, AstNode, Expr, Ident};
 use crate::syntax::{SourceId, Span, SyntaxNode};
@@ -144,6 +145,30 @@ impl Func {
             _ => None,
         }
     }
+
+    /// Get a field from this function's scope, if possible.
+    pub fn get(&self, field: &str) -> StrResult<&Value> {
+        match &self.repr {
+            Repr::Native(func) => func.info.scope.get(field).ok_or_else(|| {
+                eco_format!(
+                    "function `{}` does not contain field `{}`",
+                    func.info.name,
+                    field
+                )
+            }),
+            Repr::Elem(func) => func.info().scope.get(field).ok_or_else(|| {
+                eco_format!(
+                    "function `{}` does not contain field `{}`",
+                    func.name(),
+                    field
+                )
+            }),
+            Repr::Closure(_) => {
+                Err(eco_format!("cannot access fields on user-defined functions"))
+            }
+            Repr::With(arc) => arc.0.get(field),
+        }
+    }
 }
 
 impl Debug for Func {
@@ -225,6 +250,8 @@ pub struct FuncInfo {
     pub returns: Vec<&'static str>,
     /// Which category the function is part of.
     pub category: &'static str,
+    /// The function's own scope of fields and sub-functions.
+    pub scope: Scope,
 }
 
 impl FuncInfo {

@@ -67,7 +67,8 @@ pub fn jump_from_click(
 
             FrameItem::Text(text) => {
                 for glyph in &text.glyphs {
-                    if glyph.span.is_detached() {
+                    let (span, span_offset) = glyph.span;
+                    if span.is_detached() {
                         continue;
                     }
 
@@ -77,13 +78,13 @@ pub fn jump_from_click(
                         Size::new(width, text.size),
                         click,
                     ) {
-                        let source = world.source(glyph.span.source());
-                        let node = source.find(glyph.span)?;
+                        let source = world.source(span.source());
+                        let node = source.find(span)?;
                         let pos = if node.kind() == SyntaxKind::Text {
                             let range = node.range();
-                            let mut offset = range.start + usize::from(glyph.offset);
+                            let mut offset = range.start + usize::from(span_offset);
                             if (click.x - pos.x) > width / 2.0 {
-                                offset += glyph.c.len_utf8();
+                                offset += glyph.range().len();
                             }
                             offset.min(range.end)
                         } else {
@@ -150,7 +151,7 @@ fn find_in_frame(frame: &Frame, span: Span) -> Option<Point> {
 
         if let FrameItem::Text(text) = item {
             for glyph in &text.glyphs {
-                if glyph.span == span {
+                if glyph.span.0 == span {
                     return Some(pos);
                 }
                 pos.x += glyph.x_advance.at(text.size);

@@ -43,7 +43,7 @@ use std::mem;
 use std::path::{Path, PathBuf};
 
 use comemo::{Track, Tracked, TrackedMut};
-use ecow::EcoVec;
+use ecow::{EcoString, EcoVec};
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::diag::{
@@ -439,6 +439,7 @@ impl Eval for ast::Expr {
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
             Self::MathAttach(v) => v.eval(vm).map(Value::Content),
             Self::MathFrac(v) => v.eval(vm).map(Value::Content),
+            Self::MathRoot(v) => v.eval(vm).map(Value::Content),
             Self::Ident(v) => v.eval(vm),
             Self::None(v) => v.eval(vm),
             Self::Auto(v) => v.eval(vm),
@@ -724,6 +725,16 @@ impl Eval for ast::MathFrac {
         let num = self.num().eval_display(vm)?;
         let denom = self.denom().eval_display(vm)?;
         Ok((vm.items.math_frac)(num, denom))
+    }
+}
+
+impl Eval for ast::MathRoot {
+    type Output = Content;
+
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let index = self.index().map(|i| (vm.items.text)(eco_format!("{i}")));
+        let radicand = self.radicand().eval_display(vm)?;
+        Ok((vm.items.math_root)(index, radicand))
     }
 }
 
@@ -1067,7 +1078,15 @@ impl Eval for ast::FuncCall {
             if methods::is_mutating(&field) {
                 let args = args.eval(vm)?;
                 let target = target.access(vm)?;
-                if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
+
+                // Prioritize a function's own methods (with, where) over its
+                // fields. This is fine as we define each field of a function,
+                // if it has any.
+                // ('methods_on' will be empty for Symbol and Module - their
+                // method calls always refer to their fields.)
+                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
+                    || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
+                {
                     return methods::call_mut(target, &field, args, span).trace(
                         vm.world(),
                         point,
@@ -1078,7 +1097,10 @@ impl Eval for ast::FuncCall {
             } else {
                 let target = target.eval(vm)?;
                 let args = args.eval(vm)?;
-                if !matches!(target, Value::Symbol(_) | Value::Module(_)) {
+
+                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
+                    || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
+                {
                     return methods::call(vm, target, &field, args, span).trace(
                         vm.world(),
                         point,
@@ -1245,7 +1267,7 @@ impl ast::Pattern {
         for p in destruct.bindings() {
             match p {
                 ast::DestructuringKind::Normal(expr) => {
-                    let Ok(v) = value.at(i) else {
+                    let Ok(v) = value.at(i, None) else {
                         bail!(expr.span(), "not enough elements to destructure");
                     };
                     f(vm, expr, v.clone())?;
@@ -1300,17 +1322,17 @@ impl ast::Pattern {
         for p in destruct.bindings() {
             match p {
                 ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
-                    let Ok(v) = value.at(&ident) else {
-                                        bail!(ident.span(), "destructuring key not found in dictionary");
-                                    };
+                    let Ok(v) = value.at(&ident, None) else {
+                        bail!(ident.span(), "destructuring key not found in dictionary");
+                    };
                     f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
                     used.insert(ident.take());
                 }
                 ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
                 ast::DestructuringKind::Named(named) => {
-                    let Ok(v) = value.at(named.name().as_str()) else {
-                                        bail!(named.name().span(), "destructuring key not found in dictionary");
-                                    };
+                    let Ok(v) = value.at(named.name().as_str(), None) else {
+                        bail!(named.name().span(), "destructuring key not found in dictionary");
+                    };
                     f(vm, named.expr(), v.clone())?;
                     used.insert(named.name().take());
                 }
@@ -1603,6 +1625,42 @@ impl Eval for ast::ForLoop {
     }
 }
 
+/// Applies imports from `import` to the current scope.
+fn apply_imports<V: Into<Value>>(
+    imports: Option<ast::Imports>,
+    vm: &mut Vm,
+    source_value: V,
+    name: impl Fn(&V) -> EcoString,
+    scope: impl Fn(&V) -> &Scope,
+) -> SourceResult<()> {
+    match imports {
+        None => {
+            vm.scopes.top.define(name(&source_value), source_value);
+        }
+        Some(ast::Imports::Wildcard) => {
+            for (var, value) in scope(&source_value).iter() {
+                vm.scopes.top.define(var.clone(), value.clone());
+            }
+        }
+        Some(ast::Imports::Items(idents)) => {
+            let mut errors = vec![];
+            let scope = scope(&source_value);
+            for ident in idents {
+                if let Some(value) = scope.get(&ident) {
+                    vm.define(ident, value.clone());
+                } else {
+                    errors.push(error!(ident.span(), "unresolved import"));
+                }
+            }
+            if !errors.is_empty() {
+                return Err(Box::new(errors));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 impl Eval for ast::ModuleImport {
     type Output = Value;
 
@@ -1610,30 +1668,26 @@ impl Eval for ast::ModuleImport {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
-        let module = import(vm, source, span)?;
-
-        match self.imports() {
-            None => {
-                vm.scopes.top.define(module.name().clone(), module);
+        if let Value::Func(func) = source {
+            if func.info().is_none() {
+                bail!(span, "cannot import from user-defined functions");
             }
-            Some(ast::Imports::Wildcard) => {
-                for (var, value) in module.scope().iter() {
-                    vm.scopes.top.define(var.clone(), value.clone());
-                }
-            }
-            Some(ast::Imports::Items(idents)) => {
-                let mut errors = vec![];
-                for ident in idents {
-                    if let Some(value) = module.scope().get(&ident) {
-                        vm.define(ident, value.clone());
-                    } else {
-                        errors.push(error!(ident.span(), "unresolved import"));
-                    }
-                }
-                if !errors.is_empty() {
-                    return Err(Box::new(errors));
-                }
-            }
+            apply_imports(
+                self.imports(),
+                vm,
+                func,
+                |func| func.info().unwrap().name.into(),
+                |func| &func.info().unwrap().scope,
+            )?;
+        } else {
+            let module = import(vm, source, span, true)?;
+            apply_imports(
+                self.imports(),
+                vm,
+                module,
+                |module| module.name().clone(),
+                |module| module.scope(),
+            )?;
         }
 
         Ok(Value::None)
@@ -1647,17 +1701,28 @@ impl Eval for ast::ModuleInclude {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
-        let module = import(vm, source, span)?;
+        let module = import(vm, source, span, false)?;
         Ok(module.content())
     }
 }
 
 /// Process an import of a module relative to the current location.
-fn import(vm: &mut Vm, source: Value, span: Span) -> SourceResult<Module> {
+fn import(
+    vm: &mut Vm,
+    source: Value,
+    span: Span,
+    accept_functions: bool,
+) -> SourceResult<Module> {
     let path = match source {
         Value::Str(path) => path,
         Value::Module(module) => return Ok(module),
-        v => bail!(span, "expected path or module, found {}", v.type_name()),
+        v => {
+            if accept_functions {
+                bail!(span, "expected path, module or function, found {}", v.type_name())
+            } else {
+                bail!(span, "expected path or module, found {}", v.type_name())
+            }
+        }
     };
 
     // Load the source file.

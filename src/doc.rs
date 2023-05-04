@@ -1,7 +1,8 @@
 //! Finished documents.
 
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
+use std::ops::Range;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -113,23 +114,6 @@ impl Frame {
     /// relative to the top-left of the frame.
     pub fn items(&self) -> std::slice::Iter<'_, (Point, FrameItem)> {
         self.items.iter()
-    }
-
-    /// Approximately recover the text inside of the frame and its children.
-    pub fn text(&self) -> EcoString {
-        let mut text = EcoString::new();
-        for (_, item) in self.items() {
-            match item {
-                FrameItem::Text(item) => {
-                    for glyph in &item.glyphs {
-                        text.push(glyph.c);
-                    }
-                }
-                FrameItem::Group(group) => text.push_str(&group.frame.text()),
-                _ => {}
-            }
-        }
-        text
     }
 }
 
@@ -476,6 +460,8 @@ pub struct TextItem {
     pub fill: Paint,
     /// The natural language of the text.
     pub lang: Lang,
+    /// The item's plain text.
+    pub text: EcoString,
     /// The glyphs.
     pub glyphs: Vec<Glyph>,
 }
@@ -489,19 +475,14 @@ impl TextItem {
 
 impl Debug for TextItem {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        // This is only a rough approxmiation of the source text.
-        f.write_str("Text(\"")?;
-        for glyph in &self.glyphs {
-            for c in glyph.c.escape_debug() {
-                f.write_char(c)?;
-            }
-        }
-        f.write_str("\")")
+        f.write_str("Text(")?;
+        self.text.fmt(f)?;
+        f.write_str(")")
     }
 }
 
 /// A glyph in a run of shaped text.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Glyph {
     /// The glyph's index in the font.
     pub id: u16,
@@ -509,12 +490,17 @@ pub struct Glyph {
     pub x_advance: Em,
     /// The horizontal offset of the glyph.
     pub x_offset: Em,
-    /// The first character of the glyph's cluster.
-    pub c: char,
+    /// The range of the glyph in its item's text.
+    pub range: Range<u16>,
     /// The source code location of the text.
-    pub span: Span,
-    /// The offset within the spanned text.
-    pub offset: u16,
+    pub span: (Span, u16),
+}
+
+impl Glyph {
+    /// The range of the glyph in its item's text.
+    pub fn range(&self) -> Range<usize> {
+        usize::from(self.range.start)..usize::from(self.range.end)
+    }
 }
 
 /// An identifier for a natural language.

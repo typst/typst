@@ -215,7 +215,7 @@ use crate::prelude::*;
 ///   location can be retrieved from [`locate`]($func/locate) or
 ///   [`query`]($func/query).
 ///
-/// - returns: array
+/// - returns: any
 ///
 /// ### final()
 /// Get the value of the state at the end of the document.
@@ -229,7 +229,7 @@ use crate::prelude::*;
 ///   the evaluation of the whole module and its exports could depend on the
 ///   state's value.
 ///
-/// - returns: array
+/// - returns: any
 ///
 /// Display: State
 /// Category: meta

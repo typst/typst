@@ -36,6 +36,17 @@ use super::GridLayouter;
 /// + Don't forget step two
 /// ```
 ///
+/// You can also use [`enum.item`]($func/enum.item) to programmatically
+/// customize the number of each item in the enumeration:
+///
+/// ```example
+/// #enum(
+///   enum.item(1)[First step],
+///   enum.item(5)[Fifth step],
+///   enum.item(10)[Tenth step]
+/// )
+/// ```
+///
 /// ## Syntax
 /// This functions also has dedicated syntax:
 ///
@@ -51,6 +62,10 @@ use super::GridLayouter;
 /// Display: Numbered List
 /// Category: layout
 #[element(Layout)]
+#[scope(
+    scope.define("item", EnumItem::func());
+    scope
+)]
 pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal

@@ -568,6 +568,11 @@ fn collect<'a>(
                 let region = TextElem::region_in(styles);
                 let quotes = Quotes::from_lang(lang, region);
                 let peeked = iter.peek().and_then(|child| {
+                    let child = if let Some((child, _)) = child.to_styled() {
+                        child
+                    } else {
+                        child
+                    };
                     if let Some(elem) = child.to::<TextElem>() {
                         elem.text().chars().next()
                     } else if child.is::<SmartQuoteElem>() {
@@ -1134,8 +1139,7 @@ fn line<'a>(
         // are no other items in the line.
         if hyphen || start + shaped.text.len() > range.end {
             if hyphen || start < range.end || before.is_empty() {
-                let shifted = start - base..range.end - base;
-                let mut reshaped = shaped.reshape(vt, &p.spans, shifted);
+                let mut reshaped = shaped.reshape(vt, &p.spans, start..range.end);
                 if hyphen || shy {
                     reshaped.push_hyphen(vt);
                 }
@@ -1157,8 +1161,7 @@ fn line<'a>(
         // Reshape if necessary.
         if range.start + shaped.text.len() > end {
             if range.start < end {
-                let shifted = range.start - base..end - base;
-                let reshaped = shaped.reshape(vt, &p.spans, shifted);
+                let reshaped = shaped.reshape(vt, &p.spans, range.start..end);
                 width += reshaped.width;
                 first = Some(Item::Text(reshaped));
             }
