@@ -96,14 +96,22 @@ fn try_reparse(
     // possible if the markup is top-level or contained in a block, not if it is
     // contained in things like headings or lists because too much can go wrong
     // with indent and line breaks.
-    if node.kind() == SyntaxKind::Markup
-        && (parent_kind.is_none() || parent_kind == Some(SyntaxKind::ContentBlock))
-        && !overlap.is_empty()
+    if overlap.is_empty()
+        || node.kind() != SyntaxKind::Markup
+        || !matches!(parent_kind, None | Some(SyntaxKind::ContentBlock))
     {
+        return None;
+    }
+
+    let children = node.children_mut();
+
+    // Reparse a segment. Retries until it works, taking exponentially more
+    // children into account.
+    let mut expansion = 1;
+    loop {
         // Add slack in both directions.
-        let children = node.children_mut();
-        let mut start = overlap.start.saturating_sub(2);
-        let mut end = (overlap.end + 1).min(children.len());
+        let mut start = overlap.start.saturating_sub(expansion.max(2));
+        let mut end = (overlap.end + expansion).min(children.len());
 
         // Expand to the left.
         while start > 0 && expand(&children[start]) {
@@ -141,26 +149,48 @@ fn try_reparse(
             next_nesting(child, &mut prev_nesting_after);
         }
 
+        // Determine the range in the new text that we want to reparse.
         let shifted = offset + prefix_len;
         let new_len = prev_len + replacement_len - replaced.len();
         let new_range = shifted..shifted + new_len;
+        let at_end = end == children.len();
+
+        // Stop parsing early if this kind is encountered.
         let stop_kind = match parent_kind {
             Some(_) => SyntaxKind::RightBracket,
             None => SyntaxKind::Eof,
         };
 
-        if let Some(newborns) =
-            reparse_markup(text, new_range.clone(), &mut at_start, &mut nesting, |kind| {
-                kind == stop_kind
-            })
-        {
-            if at_start == prev_at_start_after && nesting == prev_nesting_after {
+        // Reparse!
+        let reparsed = reparse_markup(
+            text,
+            new_range.clone(),
+            &mut at_start,
+            &mut nesting,
+            |kind| kind == stop_kind,
+        );
+
+        if let Some(newborns) = reparsed {
+            // If more children follow, at_start must match its previous value.
+            // Similarly, if we children follow or we not top-level the nesting
+            // must match its previous value.
+            if (at_end || at_start == prev_at_start_after)
+                && ((at_end && parent_kind.is_none()) || nesting == prev_nesting_after)
+            {
                 return node
                     .replace_children(start..end, newborns)
                     .is_ok()
                     .then_some(new_range);
             }
         }
+
+        // If it didn't even work with all children, we give up.
+        if start == 0 && at_end {
+            break;
+        }
+
+        // Exponential expansion to both sides.
+        expansion *= 2;
     }
 
     None
