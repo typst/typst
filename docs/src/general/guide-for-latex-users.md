@@ -104,21 +104,12 @@ command to set how your document is supposed to look. In that command, you may
 have replaced `article` with another value such as `report` and `amsart` to
 customize your document.
 
-When using Typst, you instead import a function that styles its argument. Then,
-you wrap your document in it with an "everything" [`{show}`
+When using Typst, you style your documents with [functions]($type/function).
+Typically, you use a template that provides a function that styles your whole
+document. First, you import the function from a template file. Then, you apply
+it to your whole document. This is accomplished with an "everything" [`{show}`
 rule]($styling/#show-rules), which wraps the following document in a given
-function.
-
-<div class="info-box">
-
-[Functions]($type/function) are Typst's "commands" and can transform their
-arguments to an output value, including document _content._ Functions can't
-generally manipulate anything they did not receive as an argument.
-
-To let a function style your whole document, the "everything show rule"
-just creates a variable with everything that comes after it and calls the
-function specified after the colon with it as an argument.
-</div>
+function. An example shows you how it works:
 
 ```example:single
 >>> #let conf(
@@ -208,10 +199,22 @@ putting insightful paragraphs right here!
 ```
 
 The [`{import}`]($scripting/#modules) statement makes
-[functions]($type/function) from another file available, in this case the `conf`
-function that formats the document as a conference article. We pass some
-metadata about the article to that function. Finally, we can get started writing
-our article below!
+[functions]($type/function) from another file available. In this example, it
+imports the `conf` function from the `conf.typ` file. The function can format
+content as a conference article. We use the show rule to apply it to the
+document and pass some metadata about the article to the `conf` function.
+Finally, we can get started writing our article below!
+
+<div class="info-box">
+
+Functions are Typst's "commands" and can transform their
+arguments to an output value, including document _content._ Functions can't
+generally manipulate anything they did not receive as an argument.
+
+To let a function style your whole document, the "everything show rule"
+just creates a variable with everything that comes after it and calls the
+function specified after the colon with it as an argument.
+</div>
 
 You can create a document from a template in the template gallery in the web app
 or even create your own using the template wizard. You can also check out the
