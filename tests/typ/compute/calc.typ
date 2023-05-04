@@ -224,14 +224,16 @@
 
 ---
  
-#assert(calc.rand_int(seed: 1) == calc.rand_int(seed: 1))
-#assert(calc.rand_int(seed: 1) != calc.rand_int(seed: 2))
-#assert(calc.rand_int() == calc.rand_int()) // Even if not explicitly seed, the function uses an internal seed, so it should return the same.
-#assert(calc.rand_int(1, 2) < 2) // v Checking for ranges (maybe test a few times) 
-#assert(calc.rand_int(1, 2) > 0) // <
+#assert(calc.rand_int(seed: 1, out: 1) == calc.rand_int(seed: 1, out: 1))
+#assert(calc.rand_int(seed: 1, out: 1) != calc.rand_int(seed: 1, out: 2))
+#assert(calc.rand_int(seed: 1, out: 2).at(1) != calc.rand_int(seed: 2, out: 2).at(1))
+#assert(calc.rand_int(out: 1) == calc.rand_int(out: 1)) // Even if not explicitly seed, the function uses an internal seed, so it should return the same.
+#assert(calc.rand_int(1, 2, out: 1).at(0) < 2) // v Checking for ranges (maybe test a few times) 
+#assert(calc.rand_int(1, 2).at(0) > 0) // <
 
 ---
 
-#assert(calc.rand_float(seed: 1) == calc.rand_float(seed: 1))
-#assert(calc.rand_float(seed: 1) != calc.rand_float(seed: 2))
-#assert(calc.rand_float() == calc.rand_float())
+#assert(calc.rand_float(seed: 1, out: 1) == calc.rand_float(seed: 1, out: 1))
+#assert(calc.rand_float(seed: 1, out: 1) != calc.rand_float(seed: 1, out: 2))
+#assert(calc.rand_float(seed: 1, out: 10) != calc.rand_float(seed: 2, out: 10))
+#assert(calc.rand_float(out: 3) == calc.rand_float(out: 3))

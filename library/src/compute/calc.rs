@@ -980,7 +980,7 @@ pub fn quo(
 ///
 /// Display: Random integer
 /// Category: Calculate
-/// Returns: integer
+/// Returns: [integer]
 pub fn rand_int(
     /// The seed, optional
     #[named]
@@ -992,13 +992,23 @@ pub fn rand_int(
     /// The maximum number that can be returned, exclusive
     #[default(100)]
     max: i64,
+    /// How many numbers are returned
+    #[named]
+    #[default(1)]
+    out: u64,
 ) -> Value {
+    let mut vec = Vec::new();
     if seed != DEFAULT_SEED {
         fastrand::seed(seed);
-        Value::Int(fastrand::i64(min..max))
+        for _ in 0..out {
+            vec.push(Value::Int(fastrand::i64(min..max)))
+        }
     } else {
-        Value::Int(fastrand::i64(min..max))
+        for _ in 0..out {
+            vec.push(Value::Int(fastrand::i64(min..max)))
+        }
     }
+    vec.into()
 }
 
 #[comemo::memoize]
@@ -1019,13 +1029,23 @@ pub fn rand_float(
     #[named]
     #[default(DEFAULT_SEED)]
     seed: u64,
+    /// How many numbers are returned
+    #[named]
+    #[default(1)]
+    out: u64,
 ) -> Value {
+    let mut vec = Vec::new();
     if seed != DEFAULT_SEED {
         fastrand::seed(seed);
-        Value::Float(fastrand::f64())
+        for _ in 0..out {
+            vec.push(Value::Float(fastrand::f64()))
+        }
     } else {
-        Value::Float(fastrand::f64())
+        for _ in 0..out {
+            vec.push(Value::Float(fastrand::f64()))
+        }
     }
+    vec.into()
 }
 
 /// A value which can be passed to functions that work with integers and floats.
