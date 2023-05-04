@@ -26,7 +26,7 @@ use crate::text::{Hyphenate, TextElem};
 ///
 /// Display: Link
 /// Category: meta
-#[element(Show)]
+#[element(Show, Finalize)]
 pub struct LinkElem {
     /// The destination the link points to.
     ///
@@ -105,8 +105,13 @@ impl Show for LinkElem {
 
         Ok(body
             .linked(dest)
-            .styled(TextElem::set_fractions(false))
             .styled(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false)))))
+    }
+}
+
+impl Finalize for LinkElem {
+    fn finalize(&self, content: Content, _style: StyleChain) -> Content {
+        content.styled(TextElem::set_fractions(false))
     }
 }
 
