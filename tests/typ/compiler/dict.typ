@@ -31,15 +31,20 @@
 // Test rvalue missing key.
 #{
   let dict = (a: 1, b: 2)
-  // Error: 11-23 dictionary does not contain key "c"
+  // Error: 11-23 dictionary does not contain key "c" and no default value was specified
   let x = dict.at("c")
 }
+
+---
+// Test default value.
+#test((a: 1, b: 2).at("b", default: 3), 2)
+#test((a: 1, b: 2).at("c", default: 3), 3)
 
 ---
 // Missing lvalue is not automatically none-initialized.
 #{
   let dict = (:)
-  // Error: 3-9 dictionary does not contain key "b"
+  // Error: 3-9 dictionary does not contain key "b" and no default value was specified
   dict.b += 1
 }
 

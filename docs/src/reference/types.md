@@ -259,11 +259,14 @@ Fails with an error if the string is empty.
 - returns: any
 
 ### at()
-Extract the first grapheme cluster after the specified index. Fails with an
-error if the index is out of bounds.
+Extract the first grapheme cluster after the specified index. Returns the
+default value if the index is out of bounds or fails with an error if no default
+value was specified.
 
 - index: integer (positional, required)
   The byte index.
+- default: any (named)
+  A default value to return if the index is out of bounds.
 - returns: string
 
 ### slice()
@@ -450,10 +453,13 @@ Whether the content has the specified field.
 - returns: boolean
 
 ### at()
-Access the specified field on the content.
+Access the specified field on the content. Returns the default value if the
+field does not exist or fails with an error if no default value was specified.
 
 - field: string (positional, required)
   The field to access.
+- default: any (named)
+  A default value to return if the field does not exist.
 - returns: any
 
 ### location()
@@ -518,12 +524,14 @@ Fails with an error if the array is empty.
 - returns: any
 
 ### at()
-Returns the item at the specified index in the array.
-May be used on the left-hand side of an assignment.
-Fails with an error if the index is out of bounds.
+Returns the item at the specified index in the array. May be used on the
+left-hand side of an assignment. Returns the default value if the index is out
+of bounds or fails with an error if no default value was specified.
 
 - index: integer (positional, required)
   The index at which to retrieve the item.
+- default: any (named)
+  A default value to return if the index is out of bounds.
 - returns: any
 
 ### push()
@@ -738,13 +746,15 @@ The number of pairs in the dictionary.
 - returns: integer
 
 ### at()
-Returns the value associated with the specified key in the dictionary.
-May be used on the left-hand side of an assignment if the key is already
-present in the dictionary.
-Fails with an error if the key is not part of the dictionary.
+Returns the value associated with the specified key in the dictionary. May be
+used on the left-hand side of an assignment if the key is already present in the
+dictionary. Returns the default value if the key is not part of the dictionary
+or fails with an error if no default value was specified.
 
 - key: string (positional, required)
   The key at which to retrieve the item.
+- default: any (named)
+  A default value to return if the key is not part of the dictionary.
 - returns: any
 
 ### insert()

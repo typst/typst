@@ -18,6 +18,7 @@ struct Func {
     params: Vec<Param>,
     returns: Vec<String>,
     body: syn::Block,
+    scope: Option<BlockWithReturn>,
 }
 
 struct Param {
@@ -72,7 +73,8 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         validate_attrs(&attrs)?;
     }
 
-    let docs = documentation(&item.attrs);
+    let mut attrs = item.attrs.clone();
+    let docs = documentation(&attrs);
     let mut lines = docs.split('\n').collect();
     let returns = meta_line(&mut lines, "Returns")?
         .split(" or ")
@@ -92,9 +94,10 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         params,
         returns,
         body: (*item.block).clone(),
+        scope: parse_attr(&mut attrs, "scope")?.flatten(),
     };
 
-    validate_attrs(&item.attrs)?;
+    validate_attrs(&attrs)?;
     Ok(func)
 }
 
@@ -113,6 +116,7 @@ fn create(func: &Func) -> TokenStream {
     } = func;
     let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
     let params = params.iter().map(create_param_info);
+    let scope = create_scope_builder(func.scope.as_ref());
     quote! {
         #[doc = #docs]
         #vis fn #ident() -> &'static ::typst::eval::NativeFunc {
@@ -129,6 +133,7 @@ fn create(func: &Func) -> TokenStream {
                     params: ::std::vec![#(#params),*],
                     returns: ::std::vec![#(#returns),*],
                     category: #category,
+                    scope: #scope,
                 }),
             };
             &FUNC

@@ -388,6 +388,14 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 ctx.value_completion(Some(name.clone()), value, true, None);
             }
         }
+        Value::Func(func) => {
+            if let Some(info) = func.info() {
+                // Consider all names from the function's scope.
+                for (name, value) in info.scope.iter() {
+                    ctx.value_completion(Some(name.clone()), value, true, None);
+                }
+            }
+        }
         _ => {}
     }
 }

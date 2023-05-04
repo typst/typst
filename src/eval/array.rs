@@ -74,10 +74,15 @@ impl Array {
     }
 
     /// Borrow the value at the given index.
-    pub fn at(&self, index: i64) -> StrResult<&Value> {
+    pub fn at<'a>(
+        &'a self,
+        index: i64,
+        default: Option<&'a Value>,
+    ) -> StrResult<&'a Value> {
         self.locate(index)
             .and_then(|i| self.0.get(i))
-            .ok_or_else(|| out_of_bounds(index, self.len()))
+            .or(default)
+            .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
 
     /// Mutably borrow the value at the given index.
@@ -85,7 +90,7 @@ impl Array {
         let len = self.len();
         self.locate(index)
             .and_then(move |i| self.0.make_mut().get_mut(i))
-            .ok_or_else(|| out_of_bounds(index, len))
+            .ok_or_else(|| out_of_bounds_no_default(index, len))
     }
 
     /// Push a value to the end of the array.
@@ -461,4 +466,15 @@ fn array_is_empty() -> EcoString {
 #[cold]
 fn out_of_bounds(index: i64, len: i64) -> EcoString {
     eco_format!("array index out of bounds (index: {}, len: {})", index, len)
+}
+
+/// The out of bounds access error message when no default value was given.
+#[cold]
+fn out_of_bounds_no_default(index: i64, len: i64) -> EcoString {
+    eco_format!(
+        "array index out of bounds (index: {}, len: {}) \
+         and no default value was specified",
+        index,
+        len
+    )
 }
