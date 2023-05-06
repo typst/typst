@@ -13,6 +13,41 @@ pub struct Sides<T> {
     pub bottom: T,
 }
 
+pub struct Margin<T> {
+    pub sides: Sides<Option<T>>,
+    pub inside: Option<T>,
+    pub outside: Option<T>,
+}
+
+impl<T> Cast for Margin<Option<T>>
+where
+    T: Cast + Clone + Default,
+{
+    fn cast(mut value: Value) -> StrResult<Self> {
+    // fn cast(mut value: Value) -> StrResult<Sides<T>> {
+        if let Value::Dict(dict) = value {
+            let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+            let inside = take("inside")?;
+            let outside = take("outside")?;
+            let mut sides = Sides::cast(Value::Dict(dict));
+            // FIX: Access properties safely.
+            sides.unwrap().left = outside.or(sides.unwrap().left);
+            sides.unwrap().right = inside.or(sides.unwrap().right);
+            Ok(sides)
+        } else {
+            <Self as Cast>::error(value)
+        }
+    }
+
+    fn is(value: &Value) -> bool {
+        matches!(value, Value::Dict(_)) || T::is(value)
+    }
+
+    fn describe() -> CastInfo {
+        T::describe() + CastInfo::Type("dictionary")
+    }
+}
+
 impl<T> Sides<T> {
     /// Create a new instance from the four components.
     pub const fn new(left: T, top: T, right: T, bottom: T) -> Self {

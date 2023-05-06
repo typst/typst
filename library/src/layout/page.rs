@@ -125,8 +125,7 @@ pub struct PageElem {
     ///   fill: aqua,
     /// )
     /// ```
-    #[fold]
-    pub margin: Sides<Option<Smart<Rel<Length>>>>,
+    pub margin: Margin<Smart<Rel<Length>>>,
 
     /// How many columns the page has.
     ///
