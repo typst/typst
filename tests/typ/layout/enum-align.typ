@@ -32,20 +32,10 @@
    64. h
 
 ---
-// Auto align should inherit horizontal alignment from context
-#set enum(number-align: auto)
-1.  a
-10. b\ c\ d
-   2.  c\ d\ e
-   12. d
-
----
-// Auto align should inherit horizontal alignment from context
-#set align(center + horizon)
-#set enum(number-align: auto)
-1.  a
-10. b\ c\ d
-100. e\ e
-    3.  c\ d\ e
-    13. d
-    133. e\ e
+// Test valid number align values (horizontal)
+#set enum(number-align: start)
+#set enum(number-align: end)
+#set enum(number-align: left)
+#set enum(number-align: right)
+// Error: 25-28 alignment must be horizontal
+#set enum(number-align: top)
