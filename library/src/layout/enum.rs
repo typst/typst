@@ -160,9 +160,13 @@ pub struct EnumElem {
     /// ````example
     /// #set enum(number-align: start)
     ///
-    /// 1.  Numbers here are start-aligned,
-    /// 9.  overriding the default of
-    /// 10. end-aligned.
+    /// Here are some powers of two:
+    /// 1. One
+    /// 2. Two
+    /// 4. Four
+    /// 8. Eight
+    /// 16. Sixteen
+    /// 32. Thirty two
     /// ````
     #[default(GenAlign::End.into())]
     pub number_align: HorizontalAlign,
