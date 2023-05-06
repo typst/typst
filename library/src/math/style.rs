@@ -178,6 +178,34 @@ pub fn bb(
         .into()
 }
 
+/// Forced size style in math.
+///
+/// Size style may be one of:
+/// - display
+/// - text
+/// - script
+/// - script-script
+///
+/// ## Example
+/// ```example
+/// $ withsize("display", sum_i (x_i mu_i)/sigma_i^2)/withsize("script", sum_i (mu_i^2)/sigma_i^2) $
+/// ```
+///
+/// Display: With Size
+/// Category: math
+/// Returns: content
+#[func]
+pub fn withsize(
+    /// The content to style.
+    size: MathSize,
+    body: Content,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_size(Some(size))
+        .pack()
+        .into()
+}
+
 /// A font variant in math.
 ///
 /// Display: Bold
@@ -196,6 +224,9 @@ pub struct MathStyleElem {
 
     /// Whether to use italic glyphs.
     pub italic: Option<bool>,
+
+    /// Whether to use forced size
+    pub size: Option<MathSize>
 }
 
 impl LayoutMath for MathStyleElem {
@@ -210,6 +241,9 @@ impl LayoutMath for MathStyleElem {
         }
         if let Some(italic) = self.italic(StyleChain::default()) {
             style = style.with_italic(italic);
+        }
+        if let Some(size) = self.size(StyleChain::default()) {
+            style = style.with_size(size);
         }
         ctx.style(style);
         self.body().layout_math(ctx)?;
@@ -295,7 +329,7 @@ impl MathStyle {
 /// The size of elements in an equation.
 ///
 /// See the TeXbook p. 141.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Cast)]
 pub enum MathSize {
     /// Second-level sub- and superscripts.
     ScriptScript,
