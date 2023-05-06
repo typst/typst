@@ -164,7 +164,7 @@ pub struct EnumElem {
     /// 9.  overriding the default of
     /// 10. end-aligned.
     /// ````
-    #[default(GenAlign::Start.into())]
+    #[default(GenAlign::End.into())]
     pub number_align: HorizontalAlign,
 
     /// The numbered list's items.
