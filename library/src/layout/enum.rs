@@ -215,10 +215,8 @@ impl Layout for EnumElem {
         // Vertically align to the top to avoid inheriting 'horizon' or
         // 'bottom' alignment from the context and having the number be
         // displaced in relation to the item it refers to.
-        let number_align: Axes<Option<GenAlign>> = Axes::new(
-            self.number_align(styles).into(),
-            Align::Top.into()
-        ).map(Some);
+        let number_align: Axes<Option<GenAlign>> =
+            Axes::new(self.number_align(styles).into(), Align::Top.into()).map(Some);
 
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
