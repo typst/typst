@@ -394,6 +394,8 @@ impl Lexer<'_> {
             '\\' => self.backslash(),
             '"' => self.string(),
 
+            '+' if self.s.eat_if("-") => SyntaxKind::Shorthand,
+            '-' if self.s.eat_if("+") => SyntaxKind::Shorthand,
             '-' if self.s.eat_if(">>") => SyntaxKind::Shorthand,
             '-' if self.s.eat_if('>') => SyntaxKind::Shorthand,
             '-' if self.s.eat_if("->") => SyntaxKind::Shorthand,

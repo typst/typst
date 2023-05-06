@@ -18,3 +18,8 @@ a~b
 ---
 #set text(font: "Roboto")
 A... vs #"A..."
+
+---
+// Math
+$ a + -b, a +- b$
+$ a - +b, a -+ b$
