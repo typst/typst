@@ -147,8 +147,7 @@ pub struct EnumElem {
     /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
     pub spacing: Smart<Spacing>,
 
-    /// The horizontal alignment that enum numbers should have, or `{auto}` to
-    /// inherit the text alignment from the context.
+    /// The horizontal alignment that enum numbers should have.
     ///
     /// By default, this is set to `{end}`, which aligns enum numbers
     /// towards end of the current text direction (in left-to-right script,
@@ -165,8 +164,8 @@ pub struct EnumElem {
     /// 9.  overriding the default of
     /// 10. end-aligned.
     /// ````
-    #[default(Smart::Custom(GenAlign::End))]
-    pub number_align: Smart<GenAlign>,
+    #[default(GenAlign::Start.into())]
+    pub number_align: HorizontalAlign,
 
     /// The numbered list's items.
     ///
@@ -211,19 +210,15 @@ impl Layout for EnumElem {
         let mut number = self.start(styles);
         let mut parents = self.parents(styles);
         let full = self.full(styles);
-        let number_align_x = self.number_align(styles).as_custom().map(|align| {
-            // If given a vertical alignment, just default horizontal
-            // alignment to 'end'.
-            match align.axis() {
-                Axis::X => align,
-                Axis::Y => GenAlign::End,
-            }
-        });
 
+        // Horizontally align based on the given respective parameter.
         // Vertically align to the top to avoid inheriting 'horizon' or
         // 'bottom' alignment from the context and having the number be
         // displaced in relation to the item it refers to.
-        let number_align = Axes::new(number_align_x, Some(Align::Top.into()));
+        let number_align: Axes<Option<GenAlign>> = Axes::new(
+            self.number_align(styles).into(),
+            Align::Top.into()
+        ).map(Some);
 
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
