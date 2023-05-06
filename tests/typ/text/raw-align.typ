@@ -29,14 +29,5 @@ b = 324923
 #lorem(20)
 
 ---
-// 'align: auto' inherits alignment from the context.
-#set page(width: 180pt)
-#set text(6pt)
-#lorem(20)
-#align(right, raw(
-    align: auto,
-    block: true,
-    lang: "typ",
-    "#let f(x) = x\n#align(center, line(length: 1em))"
-))
-#lorem(20)
+// Error: 17-20 alignment must be horizontal
+#set raw(align: top)
