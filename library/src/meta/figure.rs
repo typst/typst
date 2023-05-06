@@ -294,8 +294,7 @@ impl Show for FigureElem {
 impl Finalize for FigureElem {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
         // Allow breakable figures with `show figure: set block(breakable: true)`.
-        realized
-            .styled(BlockElem::set_breakable(false))
+        realized.styled(BlockElem::set_breakable(false))
     }
 }
 
