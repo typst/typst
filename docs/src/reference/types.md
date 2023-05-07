@@ -934,7 +934,7 @@ Returns the captured named arguments as a dictionary.
 - returns: dictionary
 
 ### len()
-The number of positional arguments passed to the function.
+The number of positional and named arguments passed to the function.
 
 - returns: integer
 

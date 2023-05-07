@@ -195,7 +195,7 @@ impl Args {
             .collect()
     }
 
-    /// Get the number of positional arguments passed to the function.
+    /// Get the number of positional and named arguments passed to the function.
     pub fn len(&self) -> i64 {
         self.items.len() as i64
     }
