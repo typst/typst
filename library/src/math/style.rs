@@ -222,9 +222,13 @@ fn inline(body: Content) -> Value {
 
 /// Forced script style in math.
 ///
+/// This is the size used in powers or sub- or superscripts.
+/// It makes given expression smaller
+/// (note: that doesn't impose height restrictions for exponents like regular sub- and superscripts).
+///
 /// ## Example
 /// ```example
-/// $ script.text(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $ sized.script(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
 /// ```
 ///
 /// Display: Sized Script
@@ -240,9 +244,13 @@ fn script(body: Content) -> Value {
 
 /// Forced script-script style in math.
 ///
+/// Script-script refers to the size used in second-level sub- and superscripts.
+/// It is even smaller than `script` size
+/// (note: that doesn't impose height restrictions for exponents like regular sub- and superscripts).
+///
 /// ## Example
 /// ```example
-/// $ scriptscript.text(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $ sized.scriptscript(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
 /// ```
 ///
 /// Display: Sized Script-Script
