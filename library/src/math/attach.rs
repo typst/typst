@@ -278,6 +278,26 @@ fn attach_top_and_bottom(
     (frame, base_offset)
 }
 
+fn is_character_box(fragment: &MathFragment) -> bool {
+    // Handles e.g. "sin", "log", "exp", "CustomOperator".
+    fn is_atomic_text_frame(frame: &Frame) -> bool {
+        let v = frame
+            .items()
+            // Meta information isn't visible or renderable, so we exclude it.
+            .filter(|x| !matches!(x.1, FrameItem::Meta(_, _)))
+            .collect::<Vec<_>>();
+        matches!(v.as_slice(), [(_, FrameItem::Text(_))])
+    }
+
+    match fragment {
+        MathFragment::Glyph(_) | MathFragment::Variant(_) => {
+            fragment.class() != Some(MathClass::Large)
+        }
+        MathFragment::Frame(f) => is_atomic_text_frame(&f.frame),
+        _ => false,
+    }
+}
+
 fn compute_shifts_up_and_down(
     ctx: &MathContext,
     base: &MathFragment,
@@ -300,6 +320,8 @@ fn compute_shifts_up_and_down(
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
 
+    let is_char_box = is_character_box(base);
+
     for e in [tl, tr].into_iter().flatten() {
         let ascent = match &base {
             MathFragment::Frame(frame) => frame.base_ascent,
@@ -308,13 +330,13 @@ fn compute_shifts_up_and_down(
 
         shift_up = shift_up
             .max(sup_shift_up)
-            .max(ascent - sup_drop_max)
+            .max(if is_char_box { Abs::zero() } else { ascent - sup_drop_max })
             .max(sup_bottom_min + e.descent());
     }
     for e in [bl, br].into_iter().flatten() {
         shift_down = shift_down
             .max(sub_shift_down)
-            .max(base.descent() + sub_drop_min)
+            .max(if is_char_box { Abs::zero() } else { base.descent() + sub_drop_min })
             .max(e.ascent() - sub_top_max);
     }
 
