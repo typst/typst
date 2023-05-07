@@ -460,6 +460,10 @@ cast_from_value! {
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
 ///
+/// If you wish to convert from and to unicode code points, see
+/// [`str.to-unicode`]($func/str.to-unicode) and
+/// [`str.from-unicode`]($func/str.from-unicode).
+///
 /// ## Example { #example }
 /// ```example
 /// #str(10) \
@@ -472,6 +476,11 @@ cast_from_value! {
 /// Category: construct
 /// Returns: string
 #[func]
+#[scope(
+    scope.define("to-unicode", to_unicode);
+    scope.define("from-unicode", from_unicode);
+    scope
+)]
 pub fn str(
     /// The value that should be converted to a string.
     value: ToStr,
@@ -490,51 +499,67 @@ cast_from_value! {
     v: Str => Self(v),
 }
 
-/// Converts a unicode codepoint value into it's corresponding string and vice versa.
+/// Converts a character into it's corresponding code point value.
 ///
 /// ## Example
 /// ```example
-/// #unicode("a") \
-/// #unicode(97) \
-/// #"a\u{0300}".codepoints().map(unicode)
+/// #str.to-unicode("a") \
+/// #"a\u{0300}".codepoints().map(str.to-unicode)
 /// ```
 ///
-/// Display: Unicode
+/// Display: String To Unicode
 /// Category: construct
-/// Returns: any
+/// Returns: int
 #[func]
-pub fn unicode(
-    /// The value that should be converted.
-    value: CharOrInt,
+pub fn to_unicode(
+    /// The char that should be converted.
+    value: Char,
 ) -> Value {
-    match value {
-        CharOrInt::Char(c) => Value::Int(From::<u32>::from(c.into())),
-        CharOrInt::Int(i) => Value::Str(format_str!("{}", i)),
-    }
+    Value::Int(From::<u32>::from(value.0.into()))
 }
 
-/// A value that is either a single unicdoe code point or it's numeric representation.
-enum CharOrInt {
-    Char(char),
-    Int(char),
-}
+struct Char(char);
 
 cast_from_value! {
-    CharOrInt,
-    v: i64 => {
-        if let Some(c) = v.try_into().ok().and_then(|v: u32| v.try_into().ok()) {
-            Self::Int(c)
-        } else {
-            Err(eco_format!("{:#x} is not inside the valid code point range", v))?
-        }
-    },
+    Char,
     v: Str => {
         match v.chars().next() {
-            Some(c) if c.len_utf8() == v.len() as usize => Self::Char(c),
+            Some(c) if c.len_utf8() == v.len() as usize => Self(c),
             _ => Err(eco_format!(
                 "string must contain exactly one code point, contained {}",
                 v.chars().count(),
             ))?,
+        }
+    }
+}
+
+#[func]
+/// Converts a unicode code point value into it's corresponding string.
+///
+/// ```example
+/// #str.from-unicode(97)
+/// ```
+///
+/// Display: Sting From Unicode
+/// Category: construct
+/// Returns: string
+pub fn from_unicode(
+    /// The code point that should be converted.
+    value: CodePoint,
+) -> Value {
+    Value::Str(format_str!("{}", value.0))
+}
+
+/// The numeric representation of a single unicode code point.
+struct CodePoint(char);
+
+cast_from_value! {
+    CodePoint,
+    v: i64 => {
+        if let Some(c) = v.try_into().ok().and_then(|v: u32| v.try_into().ok()) {
+            Self(c)
+        } else {
+            Err(eco_format!("{:#x} is not inside the valid code point range", v))?
         }
     },
 }
