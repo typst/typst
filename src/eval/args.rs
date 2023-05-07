@@ -195,8 +195,13 @@ impl Args {
             .collect()
     }
 
+    /// Get the number of positional arguments passed to the function.
     pub fn len(&self) -> i64 {
         self.items.len() as i64
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
