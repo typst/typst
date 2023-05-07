@@ -490,6 +490,55 @@ cast_from_value! {
     v: Str => Self(v),
 }
 
+/// Converts a unicode codepoint value into it's corresponding string and vice versa.
+///
+/// ## Example
+/// ```example
+/// #unicode("a") \
+/// #unicode(97) \
+/// #test.codepoints().map(unicode) \
+/// ```
+///
+/// Display: Unicode
+/// Category: construct
+/// Returns: any
+#[func]
+pub fn unicode(
+    /// The value that should be converted.
+    value: CharOrInt,
+) -> Value {
+    match value {
+        CharOrInt::Char(c) => Value::Int(From::<u32>::from(c.into())),
+        CharOrInt::Int(i) => Value::Str(format_str!("{}", i)),
+    }
+}
+
+/// A value that is either a single unicdoe code point or it's numeric representation.
+enum CharOrInt {
+    Char(char),
+    Int(char),
+}
+
+cast_from_value! {
+    CharOrInt,
+    v: i64 => {
+        if let Some(c) = v.try_into().ok().and_then(|v: u32| v.try_into().ok()) {
+            Self::Int(c)
+        } else {
+            Err(eco_format!("{:#x} is not inside the valid code point range", v))?
+        }
+    },
+    v: Str => {
+        match v.chars().next() {
+            Some(c) if c.len_utf8() == v.len() as usize => Self::Char(c),
+            _ => Err(eco_format!(
+                "string must contain exactly one code point, contained {}",
+                v.chars().count(),
+            ))?,
+        }
+    },
+}
+
 /// Create a label from a string.
 ///
 /// Inserting a label into content attaches it to the closest previous element
