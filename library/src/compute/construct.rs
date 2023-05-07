@@ -496,7 +496,7 @@ cast_from_value! {
 /// ```example
 /// #unicode("a") \
 /// #unicode(97) \
-/// #test.codepoints().map(unicode) \
+/// #"a\u{0300}".codepoints().map(unicode)
 /// ```
 ///
 /// Display: Unicode
