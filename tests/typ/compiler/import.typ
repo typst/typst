@@ -1,4 +1,4 @@
-// Test module imports.
+// Test function and module imports.
 // Ref: false
 
 ---
@@ -35,6 +35,20 @@
 #test(d, 3)
 
 ---
+// Test importing from function scopes.
+// Ref: true
+
+#import enum: item
+#import assert.with(true): *
+
+#enum(
+   item(1)[First],
+   item(5)[Fifth]
+)
+#eq(10, 10)
+#ne(5, 6)
+
+---
 // A module import without items.
 #import "module.typ"
 #test(module.b, 1)
@@ -58,6 +72,35 @@
 
 // Allow the trailing comma.
 #import "module.typ": a, c,
+
+---
+// Usual importing syntax also works for function scopes
+#import enum
+#let d = (e: enum)
+#import d.e
+#import d.e: item
+
+#item(2)[a]
+
+---
+// Can't import from closures.
+#let f(x) = x
+// Error: 9-10 cannot import from user-defined functions
+#import f: x
+
+---
+// Can't import from closures, despite modifiers.
+#let f(x) = x
+// Error: 9-18 cannot import from user-defined functions
+#import f.with(5): x
+
+---
+// Error: 9-18 cannot import from user-defined functions
+#import () => {5}: x
+
+---
+// Error: 9-10 expected path, module or function, found integer
+#import 5: something
 
 ---
 // Error: 9-11 failed to load file (is a directory)
