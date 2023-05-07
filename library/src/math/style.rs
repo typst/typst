@@ -178,30 +178,80 @@ pub fn bb(
         .into()
 }
 
-/// Forced size style in math.
-///
-/// Size style may be one of:
-/// - display
-/// - text
-/// - script
-/// - script-script
+pub fn sized() -> Module {
+    let mut scope = Scope::new();
+    scope.define("display", display);
+    scope.define("inline", inline);
+    scope.define("script", script);
+    scope.define("scriptscript", scriptscript);
+    Module::new("sized").with_scope(scope)
+}
+
+/// Forced display style in math.
 ///
 /// ## Example
 /// ```example
-/// $ withsize("display", sum_i (x_i mu_i)/sigma_i^2)/withsize("script", sum_i (mu_i^2)/sigma_i^2) $
+/// $ sized.display(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
 /// ```
 ///
-/// Display: With Size
+/// Display: Sized Display
 /// Category: math
 /// Returns: content
 #[func]
-pub fn withsize(
-    /// The content to style.
-    size: MathSize,
-    body: Content,
-) -> Value {
+fn display(body: Content) -> Value {
     MathStyleElem::new(body)
-        .with_size(Some(size))
+        .with_size(Some(MathSize::Display))
+        .pack()
+        .into()
+}
+
+/// Forced inline (text) style in math.
+///
+/// ## Example
+/// ```example
+/// $ sized.inline(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// ```
+///
+/// Display: Sized Inline
+/// Category: math
+/// Returns: content
+#[func]
+fn inline(body: Content) -> Value {
+    MathStyleElem::new(body).with_size(Some(MathSize::Text)).pack().into()
+}
+
+/// Forced script style in math.
+///
+/// ## Example
+/// ```example
+/// $ script.text(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// ```
+///
+/// Display: Sized Script
+/// Category: math
+/// Returns: content
+#[func]
+fn script(body: Content) -> Value {
+    MathStyleElem::new(body)
+        .with_size(Some(MathSize::Script))
+        .pack()
+        .into()
+}
+
+/// Forced script-script style in math.
+///
+/// ## Example
+/// ```example
+/// $ scriptscript.text(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// ```
+///
+/// Display: Sized Script-Script
+/// Category: math
+/// Returns: content
+#[func]
+fn scriptscript(body: Content) -> Value {
+    MathStyleElem::new(body)
+        .with_size(Some(MathSize::Script))
         .pack()
         .into()
 }
@@ -226,7 +276,7 @@ pub struct MathStyleElem {
     pub italic: Option<bool>,
 
     /// Whether to use forced size
-    pub size: Option<MathSize>
+    pub size: Option<MathSize>,
 }
 
 impl LayoutMath for MathStyleElem {

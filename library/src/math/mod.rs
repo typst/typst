@@ -97,7 +97,9 @@ pub fn module() -> Module {
     math.define("frak", frak);
     math.define("mono", mono);
     math.define("bb", bb);
-    math.define("withsize", withsize);
+
+    // Size.
+    math.define("sized", sized());
 
     // Text operators.
     math.define("op", OpElem::func());
