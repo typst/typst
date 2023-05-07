@@ -30,7 +30,7 @@ pub fn call(
             "len" => Value::Int(string.len()),
             "first" => Value::Str(string.first().at(span)?),
             "last" => Value::Str(string.last().at(span)?),
-            "at" => Value::Str(string.at(args.expect("index")?).at(span)?),
+            "at" => Value::Str(string.at(args.expect("index")?, None).at(span)?),
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -73,7 +73,7 @@ pub fn call(
         Value::Content(content) => match method {
             "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
-            "at" => content.at(&args.expect::<EcoString>("field")?).at(span)?,
+            "at" => content.at(&args.expect::<EcoString>("field")?, None).at(span)?,
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")
@@ -86,7 +86,10 @@ pub fn call(
             "len" => Value::Int(array.len()),
             "first" => array.first().at(span)?.clone(),
             "last" => array.last().at(span)?.clone(),
-            "at" => array.at(args.expect("index")?).at(span)?.clone(),
+            "at" => array
+                .at(args.expect("index")?, args.named("default")?.as_ref())
+                .at(span)?
+                .clone(),
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -125,7 +128,10 @@ pub fn call(
 
         Value::Dict(dict) => match method {
             "len" => Value::Int(dict.len()),
-            "at" => dict.at(&args.expect::<Str>("key")?).at(span)?.clone(),
+            "at" => dict
+                .at(&args.expect::<Str>("key")?, args.named("default")?.as_ref())
+                .at(span)?
+                .clone(),
             "keys" => Value::Array(dict.keys()),
             "values" => Value::Array(dict.values()),
             "pairs" => Value::Array(dict.pairs()),

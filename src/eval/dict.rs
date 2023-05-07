@@ -53,16 +53,20 @@ impl Dict {
         self.0.len() as i64
     }
 
-    /// Borrow the value the given `key` maps to.
-    pub fn at(&self, key: &str) -> StrResult<&Value> {
-        self.0.get(key).ok_or_else(|| missing_key(key))
+    /// Borrow the value the given `key` maps to,
+    pub fn at<'a>(
+        &'a self,
+        key: &str,
+        default: Option<&'a Value>,
+    ) -> StrResult<&'a Value> {
+        self.0.get(key).or(default).ok_or_else(|| missing_key_no_default(key))
     }
 
     /// Mutably borrow the value the given `key` maps to.
     pub fn at_mut(&mut self, key: &str) -> StrResult<&mut Value> {
         Arc::make_mut(&mut self.0)
             .get_mut(key)
-            .ok_or_else(|| missing_key(key))
+            .ok_or_else(|| missing_key_no_default(key))
     }
 
     /// Remove the value if the dictionary contains the given key.
@@ -217,4 +221,14 @@ impl<'a> IntoIterator for &'a Dict {
 #[cold]
 fn missing_key(key: &str) -> EcoString {
     eco_format!("dictionary does not contain key {:?}", Str::from(key))
+}
+
+/// The missing key access error message when no default was fiven.
+#[cold]
+fn missing_key_no_default(key: &str) -> EcoString {
+    eco_format!(
+        "dictionary does not contain key {:?} \
+         and no default value was specified",
+        Str::from(key)
+    )
 }
