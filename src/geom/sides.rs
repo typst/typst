@@ -19,21 +19,47 @@ pub struct Margin<T> {
     pub outside: Option<T>,
 }
 
-impl<T> Cast for Margin<Option<T>>
+impl<T> Cast for Margin<T>
 where
     T: Cast + Clone + Default,
 {
     fn cast(mut value: Value) -> StrResult<Self> {
-    // fn cast(mut value: Value) -> StrResult<Sides<T>> {
-        if let Value::Dict(dict) = value {
-            let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
-            let inside = take("inside")?;
-            let outside = take("outside")?;
-            let mut sides = Sides::cast(Value::Dict(dict));
-            // FIX: Access properties safely.
-            sides.unwrap().left = outside.or(sides.unwrap().left);
-            sides.unwrap().right = inside.or(sides.unwrap().right);
-            Ok(sides)
+        if let Value::Dict(dict) = &mut value {
+            let mut try_cast = || -> StrResult<_> {
+                let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+
+                let rest = take("rest")?;
+                let x = take("x")?.or_else(|| rest.clone());
+                let y = take("y")?.or_else(|| rest.clone());
+                let sides = Sides {
+                    left: take("left")?.or_else(|| x.clone()),
+                    top: take("top")?.or_else(|| y.clone()),
+                    right: take("right")?.or_else(|| x.clone()),
+                    bottom: take("bottom")?.or_else(|| y.clone()),
+                };
+
+                let margin = Margin {
+                    sides,
+                    outside: take("outside")?.or_else(|| x.clone()),
+                    inside: take("inside")?.or_else(|| x.clone()),
+                };
+
+                dict.finish(&[
+                    "left", "top", "right", "bottom", "x", "y", "outside", "inside",
+                    "rest",
+                ])?;
+
+                Ok(margin)
+            };
+
+            if let Ok(res) = try_cast() {
+                return Ok(res);
+            }
+        }
+        if T::is(&value) {
+            let sides = Sides::splat(Some(T::cast(value)?));
+            let margin = Margin { sides, outside: None, inside: None };
+            Ok(margin)
         } else {
             <Self as Cast>::error(value)
         }
@@ -101,6 +127,14 @@ impl<T> Sides<T> {
         T: PartialEq,
     {
         self.left == self.top && self.top == self.right && self.right == self.bottom
+    }
+}
+
+impl From<Margin<Smart<Rel<Length>>>> for Sides<Option<Smart<Rel<Length>>>> {
+    fn from(margin: Margin<Smart<Rel<Length>>>) -> Sides<Option<Smart<Rel<Length>>>> {
+        let left = margin.outside.or(margin.sides.left);
+        let right = margin.inside.or(margin.sides.right);
+        Sides::new(left, margin.sides.top, right, margin.sides.bottom)
     }
 }
 
