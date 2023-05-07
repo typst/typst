@@ -14,35 +14,36 @@ pub struct Sides<T> {
 }
 
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Margin<T> {
-    pub sides: Sides<T>,
-    pub inside: T,
-    pub outside: T,
+pub struct Margin {
+    pub sides: Sides<Option<Smart<Rel<Length>>>>,
+    pub inside: Option<Smart<Rel<Length>>>,
+    pub outside: Option<Smart<Rel<Length>>>,
 }
 
-impl<T> Cast for Margin<Option<T>>
-where
-    T: Cast + Clone + Default,
-{
+impl Cast for Margin {
     fn cast(mut value: Value) -> StrResult<Self> {
-        if let Value::Dict(dict) = &mut value {
-            let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+        if let Value::Length(_) = value {
+            Ok(Self::splat(Some(Value::cast(value)?)))
+        } else if let Value::Relative(_) = value {
+            Ok(Self::splat(Some(Value::cast(value)?)))
+        } else if let Value::Dict(dict) = &mut value {
+            let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
 
             let rest = take("rest")?;
             let x = take("x")?.or_else(|| rest.clone());
             let y = take("y")?.or_else(|| rest.clone());
+
+            let outside = take("outside")?.or_else(|| x.clone());
+            let inside = take("inside")?.or_else(|| x.clone());
+
             let sides = Sides {
-                left: take("left")?.or_else(|| x.clone()),
+                left: take("left")?.or_else(|| outside.clone()),
                 top: take("top")?.or_else(|| y.clone()),
-                right: take("right")?.or_else(|| x.clone()),
+                right: take("right")?.or(inside.clone()),
                 bottom: take("bottom")?.or_else(|| y.clone()),
             };
 
-            let margin = Margin {
-                sides,
-                outside: take("outside")?.or_else(|| x.clone()),
-                inside: take("inside")?.or_else(|| x.clone()),
-            };
+            let margin = Margin { sides, outside, inside };
 
             dict.finish(&[
                 "left", "top", "right", "bottom", "x", "y", "outside", "inside", "rest",
@@ -55,11 +56,29 @@ where
     }
 
     fn is(value: &Value) -> bool {
-        matches!(value, Value::Dict(_)) || T::is(value)
+        matches!(value, Value::Dict(_) | Value::Length(_) | Value::Relative(_))
     }
 
     fn describe() -> CastInfo {
-        T::describe() + CastInfo::Type("dictionary")
+        CastInfo::Type("relative length")
+            + CastInfo::Type("dictionary")
+            + CastInfo::Type("length")
+    }
+}
+
+impl Margin {
+    /// Create an instance with four equal components.
+    pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
+        Self {
+            sides: Sides::splat(value),
+            outside: value.clone(),
+            inside: value,
+        }
+    }
+}
+impl From<Margin> for Value {
+    fn from(margin: Margin) -> Self {
+        Self::from(margin.sides)
     }
 }
 
@@ -116,19 +135,6 @@ impl<T> Sides<T> {
         T: PartialEq,
     {
         self.left == self.top && self.top == self.right && self.right == self.bottom
-    }
-}
-
-impl From<Margin<Smart<Rel<Length>>>> for Sides<Option<Smart<Rel<Length>>>> {
-    fn from(margin: Margin<Smart<Rel<Length>>>) -> Sides<Option<Smart<Rel<Length>>>> {
-        let left = margin.outside.or(margin.sides.left);
-        let right = margin.inside.or(margin.sides.right);
-        Sides::new(
-            Some(left),
-            Some(margin.sides.top),
-            Some(right),
-            Some(margin.sides.bottom),
-        )
     }
 }
 
@@ -328,6 +334,17 @@ impl<T: Fold> Fold for Sides<Option<T>> {
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.zip(outer).map(|(inner, outer)| match inner {
+            Some(value) => value.fold(outer),
+            None => outer,
+        })
+    }
+}
+
+impl Fold for Margin {
+    type Output = Sides<Smart<Rel<Length>>>;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        self.sides.zip(outer).map(|(inner, outer)| match inner {
             Some(value) => value.fold(outer),
             None => outer,
         })

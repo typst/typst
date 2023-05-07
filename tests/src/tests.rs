@@ -179,7 +179,7 @@ fn library() -> Library {
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Sides::splat(Some(Smart::Custom(
+    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
         Abs::pt(10.0).into(),
     )))));
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));

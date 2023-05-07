@@ -125,7 +125,8 @@ pub struct PageElem {
     ///   fill: aqua,
     /// )
     /// ```
-    pub margin: Margin<Smart<Rel<Length>>>,
+    #[fold]
+    pub margin: Margin,
 
     /// How many columns the page has.
     ///
@@ -310,7 +311,8 @@ impl PageElem {
         }
 
         // Determine the margins.
-        let default = Rel::from(0.1190 * min);
+        let default = Rel::<Length>::from(0.1190 * min);
+
         let margin = self
             .margin(styles)
             .map(|side| side.unwrap_or(default))
