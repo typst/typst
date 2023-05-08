@@ -271,14 +271,15 @@ impl<T: Cast> Cast for Celled<T> {
         match value {
             Value::Func(v) => Ok(Self::Func(v)),
             Value::Array(arr) => {
-                let arr: Result<Vec<_>, _> = arr.iter().map(|v| T::cast(v.clone())).collect();
+                let arr: Result<Vec<_>, _> =
+                    arr.iter().map(|v| T::cast(v.clone())).collect();
                 let arr = arr?;
                 if arr.len() == 0 {
                     Err(EcoString::from("align parameter was passed an array, it must hold at least one value"))
                 } else {
                     Ok(Self::Array(arr))
                 }
-            },
+            }
             v if T::is(&v) => Ok(Self::Value(T::cast(v)?)),
             v => <Self as Cast>::error(v),
         }
