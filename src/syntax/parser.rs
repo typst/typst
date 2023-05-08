@@ -1567,7 +1567,8 @@ impl<'s> Parser<'s> {
 
     fn error(&mut self, message: impl Into<EcoString>) {
         self.unskip();
-        self.nodes.push(SyntaxNode::error(message, self.current_text(), ErrorPos::Full));
+        self.nodes
+            .push(SyntaxNode::error(message, self.current_text(), ErrorPos::Full));
         self.skip();
     }
 
