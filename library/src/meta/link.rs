@@ -110,6 +110,7 @@ impl Show for LinkElem {
 }
 
 impl Finalize for LinkElem {
+    // Disable fractions for the label of a link by default.
     fn finalize(&self, content: Content, _style: StyleChain) -> Content {
         content.styled(TextElem::set_fractions(false))
     }
