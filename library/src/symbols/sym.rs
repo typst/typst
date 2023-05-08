@@ -719,9 +719,11 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     tack: [
         r: '⊢',
         r.long: '⟝',
+        r.double: '⊨',
         l: '⊣',
         l.long: '⟞',
         l.short: '⫞',
+        l.double: '⫤',
         t: '⊥',
         t.big: '⟘',
         t.double: '⫫',
