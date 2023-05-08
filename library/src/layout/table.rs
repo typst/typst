@@ -274,7 +274,7 @@ impl<T: Cast> Cast for Celled<T> {
                 let arr: Result<Vec<_>, _> = arr.iter().map(|v| T::cast(v.clone())).collect();
                 let arr = arr?;
                 if arr.len() == 0 {
-                    Err(EcoString::from("align parameter was set to array, it must hold at least one value"))
+                    Err(EcoString::from("align parameter was passed an array, it must hold at least one value"))
                 } else {
                     Ok(Self::Array(arr))
                 }
