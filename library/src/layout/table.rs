@@ -87,9 +87,10 @@ pub struct TableElem {
 
     /// How to align the cell's content.
     ///
-    /// This can either be a single alignment or a function that returns an
-    /// alignment. The function is passed the cell's column and row index,
-    /// starting at zero. If set to `{auto}`, the outer alignment is used.
+    /// This can either be a single alignment, an array of alignments
+    /// (corresponding to each column) or a function that returns an alignment.
+    /// The function is passed the cell's column and row index, starting at zero.
+    /// If set to `{auto}`, the outer alignment is used.
     ///
     /// ```example
     /// #table(
@@ -236,6 +237,8 @@ pub enum Celled<T> {
     Value(T),
     /// A closure mapping from cell coordinates to a value.
     Func(Func),
+    /// An array of alignment values corresponding to each column.
+    Array(Vec<T>),
 }
 
 impl<T: Cast + Clone> Celled<T> {
@@ -247,6 +250,8 @@ impl<T: Cast + Clone> Celled<T> {
                 .call_vt(vt, [Value::Int(x as i64), Value::Int(y as i64)])?
                 .cast()
                 .at(func.span())?,
+            // unwrap() doesn't panic because we ensure in cast() that the array contains at least one element
+            Self::Array(arr) => arr.get(x % arr.len()).unwrap().clone(),
         })
     }
 }
@@ -265,6 +270,15 @@ impl<T: Cast> Cast for Celled<T> {
     fn cast(value: Value) -> StrResult<Self> {
         match value {
             Value::Func(v) => Ok(Self::Func(v)),
+            Value::Array(arr) => {
+                let arr: Result<Vec<_>, _> = arr.iter().map(|v| T::cast(v.clone())).collect();
+                let arr = arr?;
+                if arr.len() == 0 {
+                    Err(EcoString::from("align parameter was set to array, it must hold at least one value"))
+                } else {
+                    Ok(Self::Array(arr))
+                }
+            },
             v if T::is(&v) => Ok(Self::Value(T::cast(v)?)),
             v => <Self as Cast>::error(v),
         }
@@ -280,6 +294,7 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
         match celled {
             Celled::Value(value) => value.into(),
             Celled::Func(func) => func.into(),
+            Celled::Array(arr) => arr.into(),
         }
     }
 }
