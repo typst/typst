@@ -1051,7 +1051,8 @@ fn for_loop(p: &mut Parser) {
     p.assert(SyntaxKind::For);
     pattern(p);
     if p.at(SyntaxKind::Comma) {
-        p.expected("keyword `in`. did you mean to use a destructuring pattern?");
+        p.expected("keyword `in`");
+        p.error("Did you mean to use a destructuring pattern?")
         if !p.eat_if(SyntaxKind::Ident) {
             p.eat_if(SyntaxKind::Underscore);
         }
@@ -1564,6 +1565,16 @@ impl<'s> Parser<'s> {
         }
     }
 
+    fn error(&mut self, message: impl Into<EcoString>) {
+        self.unskip();
+        self.nodes.push(SyntaxNode::error(message, self.current_text(), ErrorPos::Full));
+        self.skip();
+    }
+
+    fn error_at(&mut self, m: Marker, message: impl Into<EcoString>) {
+        self.nodes.insert(m.0, SyntaxNode::error(message, "", ErrorPos::Full));
+    }
+
     fn expect(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
         if at {
@@ -1576,22 +1587,24 @@ impl<'s> Parser<'s> {
     }
 
     fn expected(&mut self, thing: &str) {
+        let found = self.current.name();
+
         self.unskip();
         if self
             .nodes
             .last()
             .map_or(true, |child| child.kind() != SyntaxKind::Error)
         {
-            let message = eco_format!("expected {}", thing);
-            self.nodes.push(SyntaxNode::error(message, "", ErrorPos::Full));
+            let message = eco_format!("expected {}, found {}", thing, found);
+            self.error(message);
         }
         self.skip();
     }
 
     fn expected_at(&mut self, m: Marker, thing: &str) {
-        let message = eco_format!("expected {}", thing);
-        let error = SyntaxNode::error(message, "", ErrorPos::Full);
-        self.nodes.insert(m.0, error);
+        let found = self.current.name();
+        let message = eco_format!("expected {}, found {}", thing, found);
+        self.error_at(m, message)
     }
 
     fn unexpected(&mut self) {
