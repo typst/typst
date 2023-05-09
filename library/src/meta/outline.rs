@@ -222,8 +222,10 @@ impl Show for OutlineElem {
             }
 
             match &indent {
+                // Disabled => no indenting
                 OutlineIndent::Disabled => {}
-                // Enabled => use numbering for indenting
+
+                // Enabled => use numbering alignment for indenting
                 OutlineIndent::Enabled => {
                     // Add hidden ancestors numberings to realize the indent.
                     let mut hidden = Content::empty();
@@ -247,25 +249,34 @@ impl Show for OutlineElem {
                     }
                 }
 
-                // Length => indent with some predefined space per level
+                // Length => indent with some fixed spacing per level
                 OutlineIndent::Length(length) => {
-                    let mut hspace = Content::empty();
-                    for _ in &ancestors {
-                        hspace += HElem::new(length.clone()).pack();
-                    }
+                    let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
+                        bail!(self.span(), "Outline element depth too large");
+                    };
+
+                    let hspace = HElem::new(*length)
+                        .pack()
+                        .repeat(depth)
+                        .unwrap();
+
                     seq.push(hspace);
                 }
 
-                // Content => add some content for each level
+                // Content => repeat some content for each indentation level
                 OutlineIndent::Content(content) => {
-                    let mut content_prefix = Content::empty();
-                    for _ in &ancestors {
-                        content_prefix += content.clone();
-                    }
+                    let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
+                        bail!(self.span(), "Outline element depth too large");
+                    };
+
+                    let content_prefix = content
+                        .repeat(depth)
+                        .unwrap();
+
                     seq.push(content_prefix);
                 }
 
-                // Function => call function with the current depth, take the returned content
+                // Function => call function with the current depth and take the returned content
                 OutlineIndent::Function(func) => {
                     let depth = ancestors.len();
                     let result = func.call_vt(vt, [depth.into()])?;
