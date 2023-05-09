@@ -134,14 +134,14 @@ pub struct OutlineElem {
     /// single parameter for the current depth (starting at 0 for top-level
     /// headings/elements), and return the indentation content (e.g. `h(2em)`
     /// repeated `n` times, but it can be anything). Such a function could be,
-    /// for example, `{n => h(n * 2em)}`, or `{n => [*_*] * n}`.
+    /// for example, `{n => h(n * 2em)}`, or `{n => [*!*] * calc.pow(2, n)}`.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")
     /// #outline(indent: true)
     /// #outline(indent: 2em)
     /// #outline(indent: [--])
-    /// #outline(indent: n => [*_*] * n)
+    /// #outline(indent: n => [*!*] * calc.pow(2, n))
     ///
     /// = About ACME Corp.
     ///
