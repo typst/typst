@@ -255,10 +255,7 @@ impl Show for OutlineElem {
                         bail!(self.span(), "Outline element depth too large");
                     };
 
-                    let hspace = HElem::new(*length)
-                        .pack()
-                        .repeat(depth)
-                        .unwrap();
+                    let hspace = HElem::new(*length).pack().repeat(depth).unwrap();
 
                     seq.push(hspace);
                 }
@@ -269,9 +266,7 @@ impl Show for OutlineElem {
                         bail!(self.span(), "Outline element depth too large");
                     };
 
-                    let content_prefix = content
-                        .repeat(depth)
-                        .unwrap();
+                    let content_prefix = content.repeat(depth).unwrap();
 
                     seq.push(content_prefix);
                 }
