@@ -5,7 +5,7 @@ use typst::util::option_eq;
 use super::{
     Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
 };
-use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
+use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem, Spacing};
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
@@ -126,8 +126,8 @@ pub struct OutlineElem {
     /// == Products
     /// #lorem(10)
     /// ```
-    #[default(false)]
-    pub indent: bool,
+    #[default(OutlineIndent::Disabled)]
+    pub indent: OutlineIndent,
 
     /// Content to fill the space between the title and the page number. Can be
     /// set to `none` to disable filling.
@@ -190,27 +190,57 @@ impl Show for OutlineElem {
                 ancestors.pop();
             }
 
-            // Add hidden ancestors numberings to realize the indent.
-            if indent {
-                let mut hidden = Content::empty();
-                for ancestor in &ancestors {
-                    let ancestor_outlinable = ancestor.with::<dyn Outlinable>().unwrap();
+            match &indent {
+                OutlineIndent::Disabled => {}
+                // Enabled => use numbering for indenting
+                OutlineIndent::Enabled => {
+                    // Add hidden ancestors numberings to realize the indent.
+                    let mut hidden = Content::empty();
+                    for ancestor in &ancestors {
+                        let ancestor_outlinable =
+                            ancestor.with::<dyn Outlinable>().unwrap();
 
-                    if let Some(numbering) = ancestor_outlinable.numbering() {
-                        let numbers = ancestor_outlinable
-                            .counter()
-                            .at(vt, ancestor.location().unwrap())?
-                            .display(vt, &numbering)?;
+                        if let Some(numbering) = ancestor_outlinable.numbering() {
+                            let numbers = ancestor_outlinable
+                                .counter()
+                                .at(vt, ancestor.location().unwrap())?
+                                .display(vt, &numbering)?;
 
-                        hidden += numbers + SpaceElem::new().pack();
-                    };
+                            hidden += numbers + SpaceElem::new().pack();
+                        };
+                    }
+
+                    if !ancestors.is_empty() {
+                        seq.push(HideElem::new(hidden).pack());
+                        seq.push(SpaceElem::new().pack());
+                    }
                 }
 
-                if !ancestors.is_empty() {
-                    seq.push(HideElem::new(hidden).pack());
-                    seq.push(SpaceElem::new().pack());
+                // Length => indent with some predefined space per level
+                OutlineIndent::Length(length) => {
+                    let mut hspace = Content::empty();
+                    for _ in &ancestors {
+                        hspace += HElem::new(length.clone()).pack();
+                    }
+                    seq.push(hspace);
                 }
-            }
+
+                // Content => add some content for each level
+                OutlineIndent::Content(content) => {
+                    let mut content_prefix = Content::empty();
+                    for _ in &ancestors {
+                        content_prefix += content.clone();
+                    }
+                    seq.push(content_prefix);
+                }
+
+                // Function => call function with the current depth, take the returned content
+                OutlineIndent::Function(func) => {
+                    let depth = ancestors.len();
+                    let result = func.call_vt(vt, [depth.into()])?;
+                    seq.push(result.display());
+                }
+            };
 
             // Add the outline of the element.
             seq.push(outline.linked(Destination::Location(location)));
@@ -296,5 +326,34 @@ pub trait Outlinable: Refable {
     /// Returns the nesting level of this element.
     fn level(&self) -> NonZeroUsize {
         NonZeroUsize::ONE
+    }
+}
+
+pub enum OutlineIndent {
+    Disabled,
+    Enabled,
+    Length(Spacing),
+    Content(Content),
+    Function(Func),
+}
+
+cast_from_value! {
+    OutlineIndent,
+    b: bool => match b {
+        true => OutlineIndent::Enabled,
+        false => OutlineIndent::Disabled
+    },
+    s: Spacing => OutlineIndent::Length(s),
+    c: Content => OutlineIndent::Content(c),
+    f: Func => OutlineIndent::Function(f),
+}
+
+cast_to_value! {
+    v: OutlineIndent => match v {
+        OutlineIndent::Disabled => false.into(),
+        OutlineIndent::Enabled => true.into(),
+        OutlineIndent::Length(s) => s.into(),
+        OutlineIndent::Content(c) => c.into(),
+        OutlineIndent::Function(f) => f.into()
     }
 }
