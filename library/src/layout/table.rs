@@ -264,7 +264,7 @@ impl<T: Default> Default for Celled<T> {
 
 impl<T: Cast> Cast for Celled<T> {
     fn is(value: &Value) -> bool {
-        matches!(value, Value::Func(_)) || T::is(value)
+        matches!(value, Value::Array(_) | Value::Func(_)) || T::is(value)
     }
 
     fn cast(value: Value) -> StrResult<Self> {
@@ -286,7 +286,7 @@ impl<T: Cast> Cast for Celled<T> {
     }
 
     fn describe() -> CastInfo {
-        T::describe() + CastInfo::Type("function")
+        T::describe() + CastInfo::Type("array") + CastInfo::Type("function")
     }
 }
 
