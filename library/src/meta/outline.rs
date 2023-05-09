@@ -110,13 +110,38 @@ pub struct OutlineElem {
     /// ```
     pub depth: Option<NonZeroUsize>,
 
-    /// Whether to indent the sub-elements to align the start of their numbering
-    /// with the title of their parents. This will only have an effect if a
+    /// Whether (or how) to indent the sub-elements. This defaults to
+    /// `{false}`, which does not apply any indentation from the options below.
+    ///
+    /// If simply set to `{true}`, sub-elements, such as inner headings, will
+    /// have the start of their numbering aligned with the title of their
+    /// parents. This will only have an effect if a
     /// [heading numbering]($func/heading.numbering) is set.
+    ///
+    /// Alternatively, you may specify a custom indentation method. Setting
+    /// this option to a length, such as `{2em}`, will indent each nested level
+    /// with that length (so a heading nested once will be `{2em}` away from
+    /// the start, a heading nested twice will be `{4em}` away, and so on).
+    ///
+    /// You could also set it to some content (such as `{[--]}`), in which case
+    /// that content will be repeated at the start of each line once for each
+    /// nested level (e.g. nothing will be displayed at the top-level heading,
+    /// then `--` for its children, then `----` for the children's children,
+    /// then `------` for the children's children's children, and so on).
+    ///
+    /// Finally, setting this option to a function allows for a more complete
+    /// customization of the indentation. A function is expected to take one
+    /// single parameter for the current depth (starting at 0 for top-level
+    /// headings/elements), and return the indentation content (e.g. `h(2em)`
+    /// repeated `n` times, but it can be anything). Such a function could be,
+    /// for example, `{n => h(n * 2em)}`, or `{n => [*_*] * n}`.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")
     /// #outline(indent: true)
+    /// #outline(indent: 2em)
+    /// #outline(indent: [--])
+    /// #outline(indent: n => [*_*] * n)
     ///
     /// = About ACME Corp.
     ///
@@ -124,6 +149,12 @@ pub struct OutlineElem {
     /// #lorem(10)
     ///
     /// == Products
+    /// #lorem(10)
+    ///
+    /// === Categories
+    /// #lorem(10)
+    ///
+    /// ==== General
     /// #lorem(10)
     /// ```
     #[default(OutlineIndent::Disabled)]
