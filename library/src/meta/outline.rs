@@ -256,7 +256,6 @@ impl Show for OutlineElem {
                     };
 
                     let hspace = HElem::new(*length).pack().repeat(depth).unwrap();
-
                     seq.push(hspace);
                 }
 
@@ -267,7 +266,6 @@ impl Show for OutlineElem {
                     };
 
                     let content_prefix = content.repeat(depth).unwrap();
-
                     seq.push(content_prefix);
                 }
 
