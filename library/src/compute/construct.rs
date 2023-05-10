@@ -460,7 +460,7 @@ cast_from_value! {
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
 ///
-/// If you wish to convert from and to unicode code points, see
+/// If you wish to convert from and to Unicode code points, see
 /// [`str.to-unicode`]($func/str.to-unicode) and
 /// [`str.from-unicode`]($func/str.from-unicode).
 ///
@@ -499,7 +499,7 @@ cast_from_value! {
     v: Str => Self(v),
 }
 
-/// Converts a character into it's corresponding code point value.
+/// Converts a character into its corresponding code point.
 ///
 /// ## Example
 /// ```example
@@ -534,7 +534,7 @@ cast_from_value! {
 }
 
 #[func]
-/// Converts a unicode code point value into it's corresponding string.
+/// Converts a unicode code point into its corresponding string.
 ///
 /// ```example
 /// #str.from-unicode(97)
