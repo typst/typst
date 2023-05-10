@@ -3,6 +3,7 @@ mod trace;
 
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
@@ -23,6 +24,7 @@ use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::eval::Library;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
+use typst::geom::Color;
 use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
 use typst::World;
@@ -246,8 +248,28 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
     match typst::compile(world) {
         // Export the PDF.
         Ok(document) => {
-            let buffer = typst::export::pdf(&document);
-            fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
+            if command.output.extension().unwrap_or(OsStr::new("pdf")) == "png" {
+                let pixel_per_pt = 2.0;
+                let pixmaps: Vec<_> = document
+                    .pages
+                    .iter()
+                    .map(|frame| typst::export::render(frame, pixel_per_pt, Color::WHITE))
+                    .collect();
+
+                for (i, pixmap) in pixmaps.iter().enumerate() {
+                    let mut output = command.output.clone();
+                    output.set_file_name(format!(
+                        "{}_{}.png",
+                        command.output.file_stem().unwrap().to_str().unwrap(),
+                        i
+                    ));
+                    pixmap.save_png(&output).unwrap();
+                }
+            } else {
+                let buffer = typst::export::pdf(&document);
+                fs::write(&command.output, buffer)
+                    .map_err(|_| "failed to write PDF file")?;
+            }
             status(command, Status::Success).unwrap();
 
             tracing::info!("Compilation succeeded");
