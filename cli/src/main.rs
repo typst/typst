@@ -248,7 +248,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
     match typst::compile(world) {
         // Export the PDF.
         Ok(document) => {
-            if command.output.extension() == Some("png") {
+            if command.output.extension() == Some(OsStr::new("png")) {
                 let pixel_per_pt = 2.0;
                 let pixmaps: Vec<_> = document
                     .pages
