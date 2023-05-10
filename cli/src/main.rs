@@ -263,7 +263,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
                         command.output.file_stem().unwrap().to_str().unwrap(),
                         i
                     ));
-                    pixmap.save_png(&output).unwrap();
+                    pixmap.save_png(&output).map_err(|_| "failed to write PNG file")?;
                 }
             } else {
                 let buffer = typst::export::pdf(&document);
