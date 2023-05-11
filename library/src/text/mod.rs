@@ -418,7 +418,7 @@ pub struct TextElem {
     #[default(false)]
     pub slashed_zero: bool,
 
-    /// Whether to turns numbers into fractions. Setting this to `{true}`
+    /// Whether to turn numbers into fractions. Setting this to `{true}`
     /// enables the OpenType `frac` font feature.
     ///
     /// ```example

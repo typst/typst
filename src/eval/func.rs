@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::{Prehashed, Track, Tracked, TrackedMut};
+use comemo::{Prehashed, Tracked, TrackedMut};
 use ecow::eco_format;
 use once_cell::sync::Lazy;
 
@@ -12,7 +12,7 @@ use super::{
     cast_to_value, Args, CastInfo, Eval, Flow, Route, Scope, Scopes, Tracer, Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::model::{ElemFunc, Introspector, StabilityProvider, Vt};
+use crate::model::{ElemFunc, Introspector, Locator, Vt};
 use crate::syntax::ast::{self, AstNode, Expr, Ident};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
@@ -104,7 +104,7 @@ impl Func {
                     vm.world(),
                     route,
                     TrackedMut::reborrow_mut(&mut vm.vt.tracer),
-                    TrackedMut::reborrow_mut(&mut vm.vt.provider),
+                    vm.vt.locator.track(),
                     vm.vt.introspector,
                     vm.depth + 1,
                     args,
@@ -127,7 +127,14 @@ impl Func {
         let route = Route::default();
         let id = SourceId::detached();
         let scopes = Scopes::new(None);
-        let mut vm = Vm::new(vt.reborrow_mut(), route.track(), id, scopes);
+        let mut locator = Locator::chained(vt.locator.track());
+        let vt = Vt {
+            world: vt.world,
+            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
+            locator: &mut locator,
+            introspector: vt.introspector,
+        };
+        let mut vm = Vm::new(vt, route.track(), id, scopes);
         let args = Args::new(self.span(), args);
         self.call_vm(&mut vm, args)
     }
@@ -317,10 +324,10 @@ impl Closure {
     #[allow(clippy::too_many_arguments)]
     fn call(
         this: &Func,
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         route: Tracked<Route>,
         tracer: TrackedMut<Tracer>,
-        provider: TrackedMut<StabilityProvider>,
+        locator: Tracked<Locator>,
         introspector: Tracked<Introspector>,
         depth: usize,
         mut args: Args,
@@ -335,8 +342,11 @@ impl Closure {
         let mut scopes = Scopes::new(None);
         scopes.top = closure.captured.clone();
 
-        // Evaluate the body.
-        let vt = Vt { world, tracer, provider, introspector };
+        // Prepare VT.
+        let mut locator = Locator::chained(locator);
+        let vt = Vt { world, tracer, locator: &mut locator, introspector };
+
+        // Prepare VM.
         let mut vm = Vm::new(vt, route, closure.location, scopes);
         vm.depth = depth;
 

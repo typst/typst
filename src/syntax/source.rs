@@ -109,6 +109,7 @@ impl Source {
     /// Returns the range in the new source that was ultimately reparsed.
     ///
     /// The method panics if the `replace` range is out of bounds.
+    #[track_caller]
     pub fn edit(&mut self, replace: Range<usize>, with: &str) -> Range<usize> {
         let start_byte = replace.start;
         let start_utf16 = self.byte_to_utf16(replace.start).unwrap();
@@ -158,6 +159,7 @@ impl Source {
     /// Map a span that points into this source file to a byte range.
     ///
     /// Panics if the span does not point into this source file.
+    #[track_caller]
     pub fn range(&self, span: Span) -> Range<usize> {
         self.find(span)
             .expect("span does not point into this source file")
