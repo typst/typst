@@ -196,25 +196,10 @@ impl Fold for GenAlign {
     }
 }
 
-/// Utility struct to restrict a passed alignment value to the horizontal axis on cast.
+/// Utility struct to restrict a passed alignment value to the horizontal axis
+/// on cast.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct HorizontalAlign(pub GenAlign);
-
-/// Utility struct to restrict a passed alignment value to the vertical axis on cast.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct VerticalAlign(pub GenAlign);
-
-impl From<GenAlign> for HorizontalAlign {
-    fn from(align: GenAlign) -> Self {
-        Self(align)
-    }
-}
-
-impl From<GenAlign> for VerticalAlign {
-    fn from(align: GenAlign) -> Self {
-        Self(align)
-    }
-}
 
 cast_from_value! {
     HorizontalAlign,
@@ -225,6 +210,15 @@ cast_from_value! {
         Self(align)
     },
 }
+
+cast_to_value! {
+    v: HorizontalAlign => v.0.into()
+}
+
+/// Utility struct to restrict a passed alignment value to the vertical axis on
+/// cast.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct VerticalAlign(pub GenAlign);
 
 cast_from_value! {
     VerticalAlign,
@@ -237,9 +231,5 @@ cast_from_value! {
 }
 
 cast_to_value! {
-    horizontal_align: HorizontalAlign => horizontal_align.0.into()
-}
-
-cast_to_value! {
-    vertical_align: VerticalAlign => vertical_align.0.into()
+    v: VerticalAlign => v.0.into()
 }

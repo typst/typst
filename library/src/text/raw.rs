@@ -114,18 +114,14 @@ pub struct RawElem {
     /// it, for example).
     ///
     /// ````example
-    /// #set align(center)
-    /// #set raw(align: right)
+    /// #set raw(align: center)
     ///
-    /// #lorem(40)
-    /// ```typ
-    /// #let f(x) = x
-    /// Text in this block is right-aligned,
-    /// but the block itself is center-aligned.
+    /// ```typc
+    /// let f(x) = x
+    /// code = "centered"
     /// ```
-    /// #lorem(40)
     /// ````
-    #[default(GenAlign::Start.into())]
+    #[default(HorizontalAlign(GenAlign::Start))]
     pub align: HorizontalAlign,
 }
 
@@ -205,9 +201,8 @@ impl Show for RawElem {
         };
 
         if self.block(styles) {
-            // Align the text before inserting it inside a block.
+            // Align the text before inserting it into the block.
             realized = realized.aligned(Axes::with_x(Some(self.align(styles).into())));
-
             realized = BlockElem::new().with_body(Some(realized)).pack();
         }
 
