@@ -278,26 +278,6 @@ fn attach_top_and_bottom(
     (frame, base_offset)
 }
 
-fn is_character_box(fragment: &MathFragment) -> bool {
-    // Handles e.g. "sin", "log", "exp", "CustomOperator".
-    fn is_atomic_text_frame(frame: &Frame) -> bool {
-        let v = frame
-            .items()
-            // Meta information isn't visible or renderable, so we exclude it.
-            .filter(|x| !matches!(x.1, FrameItem::Meta(_, _)))
-            .collect::<Vec<_>>();
-        matches!(v.as_slice(), [(_, FrameItem::Text(_))])
-    }
-
-    match fragment {
-        MathFragment::Glyph(_) | MathFragment::Variant(_) => {
-            fragment.class() != Some(MathClass::Large)
-        }
-        MathFragment::Frame(f) => is_atomic_text_frame(&f.frame),
-        _ => false,
-    }
-}
-
 fn compute_shifts_up_and_down(
     ctx: &MathContext,
     base: &MathFragment,
@@ -319,7 +299,6 @@ fn compute_shifts_up_and_down(
 
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
-
     let is_char_box = is_character_box(base);
 
     for e in [tl, tr].into_iter().flatten() {
@@ -359,6 +338,27 @@ fn compute_shifts_up_and_down(
     }
 
     (shift_up, shift_down)
+}
+
+/// Whether the fragment consists of a single character or atomic piece of text.
+fn is_character_box(fragment: &MathFragment) -> bool {
+    match fragment {
+        MathFragment::Glyph(_) | MathFragment::Variant(_) => {
+            fragment.class() != Some(MathClass::Large)
+        }
+        MathFragment::Frame(fragment) => is_atomic_text_frame(&fragment.frame),
+        _ => false,
+    }
+}
+
+/// Handles e.g. "sin", "log", "exp", "CustomOperator".
+fn is_atomic_text_frame(frame: &Frame) -> bool {
+    // Meta information isn't visible or renderable, so we exclude it.
+    let mut iter = frame
+        .items()
+        .map(|(_, item)| item)
+        .filter(|item| !matches!(item, FrameItem::Meta(_, _)));
+    matches!(iter.next(), Some(FrameItem::Text(_))) && iter.next().is_none()
 }
 
 /// Unicode codepoints that should have sub- and superscripts attached as limits.
