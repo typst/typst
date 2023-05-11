@@ -290,7 +290,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    #[tracing::instrument(name = "grid layout", skip(self))]
     pub fn layout(mut self) -> SourceResult<GridLayout> {
         self.measure_columns()?;
 
@@ -318,6 +317,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Determine all column sizes.
+    #[tracing::instrument(name = "GridLayouter::measure_columns", skip_all)]
     fn measure_columns(&mut self) -> SourceResult<()> {
         // Sum of sizes of resolved relative tracks.
         let mut rel = Abs::zero();

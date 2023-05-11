@@ -12,7 +12,7 @@ use crate::util::NonZeroExt;
 pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
     for heading in ctx.introspector.query(&item!(heading_func).select()) {
-        let leaf = HeadingNode::leaf(heading);
+        let leaf = HeadingNode::leaf((*heading).clone());
         if let Some(last) = tree.last_mut() {
             if last.try_insert(leaf.clone(), NonZeroUsize::ONE) {
                 continue;

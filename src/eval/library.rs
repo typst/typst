@@ -67,7 +67,7 @@ pub struct LangItems {
     /// The keys contained in the bibliography and short descriptions of them.
     #[allow(clippy::type_complexity)]
     pub bibliography_keys: fn(
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)>,
     /// A section heading: `= Introduction`.

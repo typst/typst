@@ -331,11 +331,8 @@ impl FigureElem {
             .cloned()
     }
 
-    /// Builds the supplement and numbering of the figure.
-    /// If there is no numbering, returns [`None`].
-    ///
-    /// # Errors
-    /// If a numbering is specified but the [`Self::data()`] is `None`.
+    /// Builds the supplement and numbering of the figure. Returns [`None`] if
+    /// there is no numbering.
     pub fn show_supplement_and_numbering(
         &self,
         vt: &mut Vt,
@@ -364,11 +361,8 @@ impl FigureElem {
         }
     }
 
-    /// Builds the caption for the figure.
-    /// If there is a numbering, will also try to show the supplement and the numbering.
-    ///
-    /// # Errors
-    /// If a numbering is specified but the [`Self::element`] is `None`.
+    /// Builds the caption for the figure. If there is a numbering, will also
+    /// try to show the supplement and the numbering.
     pub fn show_caption(&self, vt: &mut Vt) -> SourceResult<Content> {
         let Some(mut caption) = self.caption(StyleChain::default()) else {
             return Ok(Content::empty());

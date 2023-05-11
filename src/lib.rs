@@ -54,7 +54,7 @@ pub mod syntax;
 
 use std::path::Path;
 
-use comemo::{Prehashed, Track};
+use comemo::{Prehashed, Track, TrackedMut};
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
@@ -65,17 +65,25 @@ use crate::util::Buffer;
 
 /// Compile a source file into a fully layouted document.
 #[tracing::instrument(skip(world))]
-pub fn compile(world: &(dyn World + 'static)) -> SourceResult<Document> {
-    // Evaluate the source file into a module.
+pub fn compile(world: &dyn World) -> SourceResult<Document> {
     let route = Route::default();
     let mut tracer = Tracer::default();
-    let module =
-        eval::eval(world.track(), route.track(), tracer.track_mut(), world.main())?;
 
-    tracing::info!("Evaluation successful");
+    // Call `track` just once to keep comemo's ID stable.
+    let world = world.track();
+    let mut tracer = tracer.track_mut();
+
+    // Evaluate the source file into a module.
+    tracing::info!("Starting evaluation");
+    let module = eval::eval(
+        world,
+        route.track(),
+        TrackedMut::reborrow_mut(&mut tracer),
+        world.main(),
+    )?;
 
     // Typeset the module's contents.
-    model::typeset(world.track(), tracer.track_mut(), &module.content())
+    model::typeset(world, tracer, &module.content())
 }
 
 /// The environment in which typesetting occurs.
