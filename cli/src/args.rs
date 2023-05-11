@@ -72,6 +72,10 @@ pub struct CompileCommand {
     /// given file or to `flamegraph.svg` in the current working directory.
     #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
     pub flamegraph: Option<Option<PathBuf>>,
+
+    /// The PPI to use if exported as PNG
+    #[arg(long = "ppi")]
+    pub ppi: Option<f32>,
 }
 
 /// List all discovered fonts in system and custom font paths

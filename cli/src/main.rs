@@ -59,6 +59,9 @@ struct CompileSettings {
 
     /// The open command to use.
     open: Option<Option<String>>,
+
+    /// The ppi to use for png export
+    ppi: Option<f32>,
 }
 
 impl CompileSettings {
@@ -70,12 +73,13 @@ impl CompileSettings {
         root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
+        ppi: Option<f32>,
     ) -> Self {
         let output = match output {
             Some(path) => path,
             None => input.with_extension("pdf"),
         };
-        Self { input, output, watch, root, font_paths, open }
+        Self { input, output, watch, root, font_paths, open, ppi }
     }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
@@ -84,12 +88,12 @@ impl CompileSettings {
     /// Panics if the command is not a compile or watch command.
     pub fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
-        let CompileCommand { input, output, open, .. } = match args.command {
+        let CompileCommand { input, output, open, ppi, .. } = match args.command {
             Command::Compile(command) => command,
             Command::Watch(command) => command,
             _ => unreachable!(),
         };
-        Self::new(input, output, watch, args.root, args.font_paths, open)
+        Self::new(input, output, watch, args.root, args.font_paths, open, ppi)
     }
 }
 
@@ -249,7 +253,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Export the PDF.
         Ok(document) => {
             if command.output.extension() == Some(OsStr::new("png")) {
-                let pixel_per_pt = 2.0;
+                let pixel_per_pt = command.ppi.unwrap_or(2.0);
                 let pixmaps: Vec<_> = document
                     .pages
                     .iter()
