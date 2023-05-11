@@ -57,6 +57,9 @@ struct CompileSettings {
 
     /// The open command to use.
     open: Option<Option<String>>,
+
+    /// Whether to emit diagnostics in a unix-style short form
+    message_format_short: bool,
 }
 
 impl CompileSettings {
@@ -68,12 +71,21 @@ impl CompileSettings {
         root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
+        message_format_short: bool,
     ) -> Self {
         let output = match output {
             Some(path) => path,
             None => input.with_extension("pdf"),
         };
-        Self { input, output, watch, root, font_paths, open }
+        Self {
+            input,
+            output,
+            watch,
+            root,
+            font_paths,
+            open,
+            message_format_short,
+        }
     }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
@@ -87,7 +99,15 @@ impl CompileSettings {
             Command::Watch(command) => command,
             _ => unreachable!(),
         };
-        Self::new(input, output, watch, args.root, args.font_paths, open)
+        Self::new(
+            input,
+            output,
+            watch,
+            args.root,
+            args.font_paths,
+            open,
+            args.message_format_short,
+        )
     }
 }
 
@@ -257,7 +277,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Print diagnostics.
         Err(errors) => {
             status(command, Status::Error).unwrap();
-            print_diagnostics(world, *errors)
+            print_diagnostics(world, *errors, command.message_format_short)
                 .map_err(|_| "failed to print diagnostics")?;
 
             tracing::info!("Compilation failed");
@@ -330,9 +350,17 @@ impl Status {
 fn print_diagnostics(
     world: &SystemWorld,
     errors: Vec<SourceError>,
+    message_format_short: bool,
 ) -> Result<(), codespan_reporting::files::Error> {
     let mut w = StandardStream::stderr(ColorChoice::Auto);
-    let config = term::Config { tab_width: 2, ..Default::default() };
+    let mut config = term::Config { tab_width: 2, ..Default::default() };
+
+    if message_format_short {
+        w = StandardStream::stderr(ColorChoice::Never);
+        config.display_style = term::DisplayStyle::Short;
+    }
+
+    let config = config;
 
     for error in errors {
         // The main diagnostic.

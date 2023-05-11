@@ -21,6 +21,10 @@ pub struct CliArguments {
     /// Sets the level of verbosity: 0 = none, 1 = warning & error, 2 = info, 3 = debug, 4 = trace
     #[clap(short, long, action = ArgAction::Count)]
     pub verbosity: u8,
+
+    /// Whether to emit diagnostics in a unix-style short form
+    #[clap(long, default_value_t = false)]
+    pub message_format_short: bool,
 }
 
 /// What to do.
