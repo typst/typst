@@ -183,3 +183,22 @@ impl Fold for GenAlign {
         self
     }
 }
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum LeftRightAlternator {
+    Left,
+    Right,
+}
+
+impl Iterator for LeftRightAlternator {
+    type Item = LeftRightAlternator;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let r = Some(*self);
+        match self {
+            Self::Left => *self = Self::Right,
+            Self::Right => *self = Self::Left,
+        }
+        r
+    }
+}
