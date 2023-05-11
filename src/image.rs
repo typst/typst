@@ -53,7 +53,7 @@ impl Image {
     pub fn with_fonts(
         data: Buffer,
         format: ImageFormat,
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         fallback_family: Option<&str>,
         alt: Option<EcoString>,
     ) -> StrResult<Self> {
@@ -240,7 +240,7 @@ fn decode_svg(data: &Buffer) -> StrResult<Arc<DecodedImage>> {
 #[comemo::memoize]
 fn decode_svg_with_fonts(
     data: &Buffer,
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     fallback_family: Option<&str>,
 ) -> StrResult<Arc<DecodedImage>> {
     let mut opts = usvg::Options::default();
@@ -269,7 +269,7 @@ fn decode_svg_with_fonts(
 /// Discover and load the fonts referenced by an SVG.
 fn load_svg_fonts(
     tree: &usvg::Tree,
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     fallback_family: Option<&str>,
 ) -> fontdb::Database {
     let mut referenced = BTreeMap::<EcoString, bool>::new();

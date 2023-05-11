@@ -65,7 +65,7 @@ use crate::util::Buffer;
 
 /// Compile a source file into a fully layouted document.
 #[tracing::instrument(skip(world))]
-pub fn compile(world: &(dyn World + 'static)) -> SourceResult<Document> {
+pub fn compile(world: &dyn World) -> SourceResult<Document> {
     // Evaluate the source file into a module.
     let route = Route::default();
     let mut tracer = Tracer::default();

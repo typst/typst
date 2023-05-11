@@ -121,7 +121,7 @@ impl BibliographyElem {
 
     /// Find all bibliography keys.
     pub fn keys(
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)> {
         Self::find(introspector)
@@ -426,7 +426,7 @@ impl Works {
 /// Generate all citations and the whole bibliography.
 #[comemo::memoize]
 fn create(
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     bibliography: BibliographyElem,
     citations: Vec<CiteElem>,
 ) -> Arc<Works> {
@@ -582,7 +582,7 @@ fn create(
 /// Load bibliography entries from a path.
 #[comemo::memoize]
 fn load(
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     paths: &BibPaths,
 ) -> StrResult<EcoVec<hayagriva::Entry>> {
     let mut result = EcoVec::new();

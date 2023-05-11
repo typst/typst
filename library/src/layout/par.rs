@@ -139,7 +139,7 @@ impl ParElem {
         #[allow(clippy::too_many_arguments)]
         fn cached(
             par: &ParElem,
-            world: Tracked<dyn World>,
+            world: Tracked<dyn World + '_>,
             tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
             introspector: Tracked<Introspector>,

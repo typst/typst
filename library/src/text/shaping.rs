@@ -448,8 +448,8 @@ impl Debug for ShapedText<'_> {
 }
 
 /// Holds shaping results and metadata common to all shaped segments.
-struct ShapingContext<'a> {
-    vt: &'a Vt<'a>,
+struct ShapingContext<'a, 'v> {
+    vt: &'a Vt<'v>,
     spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,

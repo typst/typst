@@ -320,7 +320,7 @@ impl State {
     #[comemo::memoize]
     fn sequence_impl(
         &self,
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         tracer: TrackedMut<Tracer>,
         provider: TrackedMut<StabilityProvider>,
         introspector: Tracked<Introspector>,

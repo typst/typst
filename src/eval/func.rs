@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::{Prehashed, Track, Tracked, TrackedMut};
+use comemo::{Prehashed, Tracked, TrackedMut};
 use ecow::eco_format;
 use once_cell::sync::Lazy;
 
@@ -317,7 +317,7 @@ impl Closure {
     #[allow(clippy::too_many_arguments)]
     fn call(
         this: &Func,
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         route: Tracked<Route>,
         tracer: TrackedMut<Tracer>,
         provider: TrackedMut<StabilityProvider>,

@@ -73,7 +73,7 @@ impl LayoutRoot for Content {
         #[comemo::memoize]
         fn cached(
             content: &Content,
-            world: Tracked<dyn World>,
+            world: Tracked<dyn World + '_>,
             tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
             introspector: Tracked<Introspector>,
@@ -139,7 +139,7 @@ impl Layout for Content {
         #[comemo::memoize]
         fn cached(
             content: &Content,
-            world: Tracked<dyn World>,
+            world: Tracked<dyn World + '_>,
             tracer: TrackedMut<Tracer>,
             provider: TrackedMut<StabilityProvider>,
             introspector: Tracked<Introspector>,

@@ -41,7 +41,7 @@ use std::collections::HashSet;
 use std::mem;
 use std::path::{Path, PathBuf};
 
-use comemo::{Track, Tracked, TrackedMut};
+use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -67,7 +67,7 @@ const MAX_CALL_DEPTH: usize = 64;
 #[comemo::memoize]
 #[tracing::instrument(skip(world, route, tracer, source))]
 pub fn eval(
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     route: Tracked<Route>,
     tracer: TrackedMut<Tracer>,
     source: &Source,
@@ -84,7 +84,7 @@ pub fn eval(
     set_lang_items(library.items.clone());
 
     // Evaluate the module.
-    let route = unsafe { Route::insert(route, id) };
+    let route = Route::insert(route, id);
     let scopes = Scopes::new(Some(library));
     let mut provider = StabilityProvider::new();
     let introspector = Introspector::new(&[]);
@@ -117,7 +117,7 @@ pub fn eval(
 /// Everything in the output is associated with the given `span`.
 #[comemo::memoize]
 pub fn eval_string(
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     code: &str,
     span: Span,
 ) -> SourceResult<Value> {
@@ -164,7 +164,7 @@ pub struct Vm<'a> {
     /// The language items.
     items: LangItems,
     /// The route of source ids the VM took to reach its current location.
-    route: Tracked<'a, Route>,
+    route: Tracked<'a, Route<'a>>,
     /// The current location.
     location: SourceId,
     /// A control flow event that is currently happening.
@@ -200,7 +200,7 @@ impl<'a> Vm<'a> {
     }
 
     /// Access the underlying world.
-    pub fn world(&self) -> Tracked<'a, dyn World> {
+    pub fn world(&self) -> Tracked<'a, dyn World + 'a> {
         self.vt.world
     }
 
@@ -263,34 +263,45 @@ impl Flow {
 
 /// A route of source ids.
 #[derive(Default)]
-pub struct Route {
-    parent: Option<Tracked<'static, Self>>,
+pub struct Route<'a> {
+    // We need to override the constraint's lifetime here so that `Tracked` is
+    // covariant over the constraint. If it becomes invariant, we're in for a
+    // world of lifetime pain.
+    outer: Option<Tracked<'a, Self, <Route<'static> as Validate>::Constraint>>,
     id: Option<SourceId>,
 }
 
-impl Route {
+impl<'a> Route<'a> {
     /// Create a new route with just one entry.
     pub fn new(id: SourceId) -> Self {
-        Self { id: Some(id), parent: None }
+        Self { id: Some(id), outer: None }
     }
 
     /// Insert a new id into the route.
     ///
     /// You must guarantee that `outer` lives longer than the resulting
     /// route is ever used.
-    unsafe fn insert(outer: Tracked<Route>, id: SourceId) -> Route {
-        Route {
-            parent: Some(std::mem::transmute(outer)),
-            id: Some(id),
+    pub fn insert(outer: Tracked<'a, Self>, id: SourceId) -> Self {
+        Route { outer: Some(outer), id: Some(id) }
+    }
+
+    /// Start tracking this locator.
+    ///
+    /// In comparison to [`Track::track`], this method skips this chain link
+    /// if it does not contribute anything.
+    pub fn track(&self) -> Tracked<'_, Self> {
+        match self.outer {
+            Some(outer) if self.id.is_none() => outer,
+            _ => Track::track(self),
         }
     }
 }
 
 #[comemo::track]
-impl Route {
+impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     fn contains(&self, id: SourceId) -> bool {
-        self.id == Some(id) || self.parent.map_or(false, |parent| parent.contains(id))
+        self.id == Some(id) || self.outer.map_or(false, |outer| outer.contains(id))
     }
 }
 
