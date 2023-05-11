@@ -5,10 +5,10 @@ description: |
 ---
 
 # Guide for LaTeX users
-This page is a good starting point if you have used LaTeX before and want
-to try Typst. We will explore the main differences between these two
-systems from a user perspective and you will learn how to use your LaTeX
-skills to get a head start with Typst.
+This page is a good starting point if you have used LaTeX before and want to try
+Typst. We will explore the main differences between these two systems from a
+user perspective. Although Typst is not built upon LaTeX and has a different
+syntax, you will learn how to use your LaTeX skills to get a head start.
 
 <!-- Mention that Typst is not built upon LaTeX -->
 
@@ -17,11 +17,11 @@ document in a text file and mark it up with commands and other syntax. Then, you
 use a compiler to typeset the source file into a PDF. However, Typst also
 differs from LaTeX in several aspects: For one, Typst uses more dedicated syntax
 (like you may know from Markdown) for common tasks. Typst's commands are also
-more principled: The all work the same, so unlike in LaTeX, you just to learn
-a few general concepts instead of learning different conventions for each
-package. Moreover Typst compiles faster than LaTeX: Compilation usually takes
-milliseconds, not seconds, so the web app and the compiler can both provide
-instant previews.
+more principled: They all work the same, so unlike in LaTeX, you just need to
+understand a few general concepts instead of learning different conventions for
+each package. Moreover Typst compiles faster than LaTeX: Compilation usually
+takes milliseconds, not seconds, so the web app and the compiler can both
+provide instant previews.
 
 In the following, we will cover some of the most common questions a user
 switching from LaTeX will have when composing a document in Typst. If you prefer
@@ -362,9 +362,11 @@ we can get started writing our article below!
 
 <div class="info-box">
 
-Functions are Typst's "commands" and can transform their
-arguments to an output value, including document _content._ Functions can't
-generally manipulate anything they did not receive as an argument.
+Functions are Typst's "commands" and can transform their arguments to an output
+value, including document _content._ Functions are "pure", which means that they
+cannot have any effects beyond creating an output value / output content. This
+is in stark contrast to LaTeX macros that can have arbitrary effects on your
+document.
 
 To let a function style your whole document, the show rule processes everything
 that comes after it and calls the function specified after the colon with the
