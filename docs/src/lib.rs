@@ -56,6 +56,7 @@ pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
         markdown_page(resolver, "/docs/", "general/overview.md").with_route("/docs/"),
         tutorial_page(resolver),
         reference_page(resolver),
+        markdown_page(resolver, "/docs/", "general/guide-for-latex-users.md"),
         markdown_page(resolver, "/docs/", "general/changelog.md"),
         markdown_page(resolver, "/docs/", "general/community.md"),
     ]
