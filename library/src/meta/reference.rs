@@ -130,7 +130,7 @@ impl Synthesize for RefElem {
         let target = self.target();
         if vt.introspector.init() && !BibliographyElem::has(vt, &target.0) {
             if let Ok(elem) = vt.introspector.query_label(&target) {
-                self.push_element(Some(elem));
+                self.push_element(Some(elem.into_inner()));
                 return Ok(());
             }
         }
@@ -173,7 +173,7 @@ impl Show for RefElem {
         let supplement = match self.supplement(styles) {
             Smart::Auto | Smart::Custom(None) => None,
             Smart::Custom(Some(supplement)) => {
-                Some(supplement.resolve(vt, [elem.clone().into()])?)
+                Some(supplement.resolve(vt, [(*elem).clone().into()])?)
             }
         };
 
@@ -245,10 +245,9 @@ cast_to_value! {
     }
 }
 
-/// Marks an element as being able to be referenced.
-/// This is used to implement the `@ref` macro.
-/// It is expected to build the [`Content`] that gets linked
-/// by the [`RefElement`].
+/// Marks an element as being able to be referenced. This is used to implement
+/// the `@ref` element. It is expected to build the [`Content`] that gets linked
+/// by the [`RefElem`].
 pub trait Refable {
     /// Tries to build a reference content for this element.
     ///

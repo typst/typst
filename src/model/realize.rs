@@ -37,7 +37,7 @@ pub fn realize(
     if target.needs_preparation() {
         let mut elem = target.clone();
         if target.can::<dyn Locatable>() || target.label().is_some() {
-            let location = vt.provider.locate(hash128(target));
+            let location = vt.locator.locate(hash128(target));
             elem.set_location(location);
         }
 

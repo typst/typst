@@ -168,7 +168,7 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(GenAlign::End.into())]
+    #[default(HorizontalAlign(GenAlign::End))]
     pub number_align: HorizontalAlign,
 
     /// The numbered list's items.
