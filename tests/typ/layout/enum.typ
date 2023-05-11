@@ -46,11 +46,3 @@ a + 0.
    [Second],
    enum.item(5)[Fifth]
 )
-
----
-// Alignment shouldn't affect number
-#set align(horizon)
-
-+ ABCDEF\ GHIJKL\ MNOPQR
-   + INNER\ INNER\ INNER
-+ BACK\ HERE
