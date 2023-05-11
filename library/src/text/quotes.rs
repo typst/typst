@@ -147,6 +147,7 @@ impl<'s> Quotes<'s> {
             "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
+            _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => return Self::default(),
         };
 
