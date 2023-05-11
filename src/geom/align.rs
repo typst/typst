@@ -106,6 +106,18 @@ impl From<Align> for GenAlign {
     }
 }
 
+impl From<HorizontalAlign> for GenAlign {
+    fn from(align: HorizontalAlign) -> Self {
+        align.0
+    }
+}
+
+impl From<VerticalAlign> for GenAlign {
+    fn from(align: VerticalAlign) -> Self {
+        align.0
+    }
+}
+
 impl Debug for GenAlign {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -184,7 +196,45 @@ impl Fold for GenAlign {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+/// Utility struct to restrict a passed alignment value to the horizontal axis
+/// on cast.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct HorizontalAlign(pub GenAlign);
+
+cast_from_value! {
+    HorizontalAlign,
+    align: GenAlign => {
+        if align.axis() != Axis::X {
+            Err("alignment must be horizontal")?;
+        }
+        Self(align)
+    },
+}
+
+cast_to_value! {
+    v: HorizontalAlign => v.0.into()
+}
+
+/// Utility struct to restrict a passed alignment value to the vertical axis on
+/// cast.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct VerticalAlign(pub GenAlign);
+
+cast_from_value! {
+    VerticalAlign,
+    align: GenAlign => {
+        if align.axis() != Axis::Y {
+            Err("alignment must be vertical")?;
+        }
+        Self(align)
+    },
+}
+
+cast_to_value! {
+    v: VerticalAlign => v.0.into()
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum LeftRightAlternator {
     Left,
     Right,
