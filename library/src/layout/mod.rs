@@ -116,6 +116,7 @@ pub trait Layout {
     ///
     /// This element must be layouted again in the same order for the results to
     /// be valid.
+    #[tracing::instrument(name = "Layout::measure", skip_all)]
     fn measure(
         &self,
         vt: &mut Vt,
@@ -198,6 +199,7 @@ fn realize_root<'a>(
 }
 
 /// Realize into an element that is capable of block-level layout.
+#[tracing::instrument(skip_all)]
 fn realize_block<'a>(
     vt: &mut Vt,
     scratch: &'a Scratch<'a>,
@@ -261,7 +263,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     fn accept(
         &mut self,
         mut content: &'a Content,
@@ -327,7 +328,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     fn styled(
         &mut self,
         elem: &'a Content,
@@ -342,7 +342,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, local, outer))]
     fn interrupt_style(
         &mut self,
         local: &Styles,
@@ -377,7 +376,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
     fn interrupt_list(&mut self) -> SourceResult<()> {
         if !self.list.items.is_empty() {
             let staged = mem::take(&mut self.list.staged);
@@ -391,7 +389,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
     fn interrupt_par(&mut self) -> SourceResult<()> {
         self.interrupt_list()?;
         if !self.par.0.is_empty() {
@@ -403,7 +400,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all)]
     fn interrupt_page(&mut self, styles: Option<StyleChain<'a>>) -> SourceResult<()> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
