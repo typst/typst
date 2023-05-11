@@ -140,16 +140,17 @@ impl ParElem {
         #[allow(clippy::too_many_arguments)]
         fn cached(
             par: &ParElem,
-            world: Tracked<dyn World>,
+            world: Tracked<dyn World + '_>,
             tracer: TrackedMut<Tracer>,
-            provider: TrackedMut<StabilityProvider>,
+            locator: Tracked<Locator>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
             consecutive: bool,
             region: Size,
             expand: bool,
         ) -> SourceResult<Fragment> {
-            let mut vt = Vt { world, tracer, provider, introspector };
+            let mut locator = Locator::chained(locator);
+            let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
             let children = par.children();
 
             // Collect all text into one string for BiDi analysis.
@@ -167,17 +168,20 @@ impl ParElem {
             finalize(&mut vt, &p, &lines, region, expand)
         }
 
-        cached(
+        let fragment = cached(
             self,
             vt.world,
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.locator.track(),
             vt.introspector,
             styles,
             consecutive,
             region,
             expand,
-        )
+        )?;
+
+        vt.locator.visit_frames(&fragment);
+        Ok(fragment)
     }
 }
 

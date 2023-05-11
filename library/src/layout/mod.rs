@@ -73,13 +73,14 @@ impl LayoutRoot for Content {
         #[comemo::memoize]
         fn cached(
             content: &Content,
-            world: Tracked<dyn World>,
+            world: Tracked<dyn World + '_>,
             tracer: TrackedMut<Tracer>,
-            provider: TrackedMut<StabilityProvider>,
+            locator: Tracked<Locator>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
-            let mut vt = Vt { world, tracer, provider, introspector };
+            let mut locator = Locator::chained(locator);
+            let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_root(&mut vt, &scratch, content, styles)?;
             realized
@@ -94,7 +95,7 @@ impl LayoutRoot for Content {
             self,
             vt.world,
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.locator.track(),
             vt.introspector,
             styles,
         )
@@ -115,16 +116,21 @@ pub trait Layout {
     ///
     /// This element must be layouted again in the same order for the results to
     /// be valid.
+    #[tracing::instrument(name = "Layout::measure", skip_all)]
     fn measure(
         &self,
         vt: &mut Vt,
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        vt.provider.save();
-        let result = self.layout(vt, styles, regions);
-        vt.provider.restore();
-        result
+        let mut locator = Locator::chained(vt.locator.track());
+        let mut vt = Vt {
+            world: vt.world,
+            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
+            locator: &mut locator,
+            introspector: vt.introspector,
+        };
+        self.layout(&mut vt, styles, regions)
     }
 }
 
@@ -139,14 +145,15 @@ impl Layout for Content {
         #[comemo::memoize]
         fn cached(
             content: &Content,
-            world: Tracked<dyn World>,
+            world: Tracked<dyn World + '_>,
             tracer: TrackedMut<Tracer>,
-            provider: TrackedMut<StabilityProvider>,
+            locator: Tracked<Locator>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment> {
-            let mut vt = Vt { world, tracer, provider, introspector };
+            let mut locator = Locator::chained(locator);
+            let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_block(&mut vt, &scratch, content, styles)?;
             realized
@@ -157,15 +164,18 @@ impl Layout for Content {
 
         tracing::info!("Layouting `Content`");
 
-        cached(
+        let fragment = cached(
             self,
             vt.world,
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.locator.track(),
             vt.introspector,
             styles,
             regions,
-        )
+        )?;
+
+        vt.locator.visit_frames(&fragment);
+        Ok(fragment)
     }
 }
 
@@ -189,6 +199,7 @@ fn realize_root<'a>(
 }
 
 /// Realize into an element that is capable of block-level layout.
+#[tracing::instrument(skip_all)]
 fn realize_block<'a>(
     vt: &mut Vt,
     scratch: &'a Scratch<'a>,
@@ -252,7 +263,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     fn accept(
         &mut self,
         mut content: &'a Content,
@@ -318,7 +328,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     fn styled(
         &mut self,
         elem: &'a Content,
@@ -333,7 +342,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self, local, outer))]
     fn interrupt_style(
         &mut self,
         local: &Styles,
@@ -368,7 +376,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
     fn interrupt_list(&mut self) -> SourceResult<()> {
         if !self.list.items.is_empty() {
             let staged = mem::take(&mut self.list.staged);
@@ -382,7 +389,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    #[tracing::instrument(skip(self))]
     fn interrupt_par(&mut self) -> SourceResult<()> {
         self.interrupt_list()?;
         if !self.par.0.is_empty() {
@@ -394,7 +400,6 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all)]
     fn interrupt_page(&mut self, styles: Option<StyleChain<'a>>) -> SourceResult<()> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };

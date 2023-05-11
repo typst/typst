@@ -122,7 +122,12 @@ pub fn query(
     location: Location,
 ) -> Value {
     let _ = location;
-    vm.vt.introspector.query(&target.0).into()
+    let vec = vm.vt.introspector.query(&target.0);
+    Value::Array(
+        vec.into_iter()
+            .map(|elem| Value::Content(elem.into_inner()))
+            .collect(),
+    )
 }
 
 /// Turns a value into a selector. The following values are accepted:

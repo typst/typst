@@ -369,8 +369,7 @@ checksum = "acbf1af155f9b9ef647e42cdc158db4b64a1b61f743629225fde6f3e0be2a7c7"
 [[package]]
 name = "comemo"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ba423e212681b51c5452a458bb24e88165f4c09857a783c802719cc46313f3f"
+source = "git+https://github.com/typst/comemo#0c141bbe47ca2d8c123fffc3f7f1ce35bb693993"
 dependencies = [
  "comemo-macros",
  "siphasher",
@@ -379,8 +378,7 @@ dependencies = [
 [[package]]
 name = "comemo-macros"
 version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fca5ceeb99665bad04a32fe297d1581a68685e36fb6da92a1c9b7d9693638c01"
+source = "git+https://github.com/typst/comemo#0c141bbe47ca2d8c123fffc3f7f1ce35bb693993"
 dependencies = [
  "proc-macro2",
  "quote",

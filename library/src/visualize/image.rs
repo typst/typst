@@ -165,7 +165,7 @@ pub enum ImageFit {
 /// Load an image from a path.
 #[comemo::memoize]
 fn load(
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     full: &str,
     fallback_family: Option<&str>,
     alt: Option<EcoString>,

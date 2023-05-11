@@ -19,7 +19,7 @@ bench = false
 typst = { path = ".." }
 az = "1.2"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
-comemo = "0.2.2"
+comemo = { git = "https://github.com/typst/comemo" }
 csv = "1"
 ecow = "0.1"
 hayagriva = "0.3"

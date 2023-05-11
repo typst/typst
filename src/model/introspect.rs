@@ -1,7 +1,11 @@
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
+use comemo::{Prehashed, Track, Tracked, Validate};
+use ecow::EcoVec;
 use indexmap::IndexMap;
 
 use super::{Content, Selector};
@@ -12,15 +16,15 @@ use crate::geom::{Point, Transform};
 use crate::model::Label;
 use crate::util::NonZeroExt;
 
-/// Stably identifies an element in the document across multiple layout passes.
+/// Uniquely identifies an element in the document across multiple layout passes.
 ///
-/// This struct is created by [`StabilityProvider::locate`].
+/// This struct is created by [`Locator::locate`].
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location {
     /// The hash of the element.
     hash: u128,
     /// An unique number among elements with the same hash. This is the reason
-    /// we need a mutable `StabilityProvider` everywhere.
+    /// we need a `Locator` everywhere.
     disambiguator: usize,
     /// A synthetic location created from another one. This is used for example
     /// in bibliography management to create individual linkable locations for
@@ -46,39 +50,113 @@ cast_from_value! {
     Location: "location",
 }
 
-/// Provides stable identities to elements.
-#[derive(Clone, Default)]
-pub struct StabilityProvider {
-    hashes: Vec<u128>,
-    checkpoints: Vec<usize>,
+/// Provides locations for elements in the document.
+///
+/// A [`Location`] consists of an element's hash plus a disambiguator. Just the
+/// hash is not enough because we can have multiple equal elements with the same
+/// hash (not a hash collision, just equal elements!). Between these, we
+/// disambiguate with an increasing number. In principle, the disambiguator
+/// could just be counted up. However, counting is an impure operation and as
+/// such we can't count across a memoization boundary. [^1]
+///
+/// Instead, we only mutate within a single "layout run" and combine the results
+/// with disambiguators from an outer tracked locator. Thus, the locators form a
+/// "tracked chain". When a layout run ends, its mutations are discarded and, on
+/// the other side of the memoization boundary, we
+/// [reconstruct](Self::visit_frame) them from the resulting [frames](Frame).
+///
+/// [^1]: Well, we could with [`TrackedMut`](comemo::TrackedMut), but the
+/// overhead is quite high, especially since we need to save & undo the counting
+/// when only measuring.
+#[derive(Default)]
+pub struct Locator<'a> {
+    /// Maps from a hash to the maximum number we've seen for this hash. This
+    /// number becomes the `disambiguator`.
+    hashes: RefCell<HashMap<u128, usize>>,
+    /// An outer `Locator`, from which we can get disambiguator for hashes
+    /// outside of the current "layout run".
+    ///
+    /// We need to override the constraint's lifetime here so that `Tracked` is
+    /// covariant over the constraint. If it becomes invariant, we're in for a
+    /// world of lifetime pain.
+    outer: Option<Tracked<'a, Self, <Locator<'static> as Validate>::Constraint>>,
 }
 
-impl StabilityProvider {
-    /// Create a new stability provider.
+impl<'a> Locator<'a> {
+    /// Create a new locator.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Create a new chained locator.
+    pub fn chained(outer: Tracked<'a, Self>) -> Self {
+        Self { outer: Some(outer), ..Default::default() }
+    }
+
+    /// Start tracking this locator.
+    ///
+    /// In comparison to [`Track::track`], this method skips this chain link
+    /// if it does not contribute anything.
+    pub fn track(&self) -> Tracked<'_, Self> {
+        match self.outer {
+            Some(outer) if self.hashes.borrow().is_empty() => outer,
+            _ => Track::track(self),
+        }
+    }
+
+    /// Produce a stable identifier for this call site.
+    pub fn locate(&mut self, hash: u128) -> Location {
+        // Get the current disambiguator for this hash.
+        let disambiguator = self.disambiguator_impl(hash);
+
+        // Bump the next disambiguator up by one.
+        self.hashes.borrow_mut().insert(hash, disambiguator + 1);
+
+        // Create the location in its default variant.
+        Location { hash, disambiguator, variant: 0 }
+    }
+
+    /// Advance past a frame.
+    pub fn visit_frame(&mut self, frame: &Frame) {
+        for (_, item) in frame.items() {
+            match item {
+                FrameItem::Group(group) => self.visit_frame(&group.frame),
+                FrameItem::Meta(Meta::Elem(elem), _) => {
+                    let mut hashes = self.hashes.borrow_mut();
+                    let loc = elem.location().unwrap();
+                    let entry = hashes.entry(loc.hash).or_default();
+
+                    // Next disambiguator needs to be at least one larger than
+                    // the maximum we've seen so far.
+                    *entry = (*entry).max(loc.disambiguator + 1);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Advance past a number of frames.
+    pub fn visit_frames<'b>(&mut self, frames: impl IntoIterator<Item = &'b Frame>) {
+        for frame in frames {
+            self.visit_frame(frame);
+        }
+    }
+
+    /// The current disambiguator for the given hash.
+    fn disambiguator_impl(&self, hash: u128) -> usize {
+        *self
+            .hashes
+            .borrow_mut()
+            .entry(hash)
+            .or_insert_with(|| self.outer.map_or(0, |outer| outer.disambiguator(hash)))
     }
 }
 
 #[comemo::track]
-impl StabilityProvider {
-    /// Produce a stable identifier for this call site.
-    pub fn locate(&mut self, hash: u128) -> Location {
-        let disambiguator = self.hashes.iter().filter(|&&prev| prev == hash).count();
-        self.hashes.push(hash);
-        Location { hash, disambiguator, variant: 0 }
-    }
-
-    /// Create a checkpoint of the state that can be restored.
-    pub fn save(&mut self) {
-        self.checkpoints.push(self.hashes.len());
-    }
-
-    /// Restore the last checkpoint.
-    pub fn restore(&mut self) {
-        if let Some(checkpoint) = self.checkpoints.pop() {
-            self.hashes.truncate(checkpoint);
-        }
+impl<'a> Locator<'a> {
+    /// The current disambiguator for the hash.
+    fn disambiguator(&self, hash: u128) -> usize {
+        self.disambiguator_impl(hash)
     }
 }
 
@@ -87,9 +165,14 @@ pub struct Introspector {
     /// The number of pages in the document.
     pages: usize,
     /// All introspectable elements.
-    elems: IndexMap<Location, (Content, Position)>,
+    elems: IndexMap<Location, (Prehashed<Content>, Position)>,
     /// The page numberings, indexed by page number minus 1.
     page_numberings: Vec<Value>,
+    /// Caches queries done on the introspector. This is important because
+    /// even if all top-level queries are distinct, they often have shared
+    /// subqueries. Example: Individual counter queries with `before` that
+    /// all depend on a global counter query.
+    queries: RefCell<HashMap<u128, EcoVec<Prehashed<Content>>>>,
 }
 
 impl Introspector {
@@ -100,17 +183,13 @@ impl Introspector {
             pages: frames.len(),
             elems: IndexMap::new(),
             page_numberings: vec![],
+            queries: RefCell::default(),
         };
         for (i, frame) in frames.iter().enumerate() {
             let page = NonZeroUsize::new(1 + i).unwrap();
             introspector.extract(frame, page, Transform::identity());
         }
         introspector
-    }
-
-    /// Iterate over all elements.
-    pub fn all(&self) -> impl Iterator<Item = Content> + '_ {
-        self.elems.values().map(|(c, _)| c).cloned()
     }
 
     /// Extract metadata from a frame.
@@ -130,7 +209,7 @@ impl Introspector {
                     let pos = pos.transform(ts);
                     let ret = self.elems.insert(
                         content.location().unwrap(),
-                        (content.clone(), Position { page, point: pos }),
+                        (Prehashed::new(content.clone()), Position { page, point: pos }),
                     );
                     assert!(ret.is_none(), "duplicate locations");
                 }
@@ -141,6 +220,23 @@ impl Introspector {
             }
         }
     }
+
+    /// Iterate over all locatable elements.
+    pub fn all(&self) -> impl Iterator<Item = &Prehashed<Content>> + '_ {
+        self.elems.values().map(|(c, _)| c)
+    }
+
+    /// Get an element by its location.
+    fn get(&self, location: &Location) -> Option<&Prehashed<Content>> {
+        self.elems.get(location).map(|(elem, _)| elem)
+    }
+
+    /// Get the index of this element among all.
+    fn index(&self, elem: &Content) -> usize {
+        self.elems
+            .get_index_of(&elem.location().unwrap())
+            .unwrap_or(usize::MAX)
+    }
 }
 
 #[comemo::track]
@@ -150,40 +246,75 @@ impl Introspector {
         self.pages > 0
     }
 
-    /// Get an element from the position cache.
-    pub fn location(&self, location: &Location) -> Option<Content> {
-        self.elems.get(location).map(|(c, _)| c).cloned()
-    }
-
     /// Query for all matching elements.
-    #[tracing::instrument(skip_all)]
-    pub fn query<'a>(&'a self, selector: &'a Selector) -> Vec<Content> {
-        match selector {
-            Selector::Location(location) => self
-                .elems
-                .get(location)
-                .map(|(content, _)| content)
-                .cloned()
-                .into_iter()
-                .collect(),
-            _ => selector.match_iter(self).collect(),
+    pub fn query(&self, selector: &Selector) -> EcoVec<Prehashed<Content>> {
+        let hash = crate::util::hash128(selector);
+        if let Some(output) = self.queries.borrow().get(&hash) {
+            return output.clone();
         }
+
+        let output = match selector {
+            Selector::Elem(..)
+            | Selector::Label(_)
+            | Selector::Regex(_)
+            | Selector::Can(_)
+            | Selector::Or(_)
+            | Selector::And(_) => {
+                self.all().filter(|elem| selector.matches(elem)).cloned().collect()
+            }
+
+            Selector::Location(location) => {
+                self.get(location).cloned().into_iter().collect()
+            }
+            Selector::Before { selector, end, inclusive } => {
+                let mut list = self.query(selector);
+                if let Some(end) = self.query_first(end) {
+                    // Determine which elements are before `end`.
+                    let split = match list
+                        .binary_search_by_key(&self.index(&end), |elem| self.index(elem))
+                    {
+                        // Element itself is contained.
+                        Ok(i) => i + *inclusive as usize,
+                        // Element itself is not contained.
+                        Err(i) => i,
+                    };
+                    list = list[..split].into();
+                }
+                list
+            }
+            Selector::After { selector, start, inclusive } => {
+                let mut list = self.query(selector);
+                if let Some(start) = self.query_first(start) {
+                    // Determine which elements are after `start`.
+                    let split = match list
+                        .binary_search_by_key(&self.index(&start), |elem| {
+                            self.index(elem)
+                        }) {
+                        // Element itself is contained.
+                        Ok(i) => i + !*inclusive as usize,
+                        // Element itself is not contained.
+                        Err(i) => i,
+                    };
+                    list = list[split..].into();
+                }
+                list
+            }
+        };
+
+        self.queries.borrow_mut().insert(hash, output.clone());
+        output
     }
 
-    /// Query for the first matching element.
-    #[tracing::instrument(skip_all)]
-    pub fn query_first<'a>(&'a self, selector: &'a Selector) -> Option<Content> {
+    /// Query for the first element that matches the selector.
+    pub fn query_first(&self, selector: &Selector) -> Option<Prehashed<Content>> {
         match selector {
-            Selector::Location(location) => {
-                self.elems.get(location).map(|(content, _)| content).cloned()
-            }
-            _ => selector.match_iter(self).next(),
+            Selector::Location(location) => self.get(location).cloned(),
+            _ => self.query(selector).first().cloned(),
         }
     }
 
     /// Query for a unique element with the label.
-    #[tracing::instrument(skip(self))]
-    pub fn query_label(&self, label: &Label) -> StrResult<Content> {
+    pub fn query_label(&self, label: &Label) -> StrResult<Prehashed<Content>> {
         let mut found = None;
         for elem in self.all().filter(|elem| elem.label() == Some(label)) {
             if found.is_some() {
@@ -199,40 +330,28 @@ impl Introspector {
         NonZeroUsize::new(self.pages).unwrap_or(NonZeroUsize::ONE)
     }
 
-    /// Find the page number for the given location.
-    pub fn page(&self, location: Location) -> NonZeroUsize {
-        self.position(location).page
-    }
-
     /// Gets the page numbering for the given location, if any.
-    #[tracing::instrument(skip(self))]
     pub fn page_numbering(&self, location: Location) -> Value {
         let page = self.page(location);
         self.page_numberings.get(page.get() - 1).cloned().unwrap_or_default()
     }
 
+    /// Find the page number for the given location.
+    pub fn page(&self, location: Location) -> NonZeroUsize {
+        self.position(location).page
+    }
+
     /// Find the position for the given location.
-    #[tracing::instrument(skip(self))]
     pub fn position(&self, location: Location) -> Position {
         self.elems
             .get(&location)
             .map(|(_, loc)| *loc)
             .unwrap_or(Position { page: NonZeroUsize::ONE, point: Point::zero() })
     }
+}
 
-    /// Checks whether `a` is before `b` in the document.
-    pub fn is_before(&self, a: Location, b: Location, inclusive: bool) -> bool {
-        let a = self.elems.get_index_of(&a).unwrap();
-        let b = self.elems.get_index_of(&b).unwrap();
-        if inclusive {
-            a <= b
-        } else {
-            a < b
-        }
-    }
-
-    /// Checks whether `a` is after `b` in the document.
-    pub fn is_after(&self, a: Location, b: Location, inclusive: bool) -> bool {
-        !self.is_before(a, b, !inclusive)
+impl Default for Introspector {
+    fn default() -> Self {
+        Self::new(&[])
     }
 }

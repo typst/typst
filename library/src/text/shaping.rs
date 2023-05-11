@@ -104,7 +104,7 @@ impl ShapedGlyph {
             || self.is_cjk_center_aligned_punctuation(true)
     }
 
-    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_left_aligned_punctuation(&self, gb_style: bool) -> bool {
         // CJK quotation marks shares codepoints with latin quotation marks.
         // But only the CJK ones have full width.
@@ -121,7 +121,7 @@ impl ShapedGlyph {
         matches!(self.c, '》' | '）' | '』' | '」')
     }
 
-    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_right_aligned_punctuation(&self) -> bool {
         // CJK quotation marks shares codepoints with latin quotation marks.
         // But only the CJK ones have full width.
@@ -512,8 +512,8 @@ impl Debug for ShapedText<'_> {
 }
 
 /// Holds shaping results and metadata common to all shaped segments.
-struct ShapingContext<'a> {
-    vt: &'a Vt<'a>,
+struct ShapingContext<'a, 'v> {
+    vt: &'a Vt<'v>,
     spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
