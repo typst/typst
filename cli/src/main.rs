@@ -259,9 +259,9 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
                 for (i, pixmap) in pixmaps.iter().enumerate() {
                     let mut output = command.output.clone();
                     output.set_file_name(format!(
-                        "{}_{}.png",
+                        "{}_{:03}.png",
                         command.output.file_stem().unwrap().to_str().unwrap(),
-                        i
+                        i + 1
                     ));
                     pixmap.save_png(&output).map_err(|_| "failed to write PNG file")?;
                 }
