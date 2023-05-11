@@ -23,6 +23,10 @@ pub struct ShapedText<'a> {
     pub text: &'a str,
     /// The text direction.
     pub dir: Dir,
+    /// The text language.
+    pub lang: Lang,
+    /// The text region.
+    pub region: Option<Region>,
     /// The text's style properties.
     pub styles: StyleChain<'a>,
     /// The font variant.
@@ -48,6 +52,8 @@ pub struct ShapedGlyph {
     pub x_offset: Em,
     /// The vertical offset of the glyph.
     pub y_offset: Em,
+    /// The adjustability of the glyph.
+    pub adjustability: Adjustability,
     /// The byte range of this glyph's cluster in the full paragraph. A cluster
     /// is a sequence of one or multiple glyphs that cannot be separated and
     /// must always be treated as a union.
@@ -78,41 +84,67 @@ impl ShapedGlyph {
 
     /// Whether the glyph is justifiable.
     pub fn is_justifiable(&self) -> bool {
+        // GB style is not relevant here.
         self.is_space()
-            || self.is_cjk()
-            || self.is_cjk_left_aligned_punctuation()
+            || self.is_cjk_script()
+            || self.is_cjk_left_aligned_punctuation(true)
             || self.is_cjk_right_aligned_punctuation()
+            || self.is_cjk_center_aligned_punctuation(true)
     }
 
-    pub fn is_cjk(&self) -> bool {
+    pub fn is_cjk_script(&self) -> bool {
         use Script::*;
         // U+30FC: Katakana-Hiragana Prolonged Sound Mark
         matches!(self.c.script(), Hiragana | Katakana | Han) || self.c == '\u{30FC}'
     }
 
+    pub fn is_cjk_adjustable(&self) -> bool {
+        self.is_cjk_left_aligned_punctuation(true)
+            || self.is_cjk_right_aligned_punctuation()
+            || self.is_cjk_center_aligned_punctuation(true)
+    }
+
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
-    pub fn is_cjk_left_aligned_punctuation(&self) -> bool {
+    pub fn is_cjk_left_aligned_punctuation(&self, gb_style: bool) -> bool {
         // CJK quotation marks shares codepoints with latin quotation marks.
         // But only the CJK ones have full width.
-        if matches!(self.c, '”' | '’') && self.x_advance == Em::one() {
+        if matches!(self.c, '”' | '’')
+            && self.x_advance + self.stretchability().1 == Em::one()
+        {
             return true;
         }
 
-        matches!(self.c, '，' | '。' | '、' | '：' | '；' | '》' | '）' | '』' | '」')
+        if gb_style && matches!(self.c, '，' | '。' | '、' | '：' | '；') {
+            return true;
+        }
+
+        matches!(self.c, '》' | '）' | '』' | '」')
     }
 
     /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_right_aligned_punctuation(&self) -> bool {
         // CJK quotation marks shares codepoints with latin quotation marks.
         // But only the CJK ones have full width.
-        if matches!(self.c, '“' | '‘') && self.x_advance == Em::one() {
+        if matches!(self.c, '“' | '‘')
+            && self.x_advance + self.stretchability().0 == Em::one()
+        {
             return true;
         }
 
         matches!(self.c, '《' | '（' | '『' | '「')
     }
 
-    pub fn adjustability(&self) -> Adjustability {
+    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    pub fn is_cjk_center_aligned_punctuation(&self, gb_style: bool) -> bool {
+        if !gb_style && matches!(self.c, '，' | '。' | '、' | '：' | '；') {
+            return true;
+        }
+
+        // U+30FB: Katakana Middle Dot
+        matches!(self.c, '\u{30FB}')
+    }
+
+    pub fn base_adjustability(&self, gb_style: bool) -> Adjustability {
         let width = self.x_advance;
         if self.is_space() {
             Adjustability {
@@ -120,7 +152,7 @@ impl ShapedGlyph {
                 stretchability: (Em::zero(), width / 2.0),
                 shrinkability: (Em::zero(), width / 3.0),
             }
-        } else if self.is_cjk_left_aligned_punctuation() {
+        } else if self.is_cjk_left_aligned_punctuation(gb_style) {
             Adjustability {
                 stretchability: (Em::zero(), Em::zero()),
                 shrinkability: (Em::zero(), width / 2.0),
@@ -130,6 +162,11 @@ impl ShapedGlyph {
                 stretchability: (Em::zero(), Em::zero()),
                 shrinkability: (width / 2.0, Em::zero()),
             }
+        } else if self.is_cjk_center_aligned_punctuation(gb_style) {
+            Adjustability {
+                stretchability: (Em::zero(), Em::zero()),
+                shrinkability: (width / 4.0, width / 4.0),
+            }
         } else {
             Adjustability::default()
         }
@@ -137,12 +174,27 @@ impl ShapedGlyph {
 
     /// The stretchability of the character.
     pub fn stretchability(&self) -> (Em, Em) {
-        self.adjustability().stretchability
+        self.adjustability.stretchability
     }
 
     /// The shrinkability of the character.
     pub fn shrinkability(&self) -> (Em, Em) {
-        self.adjustability().shrinkability
+        self.adjustability.shrinkability
+    }
+
+    /// Shrink the width of glyph on the left side.
+    pub fn shrink_left(&mut self, amount: Em) {
+        self.x_offset -= amount;
+        self.x_advance -= amount;
+        self.adjustability.shrinkability.0 -= amount;
+        self.adjustability.stretchability.0 += amount;
+    }
+
+    /// Shrink the width of glyph on the right side.
+    pub fn shrink_right(&mut self, amount: Em) {
+        self.x_advance -= amount;
+        self.adjustability.shrinkability.1 -= amount;
+        self.adjustability.stretchability.1 += amount;
     }
 }
 
@@ -301,7 +353,7 @@ impl<'a> ShapedText<'a> {
     pub fn cjk_justifiable_at_last(&self) -> bool {
         self.glyphs
             .last()
-            .map(|g| g.is_cjk() || g.is_cjk_left_aligned_punctuation())
+            .map(|g| g.is_cjk_script() || g.is_cjk_adjustable())
             .unwrap_or(false)
     }
 
@@ -339,6 +391,8 @@ impl<'a> ShapedText<'a> {
                 base: text_range.start,
                 text,
                 dir: self.dir,
+                lang: self.lang,
+                region: self.region,
                 styles: self.styles,
                 size: self.size,
                 variant: self.variant,
@@ -346,7 +400,16 @@ impl<'a> ShapedText<'a> {
                 glyphs: Cow::Borrowed(glyphs),
             }
         } else {
-            shape(vt, text_range.start, text, spans, self.styles, self.dir)
+            shape(
+                vt,
+                text_range.start,
+                text,
+                spans,
+                self.styles,
+                self.dir,
+                self.lang,
+                self.region,
+            )
         }
     }
 
@@ -373,6 +436,7 @@ impl<'a> ShapedText<'a> {
                 x_advance,
                 x_offset: Em::zero(),
                 y_offset: Em::zero(),
+                adjustability: Adjustability::default(),
                 range,
                 safe_to_break: true,
                 c: '-',
@@ -462,6 +526,7 @@ struct ShapingContext<'a, 'v> {
 }
 
 /// Shape text into [`ShapedText`].
+#[allow(clippy::too_many_arguments)]
 pub fn shape<'a>(
     vt: &Vt,
     base: usize,
@@ -469,6 +534,8 @@ pub fn shape<'a>(
     spans: &SpanMapper,
     styles: StyleChain<'a>,
     dir: Dir,
+    lang: Lang,
+    region: Option<Region>,
 ) -> ShapedText<'a> {
     let size = TextElem::size_in(styles);
     let mut ctx = ShapingContext {
@@ -489,11 +556,14 @@ pub fn shape<'a>(
     }
 
     track_and_space(&mut ctx);
+    calculate_adjustability(&mut ctx, lang, region);
 
     ShapedText {
         base,
         text,
         dir,
+        lang,
+        region,
         styles,
         variant: ctx.variant,
         size,
@@ -581,6 +651,7 @@ fn shape_segment(
                 x_advance: font.to_em(pos[i].x_advance),
                 x_offset: font.to_em(pos[i].x_offset),
                 y_offset: font.to_em(pos[i].y_offset),
+                adjustability: Adjustability::default(),
                 range: start..end,
                 safe_to_break: !info.unsafe_to_break(),
                 c: text[cluster..].chars().next().unwrap(),
@@ -645,6 +716,7 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
             x_advance,
             x_offset: Em::zero(),
             y_offset: Em::zero(),
+            adjustability: Adjustability::default(),
             range: start..end,
             safe_to_break: true,
             c,
@@ -675,6 +747,43 @@ fn track_and_space(ctx: &mut ShapingContext) {
             .map_or(false, |next| glyph.range.start != next.range.start)
         {
             glyph.x_advance += tracking;
+        }
+    }
+}
+
+pub fn is_gb_style(lang: Lang, region: Option<Region>) -> bool {
+    // Most CJK variants, including zh-CN, ja-JP, zh-SG, zh-MY use GB-style punctuation,
+    // while zh-HK and zh-TW use alternative style. We default to use GB-style.
+    !(lang == Lang::CHINESE
+        && matches!(region.as_ref().map(Region::as_str), Some("TW" | "HK")))
+}
+
+/// Calculate stretchability and shrinkability of each glyph,
+/// and CJK punctuation adjustments according to Chinese Layout Requirements.
+fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
+    let gb_style = is_gb_style(lang, region);
+
+    let mut glyphs = ctx.glyphs.iter_mut().peekable();
+    while let Some(glyph) = glyphs.next() {
+        glyph.adjustability = glyph.base_adjustability(gb_style);
+
+        // Only GB style needs further adjustment.
+        if glyph.is_cjk_adjustable() && !gb_style {
+            continue;
+        }
+
+        // Now we apply consecutive punctuation adjustment, specified in Chinese Layout
+        // Requirements, section 3.1.6.1 Punctuation Adjustment Space, and Japanese Layout
+        // Requirements, section 3.1 Line Composition Rules for Punctuation Marks
+        let Some(next) = glyphs.peek_mut() else { continue };
+        let width = glyph.x_advance;
+        let delta = width / 2.0;
+        if next.is_cjk_adjustable()
+            && (glyph.shrinkability().1 + next.shrinkability().0) >= delta
+        {
+            let left_delta = glyph.shrinkability().1.min(delta);
+            glyph.shrink_right(left_delta);
+            next.shrink_left(delta - left_delta);
         }
     }
 }
