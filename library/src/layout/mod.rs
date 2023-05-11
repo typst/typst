@@ -75,11 +75,12 @@ impl LayoutRoot for Content {
             content: &Content,
             world: Tracked<dyn World + '_>,
             tracer: TrackedMut<Tracer>,
-            provider: TrackedMut<StabilityProvider>,
+            locator: Tracked<Locator>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
-            let mut vt = Vt { world, tracer, provider, introspector };
+            let mut locator = Locator::chained(locator);
+            let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_root(&mut vt, &scratch, content, styles)?;
             realized
@@ -94,7 +95,7 @@ impl LayoutRoot for Content {
             self,
             vt.world,
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.locator.track(),
             vt.introspector,
             styles,
         )
@@ -121,10 +122,14 @@ pub trait Layout {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        vt.provider.save();
-        let result = self.layout(vt, styles, regions);
-        vt.provider.restore();
-        result
+        let mut locator = Locator::chained(vt.locator.track());
+        let mut vt = Vt {
+            world: vt.world,
+            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
+            locator: &mut locator,
+            introspector: vt.introspector,
+        };
+        self.layout(&mut vt, styles, regions)
     }
 }
 
@@ -141,12 +146,13 @@ impl Layout for Content {
             content: &Content,
             world: Tracked<dyn World + '_>,
             tracer: TrackedMut<Tracer>,
-            provider: TrackedMut<StabilityProvider>,
+            locator: Tracked<Locator>,
             introspector: Tracked<Introspector>,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment> {
-            let mut vt = Vt { world, tracer, provider, introspector };
+            let mut locator = Locator::chained(locator);
+            let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
             let scratch = Scratch::default();
             let (realized, styles) = realize_block(&mut vt, &scratch, content, styles)?;
             realized
@@ -157,15 +163,18 @@ impl Layout for Content {
 
         tracing::info!("Layouting `Content`");
 
-        cached(
+        let fragment = cached(
             self,
             vt.world,
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.locator.track(),
             vt.introspector,
             styles,
             regions,
-        )
+        )?;
+
+        vt.locator.visit_frames(&fragment);
+        Ok(fragment)
     }
 }
 

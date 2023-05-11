@@ -8,7 +8,7 @@ use std::sync::Arc;
 use comemo::Prehashed;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use super::{Content, ElemFunc, Element, Introspector, Label, Location, Vt};
+use super::{Content, ElemFunc, Element, Label, Location, Vt};
 use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::eval::{cast_from_value, Args, Cast, CastInfo, Dict, Func, Regex, Value, Vm};
 use crate::model::Locatable;
@@ -50,8 +50,7 @@ impl Styles {
         *self = outer;
     }
 
-    /// Apply one outer styles. Like [`chain_one`](StyleChain::chain_one), but
-    /// in-place.
+    /// Apply one outer styles.
     pub fn apply_one(&mut self, outer: Style) {
         self.0.insert(0, Prehashed::new(outer));
     }
@@ -322,77 +321,6 @@ impl Selector {
         }
     }
 
-    /// Matches the selector for an introspector.
-    pub fn match_iter<'a>(
-        &'a self,
-        introspector: &'a Introspector,
-    ) -> Box<dyn Iterator<Item = Content> + 'a> {
-        self.match_iter_inner(introspector, introspector.all())
-    }
-
-    /// Match the selector against the given list of elements. Returns an
-    /// iterator over the matching elements.
-    fn match_iter_inner<'a>(
-        &'a self,
-        introspector: &'a Introspector,
-        parent: impl Iterator<Item = Content> + 'a,
-    ) -> Box<dyn Iterator<Item = Content> + 'a> {
-        match self {
-            Self::Location(location) => {
-                Box::new(introspector.location(location).into_iter())
-            }
-            Self::Or(selectors) => Box::new(parent.filter(|element| {
-                selectors.iter().any(|selector| {
-                    selector
-                        .match_iter_inner(introspector, std::iter::once(element.clone()))
-                        .next()
-                        .is_some()
-                })
-            })),
-            Self::And(selectors) => Box::new(parent.filter(|element| {
-                selectors.iter().all(|selector| {
-                    selector
-                        .match_iter_inner(introspector, std::iter::once(element.clone()))
-                        .next()
-                        .is_some()
-                })
-            })),
-            Self::Before { selector, end: location, inclusive } => {
-                if let Some(content) = introspector.query_first(location) {
-                    let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).take_while(
-                        move |elem| {
-                            introspector.is_before(
-                                elem.location().unwrap(),
-                                loc,
-                                *inclusive,
-                            )
-                        },
-                    ))
-                } else {
-                    Box::new(selector.match_iter_inner(introspector, parent))
-                }
-            }
-            Self::After { selector, start: location, inclusive } => {
-                if let Some(content) = introspector.query_first(location) {
-                    let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).skip_while(
-                        move |elem| {
-                            introspector.is_before(
-                                elem.location().unwrap(),
-                                loc,
-                                !*inclusive,
-                            )
-                        },
-                    ))
-                } else {
-                    Box::new(std::iter::empty())
-                }
-            }
-            other => Box::new(parent.filter(move |content| other.matches(content))),
-        }
-    }
-
     /// Whether the selector matches for the target.
     pub fn matches(&self, target: &Content) -> bool {
         match self {
@@ -412,6 +340,7 @@ impl Selector {
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
             Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
             Self::Location(location) => target.location() == Some(*location),
+            // Not supported here.
             Self::Before { .. } | Self::After { .. } => false,
         }
     }

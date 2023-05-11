@@ -48,9 +48,8 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
-use crate::model::ShowableSelector;
 use crate::model::{
-    Content, Introspector, Label, Recipe, StabilityProvider, Styles, Transform,
+    Content, Introspector, Label, Locator, Recipe, ShowableSelector, Styles, Transform,
     Unlabellable, Vt,
 };
 use crate::syntax::ast::AstNode;
@@ -83,23 +82,26 @@ pub fn eval(
     let library = world.library();
     set_lang_items(library.items.clone());
 
-    // Evaluate the module.
-    let route = Route::insert(route, id);
-    let scopes = Scopes::new(Some(library));
-    let mut provider = StabilityProvider::new();
-    let introspector = Introspector::new(&[]);
+    // Prepare VT.
+    let mut locator = Locator::default();
+    let introspector = Introspector::default();
     let vt = Vt {
         world,
         tracer,
-        provider: provider.track_mut(),
+        locator: &mut locator,
         introspector: introspector.track(),
     };
+
+    // Prepare VM.
+    let route = Route::insert(route, id);
+    let scopes = Scopes::new(Some(library));
     let mut vm = Vm::new(vt, route.track(), id, scopes);
     let root = match source.root().cast::<ast::Markup>() {
         Some(markup) if vm.traced.is_some() => markup,
         _ => source.ast()?,
     };
 
+    // Evaluate the module.
     let result = root.eval(&mut vm);
 
     // Handle control flow.
@@ -129,20 +131,24 @@ pub fn eval_string(
         return Err(Box::new(errors));
     }
 
-    let id = SourceId::detached();
-    let library = world.library();
-    let scopes = Scopes::new(Some(library));
-    let route = Route::default();
+    // Prepare VT.
     let mut tracer = Tracer::default();
-    let mut provider = StabilityProvider::new();
-    let introspector = Introspector::new(&[]);
+    let mut locator = Locator::default();
+    let introspector = Introspector::default();
     let vt = Vt {
         world,
         tracer: tracer.track_mut(),
-        provider: provider.track_mut(),
+        locator: &mut locator,
         introspector: introspector.track(),
     };
+
+    // Prepare VM.
+    let route = Route::default();
+    let id = SourceId::detached();
+    let scopes = Scopes::new(Some(world.library()));
     let mut vm = Vm::new(vt, route.track(), id, scopes);
+
+    // Evaluate the code.
     let code = root.cast::<ast::Code>().unwrap();
     let result = code.eval(&mut vm);
 

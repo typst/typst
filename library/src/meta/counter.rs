@@ -396,7 +396,7 @@ impl Counter {
         self.sequence_impl(
             vt.world,
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.locator.track(),
             vt.introspector,
         )
     }
@@ -407,10 +407,11 @@ impl Counter {
         &self,
         world: Tracked<dyn World + '_>,
         tracer: TrackedMut<Tracer>,
-        provider: TrackedMut<StabilityProvider>,
+        locator: Tracked<Locator>,
         introspector: Tracked<Introspector>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
-        let mut vt = Vt { world, tracer, provider, introspector };
+        let mut locator = Locator::chained(locator);
+        let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
         let mut state = CounterState(match &self.0 {
             // special case, because pages always start at one.
             CounterKey::Page => smallvec![1],
