@@ -71,36 +71,10 @@ use crate::visualize::ImageElem;
 /// ```
 ///
 /// If your figure is too large and its contents are breakable across pages
-/// (e.g. if there is a table inside the figure, whose rows can be split across
-/// pages), then you can make your figure breakable across pages as well by
-/// adding `#show figure: set block(breakable: true)` before your figure. Note
-/// that such a rule will affect all figures after it, so you may restrict it
-/// to only one figure by wrapping both the show rule and the figure inside a
-/// content block, like below. Note that, when a figure is split across pages,
-/// its caption currently only appears at the last page it spans.
-///
-/// ```example
-/// #[
-///     // By wrapping both the show rule and the
-///     // figure inside a single content block,
-///     // denoted by #[ ], we ensure this show
-///     // rule will only be applied to the
-///     // following figure, so that only that one
-///     // will become breakable with this rule!
-///     #show figure: set block(breakable: true)
-///
-///     #figure(
-///         table(
-///             rows: (auto, auto, 1.5em),
-///             [My very long table:],
-///             v(100% - 0.5em),
-///             [This should appear on the next page]
-///         ),
-///         caption: "Split table!"
-///     )
-/// ]
-///
-/// ```
+/// (e.g. if it contains a large table), then you can make the figure breakable
+/// across pages as well by using `#show figure: set block(breakable: true)`
+/// before it, which will cause it to not try to fit everything inside one page
+/// (see the [block]($func/block) documentation for more information).
 ///
 /// Display: Figure
 /// Category: meta
