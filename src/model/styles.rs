@@ -405,8 +405,10 @@ cast_from_value! {
     location: Location => Self::Location(location),
 }
 
-/// A selector that can be used with `query`. Hopefully, this is made obsolete
-/// by a more powerful query mechanism in the future.
+/// A selector that can be used with `query`.
+///
+/// Hopefully, this is made obsolete by a more powerful query mechanism in the
+/// future.
 #[derive(Clone, PartialEq, Hash)]
 pub struct LocatableSelector(pub Selector);
 
@@ -462,6 +464,9 @@ impl Cast for LocatableSelector {
 }
 
 /// A selector that can be used with show rules.
+///
+/// Hopefully, this is made obsolete by a more powerful showing mechanism in the
+/// future.
 #[derive(Clone, PartialEq, Hash)]
 pub struct ShowableSelector(pub Selector);
 

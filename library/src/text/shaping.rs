@@ -90,7 +90,7 @@ impl ShapedGlyph {
         matches!(self.c.script(), Hiragana | Katakana | Han) || self.c == '\u{30FC}'
     }
 
-    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_left_aligned_punctuation(&self) -> bool {
         // CJK quotation marks shares codepoints with latin quotation marks.
         // But only the CJK ones have full width.
@@ -101,7 +101,7 @@ impl ShapedGlyph {
         matches!(self.c, '，' | '。' | '、' | '：' | '；' | '》' | '）' | '』' | '」')
     }
 
-    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_right_aligned_punctuation(&self) -> bool {
         // CJK quotation marks shares codepoints with latin quotation marks.
         // But only the CJK ones have full width.
