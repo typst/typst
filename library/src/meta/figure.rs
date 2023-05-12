@@ -70,9 +70,14 @@ use crate::visualize::ImageElem;
 /// )
 /// ```
 ///
+/// If your figure is too large and its contents are breakable across pages
+/// (e.g. if it contains a large table), then you can make the figure breakable
+/// across pages as well by using `#show figure: set block(breakable: true)`
+/// (see the [block]($func/block) documentation for more information).
+///
 /// Display: Figure
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, Refable)]
+#[element(Locatable, Synthesize, Count, Show, Finalize, Refable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
@@ -254,9 +259,15 @@ impl Show for FigureElem {
         // We wrap the contents in a block.
         Ok(BlockElem::new()
             .with_body(Some(realized))
-            .with_breakable(false)
             .pack()
             .aligned(Axes::with_x(Some(Align::Center.into()))))
+    }
+}
+
+impl Finalize for FigureElem {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+        // Allow breakable figures with `show figure: set block(breakable: true)`.
+        realized.styled(BlockElem::set_breakable(false))
     }
 }
 
