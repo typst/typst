@@ -311,7 +311,7 @@ impl State {
         self.sequence_impl(
             vt.world,
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.provider),
+            vt.locator.track(),
             vt.introspector,
         )
     }
@@ -320,12 +320,13 @@ impl State {
     #[comemo::memoize]
     fn sequence_impl(
         &self,
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         tracer: TrackedMut<Tracer>,
-        provider: TrackedMut<StabilityProvider>,
+        locator: Tracked<Locator>,
         introspector: Tracked<Introspector>,
     ) -> SourceResult<EcoVec<Value>> {
-        let mut vt = Vt { world, tracer, provider, introspector };
+        let mut locator = Locator::chained(locator);
+        let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];
 

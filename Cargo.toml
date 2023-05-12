@@ -36,7 +36,7 @@ bench = false
 typst-macros = { path = "macros" }
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
-comemo = "0.2.2"
+comemo = { git = "https://github.com/typst/comemo" }
 ecow = "0.1"
 flate2 = "1"
 fontdb = "0.13"

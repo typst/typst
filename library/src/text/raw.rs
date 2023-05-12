@@ -102,6 +102,27 @@ pub struct RawElem {
     /// ```
     /// ````
     pub lang: Option<EcoString>,
+
+    /// The horizontal alignment that each line in a raw block should have.
+    /// This option is ignored if this is not a raw block (if specified
+    /// `block: false` or single backticks were used in markup mode).
+    ///
+    /// By default, this is set to `{start}`, meaning that raw text is
+    /// aligned towards the start of the text direction inside the block
+    /// by default, regardless of the current context's alignment (allowing
+    /// you to center the raw block itself without centering the text inside
+    /// it, for example).
+    ///
+    /// ````example
+    /// #set raw(align: center)
+    ///
+    /// ```typc
+    /// let f(x) = x
+    /// code = "centered"
+    /// ```
+    /// ````
+    #[default(HorizontalAlign(GenAlign::Start))]
+    pub align: HorizontalAlign,
 }
 
 impl RawElem {
@@ -180,6 +201,8 @@ impl Show for RawElem {
         };
 
         if self.block(styles) {
+            // Align the text before inserting it into the block.
+            realized = realized.aligned(Axes::with_x(Some(self.align(styles).into())));
             realized = BlockElem::new().with_body(Some(realized)).pack();
         }
 

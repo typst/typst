@@ -103,6 +103,7 @@ pub fn analyze_labels(
                 Value::Content(content) => Some(content),
                 _ => None,
             })
+            .as_ref()
             .unwrap_or(elem)
             .plain_text();
         output.push((label, Some(details)));
