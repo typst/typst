@@ -1,8 +1,10 @@
-use ecow::{eco_vec, EcoVec};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
+
+use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::format_description;
+
 use typst_macros::cast_from_value;
 
 #[derive(Clone, Copy, PartialEq, Hash)]
@@ -13,53 +15,26 @@ pub enum Datetime {
 }
 
 impl Datetime {
-    pub fn display(&self, pattern: Option<String>) -> Result<String, String> {
+    pub fn display(&self, pattern: Option<EcoString>) -> Result<EcoString, EcoString> {
         let pattern = pattern.unwrap_or(match self {
-            Datetime::Date(_) => String::from("[year]-[month]-[day]"),
-            Datetime::Time(_) => String::from("[hour]:[minute]:[second]"),
+            Datetime::Date(_) => EcoString::from("[year]-[month]-[day]"),
+            Datetime::Time(_) => EcoString::from("[hour]:[minute]:[second]"),
             Datetime::Datetime(_) => {
-                String::from("[year]-[month]-[day] [hour]:[minute]:[second]")
+                EcoString::from("[year]-[month]-[day] [hour]:[minute]:[second]")
             }
         });
 
-        let format =
-            format_description::parse(pattern.as_str()).map_err(|e| match e {
-                InvalidFormatDescription::UnclosedOpeningBracket { .. } => {
-                    "found unclosed bracket".to_string()
-                }
-                InvalidFormatDescription::InvalidComponentName { name, .. } => {
-                    format!("{} is not a valid component", name)
-                }
-                InvalidFormatDescription::InvalidModifier { value, .. } => {
-                    format!("modifier {} is invalid", value)
-                }
-                InvalidFormatDescription::Expected { what, .. } => {
-                    format!("expected {}", what)
-                }
-                InvalidFormatDescription::MissingComponentName { .. } => {
-                    "a component name is missing".to_string()
-                }
-                InvalidFormatDescription::MissingRequiredModifier { name, .. } => {
-                    format!("missing required modifier {}", name)
-                }
-                InvalidFormatDescription::NotSupported { context, what, .. } => {
-                    format!("{} is not supported in {}", what, context)
-                }
-                _ => "unable to parse datetime format".to_string(),
-            })?;
+        let format = format_description::parse(pattern.as_str())
+            .map_err(format_time_invalid_format_description_error)?;
 
         let formatted_result = match self {
             Datetime::Date(date) => date.format(&format),
             Datetime::Time(time) => time.format(&format),
             Datetime::Datetime(datetime) => datetime.format(&format),
-        };
+        }
+        .map(EcoString::from);
 
-        let unwrapped_result = formatted_result.map_err(|e| match e {
-            Format::InvalidComponent(name) => format!("found invalid component {}", name),
-            _ => "unable to format datetime in the requested format".to_string(),
-        })?;
-
-        Ok(unwrapped_result)
+        Ok(formatted_result.map_err(format_time_format_error)?)
     }
 
     pub fn date(&self) -> Option<time::Date> {
@@ -107,4 +82,44 @@ impl Debug for Datetime {
 
 cast_from_value! {
     Datetime: "datetime",
+}
+
+fn format_time_format_error(error: Format) -> EcoString {
+    match error {
+        Format::InvalidComponent(name) => eco_format!("invalid component '{}'", name),
+        _ => "failed to format datetime in the requested format".into(),
+    }
+}
+
+fn format_time_invalid_format_description_error(
+    error: InvalidFormatDescription,
+) -> EcoString {
+    match error {
+        InvalidFormatDescription::UnclosedOpeningBracket { index, .. } => {
+            eco_format!("missing closing bracket for bracket at index {}", index)
+        }
+        InvalidFormatDescription::InvalidComponentName { name, index, .. } => {
+            eco_format!("invalid component name '{}' at index {}", name, index)
+        }
+        InvalidFormatDescription::InvalidModifier { value, index, .. } => {
+            eco_format!("invalid modifier '{}' at index {}", value, index)
+        }
+        InvalidFormatDescription::Expected { what, index, .. } => {
+            eco_format!("expected {} at index {}", what, index)
+        }
+        InvalidFormatDescription::MissingComponentName { index, .. } => {
+            eco_format!("expected component name at index {}", index)
+        }
+        InvalidFormatDescription::MissingRequiredModifier { name, index, .. } => {
+            eco_format!(
+                "missing required modifier {} for component at index {}",
+                name,
+                index
+            )
+        }
+        InvalidFormatDescription::NotSupported { context, what, index, .. } => {
+            eco_format!("{} is not supported in {} at index {}", what, context, index)
+        }
+        _ => "failed to parse datetime format".into(),
+    }
 }
