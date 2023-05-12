@@ -2,7 +2,7 @@ mod args;
 mod trace;
 
 use chrono::Datelike;
-use std::cell::{RefCell, RefMut};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
@@ -401,6 +401,7 @@ struct SystemWorld {
     hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
+    current_date: Cell<Option<(i32, u8, u8)>>,
     main: SourceId,
 }
 
@@ -431,6 +432,7 @@ impl SystemWorld {
             hashes: RefCell::default(),
             paths: RefCell::default(),
             sources: FrozenVec::new(),
+            current_date: Cell::new(None),
             main: SourceId::detached(),
         }
     }
@@ -487,17 +489,21 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<(i32, u8, u8)> {
-        let datetime = match offset {
-            None => chrono::Local::now().naive_local(),
-            Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
-        };
+        if self.current_date.get().is_none() {
+            let datetime = match offset {
+                None => chrono::Local::now().naive_local(),
+                Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
+            };
 
-        // Month/day are always in range of u8
-        Some((
-            datetime.year(),
-            datetime.month().try_into().unwrap(),
-            datetime.day().try_into().unwrap(),
-        ))
+            // Month/day are always in range of u8
+            self.current_date.set(Some((
+                datetime.year(),
+                datetime.month().try_into().unwrap(),
+                datetime.day().try_into().unwrap(),
+            )))
+        }
+
+        self.current_date.get()
     }
 }
 
@@ -560,6 +566,7 @@ impl SystemWorld {
         self.sources.as_mut().clear();
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();
+        self.current_date.set(None);
     }
 }
 
