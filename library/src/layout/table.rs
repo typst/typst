@@ -241,7 +241,7 @@ pub enum Celled<T> {
     Array(Vec<T>),
 }
 
-impl<T: Cast + Clone> Celled<T> {
+impl<T: Cast + Clone + Default> Celled<T> {
     /// Resolve the value based on the cell position.
     pub fn resolve(&self, vt: &mut Vt, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
@@ -250,8 +250,11 @@ impl<T: Cast + Clone> Celled<T> {
                 .call_vt(vt, [Value::Int(x as i64), Value::Int(y as i64)])?
                 .cast()
                 .at(func.span())?,
-            // unwrap() doesn't panic because we ensure in cast() that the array contains at least one element
-            Self::Array(arr) => arr.get(x % arr.len()).unwrap().clone(),
+            Self::Array(array) => x
+                .checked_rem(array.len())
+                .and_then(|i| array.get(i))
+                .cloned()
+                .unwrap_or_default(),
         })
     }
 }
@@ -262,7 +265,7 @@ impl<T: Default> Default for Celled<T> {
     }
 }
 
-impl<T: Cast + Default> Cast for Celled<T> {
+impl<T: Cast> Cast for Celled<T> {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Array(_) | Value::Func(_)) || T::is(value)
     }
@@ -270,15 +273,8 @@ impl<T: Cast + Default> Cast for Celled<T> {
     fn cast(value: Value) -> StrResult<Self> {
         match value {
             Value::Func(v) => Ok(Self::Func(v)),
-            Value::Array(arr) => {
-                let arr: Result<Vec<_>, _> =
-                    arr.iter().map(|v| T::cast(v.clone())).collect();
-                let arr = arr?;
-                if arr.is_empty() {
-                    Ok(Self::Value(T::default()))
-                } else {
-                    Ok(Self::Array(arr))
-                }
+            Value::Array(array) => {
+                Ok(Self::Array(array.into_iter().map(T::cast).collect::<StrResult<_>>()?))
             }
             v if T::is(&v) => Ok(Self::Value(T::cast(v)?)),
             v => <Self as Cast>::error(v),
