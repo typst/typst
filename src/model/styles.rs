@@ -472,8 +472,10 @@ pub struct ShowableSelector(pub Selector);
 
 impl Cast for ShowableSelector {
     fn is(value: &Value) -> bool {
-        matches!(value, Value::Str(_) | Value::Label(_) | Value::Func(_))
-            || value.type_name() == "regular expression"
+        matches!(
+            value,
+            Value::Symbol(_) | Value::Str(_) | Value::Label(_) | Value::Func(_)
+        ) || value.type_name() == "regular expression"
             || value.type_name() == "selector"
     }
 
@@ -510,6 +512,7 @@ impl Cast for ShowableSelector {
             CastInfo::Type("label"),
             CastInfo::Type("string"),
             CastInfo::Type("regular expression"),
+            CastInfo::Type("symbol"),
             CastInfo::Type("selector"),
         ])
     }
