@@ -99,7 +99,7 @@ impl Datetime {
         }
     }
 
-    /// Return the minute of the datetime, if existing.
+    /// Return the second of the datetime, if existing.
     pub fn second(&self) -> Option<u8> {
         match self {
             Datetime::Date(_) => None,

@@ -4,7 +4,7 @@ use ecow::EcoString;
 use typst::eval::datetime::Datetime;
 
 use super::{Args, Str, Value, Vm};
-use crate::diag::{bail, At, SourceResult};
+use crate::diag::{At, SourceResult};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -188,13 +188,7 @@ pub fn call(
                 }
             } else if let Some(&datetime) = dynamic.downcast::<Datetime>() {
                 match method {
-                    "display" => {
-                        let pattern = args.eat()?;
-                        match datetime.display(pattern) {
-                            Ok(d) => Value::Str(Str::from(d)),
-                            Err(msg) => bail!(args.span, msg),
-                        }
-                    }
+                    "display" => datetime.display(args.eat()?).at(args.span)?.into(),
                     "year" => {
                         datetime.year().map_or(Value::None, |y| Value::Int(y.into()))
                     }
