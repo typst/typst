@@ -1,3 +1,4 @@
+use typst::eval::Value::Auto;
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
@@ -275,7 +276,7 @@ impl<T: Cast> Cast for Celled<T> {
                     arr.iter().map(|v| T::cast(v.clone())).collect();
                 let arr = arr?;
                 if arr.is_empty() {
-                    Err(EcoString::from("styling parameter was passed an empty array, it must contain at least one value"))
+                    Ok(Self::Value(T::cast(Auto)?))
                 } else {
                     Ok(Self::Array(arr))
                 }
