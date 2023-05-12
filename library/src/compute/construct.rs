@@ -186,7 +186,7 @@ cast_from_value! {
     },
 }
 
-/// Create a [datetime]($type/datetime).
+/// Create a new [datetime]($type/datetime).
 ///
 /// You can specify the datetime using a year, month, day, hour, minute and second.
 ///

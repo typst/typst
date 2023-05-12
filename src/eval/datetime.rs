@@ -1,20 +1,28 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
+use std::hash::Hash;
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::format_description;
 
+use crate::util::pretty_array_like;
 use typst_macros::cast_from_value;
 
+/// A datetime object that represents either a date, a time or a combination of
+/// both.
 #[derive(Clone, Copy, PartialEq, Hash)]
 pub enum Datetime {
+    /// Representation as a date.
     Date(time::Date),
+    /// Representation as a time.
     Datetime(time::PrimitiveDateTime),
+    /// Representation as a combination of date and time.
     Time(time::Time),
 }
 
 impl Datetime {
+    /// Display the date and/or time in a certain format.
     pub fn display(&self, pattern: Option<EcoString>) -> Result<EcoString, EcoString> {
         let pattern = pattern.unwrap_or(match self {
             Datetime::Date(_) => EcoString::from("[year]-[month]-[day]"),
@@ -37,46 +45,85 @@ impl Datetime {
         formatted_result.map_err(format_time_format_error)
     }
 
-    pub fn date(&self) -> Option<time::Date> {
+    /// Return the year of the datetime, if existing.
+    pub fn year(&self) -> Option<i32> {
         match self {
-            Datetime::Date(date) => Some(*date),
+            Datetime::Date(date) => Some(date.year()),
             Datetime::Time(_) => None,
-            Datetime::Datetime(datetime) => Some(datetime.date()),
+            Datetime::Datetime(datetime) => Some(datetime.year()),
         }
     }
 
-    pub fn time(&self) -> Option<time::Time> {
+    /// Return the month of the datetime, if existing.
+    pub fn month(&self) -> Option<u8> {
+        match self {
+            Datetime::Date(date) => Some(date.month().into()),
+            Datetime::Time(_) => None,
+            Datetime::Datetime(datetime) => Some(datetime.month().into()),
+        }
+    }
+
+    /// Return the weekday of the datetime, if existing.
+    pub fn weekday(&self) -> Option<u8> {
+        match self {
+            Datetime::Date(date) => Some(date.weekday().number_from_monday()),
+            Datetime::Time(_) => None,
+            Datetime::Datetime(datetime) => Some(datetime.weekday().number_from_monday()),
+        }
+    }
+
+    /// Return the day of the datetime, if existing.
+    pub fn day(&self) -> Option<u8> {
+        match self {
+            Datetime::Date(date) => Some(date.day()),
+            Datetime::Time(_) => None,
+            Datetime::Datetime(datetime) => Some(datetime.day()),
+        }
+    }
+
+    /// Return the hour of the datetime, if existing.
+    pub fn hour(&self) -> Option<u8> {
         match self {
             Datetime::Date(_) => None,
-            Datetime::Time(time) => Some(*time),
-            Datetime::Datetime(datetime) => Some(datetime.time()),
+            Datetime::Time(time) => Some(time.hour()),
+            Datetime::Datetime(datetime) => Some(datetime.hour()),
+        }
+    }
+
+    /// Return the minute of the datetime, if existing.
+    pub fn minute(&self) -> Option<u8> {
+        match self {
+            Datetime::Date(_) => None,
+            Datetime::Time(time) => Some(time.minute()),
+            Datetime::Datetime(datetime) => Some(datetime.minute()),
+        }
+    }
+
+    /// Return the minute of the datetime, if existing.
+    pub fn second(&self) -> Option<u8> {
+        match self {
+            Datetime::Date(_) => None,
+            Datetime::Time(time) => Some(time.second()),
+            Datetime::Datetime(datetime) => Some(datetime.second()),
         }
     }
 }
 
 impl Debug for Datetime {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let year = self.date().map_or("".to_string(), |d| format!("year: {}", d.year()));
-        let month = self
-            .date()
-            .map_or("".to_string(), |d| format!("month: {}", d.month() as u8));
-        let day = self.date().map_or("".to_string(), |d| format!("day: {}", d.day()));
-        let hour = self.time().map_or("".to_string(), |d| format!("hour: {}", d.hour()));
-        let minute = self
-            .time()
-            .map_or("".to_string(), |d| format!("minute: {}", d.minute()));
-        let second = self
-            .time()
-            .map_or("".to_string(), |d| format!("second: {}", d.second()));
-        write!(
-            f,
-            "datetime({})",
-            eco_vec![year, month, day, hour, minute, second]
-                .into_iter()
-                .filter(|e| !e.is_empty())
-                .collect::<EcoVec<String>>()
-                .join(", ")
-        )
+        let year = self.year().map_or("".into(), |y| eco_format!("year:{}", y));
+        let month = self.month().map_or("".into(), |m| eco_format!("month:{}", m));
+        let day = self.day().map_or("".into(), |d| eco_format!("day:{}", d));
+        let hour = self.hour().map_or("".into(), |h| eco_format!("hour:{}", h));
+        let minute = self.minute().map_or("".into(), |m| eco_format!("minute:{}", m));
+        let second = self.second().map_or("".into(), |s| eco_format!("second:{}", s));
+
+        let filtered = eco_vec![year, month, day, hour, minute, second]
+            .into_iter()
+            .filter(|e| !e.is_empty())
+            .collect::<EcoVec<EcoString>>();
+
+        write!(f, "datetime{}", &pretty_array_like(&filtered, false))
     }
 }
 
@@ -84,6 +131,7 @@ cast_from_value! {
     Datetime: "datetime",
 }
 
+/// Format the `Format` error of the time crate in an appropriate way.
 fn format_time_format_error(error: Format) -> EcoString {
     match error {
         Format::InvalidComponent(name) => eco_format!("invalid component '{}'", name),
@@ -91,6 +139,8 @@ fn format_time_format_error(error: Format) -> EcoString {
     }
 }
 
+/// Format the `InvalidFormatDescription` error of the time crate in an
+/// appropriate way.
 fn format_time_invalid_format_description_error(
     error: InvalidFormatDescription,
 ) -> EcoString {

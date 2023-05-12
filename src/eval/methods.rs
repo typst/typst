@@ -195,27 +195,25 @@ pub fn call(
                             Err(msg) => bail!(args.span, msg),
                         }
                     }
-                    "year" => datetime
-                        .date()
-                        .map_or(Value::None, |d| Value::Int(d.year().into())),
-                    "month" => datetime
-                        .date()
-                        .map_or(Value::None, |d| Value::Int((d.month() as u8).into())),
-                    "weekday" => datetime.date().map_or(Value::None, |d| {
-                        Value::Int(d.weekday().number_from_monday().into())
-                    }),
-                    "day" => datetime
-                        .date()
-                        .map_or(Value::None, |d| Value::Int(d.day().into())),
-                    "hour" => datetime
-                        .time()
-                        .map_or(Value::None, |t| Value::Int(t.hour().into())),
-                    "minute" => datetime
-                        .time()
-                        .map_or(Value::None, |t| Value::Int(t.minute().into())),
-                    "second" => datetime
-                        .time()
-                        .map_or(Value::None, |t| Value::Int(t.second().into())),
+                    "year" => {
+                        datetime.year().map_or(Value::None, |y| Value::Int(y.into()))
+                    }
+                    "month" => {
+                        datetime.month().map_or(Value::None, |m| Value::Int(m.into()))
+                    }
+                    "weekday" => {
+                        datetime.weekday().map_or(Value::None, |w| Value::Int(w.into()))
+                    }
+                    "day" => datetime.day().map_or(Value::None, |d| Value::Int(d.into())),
+                    "hour" => {
+                        datetime.hour().map_or(Value::None, |h| Value::Int(h.into()))
+                    }
+                    "minute" => {
+                        datetime.minute().map_or(Value::None, |m| Value::Int(m.into()))
+                    }
+                    "second" => {
+                        datetime.second().map_or(Value::None, |s| Value::Int(s.into()))
+                    }
                     _ => return missing(),
                 }
             } else {
