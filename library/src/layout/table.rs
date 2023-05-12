@@ -1,7 +1,7 @@
-use typst::eval::Value::Auto;
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
+use typst::eval::Value::Auto;
 
 /// A table of items.
 ///
