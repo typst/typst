@@ -1,5 +1,6 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
+
 use time::{Month, PrimitiveDateTime};
 
 use typst::eval::datetime::Datetime;
@@ -186,7 +187,7 @@ cast_from_value! {
     },
 }
 
-/// Create a new datetime.
+/// Create a [datetime]($type/datetime).
 ///
 /// You can specify the datetime using a year, month, day, hour, minute and second.
 ///

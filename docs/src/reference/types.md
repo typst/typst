@@ -175,21 +175,19 @@ Produces the negative of the color.
 - returns: color
 
 # Datetime
-
-Represents a datetime. Can be created by either specifying a custom datetime
-using the [`datetime` function]($func/datetime) or getting the current date 
-using the `today` function.
+Represents a date, a time, or a combination of both. Can be created by either 
+specifying a custom datetime using the [`datetime` function]($func/datetime) or 
+getting the current date using the `datetime.today` function.
 
 ## Methods
 ### display()
-
-Displays the datetime in a certain way. Depending on whether you have defined 
-the datetime as a date, time or datetime, the default format will be different.
+Displays the datetime in a certain way. Depending on whether you have defined
+just a date, a time or both, the default format will be different.
 If you specified a date, it will be `[year]-[month]-[day]`. If you specified a
 time, it will be `[hour]:[minute]:[second]`. In the case of a datetime, it will
 be `[year]-[month]-[day] [hour]:[minute]:[second]`.
 
-The format of a datetime is specified by providing a so-called
+The format of a datetime is specified by providing
 _components_ with a specified number of _modifiers_. A component represents a 
 certain part of the datetime that you want to display, and with the help of 
 modifiers you can define how you want to display that component. In order to 
@@ -270,44 +268,37 @@ Custom representation: #time.display("Hour: [hour repr:12] ([period]), Minute: [
 ```
 
 ### year()
-
 Returns the year of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
 
 ### month()
-
 Returns the month of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
 
 ### weekday()
-
 Returns the weekday of the datetime as a number starting with 1 from Monday, if 
 it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
 
 ### day()
-
 Returns the day of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
 
 ### hour()
-
 Returns the hour of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
 
 ### minute()
-
 Returns the minute of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
 
 ### second()
-
 Returns the second of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
