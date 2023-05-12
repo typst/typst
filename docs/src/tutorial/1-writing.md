@@ -184,7 +184,7 @@ Typst's native bibliography format is
 [Hayagriva](https://github.com/typst/hayagriva/blob/main/docs/file-format.md),
 but for compatibility you can also use BibLaTeX files. As your classmate has
 already done a literature survey and sent you a `.bib` file, you'll use that
-one. Upload the file through the final panel to access it in Typst.
+one. Upload the file through the file panel to access it in Typst.
 
 Once the document contains a bibliography, you can start citing from it.
 Citations use the same syntax as references to a label. As soon as you cite a
