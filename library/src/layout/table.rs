@@ -263,7 +263,7 @@ impl<T: Default> Default for Celled<T> {
     }
 }
 
-impl<T: Cast> Cast for Celled<T> {
+impl<T: Cast + Default> Cast for Celled<T> {
     fn is(value: &Value) -> bool {
         matches!(value, Value::Array(_) | Value::Func(_)) || T::is(value)
     }
@@ -276,7 +276,7 @@ impl<T: Cast> Cast for Celled<T> {
                     arr.iter().map(|v| T::cast(v.clone())).collect();
                 let arr = arr?;
                 if arr.is_empty() {
-                    Ok(Self::Value(T::cast(Auto)?))
+                    Ok(Self::Value(T::cast(Auto).unwrap_or_default()))
                 } else {
                     Ok(Self::Array(arr))
                 }
