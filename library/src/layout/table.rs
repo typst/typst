@@ -1,7 +1,6 @@
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
-use typst::eval::Value::Auto;
 
 /// A table of items.
 ///
@@ -276,7 +275,7 @@ impl<T: Cast + Default> Cast for Celled<T> {
                     arr.iter().map(|v| T::cast(v.clone())).collect();
                 let arr = arr?;
                 if arr.is_empty() {
-                    Ok(Self::Value(T::cast(Auto).unwrap_or_default()))
+                    Ok(Self::Value(T::default()))
                 } else {
                     Ok(Self::Array(arr))
                 }
