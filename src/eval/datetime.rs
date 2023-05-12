@@ -34,7 +34,7 @@ impl Datetime {
         }
         .map(EcoString::from);
 
-        Ok(formatted_result.map_err(format_time_format_error)?)
+        formatted_result.map_err(format_time_format_error)
     }
 
     pub fn date(&self) -> Option<time::Date> {
