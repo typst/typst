@@ -96,7 +96,7 @@ Hey
 = Heading
 
 ---
-// Error: 7-10 expected function, label, string, regular expression, selector, or symbol, found color
+// Error: 7-10 expected function, label, string, regular expression, symbol, or selector, found color
 #show red: []
 
 ---

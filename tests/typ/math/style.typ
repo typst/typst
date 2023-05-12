@@ -31,6 +31,5 @@ $ v := vec(1 + 2, 2 - 4, sqrt(3), arrow(x)) + 1 $
 
 ---
 // Test using rules for symbols
-#show math.tack: it => {$#h(1em)#it#h(1em)$}
-
+#show sym.tack: it => $#h(1em) it #h(1em)$
 $ a tack b $
