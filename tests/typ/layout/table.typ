@@ -14,6 +14,22 @@
 #table(columns: 3, stroke: none, fill: green, [A], [B], [C])
 
 ---
+// Test alignment with array.
+#table(
+  columns: (1fr, 1fr, 1fr),
+  align: (left, center, right),
+  [A], [B], [C]
+)
+
+// Test empty array.
+#set align(center)
+#table(
+  columns: (1fr, 1fr, 1fr),
+  align: (),
+  [A], [B], [C]
+)
+
+---
 // Ref: false
 #table()
 
