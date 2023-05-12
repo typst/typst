@@ -313,7 +313,6 @@ Returns the second of the datetime, if it exists. Otherwise, it returns `none`.
 
 - returns: integer or none
 
-
 # Symbol
 A Unicode symbol.
 

@@ -13,7 +13,7 @@ mod str;
 #[macro_use]
 mod value;
 mod args;
-pub mod datetime;
+mod datetime;
 mod func;
 mod methods;
 mod module;
@@ -25,6 +25,7 @@ mod symbol;
 pub use once_cell::sync::Lazy;
 
 pub use self::args::*;
+pub use self::datetime::*;
 pub use self::array::*;
 pub use self::cast::*;
 pub use self::dict::*;
