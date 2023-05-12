@@ -108,4 +108,4 @@ We can clearly see that @fig-cylinder and
 #set page(width: 200pt, height: 6em)
 #show figure: set block(breakable: true)
 
-#figure(table[a][b][c][d][e][f][g][h][i], caption: [A table])
+#figure(table[a][b][c][d][e], caption: [A table])

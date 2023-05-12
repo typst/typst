@@ -73,7 +73,6 @@ use crate::visualize::ImageElem;
 /// If your figure is too large and its contents are breakable across pages
 /// (e.g. if it contains a large table), then you can make the figure breakable
 /// across pages as well by using `#show figure: set block(breakable: true)`
-/// before it, which will cause it to not try to fit everything inside one page
 /// (see the [block]($func/block) documentation for more information).
 ///
 /// Display: Figure
