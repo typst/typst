@@ -1,7 +1,6 @@
 mod args;
 mod trace;
 
-use chrono::Datelike;
 use std::cell::{Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
@@ -10,6 +9,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
+use chrono::Datelike;
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
