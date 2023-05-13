@@ -14,9 +14,9 @@ $A, italic(A), upright(A), bold(A), bold(upright(A)), \
 
 ---
 // Test forcing math size
-$A/B, sized.display(A/B), sized.display(A)/sized.display(B), sized.inline(A/B), sized.script(A/B), sized.scriptscript(A/B) \
- mono(sized.script(A/B)), sized.script(mono(A/B))\
- A^(B^C), sized.script(A^(B^C)), A^(sized.script(B^C)), A^(sized.display(B^C))$
+$a/b, display(a/b), display(a)/display(b), inline(a/b), script(a/b), sscript(a/b) \
+ mono(script(a/b)), script(mono(a/b))\
+ script(a^b, cramp: #true), script(a^b, cramp: #false)$
 
 ---
 // Test a few style exceptions.

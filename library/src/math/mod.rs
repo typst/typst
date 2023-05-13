@@ -98,8 +98,10 @@ pub fn module() -> Module {
     math.define("mono", mono);
     math.define("bb", bb);
 
-    // Size.
-    math.define("sized", sized());
+    math.define("display", display);
+    math.define("inline", inline);
+    math.define("script", script);
+    math.define("sscript", sscript);
 
     // Text operators.
     math.define("op", OpElem::func());

@@ -178,29 +178,27 @@ pub fn bb(
         .into()
 }
 
-pub fn sized() -> Module {
-    let mut scope = Scope::new();
-    scope.define("display", display);
-    scope.define("inline", inline);
-    scope.define("script", script);
-    scope.define("scriptscript", scriptscript);
-    Module::new("sized").with_scope(scope)
-}
-
 /// Forced display style in math.
 ///
 /// ## Example
 /// ```example
-/// $ sized.display(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $ display(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
 /// ```
 ///
-/// Display: Sized Display
+/// Display: Display Size
 /// Category: math
 /// Returns: content
 #[func]
-fn display(body: Content) -> Value {
+pub fn display(
+    body: Content,
+    /// Whether to impose height restriction for exponents like regular sub- and superscripts
+    #[named]
+    #[default(false)]
+    cramp: bool,
+) -> Value {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::Display))
+        .with_cramp(Some(cramp))
         .pack()
         .into()
 }
@@ -209,57 +207,78 @@ fn display(body: Content) -> Value {
 ///
 /// ## Example
 /// ```example
-/// $ sized.inline(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $ inline(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
 /// ```
 ///
-/// Display: Sized Inline
+/// Display: Inline Size
 /// Category: math
 /// Returns: content
 #[func]
-fn inline(body: Content) -> Value {
-    MathStyleElem::new(body).with_size(Some(MathSize::Text)).pack().into()
-}
-
-/// Forced script style in math.
-///
-/// This is the size used in powers or sub- or superscripts.
-/// It makes given expression smaller
-/// (note: that doesn't impose height restrictions for exponents like regular sub- and superscripts).
-///
-/// ## Example
-/// ```example
-/// $ sized.script(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
-/// ```
-///
-/// Display: Sized Script
-/// Category: math
-/// Returns: content
-#[func]
-fn script(body: Content) -> Value {
+pub fn inline(
+    body: Content,
+    /// Whether to impose height restriction for exponents like regular sub- and superscripts
+    #[named]
+    #[default(false)]
+    cramp: bool,
+) -> Value {
     MathStyleElem::new(body)
-        .with_size(Some(MathSize::Script))
+        .with_size(Some(MathSize::Text))
+        .with_cramp(Some(cramp))
         .pack()
         .into()
 }
 
-/// Forced script-script style in math.
+/// Forced script style in math.
 ///
-/// Script-script refers to the size used in second-level sub- and superscripts.
-/// It is even smaller than `script` size
-/// (note: that doesn't impose height restrictions for exponents like regular sub- and superscripts).
+/// This is *the smaller size* for math used in powers or sub- or superscripts.
 ///
 /// ## Example
 /// ```example
-/// $ sized.scriptscript(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $ script(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
 /// ```
 ///
-/// Display: Sized Script-Script
+/// Display: Script Size
 /// Category: math
 /// Returns: content
 #[func]
-fn scriptscript(body: Content) -> Value {
+pub fn script(
+    body: Content,
+    /// Whether to impose height restriction for exponents like regular sub- and superscripts
+    #[named]
+    #[default(true)]
+    cramp: bool,
+) -> Value {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::Script))
+        .with_cramp(Some(cramp))
+        .pack()
+        .into()
+}
+
+/// Forced second script style in math.
+///
+/// Subsubscript refers to the size used in second-level sub- and superscripts (script of the script).
+/// This is *the smallest size* for math.
+///
+/// ## Example
+/// ```example
+/// $ sscript(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// ```
+///
+/// Display: Script-Script Size
+/// Category: math
+/// Returns: content
+#[func]
+pub fn sscript(
+    body: Content,
+    /// Whether to impose height restriction for exponents like regular sub- and superscripts
+    #[named]
+    #[default(true)]
+    cramp: bool,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_size(Some(MathSize::ScriptScript))
+        .with_cramp(Some(cramp))
         .pack()
         .into()
 }
@@ -285,6 +304,9 @@ pub struct MathStyleElem {
 
     /// Whether to use forced size
     pub size: Option<MathSize>,
+
+    /// Whether to limit height of exponents
+    pub cramp: Option<bool>,
 }
 
 impl LayoutMath for MathStyleElem {
@@ -302,6 +324,9 @@ impl LayoutMath for MathStyleElem {
         }
         if let Some(size) = self.size(StyleChain::default()) {
             style = style.with_size(size);
+        }
+        if let Some(cramped) = self.cramp(StyleChain::default()) {
+            style = style.with_cramped(cramped);
         }
         ctx.style(style);
         self.body().layout_math(ctx)?;
