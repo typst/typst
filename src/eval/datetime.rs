@@ -27,9 +27,7 @@ impl Datetime {
         let pattern = pattern.as_ref().map(EcoString::as_str).unwrap_or(match self {
             Datetime::Date(_) => "[year]-[month]-[day]",
             Datetime::Time(_) => "[hour]:[minute]:[second]",
-            Datetime::Datetime(_) => {
-                "[year]-[month]-[day] [hour]:[minute]:[second]"
-            }
+            Datetime::Datetime(_) => "[year]-[month]-[day] [hour]:[minute]:[second]",
         });
 
         let format = format_description::parse(pattern)
