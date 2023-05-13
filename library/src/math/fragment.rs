@@ -164,20 +164,7 @@ impl GlyphFragment {
     }
 
     pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
-        let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
-        let italics = italics_correction(ctx, id).unwrap_or_default();
-        let bbox = ctx.ttf.glyph_bounding_box(id).unwrap_or(Rect {
-            x_min: 0,
-            y_min: 0,
-            x_max: 0,
-            y_max: 0,
-        });
-
-        let mut width = advance.scaled(ctx);
-        if !is_extended_shape(ctx, id) {
-            width += italics;
-        }
-
+        let (italics, bbox, width) = Self::get_id_params(ctx, &id);
         Self {
             id,
             c,
@@ -197,6 +184,33 @@ impl GlyphFragment {
             span,
             meta: MetaElem::data_in(ctx.styles()),
         }
+    }
+
+    fn get_id_params(ctx: &MathContext, &id: &GlyphId) -> (Abs, Rect, Abs) {
+        let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
+        let italics = italics_correction(ctx, id).unwrap_or_default();
+        let bbox = ctx.ttf.glyph_bounding_box(id).unwrap_or(Rect {
+            x_min: 0,
+            y_min: 0,
+            x_max: 0,
+            y_max: 0,
+        });
+
+        let mut width = advance.scaled(ctx);
+        if !is_extended_shape(ctx, id) {
+            width += italics;
+        }
+        (italics, bbox, width)
+    }
+
+    /// Sets element id and boxes in appropriate way without changing other styles
+    pub fn set_id(&mut self, ctx: &MathContext, id: GlyphId) {
+        let (italics, bbox, width) = Self::get_id_params(ctx, &id);
+        self.width = width;
+        self.ascent = bbox.y_max.scaled(ctx);
+        self.descent = -bbox.y_min.scaled(ctx);
+        self.italics_correction = italics;
+        self.id = id;
     }
 
     pub fn height(&self) -> Abs {

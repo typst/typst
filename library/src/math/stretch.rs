@@ -33,7 +33,7 @@ impl GlyphFragment {
 /// The resulting frame may not have the exact desired width.
 fn stretch_glyph(
     ctx: &MathContext,
-    base: GlyphFragment,
+    mut base: GlyphFragment,
     target: Abs,
     short_fall: Abs,
     horizontal: bool,
@@ -73,7 +73,8 @@ fn stretch_glyph(
 
     // This is either good or the best we've got.
     if short_target <= best_advance || construction.assembly.is_none() {
-        return GlyphFragment::with_id(ctx, base.c, best_id, base.span).into_variant();
+        base.set_id(ctx, best_id);
+        return base.into_variant();
     }
 
     // Assemble from parts.
@@ -84,7 +85,7 @@ fn stretch_glyph(
 /// Assemble a glyph from parts.
 fn assemble(
     ctx: &MathContext,
-    base: GlyphFragment,
+    mut base: GlyphFragment,
     assembly: GlyphAssembly,
     min_overlap: Abs,
     target: Abs,
@@ -142,8 +143,8 @@ fn assemble(
             advance += ratio * (max_overlap - min_overlap);
         }
 
-        let fragment = GlyphFragment::with_id(ctx, base.c, part.glyph_id, base.span);
-        selected.push((fragment, advance));
+        base.set_id(ctx, part.glyph_id);
+        selected.push((base.clone(), advance));
     }
 
     let size;
