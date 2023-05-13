@@ -85,7 +85,7 @@ fn stretch_glyph(
 /// Assemble a glyph from parts.
 fn assemble(
     ctx: &MathContext,
-    mut base: GlyphFragment,
+    base: GlyphFragment,
     assembly: GlyphAssembly,
     min_overlap: Abs,
     target: Abs,
@@ -143,8 +143,9 @@ fn assemble(
             advance += ratio * (max_overlap - min_overlap);
         }
 
-        base.set_id(ctx, part.glyph_id);
-        selected.push((base.clone(), advance));
+        let mut fragment = base.clone();
+        fragment.set_id(ctx, part.glyph_id);
+        selected.push((fragment, advance));
     }
 
     let size;
