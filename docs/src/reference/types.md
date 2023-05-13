@@ -219,7 +219,8 @@ Typst provides utility methods for string manipulation. Many of these methods
 either a string or a [regular expression]($func/regex). This makes the methods
 quite versatile.
 
-All lengths and indices are expressed in terms of UTF-8 bytes.
+All lengths and indices are expressed in terms of UTF-8 characters. Indices are
+zero-based and negative indices wrap around to the end of the string.
 
 ### Example
 ```example
