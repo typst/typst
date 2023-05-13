@@ -289,11 +289,8 @@ cast_from_value!(
 
 cast_from_value!(
     MonthComponent,
-    v: i64 => match u8::try_from(v) {
-        Ok(n1) => match Month::try_from(n1) {
-            Ok(n2) => Self(n2),
-            _ => Err("month is invalid")?
-        }
+    v: i64 => match u8::try_from(v).ok().and_then(|n1| Month::try_from(n1).ok()).and_then(|n2| Some(Self(n2))) {
+        Some(m) => m,
         _ => Err("month is invalid")?
     }
 );
