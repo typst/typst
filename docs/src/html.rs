@@ -4,6 +4,7 @@ use comemo::Prehashed;
 use md::escape::escape_html;
 use pulldown_cmark as md;
 use typst::diag::FileResult;
+use typst::eval::Datetime;
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
 use typst::syntax::{Source, SourceId};
@@ -384,7 +385,7 @@ impl World for DocWorld {
             .into())
     }
 
-    fn today(&self, _: Option<i64>) -> Option<(i32, u8, u8)> {
-        Some((1970, 1, 1))
+    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+        Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
 }

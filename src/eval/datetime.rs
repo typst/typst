@@ -4,7 +4,7 @@ use std::hash::Hash;
 
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
-use time::format_description;
+use time::{format_description, PrimitiveDateTime};
 
 use crate::util::pretty_array_like;
 use typst_macros::cast_from_value;
@@ -104,6 +104,32 @@ impl Datetime {
             Datetime::Time(time) => Some(time.second()),
             Datetime::Datetime(datetime) => Some(datetime.second()),
         }
+    }
+
+    pub fn from_ymd(year: i32, month: u8, day: u8) -> Option<Self> {
+        Some(Datetime::Date(
+            time::Date::from_calendar_date(year, time::Month::try_from(month).ok()?, day)
+                .ok()?,
+        ))
+    }
+
+    pub fn from_hms(hour: u8, minute: u8, second: u8) -> Option<Self> {
+        Some(Datetime::Time(time::Time::from_hms(hour, minute, second).ok()?))
+    }
+
+    pub fn from_ymd_hms(
+        year: i32,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+    ) -> Option<Self> {
+        let date =
+            time::Date::from_calendar_date(year, time::Month::try_from(month).ok()?, day)
+                .ok()?;
+        let time = time::Time::from_hms(hour, minute, second).ok()?;
+        Some(Datetime::Datetime(PrimitiveDateTime::new(date, time)))
     }
 }
 

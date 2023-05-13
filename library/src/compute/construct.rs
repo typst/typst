@@ -352,14 +352,7 @@ pub fn today(
         None => bail!(args.span, "unable to get the current date"),
     };
 
-    match time::Date::from_calendar_date(
-        current_date.0,
-        time::Month::try_from(current_date.1).unwrap(),
-        current_date.2,
-    ) {
-        Ok(d) => Value::Dyn(Dynamic::new(Datetime::Date(d))),
-        Err(_) => bail!(args.span, "system returned an invalid date"),
-    }
+    Value::Dyn(Dynamic::new(current_date))
 }
 
 /// Create a CMYK color.

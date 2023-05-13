@@ -58,7 +58,7 @@ use comemo::{Prehashed, Track};
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
-use crate::eval::{Library, Route, Tracer};
+use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
@@ -113,5 +113,5 @@ pub trait World {
     /// chosen. Otherwise, the UTC date should be chosen with the corresponding
     /// offset in hours.)
     /// Returns a tuple in the form (year, month, day).
-    fn today(&self, offset: Option<i64>) -> Option<(i32, u8, u8)>;
+    fn today(&self, offset: Option<i64>) -> Option<Datetime>;
 }

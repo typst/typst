@@ -22,7 +22,7 @@ use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
-use typst::eval::Library;
+use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
@@ -401,7 +401,7 @@ struct SystemWorld {
     hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
-    current_date: Cell<Option<(i32, u8, u8)>>,
+    current_date: Cell<Option<Datetime>>,
     main: SourceId,
 }
 
@@ -488,19 +488,20 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn today(&self, offset: Option<i64>) -> Option<(i32, u8, u8)> {
+    fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         if self.current_date.get().is_none() {
             let datetime = match offset {
                 None => chrono::Local::now().naive_local(),
                 Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
             };
 
-            // Month/day are always in range of u8
-            self.current_date.set(Some((
-                datetime.year(),
-                datetime.month().try_into().unwrap(),
-                datetime.day().try_into().unwrap(),
-            )))
+            self.current_date.set(Some(
+                Datetime::from_ymd(
+                    datetime.year(),
+                    datetime.month().try_into().ok()?,
+                    datetime.day().try_into().ok()?,
+                )?
+            ))
         }
 
         self.current_date.get()
