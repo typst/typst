@@ -361,7 +361,7 @@ pub fn today(
         current_date.2,
     ) {
         Ok(d) => Value::Dyn(Dynamic::new(Datetime::Date(d))),
-        Err(_) => bail!(args.span, "unable to read the system date"),
+        Err(_) => bail!(args.span, "system returned an invalid date"),
     }
 }
 

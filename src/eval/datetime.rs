@@ -24,15 +24,15 @@ pub enum Datetime {
 impl Datetime {
     /// Display the date and/or time in a certain format.
     pub fn display(&self, pattern: Option<EcoString>) -> Result<EcoString, EcoString> {
-        let pattern = pattern.unwrap_or(match self {
-            Datetime::Date(_) => EcoString::from("[year]-[month]-[day]"),
-            Datetime::Time(_) => EcoString::from("[hour]:[minute]:[second]"),
+        let pattern = pattern.as_ref().map(EcoString::as_str).unwrap_or(match self {
+            Datetime::Date(_) => "[year]-[month]-[day]",
+            Datetime::Time(_) => "[hour]:[minute]:[second]",
             Datetime::Datetime(_) => {
-                EcoString::from("[year]-[month]-[day] [hour]:[minute]:[second]")
+                "[year]-[month]-[day] [hour]:[minute]:[second]"
             }
         });
 
-        let format = format_description::parse(pattern.as_str())
+        let format = format_description::parse(pattern)
             .map_err(format_time_invalid_format_description_error)?;
 
         let formatted_result = match self {
