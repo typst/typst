@@ -495,13 +495,11 @@ impl World for SystemWorld {
                 Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
             };
 
-            self.current_date.set(Some(
-                Datetime::from_ymd(
-                    datetime.year(),
-                    datetime.month().try_into().ok()?,
-                    datetime.day().try_into().ok()?,
-                )?
-            ))
+            self.current_date.set(Some(Datetime::from_ymd(
+                datetime.year(),
+                datetime.month().try_into().ok()?,
+                datetime.day().try_into().ok()?,
+            )?))
         }
 
         self.current_date.get()
