@@ -30,17 +30,17 @@ impl Cast for Margin {
             let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
 
             let rest = take("rest")?;
-            let x = take("x")?.or_else(|| rest);
-            let y = take("y")?.or_else(|| rest);
+            let x = take("x")?.or(rest);
+            let y = take("y")?.or(rest);
 
-            let outside = take("outside")?.or_else(|| x.clone());
-            let inside = take("inside")?.or_else(|| x.clone());
+            let outside = take("outside")?.or(x);
+            let inside = take("inside")?.or(x);
 
             let sides = Sides {
-                left: take("left")?.or_else(|| outside.clone()),
-                top: take("top")?.or_else(|| y.clone()),
-                right: take("right")?.or(inside.clone()),
-                bottom: take("bottom")?.or_else(|| y.clone()),
+                left: take("left")?.or(outside),
+                top: take("top")?.or(y),
+                right: take("right")?.or(inside),
+                bottom: take("bottom")?.or(y),
             };
 
             let margin = Margin { sides, outside, inside };
@@ -71,7 +71,7 @@ impl Margin {
     pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
         Self {
             sides: Sides::splat(value),
-            outside: value.clone(),
+            outside: value,
             inside: value,
         }
     }
