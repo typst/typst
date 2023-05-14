@@ -30,8 +30,8 @@ impl Cast for Margin {
             let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
 
             let rest = take("rest")?;
-            let x = take("x")?.or_else(|| rest.clone());
-            let y = take("y")?.or_else(|| rest.clone());
+            let x = take("x")?.or_else(|| rest);
+            let y = take("y")?.or_else(|| rest);
 
             let outside = take("outside")?.or_else(|| x.clone());
             let inside = take("inside")?.or_else(|| x.clone());
