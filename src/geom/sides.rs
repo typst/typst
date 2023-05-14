@@ -21,39 +21,40 @@ pub struct Margin {
 }
 
 impl Cast for Margin {
-    fn cast(mut value: Value) -> StrResult<Self> {
-        if let Value::Auto = value {
-            Ok(Self::splat(Some(Value::cast(value)?)))
-        } else if let Value::Length(_) = value {
-            Ok(Self::splat(Some(Value::cast(value)?)))
-        } else if let Value::Relative(_) = value {
-            Ok(Self::splat(Some(Value::cast(value)?)))
-        } else if let Value::Dict(dict) = &mut value {
-            let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
+    fn cast(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Auto => Ok(Self::splat(Some(Value::cast(value)?))),
+            Value::Length(value) => Ok(Self::splat(Some(Smart::Custom(value.into())))),
+            Value::Relative(value) => Ok(Self::splat(Some(Smart::Custom(value.into())))),
+            Value::Dict(mut dict) => {
+                let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
 
-            let rest = take("rest")?;
-            let x = take("x")?.or(rest);
-            let y = take("y")?.or(rest);
+                let rest = take("rest")?;
+                let x = take("x")?.or(rest);
+                let y = take("y")?.or(rest);
 
-            let outside = take("outside")?.or(x);
-            let inside = take("inside")?.or(x);
+                // FIXME Error out if left and outside are defined.
+                let outside = take("outside")?.or(x);
+                // FIXME Error out if right and inside are defined.
+                let inside = take("inside")?.or(x);
 
-            let sides = Sides {
-                left: take("left")?.or(outside),
-                top: take("top")?.or(y),
-                right: take("right")?.or(inside),
-                bottom: take("bottom")?.or(y),
-            };
+                let sides = Sides {
+                    left: take("left")?.or(outside),
+                    top: take("top")?.or(y),
+                    right: take("right")?.or(inside),
+                    bottom: take("bottom")?.or(y),
+                };
 
-            let margin = Margin { sides, outside, inside };
+                let margin = Margin { sides, outside, inside };
 
-            dict.finish(&[
-                "left", "top", "right", "bottom", "x", "y", "outside", "inside", "rest",
-            ])?;
+                dict.finish(&[
+                    "left", "top", "right", "bottom", "x", "y", "outside", "inside", "rest",
+                ])?;
 
-            Ok(margin)
-        } else {
-            <Self as Cast>::error(value)
+                Ok(margin)
+
+            }
+            _ =>  <Self as Cast>::error(value)
         }
     }
 
