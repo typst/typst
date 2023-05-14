@@ -38,7 +38,7 @@ cast_from_value! {
     v: bool => Self(v as i64),
     v: i64 => Self(v),
     v: f64 => Self(v as i64),
-    v: EcoString => Self(v.parse().map_err(|_| "not a valid integer")?),
+    v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid integer: {}", v))?),
 }
 
 /// Convert a value to a float.
@@ -79,7 +79,7 @@ cast_from_value! {
     v: i64 => Self(v as f64),
     v: f64 => Self(v),
     v: Ratio => Self(v.get()),
-    v: EcoString => Self(v.parse().map_err(|_| "not a valid float")?),
+    v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid float: {}", v))?),
 }
 
 /// Create a grayscale color.
