@@ -756,7 +756,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
      pi: ['π', alt: 'ϖ'],
      psi: 'ψ',
      rho: ['ρ', alt: 'ϱ'],
-     sigma: 'σ',
+     sigma: ['σ', alt: 'ς'],
      tau: 'τ',
      theta: ['θ', alt: 'ϑ'],
      upsilon: 'υ',
