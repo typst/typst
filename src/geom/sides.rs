@@ -22,7 +22,9 @@ pub struct Margin {
 
 impl Cast for Margin {
     fn cast(mut value: Value) -> StrResult<Self> {
-        if let Value::Length(_) = value {
+        if let Value::Auto = value {
+            Ok(Self::splat(Some(Value::cast(value)?)))
+        } else if let Value::Length(_) = value {
             Ok(Self::splat(Some(Value::cast(value)?)))
         } else if let Value::Relative(_) = value {
             Ok(Self::splat(Some(Value::cast(value)?)))
@@ -56,13 +58,17 @@ impl Cast for Margin {
     }
 
     fn is(value: &Value) -> bool {
-        matches!(value, Value::Dict(_) | Value::Length(_) | Value::Relative(_))
+        matches!(
+            value,
+            Value::Auto | Value::Dict(_) | Value::Length(_) | Value::Relative(_)
+        )
     }
 
     fn describe() -> CastInfo {
-        CastInfo::Type("relative length")
+        CastInfo::Type("auto")
             + CastInfo::Type("dictionary")
             + CastInfo::Type("length")
+            + CastInfo::Type("relative length")
     }
 }
 
