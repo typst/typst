@@ -37,7 +37,7 @@ use crate::text::Case;
 pub fn numbering(
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `い`, `イ`,
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `x`, `X`, `い`, `イ`,
     /// `א`, and `*`. They are replaced by the number in the sequence,
     /// in the given case.
     ///
@@ -132,7 +132,7 @@ cast_to_value! {
 /// How to turn a number into text.
 ///
 /// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`,
-/// `I`, `い`, `イ`, `א`, or `*`, and then a suffix.
+/// `I`, `い`, `イ`, `א`, `x`, `X`, or `*`, and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
@@ -257,6 +257,7 @@ enum NumberingKind {
     Arabic,
     Letter,
     Roman,
+    Hexadecimal,
     Symbol,
     Hebrew,
     SimplifiedChinese,
@@ -278,6 +279,7 @@ impl NumberingKind {
             '1' => NumberingKind::Arabic,
             'a' => NumberingKind::Letter,
             'i' => NumberingKind::Roman,
+            'x' => NumberingKind::Hexadecimal,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
             '一' | '壹' => NumberingKind::SimplifiedChinese,
@@ -293,6 +295,7 @@ impl NumberingKind {
             Self::Arabic => '1',
             Self::Letter => 'a',
             Self::Roman => 'i',
+            Self::Hexadecimal => 'x',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
             Self::SimplifiedChinese => '一',
@@ -381,7 +384,13 @@ impl NumberingKind {
                 }
 
                 fmt
-            }
+            },
+            Self::Hexadecimal => {
+                match case {
+                    Case::Lower => eco_format!("0x{n:x}"),
+                    Case::Upper => eco_format!("0x{n:X}"),
+                }
+            },
             Self::Symbol => {
                 if n == 0 {
                     return '-'.into();
