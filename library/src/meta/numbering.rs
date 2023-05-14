@@ -37,7 +37,7 @@ use crate::text::Case;
 pub fn numbering(
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `x`, `X`, `い`, `イ`,
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `x`, `X`, `b`, `o`, `い`, `イ`,
     /// `א`, and `*`. They are replaced by the number in the sequence,
     /// in the given case.
     ///
@@ -258,6 +258,8 @@ enum NumberingKind {
     Letter,
     Roman,
     Hexadecimal,
+    Binary,
+    Octal,
     Symbol,
     Hebrew,
     SimplifiedChinese,
@@ -280,6 +282,8 @@ impl NumberingKind {
             'a' => NumberingKind::Letter,
             'i' => NumberingKind::Roman,
             'x' => NumberingKind::Hexadecimal,
+            'b' => NumberingKind::Binary,
+            'o' => NumberingKind::Octal,
             '*' => NumberingKind::Symbol,
             'א' => NumberingKind::Hebrew,
             '一' | '壹' => NumberingKind::SimplifiedChinese,
@@ -296,6 +300,8 @@ impl NumberingKind {
             Self::Letter => 'a',
             Self::Roman => 'i',
             Self::Hexadecimal => 'x',
+            Self::Binary => 'b',
+            Self::Octal => 'o',
             Self::Symbol => '*',
             Self::Hebrew => 'א',
             Self::SimplifiedChinese => '一',
@@ -390,6 +396,12 @@ impl NumberingKind {
                     Case::Lower => eco_format!("0x{n:x}"),
                 Case::Upper => eco_format!("0x{n:X}"),
                 }
+            },
+            Self::Binary => {
+                eco_format!("{n:b}")
+            },
+            Self::Octal => {
+                eco_format!("{n:o}")
             },
             Self::Symbol => {
                 if n == 0 {
