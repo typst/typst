@@ -1,6 +1,6 @@
 use ecow::{eco_format, EcoString};
-use unicode_segmentation::UnicodeSegmentation;
 use unicode_ident::{is_xid_start, is_xid_continue};
+use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
 use super::{ErrorPos, SyntaxKind};
