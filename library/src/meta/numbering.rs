@@ -132,7 +132,7 @@ cast_to_value! {
 /// How to turn a number into text.
 ///
 /// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`,
-/// `I`, `い`, `イ`, `א`, `x`, `X`, or `*`, and then a suffix.
+/// `I`, `い`, `イ`, `א`, `x`, `X`, `b`, `o`, or `*`, and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
