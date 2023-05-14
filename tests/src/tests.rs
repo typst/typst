@@ -25,7 +25,7 @@ use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{func, Library, Value};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, RgbaColor, Sides, Smart};
+use typst::geom::{Abs, Color, Margin, RgbaColor, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
 use typst::util::{Buffer, PathExt};
 use typst::World;
