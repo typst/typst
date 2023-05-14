@@ -388,7 +388,7 @@ impl NumberingKind {
             Self::Hexadecimal => {
                 match case {
                     Case::Lower => eco_format!("0x{n:x}"),
-                    Case::Upper => eco_format!("0x{n:X}"),
+                Case::Upper => eco_format!("0x{n:X}"),
                 }
             },
             Self::Symbol => {
