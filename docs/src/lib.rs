@@ -19,7 +19,7 @@ use serde_yaml as yaml;
 use typst::doc::Frame;
 use typst::eval::{CastInfo, Func, FuncInfo, Library, Module, ParamInfo, Value};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Sides, Smart};
+use typst::geom::{Abs, Margin, Smart};
 use typst_library::layout::PageElem;
 use unscanny::Scanner;
 
@@ -43,7 +43,7 @@ static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Sides::splat(Some(Smart::Custom(
+    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
         Abs::pt(15.0).into(),
     )))));
     typst::eval::set_lang_items(lib.items.clone());
