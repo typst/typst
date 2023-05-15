@@ -26,8 +26,27 @@ pub use self::query::*;
 pub use self::reference::*;
 pub use self::state::*;
 
-use typst::doc::Lang;
-use typst::doc::Region;
+use crate::prelude::*;
+
+/// Hook up all meta definitions.
+pub(super) fn define(global: &mut Scope) {
+    global.define("document", DocumentElem::func());
+    global.define("ref", RefElem::func());
+    global.define("link", LinkElem::func());
+    global.define("outline", OutlineElem::func());
+    global.define("heading", HeadingElem::func());
+    global.define("figure", FigureElem::func());
+    global.define("cite", CiteElem::func());
+    global.define("bibliography", BibliographyElem::func());
+    global.define("locate", locate);
+    global.define("style", style);
+    global.define("layout", layout);
+    global.define("counter", counter);
+    global.define("numbering", numbering);
+    global.define("state", state);
+    global.define("query", query);
+    global.define("selector", selector);
+}
 
 /// The named with which an element is referenced.
 pub trait LocalName {

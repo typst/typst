@@ -37,6 +37,10 @@ use super::GridLayouter;
 /// Display: Bullet List
 /// Category: layout
 #[element(Layout)]
+#[scope(
+    scope.define("item", ListItem::func());
+    scope
+)]
 pub struct ListElem {
     /// If this is `{false}`, the items are spaced apart with [list
     /// spacing]($func/list.spacing). If it is `{true}`, they use normal

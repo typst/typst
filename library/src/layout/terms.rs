@@ -22,6 +22,10 @@ use crate::prelude::*;
 /// Display: Term List
 /// Category: layout
 #[element(Layout)]
+#[scope(
+    scope.define("item", TermItem::func());
+    scope
+)]
 pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with [term list
     /// spacing]($func/terms.spacing). If it is `{true}`, they use normal

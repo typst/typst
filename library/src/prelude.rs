@@ -16,7 +16,7 @@ pub use typst::doc::*;
 #[doc(no_inline)]
 pub use typst::eval::{
     array, cast_from_value, cast_to_value, dict, format_str, func, Args, Array, Cast,
-    CastInfo, Dict, Func, Never, Str, Symbol, Value, Vm,
+    CastInfo, Dict, Func, Never, Scope, Str, Symbol, Value, Vm,
 };
 #[doc(no_inline)]
 pub use typst::geom::*;

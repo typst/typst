@@ -22,6 +22,25 @@ use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontM
 use crate::layout::ParElem;
 use crate::prelude::*;
 
+/// Hook up all text definitions.
+pub(super) fn define(global: &mut Scope) {
+    global.define("text", TextElem::func());
+    global.define("linebreak", LinebreakElem::func());
+    global.define("smartquote", SmartQuoteElem::func());
+    global.define("strong", StrongElem::func());
+    global.define("emph", EmphElem::func());
+    global.define("lower", lower);
+    global.define("upper", upper);
+    global.define("smallcaps", smallcaps);
+    global.define("sub", SubElem::func());
+    global.define("super", SuperElem::func());
+    global.define("underline", UnderlineElem::func());
+    global.define("strike", StrikeElem::func());
+    global.define("overline", OverlineElem::func());
+    global.define("raw", RawElem::func());
+    global.define("lorem", lorem);
+}
+
 /// Customize the look and layout of text in a variety of ways.
 ///
 /// This function is used often, both with set rules and directly. While the set
