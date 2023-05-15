@@ -1,6 +1,6 @@
 use ecow::{eco_format, EcoString};
+use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_segmentation::UnicodeSegmentation;
-use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::{ErrorPos, SyntaxKind};
@@ -723,23 +723,23 @@ pub fn is_ident(string: &str) -> bool {
 /// Whether a character can start an identifier.
 #[inline]
 pub(crate) fn is_id_start(c: char) -> bool {
-    c.is_xid_start() || c == '_'
+    is_xid_start(c) || c == '_'
 }
 
 /// Whether a character can continue an identifier.
 #[inline]
 pub(crate) fn is_id_continue(c: char) -> bool {
-    c.is_xid_continue() || c == '_' || c == '-'
+    is_xid_continue(c) || c == '_' || c == '-'
 }
 
 /// Whether a character can start an identifier in math.
 #[inline]
 fn is_math_id_start(c: char) -> bool {
-    c.is_xid_start()
+    is_xid_start(c)
 }
 
 /// Whether a character can continue an identifier in math.
 #[inline]
 fn is_math_id_continue(c: char) -> bool {
-    c.is_xid_continue() && c != '_'
+    is_xid_continue(c) && c != '_'
 }
