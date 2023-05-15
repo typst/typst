@@ -381,7 +381,7 @@ create your own using the template wizard. You can also check out the
 templates made by the community. We plan to build a package manager to make
 templates even easier to share in the future!
 
-You can also [create you your own, custom templates.]($tutorial/making-a-template)
+You can also [create your own, custom templates.]($tutorial/making-a-template)
 They are shorter and more readable than the corresponding LaTeX `.sty` files by
 orders of magnitude, so give it a try!
 
