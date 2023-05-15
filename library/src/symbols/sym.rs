@@ -827,6 +827,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
      // Miscellaneous letter-likes.
      ell: 'ℓ',
      planck: ['ℎ', reduce: 'ℏ'],
+     hbar: 'ħ',
      angstrom: 'Å',
      kelvin: 'K',
      Re: 'ℜ',
