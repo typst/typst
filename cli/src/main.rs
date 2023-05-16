@@ -249,41 +249,42 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
     world.main = world.resolve(&command.input).map_err(|err| err.to_string())?;
 
     match typst::compile(world) {
-        // Export the PDF.
+        // Export the PDF / PNG.
         Ok(document) => {
-            if command
-                .output
-                .extension()
-                .map_or(false, |ext| ext.eq_ignore_ascii_case("png"))
-            {
-                let pixel_per_pt = command.ppi.unwrap_or(2.0);
-                let pixmaps: Vec<_> = document
-                    .pages
-                    .iter()
-                    .map(|frame| typst::export::render(frame, pixel_per_pt, Color::WHITE))
-                    .collect();
+            match command.output.extension() {
+                Some(ext) if ext.eq_ignore_ascii_case("png") => {
+                    let pixel_per_pt = command.ppi.unwrap_or(2.0);
+                    let pixmaps: Vec<_> = document
+                        .pages
+                        .iter()
+                        .map(|frame| {
+                            typst::export::render(frame, pixel_per_pt, Color::WHITE)
+                        })
+                        .collect();
 
-                if pixmaps.len() == 1 {
-                    pixmaps[0]
-                        .save_png(command.output.clone())
-                        .map_err(|_| "failed to write PNG file")?;
-                } else {
-                    for (i, pixmap) in pixmaps.iter().enumerate() {
-                        let mut output = command.output.clone();
-                        output.set_file_name(format!(
-                            "{}_{:03}.png",
-                            command.output.file_stem().unwrap().to_str().unwrap(),
-                            i + 1
-                        ));
-                        pixmap
-                            .save_png(&output)
+                    if pixmaps.len() == 1 {
+                        pixmaps[0]
+                            .save_png(command.output.clone())
                             .map_err(|_| "failed to write PNG file")?;
+                    } else {
+                        for (i, pixmap) in pixmaps.iter().enumerate() {
+                            let mut output = command.output.clone();
+                            output.set_file_name(format!(
+                                "{}_{:03}.png",
+                                command.output.file_stem().unwrap().to_str().unwrap(),
+                                i + 1
+                            ));
+                            pixmap
+                                .save_png(&output)
+                                .map_err(|_| "failed to write PNG file")?;
+                        }
                     }
                 }
-            } else {
-                let buffer = typst::export::pdf(&document);
-                fs::write(&command.output, buffer)
-                    .map_err(|_| "failed to write PDF file")?;
+                _ => {
+                    let buffer = typst::export::pdf(&document);
+                    fs::write(&command.output, buffer)
+                        .map_err(|_| "failed to write PDF file")?;
+                }
             }
             status(command, Status::Success).unwrap();
 
