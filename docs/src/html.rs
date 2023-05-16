@@ -93,15 +93,15 @@ struct Metadata {
 struct Handler<'a> {
     resolver: &'a dyn Resolver,
     lang: Option<String>,
+    code: String,
 }
 
 impl<'a> Handler<'a> {
     fn new(resolver: &'a dyn Resolver) -> Self {
-        Self { resolver, lang: None }
+        Self { resolver, lang: None, code: String::new() }
     }
 
     fn handle(&mut self, event: &mut md::Event) -> bool {
-        let lang = self.lang.take();
         match event {
             // Rewrite Markdown images.
             md::Event::Start(md::Tag::Image(_, path, _)) => {
@@ -155,17 +155,22 @@ impl<'a> Handler<'a> {
             // Code blocks.
             md::Event::Start(md::Tag::CodeBlock(md::CodeBlockKind::Fenced(lang))) => {
                 self.lang = Some(lang.as_ref().into());
+                self.code = String::new();
                 return false;
             }
             md::Event::End(md::Tag::CodeBlock(md::CodeBlockKind::Fenced(_))) => {
-                return false;
+                let Some(lang) = self.lang.as_deref().take() else { return true };
+                let text = self.code.as_str();
+                let html = code_block(self.resolver, lang, text);
+                *event = md::Event::Html(html.raw.into());
             }
 
             // Example with preview.
             md::Event::Text(text) => {
-                let Some(lang) = lang.as_deref() else { return true };
-                let html = code_block(self.resolver, lang, text);
-                *event = md::Event::Html(html.raw.into());
+                if self.lang.is_some() {
+                    self.code.push_str(text);
+                    return false;
+                }
             }
 
             _ => {}
