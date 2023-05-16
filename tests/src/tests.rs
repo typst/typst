@@ -375,7 +375,7 @@ fn test(
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
-    let parts: Vec<_> = text.split("\n---").collect();
+    let parts: Vec<_> = text.split("\n---").map(|s| s.trim_end_matches('\r')).collect();
     for (i, &part) in parts.iter().enumerate() {
         if let Some(x) = args.subtest {
             let x = usize::try_from(
