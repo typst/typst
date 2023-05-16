@@ -252,7 +252,11 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
     match typst::compile(world) {
         // Export the PDF.
         Ok(document) => {
-            if command.output.extension() == Some(OsStr::new("png")) {
+            if command
+                .output
+                .extension()
+                .map_or(false, |ext| ext.eq_ignore_ascii_case("png"))
+            {
                 let pixel_per_pt = command.ppi.unwrap_or(2.0);
                 let pixmaps: Vec<_> = document
                     .pages
@@ -260,14 +264,22 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
                     .map(|frame| typst::export::render(frame, pixel_per_pt, Color::WHITE))
                     .collect();
 
-                for (i, pixmap) in pixmaps.iter().enumerate() {
-                    let mut output = command.output.clone();
-                    output.set_file_name(format!(
-                        "{}_{:03}.png",
-                        command.output.file_stem().unwrap().to_str().unwrap(),
-                        i + 1
-                    ));
-                    pixmap.save_png(&output).map_err(|_| "failed to write PNG file")?;
+                if pixmaps.len() == 1 {
+                    pixmap[0]
+                        .save_png(command.output)
+                        .map_err(|_| "failed to write PNG file")?;
+                } else {
+                    for (i, pixmap) in pixmaps.iter().enumerate() {
+                        let mut output = command.output.clone();
+                        output.set_file_name(format!(
+                            "{}_{:03}.png",
+                            command.output.file_stem().unwrap().to_str().unwrap(),
+                            i + 1
+                        ));
+                        pixmap
+                            .save_png(&output)
+                            .map_err(|_| "failed to write PNG file")?;
+                    }
                 }
             } else {
                 let buffer = typst::export::pdf(&document);
