@@ -831,4 +831,5 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
      kelvin: 'K',
      Re: 'ℜ',
      Im: 'ℑ',
+     dotless: [i: '\U+1D6A4', j: '\U+1D6A5']
 };
