@@ -3,7 +3,6 @@ mod trace;
 
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
@@ -265,8 +264,8 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
                     .collect();
 
                 if pixmaps.len() == 1 {
-                    pixmap[0]
-                        .save_png(command.output)
+                    pixmaps[0]
+                        .save_png(command.output.clone())
                         .map_err(|_| "failed to write PNG file")?;
                 } else {
                     for (i, pixmap) in pixmaps.iter().enumerate() {
