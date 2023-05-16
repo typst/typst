@@ -831,5 +831,5 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
      kelvin: 'K',
      Re: 'ℜ',
      Im: 'ℑ',
-     dotless: [i: '𝚤', j: '𝚥']
+     dotless: [i: '𝚤', j: '𝚥'],
 };
