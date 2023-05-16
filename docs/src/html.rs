@@ -159,9 +159,8 @@ impl<'a> Handler<'a> {
                 return false;
             }
             md::Event::End(md::Tag::CodeBlock(md::CodeBlockKind::Fenced(_))) => {
-                let Some(lang) = self.lang.as_deref().take() else { return true };
-                let text = self.code.as_str();
-                let html = code_block(self.resolver, lang, text);
+                let Some(lang) = self.lang.take() else { return false };
+                let html = code_block(self.resolver, &lang, &self.code);
                 *event = md::Event::Html(html.raw.into());
             }
 
