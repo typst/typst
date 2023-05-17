@@ -1399,7 +1399,7 @@ impl ast::Pattern {
                 vm.define(ident, value);
                 Ok(Value::None)
             }
-            _ => unreachable!(),
+            err => Err(Box::new(vec![SourceError::new(err.span(), "Invalid Pattern")])),
         })
     }
 

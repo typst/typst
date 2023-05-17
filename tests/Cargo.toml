@@ -26,6 +26,10 @@ name = "tests"
 path = "src/tests.rs"
 harness = false
 
+[[test]]
+name = "ide_tests"
+path = "src/ide_tests.rs"
+
 [[bench]]
 name = "benches"
 path = "src/benches.rs"
