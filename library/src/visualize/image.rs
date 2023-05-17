@@ -144,11 +144,7 @@ impl LocalName for ImageElem {
     }
 }
 
-impl Figurable for ImageElem {
-    fn priority(&self, _styles: StyleChain) -> isize {
-        1000
-    }
-}
+impl Figurable for ImageElem {}
 
 /// How an image should adjust itself to a given area.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]

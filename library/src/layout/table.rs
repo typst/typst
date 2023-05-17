@@ -319,8 +319,4 @@ impl LocalName for TableElem {
     }
 }
 
-impl Figurable for TableElem {
-    fn priority(&self, _styles: StyleChain) -> isize {
-        -1000
-    }
-}
+impl Figurable for TableElem {}

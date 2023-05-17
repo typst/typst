@@ -244,11 +244,7 @@ impl LocalName for RawElem {
     }
 }
 
-impl Figurable for RawElem {
-    fn priority(&self, _styles: StyleChain) -> isize {
-        500
-    }
-}
+impl Figurable for RawElem {}
 
 /// Highlight a syntax node in a theme by calling `f` with ranges and their
 /// styles.
