@@ -421,6 +421,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     join: ['⨝', r: '⟖', l: '⟕', l.r: '⟗'],
     degree: ['°', c: '℃', f: '℉'],
     smash: '⨳',
+    dotless: [i: '𝚤', j: '𝚥'],
 
     // Currency.
     bitcoin: '₿',
