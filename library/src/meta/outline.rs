@@ -49,6 +49,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 ///
 /// Display: Outline
 /// Category: meta
+/// Keywords: Table of Contents
 #[element(Show, Finalize, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.

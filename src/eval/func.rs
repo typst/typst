@@ -249,6 +249,8 @@ pub struct FuncInfo {
     pub name: &'static str,
     /// The display name of the function.
     pub display: &'static str,
+    /// A string of keywords.
+    pub keywords: Option<&'static str>,
     /// Documentation for the function.
     pub docs: &'static str,
     /// Details about the function's parameters.

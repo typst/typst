@@ -12,6 +12,7 @@ struct Func {
     name: String,
     display: String,
     category: String,
+    keywords: Option<String>,
     docs: String,
     vis: syn::Visibility,
     ident: Ident,
@@ -80,6 +81,7 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         .split(" or ")
         .map(Into::into)
         .collect();
+    let keywords = meta_line(&mut lines, "Keywords").ok().map(Into::into);
     let category = meta_line(&mut lines, "Category")?.into();
     let display = meta_line(&mut lines, "Display")?.into();
     let docs = lines.join("\n").trim().into();
@@ -88,6 +90,7 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         name: sig.ident.to_string().replace('_', ""),
         display,
         category,
+        keywords,
         docs,
         vis: item.vis.clone(),
         ident: sig.ident.clone(),
@@ -105,6 +108,7 @@ fn create(func: &Func) -> TokenStream {
     let Func {
         name,
         display,
+        keywords,
         category,
         docs,
         vis,
@@ -117,6 +121,7 @@ fn create(func: &Func) -> TokenStream {
     let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
     let params = params.iter().map(create_param_info);
     let scope = create_scope_builder(func.scope.as_ref());
+    let keywords = quote_option(keywords);
     quote! {
         #[doc = #docs]
         #vis fn #ident() -> &'static ::typst::eval::NativeFunc {
@@ -129,6 +134,7 @@ fn create(func: &Func) -> TokenStream {
                 info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
                     name: #name,
                     display: #display,
+                    keywords: #keywords,
                     docs: #docs,
                     params: ::std::vec![#(#params),*],
                     returns: ::std::vec![#(#returns),*],

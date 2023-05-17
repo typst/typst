@@ -10,6 +10,7 @@ struct Elem {
     name: String,
     display: String,
     category: String,
+    keywords: Option<String>,
     docs: String,
     vis: syn::Visibility,
     ident: Ident,
@@ -126,6 +127,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
     let mut attrs = body.attrs.clone();
     let docs = documentation(&attrs);
     let mut lines = docs.split('\n').collect();
+    let keywords = meta_line(&mut lines, "Keywords").ok().map(Into::into);
     let category = meta_line(&mut lines, "Category")?.into();
     let display = meta_line(&mut lines, "Display")?.into();
     let docs = lines.join("\n").trim().into();
@@ -134,6 +136,7 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         name: body.ident.to_string().trim_end_matches("Elem").to_lowercase(),
         display,
         category,
+        keywords,
         docs,
         vis: body.vis.clone(),
         ident: body.ident.clone(),
@@ -332,7 +335,7 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 
 /// Create the element's `Pack` implementation.
 fn create_pack_impl(element: &Elem) -> TokenStream {
-    let Elem { ident, name, display, category, docs, .. } = element;
+    let Elem { ident, name, display, keywords, category, docs, .. } = element;
     let vtable_func = create_vtable_func(element);
     let infos = element
         .fields
@@ -340,6 +343,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
         .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
     let scope = create_scope_builder(element.scope.as_ref());
+    let keywords = quote_option(keywords);
     quote! {
         impl ::typst::model::Element for #ident {
             fn pack(self) -> ::typst::model::Content {
@@ -362,6 +366,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
                     info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
                         name: #name,
                         display: #display,
+                        keywords: #keywords,
                         docs: #docs,
                         params: ::std::vec![#(#infos),*],
                         returns: ::std::vec!["content"],

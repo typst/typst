@@ -359,6 +359,7 @@ fn category_outline(kind: &str) -> Vec<OutlineItem> {
 pub struct FuncModel {
     pub path: Vec<&'static str>,
     pub display: &'static str,
+    pub keywords: Option<&'static str>,
     pub oneliner: &'static str,
     pub element: bool,
     pub details: Html,
@@ -431,6 +432,7 @@ fn func_model(
     FuncModel {
         path,
         display: info.display,
+        keywords: info.keywords,
         oneliner: oneliner(docs),
         element: func.element().is_some(),
         details: Html::markdown_with_id_base(resolver, docs, id_base),

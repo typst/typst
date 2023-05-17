@@ -1,4 +1,5 @@
 use heck::ToKebabCase;
+use quote::ToTokens;
 
 use super::*;
 
@@ -104,13 +105,16 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
 
 /// Extract a line of metadata from documentation.
 pub fn meta_line<'a>(lines: &mut Vec<&'a str>, key: &str) -> Result<&'a str> {
-    match lines.pop().and_then(|line| line.strip_prefix(&format!("{key}:"))) {
-        Some(value) => Ok(value.trim()),
+    match lines.last().and_then(|line| line.strip_prefix(&format!("{key}:"))) {
+        Some(value) => {
+            lines.pop();
+            Ok(value.trim())
+        }
         None => bail!(callsite, "missing metadata key: {}", key),
     }
 }
 
-/// Creates a block responsible for building a Scope.
+/// Creates a block responsible for building a `Scope`.
 pub fn create_scope_builder(scope_block: Option<&BlockWithReturn>) -> TokenStream {
     if let Some(BlockWithReturn { prefix, expr }) = scope_block {
         quote! { {
@@ -120,5 +124,14 @@ pub fn create_scope_builder(scope_block: Option<&BlockWithReturn>) -> TokenStrea
         } }
     } else {
         quote! { ::typst::eval::Scope::new() }
+    }
+}
+
+/// Quotes an option literally.
+pub fn quote_option<T: ToTokens>(option: &Option<T>) -> TokenStream {
+    if let Some(value) = option {
+        quote! { Some(#value) }
+    } else {
+        quote! { None }
     }
 }
