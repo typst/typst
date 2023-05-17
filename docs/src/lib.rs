@@ -3,7 +3,7 @@
 mod contribs;
 mod html;
 
-pub use contribs::contributors;
+pub use contribs::{contributors, Author, Commit};
 pub use html::Html;
 
 use std::fmt::{self, Debug, Formatter};
@@ -72,6 +72,9 @@ pub trait Resolver {
 
     /// Produce HTML for an example.
     fn example(&self, source: Html, frames: &[Frame]) -> Html;
+
+    /// Determine the commits between two tags.
+    fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
 }
 
 /// Details about a documentation page and its children.
@@ -81,6 +84,7 @@ pub struct PageModel {
     pub title: String,
     pub description: String,
     pub part: Option<&'static str>,
+    pub outline: Vec<OutlineItem>,
     pub body: BodyModel,
     pub children: Vec<Self>,
 }
@@ -783,6 +787,10 @@ mod tests {
 
         fn image(&self, _: &str, _: &[u8]) -> String {
             String::new()
+        }
+
+        fn commits(&self, _: &str, _: &str) -> Vec<Commit> {
+            vec![]
         }
     }
 }

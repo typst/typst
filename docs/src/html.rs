@@ -121,7 +121,7 @@ impl<'a> Handler<'a> {
             md::Event::Html(html) if html.starts_with("<contributors") => {
                 let from = html_attr(html, "from").unwrap();
                 let to = html_attr(html, "to").unwrap();
-                let Some(output) = contributors(from, to) else { return false };
+                let Some(output) = contributors(self.resolver, from, to) else { return false };
                 *html = output.raw.into();
             }
 

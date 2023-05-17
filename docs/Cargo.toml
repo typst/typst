@@ -22,5 +22,4 @@ serde = { version = "1", features = ["derive"] }
 serde_yaml = "0.8"
 unicode_names2 = "0.6.0"
 unscanny = "0.1"
-ureq = { version = "2.6", features = ["json"] }
 yaml-front-matter = "0.1"
