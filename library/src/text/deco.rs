@@ -6,7 +6,7 @@ use crate::prelude::*;
 
 /// Underline text.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// This is #underline[important].
 /// ```
@@ -80,7 +80,7 @@ impl Show for UnderlineElem {
 
 /// Add a line over text.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #overline[A line over text.]
 /// ```
@@ -160,7 +160,7 @@ impl Show for OverlineElem {
 
 /// Strike through text.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// This is #strike[not] relevant.
 /// ```

@@ -67,7 +67,7 @@ the first item of the list above by indenting it.
 + The geology
 ```
 
-## Adding a figure
+## Adding a figure { #figure }
 You think that your report would benefit from a figure. Let's add one. Typst
 supports images in the formats PNG, JPEG, GIF, and SVG. To add an image file to
 your project, first open the _file panel_ by clicking the box icon in the left
@@ -174,7 +174,7 @@ On the contrary, strings work wherever content is expected because text is a
 valid kind of content.
 </div>
 
-## Adding a bibliography
+## Adding a bibliography { #bibliography }
 As you write up your report, you need to back up some of your claims. You can
 add a bibliography to your document with the
 [`bibliography`]($func/bibliography) function. This function expects a path
@@ -200,7 +200,7 @@ established in @glacier-melt.
 #bibliography("works.bib")
 ```
 
-## Maths
+## Maths { #maths }
 After fleshing out the methods section, you move on to the meat of the document:
 Your equations. Typst has built-in mathematical typesetting and uses its own
 math notation. Let's start with a simple equation. We wrap it in `[$]` signs
@@ -293,7 +293,7 @@ This notation is also available in markup mode, but the symbol name must be
 preceded with `#sym.` there. See the [symbols section]($category/symbols/sym)
 for a list of all available symbols.
 
-## Review
+## Review { #review }
 You have now seen how to write a basic document in Typst. You learned how to
 emphasize text, write lists, insert images, align content, and typeset
 mathematical expressions. You also learned about Typst's functions. There are

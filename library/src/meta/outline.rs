@@ -16,7 +16,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// be displayed in the outline alongside its title or caption. By default this
 /// generates a table of contents.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #outline()
 ///
@@ -27,7 +27,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// #lorem(10)
 /// ```
 ///
-/// ## Alternative outlines
+/// ## Alternative outlines { #alternative-outlines }
 /// By setting the `target` parameter, the outline can be used to generate a
 /// list of other kinds of elements than headings. In the example below, we list
 /// all figures containing images by setting `target` to `{figure.where(kind:

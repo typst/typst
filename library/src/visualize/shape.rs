@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 /// A rectangle with optional content.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// // Without content.
 /// #rect(width: 35%, height: 30pt)
@@ -180,7 +180,7 @@ impl Layout for RectElem {
 
 /// A square with optional content.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// // Without content.
 /// #square(size: 40pt)
@@ -291,7 +291,7 @@ impl Layout for SquareElem {
 
 /// An ellipse with optional content.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// // Without content.
 /// #ellipse(width: 35%, height: 30pt)
@@ -374,7 +374,7 @@ impl Layout for EllipseElem {
 
 /// A circle with optional content.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// // Without content.
 /// #circle(radius: 25pt)

@@ -16,7 +16,7 @@ use crate::prelude::*;
 /// headings, figures, and more. Moreover, you can define custom counters for
 /// other things you want to count.
 ///
-/// ## Displaying a counter
+/// ## Displaying a counter { #displaying }
 /// To display the current value of the heading counter, you call the `counter`
 /// function with the `key` set to `heading` and then call the `display` method
 /// on the counter. To see any output, you also have to enable heading
@@ -40,7 +40,7 @@ use crate::prelude::*;
 /// #counter(heading).display("I")
 /// ```
 ///
-/// ## Modifying a counter
+/// ## Modifying a counter { #modifying }
 /// To modify a counter, you can use the `step` and `update` methods:
 ///
 /// - The `step` method increases the value of the counter by one. Because
@@ -75,7 +75,7 @@ use crate::prelude::*;
 /// Still at #counter(heading).display().
 /// ```
 ///
-/// ## Custom counters
+/// ## Custom counters { #custom-counters }
 /// To define your own counter, call the `counter` function with a string as a
 /// key. This key identifies the counter globally.
 ///
@@ -88,7 +88,7 @@ use crate::prelude::*;
 /// #mine.display() \
 /// ```
 ///
-/// ## How to step
+/// ## How to step { #how-to-step }
 /// When you define and use a custom counter, in general, you should first step
 /// the counter and then display it. This way, the stepping behaviour of a
 /// counter can depend on the element it is stepped for. If you were writing a
@@ -117,7 +117,7 @@ use crate::prelude::*;
 /// they always start at zero. This way, they are at one for the first display
 /// (which happens after the first step).
 ///
-/// ## Page counter
+/// ## Page counter { #page-counter }
 /// The page counter is special. It is automatically stepped at each pagebreak.
 /// But like other counters, you can also step it manually. For example, you
 /// could have Roman page numbers for your preface, then switch to Arabic page
@@ -144,7 +144,7 @@ use crate::prelude::*;
 /// Arabic numbers.
 /// ```
 ///
-/// ## Time travel
+/// ## Time travel { #time-travel }
 /// Counters can travel through time! You can find out the final value of the
 /// counter before it is reached and even determine what the value was at any
 /// particular location in the document.
@@ -195,7 +195,7 @@ use crate::prelude::*;
 ///   which one doesn't matter. After the heading follow two calls to `step()`,
 ///   so the final value is `{(6,)}`.
 ///
-/// ## Other kinds of state
+/// ## Other kinds of state { #other-state }
 /// The `counter` function is closely related to [state]($func/state) function.
 /// Read its documentation for more details on state management in Typst and
 /// why it doesn't just use normal variables for counters.

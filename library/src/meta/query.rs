@@ -10,7 +10,7 @@ use crate::prelude::*;
 /// find all elements, just the ones before that location, or just the ones
 /// after it.
 ///
-/// ## Finding elements
+/// ## Finding elements { #finding-elements }
 /// In the example below, we create a custom page header that displays the text
 /// "Typst Academy" in small capitals and the current section title. On the
 /// first page, the section title is omitted because the header is before the
@@ -62,7 +62,7 @@ use crate::prelude::*;
 /// #lorem(15)
 /// ```
 ///
-/// ## A word of caution
+/// ## A word of caution { #caution }
 /// To resolve all your queries, Typst evaluates and layouts parts of the
 /// document multiple times. However, there is no guarantee that your queries
 /// can actually be completely resolved. If you aren't careful a query can
@@ -89,7 +89,7 @@ use crate::prelude::*;
 /// })
 /// ```
 ///
-/// ## Migration Hints
+/// ## Migration Hints { #migration-hints }
 /// The `before` and `after` arguments have been removed in version 0.3.0. You
 /// can now use flexible selector combinator methods instead. For example,
 /// `query(heading, before: loc)` becomes `query(heading.before(loc), loc)`.

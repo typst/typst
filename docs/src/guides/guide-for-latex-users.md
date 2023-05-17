@@ -27,7 +27,7 @@ In the following, we will cover some of the most common questions a user
 switching from LaTeX will have when composing a document in Typst. If you prefer
 a step-by-step introduction to Typst, check out our [tutorial]($tutorial).
 
-## How do I create a new, empty document?
+## How do I create a new, empty document? { #getting-started }
 That's easy. You just create a new, empty text file (the file extension is
 `.typ`). No boilerplate is needed to get started. Simply start by writing your
 text. It will be set on an empty A4-sized page. If you are using the web app,
@@ -42,7 +42,7 @@ Here are two paragraphs. The
 output is shown to the right.
 ```
 
-## How do I create a section heading, emphasis, ...?
+## How do I create a section heading, emphasis, ...? { #elements }
 LaTeX uses the command `\section` to create a section heading. To nest deeper,
 you can use `\subsection`, `\subsubsection`, etc. Depending on your document
 class, there is also `\part` or `\chapter`.
@@ -108,7 +108,7 @@ To get a [numbered list]($func/enum) (`enumerate`) instead, use a `+` instead of
 the hyphen. For a [term list]($func/terms) (`description`), write
 `[/ Term: Description]` instead.
 
-## How do I use a command?
+## How do I use a command? { #commands }
 LaTeX heavily relies on commands (prefixed by backslashes). It uses these
 _macros_ to affect the typesetting process and to insert and manipulate content.
 Some commands accept arguments, most frequently they are enclosed in curly
@@ -148,7 +148,7 @@ A function call always involves the name of the function ([`rect`]($func/rect),
 [`range`]($func/range)) and then an argument list, even if it is empty. The
 argument list is enclosed in parentheses.
 
-### Arguments
+### Arguments { #arguments }
 A function can have multiple arguments. Some arguments are positional, i.e. you
 just provide the value: The function `[#lower("SCREAM")]` returns its argument
 in all-lowercase. Many functions use named arguments instead of positional
@@ -186,7 +186,7 @@ to LaTeX.
 #rect(fill: aqua)[Get started here!]
 ```
 
-### Data types
+### Data types { #data-types }
 You likely already noticed that the arguments have distinctive data types. Typst
 supports [many data types]($type). Below, there is a table with a few of the
 most important ones and how to write them:
@@ -209,7 +209,7 @@ define [variables]($scripting/#bindings) and do computations with them.
 
 In order to specify values of any of these types, you have to be in code mode!
 
-### Commands to affect the remaining document
+### Commands to affect the remaining document { #rules }
 In LaTeX, some commands like `\textbf{bold text}` are passed their argument in curly
 braces and only affect that argument whereas other commands like `\bfseries bold
 text` act as switches and change the appearance of all following content in the
@@ -252,7 +252,7 @@ element beyond what its arguments enable, you can completely redefine its
 appearance with a [show rule]($styling/#show-rules) (somewhat comparable to
 `\renewcommand`).
 
-## How do I load a document class?
+## How do I load a document class? { #templates }
 In LaTeX, you start your main `.tex` file with the `\documentclass{article}`
 command to define how your document is supposed to look. In that command, you
 may have replaced `article` with another value such as `report` and `amsart` to
@@ -385,7 +385,7 @@ You can also [create your own, custom templates.]($tutorial/making-a-template)
 They are shorter and more readable than the corresponding LaTeX `.sty` files by
 orders of magnitude, so give it a try!
 
-## How do I load packages?
+## How do I load packages? { #packages }
 Most things you load packages for in LaTeX are just included in Typst, no need
 to load or install anything. Below, we compiled a table with frequently loaded
 packages and their corresponding Typst functions.
@@ -418,7 +418,7 @@ Currently, there is no package manager for Typst, but we plan to build one so
 that you can easily use packages with tools and templates from the community and
 publish your own.
 
-## How do I input maths?
+## How do I input maths? { #maths }
 To enter math mode in Typst, just enclose your equation in dollar signs. You can
 enter display mode by putting spaces or newlines between the opening and closing
 dollar sign and the equation.
@@ -516,7 +516,7 @@ $ mat(
 ) $
 ```
 
-## How do I get the "LaTeX look?"
+## How do I get the "LaTeX look?" { #latex-look }
 Papers set in LaTeX have an unmistakeable look. This is mostly due to their
 font, Computer Modern, justification, narrow line spacing, and wide margins.
 
@@ -541,7 +541,7 @@ The example below
 This should be a good starting point! If you want to go further, why not create
 a reusable template?
 
-## What limitations does Typst currently have compared with LaTeX?
+## What limitations does Typst currently have compared with LaTeX? { #limitations }
 Although Typst can be a LaTeX replacement for many today, there are still
 features that Typst does not (yet) support. Here is a list of them which, where
 applicable, contains possible workarounds.

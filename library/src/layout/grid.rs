@@ -34,7 +34,7 @@ use super::Sizing;
 /// instead of an array. For example, `columns:` `{3}` is equivalent to
 /// `columns:` `{(auto, auto, auto)}`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set text(10pt, style: "italic")
 /// #let cell = rect.with(

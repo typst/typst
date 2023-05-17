@@ -6,7 +6,7 @@ use crate::prelude::*;
 ///
 /// The file will be read and returned as a string.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let text = read("data.html")
 ///
@@ -38,7 +38,7 @@ pub fn read(
 /// rows will be collected into a single array. Header rows will not be
 /// stripped.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let results = csv("data.csv")
 ///
@@ -138,7 +138,7 @@ fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
 /// The JSON files in the example contain objects with the keys `temperature`,
 /// `unit`, and `weather`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let forecast(day) = block[
 ///   #box(square(
@@ -218,7 +218,7 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 /// The TOML file in the example consists of a table with the keys `title`,
 /// `version`, and `authors`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let details = toml("details.toml")
 ///
@@ -302,7 +302,7 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 /// each with a sequence of their own submapping with the keys
 /// "title" and "published"
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let bookshelf(contents) = {
 ///   for (author, works) in contents {
@@ -384,7 +384,7 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 /// `content` tag contains one or more paragraphs, which are represented as `p`
 /// tags.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let findChild(elem, tag) = {
 ///   elem.children

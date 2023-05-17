@@ -19,7 +19,7 @@ use crate::text::TextElem;
 /// If you just want to link to a labelled element and not get an automatic
 /// textual reference, consider using the [`link`]($func/link) function instead.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set heading(numbering: "1.")
 /// #set math.equation(numbering: "(1)")
@@ -43,7 +43,7 @@ use crate::text::TextElem;
 /// #bibliography("works.bib")
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: A reference to a label can be
 /// created by typing an `@` followed by the name of the label (e.g.
 /// `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
@@ -51,7 +51,7 @@ use crate::text::TextElem;
 /// To customize the supplement, add content in square brackets after the
 /// reference: `[@intro[Chapter]]`.
 ///
-/// ## Customization
+/// ## Customization { #customization }
 /// If you write a show rule for references, you can access the referenced
 /// element through the `element` field of the reference. The `element` may
 /// be `{none}` even if it exists if Typst hasn't discovered it yet, so you

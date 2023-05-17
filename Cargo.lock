@@ -2312,6 +2312,7 @@ dependencies = [
  "pulldown-cmark",
  "serde",
  "serde_yaml",
+ "typed-arena",
  "typst",
  "typst-library",
  "unicode_names2",

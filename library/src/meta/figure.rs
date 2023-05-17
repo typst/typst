@@ -15,7 +15,7 @@ use crate::visualize::ImageElem;
 /// For example, figures containing images will be numbered separately from
 /// figures containing tables.
 ///
-/// ## Examples
+/// ## Examples { #examples }
 /// The example below shows a basic figure with an image:
 /// ```example
 /// @glacier shows a glacier. Glaciers
@@ -45,7 +45,7 @@ use crate::visualize::ImageElem;
 /// This behaviour can be overridden by explicitly specifying the figure's
 /// `kind`. All figures of the same kind share a common counter.
 ///
-/// ## Modifying the appearance
+/// ## Modifying the appearance { #modifying-appearance }
 /// You can completely customize the look of your figures with a [show
 /// rule]($styling/#show-rules). In the example below, we show the figure's
 /// caption above its body and display its supplement and counter after the

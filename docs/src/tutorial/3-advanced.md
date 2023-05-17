@@ -26,7 +26,7 @@ Now, your supervisor can also edit the project and you can both see the changes
 in real time. You can join our [Discord server](https://discord.gg/2uDybryKPe)
 to find others with preview access and try teams with them!
 
-## The conference guidelines
+## The conference guidelines { #guidelines }
 The layout guidelines are available on the conference website. Let's take a look
 at them:
 
@@ -46,7 +46,7 @@ at them:
 We already know how to do many of these things, but for some of them, we'll need
 to learn some new tricks.
 
-## Writing the right set rules
+## Writing the right set rules { #set-rules }
 Let's start by writing some set rules for the document.
 
 ```example
@@ -84,7 +84,7 @@ setting into to `{"1"}`, Typst only displays the bare page number. Setting it to
 surrounded by parentheses. And we could even have provided a completely custom
 function here to format things to our liking.
 
-## Creating a title and abstract
+## Creating a title and abstract { #title-and-abstract }
 Now, let's add a title and an abstract. We'll start with the title. We center
 align it and increase its font weight by enclosing it in `[*stars*]`.
 
@@ -246,7 +246,7 @@ After we bound the content to the `title` variable, we can use it in functions
 and also within markup (prefixed by `#`, like functions). This way, if we decide
 on another title, we can easily change it in one place.
 
-## Adding columns and headings
+## Adding columns and headings { #columns-and-headings }
 The paper above unfortunately looks like a wall of lead. To fix that, let's add
 some headings and switch our paper to a two-column layout. The
 [`columns`]($func/columns) function takes a number and content, and layouts the
@@ -493,7 +493,7 @@ the conference! The finished paper looks like this:
   style="box-shadow: 0 4px 12px rgb(89 85 101 / 20%); width: 500px; max-width: 100%; display: block; margin: 24px auto;"
 >
 
-## Review
+## Review { #review }
 You have now learned how to create headers and footers, how to use functions and
 scopes to locally override styles, how to create more complex layouts with the [`grid`]($func/grid) function and how to write show rules for individual functions, and the whole document. You also learned how to use the
 [`where` selector]($styling/#show-rules) to filter the headings by their level.

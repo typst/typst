@@ -4,7 +4,7 @@ use crate::prelude::*;
 ///
 /// The polygon is defined by its corner points and is closed automatically.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #polygon(
 ///   fill: blue.lighten(80%),

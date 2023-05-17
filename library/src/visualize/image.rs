@@ -11,7 +11,7 @@ use crate::text::families;
 ///
 /// Supported formats are PNG, JPEG, GIF and SVG.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #figure(
 ///   image("molecular.jpg", width: 80%),

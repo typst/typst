@@ -9,7 +9,7 @@ use super::GridLayouter;
 /// Displays a sequence of items vertically, with each item introduced by a
 /// marker.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// - *Content*
 ///   - Text
@@ -28,7 +28,7 @@ use super::GridLayouter;
 ///   )
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This functions also has dedicated syntax: Start a line with a hyphen,
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented

@@ -47,7 +47,7 @@ pub(super) fn define(global: &mut Scope) {
 /// rule is often the simpler choice, calling the text function directly can be
 /// useful when passing text as an argument to another function.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set text(18pt)
 /// With a set rule.

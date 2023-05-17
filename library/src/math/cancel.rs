@@ -4,7 +4,7 @@ use super::*;
 ///
 /// This is commonly used to show the eliminiation of a term.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// >>> #set page(width: 140pt)
 /// Here, we can simplify:

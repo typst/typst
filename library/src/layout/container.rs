@@ -9,7 +9,7 @@ use crate::prelude::*;
 /// elements into a paragraph. Boxes take the size of their contents by default
 /// but can also be sized explicitly.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// Refer to the docs
 /// #box(
@@ -170,7 +170,7 @@ impl Layout for BoxElem {
 /// Such a container can be used to separate content, size it and give it a
 /// background or border.
 ///
-/// ## Examples
+/// ## Examples { #examples }
 /// With a block, you can give a background to content while still allowing it
 /// to break across multiple pages.
 /// ```example

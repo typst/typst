@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// To give a table a caption and make it [referenceable]($func/ref), put it
 /// into a [figure]($func/figure).
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),

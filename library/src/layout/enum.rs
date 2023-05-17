@@ -11,7 +11,7 @@ use super::GridLayouter;
 ///
 /// Displays a sequence of items vertically and numbers them consecutively.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// Automatically numbered:
 /// + Preparations
@@ -47,7 +47,7 @@ use super::GridLayouter;
 /// )
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This functions also has dedicated syntax:
 ///
 /// - Starting a line with a plus sign creates an automatically numbered

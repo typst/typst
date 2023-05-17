@@ -8,7 +8,7 @@ use crate::prelude::*;
 /// it at the original positions. Containers will still be sized as if the content
 /// was not moved.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #rect(inset: 0pt, move(
 ///   dx: 6pt, dy: 6pt,
@@ -58,7 +58,7 @@ impl Layout for MoveElem {
 /// Rotate an element by a given angle. The layout will act as if the element
 /// was not rotated.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #stack(
 ///   dir: ltr,
@@ -131,7 +131,7 @@ impl Layout for RotateElem {
 /// affecting the layout.
 ///
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set align(center)
 /// #scale(x: -100%)[This is mirrored.]

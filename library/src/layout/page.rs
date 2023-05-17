@@ -14,7 +14,7 @@ use crate::prelude::*;
 /// Pages can be set to use `{auto}` as their width or height. In this case,
 /// the pages will grow to fit their content on the respective axis.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// >>> #set page(margin: auto)
 /// #set page("us-letter")
@@ -415,7 +415,7 @@ impl PageElem {
 ///
 /// Must not be used inside any containers.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// The next page contains
 /// more details on compound theory.

@@ -18,7 +18,7 @@ use crate::text::{
 /// properties, it can also be used to explicitly render its argument onto a
 /// paragraph of its own.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set par(first-line-indent: 1em, justify: true)
 /// #show par: set block(spacing: 0.65em)
@@ -203,7 +203,7 @@ pub enum Linebreaks {
 /// [for loops]($scripting/#loops). Multiple consecutive
 /// paragraph breaks collapse into a single one.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #for i in range(3) {
 ///   [Blind text #i: ]
@@ -212,7 +212,7 @@ pub enum Linebreaks {
 /// }
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// Instead of calling this function, you can insert a blank line into your
 /// markup to create a paragraph break.
 ///

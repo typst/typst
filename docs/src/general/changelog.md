@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## April 26, 2023 (v0.3.0)
+## Version 0.3.0 (April 26, 2023) { #v0.3.0 }
 - **Breaking changes:**
   - Renamed a few symbols: What was previous `dot.op` is now just `dot` and the
     basic dot is `dot.basic`. The same applies to `ast` and `tilde`.
@@ -77,7 +77,7 @@ description: |
 
 <contributors from="v0.2.0" to="v0.3.0" />
 
-## April 11, 2023 (v0.2.0)
+## Version 0.2.0 (April 11, 2023) { #v0.2.0 }
 - **Breaking changes:**
   - Removed support for iterating over index and value in
     [for loops]($scripting/#loops). This is now handled via unpacking and
@@ -119,7 +119,7 @@ description: |
 
 <contributors from="v0.1.0" to="v0.2.0" />
 
-## April 04, 2023 (v0.1.0)
+## Version 0.1.0 (April 04, 2023) { #v0.1.0 }
 - **Breaking changes:**
   - When using the CLI, you now have to use subcommands:
     - `typst compile file.typ` or `typst c file.typ` to create a PDF

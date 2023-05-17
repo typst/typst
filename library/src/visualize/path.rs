@@ -4,7 +4,7 @@ use kurbo::{CubicBez, ParamCurveExtrema};
 
 /// A path through a list of points, connected by Bezier curves.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #path(
 ///   fill: blue.lighten(80%),
