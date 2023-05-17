@@ -58,7 +58,6 @@ pub fn csv(
     path: Spanned<EcoString>,
     /// The delimiter that separates columns in the CSV file.
     /// Must be a single ASCII character.
-    /// Defaults to a comma.
     #[named]
     #[default]
     delimiter: Delimiter,
@@ -69,7 +68,7 @@ pub fn csv(
 
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
-    builder.delimiter(delimiter.0);
+    builder.delimiter(delimiter.0 as u8);
 
     let mut reader = builder.from_reader(data.as_slice());
     let mut array = Array::new();
@@ -87,7 +86,7 @@ pub fn csv(
 }
 
 /// The delimiter to use when parsing CSV files.
-struct Delimiter(u8);
+struct Delimiter(char);
 
 cast_from_value! {
     Delimiter,
@@ -102,13 +101,17 @@ cast_from_value! {
             Err("delimiter must be an ASCII character")?
         }
 
-        Self(first as u8)
+        Self(first)
     },
+}
+
+cast_to_value! {
+    v: Delimiter => v.0.into()
 }
 
 impl Default for Delimiter {
     fn default() -> Self {
-        Self(b',')
+        Self(',')
     }
 }
 
@@ -313,7 +316,9 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 ///   }
 /// }
 ///
-/// #bookshelf(yaml("scifi-authors.yaml"))
+/// #bookshelf(
+///   yaml("scifi-authors.yaml")
+/// )
 /// ```
 ///
 /// Display: YAML
@@ -386,15 +391,15 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 ///
 /// ## Example { #example }
 /// ```example
-/// #let findChild(elem, tag) = {
+/// #let find-child(elem, tag) = {
 ///   elem.children
 ///     .find(e => "tag" in e and e.tag == tag)
 /// }
 ///
 /// #let article(elem) = {
-///   let title = findChild(elem, "title")
-///   let author = findChild(elem, "author")
-///   let pars = findChild(elem, "content")
+///   let title = find-child(elem, "title")
+///   let author = find-child(elem, "author")
+///   let pars = find-child(elem, "content")
 ///
 ///   heading(title.children.first())
 ///   text(10pt, weight: "medium")[
@@ -411,9 +416,9 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 /// }
 ///
 /// #let data = xml("example.xml")
-/// #for child in data.first().children {
-///   if (type(child) == "dictionary") {
-///     article(child)
+/// #for elem in data.first().children {
+///   if (type(elem) == "dictionary") {
+///     article(elem)
 ///   }
 /// }
 /// ```

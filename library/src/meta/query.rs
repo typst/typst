@@ -98,7 +98,7 @@ use crate::prelude::*;
 ///
 /// Display: Query
 /// Category: meta
-/// Returns: content
+/// Returns: array
 #[func]
 pub fn query(
     /// Can be an element function like a `heading` or `figure`, a `{<label>}`

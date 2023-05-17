@@ -20,8 +20,11 @@ use crate::text::{
 ///
 /// ## Example { #example }
 /// ```example
-/// #set par(first-line-indent: 1em, justify: true)
 /// #show par: set block(spacing: 0.65em)
+/// #set par(
+///   first-line-indent: 1em,
+///   justify: true,
+/// )
 ///
 /// We proceed by contradiction.
 /// Suppose that there exists a set
@@ -40,8 +43,6 @@ use crate::text::{
 #[element(Construct)]
 pub struct ParElem {
     /// The spacing between lines.
-    ///
-    /// The default value is `{0.65em}`.
     #[resolve]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
@@ -102,6 +103,7 @@ pub struct ParElem {
 
     /// The contents of the paragraph.
     #[external]
+    #[required]
     pub body: Content,
 
     /// The paragraph's children.

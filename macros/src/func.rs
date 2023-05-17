@@ -152,6 +152,14 @@ fn create_param_info(param: &Param) -> TokenStream {
     let Param { name, docs, named, variadic, ty, default, .. } = param;
     let positional = !named;
     let required = default.is_none();
+    let default = quote_option(&default.as_ref().map(|_default| {
+        quote! {
+            || {
+                let typed: #ty = #default;
+                ::typst::eval::Value::from(typed)
+            }
+        }
+    }));
     let ty = if *variadic {
         quote! { <#ty as ::typst::eval::Variadics>::Inner }
     } else {
@@ -164,6 +172,7 @@ fn create_param_info(param: &Param) -> TokenStream {
             cast: <#ty as ::typst::eval::Cast<
                 ::typst::syntax::Spanned<::typst::eval::Value>
             >>::describe(),
+            default: #default,
             positional: #positional,
             named: #named,
             variadic: #variadic,

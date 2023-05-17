@@ -121,7 +121,6 @@ pub struct EnumElem {
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
     ///
-    /// Defaults to `{false}`.
     ///
     /// ```example
     /// #set enum(numbering: "1.a)", full: true)

@@ -29,15 +29,9 @@ pub struct PolygonElem {
 
     /// How to stroke the polygon. This can be:
     ///
-    /// - `{none}` to disable the stroke.
-    /// - `{auto}` for a stroke of `{1pt}` black if and if only if no fill is
-    ///   given.
-    /// - A length specifying the stroke's thickness. The color is inherited,
-    ///   defaulting to black.
-    /// - A color to use for the stroke. The thickness is inherited, defaulting
-    ///   to `{1pt}`.
-    /// - A stroke combined from color and thickness using the `+` operator as
-    ///   in `{2pt + red}`.
+    /// See the [line's documentation]($func/line.stroke) for more details. Can
+    /// be set to  `{none}` to disable the stroke or to `{auto}` for a stroke of
+    /// `{1pt}` black if and if only if no fill is given.
     #[resolve]
     #[fold]
     pub stroke: Smart<Option<PartialStroke>>,

@@ -19,8 +19,6 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 #[element(LayoutMath)]
 pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
-    ///
-    /// Defaults to `{100%}`.
     pub size: Smart<Rel<Length>>,
 
     /// The delimited content, including the delimiters.

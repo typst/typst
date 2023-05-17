@@ -27,8 +27,11 @@ pub struct PathElem {
     /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
 
-    /// How to stroke the path. See the
-    /// [polygon's documentation]($func/polygon.stroke) for more details.
+    /// How to stroke the path. This can be:
+    ///
+    /// See the [line's documentation]($func/line.stroke) for more details. Can
+    /// be set to  `{none}` to disable the stroke or to `{auto}` for a stroke of
+    /// `{1pt}` black if and if only if no fill is given.
     #[resolve]
     #[fold]
     pub stroke: Smart<Option<PartialStroke>>,

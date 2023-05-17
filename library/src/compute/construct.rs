@@ -135,23 +135,18 @@ pub fn rgb(
     /// ]
     /// ```
     #[external]
-    #[default]
     hex: EcoString,
     /// The red component.
     #[external]
-    #[default]
     red: Component,
     /// The green component.
     #[external]
-    #[default]
     green: Component,
     /// The blue component.
     #[external]
-    #[default]
     blue: Component,
     /// The alpha component.
     #[external]
-    #[default]
     alpha: Component,
 ) -> Value {
     Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {

@@ -26,9 +26,9 @@ use crate::prelude::*;
 /// Category: layout
 #[element]
 pub struct PageElem {
-    /// A standard paper size to set width and height. When this is not
-    /// specified, Typst defaults to `{"a4"}` paper.
+    /// A standard paper size to set width and height.
     #[external]
+    #[default(Paper::A4)]
     pub paper: Paper,
 
     /// The width of the page.
@@ -470,6 +470,8 @@ cast_to_value! {
 /// Specification of a paper.
 #[derive(Debug, Copy, Clone, Hash)]
 pub struct Paper {
+    /// The name of the paper.
+    name: &'static str,
     /// The width of the paper in millimeters.
     width: Scalar,
     /// The height of the paper in millimeters.
@@ -490,12 +492,13 @@ impl Paper {
 
 /// Defines paper constants and a paper parsing implementation.
 macro_rules! papers {
-    ($(($var:ident: $width:expr, $height: expr, $pat:literal))*) => {
+    ($(($var:ident: $width:expr, $height: expr, $name:literal))*) => {
         /// Predefined papers.
         ///
         /// Each paper is parsable from its name in kebab-case.
         impl Paper {
             $(pub const $var: Self = Self {
+                name: $name,
                 width: Scalar($width),
                 height: Scalar($height),
             };)*
@@ -506,7 +509,7 @@ macro_rules! papers {
 
             fn from_str(name: &str) -> Result<Self, Self::Err> {
                 match name.to_lowercase().as_str() {
-                    $($pat => Ok(Self::$var),)*
+                    $($name => Ok(Self::$var),)*
                     _ => Err("unknown paper size"),
                 }
             }
@@ -516,8 +519,12 @@ macro_rules! papers {
             Paper,
             $(
                 /// Produces a paper of the respective size.
-                $pat => Self::$var,
+                $name => Self::$var,
             )*
+        }
+
+        cast_to_value! {
+            v: Paper => v.name.into()
         }
     };
 }

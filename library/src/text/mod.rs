@@ -573,7 +573,11 @@ cast_from_value! {
 }
 
 cast_to_value! {
-    v: FontList => v.0.into()
+    v: FontList => if v.0.len() == 1 {
+        v.0.into_iter().next().unwrap().0.into()
+    } else {
+        v.0.into()
+    }
 }
 
 /// The size of text.

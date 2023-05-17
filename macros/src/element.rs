@@ -407,9 +407,29 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
 
 /// Create a parameter info for a field.
 fn create_param_info(field: &Field) -> TokenStream {
-    let Field { name, docs, positional, variadic, required, ty, .. } = field;
+    let Field {
+        name,
+        docs,
+        positional,
+        variadic,
+        required,
+        default,
+        fold,
+        ty,
+        output,
+        ..
+    } = field;
     let named = !positional;
     let settable = field.settable();
+    let default_ty = if *fold { &output } else { &ty };
+    let default = quote_option(&settable.then(|| {
+        quote! {
+            || {
+                let typed: #default_ty = #default;
+                ::typst::eval::Value::from(typed)
+            }
+        }
+    }));
     let ty = if *variadic {
         quote! { <#ty as ::typst::eval::Variadics>::Inner }
     } else {
@@ -422,6 +442,7 @@ fn create_param_info(field: &Field) -> TokenStream {
             cast: <#ty as ::typst::eval::Cast<
                 ::typst::syntax::Spanned<::typst::eval::Value>
             >>::describe(),
+            default: #default,
             positional: #positional,
             named: #named,
             variadic: #variadic,

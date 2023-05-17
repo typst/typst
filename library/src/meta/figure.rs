@@ -144,8 +144,6 @@ pub struct FigureElem {
 
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($func/numbering).
-    ///
-    /// Defaults to `{"1"}`.
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
     pub numbering: Option<Numbering>,
 
@@ -155,8 +153,6 @@ pub struct FigureElem {
 
     /// Whether the figure should appear in an [`outline`]($func/outline)
     /// of figures.
-    ///
-    /// Defaults to `{true}`.
     #[default(true)]
     pub outlined: bool,
 

@@ -412,7 +412,7 @@ pub fn tanh(
 pub fn log(
     /// The number whose logarithm to calculate. Must be strictly positive.
     value: Spanned<Num>,
-    /// The base of the logarithm. Defaults to `{10}` and may not be zero.
+    /// The base of the logarithm. May not be zero.
     #[named]
     #[default(Spanned::new(10.0, Span::detached()))]
     base: Spanned<f64>,

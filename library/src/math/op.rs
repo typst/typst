@@ -27,8 +27,6 @@ pub struct OpElem {
     pub text: EcoString,
 
     /// Whether the operator should force attachments to display as limits.
-    ///
-    /// Defaults to `{false}`.
     #[default(false)]
     pub limits: bool,
 }

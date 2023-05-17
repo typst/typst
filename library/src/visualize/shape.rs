@@ -38,32 +38,13 @@ pub struct RectElem {
 
     /// How to stroke the rectangle. This can be:
     ///
-    /// - `{none}` to disable the stroke.
-    /// - `{auto}` for a stroke of `{1pt}` black if and if only if no fill is
+    /// - `{none}` to disable stroking
+    /// - `{auto}` for a stroke of `{1pt + black}` if and if only if no fill is
     ///   given.
-    /// - A length specifying the stroke's thickness. The color is inherited,
-    ///   defaulting to black.
-    /// - A color to use for the stroke. The thickness is inherited, defaulting
-    ///   to `{1pt}`.
-    /// - A stroke combined from color and thickness using the `+` operator as
-    ///   in `{2pt + red}`.
-    /// - A stroke described by a dictionary with any of the following keys:
-    ///     - `color`: the color to use for the stroke
-    ///     - `thickness`: the stroke's thickness
-    ///     - `cap`: one of `"butt"`, `"round"` or `"square"`, the line cap of the stroke
-    ///     - `join`: one of `"miter"`, `"round"` or `"bevel"`, the line join of the stroke
-    ///     - `miter-limit`: the miter limit to use if `join` is `"miter"`, defaults to 4.0
-    ///     - `dash`: the dash pattern to use. Can be any of the following:
-    ///         - One of the strings `"solid"`, `"dotted"`, `"densely-dotted"`, `"loosely-dotted"`,
-    ///           `"dashed"`, `"densely-dashed"`, `"loosely-dashed"`, `"dash-dotted"`,
-    ///           `"densely-dash-dotted"` or `"loosely-dash-dotted"`
-    ///         - An array with elements that specify the lengths of dashes and gaps, alternating.
-    ///           Elements can also be the string `"dot"` for a length equal to the line thickness.
-    ///         - A dict with the keys `array`, same as the array above, and `phase`, the offset to
-    ///           the start of the first dash.
-    /// - Another dictionary describing the stroke for each side inidvidually.
-    ///   The dictionary can contain the following keys in order
-    ///   of precedence:
+    /// - Any kind of stroke that can also be used for
+    ///   [lines]($func/line.stroke).
+    /// - A dictionary describing the stroke for each side inidvidually. The
+    ///   dictionary can contain the following keys in order of precedence:
     ///   - `top`: The top stroke.
     ///   - `right`: The right stroke.
     ///   - `bottom`: The bottom stroke.
@@ -125,8 +106,6 @@ pub struct RectElem {
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the rectangle's content.
-    ///
-    /// The default value is `{5pt}`.
     ///
     /// _Note:_ When the rectangle contains text, its exact size depends on the
     /// current [text edges]($func/text.top-edge).
@@ -242,8 +221,6 @@ pub struct SquareElem {
 
     /// How much to pad the square's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
-    ///
-    /// The default value is `{5pt}`.
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
@@ -326,8 +303,6 @@ pub struct EllipseElem {
 
     /// How much to pad the ellipse's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
-    ///
-    /// The default value is `{5pt}`.
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
@@ -436,8 +411,6 @@ pub struct CircleElem {
 
     /// How much to pad the circle's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
-    ///
-    /// The default value is `{5pt}`.
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]

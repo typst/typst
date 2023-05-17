@@ -83,10 +83,9 @@ pub struct RotateElem {
 
     /// The origin of the rotation.
     ///
-    /// By default, the origin is the center of the rotated element. If,
-    /// however, you wanted the bottom left corner of the rotated element to
-    /// stay aligned with the baseline, you would set the origin to `bottom +
-    /// left`.
+    /// If, for instance, you wanted the bottom left corner of the rotated
+    /// element to stay aligned with the baseline, you would set it to `bottom +
+    /// left` instead.
     ///
     /// ```example
     /// #set text(spacing: 8pt)
@@ -98,6 +97,8 @@ pub struct RotateElem {
     /// #box(rotate(30deg, origin: bottom + right, square()))
     /// ```
     #[resolve]
+    #[fold]
+    #[default(Align::CENTER_HORIZON)]
     pub origin: Axes<Option<GenAlign>>,
 
     /// The content to rotate.
@@ -115,8 +116,8 @@ impl Layout for RotateElem {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
-        let origin = self.origin(styles).unwrap_or(Align::CENTER_HORIZON);
-        let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
+        let Axes { x, y } =
+            self.origin(styles).zip(frame.size()).map(|(o, s)| o.position(s));
         let ts = Transform::translate(x, y)
             .pre_concat(Transform::rotate(self.angle(styles)))
             .pre_concat(Transform::translate(-x, -y));
@@ -160,13 +161,13 @@ pub struct ScaleElem {
 
     /// The origin of the transformation.
     ///
-    /// By default, the origin is the center of the scaled element.
-    ///
     /// ```example
     /// A#box(scale(75%)[A])A \
     /// B#box(scale(75%, origin: bottom + left)[B])B
     /// ```
     #[resolve]
+    #[fold]
+    #[default(Align::CENTER_HORIZON)]
     pub origin: Axes<Option<GenAlign>>,
 
     /// The content to scale.
@@ -184,8 +185,8 @@ impl Layout for ScaleElem {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
-        let origin = self.origin(styles).unwrap_or(Align::CENTER_HORIZON);
-        let Axes { x, y } = origin.zip(frame.size()).map(|(o, s)| o.position(s));
+        let Axes { x, y } =
+            self.origin(styles).zip(frame.size()).map(|(o, s)| o.position(s));
         let transform = Transform::translate(x, y)
             .pre_concat(Transform::scale(self.x(styles), self.y(styles)))
             .pre_concat(Transform::translate(-x, -y));

@@ -492,6 +492,7 @@ pub struct ParamModel {
     pub example: Option<Html>,
     pub types: Vec<&'static str>,
     pub strings: Vec<StrParam>,
+    pub default: Option<Html>,
     pub positional: bool,
     pub named: bool,
     pub required: bool,
@@ -532,6 +533,10 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
         example: example.map(|md| Html::markdown(resolver, md)),
         types,
         strings,
+        default: info.default.map(|default| {
+            let node = typst::syntax::parse_code(&default().repr());
+            Html::new(typst::ide::highlight_html(&node))
+        }),
         positional: info.positional,
         named: info.named,
         required: info.required,
@@ -721,6 +726,7 @@ fn method_model(resolver: &dyn Resolver, part: &'static str) -> MethodModel {
             example: None,
             types,
             strings: vec![],
+            default: None,
             positional,
             named,
             required,

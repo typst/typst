@@ -15,8 +15,11 @@ use crate::prelude::*;
 /// Category: text
 #[element(Show)]
 pub struct UnderlineElem {
-    /// How to stroke the line. The text color and thickness are read from the
-    /// font tables if `{auto}`.
+    /// How to stroke the line.
+    ///
+    /// See the [line's documentation]($func/line.stroke) for more details. If
+    /// set to `{auto}`, takes on the text's color and a thickness defined in
+    /// the current font.
     ///
     /// ```example
     /// Take #underline(
@@ -89,8 +92,11 @@ impl Show for UnderlineElem {
 /// Category: text
 #[element(Show)]
 pub struct OverlineElem {
-    /// How to stroke the line. The text color and thickness are read from the
-    /// font tables if `{auto}`.
+    /// How to stroke the line.
+    ///
+    /// See the [line's documentation]($func/line.stroke) for more details. If
+    /// set to `{auto}`, takes on the text's color and a thickness defined in
+    /// the current font.
     ///
     /// ```example
     /// #set text(fill: olive)
@@ -169,8 +175,11 @@ impl Show for OverlineElem {
 /// Category: text
 #[element(Show)]
 pub struct StrikeElem {
-    /// How to stroke the line. The text color and thickness are read from the
-    /// font tables if `{auto}`.
+    /// How to stroke the line.
+    ///
+    /// See the [line's documentation]($func/line.stroke) for more details. If
+    /// set to `{auto}`, takes on the text's color and a thickness defined in
+    /// the current font.
     ///
     /// _Note:_ Please don't use this for real redaction as you can still
     /// copy paste the text.
