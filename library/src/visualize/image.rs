@@ -10,6 +10,9 @@ use crate::text::families;
 /// A raster or vector graphic.
 ///
 /// Supported formats are PNG, JPEG, GIF and SVG.
+/// _Note:_ Including SVG images is currently still work in progress and there
+/// might be visual inaccuracies in the resulting PDF. Make sure to double-check
+/// embedded svg images for such issues.
 ///
 /// ## Example
 /// ```example
