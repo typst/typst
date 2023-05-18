@@ -254,12 +254,12 @@ pub enum BibliographyStyle {
 impl BibliographyStyle {
     /// The default citation style for this bibliography style.
     pub fn default_citation_style(self) -> CitationStyle {
-        match self {
-            Self::Apa => CitationStyle::ChicagoAuthorDate,
-            Self::ChicagoAuthorDate => CitationStyle::ChicagoAuthorDate,
-            Self::Ieee => CitationStyle::Numerical,
-            Self::Mla => CitationStyle::ChicagoAuthorDate,
-        }
+        CitationStyle::BuiltIn(match self {
+            Self::Apa => CitationStyleBuiltIn::ChicagoAuthorDate,
+            Self::ChicagoAuthorDate => CitationStyleBuiltIn::ChicagoAuthorDate,
+            Self::Ieee => CitationStyleBuiltIn::Numerical,
+            Self::Mla => CitationStyleBuiltIn::ChicagoAuthorDate,
+        })
     }
 }
 
@@ -364,6 +364,12 @@ impl Show for CiteElem {
             .flatten()
             .ok_or("bibliography does not contain this key")
             .at(self.span())
+            .and_then(|c| match c {
+                CiteContentOrFunc::Content(content) => Ok(content),
+                CiteContentOrFunc::FuncCall(func, args) => func
+                    .call_vt(vt, args)
+                    .and_then(|v| Value::cast::<Content>(v).at(self.span())),
+            })
     }
 }
 
@@ -372,9 +378,9 @@ cast_from_value! {
     v: Content => v.to::<Self>().cloned().ok_or("expected citation")?,
 }
 
-/// A citation style.
+/// A built-in citation style.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum CitationStyle {
+pub enum CitationStyleBuiltIn {
     /// IEEE-style numerical reference markers.
     Numerical,
     /// A simple alphanumerical style. For example, the output could be Rass97
@@ -390,16 +396,49 @@ pub enum CitationStyle {
     ChicagoAuthorTitle,
 }
 
-impl CitationStyle {
-    fn is_short(self) -> bool {
-        matches!(self, Self::Numerical | Self::Alphanumerical | Self::Keys)
+/// A citation style, which can either be built-in or a function.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub enum CitationStyle {
+    /// A built-in citation style.
+    BuiltIn(CitationStyleBuiltIn),
+    /// A user-provided function citation style.
+    Func(Func),
+}
+
+cast_from_value! {
+    CitationStyle,
+    v: CitationStyleBuiltIn => Self::BuiltIn(v),
+    v: Func => Self::Func(v),
+}
+
+cast_to_value! {
+    v: CitationStyle => match v {
+        CitationStyle::BuiltIn(builtin) => builtin.into(),
+        CitationStyle::Func(func) => func.into(),
     }
+}
+
+impl CitationStyle {
+    fn is_short(&self) -> bool {
+        use CitationStyleBuiltIn::*;
+        matches!(self, Self::BuiltIn(Numerical | Alphanumerical | Keys))
+    }
+}
+
+/// The result of a cite call, which can either immediately be content or a function call to later
+/// resolve into content.
+#[derive(Clone)]
+enum CiteContentOrFunc {
+    /// Already-created content.
+    Content(Content),
+    /// A function and arguments to call it with, which should resolve to content.
+    FuncCall(Func, Vec<Value>),
 }
 
 /// Fully formatted citations and references.
 #[derive(Default)]
 struct Works {
-    citations: HashMap<Location, Option<Content>>,
+    citations: HashMap<Location, Option<CiteContentOrFunc>>,
     references: Vec<(Option<Content>, Content)>,
 }
 
@@ -420,6 +459,144 @@ impl Works {
             })
             .collect();
         Ok(create(vt.world, bibliography, citations))
+    }
+}
+
+/// Converts a hayagriva title into a typst dictionary.
+fn title_to_dict(title: &hayagriva::types::Title) -> Dict {
+    dict! {
+        "canonical" => &*title.canonical.value,
+        "shorthand" => title.shorthand.as_ref().map(|f| &*f.value),
+        "translated" => title.translated.as_ref().map(|f| &*f.value),
+    }
+}
+
+/// Converts a hayagriva person into a typst dictionary.
+fn person_to_dict(person: &hayagriva::types::Person) -> Dict {
+    dict! {
+        "name" => &*person.name,
+        "given-name" => person.given_name.as_deref(),
+        "prefix" => person.prefix.as_deref(),
+        "suffix" => person.suffix.as_deref(),
+        "alias" => person.alias.as_deref(),
+    }
+}
+
+/// Converts an array of hayagriva persons into a typst array.
+fn persons_to_array(persons: &[hayagriva::types::Person]) -> Array {
+    persons.iter().map(|p| Value::Dict(person_to_dict(p))).collect()
+}
+
+/// Converts a hayagriva affiliated persons structure into a typst array.
+///
+/// Note that this makes a minor modification to the hayagriva structure
+/// to make ergonomics slightly better for a dynamically typed language -
+/// the persons and role are presented as a dictionary instead of a tuple.
+fn affiliated_persons_to_array(
+    affiliated_persons: &[(
+        Vec<hayagriva::types::Person>,
+        hayagriva::types::PersonRole,
+    )],
+) -> Array {
+    affiliated_persons
+        .iter()
+        .map(|(persons, role)| {
+            Value::Dict(dict! {
+                "persons" => persons_to_array(persons),
+                "role" => role.to_string(),
+            })
+        })
+        .collect()
+}
+
+/// Converts a hayagriva date (or something which can borrow as one) into a typst dictionary.
+fn date_to_dict(date: impl std::borrow::Borrow<hayagriva::types::Date>) -> Dict {
+    let date = date.borrow();
+    dict! {
+        "year" => date.year,
+        "month" => date.month,
+        "day" => date.day,
+    }
+}
+
+/// Converts a hayagriva number or string structure into a typst value of the correct type.
+fn num_or_str_to_value(num_or_str: &hayagriva::types::NumOrStr) -> Value {
+    match num_or_str {
+        hayagriva::types::NumOrStr::Number(n) => (*n).into(),
+        hayagriva::types::NumOrStr::Str(s) => (&**s).into(),
+    }
+}
+
+/// Converts a range into a typst dictionary, using a function for mapping the range type into
+/// something that can turn into a typst type.
+fn range_to_dict<'a: 'b, 'b, T, I: Into<Value>>(
+    range: &'a std::ops::Range<T>,
+    f: impl Fn(&'b T) -> I,
+) -> Dict {
+    dict! {
+        "start" => f(&range.start),
+        "end" => f(&range.end),
+    }
+}
+
+/// Converts a hayagriva duration (or something that can borrow as one) into a typst dictionary.
+fn duration_to_dict(
+    duration: impl std::borrow::Borrow<hayagriva::types::Duration>,
+) -> Dict {
+    let duration = duration.borrow();
+    dict! {
+        "days" => duration.days,
+        "hours" => duration.hours,
+        "minutes" => duration.minutes,
+        "seconds" => duration.seconds,
+        "milliseconds" => duration.milliseconds,
+    }
+}
+
+/// Converts a hayagriva qualified url into a typst dictionary.
+///
+/// For now, this doesn't expose the full `url` crate type, instead just providing `value` as a
+/// string.
+fn qualified_url_to_dict(url: &hayagriva::types::QualifiedUrl) -> Dict {
+    dict! {
+        "value-string" => url.value.to_string(),
+        "visit-date" => url.visit_date.map(date_to_dict),
+    }
+}
+
+/// Converts a hayagriva entry into a typst dictionary of (mostly) the same shape.
+fn entry_to_dict(entry: &Entry) -> Dict {
+    dict! {
+        "key" => entry.key(),
+        "entry-type" => entry.kind().to_string(),
+        "title" => entry.title().map(title_to_dict),
+        "authors" => entry.authors().map(persons_to_array),
+        "date" => entry.date().map(date_to_dict),
+        "date-any" => entry.date_any().map(date_to_dict),
+        "parents" => entry.parents().map(|l| l.iter().map(|e| Value::Dict(entry_to_dict(e))).collect::<Array>()),
+        "editors" => entry.editors().map(persons_to_array),
+        "affiliated-persons" => entry.affiliated_persons().map(affiliated_persons_to_array),
+        "publisher" => entry.publisher().map(|p| &*p.value),
+        "location" => entry.location().map(|l| &*l.value),
+        "organization" => entry.organization(),
+        "issue" => entry.issue().map(num_or_str_to_value),
+        "volume" => entry.volume().map(|v| range_to_dict(v, |x| *x)),
+        "volume-total" => entry.volume_total().copied(),
+        "edition" => entry.edition().map(num_or_str_to_value),
+        "page-range" => entry.page_range().map(|p| range_to_dict(p, |x| *x)),
+        "page-total" => entry.page_total(),
+        "time-range" => entry.time_range().map(|t| range_to_dict(t, duration_to_dict)),
+        "runtime" => entry.runtime().map(duration_to_dict),
+        "url" => entry.url().map(qualified_url_to_dict),
+        "url-any" => entry.url_any().map(qualified_url_to_dict),
+        "doi" => entry.doi(),
+        "serial-number" => entry.serial_number(),
+        "isbn" => entry.isbn(),
+        "issn" => entry.issn(),
+        "language" => entry.language().map(|l| l.to_string()),
+        "archive" => entry.archive().map(|a| &*a.value),
+        "archive-location" => entry.archive_location().map(|a| &*a.value),
+        "note" => entry.note(),
     }
 }
 
@@ -461,9 +638,9 @@ fn create(
         preliminary.push((citation, entries));
     }
 
-    let mut current = CitationStyle::Numerical;
-    let mut citation_style: Box<dyn style::CitationStyle> =
-        Box::new(style::Numerical::new());
+    let mut current = CitationStyle::BuiltIn(CitationStyleBuiltIn::Numerical);
+    let mut citation_style: Option<Box<dyn style::CitationStyle>> =
+        Some(Box::new(style::Numerical::new()));
 
     let citations = preliminary
         .into_iter()
@@ -478,64 +655,82 @@ fn create(
                 .unwrap_or(style.default_citation_style());
 
             if style != current {
-                current = style;
+                current = style.clone();
                 citation_style = match style {
-                    CitationStyle::Numerical => Box::new(style::Numerical::new()),
-                    CitationStyle::Alphanumerical => {
-                        Box::new(style::Alphanumerical::new())
-                    }
-                    CitationStyle::ChicagoAuthorDate => {
-                        Box::new(style::ChicagoAuthorDate::new())
-                    }
-                    CitationStyle::ChicagoAuthorTitle => {
-                        Box::new(style::AuthorTitle::new())
-                    }
-                    CitationStyle::Keys => Box::new(style::Keys::new()),
+                    CitationStyle::BuiltIn(builtin) => Some(match builtin {
+                        CitationStyleBuiltIn::Numerical => {
+                            Box::new(style::Numerical::new())
+                        }
+                        CitationStyleBuiltIn::Alphanumerical => {
+                            Box::new(style::Alphanumerical::new())
+                        }
+                        CitationStyleBuiltIn::ChicagoAuthorDate => {
+                            Box::new(style::ChicagoAuthorDate::new())
+                        }
+                        CitationStyleBuiltIn::ChicagoAuthorTitle => {
+                            Box::new(style::AuthorTitle::new())
+                        }
+                        CitationStyleBuiltIn::Keys => Box::new(style::Keys::new()),
+                    }),
+
+                    CitationStyle::Func(_) => None,
                 };
             }
 
-            let len = cited.len();
-            let mut content = Content::empty();
-            for (i, entry) in cited.into_iter().enumerate() {
-                let supplement = if i + 1 == len { supplement.take() } else { None };
-                let mut display = db
-                    .citation(
-                        &mut *citation_style,
-                        &[Citation {
-                            entry,
-                            supplement: supplement.is_some().then_some(SUPPLEMENT),
-                        }],
-                    )
-                    .display;
+            let content = if let Some(citation_style) = citation_style.as_mut() {
+                let len = cited.len();
+                let mut content = Content::empty();
+                for (i, entry) in cited.into_iter().enumerate() {
+                    let supplement = if i + 1 == len { supplement.take() } else { None };
+                    let mut display = db
+                        .citation(
+                            &mut **citation_style,
+                            &[Citation {
+                                entry,
+                                supplement: supplement.is_some().then_some(SUPPLEMENT),
+                            }],
+                        )
+                        .display;
 
-                if style.is_short() {
-                    display.value = display.value.replace(' ', "\u{a0}");
-                }
-
-                if brackets && len == 1 {
-                    display = display.with_default_brackets(&*citation_style);
-                }
-
-                if i > 0 {
-                    content += TextElem::packed(",\u{a0}");
-                }
-
-                // Format and link to the reference entry.
-                content += format_display_string(&display, supplement, citation.span())
-                    .linked(Destination::Location(ref_location(entry)));
-            }
-
-            if brackets && len > 1 {
-                content = match citation_style.brackets() {
-                    Brackets::None => content,
-                    Brackets::Round => {
-                        TextElem::packed('(') + content + TextElem::packed(')')
+                    if style.is_short() {
+                        display.value = display.value.replace(' ', "\u{a0}");
                     }
-                    Brackets::Square => {
-                        TextElem::packed('[') + content + TextElem::packed(']')
+
+                    if brackets && len == 1 {
+                        display = display.with_default_brackets(&**citation_style);
                     }
-                };
-            }
+
+                    if i > 0 {
+                        content += TextElem::packed(",\u{a0}");
+                    }
+
+                    // Format and link to the reference entry.
+                    content +=
+                        format_display_string(&display, supplement, citation.span())
+                            .linked(Destination::Location(ref_location(entry)));
+                }
+
+                if brackets && len > 1 {
+                    content = match citation_style.brackets() {
+                        Brackets::None => content,
+                        Brackets::Round => {
+                            TextElem::packed('(') + content + TextElem::packed(')')
+                        }
+                        Brackets::Square => {
+                            TextElem::packed('[') + content + TextElem::packed(']')
+                        }
+                    };
+                }
+
+                CiteContentOrFunc::Content(content)
+            } else {
+                let CitationStyle::Func(func) = style else { unreachable!(); };
+                let args = cited
+                    .iter()
+                    .map(|e| Value::Dict(entry_to_dict(e)))
+                    .collect::<Vec<_>>();
+                CiteContentOrFunc::FuncCall(func, args)
+            };
 
             (location, Some(content))
         })
@@ -561,7 +756,12 @@ fn create(
 
             let prefix = reference.prefix.map(|prefix| {
                 // Format and link to first citation.
-                let bracketed = prefix.with_default_brackets(&*citation_style);
+                let bracketed = match citation_style.as_ref() {
+                    Some(citation_style) => {
+                        prefix.with_default_brackets(&**citation_style)
+                    }
+                    None => prefix,
+                };
                 format_display_string(&bracketed, None, span)
                     .linked(Destination::Location(ids[reference.entry.key()]))
                     .styled(backlink.clone())
