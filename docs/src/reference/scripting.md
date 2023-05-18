@@ -198,7 +198,7 @@ For loops can iterate over a variety of collections:
 
 - `{for value in array {..}}` \
   Iterates over the items in the [array]($type/array). The destructuring syntax
-  described in [Let binding]($scripting/bindings) can also be used here.
+  described in [Let binding]($scripting/#bindings) can also be used here.
 
 - `{for pair in dict {..}}` \
   Iterates over the key-value pairs of the [dictionary]($type/dictionary).
