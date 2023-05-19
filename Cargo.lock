@@ -2276,6 +2276,7 @@ dependencies = [
 name = "typst-cli"
 version = "0.3.0"
 dependencies = [
+ "atty",
  "chrono",
  "clap 4.2.5",
  "clap_complete",
