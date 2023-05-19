@@ -1399,7 +1399,7 @@ impl ast::Pattern {
                 vm.define(ident, value);
                 Ok(Value::None)
             }
-            _ => unreachable!(),
+            _ => bail!(expr.span(), "nested patterns are currently not supported"),
         })
     }
 
