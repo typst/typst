@@ -9,6 +9,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process;
 
+use atty::Stream;
 use chrono::Datelike;
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -283,7 +284,9 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let color = status.color();
 
     let mut w = StandardStream::stderr(ColorChoice::Auto);
-    write!(w, "{esc}c{esc}[1;1H")?;
+    if atty::is(Stream::Stderr) {
+        write!(w, "{esc}c{esc}[1;1H")?;
+    }
 
     w.set_color(&color)?;
     write!(w, "watching")?;
