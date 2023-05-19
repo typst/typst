@@ -503,7 +503,7 @@ impl World for SystemWorld {
             self.current_date.set(Some(Datetime::from_ymd(
                 datetime.year(),
                 datetime.month().try_into().ok()?,
-                datetime.day().try_into().ok()?,
+                datetime.day(),
             )?))
         }
 
