@@ -259,7 +259,7 @@ impl Show for OutlineElem {
                 // Length => indent with some fixed spacing per level
                 Some(Smart::Custom(OutlineIndent::Length(length))) => {
                     let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
-                        bail!(self.span(), "Outline element depth too large");
+                        bail!(self.span(), "outline element depth too large");
                     };
 
                     let hspace = HElem::new(*length).pack().repeat(depth).unwrap();
@@ -269,7 +269,7 @@ impl Show for OutlineElem {
                 // Content => repeat some content for each indentation level
                 Some(Smart::Custom(OutlineIndent::Content(content))) => {
                     let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
-                        bail!(self.span(), "Outline element depth too large");
+                        bail!(self.span(), "outline element depth too large");
                     };
 
                     let content_prefix = content.repeat(depth).unwrap();
