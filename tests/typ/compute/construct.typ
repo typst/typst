@@ -125,6 +125,8 @@
 
 // Test today
 #test(datetime.today().display(), "1970-01-01")
+#test(datetime.today(offset: auto).display(), "1970-01-01")
+#test(datetime.today(offset: 2).display(), "1970-01-01")
 
 ---
 // Error: 10-12 at least one of date or time must be fully specified

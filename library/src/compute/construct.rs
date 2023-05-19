@@ -336,12 +336,13 @@ cast_from_value!(
 /// Returns: datetime
 #[func]
 pub fn datetime_today(
-    /// An offset to apply to the current UTC date. If none is specified, the
-    /// local date will be chosen.
+    /// An offset to apply to the current UTC date. If set to `{auto}`, the
+    /// offset will be the local offset.
     #[named]
-    offset: Option<i64>,
+    #[default]
+    offset: Smart<i64>,
 ) -> Value {
-    let current_date = match vm.vt.world.today(offset) {
+    let current_date = match vm.vt.world.today(offset.as_custom()) {
         Some(d) => d,
         None => bail!(args.span, "unable to get the current date"),
     };
