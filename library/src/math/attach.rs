@@ -143,6 +143,12 @@ impl LayoutMath for LimitsElem {
     }
 }
 
+macro_rules! measure {
+    ($e: ident, $attr: ident) => {
+        $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
+    };
+}
+
 /// Layout the attachments.
 fn layout_attachments(
     ctx: &mut MathContext,
@@ -157,12 +163,6 @@ fn layout_attachments(
     let (base_width, base_ascent, base_descent) =
         (base.width(), base.ascent(), base.descent());
     let base_class = base.class().unwrap_or(MathClass::Normal);
-
-    macro_rules! measure {
-        ($e: ident, $attr: ident) => {
-            $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
-        };
-    }
 
     let ascent = base_ascent
         .max(shift_up + measure!(tr, ascent))
@@ -301,22 +301,24 @@ fn compute_shifts_up_and_down(
     let mut shift_down = Abs::zero();
     let is_char_box = is_character_box(base);
 
-    for e in [tl, tr].into_iter().flatten() {
+    if tl.is_some() || tr.is_some() {
         let ascent = match &base {
             MathFragment::Frame(frame) => frame.base_ascent,
             _ => base.ascent(),
         };
-
         shift_up = shift_up
             .max(sup_shift_up)
             .max(if is_char_box { Abs::zero() } else { ascent - sup_drop_max })
-            .max(sup_bottom_min + e.descent());
+            .max(sup_bottom_min + measure!(tl, descent))
+            .max(sup_bottom_min + measure!(tr, descent));
     }
-    for e in [bl, br].into_iter().flatten() {
+
+    if bl.is_some() || br.is_some() {
         shift_down = shift_down
             .max(sub_shift_down)
             .max(if is_char_box { Abs::zero() } else { base.descent() + sub_drop_min })
-            .max(e.ascent() - sub_top_max);
+            .max(measure!(bl, ascent) - sub_top_max)
+            .max(measure!(br, ascent) - sub_top_max);
     }
 
     for (sup, sub) in [(tl, bl), (tr, br)] {
