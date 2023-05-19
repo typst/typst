@@ -4,13 +4,13 @@ const FRAC_AROUND: Em = Em::new(0.1);
 
 /// A mathematical fraction.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ 1/2 < (x+1)/2 $
 /// $ ((x+1)) / 2 = frac(a, b) $
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: Use a slash to turn neighbouring
 /// expressions into a fraction. Multiple atoms can be grouped into a single
 /// expression using round grouping parenthesis. Such parentheses are removed
@@ -38,7 +38,7 @@ impl LayoutMath for FracElem {
 
 /// A binomial expression.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ binom(n, k) $
 /// ```

@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 /// Align content horizontally and vertically.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set align(center)
 ///

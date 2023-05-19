@@ -11,7 +11,7 @@ use super::GridLayouter;
 ///
 /// Displays a sequence of items vertically and numbers them consecutively.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// Automatically numbered:
 /// + Preparations
@@ -47,7 +47,7 @@ use super::GridLayouter;
 /// )
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This functions also has dedicated syntax:
 ///
 /// - Starting a line with a plus sign creates an automatically numbered
@@ -121,7 +121,6 @@ pub struct EnumElem {
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
     ///
-    /// Defaults to `{false}`.
     ///
     /// ```example
     /// #set enum(numbering: "1.a)", full: true)

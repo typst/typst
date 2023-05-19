@@ -4,7 +4,7 @@ use crate::prelude::*;
 ///
 /// Returns the name of the value's type.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #type(12) \
 /// #type(14.7) \
@@ -34,7 +34,7 @@ pub fn type_(
 /// **Note:** This function is for debugging purposes. Its output should not be
 /// considered stable and may change at any time!
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #none vs #repr(none) \
 /// #"hello" vs #repr("hello") \
@@ -55,7 +55,7 @@ pub fn repr(
 
 /// Fail with an error.
 ///
-/// ## Example
+/// ## Example { #example }
 /// The code below produces the error `panicked with: "this is wrong"`.
 /// ```typ
 /// #panic("this is wrong")
@@ -91,7 +91,7 @@ pub fn panic(
 /// If you wish to test equality between two values, see
 /// [`assert.eq`]($func/assert.eq) and [`assert.ne`]($func/assert.ne).
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```typ
 /// #assert(1 < 2, message: "math broke")
 /// ```
@@ -128,8 +128,8 @@ pub fn assert(
 /// Fails with an error if the first value is not equal to the second. Does not
 /// produce any output in the document.
 ///
-/// ## Example
-/// ```example
+/// ## Example { #example }
+/// ```typ
 /// #assert.eq(10, 10)
 /// ```
 ///
@@ -170,8 +170,8 @@ pub fn assert_eq(
 /// Fails with an error if the first value is equal to the second. Does not
 /// produce any output in the document.
 ///
-/// ## Example
-/// ```example
+/// ## Example { #example }
+/// ```typ
 /// #assert.ne(3, 4)
 /// ```
 ///
@@ -211,7 +211,7 @@ pub fn assert_ne(
 ///
 /// This function should only be used as a last resort.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #eval("1 + 1") \
 /// #eval("(1, 2, 3, 4)").len() \

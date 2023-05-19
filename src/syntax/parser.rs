@@ -18,7 +18,10 @@ pub fn parse(text: &str) -> SyntaxNode {
 /// This is only used for syntax highlighting.
 pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Code);
-    code(&mut p, |_| false);
+    let m = p.marker();
+    p.skip();
+    code_exprs(&mut p, |_| false);
+    p.wrap_skipless(m, SyntaxKind::Code);
     p.finish().into_iter().next().unwrap()
 }
 
@@ -511,8 +514,13 @@ fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
     }
 }
 
-fn code(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
+fn code(p: &mut Parser, stop: impl FnMut(SyntaxKind) -> bool) {
     let m = p.marker();
+    code_exprs(p, stop);
+    p.wrap(m, SyntaxKind::Code);
+}
+
+fn code_exprs(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
     while !p.eof() && !stop(p.current()) {
         p.stop_at_newline(true);
         let prev = p.prev_end();
@@ -529,7 +537,6 @@ fn code(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
             p.unexpected();
         }
     }
-    p.wrap(m, SyntaxKind::Code);
 }
 
 fn code_expr(p: &mut Parser) {
@@ -1474,10 +1481,14 @@ impl<'s> Parser<'s> {
 
     fn wrap(&mut self, m: Marker, kind: SyntaxKind) {
         self.unskip();
+        self.wrap_skipless(m, kind);
+        self.skip();
+    }
+
+    fn wrap_skipless(&mut self, m: Marker, kind: SyntaxKind) {
         let from = m.0.min(self.nodes.len());
         let children = self.nodes.drain(from..).collect();
         self.nodes.push(SyntaxNode::inner(kind, children));
-        self.skip();
     }
 
     fn progress(&self, offset: usize) -> bool {

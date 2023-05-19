@@ -8,14 +8,14 @@ use crate::prelude::*;
 /// remaining space on the line is distributed among all fractional spacings
 /// according to their relative fractions.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// First #h(1cm) Second \
 /// First #h(30%) Second \
 /// First #h(2fr) Second #h(1fr) Third
 /// ```
 ///
-/// ## Mathematical Spacing
+/// ## Mathematical Spacing { #math-spacing }
 /// In [mathematical formulas]($category/math), you can additionally use these
 /// constants to add spacing between elements: `thin`, `med`, `thick`, `quad`.
 ///
@@ -68,7 +68,7 @@ impl Behave for HElem {
 /// the remaining space on the page is distributed among all fractional spacings
 /// according to their relative fractions.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #grid(
 ///   rows: 3cm,

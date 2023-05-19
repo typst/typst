@@ -117,43 +117,47 @@ where
     }
 
     fn cast(mut value: Value) -> StrResult<Self> {
+        let keys = [
+            "top-left",
+            "top-right",
+            "bottom-right",
+            "bottom-left",
+            "left",
+            "top",
+            "right",
+            "bottom",
+            "rest",
+        ];
+
         if let Value::Dict(dict) = &mut value {
-            let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+            if dict.iter().any(|(key, _)| keys.contains(&key.as_str())) {
+                let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+                let rest = take("rest")?;
+                let left = take("left")?.or_else(|| rest.clone());
+                let top = take("top")?.or_else(|| rest.clone());
+                let right = take("right")?.or_else(|| rest.clone());
+                let bottom = take("bottom")?.or_else(|| rest.clone());
+                let corners = Corners {
+                    top_left: take("top-left")?
+                        .or_else(|| top.clone())
+                        .or_else(|| left.clone()),
+                    top_right: take("top-right")?
+                        .or_else(|| top.clone())
+                        .or_else(|| right.clone()),
+                    bottom_right: take("bottom-right")?
+                        .or_else(|| bottom.clone())
+                        .or_else(|| right.clone()),
+                    bottom_left: take("bottom-left")?
+                        .or_else(|| bottom.clone())
+                        .or_else(|| left.clone()),
+                };
 
-            let rest = take("rest")?;
-            let left = take("left")?.or_else(|| rest.clone());
-            let top = take("top")?.or_else(|| rest.clone());
-            let right = take("right")?.or_else(|| rest.clone());
-            let bottom = take("bottom")?.or_else(|| rest.clone());
-            let corners = Corners {
-                top_left: take("top-left")?
-                    .or_else(|| top.clone())
-                    .or_else(|| left.clone()),
-                top_right: take("top-right")?
-                    .or_else(|| top.clone())
-                    .or_else(|| right.clone()),
-                bottom_right: take("bottom-right")?
-                    .or_else(|| bottom.clone())
-                    .or_else(|| right.clone()),
-                bottom_left: take("bottom-left")?
-                    .or_else(|| bottom.clone())
-                    .or_else(|| left.clone()),
-            };
+                dict.finish(&keys)?;
+                return Ok(corners);
+            }
+        }
 
-            dict.finish(&[
-                "top-left",
-                "top-right",
-                "bottom-right",
-                "bottom-left",
-                "left",
-                "top",
-                "right",
-                "bottom",
-                "rest",
-            ])?;
-
-            Ok(corners)
-        } else if T::is(&value) {
+        if T::is(&value) {
             Ok(Self::splat(Some(T::cast(value)?)))
         } else {
             <Self as Cast>::error(value)
@@ -184,30 +188,27 @@ impl<T: Fold> Fold for Corners<Option<T>> {
     }
 }
 
-impl<T> From<Corners<Option<T>>> for Value
+impl<T> From<Corners<T>> for Value
 where
     T: PartialEq + Into<Value>,
 {
-    fn from(corners: Corners<Option<T>>) -> Self {
+    fn from(corners: Corners<T>) -> Self {
         if corners.is_uniform() {
-            if let Some(value) = corners.top_left {
-                return value.into();
-            }
+            return corners.top_left.into();
         }
 
         let mut dict = Dict::new();
-        if let Some(top_left) = corners.top_left {
-            dict.insert("top-left".into(), top_left.into());
-        }
-        if let Some(top_right) = corners.top_right {
-            dict.insert("top-right".into(), top_right.into());
-        }
-        if let Some(bottom_right) = corners.bottom_right {
-            dict.insert("bottom-right".into(), bottom_right.into());
-        }
-        if let Some(bottom_left) = corners.bottom_left {
-            dict.insert("bottom-left".into(), bottom_left.into());
-        }
+        let mut handle = |key: &str, component: T| {
+            let value = component.into();
+            if value != Value::None {
+                dict.insert(key.into(), value);
+            }
+        };
+
+        handle("top-left", corners.top_left);
+        handle("top-right", corners.top_right);
+        handle("bottom-right", corners.bottom_right);
+        handle("bottom-left", corners.bottom_left);
 
         Value::Dict(dict)
     }

@@ -16,7 +16,7 @@ use crate::text::Case;
 /// number is substituted, their prefixes, and one suffix. The prefixes and the
 /// suffix are repeated as-is.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #numbering("1.1)", 1, 2, 3) \
 /// #numbering("1.a.i", 1, 2) \

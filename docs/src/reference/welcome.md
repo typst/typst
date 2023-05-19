@@ -10,14 +10,14 @@ syntax, concepts, types, and functions. If you are completely new to Typst, we
 recommend starting with the [tutorial]($tutorial) and then coming back to
 the reference to learn more about Typst's features as you need them.
 
-## Language
+## Language { #language }
 The reference starts with a language part that gives an overview over [Typst's
 syntax]($syntax) and contains information about concepts involved in
 [styling documents,]($styling) using
 [Typst's scripting capabilities,]($scripting) and a detailed documentation of
 all [data types]($types) in Typst.
 
-## Functions
+## Functions { #functions }
 The second part includes chapters on all functions used to insert, style, transform,
 and layout content in Typst documents. Each function is documented with a
 description of its purpose, a list of its parameters, and examples of how to use

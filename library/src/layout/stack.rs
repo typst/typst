@@ -6,7 +6,7 @@ use crate::prelude::*;
 /// The stack places a list of items along an axis, with optional spacing
 /// between each item.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #stack(
 ///   dir: ttb,

@@ -4,7 +4,7 @@ use super::*;
 ///
 /// This is commonly used to show the eliminiation of a term.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// >>> #set page(width: 140pt)
 /// Here, we can simplify:
@@ -24,8 +24,6 @@ pub struct CancelElem {
     /// the whole element being "cancelled". A value of `{100%}` would then have
     /// the line span precisely the element's diagonal.
     ///
-    /// Defaults to `{100% + 3pt}`.
-    ///
     /// ```example
     /// >>> #set page(width: 140pt)
     /// $ a + cancel(x, length: #200%)
@@ -37,8 +35,6 @@ pub struct CancelElem {
     /// If the cancel line should be inverted (pointing to the top left instead
     /// of top right).
     ///
-    /// Defaults to `{false}`.
-    ///
     /// ```example
     /// >>> #set page(width: 140pt)
     /// $ (a cancel((b + c), inverted: #true)) /
@@ -49,8 +45,6 @@ pub struct CancelElem {
 
     /// If two opposing cancel lines should be drawn, forming a cross over the
     /// element. Overrides `inverted`.
-    ///
-    /// Defaults to `{false}`.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -85,6 +79,11 @@ pub struct CancelElem {
     /// ```
     #[resolve]
     #[fold]
+    #[default(PartialStroke {
+        // Default stroke has 0.5pt for better visuals.
+        thickness: Smart::Custom(Abs::pt(0.5)),
+        ..Default::default()
+    })]
     pub stroke: PartialStroke,
 }
 
@@ -100,10 +99,8 @@ impl LayoutMath for CancelElem {
         let span = self.span();
         let length = self.length(styles).resolve(styles);
 
-        // Default stroke has 0.5pt for better visuals.
         let stroke = self.stroke(styles).unwrap_or(Stroke {
             paint: TextElem::fill_in(styles),
-            thickness: Abs::pt(0.5),
             ..Default::default()
         });
 
