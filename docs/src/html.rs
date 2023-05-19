@@ -3,6 +3,7 @@ use std::ops::Range;
 use comemo::Prehashed;
 use md::escape::escape_html;
 use pulldown_cmark as md;
+use typed_arena::Arena;
 use typst::diag::FileResult;
 use typst::eval::Datetime;
 use typst::font::{Font, FontBook};
@@ -23,17 +24,35 @@ pub struct Html {
     md: String,
     #[serde(skip)]
     description: Option<String>,
+    #[serde(skip)]
+    outline: Vec<OutlineItem>,
 }
 
 impl Html {
     /// Create HTML from a raw string.
     pub fn new(raw: String) -> Self {
-        Self { md: String::new(), raw, description: None }
+        Self {
+            md: String::new(),
+            raw,
+            description: None,
+            outline: vec![],
+        }
     }
 
     /// Convert markdown to HTML.
     #[track_caller]
     pub fn markdown(resolver: &dyn Resolver, md: &str) -> Self {
+        Self::markdown_with_id_base(resolver, md, "")
+    }
+
+    /// Convert markdown to HTML, preceding all fragment identifiers with the
+    /// `id_base`.
+    #[track_caller]
+    pub fn markdown_with_id_base(
+        resolver: &dyn Resolver,
+        md: &str,
+        id_base: &str,
+    ) -> Self {
         let mut text = md;
         let mut description = None;
         let document = YamlFrontMatter::parse::<Metadata>(md);
@@ -44,7 +63,8 @@ impl Html {
 
         let options = md::Options::ENABLE_TABLES | md::Options::ENABLE_HEADING_ATTRIBUTES;
 
-        let mut handler = Handler::new(resolver);
+        let ids = Arena::new();
+        let mut handler = Handler::new(resolver, id_base.into(), &ids);
         let iter = md::Parser::new_ext(text, options)
             .filter_map(|mut event| handler.handle(&mut event).then_some(event));
 
@@ -52,7 +72,12 @@ impl Html {
         md::html::push_html(&mut raw, iter);
         raw.truncate(raw.trim_end().len());
 
-        Html { md: text.into(), raw, description }
+        Html {
+            md: text.into(),
+            raw,
+            description,
+            outline: handler.outline,
+        }
     }
 
     /// The raw HTML.
@@ -71,6 +96,11 @@ impl Html {
     pub fn title(&self) -> Option<&str> {
         let mut s = Scanner::new(&self.raw);
         s.eat_if("<h1>").then(|| s.eat_until("</h1>"))
+    }
+
+    /// The outline of the HTML.
+    pub fn outline(&self) -> Vec<OutlineItem> {
+        self.outline.clone()
     }
 
     /// The description from the front matter.
@@ -94,14 +124,23 @@ struct Metadata {
 struct Handler<'a> {
     resolver: &'a dyn Resolver,
     lang: Option<String>,
+    outline: Vec<OutlineItem>,
+    id_base: String,
+    ids: &'a Arena<String>,
 }
 
 impl<'a> Handler<'a> {
-    fn new(resolver: &'a dyn Resolver) -> Self {
-        Self { resolver, lang: None }
+    fn new(resolver: &'a dyn Resolver, id_base: String, ids: &'a Arena<String>) -> Self {
+        Self {
+            resolver,
+            lang: None,
+            outline: vec![],
+            id_base,
+            ids,
+        }
     }
 
-    fn handle(&mut self, event: &mut md::Event) -> bool {
+    fn handle(&mut self, event: &mut md::Event<'a>) -> bool {
         let lang = self.lang.take();
         match event {
             // Rewrite Markdown images.
@@ -118,11 +157,23 @@ impl<'a> Handler<'a> {
                 *html = buf.into();
             }
 
-            // Rewrite contributor sectinos.
+            // Register HTML headings for the outline.
+            md::Event::Start(md::Tag::Heading(level, Some(id), _)) => {
+                self.handle_heading(id, level);
+            }
+
+            // Also handle heading closings.
+            md::Event::End(md::Tag::Heading(level, Some(_), _)) => {
+                if *level > md::HeadingLevel::H1 && !self.id_base.is_empty() {
+                    nest_heading(level);
+                }
+            }
+
+            // Rewrite contributor sections.
             md::Event::Html(html) if html.starts_with("<contributors") => {
                 let from = html_attr(html, "from").unwrap();
                 let to = html_attr(html, "to").unwrap();
-                let Some(output) = contributors(from, to) else { return false };
+                let Some(output) = contributors(self.resolver, from, to) else { return false };
                 *html = output.raw.into();
             }
 
@@ -185,6 +236,36 @@ impl<'a> Handler<'a> {
         }
     }
 
+    fn handle_heading(&mut self, id: &mut &'a str, level: &mut md::HeadingLevel) {
+        if *level == md::HeadingLevel::H1 {
+            return;
+        }
+
+        // Special case for things like "v0.3.0".
+        let name = if id.starts_with('v') && id.contains('.') {
+            id.to_string()
+        } else {
+            id.to_title_case()
+        };
+
+        let mut children = &mut self.outline;
+        let mut depth = *level as usize;
+        while depth > 2 {
+            if !children.is_empty() {
+                children = &mut children.last_mut().unwrap().children;
+            }
+            depth -= 1;
+        }
+
+        // Put base before id.
+        if !self.id_base.is_empty() {
+            nest_heading(level);
+            *id = self.ids.alloc(format!("{}-{id}", self.id_base)).as_str();
+        }
+
+        children.push(OutlineItem { id: id.to_string(), name, children: vec![] });
+    }
+
     fn handle_link(&self, link: &str) -> Option<String> {
         if link.starts_with('#') || link.starts_with("http") {
             return Some(link.into());
@@ -206,6 +287,7 @@ impl<'a> Handler<'a> {
             "$types" => "/docs/reference/types/",
             "$type" => "/docs/reference/types/",
             "$func" => "/docs/reference/",
+            "$guides" => "/docs/guides/",
             "$changelog" => "/docs/changelog/",
             "$community" => "/docs/community/",
             _ => panic!("unknown link root: {root}"),
@@ -217,14 +299,19 @@ impl<'a> Handler<'a> {
             let ty = parts.next()?;
             let method = parts.next()?;
             route.push_str(ty);
-            route.push_str("/#methods--");
+            route.push_str("/#methods-");
             route.push_str(method);
         } else if root == "$func" {
-            let mut parts = rest.split('.');
+            let mut parts = rest.split('.').peekable();
+            let mut focus = &LIBRARY.global;
+            while let Some(m) = parts.peek().and_then(|name| module(focus, name).ok()) {
+                focus = m;
+                parts.next();
+            }
+
             let name = parts.next()?;
-            let param = parts.next();
-            let value =
-                LIBRARY.global.get(name).or_else(|_| LIBRARY.math.get(name)).ok()?;
+
+            let value = focus.get(name).ok()?;
             let Value::Func(func) = value else { return None };
             let info = func.info()?;
             route.push_str(info.category);
@@ -237,18 +324,25 @@ impl<'a> Handler<'a> {
                 route.push_str(&group.name);
                 route.push_str("/#");
                 route.push_str(info.name);
-                if let Some(param) = param {
-                    route.push_str("-parameters--");
+                if let Some(param) = parts.next() {
+                    route.push_str("-parameters-");
                     route.push_str(param);
-                } else {
-                    route.push_str("-summary");
                 }
             } else {
                 route.push_str(name);
                 route.push('/');
-                if let Some(param) = param {
-                    route.push_str("#parameters--");
-                    route.push_str(param);
+                if let Some(next) = parts.next() {
+                    if info.params.iter().any(|param| param.name == next) {
+                        route.push_str("#parameters-");
+                        route.push_str(next);
+                    } else if info.scope.iter().any(|(name, _)| name == next) {
+                        route.push('#');
+                        route.push_str(info.name);
+                        route.push('-');
+                        route.push_str(next);
+                    } else {
+                        return None;
+                    }
                 }
             }
         } else {
@@ -346,6 +440,18 @@ fn html_attr_range(html: &str, attr: &str) -> Option<Range<usize>> {
     let offset = html.find(&needle)? + needle.len();
     let len = html[offset..].find('"')?;
     Some(offset..offset + len)
+}
+
+/// Increase the nesting level of a Markdown heading.
+fn nest_heading(level: &mut md::HeadingLevel) {
+    *level = match &level {
+        md::HeadingLevel::H1 => md::HeadingLevel::H2,
+        md::HeadingLevel::H2 => md::HeadingLevel::H3,
+        md::HeadingLevel::H3 => md::HeadingLevel::H4,
+        md::HeadingLevel::H4 => md::HeadingLevel::H5,
+        md::HeadingLevel::H5 => md::HeadingLevel::H6,
+        v => **v,
+    };
 }
 
 /// World for example compilations.

@@ -9,7 +9,7 @@ publish = false
 [dev-dependencies]
 typst = { path = ".." }
 typst-library = { path = "../library" }
-comemo = "0.2.2"
+comemo = "0.3"
 elsa = "1.8"
 iai = { git = "https://github.com/reknih/iai" }
 once_cell = "1"

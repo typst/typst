@@ -8,7 +8,7 @@
 #for x in () [Nope]
 
 // Dictionary is traversed in insertion order.
-// Should output `Age: 2. Name: Typst.`.
+// Should output `Name: Typst. Age: 2.`.
 #for (k, v) in (Name: "Typst", Age: 2) [
   #k: #v.
 ]

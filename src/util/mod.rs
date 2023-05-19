@@ -34,7 +34,6 @@ where
 }
 
 /// Calculate a 128-bit siphash of a value.
-#[tracing::instrument(skip_all)]
 pub fn hash128<T: Hash + ?Sized>(value: &T) -> u128 {
     let mut state = SipHasher13::new();
     value.hash(&mut state);

@@ -117,7 +117,7 @@ pub fn module() -> Module {
 ///
 /// Can be displayed inline with text or as a separate block.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set text(font: "New Computer Modern")
 ///
@@ -130,7 +130,7 @@ pub fn module() -> Module {
 /// $ sum_(k=1)^n k = (n(n+1)) / 2 $
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: Write mathematical markup within
 /// dollar signs to create an equation. Starting and ending the equation with at
 /// least one space lifts it into a separate block that is centered

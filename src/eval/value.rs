@@ -54,7 +54,7 @@ pub enum Value {
     Styles(Styles),
     /// An array of values: `(1, "hi", 12cm)`.
     Array(Array),
-    /// A dictionary value: `(color: #f79143, pattern: dashed)`.
+    /// A dictionary value: `(a: 1, b: "hi")`.
     Dict(Dict),
     /// An executable function.
     Func(Func),

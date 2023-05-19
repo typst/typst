@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// - Floats are floored to the next 64-bit integer.
 /// - Strings are parsed in base 10.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #int(false) \
 /// #int(true) \
@@ -40,7 +40,7 @@ cast_from_value! {
     v: bool => Self(v as i64),
     v: i64 => Self(v),
     v: f64 => Self(v as i64),
-    v: EcoString => Self(v.parse().map_err(|_| "not a valid integer")?),
+    v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid integer: {}", v))?),
 }
 
 /// Convert a value to a float.
@@ -51,7 +51,7 @@ cast_from_value! {
 /// - Strings are parsed in base 10 to the closest 64-bit float.
 ///   Exponential notation is supported.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #float(false) \
 /// #float(true) \
@@ -81,12 +81,12 @@ cast_from_value! {
     v: i64 => Self(v as f64),
     v: f64 => Self(v),
     v: Ratio => Self(v.get()),
-    v: EcoString => Self(v.parse().map_err(|_| "not a valid float")?),
+    v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid float: {}", v))?),
 }
 
 /// Create a grayscale color.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #for x in range(250, step: 50) {
 ///   box(square(fill: luma(x)))
@@ -112,7 +112,7 @@ pub fn luma(
 /// render them correctly, the PDF export does not handle them properly at the
 /// moment. This will be fixed in the future.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #square(fill: rgb("#b1f2eb"))
 /// #square(fill: rgb(87, 127, 230))
@@ -137,23 +137,18 @@ pub fn rgb(
     /// ]
     /// ```
     #[external]
-    #[default]
     hex: EcoString,
     /// The red component.
     #[external]
-    #[default]
     red: Component,
     /// The green component.
     #[external]
-    #[default]
     green: Component,
     /// The blue component.
     #[external]
-    #[default]
     blue: Component,
     /// The alpha component.
     #[external]
-    #[default]
     alpha: Component,
 ) -> Value {
     Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
@@ -361,7 +356,7 @@ pub fn today(
 /// to RGB for display preview might differ from how your printer reproduces
 /// the color.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #square(
 ///   fill: cmyk(27%, 0%, 3%, 5%)
@@ -399,7 +394,7 @@ cast_from_value! {
 
 /// Create a custom symbol with modifiers.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let envelope = symbol(
 ///   "🖂",
@@ -465,7 +460,7 @@ cast_from_value! {
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #str(10) \
 /// #str(2.7) \
@@ -501,7 +496,7 @@ cast_from_value! {
 /// that is not a space. Then, the element can be [referenced]($func/ref) and
 /// styled through the label.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #show <a>: set text(blue)
 /// #show label("b"): set text(red)
@@ -510,7 +505,7 @@ cast_from_value! {
 /// *Strong* #label("b")
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: You can create a label by enclosing
 /// its name in angle brackets. This works both in markup and code.
 ///
@@ -534,7 +529,7 @@ pub fn label(
 /// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
 /// of the supported syntax.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// // Works with show rules.
 /// #show regex("\d+"): set text(red)
@@ -572,7 +567,7 @@ pub fn regex(
 /// the range. If you pass two, they describe the `start` and `end` of the
 /// range.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #range(5) \
 /// #range(2, 5) \

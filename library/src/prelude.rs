@@ -16,16 +16,16 @@ pub use typst::doc::*;
 #[doc(no_inline)]
 pub use typst::eval::{
     array, cast_from_value, cast_to_value, dict, format_str, func, Args, Array, Cast,
-    CastInfo, Dict, Func, Never, Str, Symbol, Value, Vm,
+    CastInfo, Dict, Func, Never, Scope, Str, Symbol, Value, Vm,
 };
 #[doc(no_inline)]
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
     element, Behave, Behaviour, Construct, Content, ElemFunc, Element, Finalize, Fold,
-    Introspector, Label, Locatable, LocatableSelector, Location, MetaElem, PlainText,
-    Resolve, Selector, Set, Show, StabilityProvider, StyleChain, StyleVec, Styles,
-    Synthesize, Unlabellable, Vt,
+    Introspector, Label, Locatable, LocatableSelector, Location, Locator, MetaElem,
+    PlainText, Resolve, Selector, Set, Show, StyleChain, StyleVec, Styles, Synthesize,
+    Unlabellable, Vt,
 };
 #[doc(no_inline)]
 pub use typst::syntax::{Span, Spanned};

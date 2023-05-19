@@ -36,7 +36,7 @@ bench = false
 typst-macros = { path = "macros" }
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
-comemo = "0.2.2"
+comemo = "0.3"
 ecow = "0.1"
 flate2 = "1"
 fontdb = "0.13"
@@ -60,9 +60,9 @@ tiny-skia = "0.9.0"
 tracing = "0.1.37"
 ttf-parser = "0.18.1"
 unicode-general-category = "0.6"
+unicode-ident = "1.0"
 unicode-math-class = "0.1"
 unicode-segmentation = "1"
-unicode-xid = "0.2"
 unscanny = "0.1"
 usvg = { version = "0.32", default-features = false, features = ["text"] }
 xmp-writer = "0.1"

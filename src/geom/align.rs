@@ -106,6 +106,18 @@ impl From<Align> for GenAlign {
     }
 }
 
+impl From<HorizontalAlign> for GenAlign {
+    fn from(align: HorizontalAlign) -> Self {
+        align.0
+    }
+}
+
+impl From<VerticalAlign> for GenAlign {
+    fn from(align: VerticalAlign) -> Self {
+        align.0
+    }
+}
+
 impl Debug for GenAlign {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -132,6 +144,10 @@ cast_from_value! {
         aligns
     },
     aligns: Axes<GenAlign> => aligns.map(Some),
+}
+
+cast_to_value! {
+    v: Axes<Align> => v.map(GenAlign::from).into()
 }
 
 cast_to_value! {
@@ -181,5 +197,70 @@ impl Fold for GenAlign {
 
     fn fold(self, _: Self::Output) -> Self::Output {
         self
+    }
+}
+
+impl Fold for Align {
+    type Output = Self;
+
+    fn fold(self, _: Self::Output) -> Self::Output {
+        self
+    }
+}
+
+/// Utility struct to restrict a passed alignment value to the horizontal axis
+/// on cast.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct HorizontalAlign(pub GenAlign);
+
+cast_from_value! {
+    HorizontalAlign,
+    align: GenAlign => {
+        if align.axis() != Axis::X {
+            Err("alignment must be horizontal")?;
+        }
+        Self(align)
+    },
+}
+
+cast_to_value! {
+    v: HorizontalAlign => v.0.into()
+}
+
+/// Utility struct to restrict a passed alignment value to the vertical axis on
+/// cast.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct VerticalAlign(pub GenAlign);
+
+cast_from_value! {
+    VerticalAlign,
+    align: GenAlign => {
+        if align.axis() != Axis::Y {
+            Err("alignment must be vertical")?;
+        }
+        Self(align)
+    },
+}
+
+cast_to_value! {
+    v: VerticalAlign => v.0.into()
+}
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum LeftRightAlternator {
+    Left,
+    Right,
+}
+
+impl Iterator for LeftRightAlternator {
+    type Item = LeftRightAlternator;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let r = Some(*self);
+        match self {
+            Self::Left => *self = Self::Right,
+            Self::Right => *self = Self::Left,
+        }
+        r
     }
 }
