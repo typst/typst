@@ -74,7 +74,7 @@ You can also check out the [full syntax cheat sheet]($syntax).
 | Term list        | `description` environment | `[/ Term: List]`       | [`terms`]($func/terms)   |
 | Figure           | `figure` environment      | `figure` function      | [`figure`]($func/figure) |
 | Table            | `table` environment       | `table` function       | [`table`]($func/table)   |
-| Equation         | `$x$`, `align` / `equation` environments | `[$x$]`, `[$ x = y $]` | [`equation`]($func/equation)     |
+| Equation         | `$x$`, `align` / `equation` environments | `[$x$]`, `[$ x = y $]` | [`equation`]($func/math.equation) |
 
 [Lists]($func/list) do not rely on environments in Typst. Instead, they have
 lightweight syntax like headings. To create an unordered list (`itemize`),
@@ -144,7 +144,7 @@ And finally a little loop:
 ```
 
 A function call always involves the name of the function ([`rect`]($func/rect),
-[`underline`]($func/underline), [`calc.max`]($category/calc/max),
+[`underline`]($func/underline), [`calc.max`]($func/calc.max),
 [`range`]($func/range)) and then an argument list, even if it is empty. The
 argument list is enclosed in parentheses.
 
@@ -450,7 +450,7 @@ $ delta "if" x <= 5 $
 You can type many symbols with shorthands like `<=`, `>=`, and `->`. Similarly,
 delimiters will scale automatically for their expressions, just as if `\left`
 and `\right` commands were implicitly inserted in LaTeX. You can customize
-delimiter behavior using the [`lr` function]($func/lr).
+delimiter behavior using the [`lr` function]($func/math.lr).
 
 Typst will automatically set terms around a slash `/` as a fraction while
 honoring operator precedence. All round parentheses not made redundant by the
@@ -460,7 +460,7 @@ fraction will appear in the output.
 $ f(x) = (x + 1) / x $
 ```
 
-[Sub- and superscripts]($func/attach) work similarly in Typst and LaTeX. Typing
+[Sub- and superscripts]($func/math.attach) work similarly in Typst and LaTeX. Typing
 `{$x^2$}` will produce a superscript, `{$x_2$}` yields a subscript. If you want
 to include more than one value in a sub- or superscript, enclose their contents
 in parentheses: `{$x_(a -> epsilon)$}`.
@@ -477,7 +477,7 @@ $ f(x, y) := cases(
 ) $
 ```
 
-The above example uses the [`cases` function]($func/cases) to describe f. Within
+The above example uses the [`cases` function]($func/math.cases) to describe f. Within
 the cases function, arguments are delimited using commas and the arguments are
 also interpreted as math. If you would need to interpret arguments as Typst
 values instead, prefix them with a `#`:
@@ -504,7 +504,7 @@ If you'd like to enter your mathematical symbols directly as Unicode, that is
 possible, too!
 
 Math calls can have two-dimensional argument lists using `;` as a delimiter. The
-most common use for this is the [`mat` function]($func/mat) that creates
+most common use for this is the [`mat` function]($func/math.mat) that creates
 matrices:
 
 ```example

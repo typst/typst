@@ -9,21 +9,21 @@ description: |
 - **Breaking changes:**
   - Renamed a few symbols: What was previous `dot.op` is now just `dot` and the
     basic dot is `dot.basic`. The same applies to `ast` and `tilde`.
-  - Renamed `mod` to [`rem`]($category/calculate/rem) to more accurately reflect
+  - Renamed `mod` to [`rem`]($func/calc.rem) to more accurately reflect
     the behaviour. It will remain available as `mod` until the next update as a
     grace period.
   - A lone underscore is not a valid identifier anymore, it can now only be used
     in patterns
   - Removed `before` and `after` arguments from [`query`]($func/query). This is
     now handled through flexible [selectors]($type/selector) combinator methods
-  - Added support for [attachments]($func/attach) (sub-, superscripts) that
+  - Added support for [attachments]($func/math.attach) (sub-, superscripts) that
     precede the base symbol. The `top` and `bottom` arguments have been renamed
     to `t` and `b`.
 
 - New features
   - Added support for more complex [strokes]($func/line.stroke)
     (configurable caps, joins, and dash patterns)
-  - Added [`cancel`]($func/cancel) function for equations
+  - Added [`cancel`]($func/math.cancel) function for equations
   - Added support for [destructuring]($scripting/#bindings) in argument lists
     and assignments
   - Added [`alt`]($func/image.alt) text argument to image function
@@ -106,11 +106,12 @@ description: |
   - Added basic i18n for a few more languages
     (AR, NB, CS, NN, PL, SL, ES, UA, VI)
   - Added a few numbering patterns (Ihora, Chinese)
-  - Added `sinc` [operator]($func/op)
+  - Added `sinc` [operator]($func/math.op)
   - Fixed bug where math could not be hidden with [`hide`]($func/hide)
   - Fixed sizing issues with box, block, and shapes
   - Fixed some translations
-  - Fixed inversion of "R" in [`cal`]($func/cal) and [`frak`]($func/frak) styles
+  - Fixed inversion of "R" in [`cal`]($func/math.cal) and
+    [`frak`]($func/math.frak) styles
   - Fixed some styling issues in math
   - Fixed supplements of references to headings
   - Fixed syntax highlighting of identifiers in certain scenarios
@@ -202,11 +203,12 @@ description: |
   - Fixed build of CLI if `git` is not installed
 
 - Miscellaneous improvements
-  - Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
-    delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
+  - Added support for disabling [matrix]($func/math.mat) and
+    [vector]($func/math.vec) delimiters. Generally with
+    `[#set math.mat(delim: none)]` or one-off with
     `[$mat(delim: #none, 1, 2; 3, 4)$]`.
   - Added [`separator`]($func/terms.separator) argument to term lists
-  - Added [`round`]($func/round) function for equations
+  - Added [`round`]($func/math.round) function for equations
   - Numberings now allow zeros. To reset a counter, you can write
     `[#counter(..).update(0)]`
   - Added documentation for `{page()}` and `{position()}` methods on
@@ -221,7 +223,7 @@ description: |
   - Fixed combination of page fill and header
   - Fixed compiler crash if [`repeat`]($func/repeat) is used in page with
     automatic width
-  - Fixed [matrices]($func/mat) with explicit delimiter
+  - Fixed [matrices]($func/math.mat) with explicit delimiter
   - Fixed [`indent`]($func/terms.indent) property of term lists
   - Numerous documentation fixes
   - Links in bibliographies are now affected by link styling
@@ -284,7 +286,7 @@ description: |
 
 - Further improvements
   - Added [`figure`]($func/figure) function
-  - Added [`numbering`]($func/equation.numbering) parameter on equation function
+  - Added [`numbering`]($func/math.equation.numbering) parameter on equation function
   - Added [`numbering`]($func/page.numbering) and
     [`number-align`]($func/page.number-align) parameters on page function
   - The page function's [`header`]($func/page.header) and
@@ -297,11 +299,12 @@ description: |
   - Better default alignment in header and footer
   - Fixed Arabic vowel placement
   - Fixed PDF font embedding issues
-  - Renamed `math.formula` to [`math.equation`]($func/equation)
+  - Renamed `math.formula` to [`math.equation`]($func/math.equation)
   - Font family must be a named argument now: `[#set text(font: "..")]`
   - Added support for [hanging indent]($func/par.hanging-indent)
-  - Renamed paragraph `indent` to [`first-line-indent`]($func/par.first-line-indent)
-  - More accurate [logarithm]($category/calculate/log) when base is `2` or `10`
+  - Renamed paragraph `indent` to
+    [`first-line-indent`]($func/par.first-line-indent)
+  - More accurate [logarithm]($func/calc.log) when base is `2` or `10`
   - Improved some error messages
   - Fixed layout of [`terms`]($func/terms) list
 
@@ -333,7 +336,8 @@ description: |
     the corresponding main font and the [`smallcaps`]($func/smallcaps) function
 - Improved default spacing for headings
 - Added [`panic`]($func/panic) function
-- Added [`clusters`]($type/string.clusters) and [`codepoints`]($type/string.codepoints)
+- Added [`clusters`]($type/string.clusters) and
+  [`codepoints`]($type/string.codepoints)
   methods for strings
 - Support for multiple authors in [`set document`]($func/document.author)
 - Fixed crash when string is accessed at a position that is not a char boundary
@@ -384,8 +388,8 @@ description: |
 - Fixed bug where a heading show rule may not contain a pagebreak when an
   outline is present
 - Added [`baseline`]($func/box.baseline) property on [`box`]($func/box)
-- Added [`tg`]($func/op) and [`ctg`]($func/op) operators in math
-- Added delimiter setting for [`cases`]($func/cases) function
+- Added [`tg`]($func/math.op) and [`ctg`]($func/math.op) operators in math
+- Added delimiter setting for [`cases`]($func/math.cases) function
 - Parentheses are now included when accepting a function autocompletion
 
 ## February 2, 2023

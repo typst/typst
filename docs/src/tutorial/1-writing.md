@@ -269,17 +269,17 @@ $ 7.32 beta +
 
 Not all math constructs have special syntax. Instead, we use functions, just
 like the `image` function we have seen before. For example, to insert a column
-vector, we can use the [`vec`]($func/vec) function. Within math mode, function
-calls don't need to start with the `#` character.
+vector, we can use the [`vec`]($func/math.vec) function. Within math mode,
+function calls don't need to start with the `#` character.
 
 ```example
 $ v := vec(x_1, x_2, x_3) $
 ```
 
 Some functions are only available within math mode. For example, the
-[`cal`]($func/cal) function is used to typeset calligraphic letters commonly
-used for sets. The [math section of the reference]($category/math) provides a
-complete list of all functions that math mode makes available.
+[`cal`]($func/math.cal) function is used to typeset calligraphic letters
+commonly used for sets. The [math section of the reference]($category/math)
+provides a complete list of all functions that math mode makes available.
 
 One more thing: Many symbols, such as the arrow, have a lot of variants. You can
 select among these variants by appending a dot and a modifier name to a symbol's

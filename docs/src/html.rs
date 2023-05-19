@@ -301,11 +301,16 @@ impl<'a> Handler<'a> {
             route.push_str("/#methods-");
             route.push_str(method);
         } else if root == "$func" {
-            let mut parts = rest.split('.');
+            let mut parts = rest.split('.').peekable();
+            let mut focus = &LIBRARY.global;
+            while let Some(m) = parts.peek().and_then(|name| module(focus, name).ok()) {
+                focus = m;
+                parts.next();
+            }
+
             let name = parts.next()?;
-            let param = parts.next();
-            let value =
-                LIBRARY.global.get(name).or_else(|_| LIBRARY.math.get(name)).ok()?;
+
+            let value = focus.get(name).ok()?;
             let Value::Func(func) = value else { return None };
             let info = func.info()?;
             route.push_str(info.category);
@@ -318,18 +323,25 @@ impl<'a> Handler<'a> {
                 route.push_str(&group.name);
                 route.push_str("/#");
                 route.push_str(info.name);
-                if let Some(param) = param {
+                if let Some(param) = parts.next() {
                     route.push_str("-parameters-");
                     route.push_str(param);
-                } else {
-                    route.push_str("-summary");
                 }
             } else {
                 route.push_str(name);
                 route.push('/');
-                if let Some(param) = param {
-                    route.push_str("#parameters-");
-                    route.push_str(param);
+                if let Some(next) = parts.next() {
+                    if info.params.iter().any(|param| param.name == next) {
+                        route.push_str("#parameters-");
+                        route.push_str(next);
+                    } else if info.scope.iter().any(|(name, _)| name == next) {
+                        route.push('#');
+                        route.push_str(info.name);
+                        route.push('-');
+                        route.push_str(next);
+                    } else {
+                        return None;
+                    }
                 }
             }
         } else {

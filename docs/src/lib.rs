@@ -213,7 +213,7 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
 
     let focus = match category {
         "math" => &LIBRARY.math,
-        "calculate" => module(&LIBRARY.global, "calc"),
+        "calculate" => module(&LIBRARY.global, "calc").unwrap(),
         _ => &LIBRARY.global,
     };
 
@@ -807,7 +807,7 @@ pub struct SymbolModel {
 
 /// Create a page for symbols.
 fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
-    let module = &module(&LIBRARY.global, name);
+    let module = module(&LIBRARY.global, name).unwrap();
 
     let mut list = vec![];
     for (name, value) in module.scope().iter() {
@@ -873,10 +873,10 @@ struct GroupData {
 
 /// Extract a module from another module.
 #[track_caller]
-fn module<'a>(parent: &'a Module, name: &str) -> &'a Module {
+fn module<'a>(parent: &'a Module, name: &str) -> Result<&'a Module, String> {
     match parent.scope().get(name) {
-        Some(Value::Module(module)) => module,
-        _ => panic!("module doesn't contain module `{name}`"),
+        Some(Value::Module(module)) => Ok(module),
+        _ => Err(format!("module doesn't contain module `{name}`")),
     }
 }
 
