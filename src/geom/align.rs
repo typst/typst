@@ -147,6 +147,10 @@ cast_from_value! {
 }
 
 cast_to_value! {
+    v: Axes<Align> => v.map(GenAlign::from).into()
+}
+
+cast_to_value! {
     v: Axes<Option<GenAlign>> => match (v.x, v.y) {
         (Some(x), Some(y)) => Axes::new(x, y).into(),
         (Some(x), None) => x.into(),
@@ -189,6 +193,14 @@ impl Resolve for GenAlign {
 }
 
 impl Fold for GenAlign {
+    type Output = Self;
+
+    fn fold(self, _: Self::Output) -> Self::Output {
+        self
+    }
+}
+
+impl Fold for Align {
     type Output = Self;
 
     fn fold(self, _: Self::Output) -> Self::Output {

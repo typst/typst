@@ -7,7 +7,7 @@ use crate::prelude::*;
 /// content. It may also be useful to redact content because its arguments are
 /// not included in the output.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// Hello Jane \
 /// #hide[Hello] Joe

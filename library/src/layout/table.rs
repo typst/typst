@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// To give a table a caption and make it [referenceable]($func/ref), put it
 /// into a [figure]($func/figure).
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),
@@ -104,16 +104,18 @@ pub struct TableElem {
 
     /// How to stroke the cells.
     ///
-    /// This can be a color, a stroke width, both, or `{none}` to disable
-    /// the stroke.
+    /// See the [line's documentation]($func/line.stroke) for more details.
+    /// Strokes can be disabled by setting this to `{none}`.
+    ///
+    /// _Note:_ Richer stroke customization for individual cells is not yet
+    /// implemented, but will be in the future. In the meantime, you can use
+    /// the third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
     #[resolve]
     #[fold]
     #[default(Some(PartialStroke::default()))]
     pub stroke: Option<PartialStroke>,
 
     /// How much to pad the cells's content.
-    ///
-    /// The default value is `{5pt}`.
     #[default(Abs::pt(5.0).into())]
     pub inset: Rel<Length>,
 
@@ -319,8 +321,4 @@ impl LocalName for TableElem {
     }
 }
 
-impl Figurable for TableElem {
-    fn priority(&self, _styles: StyleChain) -> isize {
-        -1000
-    }
-}
+impl Figurable for TableElem {}

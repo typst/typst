@@ -2,7 +2,7 @@ use super::*;
 
 /// Bold font style in math.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ bold(A) := B^+ $
 /// ```
@@ -20,7 +20,7 @@ pub fn bold(
 
 /// Upright (non-italic) font style in math.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ upright(A) != A $
 /// ```
@@ -70,7 +70,7 @@ pub fn serif(
 
 /// Sans-serif font style in math.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ sans(A B C) $
 /// ```
@@ -91,7 +91,7 @@ pub fn sans(
 
 /// Calligraphic font style in math.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// Let $cal(P)$ be the set of ...
 /// ```
@@ -112,7 +112,7 @@ pub fn cal(
 
 /// Fraktur font style in math.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ frak(P) $
 /// ```
@@ -133,7 +133,7 @@ pub fn frak(
 
 /// Monospace font style in math.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ mono(x + y = z) $
 /// ```
@@ -157,7 +157,7 @@ pub fn mono(
 /// For uppercase latin letters, blackboard bold is additionally available
 /// through [symbols]($category/symbols/sym) of the form `NN` and `RR`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ bb(b) $
 /// $ bb(N) = NN $

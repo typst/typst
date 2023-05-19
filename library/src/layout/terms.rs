@@ -8,14 +8,14 @@ use crate::prelude::*;
 /// descriptions span over multiple lines, they use hanging indent to
 /// communicate the visual hierarchy.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// / Ligature: A merged glyph.
 /// / Kerning: A spacing adjustment
 ///   between two adjacent letters.
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
 ///

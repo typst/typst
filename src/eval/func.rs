@@ -249,6 +249,8 @@ pub struct FuncInfo {
     pub name: &'static str,
     /// The display name of the function.
     pub display: &'static str,
+    /// A string of keywords.
+    pub keywords: Option<&'static str>,
     /// Documentation for the function.
     pub docs: &'static str,
     /// Details about the function's parameters.
@@ -277,6 +279,8 @@ pub struct ParamInfo {
     pub docs: &'static str,
     /// Valid values for the parameter.
     pub cast: CastInfo,
+    /// Creates an instance of the parameter's default value.
+    pub default: Option<fn() -> Value>,
     /// Is the parameter positional?
     pub positional: bool,
     /// Is the parameter named?

@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 /// A line from one point to another.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set page(height: 100pt)
 ///

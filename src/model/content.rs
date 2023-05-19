@@ -373,6 +373,21 @@ impl Content {
         results
     }
 
+    /// Queries the content tree for the first element that match the given
+    /// selector.
+    ///
+    /// Elements produced in `show` rules will not be included in the results.
+    #[tracing::instrument(skip_all)]
+    pub fn query_first(&self, selector: Selector) -> Option<&Content> {
+        let mut result = None;
+        self.traverse(&mut |element| {
+            if result.is_none() && selector.matches(element) {
+                result = Some(element);
+            }
+        });
+        result
+    }
+
     /// Extracts the plain text of this content.
     pub fn plain_text(&self) -> EcoString {
         let mut text = EcoString::new();

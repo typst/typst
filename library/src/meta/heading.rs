@@ -24,7 +24,7 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 /// headings from this outline, you can set the `outlined` parameter to
 /// `{false}`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set heading(numbering: "1.a)")
 ///
@@ -35,7 +35,7 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 /// To start, ...
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth.

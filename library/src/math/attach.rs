@@ -2,7 +2,7 @@ use super::*;
 
 /// A base with optional attachments.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// // With syntax.
 /// $ sum_(i=0)^n a_i = 2^(1+i) $
@@ -14,7 +14,7 @@ use super::*;
 /// ) $
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax for attachments after the base: Use
 /// the underscore (`_`) to indicate a subscript i.e. bottom attachment and the
 /// hat (`^`) to indicate a superscript i.e. top attachment.
@@ -99,7 +99,7 @@ impl LayoutMath for AttachElem {
 
 /// Force a base to display attachments as scripts.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ scripts(sum)_1^2 != sum_1^2 $
 /// ```
@@ -122,7 +122,7 @@ impl LayoutMath for ScriptsElem {
 
 /// Force a base to display attachments as limits.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ limits(A)_1^2 != A_1^2 $
 /// ```
