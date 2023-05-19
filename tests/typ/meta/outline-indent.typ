@@ -4,8 +4,11 @@
 // With heading numbering
 #set page(width: 200pt)
 #set heading(numbering: "1.a.")
+#outline()
 #outline(indent: false)
 #outline(indent: true)
+#outline(indent: none)
+#outline(indent: auto)
 #outline(indent: 2em)
 #outline(indent: [--])
 #outline(indent: n => [*!*] * calc.pow(2, n))
@@ -27,8 +30,11 @@
 ---
 // Without heading numbering
 #set page(width: 200pt)
+#outline()
 #outline(indent: false)
 #outline(indent: true)
+#outline(indent: none)
+#outline(indent: auto)
 #outline(indent: 2em)
 #outline(indent: [--])
 #outline(indent: n => [*!*] * calc.pow(2, n))
