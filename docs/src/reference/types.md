@@ -175,24 +175,26 @@ Produces the negative of the color.
 - returns: color
 
 # Datetime
-Represents a date, a time, or a combination of both. Can be created by either 
-specifying a custom datetime using the [`datetime` function]($func/datetime) or 
-getting the current date using the `datetime.today` function.
+Represents a date, a time, or a combination of both. Can be created by either
+specifying a custom datetime using the [`datetime`]($func/datetime) function or
+getting the current date with [`datetime.today`]($func/datetime.today).
 
 ## Example
 ```example
 #let date = datetime(
-                year: 2020,
-                month: 10, 
-                day: 4)
+  year: 2020,
+  month: 10,
+  day: 4,
+)
 
 #date.display() \
 #date.display("y:[year repr:last_two]")
 
 #let time = datetime(
-                hour: 18, 
-                minute: 2, 
-                second: 23)
+  hour: 18,
+  minute: 2,
+  second: 23,
+)
 
 #time.display() \
 #time.display("h:[hour repr:12][period]")
@@ -234,13 +236,13 @@ follows:
   * `padding`: Can be either `zero`, `space` or `none`. Specifies how the week
     number is padded.
   * `repr`: Can be either `ISO`, `sunday` or `monday`. In the case of `ISO`,
-    week numbers are between 1 and 53, while the other ones are between 0 
+    week numbers are between 1 and 53, while the other ones are between 0
     and 53.
 * `weekday`: Displays the weekday of the date.
   * `repr` Can be either `long`, `short`, `sunday` or `monday`. In the case of
-    `long` and `short`, the corresponding English name will be displayed (same 
-    as for the month, other languages are currently not supported). In the case 
-    of `sunday` and `monday`, the numerical value will be displayed (assuming 
+    `long` and `short`, the corresponding English name will be displayed (same
+    as for the month, other languages are currently not supported). In the case
+    of `sunday` and `monday`, the numerical value will be displayed (assuming
     Sunday and Monday as the first day of the week, respectively).
   * `one_indexed`: Can be either `true` or `false`. Defines whether the
     numerical representation of the week starts with 0 or 1.
@@ -288,7 +290,7 @@ Returns the month of the datetime, if it exists. Otherwise, it returns `none`.
 - returns: integer or none
 
 ### weekday()
-Returns the weekday of the datetime as a number starting with 1 from Monday, if 
+Returns the weekday of the datetime as a number starting with 1 from Monday, if
 it exists. Otherwise, it returns `none`.
 
 - returns: integer or none

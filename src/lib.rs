@@ -117,9 +117,9 @@ pub trait World {
     /// Try to access a file at a path.
     fn file(&self, path: &Path) -> FileResult<Buffer>;
 
-    /// Get the current date (if no offset is specified, the local date will be
-    /// chosen. Otherwise, the UTC date should be chosen with the corresponding
-    /// offset in hours.)
-    /// Returns a tuple in the form (year, month, day).
+    /// Get the current date.
+    ///
+    /// If no offset is specified, the local date should be chosen. Otherwise,
+    /// the UTC date should be chosen with the corresponding offset in hours.
     fn today(&self, offset: Option<i64>) -> Option<Datetime>;
 }

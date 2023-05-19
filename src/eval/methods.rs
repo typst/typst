@@ -2,10 +2,9 @@
 
 use ecow::EcoString;
 
-use typst::eval::datetime::Datetime;
-
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
+use crate::eval::Datetime;
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 

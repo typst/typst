@@ -2,12 +2,12 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
-use ecow::{eco_format, eco_vec, EcoString, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::{format_description, PrimitiveDateTime};
 
+use crate::eval::cast_from_value;
 use crate::util::pretty_array_like;
-use typst_macros::cast_from_value;
 
 /// A datetime object that represents either a date, a time or a combination of
 /// both.
@@ -106,6 +106,7 @@ impl Datetime {
         }
     }
 
+    /// Create a datetime from year, month, and day.
     pub fn from_ymd(year: i32, month: u8, day: u8) -> Option<Self> {
         Some(Datetime::Date(
             time::Date::from_calendar_date(year, time::Month::try_from(month).ok()?, day)
@@ -113,10 +114,12 @@ impl Datetime {
         ))
     }
 
+    /// Create a datetime from hour, minute, and second.
     pub fn from_hms(hour: u8, minute: u8, second: u8) -> Option<Self> {
         Some(Datetime::Time(time::Time::from_hms(hour, minute, second).ok()?))
     }
 
+    /// Create a datetime from day and time.
     pub fn from_ymd_hms(
         year: i32,
         month: u8,
@@ -135,17 +138,16 @@ impl Datetime {
 
 impl Debug for Datetime {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let year = self.year().map_or("".into(), |y| eco_format!("year:{}", y));
-        let month = self.month().map_or("".into(), |m| eco_format!("month:{}", m));
-        let day = self.day().map_or("".into(), |d| eco_format!("day:{}", d));
-        let hour = self.hour().map_or("".into(), |h| eco_format!("hour:{}", h));
-        let minute = self.minute().map_or("".into(), |m| eco_format!("minute:{}", m));
-        let second = self.second().map_or("".into(), |s| eco_format!("second:{}", s));
-
-        let filtered = eco_vec![year, month, day, hour, minute, second]
+        let year = self.year().map(|y| eco_format!("year: {y}"));
+        let month = self.month().map(|m| eco_format!("month: {m}"));
+        let day = self.day().map(|d| eco_format!("day: {d}"));
+        let hour = self.hour().map(|h| eco_format!("hour: {h}"));
+        let minute = self.minute().map(|m| eco_format!("minute: {m}"));
+        let second = self.second().map(|s| eco_format!("second: {s}"));
+        let filtered = [year, month, day, hour, minute, second]
             .into_iter()
-            .filter(|e| !e.is_empty())
-            .collect::<EcoVec<EcoString>>();
+            .flatten()
+            .collect::<EcoVec<_>>();
 
         write!(f, "datetime{}", &pretty_array_like(&filtered, false))
     }

@@ -181,33 +181,37 @@ cast_from_value! {
     },
 }
 
-/// Create a new [datetime]($type/datetime).
+/// Create a new datetime.
 ///
-/// You can specify the datetime using a year, month, day, hour, minute and second.
-///
-/// _Note_: Depending on which components of the datetime you specify, Typst will store them in
-/// one of the following three ways:
-/// * If you specify the year, month and day, Typst will store it as a date internally.
-/// * If you specity the hour, minute and second, Typst will store it as a time internally.
-/// * If you specify all of year, month, day, hour, minute and second, Typst will store it as a
-/// datetime internally.
-///
-/// Depending on how it is stored, the `display` method will choose a different formatting by
-/// default.
+/// You can specify the [datetime]($type/datetime) using a year, month, day,
+/// hour, minute, and second.
 ///
 /// ## Example
 /// ```example
-/// #datetime(year: 2012, month: 8, day: 3).display() \
-/// #datetime(hour: 2, minute: 28, second: 35).display() \
-/// #datetime(year: 2023, month: 4, day: 25, hour: 14, minute: 46, second: 59).display() \
+/// #datetime(
+///   year: 2012,
+///   month: 8,
+///   day: 3,
+/// ).display()
 /// ```
+///
+/// ## Format
+/// _Note_: Depending on which components of the datetime you specify, Typst
+/// will store it in one of the following three ways:
+/// * If you specify year, month and day, Typst will store just a date.
+/// * If you specify hour, minute and second, Typst will store just a time.
+/// * If you specify all of year, month, day, hour, minute and second, Typst
+///   will store a full datetime.
+///
+/// Depending on how it is stored, the [`display`]($type/datetime.display)
+/// method will choose a different formatting by default.
 ///
 /// Display: Datetime
 /// Category: construct
 /// Returns: datetime
 #[func]
 #[scope(
-    scope.define("today", today);
+    scope.define("today", datetime_today);
     scope
 )]
 pub fn datetime(
@@ -237,7 +241,8 @@ pub fn datetime(
                 Err(_) => bail!(args.span, "time is invalid"),
             }
         }
-        _ => None,
+        (None, None, None) => None,
+        _ => bail!(args.span, "time is incomplete"),
     };
 
     let date = match (year, month, day) {
@@ -247,7 +252,8 @@ pub fn datetime(
                 Err(_) => bail!(args.span, "date is invalid"),
             }
         }
-        _ => None,
+        (None, None, None) => None,
+        _ => bail!(args.span, "date is incomplete"),
     };
 
     match (date, time) {
@@ -263,15 +269,10 @@ pub fn datetime(
 }
 
 struct YearComponent(i32);
-
 struct MonthComponent(Month);
-
 struct DayComponent(u8);
-
 struct HourComponent(u8);
-
 struct MinuteComponent(u8);
-
 struct SecondComponent(u8);
 
 cast_from_value!(
@@ -324,21 +325,19 @@ cast_from_value!(
 
 /// Returns the current date.
 ///
-/// If no offset is specified, the date according to the local time will be chosen.
-/// If an offset is specified, the current UTC date with the applied offset will be chosen.
-///
 /// ## Example
 /// ```example
-/// Today's date is #today().display("[month repr:long] [day], [year]")
+/// Today's date is
+/// #datetime.today().display().
 /// ```
 ///
 /// Display: Today
 /// Category: construct
 /// Returns: datetime
 #[func]
-pub fn today(
-    /// Whether an offset should be applied. If none is specified, the local date will be chosen.
-    /// If an offset is specified, it will be applied to the current UTC date.
+pub fn datetime_today(
+    /// An offset to apply to the current UTC date. If none is specified, the
+    /// local date will be chosen.
     #[named]
     offset: Option<i64>,
 ) -> Value {
