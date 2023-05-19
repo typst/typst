@@ -11,6 +11,7 @@
 #outline(indent: auto)
 #outline(indent: 2em)
 #outline(indent: [--])
+#outline(indent: ([::], 2em, [=====]))
 #outline(indent: n => [*!*] * calc.pow(2, n))
 
 = About ACME Corp.
@@ -37,6 +38,7 @@
 #outline(indent: auto)
 #outline(indent: 2em)
 #outline(indent: [--])
+#outline(indent: ([::], 2em, [=====]))
 #outline(indent: n => [*!*] * calc.pow(2, n))
 
 = About ACME Corp.
@@ -52,3 +54,11 @@
 
 ==== General
 #lorem(10)
+
+---
+// Error: 18-20 indent array must have at least one element
+#outline(indent: ())
+
+---
+// Error: 18-30 expected relative length, fraction, content, or none, found auto
+#outline(indent: (auto, none))

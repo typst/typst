@@ -276,6 +276,26 @@ impl Show for OutlineElem {
                     seq.push(content_prefix);
                 }
 
+                // Array => display the n-th element (or length for spacing),
+                // where n is the current depth (or repeat the array's last
+                // element, if the array is too short for this depth)
+                Some(Smart::Custom(OutlineIndent::Array(array))) => {
+                    let depth = ancestors.len();
+                    let array_value = array.get(depth).or_else(|| array.last());
+                    let Some(array_value) = array_value else {
+                        bail!(self.span(), "indent array must have at least one element");
+                    };
+                    if let Some(inner_array_value) = array_value {
+                        let indent_content = match inner_array_value {
+                            OutlineIndentArrayValue::Length(length) => {
+                                HElem::new(*length).pack()
+                            }
+                            OutlineIndentArrayValue::Content(content) => content.clone(),
+                        };
+                        seq.push(indent_content);
+                    }
+                }
+
                 // Function => call function with the current depth and take
                 // the returned content
                 Some(Smart::Custom(OutlineIndent::Function(func))) => {
@@ -376,6 +396,7 @@ pub enum OutlineIndent {
     Bool(bool),
     Length(Spacing),
     Content(Content),
+    Array(Vec<Option<OutlineIndentArrayValue>>),
     Function(Func),
 }
 
@@ -384,6 +405,12 @@ cast_from_value! {
     b: bool => OutlineIndent::Bool(b),
     s: Spacing => OutlineIndent::Length(s),
     c: Content => OutlineIndent::Content(c),
+    a: Vec<Option<OutlineIndentArrayValue>> => {
+        if a.is_empty() {
+            Err("indent array must have at least one element")?;
+        }
+        OutlineIndent::Array(a)
+    },
     f: Func => OutlineIndent::Function(f),
 }
 
@@ -392,6 +419,25 @@ cast_to_value! {
         OutlineIndent::Bool(b) => b.into(),
         OutlineIndent::Length(s) => s.into(),
         OutlineIndent::Content(c) => c.into(),
+        OutlineIndent::Array(a) => a.into(),
         OutlineIndent::Function(f) => f.into()
+    }
+}
+
+pub enum OutlineIndentArrayValue {
+    Length(Spacing),
+    Content(Content),
+}
+
+cast_from_value! {
+    OutlineIndentArrayValue,
+    s: Spacing => OutlineIndentArrayValue::Length(s),
+    c: Content => OutlineIndentArrayValue::Content(c),
+}
+
+cast_to_value! {
+    v: OutlineIndentArrayValue => match v {
+        OutlineIndentArrayValue::Length(s) => s.into(),
+        OutlineIndentArrayValue::Content(c) => c.into(),
     }
 }
