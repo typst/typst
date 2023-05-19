@@ -26,11 +26,11 @@
 #float(float)
 
 ---
-// Error: 6-12 not a valid integer
+// Error: 6-12 invalid integer: nope
 #int("nope")
 
 ---
-// Error: 8-15 not a valid float
+// Error: 8-15 invalid float: 1.2.3
 #float("1.2.3")
 
 ---
