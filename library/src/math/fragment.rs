@@ -164,8 +164,7 @@ impl GlyphFragment {
     }
 
     pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
-        let (italics, bbox, width) = Self::get_id_params(ctx, &id);
-        Self {
+        let mut fragment = Self {
             id,
             c,
             font: ctx.font.clone(),
@@ -173,20 +172,24 @@ impl GlyphFragment {
             fill: TextElem::fill_in(ctx.styles()),
             style: ctx.style,
             font_size: ctx.size,
-            width,
-            ascent: bbox.y_max.scaled(ctx),
-            descent: -bbox.y_min.scaled(ctx),
-            italics_correction: italics,
+            width: Abs::zero(),
+            ascent: Abs::zero(),
+            descent: Abs::zero(),
+            italics_correction: Abs::zero(),
             class: match c {
                 ':' => Some(MathClass::Relation),
                 _ => unicode_math_class::class(c),
             },
             span,
             meta: MetaElem::data_in(ctx.styles()),
-        }
+        };
+        fragment.set_id(ctx, id);
+        fragment
     }
 
-    fn get_id_params(ctx: &MathContext, &id: &GlyphId) -> (Abs, Rect, Abs) {
+    /// Sets element id and boxes in appropriate way without changing other
+    /// styles. This is used to replace the glyph with a stretch variant.
+    pub fn set_id(&mut self, ctx: &MathContext, id: GlyphId) {
         let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
         let italics = italics_correction(ctx, id).unwrap_or_default();
         let bbox = ctx.ttf.glyph_bounding_box(id).unwrap_or(Rect {
@@ -200,17 +203,12 @@ impl GlyphFragment {
         if !is_extended_shape(ctx, id) {
             width += italics;
         }
-        (italics, bbox, width)
-    }
 
-    /// Sets element id and boxes in appropriate way without changing other styles
-    pub fn set_id(&mut self, ctx: &MathContext, id: GlyphId) {
-        let (italics, bbox, width) = Self::get_id_params(ctx, &id);
+        self.id = id;
         self.width = width;
         self.ascent = bbox.y_max.scaled(ctx);
         self.descent = -bbox.y_min.scaled(ctx);
         self.italics_correction = italics;
-        self.id = id;
     }
 
     pub fn height(&self) -> Abs {
