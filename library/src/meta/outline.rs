@@ -164,8 +164,8 @@ pub struct OutlineElem {
     /// ==== General
     /// #lorem(10)
     /// ```
-    #[default(OutlineIndent::Disabled)]
-    pub indent: OutlineIndent,
+    #[default(None)]
+    pub indent: Option<Smart<OutlineIndent>>,
 
     /// Content to fill the space between the title and the page number. Can be
     /// set to `none` to disable filling.
@@ -229,11 +229,11 @@ impl Show for OutlineElem {
             }
 
             match &indent {
-                // Disabled => no indenting
-                OutlineIndent::Disabled => {}
+                // 'none' | 'false' => no indenting
+                None | Some(Smart::Custom(OutlineIndent::Bool(false))) => {}
 
-                // Enabled => use numbering alignment for indenting
-                OutlineIndent::Enabled => {
+                // 'auto' | 'true' => use numbering alignment for indenting
+                Some(Smart::Auto | Smart::Custom(OutlineIndent::Bool(true))) => {
                     // Add hidden ancestors numberings to realize the indent.
                     let mut hidden = Content::empty();
                     for ancestor in &ancestors {
@@ -257,7 +257,7 @@ impl Show for OutlineElem {
                 }
 
                 // Length => indent with some fixed spacing per level
-                OutlineIndent::Length(length) => {
+                Some(Smart::Custom(OutlineIndent::Length(length))) => {
                     let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
                         bail!(self.span(), "Outline element depth too large");
                     };
@@ -267,7 +267,7 @@ impl Show for OutlineElem {
                 }
 
                 // Content => repeat some content for each indentation level
-                OutlineIndent::Content(content) => {
+                Some(Smart::Custom(OutlineIndent::Content(content))) => {
                     let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
                         bail!(self.span(), "Outline element depth too large");
                     };
@@ -276,8 +276,9 @@ impl Show for OutlineElem {
                     seq.push(content_prefix);
                 }
 
-                // Function => call function with the current depth and take the returned content
-                OutlineIndent::Function(func) => {
+                // Function => call function with the current depth and take
+                // the returned content
+                Some(Smart::Custom(OutlineIndent::Function(func))) => {
                     let depth = ancestors.len();
                     let result = func.call_vt(vt, [depth.into()])?;
                     seq.push(result.display());
@@ -372,8 +373,7 @@ pub trait Outlinable: Refable {
 }
 
 pub enum OutlineIndent {
-    Disabled,
-    Enabled,
+    Bool(bool),
     Length(Spacing),
     Content(Content),
     Function(Func),
@@ -381,10 +381,7 @@ pub enum OutlineIndent {
 
 cast_from_value! {
     OutlineIndent,
-    b: bool => match b {
-        true => OutlineIndent::Enabled,
-        false => OutlineIndent::Disabled
-    },
+    b: bool => OutlineIndent::Bool(b),
     s: Spacing => OutlineIndent::Length(s),
     c: Content => OutlineIndent::Content(c),
     f: Func => OutlineIndent::Function(f),
@@ -392,8 +389,7 @@ cast_from_value! {
 
 cast_to_value! {
     v: OutlineIndent => match v {
-        OutlineIndent::Disabled => false.into(),
-        OutlineIndent::Enabled => true.into(),
+        OutlineIndent::Bool(b) => b.into(),
         OutlineIndent::Length(s) => s.into(),
         OutlineIndent::Content(c) => c.into(),
         OutlineIndent::Function(f) => f.into()
