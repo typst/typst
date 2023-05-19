@@ -214,6 +214,12 @@ use crate::prelude::*;
 ///   If this is omitted, displays the counter with the numbering style for the
 ///   counted element or with the pattern `{"1.1"}` if no such style exists.
 ///
+/// - both: boolean (named)
+///   If enabled, displays the current and final top-level count together. Both
+///   can be styled through a single numbering pattern. This is used by the page
+///   numbering property to display the current and total number of pages when a
+///   pattern like `{"1 / 1"}` is given.
+///
 /// - returns: content
 ///
 /// ### step()
