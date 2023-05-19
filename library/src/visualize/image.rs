@@ -10,9 +10,10 @@ use crate::text::families;
 /// A raster or vector graphic.
 ///
 /// Supported formats are PNG, JPEG, GIF and SVG.
-/// _Note:_ Including SVG images is currently still work in progress and there
-/// might be visual inaccuracies in the resulting PDF. Make sure to double-check
-/// embedded svg images for such issues.
+///
+/// _Note:_ Work on SVG export is ongoing and there might be visual inaccuracies
+/// in the resulting PDF. Make sure to double-check embedded SVG images. If you
+/// have an issue, also feel free to report it on [GitHub][gh-svg].
 ///
 /// ## Example
 /// ```example
@@ -24,6 +25,8 @@ use crate::text::families;
 ///   ],
 /// )
 /// ```
+///
+/// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
 ///
 /// Display: Image
 /// Category: visualize
