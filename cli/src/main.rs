@@ -6,11 +6,11 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
+use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::process;
 
 use atty::Stream;
-use chrono::Datelike;
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
@@ -22,6 +22,8 @@ use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
+use time::macros::format_description;
+use time::Duration;
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
@@ -278,8 +280,8 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let esc = 27 as char;
     let input = command.input.display();
     let output = command.output.display();
-    let time = chrono::offset::Local::now();
-    let timestamp = time.format("%H:%M:%S");
+    let time = time::OffsetDateTime::now_local().unwrap();
+    let timestamp = time.format(format_description!("[hour]:[minute]:[second]")).unwrap();
     let message = status.message();
     let color = status.color();
 
@@ -494,8 +496,8 @@ impl World for SystemWorld {
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         if self.current_date.get().is_none() {
             let datetime = match offset {
-                None => chrono::Local::now().naive_local(),
-                Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
+                None => time::OffsetDateTime::now_local().ok()?,
+                Some(o) => time::OffsetDateTime::now_utc().add(Duration::hours(o)),
             };
 
             self.current_date.set(Some(Datetime::from_ymd(
