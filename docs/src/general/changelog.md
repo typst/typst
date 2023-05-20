@@ -6,6 +6,13 @@ description: |
 
 # Changelog
 ## Unreleased
+- Footnotes
+  - Implemented support for footnotes
+  - The [`footnote`]($func/footnote) function inserts a footnote
+  - The [`footnote.entry`]($func/footnote.entry) function can be used to
+    customize the footnote listing
+  - The `{"chicago-notes"}` [citation style]($func/cite.style) is now available
+
 - Documentation
   - Added [guide for LaTeX users]($guides/guide-for-latex-users)
   - Now shows default values for optional arguments

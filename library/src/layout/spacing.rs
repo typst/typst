@@ -177,6 +177,14 @@ impl Spacing {
     pub fn is_fractional(self) -> bool {
         matches!(self, Self::Fr(_))
     }
+
+    /// Whether the spacing is actually no spacing.
+    pub fn is_zero(&self) -> bool {
+        match self {
+            Self::Rel(rel) => rel.is_zero(),
+            Self::Fr(fr) => fr.is_zero(),
+        }
+    }
 }
 
 impl From<Abs> for Spacing {

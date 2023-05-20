@@ -608,7 +608,7 @@ cast_to_value! {
 }
 
 /// Meta information that isn't visible or renderable.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum Meta {
     /// An internal or external link to a destination.
     Link(Destination),
@@ -621,6 +621,17 @@ pub enum Meta {
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
     Hide,
+}
+
+impl Debug for Meta {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Link(dest) => write!(f, "Link({dest:?})"),
+            Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
+            Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
+            Self::Hide => f.pad("Hide"),
+        }
+    }
 }
 
 cast_from_value! {

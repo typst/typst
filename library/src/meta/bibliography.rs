@@ -11,7 +11,7 @@ use typst::util::option_eq;
 
 use super::{LinkElem, LocalName, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
-use crate::meta::HeadingElem;
+use crate::meta::{FootnoteElem, HeadingElem};
 use crate::prelude::*;
 use crate::text::TextElem;
 
@@ -243,6 +243,9 @@ pub enum BibliographyStyle {
     /// The Chicago Author Date style. Based on the 17th edition of the Chicago
     /// Manual of Style, Chapter 15.
     ChicagoAuthorDate,
+    /// The Chicago Notes style. Based on the 17th edition of the Chicago
+    /// Manual of Style, Chapter 14.
+    ChicagoNotes,
     /// The style of the Institute of Electrical and Electronics Engineers.
     /// Based on the 2018 IEEE Reference Guide.
     Ieee,
@@ -257,6 +260,7 @@ impl BibliographyStyle {
         match self {
             Self::Apa => CitationStyle::ChicagoAuthorDate,
             Self::ChicagoAuthorDate => CitationStyle::ChicagoAuthorDate,
+            Self::ChicagoNotes => CitationStyle::ChicagoNotes,
             Self::Ieee => CitationStyle::Numerical,
             Self::Mla => CitationStyle::ChicagoAuthorDate,
         }
@@ -385,7 +389,10 @@ pub enum CitationStyle {
     /// The Chicago Author Date style. Based on the 17th edition of the Chicago
     /// Manual of Style, Chapter 15.
     ChicagoAuthorDate,
-    /// The Chicago-like author-title format. Results could look like this:
+    /// The Chicago Notes style. Based on the 17th edition of the Chicago
+    /// Manual of Style, Chapter 14.
+    ChicagoNotes,
+    /// A Chicago-like author-title format. Results could look like this:
     /// Prokopov, “It Is Fast or It Is Wrong”.
     ChicagoAuthorTitle,
 }
@@ -487,6 +494,7 @@ fn create(
                     CitationStyle::ChicagoAuthorDate => {
                         Box::new(style::ChicagoAuthorDate::new())
                     }
+                    CitationStyle::ChicagoNotes => Box::new(style::ChicagoNotes::new()),
                     CitationStyle::ChicagoAuthorTitle => {
                         Box::new(style::AuthorTitle::new())
                     }
@@ -537,6 +545,10 @@ fn create(
                 };
             }
 
+            if style == CitationStyle::ChicagoNotes {
+                content = FootnoteElem::new(content).pack();
+            }
+
             (location, Some(content))
         })
         .collect();
@@ -544,6 +556,7 @@ fn create(
     let bibliography_style: Box<dyn style::BibliographyStyle> = match style {
         BibliographyStyle::Apa => Box::new(style::Apa::new()),
         BibliographyStyle::ChicagoAuthorDate => Box::new(style::ChicagoAuthorDate::new()),
+        BibliographyStyle::ChicagoNotes => Box::new(style::ChicagoNotes::new()),
         BibliographyStyle::Ieee => Box::new(style::Ieee::new()),
         BibliographyStyle::Mla => Box::new(style::Mla::new()),
     };
@@ -552,24 +565,18 @@ fn create(
         .bibliography(&*bibliography_style, None)
         .into_iter()
         .map(|reference| {
-            // Make link from citation to here work.
-            let backlink = {
-                let mut content = Content::empty();
-                content.set_location(ref_location(reference.entry));
-                MetaElem::set_data(vec![Meta::Elem(content)])
-            };
-
+            let backlink = ref_location(reference.entry);
             let prefix = reference.prefix.map(|prefix| {
                 // Format and link to first citation.
                 let bracketed = prefix.with_default_brackets(&*citation_style);
                 format_display_string(&bracketed, None, span)
                     .linked(Destination::Location(ids[reference.entry.key()]))
-                    .styled(backlink.clone())
+                    .backlinked(backlink)
             });
 
             let mut reference = format_display_string(&reference.display, None, span);
             if prefix.is_none() {
-                reference = reference.styled(backlink);
+                reference = reference.backlinked(backlink);
             }
 
             (prefix, reference)

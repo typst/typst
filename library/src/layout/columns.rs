@@ -83,6 +83,7 @@ impl Layout for ColumnsElem {
             backlog: &backlog,
             last: regions.last,
             expand: Axes::new(true, regions.expand.y),
+            root: regions.root,
         };
 
         // Layout the children.

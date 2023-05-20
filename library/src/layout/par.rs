@@ -569,6 +569,10 @@ fn collect<'a>(
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to::<HElem>() {
+            if elem.amount().is_zero() {
+                continue;
+            }
+
             full.push(SPACING_REPLACE);
             Segment::Spacing(elem.amount())
         } else if let Some(elem) = child.to::<LinebreakElem>() {

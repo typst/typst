@@ -315,9 +315,11 @@ impl PageElem {
             child = ColumnsElem::new(child).with_count(columns).pack();
         }
 
-        // Layout the child.
         let area = size - margin.sum_by_axis();
-        let regions = Regions::repeat(area, area.map(Abs::is_finite));
+        let mut regions = Regions::repeat(area, area.map(Abs::is_finite));
+        regions.root = true;
+
+        // Layout the child.
         let mut fragment = child.layout(vt, styles, regions)?;
 
         let fill = self.fill(styles);
