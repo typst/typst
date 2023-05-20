@@ -5,6 +5,82 @@ description: |
 ---
 
 # Changelog
+## Unreleased
+- Documentation
+  - Added [guide for LaTeX users]($guides/guide-for-latex-users)
+  - Now shows default values for optional arguments
+  - Added richer outlines in "On this Page"
+  - Added initial support for search keywords: "Table of Contents" will now find
+    the [outline]($func/outline) function, suggestions for more keywords are
+    welcome!
+  - Fixed issue with search result ranking
+  - Fixed many more small issues
+
+- Math
+  - **Breaking change**: Alignment points (`&`) in equations now alternate
+    between left and right alignment
+  - Added support for writing roots with Unicode:
+    For example, `[$root(x+y)$]` can now also be written as `[$√(x+y)$]`
+  - Fixed uneven vertical [`attachment`]($func/math.attach) alignment
+  - Fixed spacing on decorated elements
+    (e.g., spacing around a [canceled]($func/math.cancel) operator)
+  - Fixed styling for stretchable symbols
+  - Added `tack.r.double`, `tack.l.double`, `dotless.i` and `dotless.j`
+    [symbols]($category/symbols/sym)
+  - Fixed show rules on symbols (e.g. `{show sym.tack: set text(blue)}`)
+  - Fixed missing rename from `ast.op` to `ast` that should have been in the
+    previous release
+
+- Scripting
+  - Added function scopes: A function can now hold related definitions in its
+    own scope, similar to a module. The new [`assert.eq`]($func/assert.eq), for
+    instance, is part of the [`assert`]($func/assert) scopes.
+  - Added [`assert.eq`]($func/assert.eq) and [`assert.ne`]($func/assert.ne)
+    functions for simpler equality and inequality assertions with more helpful
+    error messages
+  - The `at` method on [strings]($type/string.at), [arrays]($type/array.at),
+    [dictionaries]($type/dict.at), and [content]($type/content.at) now supports
+    specifying a default value
+  - Added support for passing a function to [`replace`]($type/string.replace)
+    that is called with each match.
+  - Fixed [replacement]($type/string.replace) strings: They are now inserted
+    completely verbatim instead of supporting the previous (unintended) magic
+    dollar syntax for capture groups
+  - Fixed bug with trailing placeholders in destructuring patterns
+  - Fixed bug with underscore in parameter destructuring
+  - Fixed crash with nested patterns and when hovering over an invalid pattern
+  - Better error messages when casting to an [integer]($func/int) or
+    [float]($func/float) fails
+
+- Text and Layout
+  - Implemented sophisticated CJK punctuation adjustment
+  - Disabled [overhang]($func/text.overhang) for CJK punctuation
+  - Added basic translations for Traditional Chinese
+  - Fixed [alignment]($func/raw.align) of text inside raw blocks (centering a
+    raw block, e.g. through a figure, will now keep the text itself
+    left-aligned)
+  - Added support for passing a per-column array instead of a function to
+    configure table cell [alignment]($func/table.align) and
+    [fill]($func/table.fill)
+  - Fixed automatic figure [`kind`]($func/figure.kind) detection
+  - Made alignment of [enum numbers]($func/enum.number-align) configurable,
+    defaulting to `end`
+  - Fixed show-set rules for blocks in figures
+  - Initial fix for smart quotes for RTL languages
+
+- Export
+  - Fixed ligatures in PDF export: They are now copyable and searchable
+  - Exported PDFs now embeds ICC profiles for images that have them
+  - Fixed export of strokes with zero thickness
+
+- Miscellaneous Improvements
+  - Improved performance of counters, state, and queries
+  - Improved incremental parsing for more efficient recompilations
+  - Added support for `.yaml` extension in addition to `.yml` for bibliographies
+  - The CLI now emits escape codes only if the output is a TTY
+  - For users of the `typst` crate: The `Document` is now `Sync` again and
+    the `World` doesn't have to be `'static` anymore
+
 ## Version 0.3.0 (April 26, 2023) { #v0.3.0 }
 - **Breaking changes:**
   - Renamed a few symbols: What was previous `dot.op` is now just `dot` and the
