@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.4.0 (May 20, 2023) { #v0.4.0 }
 - Footnotes
   - Implemented support for footnotes
   - The [`footnote`]($func/footnote) function inserts a footnote
@@ -14,11 +14,11 @@ description: |
   - The `{"chicago-notes"}` [citation style]($func/cite.style) is now available
 
 - Documentation
-  - Added [guide for LaTeX users]($guides/guide-for-latex-users)
+  - Added a [Guide for LaTeX users]($guides/guide-for-latex-users)
   - Now shows default values for optional arguments
   - Added richer outlines in "On this Page"
   - Added initial support for search keywords: "Table of Contents" will now find
-    the [outline]($func/outline) function, suggestions for more keywords are
+    the [outline]($func/outline) function. Suggestions for more keywords are
     welcome!
   - Fixed issue with search result ranking
   - Fixed many more small issues
@@ -40,13 +40,17 @@ description: |
 
 - Scripting
   - Added function scopes: A function can now hold related definitions in its
-    own scope, similar to a module. The new [`assert.eq`]($func/assert.eq), for
-    instance, is part of the [`assert`]($func/assert) scopes.
+    own scope, similar to a module. The new [`assert.eq`]($func/assert.eq)
+    function, for instance, is part of the [`assert`]($func/assert) function's
+    scope. Note that function scopes are currently only available for built-in
+    functions.
   - Added [`assert.eq`]($func/assert.eq) and [`assert.ne`]($func/assert.ne)
     functions for simpler equality and inequality assertions with more helpful
     error messages
-  - The `at` method on [strings]($type/string.at), [arrays]($type/array.at),
-    [dictionaries]($type/dict.at), and [content]($type/content.at) now supports
+  - Exposed [list]($func/list.item), [enum]($func/enum.item), and
+    [term list]($func/terms.item) items in their respective functions' scope
+  - The `at` methods on [strings]($type/string.at), [arrays]($type/array.at),
+    [dictionaries]($type/dict.at), and [content]($type/content.at) now support
     specifying a default value
   - Added support for passing a function to [`replace`]($type/string.replace)
     that is called with each match.
@@ -66,36 +70,35 @@ description: |
   - Fixed [alignment]($func/raw.align) of text inside raw blocks (centering a
     raw block, e.g. through a figure, will now keep the text itself
     left-aligned)
-  - Added support for passing a per-column array instead of a function to
-    configure table cell [alignment]($func/table.align) and
-    [fill]($func/table.fill)
+  - Added support for passing a array instead of a function to configure table
+    cell [alignment]($func/table.align) and [fill]($func/table.fill) per column
   - Fixed automatic figure [`kind`]($func/figure.kind) detection
   - Made alignment of [enum numbers]($func/enum.number-align) configurable,
     defaulting to `end`
-  - Fixed show-set rules for blocks in figures
-  - Initial fix for smart quotes for RTL languages
+  - Figures can now be made breakable with a show-set rule for blocks in figure
+  - Initial fix for smart quotes in RTL languages
 
 - Export
   - Fixed ligatures in PDF export: They are now copyable and searchable
-  - Exported PDFs now embeds ICC profiles for images that have them
+  - Exported PDFs now embed ICC profiles for images that have them
   - Fixed export of strokes with zero thickness
 
 - Web app
   - Projects can now contain folders
-  - Added upload by drag and drop into the file panel
+  - Added upload by drag-and-drop into the file panel
   - Files from the file panel can now be dragged into the editor to insert them
-    in a Typst file
+    into a Typst file
   - You can now copy-paste images and other files from your computer directly
     into the editor
-  - Added button to resend confirmation email
-  - Added option to invert preview colors in dark mode
-  - Added tips to the loading screen and the Help menu. Feel free to submit
+  - Added a button to resend confirmation email
+  - Added an option to invert preview colors in dark mode
+  - Added tips to the loading screen and the Help menu. Feel free to propose
     more!
   - Added syntax highlighting for YAML files
-  - Allow middle mouse button click on many buttons to navigate in a new tab
-  - Allow more project names
-  - Fix overridden Vim mode keybindings
-  - Many bugfixes regarding file upload and more
+  - Allowed middle mouse button click on many buttons to navigate into a new tab
+  - Allowed more project names
+  - Fixed overridden Vim mode keybindings
+  - Fixed many bugs regarding file upload and more
 
 - Miscellaneous Improvements
   - Improved performance of counters, state, and queries
@@ -104,6 +107,8 @@ description: |
   - The CLI now emits escape codes only if the output is a TTY
   - For users of the `typst` crate: The `Document` is now `Sync` again and
     the `World` doesn't have to be `'static` anymore
+
+<contributors from="v0.3.0" to="v0.4.0" />
 
 ## Version 0.3.0 (April 26, 2023) { #v0.3.0 }
 - **Breaking changes:**

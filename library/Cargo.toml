@@ -1,14 +1,15 @@
 [package]
 name = "typst-library"
+description = "The standard library for Typst."
+categories = ["compilers", "science"]
+keywords = ["typst"]
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "The standard library for Typst."
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-keywords.workspace = true
 
 [lib]
 test = false

@@ -1,23 +1,9 @@
-[package]
-name = "typst"
-version = "0.3.0"
-rust-version = "1.65"
-authors = ["The Typst Project Developers"]
-edition = "2021"
-description = "A new markup-based typesetting system that is powerful and easy to learn."
-homepage = "https://typst.app"
-repository = "https://github.com/typst/typst"
-readme = "README.md"
-license = "Apache-2.0"
-categories = ["compilers", "science"]
-keywords = ["markup", "typesetting"]
-
 [workspace]
 members = ["cli", "docs", "library", "macros", "tests"]
 default-members = ["cli"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 rust-version = "1.65"
 authors = ["The Typst Project Developers"]
 edition = "2021"
@@ -25,8 +11,19 @@ homepage = "https://typst.app"
 repository = "https://github.com/typst/typst"
 readme = "README.md"
 license = "Apache-2.0"
+
+[package]
+name = "typst"
+description = "A new markup-based typesetting system that is powerful and easy to learn."
 categories = ["compilers", "science"]
-keywords = ["typst"]
+keywords = ["markup", "typesetting"]
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
 doctest = false

@@ -95,20 +95,12 @@ pub struct FigureElem {
     /// automatic detection. This can be useful if
     /// - you wish to create a custom figure type that is not an
     ///   [image]($func/image), a [table]($func/table) or [code]($func/raw),
-    /// - you want to force the figure to use a counter regardless of its
-    ///   content.
+    /// - you want to force the figure to use a specific counter regardless of
+    ///   its content.
     ///
     /// You can set the kind to be an element function or a string. If you set
     /// it to an element function that is not supported by the figure, you will
     /// need to manually specify the figure's supplement.
-    ///
-    /// The figure's automatic detection is based on a priority list to select
-    /// the element that is likely to be the most important one. If the figure's
-    /// body contains multiple valid elements, the one with the highest priority
-    /// is selected. The priority list is as follows:
-    /// - [image]($func/image) is the most important,
-    /// - [code]($func/raw) is the second most important,
-    /// - [table]($func/table) is the least important one.
     ///
     /// ```example
     /// #figure(

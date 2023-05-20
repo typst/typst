@@ -832,6 +832,12 @@ kind. In contrast to normal functions, they can further be used in
 [set rules]($styling/#set-rules), [show rules]($styling/#show-rules), and
 [selectors]($type/selector).
 
+### Function scopes { #function-scopes }
+Functions can hold related definitions in their own scope, similar to a
+[module]($scripting/#modules). Examples of this are
+[`assert.eq`]($func/assert.eq) or [`list.item`]($func/list.item). However, this
+feature is currently only available for built-in functions.
+
 ### Defining functions { #definitions }
 You can define your own function with a
 [let binding]($scripting/#bindings) that has a parameter list after
