@@ -73,6 +73,23 @@ description: |
   - Exported PDFs now embeds ICC profiles for images that have them
   - Fixed export of strokes with zero thickness
 
+- Web app
+  - Projects can now contain folders
+  - Added upload by drag and drop into the file panel
+  - Files from the file panel can now be dragged into the editor to insert them
+    in a Typst file
+  - You can now copy-paste images and other files from your computer directly
+    into the editor
+  - Added button to resend confirmation email
+  - Added option to invert preview colors in dark mode
+  - Added tips to the loading screen and the Help menu. Feel free to submit
+    more!
+  - Added syntax highlighting for YAML files
+  - Allow middle mouse button click on many buttons to navigate in a new tab
+  - Allow more project names
+  - Fix overridden Vim mode keybindings
+  - Many bugfixes regarding file upload and more
+
 - Miscellaneous Improvements
   - Improved performance of counters, state, and queries
   - Improved incremental parsing for more efficient recompilations
