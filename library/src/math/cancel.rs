@@ -53,15 +53,15 @@ pub struct CancelElem {
     #[default(false)]
     pub cross: bool,
 
-    /// Rotate the cancel line by a certain angle. See the
-    /// [line's documentation]($func/line.angle) for more details.
+    /// Rotate the cancel line by a certain angle counter-clockwise relative to the
+    /// horizontal line. If missing, the angle is from the content's bottom left to top
+    /// right.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
-    /// $ cancel(Pi, rotation: #30deg) $
+    /// $ cancel(Pi, rotation: #30deg) cancel(a, rotation: #0deg) $
     /// ```
-    #[default(Angle::zero())]
-    pub rotation: Angle,
+    pub rotation: Option<Angle>,
 
     /// How to stroke the cancel line. See the
     /// [line's documentation]($func/line.stroke) for more details.
@@ -141,7 +141,7 @@ fn draw_cancel_line(
     length: Rel<Abs>,
     stroke: Stroke,
     invert: bool,
-    angle: Angle,
+    angle: Option<Angle>,
     body_size: Size,
     span: Span,
 ) -> Frame {
@@ -167,21 +167,37 @@ fn draw_cancel_line(
     let scale_y = scale;
     let scales = Axes::new(scale_x, scale_y);
 
-    // Draw a line from bottom left to top right of the given element, where the
-    // origin represents the very middle of that element, that is, a line from
-    // (-width / 2, height / 2) with length components (width, -height) (sign is
-    // inverted in the y-axis). After applying the scale, the line will have the
-    // correct length and orientation (inverted if needed).
-    let start = Axes::new(-mid.x, mid.y).zip(scales).map(|(l, s)| l * s);
-    let delta = Axes::new(width, -height).zip(scales).map(|(l, s)| l * s);
-
     let mut frame = Frame::new(body_size);
+    if let Some(angle) = angle {
+        let start = Axes::with_x(-mid.x).zip(scales).map(|(l, s)| l * s);
+        let delta = Axes::with_x(width).zip(scales).map(|(l, s)| l * s);
+        draw_cancel_line_impl(&mut frame, start, delta, stroke, span);
+
+        // Having the middle of the line at the origin is convenient here.
+        frame.transform(Transform::rotate(-angle));
+    } else {
+        // Draw a line from bottom left to top right of the given element, where the
+        // origin represents the very middle of that element, that is, a line from
+        // (-width / 2, height / 2) with length components (width, -height) (sign is
+        // inverted in the y-axis). After applying the scale, the line will have the
+        // correct length and orientation (inverted if needed).
+        let start = Axes::new(-mid.x, mid.y).zip(scales).map(|(l, s)| l * s);
+        let delta = Axes::new(width, -height).zip(scales).map(|(l, s)| l * s);
+        draw_cancel_line_impl(&mut frame, start, delta, stroke, span);
+    }
+
+    frame
+}
+
+fn draw_cancel_line_impl(
+    frame: &mut Frame,
+    start: Axes<Abs>,
+    delta: Axes<Abs>,
+    stroke: Stroke,
+    span: Span,
+) {
     frame.push(
         start.to_point(),
         FrameItem::Shape(Geometry::Line(delta.to_point()).stroked(stroke), span),
     );
-
-    // Having the middle of the line at the origin is convenient here.
-    frame.transform(Transform::rotate(angle));
-    frame
 }
