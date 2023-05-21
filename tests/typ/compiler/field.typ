@@ -95,8 +95,8 @@
 
 ---
 // Test stroke fields.
+#test((1em + blue).paint, blue)
 #test((1em + blue).thickness, 1em)
-#test((1em + blue).color, blue)
 #test((1em + blue).line_cap, "butt")
 #test((1em + blue).line_join, "miter")
 #test((1em + blue).dash_pattern, none)

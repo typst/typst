@@ -46,7 +46,7 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
         Value::Dyn(dynamic) => {
             if let Some(stroke) = dynamic.downcast::<PartialStroke>() {
                 match field {
-                    "color" => Ok(stroke
+                    "paint" => Ok(stroke
                         .paint
                         .clone()
                         .unwrap_or_else(|| Stroke::default().paint)
@@ -102,7 +102,7 @@ pub fn fields_on(type_name: &str) -> &[&'static str] {
         "length" => &["em", "pt", "cm", "mm", "inches"],
         "relative length" => &["relative", "absolute"],
         "stroke" => &[
-            "color",
+            "paint",
             "thickness",
             "line_cap",
             "line_join",
