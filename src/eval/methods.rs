@@ -5,6 +5,7 @@ use ecow::EcoString;
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
 use crate::eval::Datetime;
+use crate::geom::Color;
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -24,6 +25,15 @@ pub fn call(
             "lighten" => Value::Color(color.lighten(args.expect("amount")?)),
             "darken" => Value::Color(color.darken(args.expect("amount")?)),
             "negate" => Value::Color(color.negate()),
+            "to-hex" => color.to_rgba().to_hex().into(),
+            "to-rgba" => color.to_rgba().into(),
+            "to-cmyk" => match color {
+                Color::Luma(luma) => luma.to_cmyk().into(),
+                Color::Rgba(_) => {
+                    return Err("cannot convert color kind 'rgba' to 'cmyk'").at(span)
+                }
+                Color::Cmyk(_) => color.into(),
+            },
             _ => return missing(),
         },
 
@@ -306,7 +316,14 @@ fn missing_method(type_name: &str, method: &str) -> String {
 /// List the available methods for a type and whether they take arguments.
 pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
     match type_name {
-        "color" => &[("lighten", true), ("darken", true), ("negate", false)],
+        "color" => &[
+            ("lighten", true),
+            ("darken", true),
+            ("negate", false),
+            ("to-hex", false),
+            ("to-rgba", false),
+            ("to-cmyk", false),
+        ],
         "string" => &[
             ("len", false),
             ("at", true),

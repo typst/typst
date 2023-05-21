@@ -18,16 +18,11 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
         Value::Module(module) => module.get(field).cloned(),
         Value::Func(func) => func.get(field).cloned(),
         Value::Color(color) => match field {
-            "hex" => Ok(color.to_rgba().to_hex().into()),
-            "rgba" => Ok(color.to_rgba().to_array().into()),
-            "cmyk" => Ok(match color {
+            "kind" => Ok(color.kind().into()),
+            "values" => Ok(match color {
+                Color::Luma(luma) => vec![luma.0].into(),
+                Color::Rgba(rgba) => rgba.to_array().into(),
                 Color::Cmyk(cmyk) => cmyk.to_array().into(),
-                Color::Luma(luma) => luma.to_cmyk().to_array().into(),
-                _ => Value::None, // no rgba -> cmyk conversion
-            }),
-            "luma" => Ok(match color {
-                Color::Luma(luma) => luma.0.into(),
-                _ => Value::None,
             }),
             _ => missing(),
         },
@@ -103,7 +98,7 @@ fn missing_field(type_name: &str, field: &str) -> EcoString {
 /// List the available fields for a type.
 pub fn fields_on(type_name: &str) -> &[&'static str] {
     match type_name {
-        "color" => &["hex", "rgba", "cmyk", "luma"],
+        "color" => &["kind", "value"],
         "length" => &["em", "pt", "cm", "mm", "inches"],
         "relative length" => &["relative", "absolute"],
         "stroke" => &[

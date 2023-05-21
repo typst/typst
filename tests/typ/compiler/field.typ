@@ -88,23 +88,10 @@
 
 ---
 // Test color fields.
-#test(rgb(1, 2, 3, 4).rgba, (1, 2, 3, 4))
-#test(rgb(1, 2, 3).rgba, (1, 2, 3, 255))
-#test(rgb(1, 2, 3).hex, "#010203")
-#test(rgb(1, 2, 3, 4).hex, "#01020304")
-#test(repr(cmyk(4%, 5%, 6%, 7%).cmyk), repr((3.9%, 5.1%, 5.9%, 7.1%)))
-#test(luma(40).luma, 40)
-
----
-// Test color conversions.
-#test(rgb(1, 2, 3, 4).cmyk, none)
-#test(rgb(1, 2, 3, 4).luma, none)
-#test(cmyk(4%, 5%, 6%, 7%).rgba, (228, 225, 223, 255))
-#test(cmyk(4%, 5%, 6%, 7%).hex, "#e4e1df")
-#test(cmyk(4%, 5%, 6%, 7%).luma, none)
-#test(luma(40).rgba, (40, 40, 40, 255))
-#test(luma(40).hex, "#282828")
-#test(repr(luma(40).cmyk), repr((11.8%, 10.6%, 10.6%, 14.1%)))
+#test(rgb(1, 2, 3, 4).values, (1, 2, 3, 4))
+#test(rgb(1, 2, 3).values, (1, 2, 3, 255))
+#test(repr(cmyk(4%, 5%, 6%, 7%).values), repr((3.9%, 5.1%, 5.9%, 7.1%)))
+#test(luma(40).values, (40,))
 
 ---
 // Test stroke fields.

@@ -100,6 +100,15 @@ impl Color {
             Self::Cmyk(cmyk) => Self::Cmyk(cmyk.negate()),
         }
     }
+
+    /// Obtain this color's kind ("rgba", "luma" or "cmyk").
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Luma(_) => "luma",
+            Self::Rgba(_) => "rgba",
+            Self::Cmyk(_) => "cmyk",
+        }
+    }
 }
 
 impl Debug for Color {
@@ -404,6 +413,10 @@ impl From<CmykColor> for Color {
     fn from(cmyk: CmykColor) -> Self {
         Self::Cmyk(cmyk)
     }
+}
+
+cast_to_value! {
+    v: CmykColor => Value::Color(v.into())
 }
 
 /// Convert to the closest u8.
