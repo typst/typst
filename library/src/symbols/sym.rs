@@ -110,7 +110,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     pilcrow: ['¶', rev: '⁋'],
     section: '§',
     semi: [';', rev: '⁏'],
-    slash: ['/', double: '⫽', triple: '⫻'],
+    slash: ['/', double: '⫽', triple: '⫻', big: '\u{29f8}'],
     dots: [h.c: '⋯', h: '…', v: '⋮', down: '⋱', up: '⋰'],
     tilde: [
         op: '∼',
