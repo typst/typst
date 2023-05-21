@@ -103,6 +103,17 @@ fn missing_field(type_name: &str, field: &str) -> EcoString {
 /// List the available fields for a type.
 pub fn fields_on(type_name: &str) -> &[&'static str] {
     match type_name {
+        "color" => &["hex", "rgba", "cmyk", "luma"],
+        "length" => &["em", "pt", "cm", "mm", "inches"],
+        "relative length" => &["relative", "absolute"],
+        "stroke" => &[
+            "color",
+            "thickness",
+            "line_cap",
+            "line_join",
+            "dash_pattern",
+            "miter_limit",
+        ],
         _ => &[],
     }
 }
