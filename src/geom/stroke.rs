@@ -120,10 +120,29 @@ impl PartialStroke<Length> {
     /// Get a field from this stroke.
     pub fn at(&self, field: &str) -> StrResult<Value> {
         match field {
-            "color" => Ok(self.paint.clone().into()),
-            "thickness" => {
-                Ok(self.thickness.as_custom().map(Value::Length).unwrap_or(Value::Auto))
+            "color" => {
+                Ok(self.paint.clone().unwrap_or_else(|| Stroke::default().paint).into())
             }
+            "thickness" => Ok(self
+                .thickness
+                .unwrap_or_else(|| Stroke::default().thickness.into())
+                .into()),
+            "line_cap" => Ok(self
+                .line_cap
+                .clone()
+                .unwrap_or_else(|| Stroke::default().line_cap)
+                .into()),
+            "line_join" => Ok(self
+                .line_join
+                .clone()
+                .unwrap_or_else(|| Stroke::default().line_join)
+                .into()),
+            "dash_pattern" => Ok(self.dash_pattern.clone().unwrap_or(None).into()),
+            "miter_limit" => Ok(self
+                .miter_limit
+                .unwrap_or_else(|| Stroke::default().miter_limit)
+                .0
+                .into()),
             _ => Err(missing_field(field)),
         }
     }
