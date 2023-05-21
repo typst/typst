@@ -42,8 +42,25 @@
 #json("/bad.json")
 
 ---
+// Test reading TOML data.
+#let data = toml("/toml-types.toml")
+#test(data.string, "wonderful")
+#test(data.integer, 42)
+#test(data.float, 3.14)
+#test(data.boolean, true)
+#test(data.date_time, "2023-02-01T15:38:57Z")
+#test(data.array, (1, "string", 3.0, false))
+#test(data.inline_table, ("first": "amazing", "second": "greater") )
+#test(data.table.element, 5)
+#test(data.table.others, (false, "indeed", 7))
+
+---
+// Error: 7-18 failed to parse toml file: expected `.`, `=`, index 15-15
+#toml("/bad.toml")
+
+---
 // Test reading YAML data
-#let data = yaml("/yamltypes.yaml")
+#let data = yaml("/yaml-types.yaml")
 #test(data.len(), 7)
 #test(data.null_key, (none, none))
 #test(data.string, "text")

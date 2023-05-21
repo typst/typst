@@ -11,7 +11,7 @@ use super::GridLayouter;
 ///
 /// Displays a sequence of items vertically and numbers them consecutively.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// Automatically numbered:
 /// + Preparations
@@ -36,7 +36,18 @@ use super::GridLayouter;
 /// + Don't forget step two
 /// ```
 ///
-/// ## Syntax
+/// You can also use [`enum.item`]($func/enum.item) to programmatically
+/// customize the number of each item in the enumeration:
+///
+/// ```example
+/// #enum(
+///   enum.item(1)[First step],
+///   enum.item(5)[Fifth step],
+///   enum.item(10)[Tenth step]
+/// )
+/// ```
+///
+/// ## Syntax { #syntax }
 /// This functions also has dedicated syntax:
 ///
 /// - Starting a line with a plus sign creates an automatically numbered
@@ -51,6 +62,10 @@ use super::GridLayouter;
 /// Display: Numbered List
 /// Category: layout
 #[element(Layout)]
+#[scope(
+    scope.define("item", EnumItem::func());
+    scope
+)]
 pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
     /// [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal
@@ -106,7 +121,6 @@ pub struct EnumElem {
     /// Whether to display the full numbering, including the numbers of
     /// all parent enumerations.
     ///
-    /// Defaults to `{false}`.
     ///
     /// ```example
     /// #set enum(numbering: "1.a)", full: true)
@@ -131,6 +145,30 @@ pub struct EnumElem {
     ///
     /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
     pub spacing: Smart<Spacing>,
+
+    /// The horizontal alignment that enum numbers should have.
+    ///
+    /// By default, this is set to `{end}`, which aligns enum numbers
+    /// towards end of the current text direction (in left-to-right script,
+    /// for example, this is the same as `{right}`). The choice of `{end}`
+    /// for horizontal alignment of enum numbers is usually preferred over
+    /// `{start}`, as numbers then grow away from the text instead of towards
+    /// it, avoiding certain visual issues. This option lets you override this
+    /// behavior, however.
+    ///
+    /// ````example
+    /// #set enum(number-align: start)
+    ///
+    /// Here are some powers of two:
+    /// 1. One
+    /// 2. Two
+    /// 4. Four
+    /// 8. Eight
+    /// 16. Sixteen
+    /// 32. Thirty two
+    /// ````
+    #[default(HorizontalAlign(GenAlign::End))]
+    pub number_align: HorizontalAlign,
 
     /// The numbered list's items.
     ///
@@ -176,6 +214,13 @@ impl Layout for EnumElem {
         let mut parents = self.parents(styles);
         let full = self.full(styles);
 
+        // Horizontally align based on the given respective parameter.
+        // Vertically align to the top to avoid inheriting 'horizon' or
+        // 'bottom' alignment from the context and having the number be
+        // displaced in relation to the item it refers to.
+        let number_align: Axes<Option<GenAlign>> =
+            Axes::new(self.number_align(styles).into(), Align::Top.into()).map(Some);
+
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
 
@@ -192,6 +237,11 @@ impl Layout for EnumElem {
                     other => other.apply_vt(vt, &[number])?.display(),
                 }
             };
+
+            // Disable overhang as a workaround to end-aligned dots glitching
+            // and decreasing spacing between numbers and items.
+            let resolved =
+                resolved.aligned(number_align).styled(TextElem::set_overhang(false));
 
             cells.push(Content::empty());
             cells.push(resolved);

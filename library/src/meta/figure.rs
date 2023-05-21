@@ -15,7 +15,7 @@ use crate::visualize::ImageElem;
 /// For example, figures containing images will be numbered separately from
 /// figures containing tables.
 ///
-/// ## Examples
+/// ## Examples { #examples }
 /// The example below shows a basic figure with an image:
 /// ```example
 /// @glacier shows a glacier. Glaciers
@@ -45,7 +45,7 @@ use crate::visualize::ImageElem;
 /// This behaviour can be overridden by explicitly specifying the figure's
 /// `kind`. All figures of the same kind share a common counter.
 ///
-/// ## Modifying the appearance
+/// ## Modifying the appearance { #modifying-appearance }
 /// You can completely customize the look of your figures with a [show
 /// rule]($styling/#show-rules). In the example below, we show the figure's
 /// caption above its body and display its supplement and counter after the
@@ -70,9 +70,14 @@ use crate::visualize::ImageElem;
 /// )
 /// ```
 ///
+/// If your figure is too large and its contents are breakable across pages
+/// (e.g. if it contains a large table), then you can make the figure breakable
+/// across pages as well by using `#show figure: set block(breakable: true)`
+/// (see the [block]($func/block) documentation for more information).
+///
 /// Display: Figure
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, Refable)]
+#[element(Locatable, Synthesize, Count, Show, Finalize, Refable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
@@ -90,20 +95,12 @@ pub struct FigureElem {
     /// automatic detection. This can be useful if
     /// - you wish to create a custom figure type that is not an
     ///   [image]($func/image), a [table]($func/table) or [code]($func/raw),
-    /// - you want to force the figure to use a counter regardless of its
-    ///   content.
+    /// - you want to force the figure to use a specific counter regardless of
+    ///   its content.
     ///
     /// You can set the kind to be an element function or a string. If you set
     /// it to an element function that is not supported by the figure, you will
     /// need to manually specify the figure's supplement.
-    ///
-    /// The figure's automatic detection is based on a priority list to select
-    /// the element that is likely to be the most important one. If the figure's
-    /// body contains multiple valid elements, the one with the highest priority
-    /// is selected. The priority list is as follows:
-    /// - [image]($func/image) is the most important,
-    /// - [code]($func/raw) is the second most important,
-    /// - [table]($func/table) is the least important one.
     ///
     /// ```example
     /// #figure(
@@ -139,8 +136,6 @@ pub struct FigureElem {
 
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($func/numbering).
-    ///
-    /// Defaults to `{"1"}`.
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
     pub numbering: Option<Numbering>,
 
@@ -150,8 +145,6 @@ pub struct FigureElem {
 
     /// Whether the figure should appear in an [`outline`]($func/outline)
     /// of figures.
-    ///
-    /// Defaults to `{true}`.
     #[default(true)]
     pub outlined: bool,
 
@@ -173,7 +166,7 @@ impl Synthesize for FigureElem {
         // Determine the figure's kind.
         let kind = match self.kind(styles) {
             Smart::Auto => self
-                .find_figurable(styles)
+                .find_figurable()
                 .map(|elem| FigureKind::Elem(elem.func()))
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::func())),
             Smart::Custom(kind) => kind,
@@ -193,7 +186,10 @@ impl Synthesize for FigureElem {
             Smart::Auto => match &kind {
                 FigureKind::Elem(func) => {
                     let elem = Content::new(*func).with::<dyn LocalName>().map(|c| {
-                        TextElem::packed(c.local_name(TextElem::lang_in(styles)))
+                        TextElem::packed(c.local_name(
+                            TextElem::lang_in(styles),
+                            TextElem::region_in(styles),
+                        ))
                     });
 
                     if numbering.is_some() {
@@ -251,9 +247,15 @@ impl Show for FigureElem {
         // We wrap the contents in a block.
         Ok(BlockElem::new()
             .with_body(Some(realized))
-            .with_breakable(false)
             .pack()
             .aligned(Axes::with_x(Some(Align::Center.into()))))
+    }
+}
+
+impl Finalize for FigureElem {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+        // Allow breakable figures with `show figure: set block(breakable: true)`.
+        realized.styled(BlockElem::set_breakable(false))
     }
 }
 
@@ -273,6 +275,7 @@ impl Refable for FigureElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         _: Lang,
+        _: Option<Region>,
     ) -> SourceResult<Content> {
         // If the figure is not numbered, we cannot reference it.
         // Otherwise we build the supplement and numbering scheme.
@@ -283,7 +286,12 @@ impl Refable for FigureElem {
         Ok(desc)
     }
 
-    fn outline(&self, vt: &mut Vt, _: Lang) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        _: Lang,
+        _: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
         // If the figure is not outlined, it is not referenced.
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
@@ -304,29 +312,18 @@ impl Refable for FigureElem {
 impl FigureElem {
     /// Determines the type of the figure by looking at the content, finding all
     /// [`Figurable`] elements and sorting them by priority then returning the highest.
-    pub fn find_figurable(&self, styles: StyleChain) -> Option<Content> {
-        self.body()
-            .query(Selector::can::<dyn Figurable>())
-            .into_iter()
-            .max_by_key(|elem| elem.with::<dyn Figurable>().unwrap().priority(styles))
-            .cloned()
+    pub fn find_figurable(&self) -> Option<Content> {
+        self.body().query_first(Selector::can::<dyn Figurable>()).cloned()
     }
 
     /// Finds the element with the given function in the figure's content.
     /// Returns `None` if no element with the given function is found.
     pub fn find_of_elem(&self, func: ElemFunc) -> Option<Content> {
-        self.body()
-            .query(Selector::Elem(func, None))
-            .into_iter()
-            .next()
-            .cloned()
+        self.body().query_first(Selector::Elem(func, None)).cloned()
     }
 
-    /// Builds the supplement and numbering of the figure.
-    /// If there is no numbering, returns [`None`].
-    ///
-    /// # Errors
-    /// If a numbering is specified but the [`Self::data()`] is `None`.
+    /// Builds the supplement and numbering of the figure. Returns [`None`] if
+    /// there is no numbering.
     pub fn show_supplement_and_numbering(
         &self,
         vt: &mut Vt,
@@ -355,11 +352,8 @@ impl FigureElem {
         }
     }
 
-    /// Builds the caption for the figure.
-    /// If there is a numbering, will also try to show the supplement and the numbering.
-    ///
-    /// # Errors
-    /// If a numbering is specified but the [`Self::element`] is `None`.
+    /// Builds the caption for the figure. If there is a numbering, will also
+    /// try to show the supplement and the numbering.
     pub fn show_caption(&self, vt: &mut Vt) -> SourceResult<Content> {
         let Some(mut caption) = self.caption(StyleChain::default()) else {
             return Ok(Content::empty());
@@ -397,9 +391,5 @@ cast_to_value! {
 
 /// An element that can be auto-detected in a figure.
 ///
-/// This trait is used to determine the type of a figure. The element chosen as
-/// the figure's content is the figurable descendant with the highest priority.
-pub trait Figurable: LocalName {
-    /// The priority of this element.
-    fn priority(&self, styles: StyleChain) -> isize;
-}
+/// This trait is used to determine the type of a figure.
+pub trait Figurable: LocalName {}

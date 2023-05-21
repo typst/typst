@@ -2,10 +2,14 @@ use super::*;
 
 /// Displays a diagonal line over a part of an equation.
 ///
-/// ## Example
+/// This is commonly used to show the eliminiation of a term.
+///
+/// ## Example { #example }
 /// ```example
+/// >>> #set page(width: 140pt)
 /// Here, we can simplify:
-/// $ (a dot.c b dot.c cancel(x)) / cancel(x) $
+/// $ (a dot b dot cancel(x)) /
+///     cancel(x) $
 /// ```
 ///
 /// Display: Cancel
@@ -20,21 +24,21 @@ pub struct CancelElem {
     /// the whole element being "cancelled". A value of `{100%}` would then have
     /// the line span precisely the element's diagonal.
     ///
-    /// Defaults to `{100% + 3pt}`.
-    ///
     /// ```example
-    /// $ a + cancel(x, length: #200%) - b - cancel(x, length: #200%) $
+    /// >>> #set page(width: 140pt)
+    /// $ a + cancel(x, length: #200%)
+    ///     - cancel(x, length: #200%) $
     /// ```
     #[default(Rel::new(Ratio::one(), Abs::pt(3.0).into()))]
     pub length: Rel<Length>,
 
-    /// If the cancel line should be inverted (heading northwest instead of
-    /// northeast).
-    ///
-    /// Defaults to `{false}`.
+    /// If the cancel line should be inverted (pointing to the top left instead
+    /// of top right).
     ///
     /// ```example
-    /// $ (a cancel((b + c), inverted: #true)) / cancel(b + c, inverted: #true) $
+    /// >>> #set page(width: 140pt)
+    /// $ (a cancel((b + c), inverted: #true)) /
+    ///     cancel(b + c, inverted: #true) $
     /// ```
     #[default(false)]
     pub inverted: bool,
@@ -42,10 +46,9 @@ pub struct CancelElem {
     /// If two opposing cancel lines should be drawn, forming a cross over the
     /// element. Overrides `inverted`.
     ///
-    /// Defaults to `{false}`.
-    ///
     /// ```example
-    /// $ cancel(x, cross: #true) $
+    /// >>> #set page(width: 140pt)
+    /// $ cancel(Pi, cross: #true) $
     /// ```
     #[default(false)]
     pub cross: bool,
@@ -54,7 +57,8 @@ pub struct CancelElem {
     /// [line's documentation]($func/line.angle) for more details.
     ///
     /// ```example
-    /// $ cancel(x, rotation: #30deg) $
+    /// >>> #set page(width: 140pt)
+    /// $ cancel(Pi, rotation: #30deg) $
     /// ```
     #[default(Angle::zero())]
     pub rotation: Angle,
@@ -63,26 +67,40 @@ pub struct CancelElem {
     /// [line's documentation]($func/line.stroke) for more details.
     ///
     /// ```example
-    /// $ cancel(x, stroke: #{red + 1.5pt}) $
+    /// >>> #set page(width: 140pt)
+    /// $ cancel(
+    ///   sum x,
+    ///   stroke: #(
+    ///     paint: red,
+    ///     thickness: 1.5pt,
+    ///     dash: "dashed",
+    ///   ),
+    /// ) $
     /// ```
     #[resolve]
     #[fold]
+    #[default(PartialStroke {
+        // Default stroke has 0.5pt for better visuals.
+        thickness: Smart::Custom(Abs::pt(0.5)),
+        ..Default::default()
+    })]
     pub stroke: PartialStroke,
 }
 
 impl LayoutMath for CancelElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let mut body = ctx.layout_frame(&self.body())?;
+        let body = ctx.layout_fragment(&self.body())?;
+        // Use the same math class as the body, in order to preserve automatic spacing around it.
+        let body_class = body.class().unwrap_or(MathClass::Special);
+        let mut body = body.into_frame();
 
         let styles = ctx.styles();
         let body_size = body.size();
         let span = self.span();
         let length = self.length(styles).resolve(styles);
 
-        // Default stroke has 0.5pt for better visuals.
         let stroke = self.stroke(styles).unwrap_or(Stroke {
             paint: TextElem::fill_in(styles),
-            thickness: Abs::pt(0.5),
             ..Default::default()
         });
 
@@ -112,7 +130,7 @@ impl LayoutMath for CancelElem {
             body.push_frame(center, second_line);
         }
 
-        ctx.push(FrameFragment::new(ctx, body));
+        ctx.push(FrameFragment::new(ctx, body).with_class(body_class));
 
         Ok(())
     }

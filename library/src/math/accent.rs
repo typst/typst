@@ -5,7 +5,7 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Attach an accent to a base.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $grave(a) = accent(a, `)$ \
 /// $arrow(a) = accent(a, arrow)$ \
@@ -58,6 +58,8 @@ impl LayoutMath for AccentElem {
         let base = ctx.layout_fragment(&self.base())?;
         ctx.unstyle();
 
+        // Preserve class to preserve automatic spacing.
+        let base_class = base.class().unwrap_or(MathClass::Normal);
         let base_attach = match &base {
             MathFragment::Glyph(base) => {
                 attachment(ctx, base.id, base.italics_correction)
@@ -93,7 +95,11 @@ impl LayoutMath for AccentElem {
         frame.set_baseline(baseline);
         frame.push_frame(accent_pos, accent);
         frame.push_frame(base_pos, base.into_frame());
-        ctx.push(FrameFragment::new(ctx, frame).with_base_ascent(base_ascent));
+        ctx.push(
+            FrameFragment::new(ctx, frame)
+                .with_class(base_class)
+                .with_base_ascent(base_ascent),
+        );
 
         Ok(())
     }

@@ -15,8 +15,7 @@ use comemo::{Prehashed, Track};
 use elsa::FrozenVec;
 use once_cell::unsync::OnceCell;
 use oxipng::{InFile, Options, OutFile};
-use rayon::iter::ParallelBridge;
-use rayon::iter::ParallelIterator;
+use rayon::iter::{ParallelBridge, ParallelIterator};
 use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
@@ -45,7 +44,8 @@ struct Args {
     filter: Vec<String>,
     /// runs only the specified subtest
     #[arg(short, long)]
-    subtest: Option<usize>,
+    #[arg(allow_hyphen_values = true)]
+    subtest: Option<isize>,
     #[arg(long)]
     exact: bool,
     #[arg(long, default_value_t = env::var_os("UPDATE_EXPECT").is_some())]
@@ -352,9 +352,18 @@ fn test(
     pdf_path: Option<&Path>,
     args: &Args,
 ) -> bool {
-    let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
+    struct PanicGuard<'a>(&'a Path);
+    impl Drop for PanicGuard<'_> {
+        fn drop(&mut self) {
+            if std::thread::panicking() {
+                println!("Panicked in {}", self.0.display());
+            }
+        }
+    }
 
+    let name = src_path.strip_prefix(TYP_DIR).unwrap_or(src_path);
     let text = fs::read_to_string(src_path).unwrap();
+    let _guard = PanicGuard(name);
 
     let mut output = String::new();
     let mut ok = true;
@@ -368,6 +377,10 @@ fn test(
     let parts: Vec<_> = text.split("\n---").collect();
     for (i, &part) in parts.iter().enumerate() {
         if let Some(x) = args.subtest {
+            let x = usize::try_from(
+                x.rem_euclid(isize::try_from(parts.len()).unwrap_or_default()),
+            )
+            .unwrap();
             if x != i {
                 writeln!(output, "  Skipped subtest {i}.").unwrap();
                 continue;
@@ -396,6 +409,7 @@ fn test(
                 line,
                 &mut rng,
             );
+
             ok &= part_ok;
             compare_ever |= compare_here;
             frames.extend(part_frames);

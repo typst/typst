@@ -1,19 +1,29 @@
-[package]
-name = "typst"
-version = "0.2.0"
+[workspace]
+members = ["cli", "docs", "library", "macros", "tests"]
+default-members = ["cli"]
+
+[workspace.package]
+version = "0.4.0"
+rust-version = "1.65"
 authors = ["The Typst Project Developers"]
 edition = "2021"
-description = "A new markup-based typesetting system that is powerful and easy to learn."
 homepage = "https://typst.app"
 repository = "https://github.com/typst/typst"
 readme = "README.md"
 license = "Apache-2.0"
+
+[package]
+name = "typst"
+description = "A new markup-based typesetting system that is powerful and easy to learn."
 categories = ["compilers", "science"]
 keywords = ["markup", "typesetting"]
-
-[workspace]
-members = ["cli", "docs", "library", "macros", "tests"]
-default-members = ["cli"]
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
 doctest = false
@@ -21,38 +31,38 @@ bench = false
 
 [dependencies]
 typst-macros = { path = "macros" }
-bitflags = "1"
+bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
-comemo = "0.2.2"
+comemo = "0.3"
 ecow = "0.1"
 flate2 = "1"
-fontdb = "0.9"
+fontdb = "0.13"
 if_chain = "1"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
+indexmap = "1.9.3"
 log = "0.4"
-miniz_oxide = "0.5"
+miniz_oxide = "0.7"
 once_cell = "1"
-pdf-writer = "0.6"
+pdf-writer = "0.7.1"
 pixglyph = "0.1"
 regex = "1"
-resvg = { version = "0.22", default-features = false }
-roxmltree = "0.14"
-rustybuzz = "0.5"
+resvg = { version = "0.32", default-features = false }
+roxmltree = "0.18"
+rustybuzz = "0.7"
 serde = { version = "1", features = ["derive"] }
 siphasher = "0.3"
 subsetter = "0.1.1"
-svg2pdf = "0.4"
-thin-vec = "0.2"
-tiny-skia = "0.6.6"
+svg2pdf = { git = "https://github.com/typst/svg2pdf" }
+tiny-skia = "0.9.0"
+tracing = "0.1.37"
 ttf-parser = "0.18.1"
+unicode-general-category = "0.6"
+unicode-ident = "1.0"
 unicode-math-class = "0.1"
 unicode-segmentation = "1"
-unicode-xid = "0.2"
 unscanny = "0.1"
-usvg = { version = "0.22", default-features = false, features = ["text"] }
+usvg = { version = "0.32", default-features = false, features = ["text"] }
 xmp-writer = "0.1"
-tracing = "0.1.37"
-indexmap = "1.9.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = "0.1.15"

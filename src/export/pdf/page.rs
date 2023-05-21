@@ -139,7 +139,7 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
             annotation
                 .action()
                 .action_type(ActionType::GoTo)
-                .destination_direct()
+                .destination()
                 .page(ctx.page_refs[index])
                 .xyz(pos.point.x.to_f32(), height - y.to_f32(), None);
         }
@@ -364,11 +364,12 @@ fn write_group(ctx: &mut PageContext, pos: Point, group: &GroupItem) {
 /// Encode a text run into the content stream.
 fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
     *ctx.parent.languages.entry(text.lang).or_insert(0) += text.glyphs.len();
-    ctx.parent
-        .glyph_sets
-        .entry(text.font.clone())
-        .or_default()
-        .extend(text.glyphs.iter().map(|g| g.id));
+
+    let glyph_set = ctx.parent.glyph_sets.entry(text.font.clone()).or_default();
+    for g in &text.glyphs {
+        let segment = &text.text[g.range()];
+        glyph_set.entry(g.id).or_insert_with(|| segment.into());
+    }
 
     ctx.set_fill(&text.fill);
     ctx.set_font(&text.font, text.size);
@@ -417,7 +418,15 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
 
 /// Encode a geometrical shape into the content stream.
 fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
-    if shape.fill.is_none() && shape.stroke.is_none() {
+    let stroke = shape.stroke.as_ref().and_then(|stroke| {
+        if stroke.thickness.to_f32() > 0.0 {
+            Some(stroke)
+        } else {
+            None
+        }
+    });
+
+    if shape.fill.is_none() && stroke.is_none() {
         return;
     }
 
@@ -425,7 +434,7 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
         ctx.set_fill(fill);
     }
 
-    if let Some(stroke) = &shape.stroke {
+    if let Some(stroke) = stroke {
         ctx.set_stroke(stroke);
     }
 
@@ -448,7 +457,7 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
         }
     }
 
-    match (&shape.fill, &shape.stroke) {
+    match (&shape.fill, stroke) {
         (None, None) => unreachable!(),
         (Some(_), None) => ctx.content.fill_nonzero(),
         (None, Some(_)) => ctx.content.stroke(),
@@ -491,7 +500,7 @@ fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size)
     if let Some(alt) = image.alt() {
         let mut image_span =
             ctx.content.begin_marked_content_with_properties(Name(b"Span"));
-        let mut image_alt = image_span.properties_direct();
+        let mut image_alt = image_span.properties();
         image_alt.pair(Name(b"Alt"), pdf_writer::Str(alt.as_bytes()));
         image_alt.finish();
         image_span.finish();

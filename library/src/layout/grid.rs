@@ -34,7 +34,7 @@ use super::Sizing;
 /// instead of an array. For example, `columns:` `{3}` is equivalent to
 /// `columns:` `{(auto, auto, auto)}`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set text(10pt, style: "italic")
 /// #let cell = rect.with(
@@ -290,7 +290,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    #[tracing::instrument(name = "grid layout", skip(self))]
     pub fn layout(mut self) -> SourceResult<GridLayout> {
         self.measure_columns()?;
 
@@ -318,6 +317,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Determine all column sizes.
+    #[tracing::instrument(name = "GridLayouter::measure_columns", skip_all)]
     fn measure_columns(&mut self) -> SourceResult<()> {
         // Sum of sizes of resolved relative tracks.
         let mut rel = Abs::zero();
@@ -450,33 +450,15 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     /// Layout a row with automatic height. Such a row may break across multiple
     /// regions.
     fn layout_auto_row(&mut self, y: usize) -> SourceResult<()> {
-        let mut resolved: Vec<Abs> = vec![];
-        let mut skip = false;
-
-        // Determine the size for each region of the row.
-        for (x, &rcol) in self.rcols.iter().enumerate() {
-            if let Some(cell) = self.cell(x, y) {
-                let mut pod = self.regions;
-                pod.size.x = rcol;
-
-                let frames = cell.measure(self.vt, self.styles, pod)?.into_frames();
-                if let [first, rest @ ..] = frames.as_slice() {
-                    skip |=
-                        first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
-                }
-
-                // For each region, we want to know the maximum height any
-                // column requires.
-                let mut sizes = frames.iter().map(|frame| frame.height());
-                for (target, size) in resolved.iter_mut().zip(&mut sizes) {
-                    target.set_max(size);
-                }
-
-                // New heights are maximal by virtue of being new. Note that
-                // this extend only uses the rest of the sizes iterator.
-                resolved.extend(sizes);
+        // Determine the size for each region of the row. If the first region
+        // ends up empty for some column, skip the region and remeasure.
+        let mut resolved = match self.measure_auto_row(y, true)? {
+            Some(resolved) => resolved,
+            None => {
+                self.finish_region()?;
+                self.measure_auto_row(y, false)?.unwrap()
             }
-        }
+        };
 
         // Nothing to layout.
         if resolved.is_empty() {
@@ -488,12 +470,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             let frame = self.layout_single_row(first, y)?;
             self.push_row(frame, y);
             return Ok(());
-        }
-
-        // Skip the first region if it's empty for some cell.
-        if skip && !self.regions.in_last() {
-            self.finish_region()?;
-            resolved.remove(0);
         }
 
         // Expand all but the last region.
@@ -519,6 +495,47 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         }
 
         Ok(())
+    }
+
+    /// Measure the regions sizes of an auto row. The option is always `Some(_)`
+    /// if `can_skip` is false.
+    fn measure_auto_row(
+        &mut self,
+        y: usize,
+        can_skip: bool,
+    ) -> SourceResult<Option<Vec<Abs>>> {
+        let mut resolved: Vec<Abs> = vec![];
+
+        for (x, &rcol) in self.rcols.iter().enumerate() {
+            if let Some(cell) = self.cell(x, y) {
+                let mut pod = self.regions;
+                pod.size.x = rcol;
+
+                let frames = cell.measure(self.vt, self.styles, pod)?.into_frames();
+
+                // Skip the first region if one cell in it is empty. Then,
+                // remeasure.
+                if let [first, rest @ ..] = frames.as_slice() {
+                    if can_skip
+                        && first.is_empty()
+                        && rest.iter().any(|frame| !frame.is_empty())
+                    {
+                        return Ok(None);
+                    }
+                }
+
+                let mut sizes = frames.iter().map(|frame| frame.height());
+                for (target, size) in resolved.iter_mut().zip(&mut sizes) {
+                    target.set_max(size);
+                }
+
+                // New heights are maximal by virtue of being new. Note that
+                // this extend only uses the rest of the sizes iterator.
+                resolved.extend(sizes);
+            }
+        }
+
+        Ok(Some(resolved))
     }
 
     /// Layout a row with relative height. Such a row cannot break across

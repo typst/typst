@@ -219,7 +219,8 @@ Typst provides utility methods for string manipulation. Many of these methods
 either a string or a [regular expression]($func/regex). This makes the methods
 quite versatile.
 
-All lengths and indices are expressed in terms of UTF-8 bytes.
+All lengths and indices are expressed in terms of UTF-8 characters. Indices are
+zero-based and negative indices wrap around to the end of the string.
 
 ### Example
 ```example
@@ -259,11 +260,14 @@ Fails with an error if the string is empty.
 - returns: any
 
 ### at()
-Extract the first grapheme cluster after the specified index. Fails with an
-error if the index is out of bounds.
+Extract the first grapheme cluster after the specified index. Returns the
+default value if the index is out of bounds or fails with an error if no default
+value was specified.
 
 - index: integer (positional, required)
   The byte index.
+- default: any (named)
+  A default value to return if the index is out of bounds.
 - returns: string
 
 ### slice()
@@ -361,8 +365,8 @@ string and returns the resulting string.
 
 - pattern: string or regex (positional, required)
   The pattern to search for.
-- replacement: string (positional, required)
-  The string to replace the matches with.
+- replacement: string or function (positional, required)
+  The string to replace the matches with or a function that gets a dictionary for each match and can return individual replacement strings.
 - count: integer (named)
   If given, only the first `count` matches of the pattern are placed.
 - returns: string
@@ -450,10 +454,13 @@ Whether the content has the specified field.
 - returns: boolean
 
 ### at()
-Access the specified field on the content.
+Access the specified field on the content. Returns the default value if the
+field does not exist or fails with an error if no default value was specified.
 
 - field: string (positional, required)
   The field to access.
+- default: any (named)
+  A default value to return if the field does not exist.
 - returns: any
 
 ### location()
@@ -518,12 +525,14 @@ Fails with an error if the array is empty.
 - returns: any
 
 ### at()
-Returns the item at the specified index in the array.
-May be used on the left-hand side of an assignment.
-Fails with an error if the index is out of bounds.
+Returns the item at the specified index in the array. May be used on the
+left-hand side of an assignment. Returns the default value if the index is out
+of bounds or fails with an error if no default value was specified.
 
 - index: integer (positional, required)
   The index at which to retrieve the item.
+- default: any (named)
+  A default value to return if the index is out of bounds.
 - returns: any
 
 ### push()
@@ -644,14 +653,14 @@ Folds all items into a single value using an accumulator function.
 Sums all items (works for any types that can be added).
 
 - default: any (named)
-  If set and the array is empty, sum will return this.
+  What to return if the array is empty. Must be set if the array can be empty.
 - returns: any
 
 ### product()
 Calculates the product all items (works for any types that can be multiplied)
 
 - default: any (named)
-  If set and the array is empty, sum will return this.
+  What to return if the array is empty. Must be set if the array can be empty.
 - returns: any
 
 ### any()
@@ -738,13 +747,15 @@ The number of pairs in the dictionary.
 - returns: integer
 
 ### at()
-Returns the value associated with the specified key in the dictionary.
-May be used on the left-hand side of an assignment if the key is already
-present in the dictionary.
-Fails with an error if the key is not part of the dictionary.
+Returns the value associated with the specified key in the dictionary. May be
+used on the left-hand side of an assignment if the key is already present in the
+dictionary. Returns the default value if the key is not part of the dictionary
+or fails with an error if no default value was specified.
 
 - key: string (positional, required)
   The key at which to retrieve the item.
+- default: any (named)
+  A default value to return if the key is not part of the dictionary.
 - returns: any
 
 ### insert()
@@ -813,6 +824,19 @@ available functions and how you can use them. Please also refer to the
 documentation about [set]($styling/#set-rules) and
 [show]($styling/#show-rules) rules to learn about additional ways
 you can work with functions in Typst.
+
+### Element functions { #element-functions }
+Some functions are associated with _elements_ like [headings]($func/heading) or
+[tables]($func/table). When called, these create an element of their respective
+kind. In contrast to normal functions, they can further be used in
+[set rules]($styling/#set-rules), [show rules]($styling/#show-rules), and
+[selectors]($type/selector).
+
+### Function scopes { #function-scopes }
+Functions can hold related definitions in their own scope, similar to a
+[module]($scripting/#modules). Examples of this are
+[`assert.eq`]($func/assert.eq) or [`list.item`]($func/list.item). However, this
+feature is currently only available for built-in functions.
 
 ### Defining functions { #definitions }
 You can define your own function with a
@@ -916,30 +940,11 @@ Returns the captured named arguments as a dictionary.
 
 - returns: dictionary
 
-# Module
-An evaluated module, either built-in or resulting from a file.
-
-You can access definitions from the module using
-[field access notation]($scripting/#fields) and interact with it using the
-[import and include syntaxes]($scripting/#modules).
-
-## Example
-```example
-<<< #import "utils.typ"
-<<< #utils.add(2, 5)
-
-<<< #import utils: sub
-<<< #sub(1, 4)
->>> #7
->>>
->>> #(-3)
-```
-
 # Selector
 A filter for selecting elements within the document.
 
 You can construct a selector in the following ways:
-- you can use an element function
+- you can use an element [function]($type/function)
 - you can filter for an element function with
   [specific fields]($type/function.where)
 - you can use a [string]($type/string) or [regular expression]($func/regex)
@@ -948,13 +953,16 @@ You can construct a selector in the following ways:
 - call the [`selector`]($func/selector) function to convert any of the above
   types into a selector value and use the methods below to refine it
 
-A selector is what you can use to query the document for certain types
-of elements. It can also be used to apply styling rules to element. You can
-combine multiple selectors using the methods shown below.
+Selectors are used to [apply styling rules]($styling/#show-rules) to elements.
+You can also use selectors to [query]($func/query) the document for certain
+types of elements.
 
-Selectors can also be passed to several of Typst's built-in functions to
+Furthermore, you can pass a selector to several of Typst's built-in functions to
 configure their behaviour. One such example is the [outline]($func/outline)
-where it can be use to change which elements are listed within the outline.
+where it can be used to change which elements are listed within the outline.
+
+Multiple selectors can be combined using the methods shown below. However, not
+all kinds of selectors are supported in all places, at the moment.
 
 ## Example
 ```example
@@ -1004,3 +1012,22 @@ first match of the selector argument.
 - inclusive: boolean (named)
   Whether `start` itself should match or not. This is only relevant if both
   selectors match the same type of element. Defaults to `{true}`.
+
+# Module
+An evaluated module, either built-in or resulting from a file.
+
+You can access definitions from the module using
+[field access notation]($scripting/#fields) and interact with it using the
+[import and include syntaxes]($scripting/#modules).
+
+## Example
+```example
+<<< #import "utils.typ"
+<<< #utils.add(2, 5)
+
+<<< #import utils: sub
+<<< #sub(1, 4)
+>>> #7
+>>>
+>>> #(-3)
+```

@@ -1,3 +1,5 @@
+use std::iter::once;
+
 use crate::layout::AlignElem;
 
 use super::*;
@@ -95,6 +97,20 @@ impl MathRow {
         self.iter().map(MathFragment::descent).max().unwrap_or_default()
     }
 
+    pub fn class(&self) -> MathClass {
+        // Predict the class of the output of 'into_fragment'
+        if self.0.len() == 1 {
+            self.0
+                .first()
+                .and_then(|fragment| fragment.class())
+                .unwrap_or(MathClass::Special)
+        } else {
+            // FrameFragment::new() (inside 'into_fragment' in this branch) defaults
+            // to MathClass::Normal for its class.
+            MathClass::Normal
+        }
+    }
+
     pub fn into_frame(self, ctx: &MathContext) -> Frame {
         let styles = ctx.styles();
         let align = AlignElem::alignment_in(styles).x.resolve(styles);
@@ -158,31 +174,46 @@ impl MathRow {
 
     fn into_line_frame(self, points: &[Abs], align: Align) -> Frame {
         let ascent = self.ascent();
-        let descent = self.descent();
-        let size = Size::new(Abs::zero(), ascent + descent);
-        let mut frame = Frame::new(size);
-        let mut x = Abs::zero();
+        let mut frame = Frame::new(Size::new(Abs::zero(), ascent + self.descent()));
         frame.set_baseline(ascent);
 
-        if let (Some(&first), Align::Center) = (points.first(), align) {
-            let mut offset = first;
-            for fragment in self.iter() {
-                offset -= fragment.width();
-                if matches!(fragment, MathFragment::Align) {
-                    x = offset;
-                    break;
+        let mut next_x = {
+            let mut widths = Vec::new();
+            if !points.is_empty() && align != Align::Left {
+                let mut width = Abs::zero();
+                for fragment in self.iter() {
+                    if matches!(fragment, MathFragment::Align) {
+                        widths.push(width);
+                        width = Abs::zero();
+                    } else {
+                        width += fragment.width();
+                    }
                 }
+                widths.push(width);
             }
-        }
+            let widths = widths;
 
-        let fragments = self.0.into_iter().peekable();
-        let mut i = 0;
-        for fragment in fragments {
+            let mut prev_points = once(Abs::zero()).chain(points.iter().copied());
+            let mut point_widths = points.iter().copied().zip(widths);
+            let mut alternator = LeftRightAlternator::Right;
+            move || match align {
+                Align::Left => prev_points.next(),
+                Align::Right => point_widths.next().map(|(point, width)| point - width),
+                _ => point_widths
+                    .next()
+                    .zip(prev_points.next())
+                    .zip(alternator.next())
+                    .map(|(((point, width), prev_point), alternator)| match alternator {
+                        LeftRightAlternator::Left => prev_point,
+                        LeftRightAlternator::Right => point - width,
+                    }),
+            }
+        };
+        let mut x = next_x().unwrap_or_default();
+
+        for fragment in self.0.into_iter() {
             if matches!(fragment, MathFragment::Align) {
-                if let Some(&point) = points.get(i) {
-                    x = point;
-                }
-                i += 1;
+                x = next_x().unwrap_or(x);
                 continue;
             }
 

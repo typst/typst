@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use typst::util::option_eq;
+
 use super::{
     Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
 };
@@ -14,7 +16,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// be displayed in the outline alongside its title or caption. By default this
 /// generates a table of contents.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #outline()
 ///
@@ -25,7 +27,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// #lorem(10)
 /// ```
 ///
-/// ## Alternative outlines
+/// ## Alternative outlines { #alternative-outlines }
 /// By setting the `target` parameter, the outline can be used to generate a
 /// list of other kinds of elements than headings. In the example below, we list
 /// all figures containing images by setting `target` to `{figure.where(kind:
@@ -47,6 +49,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 ///
 /// Display: Outline
 /// Category: meta
+/// Keywords: Table of Contents
 #[element(Show, Finalize, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.
@@ -124,7 +127,7 @@ pub struct OutlineElem {
     pub indent: bool,
 
     /// Content to fill the space between the title and the page number. Can be
-    /// set to `none` to disable filling. The default is `{repeat[.]}`.
+    /// set to `none` to disable filling.
     ///
     /// ```example
     /// #outline(fill: line(length: 100%))
@@ -141,10 +144,14 @@ impl Show for OutlineElem {
         let mut seq = vec![ParbreakElem::new().pack()];
         // Build the outline title.
         if let Some(title) = self.title(styles) {
-            let title = title.unwrap_or_else(|| {
-                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+            let title =
+                title.unwrap_or_else(|| {
+                    TextElem::packed(self.local_name(
+                        TextElem::lang_in(styles),
+                        TextElem::region_in(styles),
+                    ))
                     .spanned(self.span())
-            });
+                });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
@@ -152,6 +159,7 @@ impl Show for OutlineElem {
         let indent = self.indent(styles);
         let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
         let lang = TextElem::lang_in(styles);
+        let region = TextElem::region_in(styles);
 
         let mut ancestors: Vec<&Content> = vec![];
         let elems = vt.introspector.query(&self.target(styles));
@@ -165,7 +173,7 @@ impl Show for OutlineElem {
                 continue;
             }
 
-            let Some(outline) = refable.outline(vt, lang)? else {
+            let Some(outline) = refable.outline(vt, lang, region)? else {
                 continue;
             };
 
@@ -255,10 +263,11 @@ impl Finalize for OutlineElem {
 }
 
 impl LocalName for OutlineElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "المحتويات",
             Lang::BOKMÅL => "Innhold",
+            Lang::CHINESE if option_eq(region, "TW") => "目錄",
             Lang::CHINESE => "目录",
             Lang::CZECH => "Obsah",
             Lang::FRENCH => "Table des matières",

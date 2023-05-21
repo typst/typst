@@ -10,11 +10,13 @@ struct Elem {
     name: String,
     display: String,
     category: String,
+    keywords: Option<String>,
     docs: String,
     vis: syn::Visibility,
     ident: Ident,
     capable: Vec<Ident>,
     fields: Vec<Field>,
+    scope: Option<BlockWithReturn>,
 }
 
 struct Field {
@@ -28,7 +30,7 @@ struct Field {
     synthesized: bool,
     fold: bool,
     resolve: bool,
-    parse: Option<FieldParser>,
+    parse: Option<BlockWithReturn>,
     default: syn::Expr,
     vis: syn::Visibility,
     ident: Ident,
@@ -47,21 +49,6 @@ impl Field {
 
     fn settable(&self) -> bool {
         !self.inherent()
-    }
-}
-
-struct FieldParser {
-    prefix: Vec<syn::Stmt>,
-    expr: syn::Stmt,
-}
-
-impl Parse for FieldParser {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let mut stmts = syn::Block::parse_within(input)?;
-        let Some(expr) = stmts.pop() else {
-            return Err(input.error("expected at least on expression"));
-        };
-        Ok(Self { prefix: stmts, expr })
     }
 }
 
@@ -137,8 +124,10 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         .into_iter()
         .collect();
 
-    let docs = documentation(&body.attrs);
+    let mut attrs = body.attrs.clone();
+    let docs = documentation(&attrs);
     let mut lines = docs.split('\n').collect();
+    let keywords = meta_line(&mut lines, "Keywords").ok().map(Into::into);
     let category = meta_line(&mut lines, "Category")?.into();
     let display = meta_line(&mut lines, "Display")?.into();
     let docs = lines.join("\n").trim().into();
@@ -147,14 +136,16 @@ fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
         name: body.ident.to_string().trim_end_matches("Elem").to_lowercase(),
         display,
         category,
+        keywords,
         docs,
         vis: body.vis.clone(),
         ident: body.ident.clone(),
         capable,
         fields,
+        scope: parse_attr(&mut attrs, "scope")?.flatten(),
     };
 
-    validate_attrs(&body.attrs)?;
+    validate_attrs(&attrs)?;
     Ok(element)
 }
 
@@ -344,13 +335,15 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 
 /// Create the element's `Pack` implementation.
 fn create_pack_impl(element: &Elem) -> TokenStream {
-    let Elem { ident, name, display, category, docs, .. } = element;
+    let Elem { ident, name, display, keywords, category, docs, .. } = element;
     let vtable_func = create_vtable_func(element);
     let infos = element
         .fields
         .iter()
         .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
+    let scope = create_scope_builder(element.scope.as_ref());
+    let keywords = quote_option(keywords);
     quote! {
         impl ::typst::model::Element for #ident {
             fn pack(self) -> ::typst::model::Content {
@@ -373,10 +366,12 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
                     info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
                         name: #name,
                         display: #display,
+                        keywords: #keywords,
                         docs: #docs,
                         params: ::std::vec![#(#infos),*],
                         returns: ::std::vec!["content"],
                         category: #category,
+                        scope: #scope,
                     }),
                 };
                 (&NATIVE).into()
@@ -412,9 +407,29 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
 
 /// Create a parameter info for a field.
 fn create_param_info(field: &Field) -> TokenStream {
-    let Field { name, docs, positional, variadic, required, ty, .. } = field;
+    let Field {
+        name,
+        docs,
+        positional,
+        variadic,
+        required,
+        default,
+        fold,
+        ty,
+        output,
+        ..
+    } = field;
     let named = !positional;
     let settable = field.settable();
+    let default_ty = if *fold { &output } else { &ty };
+    let default = quote_option(&settable.then(|| {
+        quote! {
+            || {
+                let typed: #default_ty = #default;
+                ::typst::eval::Value::from(typed)
+            }
+        }
+    }));
     let ty = if *variadic {
         quote! { <#ty as ::typst::eval::Variadics>::Inner }
     } else {
@@ -427,6 +442,7 @@ fn create_param_info(field: &Field) -> TokenStream {
             cast: <#ty as ::typst::eval::Cast<
                 ::typst::syntax::Spanned<::typst::eval::Value>
             >>::describe(),
+            default: #default,
             positional: #positional,
             named: #named,
             variadic: #variadic,
@@ -519,7 +535,7 @@ fn create_set_impl(element: &Elem) -> TokenStream {
 
 /// Create argument parsing code for a field.
 fn create_field_parser(field: &Field) -> (TokenStream, TokenStream) {
-    if let Some(FieldParser { prefix, expr }) = &field.parse {
+    if let Some(BlockWithReturn { prefix, expr }) = &field.parse {
         return (quote! { #(#prefix);* }, quote! { #expr });
     }
 

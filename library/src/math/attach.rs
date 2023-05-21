@@ -2,15 +2,22 @@ use super::*;
 
 /// A base with optional attachments.
 ///
-/// ## Syntax
-/// This function also has dedicated syntax for attachments after the base: Use the
-/// underscore (`_`) to indicate a subscript i.e. bottom attachment and the hat (`^`)
-/// to indicate a superscript i.e. top attachment.
-///
-/// ## Example
+/// ## Example { #example }
 /// ```example
+/// // With syntax.
 /// $ sum_(i=0)^n a_i = 2^(1+i) $
+///
+/// // With function call.
+/// $ attach(
+///   Pi, t: alpha, b: beta,
+///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
+/// ) $
 /// ```
+///
+/// ## Syntax { #syntax }
+/// This function also has dedicated syntax for attachments after the base: Use
+/// the underscore (`_`) to indicate a subscript i.e. bottom attachment and the
+/// hat (`^`) to indicate a superscript i.e. top attachment.
 ///
 /// Display: Attachment
 /// Category: math
@@ -21,40 +28,43 @@ pub struct AttachElem {
     pub base: Content,
 
     /// The top attachment, smartly positioned at top-right or above the base.
-    /// Use limits() or scripts() on the base to override the smart positioning.
+    ///
+    /// You can wrap the base in `{limits()}` or `{scripts()}` to override the
+    /// smart positioning.
     pub t: Option<Content>,
 
-    /// The bottom attachment, smartly positioned at the bottom-right or below the base.
-    /// Use limits() or scripts() on the base to override the smart positioning.
+    /// The bottom attachment, smartly positioned at the bottom-right or below
+    /// the base.
+    ///
+    /// You can wrap the base in `{limits()}` or `{scripts()}` to override the
+    /// smart positioning.
     pub b: Option<Content>,
 
-    /// The top-left attachment before the base.
+    /// The top-left attachment (before the base).
     pub tl: Option<Content>,
 
-    /// The bottom-left attachment before base.
+    /// The bottom-left attachment (before base).
     pub bl: Option<Content>,
 
-    /// The top-right attachment after the base.
+    /// The top-right attachment (after the base).
     pub tr: Option<Content>,
 
-    /// The bottom-right attachment after the base.
+    /// The bottom-right attachment (after the base).
     pub br: Option<Content>,
 }
-
-type GetAttachmentContent =
-    fn(&AttachElem, styles: ::typst::model::StyleChain) -> Option<Content>;
 
 impl LayoutMath for AttachElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let base = ctx.layout_fragment(&self.base())?;
-
-        let getarg = |ctx: &mut MathContext, getter: GetAttachmentContent| {
+        type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
+        let getarg = |ctx: &mut MathContext, getter: GetAttachment| {
             getter(self, ctx.styles())
                 .map(|elem| ctx.layout_fragment(&elem))
                 .transpose()
                 .unwrap()
         };
+
+        let base = ctx.layout_fragment(&self.base())?;
 
         ctx.style(ctx.style.for_superscript());
         let arg_tl = getarg(ctx, Self::tl);
@@ -89,7 +99,7 @@ impl LayoutMath for AttachElem {
 
 /// Force a base to display attachments as scripts.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ scripts(sum)_1^2 != sum_1^2 $
 /// ```
@@ -112,7 +122,7 @@ impl LayoutMath for ScriptsElem {
 
 /// Force a base to display attachments as limits.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ limits(A)_1^2 != A_1^2 $
 /// ```
@@ -133,6 +143,12 @@ impl LayoutMath for LimitsElem {
     }
 }
 
+macro_rules! measure {
+    ($e: ident, $attr: ident) => {
+        $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
+    };
+}
+
 /// Layout the attachments.
 fn layout_attachments(
     ctx: &mut MathContext,
@@ -147,12 +163,6 @@ fn layout_attachments(
     let (base_width, base_ascent, base_descent) =
         (base.width(), base.ascent(), base.descent());
     let base_class = base.class().unwrap_or(MathClass::Normal);
-
-    macro_rules! measure {
-        ($e: ident, $attr: ident) => {
-            $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
-        };
-    }
 
     let ascent = base_ascent
         .max(shift_up + measure!(tr, ascent))
@@ -289,23 +299,26 @@ fn compute_shifts_up_and_down(
 
     let mut shift_up = Abs::zero();
     let mut shift_down = Abs::zero();
+    let is_char_box = is_character_box(base);
 
-    for e in [tl, tr].into_iter().flatten() {
+    if tl.is_some() || tr.is_some() {
         let ascent = match &base {
             MathFragment::Frame(frame) => frame.base_ascent,
             _ => base.ascent(),
         };
-
         shift_up = shift_up
             .max(sup_shift_up)
-            .max(ascent - sup_drop_max)
-            .max(sup_bottom_min + e.descent());
+            .max(if is_char_box { Abs::zero() } else { ascent - sup_drop_max })
+            .max(sup_bottom_min + measure!(tl, descent))
+            .max(sup_bottom_min + measure!(tr, descent));
     }
-    for e in [bl, br].into_iter().flatten() {
+
+    if bl.is_some() || br.is_some() {
         shift_down = shift_down
             .max(sub_shift_down)
-            .max(base.descent() + sub_drop_min)
-            .max(e.ascent() - sub_top_max);
+            .max(if is_char_box { Abs::zero() } else { base.descent() + sub_drop_min })
+            .max(measure!(bl, ascent) - sub_top_max)
+            .max(measure!(br, ascent) - sub_top_max);
     }
 
     for (sup, sub) in [(tl, bl), (tr, br)] {
@@ -329,8 +342,34 @@ fn compute_shifts_up_and_down(
     (shift_up, shift_down)
 }
 
-/// Codepoints that should have sub- and superscripts attached as limits.
+/// Whether the fragment consists of a single character or atomic piece of text.
+fn is_character_box(fragment: &MathFragment) -> bool {
+    match fragment {
+        MathFragment::Glyph(_) | MathFragment::Variant(_) => {
+            fragment.class() != Some(MathClass::Large)
+        }
+        MathFragment::Frame(fragment) => is_atomic_text_frame(&fragment.frame),
+        _ => false,
+    }
+}
+
+/// Handles e.g. "sin", "log", "exp", "CustomOperator".
+fn is_atomic_text_frame(frame: &Frame) -> bool {
+    // Meta information isn't visible or renderable, so we exclude it.
+    let mut iter = frame
+        .items()
+        .map(|(_, item)| item)
+        .filter(|item| !matches!(item, FrameItem::Meta(_, _)));
+    matches!(iter.next(), Some(FrameItem::Text(_))) && iter.next().is_none()
+}
+
+/// Unicode codepoints that should have sub- and superscripts attached as limits.
+#[rustfmt::skip]
 const LIMITS: &[char] = &[
-    '\u{2210}', '\u{22C1}', '\u{22C0}', '\u{2A04}', '\u{22C2}', '\u{22C3}', '\u{220F}',
-    '\u{2211}', '\u{2A02}', '\u{2A01}', '\u{2A00}', '\u{2A06}',
+    /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
+    /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
+    /* ⋂ */ '\u{22C2}', /* ⋃ */ '\u{22C3}',
+    /* ⨀ */ '\u{2A00}', /* ⨁ */ '\u{2A01}', /* ⨂ */ '\u{2A02}',
+    /* ⨃ */ '\u{2A03}', /* ⨄ */ '\u{2A04}',
+    /* ⨅ */ '\u{2A05}', /* ⨆ */ '\u{2A06}',
 ];

@@ -9,7 +9,7 @@ use super::GridLayouter;
 /// Displays a sequence of items vertically, with each item introduced by a
 /// marker.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// - *Content*
 ///   - Text
@@ -28,7 +28,7 @@ use super::GridLayouter;
 ///   )
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This functions also has dedicated syntax: Start a line with a hyphen,
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
@@ -37,6 +37,10 @@ use super::GridLayouter;
 /// Display: Bullet List
 /// Category: layout
 #[element(Layout)]
+#[scope(
+    scope.define("item", ListItem::func());
+    scope
+)]
 pub struct ListElem {
     /// If this is `{false}`, the items are spaced apart with [list
     /// spacing]($func/list.spacing). If it is `{true}`, they use normal
@@ -62,8 +66,6 @@ pub struct ListElem {
     /// control, you may pass a function that maps the list's nesting depth
     /// (starting from `{0}`) to a desired marker.
     ///
-    /// Default: `•`
-    ///
     /// ```example
     /// #set list(marker: [--])
     /// - A more classic list
@@ -75,7 +77,7 @@ pub struct ListElem {
     ///   - Items
     /// - Items
     /// ```
-    #[default(ListMarker::Content(vec![]))]
+    #[default(ListMarker::Content(vec![TextElem::packed('•')]))]
     pub marker: ListMarker,
 
     /// The indent of each item.
@@ -129,7 +131,11 @@ impl Layout for ListElem {
         };
 
         let depth = self.depth(styles);
-        let marker = self.marker(styles).resolve(vt, depth)?;
+        let marker = self
+            .marker(styles)
+            .resolve(vt, depth)?
+            // avoid '#set align' interference with the list
+            .aligned(Align::LEFT_TOP.into());
 
         let mut cells = vec![];
         for item in self.children() {
@@ -184,11 +190,9 @@ impl ListMarker {
     /// Resolve the marker for the given depth.
     fn resolve(&self, vt: &mut Vt, depth: usize) -> SourceResult<Content> {
         Ok(match self {
-            Self::Content(list) => list
-                .get(depth)
-                .or(list.last())
-                .cloned()
-                .unwrap_or_else(|| TextElem::packed('•')),
+            Self::Content(list) => {
+                list.get(depth).or(list.last()).cloned().unwrap_or_default()
+            }
             Self::Func(func) => func.call_vt(vt, [Value::Int(depth as i64)])?.display(),
         })
     }
@@ -208,7 +212,11 @@ cast_from_value! {
 
 cast_to_value! {
     v: ListMarker => match v {
-        ListMarker::Content(vec) => vec.into(),
+        ListMarker::Content(vec) => if vec.len() == 1 {
+            vec.into_iter().next().unwrap().into()
+        } else {
+            vec.into()
+        },
         ListMarker::Func(func) => func.into(),
     }
 }

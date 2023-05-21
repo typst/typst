@@ -7,7 +7,7 @@ use crate::prelude::*;
 /// other content in the container. Page margins will be respected.
 ///
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set page(height: 60pt)
 /// Hello, world!

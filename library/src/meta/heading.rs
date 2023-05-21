@@ -1,4 +1,5 @@
 use typst::font::FontWeight;
+use typst::util::option_eq;
 
 use super::{Counter, CounterUpdate, LocalName, Numbering, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
@@ -23,7 +24,7 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 /// headings from this outline, you can set the `outlined` parameter to
 /// `{false}`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set heading(numbering: "1.a)")
 ///
@@ -34,7 +35,7 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 /// To start, ...
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth.
@@ -164,13 +165,14 @@ impl Refable for HeadingElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content> {
         // Create the supplement of the heading.
         let mut supplement = if let Some(supplement) = supplement {
             supplement
         } else {
             match self.supplement(StyleChain::default()) {
-                Smart::Auto => TextElem::packed(self.local_name(lang)),
+                Smart::Auto => TextElem::packed(self.local_name(lang, region)),
                 Smart::Custom(None) => Content::empty(),
                 Smart::Custom(Some(supplement)) => {
                     supplement.resolve(vt, std::iter::once(Value::from(self.clone())))?
@@ -208,7 +210,12 @@ impl Refable for HeadingElem {
         Counter::of(Self::func())
     }
 
-    fn outline(&self, vt: &mut Vt, _: Lang) -> SourceResult<Option<Content>> {
+    fn outline(
+        &self,
+        vt: &mut Vt,
+        _: Lang,
+        _: Option<Region>,
+    ) -> SourceResult<Option<Content>> {
         // Check whether the heading is outlined.
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
@@ -228,10 +235,11 @@ impl Refable for HeadingElem {
 }
 
 impl LocalName for HeadingElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "الفصل",
             Lang::BOKMÅL => "Kapittel",
+            Lang::CHINESE if option_eq(region, "TW") => "小節",
             Lang::CHINESE => "小节",
             Lang::CZECH => "Kapitola",
             Lang::FRENCH => "Chapitre",

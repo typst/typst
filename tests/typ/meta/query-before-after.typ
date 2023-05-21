@@ -11,18 +11,18 @@
 
   #set text(size: 12pt, weight: "regular")
   #outline(
-      title: "Chapter outline",
-      indent: true,
-      target: heading
-        .where(level: 1)
-        .or(heading.where(level: 2))
-        .after(it.location(), inclusive: true)
-        .before(
-          heading
-            .where(level: 1, outlined: true)
-            .after(it.location(), inclusive: false),
-          inclusive: false,
-        )
+    title: "Chapter outline",
+    indent: true,
+    target: heading
+      .where(level: 1)
+      .or(heading.where(level: 2))
+      .after(it.location(), inclusive: true)
+      .before(
+        heading
+          .where(level: 1, outlined: true)
+          .after(it.location(), inclusive: false),
+        inclusive: false,
+      )
   )
 ]
 
@@ -34,6 +34,7 @@
 === Subsubsection 1
 === Subsubsection 2
 == Subsection 3
+
 = Section 2
 == Subsection 1
 == Subsection 2

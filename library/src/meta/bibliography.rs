@@ -7,10 +7,11 @@ use ecow::{eco_vec, EcoVec};
 use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
+use typst::util::option_eq;
 
 use super::{LinkElem, LocalName, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
-use crate::meta::HeadingElem;
+use crate::meta::{FootnoteElem, HeadingElem};
 use crate::prelude::*;
 use crate::text::TextElem;
 
@@ -120,7 +121,7 @@ impl BibliographyElem {
 
     /// Find all bibliography keys.
     pub fn keys(
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)> {
         Self::find(introspector)
@@ -152,10 +153,14 @@ impl Show for BibliographyElem {
 
         let mut seq = vec![];
         if let Some(title) = self.title(styles) {
-            let title = title.unwrap_or_else(|| {
-                TextElem::packed(self.local_name(TextElem::lang_in(styles)))
+            let title =
+                title.unwrap_or_else(|| {
+                    TextElem::packed(self.local_name(
+                        TextElem::lang_in(styles),
+                        TextElem::region_in(styles),
+                    ))
                     .spanned(self.span())
-            });
+                });
 
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
@@ -206,10 +211,11 @@ impl Finalize for BibliographyElem {
 }
 
 impl LocalName for BibliographyElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "المراجع",
             Lang::BOKMÅL => "Bibliografi",
+            Lang::CHINESE if option_eq(region, "TW") => "書目",
             Lang::CHINESE => "参考文献",
             Lang::CZECH => "Bibliografie",
             Lang::FRENCH => "Bibliographie",
@@ -237,6 +243,9 @@ pub enum BibliographyStyle {
     /// The Chicago Author Date style. Based on the 17th edition of the Chicago
     /// Manual of Style, Chapter 15.
     ChicagoAuthorDate,
+    /// The Chicago Notes style. Based on the 17th edition of the Chicago
+    /// Manual of Style, Chapter 14.
+    ChicagoNotes,
     /// The style of the Institute of Electrical and Electronics Engineers.
     /// Based on the 2018 IEEE Reference Guide.
     Ieee,
@@ -251,6 +260,7 @@ impl BibliographyStyle {
         match self {
             Self::Apa => CitationStyle::ChicagoAuthorDate,
             Self::ChicagoAuthorDate => CitationStyle::ChicagoAuthorDate,
+            Self::ChicagoNotes => CitationStyle::ChicagoNotes,
             Self::Ieee => CitationStyle::Numerical,
             Self::Mla => CitationStyle::ChicagoAuthorDate,
         }
@@ -379,7 +389,10 @@ pub enum CitationStyle {
     /// The Chicago Author Date style. Based on the 17th edition of the Chicago
     /// Manual of Style, Chapter 15.
     ChicagoAuthorDate,
-    /// The Chicago-like author-title format. Results could look like this:
+    /// The Chicago Notes style. Based on the 17th edition of the Chicago
+    /// Manual of Style, Chapter 14.
+    ChicagoNotes,
+    /// A Chicago-like author-title format. Results could look like this:
     /// Prokopov, “It Is Fast or It Is Wrong”.
     ChicagoAuthorTitle,
 }
@@ -420,7 +433,7 @@ impl Works {
 /// Generate all citations and the whole bibliography.
 #[comemo::memoize]
 fn create(
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     bibliography: BibliographyElem,
     citations: Vec<CiteElem>,
 ) -> Arc<Works> {
@@ -481,6 +494,7 @@ fn create(
                     CitationStyle::ChicagoAuthorDate => {
                         Box::new(style::ChicagoAuthorDate::new())
                     }
+                    CitationStyle::ChicagoNotes => Box::new(style::ChicagoNotes::new()),
                     CitationStyle::ChicagoAuthorTitle => {
                         Box::new(style::AuthorTitle::new())
                     }
@@ -531,6 +545,10 @@ fn create(
                 };
             }
 
+            if style == CitationStyle::ChicagoNotes {
+                content = FootnoteElem::new(content).pack();
+            }
+
             (location, Some(content))
         })
         .collect();
@@ -538,6 +556,7 @@ fn create(
     let bibliography_style: Box<dyn style::BibliographyStyle> = match style {
         BibliographyStyle::Apa => Box::new(style::Apa::new()),
         BibliographyStyle::ChicagoAuthorDate => Box::new(style::ChicagoAuthorDate::new()),
+        BibliographyStyle::ChicagoNotes => Box::new(style::ChicagoNotes::new()),
         BibliographyStyle::Ieee => Box::new(style::Ieee::new()),
         BibliographyStyle::Mla => Box::new(style::Mla::new()),
     };
@@ -546,24 +565,18 @@ fn create(
         .bibliography(&*bibliography_style, None)
         .into_iter()
         .map(|reference| {
-            // Make link from citation to here work.
-            let backlink = {
-                let mut content = Content::empty();
-                content.set_location(ref_location(reference.entry));
-                MetaElem::set_data(vec![Meta::Elem(content)])
-            };
-
+            let backlink = ref_location(reference.entry);
             let prefix = reference.prefix.map(|prefix| {
                 // Format and link to first citation.
                 let bracketed = prefix.with_default_brackets(&*citation_style);
                 format_display_string(&bracketed, None, span)
                     .linked(Destination::Location(ids[reference.entry.key()]))
-                    .styled(backlink.clone())
+                    .backlinked(backlink)
             });
 
             let mut reference = format_display_string(&reference.display, None, span);
             if prefix.is_none() {
-                reference = reference.styled(backlink);
+                reference = reference.backlinked(backlink);
             }
 
             (prefix, reference)
@@ -576,7 +589,7 @@ fn create(
 /// Load bibliography entries from a path.
 #[comemo::memoize]
 fn load(
-    world: Tracked<dyn World>,
+    world: Tracked<dyn World + '_>,
     paths: &BibPaths,
 ) -> StrResult<EcoVec<hayagriva::Entry>> {
     let mut result = EcoVec::new();
@@ -608,19 +621,21 @@ fn load(
     }
 }
 
-/// Parse a bibliography file (bib/yml)
+/// Parse a bibliography file (bib/yml/yaml)
 fn parse_bib(path_str: &str, src: &str) -> StrResult<Vec<hayagriva::Entry>> {
     let path = Path::new(path_str);
     let ext = path.extension().and_then(OsStr::to_str).unwrap_or_default();
     match ext.to_lowercase().as_str() {
-        "yml" => hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error),
+        "yml" | "yaml" => {
+            hayagriva::io::from_yaml_str(src).map_err(format_hayagriva_error)
+        }
         "bib" => hayagriva::io::from_biblatex_str(src).map_err(|err| {
             err.into_iter()
                 .next()
                 .map(|error| format_biblatex_error(path_str, src, error))
                 .unwrap_or_else(|| eco_format!("failed to parse {path_str}"))
         }),
-        _ => Err("unknown bibliography format".into()),
+        _ => Err("unknown bibliography format (must be .yml/.yaml or .bib)".into()),
     }
 }
 

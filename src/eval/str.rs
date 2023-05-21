@@ -1,13 +1,14 @@
 use std::borrow::{Borrow, Cow};
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
-use std::ops::{Add, AddAssign, Deref};
+use std::ops::{Add, AddAssign, Deref, Range};
 
 use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{cast_from_value, dict, Array, Dict, Value};
-use crate::diag::StrResult;
+use super::{cast_from_value, dict, Array, Dict, Func, Value, Vm};
+use crate::diag::{At, SourceResult, StrResult};
+use crate::eval::Args;
 use crate::geom::GenAlign;
 
 /// Create a new [`Str`] from a format string.
@@ -68,12 +69,13 @@ impl Str {
     }
 
     /// Extract the grapheme cluster at the given index.
-    pub fn at(&self, index: i64) -> StrResult<Self> {
+    pub fn at<'a>(&'a self, index: i64, default: Option<&'a str>) -> StrResult<Self> {
         let len = self.len();
         let grapheme = self.0[self.locate(index)?..]
             .graphemes(true)
             .next()
-            .ok_or_else(|| out_of_bounds(index, len))?;
+            .or(default)
+            .ok_or_else(|| no_default_and_out_of_bounds(index, len))?;
         Ok(grapheme.into())
     }
 
@@ -257,18 +259,60 @@ impl Str {
     }
 
     /// Replace at most `count` occurrences of the given pattern with a
-    /// replacement string (beginning from the start).
-    pub fn replace(&self, pattern: StrPattern, with: Self, count: Option<usize>) -> Self {
-        match pattern {
-            StrPattern::Str(pat) => match count {
-                Some(n) => self.0.replacen(pat.as_str(), &with, n).into(),
-                None => self.0.replace(pat.as_str(), &with).into(),
-            },
-            StrPattern::Regex(re) => match count {
-                Some(n) => re.replacen(self, n, with.as_str()).into(),
-                None => re.replace(self, with.as_str()).into(),
-            },
+    /// replacement string or function (beginning from the start). If no count
+    /// is given, all occurrences are replaced.
+    pub fn replace(
+        &self,
+        vm: &mut Vm,
+        pattern: StrPattern,
+        with: Replacement,
+        count: Option<usize>,
+    ) -> SourceResult<Self> {
+        // Heuristic: Assume the new string is about the same length as
+        // the current string.
+        let mut output = EcoString::with_capacity(self.as_str().len());
+
+        // Replace one match of a pattern with the replacement.
+        let mut last_match = 0;
+        let mut handle_match = |range: Range<usize>, dict: Dict| -> SourceResult<()> {
+            // Push everything until the match.
+            output.push_str(&self[last_match..range.start]);
+            last_match = range.end;
+
+            // Determine and push the replacement.
+            match &with {
+                Replacement::Str(s) => output.push_str(s),
+                Replacement::Func(func) => {
+                    let args = Args::new(func.span(), [dict.into()]);
+                    let piece = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
+                    output.push_str(&piece);
+                }
+            }
+
+            Ok(())
+        };
+
+        // Iterate over the matches of the `pattern`.
+        let count = count.unwrap_or(usize::MAX);
+        match &pattern {
+            StrPattern::Str(pat) => {
+                for m in self.match_indices(pat.as_str()).take(count) {
+                    let (start, text) = m;
+                    handle_match(start..start + text.len(), match_to_dict(m))?;
+                }
+            }
+            StrPattern::Regex(re) => {
+                for caps in re.captures_iter(self).take(count) {
+                    // Extract the entire match over all capture groups.
+                    let m = caps.get(0).unwrap();
+                    handle_match(m.start()..m.end(), captures_to_dict(caps))?;
+                }
+            }
         }
+
+        // Push the remainder.
+        output.push_str(&self[last_match..]);
+        Ok(output.into())
     }
 
     /// Repeat the string a number of times.
@@ -303,6 +347,12 @@ impl Str {
 #[cold]
 fn out_of_bounds(index: i64, len: i64) -> EcoString {
     eco_format!("string index out of bounds (index: {}, len: {})", index, len)
+}
+
+/// The out of bounds access error message when no default value was given.
+#[cold]
+fn no_default_and_out_of_bounds(index: i64, len: i64) -> EcoString {
+    eco_format!("no default value was specified and string index out of bounds (index: {}, len: {})", index, len)
 }
 
 /// The char boundary access error message.
@@ -520,4 +570,19 @@ cast_from_value! {
         GenAlign::End => Self::End,
         _ => Err("expected either `start` or `end`")?,
     },
+}
+
+/// A replacement for a matched [`Str`]
+pub enum Replacement {
+    /// A string a match is replaced with.
+    Str(Str),
+    /// Function of type Dict -> Str (see `captures_to_dict` or `match_to_dict`)
+    /// whose output is inserted for the match.
+    Func(Func),
+}
+
+cast_from_value! {
+    Replacement,
+    text: Str => Self::Str(text),
+    func: Func => Self::Func(func)
 }

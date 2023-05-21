@@ -51,6 +51,35 @@ pub struct PartialStroke<T = Length> {
     pub miter_limit: Smart<Scalar>,
 }
 
+impl<T> PartialStroke<T> {
+    /// Map the contained lengths with `f`.
+    pub fn map<F, U>(self, f: F) -> PartialStroke<U>
+    where
+        F: Fn(T) -> U,
+    {
+        PartialStroke {
+            paint: self.paint,
+            thickness: self.thickness.map(&f),
+            line_cap: self.line_cap,
+            line_join: self.line_join,
+            dash_pattern: self.dash_pattern.map(|pattern| {
+                pattern.map(|pattern| DashPattern {
+                    array: pattern
+                        .array
+                        .into_iter()
+                        .map(|l| match l {
+                            DashLength::Length(v) => DashLength::Length(f(v)),
+                            DashLength::LineWidth => DashLength::LineWidth,
+                        })
+                        .collect(),
+                    phase: f(pattern.phase),
+                })
+            }),
+            miter_limit: self.miter_limit,
+        }
+    }
+}
+
 impl PartialStroke<Abs> {
     /// Unpack the stroke, filling missing fields from the `default`.
     pub fn unwrap_or(self, default: Stroke) -> Stroke {
@@ -106,13 +135,13 @@ impl<T: Debug> Debug for PartialStroke<T> {
                 }
                 (Smart::Custom(paint), Smart::Auto) => paint.fmt(f),
                 (Smart::Auto, Smart::Custom(thickness)) => thickness.fmt(f),
-                (Smart::Auto, Smart::Auto) => f.pad("<stroke>"),
+                (Smart::Auto, Smart::Auto) => f.pad("1pt + black"),
             }
         } else {
             write!(f, "(")?;
             let mut sep = "";
             if let Smart::Custom(paint) = &paint {
-                write!(f, "{}color: {:?}", sep, paint)?;
+                write!(f, "{}paint: {:?}", sep, paint)?;
                 sep = ", ";
             }
             if let Smart::Custom(thickness) = &thickness {
@@ -176,7 +205,7 @@ impl Debug for LineJoin {
     }
 }
 
-/// A line dash pattern
+/// A line dash pattern.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct DashPattern<T = Length, DT = DashLength<T>> {
     /// The dash array.
@@ -256,9 +285,9 @@ cast_from_value! {
     "dashed" => vec![Abs::pt(3.0).into(), Abs::pt(3.0).into()].into(),
     "densely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into()].into(),
     "loosely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(6.0).into()].into(),
-    "dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
-    "densely-dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
-    "loosely-dashdotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+    "dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
+    "densely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    "loosely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
     array: Vec<DashLength> => {
         Self {
             array,
@@ -293,20 +322,12 @@ impl Resolve for DashPattern {
 cast_from_value! {
     PartialStroke: "stroke",
     thickness: Length => Self {
-        paint: Smart::Auto,
         thickness: Smart::Custom(thickness),
-        line_cap: Smart::Auto,
-        line_join: Smart::Auto,
-        dash_pattern: Smart::Auto,
-        miter_limit: Smart::Auto,
+        ..Default::default()
     },
     color: Color => Self {
         paint: Smart::Custom(color.into()),
-        thickness: Smart::Auto,
-        line_cap: Smart::Auto,
-        line_join: Smart::Auto,
-        dash_pattern: Smart::Auto,
-        miter_limit: Smart::Auto,
+        ..Default::default()
     },
     mut dict: Dict => {
         fn take<T: Cast<Value>>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {
@@ -314,14 +335,13 @@ cast_from_value! {
                 .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto))
         }
 
-        let paint = take::<Paint>(&mut dict, "color")?;
+        let paint = take::<Paint>(&mut dict, "paint")?;
         let thickness = take::<Length>(&mut dict, "thickness")?;
         let line_cap = take::<LineCap>(&mut dict, "cap")?;
         let line_join = take::<LineJoin>(&mut dict, "join")?;
         let dash_pattern = take::<Option<DashPattern>>(&mut dict, "dash")?;
         let miter_limit = take::<f64>(&mut dict, "miter-limit")?;
-
-        dict.finish(&["color", "thickness", "cap", "join", "dash", "miter-limit"])?;
+        dict.finish(&["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
 
         Self {
             paint,
@@ -359,7 +379,11 @@ impl Fold for PartialStroke<Abs> {
             line_cap: self.line_cap.or(outer.line_cap),
             line_join: self.line_join.or(outer.line_join),
             dash_pattern: self.dash_pattern.or(outer.dash_pattern),
-            miter_limit: self.miter_limit,
+            miter_limit: self.miter_limit.or(outer.miter_limit),
         }
     }
+}
+
+cast_to_value! {
+    v: PartialStroke<Abs> => v.map(Length::from).into()
 }

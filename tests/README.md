@@ -14,12 +14,12 @@ Top level directory structure:
 ## Running the tests
 Running all tests (including unit tests):
 ```bash
-cargo test --all
+cargo test --workspace
 ```
 
 Running just the integration tests (the tests in this directory):
 ```bash
-cargo test --all --test tests
+cargo test --workspace --test tests
 ```
 
 You may want to [make yourself an alias](#making-an-alias) like:
@@ -53,7 +53,7 @@ testit --pdf
 ## Update expected images
 If you created a new test or fixed a bug in an existing test, you need to update
 the reference image used for comparison. For this, you can use the
-`UPDATE_EXPECT` environment varariable or the `--update` flag:
+`UPDATE_EXPECT` environment variable or the `--update` flag:
 ```bash
 testit mytest --update
 ```
@@ -73,13 +73,13 @@ testit empty.typ
 ### Bash
 Open your Bash configuration by executing `nano ~/.bashrc`.
 ```bash
-alias testit="cargo test --all --test tests --"
+alias testit="cargo test --workspace --test tests --"
 ```
 
 ### PowerShell
 Open your PowerShell profile by executing `notepad $profile`.
 ```ps
 function testit {
-    cargo test --all --test tests -- $args
+    cargo test --workspace --test tests -- $args
 }
 ```

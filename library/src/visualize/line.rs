@@ -2,11 +2,16 @@ use crate::prelude::*;
 
 /// A line from one point to another.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set page(height: 100pt)
+///
 /// #line(length: 100%)
 /// #line(end: (50%, 50%))
+/// #line(
+///   length: 4cm,
+///   stroke: 2pt + maroon,
+/// )
 /// ```
 ///
 /// Display: Line
@@ -41,30 +46,37 @@ pub struct LineElem {
     /// - A stroke combined from color and thickness using the `+` operator as
     ///   in `{2pt + red}`.
     /// - A stroke described by a dictionary with any of the following keys:
-    ///     - `color`: the color to use for the stroke
-    ///     - `thickness`: the stroke's thickness
-    ///     - `cap`: one of `"butt"`, `"round"` or `"square"`, the line cap of the stroke
-    ///     - `join`: one of `"miter"`, `"round"` or `"bevel"`, the line join of the stroke
-    ///     - `miter-limit`: the miter limit to use if `join` is `"miter"`, defaults to 4.0
-    ///     - `dash`: the dash pattern to use. Can be any of the following:
-    ///         - One of the strings `"solid"`, `"dotted"`, `"densely-dotted"`, `"loosely-dotted"`,
-    ///           `"dashed"`, `"densely-dashed"`, `"loosely-dashed"`, `"dashdotted"`,
-    ///           `"densely-dashdotted"` or `"loosely-dashdotted"`
-    ///         - An array with elements that specify the lengths of dashes and gaps, alternating.
-    ///           Elements can also be the string `"dot"` for a length equal to the line thickness.
-    ///         - A dict with the keys `array`, same as the array above, and `phase`, the offset to
-    ///           the start of the first dash.
-    ///     
+    ///   - `paint`: The [color]($type/color) to use for the stroke.
+    ///   - `thickness`: The stroke's thickness as a [length]($type/length).
+    ///   - `cap`: How the line terminates. One of `{"butt"}`, `{"round"}`, or
+    ///     `{"square"}`.
+    ///   - `join`: How sharp turns of a contour are rendered. One of
+    ///     `{"miter"}`, `{"round"}`, or `{"bevel"}`. Not applicable to lines
+    ///     but to [polygons]($func/polygon) or [paths]($func/path).
+    ///   - `miter-limit`: Number at which protruding sharp angles are rendered
+    ///     with a bevel instead. The higher the number, the sharper an angle
+    ///     can be before it is bevelled. Only applicable if `join` is
+    ///     `{"miter"}`. Defaults to `{4.0}`.
+    ///   - `dash`: The dash pattern to use. Can be any of the following:
+    ///     - One of the predefined patterns `{"solid"}`, `{"dotted"}`,
+    ///       `{"densely-dotted"}`, `{"loosely-dotted"}`, `{"dashed"}`,
+    ///       `{"densely-dashed"}`, `{"loosely-dashed"}`, `{"dash-dotted"}`,
+    ///       `{"densely-dash-dotted"}` or `{"loosely-dash-dotted"}`
+    ///     - An [array]($type/array) with alternating lengths for dashes and
+    ///       gaps. You can also use the string `{"dot"}` for a length equal to
+    ///       the line thickness.
+    ///     - A [dictionary]($type/dictionary) with the keys `array` (same as
+    ///       the array above), and `phase` (of type [length]($type/length)),
+    ///       which defines where in the pattern to start drawing.
     ///
     /// ```example
+    /// #set line(length: 100%)
     /// #stack(
-    ///   line(length: 100%, stroke: 2pt + red),
-    ///   v(1em),
-    ///   line(length: 100%, stroke: (color: blue, thickness: 4pt, cap: "round")),
-    ///   v(1em),
-    ///   line(length: 100%, stroke: (color: blue, thickness: 1pt, dash: "dashed")),
-    ///   v(1em),
-    ///   line(length: 100%, stroke: (color: blue, thickness: 1pt, dash: ("dot", 2pt, 4pt, 2pt))),
+    ///   spacing: 1em,
+    ///   line(stroke: 2pt + red),
+    ///   line(stroke: (paint: blue, thickness: 4pt, cap: "round")),
+    ///   line(stroke: (paint: blue, thickness: 1pt, dash: "dashed")),
+    ///   line(stroke: (paint: blue, thickness: 1pt, dash: ("dot", 2pt, 4pt, 2pt))),
     /// )
     /// ```
     #[resolve]

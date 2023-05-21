@@ -6,7 +6,7 @@ use crate::prelude::*;
 ///
 /// The file will be read and returned as a string.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let text = read("data.html")
 ///
@@ -38,7 +38,7 @@ pub fn read(
 /// rows will be collected into a single array. Header rows will not be
 /// stripped.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let results = csv("data.csv")
 ///
@@ -58,7 +58,6 @@ pub fn csv(
     path: Spanned<EcoString>,
     /// The delimiter that separates columns in the CSV file.
     /// Must be a single ASCII character.
-    /// Defaults to a comma.
     #[named]
     #[default]
     delimiter: Delimiter,
@@ -69,7 +68,7 @@ pub fn csv(
 
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
-    builder.delimiter(delimiter.0);
+    builder.delimiter(delimiter.0 as u8);
 
     let mut reader = builder.from_reader(data.as_slice());
     let mut array = Array::new();
@@ -87,7 +86,7 @@ pub fn csv(
 }
 
 /// The delimiter to use when parsing CSV files.
-struct Delimiter(u8);
+struct Delimiter(char);
 
 cast_from_value! {
     Delimiter,
@@ -102,13 +101,17 @@ cast_from_value! {
             Err("delimiter must be an ASCII character")?
         }
 
-        Self(first as u8)
+        Self(first)
     },
+}
+
+cast_to_value! {
+    v: Delimiter => v.0.into()
 }
 
 impl Default for Delimiter {
     fn default() -> Self {
-        Self(b',')
+        Self(',')
     }
 }
 
@@ -138,7 +141,7 @@ fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
 /// The JSON files in the example contain objects with the keys `temperature`,
 /// `unit`, and `weather`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let forecast(day) = block[
 ///   #box(square(
@@ -201,10 +204,83 @@ fn convert_json(value: serde_json::Value) -> Value {
 }
 
 /// Format the user-facing JSON error message.
-#[track_caller]
 fn format_json_error(error: serde_json::Error) -> EcoString {
     assert!(error.is_syntax() || error.is_eof());
     eco_format!("failed to parse json file: syntax error in line {}", error.line())
+}
+
+/// Read structured data from a TOML file.
+///
+/// The file must contain a valid TOML table. TOML tables will be
+/// converted into Typst dictionaries, and TOML arrays will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents and numbers will be converted to floats or integers depending on
+/// whether they are whole numbers. For the time being, datetimes will be
+/// converted to strings as Typst does not have a built-in datetime yet.
+///
+/// The TOML file in the example consists of a table with the keys `title`,
+/// `version`, and `authors`.
+///
+/// ## Example { #example }
+/// ```example
+/// #let details = toml("details.toml")
+///
+/// Title: #details.title \
+/// Version: #details.version \
+/// Authors: #(details.authors
+///   .join(", ", last: " and "))
+/// ```
+///
+/// Display: TOML
+/// Category: data-loading
+/// Returns: dictionary
+#[func]
+pub fn toml(
+    /// Path to a TOML file.
+    path: Spanned<EcoString>,
+) -> Value {
+    let Spanned { v: path, span } = path;
+    let path = vm.locate(&path).at(span)?;
+    let data = vm.world().file(&path).at(span)?;
+
+    let raw = std::str::from_utf8(&data)
+        .map_err(|_| "file is not valid utf-8")
+        .at(span)?;
+
+    let value: toml::Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
+    convert_toml(value)
+}
+
+/// Convert a TOML value to a Typst value.
+fn convert_toml(value: toml::Value) -> Value {
+    match value {
+        toml::Value::String(v) => Value::Str(v.into()),
+        toml::Value::Integer(v) => Value::Int(v),
+        toml::Value::Float(v) => Value::Float(v),
+        toml::Value::Boolean(v) => Value::Bool(v),
+        toml::Value::Array(v) => Value::Array(v.into_iter().map(convert_toml).collect()),
+        toml::Value::Table(v) => Value::Dict(
+            v.into_iter()
+                .map(|(key, value)| (key.into(), convert_toml(value)))
+                .collect(),
+        ),
+        // TODO: Make it use native date/time object(s) once it is implemented.
+        toml::Value::Datetime(v) => Value::Str(v.to_string().into()),
+    }
+}
+
+/// Format the user-facing TOML error message.
+fn format_toml_error(error: toml::de::Error) -> EcoString {
+    if let Some(range) = error.span() {
+        eco_format!(
+            "failed to parse toml file: {}, index {}-{}",
+            error.message(),
+            range.start,
+            range.end
+        )
+    } else {
+        eco_format!("failed to parse toml file: {}", error.message())
+    }
 }
 
 /// Read structured data from a YAML file.
@@ -229,7 +305,7 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 /// each with a sequence of their own submapping with the keys
 /// "title" and "published"
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let bookshelf(contents) = {
 ///   for (author, works) in contents {
@@ -240,7 +316,9 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 ///   }
 /// }
 ///
-/// #bookshelf(yaml("scifi-authors.yaml"))
+/// #bookshelf(
+///   yaml("scifi-authors.yaml")
+/// )
 /// ```
 ///
 /// Display: YAML
@@ -292,7 +370,6 @@ fn convert_yaml_key(key: serde_yaml::Value) -> Option<Str> {
 }
 
 /// Format the user-facing YAML error message.
-#[track_caller]
 fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
     eco_format!("failed to parse yaml file: {}", error.to_string().trim())
 }
@@ -312,17 +389,17 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 /// `content` tag contains one or more paragraphs, which are represented as `p`
 /// tags.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
-/// #let findChild(elem, tag) = {
+/// #let find-child(elem, tag) = {
 ///   elem.children
 ///     .find(e => "tag" in e and e.tag == tag)
 /// }
 ///
 /// #let article(elem) = {
-///   let title = findChild(elem, "title")
-///   let author = findChild(elem, "author")
-///   let pars = findChild(elem, "content")
+///   let title = find-child(elem, "title")
+///   let author = find-child(elem, "author")
+///   let pars = find-child(elem, "content")
 ///
 ///   heading(title.children.first())
 ///   text(10pt, weight: "medium")[
@@ -339,9 +416,9 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 /// }
 ///
 /// #let data = xml("example.xml")
-/// #for child in data.first().children {
-///   if (type(child) == "dictionary") {
-///     article(child)
+/// #for elem in data.first().children {
+///   if (type(elem) == "dictionary") {
+///     article(elem)
 ///   }
 /// }
 /// ```
@@ -376,7 +453,6 @@ fn convert_xml(node: roxmltree::Node) -> Value {
     let tag: Str = node.tag_name().name().into();
     let attrs: Dict = node
         .attributes()
-        .iter()
         .map(|attr| (attr.name().into(), attr.value().into()))
         .collect();
 

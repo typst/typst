@@ -130,13 +130,13 @@ impl Display for Tracepoint {
 /// Enrich a [`SourceResult`] with a tracepoint.
 pub trait Trace<T> {
     /// Add the tracepoint to all errors that lie outside the `span`.
-    fn trace<F>(self, world: Tracked<dyn World>, make_point: F, span: Span) -> Self
+    fn trace<F>(self, world: Tracked<dyn World + '_>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint;
 }
 
 impl<T> Trace<T> for SourceResult<T> {
-    fn trace<F>(self, world: Tracked<dyn World>, make_point: F, span: Span) -> Self
+    fn trace<F>(self, world: Tracked<dyn World + '_>, make_point: F, span: Span) -> Self
     where
         F: Fn() -> Tracepoint,
     {
@@ -273,7 +273,6 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString
         roxmltree::Error::NoRootNode => {
             eco_format!("failed to parse {format}: missing root node")
         }
-        roxmltree::Error::SizeLimit => "file is too large".into(),
         _ => eco_format!("failed to parse {format}"),
     }
 }

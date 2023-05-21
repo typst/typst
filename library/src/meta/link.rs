@@ -8,7 +8,7 @@ use crate::text::{Hyphenate, TextElem};
 /// are not styled any different from normal text. However, you can easily apply
 /// a style of your choice with a show rule.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #show link: underline
 ///
@@ -20,7 +20,7 @@ use crate::text::{Hyphenate, TextElem};
 /// ]
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
 ///

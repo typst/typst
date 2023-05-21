@@ -1,6 +1,7 @@
 use std::ops::Range;
 use std::str::FromStr;
 
+use az::SaturatingAs;
 use rustybuzz::{Feature, Tag, UnicodeBuffer};
 use typst::font::{Font, FontVariant};
 use typst::util::SliceExt;
@@ -22,6 +23,10 @@ pub struct ShapedText<'a> {
     pub text: &'a str,
     /// The text direction.
     pub dir: Dir,
+    /// The text language.
+    pub lang: Lang,
+    /// The text region.
+    pub region: Option<Region>,
     /// The text's style properties.
     pub styles: StyleChain<'a>,
     /// The font variant.
@@ -47,20 +52,20 @@ pub struct ShapedGlyph {
     pub x_offset: Em,
     /// The vertical offset of the glyph.
     pub y_offset: Em,
-    /// The byte index in the source text where this glyph's cluster starts. A
-    /// cluster is a sequence of one or multiple glyphs that cannot be
-    /// separated and must always be treated as a union.
-    pub cluster: usize,
+    /// The adjustability of the glyph.
+    pub adjustability: Adjustability,
+    /// The byte range of this glyph's cluster in the full paragraph. A cluster
+    /// is a sequence of one or multiple glyphs that cannot be separated and
+    /// must always be treated as a union.
+    pub range: Range<usize>,
     /// Whether splitting the shaping result before this glyph would yield the
     /// same results as shaping the parts to both sides of `text_index`
     /// separately.
     pub safe_to_break: bool,
     /// The first char in this glyph's cluster.
     pub c: char,
-    /// The source code location of the text.
-    pub span: Span,
-    /// The offset within the spanned text.
-    pub offset: u16,
+    /// The source code location of the glyph and its byte offset within it.
+    pub span: (Span, u16),
 }
 
 #[derive(Debug, Clone, Default)]
@@ -79,41 +84,67 @@ impl ShapedGlyph {
 
     /// Whether the glyph is justifiable.
     pub fn is_justifiable(&self) -> bool {
+        // GB style is not relevant here.
         self.is_space()
-            || self.is_cjk()
-            || self.is_cjk_left_aligned_punctuation()
+            || self.is_cjk_script()
+            || self.is_cjk_left_aligned_punctuation(true)
             || self.is_cjk_right_aligned_punctuation()
+            || self.is_cjk_center_aligned_punctuation(true)
     }
 
-    pub fn is_cjk(&self) -> bool {
+    pub fn is_cjk_script(&self) -> bool {
         use Script::*;
         // U+30FC: Katakana-Hiragana Prolonged Sound Mark
         matches!(self.c.script(), Hiragana | Katakana | Han) || self.c == '\u{30FC}'
     }
 
-    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
-    pub fn is_cjk_left_aligned_punctuation(&self) -> bool {
+    pub fn is_cjk_adjustable(&self) -> bool {
+        self.is_cjk_left_aligned_punctuation(true)
+            || self.is_cjk_right_aligned_punctuation()
+            || self.is_cjk_center_aligned_punctuation(true)
+    }
+
+    /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
+    pub fn is_cjk_left_aligned_punctuation(&self, gb_style: bool) -> bool {
         // CJK quotation marks shares codepoints with latin quotation marks.
         // But only the CJK ones have full width.
-        if matches!(self.c, '”' | '’') && self.x_advance == Em::one() {
+        if matches!(self.c, '”' | '’')
+            && self.x_advance + self.stretchability().1 == Em::one()
+        {
             return true;
         }
 
-        matches!(self.c, '，' | '。' | '、' | '：' | '；' | '》' | '）' | '』' | '」')
+        if gb_style && matches!(self.c, '，' | '。' | '、' | '：' | '；') {
+            return true;
+        }
+
+        matches!(self.c, '》' | '）' | '』' | '」')
     }
 
-    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_right_aligned_punctuation(&self) -> bool {
         // CJK quotation marks shares codepoints with latin quotation marks.
         // But only the CJK ones have full width.
-        if matches!(self.c, '“' | '‘') && self.x_advance == Em::one() {
+        if matches!(self.c, '“' | '‘')
+            && self.x_advance + self.stretchability().0 == Em::one()
+        {
             return true;
         }
 
         matches!(self.c, '《' | '（' | '『' | '「')
     }
 
-    pub fn adjustability(&self) -> Adjustability {
+    /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
+    pub fn is_cjk_center_aligned_punctuation(&self, gb_style: bool) -> bool {
+        if !gb_style && matches!(self.c, '，' | '。' | '、' | '：' | '；') {
+            return true;
+        }
+
+        // U+30FB: Katakana Middle Dot
+        matches!(self.c, '\u{30FB}')
+    }
+
+    pub fn base_adjustability(&self, gb_style: bool) -> Adjustability {
         let width = self.x_advance;
         if self.is_space() {
             Adjustability {
@@ -121,7 +152,7 @@ impl ShapedGlyph {
                 stretchability: (Em::zero(), width / 2.0),
                 shrinkability: (Em::zero(), width / 3.0),
             }
-        } else if self.is_cjk_left_aligned_punctuation() {
+        } else if self.is_cjk_left_aligned_punctuation(gb_style) {
             Adjustability {
                 stretchability: (Em::zero(), Em::zero()),
                 shrinkability: (Em::zero(), width / 2.0),
@@ -131,6 +162,11 @@ impl ShapedGlyph {
                 stretchability: (Em::zero(), Em::zero()),
                 shrinkability: (width / 2.0, Em::zero()),
             }
+        } else if self.is_cjk_center_aligned_punctuation(gb_style) {
+            Adjustability {
+                stretchability: (Em::zero(), Em::zero()),
+                shrinkability: (width / 4.0, width / 4.0),
+            }
         } else {
             Adjustability::default()
         }
@@ -138,12 +174,27 @@ impl ShapedGlyph {
 
     /// The stretchability of the character.
     pub fn stretchability(&self) -> (Em, Em) {
-        self.adjustability().stretchability
+        self.adjustability.stretchability
     }
 
     /// The shrinkability of the character.
     pub fn shrinkability(&self) -> (Em, Em) {
-        self.adjustability().shrinkability
+        self.adjustability.shrinkability
+    }
+
+    /// Shrink the width of glyph on the left side.
+    pub fn shrink_left(&mut self, amount: Em) {
+        self.x_offset -= amount;
+        self.x_advance -= amount;
+        self.adjustability.shrinkability.0 -= amount;
+        self.adjustability.stretchability.0 += amount;
+    }
+
+    /// Shrink the width of glyph on the right side.
+    pub fn shrink_right(&mut self, amount: Em) {
+        self.x_advance -= amount;
+        self.adjustability.shrinkability.1 -= amount;
+        self.adjustability.stretchability.1 += amount;
     }
 }
 
@@ -181,6 +232,12 @@ impl<'a> ShapedText<'a> {
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
         {
+            let mut range = group[0].range.clone();
+            for glyph in group {
+                range.start = range.start.min(glyph.range.start);
+                range.end = range.end.max(glyph.range.end);
+            }
+
             let pos = Point::new(offset, top + shift - y_offset.at(self.size));
             let glyphs = group
                 .iter()
@@ -195,8 +252,8 @@ impl<'a> ShapedText<'a> {
                     } else {
                         glyph.stretchability().1
                     };
-                    let justification_left = adjustability_left * justification_ratio;
 
+                    let justification_left = adjustability_left * justification_ratio;
                     let mut justification_right =
                         adjustability_right * justification_ratio;
                     if glyph.is_justifiable() {
@@ -206,15 +263,16 @@ impl<'a> ShapedText<'a> {
 
                     frame.size_mut().x += justification_left.at(self.size)
                         + justification_right.at(self.size);
+
                     Glyph {
                         id: glyph.glyph_id,
                         x_advance: glyph.x_advance
                             + justification_left
                             + justification_right,
                         x_offset: glyph.x_offset + justification_left,
-                        c: glyph.c,
+                        range: (glyph.range.start - range.start).saturating_as()
+                            ..(glyph.range.end - range.start).saturating_as(),
                         span: glyph.span,
-                        offset: glyph.offset,
                     }
                 })
                 .collect();
@@ -224,6 +282,7 @@ impl<'a> ShapedText<'a> {
                 size: self.size,
                 lang,
                 fill: fill.clone(),
+                text: self.text[range.start - self.base..range.end - self.base].into(),
                 glyphs,
             };
 
@@ -294,7 +353,7 @@ impl<'a> ShapedText<'a> {
     pub fn cjk_justifiable_at_last(&self) -> bool {
         self.glyphs
             .last()
-            .map(|g| g.is_cjk() || g.is_cjk_left_aligned_punctuation())
+            .map(|g| g.is_cjk_script() || g.is_cjk_adjustable())
             .unwrap_or(false)
     }
 
@@ -318,17 +377,22 @@ impl<'a> ShapedText<'a> {
 
     /// Reshape a range of the shaped text, reusing information from this
     /// shaping process if possible.
+    ///
+    /// The text `range` is relative to the whole paragraph.
     pub fn reshape(
         &'a self,
         vt: &Vt,
         spans: &SpanMapper,
         text_range: Range<usize>,
     ) -> ShapedText<'a> {
+        let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             Self {
-                base: self.base + text_range.start,
-                text: &self.text[text_range],
+                base: text_range.start,
+                text,
                 dir: self.dir,
+                lang: self.lang,
+                region: self.region,
                 styles: self.styles,
                 size: self.size,
                 variant: self.variant,
@@ -338,11 +402,13 @@ impl<'a> ShapedText<'a> {
         } else {
             shape(
                 vt,
-                self.base + text_range.start,
-                &self.text[text_range],
+                text_range.start,
+                text,
                 spans,
                 self.styles,
                 self.dir,
+                self.lang,
+                self.region,
             )
         }
     }
@@ -358,7 +424,11 @@ impl<'a> ShapedText<'a> {
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
-            let cluster = self.glyphs.last().map(|g| g.cluster).unwrap_or_default();
+            let range = self
+                .glyphs
+                .last()
+                .map(|g| g.range.end..g.range.end)
+                .unwrap_or_default();
             self.width += x_advance.at(self.size);
             self.glyphs.to_mut().push(ShapedGlyph {
                 font,
@@ -366,11 +436,11 @@ impl<'a> ShapedText<'a> {
                 x_advance,
                 x_offset: Em::zero(),
                 y_offset: Em::zero(),
-                cluster,
+                adjustability: Adjustability::default(),
+                range,
                 safe_to_break: true,
                 c: '-',
-                span: Span::detached(),
-                offset: 0,
+                span: (Span::detached(), 0),
             });
             Some(())
         });
@@ -396,9 +466,9 @@ impl<'a> ShapedText<'a> {
 
         // Handle edge cases.
         let len = self.glyphs.len();
-        if text_index == 0 {
+        if text_index == self.base {
             return Some(if ltr { 0 } else { len });
-        } else if text_index == self.text.len() {
+        } else if text_index == self.base + self.text.len() {
             return Some(if ltr { len } else { 0 });
         }
 
@@ -406,7 +476,7 @@ impl<'a> ShapedText<'a> {
         let mut idx = self
             .glyphs
             .binary_search_by(|g| {
-                let ordering = g.cluster.cmp(&text_index);
+                let ordering = g.range.start.cmp(&text_index);
                 if ltr {
                     ordering
                 } else {
@@ -422,7 +492,7 @@ impl<'a> ShapedText<'a> {
 
         // Search for the outermost glyph with the text index.
         while let Some(next) = next(idx, 1) {
-            if self.glyphs.get(next).map_or(true, |g| g.cluster != text_index) {
+            if self.glyphs.get(next).map_or(true, |g| g.range.start != text_index) {
                 break;
             }
             idx = next;
@@ -442,9 +512,8 @@ impl Debug for ShapedText<'_> {
 }
 
 /// Holds shaping results and metadata common to all shaped segments.
-struct ShapingContext<'a> {
-    vt: &'a Vt<'a>,
-    base: usize,
+struct ShapingContext<'a, 'v> {
+    vt: &'a Vt<'v>,
     spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
@@ -457,6 +526,7 @@ struct ShapingContext<'a> {
 }
 
 /// Shape text into [`ShapedText`].
+#[allow(clippy::too_many_arguments)]
 pub fn shape<'a>(
     vt: &Vt,
     base: usize,
@@ -464,11 +534,12 @@ pub fn shape<'a>(
     spans: &SpanMapper,
     styles: StyleChain<'a>,
     dir: Dir,
+    lang: Lang,
+    region: Option<Region>,
 ) -> ShapedText<'a> {
     let size = TextElem::size_in(styles);
     let mut ctx = ShapingContext {
         vt,
-        base,
         spans,
         size,
         glyphs: vec![],
@@ -481,15 +552,18 @@ pub fn shape<'a>(
     };
 
     if !text.is_empty() {
-        shape_segment(&mut ctx, 0, text, families(styles));
+        shape_segment(&mut ctx, base, text, families(styles));
     }
 
     track_and_space(&mut ctx);
+    calculate_adjustability(&mut ctx, lang, region);
 
     ShapedText {
         base,
         text,
         dir,
+        lang,
+        region,
         styles,
         variant: ctx.variant,
         size,
@@ -552,6 +626,7 @@ fn shape_segment(
     let buffer = rustybuzz::shape(font.rusty(), &ctx.tags, buffer);
     let infos = buffer.glyph_infos();
     let pos = buffer.glyph_positions();
+    let ltr = ctx.dir.is_positive();
 
     // Collect the shaped glyphs, doing fallback and shaping parts again with
     // the next font if necessary.
@@ -560,68 +635,67 @@ fn shape_segment(
         let info = &infos[i];
         let cluster = info.cluster as usize;
 
+        // Add the glyph to the shaped output.
         if info.glyph_id != 0 {
-            // Add the glyph to the shaped output.
-            // TODO: Don't ignore y_advance.
-            let (span, offset) = ctx.spans.span_at(ctx.base + cluster);
-            ctx.glyphs.push(ShapedGlyph {
-                font: font.clone(),
-                glyph_id: info.glyph_id as u16,
-                x_advance: font.to_em(pos[i].x_advance),
-                x_offset: font.to_em(pos[i].x_offset),
-                y_offset: font.to_em(pos[i].y_offset),
-                cluster: base + cluster,
-                safe_to_break: !info.unsafe_to_break(),
-                c: text[cluster..].chars().next().unwrap(),
-                span,
-                offset,
-            });
-        } else {
-            // Determine the source text range for the tofu sequence.
-            let range = {
-                // First, search for the end of the tofu sequence.
-                let k = i;
-                while infos.get(i + 1).map_or(false, |info| info.glyph_id == 0) {
-                    i += 1;
-                }
-
-                // Then, determine the start and end text index.
-                //
-                // Examples:
-                // Everything is shown in visual order. Tofus are written as "_".
-                // We want to find out that the tofus span the text `2..6`.
-                // Note that the clusters are longer than 1 char.
-                //
-                // Left-to-right:
-                // Text:     h a l i h a l l o
-                // Glyphs:   A   _   _   C   E
-                // Clusters: 0   2   4   6   8
-                //              k=1 i=2
-                //
-                // Right-to-left:
-                // Text:     O L L A H I L A H
-                // Glyphs:   E   C   _   _   A
-                // Clusters: 8   6   4   2   0
-                //                  k=2 i=3
-                let ltr = ctx.dir.is_positive();
-                let first = if ltr { k } else { i };
-                let start = infos[first].cluster as usize;
-                let last = if ltr { i.checked_add(1) } else { k.checked_sub(1) };
-                let end = last
+            // Determine the text range of the glyph.
+            let start = base + cluster;
+            let end = base
+                + if ltr { i.checked_add(1) } else { i.checked_sub(1) }
                     .and_then(|last| infos.get(last))
                     .map_or(text.len(), |info| info.cluster as usize);
 
-                start..end
-            };
+            ctx.glyphs.push(ShapedGlyph {
+                font: font.clone(),
+                glyph_id: info.glyph_id as u16,
+                // TODO: Don't ignore y_advance.
+                x_advance: font.to_em(pos[i].x_advance),
+                x_offset: font.to_em(pos[i].x_offset),
+                y_offset: font.to_em(pos[i].y_offset),
+                adjustability: Adjustability::default(),
+                range: start..end,
+                safe_to_break: !info.unsafe_to_break(),
+                c: text[cluster..].chars().next().unwrap(),
+                span: ctx.spans.span_at(start),
+            });
+        } else {
+            // First, search for the end of the tofu sequence.
+            let k = i;
+            while infos.get(i + 1).map_or(false, |info| info.glyph_id == 0) {
+                i += 1;
+            }
+
+            // Then, determine the start and end text index for the tofu
+            // sequence.
+            //
+            // Examples:
+            // Everything is shown in visual order. Tofus are written as "_".
+            // We want to find out that the tofus span the text `2..6`.
+            // Note that the clusters are longer than 1 char.
+            //
+            // Left-to-right:
+            // Text:     h a l i h a l l o
+            // Glyphs:   A   _   _   C   E
+            // Clusters: 0   2   4   6   8
+            //              k=1 i=2
+            //
+            // Right-to-left:
+            // Text:     O L L A H I L A H
+            // Glyphs:   E   C   _   _   A
+            // Clusters: 8   6   4   2   0
+            //                  k=2 i=3
+            let start = infos[if ltr { k } else { i }].cluster as usize;
+            let end = if ltr { i.checked_add(1) } else { k.checked_sub(1) }
+                .and_then(|last| infos.get(last))
+                .map_or(text.len(), |info| info.cluster as usize);
 
             // Trim half-baked cluster.
-            let remove = base + range.start..base + range.end;
-            while ctx.glyphs.last().map_or(false, |g| remove.contains(&g.cluster)) {
+            let remove = base + start..base + end;
+            while ctx.glyphs.last().map_or(false, |g| remove.contains(&g.range.start)) {
                 ctx.glyphs.pop();
             }
 
             // Recursively shape the tofu sequence with the next family.
-            shape_segment(ctx, base + range.start, &text[range], families.clone());
+            shape_segment(ctx, base + start, &text[start..end], families.clone());
         }
 
         i += 1;
@@ -634,19 +708,19 @@ fn shape_segment(
 fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
     let x_advance = font.advance(0).unwrap_or_default();
     for (cluster, c) in text.char_indices() {
-        let cluster = base + cluster;
-        let (span, offset) = ctx.spans.span_at(ctx.base + cluster);
+        let start = base + cluster;
+        let end = start + c.len_utf8();
         ctx.glyphs.push(ShapedGlyph {
             font: font.clone(),
             glyph_id: 0,
             x_advance,
             x_offset: Em::zero(),
             y_offset: Em::zero(),
-            cluster,
+            adjustability: Adjustability::default(),
+            range: start..end,
             safe_to_break: true,
             c,
-            span,
-            offset,
+            span: ctx.spans.span_at(start),
         });
     }
 }
@@ -668,8 +742,48 @@ fn track_and_space(ctx: &mut ShapingContext) {
             glyph.x_advance = spacing.relative_to(glyph.x_advance);
         }
 
-        if glyphs.peek().map_or(false, |next| glyph.cluster != next.cluster) {
+        if glyphs
+            .peek()
+            .map_or(false, |next| glyph.range.start != next.range.start)
+        {
             glyph.x_advance += tracking;
+        }
+    }
+}
+
+pub fn is_gb_style(lang: Lang, region: Option<Region>) -> bool {
+    // Most CJK variants, including zh-CN, ja-JP, zh-SG, zh-MY use GB-style punctuation,
+    // while zh-HK and zh-TW use alternative style. We default to use GB-style.
+    !(lang == Lang::CHINESE
+        && matches!(region.as_ref().map(Region::as_str), Some("TW" | "HK")))
+}
+
+/// Calculate stretchability and shrinkability of each glyph,
+/// and CJK punctuation adjustments according to Chinese Layout Requirements.
+fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
+    let gb_style = is_gb_style(lang, region);
+
+    let mut glyphs = ctx.glyphs.iter_mut().peekable();
+    while let Some(glyph) = glyphs.next() {
+        glyph.adjustability = glyph.base_adjustability(gb_style);
+
+        // Only GB style needs further adjustment.
+        if glyph.is_cjk_adjustable() && !gb_style {
+            continue;
+        }
+
+        // Now we apply consecutive punctuation adjustment, specified in Chinese Layout
+        // Requirements, section 3.1.6.1 Punctuation Adjustment Space, and Japanese Layout
+        // Requirements, section 3.1 Line Composition Rules for Punctuation Marks
+        let Some(next) = glyphs.peek_mut() else { continue };
+        let width = glyph.x_advance;
+        let delta = width / 2.0;
+        if next.is_cjk_adjustable()
+            && (glyph.shrinkability().1 + next.shrinkability().0) >= delta
+        {
+            let left_delta = glyph.shrinkability().1.min(delta);
+            glyph.shrink_right(left_delta);
+            next.shrink_left(delta - left_delta);
         }
     }
 }

@@ -8,7 +8,7 @@ const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 ///
 /// Content in the vector's elements can be aligned with the `&` symbol.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ vec(a, b, c) dot vec(1, 2, 3)
 ///     = a + 2b + 3c $
@@ -57,7 +57,7 @@ impl LayoutMath for VecElem {
 ///
 /// Content in cells that are in the same row can be aligned with the `&` symbol.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ mat(
 ///   1, 2, ..., 10;
@@ -134,7 +134,7 @@ impl LayoutMath for MatElem {
 ///
 /// Content across different branches can be aligned with the `&` symbol.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ f(x, y) := cases(
 ///   1 "if" (x dot y)/2 <= 0,

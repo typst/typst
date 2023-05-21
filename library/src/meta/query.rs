@@ -10,7 +10,7 @@ use crate::prelude::*;
 /// find all elements, just the ones before that location, or just the ones
 /// after it.
 ///
-/// ## Finding elements
+/// ## Finding elements { #finding-elements }
 /// In the example below, we create a custom page header that displays the text
 /// "Typst Academy" in small capitals and the current section title. On the
 /// first page, the section title is omitted because the header is before the
@@ -62,7 +62,7 @@ use crate::prelude::*;
 /// #lorem(15)
 /// ```
 ///
-/// ## A word of caution
+/// ## A word of caution { #caution }
 /// To resolve all your queries, Typst evaluates and layouts parts of the
 /// document multiple times. However, there is no guarantee that your queries
 /// can actually be completely resolved. If you aren't careful a query can
@@ -89,9 +89,16 @@ use crate::prelude::*;
 /// })
 /// ```
 ///
+/// ## Migration Hints { #migration-hints }
+/// The `before` and `after` arguments have been removed in version 0.3.0. You
+/// can now use flexible selector combinator methods instead. For example,
+/// `query(heading, before: loc)` becomes `query(heading.before(loc), loc)`.
+/// Please refer to the [selector documentation]($type/selector) for more
+/// details.
+///
 /// Display: Query
 /// Category: meta
-/// Returns: content
+/// Returns: array
 #[func]
 pub fn query(
     /// Can be an element function like a `heading` or `figure`, a `{<label>}`
@@ -112,12 +119,15 @@ pub fn query(
     /// the query's result is reduced. If you could call it directly at the top
     /// level of a module, the evaluation of the whole module and its exports
     /// could depend on the query's result.
-    ///
-    /// Only one of this, `before`, and `after` shall be given.
     location: Location,
 ) -> Value {
     let _ = location;
-    vm.vt.introspector.query(&target.0).into()
+    let vec = vm.vt.introspector.query(&target.0);
+    Value::Array(
+        vec.into_iter()
+            .map(|elem| Value::Content(elem.into_inner()))
+            .collect(),
+    )
 }
 
 /// Turns a value into a selector. The following values are accepted:

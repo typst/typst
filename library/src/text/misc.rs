@@ -28,14 +28,14 @@ impl PlainText for SpaceElem {
 /// end of a paragraph is ignored, but more than one creates additional empty
 /// lines.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// *Date:* 26.12.2022 \
 /// *Topic:* Infrastructure Test \
 /// *Severity:* High \
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: To insert a line break, simply write
 /// a backslash followed by whitespace. This always creates an unjustified
 /// break.
@@ -71,7 +71,7 @@ impl Behave for LinebreakElem {
 ///
 /// Increases the current font weight by a given `delta`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// This is *strong.* \
 /// This is #strong[too.] \
@@ -80,7 +80,7 @@ impl Behave for LinebreakElem {
 /// And this is *evermore.*
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: To strongly emphasize content,
 /// simply enclose it in stars/asterisks (`*`). Note that this only works at
 /// word boundaries. To strongly emphasize part of a word, you have to use the
@@ -139,7 +139,7 @@ impl Fold for Delta {
 /// - If it is already `{"italic"}` or `{"oblique"}`,
 ///   it turns it back to `{"normal"}`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// This is _emphasized._ \
 /// This is #emph[too.]
@@ -151,7 +151,7 @@ impl Fold for Delta {
 /// This is _emphasized_ differently.
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
@@ -195,7 +195,7 @@ impl Fold for Toggle {
 
 /// Convert text or content to lowercase.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #lower("ABC") \
 /// #lower[*My Text*] \
@@ -215,7 +215,7 @@ pub fn lower(
 
 /// Convert text or content to uppercase.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #upper("abc") \
 /// #upper[*my text*] \
@@ -280,7 +280,7 @@ impl Case {
 /// support selecting a dedicated smallcaps font as well as synthesizing
 /// smallcaps from normal letters, but this is not yet implemented.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set par(justify: true)
 /// #set heading(numbering: "I.")
@@ -313,7 +313,7 @@ pub fn smallcaps(
 /// the same but randomly chosen. As usual for blind texts, it does not make any
 /// sense. Use it as a placeholder to try layouts.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// = Blind Text
 /// #lorem(30)

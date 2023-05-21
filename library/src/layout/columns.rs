@@ -9,7 +9,7 @@ use crate::text::TextElem;
 /// height on the page. The columns function can break across pages if
 /// necessary.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// = Towards Advanced Deep Learning
 ///
@@ -83,6 +83,7 @@ impl Layout for ColumnsElem {
             backlog: &backlog,
             last: regions.last,
             expand: Axes::new(true, regions.expand.y),
+            root: regions.root,
         };
 
         // Layout the children.
@@ -132,7 +133,7 @@ impl Layout for ColumnsElem {
 /// single column layout or the last column on a page. Otherwise, content after
 /// the column break will be placed in the next column.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set page(columns: 2)
 /// Preliminary findings from our

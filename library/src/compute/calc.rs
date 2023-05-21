@@ -41,6 +41,7 @@ pub fn module() -> Module {
     scope.define("even", even);
     scope.define("odd", odd);
     scope.define("rem", rem);
+    scope.define("mod", mod_);
     scope.define("quo", quo);
     scope.define("inf", Value::Float(f64::INFINITY));
     scope.define("nan", Value::Float(f64::NAN));
@@ -51,7 +52,7 @@ pub fn module() -> Module {
 
 /// Calculate the absolute value of a numeric value.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.abs(-5) \
 /// #calc.abs(5pt - 2cm) \
@@ -85,7 +86,7 @@ cast_from_value! {
 
 /// Raise a value to some exponent.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.pow(2, 3)
 /// ```
@@ -132,7 +133,7 @@ pub fn pow(
 
 /// Calculate the square root of a number.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.sqrt(16) \
 /// #calc.sqrt(2.5)
@@ -157,7 +158,7 @@ pub fn sqrt(
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #assert(calc.sin(90deg) == calc.sin(-270deg))
 /// #calc.sin(1.5) \
@@ -184,7 +185,7 @@ pub fn sin(
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.cos(90deg) \
 /// #calc.cos(1.5) \
@@ -211,7 +212,7 @@ pub fn cos(
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.tan(1.5) \
 /// #calc.tan(90deg)
@@ -234,7 +235,7 @@ pub fn tan(
 
 /// Calculate the arcsine of a number.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.asin(0) \
 /// #calc.asin(1)
@@ -257,7 +258,7 @@ pub fn asin(
 
 /// Calculate the arccosine of a number.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.acos(0) \
 /// #calc.acos(1)
@@ -280,7 +281,7 @@ pub fn acos(
 
 /// Calculate the arctangent of a number.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.atan(0) \
 /// #calc.atan(1)
@@ -301,7 +302,7 @@ pub fn atan(
 ///
 /// The arguments are `(x, y)`, not `(y, x)`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.atan2(1, 1) \
 /// #calc.atan2(-2, -3)
@@ -324,7 +325,7 @@ pub fn atan2(
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.sinh(0) \
 /// #calc.sinh(45deg)
@@ -349,7 +350,7 @@ pub fn sinh(
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.cosh(0) \
 /// #calc.cosh(45deg)
@@ -374,7 +375,7 @@ pub fn cosh(
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.tanh(0) \
 /// #calc.tanh(45deg)
@@ -399,7 +400,7 @@ pub fn tanh(
 ///
 /// If the base is not specified, the logarithm is calculated in base 10.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.log(100)
 /// ```
@@ -411,7 +412,7 @@ pub fn tanh(
 pub fn log(
     /// The number whose logarithm to calculate. Must be strictly positive.
     value: Spanned<Num>,
-    /// The base of the logarithm. Defaults to `{10}` and may not be zero.
+    /// The base of the logarithm. May not be zero.
     #[named]
     #[default(Spanned::new(10.0, Span::detached()))]
     base: Spanned<f64>,
@@ -442,7 +443,7 @@ pub fn log(
 
 /// Calculate the factorial of a number.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.fact(5)
 /// ```
@@ -480,7 +481,7 @@ fn factorial_range(start: u64, end: u64) -> Option<i64> {
 
 /// Calculate a permutation.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.perm(10, 5)
 /// ```
@@ -508,7 +509,7 @@ pub fn perm(
 
 /// Calculate a binomial coefficient.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.binom(10, 5)
 /// ```
@@ -553,7 +554,7 @@ fn binomial(n: u64, k: u64) -> Option<i64> {
 
 /// Calculate the greatest common divisor of two integers.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.gcd(7, 42)
 /// ```
@@ -585,7 +586,7 @@ fn calculate_gcd(mut a: i64, mut b: i64) -> i64 {
 
 /// Calculate the least common multiple of two integers.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.lcm(96, 13)
 /// ```
@@ -621,7 +622,7 @@ fn calculate_lcm(a: i64, b: i64) -> Option<i64> {
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #assert(calc.floor(3.14) == 3)
 /// #assert(calc.floor(3) == 3)
@@ -646,7 +647,7 @@ pub fn floor(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #assert(calc.ceil(3.14) == 4)
 /// #assert(calc.ceil(3) == 3)
@@ -671,7 +672,7 @@ pub fn ceil(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #assert(calc.trunc(3) == 3)
 /// #assert(calc.trunc(-3.7) == -3)
@@ -696,7 +697,7 @@ pub fn trunc(
 ///
 /// If the number is an integer, it returns `0`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #assert(calc.fract(3) == 0)
 /// #calc.fract(-3.1)
@@ -720,7 +721,7 @@ pub fn fract(
 ///
 /// Optionally, a number of decimal places can be specified.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #assert(calc.round(3.14) == 3)
 /// #assert(calc.round(3.5) == 4)
@@ -751,7 +752,7 @@ pub fn round(
 
 /// Clamp a number between a minimum and maximum value.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #assert(calc.clamp(5, 0, 10) == 5)
 /// #assert(calc.clamp(5, 6, 10) == 6)
@@ -778,7 +779,7 @@ pub fn clamp(
 
 /// Determine the minimum of a sequence of values.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.min(1, -3, -5, 20, 3, 6) \
 /// #calc.min("typst", "in", "beta")
@@ -799,7 +800,7 @@ pub fn min(
 
 /// Determine the maximum of a sequence of values.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.max(1, -3, -5, 20, 3, 6) \
 /// #calc.max("typst", "in", "beta")
@@ -850,7 +851,7 @@ fn minmax(
 
 /// Determine whether an integer is even.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.even(4) \
 /// #calc.even(5) \
@@ -870,7 +871,7 @@ pub fn even(
 
 /// Determine whether an integer is odd.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.odd(4) \
 /// #calc.odd(5) \
@@ -890,7 +891,7 @@ pub fn odd(
 
 /// Calculate the remainder of two numbers.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.rem(20, 6) \
 /// #calc.rem(1.75, 0.5)
@@ -912,9 +913,30 @@ pub fn rem(
     dividend.apply2(divisor.v, Rem::rem, Rem::rem).value()
 }
 
+/// Calculate the modulus of two numbers. (Deprecated)
+///
+/// **This function is deprecated in favor of `rem`. It will be removed in
+/// a future update.**
+///
+/// Display: Modulus
+/// Category: calculate
+/// Returns: integer or float
+#[func]
+pub fn mod_(
+    /// The dividend of the remainder.
+    dividend: Num,
+    /// The divisor of the remainder.
+    divisor: Spanned<Num>,
+) -> Value {
+    if divisor.v.float() == 0.0 {
+        bail!(divisor.span, "divisor must not be zero");
+    }
+    dividend.apply2(divisor.v, Rem::rem, Rem::rem).value()
+}
+
 /// Calculate the quotient of two numbers.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #calc.quo(14, 5) \
 /// #calc.quo(3.46, 0.5)

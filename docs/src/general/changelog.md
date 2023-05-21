@@ -5,7 +5,184 @@ description: |
 ---
 
 # Changelog
-## April 11, 2023 (v0.2.0)
+## Version 0.4.0 (May 20, 2023) { #v0.4.0 }
+- Footnotes
+  - Implemented support for footnotes
+  - The [`footnote`]($func/footnote) function inserts a footnote
+  - The [`footnote.entry`]($func/footnote.entry) function can be used to
+    customize the footnote listing
+  - The `{"chicago-notes"}` [citation style]($func/cite.style) is now available
+
+- Documentation
+  - Added a [Guide for LaTeX users]($guides/guide-for-latex-users)
+  - Now shows default values for optional arguments
+  - Added richer outlines in "On this Page"
+  - Added initial support for search keywords: "Table of Contents" will now find
+    the [outline]($func/outline) function. Suggestions for more keywords are
+    welcome!
+  - Fixed issue with search result ranking
+  - Fixed many more small issues
+
+- Math
+  - **Breaking change**: Alignment points (`&`) in equations now alternate
+    between left and right alignment
+  - Added support for writing roots with Unicode:
+    For example, `[$root(x+y)$]` can now also be written as `[$√(x+y)$]`
+  - Fixed uneven vertical [`attachment`]($func/math.attach) alignment
+  - Fixed spacing on decorated elements
+    (e.g., spacing around a [canceled]($func/math.cancel) operator)
+  - Fixed styling for stretchable symbols
+  - Added `tack.r.double`, `tack.l.double`, `dotless.i` and `dotless.j`
+    [symbols]($category/symbols/sym)
+  - Fixed show rules on symbols (e.g. `{show sym.tack: set text(blue)}`)
+  - Fixed missing rename from `ast.op` to `ast` that should have been in the
+    previous release
+
+- Scripting
+  - Added function scopes: A function can now hold related definitions in its
+    own scope, similar to a module. The new [`assert.eq`]($func/assert.eq)
+    function, for instance, is part of the [`assert`]($func/assert) function's
+    scope. Note that function scopes are currently only available for built-in
+    functions.
+  - Added [`assert.eq`]($func/assert.eq) and [`assert.ne`]($func/assert.ne)
+    functions for simpler equality and inequality assertions with more helpful
+    error messages
+  - Exposed [list]($func/list.item), [enum]($func/enum.item), and
+    [term list]($func/terms.item) items in their respective functions' scope
+  - The `at` methods on [strings]($type/string.at), [arrays]($type/array.at),
+    [dictionaries]($type/dict.at), and [content]($type/content.at) now support
+    specifying a default value
+  - Added support for passing a function to [`replace`]($type/string.replace)
+    that is called with each match.
+  - Fixed [replacement]($type/string.replace) strings: They are now inserted
+    completely verbatim instead of supporting the previous (unintended) magic
+    dollar syntax for capture groups
+  - Fixed bug with trailing placeholders in destructuring patterns
+  - Fixed bug with underscore in parameter destructuring
+  - Fixed crash with nested patterns and when hovering over an invalid pattern
+  - Better error messages when casting to an [integer]($func/int) or
+    [float]($func/float) fails
+
+- Text and Layout
+  - Implemented sophisticated CJK punctuation adjustment
+  - Disabled [overhang]($func/text.overhang) for CJK punctuation
+  - Added basic translations for Traditional Chinese
+  - Fixed [alignment]($func/raw.align) of text inside raw blocks (centering a
+    raw block, e.g. through a figure, will now keep the text itself
+    left-aligned)
+  - Added support for passing a array instead of a function to configure table
+    cell [alignment]($func/table.align) and [fill]($func/table.fill) per column
+  - Fixed automatic figure [`kind`]($func/figure.kind) detection
+  - Made alignment of [enum numbers]($func/enum.number-align) configurable,
+    defaulting to `end`
+  - Figures can now be made breakable with a show-set rule for blocks in figure
+  - Initial fix for smart quotes in RTL languages
+
+- Export
+  - Fixed ligatures in PDF export: They are now copyable and searchable
+  - Exported PDFs now embed ICC profiles for images that have them
+  - Fixed export of strokes with zero thickness
+
+- Web app
+  - Projects can now contain folders
+  - Added upload by drag-and-drop into the file panel
+  - Files from the file panel can now be dragged into the editor to insert them
+    into a Typst file
+  - You can now copy-paste images and other files from your computer directly
+    into the editor
+  - Added a button to resend confirmation email
+  - Added an option to invert preview colors in dark mode
+  - Added tips to the loading screen and the Help menu. Feel free to propose
+    more!
+  - Added syntax highlighting for YAML files
+  - Allowed middle mouse button click on many buttons to navigate into a new tab
+  - Allowed more project names
+  - Fixed overridden Vim mode keybindings
+  - Fixed many bugs regarding file upload and more
+
+- Miscellaneous Improvements
+  - Improved performance of counters, state, and queries
+  - Improved incremental parsing for more efficient recompilations
+  - Added support for `.yaml` extension in addition to `.yml` for bibliographies
+  - The CLI now emits escape codes only if the output is a TTY
+  - For users of the `typst` crate: The `Document` is now `Sync` again and
+    the `World` doesn't have to be `'static` anymore
+
+<contributors from="v0.3.0" to="v0.4.0" />
+
+## Version 0.3.0 (April 26, 2023) { #v0.3.0 }
+- **Breaking changes:**
+  - Renamed a few symbols: What was previous `dot.op` is now just `dot` and the
+    basic dot is `dot.basic`. The same applies to `ast` and `tilde`.
+  - Renamed `mod` to [`rem`]($func/calc.rem) to more accurately reflect
+    the behaviour. It will remain available as `mod` until the next update as a
+    grace period.
+  - A lone underscore is not a valid identifier anymore, it can now only be used
+    in patterns
+  - Removed `before` and `after` arguments from [`query`]($func/query). This is
+    now handled through flexible [selectors]($type/selector) combinator methods
+  - Added support for [attachments]($func/math.attach) (sub-, superscripts) that
+    precede the base symbol. The `top` and `bottom` arguments have been renamed
+    to `t` and `b`.
+
+- New features
+  - Added support for more complex [strokes]($func/line.stroke)
+    (configurable caps, joins, and dash patterns)
+  - Added [`cancel`]($func/math.cancel) function for equations
+  - Added support for [destructuring]($scripting/#bindings) in argument lists
+    and assignments
+  - Added [`alt`]($func/image.alt) text argument to image function
+  - Added [`toml`]($func/toml) function for loading data from a TOML file
+  - Added [`zip`]($type/array.zip), [`sum`]($type/array.sum), and
+    [`product`]($type/array.product) methods for arrays
+  - Added `fact`, `perm`, `binom`, `gcd`, `lcm`, `atan2`, `quo`, `trunc`, and
+    `fract` [calculation]($category/calculate)
+
+- Improvements
+  - Text in SVGs now displays properly
+  - Typst now generates a PDF heading outline
+  - [References]($func/ref) now provides the referenced element as a field in
+    show rules
+  - Refined linebreak algorithm for better Chinese justification
+  - Locations are now a valid kind of selector
+  - Added a few symbols for algebra
+  - Added Spanish smart quote support
+  - Added [`selector`]($func/selector) function to turn a selector-like value
+    into a selector on which combinator methods can be called
+  - Improved some error messages
+  - The outline and bibliography headings can now be styled with show-set rules
+  - Operations on numbers now produce an error instead of overflowing
+
+- Bug fixes
+  - Fixed wrong linebreak before punctuation that follows inline equations,
+    citations, and other elements
+  - Fixed a bug with [argument sinks]($type/arguments)
+  - Fixed strokes with thickness zero
+  - Fixed hiding and show rules in math
+  - Fixed alignment in matrices
+  - Fixed some alignment bugs in equations
+  - Fixed grid cell alignment
+  - Fixed alignment of list marker and enum markers in presence of global
+    alignment settings
+  - Fixed [path]($func/path) closing
+  - Fixed compiler crash with figure references
+  - A single trailing line breaks is now ignored in math, just like in text
+
+- Command line interface
+  - Font path and compilation root can now be set with the environment
+    variables `TYPST_FONT_PATHS` and `TYPST_ROOT`
+  - The output of `typst fonts` now includes the embedded fonts
+
+- Development
+  - Added instrumentation for debugging and optimization
+  - Added `--update` flag and `UPDATE_EXPECT` environment variable to update
+    reference images for tests
+  - You can now run a specific subtest with `--subtest`
+  - Tests now run on multiple threads
+
+<contributors from="v0.2.0" to="v0.3.0" />
+
+## Version 0.2.0 (April 11, 2023) { #v0.2.0 }
 - **Breaking changes:**
   - Removed support for iterating over index and value in
     [for loops]($scripting/#loops). This is now handled via unpacking and
@@ -34,11 +211,12 @@ description: |
   - Added basic i18n for a few more languages
     (AR, NB, CS, NN, PL, SL, ES, UA, VI)
   - Added a few numbering patterns (Ihora, Chinese)
-  - Added `sinc` [operator]($func/op)
+  - Added `sinc` [operator]($func/math.op)
   - Fixed bug where math could not be hidden with [`hide`]($func/hide)
   - Fixed sizing issues with box, block, and shapes
   - Fixed some translations
-  - Fixed inversion of "R" in [`cal`]($func/cal) and [`frak`]($func/frak) styles
+  - Fixed inversion of "R" in [`cal`]($func/math.cal) and
+    [`frak`]($func/math.frak) styles
   - Fixed some styling issues in math
   - Fixed supplements of references to headings
   - Fixed syntax highlighting of identifiers in certain scenarios
@@ -47,7 +225,7 @@ description: |
 
 <contributors from="v0.1.0" to="v0.2.0" />
 
-## April 04, 2023 (v0.1.0)
+## Version 0.1.0 (April 04, 2023) { #v0.1.0 }
 - **Breaking changes:**
   - When using the CLI, you now have to use subcommands:
     - `typst compile file.typ` or `typst c file.typ` to create a PDF
@@ -130,11 +308,12 @@ description: |
   - Fixed build of CLI if `git` is not installed
 
 - Miscellaneous improvements
-  - Added support for disabling [matrix]($func/mat) and [vector]($func/vec)
-    delimiters. Generally with `[#set math.mat(delim: none)]` or one-off with
+  - Added support for disabling [matrix]($func/math.mat) and
+    [vector]($func/math.vec) delimiters. Generally with
+    `[#set math.mat(delim: none)]` or one-off with
     `[$mat(delim: #none, 1, 2; 3, 4)$]`.
   - Added [`separator`]($func/terms.separator) argument to term lists
-  - Added [`round`]($func/round) function for equations
+  - Added [`round`]($func/math.round) function for equations
   - Numberings now allow zeros. To reset a counter, you can write
     `[#counter(..).update(0)]`
   - Added documentation for `{page()}` and `{position()}` methods on
@@ -149,7 +328,7 @@ description: |
   - Fixed combination of page fill and header
   - Fixed compiler crash if [`repeat`]($func/repeat) is used in page with
     automatic width
-  - Fixed [matrices]($func/mat) with explicit delimiter
+  - Fixed [matrices]($func/math.mat) with explicit delimiter
   - Fixed [`indent`]($func/terms.indent) property of term lists
   - Numerous documentation fixes
   - Links in bibliographies are now affected by link styling
@@ -212,7 +391,7 @@ description: |
 
 - Further improvements
   - Added [`figure`]($func/figure) function
-  - Added [`numbering`]($func/equation.numbering) parameter on equation function
+  - Added [`numbering`]($func/math.equation.numbering) parameter on equation function
   - Added [`numbering`]($func/page.numbering) and
     [`number-align`]($func/page.number-align) parameters on page function
   - The page function's [`header`]($func/page.header) and
@@ -225,11 +404,12 @@ description: |
   - Better default alignment in header and footer
   - Fixed Arabic vowel placement
   - Fixed PDF font embedding issues
-  - Renamed `math.formula` to [`math.equation`]($func/equation)
+  - Renamed `math.formula` to [`math.equation`]($func/math.equation)
   - Font family must be a named argument now: `[#set text(font: "..")]`
   - Added support for [hanging indent]($func/par.hanging-indent)
-  - Renamed paragraph `indent` to [`first-line-indent`]($func/par.first-line-indent)
-  - More accurate [logarithm]($category/calculate/log) when base is `2` or `10`
+  - Renamed paragraph `indent` to
+    [`first-line-indent`]($func/par.first-line-indent)
+  - More accurate [logarithm]($func/calc.log) when base is `2` or `10`
   - Improved some error messages
   - Fixed layout of [`terms`]($func/terms) list
 
@@ -261,7 +441,8 @@ description: |
     the corresponding main font and the [`smallcaps`]($func/smallcaps) function
 - Improved default spacing for headings
 - Added [`panic`]($func/panic) function
-- Added [`clusters`]($type/string.clusters) and [`codepoints`]($type/string.codepoints)
+- Added [`clusters`]($type/string.clusters) and
+  [`codepoints`]($type/string.codepoints)
   methods for strings
 - Support for multiple authors in [`set document`]($func/document.author)
 - Fixed crash when string is accessed at a position that is not a char boundary
@@ -312,8 +493,8 @@ description: |
 - Fixed bug where a heading show rule may not contain a pagebreak when an
   outline is present
 - Added [`baseline`]($func/box.baseline) property on [`box`]($func/box)
-- Added [`tg`]($func/op) and [`ctg`]($func/op) operators in math
-- Added delimiter setting for [`cases`]($func/cases) function
+- Added [`tg`]($func/math.op) and [`ctg`]($func/math.op) operators in math
+- Added delimiter setting for [`cases`]($func/math.cases) function
 - Parentheses are now included when accepting a function autocompletion
 
 ## February 2, 2023

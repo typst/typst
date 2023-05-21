@@ -164,6 +164,32 @@ impl GlyphFragment {
     }
 
     pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
+        let mut fragment = Self {
+            id,
+            c,
+            font: ctx.font.clone(),
+            lang: TextElem::lang_in(ctx.styles()),
+            fill: TextElem::fill_in(ctx.styles()),
+            style: ctx.style,
+            font_size: ctx.size,
+            width: Abs::zero(),
+            ascent: Abs::zero(),
+            descent: Abs::zero(),
+            italics_correction: Abs::zero(),
+            class: match c {
+                ':' => Some(MathClass::Relation),
+                _ => unicode_math_class::class(c),
+            },
+            span,
+            meta: MetaElem::data_in(ctx.styles()),
+        };
+        fragment.set_id(ctx, id);
+        fragment
+    }
+
+    /// Sets element id and boxes in appropriate way without changing other
+    /// styles. This is used to replace the glyph with a stretch variant.
+    pub fn set_id(&mut self, ctx: &MathContext, id: GlyphId) {
         let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
         let italics = italics_correction(ctx, id).unwrap_or_default();
         let bbox = ctx.ttf.glyph_bounding_box(id).unwrap_or(Rect {
@@ -178,25 +204,11 @@ impl GlyphFragment {
             width += italics;
         }
 
-        Self {
-            id,
-            c,
-            font: ctx.font.clone(),
-            lang: TextElem::lang_in(ctx.styles()),
-            fill: TextElem::fill_in(ctx.styles()),
-            style: ctx.style,
-            font_size: ctx.size,
-            width,
-            ascent: bbox.y_max.scaled(ctx),
-            descent: -bbox.y_min.scaled(ctx),
-            italics_correction: italics,
-            class: match c {
-                ':' => Some(MathClass::Relation),
-                _ => unicode_math_class::class(c),
-            },
-            span,
-            meta: MetaElem::data_in(ctx.styles()),
-        }
+        self.id = id;
+        self.width = width;
+        self.ascent = bbox.y_max.scaled(ctx);
+        self.descent = -bbox.y_min.scaled(ctx);
+        self.italics_correction = italics;
     }
 
     pub fn height(&self) -> Abs {
@@ -222,13 +234,13 @@ impl GlyphFragment {
             size: self.font_size,
             fill: self.fill,
             lang: self.lang,
+            text: self.c.into(),
             glyphs: vec![Glyph {
                 id: self.id.0,
-                c: self.c,
                 x_advance: Em::from_length(self.width, self.font_size),
                 x_offset: Em::zero(),
-                span: self.span,
-                offset: 0,
+                range: 0..self.c.len_utf8() as u16,
+                span: (self.span, 0),
             }],
         };
         let size = Size::new(self.width, self.ascent + self.descent);

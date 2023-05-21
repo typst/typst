@@ -4,14 +4,15 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use comemo::{Prehashed, Track, Tracked, TrackedMut};
+use comemo::{Prehashed, Tracked, TrackedMut};
+use ecow::eco_format;
 use once_cell::sync::Lazy;
 
 use super::{
     cast_to_value, Args, CastInfo, Eval, Flow, Route, Scope, Scopes, Tracer, Value, Vm,
 };
-use crate::diag::{bail, SourceResult};
-use crate::model::{ElemFunc, Introspector, StabilityProvider, Vt};
+use crate::diag::{bail, SourceResult, StrResult};
+use crate::model::{ElemFunc, Introspector, Locator, Vt};
 use crate::syntax::ast::{self, AstNode, Expr, Ident};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
@@ -103,7 +104,7 @@ impl Func {
                     vm.world(),
                     route,
                     TrackedMut::reborrow_mut(&mut vm.vt.tracer),
-                    TrackedMut::reborrow_mut(&mut vm.vt.provider),
+                    vm.vt.locator.track(),
                     vm.vt.introspector,
                     vm.depth + 1,
                     args,
@@ -126,7 +127,14 @@ impl Func {
         let route = Route::default();
         let id = SourceId::detached();
         let scopes = Scopes::new(None);
-        let mut vm = Vm::new(vt.reborrow_mut(), route.track(), id, scopes);
+        let mut locator = Locator::chained(vt.locator.track());
+        let vt = Vt {
+            world: vt.world,
+            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
+            locator: &mut locator,
+            introspector: vt.introspector,
+        };
+        let mut vm = Vm::new(vt, route.track(), id, scopes);
         let args = Args::new(self.span(), args);
         self.call_vm(&mut vm, args)
     }
@@ -142,6 +150,30 @@ impl Func {
         match self.repr {
             Repr::Elem(func) => Some(func),
             _ => None,
+        }
+    }
+
+    /// Get a field from this function's scope, if possible.
+    pub fn get(&self, field: &str) -> StrResult<&Value> {
+        match &self.repr {
+            Repr::Native(func) => func.info.scope.get(field).ok_or_else(|| {
+                eco_format!(
+                    "function `{}` does not contain field `{}`",
+                    func.info.name,
+                    field
+                )
+            }),
+            Repr::Elem(func) => func.info().scope.get(field).ok_or_else(|| {
+                eco_format!(
+                    "function `{}` does not contain field `{}`",
+                    func.name(),
+                    field
+                )
+            }),
+            Repr::Closure(_) => {
+                Err(eco_format!("cannot access fields on user-defined functions"))
+            }
+            Repr::With(arc) => arc.0.get(field),
         }
     }
 }
@@ -217,6 +249,8 @@ pub struct FuncInfo {
     pub name: &'static str,
     /// The display name of the function.
     pub display: &'static str,
+    /// A string of keywords.
+    pub keywords: Option<&'static str>,
     /// Documentation for the function.
     pub docs: &'static str,
     /// Details about the function's parameters.
@@ -225,6 +259,8 @@ pub struct FuncInfo {
     pub returns: Vec<&'static str>,
     /// Which category the function is part of.
     pub category: &'static str,
+    /// The function's own scope of fields and sub-functions.
+    pub scope: Scope,
 }
 
 impl FuncInfo {
@@ -243,6 +279,8 @@ pub struct ParamInfo {
     pub docs: &'static str,
     /// Valid values for the parameter.
     pub cast: CastInfo,
+    /// Creates an instance of the parameter's default value.
+    pub default: Option<fn() -> Value>,
     /// Is the parameter positional?
     pub positional: bool,
     /// Is the parameter named?
@@ -276,13 +314,11 @@ pub(super) struct Closure {
 #[derive(Hash)]
 pub enum Param {
     /// A positional parameter: `x`.
-    Pos(Ident),
+    Pos(ast::Pattern),
     /// A named parameter with a default value: `draw: false`.
     Named(Ident, Value),
     /// An argument sink: `..args`.
     Sink(Option<Ident>),
-    /// A placeholder: `_`.
-    Placeholder,
 }
 
 impl Closure {
@@ -292,10 +328,10 @@ impl Closure {
     #[allow(clippy::too_many_arguments)]
     fn call(
         this: &Func,
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         route: Tracked<Route>,
         tracer: TrackedMut<Tracer>,
-        provider: TrackedMut<StabilityProvider>,
+        locator: Tracked<Locator>,
         introspector: Tracked<Introspector>,
         depth: usize,
         mut args: Args,
@@ -310,8 +346,11 @@ impl Closure {
         let mut scopes = Scopes::new(None);
         scopes.top = closure.captured.clone();
 
-        // Evaluate the body.
-        let vt = Vt { world, tracer, provider, introspector };
+        // Prepare VT.
+        let mut locator = Locator::chained(locator);
+        let vt = Vt { world, tracer, locator: &mut locator, introspector };
+
+        // Prepare VM.
         let mut vm = Vm::new(vt, route, closure.location, scopes);
         vm.depth = depth;
 
@@ -330,9 +369,18 @@ impl Closure {
         let mut sink_pos_values = None;
         for p in &closure.params {
             match p {
-                Param::Pos(ident) => {
-                    vm.define(ident.clone(), args.expect::<Value>(ident)?);
-                }
+                Param::Pos(pattern) => match pattern {
+                    ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
+                        vm.define(ident.clone(), args.expect::<Value>(ident)?)
+                    }
+                    ast::Pattern::Normal(_) => unreachable!(),
+                    _ => {
+                        pattern.define(
+                            &mut vm,
+                            args.expect::<Value>("pattern parameter")?,
+                        )?;
+                    }
+                },
                 Param::Sink(ident) => {
                     sink = ident.clone();
                     if let Some(sink_size) = sink_size {
@@ -343,9 +391,6 @@ impl Closure {
                     let value =
                         args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
                     vm.define(ident.clone(), value);
-                }
-                Param::Placeholder => {
-                    args.eat::<Value>()?;
                 }
             }
         }
@@ -443,12 +488,15 @@ impl<'a> CapturesVisitor<'a> {
 
                 for param in expr.params().children() {
                     match param {
-                        ast::Param::Pos(ident) => self.bind(ident),
+                        ast::Param::Pos(pattern) => {
+                            for ident in pattern.idents() {
+                                self.bind(ident);
+                            }
+                        }
                         ast::Param::Named(named) => self.bind(named.name()),
                         ast::Param::Sink(spread) => {
                             self.bind(spread.name().unwrap_or_default())
                         }
-                        _ => {}
                     }
                 }
 

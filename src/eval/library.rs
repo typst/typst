@@ -67,7 +67,7 @@ pub struct LangItems {
     /// The keys contained in the bibliography and short descriptions of them.
     #[allow(clippy::type_complexity)]
     pub bibliography_keys: fn(
-        world: Tracked<dyn World>,
+        world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)>,
     /// A section heading: `= Introduction`.
@@ -91,18 +91,20 @@ pub struct LangItems {
     pub math_attach: fn(
         base: Content,
         // Positioned smartly.
-        top: Option<Content>,
-        bottom: Option<Content>,
+        t: Option<Content>,
+        b: Option<Content>,
         // Fixed positions.
-        topleft: Option<Content>,
-        bottomleft: Option<Content>,
-        topright: Option<Content>,
-        bottomright: Option<Content>,
+        tl: Option<Content>,
+        bl: Option<Content>,
+        tr: Option<Content>,
+        br: Option<Content>,
     ) -> Content,
     /// A base with an accent: `arrow(x)`.
     pub math_accent: fn(base: Content, accent: char) -> Content,
     /// A fraction in math: `x/2`.
     pub math_frac: fn(num: Content, denom: Content) -> Content,
+    /// A root in math: `√x`, `∛x` or `∜x`.
+    pub math_root: fn(index: Option<Content>, radicand: Content) -> Content,
     /// Dispatch a method on a library value.
     pub library_method: fn(
         vm: &mut Vm,
@@ -134,9 +136,12 @@ impl Hash for LangItems {
         self.strong.hash(state);
         self.emph.hash(state);
         self.raw.hash(state);
+        self.raw_languages.hash(state);
         self.link.hash(state);
         self.reference.hash(state);
+        (self.bibliography_keys as usize).hash(state);
         self.heading.hash(state);
+        self.heading_func.hash(state);
         self.list_item.hash(state);
         self.enum_item.hash(state);
         self.term_item.hash(state);
@@ -146,6 +151,8 @@ impl Hash for LangItems {
         self.math_attach.hash(state);
         self.math_accent.hash(state);
         self.math_frac.hash(state);
+        self.math_root.hash(state);
+        (self.library_method as usize).hash(state);
     }
 }
 

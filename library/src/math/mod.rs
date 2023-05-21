@@ -34,6 +34,7 @@ use ttf_parser::{GlyphId, Rect};
 use typst::eval::{Module, Scope};
 use typst::font::{Font, FontWeight};
 use typst::model::Guard;
+use typst::util::option_eq;
 use unicode_math_class::MathClass;
 
 use self::ctx::*;
@@ -116,7 +117,7 @@ pub fn module() -> Module {
 ///
 /// Can be displayed inline with text or as a separate block.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set text(font: "New Computer Modern")
 ///
@@ -129,7 +130,7 @@ pub fn module() -> Module {
 /// $ sum_(k=1)^n k = (n(n+1)) / 2 $
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: Write mathematical markup within
 /// dollar signs to create an equation. Starting and ending the equation with at
 /// least one space lifts it into a separate block that is centered
@@ -277,10 +278,11 @@ impl Count for EquationElem {
 }
 
 impl LocalName for EquationElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "معادلة",
             Lang::BOKMÅL => "Ligning",
+            Lang::CHINESE if option_eq(region, "TW") => "方程式",
             Lang::CHINESE => "等式",
             Lang::CZECH => "Rovnice",
             Lang::FRENCH => "Équation",
@@ -305,10 +307,11 @@ impl Refable for EquationElem {
         vt: &mut Vt,
         supplement: Option<Content>,
         lang: Lang,
+        region: Option<Region>,
     ) -> SourceResult<Content> {
         // first we create the supplement of the heading
         let mut supplement =
-            supplement.unwrap_or_else(|| TextElem::packed(self.local_name(lang)));
+            supplement.unwrap_or_else(|| TextElem::packed(self.local_name(lang, region)));
 
         // we append a space if the supplement is not empty
         if !supplement.is_empty() {

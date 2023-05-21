@@ -2,7 +2,7 @@ use super::*;
 
 /// A square root.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ sqrt(x^2) = x = sqrt(x)^2 $
 /// ```
@@ -20,7 +20,7 @@ pub fn sqrt(
 
 /// A general root.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ root(3, x) $
 /// ```
@@ -31,11 +31,11 @@ pub fn sqrt(
 pub struct RootElem {
     /// Which root of the radicand to take.
     #[positional]
-    index: Option<Content>,
+    pub index: Option<Content>,
 
     /// The expression to take the root of.
     #[required]
-    radicand: Content,
+    pub radicand: Content,
 }
 
 impl LayoutMath for RootElem {

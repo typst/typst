@@ -151,7 +151,7 @@ typst --font-path path/to/fonts compile file.typ
 # Lists all of the discovered fonts in the system and the given directory.
 typst --font-path path/to/fonts fonts
 
-# Or via environement variable (Linux syntax).
+# Or via environment variable (Linux syntax).
 TYPST_FONT_PATHS=path/to/fonts typst fonts
 ```
 
@@ -178,8 +178,9 @@ cargo build --release
 
 The optimized binary will be stored in `target/release/`.
 
-## Pronunciation
-IPA: /taɪpst/. "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
+## Pronunciation and Spelling
+IPA: /taɪpst/. "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er. When
+writing about Typst, capitalize its name as a proper noun, with a capital "T".
 
 ## Design Principles
 All of Typst has been designed with three key goals in mind: Power,

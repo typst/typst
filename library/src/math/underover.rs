@@ -6,7 +6,7 @@ const BRACKET_GAP: Em = Em::new(0.25);
 
 /// A horizontal line under content.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ underline(1 + 2 + ... + 5) $
 /// ```
@@ -29,7 +29,7 @@ impl LayoutMath for UnderlineElem {
 
 /// A horizontal line over content.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ overline(1 + 2 + ... + 5) $
 /// ```
@@ -52,7 +52,7 @@ impl LayoutMath for OverlineElem {
 
 /// A horizontal brace under content, with an optional annotation below.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ underbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
@@ -87,7 +87,7 @@ impl LayoutMath for UnderbraceElem {
 
 /// A horizontal brace over content, with an optional annotation above.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ overbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
@@ -122,7 +122,7 @@ impl LayoutMath for OverbraceElem {
 
 /// A horizontal bracket under content, with an optional annotation below.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ underbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
@@ -157,7 +157,7 @@ impl LayoutMath for UnderbracketElem {
 
 /// A horizontal bracket over content, with an optional annotation above.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ overbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
@@ -202,6 +202,7 @@ fn layout(
 ) -> SourceResult<()> {
     let gap = gap.scaled(ctx);
     let body = ctx.layout_row(body)?;
+    let body_class = body.class();
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
@@ -226,7 +227,7 @@ fn layout(
     }
 
     let frame = stack(ctx, rows, Align::Center, gap, baseline);
-    ctx.push(FrameFragment::new(ctx, frame));
+    ctx.push(FrameFragment::new(ctx, frame).with_class(body_class));
 
     Ok(())
 }

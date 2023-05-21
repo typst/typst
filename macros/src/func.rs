@@ -12,12 +12,14 @@ struct Func {
     name: String,
     display: String,
     category: String,
+    keywords: Option<String>,
     docs: String,
     vis: syn::Visibility,
     ident: Ident,
     params: Vec<Param>,
     returns: Vec<String>,
     body: syn::Block,
+    scope: Option<BlockWithReturn>,
 }
 
 struct Param {
@@ -72,12 +74,14 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         validate_attrs(&attrs)?;
     }
 
-    let docs = documentation(&item.attrs);
+    let mut attrs = item.attrs.clone();
+    let docs = documentation(&attrs);
     let mut lines = docs.split('\n').collect();
     let returns = meta_line(&mut lines, "Returns")?
         .split(" or ")
         .map(Into::into)
         .collect();
+    let keywords = meta_line(&mut lines, "Keywords").ok().map(Into::into);
     let category = meta_line(&mut lines, "Category")?.into();
     let display = meta_line(&mut lines, "Display")?.into();
     let docs = lines.join("\n").trim().into();
@@ -86,15 +90,17 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
         name: sig.ident.to_string().replace('_', ""),
         display,
         category,
+        keywords,
         docs,
         vis: item.vis.clone(),
         ident: sig.ident.clone(),
         params,
         returns,
         body: (*item.block).clone(),
+        scope: parse_attr(&mut attrs, "scope")?.flatten(),
     };
 
-    validate_attrs(&item.attrs)?;
+    validate_attrs(&attrs)?;
     Ok(func)
 }
 
@@ -102,6 +108,7 @@ fn create(func: &Func) -> TokenStream {
     let Func {
         name,
         display,
+        keywords,
         category,
         docs,
         vis,
@@ -113,6 +120,8 @@ fn create(func: &Func) -> TokenStream {
     } = func;
     let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
     let params = params.iter().map(create_param_info);
+    let scope = create_scope_builder(func.scope.as_ref());
+    let keywords = quote_option(keywords);
     quote! {
         #[doc = #docs]
         #vis fn #ident() -> &'static ::typst::eval::NativeFunc {
@@ -125,10 +134,12 @@ fn create(func: &Func) -> TokenStream {
                 info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
                     name: #name,
                     display: #display,
+                    keywords: #keywords,
                     docs: #docs,
                     params: ::std::vec![#(#params),*],
                     returns: ::std::vec![#(#returns),*],
                     category: #category,
+                    scope: #scope,
                 }),
             };
             &FUNC
@@ -141,6 +152,14 @@ fn create_param_info(param: &Param) -> TokenStream {
     let Param { name, docs, named, variadic, ty, default, .. } = param;
     let positional = !named;
     let required = default.is_none();
+    let default = quote_option(&default.as_ref().map(|_default| {
+        quote! {
+            || {
+                let typed: #ty = #default;
+                ::typst::eval::Value::from(typed)
+            }
+        }
+    }));
     let ty = if *variadic {
         quote! { <#ty as ::typst::eval::Variadics>::Inner }
     } else {
@@ -153,6 +172,7 @@ fn create_param_info(param: &Param) -> TokenStream {
             cast: <#ty as ::typst::eval::Cast<
                 ::typst::syntax::Spanned<::typst::eval::Value>
             >>::describe(),
+            default: #default,
             positional: #positional,
             named: #named,
             variadic: #variadic,

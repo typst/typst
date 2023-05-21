@@ -230,6 +230,12 @@ impl<T: Cast> Cast for Option<T> {
     }
 }
 
+impl<T: Into<Value>> From<Spanned<T>> for Value {
+    fn from(spanned: Spanned<T>) -> Self {
+        spanned.v.into()
+    }
+}
+
 impl<T: Into<Value>> From<Option<T>> for Value {
     fn from(v: Option<T>) -> Self {
         match v {

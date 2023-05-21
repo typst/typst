@@ -146,6 +146,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::MathDelimited => None,
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
+        SyntaxKind::MathRoot => None,
 
         SyntaxKind::Hashtag => highlight_hashtag(node),
         SyntaxKind::LeftBrace => Some(Tag::Punctuation),
@@ -190,6 +191,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::SlashEq => Some(Tag::Operator),
         SyntaxKind::Dots => Some(Tag::Operator),
         SyntaxKind::Arrow => Some(Tag::Operator),
+        SyntaxKind::Root => Some(Tag::MathOperator),
 
         SyntaxKind::Not => Some(Tag::Keyword),
         SyntaxKind::And => Some(Tag::Keyword),

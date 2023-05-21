@@ -1,4 +1,5 @@
 use heck::ToKebabCase;
+use quote::ToTokens;
 
 use super::*;
 
@@ -16,6 +17,27 @@ macro_rules! bail {
             format!(concat!("typst: ", $fmt) $($tts)*)
         ))
     };
+}
+
+/// For parsing attributes of the form:
+/// #[attr(
+///   statement;
+///   statement;
+///   returned_expression
+/// )]
+pub struct BlockWithReturn {
+    pub prefix: Vec<syn::Stmt>,
+    pub expr: syn::Stmt,
+}
+
+impl Parse for BlockWithReturn {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut stmts = syn::Block::parse_within(input)?;
+        let Some(expr) = stmts.pop() else {
+            return Err(input.error("expected at least one expression"));
+        };
+        Ok(Self { prefix: stmts, expr })
+    }
 }
 
 /// Whether an attribute list has a specified attribute.
@@ -83,8 +105,33 @@ pub fn documentation(attrs: &[syn::Attribute]) -> String {
 
 /// Extract a line of metadata from documentation.
 pub fn meta_line<'a>(lines: &mut Vec<&'a str>, key: &str) -> Result<&'a str> {
-    match lines.pop().and_then(|line| line.strip_prefix(&format!("{key}:"))) {
-        Some(value) => Ok(value.trim()),
+    match lines.last().and_then(|line| line.strip_prefix(&format!("{key}:"))) {
+        Some(value) => {
+            lines.pop();
+            Ok(value.trim())
+        }
         None => bail!(callsite, "missing metadata key: {}", key),
+    }
+}
+
+/// Creates a block responsible for building a `Scope`.
+pub fn create_scope_builder(scope_block: Option<&BlockWithReturn>) -> TokenStream {
+    if let Some(BlockWithReturn { prefix, expr }) = scope_block {
+        quote! { {
+            let mut scope = ::typst::eval::Scope::deduplicating();
+            #(#prefix);*
+            #expr
+        } }
+    } else {
+        quote! { ::typst::eval::Scope::new() }
+    }
+}
+
+/// Quotes an option literally.
+pub fn quote_option<T: ToTokens>(option: &Option<T>) -> TokenStream {
+    if let Some(value) = option {
+        quote! { Some(#value) }
+    } else {
+        quote! { None }
     }
 }

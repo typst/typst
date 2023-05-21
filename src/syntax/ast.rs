@@ -126,6 +126,8 @@ pub enum Expr {
     MathAttach(MathAttach),
     /// A fraction in math: `x/2`.
     MathFrac(MathFrac),
+    /// A root in math: `√x`, `∛x` or `∜x`.
+    MathRoot(MathRoot),
     /// An identifier: `left`.
     Ident(Ident),
     /// The `none` literal.
@@ -176,7 +178,7 @@ pub enum Expr {
     While(WhileLoop),
     /// A for loop: `for x in y { z }`.
     For(ForLoop),
-    /// A module import: `import a, b, c from "utils.typ"`.
+    /// A module import: `import "utils.typ": a, b, c`.
     Import(ModuleImport),
     /// A module include: `include "chapter1.typ"`.
     Include(ModuleInclude),
@@ -223,6 +225,7 @@ impl AstNode for Expr {
             SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
             SyntaxKind::MathAttach => node.cast().map(Self::MathAttach),
             SyntaxKind::MathFrac => node.cast().map(Self::MathFrac),
+            SyntaxKind::MathRoot => node.cast().map(Self::MathRoot),
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::None => node.cast().map(Self::None),
             SyntaxKind::Auto => node.cast().map(Self::Auto),
@@ -283,6 +286,7 @@ impl AstNode for Expr {
             Self::MathDelimited(v) => v.as_untyped(),
             Self::MathAttach(v) => v.as_untyped(),
             Self::MathFrac(v) => v.as_untyped(),
+            Self::MathRoot(v) => v.as_untyped(),
             Self::Ident(v) => v.as_untyped(),
             Self::None(v) => v.as_untyped(),
             Self::Auto(v) => v.as_untyped(),
@@ -853,6 +857,28 @@ impl MathFrac {
     /// The denominator.
     pub fn denom(&self) -> Expr {
         self.0.cast_last_match().unwrap_or_default()
+    }
+}
+
+node! {
+    /// A root in math: `√x`, `∛x` or `∜x`.
+    MathRoot
+}
+
+impl MathRoot {
+    /// The index of the root.
+    pub fn index(&self) -> Option<usize> {
+        match self.0.children().next().map(|node| node.text().as_str()) {
+            Some("∜") => Some(4),
+            Some("∛") => Some(3),
+            Some("√") => Option::None,
+            _ => Option::None,
+        }
+    }
+
+    /// The radicand.
+    pub fn radicand(&self) -> Expr {
+        self.0.cast_first_match().unwrap_or_default()
     }
 }
 
@@ -1594,23 +1620,19 @@ node! {
 #[derive(Debug, Clone, Hash)]
 pub enum Param {
     /// A positional parameter: `x`.
-    Pos(Ident),
+    Pos(Pattern),
     /// A named parameter with a default value: `draw: false`.
     Named(Named),
     /// An argument sink: `..args`.
     Sink(Spread),
-    /// A placeholder: `_`.
-    Placeholder(Underscore),
 }
 
 impl AstNode for Param {
     fn from_untyped(node: &SyntaxNode) -> Option<Self> {
         match node.kind() {
-            SyntaxKind::Ident => node.cast().map(Self::Pos),
             SyntaxKind::Named => node.cast().map(Self::Named),
             SyntaxKind::Spread => node.cast().map(Self::Sink),
-            SyntaxKind::Underscore => node.cast().map(Self::Placeholder),
-            _ => Option::None,
+            _ => node.cast().map(Self::Pos),
         }
     }
 
@@ -1619,7 +1641,6 @@ impl AstNode for Param {
             Self::Pos(v) => v.as_untyped(),
             Self::Named(v) => v.as_untyped(),
             Self::Sink(v) => v.as_untyped(),
-            Self::Placeholder(v) => v.as_untyped(),
         }
     }
 }

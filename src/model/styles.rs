@@ -8,7 +8,7 @@ use std::sync::Arc;
 use comemo::Prehashed;
 use ecow::{eco_format, eco_vec, EcoString, EcoVec};
 
-use super::{Content, ElemFunc, Element, Introspector, Label, Location, Vt};
+use super::{Content, ElemFunc, Element, Label, Location, Vt};
 use crate::diag::{SourceResult, StrResult, Trace, Tracepoint};
 use crate::eval::{cast_from_value, Args, Cast, CastInfo, Dict, Func, Regex, Value, Vm};
 use crate::model::Locatable;
@@ -50,8 +50,7 @@ impl Styles {
         *self = outer;
     }
 
-    /// Apply one outer styles. Like [`chain_one`](StyleChain::chain_one), but
-    /// in-place.
+    /// Apply one outer styles.
     pub fn apply_one(&mut self, outer: Style) {
         self.0.insert(0, Prehashed::new(outer));
     }
@@ -322,77 +321,6 @@ impl Selector {
         }
     }
 
-    /// Matches the selector for an introspector.
-    pub fn match_iter<'a>(
-        &'a self,
-        introspector: &'a Introspector,
-    ) -> Box<dyn Iterator<Item = Content> + 'a> {
-        self.match_iter_inner(introspector, introspector.all())
-    }
-
-    /// Match the selector against the given list of elements. Returns an
-    /// iterator over the matching elements.
-    fn match_iter_inner<'a>(
-        &'a self,
-        introspector: &'a Introspector,
-        parent: impl Iterator<Item = Content> + 'a,
-    ) -> Box<dyn Iterator<Item = Content> + 'a> {
-        match self {
-            Self::Location(location) => {
-                Box::new(introspector.location(location).into_iter())
-            }
-            Self::Or(selectors) => Box::new(parent.filter(|element| {
-                selectors.iter().any(|selector| {
-                    selector
-                        .match_iter_inner(introspector, std::iter::once(element.clone()))
-                        .next()
-                        .is_some()
-                })
-            })),
-            Self::And(selectors) => Box::new(parent.filter(|element| {
-                selectors.iter().all(|selector| {
-                    selector
-                        .match_iter_inner(introspector, std::iter::once(element.clone()))
-                        .next()
-                        .is_some()
-                })
-            })),
-            Self::Before { selector, end: location, inclusive } => {
-                if let Some(content) = introspector.query_first(location) {
-                    let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).take_while(
-                        move |elem| {
-                            introspector.is_before(
-                                elem.location().unwrap(),
-                                loc,
-                                *inclusive,
-                            )
-                        },
-                    ))
-                } else {
-                    Box::new(selector.match_iter_inner(introspector, parent))
-                }
-            }
-            Self::After { selector, start: location, inclusive } => {
-                if let Some(content) = introspector.query_first(location) {
-                    let loc = content.location().unwrap();
-                    Box::new(selector.match_iter_inner(introspector, parent).skip_while(
-                        move |elem| {
-                            introspector.is_before(
-                                elem.location().unwrap(),
-                                loc,
-                                !*inclusive,
-                            )
-                        },
-                    ))
-                } else {
-                    Box::new(std::iter::empty())
-                }
-            }
-            other => Box::new(parent.filter(move |content| other.matches(content))),
-        }
-    }
-
     /// Whether the selector matches for the target.
     pub fn matches(&self, target: &Content) -> bool {
         match self {
@@ -412,9 +340,8 @@ impl Selector {
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),
             Self::And(selectors) => selectors.iter().all(move |sel| sel.matches(target)),
             Self::Location(location) => target.location() == Some(*location),
-            Self::Before { .. } | Self::After { .. } => {
-                panic!("Cannot match a `Selector::Before` or `Selector::After` selector")
-            }
+            // Not supported here.
+            Self::Before { .. } | Self::After { .. } => false,
         }
     }
 }
@@ -478,8 +405,10 @@ cast_from_value! {
     location: Location => Self::Location(location),
 }
 
-/// A selector that can be used with `query`. Hopefully, this is made obsolete
-/// by a more powerful query mechanism in the future.
+/// A selector that can be used with `query`.
+///
+/// Hopefully, this is made obsolete by a more powerful query mechanism in the
+/// future.
 #[derive(Clone, PartialEq, Hash)]
 pub struct LocatableSelector(pub Selector);
 
@@ -491,7 +420,7 @@ impl Cast for LocatableSelector {
 
     fn cast(value: Value) -> StrResult<Self> {
         fn validate(selector: &Selector) -> StrResult<()> {
-            match &selector {
+            match selector {
                 Selector::Elem(elem, _) => {
                     if !elem.can::<dyn Locatable>() {
                         Err(eco_format!("{} is not locatable", elem.name()))?
@@ -533,6 +462,62 @@ impl Cast for LocatableSelector {
         ])
     }
 }
+
+/// A selector that can be used with show rules.
+///
+/// Hopefully, this is made obsolete by a more powerful showing mechanism in the
+/// future.
+#[derive(Clone, PartialEq, Hash)]
+pub struct ShowableSelector(pub Selector);
+
+impl Cast for ShowableSelector {
+    fn is(value: &Value) -> bool {
+        matches!(
+            value,
+            Value::Symbol(_) | Value::Str(_) | Value::Label(_) | Value::Func(_)
+        ) || value.type_name() == "regular expression"
+            || value.type_name() == "selector"
+    }
+
+    fn cast(value: Value) -> StrResult<Self> {
+        fn validate(selector: &Selector) -> StrResult<()> {
+            match selector {
+                Selector::Elem(_, _) => {}
+                Selector::Label(_) => {}
+                Selector::Regex(_) => {}
+                Selector::Or(_)
+                | Selector::And(_)
+                | Selector::Location(_)
+                | Selector::Can(_)
+                | Selector::Before { .. }
+                | Selector::After { .. } => {
+                    Err("this selector cannot be used with show")?
+                }
+            }
+            Ok(())
+        }
+
+        if !Self::is(&value) {
+            return <Self as Cast>::error(value);
+        }
+
+        let selector = Selector::cast(value)?;
+        validate(&selector)?;
+        Ok(Self(selector))
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Union(vec![
+            CastInfo::Type("function"),
+            CastInfo::Type("label"),
+            CastInfo::Type("string"),
+            CastInfo::Type("regular expression"),
+            CastInfo::Type("symbol"),
+            CastInfo::Type("selector"),
+        ])
+    }
+}
+
 /// A show rule transformation that can be applied to a match.
 #[derive(Clone, PartialEq, Hash)]
 pub enum Transform {
@@ -586,7 +571,6 @@ impl<'a> StyleChain<'a> {
     /// The resulting style chain contains styles from `local` as well as
     /// `self`. The ones from `local` take precedence over the ones from
     /// `self`. For folded properties `local` contributes the inner value.
-    #[tracing::instrument(skip_all)]
     pub fn chain<'b>(&'b self, local: &'b Styles) -> StyleChain<'b> {
         if local.is_empty() {
             *self
@@ -596,7 +580,6 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    #[tracing::instrument(skip_all)]
     pub fn get<T: Cast>(
         self,
         func: ElemFunc,
@@ -610,7 +593,6 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    #[tracing::instrument(skip_all)]
     pub fn get_resolve<T: Cast + Resolve>(
         self,
         func: ElemFunc,
@@ -622,7 +604,6 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    #[tracing::instrument(skip_all)]
     pub fn get_fold<T: Cast + Fold>(
         self,
         func: ElemFunc,
@@ -644,7 +625,6 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Cast the first value for the given property in the chain.
-    #[tracing::instrument(skip_all)]
     pub fn get_resolve_fold<T>(
         self,
         func: ElemFunc,
@@ -679,7 +659,6 @@ impl<'a> StyleChain<'a> {
     }
 
     /// Iterate over all values for the given property in the chain.
-    #[tracing::instrument(skip_all)]
     pub fn properties<T: Cast + 'a>(
         self,
         func: ElemFunc,

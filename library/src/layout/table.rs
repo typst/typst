@@ -13,7 +13,7 @@ use crate::prelude::*;
 /// To give a table a caption and make it [referenceable]($func/ref), put it
 /// into a [figure]($func/figure).
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),
@@ -87,9 +87,10 @@ pub struct TableElem {
 
     /// How to align the cell's content.
     ///
-    /// This can either be a single alignment or a function that returns an
-    /// alignment. The function is passed the cell's column and row index,
-    /// starting at zero. If set to `{auto}`, the outer alignment is used.
+    /// This can either be a single alignment, an array of alignments
+    /// (corresponding to each column) or a function that returns an alignment.
+    /// The function is passed the cell's column and row index, starting at zero.
+    /// If set to `{auto}`, the outer alignment is used.
     ///
     /// ```example
     /// #table(
@@ -103,16 +104,18 @@ pub struct TableElem {
 
     /// How to stroke the cells.
     ///
-    /// This can be a color, a stroke width, both, or `{none}` to disable
-    /// the stroke.
+    /// See the [line's documentation]($func/line.stroke) for more details.
+    /// Strokes can be disabled by setting this to `{none}`.
+    ///
+    /// _Note:_ Richer stroke customization for individual cells is not yet
+    /// implemented, but will be in the future. In the meantime, you can use
+    /// the third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
     #[resolve]
     #[fold]
     #[default(Some(PartialStroke::default()))]
     pub stroke: Option<PartialStroke>,
 
     /// How much to pad the cells's content.
-    ///
-    /// The default value is `{5pt}`.
     #[default(Abs::pt(5.0).into())]
     pub inset: Rel<Length>,
 
@@ -236,9 +239,11 @@ pub enum Celled<T> {
     Value(T),
     /// A closure mapping from cell coordinates to a value.
     Func(Func),
+    /// An array of alignment values corresponding to each column.
+    Array(Vec<T>),
 }
 
-impl<T: Cast + Clone> Celled<T> {
+impl<T: Cast + Clone + Default> Celled<T> {
     /// Resolve the value based on the cell position.
     pub fn resolve(&self, vt: &mut Vt, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
@@ -247,6 +252,11 @@ impl<T: Cast + Clone> Celled<T> {
                 .call_vt(vt, [Value::Int(x as i64), Value::Int(y as i64)])?
                 .cast()
                 .at(func.span())?,
+            Self::Array(array) => x
+                .checked_rem(array.len())
+                .and_then(|i| array.get(i))
+                .cloned()
+                .unwrap_or_default(),
         })
     }
 }
@@ -259,19 +269,22 @@ impl<T: Default> Default for Celled<T> {
 
 impl<T: Cast> Cast for Celled<T> {
     fn is(value: &Value) -> bool {
-        matches!(value, Value::Func(_)) || T::is(value)
+        matches!(value, Value::Array(_) | Value::Func(_)) || T::is(value)
     }
 
     fn cast(value: Value) -> StrResult<Self> {
         match value {
             Value::Func(v) => Ok(Self::Func(v)),
+            Value::Array(array) => {
+                Ok(Self::Array(array.into_iter().map(T::cast).collect::<StrResult<_>>()?))
+            }
             v if T::is(&v) => Ok(Self::Value(T::cast(v)?)),
             v => <Self as Cast>::error(v),
         }
     }
 
     fn describe() -> CastInfo {
-        T::describe() + CastInfo::Type("function")
+        T::describe() + CastInfo::Type("array") + CastInfo::Type("function")
     }
 }
 
@@ -280,12 +293,13 @@ impl<T: Into<Value>> From<Celled<T>> for Value {
         match celled {
             Celled::Value(value) => value.into(),
             Celled::Func(func) => func.into(),
+            Celled::Array(arr) => arr.into(),
         }
     }
 }
 
 impl LocalName for TableElem {
-    fn local_name(&self, lang: Lang) -> &'static str {
+    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ARABIC => "جدول",
             Lang::BOKMÅL => "Tabell",
@@ -307,8 +321,4 @@ impl LocalName for TableElem {
     }
 }
 
-impl Figurable for TableElem {
-    fn priority(&self, _styles: StyleChain) -> isize {
-        -1000
-    }
-}
+impl Figurable for TableElem {}
