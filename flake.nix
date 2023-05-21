@@ -21,10 +21,7 @@
         (system: f nixpkgs.legacyPackages.${system});
 
       rev = fallback:
-        if self ? shortRev then
-          self.shortRev
-        else
-          fallback;
+        self.shortRev or fallback;
 
       packageFor = pkgs: pkgs.rustPlatform.buildRustPackage rec {
         pname = "typst";
