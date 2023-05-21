@@ -185,11 +185,11 @@ pub struct OutlineElem {
     /// ```example
     /// #set heading(numbering: "1.a.")
     ///
-    /// #outline(title: "Automatic indentation", indent: auto)
-    /// #outline(title: "Length indentation", indent: 2em)
-    /// #outline(title: "Content indentation", indent: [--])
-    /// #outline(title: "Array indentation", indent: (2em, [*====*]))
-    /// #outline(title: "Function indentation", indent: n => [*!*] * n * n)
+    /// #outline(title: "Contents (Automatic indentation)", indent: auto)
+    /// #outline(title: "Contents (Length indentation)", indent: 2em)
+    /// #outline(title: "Contents (Content indentation)", indent: [--])
+    /// #outline(title: "Contents (Array indentation)", indent: (2em, [*====*]))
+    /// #outline(title: "Contents (Function indentation)", indent: n => [*!*] * n * n)
     ///
     /// = About ACME Corp.
     ///
