@@ -97,7 +97,7 @@ fn no_fields(type_name: &str) -> EcoString {
 /// The missing field error message.
 #[cold]
 fn missing_field(type_name: &str, field: &str) -> EcoString {
-    eco_format!("type {type_name} has no field `{field}`")
+    eco_format!("{type_name} does not contain field \"{field}\"")
 }
 
 /// List the available fields for a type.
