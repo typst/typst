@@ -164,6 +164,21 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Length(length) => {
+            let mut round = |n: f64| -> SourceResult<_> {
+                let precision: u32 = args.named("precision")?.unwrap_or(10).min(15);
+                let factor = 10f64.powf(precision as f64);
+                Ok((n * factor).trunc() / factor)
+            };
+
+            match method {
+                "cm" => round(length.abs.to_cm())?.into(),
+                "mm" => round(length.abs.to_mm())?.into(),
+                "inches" => round(length.abs.to_inches())?.into(),
+                _ => return missing(),
+            }
+        }
+
         Value::Args(args) => match method {
             "pos" => Value::Array(args.to_pos()),
             "named" => Value::Dict(args.to_named()),
@@ -380,6 +395,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("values", false),
         ],
         "function" => &[("where", true), ("with", true)],
+        "length" => &[("cm", true), ("mm", true), ("inches", true)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
         "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],

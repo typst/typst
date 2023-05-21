@@ -27,14 +27,9 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
             _ => missing(),
         },
         Value::Length(length) => {
-            let round_four_digits = |n: f64| (n * 1e4).round() / 1e4;
-
             match field {
                 "em" => Ok(length.em.into()),
                 "pt" => Ok(length.abs.into()),
-                "cm" => Ok(round_four_digits(length.abs.to_cm()).into()),
-                "mm" => Ok(round_four_digits(length.abs.to_mm()).into()),
-                "inches" => Ok(round_four_digits(length.abs.to_inches()).into()),
                 _ => missing(),
             }
         }
@@ -99,7 +94,7 @@ fn missing_field(type_name: &str, field: &str) -> EcoString {
 pub fn fields_on(type_name: &str) -> &[&'static str] {
     match type_name {
         "color" => &["kind", "value"],
-        "length" => &["em", "pt", "cm", "mm", "inches"],
+        "length" => &["em", "pt"],
         "relative length" => &["relative", "absolute"],
         "stroke" => &[
             "paint",

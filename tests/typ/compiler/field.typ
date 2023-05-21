@@ -81,12 +81,6 @@
 #test((2em + 2pt).pt, 2pt)
 
 ---
-// Test length unit conversions.
-#test((3.345cm).cm, 3.345)
-#test((4.345mm).mm, 4.345)
-#test((5.345in).inches, 5.345)
-
----
 // Test color fields.
 #test(rgb(1, 2, 3, 4).values, (1, 2, 3, 4))
 #test(rgb(1, 2, 3).values, (1, 2, 3, 255))
