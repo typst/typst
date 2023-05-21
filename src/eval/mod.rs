@@ -38,6 +38,7 @@ pub use self::str::*;
 pub use self::symbol::*;
 pub use self::value::*;
 
+pub(crate) use self::fields::fields_on;
 pub(crate) use self::methods::methods_on;
 
 use std::collections::HashSet;
