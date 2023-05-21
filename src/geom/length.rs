@@ -39,7 +39,7 @@ impl Length {
 
     /// Get a field from this length.
     pub fn at(&self, field: &str) -> StrResult<Value> {
-        let round_four_digits = |n| ((n as f64) * 1e4).round() / 1e4;
+        let round_four_digits = |n: f64| (n * 1e4).round() / 1e4;
 
         match field {
             "em" => Ok(self.em.into()),
