@@ -171,14 +171,14 @@ pub struct OutlineElem {
     /// Finally, setting this option to a function allows for a more complete
     /// customization of the indentation. A function is expected to take a
     /// single parameter indcating the current nesting level (starting at `{0}`
-    /// for top-level headings/elements), and return the indentation content
-    /// for that level. Such a function could be, for example,
-    ///`{n => h(n * 2em)}` (indenting by `2em` times the nesting level), or
+    /// for top-level headings/elements), and return the indentation option
+    /// for that level (or `{none}`). Such a function could be, for example,
+    ///`{n => n * 2em}` (indenting by `{2em}` times the nesting level), or
     /// `{n => [*!*] * n * n}` (indenting by a bold exclamation mark times
     /// the nesting level squared). Please note that the function is also
-    /// called with `{0}` as a value, so be careful to not return a fixed value
+    /// called for nesting level 0, so be careful to not return a fixed value
     /// if you don't want to accidentally indent top-level entries by it (if
-    /// that's not your intention), which you can solve by returning `{[]}`
+    /// that's not your intention), which you can solve by returning `{none}`
     /// when the received parameter is equal to `{0}`.
     ///
     ///
@@ -321,13 +321,7 @@ impl Show for OutlineElem {
                         bail!(self.span(), "indent array must have at least one element");
                     };
                     if let Some(fixed_indent) = array_value {
-                        let indent_content = match fixed_indent {
-                            FixedOutlineIndent::Length(length) => {
-                                HElem::new(*length).pack()
-                            }
-                            FixedOutlineIndent::Content(content) => content.clone(),
-                        };
-                        seq.push(indent_content);
+                        seq.push(fixed_indent.clone().display());
                     }
                 }
 
@@ -335,8 +329,16 @@ impl Show for OutlineElem {
                 // the returned content
                 Some(Smart::Custom(OutlineIndent::Function(func))) => {
                     let depth = ancestors.len();
-                    let result = func.call_vt(vt, [depth.into()])?;
-                    seq.push(result.display());
+                    let returned = func.call_vt(vt, [depth.into()])?;
+                    let Ok(returned) = returned.cast::<Option<FixedOutlineIndent>>() else {
+                        bail!(
+                            self.span(),
+                            "indent function must return 'none', a spacing length, or content"
+                        );
+                    };
+                    if let Some(fixed_indent) = returned {
+                        seq.push(fixed_indent.display());
+                    }
                 }
             };
 
@@ -427,6 +429,7 @@ pub trait Outlinable: Refable {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum OutlineIndent {
     Bool(bool),
     Length(Spacing),
@@ -459,9 +462,20 @@ cast_to_value! {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum FixedOutlineIndent {
     Length(Spacing),
     Content(Content),
+}
+
+impl FixedOutlineIndent {
+    /// Converts this indent value to content.
+    fn display(self) -> Content {
+        match self {
+            FixedOutlineIndent::Length(length) => HElem::new(length).pack(),
+            FixedOutlineIndent::Content(content) => content,
+        }
+    }
 }
 
 cast_from_value! {
