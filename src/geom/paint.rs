@@ -1,8 +1,8 @@
-use crate::eval::Array;
 use ecow::{eco_format, eco_vec, EcoString};
 use std::str::FromStr;
 
 use super::*;
+use crate::eval::Array;
 
 /// How a fill or stroke should be painted.
 #[derive(Clone, Eq, PartialEq, Hash)]
