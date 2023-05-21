@@ -48,13 +48,13 @@ impl Cast for Margin {
                 let margin = Margin { sides, outside, inside };
 
                 dict.finish(&[
-                    "left", "top", "right", "bottom", "x", "y", "outside", "inside", "rest",
+                    "left", "top", "right", "bottom", "x", "y", "outside", "inside",
+                    "rest",
                 ])?;
 
                 Ok(margin)
-
             }
-            _ =>  <Self as Cast>::error(value)
+            _ => <Self as Cast>::error(value),
         }
     }
 
