@@ -1,6 +1,4 @@
 use super::*;
-use crate::eval::Str;
-use ecow::{eco_format, EcoString};
 
 /// A value that is composed of a relative and an absolute part.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
@@ -61,15 +59,6 @@ impl Rel<Length> {
             Some(self.rel / other.rel)
         } else {
             None
-        }
-    }
-
-    /// Get a field from this relative length.
-    pub fn at(&self, field: &str) -> StrResult<Value> {
-        match field {
-            "relative" => Ok(self.rel.into()),
-            "absolute" => Ok(self.abs.into()),
-            _ => Err(missing_field(field)),
         }
     }
 }
@@ -253,9 +242,4 @@ impl Fold for Rel<Length> {
 
 cast_to_value! {
     v: Rel<Abs> => v.map(Length::from).into()
-}
-
-/// The missing field access error message.
-fn missing_field(field: &str) -> EcoString {
-    eco_format!("relative length does not contain field {:?}", Str::from(field))
 }

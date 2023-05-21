@@ -1,4 +1,4 @@
-use crate::eval::{Array, Str};
+use crate::eval::Array;
 use ecow::{eco_format, eco_vec, EcoString};
 use std::str::FromStr;
 
@@ -99,24 +99,6 @@ impl Color {
             Self::Rgba(rgba) => Self::Rgba(rgba.negate()),
             Self::Cmyk(cmyk) => Self::Cmyk(cmyk.negate()),
         }
-    }
-
-    /// Get a field from this color.
-    pub fn at(&self, field: &str) -> StrResult<Value> {
-        Ok(match field {
-            "hex" => self.to_rgba().to_hex().into(),
-            "rgba" => self.to_rgba().to_array().into(),
-            "cmyk" => match self {
-                Self::Cmyk(cmyk) => cmyk.to_array().into(),
-                Self::Luma(luma) => luma.to_cmyk().to_array().into(),
-                _ => Value::None, // no rgba -> cmyk conversion
-            },
-            "luma" => match self {
-                Self::Luma(luma) => luma.0.into(),
-                _ => Value::None,
-            },
-            _ => return Err(missing_field(field)),
-        })
     }
 }
 
@@ -460,9 +442,4 @@ mod tests {
         test("hmmm", "color string contains non-hexadecimal letters");
         test("14B2AH", "color string contains non-hexadecimal letters");
     }
-}
-
-/// The missing field access error message.
-fn missing_field(field: &str) -> EcoString {
-    eco_format!("color does not contain field {:?}", Str::from(field))
 }

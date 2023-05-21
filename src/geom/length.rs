@@ -1,6 +1,4 @@
 use super::*;
-use crate::eval::Str;
-use ecow::{eco_format, EcoString};
 
 /// A length, possibly expressed with contextual units.
 ///
@@ -34,20 +32,6 @@ impl Length {
             Some(self.abs / other.abs)
         } else {
             None
-        }
-    }
-
-    /// Get a field from this length.
-    pub fn at(&self, field: &str) -> StrResult<Value> {
-        let round_four_digits = |n: f64| (n * 1e4).round() / 1e4;
-
-        match field {
-            "em" => Ok(self.em.into()),
-            "pt" => Ok(self.abs.into()),
-            "cm" => Ok(round_four_digits(self.abs.to_cm()).into()),
-            "mm" => Ok(round_four_digits(self.abs.to_mm()).into()),
-            "inches" => Ok(round_four_digits(self.abs.to_inches()).into()),
-            _ => Err(missing_field(field)),
         }
     }
 }
@@ -141,9 +125,4 @@ impl Resolve for Length {
     fn resolve(self, styles: StyleChain) -> Self::Output {
         self.abs + self.em.resolve(styles)
     }
-}
-
-/// The missing field access error message.
-fn missing_field(field: &str) -> EcoString {
-    eco_format!("length does not contain field {:?}", Str::from(field))
 }

@@ -1,6 +1,4 @@
 use super::*;
-use crate::eval::Str;
-use ecow::{eco_format, EcoString};
 
 /// A stroke of a geometric shape.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
@@ -113,38 +111,6 @@ impl PartialStroke<Abs> {
     /// Unpack the stroke, filling missing fields with the default values.
     pub fn unwrap_or_default(self) -> Stroke {
         self.unwrap_or(Stroke::default())
-    }
-}
-
-impl PartialStroke<Length> {
-    /// Get a field from this stroke.
-    pub fn at(&self, field: &str) -> StrResult<Value> {
-        match field {
-            "color" => {
-                Ok(self.paint.clone().unwrap_or_else(|| Stroke::default().paint).into())
-            }
-            "thickness" => Ok(self
-                .thickness
-                .unwrap_or_else(|| Stroke::default().thickness.into())
-                .into()),
-            "line_cap" => Ok(self
-                .line_cap
-                .clone()
-                .unwrap_or_else(|| Stroke::default().line_cap)
-                .into()),
-            "line_join" => Ok(self
-                .line_join
-                .clone()
-                .unwrap_or_else(|| Stroke::default().line_join)
-                .into()),
-            "dash_pattern" => Ok(self.dash_pattern.clone().unwrap_or(None).into()),
-            "miter_limit" => Ok(self
-                .miter_limit
-                .unwrap_or_else(|| Stroke::default().miter_limit)
-                .0
-                .into()),
-            _ => Err(missing_field(field)),
-        }
     }
 }
 
@@ -420,9 +386,4 @@ impl Fold for PartialStroke<Abs> {
 
 cast_to_value! {
     v: PartialStroke<Abs> => v.map(Length::from).into()
-}
-
-/// The missing field access error message.
-fn missing_field(field: &str) -> EcoString {
-    eco_format!("stroke does not contain field {:?}", Str::from(field))
 }
