@@ -26,13 +26,11 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
             }),
             _ => missing(),
         },
-        Value::Length(length) => {
-            match field {
-                "em" => Ok(length.em.into()),
-                "pt" => Ok(length.abs.into()),
-                _ => missing(),
-            }
-        }
+        Value::Length(length) => match field {
+            "em" => Ok(length.em.into()),
+            "pt" => Ok(length.abs.into()),
+            _ => missing(),
+        },
         Value::Relative(rel) => match field {
             "relative" => Ok(rel.rel.into()),
             "absolute" => Ok(rel.abs.into()),
