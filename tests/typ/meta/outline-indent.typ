@@ -11,9 +11,10 @@
 #outline(indent: auto)
 #outline(indent: 2em)
 #outline(indent: [--])
-#outline(indent: ([::], 2em, [=====]))
+#outline(indent: "()")
+#outline(indent: ([::], 2em, "====="))
 #outline(indent: n => (1em, none, [==], [====]).at(n))
-#outline(indent: n => [*!*] * calc.pow(2, n))
+#outline(indent: n => "!" * calc.pow(2, n))
 
 = About ACME Corp.
 
@@ -39,9 +40,10 @@
 #outline(indent: auto)
 #outline(indent: 2em)
 #outline(indent: [--])
-#outline(indent: ([::], 2em, [=====]))
+#outline(indent: "()")
+#outline(indent: ([::], 2em, "====="))
 #outline(indent: n => (1em, none, [==], [====]).at(n))
-#outline(indent: n => [*!*] * calc.pow(2, n))
+#outline(indent: n => "!" * calc.pow(2, n))
 
 = About ACME Corp.
 
