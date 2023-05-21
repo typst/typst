@@ -5,9 +5,6 @@
 
   outputs = { self, nixpkgs }:
     let
-      inherit (builtins)
-        substring
-        ;
       inherit (nixpkgs.lib)
         genAttrs
         importTOML
@@ -24,8 +21,8 @@
         (system: f nixpkgs.legacyPackages.${system});
 
       rev = fallback:
-        if self ? rev then
-          substring 0 8 self.rev
+        if self ? shortRev then
+          self.shortRev
         else
           fallback;
 
