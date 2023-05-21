@@ -9,6 +9,7 @@
         genAttrs
         importTOML
         optionals
+        cleanSource
         ;
 
       eachSystem = f: genAttrs
@@ -27,7 +28,7 @@
         pname = "typst";
         inherit ((importTOML ./Cargo.toml).workspace.package) version;
 
-        src = self;
+        src = cleanSource ./.;
 
         cargoLock = {
           lockFile = ./Cargo.lock;
