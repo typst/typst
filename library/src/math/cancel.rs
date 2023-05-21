@@ -162,20 +162,18 @@ fn draw_cancel_line(
     // Scales from the center.
     let scale = length.to_raw() / diagonal.to_raw();
 
-    // invert horizontally if 'invert' was given
-    let scale_x = scale * if invert { -1.0 } else { 1.0 };
-    let scale_y = scale;
-    let scales = Axes::new(scale_x, scale_y);
-
     let mut frame = Frame::new(body_size);
     if let Some(angle) = angle {
+        let scales = Axes::new(scale, scale);
         let start = Axes::with_x(-mid.x).zip(scales).map(|(l, s)| l * s);
         let delta = Axes::with_x(width).zip(scales).map(|(l, s)| l * s);
         draw_cancel_line_impl(&mut frame, start, delta, stroke, span);
 
-        // Having the middle of the line at the origin is convenient here.
-        frame.transform(Transform::rotate(-angle));
+        // Having the middle of the line at the origin is convenient here. Note
+        // Transform::rotate() rotates clockwise.
+        frame.transform(Transform::rotate(if invert { angle } else { -angle }));
     } else {
+        let scales = Axes::new(scale * if invert { -1.0 } else { 1.0 }, scale);
         // Draw a line from bottom left to top right of the given element, where the
         // origin represents the very middle of that element, that is, a line from
         // (-width / 2, height / 2) with length components (width, -height) (sign is

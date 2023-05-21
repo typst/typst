@@ -31,4 +31,6 @@ $ b + cancel(x, length: #150%) - cancel(a + b + c, length: #50%, stroke: #{blue 
 ---
 // Rotated
 $x + cancel(y, rotation: #45deg) - cancel(z, rotation: #135deg) + cancel(alpha, rotation: #0deg)$
-$ e + cancel((j + e)/(f + e)) - cancel((j + e)/(f + e), rotation: #30deg) $
+$ e + cancel((j + e)/(f + e))
+  + cancel((j + e)/(f + e), rotation: #30deg)
+  + cancel((j + e)/(f + e), rotation: #30deg, inverted: #true) $
