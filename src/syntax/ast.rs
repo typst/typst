@@ -178,7 +178,7 @@ pub enum Expr {
     While(WhileLoop),
     /// A for loop: `for x in y { z }`.
     For(ForLoop),
-    /// A module import: `import a, b, c from "utils.typ"`.
+    /// A module import: `import "utils.typ": a, b, c`.
     Import(ModuleImport),
     /// A module include: `include "chapter1.typ"`.
     Include(ModuleInclude),
