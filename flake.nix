@@ -29,9 +29,9 @@
         else
           fallback;
 
-      packageFor = pkgs: pkgs.rustPlatform.buildRustPackage {
+      packageFor = pkgs: pkgs.rustPlatform.buildRustPackage rec {
         pname = "typst";
-        version = rev "00000000";
+        inherit ((importTOML ./Cargo.toml).workspace.package) version;
 
         src = self;
 
@@ -56,7 +56,7 @@
         '';
 
         GEN_ARTIFACTS = "artifacts";
-        TYPST_VERSION = "${(importTOML ./Cargo.toml).package.version} (${rev "unknown hash"})";
+        TYPST_VERSION = "${version} (${rev "unknown hash"})";
       };
     in
     {
