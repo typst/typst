@@ -14,6 +14,7 @@ mod str;
 mod value;
 mod args;
 mod datetime;
+mod fields;
 mod func;
 mod methods;
 mod module;

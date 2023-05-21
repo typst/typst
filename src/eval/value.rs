@@ -8,11 +8,11 @@ use ecow::eco_format;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
-    cast_to_value, format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func,
-    Label, Module, Str, Symbol,
+    cast_to_value, fields, format_str, ops, Args, Array, Cast, CastInfo, Content, Dict,
+    Func, Label, Module, Str, Symbol,
 };
 use crate::diag::StrResult;
-use crate::geom::{Abs, Angle, Color, Em, Fr, Length, PartialStroke, Ratio, Rel};
+use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
 use crate::model::Styles;
 use crate::syntax::{ast, Span};
 
@@ -122,24 +122,7 @@ impl Value {
 
     /// Try to access a field on the value.
     pub fn field(&self, field: &str) -> StrResult<Value> {
-        match self {
-            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
-            Self::Dict(dict) => dict.at(field, None).cloned(),
-            Self::Content(content) => content.at(field, None),
-            Self::Module(module) => module.get(field).cloned(),
-            Self::Func(func) => func.get(field).cloned(),
-            Self::Color(color) => color.at(field),
-            Self::Length(length) => length.at(field),
-            Self::Relative(rel) => rel.at(field),
-            d @ Self::Dyn(dynamic) => {
-                if let Some(stroke) = dynamic.downcast::<PartialStroke>() {
-                    stroke.at(field)
-                } else {
-                    Err(eco_format!("cannot access fields on type {}", d.type_name()))
-                }
-            }
-            v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
-        }
+        fields::field(self, field)
     }
 
     /// Return the debug representation of the value.
