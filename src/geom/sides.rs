@@ -25,7 +25,7 @@ impl Cast for Margin {
         match value {
             Value::Auto => Ok(Self::splat(Some(Value::cast(value)?))),
             Value::Length(value) => Ok(Self::splat(Some(Smart::Custom(value.into())))),
-            Value::Relative(value) => Ok(Self::splat(Some(Smart::Custom(value.into())))),
+            Value::Relative(value) => Ok(Self::splat(Some(Smart::Custom(value)))),
             Value::Dict(mut dict) => {
                 let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
 
