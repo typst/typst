@@ -320,12 +320,12 @@ impl Show for OutlineElem {
                     let Some(array_value) = array_value else {
                         bail!(self.span(), "indent array must have at least one element");
                     };
-                    if let Some(inner_array_value) = array_value {
-                        let indent_content = match inner_array_value {
-                            OutlineIndentArrayValue::Length(length) => {
+                    if let Some(fixed_indent) = array_value {
+                        let indent_content = match fixed_indent {
+                            FixedOutlineIndent::Length(length) => {
                                 HElem::new(*length).pack()
                             }
-                            OutlineIndentArrayValue::Content(content) => content.clone(),
+                            FixedOutlineIndent::Content(content) => content.clone(),
                         };
                         seq.push(indent_content);
                     }
@@ -431,7 +431,7 @@ pub enum OutlineIndent {
     Bool(bool),
     Length(Spacing),
     Content(Content),
-    Array(Vec<Option<OutlineIndentArrayValue>>),
+    Array(Vec<Option<FixedOutlineIndent>>),
     Function(Func),
 }
 
@@ -440,7 +440,7 @@ cast_from_value! {
     b: bool => OutlineIndent::Bool(b),
     s: Spacing => OutlineIndent::Length(s),
     c: Content => OutlineIndent::Content(c),
-    a: Vec<Option<OutlineIndentArrayValue>> => {
+    a: Vec<Option<FixedOutlineIndent>> => {
         if a.is_empty() {
             Err("indent array must have at least one element")?;
         }
@@ -459,20 +459,20 @@ cast_to_value! {
     }
 }
 
-pub enum OutlineIndentArrayValue {
+pub enum FixedOutlineIndent {
     Length(Spacing),
     Content(Content),
 }
 
 cast_from_value! {
-    OutlineIndentArrayValue,
-    s: Spacing => OutlineIndentArrayValue::Length(s),
-    c: Content => OutlineIndentArrayValue::Content(c),
+    FixedOutlineIndent,
+    s: Spacing => FixedOutlineIndent::Length(s),
+    c: Content => FixedOutlineIndent::Content(c),
 }
 
 cast_to_value! {
-    v: OutlineIndentArrayValue => match v {
-        OutlineIndentArrayValue::Length(s) => s.into(),
-        OutlineIndentArrayValue::Content(c) => c.into(),
+    v: FixedOutlineIndent => match v {
+        FixedOutlineIndent::Length(s) => s.into(),
+        FixedOutlineIndent::Content(c) => c.into(),
     }
 }
