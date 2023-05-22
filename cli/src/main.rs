@@ -1,12 +1,13 @@
 mod args;
 mod trace;
 
-use std::cell::{RefCell, RefMut};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
+use std::process::ExitCode;
 
 use atty::Stream;
 use clap::Parser;
@@ -33,8 +34,12 @@ use crate::args::{CliArguments, Command, CompileCommand};
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
+thread_local! {
+    static EXIT: Cell<ExitCode> = Cell::new(ExitCode::SUCCESS);
+}
+
 /// Entry point.
-fn main() {
+fn main() -> ExitCode {
     let arguments = CliArguments::parse();
     let _guard = match crate::trace::init_tracing(&arguments) {
         Ok(guard) => guard,
@@ -52,8 +57,16 @@ fn main() {
     };
 
     if let Err(msg) = res {
+        set_failed();
         print_error(&msg).expect("failed to print error");
     }
+
+    EXIT.with(|cell| cell.get())
+}
+
+/// Ensure a failure exit code.
+fn set_failed() {
+    EXIT.with(|cell| cell.set(ExitCode::FAILURE));
 }
 
 /// Print an application-level error (independent from a source file).
@@ -183,11 +196,6 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
     }
 
     if !command.watch {
-        // Return with non-zero exit code in case of error.
-        if !ok {
-            std::process::exit(1);
-        }
-
         return Ok(());
     }
 
@@ -262,6 +270,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
 
         // Print diagnostics.
         Err(errors) => {
+            set_failed();
             status(command, Status::Error).unwrap();
             print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
