@@ -56,7 +56,7 @@
         '';
 
         GEN_ARTIFACTS = "artifacts";
-        TYPST_VERSION = "${(importTOML ./Cargo.toml).package.version} (${rev "unknown hash"})";
+        TYPST_VERSION = "${(importTOML ./Cargo.toml).workspace.package.version} (${rev "unknown hash"})";
       };
     in
     {
