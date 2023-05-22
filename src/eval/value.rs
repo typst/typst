@@ -122,7 +122,14 @@ impl Value {
 
     /// Try to access a field on the value.
     pub fn field(&self, field: &str) -> StrResult<Value> {
-        fields::field(self, field)
+        match self {
+            Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Dict(dict) => dict.at(field, None).cloned(),
+            Self::Content(content) => content.at(field, None),
+            Self::Module(module) => module.get(field).cloned(),
+            Self::Func(func) => func.get(field).cloned(),
+            _ => fields::field(self, field),
+        }
     }
 
     /// Return the debug representation of the value.

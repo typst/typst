@@ -6,17 +6,15 @@ use crate::geom::{Color, PartialStroke, Stroke};
 use super::Value;
 
 /// Try to access a field on a value.
+/// This function is exclusively for types which have
+/// predefined fields, such as color and length.
 pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
     let name = value.type_name();
     let not_supported = || Err(no_fields(name));
     let missing = || Err(missing_field(name, field));
 
+    // Special cases, such as module and dict, are handled by Value itself
     match value {
-        Value::Symbol(symbol) => symbol.clone().modified(field).map(Value::Symbol),
-        Value::Dict(dict) => dict.at(field, None).cloned(),
-        Value::Content(content) => content.at(field, None),
-        Value::Module(module) => module.get(field).cloned(),
-        Value::Func(func) => func.get(field).cloned(),
         Value::Color(color) => match field {
             "kind" => Ok(color.kind().into()),
             "values" => Ok(match color {
