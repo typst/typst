@@ -1,7 +1,7 @@
 use typst::font::FontWeight;
 use typst::util::option_eq;
 
-use super::{Counter, CounterUpdate, LocalName, Numbering, Refable};
+use super::{Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable};
 use crate::layout::{BlockElem, HElem, VElem};
 use crate::meta::{Count, Supplement};
 use crate::prelude::*;
@@ -42,7 +42,7 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 ///
 /// Display: Heading
 /// Category: meta
-#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable)]
+#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
@@ -62,11 +62,13 @@ pub struct HeadingElem {
 
     /// A supplement for the heading.
     ///
-    /// For references to headings, this is added before the
-    /// referenced number.
+    /// For references to headings, this is added before the referenced number.
+    ///
+    /// If a function is specified, it is passed the referenced heading and
+    /// should return content.
     ///
     /// ```example
-    /// #set heading(numbering: "1.", supplement: "Chapter")
+    /// #set heading(numbering: "1.", supplement: [Chapter])
     ///
     /// = Introduction <intro>
     /// In @intro, we see how to turn
@@ -74,7 +76,6 @@ pub struct HeadingElem {
     /// in @intro[Part], it is done
     /// manually.
     /// ```
-    #[default(Smart::Auto)]
     pub supplement: Smart<Option<Supplement>>,
 
     /// Whether the heading should appear in the outline.
@@ -98,12 +99,21 @@ pub struct HeadingElem {
 }
 
 impl Synthesize for HeadingElem {
-    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+        // Resolve the supplement.
+        let supplement = match self.supplement(styles) {
+            Smart::Auto => TextElem::packed(self.local_name_in(styles)),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(supplement)) => {
+                supplement.resolve(vt, [self.clone().into()])?
+            }
+        };
+
         self.push_level(self.level(styles));
         self.push_numbering(self.numbering(styles));
-        self.push_supplement(self.supplement(styles));
+        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         self.push_outlined(self.outlined(styles));
-        self.push_supplement(self.supplement(styles));
+
         Ok(())
     }
 }
@@ -160,77 +170,42 @@ cast_from_value! {
 }
 
 impl Refable for HeadingElem {
-    fn reference(
-        &self,
-        vt: &mut Vt,
-        supplement: Option<Content>,
-        lang: Lang,
-        region: Option<Region>,
-    ) -> SourceResult<Content> {
-        // Create the supplement of the heading.
-        let mut supplement = if let Some(supplement) = supplement {
-            supplement
-        } else {
-            match self.supplement(StyleChain::default()) {
-                Smart::Auto => TextElem::packed(self.local_name(lang, region)),
-                Smart::Custom(None) => Content::empty(),
-                Smart::Custom(Some(supplement)) => {
-                    supplement.resolve(vt, std::iter::once(Value::from(self.clone())))?
-                }
-            }
-        };
-
-        // Append a non-breaking space if the supplement is not empty.
-        if !supplement.is_empty() {
-            supplement += TextElem::packed('\u{a0}')
-        };
-
-        // Check for a numbering.
-        let Some(numbering) = self.numbering(StyleChain::default()) else {
-            bail!(self.span(), "only numbered headings can be referenced");
-        };
-
-        // Get the counter and display it.
-        let numbers = Counter::of(Self::func())
-            .at(vt, self.0.location().unwrap())?
-            .display(vt, &numbering.trimmed())?;
-
-        Ok(supplement + numbers)
-    }
-
-    fn level(&self) -> usize {
-        self.level(StyleChain::default()).get()
-    }
-
-    fn numbering(&self) -> Option<Numbering> {
-        self.numbering(StyleChain::default())
+    fn supplement(&self) -> Content {
+        // After synthesis, this should always be custom content.
+        match self.supplement(StyleChain::default()) {
+            Smart::Custom(Some(Supplement::Content(content))) => content,
+            _ => Content::empty(),
+        }
     }
 
     fn counter(&self) -> Counter {
         Counter::of(Self::func())
     }
 
-    fn outline(
-        &self,
-        vt: &mut Vt,
-        _: Lang,
-        _: Option<Region>,
-    ) -> SourceResult<Option<Content>> {
-        // Check whether the heading is outlined.
+    fn numbering(&self) -> Option<Numbering> {
+        self.numbering(StyleChain::default())
+    }
+}
+
+impl Outlinable for HeadingElem {
+    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
         if !self.outlined(StyleChain::default()) {
             return Ok(None);
         }
 
-        // Build the numbering followed by the title.
-        let mut start = self.body();
+        let mut content = self.body();
         if let Some(numbering) = self.numbering(StyleChain::default()) {
-            let numbers = Counter::of(HeadingElem::func())
+            let numbers = Counter::of(Self::func())
                 .at(vt, self.0.location().unwrap())?
                 .display(vt, &numbering)?;
-            start = numbers + SpaceElem::new().pack() + start;
+            content = numbers + SpaceElem::new().pack() + content;
         };
 
-        Ok(Some(start))
+        Ok(Some(content))
+    }
+
+    fn level(&self) -> NonZeroUsize {
+        self.level(StyleChain::default())
     }
 }
 

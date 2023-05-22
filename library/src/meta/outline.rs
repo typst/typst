@@ -86,8 +86,11 @@ pub struct OutlineElem {
     ///   caption: [Experiment results],
     /// )
     /// ```
-    #[default(Selector::Elem(HeadingElem::func(), Some(dict! { "outlined" => true })))]
-    pub target: Selector,
+    #[default(LocatableSelector(Selector::Elem(
+        HeadingElem::func(),
+        Some(dict! { "outlined" => true })
+    )))]
+    pub target: LocatableSelector,
 
     /// The maximum level up to which elements are included in the outline. When
     /// this argument is `{none}`, all elements are included.
@@ -157,23 +160,21 @@ impl Show for OutlineElem {
         }
 
         let indent = self.indent(styles);
-        let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
-        let lang = TextElem::lang_in(styles);
-        let region = TextElem::region_in(styles);
+        let depth = self.depth(styles).unwrap_or(NonZeroUsize::new(usize::MAX).unwrap());
 
         let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query(&self.target(styles));
+        let elems = vt.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
-            let Some(refable) = elem.with::<dyn Refable>() else {
-                bail!(elem.span(), "outlined elements must be referenceable");
+            let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+                bail!(self.span(), "cannot outline {}", elem.func().name());
             };
 
-            if depth < refable.level() {
+            if depth < outlinable.level() {
                 continue;
             }
 
-            let Some(outline) = refable.outline(vt, lang, region)? else {
+            let Some(outline) = outlinable.outline(vt)? else {
                 continue;
             };
 
@@ -183,8 +184,8 @@ impl Show for OutlineElem {
             // This is only applicable for elements with a hierarchy/level.
             while ancestors
                 .last()
-                .and_then(|ancestor| ancestor.with::<dyn Refable>())
-                .map_or(false, |last| last.level() >= refable.level())
+                .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
+                .map_or(false, |last| last.level() >= outlinable.level())
             {
                 ancestors.pop();
             }
@@ -193,10 +194,10 @@ impl Show for OutlineElem {
             if indent {
                 let mut hidden = Content::empty();
                 for ancestor in &ancestors {
-                    let ancestor_refable = ancestor.with::<dyn Refable>().unwrap();
+                    let ancestor_outlinable = ancestor.with::<dyn Outlinable>().unwrap();
 
-                    if let Some(numbering) = ancestor_refable.numbering() {
-                        let numbers = ancestor_refable
+                    if let Some(numbering) = ancestor_outlinable.numbering() {
+                        let numbers = ancestor_outlinable
                             .counter()
                             .at(vt, ancestor.location().unwrap())?
                             .display(vt, &numbering)?;
@@ -283,5 +284,17 @@ impl LocalName for OutlineElem {
             Lang::VIETNAMESE => "Mục lục",
             Lang::ENGLISH | _ => "Contents",
         }
+    }
+}
+
+/// Marks an element as being able to be outlined. This is used to implement the
+/// `#outline()` element.
+pub trait Outlinable: Refable {
+    /// Produce an outline item for this element.
+    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>>;
+
+    /// Returns the nesting level of this element.
+    fn level(&self) -> NonZeroUsize {
+        NonZeroUsize::ONE
     }
 }
