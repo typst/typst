@@ -7,7 +7,6 @@ use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process;
 
 use atty::Stream;
 use clap::Parser;
@@ -30,102 +29,18 @@ use typst::World;
 use walkdir::WalkDir;
 
 use crate::args::{CliArguments, Command, CompileCommand};
-use crate::trace::init_tracing;
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
-pub fn typst_version() -> &'static str {
-    env!("TYPST_VERSION")
-}
-
-/// A summary of the input arguments relevant to compilation.
-struct CompileSettings {
-    /// The path to the input file.
-    input: PathBuf,
-
-    /// The path to the output file.
-    output: PathBuf,
-
-    /// Whether to watch the input files for changes.
-    watch: bool,
-
-    /// The root directory for absolute paths.
-    root: Option<PathBuf>,
-
-    /// The paths to search for fonts.
-    font_paths: Vec<PathBuf>,
-
-    /// The open command to use.
-    open: Option<Option<String>>,
-}
-
-impl CompileSettings {
-    /// Create a new compile settings from the field values.
-    pub fn new(
-        input: PathBuf,
-        output: Option<PathBuf>,
-        watch: bool,
-        root: Option<PathBuf>,
-        font_paths: Vec<PathBuf>,
-        open: Option<Option<String>>,
-    ) -> Self {
-        let output = match output {
-            Some(path) => path,
-            None => input.with_extension("pdf"),
-        };
-        Self { input, output, watch, root, font_paths, open }
-    }
-
-    /// Create a new compile settings from the CLI arguments and a compile command.
-    ///
-    /// # Panics
-    /// Panics if the command is not a compile or watch command.
-    pub fn with_arguments(args: CliArguments) -> Self {
-        let watch = matches!(args.command, Command::Watch(_));
-        let CompileCommand { input, output, open, .. } = match args.command {
-            Command::Compile(command) => command,
-            Command::Watch(command) => command,
-            _ => unreachable!(),
-        };
-        Self::new(input, output, watch, args.root, args.font_paths, open)
-    }
-}
-
-struct FontsSettings {
-    /// The font paths
-    font_paths: Vec<PathBuf>,
-
-    /// Whether to include font variants
-    variants: bool,
-}
-
-impl FontsSettings {
-    /// Create font settings from the field values.
-    pub fn new(font_paths: Vec<PathBuf>, variants: bool) -> Self {
-        Self { font_paths, variants }
-    }
-
-    /// Create a new font settings from the CLI arguments.
-    ///
-    /// # Panics
-    /// Panics if the command is not a fonts command.
-    pub fn with_arguments(args: CliArguments) -> Self {
-        match args.command {
-            Command::Fonts(command) => Self::new(args.font_paths, command.variants),
-            _ => unreachable!(),
-        }
-    }
-}
-
 /// Entry point.
 fn main() {
     let arguments = CliArguments::parse();
-    let _guard = match init_tracing(&arguments) {
+    let _guard = match crate::trace::init_tracing(&arguments) {
         Ok(guard) => guard,
         Err(err) => {
-            eprintln!("failed to initialize tracing, reason: {}", err);
-            return;
+            eprintln!("failed to initialize tracing {}", err);
+            None
         }
     };
 
@@ -153,6 +68,90 @@ fn print_error(msg: &str) -> io::Result<()> {
     writeln!(w, ": {msg}.")
 }
 
+/// Used by `args.rs`.
+fn typst_version() -> &'static str {
+    env!("TYPST_VERSION")
+}
+
+/// A summary of the input arguments relevant to compilation.
+struct CompileSettings {
+    /// The path to the input file.
+    input: PathBuf,
+
+    /// The path to the output file.
+    output: PathBuf,
+
+    /// Whether to watch the input files for changes.
+    watch: bool,
+
+    /// The root directory for absolute paths.
+    root: Option<PathBuf>,
+
+    /// The paths to search for fonts.
+    font_paths: Vec<PathBuf>,
+
+    /// The open command to use.
+    open: Option<Option<String>>,
+}
+
+impl CompileSettings {
+    /// Create a new compile settings from the field values.
+    fn new(
+        input: PathBuf,
+        output: Option<PathBuf>,
+        watch: bool,
+        root: Option<PathBuf>,
+        font_paths: Vec<PathBuf>,
+        open: Option<Option<String>>,
+    ) -> Self {
+        let output = match output {
+            Some(path) => path,
+            None => input.with_extension("pdf"),
+        };
+        Self { input, output, watch, root, font_paths, open }
+    }
+
+    /// Create a new compile settings from the CLI arguments and a compile command.
+    ///
+    /// # Panics
+    /// Panics if the command is not a compile or watch command.
+    fn with_arguments(args: CliArguments) -> Self {
+        let watch = matches!(args.command, Command::Watch(_));
+        let CompileCommand { input, output, open, .. } = match args.command {
+            Command::Compile(command) => command,
+            Command::Watch(command) => command,
+            _ => unreachable!(),
+        };
+        Self::new(input, output, watch, args.root, args.font_paths, open)
+    }
+}
+
+struct FontsSettings {
+    /// The font paths
+    font_paths: Vec<PathBuf>,
+
+    /// Whether to include font variants
+    variants: bool,
+}
+
+impl FontsSettings {
+    /// Create font settings from the field values.
+    fn new(font_paths: Vec<PathBuf>, variants: bool) -> Self {
+        Self { font_paths, variants }
+    }
+
+    /// Create a new font settings from the CLI arguments.
+    ///
+    /// # Panics
+    /// Panics if the command is not a fonts command.
+    fn with_arguments(args: CliArguments) -> Self {
+        match args.command {
+            Command::Fonts(command) => Self::new(args.font_paths, command.variants),
+            _ => unreachable!(),
+        }
+    }
+}
+
 /// Execute a compilation command.
 fn compile(mut command: CompileSettings) -> StrResult<()> {
     let root = if let Some(root) = &command.root {
@@ -173,10 +172,11 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
     let mut world = SystemWorld::new(root, &command.font_paths);
 
     // Perform initial compilation.
-    let failed = compile_once(&mut world, &command)?;
+    let ok = compile_once(&mut world, &command)?;
 
-    // open the file if requested, this must be done on the first **successful** compilation
-    if !failed {
+    // Open the file if requested, this must be done on the first **successful**
+    // compilation.
+    if ok {
         if let Some(open) = command.open.take() {
             open_file(open.as_deref(), &command.output)?;
         }
@@ -184,8 +184,8 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
 
     if !command.watch {
         // Return with non-zero exit code in case of error.
-        if failed {
-            process::exit(1);
+        if !ok {
+            std::process::exit(1);
         }
 
         return Ok(());
@@ -223,18 +223,23 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
         }
 
         if recompile {
-            compile_once(&mut world, &command)?;
+            let ok = compile_once(&mut world, &command)?;
             comemo::evict(30);
 
-            // open the file if requested, this must be done on the first **successful** compilation
-            if let Some(open) = command.open.take() {
-                open_file(open.as_deref(), &command.output)?;
+            // Ipen the file if requested, this must be done on the first
+            // **successful** compilation
+            if ok {
+                if let Some(open) = command.open.take() {
+                    open_file(open.as_deref(), &command.output)?;
+                }
             }
         }
     }
 }
 
 /// Compile a single time.
+///
+/// Returns whether it compiled without errors.
 #[tracing::instrument(skip_all)]
 fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
     tracing::info!("Starting compilation");
@@ -252,7 +257,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             status(command, Status::Success).unwrap();
 
             tracing::info!("Compilation succeeded");
-            Ok(false)
+            Ok(true)
         }
 
         // Print diagnostics.
@@ -262,7 +267,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
                 .map_err(|_| "failed to print diagnostics")?;
 
             tracing::info!("Compilation failed");
-            Ok(true)
+            Ok(false)
         }
     }
 }
