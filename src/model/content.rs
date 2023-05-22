@@ -177,7 +177,7 @@ impl Content {
     pub fn field(&self, name: &str) -> Option<Value> {
         if let (Some(iter), "children") = (self.to_sequence(), name) {
             Some(Value::Array(iter.cloned().map(Value::Content).collect()))
-        } else if let (Some((child, _)), "child") = (self.to_styled(), "child") {
+        } else if let (Some((child, _)), "child") = (self.to_styled(), name) {
             Some(Value::Content(child.clone()))
         } else {
             self.field_ref(name).cloned()
