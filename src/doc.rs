@@ -263,12 +263,18 @@ impl Frame {
 
     /// Attach metadata from an iterator.
     pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
+        let mut hide = false;
         for meta in iter {
             if matches!(meta, Meta::Hide) {
-                self.clear();
-                break;
+                hide = true;
+            } else {
+                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
             }
-            self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
+        }
+        if hide {
+            Arc::make_mut(&mut self.items).retain(|(_, item)| {
+                matches!(item, FrameItem::Group(_) | FrameItem::Meta(Meta::Elem(_), _))
+            });
         }
     }
 
