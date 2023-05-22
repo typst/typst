@@ -36,7 +36,7 @@ use crate::prelude::*;
 ///
 /// Display: Raw Text / Code
 /// Category: text
-#[element(Synthesize, Show, Finalize, LocalName, Figurable)]
+#[element(Synthesize, Show, Finalize, LocalName, Figurable, PlainText)]
 pub struct RawElem {
     /// The raw text.
     ///
@@ -245,6 +245,12 @@ impl LocalName for RawElem {
 }
 
 impl Figurable for RawElem {}
+
+impl PlainText for RawElem {
+    fn plain_text(&self, text: &mut EcoString) {
+        text.push_str(&self.text());
+    }
+}
 
 /// Highlight a syntax node in a theme by calling `f` with ranges and their
 /// styles.
