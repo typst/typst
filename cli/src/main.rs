@@ -71,7 +71,7 @@ fn set_failed() {
 
 /// Print an application-level error (independent from a source file).
 fn print_error(msg: &str) -> io::Result<()> {
-    let mut w = StandardStream::stderr(ColorChoice::Auto);
+    let mut w = color_stream();
     let styles = term::Styles::default();
 
     w.set_color(&styles.header_error)?;
@@ -296,8 +296,9 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let message = status.message();
     let color = status.color();
 
-    let mut w = StandardStream::stderr(ColorChoice::Auto);
+    let mut w = color_stream();
     if atty::is(Stream::Stderr) {
+        // Clear the terminal.
         write!(w, "{esc}c{esc}[1;1H")?;
     }
 
@@ -316,6 +317,15 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     writeln!(w)?;
 
     w.flush()
+}
+
+/// Get stderr with color support if desirable.
+fn color_stream() -> termcolor::StandardStream {
+    termcolor::StandardStream::stderr(if atty::is(Stream::Stderr) {
+        ColorChoice::Auto
+    } else {
+        ColorChoice::Never
+    })
 }
 
 /// The status in which the watcher can be.
