@@ -30,7 +30,14 @@ $ b + cancel(x, length: #150%) - cancel(a + b + c, length: #50%, stroke: #{blue 
 
 ---
 // Rotated
-$x + cancel(y, rotation: #45deg) - cancel(z, rotation: #135deg) + cancel(alpha, rotation: #0deg)$
+$
+cancel(o) + cancel(o, rotation: #0deg) + cancel(o, rotation: #90deg),
+cancel(o, rotation: #30deg) + cancel(o, rotation: #750deg) + cancel(o, rotation: #(-690deg)) \
+cancel(o, rotation: #30deg) + cancel(o, rotation: #210deg) + cancel(o, rotation: #(-150deg)),
+cancel(o, rotation: #60deg) + cancel(o, rotation: #240deg) + cancel(o, rotation: #(-120deg)) \
+cancel(o, rotation: #150deg) + cancel(o, rotation: #330deg) + cancel(o, rotation: #(-30deg)),
+cancel(o, rotation: #120deg) + cancel(o, rotation: #300deg) + cancel(o, rotation: #(-60deg))
+$
 $ e + cancel((j + e)/(f + e))
   + cancel((j + e)/(f + e), rotation: #30deg)
   + cancel((j + e)/(f + e), rotation: #30deg, inverted: #true) $

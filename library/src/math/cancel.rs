@@ -1,5 +1,26 @@
 use super::*;
 
+pub enum Rotation {
+    /// A string a match is replaced with.
+    Angle(Angle),
+    /// Function of type Dict -> Str (see `captures_to_dict` or `match_to_dict`)
+    /// whose output is inserted for the match.
+    Func(Func),
+}
+
+cast_from_value! {
+    Rotation,
+    v: Angle => Self::Angle(v),
+    v: Func => Self::Func(v),
+}
+
+cast_to_value! {
+    v: Rotation => match v {
+        Rotation::Angle(v) => v.into(),
+        Rotation::Func(v) => v.into(),
+    }
+}
+
 /// Displays a diagonal line over a part of an equation.
 ///
 /// This is commonly used to show the eliminiation of a term.
@@ -53,15 +74,22 @@ pub struct CancelElem {
     #[default(false)]
     pub cross: bool,
 
-    /// Rotate the cancel line by a certain angle counter-clockwise relative to the
-    /// horizontal line. If missing, the angle is from the content's bottom left to top
-    /// right.
+    /// Rotate the cancel line counterclockwise relative to the horizontal axis.
+    /// - If given an angle, the line is rotated by that angle.
+    /// - It given a function `#(angle) => angle`, the line is rotated by the
+    /// angle returned by that function.
+    /// - If absent, the line assumes the default angle; that is, along the diagonal
+    /// line of the content box.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
-    /// $ cancel(Pi, rotation: #30deg) cancel(a, rotation: #0deg) $
+    /// $
+    /// cancel(Pi, rotation: #30deg)
+    /// cancel(a, rotation: #0deg)
+    /// cancel(1/(1+x), rotation: #(angle) => { angle + 30deg })
+    /// $
     /// ```
-    pub rotation: Option<Angle>,
+    pub rotation: Option<Rotation>,
 
     /// How to stroke the cancel line. See the
     /// [line's documentation]($func/line.stroke) for more details.
@@ -106,14 +134,14 @@ impl LayoutMath for CancelElem {
 
         let invert = self.inverted(styles);
         let cross = self.cross(styles);
-        let angle = self.rotation(styles);
+        let rotation = self.rotation(styles);
 
         let invert_first_line = !cross && invert;
         let first_line = draw_cancel_line(
             length,
             stroke.clone(),
             invert_first_line,
-            angle,
+            &rotation,
             body_size,
             span,
         );
@@ -125,7 +153,7 @@ impl LayoutMath for CancelElem {
         if cross {
             // Draw the second line.
             let second_line =
-                draw_cancel_line(length, stroke, true, angle, body_size, span);
+                draw_cancel_line(length, stroke, true, &rotation, body_size, span);
 
             body.push_frame(center, second_line);
         }
@@ -141,61 +169,49 @@ fn draw_cancel_line(
     length: Rel<Abs>,
     stroke: Stroke,
     invert: bool,
-    angle: Option<Angle>,
+    rotation: &Option<Rotation>,
     body_size: Size,
     span: Span,
 ) -> Frame {
-    //            B
-    //           /|
-    // diagonal / | height
-    //         /  |
-    //        /   |
-    //       O ----
-    //         width
-    let diagonal = body_size.to_point().hypot();
-    let length = length.relative_to(diagonal);
     let (width, height) = (body_size.x, body_size.y);
     let mid = body_size / 2.0;
 
-    // Scale the amount needed such that the cancel line has the given 'length'
-    // (reference length, or 100%, is the whole diagonal).
-    // Scales from the center.
-    let scale = length.to_raw() / diagonal.to_raw();
-
-    let mut frame = Frame::new(body_size);
-    if let Some(angle) = angle {
-        let scales = Axes::new(scale, scale);
-        let start = Axes::with_x(-mid.x).zip(scales).map(|(l, s)| l * s);
-        let delta = Axes::with_x(width).zip(scales).map(|(l, s)| l * s);
-        draw_cancel_line_impl(&mut frame, start, delta, stroke, span);
-
-        // Having the middle of the line at the origin is convenient here. Note
-        // Transform::rotate() rotates clockwise.
-        frame.transform(Transform::rotate(if invert { angle } else { -angle }));
-    } else {
-        let scales = Axes::new(scale * if invert { -1.0 } else { 1.0 }, scale);
-        // Draw a line from bottom left to top right of the given element, where the
-        // origin represents the very middle of that element, that is, a line from
-        // (-width / 2, height / 2) with length components (width, -height) (sign is
-        // inverted in the y-axis). After applying the scale, the line will have the
-        // correct length and orientation (inverted if needed).
-        let start = Axes::new(-mid.x, mid.y).zip(scales).map(|(l, s)| l * s);
-        let delta = Axes::new(width, -height).zip(scales).map(|(l, s)| l * s);
-        draw_cancel_line_impl(&mut frame, start, delta, stroke, span);
+    // The default angle is the diagonal's angle.
+    let mut angle = Angle::rad(f64::atan(height.to_raw() / width.to_raw()));
+    if let Some(rotation) = rotation {
+        angle = match rotation {
+            Rotation::Angle(v) => *v,
+            Rotation::Func(_) => {
+                Angle::deg(0.0)
+                // let args =
+                //     Args::new(func.span(), [Value::Angle(angle)]);
+                // func.call_vm(vm, args)?  There's no VM passed in
+            }
+        }
     }
 
-    frame
-}
+    // Unless intentionally scaled up or down, the line shall end on the content box's
+    // boundary. Specifically, if the angle is the diagonal's angle, the line shall end
+    // at the content box's opposite corners. We calculate the line's initial length
+    // based on this principle.
+    let mut half_len = mid.x.safe_div(angle.cos()).abs();
+    if half_len > mid.to_point().hypot() || half_len == Abs::zero() {
+        half_len = mid.y.safe_div(angle.sin()).abs();
+    }
 
-fn draw_cancel_line_impl(
-    frame: &mut Frame,
-    start: Axes<Abs>,
-    delta: Axes<Abs>,
-    stroke: Stroke,
-    span: Span,
-) {
+    let mut frame = Frame::new(body_size);
+    // Draw a horizontal line, then rotate the line.
+    let scale_factor =
+        length.relative_to(half_len * 2.0).to_raw() / (half_len.to_raw() * 2.0);
+    let start = Axes::with_x(-half_len * scale_factor);
+    let delta = Axes::with_x(half_len * 2.0 * scale_factor);
     frame.push(
         start.to_point(),
         FrameItem::Shape(Geometry::Line(delta.to_point()).stroked(stroke), span),
     );
+    // Having the middle of the line at the origin is convenient here. Note
+    // Transform::rotate() rotates clockwise.
+    frame.transform(Transform::rotate(if invert { angle } else { -angle }));
+
+    frame
 }
