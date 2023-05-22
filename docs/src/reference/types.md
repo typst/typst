@@ -219,7 +219,8 @@ Typst provides utility methods for string manipulation. Many of these methods
 either a string or a [regular expression]($func/regex). This makes the methods
 quite versatile.
 
-All lengths and indices are expressed in terms of UTF-8 bytes.
+All lengths and indices are expressed in terms of UTF-8 characters. Indices are
+zero-based and negative indices wrap around to the end of the string.
 
 ### Example
 ```example
@@ -830,6 +831,12 @@ Some functions are associated with _elements_ like [headings]($func/heading) or
 kind. In contrast to normal functions, they can further be used in
 [set rules]($styling/#set-rules), [show rules]($styling/#show-rules), and
 [selectors]($type/selector).
+
+### Function scopes { #function-scopes }
+Functions can hold related definitions in their own scope, similar to a
+[module]($scripting/#modules). Examples of this are
+[`assert.eq`]($func/assert.eq) or [`list.item`]($func/list.item). However, this
+feature is currently only available for built-in functions.
 
 ### Defining functions { #definitions }
 You can define your own function with a

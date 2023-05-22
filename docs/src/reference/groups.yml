@@ -1,5 +1,5 @@
 - name: variants
-  title: Variants
+  display: Variants
   functions: ["serif", "sans", "frak", "mono", "bb", "cal"]
   description: |
     Alternate typefaces within formulas.
@@ -8,7 +8,7 @@
     math fonts contain multiple variants of each letter.
 
 - name: styles
-  title: Styles
+  display: Styles
   functions: ["upright", "italic", "bold"]
   description: |
     Alternate letterforms within formulas.
@@ -17,7 +17,7 @@
     math fonts contain multiple variants of each letter.
 
 - name: underover
-  title: Under/Over
+  display: Under/Over
   functions: [
     "underline",
     "overline",
@@ -33,12 +33,12 @@
     below or above themselves.
 
 - name: roots
-  title: Roots
+  display: Roots
   functions: ["root", "sqrt"]
   description: Square and non-square roots.
 
 - name: attach
-  title: Attach
+  display: Attach
   functions: ["attach", "scripts", "limits"]
   description: |
     Subscript, superscripts, and limits.
@@ -50,7 +50,7 @@
     the `scripts` and `limits` functions.
 
 - name: lr
-  title: Left/Right
+  display: Left/Right
   functions: ["lr", "abs", "norm", "floor", "ceil"]
   description: |
     Delimiter matching.

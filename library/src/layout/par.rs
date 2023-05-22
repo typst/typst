@@ -18,10 +18,13 @@ use crate::text::{
 /// properties, it can also be used to explicitly render its argument onto a
 /// paragraph of its own.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
-/// #set par(first-line-indent: 1em, justify: true)
 /// #show par: set block(spacing: 0.65em)
+/// #set par(
+///   first-line-indent: 1em,
+///   justify: true,
+/// )
 ///
 /// We proceed by contradiction.
 /// Suppose that there exists a set
@@ -40,8 +43,6 @@ use crate::text::{
 #[element(Construct)]
 pub struct ParElem {
     /// The spacing between lines.
-    ///
-    /// The default value is `{0.65em}`.
     #[resolve]
     #[default(Em::new(0.65).into())]
     pub leading: Length,
@@ -102,6 +103,7 @@ pub struct ParElem {
 
     /// The contents of the paragraph.
     #[external]
+    #[required]
     pub body: Content,
 
     /// The paragraph's children.
@@ -203,7 +205,7 @@ pub enum Linebreaks {
 /// [for loops]($scripting/#loops). Multiple consecutive
 /// paragraph breaks collapse into a single one.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #for i in range(3) {
 ///   [Blind text #i: ]
@@ -212,7 +214,7 @@ pub enum Linebreaks {
 /// }
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// Instead of calling this function, you can insert a blank line into your
 /// markup to create a paragraph break.
 ///
@@ -567,6 +569,10 @@ fn collect<'a>(
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to::<HElem>() {
+            if elem.amount().is_zero() {
+                continue;
+            }
+
             full.push(SPACING_REPLACE);
             Segment::Spacing(elem.amount())
         } else if let Some(elem) = child.to::<LinebreakElem>() {
@@ -1473,9 +1479,8 @@ fn overhang(c: char) -> f64 {
         '.' | ',' => 0.8,
         ':' | ';' => 0.3,
 
-        // Arabic and Ideographic
+        // Arabic
         '\u{60C}' | '\u{6D4}' => 0.4,
-        '\u{3001}' | '\u{3002}' => 1.0,
 
         _ => 0.0,
     }

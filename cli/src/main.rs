@@ -1,14 +1,15 @@
 mod args;
 mod trace;
 
-use std::cell::{RefCell, RefMut};
+use std::cell::{Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
-use std::process;
+use std::process::ExitCode;
 
+use atty::Stream;
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
@@ -29,12 +30,59 @@ use typst::World;
 use walkdir::WalkDir;
 
 use crate::args::{CliArguments, Command, CompileCommand, DiagnosticFormat};
-use crate::trace::init_tracing;
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
-pub fn typst_version() -> &'static str {
+thread_local! {
+    static EXIT: Cell<ExitCode> = Cell::new(ExitCode::SUCCESS);
+}
+
+/// Entry point.
+fn main() -> ExitCode {
+    let arguments = CliArguments::parse();
+    let _guard = match crate::trace::init_tracing(&arguments) {
+        Ok(guard) => guard,
+        Err(err) => {
+            eprintln!("failed to initialize tracing {}", err);
+            None
+        }
+    };
+
+    let res = match &arguments.command {
+        Command::Compile(_) | Command::Watch(_) => {
+            compile(CompileSettings::with_arguments(arguments))
+        }
+        Command::Fonts(_) => fonts(FontsSettings::with_arguments(arguments)),
+    };
+
+    if let Err(msg) = res {
+        set_failed();
+        print_error(&msg).expect("failed to print error");
+    }
+
+    EXIT.with(|cell| cell.get())
+}
+
+/// Ensure a failure exit code.
+fn set_failed() {
+    EXIT.with(|cell| cell.set(ExitCode::FAILURE));
+}
+
+/// Print an application-level error (independent from a source file).
+fn print_error(msg: &str) -> io::Result<()> {
+    let mut w = color_stream();
+    let styles = term::Styles::default();
+
+    w.set_color(&styles.header_error)?;
+    write!(w, "error")?;
+
+    w.reset()?;
+    writeln!(w, ": {msg}.")
+}
+
+/// Used by `args.rs`.
+fn typst_version() -> &'static str {
     env!("TYPST_VERSION")
 }
 
@@ -64,7 +112,7 @@ struct CompileSettings {
 
 impl CompileSettings {
     /// Create a new compile settings from the field values.
-    pub fn new(
+    fn new(
         input: PathBuf,
         output: Option<PathBuf>,
         watch: bool,
@@ -92,7 +140,7 @@ impl CompileSettings {
     ///
     /// # Panics
     /// Panics if the command is not a compile or watch command.
-    pub fn with_arguments(args: CliArguments) -> Self {
+    fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
         let CompileCommand { input, output, open, .. } = match args.command {
             Command::Compile(command) => command,
@@ -121,7 +169,7 @@ struct FontsSettings {
 
 impl FontsSettings {
     /// Create font settings from the field values.
-    pub fn new(font_paths: Vec<PathBuf>, variants: bool) -> Self {
+    fn new(font_paths: Vec<PathBuf>, variants: bool) -> Self {
         Self { font_paths, variants }
     }
 
@@ -129,47 +177,12 @@ impl FontsSettings {
     ///
     /// # Panics
     /// Panics if the command is not a fonts command.
-    pub fn with_arguments(args: CliArguments) -> Self {
+    fn with_arguments(args: CliArguments) -> Self {
         match args.command {
             Command::Fonts(command) => Self::new(args.font_paths, command.variants),
             _ => unreachable!(),
         }
     }
-}
-
-/// Entry point.
-fn main() {
-    let arguments = CliArguments::parse();
-    let _guard = match init_tracing(&arguments) {
-        Ok(guard) => guard,
-        Err(err) => {
-            eprintln!("failed to initialize tracing, reason: {}", err);
-            return;
-        }
-    };
-
-    let res = match &arguments.command {
-        Command::Compile(_) | Command::Watch(_) => {
-            compile(CompileSettings::with_arguments(arguments))
-        }
-        Command::Fonts(_) => fonts(FontsSettings::with_arguments(arguments)),
-    };
-
-    if let Err(msg) = res {
-        print_error(&msg).expect("failed to print error");
-    }
-}
-
-/// Print an application-level error (independent from a source file).
-fn print_error(msg: &str) -> io::Result<()> {
-    let mut w = StandardStream::stderr(ColorChoice::Auto);
-    let styles = term::Styles::default();
-
-    w.set_color(&styles.header_error)?;
-    write!(w, "error")?;
-
-    w.reset()?;
-    writeln!(w, ": {msg}.")
 }
 
 /// Execute a compilation command.
@@ -192,21 +205,17 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
     let mut world = SystemWorld::new(root, &command.font_paths);
 
     // Perform initial compilation.
-    let failed = compile_once(&mut world, &command)?;
+    let ok = compile_once(&mut world, &command)?;
 
-    // open the file if requested, this must be done on the first **successful** compilation
-    if !failed {
+    // Open the file if requested, this must be done on the first **successful**
+    // compilation.
+    if ok {
         if let Some(open) = command.open.take() {
             open_file(open.as_deref(), &command.output)?;
         }
     }
 
     if !command.watch {
-        // Return with non-zero exit code in case of error.
-        if failed {
-            process::exit(1);
-        }
-
         return Ok(());
     }
 
@@ -242,18 +251,23 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
         }
 
         if recompile {
-            compile_once(&mut world, &command)?;
+            let ok = compile_once(&mut world, &command)?;
             comemo::evict(30);
 
-            // open the file if requested, this must be done on the first **successful** compilation
-            if let Some(open) = command.open.take() {
-                open_file(open.as_deref(), &command.output)?;
+            // Ipen the file if requested, this must be done on the first
+            // **successful** compilation
+            if ok {
+                if let Some(open) = command.open.take() {
+                    open_file(open.as_deref(), &command.output)?;
+                }
             }
         }
     }
 }
 
 /// Compile a single time.
+///
+/// Returns whether it compiled without errors.
 #[tracing::instrument(skip_all)]
 fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
     tracing::info!("Starting compilation");
@@ -271,17 +285,18 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             status(command, Status::Success).unwrap();
 
             tracing::info!("Compilation succeeded");
-            Ok(false)
+            Ok(true)
         }
 
         // Print diagnostics.
         Err(errors) => {
+            set_failed();
             status(command, Status::Error).unwrap();
             print_diagnostics(world, *errors, command.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
 
             tracing::info!("Compilation failed");
-            Ok(true)
+            Ok(false)
         }
     }
 }
@@ -301,8 +316,11 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let message = status.message();
     let color = status.color();
 
-    let mut w = StandardStream::stderr(ColorChoice::Auto);
-    write!(w, "{esc}c{esc}[1;1H")?;
+    let mut w = color_stream();
+    if atty::is(Stream::Stderr) {
+        // Clear the terminal.
+        write!(w, "{esc}c{esc}[1;1H")?;
+    }
 
     w.set_color(&color)?;
     write!(w, "watching")?;
@@ -319,6 +337,15 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     writeln!(w)?;
 
     w.flush()
+}
+
+/// Get stderr with color support if desirable.
+fn color_stream() -> termcolor::StandardStream {
+    termcolor::StandardStream::stderr(if atty::is(Stream::Stderr) {
+        ColorChoice::Auto
+    } else {
+        ColorChoice::Never
+    })
 }
 
 /// The status in which the watcher can be.

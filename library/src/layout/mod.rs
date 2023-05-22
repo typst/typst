@@ -57,9 +57,38 @@ use crate::meta::DocumentElem;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
-use crate::visualize::PathElem;
-use crate::visualize::PolygonElem;
-use crate::visualize::{CircleElem, EllipseElem, ImageElem, RectElem, SquareElem};
+use crate::visualize::{
+    CircleElem, EllipseElem, ImageElem, PathElem, PolygonElem, RectElem, SquareElem,
+};
+
+/// Hook up all layout definitions.
+pub(super) fn define(global: &mut Scope) {
+    global.define("page", PageElem::func());
+    global.define("pagebreak", PagebreakElem::func());
+    global.define("v", VElem::func());
+    global.define("par", ParElem::func());
+    global.define("parbreak", ParbreakElem::func());
+    global.define("h", HElem::func());
+    global.define("box", BoxElem::func());
+    global.define("block", BlockElem::func());
+    global.define("list", ListElem::func());
+    global.define("enum", EnumElem::func());
+    global.define("terms", TermsElem::func());
+    global.define("table", TableElem::func());
+    global.define("stack", StackElem::func());
+    global.define("grid", GridElem::func());
+    global.define("columns", ColumnsElem::func());
+    global.define("colbreak", ColbreakElem::func());
+    global.define("place", PlaceElem::func());
+    global.define("align", AlignElem::func());
+    global.define("pad", PadElem::func());
+    global.define("repeat", RepeatElem::func());
+    global.define("move", MoveElem::func());
+    global.define("scale", ScaleElem::func());
+    global.define("rotate", RotateElem::func());
+    global.define("hide", HideElem::func());
+    global.define("measure", measure);
+}
 
 /// Root-level layout.
 pub trait LayoutRoot {

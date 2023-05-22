@@ -61,6 +61,12 @@
 #test(dict, (a: 3, b: 1))
 
 ---
+// Test that removal keeps order.
+#let dict = (a: 1, b: 2, c: 3, d: 4)
+#dict.remove("b")
+#test(dict.keys(), ("a", "c", "d"))
+
+---
 // Error: 24-29 duplicate key: first
 #(first: 1, second: 2, first: 3)
 

@@ -14,7 +14,7 @@ use crate::prelude::*;
 /// Displays the text verbatim and in a monospace font. This is typically used
 /// to embed computer code into your document.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ````example
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
@@ -26,7 +26,7 @@ use crate::prelude::*;
 /// ```
 /// ````
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
 /// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
 /// When you use three or more backticks, you can additionally specify a
@@ -36,7 +36,7 @@ use crate::prelude::*;
 ///
 /// Display: Raw Text / Code
 /// Category: text
-#[element(Synthesize, Show, Finalize, LocalName, Figurable)]
+#[element(Synthesize, Show, Finalize, LocalName, Figurable, PlainText)]
 pub struct RawElem {
     /// The raw text.
     ///
@@ -244,9 +244,11 @@ impl LocalName for RawElem {
     }
 }
 
-impl Figurable for RawElem {
-    fn priority(&self, _styles: StyleChain) -> isize {
-        500
+impl Figurable for RawElem {}
+
+impl PlainText for RawElem {
+    fn plain_text(&self, text: &mut EcoString) {
+        text.push_str(&self.text());
     }
 }
 

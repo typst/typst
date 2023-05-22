@@ -7,23 +7,6 @@ use clap::{CommandFactory, ValueEnum};
 use clap_complete::{generate_to, Shell};
 use clap_mangen::Man;
 
-pub fn typst_version() -> String {
-    if let Some(version) = option_env!("TYPST_VERSION") {
-        return version.to_owned();
-    }
-
-    let pkg = env!("CARGO_PKG_VERSION");
-    let hash = Command::new("git")
-        .args(["rev-parse", "HEAD"])
-        .output()
-        .ok()
-        .filter(|output| output.status.success())
-        .and_then(|output| String::from_utf8(output.stdout.get(..8)?.into()).ok())
-        .unwrap_or_else(|| "unknown hash".into());
-
-    format!("{pkg} ({hash})")
-}
-
 #[path = "src/args.rs"]
 #[allow(dead_code)]
 mod args;
@@ -56,4 +39,22 @@ fn main() {
             generate_to(*shell, cmd, "typst", out).unwrap();
         }
     }
+}
+
+/// Also used by `args.rs`.
+fn typst_version() -> String {
+    if let Some(version) = option_env!("TYPST_VERSION") {
+        return version.to_owned();
+    }
+
+    let pkg = env!("CARGO_PKG_VERSION");
+    let hash = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout.get(..8)?.into()).ok())
+        .unwrap_or_else(|| "unknown hash".into());
+
+    format!("{pkg} ({hash})")
 }

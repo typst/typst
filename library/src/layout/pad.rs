@@ -6,7 +6,7 @@ use crate::prelude::*;
 /// for each side individually, or for all sides at once by specifying a
 /// positional argument.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set align(center)
 ///

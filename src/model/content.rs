@@ -177,7 +177,7 @@ impl Content {
     pub fn field(&self, name: &str) -> Option<Value> {
         if let (Some(iter), "children") = (self.to_sequence(), name) {
             Some(Value::Array(iter.cloned().map(Value::Content).collect()))
-        } else if let (Some((child, _)), "child") = (self.to_styled(), "child") {
+        } else if let (Some((child, _)), "child") = (self.to_styled(), name) {
             Some(Value::Content(child.clone()))
         } else {
             self.field_ref(name).cloned()
@@ -371,6 +371,21 @@ impl Content {
             }
         });
         results
+    }
+
+    /// Queries the content tree for the first element that match the given
+    /// selector.
+    ///
+    /// Elements produced in `show` rules will not be included in the results.
+    #[tracing::instrument(skip_all)]
+    pub fn query_first(&self, selector: Selector) -> Option<&Content> {
+        let mut result = None;
+        self.traverse(&mut |element| {
+            if result.is_none() && selector.matches(element) {
+                result = Some(element);
+            }
+        });
+        result
     }
 
     /// Extracts the plain text of this content.

@@ -463,6 +463,12 @@ impl Cast for LocatableSelector {
     }
 }
 
+impl From<LocatableSelector> for Value {
+    fn from(value: LocatableSelector) -> Self {
+        value.0.into()
+    }
+}
+
 /// A selector that can be used with show rules.
 ///
 /// Hopefully, this is made obsolete by a more powerful showing mechanism in the
@@ -472,8 +478,10 @@ pub struct ShowableSelector(pub Selector);
 
 impl Cast for ShowableSelector {
     fn is(value: &Value) -> bool {
-        matches!(value, Value::Str(_) | Value::Label(_) | Value::Func(_))
-            || value.type_name() == "regular expression"
+        matches!(
+            value,
+            Value::Symbol(_) | Value::Str(_) | Value::Label(_) | Value::Func(_)
+        ) || value.type_name() == "regular expression"
             || value.type_name() == "selector"
     }
 
@@ -510,8 +518,15 @@ impl Cast for ShowableSelector {
             CastInfo::Type("label"),
             CastInfo::Type("string"),
             CastInfo::Type("regular expression"),
+            CastInfo::Type("symbol"),
             CastInfo::Type("selector"),
         ])
+    }
+}
+
+impl From<ShowableSelector> for Value {
+    fn from(value: ShowableSelector) -> Self {
+        value.0.into()
     }
 }
 

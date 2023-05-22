@@ -3,6 +3,7 @@ on: [push, pull_request]
 
 env:
   RUSTFLAGS: "-Dwarnings"
+  RUSTDOCFLAGS: "-Dwarnings"
 
 jobs:
   tests:
@@ -16,14 +17,15 @@ jobs:
       - run: cargo test --workspace --no-fail-fast
 
   checks:
-    name: Check formatting and clippy
+    name: Check clippy, formatting, and documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --check --all
       - run: cargo clippy --workspace --all-targets
+      - run: cargo fmt --check --all
+      - run: cargo doc --workspace --no-deps
 
   min-version:
     name: Check mininum Rust version

@@ -13,7 +13,7 @@ We can clearly see that @fig-cylinder and
 ) <tab-basic>
 
 #figure(
-  pad(y: -11pt, image("/cylinder.svg", height: 3cm)),
+  pad(y: -6pt, image("/cylinder.svg", height: 2cm)),
   caption: [The basic shapes.],
   numbering: "I",
 ) <fig-cylinder>
@@ -25,20 +25,12 @@ We can clearly see that @fig-cylinder and
 
 ---
 
-// Testing figures with and without caption
-#figure(
-  table(
-    columns: 2,
-    [First cylinder],
-    image("/cylinder.svg", height: 3cm),
-  )
-) <fig-image-in-table-no-caption>
-
+// Testing figures with tables.
 #figure(
   table(
     columns: 2,
     [Second cylinder],
-    image("/cylinder.svg", height: 3cm),
+    image("/cylinder.svg"),
   ),
   caption: "A table containing images."
 ) <fig-image-in-table>
@@ -76,6 +68,7 @@ We can clearly see that @fig-cylinder and
   )
 }
 
+#set page(width: 150pt)
 #figure(
   $a^2 + b^2 = c^2$,
   supplement: "Theorem",
@@ -93,12 +86,17 @@ We can clearly see that @fig-cylinder and
 ) <fig-formula>
 
 #figure(
-  caption: [Hello world in #emph[rust].],
-)[
-  #show raw: set align(left)
   ```rust
   fn main() {
-    println!("Hello, world!");
+    println!("Hello!");
   }
-  ```
-]
+  ```,
+  caption: [Hello world in _rust_],
+)
+
+---
+// Test breakable figures
+#set page(height: 6em)
+#show figure: set block(breakable: true)
+
+#figure(table[a][b][c][d][e], caption: [A table])

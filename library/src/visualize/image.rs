@@ -11,7 +11,11 @@ use crate::text::families;
 ///
 /// Supported formats are PNG, JPEG, GIF and SVG.
 ///
-/// ## Example
+/// _Note:_ Work on SVG export is ongoing and there might be visual inaccuracies
+/// in the resulting PDF. Make sure to double-check embedded SVG images. If you
+/// have an issue, also feel free to report it on [GitHub][gh-svg].
+///
+/// ## Example { #example }
 /// ```example
 /// #figure(
 ///   image("molecular.jpg", width: 80%),
@@ -21,6 +25,8 @@ use crate::text::families;
 ///   ],
 /// )
 /// ```
+///
+/// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
 ///
 /// Display: Image
 /// Category: visualize
@@ -144,11 +150,7 @@ impl LocalName for ImageElem {
     }
 }
 
-impl Figurable for ImageElem {
-    fn priority(&self, _styles: StyleChain) -> isize {
-        1000
-    }
-}
+impl Figurable for ImageElem {}
 
 /// How an image should adjust itself to a given area.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]

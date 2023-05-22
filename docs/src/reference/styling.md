@@ -17,7 +17,7 @@ as a [function call]($type/function) to an
 keyword (or `[#set]` in markup). Only optional parameters of that function can
 be provided to the set rule. Refer to each function's documentation to see which
 parameters are optional. In the example below, we use two set rules to change
-the [font family]($func/text.family) and
+the [font family]($func/text.font) and
 [heading numbering]($func/heading.numbering).
 
 ```example

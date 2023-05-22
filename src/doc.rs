@@ -263,12 +263,18 @@ impl Frame {
 
     /// Attach metadata from an iterator.
     pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
+        let mut hide = false;
         for meta in iter {
             if matches!(meta, Meta::Hide) {
-                self.clear();
-                break;
+                hide = true;
+            } else {
+                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
             }
-            self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
+        }
+        if hide {
+            Arc::make_mut(&mut self.items).retain(|(_, item)| {
+                matches!(item, FrameItem::Group(_) | FrameItem::Meta(Meta::Elem(_), _))
+            });
         }
     }
 
@@ -608,7 +614,7 @@ cast_to_value! {
 }
 
 /// Meta information that isn't visible or renderable.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum Meta {
     /// An internal or external link to a destination.
     Link(Destination),
@@ -621,6 +627,17 @@ pub enum Meta {
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
     Hide,
+}
+
+impl Debug for Meta {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Link(dest) => write!(f, "Link({dest:?})"),
+            Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
+            Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
+            Self::Hide => f.pad("Hide"),
+        }
+    }
 }
 
 cast_from_value! {

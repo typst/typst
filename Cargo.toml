@@ -1,23 +1,9 @@
-[package]
-name = "typst"
-version = "0.3.0"
-rust-version = "1.65"
-authors = ["The Typst Project Developers"]
-edition = "2021"
-description = "A new markup-based typesetting system that is powerful and easy to learn."
-homepage = "https://typst.app"
-repository = "https://github.com/typst/typst"
-readme = "README.md"
-license = "Apache-2.0"
-categories = ["compilers", "science"]
-keywords = ["markup", "typesetting"]
-
 [workspace]
 members = ["cli", "docs", "library", "macros", "tests"]
 default-members = ["cli"]
 
 [workspace.package]
-version = "0.3.0"
+version = "0.4.0"
 rust-version = "1.65"
 authors = ["The Typst Project Developers"]
 edition = "2021"
@@ -25,8 +11,19 @@ homepage = "https://typst.app"
 repository = "https://github.com/typst/typst"
 readme = "README.md"
 license = "Apache-2.0"
+
+[package]
+name = "typst"
+description = "A new markup-based typesetting system that is powerful and easy to learn."
 categories = ["compilers", "science"]
-keywords = ["typst"]
+keywords = ["markup", "typesetting"]
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+license.workspace = true
 
 [lib]
 doctest = false
@@ -36,7 +33,7 @@ bench = false
 typst-macros = { path = "macros" }
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
-comemo = { git = "https://github.com/typst/comemo" }
+comemo = "0.3"
 ecow = "0.1"
 flate2 = "1"
 fontdb = "0.13"
@@ -60,9 +57,9 @@ tiny-skia = "0.9.0"
 tracing = "0.1.37"
 ttf-parser = "0.18.1"
 unicode-general-category = "0.6"
+unicode-ident = "1.0"
 unicode-math-class = "0.1"
 unicode-segmentation = "1"
-unicode-xid = "0.2"
 unscanny = "0.1"
 usvg = { version = "0.32", default-features = false, features = ["text"] }
 xmp-writer = "0.1"

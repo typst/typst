@@ -80,12 +80,6 @@ impl From<Em> for Length {
     }
 }
 
-impl From<Abs> for Rel<Length> {
-    fn from(abs: Abs) -> Self {
-        Rel::from(Length::from(abs))
-    }
-}
-
 impl Neg for Length {
     type Output = Self;
 
