@@ -28,7 +28,7 @@ use typst::util::{Buffer, PathExt};
 use typst::World;
 use walkdir::WalkDir;
 
-use crate::args::{CliArguments, Command, CompileCommand};
+use crate::args::{CliArguments, Command, CompileCommand, DiagnosticFormat};
 use crate::trace::init_tracing;
 
 type CodespanResult<T> = Result<T, CodespanError>;
@@ -59,7 +59,7 @@ struct CompileSettings {
     open: Option<Option<String>>,
 
     /// Whether to emit diagnostics in a unix-style short form
-    message_format_short: bool,
+    diagnostic_format: DiagnosticFormat,
 }
 
 impl CompileSettings {
@@ -71,7 +71,7 @@ impl CompileSettings {
         root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
-        message_format_short: bool,
+        diagnostic_format: DiagnosticFormat,
     ) -> Self {
         let output = match output {
             Some(path) => path,
@@ -84,7 +84,7 @@ impl CompileSettings {
             root,
             font_paths,
             open,
-            message_format_short,
+            diagnostic_format,
         }
     }
 
@@ -106,7 +106,7 @@ impl CompileSettings {
             args.root,
             args.font_paths,
             open,
-            args.message_format_short,
+            args.diagnostic_format,
         )
     }
 }
@@ -277,7 +277,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Print diagnostics.
         Err(errors) => {
             status(command, Status::Error).unwrap();
-            print_diagnostics(world, *errors, command.message_format_short)
+            print_diagnostics(world, *errors, command.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
 
             tracing::info!("Compilation failed");
@@ -350,17 +350,21 @@ impl Status {
 fn print_diagnostics(
     world: &SystemWorld,
     errors: Vec<SourceError>,
-    message_format_short: bool,
+    diagnostic_format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut w = StandardStream::stderr(ColorChoice::Auto);
-    let mut config = term::Config { tab_width: 2, ..Default::default() };
+    let mut w = StandardStream::stderr(match diagnostic_format {
+        DiagnosticFormat::Human => ColorChoice::Auto,
+        DiagnosticFormat::Short => ColorChoice::Never,
+    });
 
-    if message_format_short {
-        w = StandardStream::stderr(ColorChoice::Never);
-        config.display_style = term::DisplayStyle::Short;
-    }
-
-    let config = config;
+    let config = match diagnostic_format {
+        DiagnosticFormat::Human => term::Config { tab_width: 2, ..Default::default() },
+        DiagnosticFormat::Short => term::Config {
+            display_style: term::DisplayStyle::Short,
+            tab_width: 2,
+            ..Default::default()
+        },
+    };
 
     for error in errors {
         // The main diagnostic.

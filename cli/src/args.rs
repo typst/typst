@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{ArgAction, Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 
 /// typst creates PDF files from .typ files
 #[derive(Debug, Clone, Parser)]
@@ -22,9 +22,25 @@ pub struct CliArguments {
     #[clap(short, long, action = ArgAction::Count)]
     pub verbosity: u8,
 
-    /// Whether to emit diagnostics in a unix-style short form
-    #[clap(long, default_value_t = false)]
-    pub message_format_short: bool,
+    /// In which format to emit diagnostics
+    #[clap(long, default_value_t = DiagnosticFormat::Human, value_parser = clap::value_parser!(DiagnosticFormat))]
+    pub diagnostic_format: DiagnosticFormat,
+}
+
+/// Which format to use for diagnostics.
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, ValueEnum)]
+pub enum DiagnosticFormat {
+    Human,
+    Short,
+}
+
+impl std::fmt::Display for DiagnosticFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.to_possible_value()
+            .expect("no values are skipped")
+            .get_name()
+            .fmt(f)
+    }
 }
 
 /// What to do.
