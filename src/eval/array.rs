@@ -344,17 +344,14 @@ impl Array {
         vec.make_mut().sort_by(|a, b| {
             // Until we get `try` blocks :)
             match (key_of(a.clone()), key_of(b.clone())) {
-                (Ok(a), Ok(b)) => a.partial_cmp(&b).unwrap_or_else(|| {
-                    if result.is_ok() {
-                        result = Err(eco_format!(
-                            "cannot order {} and {}",
-                            a.type_name(),
-                            b.type_name(),
-                        ))
-                        .at(span);
-                    }
-                    Ordering::Equal
-                }),
+                (Ok(a), Ok(b)) => {
+                    typst::eval::ops::compare(&a, &b).unwrap_or_else(|err| {
+                        if result.is_ok() {
+                            result = Err(err).at(span);
+                        }
+                        Ordering::Equal
+                    })
+                }
                 (Err(e), _) | (_, Err(e)) => {
                     if result.is_ok() {
                         result = Err(e);

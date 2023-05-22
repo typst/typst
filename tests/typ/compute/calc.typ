@@ -191,8 +191,12 @@
 #calc.min()
 
 ---
-// Error: 14-18 cannot compare integer and string
+// Error: 14-18 cannot compare string and integer
 #calc.min(1, "hi")
+
+---
+// Error: 16-19 cannot compare 1pt with 1em
+#calc.max(1em, 1pt)
 
 ---
 // Test the `range` function.

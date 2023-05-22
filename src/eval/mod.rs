@@ -16,7 +16,7 @@ mod args;
 mod func;
 mod methods;
 mod module;
-mod ops;
+pub mod ops;
 mod scope;
 mod symbol;
 

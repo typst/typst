@@ -831,18 +831,9 @@ fn minmax(
     };
 
     for Spanned { v, span } in iter {
-        match v.partial_cmp(&extremum) {
-            Some(ordering) => {
-                if ordering == goal {
-                    extremum = v;
-                }
-            }
-            None => bail!(
-                span,
-                "cannot compare {} and {}",
-                extremum.type_name(),
-                v.type_name(),
-            ),
+        let ordering = typst::eval::ops::compare(&v, &extremum).at(span)?;
+        if ordering == goal {
+            extremum = v;
         }
     }
 

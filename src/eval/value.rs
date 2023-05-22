@@ -207,7 +207,7 @@ impl PartialEq for Value {
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        ops::compare(self, other)
+        ops::compare(self, other).ok()
     }
 }
 
