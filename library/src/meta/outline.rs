@@ -231,60 +231,7 @@ impl Show for OutlineElem {
                 ancestors.pop();
             }
 
-            match &indent {
-                // 'none' | 'false' => no indenting
-                None | Some(Smart::Custom(OutlineIndent::Bool(false))) => {}
-
-                // 'auto' | 'true' => use numbering alignment for indenting
-                Some(Smart::Auto | Smart::Custom(OutlineIndent::Bool(true))) => {
-                    // Add hidden ancestors numberings to realize the indent.
-                    let mut hidden = Content::empty();
-                    for ancestor in &ancestors {
-                        let ancestor_outlinable =
-                            ancestor.with::<dyn Outlinable>().unwrap();
-
-                        if let Some(numbering) = ancestor_outlinable.numbering() {
-                            let numbers = ancestor_outlinable
-                                .counter()
-                                .at(vt, ancestor.location().unwrap())?
-                                .display(vt, &numbering)?;
-
-                            hidden += numbers + SpaceElem::new().pack();
-                        };
-                    }
-
-                    if !ancestors.is_empty() {
-                        seq.push(HideElem::new(hidden).pack());
-                        seq.push(SpaceElem::new().pack());
-                    }
-                }
-
-                // Length => indent with some fixed spacing per level
-                Some(Smart::Custom(OutlineIndent::Length(length))) => {
-                    let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
-                        bail!(self.span(), "outline element depth too large");
-                    };
-
-                    let hspace = HElem::new(*length).pack().repeat(depth).unwrap();
-                    seq.push(hspace);
-                }
-
-                // Function => call function with the current depth and take
-                // the returned content
-                Some(Smart::Custom(OutlineIndent::Function(func))) => {
-                    let depth = ancestors.len();
-                    let returned = func.call_vt(vt, [depth.into()])?;
-                    let Ok(returned) = returned.cast::<Content>() else {
-                        bail!(
-                            self.span(),
-                            "indent function must return content"
-                        );
-                    };
-                    if !returned.is_empty() {
-                        seq.push(returned);
-                    }
-                }
-            };
+            OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
 
             // Add the outline of the element.
             seq.push(outline.linked(Destination::Location(location)));
@@ -378,6 +325,72 @@ pub enum OutlineIndent {
     Bool(bool),
     Length(Spacing),
     Function(Func),
+}
+
+impl OutlineIndent {
+    fn apply(
+        indent: &Option<Smart<Self>>,
+        vt: &mut Vt,
+        ancestors: &Vec<&Content>,
+        seq: &mut Vec<Content>,
+        span: Span,
+    ) -> SourceResult<()> {
+        match &indent {
+            // 'none' | 'false' => no indenting
+            None | Some(Smart::Custom(OutlineIndent::Bool(false))) => {}
+
+            // 'auto' | 'true' => use numbering alignment for indenting
+            Some(Smart::Auto | Smart::Custom(OutlineIndent::Bool(true))) => {
+                // Add hidden ancestors numberings to realize the indent.
+                let mut hidden = Content::empty();
+                for ancestor in ancestors {
+                    let ancestor_outlinable = ancestor.with::<dyn Outlinable>().unwrap();
+
+                    if let Some(numbering) = ancestor_outlinable.numbering() {
+                        let numbers = ancestor_outlinable
+                            .counter()
+                            .at(vt, ancestor.location().unwrap())?
+                            .display(vt, &numbering)?;
+
+                        hidden += numbers + SpaceElem::new().pack();
+                    };
+                }
+
+                if !ancestors.is_empty() {
+                    seq.push(HideElem::new(hidden).pack());
+                    seq.push(SpaceElem::new().pack());
+                }
+            }
+
+            // Length => indent with some fixed spacing per level
+            Some(Smart::Custom(OutlineIndent::Length(length))) => {
+                let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
+                    bail!(span, "outline element depth too large");
+                };
+
+                let hspace = HElem::new(*length).pack().repeat(depth).unwrap();
+                seq.push(hspace);
+            }
+
+            // Function => call function with the current depth and take
+            // the returned content
+            Some(Smart::Custom(OutlineIndent::Function(func))) => {
+                let depth = ancestors.len();
+                let returned = func.call_vt(vt, [depth.into()])?;
+                let Ok(returned) = returned.cast::<Content>() else {
+                    bail!(
+                        span,
+                        "indent function must return content"
+                    );
+                };
+                if !returned.is_empty() {
+                    seq.push(returned);
+                }
+            }
+        };
+
+        Ok(())
+    }
 }
 
 cast_from_value! {
