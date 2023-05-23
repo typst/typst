@@ -88,3 +88,22 @@
 ---
 // Error: 2-27 cannot convert color kind 'rgba' to 'cmyk'
 #rgb(1, 2, 3, 4).to-cmyk()
+
+---
+// Test direction methods.
+#test(ltr.axis(), "horizontal")
+#test(rtl.axis(), "horizontal")
+#test(ttb.axis(), "vertical")
+#test(btt.axis(), "vertical")
+#test(ltr.start(), left)
+#test(rtl.start(), right)
+#test(ttb.start(), top)
+#test(btt.start(), bottom)
+#test(ltr.end(), right)
+#test(rtl.end(), left)
+#test(ttb.end(), bottom)
+#test(btt.end(), top)
+#test(ltr.inverse(), rtl)
+#test(rtl.inverse(), ltr)
+#test(ttb.inverse(), btt)
+#test(btt.inverse(), ttb)

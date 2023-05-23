@@ -5,7 +5,7 @@ use ecow::EcoString;
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
 use crate::eval::Datetime;
-use crate::geom::Color;
+use crate::geom::{Align, Color, Dir, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -236,6 +236,14 @@ pub fn call(
                     }
                     _ => return missing(),
                 }
+            } else if let Some(direction) = dynamic.downcast::<Dir>() {
+                match method {
+                    "axis" => direction.axis().description().into(),
+                    "start" => GenAlign::from(Align::from(direction.start())).into(),
+                    "end" => GenAlign::from(Align::from(direction.end())).into(),
+                    "inverse" => direction.inv().into(),
+                    _ => return missing(),
+                }
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);
             }
@@ -401,6 +409,9 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
         "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],
+        "direction" => {
+            &[("axis", false), ("start", false), ("end", false), ("inverse", false)]
+        }
         "counter" => &[
             ("display", true),
             ("at", true),
