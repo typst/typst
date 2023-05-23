@@ -138,40 +138,18 @@ pub struct OutlineElem {
     /// away from the start of the line, a heading nested twice would be
     /// `{4em}` away, and so on).
     ///
-    /// If you wish, it is also possible to set a different indentation option
-    /// for each nesting level separately by specifying an array of indentation
-    /// options. Each element of that array corresponds to the indentation
-    /// option at its index: the value at index 0 will be the indentation for
-    /// top-level/non-nested entries, the second value (at index 1) will be the
-    /// indentation for entries nested once, and so on. The values of such an
-    /// array can be either `{none}` (to indicate some nesting level has no
-    /// indentation at all), a length such as `{2em}` or `{40pt}` (to indicate
-    /// that level will be exactly that far away from the start of the outline,
-    /// not multiplied by anything), or some text/content such as `{[----]}`
-    /// (to indicate that exactly that content will be displayed before entries
-    /// at that nesting level). Any nesting levels not covered by the array
-    /// (due to it not being long enough) will simply use the last specified
-    /// indentation value. For example, if you specify
-    /// `{(none, 2em, 3em, [----])}`, then top-level entries will not have any
-    /// indentation; entries nested once will be placed `{2em}` away from the
-    /// start of the outline; entries nested twice will be placed `{3em}` away
-    /// from the start; entries nested three times will be prefixed by just
-    /// `{[----]}`; and entries nested any further will be prefixed by
-    /// `{[----]}` as well (will be indented exactly the same as entries nested
-    /// three times).
-    ///
-    /// Finally, setting this option to a function allows for a more complete
-    /// customization of the indentation. A function is expected to take a
-    /// single parameter indcating the current nesting level (starting at `{0}`
-    /// for top-level headings/elements), and return the indentation option
-    /// for that level (or `{none}`). Such a function could be, for example,
-    ///`{n => n * 2em}` (indenting by `{2em}` times the nesting level), or
-    /// `{n => [*!*] * n * n}` (indenting by a bold exclamation mark times
-    /// the nesting level squared). Please note that the function is also
-    /// called for nesting level 0, so be careful to not return a fixed value
-    /// if you don't want to accidentally indent top-level entries by it (if
-    /// that's not your intention), which you can solve by returning `{none}`
-    /// when the received parameter is equal to `{0}`.
+    /// It is also possible to set this option to a function, allowing for a
+    /// more complete customization of the indentation. A function is expected
+    /// to take a single parameter indcating the current nesting level
+    /// (starting at `{0}` for top-level headings/elements), and return the
+    /// indentation option for that level (or `{none}`). Such a function could
+    /// be, for example, {n => n * 2em}` (indenting by `{2em}` times the
+    /// nesting level), or `{n => [*!*] * n * n}` (indenting by a bold
+    /// exclamation mark times the nesting level squared). Please note that the
+    /// function is also called for nesting level 0, so be careful to not
+    /// return a fixed value if you don't want to accidentally indent top-level
+    /// entries by it (if that's not your intention), which you can solve by
+    /// returning `{none}` when the received parameter is equal to `{0}`.
     ///
     ///
     /// ```example
@@ -179,7 +157,6 @@ pub struct OutlineElem {
     ///
     /// #outline(title: "Contents (Automatic indentation)", indent: auto)
     /// #outline(title: "Contents (Length indentation)", indent: 2em)
-    /// #outline(title: "Contents (Array indentation)", indent: (2em, [*====*]))
     /// #outline(title: "Contents (Function indentation)", indent: n => [*!*] * n * n)
     ///
     /// = About ACME Corp.
@@ -292,20 +269,6 @@ impl Show for OutlineElem {
                     seq.push(hspace);
                 }
 
-                // Array => display the n-th element (or length for spacing),
-                // where n is the current depth (or repeat the array's last
-                // element, if the array is too short for this depth)
-                Some(Smart::Custom(OutlineIndent::Array(array))) => {
-                    let depth = ancestors.len();
-                    let array_value = array.get(depth).or_else(|| array.last());
-                    let Some(array_value) = array_value else {
-                        bail!(self.span(), "indent array must have at least one element");
-                    };
-                    if let Some(fixed_indent) = array_value {
-                        seq.push(fixed_indent.clone().display());
-                    }
-                }
-
                 // Function => call function with the current depth and take
                 // the returned content
                 Some(Smart::Custom(OutlineIndent::Function(func))) => {
@@ -414,7 +377,6 @@ pub trait Outlinable: Refable {
 pub enum OutlineIndent {
     Bool(bool),
     Length(Spacing),
-    Array(Vec<Option<FixedOutlineIndent>>),
     Function(Func),
 }
 
@@ -422,12 +384,6 @@ cast_from_value! {
     OutlineIndent,
     b: bool => OutlineIndent::Bool(b),
     s: Spacing => OutlineIndent::Length(s),
-    a: Vec<Option<FixedOutlineIndent>> => {
-        if a.is_empty() {
-            Err("indent array must have at least one element")?;
-        }
-        OutlineIndent::Array(a)
-    },
     f: Func => OutlineIndent::Function(f),
 }
 
@@ -435,7 +391,6 @@ cast_to_value! {
     v: OutlineIndent => match v {
         OutlineIndent::Bool(b) => b.into(),
         OutlineIndent::Length(s) => s.into(),
-        OutlineIndent::Array(a) => a.into(),
         OutlineIndent::Function(f) => f.into()
     }
 }
