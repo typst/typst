@@ -475,7 +475,7 @@ $ f(x) = (x + 1) / x $
 to include more than one value in a sub- or superscript, enclose their contents
 in parentheses: `{$x_(a -> epsilon)$}`.
 
-Since variables in math mode to not need to be preprended with a `#` or a `/`,
+Since variables in math mode do not need to be preprended with a `#` or a `/`,
 you can call functions without using these escape characters:
 
 ```example
