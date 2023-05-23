@@ -85,11 +85,11 @@
 #str.to-unicode("ab")
 
 ---
-// Error: 19-21 0xffffffffffffffff is not inside the valid code point range
+// Error: 19-21 0xffffffffffffffff is not a valid codepoint
 #str.from-unicode(-1) // negative values are not valid
 
 ---
-// Error: 19-27 0x110000 is not inside the valid code point range
+// Error: 19-27 0x110000 is not a valid codepoint
 #str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
 ---

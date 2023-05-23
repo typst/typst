@@ -541,11 +541,9 @@ struct CodePoint(char);
 cast_from_value! {
     CodePoint,
     v: i64 => {
-        if let Some(c) = v.try_into().ok().and_then(|v: u32| v.try_into().ok()) {
-            Self(c)
-        } else {
-            Err(eco_format!("{:#x} is not inside the valid code point range", v))?
-        }
+        Self(v.try_into().ok().and_then(|v: u32| v.try_into().ok()).ok_or_else(
+            || eco_format!("{:#x} is not a valid codepoint", v),
+        )?)
     },
 }
 
