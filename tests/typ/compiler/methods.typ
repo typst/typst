@@ -90,6 +90,21 @@
 #rgb(1, 2, 3, 4).to-cmyk()
 
 ---
+// Test alignment methods.
+#test(start.axis(), "horizontal")
+#test(end.axis(), "horizontal")
+#test(left.axis(), "horizontal")
+#test(right.axis(), "horizontal")
+#test(top.axis(), "vertical")
+#test(bottom.axis(), "vertical")
+#test(start.inverse(), end)
+#test(end.inverse(), start)
+#test(left.inverse(), right)
+#test(right.inverse(), left)
+#test(top.inverse(), bottom)
+#test(bottom.inverse(), top)
+
+---
 // Test direction methods.
 #test(ltr.axis(), "horizontal")
 #test(rtl.axis(), "horizontal")

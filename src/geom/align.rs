@@ -98,6 +98,17 @@ impl GenAlign {
             Self::Specific(align) => align.axis(),
         }
     }
+
+    /// The inverse alignment.
+    pub const fn inv(self) -> Self {
+        match self {
+            // wouldn't be plausible to have start and end not be inverses of
+            // each other, in terms of text direction.
+            Self::Start => Self::End,
+            Self::End => Self::Start,
+            Self::Specific(align) => Self::Specific(align.inv()),
+        }
+    }
 }
 
 impl From<Align> for GenAlign {

@@ -244,6 +244,12 @@ pub fn call(
                     "inverse" => direction.inv().into(),
                     _ => return missing(),
                 }
+            } else if let Some(align) = dynamic.downcast::<GenAlign>() {
+                match method {
+                    "axis" => align.axis().description().into(),
+                    "inverse" => align.inv().into(),
+                    _ => return missing(),
+                }
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);
             }
@@ -412,6 +418,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "direction" => {
             &[("axis", false), ("start", false), ("end", false), ("inverse", false)]
         }
+        "alignment" => &[("axis", false), ("inverse", false)],
         "counter" => &[
             ("display", true),
             ("at", true),
