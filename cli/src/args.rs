@@ -61,7 +61,7 @@ pub struct CompileCommand {
     /// Path to input Typst file
     pub input: PathBuf,
 
-    /// Path to output PDF or PNG file
+    /// Path to output PDF file or PNG file(s)
     pub output: Option<PathBuf>,
 
     /// Opens the output file after compilation using the default PDF viewer

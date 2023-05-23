@@ -21,6 +21,7 @@ use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
+use typst::doc::Document;
 use typst::eval::Library;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::geom::Color;
@@ -251,43 +252,8 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
     match typst::compile(world) {
         // Export the PDF / PNG.
         Ok(document) => {
-            match command.output.extension() {
-                Some(ext) if ext.eq_ignore_ascii_case("png") => {
-                    let pixel_per_pt = command.ppi.unwrap_or(2.0);
-                    let pixmaps: Vec<_> = document
-                        .pages
-                        .iter()
-                        .map(|frame| {
-                            typst::export::render(frame, pixel_per_pt, Color::WHITE)
-                        })
-                        .collect();
-
-                    if pixmaps.len() == 1 {
-                        pixmaps[0]
-                            .save_png(command.output.clone())
-                            .map_err(|_| "failed to write PNG file")?;
-                    } else {
-                        for (i, pixmap) in pixmaps.iter().enumerate() {
-                            let mut output = command.output.clone();
-                            output.set_file_name(format!(
-                                "{}_{:03}.png",
-                                command.output.file_stem().unwrap().to_str().unwrap(),
-                                i + 1
-                            ));
-                            pixmap
-                                .save_png(&output)
-                                .map_err(|_| "failed to write PNG file")?;
-                        }
-                    }
-                }
-                _ => {
-                    let buffer = typst::export::pdf(&document);
-                    fs::write(&command.output, buffer)
-                        .map_err(|_| "failed to write PDF file")?;
-                }
-            }
+            export(&document, command)?;
             status(command, Status::Success).unwrap();
-
             tracing::info!("Compilation succeeded");
             Ok(false)
         }
@@ -297,11 +263,47 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             status(command, Status::Error).unwrap();
             print_diagnostics(world, *errors)
                 .map_err(|_| "failed to print diagnostics")?;
-
             tracing::info!("Compilation failed");
             Ok(true)
         }
     }
+}
+
+/// Export into the target format.
+fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
+    match command.output.extension() {
+        Some(ext) if ext.eq_ignore_ascii_case("png") => {
+            // Determine whether we have a `{n}` numbering.
+            let string = command.output.to_str().unwrap_or_default();
+            let numbered = string.contains("{n}");
+            if !numbered && document.pages.len() > 1 {
+                Err("cannot export multiple PNGs without `{n}` in output path")?;
+            }
+
+            // Find a number width that accomodates all pages. For instance, the
+            // first page should be numbered "001" if there are between 100 and
+            // 999 pages.
+            let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
+            let ppi = command.ppi.unwrap_or(2.0);
+            let mut storage;
+
+            for (i, frame) in document.pages.iter().enumerate() {
+                let pixmap = typst::export::render(frame, ppi, Color::WHITE);
+                let path = if numbered {
+                    storage = string.replace("{n}", &format!("{:0width$}", i + 1));
+                    Path::new(&storage)
+                } else {
+                    command.output.as_path()
+                };
+                pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+            }
+        }
+        _ => {
+            let buffer = typst::export::pdf(document);
+            fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
+        }
+    }
+    Ok(())
 }
 
 /// Clear the terminal and render the status message.
