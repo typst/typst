@@ -6,7 +6,7 @@ description: |
 
 # Guide for LaTeX users
 This page is a good starting point if you have used LaTeX before and want to try
-Typst. We will explore the main differences between these two systems from a
+out Typst. We will explore the main differences between these two systems from a
 user perspective. Although Typst is not built upon LaTeX and has a different
 syntax, you will learn how to use your LaTeX skills to get a head start.
 
@@ -42,9 +42,9 @@ Here are two paragraphs. The
 output is shown to the right.
 ```
 
-## How do I create a section heading, emphasis, ...? { #elements }
-LaTeX uses the command `\section` to create a section heading. To nest deeper,
-you can use `\subsection`, `\subsubsection`, etc. Depending on your document
+## How do I create section headings, emphasis, ...? { #elements }
+LaTeX uses the command `\section` to create a section heading. Nested headings
+are done with `\subsection`, `\subsubsection`, etc. Depending on your document
 class, there is also `\part` or `\chapter`.
 
 In Typst, [headings]($func/heading) are less verbose: You prefix the line with
@@ -57,8 +57,8 @@ Emphasis (usually rendered as italic text) is expressed by enclosing text in
 `[_underscores_]` and strong emphasis (usually rendered in boldface) by using
 `[*stars*]` instead.
 
-Below, there is a comparison between LaTeX commands and their Typst equivalents.
-You can also check out the [full syntax cheat sheet]($syntax).
+Here is a list of common markup commands used in LaTeX and their Typst
+equivalents. You can also check out the [full syntax cheat sheet]($syntax).
 
 | Element          | LaTeX                     | Typst                  | See                      |
 |:-----------------|:--------------------------|:-----------------------|:-------------------------|
@@ -78,7 +78,7 @@ You can also check out the [full syntax cheat sheet]($syntax).
 
 [Lists]($func/list) do not rely on environments in Typst. Instead, they have
 lightweight syntax like headings. To create an unordered list (`itemize`),
-prefix the line of the list item with a hyphen:
+prefix each line of an item with a hyphen:
 
 ````example
 To write this list in Typst...
@@ -99,10 +99,8 @@ To write this list in Typst...
 
 ````
 
-By indenting them beyond the hyphen, you can also include multiple paragraphs or
-nested lists in a single list item. If the list item's become longer, it's best
-to put blank lines between the list items. This increases the spacing between
-the list's items.
+Nesting lists works just by using proper indentation. Adding an empty line
+inbetween items generates padding in the output.
 
 To get a [numbered list]($func/enum) (`enumerate`) instead, use a `+` instead of
 the hyphen. For a [term list]($func/terms) (`description`), write
@@ -111,21 +109,22 @@ the hyphen. For a [term list]($func/terms) (`description`), write
 ## How do I use a command? { #commands }
 LaTeX heavily relies on commands (prefixed by backslashes). It uses these
 _macros_ to affect the typesetting process and to insert and manipulate content.
-Some commands accept arguments, most frequently they are enclosed in curly
+Some commands accept arguments, which are most frequently enclosed in curly
 braces: `\cite{rasmus}`.
 
 Typst differentiates between [markup mode and code mode]($scripting/#blocks).
-Markup mode is the default and where you can write text and use syntactic
-constructs like `[*stars for bold text*]`. Code mode is similar to other
-programming languages like Python and allows you to write code like `{1 + 2 ==
-3}`.
+The default setting is markup mode, where you compose text and apply syntactic
+constructs such as `[*stars for bold text*]`. On the other hand, code mode
+parallels programming languages such as Python, providing the option to input
+and execute segments of code.
 
 Within Typst's markup, you can switch to code mode for a single command (or
-rather, _expression_) using a hashtag (`#`). This is how you call functions and
-use features like [imports]($scripting/#modules) within markup. Within these
-commands and function calls, code mode applies. To embed
-[_content_]($type/content) as a value, you can go back to markup mode using
-square brackets:
+rather, _expression_) using a hashtag (`#`). This is how you call functions to,
+for example, split your project into different [files]($scripting/#modules)
+or render text based on some [condition]($scripting/#conditionals).
+Within code mode, it is possible to render normal markup
+[_content_]($type/content) by using square brackets. Within code mode, this
+content is treated just as any other normal variable.
 
 ```example
 First, a rectangle:
@@ -145,11 +144,13 @@ And finally a little loop:
 
 A function call always involves the name of the function ([`rect`]($func/rect),
 [`underline`]($func/underline), [`calc.max`]($func/calc.max),
-[`range`]($func/range)) and then an argument list, even if it is empty. The
-argument list is enclosed in parentheses.
+[`range`]($func/range)) followed by parentheses (as opposed to LaTeX where
+the square brackets and curly braces are optional if the macro requires no
+arguments). Depending on the function, a list of arguments can then be passed
+to the function within those parentheses.
 
 ### Arguments { #arguments }
-A function can have multiple arguments. Some arguments are positional, i.e. you
+A function can have multiple arguments. Some arguments are positional, i.e., you
 just provide the value: The function `[#lower("SCREAM")]` returns its argument
 in all-lowercase. Many functions use named arguments instead of positional
 arguments to increase legibility. For example, the dimensions and stroke of a
@@ -174,10 +175,10 @@ with the labels `a)`, `b)`, and so on.
 Often, you want to provide some [content]($type/content) to a function. For
 example, the LaTeX command `\underline{Alternative A}` would translate to
 `[#underline([Alternative A])]` in Typst. The square brackets indicate that a
-value is content. Within these brackets, you can use normal markup. However,
-that's a lot of parentheses for a pretty simple construct. This is why you can
-also move trailing content arguments after the parentheses (and omit the
-parentheses if they would end up empty).
+value is [content]($type/content). Within these brackets, you can use normal
+markup. However, that's a lot of parentheses for a pretty simple construct.
+This is why you can also move trailing content arguments after the parentheses
+(and omit the parentheses if they would end up empty).
 
 ```example
 Typst is an #underline[alternative]
@@ -187,9 +188,10 @@ to LaTeX.
 ```
 
 ### Data types { #data-types }
-You likely already noticed that the arguments have distinctive data types. Typst
-supports [many data types]($type). Below, there is a table with a few of the
-most important ones and how to write them:
+You likely already noticed that the arguments have distinct data types. Typst's
+functionality extends to support numerous different [data types]($type).
+The table presented below highlights some of the most important ones that Typst
+implicitly casts your input into.
 
 | Data type                            | Example                           |
 |:-------------------------------------|:----------------------------------|
@@ -200,27 +202,31 @@ most important ones and how to write them:
 | [Absolute length]($type/length)      | `{12pt}`, `{5in}`, `{0.3cm}`, ... |
 | [Relative length]($type/ratio)       | `{65%}`                           |
 
+Each of these data types corresponds to a specific format of input, as
+demonstrated in the 'Example' column.
+
 The difference between content and string is that content can contain markup,
 including function calls, while a string really is just a sequence of
-characters. You can use [operators]($scripting/#operators) like `+` for
-summation and `==` for equality on these types like you would in a conventional
-programming language instead of using `\addtocounter` or `\ifnum`. You can even
-define [variables]($scripting/#bindings) and do computations with them.
+characters. Various [operators]($scripting/#operators) such as `+` for
+adding things together or `==` for checking the equality between two variables
+behave similar to many other popular programming languages, so there is no need
+for an `\addtocounter` or `\ifnum` macro. You can define also define your own
+[variables]($scripting/#bindings) and do computations on them.
 
 In order to specify values of any of these types, you have to be in code mode!
 
 ### Commands to affect the remaining document { #rules }
 In LaTeX, some commands like `\textbf{bold text}` are passed their argument in curly
-braces and only affect that argument whereas other commands like `\bfseries bold
-text` act as switches and change the appearance of all following content in the
-document or the current scope (denoted by a set of curly braces).
+braces and only affect that argument. Other commands such as `\bfseries bold
+text` act as switches, altering the visual presentation of all subsequent content
+within the document or the current scope.
 
-In Typst, functions can be used in both ways: With effects applying until the
-end of the document or block or just to its arguments. For example,
+In Typst, functions can be used to affect the appearance for the remainder of the
+document, a block (or scope), or just its arguments. For example,
 `[#text(weight: "bold")[bold text]]` will only embolden its argument, while
 `[#set text(weight: "bold")]` will embolden any text until the end of the
 current block, or, if there is none, document. The effects of a function are
-immediately obvious depending on if it is used in a call or a
+immediately obvious based on whether it is used in a call or a
 [set rule.]($styling/#set-rules)
 
 ```example
@@ -232,7 +238,7 @@ This is a bit #text(18pt)[larger,]
 don't you think?
 ```
 
-Set rules may appear anywhere in the document and can be though of as
+Set rules may appear anywhere in the document. They can be thought of as
 pre-setting the arguments of their function:
 
 ```example
@@ -356,9 +362,9 @@ paragraphs right here!
 The [`{import}`]($scripting/#modules) statement makes
 [functions]($type/function) (and other definitions) from another file available.
 In this example, it imports the `conf` function from the `conf.typ` file. This
-function formats content as a conference article. We use the show rule to apply
-it to the document and also configure some metadata about the article. Finally,
-we can get started writing our article below!
+function formats our document as a conference article. We use the show rule to
+apply it to the document and also configure some metadata about the article.
+After setting the show rule, we can start writing our article right away!
 
 <div class="info-box">
 
@@ -386,9 +392,11 @@ They are shorter and more readable than the corresponding LaTeX `.sty` files by
 orders of magnitude, so give it a try!
 
 ## How do I load packages? { #packages }
-Most things you load packages for in LaTeX are just included in Typst, no need
-to load or install anything. Below, we compiled a table with frequently loaded
-packages and their corresponding Typst functions.
+Typst comes with many batteries included, so for may popular libraries that must
+be imported in LaTeX there's a good chance that you will find equivqlent
+functionalities in the vanilla Typst ecosystem, no imports needed. Below, we
+compiled a table with frequently loaded packages and their corresponding Typst
+functions.
 
 | LaTeX Package                   | Typst Alternative                                                    |
 |:--------------------------------|:---------------------------------------------------------------------|
@@ -404,19 +412,21 @@ packages and their corresponding Typst functions.
 | bibtex, biblatex, natbib        | [`cite`]($func/cite), [`bibliography`]($func/bibliography) functions |
 | lstlisting, minted              | [`raw`]($func/raw) function and syntax                               |
 | parskip                         | [`block`]($func/block.spacing) and [`par`]($func/par.first-line-indent) functions |
-| csquotes                        | Type `["]` or `[']` and set the [`text`]($func/text.lang) language   |
+| csquotes                        | Set the [`text`]($func/text.lang) language and type `["]` or `[']`   |
 | caption                         | [`figure`]($func/figure) function                                    |
 | enumitem                        | [`list`]($func/list), [`enum`]($func/enum), [`terms`]($func/terms) functions |
 
-If you need to load functions and variables from another file, for example to
+If you need to load functions and variables from another file, for example, to
 use a template, you can use an [`import`]($scripting/#modules) statement. If you
 want to include the textual content of another file instead, you can use an
-[`{include}`]($scripting/#modules) statement. It will yield the content of the
-included file and put it in your document.
+[`{include}`]($scripting/#modules) statement. It will retrieve the content of the
+file specified and put it in your document.
 
-Currently, there is no package manager for Typst, but we plan to build one so
-that you can easily use packages with tools and templates from the community and
-publish your own.
+Currently, there is no package manager for Typst. Until we are able to develop a
+package manager that allows users to easily access and share templates within the
+community, you may want to check out the
+[awesome-typst repository](https://github.com/qjcg/awesome-typst), which already
+compiles a curated list of libraries written in Typst.
 
 ## How do I input maths? { #maths }
 To enter math mode in Typst, just enclose your equation in dollar signs. You can
@@ -541,7 +551,7 @@ The example below
 This should be a good starting point! If you want to go further, why not create
 a reusable template?
 
-## What limitations does Typst currently have compared with LaTeX? { #limitations }
+## What limitations does Typst currently have compared to LaTeX? { #limitations }
 Although Typst can be a LaTeX replacement for many today, there are still
 features that Typst does not (yet) support. Here is a list of them which, where
 applicable, contains possible workarounds.
