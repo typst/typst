@@ -5,7 +5,7 @@ use ecow::EcoString;
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
 use crate::eval::Datetime;
-use crate::geom::{Align, Color, Dir, GenAlign};
+use crate::geom::{Align, Axes, Color, Dir, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -250,6 +250,11 @@ pub fn call(
                     "inverse" => align.inv().into(),
                     _ => return missing(),
                 }
+            } else if let Some(align2d) = dynamic.downcast::<Axes<GenAlign>>() {
+                match method {
+                    "inverse" => align2d.map(GenAlign::inv).into(),
+                    _ => return missing(),
+                }
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);
             }
@@ -419,6 +424,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             &[("axis", false), ("start", false), ("end", false), ("inverse", false)]
         }
         "alignment" => &[("axis", false), ("inverse", false)],
+        "2d alignment" => &[("inverse", false)],
         "counter" => &[
             ("display", true),
             ("at", true),

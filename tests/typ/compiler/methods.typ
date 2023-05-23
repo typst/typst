@@ -109,6 +109,27 @@
 #test(horizon.inverse(), horizon)
 
 ---
+// Test 2d alignment methods.
+#test((start + top).inverse(), (end + bottom))
+#test((end + top).inverse(), (start + bottom))
+#test((left + top).inverse(), (right + bottom))
+#test((right + top).inverse(), (left + bottom))
+#test((center + top).inverse(), (center + bottom))
+#test((start + bottom).inverse(), (end + top))
+#test((end + bottom).inverse(), (start + top))
+#test((left + bottom).inverse(), (right + top))
+#test((right + bottom).inverse(), (left + top))
+#test((center + bottom).inverse(), (center + top))
+#test((start + horizon).inverse(), (end + horizon))
+#test((end + horizon).inverse(), (start + horizon))
+#test((left + horizon).inverse(), (right + horizon))
+#test((right + horizon).inverse(), (left + horizon))
+#test((center + horizon).inverse(), (center + horizon))
+#test((top + start).inverse(), (end + bottom))
+#test((bottom + end).inverse(), (start + top))
+#test((horizon + center).inverse(), (center + horizon))
+
+---
 // Test direction methods.
 #test(ltr.axis(), "horizontal")
 #test(rtl.axis(), "horizontal")
