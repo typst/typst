@@ -10,7 +10,7 @@
 #outline(indent: none)
 #outline(indent: auto)
 #outline(indent: 2em)
-#outline(indent: n => (1em, none, [==], [====]).at(n))
+#outline(indent: n => ([-], [], [==], [====]).at(n))
 #outline(indent: n => "!" * calc.pow(2, n))
 
 = About ACME Corp.
@@ -36,7 +36,7 @@
 #outline(indent: none)
 #outline(indent: auto)
 #outline(indent: 2em)
-#outline(indent: n => (1em, none, [==], [====]).at(n))
+#outline(indent: n => ([-], [], [==], [====]).at(n))
 #outline(indent: n => "!" * calc.pow(2, n))
 
 = About ACME Corp.
@@ -54,7 +54,7 @@
 #lorem(10)
 
 ---
-// Error: 2-35 indent function must return 'none', a spacing length, or content
+// Error: 2-35 indent function must return content
 #outline(indent: n => (a: "dict"))
 
 = Heading

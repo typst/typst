@@ -274,14 +274,14 @@ impl Show for OutlineElem {
                 Some(Smart::Custom(OutlineIndent::Function(func))) => {
                     let depth = ancestors.len();
                     let returned = func.call_vt(vt, [depth.into()])?;
-                    let Ok(returned) = returned.cast::<Option<FixedOutlineIndent>>() else {
+                    let Ok(returned) = returned.cast::<Content>() else {
                         bail!(
                             self.span(),
-                            "indent function must return 'none', a spacing length, or content"
+                            "indent function must return content"
                         );
                     };
-                    if let Some(fixed_indent) = returned {
-                        seq.push(fixed_indent.display());
+                    if !returned.is_empty() {
+                        seq.push(returned);
                     }
                 }
             };
@@ -392,34 +392,5 @@ cast_to_value! {
         OutlineIndent::Bool(b) => b.into(),
         OutlineIndent::Length(s) => s.into(),
         OutlineIndent::Function(f) => f.into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum FixedOutlineIndent {
-    Length(Spacing),
-    Content(Content),
-}
-
-impl FixedOutlineIndent {
-    /// Converts this indent value to content.
-    fn display(self) -> Content {
-        match self {
-            FixedOutlineIndent::Length(length) => HElem::new(length).pack(),
-            FixedOutlineIndent::Content(content) => content,
-        }
-    }
-}
-
-cast_from_value! {
-    FixedOutlineIndent,
-    s: Spacing => FixedOutlineIndent::Length(s),
-    c: Content => FixedOutlineIndent::Content(c),
-}
-
-cast_to_value! {
-    v: FixedOutlineIndent => match v {
-        FixedOutlineIndent::Length(s) => s.into(),
-        FixedOutlineIndent::Content(c) => c.into(),
     }
 }
