@@ -111,15 +111,16 @@ struct CompileSettings {
     /// The open command to use.
     open: Option<Option<String>>,
 
-    /// Whether to emit diagnostics in a unix-style short form.
-    diagnostic_format: DiagnosticFormat,
-
     /// The PPI to use for PNG export.
     ppi: Option<f32>,
+
+    /// In which format to emit diagnostics
+    diagnostic_format: DiagnosticFormat,
 }
 
 impl CompileSettings {
     /// Create a new compile settings from the field values.
+    #[allow(clippy::too_many_arguments)]
     fn new(
         input: PathBuf,
         output: Option<PathBuf>,
@@ -127,8 +128,8 @@ impl CompileSettings {
         root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
-        diagnostic_format: DiagnosticFormat,
         ppi: Option<f32>,
+        diagnostic_format: DiagnosticFormat,
     ) -> Self {
         let output = match output {
             Some(path) => path,
@@ -141,8 +142,8 @@ impl CompileSettings {
             root,
             font_paths,
             open,
-            diagnostic_format,
             ppi,
+            diagnostic_format,
         }
     }
 
@@ -165,8 +166,8 @@ impl CompileSettings {
             args.root,
             args.font_paths,
             open,
-            args.diagnostic_format,
             ppi,
+            args.diagnostic_format,
         )
     }
 }

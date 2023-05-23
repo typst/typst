@@ -1,3 +1,4 @@
+use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
@@ -29,14 +30,14 @@ pub struct CliArguments {
 }
 
 /// Which format to use for diagnostics.
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Debug, ValueEnum)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum DiagnosticFormat {
     Human,
     Short,
 }
 
-impl std::fmt::Display for DiagnosticFormat {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for DiagnosticFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.to_possible_value()
             .expect("no values are skipped")
             .get_name()
