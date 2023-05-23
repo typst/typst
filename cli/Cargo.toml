@@ -23,6 +23,7 @@ doc = false
 typst = { path = ".." }
 typst-library = { path = "../library" }
 atty = "0.2"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 clap = { version = "4.2.4", features = ["derive", "env"] }
 codespan-reporting = "0.11"
 comemo = "0.3"
@@ -36,7 +37,6 @@ open = "4.0.2"
 same-file = "1"
 siphasher = "0.3"
 tempfile = "3.5.0"
-time = { version = "0.3.20", features = ["formatting", "local-offset", "macros"] }
 tracing = "0.1.37"
 tracing-error = "0.2"
 tracing-flame = "0.2.0"
