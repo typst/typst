@@ -131,6 +131,43 @@ pub fn pow(
     result.value()
 }
 
+/// Raise a value to some exponent of e.
+///
+/// ## Example { #example }
+/// ```example
+/// #calc.exp(3)
+/// ```
+///
+/// Display: Power
+/// Category: calculate
+/// Returns: integer or float
+#[func]
+pub fn exp(
+    /// The exponent of the power. Must be non-negative.
+    exponent: Spanned<Num>,
+) -> Value {
+    match exponent.v {
+        Num::Int(i) if i32::try_from(i).is_err() => {
+            bail!(exponent.span, "exponent is too large")
+        }
+        Num::Float(f) if !f.is_normal() && f != 0.0 => {
+            bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
+        }
+        _ => {}
+    };
+
+    let result = match exponent.v{
+        Num::Int(i) => Num::Float((i as f64).exp()),
+        Num::Float(f) => Num::Float(f.exp()),
+    };
+
+    if result.float().is_nan() {
+        bail!(args.span, "the result is not a real number")
+    }
+
+    result.value()
+}
+
 /// Calculate the square root of a number.
 ///
 /// ## Example { #example }
@@ -434,6 +471,34 @@ pub fn log(
         number.log(base.v)
     };
 
+    if result.is_infinite() || result.is_nan() {
+        bail!(args.span, "the result is not a real number")
+    }
+
+    Value::Float(result)
+}
+
+/// Calculate the natural logarithm of a number.
+///
+/// ## Example { #example }
+/// ```example
+/// #calc.ln(100)
+/// ```
+///
+/// Display: Logarithm
+/// Category: calculate
+/// Returns: float
+#[func]
+pub fn ln(
+    /// The number whose logarithm to calculate. Must be strictly positive.
+    value: Spanned<Num>
+) -> Value {
+    let number = value.v.float();
+    if number <= 0.0 {
+        bail!(value.span, "value must be strictly positive")
+    }
+
+    let result = number.ln();
     if result.is_infinite() || result.is_nan() {
         bail!(args.span, "the result is not a real number")
     }
