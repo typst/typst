@@ -512,25 +512,10 @@ cast_from_value! {
 /// Returns: int
 #[func]
 pub fn to_unicode(
-    /// The char that should be converted.
-    value: Char,
+    /// The character that should be converted.
+    value: char,
 ) -> Value {
-    Value::Int(From::<u32>::from(value.0.into()))
-}
-
-struct Char(char);
-
-cast_from_value! {
-    Char,
-    v: Str => {
-        match v.chars().next() {
-            Some(c) if c.len_utf8() == v.len() as usize => Self(c),
-            _ => Err(eco_format!(
-                "string must contain exactly one code point, contained {}",
-                v.chars().count(),
-            ))?,
-        }
-    }
+    Value::Int(From::<u32>::from(value.into()))
 }
 
 #[func]

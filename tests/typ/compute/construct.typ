@@ -81,7 +81,7 @@
 #str.from-unicode([a])
 
 ---
-// Error: 17-21 string must contain exactly one code point, contained 2
+// Error: 17-21 expected exactly one character
 #str.to-unicode("ab")
 
 ---
