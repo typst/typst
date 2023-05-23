@@ -95,14 +95,18 @@
 #test(end.axis(), "horizontal")
 #test(left.axis(), "horizontal")
 #test(right.axis(), "horizontal")
+#test(center.axis(), "horizontal")
 #test(top.axis(), "vertical")
 #test(bottom.axis(), "vertical")
+#test(horizon.axis(), "vertical")
 #test(start.inverse(), end)
 #test(end.inverse(), start)
 #test(left.inverse(), right)
 #test(right.inverse(), left)
+#test(center.inverse(), center)
 #test(top.inverse(), bottom)
 #test(bottom.inverse(), top)
+#test(horizon.inverse(), horizon)
 
 ---
 // Test direction methods.
