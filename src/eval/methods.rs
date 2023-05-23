@@ -166,7 +166,7 @@ pub fn call(
 
         Value::Length(length) => {
             let mut round = |n: f64| -> SourceResult<_> {
-                let precision: u32 = args.named("precision")?.unwrap_or(10).min(15);
+                let precision: u32 = args.named("digits")?.unwrap_or(10).min(15);
                 let factor = 10f64.powf(precision as f64);
                 Ok((n * factor).trunc() / factor)
             };
