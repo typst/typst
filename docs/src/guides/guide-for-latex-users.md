@@ -100,7 +100,7 @@ To write this list in Typst...
 ````
 
 Nesting lists works just by using proper indentation. Adding an empty line
-inbetween items generates padding in the output.
+in-between items generates padding in the output.
 
 To get a [numbered list]($func/enum) (`enumerate`) instead, use a `+` instead of
 the hyphen. For a [term list]($func/terms) (`description`), write
@@ -115,7 +115,7 @@ braces: `\cite{rasmus}`.
 Typst differentiates between [markup mode and code mode]($scripting/#blocks).
 The default setting is markup mode, where you compose text and apply syntactic
 constructs such as `[*stars for bold text*]`. On the other hand, code mode
-parallels programming languages such as Python, providing the option to input
+parallels programming languages like Python, providing the option to input
 and execute segments of code.
 
 Within Typst's markup, you can switch to code mode for a single command (or
@@ -124,7 +124,7 @@ for example, split your project into different [files]($scripting/#modules)
 or render text based on some [condition]($scripting/#conditionals).
 Within code mode, it is possible to render normal markup
 [_content_]($type/content) by using square brackets. Within code mode, this
-content is treated just as any other normal variable.
+content is treated just as any other normal value for a variable.
 
 ```example
 First, a rectangle:
@@ -210,7 +210,7 @@ including function calls, while a string really is just a sequence of
 characters. Various [operators]($scripting/#operators) such as `+` for
 adding things together or `==` for checking the equality between two variables
 behave similar to many other popular programming languages, so there is no need
-for an `\addtocounter` or `\ifnum` macro. You can define also define your own
+for an `\addtocounter` or `\ifnum` macro. You can also define define your own
 [variables]($scripting/#bindings) and do computations on them.
 
 In order to specify values of any of these types, you have to be in code mode!
@@ -430,8 +430,8 @@ compiles a curated list of libraries written in Typst.
 
 ## How do I input maths? { #maths }
 To enter math mode in Typst, just enclose your equation in dollar signs. You can
-enter display mode by putting spaces or newlines between the opening and closing
-dollar sign and the equation.
+enter display mode by adding spaces or newlines between the opening and closing
+dollar sign of the equation.
 
 ```example
 The sum of the numbers from
@@ -441,14 +441,14 @@ $ sum_(k=1)^n k = (n(n+1))/2 $
 ```
 
 [Math mode]($category/math) works differently than regular markup or code mode.
-Single characters and numbers with any amount of digits are displayed as
-mathematical variables and values (of your equation), while multiple consecutive
-non-number characters will be interpreted as Typst variables.
+Numbers and single characters are displayed as the values themselves,
+while multiple consecutive non-number characters will be interpreted as Typst
+variables.
 
-As you can see in the example above, Typst pre-defines a lot of useful variables
-in math mode. All Greek and some Hebrew letters are resolved by their name.
-Refer to the [symbol page]($func/symbol) or use the autocomplete panel to check
-which symbols are available. Alternate and related forms of symbols can often be
+Typst pre-defines a lot of useful variables in math mode. All Greek (`alpha`,
+`beta`, ...) and some Hebrew letters (`alef`, `bet`, ...) are resolved by their name.
+Refer to the [symbol page]($func/symbol) to check which symbols are available.
+Alternate and related forms of symbols can often be
 selected by [appending a modifier]($type/symbol) after a period. For example,
 `arrow.l.squiggly` inserts a squiggly left-pointing arrow. If you want to insert
 multiletter text in your expression instead, enclose it in double quotes:
@@ -457,7 +457,7 @@ multiletter text in your expression instead, enclose it in double quotes:
 $ delta "if" x <= 5 $
 ```
 
-You can type many symbols with shorthands like `<=`, `>=`, and `->`. Similarly,
+Many symbols include shorthands, such as `<=`, `>=`, and `->`. Similarly,
 delimiters will scale automatically for their expressions, just as if `\left`
 and `\right` commands were implicitly inserted in LaTeX. You can customize
 delimiter behavior using the [`lr` function]($func/math.lr).
@@ -470,13 +470,13 @@ fraction will appear in the output.
 $ f(x) = (x + 1) / x $
 ```
 
-[Sub- and superscripts]($func/math.attach) work similarly in Typst and LaTeX. Typing
+[Sub- and superscripts]($func/math.attach) in Typst work similarly to LaTeX.
 `{$x^2$}` will produce a superscript, `{$x_2$}` yields a subscript. If you want
 to include more than one value in a sub- or superscript, enclose their contents
 in parentheses: `{$x_(a -> epsilon)$}`.
 
-Just like you can insert variables without typing a `#` or `/`, you can also use
-functions "naked":
+Since variables in math mode to not need to be preprended with a `#` or a `/`,
+you can call functions without using these escape characters:
 
 ```example
 $ f(x, y) := cases(
@@ -489,7 +489,7 @@ $ f(x, y) := cases(
 
 The above example uses the [`cases` function]($func/math.cases) to describe f. Within
 the cases function, arguments are delimited using commas and the arguments are
-also interpreted as math. If you would need to interpret arguments as Typst
+also interpreted as math. If you need to interpret arguments as Typst
 values instead, prefix them with a `#`:
 
 ```example
