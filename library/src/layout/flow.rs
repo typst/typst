@@ -243,7 +243,7 @@ impl<'a> FlowLayouter<'a> {
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Skip directly if regino is already full.
+        // Skip directly if region is already full.
         if self.regions.is_full() {
             self.finish_region()?;
         }
