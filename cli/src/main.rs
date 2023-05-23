@@ -34,7 +34,7 @@ use typst::util::{Buffer, PathExt};
 use typst::World;
 use walkdir::WalkDir;
 
-use crate::args::{CliArguments, Command, CompileCommand};
+use crate::args::{CliArguments, Command, CompileCommand, DiagnosticFormat};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
@@ -111,12 +111,16 @@ struct CompileSettings {
     /// The open command to use.
     open: Option<Option<String>>,
 
-    /// The ppi to use for png export
+    /// The PPI to use for PNG export.
     ppi: Option<f32>,
+
+    /// In which format to emit diagnostics
+    diagnostic_format: DiagnosticFormat,
 }
 
 impl CompileSettings {
     /// Create a new compile settings from the field values.
+    #[allow(clippy::too_many_arguments)]
     fn new(
         input: PathBuf,
         output: Option<PathBuf>,
@@ -125,12 +129,22 @@ impl CompileSettings {
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
         ppi: Option<f32>,
+        diagnostic_format: DiagnosticFormat,
     ) -> Self {
         let output = match output {
             Some(path) => path,
             None => input.with_extension("pdf"),
         };
-        Self { input, output, watch, root, font_paths, open, ppi }
+        Self {
+            input,
+            output,
+            watch,
+            root,
+            font_paths,
+            open,
+            diagnostic_format,
+            ppi,
+        }
     }
 
     /// Create a new compile settings from the CLI arguments and a compile command.
@@ -139,12 +153,23 @@ impl CompileSettings {
     /// Panics if the command is not a compile or watch command.
     fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
-        let CompileCommand { input, output, open, ppi, .. } = match args.command {
-            Command::Compile(command) => command,
-            Command::Watch(command) => command,
-            _ => unreachable!(),
-        };
-        Self::new(input, output, watch, args.root, args.font_paths, open, ppi)
+        let CompileCommand { input, output, open, ppi, diagnostic_format, .. } =
+            match args.command {
+                Command::Compile(command) => command,
+                Command::Watch(command) => command,
+                _ => unreachable!(),
+            };
+
+        Self::new(
+            input,
+            output,
+            watch,
+            args.root,
+            args.font_paths,
+            open,
+            ppi,
+            diagnostic_format,
+        )
     }
 }
 
@@ -279,7 +304,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         Err(errors) => {
             set_failed();
             status(command, Status::Error).unwrap();
-            print_diagnostics(world, *errors)
+            print_diagnostics(world, *errors, command.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
             tracing::info!("Compilation failed");
             Ok(false)
@@ -400,9 +425,17 @@ impl Status {
 fn print_diagnostics(
     world: &SystemWorld,
     errors: Vec<SourceError>,
+    diagnostic_format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut w = StandardStream::stderr(ColorChoice::Auto);
-    let config = term::Config { tab_width: 2, ..Default::default() };
+    let mut w = match diagnostic_format {
+        DiagnosticFormat::Human => color_stream(),
+        DiagnosticFormat::Short => StandardStream::stderr(ColorChoice::Never),
+    };
+
+    let mut config = term::Config { tab_width: 2, ..Default::default() };
+    if diagnostic_format == DiagnosticFormat::Short {
+        config.display_style = term::DisplayStyle::Short;
+    }
 
     for error in errors {
         // The main diagnostic.
