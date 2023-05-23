@@ -221,8 +221,8 @@ braces and only affect that argument. Other commands such as `\bfseries bold
 text` act as switches, altering the visual presentation of all subsequent content
 within the document or the current scope.
 
-In Typst, functions can be used to affect the appearance for the remainder of the
-document, a block (or scope), or just its arguments. For example,
+In Typst, a single function can be used both to affect the appearance for the
+remainder of the document, a block (or scope), or just its arguments. For example,
 `[#text(weight: "bold")[bold text]]` will only embolden its argument, while
 `[#set text(weight: "bold")]` will embolden any text until the end of the
 current block, or, if there is none, document. The effects of a function are
