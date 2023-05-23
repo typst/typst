@@ -1,7 +1,9 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
 
-use typst::eval::Regex;
+use time::{Month, PrimitiveDateTime};
+
+use typst::eval::{Datetime, Dynamic, Regex};
 
 use crate::prelude::*;
 
@@ -177,6 +179,175 @@ cast_from_value! {
     } else {
         Err("ratio must be between 0% and 100%")?
     },
+}
+
+/// Create a new datetime.
+///
+/// You can specify the [datetime]($type/datetime) using a year, month, day,
+/// hour, minute, and second.
+///
+/// ## Example
+/// ```example
+/// #datetime(
+///   year: 2012,
+///   month: 8,
+///   day: 3,
+/// ).display()
+/// ```
+///
+/// ## Format
+/// _Note_: Depending on which components of the datetime you specify, Typst
+/// will store it in one of the following three ways:
+/// * If you specify year, month and day, Typst will store just a date.
+/// * If you specify hour, minute and second, Typst will store just a time.
+/// * If you specify all of year, month, day, hour, minute and second, Typst
+///   will store a full datetime.
+///
+/// Depending on how it is stored, the [`display`]($type/datetime.display)
+/// method will choose a different formatting by default.
+///
+/// Display: Datetime
+/// Category: construct
+/// Returns: datetime
+#[func]
+#[scope(
+    scope.define("today", datetime_today);
+    scope
+)]
+pub fn datetime(
+    /// The year of the datetime.
+    #[named]
+    year: Option<YearComponent>,
+    /// The month of the datetime.
+    #[named]
+    month: Option<MonthComponent>,
+    /// The day of the datetime.
+    #[named]
+    day: Option<DayComponent>,
+    /// The hour of the datetime.
+    #[named]
+    hour: Option<HourComponent>,
+    /// The minute of the datetime.
+    #[named]
+    minute: Option<MinuteComponent>,
+    /// The second of the datetime.
+    #[named]
+    second: Option<SecondComponent>,
+) -> Value {
+    let time = match (hour, minute, second) {
+        (Some(hour), Some(minute), Some(second)) => {
+            match time::Time::from_hms(hour.0, minute.0, second.0) {
+                Ok(time) => Some(time),
+                Err(_) => bail!(args.span, "time is invalid"),
+            }
+        }
+        (None, None, None) => None,
+        _ => bail!(args.span, "time is incomplete"),
+    };
+
+    let date = match (year, month, day) {
+        (Some(year), Some(month), Some(day)) => {
+            match time::Date::from_calendar_date(year.0, month.0, day.0) {
+                Ok(date) => Some(date),
+                Err(_) => bail!(args.span, "date is invalid"),
+            }
+        }
+        (None, None, None) => None,
+        _ => bail!(args.span, "date is incomplete"),
+    };
+
+    match (date, time) {
+        (Some(date), Some(time)) => Value::Dyn(Dynamic::new(Datetime::Datetime(
+            PrimitiveDateTime::new(date, time),
+        ))),
+        (Some(date), None) => Value::Dyn(Dynamic::new(Datetime::Date(date))),
+        (None, Some(time)) => Value::Dyn(Dynamic::new(Datetime::Time(time))),
+        (None, None) => {
+            bail!(args.span, "at least one of date or time must be fully specified")
+        }
+    }
+}
+
+struct YearComponent(i32);
+struct MonthComponent(Month);
+struct DayComponent(u8);
+struct HourComponent(u8);
+struct MinuteComponent(u8);
+struct SecondComponent(u8);
+
+cast_from_value!(
+    YearComponent,
+    v: i64 => match i32::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("year is invalid")?
+    }
+);
+
+cast_from_value!(
+    MonthComponent,
+    v: i64 => match u8::try_from(v).ok().and_then(|n1| Month::try_from(n1).ok()).map(Self) {
+        Some(m) => m,
+        _ => Err("month is invalid")?
+    }
+);
+
+cast_from_value!(
+    DayComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("day is invalid")?
+    }
+);
+
+cast_from_value!(
+    HourComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("hour is invalid")?
+    }
+);
+
+cast_from_value!(
+    MinuteComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("minute is invalid")?
+    }
+);
+
+cast_from_value!(
+    SecondComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("second is invalid")?
+    }
+);
+
+/// Returns the current date.
+///
+/// ## Example
+/// ```example
+/// Today's date is
+/// #datetime.today().display().
+/// ```
+///
+/// Display: Today
+/// Category: construct
+/// Returns: datetime
+#[func]
+pub fn datetime_today(
+    /// An offset to apply to the current UTC date. If set to `{auto}`, the
+    /// offset will be the local offset.
+    #[named]
+    #[default]
+    offset: Smart<i64>,
+) -> Value {
+    let current_date = match vm.vt.world.today(offset.as_custom()) {
+        Some(d) => d,
+        None => bail!(args.span, "unable to get the current date"),
+    };
+
+    Value::Dyn(Dynamic::new(current_date))
 }
 
 /// Create a CMYK color.

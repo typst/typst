@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
+use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -21,8 +22,10 @@ use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
+use time::macros::format_description;
+use time::Duration;
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
-use typst::eval::Library;
+use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
@@ -291,8 +294,8 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let esc = 27 as char;
     let input = command.input.display();
     let output = command.output.display();
-    let time = chrono::offset::Local::now();
-    let timestamp = time.format("%H:%M:%S");
+    let time = time::OffsetDateTime::now_local().unwrap();
+    let timestamp = time.format(format_description!("[hour]:[minute]:[second]")).unwrap();
     let message = status.message();
     let color = status.color();
 
@@ -427,6 +430,7 @@ struct SystemWorld {
     hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
+    current_date: Cell<Option<Datetime>>,
     main: SourceId,
 }
 
@@ -457,6 +461,7 @@ impl SystemWorld {
             hashes: RefCell::default(),
             paths: RefCell::default(),
             sources: FrozenVec::new(),
+            current_date: Cell::new(None),
             main: SourceId::detached(),
         }
     }
@@ -510,6 +515,23 @@ impl World for SystemWorld {
             .buffer
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
+    }
+
+    fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+        if self.current_date.get().is_none() {
+            let datetime = match offset {
+                None => time::OffsetDateTime::now_local().ok()?,
+                Some(o) => time::OffsetDateTime::now_utc().add(Duration::hours(o)),
+            };
+
+            self.current_date.set(Some(Datetime::from_ymd(
+                datetime.year(),
+                datetime.month().try_into().ok()?,
+                datetime.day(),
+            )?))
+        }
+
+        self.current_date.get()
     }
 }
 
@@ -572,6 +594,7 @@ impl SystemWorld {
         self.sources.as_mut().clear();
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();
+        self.current_date.set(None);
     }
 }
 

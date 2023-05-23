@@ -4,6 +4,7 @@ use ecow::EcoString;
 
 use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
+use crate::eval::Datetime;
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -182,6 +183,30 @@ pub fn call(
                         let inclusive =
                             args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
                         selector.clone().after(location, inclusive).into()
+                    }
+                    _ => return missing(),
+                }
+            } else if let Some(&datetime) = dynamic.downcast::<Datetime>() {
+                match method {
+                    "display" => datetime.display(args.eat()?).at(args.span)?.into(),
+                    "year" => {
+                        datetime.year().map_or(Value::None, |y| Value::Int(y.into()))
+                    }
+                    "month" => {
+                        datetime.month().map_or(Value::None, |m| Value::Int(m.into()))
+                    }
+                    "weekday" => {
+                        datetime.weekday().map_or(Value::None, |w| Value::Int(w.into()))
+                    }
+                    "day" => datetime.day().map_or(Value::None, |d| Value::Int(d.into())),
+                    "hour" => {
+                        datetime.hour().map_or(Value::None, |h| Value::Int(h.into()))
+                    }
+                    "minute" => {
+                        datetime.minute().map_or(Value::None, |m| Value::Int(m.into()))
+                    }
+                    "second" => {
+                        datetime.second().map_or(Value::None, |s| Value::Int(s.into()))
                     }
                     _ => return missing(),
                 }

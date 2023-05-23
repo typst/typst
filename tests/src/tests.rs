@@ -22,7 +22,7 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{func, Library, Value};
+use typst::eval::{func, Datetime, Library, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Sides, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
@@ -295,6 +295,10 @@ impl World for TestWorld {
             .buffer
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
+    }
+
+    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+        Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
 }
 

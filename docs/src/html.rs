@@ -5,6 +5,7 @@ use md::escape::escape_html;
 use pulldown_cmark as md;
 use typed_arena::Arena;
 use typst::diag::FileResult;
+use typst::eval::Datetime;
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
 use typst::syntax::{Source, SourceId};
@@ -488,5 +489,9 @@ impl World for DocWorld {
             .unwrap_or_else(|| panic!("failed to load {path:?}"))
             .contents()
             .into())
+    }
+
+    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+        Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
 }
