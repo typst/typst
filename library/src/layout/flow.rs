@@ -243,6 +243,11 @@ impl<'a> FlowLayouter<'a> {
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
+        // Skip directly if regino is already full.
+        if self.regions.is_full() {
+            self.finish_region()?;
+        }
+
         // Placed elements that are out of flow produce placed items which
         // aren't aligned later.
         if let Some(placed) = block.to::<PlaceElem>() {
