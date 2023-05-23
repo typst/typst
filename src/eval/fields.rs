@@ -65,8 +65,8 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                 }
             } else if let Some(align2d) = dynamic.downcast::<Axes<GenAlign>>() {
                 match field {
-                    "horizontal" => align2d.x.into(),
-                    "vertical" => align2d.y.into(),
+                    "x" => align2d.x.into(),
+                    "y" => align2d.y.into(),
                     _ => return missing(),
                 }
             } else {
@@ -105,7 +105,7 @@ pub fn fields_on(type_name: &str) -> &[&'static str] {
             "dash_pattern",
             "miter_limit",
         ],
-        "2d alignment" => &["horizontal", "vertical"],
+        "2d alignment" => &["x", "y"],
         _ => &[],
     }
 }
