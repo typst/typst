@@ -178,6 +178,124 @@ pub fn bb(
         .into()
 }
 
+/// Forced display style in math.
+///
+/// This is the normal size for display equations.
+///
+/// ## Example { #example }
+/// ```example
+/// $sum_i x_i/2 = display(sum_i x/2)$
+/// ```
+///
+/// Display: Display Size
+/// Category: math
+/// Returns: content
+#[func]
+pub fn display(
+    /// The content to size.
+    body: Content,
+    /// Whether to impose a height restriction for exponents, like regular sub-
+    /// and superscripts do.
+    #[named]
+    #[default(false)]
+    cramp: bool,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_size(Some(MathSize::Display))
+        .with_cramp(Some(cramp))
+        .pack()
+        .into()
+}
+
+/// Forced inline (text) style in math.
+///
+/// This is the normal size for inline equations.
+///
+/// ## Example { #example }
+/// ```example
+/// $ sum_i x_i/2
+///     = inline(sum_i x_i/2) $
+/// ```
+///
+/// Display: Inline Size
+/// Category: math
+/// Returns: content
+#[func]
+pub fn inline(
+    /// The content to size.
+    body: Content,
+    /// Whether to impose a height restriction for exponents, like regular sub-
+    /// and superscripts do.
+    #[named]
+    #[default(false)]
+    cramp: bool,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_size(Some(MathSize::Text))
+        .with_cramp(Some(cramp))
+        .pack()
+        .into()
+}
+
+/// Forced script style in math.
+///
+/// This is the smaller size used in powers or sub- or superscripts.
+///
+/// ## Example { #example }
+/// ```example
+/// $sum_i x_i/2 = script(sum_i x_i/2)$
+/// ```
+///
+/// Display: Script Size
+/// Category: math
+/// Returns: content
+#[func]
+pub fn script(
+    /// The content to size.
+    body: Content,
+    /// Whether to impose a height restriction for exponents, like regular sub-
+    /// and superscripts do.
+    #[named]
+    #[default(true)]
+    cramp: bool,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_size(Some(MathSize::Script))
+        .with_cramp(Some(cramp))
+        .pack()
+        .into()
+}
+
+/// Forced second script style in math.
+///
+/// This is the smallest size, used in second-level sub- and superscripts
+/// (script of the script).
+///
+/// ## Example { #example }
+/// ```example
+/// $sum_i x_i/2 = sscript(sum_i x_i/2)$
+/// ```
+///
+/// Display: Script-Script Size
+/// Category: math
+/// Returns: content
+#[func]
+pub fn sscript(
+    /// The content to size.
+    body: Content,
+    /// Whether to impose a height restriction for exponents, like regular sub-
+    /// and superscripts do.
+    #[named]
+    #[default(true)]
+    cramp: bool,
+) -> Value {
+    MathStyleElem::new(body)
+        .with_size(Some(MathSize::ScriptScript))
+        .with_cramp(Some(cramp))
+        .pack()
+        .into()
+}
+
 /// A font variant in math.
 ///
 /// Display: Bold
@@ -196,6 +314,12 @@ pub struct MathStyleElem {
 
     /// Whether to use italic glyphs.
     pub italic: Option<bool>,
+
+    /// Whether to use forced size
+    pub size: Option<MathSize>,
+
+    /// Whether to limit height of exponents
+    pub cramp: Option<bool>,
 }
 
 impl LayoutMath for MathStyleElem {
@@ -210,6 +334,12 @@ impl LayoutMath for MathStyleElem {
         }
         if let Some(italic) = self.italic(StyleChain::default()) {
             style = style.with_italic(italic);
+        }
+        if let Some(size) = self.size(StyleChain::default()) {
+            style = style.with_size(size);
+        }
+        if let Some(cramped) = self.cramp(StyleChain::default()) {
+            style = style.with_cramped(cramped);
         }
         ctx.style(style);
         self.body().layout_math(ctx)?;
@@ -295,7 +425,7 @@ impl MathStyle {
 /// The size of elements in an equation.
 ///
 /// See the TeXbook p. 141.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Cast)]
 pub enum MathSize {
     /// Second-level sub- and superscripts.
     ScriptScript,

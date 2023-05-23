@@ -931,6 +931,7 @@ const TYPE_ORDER: &[&str] = &[
     "relative length",
     "fraction",
     "color",
+    "datetime",
     "string",
     "regex",
     "label",

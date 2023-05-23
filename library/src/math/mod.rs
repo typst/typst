@@ -100,6 +100,11 @@ pub fn module() -> Module {
     math.define("mono", mono);
     math.define("bb", bb);
 
+    math.define("display", display);
+    math.define("inline", inline);
+    math.define("script", script);
+    math.define("sscript", sscript);
+
     // Text operators.
     math.define("op", OpElem::func());
     op::define(&mut math);

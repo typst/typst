@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
+use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -21,9 +22,13 @@ use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
+use time::macros::format_description;
+use time::Duration;
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
-use typst::eval::Library;
+use typst::doc::Document;
+use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
+use typst::geom::Color;
 use typst::syntax::{Source, SourceId};
 use typst::util::{Buffer, PathExt};
 use typst::World;
@@ -106,8 +111,11 @@ struct CompileSettings {
     /// The open command to use.
     open: Option<Option<String>>,
 
-    /// Whether to emit diagnostics in a unix-style short form
+    /// Whether to emit diagnostics in a unix-style short form.
     diagnostic_format: DiagnosticFormat,
+
+    /// The PPI to use for PNG export.
+    ppi: Option<f32>,
 }
 
 impl CompileSettings {
@@ -120,6 +128,7 @@ impl CompileSettings {
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
         diagnostic_format: DiagnosticFormat,
+        ppi: Option<f32>,
     ) -> Self {
         let output = match output {
             Some(path) => path,
@@ -133,6 +142,7 @@ impl CompileSettings {
             font_paths,
             open,
             diagnostic_format,
+            ppi,
         }
     }
 
@@ -142,11 +152,12 @@ impl CompileSettings {
     /// Panics if the command is not a compile or watch command.
     fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
-        let CompileCommand { input, output, open, .. } = match args.command {
+        let CompileCommand { input, output, open, ppi, .. } = match args.command {
             Command::Compile(command) => command,
             Command::Watch(command) => command,
             _ => unreachable!(),
         };
+
         Self::new(
             input,
             output,
@@ -155,6 +166,7 @@ impl CompileSettings {
             args.font_paths,
             open,
             args.diagnostic_format,
+            ppi,
         )
     }
 }
@@ -278,12 +290,10 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
     world.main = world.resolve(&command.input).map_err(|err| err.to_string())?;
 
     match typst::compile(world) {
-        // Export the PDF.
+        // Export the PDF / PNG.
         Ok(document) => {
-            let buffer = typst::export::pdf(&document);
-            fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
+            export(&document, command)?;
             status(command, Status::Success).unwrap();
-
             tracing::info!("Compilation succeeded");
             Ok(true)
         }
@@ -294,11 +304,47 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             status(command, Status::Error).unwrap();
             print_diagnostics(world, *errors, command.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
-
             tracing::info!("Compilation failed");
             Ok(false)
         }
     }
+}
+
+/// Export into the target format.
+fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
+    match command.output.extension() {
+        Some(ext) if ext.eq_ignore_ascii_case("png") => {
+            // Determine whether we have a `{n}` numbering.
+            let string = command.output.to_str().unwrap_or_default();
+            let numbered = string.contains("{n}");
+            if !numbered && document.pages.len() > 1 {
+                Err("cannot export multiple PNGs without `{n}` in output path")?;
+            }
+
+            // Find a number width that accomodates all pages. For instance, the
+            // first page should be numbered "001" if there are between 100 and
+            // 999 pages.
+            let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
+            let ppi = command.ppi.unwrap_or(2.0);
+            let mut storage;
+
+            for (i, frame) in document.pages.iter().enumerate() {
+                let pixmap = typst::export::render(frame, ppi, Color::WHITE);
+                let path = if numbered {
+                    storage = string.replace("{n}", &format!("{:0width$}", i + 1));
+                    Path::new(&storage)
+                } else {
+                    command.output.as_path()
+                };
+                pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+            }
+        }
+        _ => {
+            let buffer = typst::export::pdf(document);
+            fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
+        }
+    }
+    Ok(())
 }
 
 /// Clear the terminal and render the status message.
@@ -311,8 +357,8 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let esc = 27 as char;
     let input = command.input.display();
     let output = command.output.display();
-    let time = chrono::offset::Local::now();
-    let timestamp = time.format("%H:%M:%S");
+    let time = time::OffsetDateTime::now_local().unwrap();
+    let timestamp = time.format(format_description!("[hour]:[minute]:[second]")).unwrap();
     let message = status.message();
     let color = status.color();
 
@@ -459,6 +505,7 @@ struct SystemWorld {
     hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
+    current_date: Cell<Option<Datetime>>,
     main: SourceId,
 }
 
@@ -489,6 +536,7 @@ impl SystemWorld {
             hashes: RefCell::default(),
             paths: RefCell::default(),
             sources: FrozenVec::new(),
+            current_date: Cell::new(None),
             main: SourceId::detached(),
         }
     }
@@ -542,6 +590,23 @@ impl World for SystemWorld {
             .buffer
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
+    }
+
+    fn today(&self, offset: Option<i64>) -> Option<Datetime> {
+        if self.current_date.get().is_none() {
+            let datetime = match offset {
+                None => time::OffsetDateTime::now_local().ok()?,
+                Some(o) => time::OffsetDateTime::now_utc().add(Duration::hours(o)),
+            };
+
+            self.current_date.set(Some(Datetime::from_ymd(
+                datetime.year(),
+                datetime.month().try_into().ok()?,
+                datetime.day(),
+            )?))
+        }
+
+        self.current_date.get()
     }
 }
 
@@ -604,6 +669,7 @@ impl SystemWorld {
         self.sources.as_mut().clear();
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();
+        self.current_date.set(None);
     }
 }
 

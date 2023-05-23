@@ -4,7 +4,7 @@ default-members = ["cli"]
 
 [workspace.package]
 version = "0.4.0"
-rust-version = "1.65"
+rust-version = "1.67"
 authors = ["The Typst Project Developers"]
 edition = "2021"
 homepage = "https://typst.app"
@@ -63,6 +63,7 @@ unicode-segmentation = "1"
 unscanny = "0.1"
 usvg = { version = "0.32", default-features = false, features = ["text"] }
 xmp-writer = "0.1"
+time = { version = "0.3.20", features = ["std", "formatting"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = "0.1.15"

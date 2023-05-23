@@ -16,6 +16,16 @@
     These functions are distinct from the [`text`]($func/text) function because
     math fonts contain multiple variants of each letter.
 
+- name: sizes
+  display: Sizes
+  functions: ["display", "inline", "script", "sscript"]
+  description: |
+    Forced size styles for expressions within formulas.
+
+    These functions allow manual configuration of the size of equation elements
+    to make them look as in a display/inline equation or as if used in a root or
+    sub/superscripts.
+
 - name: underover
   display: Under/Over
   functions: [

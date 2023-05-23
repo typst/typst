@@ -58,7 +58,7 @@ use comemo::{Prehashed, Track, TrackedMut};
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
-use crate::eval::{Library, Route, Tracer};
+use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
@@ -116,4 +116,10 @@ pub trait World {
 
     /// Try to access a file at a path.
     fn file(&self, path: &Path) -> FileResult<Buffer>;
+
+    /// Get the current date.
+    ///
+    /// If no offset is specified, the local date should be chosen. Otherwise,
+    /// the UTC date should be chosen with the corresponding offset in hours.
+    fn today(&self, offset: Option<i64>) -> Option<Datetime>;
 }
