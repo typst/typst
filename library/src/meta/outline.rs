@@ -138,14 +138,6 @@ pub struct OutlineElem {
     /// away from the start of the line, a heading nested twice would be
     /// `{4em}` away, and so on).
     ///
-    /// You could also set this to some text or content (such as `{[--]}`), in
-    /// which case that content will be repeated at the start of each line once
-    /// for each nesting level (e.g. nothing will be displayed at the top-level
-    /// heading, then `--` for its children, then `----` for the children's
-    /// children, then `------`, and so on). This can be useful if you don't
-    /// want to use spacing to indent, but rather some arbitrary content
-    /// of your choice.
-    ///
     /// If you wish, it is also possible to set a different indentation option
     /// for each nesting level separately by specifying an array of indentation
     /// options. Each element of that array corresponds to the indentation
@@ -187,7 +179,6 @@ pub struct OutlineElem {
     ///
     /// #outline(title: "Contents (Automatic indentation)", indent: auto)
     /// #outline(title: "Contents (Length indentation)", indent: 2em)
-    /// #outline(title: "Contents (Content indentation)", indent: [--])
     /// #outline(title: "Contents (Array indentation)", indent: (2em, [*====*]))
     /// #outline(title: "Contents (Function indentation)", indent: n => [*!*] * n * n)
     ///
@@ -299,16 +290,6 @@ impl Show for OutlineElem {
 
                     let hspace = HElem::new(*length).pack().repeat(depth).unwrap();
                     seq.push(hspace);
-                }
-
-                // Content => repeat some content for each indentation level
-                Some(Smart::Custom(OutlineIndent::Content(content))) => {
-                    let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
-                        bail!(self.span(), "outline element depth too large");
-                    };
-
-                    let content_prefix = content.repeat(depth).unwrap();
-                    seq.push(content_prefix);
                 }
 
                 // Array => display the n-th element (or length for spacing),
@@ -433,7 +414,6 @@ pub trait Outlinable: Refable {
 pub enum OutlineIndent {
     Bool(bool),
     Length(Spacing),
-    Content(Content),
     Array(Vec<Option<FixedOutlineIndent>>),
     Function(Func),
 }
@@ -442,7 +422,6 @@ cast_from_value! {
     OutlineIndent,
     b: bool => OutlineIndent::Bool(b),
     s: Spacing => OutlineIndent::Length(s),
-    c: Content => OutlineIndent::Content(c),
     a: Vec<Option<FixedOutlineIndent>> => {
         if a.is_empty() {
             Err("indent array must have at least one element")?;
@@ -456,7 +435,6 @@ cast_to_value! {
     v: OutlineIndent => match v {
         OutlineIndent::Bool(b) => b.into(),
         OutlineIndent::Length(s) => s.into(),
-        OutlineIndent::Content(c) => c.into(),
         OutlineIndent::Array(a) => a.into(),
         OutlineIndent::Function(f) => f.into()
     }
