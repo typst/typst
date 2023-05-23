@@ -14,69 +14,69 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
     let missing = || Err(missing_field(name, field));
 
     // Special cases, such as module and dict, are handled by Value itself
-    match value {
+    let result = match value {
         Value::Color(color) => match field {
-            "values" => Ok(match color {
+            "values" => match color {
                 Color::Luma(luma) => vec![luma.0].into(),
                 Color::Rgba(rgba) => rgba.to_array().into(),
                 Color::Cmyk(cmyk) => cmyk.to_array().into(),
-            }),
-            _ => missing(),
+            },
+            _ => return missing(),
         },
         Value::Length(length) => match field {
-            "em" => Ok(length.em.into()),
-            "pt" => Ok(length.abs.into()),
-            _ => missing(),
+            "em" => length.em.into(),
+            "pt" => length.abs.into(),
+            _ => return missing(),
         },
         Value::Relative(rel) => match field {
-            "relative" => Ok(rel.rel.into()),
-            "absolute" => Ok(rel.abs.into()),
-            _ => missing(),
+            "relative" => rel.rel.into(),
+            "absolute" => rel.abs.into(),
+            _ => return missing(),
         },
         Value::Dyn(dynamic) => {
             if let Some(stroke) = dynamic.downcast::<PartialStroke>() {
                 match field {
-                    "paint" => Ok(stroke
+                    "paint" => stroke
                         .paint
                         .clone()
                         .unwrap_or_else(|| Stroke::default().paint)
-                        .into()),
-                    "thickness" => Ok(stroke
+                        .into(),
+                    "thickness" => stroke
                         .thickness
                         .unwrap_or_else(|| Stroke::default().thickness.into())
-                        .into()),
-                    "line_cap" => Ok(stroke
+                        .into(),
+                    "line_cap" => stroke
                         .line_cap
                         .clone()
                         .unwrap_or_else(|| Stroke::default().line_cap)
-                        .into()),
-                    "line_join" => Ok(stroke
+                        .into(),
+                    "line_join" => stroke
                         .line_join
                         .clone()
                         .unwrap_or_else(|| Stroke::default().line_join)
-                        .into()),
-                    "dash_pattern" => {
-                        Ok(stroke.dash_pattern.clone().unwrap_or(None).into())
-                    }
-                    "miter_limit" => Ok(stroke
+                        .into(),
+                    "dash_pattern" => stroke.dash_pattern.clone().unwrap_or(None).into(),
+                    "miter_limit" => stroke
                         .miter_limit
                         .unwrap_or_else(|| Stroke::default().miter_limit)
                         .0
-                        .into()),
-                    _ => missing(),
+                        .into(),
+                    _ => return missing(),
                 }
             } else if let Some(align2d) = dynamic.downcast::<Axes<GenAlign>>() {
                 match field {
-                    "horizontal" => Ok(align2d.x.into()),
-                    "vertical" => Ok(align2d.y.into()),
-                    _ => missing(),
+                    "horizontal" => align2d.x.into(),
+                    "vertical" => align2d.y.into(),
+                    _ => return missing(),
                 }
             } else {
-                not_supported()
+                return not_supported();
             }
         }
-        _ => not_supported(),
-    }
+        _ => return not_supported(),
+    };
+
+    Ok(result)
 }
 
 /// The error message for a type not supporting field access.
