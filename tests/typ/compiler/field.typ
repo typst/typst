@@ -96,3 +96,13 @@
 #test((1em + blue).dash_pattern, none)
 #test((1em + blue).miter_limit, 4.0)
 
+---
+// Test 2d alignment fields.
+#test((left + top).horizontal, left)
+#test((right + bottom).horizontal, right)
+#test((start + horizon).horizontal, start)
+#test((end + top).horizontal, end)
+#test((center + bottom).horizontal, center)
+#test((left + top).vertical, top)
+#test((right + bottom).vertical, bottom)
+#test((start + horizon).vertical, horizon)

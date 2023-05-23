@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::geom::{Color, PartialStroke, Stroke};
+use crate::geom::{Axes, Color, GenAlign, PartialStroke, Stroke};
 
 use super::Value;
 
@@ -65,6 +65,12 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                         .into()),
                     _ => missing(),
                 }
+            } else if let Some(align2d) = dynamic.downcast::<Axes<GenAlign>>() {
+                match field {
+                    "horizontal" => Ok(align2d.x.into()),
+                    "vertical" => Ok(align2d.y.into()),
+                    _ => missing(),
+                }
             } else {
                 not_supported()
             }
@@ -99,6 +105,7 @@ pub fn fields_on(type_name: &str) -> &[&'static str] {
             "dash_pattern",
             "miter_limit",
         ],
+        "2d alignment" => &["horizontal", "vertical"],
         _ => &[],
     }
 }
