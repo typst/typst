@@ -142,8 +142,8 @@ impl CompileSettings {
             root,
             font_paths,
             open,
-            ppi,
             diagnostic_format,
+            ppi,
         }
     }
 
@@ -153,11 +153,12 @@ impl CompileSettings {
     /// Panics if the command is not a compile or watch command.
     fn with_arguments(args: CliArguments) -> Self {
         let watch = matches!(args.command, Command::Watch(_));
-        let CompileCommand { input, output, open, ppi, .. } = match args.command {
-            Command::Compile(command) => command,
-            Command::Watch(command) => command,
-            _ => unreachable!(),
-        };
+        let CompileCommand { input, output, open, ppi, diagnostic_format, .. } =
+            match args.command {
+                Command::Compile(command) => command,
+                Command::Watch(command) => command,
+                _ => unreachable!(),
+            };
 
         Self::new(
             input,
@@ -167,7 +168,7 @@ impl CompileSettings {
             args.font_paths,
             open,
             ppi,
-            args.diagnostic_format,
+            diagnostic_format,
         )
     }
 }
@@ -426,19 +427,15 @@ fn print_diagnostics(
     errors: Vec<SourceError>,
     diagnostic_format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
-    let mut w = StandardStream::stderr(match diagnostic_format {
-        DiagnosticFormat::Human => ColorChoice::Auto,
-        DiagnosticFormat::Short => ColorChoice::Never,
-    });
-
-    let config = match diagnostic_format {
-        DiagnosticFormat::Human => term::Config { tab_width: 2, ..Default::default() },
-        DiagnosticFormat::Short => term::Config {
-            display_style: term::DisplayStyle::Short,
-            tab_width: 2,
-            ..Default::default()
-        },
+    let mut w = match diagnostic_format {
+        DiagnosticFormat::Human => color_stream(),
+        DiagnosticFormat::Short => StandardStream::stderr(ColorChoice::Never),
     };
+
+    let mut config = term::Config { tab_width: 2, ..Default::default() };
+    if diagnostic_format == DiagnosticFormat::Short {
+        config.display_style = term::DisplayStyle::Short;
+    }
 
     for error in errors {
         // The main diagnostic.
