@@ -67,16 +67,22 @@
 #(3.345cm).inches(digits: -1)
 
 ---
+// Test color kind method.
+#test(rgb(1, 2, 3, 4).kind(), "rgba")
+#test(cmyk(4%, 5%, 6%, 7%).kind(), "cmyk")
+#test(luma(40).kind(), "luma")
+
+---
 // Test color conversion methods.
 #test(rgb(1, 2, 3).to-hex(), "#010203")
 #test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
-#test(cmyk(4%, 5%, 6%, 7%).to-rgba().kind, "rgba")
+#test(cmyk(4%, 5%, 6%, 7%).to-rgba().kind(), "rgba")
 #test(cmyk(4%, 5%, 6%, 7%).to-rgba().values, (228, 225, 223, 255))
 #test(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
-#test(luma(40).to-rgba().kind, "rgba")
+#test(luma(40).to-rgba().kind(), "rgba")
 #test(luma(40).to-rgba().values, (40, 40, 40, 255))
 #test(luma(40).to-hex(), "#282828")
-#test(luma(40).to-cmyk().kind, "cmyk")
+#test(luma(40).to-cmyk().kind(), "cmyk")
 #test(repr(luma(40).to-cmyk().values), repr((11.8%, 10.6%, 10.6%, 14.1%)))
 
 ---

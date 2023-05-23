@@ -16,7 +16,6 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
     // Special cases, such as module and dict, are handled by Value itself
     match value {
         Value::Color(color) => match field {
-            "kind" => Ok(color.kind().into()),
             "values" => Ok(match color {
                 Color::Luma(luma) => vec![luma.0].into(),
                 Color::Rgba(rgba) => rgba.to_array().into(),
@@ -89,7 +88,7 @@ fn missing_field(type_name: &str, field: &str) -> EcoString {
 /// List the available fields for a type.
 pub fn fields_on(type_name: &str) -> &[&'static str] {
     match type_name {
-        "color" => &["kind", "value"],
+        "color" => &["value"],
         "length" => &["em", "pt"],
         "relative length" => &["relative", "absolute"],
         "stroke" => &[
