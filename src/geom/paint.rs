@@ -1,4 +1,4 @@
-use ecow::{eco_format, eco_vec, EcoString};
+use ecow::{eco_format, EcoString};
 use std::str::FromStr;
 
 use super::*;
@@ -245,12 +245,7 @@ impl RgbaColor {
 
     /// Converts this color to an array of R, G, B, A components.
     pub fn to_array(self) -> Array {
-        Array::from_vec(eco_vec![
-            self.r.into(),
-            self.g.into(),
-            self.b.into(),
-            self.a.into()
-        ])
+        array![self.r, self.g, self.b, self.a]
     }
 }
 
@@ -386,12 +381,7 @@ impl CmykColor {
         // multiply and divide by 1000 so we round to one digit after the dot
         let g = |c| Ratio::new(((c as f64 / 255.0) * 1000.0).round() / 1000.0);
 
-        Array::from_vec(eco_vec![
-            g(self.c).into(),
-            g(self.m).into(),
-            g(self.y).into(),
-            g(self.k).into()
-        ])
+        array![g(self.c), g(self.m), g(self.y), g(self.k)]
     }
 }
 
