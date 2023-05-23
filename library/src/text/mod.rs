@@ -452,6 +452,10 @@ pub struct TextElem {
     /// Whether to turn numbers into fractions. Setting this to `{true}`
     /// enables the OpenType `frac` font feature.
     ///
+    /// It is not advisable to enable this property globally as it will mess
+    /// with all appearances of numbers after a slash (e.g., in URLs). Instead,
+    /// enable it locally when you want a fraction.
+    ///
     /// ```example
     /// 1/2 \
     /// #text(fractions: true)[1/2]
