@@ -26,7 +26,7 @@ pub fn call(
             "darken" => Value::Color(color.darken(args.expect("amount")?)),
             "negate" => Value::Color(color.negate()),
             "kind" => color.kind().into(),
-            "to-hex" => color.to_rgba().to_hex().into(),
+            "hex" => color.to_rgba().to_hex().into(),
             "to-rgba" => color.to_rgba().into(),
             "to-cmyk" => match color {
                 Color::Luma(luma) => luma.to_cmyk().into(),
@@ -337,7 +337,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("darken", true),
             ("negate", false),
             ("kind", false),
-            ("to-hex", false),
+            ("hex", false),
             ("to-rgba", false),
             ("to-cmyk", false),
         ],
