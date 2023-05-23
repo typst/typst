@@ -12,7 +12,7 @@ you created in the previous chapter and turn it into a reusable template. In
 this chapter you will learn how to create a template that you and your team can
 use with just one show rule. Let's get started!
 
-## A toy template
+## A toy template { #toy-template }
 In Typst, templates are functions in which you can wrap your whole document. To
 learn how to do that, let's first review how to write your very own functions.
 They can do anything you want them to, so why not go a bit crazy?
@@ -60,7 +60,7 @@ wrapped it around it. This is not especially useful with this particular
 function, but when combined with set rules and named arguments, it can be very
 powerful.
 
-## Embedding set and show rules
+## Embedding set and show rules { #set-and-show-rules }
 To apply some set and show rules to our template, we can use `set` and `show`
 within a content block in our function and then insert the document into
 that content block.
@@ -159,7 +159,7 @@ Also note where the title comes from: We previously had it inside of a variable.
 Now, we are receiving it as the first parameter of the template function.
 Thus, we must specify it in the show rule where we call the template.
 
-## Templates with named arguments
+## Templates with named arguments { #named-arguments }
 Our paper in the previous chapter had a title and an author list. Let's add these
 things to our template. In addition to the title, we want our template to accept
 a list of authors with their affiliations and the paper's abstract. To keep
@@ -253,7 +253,7 @@ The resulting template function looks like this:
 }
 ```
 
-## A separate file
+## A separate file { #separate-file }
 Most of the time, a template is specified in a different file and then imported
 into the document. This way, the main file you write in is kept clutter free and
 your template is easily reused. Create a new text file in the file panel by
@@ -365,7 +365,7 @@ conference! Why not share it on
 [Typst's Discord server](https://discord.gg/2uDybryKPe) so that others can use
 it too?
 
-## Review
+## Review { #review }
 Congratulations, you have completed Typst's Tutorial! In this section, you have
 learned how to define your own functions and how to create and apply templates
 that define reusable document styles. You've made it far and learned a lot. You

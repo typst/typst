@@ -14,7 +14,7 @@ use crate::prelude::*;
 /// Displays the text verbatim and in a monospace font. This is typically used
 /// to embed computer code into your document.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ````example
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
@@ -26,7 +26,7 @@ use crate::prelude::*;
 /// ```
 /// ````
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
 /// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
 /// When you use three or more backticks, you can additionally specify a
@@ -36,7 +36,7 @@ use crate::prelude::*;
 ///
 /// Display: Raw Text / Code
 /// Category: text
-#[element(Synthesize, Show, Finalize, LocalName, Figurable)]
+#[element(Synthesize, Show, Finalize, LocalName, Figurable, PlainText)]
 pub struct RawElem {
     /// The raw text.
     ///
@@ -102,6 +102,27 @@ pub struct RawElem {
     /// ```
     /// ````
     pub lang: Option<EcoString>,
+
+    /// The horizontal alignment that each line in a raw block should have.
+    /// This option is ignored if this is not a raw block (if specified
+    /// `block: false` or single backticks were used in markup mode).
+    ///
+    /// By default, this is set to `{start}`, meaning that raw text is
+    /// aligned towards the start of the text direction inside the block
+    /// by default, regardless of the current context's alignment (allowing
+    /// you to center the raw block itself without centering the text inside
+    /// it, for example).
+    ///
+    /// ````example
+    /// #set raw(align: center)
+    ///
+    /// ```typc
+    /// let f(x) = x
+    /// code = "centered"
+    /// ```
+    /// ````
+    #[default(HorizontalAlign(GenAlign::Start))]
+    pub align: HorizontalAlign,
 }
 
 impl RawElem {
@@ -180,6 +201,8 @@ impl Show for RawElem {
         };
 
         if self.block(styles) {
+            // Align the text before inserting it into the block.
+            realized = realized.aligned(Axes::with_x(Some(self.align(styles).into())));
             realized = BlockElem::new().with_body(Some(realized)).pack();
         }
 
@@ -221,9 +244,11 @@ impl LocalName for RawElem {
     }
 }
 
-impl Figurable for RawElem {
-    fn priority(&self, _styles: StyleChain) -> isize {
-        500
+impl Figurable for RawElem {}
+
+impl PlainText for RawElem {
+    fn plain_text(&self, text: &mut EcoString) {
+        text.push_str(&self.text());
     }
 }
 

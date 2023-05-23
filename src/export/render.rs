@@ -518,7 +518,7 @@ fn render_image(
 #[comemo::memoize]
 fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
-    match image.decoded() {
+    match image.decoded().as_ref() {
         DecodedImage::Raster(dynamic, _, _) => {
             let downscale = w < image.width();
             let filter =

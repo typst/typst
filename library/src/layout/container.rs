@@ -9,7 +9,7 @@ use crate::prelude::*;
 /// elements into a paragraph. Boxes take the size of their contents by default
 /// but can also be sized explicitly.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// Refer to the docs
 /// #box(
@@ -170,7 +170,7 @@ impl Layout for BoxElem {
 /// Such a container can be used to separate content, size it and give it a
 /// background or border.
 ///
-/// ## Examples
+/// ## Examples { #examples }
 /// With a block, you can give a background to content while still allowing it
 /// to break across multiple pages.
 /// ```example
@@ -229,7 +229,6 @@ pub struct BlockElem {
 
     /// Whether the block can be broken and continue on the next page.
     ///
-    /// Defaults to `{true}`.
     /// ```example
     /// #set page(height: 80pt)
     /// The following block will
@@ -282,13 +281,16 @@ pub struct BlockElem {
     /// A second paragraph.
     /// ```
     #[external]
+    #[default(Em::new(1.2).into())]
     pub spacing: Spacing,
 
     /// The spacing between this block and its predecessor. Takes precedence
     /// over `spacing`. Can be used in combination with a show rule to adjust
     /// the spacing around arbitrary block-level elements.
-    ///
-    /// The default value is `{1.2em}`.
+    #[external]
+    #[default(Em::new(1.2).into())]
+    pub above: Spacing,
+    #[internal]
     #[parse(
         let spacing = args.named("spacing")?;
         args.named("above")?
@@ -300,8 +302,10 @@ pub struct BlockElem {
 
     /// The spacing between this block and its successor. Takes precedence
     /// over `spacing`.
-    ///
-    /// The default value is `{1.2em}`.
+    #[external]
+    #[default(Em::new(1.2).into())]
+    pub below: Spacing,
+    #[internal]
     #[parse(
         args.named("below")?
             .map(VElem::block_around)

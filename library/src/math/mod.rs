@@ -42,8 +42,10 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
-use crate::meta::Refable;
-use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
+use crate::meta::Supplement;
+use crate::meta::{
+    Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
+};
 use crate::prelude::*;
 use crate::text::{
     families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
@@ -122,7 +124,7 @@ pub fn module() -> Module {
 ///
 /// Can be displayed inline with text or as a separate block.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set text(font: "New Computer Modern")
 ///
@@ -135,7 +137,7 @@ pub fn module() -> Module {
 /// $ sum_(k=1)^n k = (n(n+1)) / 2 $
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: Write mathematical markup within
 /// dollar signs to create an equation. Starting and ending the equation with at
 /// least one space lifts it into a separate block that is centered
@@ -145,7 +147,8 @@ pub fn module() -> Module {
 /// Display: Equation
 /// Category: math
 #[element(
-    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable
+    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable,
+    Outlinable
 )]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
@@ -165,15 +168,44 @@ pub struct EquationElem {
     /// ```
     pub numbering: Option<Numbering>,
 
+    /// A supplement for the equation.
+    ///
+    /// For references to equations, this is added before the referenced number.
+    ///
+    /// If a function is specified, it is passed the referenced equation and
+    /// should return content.
+    ///
+    /// ```example
+    /// #set math.equation(numbering: "(1)", supplement: [Eq.])
+    ///
+    /// We define:
+    /// $ phi.alt := (1 + sqrt(5)) / 2 $ <ratio>
+    ///
+    /// With @ratio, we get:
+    /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
+    /// ```
+    pub supplement: Smart<Option<Supplement>>,
+
     /// The contents of the equation.
     #[required]
     pub body: Content,
 }
 
 impl Synthesize for EquationElem {
-    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+        // Resolve the supplement.
+        let supplement = match self.supplement(styles) {
+            Smart::Auto => TextElem::packed(self.local_name_in(styles)),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(supplement)) => {
+                supplement.resolve(vt, [self.clone().into()])?
+            }
+        };
+
         self.push_block(self.block(styles));
         self.push_numbering(self.numbering(styles));
+        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+
         Ok(())
     }
 }
@@ -307,41 +339,45 @@ impl LocalName for EquationElem {
 }
 
 impl Refable for EquationElem {
-    fn reference(
-        &self,
-        vt: &mut Vt,
-        supplement: Option<Content>,
-        lang: Lang,
-        region: Option<Region>,
-    ) -> SourceResult<Content> {
-        // first we create the supplement of the heading
-        let mut supplement =
-            supplement.unwrap_or_else(|| TextElem::packed(self.local_name(lang, region)));
+    fn supplement(&self) -> Content {
+        // After synthesis, this should always be custom content.
+        match self.supplement(StyleChain::default()) {
+            Smart::Custom(Some(Supplement::Content(content))) => content,
+            _ => Content::empty(),
+        }
+    }
 
-        // we append a space if the supplement is not empty
-        if !supplement.is_empty() {
-            supplement += TextElem::packed('\u{a0}')
-        };
-
-        // we check for a numbering
-        let Some(numbering) = self.numbering(StyleChain::default()) else {
-            bail!(self.span(), "only numbered equations can be referenced");
-        };
-
-        // we get the counter and display it
-        let numbers = Counter::of(Self::func())
-            .at(vt, self.0.location().expect("missing location"))?
-            .display(vt, &numbering.trimmed())?;
-
-        Ok(supplement + numbers)
+    fn counter(&self) -> Counter {
+        Counter::of(Self::func())
     }
 
     fn numbering(&self) -> Option<Numbering> {
         self.numbering(StyleChain::default())
     }
+}
 
-    fn counter(&self) -> Counter {
-        Counter::of(Self::func())
+impl Outlinable for EquationElem {
+    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
+        let Some(numbering) = self.numbering(StyleChain::default()) else {
+            return Ok(None);
+        };
+
+        // After synthesis, this should always be custom content.
+        let mut supplement = match self.supplement(StyleChain::default()) {
+            Smart::Custom(Some(Supplement::Content(content))) => content,
+            _ => Content::empty(),
+        };
+
+        if !supplement.is_empty() {
+            supplement += TextElem::packed("\u{a0}");
+        }
+
+        let numbers = self
+            .counter()
+            .at(vt, self.0.location().unwrap())?
+            .display(vt, &numbering)?;
+
+        Ok(Some(supplement + numbers))
     }
 }
 

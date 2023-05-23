@@ -34,7 +34,7 @@ use super::Sizing;
 /// instead of an array. For example, `columns:` `{3}` is equivalent to
 /// `columns:` `{(auto, auto, auto)}`.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set text(10pt, style: "italic")
 /// #let cell = rect.with(
@@ -290,7 +290,6 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Determines the columns sizes and then layouts the grid row-by-row.
-    #[tracing::instrument(name = "grid layout", skip(self))]
     pub fn layout(mut self) -> SourceResult<GridLayout> {
         self.measure_columns()?;
 
@@ -318,6 +317,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
     }
 
     /// Determine all column sizes.
+    #[tracing::instrument(name = "GridLayouter::measure_columns", skip_all)]
     fn measure_columns(&mut self) -> SourceResult<()> {
         // Sum of sizes of resolved relative tracks.
         let mut rel = Abs::zero();

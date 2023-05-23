@@ -67,7 +67,7 @@ the first item of the list above by indenting it.
 + The geology
 ```
 
-## Adding a figure
+## Adding a figure { #figure }
 You think that your report would benefit from a figure. Let's add one. Typst
 supports images in the formats PNG, JPEG, GIF, and SVG. To add an image file to
 your project, first open the _file panel_ by clicking the box icon in the left
@@ -174,7 +174,7 @@ On the contrary, strings work wherever content is expected because text is a
 valid kind of content.
 </div>
 
-## Adding a bibliography
+## Adding a bibliography { #bibliography }
 As you write up your report, you need to back up some of your claims. You can
 add a bibliography to your document with the
 [`bibliography`]($func/bibliography) function. This function expects a path
@@ -184,7 +184,7 @@ Typst's native bibliography format is
 [Hayagriva](https://github.com/typst/hayagriva/blob/main/docs/file-format.md),
 but for compatibility you can also use BibLaTeX files. As your classmate has
 already done a literature survey and sent you a `.bib` file, you'll use that
-one. Upload the file through the final panel to access it in Typst.
+one. Upload the file through the file panel to access it in Typst.
 
 Once the document contains a bibliography, you can start citing from it.
 Citations use the same syntax as references to a label. As soon as you cite a
@@ -200,7 +200,7 @@ established in @glacier-melt.
 #bibliography("works.bib")
 ```
 
-## Maths
+## Maths { #maths }
 After fleshing out the methods section, you move on to the meat of the document:
 Your equations. Typst has built-in mathematical typesetting and uses its own
 math notation. Let's start with a simple equation. We wrap it in `[$]` signs
@@ -269,17 +269,17 @@ $ 7.32 beta +
 
 Not all math constructs have special syntax. Instead, we use functions, just
 like the `image` function we have seen before. For example, to insert a column
-vector, we can use the [`vec`]($func/vec) function. Within math mode, function
-calls don't need to start with the `#` character.
+vector, we can use the [`vec`]($func/math.vec) function. Within math mode,
+function calls don't need to start with the `#` character.
 
 ```example
 $ v := vec(x_1, x_2, x_3) $
 ```
 
 Some functions are only available within math mode. For example, the
-[`cal`]($func/cal) function is used to typeset calligraphic letters commonly
-used for sets. The [math section of the reference]($category/math) provides a
-complete list of all functions that math mode makes available.
+[`cal`]($func/math.cal) function is used to typeset calligraphic letters
+commonly used for sets. The [math section of the reference]($category/math)
+provides a complete list of all functions that math mode makes available.
 
 One more thing: Many symbols, such as the arrow, have a lot of variants. You can
 select among these variants by appending a dot and a modifier name to a symbol's
@@ -293,7 +293,7 @@ This notation is also available in markup mode, but the symbol name must be
 preceded with `#sym.` there. See the [symbols section]($category/symbols/sym)
 for a list of all available symbols.
 
-## Review
+## Review { #review }
 You have now seen how to write a basic document in Typst. You learned how to
 emphasize text, write lists, insert images, align content, and typeset
 mathematical expressions. You also learned about Typst's functions. There are

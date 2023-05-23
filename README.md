@@ -122,7 +122,7 @@ Typst's CLI is available from different sources:
   run the bleeding edge version with `nix run github:typst/typst -- --version`.
 
 - Docker users can run a prebuilt image with
-  `docker run -it ghcr.io/typst/typst:main`.
+  `docker run -it ghcr.io/typst/typst:latest`.
 
 ## Usage
 Once you have installed Typst, you can use it like this:
@@ -178,8 +178,9 @@ cargo build --release
 
 The optimized binary will be stored in `target/release/`.
 
-## Pronunciation
-IPA: /taɪpst/. "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er.
+## Pronunciation and Spelling
+IPA: /taɪpst/. "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er. When
+writing about Typst, capitalize its name as a proper noun, with a capital "T".
 
 ## Design Principles
 All of Typst has been designed with three key goals in mind: Power,
