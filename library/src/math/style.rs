@@ -180,9 +180,11 @@ pub fn bb(
 
 /// Forced display style in math.
 ///
-/// ## Example
+/// This is the normal size for display equations.
+///
+/// ## Example { #example }
 /// ```example
-/// $ display(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $sum_i x_i/2 = display(sum_i x/2)$
 /// ```
 ///
 /// Display: Display Size
@@ -190,8 +192,10 @@ pub fn bb(
 /// Returns: content
 #[func]
 pub fn display(
+    /// The content to size.
     body: Content,
-    /// Whether to impose height restriction for exponents like regular sub- and superscripts
+    /// Whether to impose a height restriction for exponents, like regular sub-
+    /// and superscripts do.
     #[named]
     #[default(false)]
     cramp: bool,
@@ -205,9 +209,12 @@ pub fn display(
 
 /// Forced inline (text) style in math.
 ///
-/// ## Example
+/// This is the normal size for inline equations.
+///
+/// ## Example { #example }
 /// ```example
-/// $ inline(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $ sum_i x_i/2
+///     = inline(sum_i x_i/2) $
 /// ```
 ///
 /// Display: Inline Size
@@ -215,8 +222,10 @@ pub fn display(
 /// Returns: content
 #[func]
 pub fn inline(
+    /// The content to size.
     body: Content,
-    /// Whether to impose height restriction for exponents like regular sub- and superscripts
+    /// Whether to impose a height restriction for exponents, like regular sub-
+    /// and superscripts do.
     #[named]
     #[default(false)]
     cramp: bool,
@@ -230,11 +239,11 @@ pub fn inline(
 
 /// Forced script style in math.
 ///
-/// This is *the smaller size* for math used in powers or sub- or superscripts.
+/// This is the smaller size used in powers or sub- or superscripts.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
-/// $ script(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $sum_i x_i/2 = script(sum_i x_i/2)$
 /// ```
 ///
 /// Display: Script Size
@@ -242,8 +251,10 @@ pub fn inline(
 /// Returns: content
 #[func]
 pub fn script(
+    /// The content to size.
     body: Content,
-    /// Whether to impose height restriction for exponents like regular sub- and superscripts
+    /// Whether to impose a height restriction for exponents, like regular sub-
+    /// and superscripts do.
     #[named]
     #[default(true)]
     cramp: bool,
@@ -257,12 +268,12 @@ pub fn script(
 
 /// Forced second script style in math.
 ///
-/// Subsubscript refers to the size used in second-level sub- and superscripts (script of the script).
-/// This is *the smallest size* for math.
+/// This is the smallest size, used in second-level sub- and superscripts
+/// (script of the script).
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
-/// $ sscript(sum_i (x_i mu_i)/sigma_i^2)/(sum_i (mu_i^2)/sigma_i^2) $
+/// $sum_i x_i/2 = sscript(sum_i x_i/2)$
 /// ```
 ///
 /// Display: Script-Script Size
@@ -270,8 +281,10 @@ pub fn script(
 /// Returns: content
 #[func]
 pub fn sscript(
+    /// The content to size.
     body: Content,
-    /// Whether to impose height restriction for exponents like regular sub- and superscripts
+    /// Whether to impose a height restriction for exponents, like regular sub-
+    /// and superscripts do.
     #[named]
     #[default(true)]
     cramp: bool,

@@ -17,13 +17,14 @@
     math fonts contain multiple variants of each letter.
 
 - name: sizes
-  title: Sizes
+  display: Sizes
   functions: ["display", "inline", "script", "sscript"]
   description: |
     Forced size styles for expressions within formulas.
 
-    These functions allow manual setting of size to make them look like
-    they are used in root of formula or sub/superscripts.
+    These functions allow manual configuration of the size of equation elements
+    to make them look as in a display/inline equation or as if used in a root or
+    sub/superscripts.
 
 - name: underover
   display: Under/Over
