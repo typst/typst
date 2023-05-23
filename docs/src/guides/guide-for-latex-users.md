@@ -209,8 +209,8 @@ The difference between content and string is that content can contain markup,
 including function calls, while a string really is just a sequence of
 characters. Various [operators]($scripting/#operators) such as `+` for
 adding things together or `==` for checking the equality between two variables
-behave similar to many other popular programming languages, so there is no need
-for an `\addtocounter` or `\ifnum` macro. You can also define define your own
+behave similarly to many other popular programming languages, so there is no
+need for an `\addtocounter` or `\ifnum` macro. You can also define your own
 [variables]($scripting/#bindings) and do computations on them.
 
 In order to specify values of any of these types, you have to be in code mode!
@@ -239,7 +239,7 @@ don't you think?
 ```
 
 Set rules may appear anywhere in the document. They can be thought of as
-pre-setting the arguments of their function:
+default argument values of their respective function:
 
 ```example
 #set enum(numbering: "I.")
