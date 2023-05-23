@@ -62,7 +62,7 @@ pub struct CompileCommand {
     /// Path to input Typst file
     pub input: PathBuf,
 
-    /// Path to output PDF file
+    /// Path to output PDF file or PNG file(s)
     pub output: Option<PathBuf>,
 
     /// Opens the output file after compilation using the default PDF viewer
@@ -72,6 +72,10 @@ pub struct CompileCommand {
     /// Produces a flamegraph of the compilation process
     #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
     pub flamegraph: Option<Option<PathBuf>>,
+
+    /// The PPI to use if exported as PNG
+    #[arg(long = "ppi")]
+    pub ppi: Option<f32>,
 }
 
 /// List all discovered fonts in system and custom font paths
