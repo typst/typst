@@ -2,7 +2,7 @@ use super::*;
 
 /// A square root.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ sqrt(x^2) = x = sqrt(x)^2 $
 /// ```
@@ -20,7 +20,7 @@ pub fn sqrt(
 
 /// A general root.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ root(3, x) $
 /// ```

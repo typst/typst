@@ -4,23 +4,15 @@ use std::fmt::Write;
 
 use serde::Deserialize;
 
-use super::Html;
+use super::{Html, Resolver};
 
 /// Build HTML detailing the contributors between two tags.
-pub fn contributors(from: &str, to: &str) -> Option<Html> {
+pub fn contributors(resolver: &dyn Resolver, from: &str, to: &str) -> Option<Html> {
     let staff = ["laurmaedje", "reknih"];
-
-    let url = format!("https://api.github.com/repos/typst/typst/compare/{from}...{to}");
-    let response: Response = ureq::get(&url)
-        .set("X-GitHub-Api-Version", "2022-11-28")
-        .call()
-        .ok()?
-        .into_json()
-        .ok()?;
 
     // Determine number of contributions per person.
     let mut contributors = HashMap::<String, Contributor>::new();
-    for commit in response.commits {
+    for commit in resolver.commits(from, to) {
         contributors
             .entry(commit.author.login.clone())
             .or_insert_with(|| Contributor {
@@ -80,18 +72,15 @@ struct Contributor {
     contributions: usize,
 }
 
+/// A commit on the `typst` repository.
 #[derive(Debug, Deserialize)]
-struct Response {
-    commits: Vec<Commit>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Commit {
+pub struct Commit {
     author: Author,
 }
 
+/// A commit author.
 #[derive(Debug, Deserialize)]
-struct Author {
+pub struct Author {
     login: String,
     avatar_url: String,
 }

@@ -18,7 +18,8 @@ pub struct CliArguments {
     #[command(subcommand)]
     pub command: Command,
 
-    /// Sets the level of verbosity: 0 = none, 1 = warning & error, 2 = info, 3 = debug, 4 = trace
+    /// Sets the level of logging verbosity:
+    /// -v = warning & error, -vv = info, -vvv = debug, -vvvv = trace
     #[clap(short, long, action = ArgAction::Count)]
     pub verbosity: u8,
 }
@@ -68,8 +69,7 @@ pub struct CompileCommand {
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
 
-    /// Produces a flamegraph of the compilation process and saves it to the
-    /// given file or to `flamegraph.svg` in the current working directory.
+    /// Produces a flamegraph of the compilation process
     #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
     pub flamegraph: Option<Option<PathBuf>>,
 

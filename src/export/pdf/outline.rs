@@ -5,21 +5,20 @@ use pdf_writer::{Finish, Ref, TextStr};
 use super::{AbsExt, PdfContext, RefExt};
 use crate::geom::Abs;
 use crate::model::Content;
-use crate::util::NonZeroExt;
 
 /// Construct the outline for the document.
 #[tracing::instrument(skip_all)]
 pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     let mut tree: Vec<HeadingNode> = vec![];
     for heading in ctx.introspector.query(&item!(heading_func).select()) {
-        let leaf = HeadingNode::leaf(heading);
-        if let Some(last) = tree.last_mut() {
-            if last.try_insert(leaf.clone(), NonZeroUsize::ONE) {
-                continue;
-            }
+        let leaf = HeadingNode::leaf((*heading).clone());
+
+        let mut children = &mut tree;
+        while children.last().map_or(false, |last| last.level < leaf.level) {
+            children = &mut children.last_mut().unwrap().children;
         }
 
-        tree.push(leaf);
+        children.push(leaf);
     }
 
     if tree.is_empty() {
@@ -64,21 +63,6 @@ impl HeadingNode {
     fn len(&self) -> usize {
         1 + self.children.iter().map(Self::len).sum::<usize>()
     }
-
-    fn try_insert(&mut self, child: Self, level: NonZeroUsize) -> bool {
-        if level >= child.level {
-            return false;
-        }
-
-        if let Some(last) = self.children.last_mut() {
-            if last.try_insert(child.clone(), level.saturating_add(1)) {
-                return true;
-            }
-        }
-
-        self.children.push(child);
-        true
-    }
 }
 
 /// Write an outline item and all its children.
@@ -111,7 +95,8 @@ fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    outline.title(TextStr(node.element.plain_text().trim()));
+    let body = node.element.expect_field::<Content>("body");
+    outline.title(TextStr(body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();
     let pos = ctx.introspector.position(loc);

@@ -73,6 +73,18 @@ impl<T: Numeric> Debug for Rel<T> {
     }
 }
 
+impl From<Abs> for Rel<Length> {
+    fn from(abs: Abs) -> Self {
+        Rel::from(Length::from(abs))
+    }
+}
+
+impl From<Em> for Rel<Length> {
+    fn from(em: Em) -> Self {
+        Rel::from(Length::from(em))
+    }
+}
+
 impl<T: Numeric> From<T> for Rel<T> {
     fn from(abs: T) -> Self {
         Self { rel: Ratio::zero(), abs }
@@ -226,4 +238,8 @@ impl Fold for Rel<Length> {
     fn fold(self, _: Self::Output) -> Self::Output {
         self
     }
+}
+
+cast_to_value! {
+    v: Rel<Abs> => v.map(Length::from).into()
 }

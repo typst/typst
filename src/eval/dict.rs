@@ -88,7 +88,7 @@ impl Dict {
 
     /// Remove a mapping by `key` and return the value.
     pub fn remove(&mut self, key: &str) -> StrResult<Value> {
-        match Arc::make_mut(&mut self.0).remove(key) {
+        match Arc::make_mut(&mut self.0).shift_remove(key) {
             Some(value) => Ok(value),
             None => Err(missing_key(key)),
         }

@@ -1,7 +1,9 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
 
-use typst::eval::Regex;
+use time::{Month, PrimitiveDateTime};
+
+use typst::eval::{Datetime, Dynamic, Regex};
 
 use crate::prelude::*;
 
@@ -11,7 +13,7 @@ use crate::prelude::*;
 /// - Floats are floored to the next 64-bit integer.
 /// - Strings are parsed in base 10.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #int(false) \
 /// #int(true) \
@@ -38,7 +40,7 @@ cast_from_value! {
     v: bool => Self(v as i64),
     v: i64 => Self(v),
     v: f64 => Self(v as i64),
-    v: EcoString => Self(v.parse().map_err(|_| "not a valid integer")?),
+    v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid integer: {}", v))?),
 }
 
 /// Convert a value to a float.
@@ -49,7 +51,7 @@ cast_from_value! {
 /// - Strings are parsed in base 10 to the closest 64-bit float.
 ///   Exponential notation is supported.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #float(false) \
 /// #float(true) \
@@ -79,12 +81,12 @@ cast_from_value! {
     v: i64 => Self(v as f64),
     v: f64 => Self(v),
     v: Ratio => Self(v.get()),
-    v: EcoString => Self(v.parse().map_err(|_| "not a valid float")?),
+    v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid float: {}", v))?),
 }
 
 /// Create a grayscale color.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #for x in range(250, step: 50) {
 ///   box(square(fill: luma(x)))
@@ -110,7 +112,7 @@ pub fn luma(
 /// render them correctly, the PDF export does not handle them properly at the
 /// moment. This will be fixed in the future.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #square(fill: rgb("#b1f2eb"))
 /// #square(fill: rgb(87, 127, 230))
@@ -135,23 +137,18 @@ pub fn rgb(
     /// ]
     /// ```
     #[external]
-    #[default]
     hex: EcoString,
     /// The red component.
     #[external]
-    #[default]
     red: Component,
     /// The green component.
     #[external]
-    #[default]
     green: Component,
     /// The blue component.
     #[external]
-    #[default]
     blue: Component,
     /// The alpha component.
     #[external]
-    #[default]
     alpha: Component,
 ) -> Value {
     Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
@@ -184,13 +181,182 @@ cast_from_value! {
     },
 }
 
+/// Create a new datetime.
+///
+/// You can specify the [datetime]($type/datetime) using a year, month, day,
+/// hour, minute, and second.
+///
+/// ## Example
+/// ```example
+/// #datetime(
+///   year: 2012,
+///   month: 8,
+///   day: 3,
+/// ).display()
+/// ```
+///
+/// ## Format
+/// _Note_: Depending on which components of the datetime you specify, Typst
+/// will store it in one of the following three ways:
+/// * If you specify year, month and day, Typst will store just a date.
+/// * If you specify hour, minute and second, Typst will store just a time.
+/// * If you specify all of year, month, day, hour, minute and second, Typst
+///   will store a full datetime.
+///
+/// Depending on how it is stored, the [`display`]($type/datetime.display)
+/// method will choose a different formatting by default.
+///
+/// Display: Datetime
+/// Category: construct
+/// Returns: datetime
+#[func]
+#[scope(
+    scope.define("today", datetime_today);
+    scope
+)]
+pub fn datetime(
+    /// The year of the datetime.
+    #[named]
+    year: Option<YearComponent>,
+    /// The month of the datetime.
+    #[named]
+    month: Option<MonthComponent>,
+    /// The day of the datetime.
+    #[named]
+    day: Option<DayComponent>,
+    /// The hour of the datetime.
+    #[named]
+    hour: Option<HourComponent>,
+    /// The minute of the datetime.
+    #[named]
+    minute: Option<MinuteComponent>,
+    /// The second of the datetime.
+    #[named]
+    second: Option<SecondComponent>,
+) -> Value {
+    let time = match (hour, minute, second) {
+        (Some(hour), Some(minute), Some(second)) => {
+            match time::Time::from_hms(hour.0, minute.0, second.0) {
+                Ok(time) => Some(time),
+                Err(_) => bail!(args.span, "time is invalid"),
+            }
+        }
+        (None, None, None) => None,
+        _ => bail!(args.span, "time is incomplete"),
+    };
+
+    let date = match (year, month, day) {
+        (Some(year), Some(month), Some(day)) => {
+            match time::Date::from_calendar_date(year.0, month.0, day.0) {
+                Ok(date) => Some(date),
+                Err(_) => bail!(args.span, "date is invalid"),
+            }
+        }
+        (None, None, None) => None,
+        _ => bail!(args.span, "date is incomplete"),
+    };
+
+    match (date, time) {
+        (Some(date), Some(time)) => Value::Dyn(Dynamic::new(Datetime::Datetime(
+            PrimitiveDateTime::new(date, time),
+        ))),
+        (Some(date), None) => Value::Dyn(Dynamic::new(Datetime::Date(date))),
+        (None, Some(time)) => Value::Dyn(Dynamic::new(Datetime::Time(time))),
+        (None, None) => {
+            bail!(args.span, "at least one of date or time must be fully specified")
+        }
+    }
+}
+
+struct YearComponent(i32);
+struct MonthComponent(Month);
+struct DayComponent(u8);
+struct HourComponent(u8);
+struct MinuteComponent(u8);
+struct SecondComponent(u8);
+
+cast_from_value!(
+    YearComponent,
+    v: i64 => match i32::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("year is invalid")?
+    }
+);
+
+cast_from_value!(
+    MonthComponent,
+    v: i64 => match u8::try_from(v).ok().and_then(|n1| Month::try_from(n1).ok()).map(Self) {
+        Some(m) => m,
+        _ => Err("month is invalid")?
+    }
+);
+
+cast_from_value!(
+    DayComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("day is invalid")?
+    }
+);
+
+cast_from_value!(
+    HourComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("hour is invalid")?
+    }
+);
+
+cast_from_value!(
+    MinuteComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("minute is invalid")?
+    }
+);
+
+cast_from_value!(
+    SecondComponent,
+    v: i64 => match u8::try_from(v) {
+        Ok(n) => Self(n),
+        _ => Err("second is invalid")?
+    }
+);
+
+/// Returns the current date.
+///
+/// ## Example
+/// ```example
+/// Today's date is
+/// #datetime.today().display().
+/// ```
+///
+/// Display: Today
+/// Category: construct
+/// Returns: datetime
+#[func]
+pub fn datetime_today(
+    /// An offset to apply to the current UTC date. If set to `{auto}`, the
+    /// offset will be the local offset.
+    #[named]
+    #[default]
+    offset: Smart<i64>,
+) -> Value {
+    let current_date = match vm.vt.world.today(offset.as_custom()) {
+        Some(d) => d,
+        None => bail!(args.span, "unable to get the current date"),
+    };
+
+    Value::Dyn(Dynamic::new(current_date))
+}
+
 /// Create a CMYK color.
 ///
 /// This is useful if you want to target a specific printer. The conversion
 /// to RGB for display preview might differ from how your printer reproduces
 /// the color.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #square(
 ///   fill: cmyk(27%, 0%, 3%, 5%)
@@ -228,7 +394,7 @@ cast_from_value! {
 
 /// Create a custom symbol with modifiers.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #let envelope = symbol(
 ///   "🖂",
@@ -294,7 +460,7 @@ cast_from_value! {
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #str(10) \
 /// #str(2.7) \
@@ -330,7 +496,7 @@ cast_from_value! {
 /// that is not a space. Then, the element can be [referenced]($func/ref) and
 /// styled through the label.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #show <a>: set text(blue)
 /// #show label("b"): set text(red)
@@ -339,7 +505,7 @@ cast_from_value! {
 /// *Strong* #label("b")
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: You can create a label by enclosing
 /// its name in angle brackets. This works both in markup and code.
 ///
@@ -363,7 +529,7 @@ pub fn label(
 /// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
 /// of the supported syntax.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// // Works with show rules.
 /// #show regex("\d+"): set text(red)
@@ -401,7 +567,7 @@ pub fn regex(
 /// the range. If you pass two, they describe the `start` and `end` of the
 /// range.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #range(5) \
 /// #range(2, 5) \

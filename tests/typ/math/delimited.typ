@@ -36,3 +36,10 @@ $ lr(]sum_(x=1)^n x], size: #70%)
 ---
 // Test predefined delimiter pairings.
 $floor(x/2), ceil(x/2), abs(x), norm(x)$
+
+---
+// Test colored delimiters
+$ lr(
+    text("(", fill: #green) a/b
+    text(")", fill: #blue)
+  ) $

@@ -22,13 +22,32 @@ use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontM
 use crate::layout::ParElem;
 use crate::prelude::*;
 
+/// Hook up all text definitions.
+pub(super) fn define(global: &mut Scope) {
+    global.define("text", TextElem::func());
+    global.define("linebreak", LinebreakElem::func());
+    global.define("smartquote", SmartQuoteElem::func());
+    global.define("strong", StrongElem::func());
+    global.define("emph", EmphElem::func());
+    global.define("lower", lower);
+    global.define("upper", upper);
+    global.define("smallcaps", smallcaps);
+    global.define("sub", SubElem::func());
+    global.define("super", SuperElem::func());
+    global.define("underline", UnderlineElem::func());
+    global.define("strike", StrikeElem::func());
+    global.define("overline", OverlineElem::func());
+    global.define("raw", RawElem::func());
+    global.define("lorem", lorem);
+}
+
 /// Customize the look and layout of text in a variety of ways.
 ///
 /// This function is used often, both with set rules and directly. While the set
 /// rule is often the simpler choice, calling the text function directly can be
 /// useful when passing text as an argument to another function.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #set text(18pt)
 /// With a set rule.
@@ -112,6 +131,8 @@ pub struct TextElem {
     /// emphasis.
     ///
     /// ```example
+    /// #set text(font: "IBM Plex Sans")
+    ///
     /// #text(weight: "light")[Light] \
     /// #text(weight: "regular")[Regular] \
     /// #text(weight: "medium")[Medium] \
@@ -122,7 +143,12 @@ pub struct TextElem {
 
     /// The desired width of the glyphs. Accepts a ratio between `{50%}` and
     /// `{200%}`. When the desired weight is not available, Typst selects the
-    /// font from the family that is closest in stretch.
+    /// font from the family that is closest in stretch. This will only stretch
+    /// the text if a condensed or expanded version of the font is available.
+    ///
+    /// If you want to adjust the amount of space between characters instead of
+    /// stretching the glyphs itself, use the [`tracking`]($func/text.tracking)
+    /// property instead.
     ///
     /// ```example
     /// #text(stretch: 75%)[Condensed] \
@@ -169,6 +195,9 @@ pub struct TextElem {
     /// Can be given as an absolute length, but also relative to the width of
     /// the space character in the font.
     ///
+    /// If you want to adjust the amount of space between characters rather than
+    /// words, use the [`tracking`]($func/text.tracking) property instead.
+    ///
     /// ```example
     /// #set text(spacing: 200%)
     /// Text with distant words.
@@ -191,20 +220,16 @@ pub struct TextElem {
     ///
     /// ```example
     /// #set par(justify: true)
-    /// In this particular text, the
-    /// justification produces a hyphen
-    /// in the first line. Letting this
-    /// hyphen hang slightly into the
-    /// margin makes for a clear
-    /// paragraph edge.
+    /// This justified text has a hyphen in
+    /// the paragraph's first line. Hanging
+    /// the hyphen slightly into the margin
+    /// results in a clearer paragraph edge.
     ///
     /// #set text(overhang: false)
-    /// In this particular text, the
-    /// justification produces a hyphen
-    /// in the first line. This time the
-    /// hyphen does not hang into the
-    /// margin, making the paragraph's
-    /// edge less clear.
+    /// This justified text has a hyphen in
+    /// the paragraph's first line. Hanging
+    /// the hyphen slightly into the margin
+    /// results in a clearer paragraph edge.
     /// ```
     #[default(true)]
     pub overhang: bool,
@@ -300,6 +325,8 @@ pub struct TextElem {
     /// hyphenation patterns are used.
     ///
     /// ```example
+    /// #set page(width: 200pt)
+    ///
     /// #set par(justify: true)
     /// This text illustrates how
     /// enabling hyphenation can
@@ -338,7 +365,11 @@ pub struct TextElem {
     /// `salt` font feature.
     ///
     /// ```example
-    /// #set text(size: 20pt)
+    /// #set text(
+    ///   font: "IBM Plex Sans",
+    ///   size: 20pt,
+    /// )
+    ///
     /// 0, a, g, ß
     ///
     /// #set text(alternates: true)
@@ -418,7 +449,7 @@ pub struct TextElem {
     #[default(false)]
     pub slashed_zero: bool,
 
-    /// Whether to turns numbers into fractions. Setting this to `{true}`
+    /// Whether to turn numbers into fractions. Setting this to `{true}`
     /// enables the OpenType `frac` font feature.
     ///
     /// ```example
@@ -554,7 +585,11 @@ cast_from_value! {
 }
 
 cast_to_value! {
-    v: FontList => v.0.into()
+    v: FontList => if v.0.len() == 1 {
+        v.0.into_iter().next().unwrap().0.into()
+    } else {
+        v.0.into()
+    }
 }
 
 /// The size of text.

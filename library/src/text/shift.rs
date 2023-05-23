@@ -5,7 +5,7 @@ use crate::prelude::*;
 ///
 /// The text is rendered smaller and its baseline is lowered.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
@@ -68,7 +68,7 @@ impl Show for SubElem {
 ///
 /// The text is rendered smaller and its baseline is raised.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// 1#super[st] try!
 /// ```
