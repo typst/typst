@@ -720,6 +720,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         r: '⊢',
         r.long: '⟝',
         r.double: '⊨',
+        r.double.not: '⊭',
         l: '⊣',
         l.long: '⟞',
         l.short: '⫞',
