@@ -57,25 +57,24 @@ impl LayoutMath for AttachElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
-        let getarg = |ctx: &mut MathContext, getter: GetAttachment| {
+        let layout_attachment = |ctx: &mut MathContext, getter: GetAttachment| {
             getter(self, ctx.styles())
                 .map(|elem| ctx.layout_fragment(&elem))
                 .transpose()
-                .unwrap()
         };
 
         let base = ctx.layout_fragment(&self.base())?;
 
         ctx.style(ctx.style.for_superscript());
-        let arg_tl = getarg(ctx, Self::tl);
-        let arg_tr = getarg(ctx, Self::tr);
-        let arg_t = getarg(ctx, Self::t);
+        let tl = layout_attachment(ctx, Self::tl)?;
+        let tr = layout_attachment(ctx, Self::tr)?;
+        let t = layout_attachment(ctx, Self::t)?;
         ctx.unstyle();
 
         ctx.style(ctx.style.for_subscript());
-        let arg_bl = getarg(ctx, Self::bl);
-        let arg_br = getarg(ctx, Self::br);
-        let arg_b = getarg(ctx, Self::b);
+        let bl = layout_attachment(ctx, Self::bl)?;
+        let br = layout_attachment(ctx, Self::br)?;
+        let b = layout_attachment(ctx, Self::b)?;
         ctx.unstyle();
 
         let as_limits = self.base().is::<LimitsElem>()
@@ -88,12 +87,9 @@ impl LayoutMath for AttachElem {
                     _ => false,
                 });
 
-        let (t, tr) =
-            if as_limits || arg_tr.is_some() { (arg_t, arg_tr) } else { (None, arg_t) };
-        let (b, br) =
-            if as_limits || arg_br.is_some() { (arg_b, arg_br) } else { (None, arg_b) };
-
-        layout_attachments(ctx, base, [arg_tl, t, tr, arg_bl, b, br])
+        let (t, tr) = if as_limits || tr.is_some() { (t, tr) } else { (None, t) };
+        let (b, br) = if as_limits || br.is_some() { (b, br) } else { (None, b) };
+        layout_attachments(ctx, base, [tl, t, tr, bl, b, br])
     }
 }
 
