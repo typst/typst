@@ -430,8 +430,8 @@ compiles a curated list of libraries written in Typst.
 
 ## How do I input maths? { #maths }
 To enter math mode in Typst, just enclose your equation in dollar signs. You can
-enter display mode by adding spaces or newlines between the opening and closing
-dollar sign of the equation.
+enter display mode by adding spaces or newlines to the the equation and its
+enclosing dollar signs.
 
 ```example
 The sum of the numbers from
