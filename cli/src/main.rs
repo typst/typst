@@ -556,7 +556,11 @@ impl World for SystemWorld {
         self.slot(path)?
             .source
             .get_or_init(|| {
-                let buf = read(path)?;
+                let mut buf = read(path)?;
+                if buf.starts_with(b"\xef\xbb\xbf") {
+                    // avoid copy by overwritting BOM with a "nop"
+                    buf.iter_mut().take(3).for_each(|b| *b = b'\n');
+                }
                 let text = String::from_utf8(buf)?;
                 Ok(self.insert(path, text))
             })
