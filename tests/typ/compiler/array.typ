@@ -256,10 +256,10 @@
 #(1, 2, 3).at(-4)
 
 ---
-// Error: 4 expected closing paren
+// Error: 3-4 unclosed delimiter
 #{(}
 
-// Error: 3-4 unexpected closing paren
+// Error: 2-3 unclosed delimiter
 #{)}
 
 // Error: 4-6 unexpected end of block comment

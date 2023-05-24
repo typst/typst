@@ -71,7 +71,7 @@ pub(super) fn reparse_markup(
         match p.current() {
             SyntaxKind::LeftBracket => *nesting += 1,
             SyntaxKind::RightBracket if *nesting > 0 => *nesting -= 1,
-            _ if stop(p.current) => break,
+            _ if stop(p.current()) => break,
             _ => {}
         }
 
@@ -141,7 +141,7 @@ fn strong(p: &mut Parser) {
             || p.at(SyntaxKind::Parbreak)
             || p.at(SyntaxKind::RightBracket)
     });
-    p.expect(SyntaxKind::Star);
+    p.expect_closing_delimiter(m, SyntaxKind::Star);
     p.wrap(m, SyntaxKind::Strong);
 }
 
@@ -153,7 +153,7 @@ fn emph(p: &mut Parser) {
             || p.at(SyntaxKind::Parbreak)
             || p.at(SyntaxKind::RightBracket)
     });
-    p.expect(SyntaxKind::Underscore);
+    p.expect_closing_delimiter(m, SyntaxKind::Underscore);
     p.wrap(m, SyntaxKind::Emph);
 }
 
@@ -220,15 +220,15 @@ fn equation(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Math);
     p.assert(SyntaxKind::Dollar);
-    math(p, |kind| kind == SyntaxKind::Dollar);
-    p.expect(SyntaxKind::Dollar);
+    math(p, |p| p.at(SyntaxKind::Dollar));
+    p.expect_closing_delimiter(m, SyntaxKind::Dollar);
     p.exit();
     p.wrap(m, SyntaxKind::Equation);
 }
 
-fn math(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
+fn math(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
     let m = p.marker();
-    while !p.eof() && !stop(p.current()) {
+    while !p.eof() && !stop(p) {
         let prev = p.prev_end();
         math_expr(p);
         if !p.progress(prev) {
@@ -514,22 +514,18 @@ fn maybe_wrap_in_math(p: &mut Parser, arg: Marker, named: Option<Marker>) {
     }
 }
 
-fn code(p: &mut Parser, stop: impl FnMut(SyntaxKind) -> bool) {
+fn code(p: &mut Parser, stop: impl FnMut(&Parser) -> bool) {
     let m = p.marker();
     code_exprs(p, stop);
     p.wrap(m, SyntaxKind::Code);
 }
 
-fn code_exprs(p: &mut Parser, mut stop: impl FnMut(SyntaxKind) -> bool) {
-    while !p.eof() && !stop(p.current()) {
+fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
+    while !p.eof() && !stop(p) {
         p.stop_at_newline(true);
         let prev = p.prev_end();
         code_expr(p);
-        if p.progress(prev)
-            && !p.eof()
-            && !stop(p.current())
-            && !p.eat_if(SyntaxKind::Semicolon)
-        {
+        if p.progress(prev) && !p.eof() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
             p.expected("semicolon or line break");
         }
         p.unstop();
@@ -725,8 +721,12 @@ fn code_block(p: &mut Parser) {
     p.enter(LexMode::Code);
     p.stop_at_newline(false);
     p.assert(SyntaxKind::LeftBrace);
-    code(p, |kind| kind == SyntaxKind::RightBrace);
-    p.expect(SyntaxKind::RightBrace);
+    code(p, |p| {
+        p.at(SyntaxKind::RightBrace)
+            || p.at(SyntaxKind::RightBracket)
+            || p.at(SyntaxKind::RightParen)
+    });
+    p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
     p.exit();
     p.unstop();
     p.wrap(m, SyntaxKind::CodeBlock);
@@ -737,7 +737,7 @@ fn content_block(p: &mut Parser) {
     p.enter(LexMode::Markup);
     p.assert(SyntaxKind::LeftBracket);
     markup(p, true, 0, |p| p.at(SyntaxKind::RightBracket));
-    p.expect(SyntaxKind::RightBracket);
+    p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
     p.exit();
     p.wrap(m, SyntaxKind::ContentBlock);
 }
@@ -800,6 +800,8 @@ fn invalidate_destructuring(p: &mut Parser, m: Marker) {
 
 fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
     p.stop_at_newline(false);
+
+    let m = p.marker();
     p.assert(SyntaxKind::LeftParen);
 
     let mut count = 0;
@@ -845,7 +847,7 @@ fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
         }
     }
 
-    p.expect(SyntaxKind::RightParen);
+    p.expect_closing_delimiter(m, SyntaxKind::RightParen);
     p.unstop();
 
     if parenthesized && count == 1 {
@@ -1584,6 +1586,12 @@ impl<'s> Parser<'s> {
             self.expected(kind.name());
         }
         at
+    }
+
+    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
+        if !self.eat_if(kind) {
+            self.nodes[open.0].convert_to_error("unclosed delimiter");
+        }
     }
 
     fn expected(&mut self, thing: &str) {

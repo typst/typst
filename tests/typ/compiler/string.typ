@@ -204,5 +204,5 @@
 #test("a123c".split(regex("\d+")), ("a", "c"))
 
 ---
-// Error: 2:1 expected quote
+// Error: 2-2:1 unclosed string
 #"hello\"
