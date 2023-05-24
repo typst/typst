@@ -359,6 +359,7 @@ pub fn datetime_today(
 /// ## Example { #example }
 /// ```example
 /// #square(
+///   stroke: cmyk(0, 94, 100, 0),
 ///   fill: cmyk(27%, 0%, 3%, 5%)
 /// )
 /// ````
@@ -369,27 +370,15 @@ pub fn datetime_today(
 #[func]
 pub fn cmyk(
     /// The cyan component.
-    cyan: RatioComponent,
+    cyan: Component,
     /// The magenta component.
-    magenta: RatioComponent,
+    magenta: Component,
     /// The yellow component.
-    yellow: RatioComponent,
+    yellow: Component,
     /// The key component.
-    key: RatioComponent,
+    key: Component,
 ) -> Value {
     Value::Color(CmykColor::new(cyan.0, magenta.0, yellow.0, key.0).into())
-}
-
-/// A component that must be a ratio.
-struct RatioComponent(u8);
-
-cast_from_value! {
-    RatioComponent,
-    v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
-        Self((v.get() * 255.0).round() as u8)
-    } else {
-        Err("ratio must be between 0% and 100%")?
-    },
 }
 
 /// Create a custom symbol with modifiers.

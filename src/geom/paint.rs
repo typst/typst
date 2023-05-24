@@ -358,15 +358,7 @@ impl CmykColor {
 
 impl Debug for CmykColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let g = |c| 100.0 * (c as f64 / 255.0);
-        write!(
-            f,
-            "cmyk({:.1}%, {:.1}%, {:.1}%, {:.1}%)",
-            g(self.c),
-            g(self.m),
-            g(self.y),
-            g(self.k),
-        )
+        write!(f, "cmyk({}, {}, {}, {})", self.c, self.m, self.y, self.k)
     }
 }
 

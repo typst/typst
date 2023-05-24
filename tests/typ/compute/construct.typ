@@ -15,6 +15,14 @@
 #test(white.lighten(100%), white)
 
 ---
+// Ensure consistency when using integers with CMYK.
+#let colorA = cmyk(51, 102, 102, 51)
+#let colorB = cmyk(20%, 40%, 40%, 20%)
+#test(colorA, colorB)
+#test(repr(colorA), "cmyk(51, 102, 102, 51)")
+#test(repr(colorB), repr(colorA))
+
+---
 // Test gray color conversion.
 // Ref: true
 #stack(dir: ltr, rect(fill: luma(0)), rect(fill: luma(80%)))
@@ -23,6 +31,18 @@
 // Error for values that are out of range.
 // Error: 11-14 number must be between 0 and 255
 #test(rgb(-30, 15, 50))
+
+---
+// Error: 7-9 number must be between 0 and 255
+#cmyk(-1, 1, 2, 3)
+
+---
+// Error: 7-10 number must be between 0 and 255
+#cmyk(299, 1, 2, 3)
+
+---
+// Error: 7-11 ratio must be between 0% and 100%
+#cmyk(200%, 5%, 3%, 1%)
 
 ---
 // Error: 6-11 color string contains non-hexadecimal letters
