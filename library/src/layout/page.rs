@@ -87,16 +87,6 @@ pub struct PageElem {
     #[default(false)]
     pub flipped: bool,
 
-    /// When `{true}`, the left and right margins will be swapped on even pages
-    /// to achieve inside and outside margins. This is commonly used when
-    /// writing books, for example. Defaults to `{false}`.
-    ///
-    /// ```example
-    /// #set page(two-sided: true, margin: (left: 1in, right: 1.25in))
-    /// ```
-    #[default(false)]
-    pub two_sided: bool,
-
     /// The page's margins.
     ///
     /// - A single length: The same margin on all sides.
@@ -107,6 +97,8 @@ pub struct PageElem {
     ///   - `right`: The right margin.
     ///   - `bottom`: The bottom margin.
     ///   - `left`: The left margin.
+    ///   - `inside`: The inner margin for two-sided documents.
+    ///   - `outside`: The outer margin for two-sided documents.
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
     ///   - `rest`: The margins on all sides except those for which the
@@ -315,6 +307,8 @@ impl PageElem {
 
         let margin = self
             .margin(styles)
+            .sides
+            .map(|side| side.unwrap_or(Smart::Custom(default)))
             .map(|side| side.unwrap_or(default))
             .resolve(styles)
             .relative_to(size);
@@ -369,7 +363,7 @@ impl PageElem {
 
             // Swap right and left margins if the document is two-sided and the
             // page number is even.
-            if self.two_sided(styles) && number.get() % 2 == 0 {
+            if self.margin(styles).two_sided.unwrap_or(false) && number.get() % 2 == 0 {
                 std::mem::swap(&mut margin.left, &mut margin.right);
             }
 

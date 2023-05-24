@@ -16,8 +16,7 @@ pub struct Sides<T> {
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Margin {
     pub sides: Sides<Option<Smart<Rel<Length>>>>,
-    pub inside: Option<Smart<Rel<Length>>>,
-    pub outside: Option<Smart<Rel<Length>>>,
+    pub two_sided: Option<bool>,
 }
 
 impl Cast for Margin {
@@ -32,24 +31,41 @@ impl Cast for Margin {
                 let rest = take("rest")?;
                 let x = take("x")?.or(rest);
                 let y = take("y")?.or(rest);
+                let outside = take("outside")?;
+                let inside = take("inside")?;
+                let mut left = take("left")?;
+                let mut right = take("right")?;
+                let _ = take("two-sided")?;
 
-                // FIXME Error out if left and outside are defined.
-                let outside = take("outside")?.or(x);
-                // FIXME Error out if right and inside are defined.
-                let inside = take("inside")?.or(x);
+                let two_sided = outside.is_some() || inside.is_some();
+                let not_two_sided = left.is_some() || right.is_some();
+                if two_sided && not_two_sided {
+                    // Two-sided property is ambiguous.
+                    return <Self as Cast>::error(dict.into());
+                }
+                left = outside.or(left).or(x);
+                right = inside.or(right).or(x);
 
                 let sides = Sides {
-                    left: take("left")?.or(outside),
+                    left,
                     top: take("top")?.or(y),
-                    right: take("right")?.or(inside),
+                    right,
                     bottom: take("bottom")?.or(y),
                 };
 
-                let margin = Margin { sides, outside, inside };
+                let margin = Margin { sides, two_sided: Some(two_sided) };
 
                 dict.finish(&[
-                    "left", "top", "right", "bottom", "x", "y", "outside", "inside",
+                    "left",
+                    "top",
+                    "right",
+                    "bottom",
+                    "x",
+                    "y",
+                    "outside",
+                    "inside",
                     "rest",
+                    "two-sided",
                 ])?;
 
                 Ok(margin)
@@ -76,16 +92,27 @@ impl Cast for Margin {
 impl Margin {
     /// Create an instance with four equal components.
     pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
-        Self {
-            sides: Sides::splat(value),
-            outside: value,
-            inside: value,
-        }
+        Self { sides: Sides::splat(value), two_sided: None }
     }
 }
+
 impl From<Margin> for Value {
     fn from(margin: Margin) -> Self {
-        Self::from(margin.sides)
+        let mut dict = Dict::new();
+        let mut handle = |key: &str, component: Value| {
+            let value = component.into();
+            if value != Value::None {
+                dict.insert(key.into(), value);
+            }
+        };
+
+        handle("left", margin.sides.left.into());
+        handle("top", margin.sides.top.into());
+        handle("right", margin.sides.right.into());
+        handle("bottom", margin.sides.bottom.into());
+        handle("two-sided", margin.two_sided.into());
+
+        Value::Dict(dict)
     }
 }
 
@@ -319,6 +346,7 @@ where
         Value::Dict(dict)
     }
 }
+
 impl<T: Resolve> Resolve for Sides<T> {
     type Output = Sides<T::Output>;
 
@@ -339,12 +367,23 @@ impl<T: Fold> Fold for Sides<Option<T>> {
 }
 
 impl Fold for Margin {
-    type Output = Sides<Smart<Rel<Length>>>;
+    type Output = Margin;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.sides.zip(outer).map(|(inner, outer)| match inner {
-            Some(value) => value.fold(outer),
-            None => outer,
-        })
+        let sides =
+            self.sides
+                .zip(outer.sides)
+                .map(|(inner, outer)| match (inner, outer) {
+                    (Some(value), Some(outer)) => Some(value.fold(outer)),
+                    (Some(value), None) => Some(value),
+                    (None, Some(outer)) => Some(outer),
+                    (None, None) => None,
+                });
+        let two_sided = match (self.two_sided, outer.two_sided) {
+            (_, Some(two_sided)) => Some(two_sided),
+            (Some(two_sided), None) => Some(two_sided),
+            (None, None) => None,
+        };
+        Margin { sides, two_sided }
     }
 }
