@@ -556,12 +556,14 @@ impl World for SystemWorld {
         self.slot(path)?
             .source
             .get_or_init(|| {
-                let mut buf = read(path)?;
-                if buf.starts_with(b"\xef\xbb\xbf") {
-                    // avoid copy by overwritting BOM with a "nop"
-                    buf.iter_mut().take(3).for_each(|b| *b = b'\n');
-                }
-                let text = String::from_utf8(buf)?;
+                let buf = read(path)?;
+                let text = if buf.starts_with(b"\xef\xbb\xbf") {
+                    // remove UTF-8 BOM
+                    std::str::from_utf8(&buf[3..])?.to_owned()
+                } else {
+                    // Assume UTF-8
+                    String::from_utf8(buf)?
+                };
                 Ok(self.insert(path, text))
             })
             .clone()
