@@ -140,10 +140,10 @@ pub fn pow(
 ///
 /// Display: Power
 /// Category: calculate
-/// Returns: integer or float
+/// Returns: float
 #[func]
 pub fn exp(
-    /// The exponent of the power. Must be non-negative.
+    /// The exponent of the power.
     exponent: Spanned<Num>,
 ) -> Value {
     match exponent.v {
@@ -156,9 +156,7 @@ pub fn exp(
         _ => {}
     };
 
-    let result = match exponent.v{
-        Num::Int(i) => Num::Float((i as f64).exp()),
-        Num::Float(f) => Num::Float(f.exp()),
+    let result = Num::Float(exponent.v.float.exp());
     };
 
     if result.float().is_nan() {
