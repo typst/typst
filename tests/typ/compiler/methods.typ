@@ -48,23 +48,13 @@
 
 ---
 // Test length unit conversions.
-#test((3.345cm).cm(), 3.345)
-#test((4.345mm).mm(), 4.345)
+#test((3.3453cm).cm(), 3.3453)
+#test((4.3452mm).mm(), 4.3452)
 #test((5.345in).inches(), 5.345)
 #test((3.5234354cm).cm(), 3.5234354)
 #test((4.12345678mm).mm(), 4.12345678)
 #test((5.333666999in).inches(), 5.333666999)
-#test((3.5234354cm).cm(digits: 0), 3.0)
-#test((3.5234354cm).cm(digits: 7), 3.5234354)
-#test((4.12345678mm).mm(digits: 8), 4.12345678)
-#test((5.333666999in).inches(digits: 9), 5.333666999)
-#test((4.123456789123456mm).mm(), 4.1234567891)
-#test((4.123456789123456mm).mm(digits: 9), 4.123456789)
-#test((4.123456789123456mm).mm(digits: 15), 4.123456789123456)
-
----
-// Error: 27-29 number must be at least zero
-#(3.345cm).inches(digits: -1)
+#test((4.123456789123456mm).mm(), 4.123456789123456)
 
 ---
 // Test color kind method.
