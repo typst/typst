@@ -238,18 +238,18 @@ pub fn call(
                     "axis" => direction.axis().description().into(),
                     "start" => GenAlign::from(Align::from(direction.start())).into(),
                     "end" => GenAlign::from(Align::from(direction.end())).into(),
-                    "inverse" => direction.inv().into(),
+                    "inv" => direction.inv().into(),
                     _ => return missing(),
                 }
             } else if let Some(align) = dynamic.downcast::<GenAlign>() {
                 match method {
                     "axis" => align.axis().description().into(),
-                    "inverse" => align.inv().into(),
+                    "inv" => align.inv().into(),
                     _ => return missing(),
                 }
             } else if let Some(align2d) = dynamic.downcast::<Axes<GenAlign>>() {
                 match method {
-                    "inverse" => align2d.map(GenAlign::inv).into(),
+                    "inv" => align2d.map(GenAlign::inv).into(),
                     _ => return missing(),
                 }
             } else {
@@ -419,10 +419,10 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
         "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],
         "direction" => {
-            &[("axis", false), ("start", false), ("end", false), ("inverse", false)]
+            &[("axis", false), ("start", false), ("end", false), ("inv", false)]
         }
-        "alignment" => &[("axis", false), ("inverse", false)],
-        "2d alignment" => &[("inverse", false)],
+        "alignment" => &[("axis", false), ("inv", false)],
+        "2d alignment" => &[("inv", false)],
         "counter" => &[
             ("display", true),
             ("at", true),
