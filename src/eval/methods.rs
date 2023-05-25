@@ -180,6 +180,11 @@ pub fn call(
             }
         }
 
+        Value::Angle(angle) => match method {
+            "rad" => angle.to_rad().into(),
+            _ => return missing(),
+        },
+
         Value::Args(args) => match method {
             "pos" => Value::Array(args.to_pos()),
             "named" => Value::Dict(args.to_named()),
@@ -417,6 +422,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         ],
         "function" => &[("where", true), ("with", true)],
         "length" => &[("cm", true), ("mm", true), ("inches", true)],
+        "angle" => &[("rad", false)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
         "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],

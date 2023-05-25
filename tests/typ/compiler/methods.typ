@@ -147,3 +147,9 @@
 #test(rtl.inverse(), ltr)
 #test(ttb.inverse(), btt)
 #test(btt.inverse(), ttb)
+
+---
+// Test angle methods.
+#test(1rad.rad(), 1.0)
+#test(1.23rad.rad(), 1.23)
+#test(0deg.rad(), 0.0)
