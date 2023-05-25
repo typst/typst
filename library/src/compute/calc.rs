@@ -156,8 +156,7 @@ pub fn exp(
         _ => {}
     };
 
-    let result = Num::Float(exponent.v.float.exp());
-    };
+    let result = Num::Float(exponent.v.float().exp());
 
     if result.float().is_nan() {
         bail!(args.span, "the result is not a real number")
@@ -489,7 +488,7 @@ pub fn log(
 #[func]
 pub fn ln(
     /// The number whose logarithm to calculate. Must be strictly positive.
-    value: Spanned<Num>
+    value: Spanned<Num>,
 ) -> Value {
     let number = value.v.float();
     if number <= 0.0 {
@@ -497,8 +496,8 @@ pub fn ln(
     }
 
     let result = number.ln();
-    if result.is_infinite() || result.is_nan() {
-        bail!(args.span, "the result is not a real number")
+    if result.is_infinite() {
+        bail!(args.span, "result close to -inf")
     }
 
     Value::Float(result)
