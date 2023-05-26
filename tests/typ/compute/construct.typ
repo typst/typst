@@ -31,6 +31,9 @@
 #test(mix((green, 5), (white, 0), (red, 5)), rgb("#9c823b"))
 #test(mix((red, 100%), (green, 0%)), red)
 #test(mix((red, 0%), (green, 100%)), green)
+#test(mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: "srgb"), rgb("#aa40bf"))
+#test(mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: "srgb"), rgb("#aa8080"))
+#test(mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: "srgb"), rgb("#aabf40"))
 
 ---
 // Test gray color conversion.
