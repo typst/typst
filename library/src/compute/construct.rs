@@ -392,6 +392,59 @@ cast_from_value! {
     },
 }
 
+/// Create a color by mixing two or more colors.
+///
+/// By default, this happens in a perceptual color space (Oklab). You can
+/// specify a color space (`"oklab"` or `"srgb"`) as a positional argument.
+///
+/// ## Example
+/// ```example
+/// #mix(red, green)
+/// #mix(red, green, white)
+/// #mix(red, green, space: "srgb")
+/// #mix((red, 30%), (green, 70%))
+/// ````
+///
+/// Display: Mix
+/// Category: construct
+/// Returns: color
+#[func]
+pub fn mix(
+    #[variadic] colors: Vec<WeightedColor>,
+    #[named]
+    #[default]
+    space: ColorSpace,
+) -> Value {
+    let WeightedColor(mut color, mut weight) = colors[0];
+    for WeightedColor(c, w) in &colors[1..] {
+        color = mix_color(color, *c, w / (weight + w), space);
+        weight += w;
+    }
+    Value::Color(color)
+}
+
+struct WeightedColor(Color, f64);
+
+cast_from_value! {
+    WeightedColor,
+    v: Color => Self(v, 1.0),
+    v: Array => {
+        let mut iter = v.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(c), Some(w), None) => {
+                let weight = match w {
+                    Value::Int(n) => n as f64,
+                    Value::Float(n) => n,
+                    Value::Ratio(n) => n.get(),
+                    _ => Err("weights must be integer, float or ratio")?,
+                };
+                Self(c.cast()?, weight)
+            }
+            _ => Err("expected a color or color-weight pair")?,
+        }
+    }
+}
+
 /// Create a custom symbol with modifiers.
 ///
 /// ## Example { #example }
