@@ -2,12 +2,11 @@
 
 use ecow::EcoString;
 
+use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
 use crate::eval::Datetime;
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
-
-use super::{Args, Str, Value, Vm};
 
 /// Call a method on a value.
 pub fn call(
