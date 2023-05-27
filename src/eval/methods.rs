@@ -34,7 +34,7 @@ pub fn call(
             "at" => {
                 let index = args.expect("index")?;
                 let default = args.named::<EcoString>("default")?;
-                Value::Str(string.at(index, default.as_ref().map(|x| &**x)).at(span)?)
+                Value::Str(string.at(index, default.as_deref()).at(span)?)
             }
             "slice" => {
                 let start = args.expect("start")?;
