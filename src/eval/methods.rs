@@ -33,7 +33,7 @@ pub fn call(
             "last" => Value::Str(string.last().at(span)?),
             "at" => {
                 let index = args.expect("index")?;
-                let default = args.named::<Str>("default")?;
+                let default = args.named::<EcoString>("default")?;
                 Value::Str(string.at(index, default.as_ref().map(|x| &**x)).at(span)?)
             }
             "slice" => {
