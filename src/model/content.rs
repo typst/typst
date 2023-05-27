@@ -263,7 +263,7 @@ impl Content {
     /// Return the fields of the content as a dict.
     pub fn dict(&self) -> Dict {
         self.fields()
-            .map(|(key, value)| (key.to_owned().into(), value.into()))
+            .map(|(key, value)| (key.to_owned().into(), value))
             .collect()
     }
 
