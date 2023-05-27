@@ -27,6 +27,13 @@
 }
 
 ---
+// Test .at() default values.
+#test(auto, (1, 2, 3).at(100, default: auto))
+#test(auto, (a: 10, b: 50).at("z", default: auto))
+#test("z", "abc".at(100, default: "z"))
+#test(auto, [a].at("doesn't exist", default: auto))
+
+---
 // Error: 2:2-2:15 type array has no method `fun`
 #let numbers = ()
 #numbers.fun()
