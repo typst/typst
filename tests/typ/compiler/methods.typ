@@ -44,3 +44,13 @@
 ---
 // Error: 2-5 cannot mutate a constant: box
 #box.push(1)
+
+---
+// Test content fields method.
+#test([a].fields(), ("text",))
+#test([a *b*].fields(), ("children",))
+
+---
+// Test content dict method.
+#test([a].dict(), (text: "a"))
+#test([a *b*].dict(),  (children: ([a], [ ], strong[b])))
