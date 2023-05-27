@@ -31,7 +31,11 @@ pub fn call(
             "len" => Value::Int(string.len()),
             "first" => Value::Str(string.first().at(span)?),
             "last" => Value::Str(string.last().at(span)?),
-            "at" => Value::Str(string.at(args.expect("index")?, None).at(span)?),
+            "at" => {
+                let index = args.expect("index")?;
+                let default = args.named::<Str>("default")?;
+                Value::Str(string.at(index, default.as_ref().map(|x| &**x)).at(span)?)
+            }
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
