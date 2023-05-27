@@ -76,7 +76,7 @@ pub fn call(
             "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
             "at" => content.at(&args.expect::<EcoString>("field")?, None).at(span)?,
-            "keys" => Value::Array(content.keys()),
+            "fields" => Value::Array(content.keys()),
             "dict" => Value::Dict(content.dict()),
             "location" => content
                 .location()
@@ -333,7 +333,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("func", false),
             ("has", true),
             ("at", true),
-            ("keys", false),
+            ("fields", false),
             ("dict", false),
             ("location", false),
         ],
