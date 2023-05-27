@@ -6,15 +6,17 @@ use std::ops::{Add, AddAssign};
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
 
+use crate::diag::{SourceResult, StrResult};
+use crate::doc::Meta;
+use crate::eval::{Array, Dict};
+use crate::eval::{Cast, Str, Value, Vm};
+use crate::syntax::Span;
+use crate::util::pretty_array_like;
+
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
     Location, PlainText, Recipe, Selector, Style, Styles, Synthesize,
 };
-use crate::diag::{SourceResult, StrResult};
-use crate::doc::Meta;
-use crate::eval::{Cast, Str, Value, Vm};
-use crate::syntax::Span;
-use crate::util::pretty_array_like;
 
 /// Composable representation of styled content.
 #[derive(Clone, Hash)]
@@ -249,6 +251,20 @@ impl Content {
         self.field(field)
             .or(default)
             .ok_or_else(|| missing_field_no_default(field))
+    }
+
+    /// Return the keys of the content's fields as an array.
+    pub fn keys(&self) -> Array {
+        self.fields()
+            .map(|(key, _)| Value::Str(key.to_owned().into()))
+            .collect()
+    }
+
+    /// Return the fields of the content as a dict.
+    pub fn dict(&self) -> Dict {
+        self.fields()
+            .map(|(key, value)| (key.to_owned().into(), value.into()))
+            .collect()
     }
 
     /// The content's label.

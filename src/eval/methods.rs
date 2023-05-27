@@ -2,11 +2,12 @@
 
 use ecow::EcoString;
 
-use super::{Args, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
 use crate::eval::Datetime;
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
+
+use super::{Args, Str, Value, Vm};
 
 /// Call a method on a value.
 pub fn call(
@@ -75,6 +76,8 @@ pub fn call(
             "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
             "at" => content.at(&args.expect::<EcoString>("field")?, None).at(span)?,
+            "keys" => Value::Array(content.keys()),
+            "dict" => Value::Dict(content.dict()),
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")
@@ -326,7 +329,14 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
-        "content" => &[("func", false), ("has", true), ("at", true), ("location", false)],
+        "content" => &[
+            ("func", false),
+            ("has", true),
+            ("at", true),
+            ("keys", false),
+            ("dict", false),
+            ("location", false),
+        ],
         "array" => &[
             ("all", true),
             ("any", true),
