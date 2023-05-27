@@ -78,7 +78,9 @@ pub fn call(
         Value::Content(content) => match method {
             "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
-            "at" => content.at(&args.expect::<EcoString>("field")?, None).at(span)?,
+            "at" => content
+                .at(&args.expect::<EcoString>("field")?, args.named("default")?)
+                .at(span)?,
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")
