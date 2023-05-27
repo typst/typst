@@ -29,12 +29,20 @@
 #test("Hey: 🏳️‍🌈 there!".at(5), "🏳️‍🌈")
 
 ---
+// Test `at`'s 'default' parameter.
+#test("z", "Hello".at(5, default: "z"))
+
+---
 // Error: 2-14 string index 2 is not a character boundary
 #"🏳️‍🌈".at(2)
 
 ---
 // Error: 2-15 no default value was specified and string index out of bounds (index: 5, len: 5)
 #"Hello".at(5)
+
+---
+// Error: 25-32 expected string, found dictionary
+#"Hello".at(5, default: (a: 10))
 
 ---
 // Test the `slice` method.
