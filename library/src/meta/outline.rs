@@ -271,6 +271,7 @@ impl LocalName for OutlineElem {
             Lang::CHINESE if option_eq(region, "TW") => "目錄",
             Lang::CHINESE => "目录",
             Lang::CZECH => "Obsah",
+            Lang::DUTCH => "Inhoudsopgave",
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ITALIAN => "Indice",
