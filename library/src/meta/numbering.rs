@@ -269,6 +269,8 @@ enum NumberingKind {
     TraditionalChinese,
     HiraganaIroha,
     KatakanaIroha,
+    KoreanJamo,
+    KoreanSyllable,
 }
 
 impl NumberingKind {
@@ -283,6 +285,8 @@ impl NumberingKind {
             '一' | '壹' => NumberingKind::SimplifiedChinese,
             'い' => NumberingKind::HiraganaIroha,
             'イ' => NumberingKind::KatakanaIroha,
+            'ㄱ' => NumberingKind::KoreanJamo,
+            '가' => NumberingKind::KoreanSyllable,
             _ => return None,
         })
     }
@@ -299,6 +303,8 @@ impl NumberingKind {
             Self::TraditionalChinese => '一',
             Self::HiraganaIroha => 'い',
             Self::KatakanaIroha => 'イ',
+            Self::KoreanJamo => 'ㄱ',
+            Self::KoreanSyllable => '가',
         }
     }
 
@@ -464,6 +470,14 @@ impl NumberingKind {
                     Err(_) => '-'.into(),
                 }
             }
+            Self::KoreanJamo => zeroless::<14>(|x| {
+                [
+                    'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'
+                ][x]
+            }, n),
+            Self::KoreanSyllable => zeroless::<14>(|x| {
+                ['가', '나', '다', '라', '마', '바', '사', '아', '자', '차', '카', '타', '파', '하'][x]
+            }, n),
         }
     }
 }
