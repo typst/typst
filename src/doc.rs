@@ -522,6 +522,7 @@ impl Lang {
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
+    pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
