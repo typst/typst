@@ -63,3 +63,26 @@
 ---
 // Error: 17-19 number must be at least zero
 #numbering("1", -1)
+
+---
+#for i in range(0, 4) {
+  numbering("가", i)
+  [ (or ]
+  numbering("ㄱ", i)
+  [) for #i]
+  linebreak()
+}
+#par[...]
+#for i in range(47, 51) {
+  numbering("가", i)
+  [ (or ]
+  numbering("ㄱ", i)
+  [) for #i]
+  linebreak()
+}
+#par[...]
+#for i in range(2256, 2260) {
+  numbering("ㄱ", i)
+  [ for #i]
+  linebreak()
+}
