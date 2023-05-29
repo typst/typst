@@ -557,7 +557,13 @@ impl World for SystemWorld {
             .source
             .get_or_init(|| {
                 let buf = read(path)?;
-                let text = String::from_utf8(buf)?;
+                let text = if buf.starts_with(b"\xef\xbb\xbf") {
+                    // remove UTF-8 BOM
+                    std::str::from_utf8(&buf[3..])?.to_owned()
+                } else {
+                    // Assume UTF-8
+                    String::from_utf8(buf)?
+                };
                 Ok(self.insert(path, text))
             })
             .clone()
