@@ -456,13 +456,15 @@ cast_from_value! {
 
 /// Convert a value to a string.
 ///
-/// - Integers are formatted in base 10.
+/// - Integers are formatted in base 10. This can be overridden with the
+///   optional `base` parameter.
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
 ///
 /// ## Example { #example }
 /// ```example
 /// #str(10) \
+/// #str(4000, base: 16) \
 /// #str(2.7) \
 /// #str(1e8) \
 /// #str(<intro>)
@@ -475,19 +477,41 @@ cast_from_value! {
 pub fn str(
     /// The value that should be converted to a string.
     value: ToStr,
+    /// The base (radix) to display integers in, between 2 and 36.
+    #[named]
+    #[default(10)]
+    base: i64,
 ) -> Value {
-    Value::Str(value.0)
+    match value {
+        ToStr::Str(s) => {
+            if base != 10 {
+                bail!(args.span, "base is only supported for integers");
+            }
+            Value::Str(s)
+        }
+        ToStr::Int(n) => {
+            if base < 2 || base > 36 {
+                bail!(args.span, "base must be between 2 and 36");
+            }
+            super::to_base::to_base(n, base).into()
+        }
+    }
 }
 
 /// A value that can be cast to a string.
-struct ToStr(Str);
+enum ToStr {
+    /// A string value ready to be used as-is.
+    Str(Str),
+    /// An integer about to be formatted in a given base.
+    Int(i64),
+}
 
 cast_from_value! {
     ToStr,
-    v: i64 => Self(format_str!("{}", v)),
-    v: f64 => Self(format_str!("{}", v)),
-    v: Label => Self(v.0.into()),
-    v: Str => Self(v),
+    v: i64 => Self::Int(v),
+    v: f64 => Self::Str(format_str!("{}", v)),
+    v: Label => Self::Str(v.0.into()),
+    v: Str => Self::Str(v),
 }
 
 /// Create a label from a string.
