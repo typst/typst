@@ -87,3 +87,7 @@ $ lim_(n->oo \ n "grows") sum_(k=0 \ k in NN)^n k $
 $ limits(A)_1^2 != A_1^2 $
 $ scripts(sum)_1^2 != sum_1^2 $
 $ limits(integral)_a^b != integral_a^b $
+
+---
+// Error: 30-34 unknown variable: oops
+$ attach(A, t: #locate(it => oops)) $
