@@ -1022,8 +1022,8 @@ static CJ_LINEBREAK_DATA: &[u8] =
 /// The general line break segmenter.
 static SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
     let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
-    let segmenter = LineSegmenter::try_new_lstm_with_buffer_provider(&provider).unwrap();
-    segmenter
+
+    LineSegmenter::try_new_lstm_with_buffer_provider(&provider).unwrap()
 });
 
 /// The Unicode line break properties for each code point.
@@ -1031,17 +1031,16 @@ static CJ_SEGMENTER: Lazy<LineSegmenter> = Lazy::new(|| {
     let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
     let cj_blob = BlobDataProvider::try_new_from_static_blob(CJ_LINEBREAK_DATA).unwrap();
     let cj_provider = ForkByKeyProvider::new(cj_blob, provider);
-    let cj_segmenter =
-        LineSegmenter::try_new_lstm_with_buffer_provider(&cj_provider).unwrap();
-    cj_segmenter
+
+    LineSegmenter::try_new_lstm_with_buffer_provider(&cj_provider).unwrap()
 });
 
 /// The line break segmenter for Chinese/Jpanese text.
 static LINEBREAK_DATA: Lazy<CodePointMapData<LineBreak>> = Lazy::new(|| {
     let provider = BlobDataProvider::try_new_from_static_blob(ICU_DATA).unwrap();
     let deser_provider = provider.as_deserializing();
-    let line_break_data = icu_properties::maps::load_line_break(&deser_provider).unwrap();
-    line_break_data
+
+    icu_properties::maps::load_line_break(&deser_provider).unwrap()
 });
 
 /// Determine all possible points in the text where lines can broken.
