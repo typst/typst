@@ -518,6 +518,7 @@ impl Lang {
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
     pub const CZECH: Self = Self(*b"cs ", 2);
+    pub const DUTCH: Self = Self(*b"nl ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
