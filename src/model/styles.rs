@@ -979,6 +979,13 @@ impl<T: Resolve> Resolve for Option<T> {
 }
 
 /// A property that is folded to determine its final value.
+/// For example:
+/// ```example
+/// // Fold (reduce) the chain of stroke values into a single value: 4pt + red
+/// #set rect(stroke: red)
+/// #set rect(stroke: 4pt)
+/// #rect()
+/// ````
 pub trait Fold {
     /// The type of the folded output.
     type Output;

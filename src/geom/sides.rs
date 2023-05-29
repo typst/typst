@@ -35,14 +35,18 @@ impl Cast for Margin {
                 let inside = take("inside")?;
                 let mut left = take("left")?;
                 let mut right = take("right")?;
-                let _ = take("two-sided")?;
 
-                let two_sided = outside.is_some() || inside.is_some();
-                let not_two_sided = left.is_some() || right.is_some();
-                if two_sided && not_two_sided {
-                    // Two-sided property is ambiguous.
-                    return <Self as Cast>::error(dict.into());
+                let implicitly_two_sided = outside.is_some() || inside.is_some();
+                let implicitly_not_two_sided = left.is_some() || right.is_some();
+
+                if implicitly_two_sided && implicitly_not_two_sided {
+                    panic!("Error: Cannot determine if file is two-sided. Use either outside and inside margins or left and right margins, but not both.");
                 }
+                let two_sided = match implicitly_two_sided {
+                    true => Some(true),
+                    false => None,
+                };
+
                 left = outside.or(left).or(x);
                 right = inside.or(right).or(x);
 
@@ -53,19 +57,11 @@ impl Cast for Margin {
                     bottom: take("bottom")?.or(y),
                 };
 
-                let margin = Margin { sides, two_sided: Some(two_sided) };
+                let margin = Margin { sides, two_sided };
 
                 dict.finish(&[
-                    "left",
-                    "top",
-                    "right",
-                    "bottom",
-                    "x",
-                    "y",
-                    "outside",
-                    "inside",
+                    "left", "top", "right", "bottom", "x", "y", "outside", "inside",
                     "rest",
-                    "two-sided",
                 ])?;
 
                 Ok(margin)
@@ -106,11 +102,15 @@ impl From<Margin> for Value {
             }
         };
 
-        handle("left", margin.sides.left.into());
         handle("top", margin.sides.top.into());
-        handle("right", margin.sides.right.into());
         handle("bottom", margin.sides.bottom.into());
-        handle("two-sided", margin.two_sided.into());
+        if margin.two_sided.unwrap_or(false) {
+            handle("inside", margin.sides.right.into());
+            handle("outside", margin.sides.left.into());
+        } else {
+            handle("left", margin.sides.left.into());
+            handle("right", margin.sides.right.into());
+        }
 
         Value::Dict(dict)
     }
