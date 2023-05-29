@@ -65,6 +65,8 @@
 #numbering("1", -1)
 
 ---
+#set text(lang: "ko")
+#set text(font: "Noto Serif KR")
 #for i in range(0, 4) {
   numbering("가", i)
   [ (or ]
