@@ -75,8 +75,7 @@ pub fn call(
             "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
             "at" => content.at(&args.expect::<EcoString>("field")?, None).at(span)?,
-            "fields" => Value::Array(content.keys()),
-            "dict" => Value::Dict(content.dict()),
+            "fields" => Value::Dict(content.dict()),
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")
@@ -333,7 +332,6 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("has", true),
             ("at", true),
             ("fields", false),
-            ("dict", false),
             ("location", false),
         ],
         "array" => &[

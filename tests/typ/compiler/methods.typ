@@ -47,10 +47,5 @@
 
 ---
 // Test content fields method.
-#test([a].fields(), ("text",))
-#test([a *b*].fields(), ("children",))
-
----
-// Test content dict method.
-#test([a].dict(), (text: "a"))
-#test([a *b*].dict(),  (children: ([a], [ ], strong[b])))
+#test([a].fields(), (text: "a"))
+#test([a *b*].fields(),  (children: ([a], [ ], strong[b])))

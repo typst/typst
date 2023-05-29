@@ -605,17 +605,10 @@ field does not exist or fails with an error if no default value was specified.
 - returns: any
 
 ### fields()
-Return the names of the fields of this content.
+Return the fields of this content.
 
 ```example
 #repr(rect(width: 10cm, height: 10cm).fields())
-```
-
-### dict()
-Return the keys of the fields of this content.
-
-```example
-#repr(rect(width: 10cm, height: 10cm).dict())
 ```
 
 ### location()
