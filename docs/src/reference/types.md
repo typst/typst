@@ -604,6 +604,13 @@ field does not exist or fails with an error if no default value was specified.
   A default value to return if the field does not exist.
 - returns: any
 
+### fields()
+Return the fields of this content.
+
+```example
+#repr(rect(width: 10cm, height: 10cm).fields())
+```
+
 ### location()
 The location of the content. This is only available on content returned by
 [query]($func/query), for other content it will fail with an error. The

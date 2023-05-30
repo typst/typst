@@ -81,6 +81,7 @@ pub fn call(
             "at" => content
                 .at(&args.expect::<EcoString>("field")?, args.named("default")?)
                 .at(span)?,
+            "fields" => Value::Dict(content.dict()),
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")
@@ -332,7 +333,13 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
-        "content" => &[("func", false), ("has", true), ("at", true), ("location", false)],
+        "content" => &[
+            ("func", false),
+            ("has", true),
+            ("at", true),
+            ("fields", false),
+            ("location", false),
+        ],
         "array" => &[
             ("all", true),
             ("any", true),

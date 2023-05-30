@@ -48,3 +48,8 @@
 ---
 // Error: 2-5 cannot mutate a constant: box
 #box.push(1)
+
+---
+// Test content fields method.
+#test([a].fields(), (text: "a"))
+#test([a *b*].fields(),  (children: ([a], [ ], strong[b])))
