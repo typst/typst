@@ -243,11 +243,6 @@ impl<'a> FlowLayouter<'a> {
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Skip directly if region is already full.
-        if self.regions.is_full() {
-            self.finish_region()?;
-        }
-
         // Placed elements that are out of flow produce placed items which
         // aren't aligned later.
         if let Some(placed) = block.to::<PlaceElem>() {
@@ -256,6 +251,9 @@ impl<'a> FlowLayouter<'a> {
                 self.layout_item(vt, FlowItem::Placed(frame))?;
                 return Ok(());
             }
+        } else if self.regions.is_full() {
+            // Skip directly if region is already full.
+            self.finish_region()?;
         }
 
         // How to align the block.
