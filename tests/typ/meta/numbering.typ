@@ -32,7 +32,7 @@
 }
 
 ---
-#set text(lang: "zh")
+#set text(lang: "zh", font: ("Linux Libertine", "Noto Serif CJK SC"))
 #for i in range(9,21, step: 2){
   numbering("一", i)
   [ and ]
@@ -41,6 +41,7 @@
 }
 
 ---
+#set text(lang: "jp", font: ("Linux Libertine", "Noto Serif CJK JP"))
 #for i in range(0, 4) {
   numbering("イ", i)
   [ (or ]
@@ -61,30 +62,26 @@
 }
 
 ---
-// Error: 17-19 number must be at least zero
-#numbering("1", -1)
-
----
-#set text(lang: "ko")
-#set text(font: "Noto Serif KR")
+#set text(lang: "ko", font: ("Linux Libertine", "Noto Serif CJK KR"))
 #for i in range(0, 4) {
   numbering("가", i)
   [ (or ]
   numbering("ㄱ", i)
-  [) for #i]
-  linebreak()
+  [) for #i \ ]
 }
-#par[...]
+... \
 #for i in range(47, 51) {
   numbering("가", i)
   [ (or ]
   numbering("ㄱ", i)
-  [) for #i]
-  linebreak()
+  [) for #i \ ]
 }
-#par[...]
+... \
 #for i in range(2256, 2260) {
   numbering("ㄱ", i)
-  [ for #i]
-  linebreak()
+  [ for #i \ ]
 }
+
+---
+// Error: 17-19 number must be at least zero
+#numbering("1", -1)
