@@ -323,7 +323,7 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 ///
 /// Display: YAML
 /// Category: data-loading
-/// Returns: array or value or dictionary
+/// Returns: array or dictionary or none or bool or int or float or string
 #[func]
 pub fn yaml(
     /// Path to a YAML file.

@@ -50,7 +50,7 @@ description: |
   - Exposed [list]($func/list.item), [enum]($func/enum.item), and
     [term list]($func/terms.item) items in their respective functions' scope
   - The `at` methods on [strings]($type/string.at), [arrays]($type/array.at),
-    [dictionaries]($type/dict.at), and [content]($type/content.at) now support
+    [dictionaries]($type/dictionary.at), and [content]($type/content.at) now support
     specifying a default value
   - Added support for passing a function to [`replace`]($type/string.replace)
     that is called with each match.
