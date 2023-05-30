@@ -75,11 +75,11 @@
 #str([])
 
 ---
-// Error: 5-20 base must be between 2 and 36
+// Error: 17-19 base must be between 2 and 36
 #str(123, base: 99)
 
 ---
-// Error: 5-20 base is only supported for integers
+// Error: 18-19 base is only supported for integers
 #str(1.23, base: 2)
 
 ---

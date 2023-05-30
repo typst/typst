@@ -479,21 +479,21 @@ pub fn str(
     value: ToStr,
     /// The base (radix) to display integers in, between 2 and 36.
     #[named]
-    #[default(10)]
-    base: i64,
+    #[default(Spanned::new(10, Span::detached()))]
+    base: Spanned<i64>,
 ) -> Value {
     match value {
         ToStr::Str(s) => {
-            if base != 10 {
-                bail!(args.span, "base is only supported for integers");
+            if base.v != 10 {
+                bail!(base.span, "base is only supported for integers");
             }
             Value::Str(s)
         }
         ToStr::Int(n) => {
-            if base < 2 || base > 36 {
-                bail!(args.span, "base must be between 2 and 36");
+            if base.v < 2 || base.v > 36 {
+                bail!(base.span, "base must be between 2 and 36");
             }
-            int_to_base(n, base).into()
+            int_to_base(n, base.v).into()
         }
     }
 }
