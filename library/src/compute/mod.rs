@@ -23,7 +23,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("luma", luma);
     global.define("rgb", rgb);
     global.define("cmyk", cmyk);
-    global.define("mix", mix);
+    global.define("color", color_module());
     global.define("datetime", datetime);
     global.define("symbol", symbol);
     global.define("str", str);

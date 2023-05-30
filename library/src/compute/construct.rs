@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Datetime, Dynamic, Regex};
+use typst::eval::{Datetime, Dynamic, Regex, Module};
 
 use crate::prelude::*;
 
@@ -392,6 +392,13 @@ cast_from_value! {
     },
 }
 
+/// A module with functions operating on colors.
+pub fn color_module() -> Module {
+    let mut scope = Scope::new();
+    scope.define("mix", mix);
+    Module::new("color").with_scope(scope)
+}
+
 /// Create a color by mixing two or more colors.
 ///
 /// By default, this happens in a perceptual color space (Oklab). You can
@@ -399,10 +406,10 @@ cast_from_value! {
 ///
 /// ## Example
 /// ```example
-/// #mix(red, green)
-/// #mix(red, green, white)
-/// #mix(red, green, space: "srgb")
-/// #mix((red, 30%), (green, 70%))
+/// #color.mix(red, green)
+/// #color.mix(red, green, white)
+/// #color.mix(red, green, space: "srgb")
+/// #color.mix((red, 30%), (green, 70%))
 /// ````
 ///
 /// Display: Mix

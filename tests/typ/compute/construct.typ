@@ -15,25 +15,25 @@
 #test(white.lighten(100%), white)
 
 // Color mixing, in Oklab space by default.
-#test(mix(rgb("#ff0000"), rgb("#00ff00")), rgb("#a16400"))
-#test(mix(rgb("#ff0000"), rgb("#00ff00"), space: "oklab"), rgb("#a16400"))
-#test(mix(rgb("#ff0000"), rgb("#00ff00"), space: "srgb"), rgb("#808000"))
+#test(color.mix(rgb("#ff0000"), rgb("#00ff00")), rgb("#a16400"))
+#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "oklab"), rgb("#a16400"))
+#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "srgb"), rgb("#808000"))
 
 // Slight floating-point error here is acceptable, but it should be basically commutative.
-#test(mix(red, green, blue), rgb("#5c8169"))
-#test(mix(red, blue, green), rgb("#5c826a"))
-#test(mix(blue, red, green), rgb("#5c826a"))
+#test(color.mix(red, green, blue), rgb("#5c8169"))
+#test(color.mix(red, blue, green), rgb("#5c826a"))
+#test(color.mix(blue, red, green), rgb("#5c826a"))
 
 // Mix with weights.
-#test(mix((red, 50%), (green, 50%)), rgb("#9c823b"))
-#test(mix((red, 0.5), (green, 0.5)), rgb("#9c823b"))
-#test(mix((red, 5), (green, 5)), rgb("#9c823b"))
-#test(mix((green, 5), (white, 0), (red, 5)), rgb("#9c823b"))
-#test(mix((red, 100%), (green, 0%)), red)
-#test(mix((red, 0%), (green, 100%)), green)
-#test(mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: "srgb"), rgb("#aa40bf"))
-#test(mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: "srgb"), rgb("#aa8080"))
-#test(mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: "srgb"), rgb("#aabf40"))
+#test(color.mix((red, 50%), (green, 50%)), rgb("#9c823b"))
+#test(color.mix((red, 0.5), (green, 0.5)), rgb("#9c823b"))
+#test(color.mix((red, 5), (green, 5)), rgb("#9c823b"))
+#test(color.mix((green, 5), (white, 0), (red, 5)), rgb("#9c823b"))
+#test(color.mix((red, 100%), (green, 0%)), red)
+#test(color.mix((red, 0%), (green, 100%)), green)
+#test(color.mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: "srgb"), rgb("#aa40bf"))
+#test(color.mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: "srgb"), rgb("#aa8080"))
+#test(color.mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: "srgb"), rgb("#aabf40"))
 
 ---
 // Test gray color conversion.
@@ -62,16 +62,16 @@
 #rgb(10%, 20%, 30%, false)
 
 ---
-// Error: 6-18 weights must be integer, float or ratio
-#mix((red, "yes"), (green, "no"))
+// Error: 12-24 weights must be integer, float or ratio
+#color.mix((red, "yes"), (green, "no"))
 
 ---
-// Error: 6-17 expected a color or color-weight pair
-#mix((red, 1, 2))
+// Error: 12-23 expected a color or color-weight pair
+#color.mix((red, 1, 2))
 
 ---
-// Error: 25-32 expected "oklab" or "srgb"
-#mix(red, green, space: "cyber")
+// Error: 31-38 expected "oklab" or "srgb"
+#color.mix(red, green, space: "cyber")
 
 ---
 // Ref: true
