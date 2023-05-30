@@ -83,6 +83,27 @@
 #str(1.23, base: 2)
 
 ---
+// Test the unicode function.
+#test(str.from-unicode(97), "a")
+#test(str.to-unicode("a"), 97)
+
+---
+// Error: 19-22 expected integer, found content
+#str.from-unicode([a])
+
+---
+// Error: 17-21 expected exactly one character
+#str.to-unicode("ab")
+
+---
+// Error: 19-21 0xffffffffffffffff is not a valid codepoint
+#str.from-unicode(-1) // negative values are not valid
+
+---
+// Error: 19-27 0x110000 is not a valid codepoint
+#str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
+
+---
 #assert(range(2, 5) == (2, 3, 4))
 
 ---

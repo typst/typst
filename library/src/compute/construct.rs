@@ -461,6 +461,10 @@ cast_from_value! {
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
 ///
+/// If you wish to convert from and to Unicode code points, see
+/// [`str.to-unicode`]($func/str.to-unicode) and
+/// [`str.from-unicode`]($func/str.from-unicode).
+///
 /// ## Example { #example }
 /// ```example
 /// #str(10) \
@@ -474,6 +478,11 @@ cast_from_value! {
 /// Category: construct
 /// Returns: string
 #[func]
+#[scope(
+    scope.define("to-unicode", to_unicode);
+    scope.define("from-unicode", from_unicode);
+    scope
+)]
 pub fn str(
     /// The value that should be converted to a string.
     value: ToStr,
@@ -551,6 +560,54 @@ fn int_to_base(mut n: i64, base: i64) -> EcoString {
     }
 
     std::str::from_utf8(&digits[i..]).unwrap_or_default().into()
+}
+
+/// Converts a character into its corresponding code point.
+///
+/// ## Example
+/// ```example
+/// #str.to-unicode("a") \
+/// #"a\u{0300}".codepoints().map(str.to-unicode)
+/// ```
+///
+/// Display: String To Unicode
+/// Category: construct
+/// Returns: int
+#[func]
+pub fn to_unicode(
+    /// The character that should be converted.
+    value: char,
+) -> Value {
+    Value::Int(From::<u32>::from(value.into()))
+}
+
+#[func]
+/// Converts a unicode code point into its corresponding string.
+///
+/// ```example
+/// #str.from-unicode(97)
+/// ```
+///
+/// Display: Sting From Unicode
+/// Category: construct
+/// Returns: string
+pub fn from_unicode(
+    /// The code point that should be converted.
+    value: CodePoint,
+) -> Value {
+    Value::Str(format_str!("{}", value.0))
+}
+
+/// The numeric representation of a single unicode code point.
+struct CodePoint(char);
+
+cast_from_value! {
+    CodePoint,
+    v: i64 => {
+        Self(v.try_into().ok().and_then(|v: u32| v.try_into().ok()).ok_or_else(
+            || eco_format!("{:#x} is not a valid codepoint", v),
+        )?)
+    },
 }
 
 /// Create a label from a string.
