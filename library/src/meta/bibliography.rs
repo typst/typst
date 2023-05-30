@@ -218,6 +218,7 @@ impl LocalName for BibliographyElem {
             Lang::CHINESE if option_eq(region, "TW") => "書目",
             Lang::CHINESE => "参考文献",
             Lang::CZECH => "Bibliografie",
+            Lang::DANISH => "Bibliografi",
             Lang::DUTCH => "Bibliografie",
             Lang::FRENCH => "Bibliographie",
             Lang::GERMAN => "Bibliographie",
