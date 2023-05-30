@@ -63,6 +63,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ================================================================================
 
 ================================================================================
+Syntaxes in `assets/data/syntect.bin` are generated from syntax definitions
+which can be found here:
+https://github.com/sharkdp/bat/tree/master/assets/syntaxes
+
+The syntax definitions are used under their respective licenses.
+================================================================================
+
+================================================================================
 The SIL Open Font License Version 1.1 applies to:
 
 * IBM Plex fonts in assets/fonts/IBMPlex*.ttf

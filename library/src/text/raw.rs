@@ -313,8 +313,33 @@ fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
 }
 
 /// The syntect syntax definitions.
-static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(syntect::parsing::SyntaxSet::load_defaults_nonewlines);
+///
+/// Code for syntax set generation is below. The `syntaxes` directory is from
+/// <https://github.com/sharkdp/bat/tree/master/assets/syntaxes>
+///
+/// ```ignore
+/// fn main() {
+///     let mut builder = syntect::parsing::SyntaxSet::load_defaults_nonewlines().into_builder();
+///     builder.add_from_folder("syntaxes/02_Extra", false).unwrap();
+///     syntect::dumps::dump_to_file(&builder.build(), "syntect.bin").unwrap();
+/// }
+/// ```
+///
+/// The following syntaxes are disabled due to compatibility issues:
+/// ```text
+/// syntaxes/02_Extra/Assembly (ARM).sublime-syntax
+/// syntaxes/02_Extra/Elixir/Regular Expressions (Elixir).sublime-syntax
+/// syntaxes/02_Extra/JavaScript (Babel).sublime-syntax
+/// syntaxes/02_Extra/LiveScript.sublime-syntax
+/// syntaxes/02_Extra/PowerShell.sublime-syntax
+/// syntaxes/02_Extra/SCSS_Sass/Syntaxes/Sass.sublime-syntax
+/// syntaxes/02_Extra/SLS/SLS.sublime-syntax
+/// syntaxes/02_Extra/VimHelp.sublime-syntax
+/// syntaxes/02_Extra/cmd-help/syntaxes/cmd-help.sublime-syntax
+/// ```
+static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> = Lazy::new(|| {
+    syntect::dumps::from_binary(include_bytes!("../../../assets/data/syntect.bin"))
+});
 
 /// The default theme used for syntax highlighting.
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
