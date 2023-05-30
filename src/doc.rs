@@ -518,16 +518,20 @@ impl Lang {
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
     pub const CZECH: Self = Self(*b"cs ", 2);
+    pub const DANISH: Self = Self(*b"da ", 2);
+    pub const DUTCH: Self = Self(*b"nl ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
+    pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
     pub const SPANISH: Self = Self(*b"es ", 2);
+    pub const SWEDISH: Self = Self(*b"sv ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
 

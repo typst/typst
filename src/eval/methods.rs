@@ -31,7 +31,11 @@ pub fn call(
             "len" => Value::Int(string.len()),
             "first" => Value::Str(string.first().at(span)?),
             "last" => Value::Str(string.last().at(span)?),
-            "at" => Value::Str(string.at(args.expect("index")?, None).at(span)?),
+            "at" => {
+                let index = args.expect("index")?;
+                let default = args.named::<EcoString>("default")?;
+                Value::Str(string.at(index, default.as_deref()).at(span)?)
+            }
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -74,7 +78,10 @@ pub fn call(
         Value::Content(content) => match method {
             "func" => content.func().into(),
             "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
-            "at" => content.at(&args.expect::<EcoString>("field")?, None).at(span)?,
+            "at" => content
+                .at(&args.expect::<EcoString>("field")?, args.named("default")?)
+                .at(span)?,
+            "fields" => Value::Dict(content.dict()),
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")
@@ -326,7 +333,13 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
-        "content" => &[("func", false), ("has", true), ("at", true), ("location", false)],
+        "content" => &[
+            ("func", false),
+            ("has", true),
+            ("at", true),
+            ("fields", false),
+            ("location", false),
+        ],
         "array" => &[
             ("all", true),
             ("any", true),

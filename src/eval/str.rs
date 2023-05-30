@@ -71,9 +71,9 @@ impl Str {
     /// Extract the grapheme cluster at the given index.
     pub fn at<'a>(&'a self, index: i64, default: Option<&'a str>) -> StrResult<Self> {
         let len = self.len();
-        let grapheme = self.0[self.locate(index)?..]
-            .graphemes(true)
-            .next()
+        let grapheme = self
+            .locate_opt(index)?
+            .and_then(|i| self.0[i..].graphemes(true).next())
             .or(default)
             .ok_or_else(|| no_default_and_out_of_bounds(index, len))?;
         Ok(grapheme.into())
@@ -325,21 +325,27 @@ impl Str {
         Ok(Self(self.0.repeat(n)))
     }
 
-    /// Resolve an index.
-    fn locate(&self, index: i64) -> StrResult<usize> {
+    /// Resolve an index, if it is within bounds.
+    /// Errors on invalid char boundaries.
+    fn locate_opt(&self, index: i64) -> StrResult<Option<usize>> {
         let wrapped =
             if index >= 0 { Some(index) } else { self.len().checked_add(index) };
 
         let resolved = wrapped
             .and_then(|v| usize::try_from(v).ok())
-            .filter(|&v| v <= self.0.len())
-            .ok_or_else(|| out_of_bounds(index, self.len()))?;
+            .filter(|&v| v <= self.0.len());
 
-        if !self.0.is_char_boundary(resolved) {
+        if resolved.map_or(false, |i| !self.0.is_char_boundary(i)) {
             return Err(not_a_char_boundary(index));
         }
 
         Ok(resolved)
+    }
+
+    /// Resolve an index or throw an out of bounds error.
+    fn locate(&self, index: i64) -> StrResult<usize> {
+        self.locate_opt(index)?
+            .ok_or_else(|| out_of_bounds(index, self.len()))
     }
 }
 
@@ -535,7 +541,7 @@ impl Hash for Regex {
 }
 
 cast_from_value! {
-    Regex: "regular expression",
+    Regex: "regex",
 }
 
 /// A pattern which can be searched for in a string.

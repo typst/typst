@@ -94,13 +94,14 @@
 #func((x):1)
 
 ---
-// Error: 2:1 expected closing bracket
+// Error: 6-7 unclosed delimiter
 #func[`a]`
 
 ---
-// Error: 8 expected closing paren
+// Error: 7-8 unclosed delimiter
 #{func(}
 
 ---
-// Error: 2:1 expected quote
+// Error: 6-7 unclosed delimiter
+// Error: 1:7-2:1 unclosed string
 #func("]

@@ -227,7 +227,7 @@ Three
 
 // Terminated by semicolon even though we are in a paren group.
 // Error: 18 expected expression
-// Error: 18 expected closing paren
+// Error: 11-12 unclosed delimiter
 #let v5 = (1, 2 + ; Five
 
 // Error: 9-13 expected identifier, found boolean
