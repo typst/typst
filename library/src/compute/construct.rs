@@ -456,13 +456,15 @@ cast_from_value! {
 
 /// Convert a value to a string.
 ///
-/// - Integers are formatted in base 10.
+/// - Integers are formatted in base 10. This can be overridden with the
+///   optional `base` parameter.
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
 ///
 /// ## Example { #example }
 /// ```example
 /// #str(10) \
+/// #str(4000, base: 16) \
 /// #str(2.7) \
 /// #str(1e8) \
 /// #str(<intro>)
@@ -475,19 +477,80 @@ cast_from_value! {
 pub fn str(
     /// The value that should be converted to a string.
     value: ToStr,
+    /// The base (radix) to display integers in, between 2 and 36.
+    #[named]
+    #[default(Spanned::new(10, Span::detached()))]
+    base: Spanned<i64>,
 ) -> Value {
-    Value::Str(value.0)
+    match value {
+        ToStr::Str(s) => {
+            if base.v != 10 {
+                bail!(base.span, "base is only supported for integers");
+            }
+            Value::Str(s)
+        }
+        ToStr::Int(n) => {
+            if base.v < 2 || base.v > 36 {
+                bail!(base.span, "base must be between 2 and 36");
+            }
+            int_to_base(n, base.v).into()
+        }
+    }
 }
 
 /// A value that can be cast to a string.
-struct ToStr(Str);
+enum ToStr {
+    /// A string value ready to be used as-is.
+    Str(Str),
+    /// An integer about to be formatted in a given base.
+    Int(i64),
+}
 
 cast_from_value! {
     ToStr,
-    v: i64 => Self(format_str!("{}", v)),
-    v: f64 => Self(format_str!("{}", v)),
-    v: Label => Self(v.0.into()),
-    v: Str => Self(v),
+    v: i64 => Self::Int(v),
+    v: f64 => Self::Str(format_str!("{}", v)),
+    v: Label => Self::Str(v.0.into()),
+    v: Str => Self::Str(v),
+}
+
+/// Format an integer in a base.
+fn int_to_base(mut n: i64, base: i64) -> EcoString {
+    if n == 0 {
+        return "0".into();
+    }
+
+    // In Rust, `format!("{:x}", -14i64)` is not `-e` but `fffffffffffffff2`.
+    // So we can only use the built-in for decimal, not bin/oct/hex.
+    if base == 10 {
+        return eco_format!("{n}");
+    }
+
+    // The largest output is `to_base(i64::MIN, 2)`, which is 65 chars long.
+    const SIZE: usize = 65;
+    let mut digits = [b'\0'; SIZE];
+    let mut i = SIZE;
+
+    // It's tempting to take the absolute value, but this will fail for i64::MIN.
+    // Instead, we turn n negative, as -i64::MAX is perfectly representable.
+    let negative = n < 0;
+    if n > 0 {
+        n = -n;
+    }
+
+    while n != 0 {
+        let digit = char::from_digit(-(n % base) as u32, base as u32);
+        i -= 1;
+        digits[i] = digit.unwrap_or('?') as u8;
+        n /= base;
+    }
+
+    if negative {
+        i -= 1;
+        digits[i] = b'-';
+    }
+
+    std::str::from_utf8(&digits[i..]).unwrap_or_default().into()
 }
 
 /// Create a label from a string.
@@ -610,4 +673,30 @@ pub fn range(
     }
 
     Value::Array(array)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_base() {
+        assert_eq!(&int_to_base(0, 10), "0");
+        assert_eq!(&int_to_base(0, 16), "0");
+        assert_eq!(&int_to_base(0, 36), "0");
+        assert_eq!(
+            &int_to_base(i64::MAX, 2),
+            "111111111111111111111111111111111111111111111111111111111111111"
+        );
+        assert_eq!(
+            &int_to_base(i64::MIN, 2),
+            "-1000000000000000000000000000000000000000000000000000000000000000"
+        );
+        assert_eq!(&int_to_base(i64::MAX, 10), "9223372036854775807");
+        assert_eq!(&int_to_base(i64::MIN, 10), "-9223372036854775808");
+        assert_eq!(&int_to_base(i64::MAX, 16), "7fffffffffffffff");
+        assert_eq!(&int_to_base(i64::MIN, 16), "-8000000000000000");
+        assert_eq!(&int_to_base(i64::MAX, 36), "1y2p0ij32e8e7");
+        assert_eq!(&int_to_base(i64::MIN, 36), "-1y2p0ij32e8e8");
+    }
 }
