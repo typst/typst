@@ -13,6 +13,7 @@ pub fn module() -> Module {
     let mut scope = Scope::new();
     scope.define("abs", abs);
     scope.define("pow", pow);
+    scope.define("exp", exp);
     scope.define("sqrt", sqrt);
     scope.define("sin", sin);
     scope.define("cos", cos);
@@ -25,6 +26,7 @@ pub fn module() -> Module {
     scope.define("cosh", cosh);
     scope.define("tanh", tanh);
     scope.define("log", log);
+    scope.define("ln", ln);
     scope.define("fact", fact);
     scope.define("perm", perm);
     scope.define("binom", binom);
@@ -98,7 +100,7 @@ cast_from_value! {
 pub fn pow(
     /// The base of the power.
     base: Num,
-    /// The exponent of the power. Must be non-negative.
+    /// The exponent of the power.
     exponent: Spanned<Num>,
 ) -> Value {
     match exponent.v {
@@ -120,8 +122,15 @@ pub fn pow(
             .map(Num::Int)
             .ok_or("the result is too large")
             .at(args.span)?,
-        (a, Num::Int(b)) => Num::Float(a.float().powi(b as i32)),
-        (a, b) => Num::Float(a.float().powf(b.float())),
+        (a, b) => Num::Float(if a.float() == std::f64::consts::E {
+            b.float().exp()
+        } else if a.float() == 2.0 {
+            b.float().exp2()
+        } else if let Num::Int(b) = b {
+            a.float().powi(b as i32)
+        } else {
+            a.float().powf(b.float())
+        }),
     };
 
     if result.float().is_nan() {
@@ -138,7 +147,7 @@ pub fn pow(
 /// #calc.exp(3)
 /// ```
 ///
-/// Display: Power
+/// Display: Exponential
 /// Category: calculate
 /// Returns: float
 #[func]
@@ -156,13 +165,12 @@ pub fn exp(
         _ => {}
     };
 
-    let result = Num::Float(exponent.v.float().exp());
-
-    if result.float().is_nan() {
+    let result = exponent.v.float().exp();
+    if result.is_nan() {
         bail!(args.span, "the result is not a real number")
     }
 
-    result.value()
+    Value::Float(result)
 }
 
 /// Calculate the square root of a number.
@@ -460,7 +468,9 @@ pub fn log(
         bail!(base.span, "base may not be zero, NaN, infinite, or subnormal")
     }
 
-    let result = if base.v == 2.0 {
+    let result = if base.v == std::f64::consts::E {
+        number.ln()
+    } else if base.v == 2.0 {
         number.log2()
     } else if base.v == 10.0 {
         number.log10()
@@ -482,7 +492,7 @@ pub fn log(
 /// #calc.ln(100)
 /// ```
 ///
-/// Display: Logarithm
+/// Display: Natural Logarithm
 /// Category: calculate
 /// Returns: float
 #[func]
