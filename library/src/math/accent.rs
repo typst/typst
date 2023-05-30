@@ -5,7 +5,7 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Attach an accent to a base.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $grave(a) = accent(a, `)$ \
 /// $arrow(a) = accent(a, arrow)$ \

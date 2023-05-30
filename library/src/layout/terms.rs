@@ -8,20 +8,24 @@ use crate::prelude::*;
 /// descriptions span over multiple lines, they use hanging indent to
 /// communicate the visual hierarchy.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// / Ligature: A merged glyph.
 /// / Kerning: A spacing adjustment
 ///   between two adjacent letters.
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
 ///
 /// Display: Term List
 /// Category: layout
 #[element(Layout)]
+#[scope(
+    scope.define("item", TermItem::func());
+    scope
+)]
 pub struct TermsElem {
     /// If this is `{false}`, the items are spaced apart with [term list
     /// spacing]($func/terms.spacing). If it is `{true}`, they use normal

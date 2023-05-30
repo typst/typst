@@ -29,7 +29,7 @@ use crate::prelude::*;
 /// #compute("x - 5")
 /// ```
 ///
-/// ## State and document markup
+/// ## State and document markup { #state-and-markup }
 /// Why does it do that? Because, in general, this kind of computation with side
 /// effects is problematic in document markup and Typst is upfront about that.
 /// For the results to make sense, the computation must proceed in the same
@@ -60,7 +60,7 @@ use crate::prelude::*;
 /// `template` function and only then sees the `Outline`. Just counting up would
 /// number the `Introduction` with `1` and the `Outline` with `2`.
 ///
-/// ## Managing state in Typst
+/// ## Managing state in Typst { #state-in-typst }
 /// So what do we do instead? We use Typst's state management system. Calling
 /// the `state` function with an identifying string key and an optional initial
 /// value gives you a state value which exposes a few methods. The two most
@@ -123,7 +123,7 @@ use crate::prelude::*;
 /// what you want! A good example are heading counters, which is why Typst's
 /// [counting system]($func/counter) is very similar to its state system.
 ///
-/// ## Time Travel
+/// ## Time Travel { #time-travel }
 /// By using Typst's state management system you also get time travel
 /// capabilities! By combining the state system with [`locate`]($func/locate)
 /// and [`query`]($func/query), we can find out what the value of the state will
@@ -155,7 +155,7 @@ use crate::prelude::*;
 /// #compute("x - 5")
 /// ```
 ///
-/// ## A word of caution
+/// ## A word of caution { #caution }
 /// To resolve the values of all states, Typst evaluates parts of your code
 /// multiple times. However, there is no guarantee that your state manipulation
 /// can actually be completely resolved.

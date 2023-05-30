@@ -463,6 +463,12 @@ impl Cast for LocatableSelector {
     }
 }
 
+impl From<LocatableSelector> for Value {
+    fn from(value: LocatableSelector) -> Self {
+        value.0.into()
+    }
+}
+
 /// A selector that can be used with show rules.
 ///
 /// Hopefully, this is made obsolete by a more powerful showing mechanism in the
@@ -515,6 +521,12 @@ impl Cast for ShowableSelector {
             CastInfo::Type("symbol"),
             CastInfo::Type("selector"),
         ])
+    }
+}
+
+impl From<ShowableSelector> for Value {
+    fn from(value: ShowableSelector) -> Self {
+        value.0.into()
     }
 }
 

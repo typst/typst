@@ -263,12 +263,18 @@ impl Frame {
 
     /// Attach metadata from an iterator.
     pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
+        let mut hide = false;
         for meta in iter {
             if matches!(meta, Meta::Hide) {
-                self.clear();
-                break;
+                hide = true;
+            } else {
+                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
             }
-            self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
+        }
+        if hide {
+            Arc::make_mut(&mut self.items).retain(|(_, item)| {
+                matches!(item, FrameItem::Group(_) | FrameItem::Meta(Meta::Elem(_), _))
+            });
         }
     }
 
@@ -512,6 +518,8 @@ impl Lang {
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
     pub const CZECH: Self = Self(*b"cs ", 2);
+    pub const DANISH: Self = Self(*b"da ", 2);
+    pub const DUTCH: Self = Self(*b"nl ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
@@ -522,6 +530,7 @@ impl Lang {
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
     pub const SPANISH: Self = Self(*b"es ", 2);
+    pub const SWEDISH: Self = Self(*b"sv ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
 
@@ -608,7 +617,7 @@ cast_to_value! {
 }
 
 /// Meta information that isn't visible or renderable.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Clone, PartialEq, Hash)]
 pub enum Meta {
     /// An internal or external link to a destination.
     Link(Destination),
@@ -621,6 +630,17 @@ pub enum Meta {
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
     Hide,
+}
+
+impl Debug for Meta {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::Link(dest) => write!(f, "Link({dest:?})"),
+            Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
+            Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
+            Self::Hide => f.pad("Hide"),
+        }
+    }
 }
 
 cast_from_value! {

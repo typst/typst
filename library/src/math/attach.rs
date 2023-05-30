@@ -2,7 +2,7 @@ use super::*;
 
 /// A base with optional attachments.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// // With syntax.
 /// $ sum_(i=0)^n a_i = 2^(1+i) $
@@ -14,7 +14,7 @@ use super::*;
 /// ) $
 /// ```
 ///
-/// ## Syntax
+/// ## Syntax { #syntax }
 /// This function also has dedicated syntax for attachments after the base: Use
 /// the underscore (`_`) to indicate a subscript i.e. bottom attachment and the
 /// hat (`^`) to indicate a superscript i.e. top attachment.
@@ -57,25 +57,24 @@ impl LayoutMath for AttachElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         type GetAttachment = fn(&AttachElem, styles: StyleChain) -> Option<Content>;
-        let getarg = |ctx: &mut MathContext, getter: GetAttachment| {
+        let layout_attachment = |ctx: &mut MathContext, getter: GetAttachment| {
             getter(self, ctx.styles())
                 .map(|elem| ctx.layout_fragment(&elem))
                 .transpose()
-                .unwrap()
         };
 
         let base = ctx.layout_fragment(&self.base())?;
 
         ctx.style(ctx.style.for_superscript());
-        let arg_tl = getarg(ctx, Self::tl);
-        let arg_tr = getarg(ctx, Self::tr);
-        let arg_t = getarg(ctx, Self::t);
+        let tl = layout_attachment(ctx, Self::tl)?;
+        let tr = layout_attachment(ctx, Self::tr)?;
+        let t = layout_attachment(ctx, Self::t)?;
         ctx.unstyle();
 
         ctx.style(ctx.style.for_subscript());
-        let arg_bl = getarg(ctx, Self::bl);
-        let arg_br = getarg(ctx, Self::br);
-        let arg_b = getarg(ctx, Self::b);
+        let bl = layout_attachment(ctx, Self::bl)?;
+        let br = layout_attachment(ctx, Self::br)?;
+        let b = layout_attachment(ctx, Self::b)?;
         ctx.unstyle();
 
         let as_limits = self.base().is::<LimitsElem>()
@@ -88,18 +87,15 @@ impl LayoutMath for AttachElem {
                     _ => false,
                 });
 
-        let (t, tr) =
-            if as_limits || arg_tr.is_some() { (arg_t, arg_tr) } else { (None, arg_t) };
-        let (b, br) =
-            if as_limits || arg_br.is_some() { (arg_b, arg_br) } else { (None, arg_b) };
-
-        layout_attachments(ctx, base, [arg_tl, t, tr, arg_bl, b, br])
+        let (t, tr) = if as_limits || tr.is_some() { (t, tr) } else { (None, t) };
+        let (b, br) = if as_limits || br.is_some() { (b, br) } else { (None, b) };
+        layout_attachments(ctx, base, [tl, t, tr, bl, b, br])
     }
 }
 
 /// Force a base to display attachments as scripts.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ scripts(sum)_1^2 != sum_1^2 $
 /// ```
@@ -122,7 +118,7 @@ impl LayoutMath for ScriptsElem {
 
 /// Force a base to display attachments as limits.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ limits(A)_1^2 != A_1^2 $
 /// ```
@@ -143,6 +139,12 @@ impl LayoutMath for LimitsElem {
     }
 }
 
+macro_rules! measure {
+    ($e: ident, $attr: ident) => {
+        $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
+    };
+}
+
 /// Layout the attachments.
 fn layout_attachments(
     ctx: &mut MathContext,
@@ -157,12 +159,6 @@ fn layout_attachments(
     let (base_width, base_ascent, base_descent) =
         (base.width(), base.ascent(), base.descent());
     let base_class = base.class().unwrap_or(MathClass::Normal);
-
-    macro_rules! measure {
-        ($e: ident, $attr: ident) => {
-            $e.as_ref().map(|e| e.$attr()).unwrap_or_default()
-        };
-    }
 
     let ascent = base_ascent
         .max(shift_up + measure!(tr, ascent))
@@ -301,22 +297,24 @@ fn compute_shifts_up_and_down(
     let mut shift_down = Abs::zero();
     let is_char_box = is_character_box(base);
 
-    for e in [tl, tr].into_iter().flatten() {
+    if tl.is_some() || tr.is_some() {
         let ascent = match &base {
             MathFragment::Frame(frame) => frame.base_ascent,
             _ => base.ascent(),
         };
-
         shift_up = shift_up
             .max(sup_shift_up)
             .max(if is_char_box { Abs::zero() } else { ascent - sup_drop_max })
-            .max(sup_bottom_min + e.descent());
+            .max(sup_bottom_min + measure!(tl, descent))
+            .max(sup_bottom_min + measure!(tr, descent));
     }
-    for e in [bl, br].into_iter().flatten() {
+
+    if bl.is_some() || br.is_some() {
         shift_down = shift_down
             .max(sub_shift_down)
             .max(if is_char_box { Abs::zero() } else { base.descent() + sub_drop_min })
-            .max(e.ascent() - sub_top_max);
+            .max(measure!(bl, ascent) - sub_top_max)
+            .max(measure!(br, ascent) - sub_top_max);
     }
 
     for (sup, sub) in [(tl, bl), (tr, br)] {

@@ -16,7 +16,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// be displayed in the outline alongside its title or caption. By default this
 /// generates a table of contents.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// #outline()
 ///
@@ -27,7 +27,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// #lorem(10)
 /// ```
 ///
-/// ## Alternative outlines
+/// ## Alternative outlines { #alternative-outlines }
 /// By setting the `target` parameter, the outline can be used to generate a
 /// list of other kinds of elements than headings. In the example below, we list
 /// all figures containing images by setting `target` to `{figure.where(kind:
@@ -49,6 +49,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 ///
 /// Display: Outline
 /// Category: meta
+/// Keywords: Table of Contents
 #[element(Show, Finalize, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.
@@ -85,8 +86,11 @@ pub struct OutlineElem {
     ///   caption: [Experiment results],
     /// )
     /// ```
-    #[default(Selector::Elem(HeadingElem::func(), Some(dict! { "outlined" => true })))]
-    pub target: Selector,
+    #[default(LocatableSelector(Selector::Elem(
+        HeadingElem::func(),
+        Some(dict! { "outlined" => true })
+    )))]
+    pub target: LocatableSelector,
 
     /// The maximum level up to which elements are included in the outline. When
     /// this argument is `{none}`, all elements are included.
@@ -126,7 +130,7 @@ pub struct OutlineElem {
     pub indent: bool,
 
     /// Content to fill the space between the title and the page number. Can be
-    /// set to `none` to disable filling. The default is `{repeat[.]}`.
+    /// set to `none` to disable filling.
     ///
     /// ```example
     /// #outline(fill: line(length: 100%))
@@ -156,23 +160,21 @@ impl Show for OutlineElem {
         }
 
         let indent = self.indent(styles);
-        let depth = self.depth(styles).map_or(usize::MAX, NonZeroUsize::get);
-        let lang = TextElem::lang_in(styles);
-        let region = TextElem::region_in(styles);
+        let depth = self.depth(styles).unwrap_or(NonZeroUsize::new(usize::MAX).unwrap());
 
         let mut ancestors: Vec<&Content> = vec![];
-        let elems = vt.introspector.query(&self.target(styles));
+        let elems = vt.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
-            let Some(refable) = elem.with::<dyn Refable>() else {
-                bail!(elem.span(), "outlined elements must be referenceable");
+            let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+                bail!(self.span(), "cannot outline {}", elem.func().name());
             };
 
-            if depth < refable.level() {
+            if depth < outlinable.level() {
                 continue;
             }
 
-            let Some(outline) = refable.outline(vt, lang, region)? else {
+            let Some(outline) = outlinable.outline(vt)? else {
                 continue;
             };
 
@@ -182,8 +184,8 @@ impl Show for OutlineElem {
             // This is only applicable for elements with a hierarchy/level.
             while ancestors
                 .last()
-                .and_then(|ancestor| ancestor.with::<dyn Refable>())
-                .map_or(false, |last| last.level() >= refable.level())
+                .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
+                .map_or(false, |last| last.level() >= outlinable.level())
             {
                 ancestors.pop();
             }
@@ -192,10 +194,10 @@ impl Show for OutlineElem {
             if indent {
                 let mut hidden = Content::empty();
                 for ancestor in &ancestors {
-                    let ancestor_refable = ancestor.with::<dyn Refable>().unwrap();
+                    let ancestor_outlinable = ancestor.with::<dyn Outlinable>().unwrap();
 
-                    if let Some(numbering) = ancestor_refable.numbering() {
-                        let numbers = ancestor_refable
+                    if let Some(numbering) = ancestor_outlinable.numbering() {
+                        let numbers = ancestor_outlinable
                             .counter()
                             .at(vt, ancestor.location().unwrap())?
                             .display(vt, &numbering)?;
@@ -269,6 +271,8 @@ impl LocalName for OutlineElem {
             Lang::CHINESE if option_eq(region, "TW") => "目錄",
             Lang::CHINESE => "目录",
             Lang::CZECH => "Obsah",
+            Lang::DANISH => "Indhold",
+            Lang::DUTCH => "Inhoudsopgave",
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ITALIAN => "Indice",
@@ -278,9 +282,22 @@ impl LocalName for OutlineElem {
             Lang::RUSSIAN => "Содержание",
             Lang::SLOVENIAN => "Kazalo",
             Lang::SPANISH => "Índice",
+            Lang::SWEDISH => "Innehåll",
             Lang::UKRAINIAN => "Зміст",
             Lang::VIETNAMESE => "Mục lục",
             Lang::ENGLISH | _ => "Contents",
         }
+    }
+}
+
+/// Marks an element as being able to be outlined. This is used to implement the
+/// `#outline()` element.
+pub trait Outlinable: Refable {
+    /// Produce an outline item for this element.
+    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>>;
+
+    /// Returns the nesting level of this element.
+    fn level(&self) -> NonZeroUsize {
+        NonZeroUsize::ONE
     }
 }

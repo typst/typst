@@ -110,7 +110,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     pilcrow: ['¶', rev: '⁋'],
     section: '§',
     semi: [';', rev: '⁏'],
-    slash: ['/', double: '⫽', triple: '⫻'],
+    slash: ['/', double: '⫽', triple: '⫻', big: '\u{29f8}'],
     dots: [h.c: '⋯', h: '…', v: '⋮', down: '⋱', up: '⋰'],
     tilde: [
         op: '∼',
@@ -720,6 +720,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         r: '⊢',
         r.long: '⟝',
         r.double: '⊨',
+        r.double.not: '⊭',
         l: '⊣',
         l.long: '⟞',
         l.short: '⫞',
@@ -756,7 +757,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
      pi: ['π', alt: 'ϖ'],
      psi: 'ψ',
      rho: ['ρ', alt: 'ϱ'],
-     sigma: 'σ',
+     sigma: ['σ', alt: 'ς'],
      tau: 'τ',
      theta: ['θ', alt: 'ϑ'],
      upsilon: 'υ',
@@ -831,4 +832,5 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
      kelvin: 'K',
      Re: 'ℜ',
      Im: 'ℑ',
+     dotless: [i: '𝚤', j: '𝚥'],
 };

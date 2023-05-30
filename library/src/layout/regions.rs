@@ -17,6 +17,11 @@ pub struct Regions<'a> {
     /// Whether elements should expand to fill the regions instead of shrinking
     /// to fit the content.
     pub expand: Axes<bool>,
+    /// Whether these are the root regions or direct descendants.
+    ///
+    /// True for the padded page regions and columns directly in the page,
+    /// false otherwise.
+    pub root: bool,
 }
 
 impl Regions<'_> {
@@ -28,6 +33,7 @@ impl Regions<'_> {
             backlog: &[],
             last: None,
             expand,
+            root: false,
         }
     }
 
@@ -39,6 +45,7 @@ impl Regions<'_> {
             backlog: &[],
             last: Some(size.y),
             expand,
+            root: false,
         }
     }
 
@@ -67,6 +74,7 @@ impl Regions<'_> {
             backlog,
             last: self.last.map(|y| f(Size::new(x, y)).y),
             expand: self.expand,
+            root: false,
         }
     }
 
@@ -80,6 +88,11 @@ impl Regions<'_> {
     /// If this is true, calling `next()` will have no effect.
     pub fn in_last(&self) -> bool {
         self.backlog.is_empty() && self.last.map_or(true, |height| self.size.y == height)
+    }
+
+    /// The same regions, but with different `root` configuration.
+    pub fn with_root(self, root: bool) -> Self {
+        Self { root, ..self }
     }
 
     /// Advance to the next region if there is any.

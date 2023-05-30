@@ -26,11 +26,11 @@
 #float(float)
 
 ---
-// Error: 6-12 not a valid integer
+// Error: 6-12 invalid integer: nope
 #int("nope")
 
 ---
-// Error: 8-15 not a valid float
+// Error: 8-15 invalid float: 1.2.3
 #float("1.2.3")
 
 ---
@@ -191,8 +191,12 @@
 #calc.min()
 
 ---
-// Error: 14-18 cannot compare integer and string
+// Error: 14-18 cannot compare string and integer
 #calc.min(1, "hi")
+
+---
+// Error: 16-19 cannot compare 1pt with 1em
+#calc.max(1em, 1pt)
 
 ---
 // Test the `range` function.

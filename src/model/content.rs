@@ -12,7 +12,7 @@ use super::{
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
-use crate::eval::{Cast, Str, Value, Vm};
+use crate::eval::{Cast, Dict, Str, Value, Vm};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -177,7 +177,7 @@ impl Content {
     pub fn field(&self, name: &str) -> Option<Value> {
         if let (Some(iter), "children") = (self.to_sequence(), name) {
             Some(Value::Array(iter.cloned().map(Value::Content).collect()))
-        } else if let (Some((child, _)), "child") = (self.to_styled(), "child") {
+        } else if let (Some((child, _)), "child") = (self.to_styled(), name) {
             Some(Value::Content(child.clone()))
         } else {
             self.field_ref(name).cloned()
@@ -249,6 +249,13 @@ impl Content {
         self.field(field)
             .or(default)
             .ok_or_else(|| missing_field_no_default(field))
+    }
+
+    /// Return the fields of the content as a dict.
+    pub fn dict(&self) -> Dict {
+        self.fields()
+            .map(|(key, value)| (key.to_owned().into(), value))
+            .collect()
     }
 
     /// The content's label.
@@ -371,6 +378,21 @@ impl Content {
             }
         });
         results
+    }
+
+    /// Queries the content tree for the first element that match the given
+    /// selector.
+    ///
+    /// Elements produced in `show` rules will not be included in the results.
+    #[tracing::instrument(skip_all)]
+    pub fn query_first(&self, selector: Selector) -> Option<&Content> {
+        let mut result = None;
+        self.traverse(&mut |element| {
+            if result.is_none() && selector.matches(element) {
+                result = Some(element);
+            }
+        });
+        result
     }
 
     /// Extracts the plain text of this content.

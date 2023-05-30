@@ -9,7 +9,7 @@ that you are using a new typesetting system, and you want your report to fit in
 with the other student's submissions. In this chapter, we will see how to format
 your report using Typst's styling system.
 
-## Set rules
+## Set rules { #set-rules }
 As we have seen in the previous chapter, Typst has functions that _insert_
 content (e.g. the [`image`]($func/image) function) and others that _manipulate_
 content that they received as arguments (e.g. the [`align`]($func/align)
@@ -70,7 +70,7 @@ for some of the parameters of a function for all future
 uses of that function.
 </div>
 
-## The autocomplete panel
+## The autocomplete panel { #autocomplete }
 If you followed along and tried a few things in the app, you might have noticed
 that always after you enter a `#` character, a panel pops up to show you the
 available functions, and, within an argument list, the available parameters.
@@ -84,7 +84,7 @@ what they do.
 
 ![Autocomplete panel](2-formatting-autocomplete.png)
 
-## Set up the page
+## Set up the page { #page-setup }
 Back to set rules: When writing a rule, you choose the function depending on
 what type of element you want to style. Here is a list of some functions that
 are commonly used in set rules:
@@ -175,7 +175,7 @@ Finally, we have bottom aligned our image by adding a vertical alignment to our
 center alignment. Vertical and horizontal alignments can be combined with the
 `{+}` operator to yield a 2D alignment.
 
-## A hint of sophistication
+## A hint of sophistication { #sophistication }
 To structure our document more clearly, we now want to number our headings. We
 can do this by setting the `numbering` parameter of the
 [`heading`]($func/heading) function.
@@ -228,7 +228,7 @@ markup above. Other markup elements work similarly, they are only
 _syntax sugar_ for the corresponding function calls.
 </div>
 
-## Show rules
+## Show rules { #show-rules }
 You are already pretty happy with how this turned out. But one last thing needs
 to be fixed: The report you are writing is intended for a larger project and
 that project's name should always be accompanied by a logo, even in prose.
@@ -272,7 +272,7 @@ expects code instead of markup, the leading `#` is not needed to access
 functions, keywords, and variables. This can be observed in parameter lists,
 function definitions, and [code blocks]($scripting).
 
-## Review
+## Review { #review }
 You now know how to apply basic formatting to your Typst documents. You learned
 how to set the font, justify your paragraphs, change the page dimensions, and
 add numbering to your headings with set rules. You also learned how to use a

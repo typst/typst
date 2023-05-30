@@ -134,7 +134,7 @@ impl ShapedGlyph {
         matches!(self.c, '《' | '（' | '『' | '「')
     }
 
-    /// See https://www.w3.org/TR/clreq/#punctuation_width_adjustment
+    /// See <https://www.w3.org/TR/clreq/#punctuation_width_adjustment>
     pub fn is_cjk_center_aligned_punctuation(&self, gb_style: bool) -> bool {
         if !gb_style && matches!(self.c, '，' | '。' | '、' | '：' | '；') {
             return true;

@@ -4,14 +4,14 @@ use super::*;
 
 /// A text operator in an equation.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
 /// $ tan x = (sin x)/(cos x) $
 /// $ op("custom",
 ///      limits: #true)_(n->oo) n $
 /// ```
 ///
-/// ## Predefined Operators
+/// ## Predefined Operators { #predefined }
 /// Typst predefines the operators `arccos`,  `arcsin`,  `arctan`,  `arg`,
 /// `cos`,  `cosh`,  `cot`, `ctg`, `coth`,  `csc`,  `deg`,  `det`,  `dim`,
 /// `exp`, `gcd`,  `hom`,  `mod`,  `inf`,  `ker`,  `lg`,  `lim`,  `ln`,  `log`,
@@ -27,8 +27,6 @@ pub struct OpElem {
     pub text: EcoString,
 
     /// Whether the operator should force attachments to display as limits.
-    ///
-    /// Defaults to `{false}`.
     #[default(false)]
     pub limits: bool,
 }

@@ -5,13 +5,11 @@
 
   outputs = { self, nixpkgs }:
     let
-      inherit (builtins)
-        substring
-        ;
       inherit (nixpkgs.lib)
         genAttrs
         importTOML
         optionals
+        cleanSource
         ;
 
       eachSystem = f: genAttrs
@@ -24,16 +22,13 @@
         (system: f nixpkgs.legacyPackages.${system});
 
       rev = fallback:
-        if self ? rev then
-          substring 0 8 self.rev
-        else
-          fallback;
+        self.shortRev or fallback;
 
-      packageFor = pkgs: pkgs.rustPlatform.buildRustPackage {
+      packageFor = pkgs: pkgs.rustPlatform.buildRustPackage rec {
         pname = "typst";
-        version = rev "00000000";
+        inherit ((importTOML ./Cargo.toml).workspace.package) version;
 
-        src = self;
+        src = cleanSource ./.;
 
         cargoLock = {
           lockFile = ./Cargo.lock;
@@ -56,7 +51,7 @@
         '';
 
         GEN_ARTIFACTS = "artifacts";
-        TYPST_VERSION = "${(importTOML ./Cargo.toml).package.version} (${rev "unknown hash"})";
+        TYPST_VERSION = "${version} (${rev "unknown hash"})";
       };
     in
     {

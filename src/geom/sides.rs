@@ -187,10 +187,10 @@ where
     }
 
     fn cast(mut value: Value) -> StrResult<Self> {
+        let keys = ["left", "top", "right", "bottom", "x", "y", "rest"];
         if let Value::Dict(dict) = &mut value {
-            let mut try_cast = || -> StrResult<_> {
+            if dict.iter().any(|(key, _)| keys.contains(&key.as_str())) {
                 let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
-
                 let rest = take("rest")?;
                 let x = take("x")?.or_else(|| rest.clone());
                 let y = take("y")?.or_else(|| rest.clone());
@@ -201,13 +201,8 @@ where
                     bottom: take("bottom")?.or_else(|| y.clone()),
                 };
 
-                dict.finish(&["left", "top", "right", "bottom", "x", "y", "rest"])?;
-
-                Ok(sides)
-            };
-
-            if let Ok(res) = try_cast() {
-                return Ok(res);
+                dict.finish(&keys)?;
+                return Ok(sides);
             }
         }
 
@@ -223,35 +218,31 @@ where
     }
 }
 
-impl<T> From<Sides<Option<T>>> for Value
+impl<T> From<Sides<T>> for Value
 where
     T: PartialEq + Into<Value>,
 {
-    fn from(sides: Sides<Option<T>>) -> Self {
+    fn from(sides: Sides<T>) -> Self {
         if sides.is_uniform() {
-            if let Some(value) = sides.left {
-                return value.into();
-            }
+            return sides.left.into();
         }
 
         let mut dict = Dict::new();
-        if let Some(left) = sides.left {
-            dict.insert("left".into(), left.into());
-        }
-        if let Some(top) = sides.top {
-            dict.insert("top".into(), top.into());
-        }
-        if let Some(right) = sides.right {
-            dict.insert("right".into(), right.into());
-        }
-        if let Some(bottom) = sides.bottom {
-            dict.insert("bottom".into(), bottom.into());
-        }
+        let mut handle = |key: &str, component: T| {
+            let value = component.into();
+            if value != Value::None {
+                dict.insert(key.into(), value);
+            }
+        };
+
+        handle("left", sides.left);
+        handle("top", sides.top);
+        handle("right", sides.right);
+        handle("bottom", sides.bottom);
 
         Value::Dict(dict)
     }
 }
-
 impl<T: Resolve> Resolve for Sides<T> {
     type Output = Sides<T::Output>;
 

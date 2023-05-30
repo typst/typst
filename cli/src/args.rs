@@ -1,11 +1,16 @@
+use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
-use clap::{ArgAction, Parser, Subcommand};
+use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 
 /// typst creates PDF files from .typ files
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst", version = crate::typst_version(), author)]
 pub struct CliArguments {
+    /// The typst command to run
+    #[command(subcommand)]
+    pub command: Command,
+
     /// Add additional directories to search for fonts
     #[clap(long = "font-path", env = "TYPST_FONT_PATHS", value_name = "DIR", action = ArgAction::Append)]
     pub font_paths: Vec<PathBuf>,
@@ -14,13 +19,26 @@ pub struct CliArguments {
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
     pub root: Option<PathBuf>,
 
-    /// The typst command to run
-    #[command(subcommand)]
-    pub command: Command,
-
-    /// Sets the level of verbosity: 0 = none, 1 = warning & error, 2 = info, 3 = debug, 4 = trace
+    /// Sets the level of logging verbosity:
+    /// -v = warning & error, -vv = info, -vvv = debug, -vvvv = trace
     #[clap(short, long, action = ArgAction::Count)]
     pub verbosity: u8,
+}
+
+/// Which format to use for diagnostics.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+pub enum DiagnosticFormat {
+    Human,
+    Short,
+}
+
+impl Display for DiagnosticFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.to_possible_value()
+            .expect("no values are skipped")
+            .get_name()
+            .fmt(f)
+    }
 }
 
 /// What to do.
@@ -61,15 +79,26 @@ pub struct CompileCommand {
     /// Path to input Typst file
     pub input: PathBuf,
 
-    /// Path to output PDF file
+    /// Path to output PDF file or PNG file(s)
     pub output: Option<PathBuf>,
 
     /// Opens the output file after compilation using the default PDF viewer
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
 
-    /// Produces a flamegraph of the compilation process and saves it to the
-    /// given file or to `flamegraph.svg` in the current working directory.
+    /// The PPI to use if exported as PNG
+    #[arg(long = "ppi")]
+    pub ppi: Option<f32>,
+
+    /// In which format to emit diagnostics
+    #[clap(
+        long,
+        default_value_t = DiagnosticFormat::Human,
+        value_parser = clap::value_parser!(DiagnosticFormat)
+    )]
+    pub diagnostic_format: DiagnosticFormat,
+
+    /// Produces a flamegraph of the compilation process
     #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
     pub flamegraph: Option<Option<PathBuf>>,
 }

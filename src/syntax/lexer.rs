@@ -1,6 +1,6 @@
 use ecow::{eco_format, EcoString};
+use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_segmentation::UnicodeSegmentation;
-use unicode_xid::UnicodeXID;
 use unscanny::Scanner;
 
 use super::{ErrorPos, SyntaxKind};
@@ -78,12 +78,6 @@ impl Lexer<'_> {
     /// Construct a full-positioned syntax error.
     fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
         self.error = Some((message.into(), ErrorPos::Full));
-        SyntaxKind::Error
-    }
-
-    /// Construct a positioned syntax error.
-    fn error_at_end(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
-        self.error = Some((message.into(), ErrorPos::End));
         SyntaxKind::Error
     }
 }
@@ -209,7 +203,7 @@ impl Lexer<'_> {
         if self.s.eat_if("u{") {
             let hex = self.s.eat_while(char::is_ascii_alphanumeric);
             if !self.s.eat_if('}') {
-                return self.error_at_end("expected closing brace");
+                return self.error("unclosed unicode escape sequence");
             }
 
             if u32::from_str_radix(hex, 16)
@@ -251,20 +245,15 @@ impl Lexer<'_> {
         }
 
         if found != backticks {
-            let remaining = backticks - found;
-            let noun = if remaining == 1 { "backtick" } else { "backticks" };
-            return self.error_at_end(if found == 0 {
-                eco_format!("expected {} {}", remaining, noun)
-            } else {
-                eco_format!("expected {} more {}", remaining, noun)
-            });
+            return self.error("unclosed raw text");
         }
 
         SyntaxKind::Raw
     }
 
     fn link(&mut self) -> SyntaxKind {
-        let mut bracket_stack = Vec::new();
+        let mut brackets = Vec::new();
+
         #[rustfmt::skip]
         self.s.eat_while(|c: char| {
             match c {
@@ -275,20 +264,24 @@ impl Lexer<'_> {
                 | ',' | '-' | '.' | '/' | ':' | ';' | '='
                 | '?' | '@' | '_' | '~' | '\'' => true,
                 '[' => {
-                    bracket_stack.push(SyntaxKind::LeftBracket);
+                    brackets.push(SyntaxKind::LeftBracket);
                     true
                 }
                 '(' => {
-                    bracket_stack.push(SyntaxKind::LeftParen);
+                    brackets.push(SyntaxKind::LeftParen);
                     true
                 }
-                ']' => bracket_stack.pop() == Some(SyntaxKind::LeftBracket),
-                ')' => bracket_stack.pop() == Some(SyntaxKind::LeftParen),
+                ']' => brackets.pop() == Some(SyntaxKind::LeftBracket),
+                ')' => brackets.pop() == Some(SyntaxKind::LeftParen),
                 _ => false,
             }
         });
-        if !bracket_stack.is_empty() {
-            return self.error_at_end("expected closing bracket in link");
+
+        if !brackets.is_empty() {
+            return self.error(
+                "automatic links cannot contain unbalanced brackets, \
+                 use the `link` function instead",
+            );
         }
 
         // Don't include the trailing characters likely to be part of text.
@@ -328,7 +321,7 @@ impl Lexer<'_> {
         }
 
         if !self.s.eat_if('>') {
-            return self.error_at_end("expected closing angle bracket");
+            return self.error("unclosed label");
         }
 
         SyntaxKind::Label
@@ -620,7 +613,7 @@ impl Lexer<'_> {
         });
 
         if !self.s.eat_if('"') {
-            return self.error_at_end("expected quote");
+            return self.error("unclosed string");
         }
 
         SyntaxKind::Str
@@ -723,23 +716,23 @@ pub fn is_ident(string: &str) -> bool {
 /// Whether a character can start an identifier.
 #[inline]
 pub(crate) fn is_id_start(c: char) -> bool {
-    c.is_xid_start() || c == '_'
+    is_xid_start(c) || c == '_'
 }
 
 /// Whether a character can continue an identifier.
 #[inline]
 pub(crate) fn is_id_continue(c: char) -> bool {
-    c.is_xid_continue() || c == '_' || c == '-'
+    is_xid_continue(c) || c == '_' || c == '-'
 }
 
 /// Whether a character can start an identifier in math.
 #[inline]
 fn is_math_id_start(c: char) -> bool {
-    c.is_xid_start()
+    is_xid_start(c)
 }
 
 /// Whether a character can continue an identifier in math.
 #[inline]
 fn is_math_id_continue(c: char) -> bool {
-    c.is_xid_continue() && c != '_'
+    is_xid_continue(c) && c != '_'
 }

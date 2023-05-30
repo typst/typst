@@ -1,15 +1,15 @@
 [package]
 name = "typst-cli"
+description = "The command line interface for Typst."
+categories = ["compilers", "command-line-utilities"]
+keywords = ["typst", "cli"]
 version.workspace = true
 rust-version.workspace = true
 authors.workspace = true
 edition.workspace = true
-description = "The command line interface for Typst."
 homepage.workspace = true
 repository.workspace = true
 license.workspace = true
-categories = ["compilers", "command-line-utilities"]
-keywords = ["typst", "cli"]
 
 [[bin]]
 name = "typst"
@@ -22,10 +22,11 @@ doc = false
 [dependencies]
 typst = { path = ".." }
 typst-library = { path = "../library" }
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+atty = "0.2"
+chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 clap = { version = "4.2.4", features = ["derive", "env"] }
 codespan-reporting = "0.11"
-comemo = { git = "https://github.com/typst/comemo" }
+comemo = "0.3"
 dirs = "5"
 elsa = "1.8"
 inferno = "0.11.15"

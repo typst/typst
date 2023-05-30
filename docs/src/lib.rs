@@ -3,7 +3,7 @@
 mod contribs;
 mod html;
 
-pub use contribs::contributors;
+pub use contribs::{contributors, Author, Commit};
 pub use html::Html;
 
 use std::fmt::{self, Debug, Formatter};
@@ -54,9 +54,9 @@ static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
 pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
     vec![
         markdown_page(resolver, "/docs/", "general/overview.md").with_route("/docs/"),
-        tutorial_page(resolver),
-        reference_page(resolver),
-        markdown_page(resolver, "/docs/", "general/guide-for-latex-users.md"),
+        tutorial_pages(resolver),
+        reference_pages(resolver),
+        guides_pages(resolver),
         markdown_page(resolver, "/docs/", "general/changelog.md"),
         markdown_page(resolver, "/docs/", "general/community.md"),
     ]
@@ -72,6 +72,9 @@ pub trait Resolver {
 
     /// Produce HTML for an example.
     fn example(&self, source: Html, frames: &[Frame]) -> Html;
+
+    /// Determine the commits between two tags.
+    fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
 }
 
 /// Details about a documentation page and its children.
@@ -81,6 +84,7 @@ pub struct PageModel {
     pub title: String,
     pub description: String,
     pub part: Option<&'static str>,
+    pub outline: Vec<OutlineItem>,
     pub body: BodyModel,
     pub children: Vec<Self>,
 }
@@ -93,6 +97,14 @@ impl PageModel {
     fn with_part(self, part: &'static str) -> Self {
         Self { part: Some(part), ..self }
     }
+}
+
+/// An element in the "On This Page" outline.
+#[derive(Debug, Clone, Serialize)]
+pub struct OutlineItem {
+    id: String,
+    name: String,
+    children: Vec<Self>,
 }
 
 /// Details about the body of a documentation page.
@@ -109,7 +121,7 @@ pub enum BodyModel {
 }
 
 /// Build the tutorial.
-fn tutorial_page(resolver: &dyn Resolver) -> PageModel {
+fn tutorial_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = markdown_page(resolver, "/docs/", "tutorial/welcome.md");
     page.children = SRC
         .get_dir("tutorial")
@@ -121,8 +133,16 @@ fn tutorial_page(resolver: &dyn Resolver) -> PageModel {
     page
 }
 
+/// Build the guides section.
+fn guides_pages(resolver: &dyn Resolver) -> PageModel {
+    let mut page = markdown_page(resolver, "/docs/", "guides/welcome.md");
+    page.children =
+        vec![markdown_page(resolver, "/docs/guides/", "guides/guide-for-latex-users.md")];
+    page
+}
+
 /// Build the reference.
-fn reference_page(resolver: &dyn Resolver) -> PageModel {
+fn reference_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = markdown_page(resolver, "/docs/", "reference/welcome.md");
     page.children = vec![
         markdown_page(resolver, "/docs/reference/", "reference/syntax.md")
@@ -160,6 +180,7 @@ fn markdown_page(
         title,
         description: html.description().unwrap(),
         part: None,
+        outline: html.outline(),
         body: BodyModel::Html(html),
         children: vec![],
     }
@@ -192,8 +213,14 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
 
     let focus = match category {
         "math" => &LIBRARY.math,
-        "calculate" => module(&LIBRARY.global, "calc"),
+        "calculate" => module(&LIBRARY.global, "calc").unwrap(),
         _ => &LIBRARY.global,
+    };
+
+    let parents: &[&str] = match category {
+        "math" => &[],
+        "calculate" => &["calc"],
+        _ => &[],
     };
 
     let grouped = match category {
@@ -218,7 +245,7 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
             continue;
         }
 
-        let subpage = function_page(resolver, &route, func, info);
+        let subpage = function_page(resolver, &route, func, info, parents);
         items.push(CategoryItem {
             name: info.name.into(),
             route: subpage.route.clone(),
@@ -231,11 +258,21 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     // Add grouped functions.
     for group in grouped {
         let mut functions = vec![];
+        let mut outline = vec![OutlineItem {
+            id: "summary".into(),
+            name: "Summary".into(),
+            children: vec![],
+        }];
+
         for name in &group.functions {
             let value = focus.get(name).unwrap();
             let Value::Func(func) = value else { panic!("not a function") };
             let info = func.info().unwrap();
-            functions.push(func_model(resolver, func, info));
+            let func = func_model(resolver, func, info, &[], info.name);
+            let id = urlify(&func.path.join("-"));
+            let children = func_outline(&func, &id, false);
+            outline.push(OutlineItem { id, name: func.display.into(), children });
+            functions.push(func);
         }
 
         let route = format!("{}{}/", route, group.name);
@@ -245,13 +282,16 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
             oneliner: oneliner(&group.description).into(),
             code: false,
         });
+
         children.push(PageModel {
             route,
-            title: group.title.clone(),
+            title: group.display.clone(),
             description: format!("Documentation for {} group of functions.", group.name),
             part: None,
+            outline,
             body: BodyModel::Funcs(FuncsModel {
                 name: group.name.clone(),
+                display: group.display.clone(),
                 details: Html::markdown(resolver, &group.description),
                 functions,
             }),
@@ -277,41 +317,63 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     }
 
     let name = category.to_title_case();
+    let kind = match category {
+        "symbols" => "Modules",
+        _ => "Functions",
+    };
+
     PageModel {
         route,
         title: name.clone(),
         description: format!("Documentation for functions related to {name} in Typst."),
         part: None,
+        outline: category_outline(kind),
         body: BodyModel::Category(CategoryModel {
             name,
             details: Html::markdown(resolver, details(category)),
-            kind: match category {
-                "symbols" => "Modules",
-                _ => "Functions",
-            },
+            kind,
             items,
         }),
         children,
     }
 }
 
+/// Produce an outline for a category page.
+fn category_outline(kind: &str) -> Vec<OutlineItem> {
+    vec![
+        OutlineItem {
+            id: "summary".into(),
+            name: "Summary".into(),
+            children: vec![],
+        },
+        OutlineItem {
+            id: urlify(kind),
+            name: kind.into(),
+            children: vec![],
+        },
+    ]
+}
+
 /// Details about a function.
 #[derive(Debug, Serialize)]
 pub struct FuncModel {
-    pub name: &'static str,
+    pub path: Vec<&'static str>,
     pub display: &'static str,
+    pub keywords: Option<&'static str>,
     pub oneliner: &'static str,
     pub element: bool,
     pub details: Html,
     pub params: Vec<ParamModel>,
     pub returns: Vec<&'static str>,
     pub methods: Vec<MethodModel>,
+    pub scope: Vec<Self>,
 }
 
 /// Details about a group of functions.
 #[derive(Debug, Serialize)]
 pub struct FuncsModel {
     pub name: String,
+    pub display: String,
     pub details: Html,
     pub functions: Vec<FuncModel>,
 }
@@ -322,31 +384,104 @@ fn function_page(
     parent: &str,
     func: &Func,
     info: &FuncInfo,
+    parents: &[&'static str],
 ) -> PageModel {
+    let model = func_model(resolver, func, info, parents, "");
     PageModel {
         route: format!("{parent}{}/", urlify(info.name)),
         title: info.display.to_string(),
         description: format!("Documentation for the `{}` function.", info.name),
         part: None,
-        body: BodyModel::Func(func_model(resolver, func, info)),
+        outline: func_outline(&model, "", true),
+        body: BodyModel::Func(model),
         children: vec![],
     }
 }
 
 /// Produce a function's model.
-fn func_model(resolver: &dyn Resolver, func: &Func, info: &FuncInfo) -> FuncModel {
+fn func_model(
+    resolver: &dyn Resolver,
+    func: &Func,
+    info: &FuncInfo,
+    parents: &[&'static str],
+    id_base: &str,
+) -> FuncModel {
     let mut s = unscanny::Scanner::new(info.docs);
     let docs = s.eat_until("\n## Methods").trim();
+
+    let mut path = parents.to_vec();
+    let mut name = info.name;
+    for parent in parents.iter().rev() {
+        name = name
+            .strip_prefix(parent)
+            .or(name.strip_prefix(parent.strip_suffix('s').unwrap_or(parent)))
+            .unwrap_or(name);
+    }
+    path.push(name);
+
+    let scope = info
+        .scope
+        .iter()
+        .filter_map(|(_, value)| {
+            let Value::Func(func) = value else { return None };
+            let info = func.info().unwrap();
+            Some(func_model(resolver, func, info, &path, id_base))
+        })
+        .collect();
+
     FuncModel {
-        name: info.name,
+        path,
         display: info.display,
+        keywords: info.keywords,
         oneliner: oneliner(docs),
         element: func.element().is_some(),
-        details: Html::markdown(resolver, docs),
+        details: Html::markdown_with_id_base(resolver, docs, id_base),
         params: info.params.iter().map(|param| param_model(resolver, param)).collect(),
         returns: info.returns.clone(),
         methods: method_models(resolver, info.docs),
+        scope,
     }
+}
+
+/// Produce an outline for a function page.
+fn func_outline(model: &FuncModel, base: &str, summary: bool) -> Vec<OutlineItem> {
+    let mut outline = vec![];
+
+    if summary {
+        outline.push(OutlineItem {
+            id: "summary".into(),
+            name: "Summary".into(),
+            children: vec![],
+        });
+    }
+
+    outline.extend(model.details.outline());
+
+    if !model.params.is_empty() {
+        let join = if base.is_empty() { "" } else { "-" };
+        outline.push(OutlineItem {
+            id: format!("{base}{join}parameters"),
+            name: "Parameters".into(),
+            children: model
+                .params
+                .iter()
+                .map(|param| OutlineItem {
+                    id: format!("{base}{join}parameters-{}", urlify(param.name)),
+                    name: param.name.into(),
+                    children: vec![],
+                })
+                .collect(),
+        });
+    }
+
+    for func in &model.scope {
+        let id = urlify(&func.path.join("-"));
+        let children = func_outline(func, &id, false);
+        outline.push(OutlineItem { id, name: func.display.into(), children })
+    }
+
+    outline.extend(methods_outline(&model.methods));
+    outline
 }
 
 /// Details about a function parameter.
@@ -357,6 +492,7 @@ pub struct ParamModel {
     pub example: Option<Html>,
     pub types: Vec<&'static str>,
     pub strings: Vec<StrParam>,
+    pub default: Option<Html>,
     pub positional: bool,
     pub named: bool,
     pub required: bool,
@@ -397,6 +533,10 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
         example: example.map(|md| Html::markdown(resolver, md)),
         types,
         strings,
+        default: info.default.map(|default| {
+            let node = typst::syntax::parse_code(&default().repr());
+            Html::new(typst::ide::highlight_html(&node))
+        }),
         positional: info.positional,
         named: info.named,
         required: info.required,
@@ -465,6 +605,7 @@ fn types_page(resolver: &dyn Resolver, parent: &str) -> PageModel {
             title: model.name.to_title_case(),
             description: format!("Documentation for the `{}` type.", model.name),
             part: None,
+            outline: type_outline(&model),
             body: BodyModel::Type(model),
             children: vec![],
         });
@@ -475,6 +616,7 @@ fn types_page(resolver: &dyn Resolver, parent: &str) -> PageModel {
         title: "Types".into(),
         description: "Documentation for Typst's built-in types.".into(),
         part: None,
+        outline: category_outline("Types"),
         body: BodyModel::Category(CategoryModel {
             name: "Types".into(),
             details: Html::markdown(resolver, details("types")),
@@ -584,6 +726,7 @@ fn method_model(resolver: &dyn Resolver, part: &'static str) -> MethodModel {
             example: None,
             types,
             strings: vec![],
+            default: None,
             positional,
             named,
             required,
@@ -597,6 +740,48 @@ fn method_model(resolver: &dyn Resolver, part: &'static str) -> MethodModel {
         details: Html::markdown(resolver, docs),
         params,
         returns,
+    }
+}
+
+/// Produce an outline for a type page.
+fn type_outline(model: &TypeModel) -> Vec<OutlineItem> {
+    let mut outline = vec![OutlineItem {
+        id: "summary".into(),
+        name: "Summary".into(),
+        children: vec![],
+    }];
+
+    outline.extend(methods_outline(&model.methods));
+    outline
+}
+
+/// Produce an outline for a type's method.
+fn methods_outline(methods: &[MethodModel]) -> Option<OutlineItem> {
+    (!methods.is_empty()).then(|| OutlineItem {
+        id: "methods".into(),
+        name: "Methods".into(),
+        children: methods.iter().map(method_outline).collect(),
+    })
+}
+
+/// Produce an outline for a type's method.
+fn method_outline(model: &MethodModel) -> OutlineItem {
+    OutlineItem {
+        id: format!("methods-{}", urlify(model.name)),
+        name: model.name.into(),
+        children: model
+            .params
+            .iter()
+            .map(|param| OutlineItem {
+                id: format!(
+                    "methods-{}-parameters-{}",
+                    urlify(model.name),
+                    urlify(param.name)
+                ),
+                name: param.name.into(),
+                children: vec![],
+            })
+            .collect(),
     }
 }
 
@@ -622,7 +807,7 @@ pub struct SymbolModel {
 
 /// Create a page for symbols.
 fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
-    let module = &module(&LIBRARY.global, name);
+    let module = module(&LIBRARY.global, name).unwrap();
 
     let mut list = vec![];
     for (name, value) in module.scope().iter() {
@@ -667,6 +852,7 @@ fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
         title: title.into(),
         description: format!("Documentation for the `{name}` module."),
         part: None,
+        outline: vec![],
         body: BodyModel::Symbols(SymbolsModel {
             name: title,
             details: Html::markdown(resolver, details(name)),
@@ -680,17 +866,17 @@ fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
 #[derive(Debug, Deserialize)]
 struct GroupData {
     name: String,
-    title: String,
+    display: String,
     functions: Vec<String>,
     description: String,
 }
 
 /// Extract a module from another module.
 #[track_caller]
-fn module<'a>(parent: &'a Module, name: &str) -> &'a Module {
+fn module<'a>(parent: &'a Module, name: &str) -> Result<&'a Module, String> {
     match parent.scope().get(name) {
-        Some(Value::Module(module)) => module,
-        _ => panic!("module doesn't contain module `{name}`"),
+        Some(Value::Module(module)) => Ok(module),
+        _ => Err(format!("module doesn't contain module `{name}`")),
     }
 }
 
@@ -745,6 +931,7 @@ const TYPE_ORDER: &[&str] = &[
     "relative length",
     "fraction",
     "color",
+    "datetime",
     "string",
     "regex",
     "label",
@@ -783,6 +970,10 @@ mod tests {
 
         fn image(&self, _: &str, _: &[u8]) -> String {
             String::new()
+        }
+
+        fn commits(&self, _: &str, _: &str) -> Vec<Commit> {
+            vec![]
         }
     }
 }

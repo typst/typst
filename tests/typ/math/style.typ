@@ -13,6 +13,12 @@ $A, italic(A), upright(A), bold(A), bold(upright(A)), \
  mono("SQRT")(x) wreath mono(123 + 456)$
 
 ---
+// Test forcing math size
+$a/b, display(a/b), display(a)/display(b), inline(a/b), script(a/b), sscript(a/b) \
+ mono(script(a/b)), script(mono(a/b))\
+ script(a^b, cramp: #true), script(a^b, cramp: #false)$
+
+---
 // Test a few style exceptions.
 $h, bb(N), cal(R), Theta, italic(Theta), sans(Theta), sans(italic(Theta))$
 

@@ -27,6 +27,10 @@
 }
 
 ---
+// Test .at() default values for content.
+#test(auto, [a].at("doesn't exist", default: auto))
+
+---
 // Error: 2:2-2:15 type array has no method `fun`
 #let numbers = ()
 #numbers.fun()
@@ -44,3 +48,8 @@
 ---
 // Error: 2-5 cannot mutate a constant: box
 #box.push(1)
+
+---
+// Test content fields method.
+#test([a].fields(), (text: "a"))
+#test([a *b*].fields(),  (children: ([a], [ ], strong[b])))

@@ -244,18 +244,22 @@
 #(1, 2, 0, 3).sorted(key: x => 5 / x)
 
 ---
-// Error: 2-26 cannot order content and content
+// Error: 2-26 cannot compare content and content
 #([Hi], [There]).sorted()
+
+---
+// Error: 2-26 cannot compare 3em with 2pt
+#(1pt, 2pt, 3em).sorted()
 
 ---
 // Error: 2-18 array index out of bounds (index: -4, len: 3) and no default value was specified
 #(1, 2, 3).at(-4)
 
 ---
-// Error: 4 expected closing paren
+// Error: 3-4 unclosed delimiter
 #{(}
 
-// Error: 3-4 unexpected closing paren
+// Error: 2-3 unclosed delimiter
 #{)}
 
 // Error: 4-6 unexpected end of block comment

@@ -18,6 +18,11 @@ pub trait ContentExt {
     /// Link the content somewhere.
     fn linked(self, dest: Destination) -> Self;
 
+    /// Make the content linkable by `.linked(Destination::Location(loc))`.
+    ///
+    /// Should be used in combination with [`Location::variant`].
+    fn backlinked(self, loc: Location) -> Self;
+
     /// Set alignments for this content.
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self;
 
@@ -43,6 +48,12 @@ impl ContentExt for Content {
 
     fn linked(self, dest: Destination) -> Self {
         self.styled(MetaElem::set_data(vec![Meta::Link(dest)]))
+    }
+
+    fn backlinked(self, loc: Location) -> Self {
+        let mut backlink = Content::empty();
+        backlink.set_location(loc);
+        self.styled(MetaElem::set_data(vec![Meta::Elem(backlink)]))
     }
 
     fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {

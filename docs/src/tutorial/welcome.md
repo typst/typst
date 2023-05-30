@@ -14,7 +14,7 @@ with the steps below. The app gives you instant preview, syntax highlighting and
 helpful autocompletions. Alternatively, you can follow along in your local text
 editor with the [open-source CLI](https://github.com/typst/typst).
 
-## When to use Typst
+## When to use Typst { #when-typst }
 Before we get started, let's check what Typst is and when to use it. Typst is a
 markup language for typesetting documents. It is designed to be easy to learn,
 fast, and versatile. Typst takes text files with markup in them and outputs
@@ -27,7 +27,7 @@ in the math, physics, and engineering fields. Finally, due to its strong styling
 and automation features, it is an excellent choice for any set of documents that
 share a common style, such as a book series.
 
-## What you will learn
+## What you will learn { #learnings }
 This tutorial has four chapters. Each chapter builds on the previous one. Here
 is what you will learn in each of them:
 

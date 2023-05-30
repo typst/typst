@@ -3,7 +3,7 @@ use std::path::Path;
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::{FileError, FileResult};
-use typst::eval::Library;
+use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook};
 use typst::geom::Color;
 use typst::syntax::{Source, SourceId};
@@ -146,5 +146,9 @@ impl World for BenchWorld {
 
     fn file(&self, path: &Path) -> FileResult<Buffer> {
         Err(FileError::NotFound(path.into()))
+    }
+
+    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+        Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
 }
