@@ -481,7 +481,7 @@ impl Cast for ShowableSelector {
         matches!(
             value,
             Value::Symbol(_) | Value::Str(_) | Value::Label(_) | Value::Func(_)
-        ) || value.type_name() == "regular expression"
+        ) || value.type_name() == "regex"
             || value.type_name() == "selector"
     }
 
@@ -517,7 +517,7 @@ impl Cast for ShowableSelector {
             CastInfo::Type("function"),
             CastInfo::Type("label"),
             CastInfo::Type("string"),
-            CastInfo::Type("regular expression"),
+            CastInfo::Type("regex"),
             CastInfo::Type("symbol"),
             CastInfo::Type("selector"),
         ])

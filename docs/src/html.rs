@@ -308,8 +308,9 @@ impl<'a> Handler<'a> {
             route.push_str(method);
         } else if root == "$func" {
             let mut parts = rest.split('.').peekable();
+            let first = parts.peek().copied();
             let mut focus = &LIBRARY.global;
-            while let Some(m) = parts.peek().and_then(|name| module(focus, name).ok()) {
+            while let Some(m) = first.and_then(|name| module(focus, name).ok()) {
                 focus = m;
                 parts.next();
             }
@@ -324,6 +325,7 @@ impl<'a> Handler<'a> {
 
             if let Some(group) = GROUPS
                 .iter()
+                .filter(|_| first == Some("math"))
                 .find(|group| group.functions.iter().any(|func| func == info.name))
             {
                 route.push_str(&group.name);
