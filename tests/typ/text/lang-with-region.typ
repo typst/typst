@@ -2,15 +2,15 @@
 
 ---
 // without any region
-#set text(lang: "zh")
+#set text(font: "Noto Serif CJK TC", lang: "zh")
 #outline()
 
 ---
 // with unknown region configured
-#set text(lang: "zh", region: "XX")
+#set text(font: "Noto Serif CJK TC", lang: "zh", region: "XX")
 #outline()
 
 ---
 // with region configured
-#set text(lang: "zh", region: "TW")
+#set text(font: "Noto Serif CJK TC", lang: "zh", region: "TW")
 #outline()
