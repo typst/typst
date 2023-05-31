@@ -51,6 +51,10 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// Category: meta
 /// Keywords: Table of Contents
 #[element(Show, Finalize, LocalName)]
+#[scope(
+    scope.define("entry", OutlineEntry::func());
+    scope
+)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -211,11 +215,13 @@ impl Show for OutlineElem {
                 bail!(self.span(), "cannot outline {}", elem.func().name());
             };
 
-            if depth < outlinable.level() {
+            let level = outlinable.level();
+
+            if depth < level {
                 continue;
             }
 
-            let Some(outline) = outlinable.outline(vt)? else {
+            if outlinable.outline(vt)?.is_none() {
                 continue;
             };
 
@@ -234,7 +240,12 @@ impl Show for OutlineElem {
             OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
 
             // Add the outline of the element.
-            seq.push(outline.linked(Destination::Location(location)));
+            seq.push(
+                OutlineEntry::new()
+                    .with_level(level)
+                    .with_referee(elem.clone().into_inner())
+                    .pack(),
+            );
 
             let page_numbering = vt
                 .introspector
@@ -408,5 +419,38 @@ cast_to_value! {
         OutlineIndent::Bool(b) => b.into(),
         OutlineIndent::Length(s) => s.into(),
         OutlineIndent::Function(f) => f.into()
+    }
+}
+
+/// Represents each entry in an outline. Use this element with show rules to
+/// control the appearance of your outline.
+///
+/// Display: Outline
+/// Category: meta
+/// Keywords: Table of Contents
+#[element(Show)]
+pub struct OutlineEntry {
+    /// The nesting level of this outline entry.
+    /// Starts at `{1}` for top-level entries.
+    #[default(NonZeroUsize::ONE)]
+    pub level: NonZeroUsize,
+
+    /// The content this entry refers to.
+    pub referee: Content,
+}
+
+impl Show for OutlineEntry {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let elem = self.referee(styles);
+        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+            bail!(self.span(), "cannot outline {}", elem.func().name());
+        };
+
+        Ok(if let Some(outline) = outlinable.outline(vt)? {
+            let location = elem.location().unwrap();
+            outline.linked(Destination::Location(location))
+        } else {
+            Content::empty()
+        })
     }
 }
