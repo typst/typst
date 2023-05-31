@@ -211,19 +211,15 @@ impl Show for OutlineElem {
         let elems = vt.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
-            let Some(outlinable) = elem.with::<dyn Outlinable>() else {
-                bail!(self.span(), "cannot outline {}", elem.func().name());
+            let Some(entry) = OutlineEntry::from_outlinable(vt, self.span(), elem.clone().into_inner())? else {
+                continue;
             };
 
-            let level = outlinable.level();
+            let level = entry.level(styles);
 
             if depth < level {
                 continue;
             }
-
-            if outlinable.outline(vt)?.is_none() {
-                continue;
-            };
 
             let location = elem.location().unwrap();
 
@@ -232,7 +228,7 @@ impl Show for OutlineElem {
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
-                .map_or(false, |last| last.level() >= outlinable.level())
+                .map_or(false, |last| last.level() >= level)
             {
                 ancestors.pop();
             }
@@ -240,12 +236,7 @@ impl Show for OutlineElem {
             OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
 
             // Add the outline of the element.
-            seq.push(
-                OutlineEntry::new()
-                    .with_level(level)
-                    .with_referee(elem.clone().into_inner())
-                    .pack(),
-            );
+            seq.push(entry.pack().linked(Destination::Location(location)));
 
             let page_numbering = vt
                 .introspector
@@ -435,22 +426,42 @@ pub struct OutlineEntry {
     #[default(NonZeroUsize::ONE)]
     pub level: NonZeroUsize,
 
-    /// The content this entry refers to.
+    /// The element this entry refers to.
     pub referee: Content,
+
+    /// The content to display in the outline referencing the referred element.
+    pub body: Content,
+}
+
+impl OutlineEntry {
+    /// Generates an OutlineEntry from the given element, if possible
+    /// (errors if the element does not implement Outlinable).
+    /// If the element cannot be outlined (e.g. heading with 'outlined: false'),
+    /// does not generate an entry instance (returns Ok(None)).
+    fn from_outlinable(
+        vt: &mut Vt,
+        span: Span,
+        elem: Content,
+    ) -> SourceResult<Option<Self>> {
+        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+            bail!(span, "cannot outline {}", elem.func().name());
+        };
+
+        let Some(outline) = outlinable.outline(vt)? else {
+            return Ok(None);
+        };
+
+        Ok(Some(
+            Self::new()
+                .with_level(outlinable.level())
+                .with_referee(elem)
+                .with_body(outline),
+        ))
+    }
 }
 
 impl Show for OutlineEntry {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let elem = self.referee(styles);
-        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
-            bail!(self.span(), "cannot outline {}", elem.func().name());
-        };
-
-        Ok(if let Some(outline) = outlinable.outline(vt)? {
-            let location = elem.location().unwrap();
-            outline.linked(Destination::Location(location))
-        } else {
-            Content::empty()
-        })
+    fn show(&self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        Ok(self.body(styles))
     }
 }
