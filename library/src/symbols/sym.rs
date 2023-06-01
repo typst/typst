@@ -218,6 +218,8 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         quest: '≟',
         small: '﹦',
         succ: '⋟',
+        triple: '≡',
+        quad: '≣',
     ],
     gt: [
         '>',
@@ -316,7 +318,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         ntilde: '⋩',
         tilde: '≿',
     ],
-    ident: ['≡', not: '≢', strict: '≣'],
+    equiv: ['≡', not: '≢'],
     prop: '∝',
 
     // Set theory.
