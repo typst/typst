@@ -98,7 +98,7 @@ impl ShapedGlyph {
         matches!(self.c.script(), Hiragana | Katakana | Han) || self.c == '\u{30FC}'
     }
 
-    pub fn is_cjk_adjustable(&self) -> bool {
+    pub fn is_cjk_punctuation(&self) -> bool {
         self.is_cjk_left_aligned_punctuation(true)
             || self.is_cjk_right_aligned_punctuation()
             || self.is_cjk_center_aligned_punctuation(true)
@@ -353,7 +353,7 @@ impl<'a> ShapedText<'a> {
     pub fn cjk_justifiable_at_last(&self) -> bool {
         self.glyphs
             .last()
-            .map(|g| g.is_cjk_script() || g.is_cjk_adjustable())
+            .map(|g| g.is_cjk_script() || g.is_cjk_punctuation())
             .unwrap_or(false)
     }
 
@@ -763,12 +763,14 @@ pub fn is_gb_style(lang: Lang, region: Option<Region>) -> bool {
 fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<Region>) {
     let gb_style = is_gb_style(lang, region);
 
+    for glyph in &mut ctx.glyphs {
+        glyph.adjustability = glyph.base_adjustability(gb_style);
+    }
+
     let mut glyphs = ctx.glyphs.iter_mut().peekable();
     while let Some(glyph) = glyphs.next() {
-        glyph.adjustability = glyph.base_adjustability(gb_style);
-
         // Only GB style needs further adjustment.
-        if glyph.is_cjk_adjustable() && !gb_style {
+        if glyph.is_cjk_punctuation() && !gb_style {
             continue;
         }
 
@@ -778,7 +780,8 @@ fn calculate_adjustability(ctx: &mut ShapingContext, lang: Lang, region: Option<
         let Some(next) = glyphs.peek_mut() else { continue };
         let width = glyph.x_advance;
         let delta = width / 2.0;
-        if next.is_cjk_adjustable()
+        if glyph.is_cjk_punctuation()
+            && next.is_cjk_punctuation()
             && (glyph.shrinkability().1 + next.shrinkability().0) >= delta
         {
             let left_delta = glyph.shrinkability().1.min(delta);

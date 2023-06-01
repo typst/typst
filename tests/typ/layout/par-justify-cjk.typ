@@ -35,6 +35,8 @@
   《书名》《测试》。
 ]
 
+「『引号』」。“‘引号’”。
+
 ---
 // Test Variants of Mainland China, Hong Kong, and Japan.
 
