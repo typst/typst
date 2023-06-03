@@ -422,15 +422,17 @@ pub fn mix(
     #[default]
     space: ColorSpace,
 ) -> Value {
-    let WeightedColor(mut color, mut weight) = colors[0];
+    let mut vec4 = color_to_vec4(colors[0].0, space);
+    let mut weight = colors[0].1;
     for WeightedColor(c, w) in &colors[1..] {
-        color = mix_color(color, *c, w / (weight + w), space);
+        let v = color_to_vec4(*c, space);
+        vec4 = lerp4(vec4, v, w / (weight + w));
         weight += w;
     }
-    Value::Color(color)
+    Value::Color(vec4_to_color(vec4, space))
 }
 
-struct WeightedColor(Color, f64);
+struct WeightedColor(Color, f32);
 
 cast_from_value! {
     WeightedColor,
@@ -440,9 +442,9 @@ cast_from_value! {
         match (iter.next(), iter.next(), iter.next()) {
             (Some(c), Some(w), None) => {
                 let weight = match w {
-                    Value::Int(n) => n as f64,
-                    Value::Float(n) => n,
-                    Value::Ratio(n) => n.get(),
+                    Value::Int(n) => n as f32,
+                    Value::Float(n) => n as f32,
+                    Value::Ratio(n) => n.get() as f32,
                     _ => Err("weights must be integer, float or ratio")?,
                 };
                 Self(c.cast()?, weight)

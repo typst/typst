@@ -15,20 +15,19 @@
 #test(white.lighten(100%), white)
 
 // Color mixing, in Oklab space by default.
-#test(color.mix(rgb("#ff0000"), rgb("#00ff00")), rgb("#a16400"))
-#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "oklab"), rgb("#a16400"))
+#test(color.mix(rgb("#ff0000"), rgb("#00ff00")), rgb("#d0a800"))
+#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "oklab"), rgb("#d0a800"))
 #test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "srgb"), rgb("#808000"))
 
-// Slight floating-point error here is acceptable, but it should be basically commutative.
-#test(color.mix(red, green, blue), rgb("#5c8169"))
-#test(color.mix(red, blue, green), rgb("#5c826a"))
-#test(color.mix(blue, red, green), rgb("#5c826a"))
+#test(color.mix(red, green, blue), rgb("#909282"))
+#test(color.mix(red, blue, green), rgb("#909282"))
+#test(color.mix(blue, red, green), rgb("#909282"))
 
 // Mix with weights.
-#test(color.mix((red, 50%), (green, 50%)), rgb("#9c823b"))
-#test(color.mix((red, 0.5), (green, 0.5)), rgb("#9c823b"))
-#test(color.mix((red, 5), (green, 5)), rgb("#9c823b"))
-#test(color.mix((green, 5), (white, 0), (red, 5)), rgb("#9c823b"))
+#test(color.mix((red, 50%), (green, 50%)), rgb("#c0983b"))
+#test(color.mix((red, 0.5), (green, 0.5)), rgb("#c0983b"))
+#test(color.mix((red, 5), (green, 5)), rgb("#c0983b"))
+#test(color.mix((green, 5), (white, 0), (red, 5)), rgb("#c0983b"))
 #test(color.mix((red, 100%), (green, 0%)), red)
 #test(color.mix((red, 0%), (green, 100%)), green)
 #test(color.mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: "srgb"), rgb("#aa40bf"))
