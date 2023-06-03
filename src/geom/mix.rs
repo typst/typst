@@ -1,6 +1,7 @@
-use typst_macros::Cast;
+use typst_macros::{cast_from_value, Cast};
 
-use super::{Color, RgbaColor};
+use super::*;
+use crate::eval::Array;
 use oklab::{Oklab, RGB};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -11,11 +12,33 @@ pub enum ColorSpace {
     Srgb,
 }
 
+pub struct WeightedColor(Color, f32);
+
+cast_from_value! {
+    WeightedColor,
+    v: Color => Self(v, 1.0),
+    v: Array => {
+        let mut iter = v.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(c), Some(w), None) => {
+                let weight = match w {
+                    Value::Int(n) => n as f32,
+                    Value::Float(n) => n as f32,
+                    Value::Ratio(n) => n.get() as f32,
+                    _ => Err("weights must be integer, float or ratio")?,
+                };
+                Self(c.cast()?, weight)
+            }
+            _ => Err("expected a color or color-weight pair")?,
+        }
+    }
+}
+
 fn lerp(v0: f32, v1: f32, t: f32) -> f32 {
     t.mul_add(v1 - v0, v0)
 }
 
-pub fn lerp4(v0: [f32; 4], v1: [f32; 4], t: f32) -> [f32; 4] {
+fn lerp4(v0: [f32; 4], v1: [f32; 4], t: f32) -> [f32; 4] {
     [
         lerp(v0[0], v1[0], t),
         lerp(v0[1], v1[1], t),
@@ -24,7 +47,7 @@ pub fn lerp4(v0: [f32; 4], v1: [f32; 4], t: f32) -> [f32; 4] {
     ]
 }
 
-pub fn color_to_vec4(color: Color, space: ColorSpace) -> [f32; 4] {
+fn color_to_vec4(color: Color, space: ColorSpace) -> [f32; 4] {
     match space {
         ColorSpace::Oklab => {
             let RgbaColor { r, g, b, a } = color.to_rgba();
@@ -38,7 +61,7 @@ pub fn color_to_vec4(color: Color, space: ColorSpace) -> [f32; 4] {
     }
 }
 
-pub fn vec4_to_color(vec: [f32; 4], space: ColorSpace) -> Color {
+fn vec4_to_color(vec: [f32; 4], space: ColorSpace) -> Color {
     match space {
         ColorSpace::Oklab => {
             let [l, a, b, alpha] = vec;
@@ -60,4 +83,19 @@ pub fn vec4_to_color(vec: [f32; 4], space: ColorSpace) -> Color {
             })
         }
     }
+}
+
+pub fn mix_colors<'a>(
+    mut colors: impl Iterator<Item = &'a WeightedColor>,
+    space: ColorSpace,
+) -> Color {
+    let first = colors.next().expect("no colors to mix");
+    let mut mixed = color_to_vec4(first.0, space);
+    let mut total_weight = first.1;
+    for WeightedColor(color, weight) in colors {
+        let vec = color_to_vec4(*color, space);
+        total_weight += weight;
+        mixed = lerp4(mixed, vec, weight / total_weight);
+    }
+    vec4_to_color(mixed, space)
 }
