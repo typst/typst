@@ -51,3 +51,16 @@ multiline.
 =
 Not in heading
 =Nope
+
+---
+// Test display func.
+#set heading(
+  numbering: "1.1",
+  display: (numbering, content) =>
+    text(style: "italic", numbering) + h(1.5em, weak: true) + text(blue, content)
+)
+
+= A Heading
+== A Subheading
+
+#heading(numbering: none)[No Numbering]

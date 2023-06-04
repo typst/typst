@@ -34,3 +34,18 @@ Ok ...
 
 = #text(blue)[Zusammen]fassung
 #lorem(10)
+
+---
+// Test heading outline func.
+#outline()
+
+#set heading(
+  numbering: "1.1",
+  outline: (numbering, content) =>
+    text(style: "italic", numbering) + h(1.5em, weak: true) + text(blue, content)
+)
+
+= A Heading
+== A Subheading
+
+#heading(numbering: none)[No Numbering]
