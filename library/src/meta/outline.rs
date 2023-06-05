@@ -404,10 +404,10 @@ pub struct OutlineEntry {
     /// text, for example.
     pub outline: Content,
 
-    /// The full row of content displayed in the referred element's position
-    /// in the outline, including the element's outline, the filler content
-    /// between the outline and the page number and the page number itself.
-    pub body: Content,
+    /// The content used to fill the space between the element's outline and
+    /// its page number, taken from the outline this entry is in. When
+    /// `{none}`, empty space is inserted instead.
+    pub fill: Option<Content>,
 }
 
 impl OutlineEntry {
@@ -421,8 +421,6 @@ impl OutlineEntry {
         elem: Content,
         fill: Option<Content>,
     ) -> SourceResult<Option<Self>> {
-        let mut seq = vec![];
-
         let Some(outlinable) = elem.with::<dyn Outlinable>() else {
             bail!(span, "cannot outline {}", elem.func().name());
         };
@@ -431,9 +429,26 @@ impl OutlineEntry {
             return Ok(None);
         };
 
-        let location = elem.location().unwrap();
+        Ok(Some(
+            Self::new()
+                .with_level(outlinable.level())
+                .with_element(elem)
+                .with_outline(outline)
+                .with_fill(fill),
+        ))
+    }
+}
 
-        seq.push(outline.clone().linked(Destination::Location(location)));
+impl Show for OutlineEntry {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let mut seq = vec![];
+        let elem = self.element(styles);
+
+        let Some(location) = elem.location() else {
+            bail!(self.span(), "cannot outline {}", elem.func().name())
+        };
+
+        seq.push(self.outline(styles).linked(Destination::Location(location)));
 
         let page_numbering = vt
             .introspector
@@ -445,7 +460,7 @@ impl OutlineEntry {
             });
 
         // Add filler symbols between the section name and page number.
-        if let Some(filler) = fill {
+        if let Some(filler) = self.fill(styles) {
             seq.push(SpaceElem::new().pack());
             seq.push(
                 BoxElem::new()
@@ -467,18 +482,6 @@ impl OutlineEntry {
 
         let body = Content::sequence(seq);
 
-        Ok(Some(
-            Self::new()
-                .with_level(outlinable.level())
-                .with_element(elem)
-                .with_outline(outline)
-                .with_body(body),
-        ))
-    }
-}
-
-impl Show for OutlineEntry {
-    fn show(&self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.body(styles))
+        Ok(body)
     }
 }
