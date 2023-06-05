@@ -211,7 +211,7 @@ impl Show for OutlineElem {
         let elems = vt.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
-            let Some(entry) = OutlineEntry::from_outlinable(vt, self.span(), elem.clone().into_inner())? else {
+            let Some(entry) = OutlineEntry::from_outlinable(vt, self.span(), elem.clone().into_inner(), self.fill(styles))? else {
                 continue;
             };
 
@@ -220,8 +220,6 @@ impl Show for OutlineElem {
             if depth < level {
                 continue;
             }
-
-            let location = elem.location().unwrap();
 
             // Deals with the ancestors of the current element.
             // This is only applicable for elements with a hierarchy/level.
@@ -236,37 +234,8 @@ impl Show for OutlineElem {
             OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
 
             // Add the outline of the element.
-            seq.push(entry.pack().linked(Destination::Location(location)));
+            seq.push(entry.pack());
 
-            let page_numbering = vt
-                .introspector
-                .page_numbering(location)
-                .cast::<Option<Numbering>>()
-                .unwrap()
-                .unwrap_or_else(|| {
-                    Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
-                });
-
-            // Add filler symbols between the section name and page number.
-            if let Some(filler) = self.fill(styles) {
-                seq.push(SpaceElem::new().pack());
-                seq.push(
-                    BoxElem::new()
-                        .with_body(Some(filler.clone()))
-                        .with_width(Fr::one().into())
-                        .pack(),
-                );
-                seq.push(SpaceElem::new().pack());
-            } else {
-                seq.push(HElem::new(Fr::one().into()).pack());
-            }
-
-            // Add the page number and linebreak.
-            let page = Counter::new(CounterKey::Page)
-                .at(vt, location)?
-                .display(vt, &page_numbering)?;
-
-            seq.push(page.linked(Destination::Location(location)));
             seq.push(LinebreakElem::new().pack());
 
             ancestors.push(elem);
@@ -427,9 +396,17 @@ pub struct OutlineEntry {
     pub level: NonZeroUsize,
 
     /// The element this entry refers to.
-    pub referee: Content,
+    pub element: Content,
 
-    /// The content to display in the outline referencing the referred element.
+    /// The content which is displayed in place of the referred element in the
+    /// outline.
+    /// For a heading, this would be its numbering followed by the heading
+    /// text, for example.
+    pub outline: Content,
+
+    /// The full row of content displayed in the referred element's position
+    /// in the outline, including the element's outline, the filler content
+    /// between the outline and the page number and the page number itself.
     pub body: Content,
 }
 
@@ -442,7 +419,10 @@ impl OutlineEntry {
         vt: &mut Vt,
         span: Span,
         elem: Content,
+        fill: Option<Content>,
     ) -> SourceResult<Option<Self>> {
+        let mut seq = vec![];
+
         let Some(outlinable) = elem.with::<dyn Outlinable>() else {
             bail!(span, "cannot outline {}", elem.func().name());
         };
@@ -451,11 +431,48 @@ impl OutlineEntry {
             return Ok(None);
         };
 
+        let location = elem.location().unwrap();
+
+        seq.push(outline.clone().linked(Destination::Location(location)));
+
+        let page_numbering = vt
+            .introspector
+            .page_numbering(location)
+            .cast::<Option<Numbering>>()
+            .unwrap()
+            .unwrap_or_else(|| {
+                Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
+            });
+
+        // Add filler symbols between the section name and page number.
+        if let Some(filler) = fill {
+            seq.push(SpaceElem::new().pack());
+            seq.push(
+                BoxElem::new()
+                    .with_body(Some(filler))
+                    .with_width(Fr::one().into())
+                    .pack(),
+            );
+            seq.push(SpaceElem::new().pack());
+        } else {
+            seq.push(HElem::new(Fr::one().into()).pack());
+        }
+
+        // Add the page number and linebreak.
+        let page = Counter::new(CounterKey::Page)
+            .at(vt, location)?
+            .display(vt, &page_numbering)?;
+
+        seq.push(page.linked(Destination::Location(location)));
+
+        let body = Content::sequence(seq);
+
         Ok(Some(
             Self::new()
                 .with_level(outlinable.level())
-                .with_referee(elem)
-                .with_body(outline),
+                .with_element(elem)
+                .with_outline(outline)
+                .with_body(body),
         ))
     }
 }
