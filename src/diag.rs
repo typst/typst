@@ -8,44 +8,53 @@ use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
 use comemo::Tracked;
-use ecow::EcoString;
 
 use crate::syntax::{ErrorPos, Span, Spanned};
 use crate::World;
 
-/// Early-return with a [`SourceError`].
+/// Early-return with a [`StrError`] or [`SourceError`].
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __bail {
+    ($fmt:literal $(, $arg:expr)* $(,)?) => {
+        return Err($crate::diag::eco_format!($fmt, $($arg),*))
+    };
+
     ($error:expr) => {
         return Err(Box::new(vec![$error]))
     };
 
-    ($($tts:tt)*) => {
-        $crate::diag::bail!($crate::diag::error!($($tts)*))
+    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
+        return Err(Box::new(vec![$crate::diag::SourceError::new(
+            $span,
+            $crate::diag::eco_format!($fmt, $($arg),*),
+        )]))
     };
 }
 
 #[doc(inline)]
 pub use crate::__bail as bail;
 
-/// Construct a [`SourceError`].
+/// Construct a [`StrError`] or [`SourceError`].
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
-    ($span:expr, $message:expr $(,)?) => {
-        $crate::diag::SourceError::new($span, $message)
+    ($fmt:literal $(, $arg:expr)* $(,)?) => {
+        $crate::diag::eco_format!($fmt, $($arg),*)
     };
 
-    ($span:expr, $fmt:expr, $($arg:expr),+ $(,)?) => {
-        $crate::diag::error!($span, $crate::diag::eco_format!($fmt, $($arg),+))
+    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
+        $crate::diag::SourceError::new(
+            $span,
+            $crate::diag::eco_format!($fmt, $($arg),*),
+        )
     };
 }
 
 #[doc(inline)]
 pub use crate::__error as error;
 #[doc(hidden)]
-pub use ecow::eco_format;
+pub use ecow::{eco_format, EcoString};
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;
@@ -68,7 +77,6 @@ pub struct SourceError {
 
 impl SourceError {
     /// Create a new, bare error.
-    #[track_caller]
     pub fn new(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             span,
@@ -173,7 +181,7 @@ where
     S: Into<EcoString>,
 {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|message| Box::new(vec![error!(span, message)]))
+        self.map_err(|message| Box::new(vec![SourceError::new(span, message)]))
     }
 }
 

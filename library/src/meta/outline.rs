@@ -367,19 +367,14 @@ impl OutlineIndent {
 
             // Length => indent with some fixed spacing per level
             Some(Smart::Custom(OutlineIndent::Length(length))) => {
-                let Ok(depth): Result<i64, _> = ancestors.len().try_into() else {
-                    bail!(span, "outline element depth too large");
-                };
-
-                let hspace = HElem::new(*length).pack().repeat(depth).unwrap();
-                seq.push(hspace);
+                seq.push(HElem::new(*length).pack().repeat(ancestors.len()));
             }
 
             // Function => call function with the current depth and take
             // the returned content
             Some(Smart::Custom(OutlineIndent::Function(func))) => {
                 let depth = ancestors.len();
-                let returned = func.call_vt(vt, [depth.into()])?;
+                let returned = func.call_vt(vt, [depth])?;
                 let Ok(returned) = returned.cast::<Content>() else {
                     bail!(
                         span,
@@ -396,17 +391,14 @@ impl OutlineIndent {
     }
 }
 
-cast_from_value! {
+cast! {
     OutlineIndent,
-    b: bool => OutlineIndent::Bool(b),
-    s: Spacing => OutlineIndent::Length(s),
-    f: Func => OutlineIndent::Function(f),
-}
-
-cast_to_value! {
-    v: OutlineIndent => match v {
-        OutlineIndent::Bool(b) => b.into(),
-        OutlineIndent::Length(s) => s.into(),
-        OutlineIndent::Function(f) => f.into()
-    }
+    self => match self {
+        Self::Bool(v) => v.into_value(),
+        Self::Length(v) => v.into_value(),
+        Self::Function(v) => v.into_value()
+    },
+    v: bool => OutlineIndent::Bool(v),
+    v: Spacing => OutlineIndent::Length(v),
+    v: Func => OutlineIndent::Function(v),
 }

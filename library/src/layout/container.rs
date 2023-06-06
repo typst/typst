@@ -1,3 +1,5 @@
+use typst::eval::AutoValue;
+
 use super::VElem;
 use crate::layout::Spacing;
 use crate::prelude::*;
@@ -482,17 +484,14 @@ impl<T: Into<Spacing>> From<T> for Sizing {
     }
 }
 
-cast_from_value! {
+cast! {
     Sizing,
-    _: Smart<Never> => Self::Auto,
+    self => match self {
+        Self::Auto => Value::Auto,
+        Self::Rel(rel) => rel.into_value(),
+        Self::Fr(fr) => fr.into_value(),
+    },
+    _: AutoValue => Self::Auto,
     v: Rel<Length> => Self::Rel(v),
     v: Fr => Self::Fr(v),
-}
-
-cast_to_value! {
-    v: Sizing => match v {
-        Sizing::Auto => Value::Auto,
-        Sizing::Rel(rel) => Value::Relative(rel),
-        Sizing::Fr(fr) => Value::Fraction(fr),
-    }
 }

@@ -174,7 +174,7 @@ pub struct ListItem {
     pub body: Content,
 }
 
-cast_from_value! {
+cast! {
     ListItem,
     v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
@@ -193,13 +193,21 @@ impl ListMarker {
             Self::Content(list) => {
                 list.get(depth).or(list.last()).cloned().unwrap_or_default()
             }
-            Self::Func(func) => func.call_vt(vt, [Value::Int(depth as i64)])?.display(),
+            Self::Func(func) => func.call_vt(vt, [depth])?.display(),
         })
     }
 }
 
-cast_from_value! {
+cast! {
     ListMarker,
+    self => match self {
+        Self::Content(vec) => if vec.len() == 1 {
+            vec.into_iter().next().unwrap().into_value()
+        } else {
+            vec.into_value()
+        },
+        Self::Func(func) => func.into_value(),
+    },
     v: Content => Self::Content(vec![v]),
     array: Array => {
         if array.is_empty() {
@@ -210,26 +218,12 @@ cast_from_value! {
     v: Func => Self::Func(v),
 }
 
-cast_to_value! {
-    v: ListMarker => match v {
-        ListMarker::Content(vec) => if vec.len() == 1 {
-            vec.into_iter().next().unwrap().into()
-        } else {
-            vec.into()
-        },
-        ListMarker::Func(func) => func.into(),
-    }
-}
-
 struct Depth;
 
-cast_from_value! {
+cast! {
     Depth,
+    self => Value::None,
     _: Value => Self,
-}
-
-cast_to_value! {
-    _: Depth => Value::None
 }
 
 impl Fold for Depth {

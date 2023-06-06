@@ -1,8 +1,8 @@
 use super::*;
 
 /// Expand the `#[element]` macro.
-pub fn element(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
-    let element = prepare(stream, &body)?;
+pub fn element(stream: TokenStream, body: &syn::ItemStruct) -> Result<TokenStream> {
+    let element = prepare(stream, body)?;
     Ok(create(&element))
 }
 
@@ -207,9 +207,9 @@ fn create(element: &Elem) -> TokenStream {
         #set_impl
         #locatable_impl
 
-        impl From<#ident> for ::typst::eval::Value {
-            fn from(value: #ident) -> Self {
-                value.0.into()
+        impl ::typst::eval::IntoValue for #ident {
+            fn into_value(self) -> ::typst::eval::Value {
+                ::typst::eval::Value::Content(self.0)
             }
         }
     }
@@ -326,8 +326,8 @@ fn create_set_field_method(field: &Field) -> TokenStream {
         #vis fn #set_ident(#ident: #ty) -> ::typst::model::Style {
             ::typst::model::Style::Property(::typst::model::Property::new(
                 <Self as ::typst::model::Element>::func(),
-                #name.into(),
-                #ident.into()
+                #name,
+                #ident,
             ))
         }
     }
@@ -369,7 +369,9 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
                         keywords: #keywords,
                         docs: #docs,
                         params: ::std::vec![#(#infos),*],
-                        returns: ::std::vec!["content"],
+                        returns: ::typst::eval::CastInfo::Union(::std::vec![
+                            ::typst::eval::CastInfo::Type("content")
+                        ]),
                         category: #category,
                         scope: #scope,
                     }),
@@ -426,7 +428,7 @@ fn create_param_info(field: &Field) -> TokenStream {
         quote! {
             || {
                 let typed: #default_ty = #default;
-                ::typst::eval::Value::from(typed)
+                ::typst::eval::IntoValue::into_value(typed)
             }
         }
     }));
@@ -439,9 +441,7 @@ fn create_param_info(field: &Field) -> TokenStream {
         ::typst::eval::ParamInfo {
             name: #name,
             docs: #docs,
-            cast: <#ty as ::typst::eval::Cast<
-                ::typst::syntax::Spanned<::typst::eval::Value>
-            >>::describe(),
+            cast: <#ty as ::typst::eval::Reflect>::describe(),
             default: #default,
             positional: #positional,
             named: #named,

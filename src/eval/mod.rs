@@ -13,31 +13,45 @@ mod str;
 #[macro_use]
 mod value;
 mod args;
+mod auto;
 mod datetime;
 mod func;
+mod int;
 mod methods;
 mod module;
+mod none;
 pub mod ops;
 mod scope;
 mod symbol;
 
 #[doc(hidden)]
-pub use once_cell::sync::Lazy;
+pub use {
+    self::library::LANG_ITEMS,
+    ecow::{eco_format, eco_vec},
+    indexmap::IndexMap,
+    once_cell::sync::Lazy,
+};
 
-pub use self::args::*;
-pub use self::array::*;
-pub use self::cast::*;
-pub use self::datetime::*;
-pub use self::dict::*;
-pub use self::func::*;
-pub use self::library::*;
-pub use self::module::*;
-pub use self::scope::*;
-pub use self::str::*;
-pub use self::symbol::*;
-pub use self::value::*;
+#[doc(inline)]
+pub use typst_macros::{func, symbols};
 
-pub(crate) use self::methods::methods_on;
+pub use self::args::{Arg, Args};
+pub use self::array::{array, Array};
+pub use self::auto::AutoValue;
+pub use self::cast::{
+    cast, Cast, CastInfo, FromValue, IntoResult, IntoValue, Never, Reflect, Variadics,
+};
+pub use self::datetime::Datetime;
+pub use self::dict::{dict, Dict};
+pub use self::func::{Func, FuncInfo, NativeFunc, Param, ParamInfo};
+pub use self::library::{set_lang_items, LangItems, Library};
+pub use self::methods::methods_on;
+pub use self::module::Module;
+pub use self::none::NoneValue;
+pub use self::scope::{Scope, Scopes};
+pub use self::str::{format_str, Regex, Str};
+pub use self::symbol::Symbol;
+pub use self::value::{Dynamic, Type, Value};
 
 use std::collections::HashSet;
 use std::mem;
@@ -47,6 +61,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
 use unicode_segmentation::UnicodeSegmentation;
 
+use self::func::{CapturesVisitor, Closure};
 use crate::diag::{
     bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
@@ -214,8 +229,8 @@ impl<'a> Vm<'a> {
 
     /// Define a variable in the current scope.
     #[tracing::instrument(skip_all)]
-    pub fn define(&mut self, var: ast::Ident, value: impl Into<Value>) {
-        let value = value.into();
+    pub fn define(&mut self, var: ast::Ident, value: impl IntoValue) {
+        let value = value.into_value();
         if self.traced == Some(var.span()) {
             self.vt.tracer.trace(value.clone());
         }
@@ -934,7 +949,7 @@ impl Eval for ast::Array {
             }
         }
 
-        Ok(Array::from_vec(vec))
+        Ok(vec.into())
     }
 }
 
@@ -965,7 +980,7 @@ impl Eval for ast::Dict {
             }
         }
 
-        Ok(Dict::from_map(map))
+        Ok(map.into())
     }
 }
 
@@ -1285,23 +1300,23 @@ impl ast::Pattern {
         for p in destruct.bindings() {
             match p {
                 ast::DestructuringKind::Normal(expr) => {
-                    let Ok(v) = value.at(i, None) else {
+                    let Ok(v) = value.at(i as i64, None) else {
                         bail!(expr.span(), "not enough elements to destructure");
                     };
                     f(vm, expr, v.clone())?;
                     i += 1;
                 }
                 ast::DestructuringKind::Sink(spread) => {
-                    let sink_size = (1 + value.len() as usize)
-                        .checked_sub(destruct.bindings().count());
-                    let sink =
-                        sink_size.and_then(|s| value.slice(i, Some(i + s as i64)).ok());
+                    let sink_size =
+                        (1 + value.len()).checked_sub(destruct.bindings().count());
+                    let sink = sink_size
+                        .and_then(|s| value.slice(i as i64, Some((i + s) as i64)).ok());
 
                     if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
                         if let Some(expr) = spread.expr() {
                             f(vm, expr, Value::Array(sink.clone()))?;
                         }
-                        i += sink_size as i64;
+                        i += sink_size;
                     } else {
                         bail!(self.span(), "not enough elements to destructure")
                     }
@@ -1590,7 +1605,7 @@ impl Eval for ast::ForLoop {
 
                 #[allow(unused_parens)]
                 for value in $iter {
-                    $pat.define(vm, Value::from(value))?;
+                    $pat.define(vm, value.into_value())?;
 
                     let body = self.body();
                     let value = body.eval(vm)?;
@@ -1644,7 +1659,7 @@ impl Eval for ast::ForLoop {
 }
 
 /// Applies imports from `import` to the current scope.
-fn apply_imports<V: Into<Value>>(
+fn apply_imports<V: IntoValue>(
     imports: Option<ast::Imports>,
     vm: &mut Vm,
     source_value: V,

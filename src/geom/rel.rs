@@ -240,6 +240,7 @@ impl Fold for Rel<Length> {
     }
 }
 
-cast_to_value! {
-    v: Rel<Abs> => v.map(Length::from).into()
+cast! {
+    Rel<Abs>,
+    self => self.map(Length::from).into_value(),
 }

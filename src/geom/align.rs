@@ -128,35 +128,33 @@ impl Debug for GenAlign {
     }
 }
 
-cast_from_value! {
-    GenAlign: "alignment",
+cast! {
+    type GenAlign: "alignment",
 }
 
-cast_from_value! {
-    Axes<GenAlign>: "2d alignment",
+cast! {
+    type Axes<GenAlign>: "2d alignment",
 }
 
-cast_from_value! {
+cast! {
+    Axes<Align>,
+    self => self.map(GenAlign::from).into_value(),
+}
+
+cast! {
     Axes<Option<GenAlign>>,
+    self => match (self.x, self.y) {
+        (Some(x), Some(y)) => Axes::new(x, y).into_value(),
+        (Some(x), None) => x.into_value(),
+        (None, Some(y)) => y.into_value(),
+        (None, None) => Value::None,
+    },
     align: GenAlign => {
         let mut aligns = Axes::default();
         aligns.set(align.axis(), Some(align));
         aligns
     },
     aligns: Axes<GenAlign> => aligns.map(Some),
-}
-
-cast_to_value! {
-    v: Axes<Align> => v.map(GenAlign::from).into()
-}
-
-cast_to_value! {
-    v: Axes<Option<GenAlign>> => match (v.x, v.y) {
-        (Some(x), Some(y)) => Axes::new(x, y).into(),
-        (Some(x), None) => x.into(),
-        (None, Some(y)) => y.into(),
-        (None, None) => Value::None,
-    }
 }
 
 impl From<Axes<GenAlign>> for Axes<Option<GenAlign>> {
@@ -213,8 +211,9 @@ impl Fold for Align {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct HorizontalAlign(pub GenAlign);
 
-cast_from_value! {
+cast! {
     HorizontalAlign,
+    self => self.0.into_value(),
     align: GenAlign => {
         if align.axis() != Axis::X {
             Err("alignment must be horizontal")?;
@@ -223,44 +222,18 @@ cast_from_value! {
     },
 }
 
-cast_to_value! {
-    v: HorizontalAlign => v.0.into()
-}
-
 /// Utility struct to restrict a passed alignment value to the vertical axis on
 /// cast.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct VerticalAlign(pub GenAlign);
 
-cast_from_value! {
+cast! {
     VerticalAlign,
+    self => self.0.into_value(),
     align: GenAlign => {
         if align.axis() != Axis::Y {
             Err("alignment must be vertical")?;
         }
         Self(align)
     },
-}
-
-cast_to_value! {
-    v: VerticalAlign => v.0.into()
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum LeftRightAlternator {
-    Left,
-    Right,
-}
-
-impl Iterator for LeftRightAlternator {
-    type Item = LeftRightAlternator;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let r = Some(*self);
-        match self {
-            Self::Left => *self = Self::Right,
-            Self::Right => *self = Self::Left,
-        }
-        r
-    }
 }

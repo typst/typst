@@ -6,9 +6,8 @@ use std::ops::{Add, AddAssign, Deref, Range};
 use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{cast_from_value, dict, Array, Dict, Func, Value, Vm};
+use super::{cast, dict, Args, Array, Dict, Func, IntoValue, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
-use crate::eval::Args;
 use crate::geom::GenAlign;
 
 /// Create a new [`Str`] from a format string.
@@ -41,8 +40,8 @@ impl Str {
     }
 
     /// The length of the string in bytes.
-    pub fn len(&self) -> i64 {
-        self.0.len() as i64
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
     /// A string slice containing the entire string.
@@ -82,7 +81,7 @@ impl Str {
     /// Extract a contiguous substring.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
         let start = self.locate(start)?;
-        let end = self.locate(end.unwrap_or(self.len()))?.max(start);
+        let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
         Ok(self.0[start..end].into())
     }
 
@@ -283,7 +282,7 @@ impl Str {
             match &with {
                 Replacement::Str(s) => output.push_str(s),
                 Replacement::Func(func) => {
-                    let args = Args::new(func.span(), [dict.into()]);
+                    let args = Args::new(func.span(), [dict]);
                     let piece = func.call_vm(vm, args)?.cast::<Str>().at(func.span())?;
                     output.push_str(&piece);
                 }
@@ -329,7 +328,7 @@ impl Str {
     /// Errors on invalid char boundaries.
     fn locate_opt(&self, index: i64) -> StrResult<Option<usize>> {
         let wrapped =
-            if index >= 0 { Some(index) } else { self.len().checked_add(index) };
+            if index >= 0 { Some(index) } else { (self.len() as i64).checked_add(index) };
 
         let resolved = wrapped
             .and_then(|v| usize::try_from(v).ok())
@@ -351,13 +350,13 @@ impl Str {
 
 /// The out of bounds access error message.
 #[cold]
-fn out_of_bounds(index: i64, len: i64) -> EcoString {
+fn out_of_bounds(index: i64, len: usize) -> EcoString {
     eco_format!("string index out of bounds (index: {}, len: {})", index, len)
 }
 
 /// The out of bounds access error message when no default value was given.
 #[cold]
-fn no_default_and_out_of_bounds(index: i64, len: i64) -> EcoString {
+fn no_default_and_out_of_bounds(index: i64, len: usize) -> EcoString {
     eco_format!("no default value was specified and string index out of bounds (index: {}, len: {})", index, len)
 }
 
@@ -376,10 +375,10 @@ fn string_is_empty() -> EcoString {
 /// Convert an item of std's `match_indices` to a dictionary.
 fn match_to_dict((start, text): (usize, &str)) -> Dict {
     dict! {
-        "start" => Value::Int(start as i64),
-        "end" => Value::Int((start + text.len()) as i64),
-        "text" => Value::Str(text.into()),
-        "captures" => Value::Array(Array::new()),
+        "start" => start,
+        "end" => start + text.len(),
+        "text" => text,
+        "captures" => Array::new(),
     }
 }
 
@@ -387,15 +386,13 @@ fn match_to_dict((start, text): (usize, &str)) -> Dict {
 fn captures_to_dict(cap: regex::Captures) -> Dict {
     let m = cap.get(0).expect("missing first match");
     dict! {
-        "start" => Value::Int(m.start() as i64),
-        "end" => Value::Int(m.end() as i64),
-        "text" => Value::Str(m.as_str().into()),
-        "captures" => Value::Array(
-            cap.iter()
-                .skip(1)
-                .map(|opt| opt.map_or(Value::None, |m| m.as_str().into()))
-                .collect(),
-        ),
+        "start" => m.start(),
+        "end" => m.end(),
+        "text" => m.as_str(),
+        "captures" =>  cap.iter()
+            .skip(1)
+            .map(|opt| opt.map_or(Value::None, |m| m.as_str().into_value()))
+            .collect::<Array>(),
     }
 }
 
@@ -503,6 +500,35 @@ impl From<Str> for String {
     }
 }
 
+cast! {
+    char,
+    self => Value::Str(self.into()),
+    string: Str => {
+        let mut chars = string.chars();
+        match (chars.next(), chars.next()) {
+            (Some(c), None) => c,
+            _ => Err("expected exactly one character")?,
+        }
+    },
+}
+
+cast! {
+    &str,
+    self => Value::Str(self.into()),
+}
+
+cast! {
+    EcoString,
+    self => Value::Str(self.into()),
+    v: Str => v.into(),
+}
+
+cast! {
+    String,
+    self => Value::Str(self.into()),
+    v: Str => v.into(),
+}
+
 /// A regular expression.
 #[derive(Clone)]
 pub struct Regex(regex::Regex);
@@ -540,8 +566,8 @@ impl Hash for Regex {
     }
 }
 
-cast_from_value! {
-    Regex: "regex",
+cast! {
+    type Regex: "regex",
 }
 
 /// A pattern which can be searched for in a string.
@@ -553,7 +579,7 @@ pub enum StrPattern {
     Regex(Regex),
 }
 
-cast_from_value! {
+cast! {
     StrPattern,
     text: Str => Self::Str(text),
     regex: Regex => Self::Regex(regex),
@@ -569,7 +595,7 @@ pub enum StrSide {
     End,
 }
 
-cast_from_value! {
+cast! {
     StrSide,
     align: GenAlign => match align {
         GenAlign::Start => Self::Start,
@@ -587,7 +613,7 @@ pub enum Replacement {
     Func(Func),
 }
 
-cast_from_value! {
+cast! {
     Replacement,
     text: Str => Self::Str(text),
     func: Func => Self::Func(func)

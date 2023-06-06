@@ -1,278 +1,185 @@
-pub use typst_macros::{cast_from_value, cast_to_value, Cast};
+pub use typst_macros::{cast, Cast};
 
-use std::num::{NonZeroI64, NonZeroU64, NonZeroUsize};
+use std::fmt::Write;
 use std::ops::Add;
 
 use ecow::EcoString;
 
-use super::{Array, Str, Value};
-use crate::diag::StrResult;
-use crate::eval::Type;
-use crate::geom::Length;
-use crate::syntax::Spanned;
+use super::Value;
+use crate::diag::{At, SourceResult, StrResult};
+use crate::syntax::{Span, Spanned};
 use crate::util::separated_list;
 
-/// Cast from a value to a specific type.
-pub trait Cast<V = Value>: Sized {
-    /// Check whether the value is castable to `Self`.
-    fn is(value: &V) -> bool;
-
-    /// Try to cast the value into an instance of `Self`.
-    fn cast(value: V) -> StrResult<Self>;
-
-    /// Describe the acceptable values.
+/// Determine details of a type.
+///
+/// Type casting works as follows:
+/// - [`Reflect for T`](Reflect) describes the possible Typst values for `T`
+///    (for documentation and autocomplete).
+/// - [`IntoValue for T`](IntoValue) is for conversion from `T -> Value`
+///   (infallible)
+/// - [`FromValue for T`](FromValue) is for conversion from `Value -> T`
+///   (fallible).
+///
+/// We can't use `TryFrom<Value>` due to conflicting impls. We could use
+/// `From<T> for Value`, but that inverses the impl and leads to tons of
+/// `.into()` all over the place that become hard to decipher.
+pub trait Reflect {
+    /// Describe the acceptable values for this type.
     fn describe() -> CastInfo;
 
-    /// Produce an error for an inacceptable value.
-    fn error(value: Value) -> StrResult<Self> {
-        Err(Self::describe().error(&value))
+    /// Whether the given value can be converted to `T`.
+    ///
+    /// This exists for performance. The check could also be done through the
+    /// [`CastInfo`], but it would be much more expensive (heap allocation +
+    /// dynamic checks instead of optimized machine code for each type).
+    fn castable(value: &Value) -> bool;
+
+    /// Produce an error message for an inacceptable value.
+    ///
+    /// ```
+    /// # use typst::eval::{Int, Reflect, Value};
+    /// assert_eq!(
+    ///   <Int as Reflect>::error(Value::None),
+    ///   "expected integer, found none",
+    /// );
+    /// ```
+    fn error(found: &Value) -> EcoString {
+        Self::describe().error(found)
     }
 }
 
-impl Cast for Value {
-    fn is(_: &Value) -> bool {
-        true
-    }
-
-    fn cast(value: Value) -> StrResult<Self> {
-        Ok(value)
-    }
-
+impl Reflect for Value {
     fn describe() -> CastInfo {
         CastInfo::Any
     }
+
+    fn castable(_: &Value) -> bool {
+        true
+    }
 }
 
-impl<T: Cast> Cast<Spanned<Value>> for T {
-    fn is(value: &Spanned<Value>) -> bool {
-        T::is(&value.v)
-    }
-
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
-        T::cast(value.v)
-    }
-
+impl<T: Reflect> Reflect for Spanned<T> {
     fn describe() -> CastInfo {
         T::describe()
     }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
 }
 
-impl<T: Cast> Cast<Spanned<Value>> for Spanned<T> {
-    fn is(value: &Spanned<Value>) -> bool {
-        T::is(&value.v)
+impl<T: Reflect> Reflect for StrResult<T> {
+    fn describe() -> CastInfo {
+        T::describe()
     }
 
-    fn cast(value: Spanned<Value>) -> StrResult<Self> {
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+}
+
+impl<T: Reflect> Reflect for SourceResult<T> {
+    fn describe() -> CastInfo {
+        T::describe()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+}
+
+impl<T: Reflect> Reflect for &T {
+    fn describe() -> CastInfo {
+        T::describe()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+}
+
+impl<T: Reflect> Reflect for &mut T {
+    fn describe() -> CastInfo {
+        T::describe()
+    }
+
+    fn castable(value: &Value) -> bool {
+        T::castable(value)
+    }
+}
+
+/// Cast a Rust type into a Typst [`Value`].
+///
+/// See also: [`Reflect`].
+pub trait IntoValue {
+    /// Cast this type into a value.
+    fn into_value(self) -> Value;
+}
+
+impl IntoValue for Value {
+    fn into_value(self) -> Value {
+        self
+    }
+}
+
+impl<T: IntoValue> IntoValue for Spanned<T> {
+    fn into_value(self) -> Value {
+        self.v.into_value()
+    }
+}
+
+/// Cast a Rust type or result into a [`SourceResult<Value>`].
+///
+/// Converts `T`, [`StrResult<T>`], or [`SourceResult<T>`] into
+/// [`SourceResult<Value>`] by `Ok`-wrapping or adding span information.
+pub trait IntoResult {
+    /// Cast this type into a value.
+    fn into_result(self, span: Span) -> SourceResult<Value>;
+}
+
+impl<T: IntoValue> IntoResult for T {
+    fn into_result(self, _: Span) -> SourceResult<Value> {
+        Ok(self.into_value())
+    }
+}
+
+impl<T: IntoValue> IntoResult for StrResult<T> {
+    fn into_result(self, span: Span) -> SourceResult<Value> {
+        self.map(IntoValue::into_value).at(span)
+    }
+}
+
+impl<T: IntoValue> IntoResult for SourceResult<T> {
+    fn into_result(self, _: Span) -> SourceResult<Value> {
+        self.map(IntoValue::into_value)
+    }
+}
+
+/// Try to cast a Typst [`Value`] into a Rust type.
+///
+/// See also: [`Reflect`].
+pub trait FromValue<V = Value>: Sized + Reflect {
+    /// Try to cast the value into an instance of `Self`.
+    fn from_value(value: V) -> StrResult<Self>;
+}
+
+impl FromValue for Value {
+    fn from_value(value: Value) -> StrResult<Self> {
+        Ok(value)
+    }
+}
+
+impl<T: FromValue> FromValue<Spanned<Value>> for T {
+    fn from_value(value: Spanned<Value>) -> StrResult<Self> {
+        T::from_value(value.v)
+    }
+}
+
+impl<T: FromValue> FromValue<Spanned<Value>> for Spanned<T> {
+    fn from_value(value: Spanned<Value>) -> StrResult<Self> {
         let span = value.span;
-        T::cast(value.v).map(|t| Spanned::new(t, span))
+        T::from_value(value.v).map(|t| Spanned::new(t, span))
     }
-
-    fn describe() -> CastInfo {
-        T::describe()
-    }
-}
-
-cast_to_value! {
-    v: u8 => Value::Int(v as i64)
-}
-
-cast_to_value! {
-    v: u16 => Value::Int(v as i64)
-}
-
-cast_from_value! {
-    u32,
-    int: i64 => int.try_into().map_err(|_| {
-        if int < 0 {
-            "number must be at least zero"
-        } else {
-            "number too large"
-        }
-    })?,
-}
-
-cast_to_value! {
-    v: u32 => Value::Int(v as i64)
-}
-
-cast_from_value! {
-    u64,
-    int: i64 => int.try_into().map_err(|_| {
-        if int < 0 {
-            "number must be at least zero"
-        } else {
-            "number too large"
-        }
-    })?,
-}
-
-cast_to_value! {
-    v: u64 => Value::Int(v as i64)
-}
-
-cast_from_value! {
-    usize,
-    int: i64 => int.try_into().map_err(|_| {
-        if int < 0 {
-            "number must be at least zero"
-        } else {
-            "number too large"
-        }
-    })?,
-}
-
-cast_to_value! {
-    v: usize => Value::Int(v as i64)
-}
-
-cast_to_value! {
-    v: i32 => Value::Int(v as i64)
-}
-
-cast_from_value! {
-    NonZeroI64,
-    int: i64 => int.try_into()
-        .map_err(|_| if int == 0 {
-            "number must not be zero"
-        } else {
-            "number too large"
-        })?,
-}
-
-cast_to_value! {
-    v: NonZeroI64 => Value::Int(v.get())
-}
-
-cast_from_value! {
-    NonZeroU64,
-    int: i64 => int
-        .try_into()
-        .and_then(|int: u64| int.try_into())
-        .map_err(|_| if int <= 0 {
-            "number must be positive"
-        } else {
-            "number too large"
-        })?,
-}
-
-cast_to_value! {
-    v: NonZeroU64 => Value::Int(v.get() as i64)
-}
-
-cast_from_value! {
-    NonZeroUsize,
-    int: i64 => int
-        .try_into()
-        .and_then(|int: usize| int.try_into())
-        .map_err(|_| if int <= 0 {
-            "number must be positive"
-        } else {
-            "number too large"
-        })?,
-}
-
-cast_to_value! {
-    v: NonZeroUsize => Value::Int(v.get() as i64)
-}
-
-cast_from_value! {
-    char,
-    string: Str => {
-        let mut chars = string.chars();
-        match (chars.next(), chars.next()) {
-            (Some(c), None) => c,
-            _ => Err("expected exactly one character")?,
-        }
-    },
-}
-
-cast_to_value! {
-    v: char => Value::Str(v.into())
-}
-
-cast_to_value! {
-    v: &str => Value::Str(v.into())
-}
-
-cast_from_value! {
-    EcoString,
-    v: Str => v.into(),
-}
-
-cast_to_value! {
-    v: EcoString => Value::Str(v.into())
-}
-
-cast_from_value! {
-    String,
-    v: Str => v.into(),
-}
-
-cast_to_value! {
-    v: String => Value::Str(v.into())
-}
-
-impl<T: Cast> Cast for Option<T> {
-    fn is(value: &Value) -> bool {
-        matches!(value, Value::None) || T::is(value)
-    }
-
-    fn cast(value: Value) -> StrResult<Self> {
-        match value {
-            Value::None => Ok(None),
-            v if T::is(&v) => Ok(Some(T::cast(v)?)),
-            _ => <Self as Cast>::error(value),
-        }
-    }
-
-    fn describe() -> CastInfo {
-        T::describe() + CastInfo::Type("none")
-    }
-}
-
-impl<T: Into<Value>> From<Spanned<T>> for Value {
-    fn from(spanned: Spanned<T>) -> Self {
-        spanned.v.into()
-    }
-}
-
-impl<T: Into<Value>> From<Option<T>> for Value {
-    fn from(v: Option<T>) -> Self {
-        match v {
-            Some(v) => v.into(),
-            None => Value::None,
-        }
-    }
-}
-
-impl<T: Cast> Cast for Vec<T> {
-    fn is(value: &Value) -> bool {
-        Array::is(value)
-    }
-
-    fn cast(value: Value) -> StrResult<Self> {
-        value.cast::<Array>()?.into_iter().map(Value::cast).collect()
-    }
-
-    fn describe() -> CastInfo {
-        <Array as Cast>::describe()
-    }
-}
-
-impl<T: Into<Value>> From<Vec<T>> for Value {
-    fn from(v: Vec<T>) -> Self {
-        Value::Array(v.into_iter().map(Into::into).collect())
-    }
-}
-
-/// A container for a variadic argument.
-pub trait Variadics {
-    /// The contained type.
-    type Inner;
-}
-
-impl<T> Variadics for Vec<T> {
-    type Inner = T;
 }
 
 /// Describes a possible value for a cast.
@@ -332,10 +239,10 @@ impl CastInfo {
         }
         if_chain::if_chain! {
             if let Value::Int(i) = found;
-            if parts.iter().any(|p| p == Length::TYPE_NAME);
+            if parts.iter().any(|p| p == "length");
             if !matching_type;
             then {
-                msg.push_str(&format!(": a length needs a unit – did you mean {i}pt?"));
+                write!(msg, ": a length needs a unit – did you mean {i}pt?").unwrap();
             }
         };
 
@@ -373,19 +280,37 @@ impl Add for CastInfo {
     }
 }
 
-/// Castable from nothing.
+/// A container for a variadic argument.
+pub trait Variadics {
+    /// The contained type.
+    type Inner;
+}
+
+impl<T> Variadics for Vec<T> {
+    type Inner = T;
+}
+
+/// An uninhabitable type.
 pub enum Never {}
 
-impl Cast for Never {
-    fn is(_: &Value) -> bool {
-        false
-    }
-
-    fn cast(value: Value) -> StrResult<Self> {
-        <Self as Cast>::error(value)
-    }
-
+impl Reflect for Never {
     fn describe() -> CastInfo {
         CastInfo::Union(vec![])
+    }
+
+    fn castable(_: &Value) -> bool {
+        false
+    }
+}
+
+impl IntoValue for Never {
+    fn into_value(self) -> Value {
+        match self {}
+    }
+}
+
+impl FromValue for Never {
+    fn from_value(value: Value) -> StrResult<Self> {
+        Err(Self::error(&value))
     }
 }

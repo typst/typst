@@ -21,46 +21,40 @@ use self::util::*;
 
 /// Turns a function into a `NativeFunc`.
 #[proc_macro_attribute]
-pub fn func(_: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
+pub fn func(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemFn);
-    func::func(item).unwrap_or_else(|err| err.to_compile_error()).into()
+    func::func(stream.into(), &item)
+        .unwrap_or_else(|err| err.to_compile_error())
+        .into()
 }
 
-/// Turns a struct into an element.
+/// Turns a type into an `Element`.
 #[proc_macro_attribute]
 pub fn element(stream: BoundaryStream, item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as syn::ItemStruct);
-    element::element(stream.into(), item)
+    element::element(stream.into(), &item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
 
-/// Implement `Cast` for an enum.
+/// Implements `Reflect`, `FromValue`, and `IntoValue` for an enum.
 #[proc_macro_derive(Cast, attributes(string))]
-pub fn cast(item: BoundaryStream) -> BoundaryStream {
+pub fn derive_cast(item: BoundaryStream) -> BoundaryStream {
     let item = syn::parse_macro_input!(item as DeriveInput);
-    castable::cast(item)
+    castable::derive_cast(&item)
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
 
-/// Implement `Cast` and optionally `Type` for a type.
+/// Implements `Reflect`, `FromValue`, and `IntoValue` for a type.
 #[proc_macro]
-pub fn cast_from_value(stream: BoundaryStream) -> BoundaryStream {
-    castable::cast_from_value(stream.into())
+pub fn cast(stream: BoundaryStream) -> BoundaryStream {
+    castable::cast(stream.into())
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
 
-/// Implement `From<T> for Value` for a type `T`.
-#[proc_macro]
-pub fn cast_to_value(stream: BoundaryStream) -> BoundaryStream {
-    castable::cast_to_value(stream.into())
-        .unwrap_or_else(|err| err.to_compile_error())
-        .into()
-}
-
-/// Define a list of symbols.
+/// Defines a list of `Symbol`s.
 #[proc_macro]
 pub fn symbols(stream: BoundaryStream) -> BoundaryStream {
     symbols::symbols(stream.into())

@@ -6,6 +6,7 @@ mod abs;
 mod align;
 mod angle;
 mod axes;
+mod color;
 mod corners;
 mod dir;
 mod ellipse;
@@ -26,29 +27,32 @@ mod smart;
 mod stroke;
 mod transform;
 
-pub use self::abs::*;
-pub use self::align::*;
-pub use self::angle::*;
-pub use self::axes::*;
-pub use self::corners::*;
-pub use self::dir::*;
-pub use self::ellipse::*;
-pub use self::em::*;
-pub use self::fr::*;
-pub use self::length::*;
-pub use self::paint::*;
-pub use self::path::*;
-pub use self::point::*;
-pub use self::ratio::*;
-pub use self::rel::*;
-pub use self::rounded::*;
-pub use self::scalar::*;
-pub use self::shape::*;
-pub use self::sides::*;
-pub use self::size::*;
-pub use self::smart::*;
-pub use self::stroke::*;
-pub use self::transform::*;
+pub use self::abs::{Abs, AbsUnit};
+pub use self::align::{Align, GenAlign, HorizontalAlign, VerticalAlign};
+pub use self::angle::{Angle, AngleUnit};
+pub use self::axes::{Axes, Axis};
+pub use self::color::{CmykColor, Color, LumaColor, RgbaColor};
+pub use self::corners::{Corner, Corners};
+pub use self::dir::Dir;
+pub use self::ellipse::ellipse;
+pub use self::em::Em;
+pub use self::fr::Fr;
+pub use self::length::Length;
+pub use self::paint::Paint;
+pub use self::path::{Path, PathItem};
+pub use self::point::Point;
+pub use self::ratio::Ratio;
+pub use self::rel::Rel;
+pub use self::rounded::rounded_rect;
+pub use self::scalar::Scalar;
+pub use self::shape::{Geometry, Shape};
+pub use self::sides::{Side, Sides};
+pub use self::size::Size;
+pub use self::smart::Smart;
+pub use self::stroke::{
+    DashLength, DashPattern, LineCap, LineJoin, PartialStroke, Stroke,
+};
+pub use self::transform::Transform;
 
 use std::cmp::Ordering;
 use std::f64::consts::PI;
@@ -58,7 +62,7 @@ use std::iter::Sum;
 use std::ops::*;
 
 use crate::diag::StrResult;
-use crate::eval::{array, cast_from_value, cast_to_value, Cast, CastInfo, Dict, Value};
+use crate::eval::{array, cast, Array, Dict, Value};
 use crate::model::{Fold, Resolve, StyleChain};
 
 /// Generic access to a structure's components.

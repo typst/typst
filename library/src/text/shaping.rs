@@ -1,13 +1,14 @@
+use std::borrow::Cow;
 use std::ops::Range;
 use std::str::FromStr;
 
 use az::SaturatingAs;
 use rustybuzz::{Feature, Tag, UnicodeBuffer};
-use typst::font::{Font, FontVariant};
+use typst::font::{Font, FontStyle, FontVariant};
 use typst::util::SliceExt;
 use unicode_script::{Script, UnicodeScript};
 
-use super::*;
+use super::{decorate, FontFamily, NumberType, NumberWidth, TextElem};
 use crate::layout::SpanMapper;
 use crate::prelude::*;
 

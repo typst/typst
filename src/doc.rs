@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 
-use crate::eval::{cast_from_value, cast_to_value, dict, Dict, Value};
+use crate::eval::{cast, dict, Dict, Value};
 use crate::font::Font;
 use crate::geom::{
     self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Length,
@@ -567,13 +567,10 @@ impl FromStr for Lang {
     }
 }
 
-cast_from_value! {
+cast! {
     Lang,
+    self => self.as_str().into_value(),
     string: EcoString => Self::from_str(&string)?,
-}
-
-cast_to_value! {
-    v: Lang => v.as_str().into()
 }
 
 /// An identifier for a region somewhere in the world.
@@ -608,13 +605,10 @@ impl FromStr for Region {
     }
 }
 
-cast_from_value! {
+cast! {
     Region,
+    self => self.as_str().into_value(),
     string: EcoString => Self::from_str(&string)?,
-}
-
-cast_to_value! {
-    v: Region => v.as_str().into()
 }
 
 /// Meta information that isn't visible or renderable.
@@ -633,6 +627,10 @@ pub enum Meta {
     Hide,
 }
 
+cast! {
+    type Meta: "meta",
+}
+
 impl Debug for Meta {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -642,10 +640,6 @@ impl Debug for Meta {
             Self::Hide => f.pad("Hide"),
         }
     }
-}
-
-cast_from_value! {
-    Meta: "meta",
 }
 
 /// A link destination.
@@ -659,19 +653,16 @@ pub enum Destination {
     Location(Location),
 }
 
-cast_from_value! {
+cast! {
     Destination,
+    self => match self {
+        Self::Url(v) => v.into_value(),
+        Self::Position(v) => v.into_value(),
+        Self::Location(v) => v.into_value(),
+    },
     v: EcoString => Self::Url(v),
     v: Position => Self::Position(v),
     v: Location => Self::Location(v),
-}
-
-cast_to_value! {
-    v: Destination => match v {
-        Destination::Url(v) => v.into(),
-        Destination::Position(v) => v.into(),
-        Destination::Location(v) => v.into(),
-    }
 }
 
 /// A physical position in a document.
@@ -683,8 +674,9 @@ pub struct Position {
     pub point: Point,
 }
 
-cast_from_value! {
+cast! {
     Position,
+    self => Value::Dict(self.into()),
     mut dict: Dict => {
         let page = dict.take("page")?.cast()?;
         let x: Length = dict.take("x")?.cast()?;
@@ -694,12 +686,14 @@ cast_from_value! {
     },
 }
 
-cast_to_value! {
-    v: Position => Value::Dict(dict! {
-        "page" => Value::Int(v.page.get() as i64),
-        "x" => Value::Length(v.point.x.into()),
-        "y" => Value::Length(v.point.y.into()),
-    })
+impl From<Position> for Dict {
+    fn from(pos: Position) -> Self {
+        dict! {
+            "page" => pos.page,
+            "x" => pos.point.x,
+            "y" => pos.point.y,
+        }
+    }
 }
 
 #[cfg(test)]

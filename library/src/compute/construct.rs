@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Datetime, Dynamic, Regex};
+use typst::eval::{Datetime, Regex};
 
 use crate::prelude::*;
 
@@ -23,19 +23,18 @@ use crate::prelude::*;
 ///
 /// Display: Integer
 /// Category: construct
-/// Returns: integer
 #[func]
 pub fn int(
     /// The value that should be converted to an integer.
     value: ToInt,
-) -> Value {
-    Value::Int(value.0)
+) -> i64 {
+    value.0
 }
 
 /// A value that can be cast to an integer.
-struct ToInt(i64);
+pub struct ToInt(i64);
 
-cast_from_value! {
+cast! {
     ToInt,
     v: bool => Self(v as i64),
     v: i64 => Self(v),
@@ -63,19 +62,18 @@ cast_from_value! {
 ///
 /// Display: Float
 /// Category: construct
-/// Returns: float
 #[func]
 pub fn float(
     /// The value that should be converted to a float.
     value: ToFloat,
-) -> Value {
-    Value::Float(value.0)
+) -> f64 {
+    value.0
 }
 
 /// A value that can be cast to a float.
-struct ToFloat(f64);
+pub struct ToFloat(f64);
 
-cast_from_value! {
+cast! {
     ToFloat,
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
@@ -95,13 +93,12 @@ cast_from_value! {
 ///
 /// Display: Luma
 /// Category: construct
-/// Returns: color
 #[func]
 pub fn luma(
     /// The gray component.
     gray: Component,
-) -> Value {
-    Value::Color(LumaColor::new(gray.0).into())
+) -> Color {
+    LumaColor::new(gray.0).into()
 }
 
 /// Create an RGB(A) color.
@@ -121,7 +118,6 @@ pub fn luma(
 ///
 /// Display: RGB
 /// Category: construct
-/// Returns: color
 #[func]
 pub fn rgb(
     /// The color in hexadecimal notation.
@@ -150,11 +146,14 @@ pub fn rgb(
     /// The alpha component.
     #[external]
     alpha: Component,
-) -> Value {
-    Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
+    /// The arguments.
+    args: Args,
+) -> SourceResult<Color> {
+    let mut args = args;
+    Ok(if let Some(string) = args.find::<Spanned<EcoString>>()? {
         match RgbaColor::from_str(&string.v) {
             Ok(color) => color.into(),
-            Err(msg) => bail!(string.span, msg),
+            Err(msg) => bail!(string.span, "{msg}"),
         }
     } else {
         let Component(r) = args.expect("red component")?;
@@ -166,9 +165,9 @@ pub fn rgb(
 }
 
 /// An integer or ratio component.
-struct Component(u8);
+pub struct Component(u8);
 
-cast_from_value! {
+cast! {
     Component,
     v: i64 => match v {
         0 ..= 255 => Self(v as u8),
@@ -208,10 +207,9 @@ cast_from_value! {
 ///
 /// Display: Datetime
 /// Category: construct
-/// Returns: datetime
 #[func]
 #[scope(
-    scope.define("today", datetime_today);
+    scope.define("today", datetime_today_func());
     scope
 )]
 pub fn datetime(
@@ -233,95 +231,77 @@ pub fn datetime(
     /// The second of the datetime.
     #[named]
     second: Option<SecondComponent>,
-) -> Value {
+) -> StrResult<Datetime> {
     let time = match (hour, minute, second) {
         (Some(hour), Some(minute), Some(second)) => {
             match time::Time::from_hms(hour.0, minute.0, second.0) {
                 Ok(time) => Some(time),
-                Err(_) => bail!(args.span, "time is invalid"),
+                Err(_) => bail!("time is invalid"),
             }
         }
         (None, None, None) => None,
-        _ => bail!(args.span, "time is incomplete"),
+        _ => bail!("time is incomplete"),
     };
 
     let date = match (year, month, day) {
         (Some(year), Some(month), Some(day)) => {
             match time::Date::from_calendar_date(year.0, month.0, day.0) {
                 Ok(date) => Some(date),
-                Err(_) => bail!(args.span, "date is invalid"),
+                Err(_) => bail!("date is invalid"),
             }
         }
         (None, None, None) => None,
-        _ => bail!(args.span, "date is incomplete"),
+        _ => bail!("date is incomplete"),
     };
 
-    match (date, time) {
-        (Some(date), Some(time)) => Value::Dyn(Dynamic::new(Datetime::Datetime(
-            PrimitiveDateTime::new(date, time),
-        ))),
-        (Some(date), None) => Value::Dyn(Dynamic::new(Datetime::Date(date))),
-        (None, Some(time)) => Value::Dyn(Dynamic::new(Datetime::Time(time))),
-        (None, None) => {
-            bail!(args.span, "at least one of date or time must be fully specified")
+    Ok(match (date, time) {
+        (Some(date), Some(time)) => {
+            Datetime::Datetime(PrimitiveDateTime::new(date, time))
         }
-    }
+        (Some(date), None) => Datetime::Date(date),
+        (None, Some(time)) => Datetime::Time(time),
+        (None, None) => {
+            bail!("at least one of date or time must be fully specified")
+        }
+    })
 }
 
-struct YearComponent(i32);
-struct MonthComponent(Month);
-struct DayComponent(u8);
-struct HourComponent(u8);
-struct MinuteComponent(u8);
-struct SecondComponent(u8);
+pub struct YearComponent(i32);
+pub struct MonthComponent(Month);
+pub struct DayComponent(u8);
+pub struct HourComponent(u8);
+pub struct MinuteComponent(u8);
+pub struct SecondComponent(u8);
 
-cast_from_value!(
+cast! {
     YearComponent,
-    v: i64 => match i32::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("year is invalid")?
-    }
-);
+    v: i32 => Self(v),
+}
 
-cast_from_value!(
+cast! {
     MonthComponent,
-    v: i64 => match u8::try_from(v).ok().and_then(|n1| Month::try_from(n1).ok()).map(Self) {
-        Some(m) => m,
-        _ => Err("month is invalid")?
-    }
-);
+    v: u8 => Self(Month::try_from(v).map_err(|_| "month is invalid")?)
+}
 
-cast_from_value!(
+cast! {
     DayComponent,
-    v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("day is invalid")?
-    }
-);
+    v: u8 => Self(v),
+}
 
-cast_from_value!(
+cast! {
     HourComponent,
-    v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("hour is invalid")?
-    }
-);
+    v: u8 => Self(v),
+}
 
-cast_from_value!(
+cast! {
     MinuteComponent,
-    v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("minute is invalid")?
-    }
-);
+    v: u8 => Self(v),
+}
 
-cast_from_value!(
+cast! {
     SecondComponent,
-    v: i64 => match u8::try_from(v) {
-        Ok(n) => Self(n),
-        _ => Err("second is invalid")?
-    }
-);
+    v: u8 => Self(v),
+}
 
 /// Returns the current date.
 ///
@@ -333,7 +313,6 @@ cast_from_value!(
 ///
 /// Display: Today
 /// Category: construct
-/// Returns: datetime
 #[func]
 pub fn datetime_today(
     /// An offset to apply to the current UTC date. If set to `{auto}`, the
@@ -341,13 +320,13 @@ pub fn datetime_today(
     #[named]
     #[default]
     offset: Smart<i64>,
-) -> Value {
-    let current_date = match vm.vt.world.today(offset.as_custom()) {
-        Some(d) => d,
-        None => bail!(args.span, "unable to get the current date"),
-    };
-
-    Value::Dyn(Dynamic::new(current_date))
+    /// The virtual machine.
+    vt: &mut Vt,
+) -> StrResult<Datetime> {
+    Ok(vt
+        .world
+        .today(offset.as_custom())
+        .ok_or("unable to get the current date")?)
 }
 
 /// Create a CMYK color.
@@ -365,7 +344,6 @@ pub fn datetime_today(
 ///
 /// Display: CMYK
 /// Category: construct
-/// Returns: color
 #[func]
 pub fn cmyk(
     /// The cyan component.
@@ -376,14 +354,14 @@ pub fn cmyk(
     yellow: RatioComponent,
     /// The key component.
     key: RatioComponent,
-) -> Value {
-    Value::Color(CmykColor::new(cyan.0, magenta.0, yellow.0, key.0).into())
+) -> Color {
+    CmykColor::new(cyan.0, magenta.0, yellow.0, key.0).into()
 }
 
 /// A component that must be a ratio.
-struct RatioComponent(u8);
+pub struct RatioComponent(u8);
 
-cast_from_value! {
+cast! {
     RatioComponent,
     v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
@@ -413,7 +391,6 @@ cast_from_value! {
 ///
 /// Display: Symbol
 /// Category: construct
-/// Returns: symbol
 #[func]
 pub fn symbol(
     /// The variants of the symbol.
@@ -425,10 +402,12 @@ pub fn symbol(
     /// all attached modifiers and the minimum number of other modifiers.
     #[variadic]
     variants: Vec<Spanned<Variant>>,
-) -> Value {
+    /// The callsite span.
+    span: Span,
+) -> SourceResult<Symbol> {
     let mut list = Vec::new();
     if variants.is_empty() {
-        bail!(args.span, "expected at least one variant");
+        bail!(span, "expected at least one variant");
     }
     for Spanned { v, span } in variants {
         if list.iter().any(|(prev, _)| &v.0 == prev) {
@@ -436,13 +415,13 @@ pub fn symbol(
         }
         list.push((v.0, v.1));
     }
-    Value::Symbol(Symbol::runtime(list.into_boxed_slice()))
+    Ok(Symbol::runtime(list.into_boxed_slice()))
 }
 
 /// A value that can be cast to a symbol.
-struct Variant(EcoString, char);
+pub struct Variant(EcoString, char);
 
-cast_from_value! {
+cast! {
     Variant,
     c: char => Self(EcoString::new(), c),
     array: Array => {
@@ -476,11 +455,10 @@ cast_from_value! {
 ///
 /// Display: String
 /// Category: construct
-/// Returns: string
 #[func]
 #[scope(
-    scope.define("to-unicode", to_unicode);
-    scope.define("from-unicode", from_unicode);
+    scope.define("to-unicode", str_to_unicode_func());
+    scope.define("from-unicode", str_from_unicode_func());
     scope
 )]
 pub fn str(
@@ -490,13 +468,13 @@ pub fn str(
     #[named]
     #[default(Spanned::new(10, Span::detached()))]
     base: Spanned<i64>,
-) -> Value {
-    match value {
+) -> SourceResult<Str> {
+    Ok(match value {
         ToStr::Str(s) => {
             if base.v != 10 {
                 bail!(base.span, "base is only supported for integers");
             }
-            Value::Str(s)
+            s
         }
         ToStr::Int(n) => {
             if base.v < 2 || base.v > 36 {
@@ -504,18 +482,18 @@ pub fn str(
             }
             int_to_base(n, base.v).into()
         }
-    }
+    })
 }
 
 /// A value that can be cast to a string.
-enum ToStr {
+pub enum ToStr {
     /// A string value ready to be used as-is.
     Str(Str),
     /// An integer about to be formatted in a given base.
     Int(i64),
 }
 
-cast_from_value! {
+cast! {
     ToStr,
     v: i64 => Self::Int(v),
     v: f64 => Self::Str(format_str!("{}", v)),
@@ -572,16 +550,14 @@ fn int_to_base(mut n: i64, base: i64) -> EcoString {
 ///
 /// Display: String To Unicode
 /// Category: construct
-/// Returns: int
 #[func]
-pub fn to_unicode(
+pub fn str_to_unicode(
     /// The character that should be converted.
     value: char,
-) -> Value {
-    Value::Int(From::<u32>::from(value.into()))
+) -> u32 {
+    value.into()
 }
 
-#[func]
 /// Converts a unicode code point into its corresponding string.
 ///
 /// ```example
@@ -590,18 +566,18 @@ pub fn to_unicode(
 ///
 /// Display: Sting From Unicode
 /// Category: construct
-/// Returns: string
-pub fn from_unicode(
+#[func]
+pub fn str_from_unicode(
     /// The code point that should be converted.
     value: CodePoint,
-) -> Value {
-    Value::Str(format_str!("{}", value.0))
+) -> Str {
+    format_str!("{}", value.0)
 }
 
 /// The numeric representation of a single unicode code point.
-struct CodePoint(char);
+pub struct CodePoint(char);
 
-cast_from_value! {
+cast! {
     CodePoint,
     v: i64 => {
         Self(v.try_into().ok().and_then(|v: u32| v.try_into().ok()).ok_or_else(
@@ -631,13 +607,12 @@ cast_from_value! {
 ///
 /// Display: Label
 /// Category: construct
-/// Returns: label
 #[func]
 pub fn label(
     /// The name of the label.
     name: EcoString,
-) -> Value {
-    Value::Label(Label(name))
+) -> Label {
+    Label(name)
 }
 
 /// Create a regular expression from a string.
@@ -663,7 +638,6 @@ pub fn label(
 ///
 /// Display: Regex
 /// Category: construct
-/// Returns: regex
 #[func]
 pub fn regex(
     /// The regular expression as a string.
@@ -677,8 +651,8 @@ pub fn regex(
     /// and extract its text to use it for your regular expressions:
     /// ```{regex(`\d+\.\d+\.\d+`.text)}```.
     regex: Spanned<EcoString>,
-) -> Value {
-    Regex::new(&regex.v).at(regex.span)?.into()
+) -> SourceResult<Regex> {
+    Regex::new(&regex.v).at(regex.span)
 }
 
 /// Create an array consisting of a sequence of numbers.
@@ -698,7 +672,6 @@ pub fn regex(
 ///
 /// Display: Range
 /// Category: construct
-/// Returns: array
 #[func]
 pub fn range(
     /// The start of the range (inclusive).
@@ -712,7 +685,10 @@ pub fn range(
     #[named]
     #[default(NonZeroI64::new(1).unwrap())]
     step: NonZeroI64,
-) -> Value {
+    /// The arguments.
+    args: Args,
+) -> SourceResult<Array> {
+    let mut args = args;
     let first = args.expect::<i64>("end")?;
     let (start, end) = match args.eat::<i64>()? {
         Some(second) => (first, second),
@@ -729,7 +705,7 @@ pub fn range(
         x += step;
     }
 
-    Value::Array(array)
+    Ok(array)
 }
 
 #[cfg(test)]

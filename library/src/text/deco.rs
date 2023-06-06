@@ -251,8 +251,8 @@ impl Fold for Decoration {
     }
 }
 
-cast_from_value! {
-    Decoration: "decoration",
+cast! {
+    type Decoration: "decoration",
 }
 
 /// A kind of decorative line.

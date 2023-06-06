@@ -341,7 +341,7 @@ impl PageElem {
         let footer_descent = self.footer_descent(styles);
 
         let numbering_meta = FrameItem::Meta(
-            Meta::PageNumbering(self.numbering(styles).into()),
+            Meta::PageNumbering(self.numbering(styles).into_value()),
             Size::zero(),
         );
 
@@ -451,22 +451,19 @@ impl Marginal {
     pub fn resolve(&self, vt: &mut Vt, page: usize) -> SourceResult<Content> {
         Ok(match self {
             Self::Content(content) => content.clone(),
-            Self::Func(func) => func.call_vt(vt, [Value::Int(page as i64)])?.display(),
+            Self::Func(func) => func.call_vt(vt, [page])?.display(),
         })
     }
 }
 
-cast_from_value! {
+cast! {
     Marginal,
+    self => match self {
+        Self::Content(v) => v.into_value(),
+        Self::Func(v) => v.into_value(),
+    },
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
-}
-
-cast_to_value! {
-    v: Marginal => match v {
-        Marginal::Content(v) => v.into(),
-        Marginal::Func(v) => v.into(),
-    }
 }
 
 /// Specification of a paper.
@@ -517,16 +514,13 @@ macro_rules! papers {
             }
         }
 
-        cast_from_value! {
+        cast! {
             Paper,
+            self => self.name.into_value(),
             $(
                 /// Produces a paper of the respective size.
                 $name => Self::$var,
             )*
-        }
-
-        cast_to_value! {
-            v: Paper => v.name.into()
         }
     };
 }

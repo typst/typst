@@ -20,9 +20,9 @@ use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
-use typst::diag::{bail, FileError, FileResult};
+use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{func, Datetime, Library, Value};
+use typst::eval::{func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Sides, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
@@ -145,20 +145,18 @@ fn main() {
 fn library() -> Library {
     /// Display: Test
     /// Category: test
-    /// Returns:
     #[func]
-    fn test(lhs: Value, rhs: Value) -> Value {
+    fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
         if lhs != rhs {
-            bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
+            bail!("Assertion failed: {lhs:?} != {rhs:?}");
         }
-        Value::None
+        Ok(NoneValue)
     }
 
     /// Display: Print
     /// Category: test
-    /// Returns:
     #[func]
-    fn print(#[variadic] values: Vec<Value>) -> Value {
+    fn print(#[variadic] values: Vec<Value>) -> NoneValue {
         let mut stdout = io::stdout().lock();
         write!(stdout, "> ").unwrap();
         for (i, value) in values.into_iter().enumerate() {
@@ -168,7 +166,7 @@ fn library() -> Library {
             write!(stdout, "{value:?}").unwrap();
         }
         writeln!(stdout).unwrap();
-        Value::None
+        NoneValue
     }
 
     let mut lib = typst_library::build();
@@ -185,8 +183,8 @@ fn library() -> Library {
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
 
     // Hook up helpers into the global scope.
-    lib.global.scope_mut().define("test", test);
-    lib.global.scope_mut().define("print", print);
+    lib.global.scope_mut().define("test", test_func());
+    lib.global.scope_mut().define("print", print_func());
     lib.global
         .scope_mut()
         .define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));

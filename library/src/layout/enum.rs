@@ -283,7 +283,7 @@ pub struct EnumItem {
     pub body: Content,
 }
 
-cast_from_value! {
+cast! {
     EnumItem,
     array: Array => {
         let mut iter = array.into_iter();
@@ -298,13 +298,10 @@ cast_from_value! {
 
 struct Parent(usize);
 
-cast_from_value! {
+cast! {
     Parent,
+    self => self.0.into_value(),
     v: usize => Self(v),
-}
-
-cast_to_value! {
-    v: Parent => v.0.into()
 }
 
 impl Fold for Parent {

@@ -147,7 +147,7 @@ pub struct TermItem {
     pub description: Content,
 }
 
-cast_from_value! {
+cast! {
     TermItem,
     array: Array => {
         let mut iter = array.into_iter();

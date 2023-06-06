@@ -135,8 +135,9 @@ impl Sum for Em {
     }
 }
 
-cast_to_value! {
-    v: Em => Value::Length(v.into())
+cast! {
+     Em,
+     self => Value::Length(self.into()),
 }
 
 impl Resolve for Em {

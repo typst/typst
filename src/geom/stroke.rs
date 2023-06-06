@@ -1,3 +1,5 @@
+use crate::eval::{Cast, FromValue};
+
 use super::*;
 
 /// A stroke of a geometric shape.
@@ -169,8 +171,78 @@ impl<T: Debug> Debug for PartialStroke<T> {
     }
 }
 
+impl Resolve for PartialStroke {
+    type Output = PartialStroke<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        PartialStroke {
+            paint: self.paint,
+            thickness: self.thickness.resolve(styles),
+            line_cap: self.line_cap,
+            line_join: self.line_join,
+            dash_pattern: self.dash_pattern.resolve(styles),
+            miter_limit: self.miter_limit,
+        }
+    }
+}
+
+impl Fold for PartialStroke<Abs> {
+    type Output = Self;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        Self {
+            paint: self.paint.or(outer.paint),
+            thickness: self.thickness.or(outer.thickness),
+            line_cap: self.line_cap.or(outer.line_cap),
+            line_join: self.line_join.or(outer.line_join),
+            dash_pattern: self.dash_pattern.or(outer.dash_pattern),
+            miter_limit: self.miter_limit.or(outer.miter_limit),
+        }
+    }
+}
+
+cast! {
+    type PartialStroke: "stroke",
+    thickness: Length => Self {
+        thickness: Smart::Custom(thickness),
+        ..Default::default()
+    },
+    color: Color => Self {
+        paint: Smart::Custom(color.into()),
+        ..Default::default()
+    },
+    mut dict: Dict => {
+        fn take<T: FromValue>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {
+            Ok(dict.take(key).ok().map(T::from_value)
+                .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto))
+        }
+
+        let paint = take::<Paint>(&mut dict, "paint")?;
+        let thickness = take::<Length>(&mut dict, "thickness")?;
+        let line_cap = take::<LineCap>(&mut dict, "cap")?;
+        let line_join = take::<LineJoin>(&mut dict, "join")?;
+        let dash_pattern = take::<Option<DashPattern>>(&mut dict, "dash")?;
+        let miter_limit = take::<f64>(&mut dict, "miter-limit")?;
+        dict.finish(&["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
+
+        Self {
+            paint,
+            thickness,
+            line_cap,
+            line_join,
+            dash_pattern,
+            miter_limit: miter_limit.map(Scalar),
+        }
+    },
+}
+
+cast! {
+    PartialStroke<Abs>,
+    self => self.map(Length::from).into_value(),
+}
+
 /// The line cap of a stroke
-#[derive(Cast, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineCap {
     Butt,
     Round,
@@ -188,7 +260,7 @@ impl Debug for LineCap {
 }
 
 /// The line join of a stroke
-#[derive(Cast, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineJoin {
     Miter,
     Round,
@@ -235,6 +307,46 @@ impl<T: Default> From<Vec<DashLength<T>>> for DashPattern<T> {
     }
 }
 
+impl Resolve for DashPattern {
+    type Output = DashPattern<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        DashPattern {
+            array: self.array.into_iter().map(|l| l.resolve(styles)).collect(),
+            phase: self.phase.resolve(styles),
+        }
+    }
+}
+
+// Same names as tikz:
+// https://tex.stackexchange.com/questions/45275/tikz-get-values-for-predefined-dash-patterns
+cast! {
+    DashPattern,
+
+    "solid" => Vec::new().into(),
+    "dotted" => vec![DashLength::LineWidth, Abs::pt(2.0).into()].into(),
+    "densely-dotted" => vec![DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    "loosely-dotted" => vec![DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+    "dashed" => vec![Abs::pt(3.0).into(), Abs::pt(3.0).into()].into(),
+    "densely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into()].into(),
+    "loosely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(6.0).into()].into(),
+    "dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
+    "densely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
+    "loosely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
+
+    array: Vec<DashLength> => Self { array, phase: Length::zero() },
+    mut dict: Dict => {
+        let array: Vec<DashLength> = dict.take("array")?.cast()?;
+        let phase = dict.take("phase").ok().map(Value::cast)
+            .transpose()?.unwrap_or(Length::zero());
+        dict.finish(&["array", "phase"])?;
+        Self {
+            array,
+            phase,
+        }
+    },
+}
+
 /// The length of a dash in a line dash pattern
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum DashLength<T = Length> {
@@ -257,133 +369,19 @@ impl<T> DashLength<T> {
     }
 }
 
-cast_from_value! {
-    DashLength: "dash length",
-    "dot" => Self::LineWidth,
-    l: Length => Self::Length(l),
-}
-
 impl Resolve for DashLength {
     type Output = DashLength<Abs>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self {
             Self::LineWidth => DashLength::LineWidth,
-            Self::Length(l) => DashLength::Length(l.resolve(styles)),
+            Self::Length(v) => DashLength::Length(v.resolve(styles)),
         }
     }
 }
 
-cast_from_value! {
-    DashPattern: "dash pattern",
-    // Use same names as tikz:
-    // https://tex.stackexchange.com/questions/45275/tikz-get-values-for-predefined-dash-patterns
-    "solid" => Vec::new().into(),
-    "dotted" => vec![DashLength::LineWidth, Abs::pt(2.0).into()].into(),
-    "densely-dotted" => vec![DashLength::LineWidth, Abs::pt(1.0).into()].into(),
-    "loosely-dotted" => vec![DashLength::LineWidth, Abs::pt(4.0).into()].into(),
-    "dashed" => vec![Abs::pt(3.0).into(), Abs::pt(3.0).into()].into(),
-    "densely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into()].into(),
-    "loosely-dashed" => vec![Abs::pt(3.0).into(), Abs::pt(6.0).into()].into(),
-    "dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(2.0).into(), DashLength::LineWidth, Abs::pt(2.0).into()].into(),
-    "densely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(1.0).into(), DashLength::LineWidth, Abs::pt(1.0).into()].into(),
-    "loosely-dash-dotted" => vec![Abs::pt(3.0).into(), Abs::pt(4.0).into(), DashLength::LineWidth, Abs::pt(4.0).into()].into(),
-    array: Vec<DashLength> => {
-        Self {
-            array,
-            phase: Length::zero(),
-        }
-    },
-    mut dict: Dict => {
-        let array: Vec<DashLength> = dict.take("array")?.cast()?;
-        let phase = dict.take("phase").ok().map(Length::cast)
-            .transpose()?.unwrap_or(Length::zero());
-
-        dict.finish(&["array", "phase"])?;
-
-        Self {
-            array,
-            phase,
-        }
-    },
-}
-
-impl Resolve for DashPattern {
-    type Output = DashPattern<Abs>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        DashPattern {
-            array: self.array.into_iter().map(|l| l.resolve(styles)).collect(),
-            phase: self.phase.resolve(styles),
-        }
-    }
-}
-
-cast_from_value! {
-    PartialStroke: "stroke",
-    thickness: Length => Self {
-        thickness: Smart::Custom(thickness),
-        ..Default::default()
-    },
-    color: Color => Self {
-        paint: Smart::Custom(color.into()),
-        ..Default::default()
-    },
-    mut dict: Dict => {
-        fn take<T: Cast<Value>>(dict: &mut Dict, key: &str) -> StrResult<Smart<T>> {
-            Ok(dict.take(key).ok().map(T::cast)
-                .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto))
-        }
-
-        let paint = take::<Paint>(&mut dict, "paint")?;
-        let thickness = take::<Length>(&mut dict, "thickness")?;
-        let line_cap = take::<LineCap>(&mut dict, "cap")?;
-        let line_join = take::<LineJoin>(&mut dict, "join")?;
-        let dash_pattern = take::<Option<DashPattern>>(&mut dict, "dash")?;
-        let miter_limit = take::<f64>(&mut dict, "miter-limit")?;
-        dict.finish(&["paint", "thickness", "cap", "join", "dash", "miter-limit"])?;
-
-        Self {
-            paint,
-            thickness,
-            line_cap,
-            line_join,
-            dash_pattern,
-            miter_limit: miter_limit.map(Scalar),
-        }
-    },
-}
-
-impl Resolve for PartialStroke {
-    type Output = PartialStroke<Abs>;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        PartialStroke {
-            paint: self.paint,
-            thickness: self.thickness.resolve(styles),
-            line_cap: self.line_cap,
-            line_join: self.line_join,
-            dash_pattern: self.dash_pattern.resolve(styles),
-            miter_limit: self.miter_limit,
-        }
-    }
-}
-
-impl Fold for PartialStroke<Abs> {
-    type Output = Self;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        Self {
-            paint: self.paint.or(outer.paint),
-            thickness: self.thickness.or(outer.thickness),
-            line_cap: self.line_cap.or(outer.line_cap),
-            line_join: self.line_join.or(outer.line_join),
-            dash_pattern: self.dash_pattern.or(outer.dash_pattern),
-            miter_limit: self.miter_limit.or(outer.miter_limit),
-        }
-    }
-}
-
-cast_to_value! {
-    v: PartialStroke<Abs> => v.map(Length::from).into()
+cast! {
+    DashLength,
+    "dot" => Self::LineWidth,
+    v: Length => Self::Length(v),
 }

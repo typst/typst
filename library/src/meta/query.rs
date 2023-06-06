@@ -98,7 +98,6 @@ use crate::prelude::*;
 ///
 /// Display: Query
 /// Category: meta
-/// Returns: array
 #[func]
 pub fn query(
     /// Can be an element function like a `heading` or `figure`, a `{<label>}`
@@ -111,7 +110,6 @@ pub fn query(
     /// have an explicit label attached to them. This limitation will be
     /// resolved in the future.
     target: LocatableSelector,
-
     /// Can be any location. Why is it required then? As noted before, Typst has
     /// to evaluate parts of your code multiple times to determine the values of
     /// all state. By only allowing this function within
@@ -120,14 +118,14 @@ pub fn query(
     /// level of a module, the evaluation of the whole module and its exports
     /// could depend on the query's result.
     location: Location,
-) -> Value {
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> Array {
     let _ = location;
     let vec = vm.vt.introspector.query(&target.0);
-    Value::Array(
-        vec.into_iter()
-            .map(|elem| Value::Content(elem.into_inner()))
-            .collect(),
-    )
+    vec.into_iter()
+        .map(|elem| Value::Content(elem.into_inner()))
+        .collect()
 }
 
 /// Turns a value into a selector. The following values are accepted:
@@ -137,12 +135,11 @@ pub fn query(
 ///
 /// Display: Selector
 /// Category: meta
-/// Returns: content
 #[func]
 pub fn selector(
     /// Can be an element function like a `heading` or `figure`, a `{<label>}`
     /// or a more complex selector like `{heading.where(level: 1)}`.
     target: Selector,
-) -> Value {
-    target.into()
+) -> Selector {
+    target
 }

@@ -104,9 +104,7 @@ impl Synthesize for HeadingElem {
         let supplement = match self.supplement(styles) {
             Smart::Auto => TextElem::packed(self.local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(supplement)) => {
-                supplement.resolve(vt, [self.clone().into()])?
-            }
+            Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
         };
 
         self.push_level(self.level(styles));
@@ -164,7 +162,7 @@ impl Count for HeadingElem {
     }
 }
 
-cast_from_value! {
+cast! {
     HeadingElem,
     v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
 }

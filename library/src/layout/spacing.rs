@@ -157,7 +157,7 @@ impl Behave for VElem {
     }
 }
 
-cast_from_value! {
+cast! {
     VElem,
     v: Content => v.to::<Self>().cloned().ok_or("expected `v` element")?,
 }
@@ -221,23 +221,20 @@ impl PartialOrd for Spacing {
     }
 }
 
-cast_from_value! {
+cast! {
     Spacing,
-    v: Rel<Length> => Self::Rel(v),
-    v: Fr => Self::Fr(v),
-}
-
-cast_to_value! {
-    v: Spacing => match v {
-        Spacing::Rel(rel) => {
+    self => match self {
+        Self::Rel(rel) => {
             if rel.rel.is_zero() {
-                Value::Length(rel.abs)
+                rel.abs.into_value()
             } else if rel.abs.is_zero() {
-                Value::Ratio(rel.rel)
+                rel.rel.into_value()
             } else {
-                Value::Relative(rel)
+                rel.into_value()
             }
         }
-        Spacing::Fr(fr) => Value::Fraction(fr),
-    }
+        Self::Fr(fr) => fr.into_value(),
+    },
+    v: Rel<Length> => Self::Rel(v),
+    v: Fr => Self::Fr(v),
 }

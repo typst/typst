@@ -1,6 +1,9 @@
-use self::PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
-use crate::prelude::*;
 use kurbo::{CubicBez, ParamCurveExtrema};
+use typst::eval::Reflect;
+
+use crate::prelude::*;
+
+use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 
 /// A path through a list of points, connected by Bezier curves.
 ///
@@ -179,8 +182,13 @@ impl PathVertex {
     }
 }
 
-cast_from_value! {
+cast! {
     PathVertex,
+    self => match self {
+        Vertex(x) => x.into_value(),
+        MirroredControlPoint(x, c) => array![x, c].into_value(),
+        AllControlPoints(x, c1, c2) => array![x, c1, c2].into_value(),
+    },
     array: Array => {
         let mut iter = array.into_iter();
         match (iter.next(), iter.next(), iter.next(), iter.next()) {
@@ -188,7 +196,7 @@ cast_from_value! {
                 Vertex(a.cast()?)
             },
             (Some(a), Some(b), None, None) => {
-                if Axes::<Rel<Length>>::is(&a) {
+                if Axes::<Rel<Length>>::castable(&a) {
                     MirroredControlPoint(a.cast()?, b.cast()?)
                 } else {
                     Vertex(Axes::new(a.cast()?, b.cast()?))
@@ -200,20 +208,4 @@ cast_from_value! {
             _ => Err("path vertex must have 1, 2, or 3 points")?,
         }
     },
-}
-
-cast_to_value! {
-    v: PathVertex => {
-        match v {
-            PathVertex::Vertex(x) => {
-                Value::from(x)
-            },
-            PathVertex::MirroredControlPoint(x, c) => {
-                Value::Array(array![x, c])
-            },
-            PathVertex::AllControlPoints(x, c1, c2) => {
-                Value::Array(array![x, c1, c2])
-            },
-        }
-    }
 }

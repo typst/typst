@@ -211,7 +211,7 @@ impl Finalize for FootnoteEntry {
     }
 }
 
-cast_from_value! {
+cast! {
     FootnoteElem,
     v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }

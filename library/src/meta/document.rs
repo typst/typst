@@ -78,12 +78,9 @@ impl LayoutRoot for DocumentElem {
 #[derive(Debug, Default, Clone, Hash)]
 pub struct Author(Vec<EcoString>);
 
-cast_from_value! {
+cast! {
     Author,
+    self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
-}
-
-cast_to_value! {
-    v: Author => v.0.into()
 }
