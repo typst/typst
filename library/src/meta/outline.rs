@@ -459,7 +459,6 @@ cast_to_value! {
 ///     link(elem-loc, page-number)
 ///   }
 /// })
-/// ```
 ///
 /// #set page(numbering: "I")
 /// #set heading(numbering: "I.a.")
