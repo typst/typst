@@ -279,7 +279,7 @@ impl World for TestWorld {
     }
 
     fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_u16() as usize]
+        &self.sources[id.as_u16() as usize]
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
@@ -307,7 +307,7 @@ impl TestWorld {
         let slot = self.slot(path);
         let id = if let Some(&Ok(id)) = slot.source.get() {
             drop(slot);
-            self.sources.as_mut()[id.into_u16() as usize].replace(text);
+            self.sources.as_mut()[id.as_u16() as usize].replace(text);
             id
         } else {
             let id = self.insert(path, text);

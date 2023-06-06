@@ -570,7 +570,7 @@ impl World for SystemWorld {
     }
 
     fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_u16() as usize]
+        &self.sources[id.as_u16() as usize]
     }
 
     fn book(&self) -> &Prehashed<FontBook> {

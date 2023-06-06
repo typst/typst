@@ -478,7 +478,7 @@ impl World for DocWorld {
     }
 
     fn source(&self, id: SourceId) -> &Source {
-        assert_eq!(id.into_u16(), 0, "invalid source id");
+        assert_eq!(id.as_u16(), 0, "invalid source id");
         &self.0
     }
 
