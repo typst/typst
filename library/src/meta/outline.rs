@@ -511,6 +511,7 @@ pub struct OutlineEntry {
     /// gap. For example, `{box(width: 1fr, repeat[-]}` would show precisely
     /// as many `-` characters as necessary to fill a particular gap. See the
     /// [box]($func/box) documentation for more information.
+    #[default(Some(RepeatElem::new(TextElem::packed(".")).pack()))]
     pub fill: Option<Content>,
 }
 
