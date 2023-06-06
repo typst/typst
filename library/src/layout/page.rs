@@ -261,6 +261,12 @@ pub struct PageElem {
     /// ```
     pub foreground: Option<Content>,
 
+    /// Whether the page should be aligned to an even or odd page
+    /// 
+    /// If the value is `even` or `odd`, and empty page will be inserted if 
+    /// necessary to start the page on an even or odd numbered page. If `none`
+    /// then the page will start on either an even or an odd page, whichever
+    /// comes next.
     pub clear_to: Option<EvenOrOdd>,
 
     /// The contents of the page(s).
@@ -449,8 +455,12 @@ pub struct PagebreakElem {
     /// empty.
     #[default(false)]
     pub weak: bool,
-    #[default(false)]
-    pub double: bool,
+    
+    /// If `even` or `odd`, then the next page will start on an even or odd 
+    /// page, with an empty page being inserted in between if necessary. If
+    /// none, no empty pages will be inserted.
+    #[default(None)]
+    pub clear_to: Option<EvenOrOdd>,
 }
 
 /// A header, footer, foreground or background definition.

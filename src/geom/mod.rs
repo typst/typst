@@ -28,7 +28,7 @@ mod stroke;
 mod transform;
 
 pub use self::abs::{Abs, AbsUnit};
-pub use self::align::{Align, GenAlign, HorizontalAlign, VerticalAlign};
+pub use self::align::{Align, GenAlign, HorizontalAlign, VerticalAlign, EvenOrOdd};
 pub use self::angle::{Angle, AngleUnit};
 pub use self::axes::{Axes, Axis};
 pub use self::color::{CmykColor, Color, LumaColor, RgbaColor};

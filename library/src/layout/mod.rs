@@ -100,6 +100,8 @@ pub(super) fn define(global: &mut Scope) {
     global.define("top", GenAlign::Specific(Align::Top));
     global.define("horizon", GenAlign::Specific(Align::Horizon));
     global.define("bottom", GenAlign::Specific(Align::Bottom));
+    global.define("even", EvenOrOdd::Even);
+    global.define("odd", EvenOrOdd::Odd);
 }
 
 /// Root-level layout.
@@ -446,13 +448,18 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if !self.flow.0.is_empty() || (doc.keep_next && styles.is_some()) {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
+            let clear_to = doc.clear_next;
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()
             } else {
                 shared
             };
-            let page = PageElem::new(FlowElem::new(flow.to_vec()).pack()).pack();
-            let stored = self.scratch.content.alloc(page);
+            let mut page = PageElem::new(FlowElem::new(flow.to_vec()).pack());
+            if clear_to.is_some() {
+                page.push_clear_to(clear_to);
+            }
+            let page_content = page.pack();
+            let stored = self.scratch.content.alloc(page_content);
             self.accept(stored, styles)?;
         }
         Ok(())
@@ -465,18 +472,22 @@ struct DocBuilder<'a> {
     pages: StyleVecBuilder<'a, Content>,
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
+
+    clear_next: Option<EvenOrOdd>,
 }
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.to::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
+            self.clear_next = pagebreak.clear_to(styles);
             return true;
         }
 
         if content.is::<PageElem>() {
             self.pages.push(content.clone(), styles);
             self.keep_next = false;
+            self.clear_next = None;
             return true;
         }
 
@@ -486,7 +497,7 @@ impl<'a> DocBuilder<'a> {
 
 impl Default for DocBuilder<'_> {
     fn default() -> Self {
-        Self { pages: StyleVecBuilder::new(), keep_next: true }
+        Self { pages: StyleVecBuilder::new(), keep_next: true, clear_next: None }
     }
 }
 
