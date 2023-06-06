@@ -445,18 +445,13 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if !self.flow.0.is_empty() || (doc.keep_next && styles.is_some()) {
-            
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
-
-            let double_next = doc.double_next;
-             //&& doc.pages.elems().filter(|e| e.is::<PageElem>()).count() % 2 == 0;
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()
             } else {
                 shared
             };
-            
-            let page = PageElem::new(FlowElem::new(flow.clone().to_vec()).pack()).pack();
+            let page = PageElem::new(FlowElem::new(flow.to_vec()).pack()).pack();
             let stored = self.scratch.content.alloc(page);
             self.accept(stored, styles)?;
         }
@@ -470,21 +465,18 @@ struct DocBuilder<'a> {
     pages: StyleVecBuilder<'a, Content>,
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
-    double_next: bool,
 }
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.to::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
-            self.double_next = pagebreak.double(styles);
             return true;
         }
 
         if content.is::<PageElem>() {
             self.pages.push(content.clone(), styles);
             self.keep_next = false;
-            self.double_next = false;
             return true;
         }
 
@@ -494,7 +486,7 @@ impl<'a> DocBuilder<'a> {
 
 impl Default for DocBuilder<'_> {
     fn default() -> Self {
-        Self { pages: StyleVecBuilder::new(), keep_next: true, double_next: false }
+        Self { pages: StyleVecBuilder::new(), keep_next: true }
     }
 }
 
