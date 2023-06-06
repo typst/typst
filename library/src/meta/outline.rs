@@ -240,9 +240,11 @@ impl Show for OutlineElem {
 
             OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
 
-            // Add the outline of the element.
+            // Add the outline, filler content and page number of the element,
+            // through its (overridable) entry element.
             seq.push(entry.pack());
 
+            // Ensure entries are always followed by linebreaks.
             seq.push(LinebreakElem::new().pack());
 
             ancestors.push(elem);
@@ -578,7 +580,7 @@ impl Show for OutlineEntry {
             seq.push(HElem::new(Fr::one().into()).pack());
         }
 
-        // Add the page number and linebreak.
+        // Add the page number.
         let page = Counter::new(CounterKey::Page)
             .at(vt, location)?
             .display(vt, &page_numbering)?;
@@ -586,7 +588,6 @@ impl Show for OutlineEntry {
         seq.push(page.linked(Destination::Location(location)));
 
         let body = Content::sequence(seq);
-
         Ok(body)
     }
 }
