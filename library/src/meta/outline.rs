@@ -462,7 +462,7 @@ cast_to_value! {
 ///
 /// #set page(numbering: "I")
 /// #set heading(numbering: "I.a.")
-/// #outline(indent: true, fill: [-])
+/// #outline(indent: true, fill: repeat[-])
 ///
 /// = Introduction
 ///
