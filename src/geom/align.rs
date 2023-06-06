@@ -237,3 +237,13 @@ cast! {
         Self(align)
     },
 }
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum EvenOrOdd {
+    Even,
+    Odd
+}
+
+cast_from_value! {
+    EvenOrOdd: "even_or_odd",
+}

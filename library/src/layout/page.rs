@@ -261,6 +261,8 @@ pub struct PageElem {
     /// ```
     pub foreground: Option<Content>,
 
+    pub clear_to: Option<EvenOrOdd>,
+
     /// The contents of the page(s).
     ///
     /// Multiple pages will be created if the content does not fit on a single
@@ -323,7 +325,9 @@ impl PageElem {
         let first_fragment = child.layout(vt, styles, regions)?;
         let mut all_fragments = vec![Frame::new(area)];
 
-        if Into::<usize>::into(number) % 2 == 1 {
+        if self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Even) && Into::<usize>::into(number) % 2 == 1 {
+            all_fragments.extend(first_fragment.into_frames());
+        } else if self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Odd) && Into::<usize>::into(number) % 2 == 0 {
             all_fragments.extend(first_fragment.into_frames());
         } else {
             all_fragments = first_fragment.into_frames();

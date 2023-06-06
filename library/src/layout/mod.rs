@@ -455,16 +455,10 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             } else {
                 shared
             };
-            {
-                let page = PageElem::new(FlowElem::new(flow.clone().to_vec()).pack()).pack();
-                let stored = self.scratch.content.alloc(page);
-                self.accept(stored, styles)?;
-            }
-            // if double_next {
-            //     let page = PageElem::new(SquareElem::new().pack()).pack();
-            //     let stored = self.scratch.content.alloc(page);
-            //     self.accept(stored, styles)?;
-            // }
+            
+            let page = PageElem::new(FlowElem::new(flow.clone().to_vec()).pack()).pack();
+            let stored = self.scratch.content.alloc(page);
+            self.accept(stored, styles)?;
         }
         Ok(())
     }
