@@ -191,7 +191,7 @@ pub struct Vm<'a> {
     /// The current location.
     location: SourceId,
     /// A control flow event that is currently happening.
-    flow: Option<Flow>,
+    flow: Option<FlowEvent>,
     /// The stack of scopes.
     scopes: Scopes<'a>,
     /// The current call depth.
@@ -257,7 +257,7 @@ impl<'a> Vm<'a> {
 
 /// A control flow event that occurred during evaluation.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Flow {
+pub enum FlowEvent {
     /// Stop iteration in a loop.
     Break(Span),
     /// Skip the remainder of the current iteration in a loop.
@@ -267,7 +267,7 @@ pub enum Flow {
     Return(Span, Option<Value>),
 }
 
-impl Flow {
+impl FlowEvent {
     /// Return an error stating that this control flow is forbidden.
     pub fn forbidden(&self) -> SourceError {
         match *self {
@@ -328,7 +328,7 @@ impl<'a> Route<'a> {
     }
 }
 
-/// Traces which values existed for the expression at a span.
+/// Traces which values existed for an expression at a span.
 #[derive(Default, Clone)]
 pub struct Tracer {
     span: Option<Span>,
@@ -1286,17 +1286,18 @@ impl Eval for ast::Closure {
 }
 
 impl ast::Pattern {
-    fn destruct_array<T>(
+    fn destruct_array<F>(
         &self,
         vm: &mut Vm,
         value: Array,
-        f: T,
+        f: F,
         destruct: &ast::Destructuring,
     ) -> SourceResult<Value>
     where
-        T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+        F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
     {
         let mut i = 0;
+        let len = value.as_slice().len();
         for p in destruct.bindings() {
             match p {
                 ast::DestructuringKind::Normal(expr) => {
@@ -1307,14 +1308,11 @@ impl ast::Pattern {
                     i += 1;
                 }
                 ast::DestructuringKind::Sink(spread) => {
-                    let sink_size =
-                        (1 + value.len()).checked_sub(destruct.bindings().count());
-                    let sink = sink_size
-                        .and_then(|s| value.slice(i as i64, Some((i + s) as i64)).ok());
-
+                    let sink_size = (1 + len).checked_sub(destruct.bindings().count());
+                    let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
                     if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
                         if let Some(expr) = spread.expr() {
-                            f(vm, expr, Value::Array(sink.clone()))?;
+                            f(vm, expr, Value::Array(sink.into()))?;
                         }
                         i += sink_size;
                     } else {
@@ -1325,7 +1323,7 @@ impl ast::Pattern {
                     bail!(named.span(), "cannot destructure named elements from an array")
                 }
                 ast::DestructuringKind::Placeholder(underscore) => {
-                    if i < value.len() {
+                    if i < len {
                         i += 1
                     } else {
                         bail!(underscore.span(), "not enough elements to destructure")
@@ -1333,41 +1331,44 @@ impl ast::Pattern {
                 }
             }
         }
-        if i < value.len() {
+        if i < len {
             bail!(self.span(), "too many elements to destructure");
         }
 
         Ok(Value::None)
     }
 
-    fn destruct_dict<T>(
+    fn destruct_dict<F>(
         &self,
         vm: &mut Vm,
-        value: Dict,
-        f: T,
+        dict: Dict,
+        f: F,
         destruct: &ast::Destructuring,
     ) -> SourceResult<Value>
     where
-        T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+        F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
     {
         let mut sink = None;
         let mut used = HashSet::new();
         for p in destruct.bindings() {
             match p {
                 ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
-                    let Ok(v) = value.at(&ident, None) else {
-                        bail!(ident.span(), "destructuring key not found in dictionary");
-                    };
+                    let v = dict
+                        .at(&ident, None)
+                        .map_err(|_| "destructuring key not found in dictionary")
+                        .at(ident.span())?;
                     f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
                     used.insert(ident.take());
                 }
                 ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
                 ast::DestructuringKind::Named(named) => {
-                    let Ok(v) = value.at(named.name().as_str(), None) else {
-                        bail!(named.name().span(), "destructuring key not found in dictionary");
-                    };
+                    let name = named.name();
+                    let v = dict
+                        .at(&name, None)
+                        .map_err(|_| "destructuring key not found in dictionary")
+                        .at(name.span())?;
                     f(vm, named.expr(), v.clone())?;
-                    used.insert(named.name().take());
+                    used.insert(name.take());
                 }
                 ast::DestructuringKind::Placeholder(_) => {}
                 ast::DestructuringKind::Normal(expr) => {
@@ -1378,7 +1379,7 @@ impl ast::Pattern {
 
         if let Some(expr) = sink {
             let mut sink = Dict::new();
-            for (key, value) in value {
+            for (key, value) in dict {
                 if !used.contains(key.as_str()) {
                     sink.insert(key, value);
                 }
@@ -1549,12 +1550,12 @@ impl Eval for ast::WhileLoop {
             output = ops::join(output, value).at(body.span())?;
 
             match vm.flow {
-                Some(Flow::Break(_)) => {
+                Some(FlowEvent::Break(_)) => {
                     vm.flow = None;
                     break;
                 }
-                Some(Flow::Continue(_)) => vm.flow = None,
-                Some(Flow::Return(..)) => break,
+                Some(FlowEvent::Continue(_)) => vm.flow = None,
+                Some(FlowEvent::Return(..)) => break,
                 None => {}
             }
 
@@ -1612,12 +1613,12 @@ impl Eval for ast::ForLoop {
                     output = ops::join(output, value).at(body.span())?;
 
                     match vm.flow {
-                        Some(Flow::Break(_)) => {
+                        Some(FlowEvent::Break(_)) => {
                             vm.flow = None;
                             break;
                         }
-                        Some(Flow::Continue(_)) => vm.flow = None,
-                        Some(Flow::Return(..)) => break,
+                        Some(FlowEvent::Continue(_)) => vm.flow = None,
+                        Some(FlowEvent::Return(..)) => break,
                         None => {}
                     }
                 }
@@ -1781,7 +1782,7 @@ impl Eval for ast::LoopBreak {
     #[tracing::instrument(name = "LoopBreak::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if vm.flow.is_none() {
-            vm.flow = Some(Flow::Break(self.span()));
+            vm.flow = Some(FlowEvent::Break(self.span()));
         }
         Ok(Value::None)
     }
@@ -1793,7 +1794,7 @@ impl Eval for ast::LoopContinue {
     #[tracing::instrument(name = "LoopContinue::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if vm.flow.is_none() {
-            vm.flow = Some(Flow::Continue(self.span()));
+            vm.flow = Some(FlowEvent::Continue(self.span()));
         }
         Ok(Value::None)
     }
@@ -1806,7 +1807,7 @@ impl Eval for ast::FuncReturn {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.body().map(|body| body.eval(vm)).transpose()?;
         if vm.flow.is_none() {
-            vm.flow = Some(Flow::Return(self.span(), value));
+            vm.flow = Some(FlowEvent::Return(self.span(), value));
         }
         Ok(Value::None)
     }

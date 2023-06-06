@@ -7,7 +7,8 @@ use ecow::eco_format;
 use once_cell::sync::Lazy;
 
 use super::{
-    cast, Args, CastInfo, Eval, Flow, IntoValue, Route, Scope, Scopes, Tracer, Value, Vm,
+    cast, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes, Tracer,
+    Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::model::{ElemFunc, Introspector, Locator, Vt};
@@ -404,8 +405,8 @@ impl Closure {
         // Handle control flow.
         let result = closure.body.eval(&mut vm);
         match vm.flow {
-            Some(Flow::Return(_, Some(explicit))) => return Ok(explicit),
-            Some(Flow::Return(_, None)) => {}
+            Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
+            Some(FlowEvent::Return(_, None)) => {}
             Some(flow) => bail!(flow.forbidden()),
             None => {}
         }

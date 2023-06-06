@@ -64,7 +64,7 @@
 
 - name: lr
   display: Left/Right
-  functions: ["lr", "abs", "norm", "floor", "ceil"]
+  functions: ["lr", "abs", "norm", "floor", "ceil", "round"]
   description: |
     Delimiter matching.
 

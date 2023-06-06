@@ -12,7 +12,7 @@ use comemo::Tracked;
 use crate::syntax::{ErrorPos, Span, Spanned};
 use crate::World;
 
-/// Early-return with a [`StrError`] or [`SourceError`].
+/// Early-return with a [`StrResult`] or [`SourceResult`].
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __bail {
@@ -35,7 +35,7 @@ macro_rules! __bail {
 #[doc(inline)]
 pub use crate::__bail as bail;
 
-/// Construct a [`StrError`] or [`SourceError`].
+/// Construct an [`EcoString`] or [`SourceError`].
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {

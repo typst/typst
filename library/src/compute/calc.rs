@@ -43,10 +43,10 @@ pub fn module() -> Module {
     scope.define("rem", rem_func());
     scope.define("mod", mod_func());
     scope.define("quo", quo_func());
-    scope.define("inf", Value::Float(f64::INFINITY));
-    scope.define("nan", Value::Float(f64::NAN));
-    scope.define("pi", Value::Float(std::f64::consts::PI));
-    scope.define("e", Value::Float(std::f64::consts::E));
+    scope.define("inf", f64::INFINITY);
+    scope.define("nan", f64::NAN);
+    scope.define("pi", std::f64::consts::PI);
+    scope.define("e", std::f64::consts::E);
     Module::new("calc").with_scope(scope)
 }
 

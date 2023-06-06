@@ -34,6 +34,21 @@ impl Debug for Scalar {
     }
 }
 
+impl Eq for Scalar {}
+
+impl PartialEq for Scalar {
+    fn eq(&self, other: &Self) -> bool {
+        assert!(!self.0.is_nan() && !other.0.is_nan(), "float is NaN");
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<f64> for Scalar {
+    fn eq(&self, other: &f64) -> bool {
+        self == &Self(*other)
+    }
+}
+
 impl Ord for Scalar {
     fn cmp(&self, other: &Self) -> Ordering {
         self.partial_cmp(other).expect("float is NaN")
@@ -59,21 +74,6 @@ impl PartialOrd for Scalar {
 
     fn ge(&self, other: &Self) -> bool {
         self.0 >= other.0
-    }
-}
-
-impl Eq for Scalar {}
-
-impl PartialEq for Scalar {
-    fn eq(&self, other: &Self) -> bool {
-        assert!(!self.0.is_nan() && !other.0.is_nan(), "float is NaN");
-        self.0 == other.0
-    }
-}
-
-impl PartialEq<f64> for Scalar {
-    fn eq(&self, other: &f64) -> bool {
-        self == &Self(*other)
     }
 }
 
