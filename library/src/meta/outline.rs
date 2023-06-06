@@ -151,7 +151,7 @@ pub struct OutlineElem {
     ///
     /// It is also possible to set this option to a function, allowing for a
     /// more complete customization of the indentation. A function is expected
-    /// to take a single parameter indcating the current nesting level
+    /// to take a single parameter indicating the current nesting level
     /// (starting at `{0}` for top-level headings/elements), and return the
     /// indentation option for that level (or `{none}`). Such a function could
     /// be, for example, {n => n * 2em}` (indenting by `{2em}` times the
