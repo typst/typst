@@ -58,15 +58,18 @@
     let elem-loc = it.element.location()
     let page-numbering = elem-loc.page-numbering()
     let page-number = numbering(page-numbering, elem-loc.page())
+    {
+        set text(blue)
+        emph(link(elem-loc, it.outline))
+    }
     [
         #set text(blue)
-        #emph(link(elem-loc, it.outline))
-        #box(width: 1fr, repeat(box[O#it.fill.body]))
-        #[
-            #set text(red)
-            #link(elem-loc, page-number)
-        ]
+        #box(width: 1fr, repeat[O#it.fill.body])
     ]
+    {
+        set text(red)
+        link(elem-loc, page-number)
+    }
 })
 
 #outline(indent: auto, fill: repeat[!])
