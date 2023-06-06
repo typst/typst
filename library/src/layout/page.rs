@@ -320,7 +320,17 @@ impl PageElem {
         regions.root = true;
 
         // Layout the child.
-        let mut fragment = child.layout(vt, styles, regions)?;
+        let first_fragment = child.layout(vt, styles, regions)?;
+        let mut all_fragments = vec![Frame::new(area)];
+
+        if Into::<usize>::into(number) % 2 == 1 {
+            all_fragments.extend(first_fragment.into_frames());
+        } else {
+            all_fragments = first_fragment.into_frames();
+        }
+
+        let mut fragment = Fragment::frames(all_fragments);
+            
 
         let fill = self.fill(styles);
         let foreground = self.foreground(styles);
@@ -435,6 +445,8 @@ pub struct PagebreakElem {
     /// empty.
     #[default(false)]
     pub weak: bool,
+    #[default(false)]
+    pub double: bool,
 }
 
 /// A header, footer, foreground or background definition.
