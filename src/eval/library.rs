@@ -9,7 +9,7 @@ use once_cell::sync::OnceCell;
 use super::{Args, Dynamic, Module, Value, Vm};
 use crate::diag::SourceResult;
 use crate::doc::Document;
-use crate::geom::{Abs, Dir};
+use crate::geom::{Abs, Dir, EvenOrOdd};
 use crate::model::{Content, ElemFunc, Introspector, Label, StyleChain, Styles, Vt};
 use crate::syntax::Span;
 use crate::util::hash128;

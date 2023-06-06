@@ -14,6 +14,7 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
+use layout::PageElem;
 use typst::diag::At;
 use typst::eval::{LangItems, Library, Module, Scope};
 use typst::geom::Smart;
