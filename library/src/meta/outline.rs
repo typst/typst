@@ -484,7 +484,6 @@ cast_to_value! {
 ///
 /// Display: Outline Entry
 /// Category: meta
-/// Keywords: Table of Contents
 #[element(Show)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry.
