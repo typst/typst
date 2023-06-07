@@ -125,17 +125,14 @@ pub enum LinkTarget {
     Label(Label),
 }
 
-cast_from_value! {
+cast! {
     LinkTarget,
+    self => match self {
+        Self::Dest(v) => v.into_value(),
+        Self::Label(v) => v.into_value(),
+    },
     v: Destination => Self::Dest(v),
     v: Label => Self::Label(v),
-}
-
-cast_to_value! {
-    v: LinkTarget => match v {
-        LinkTarget::Dest(v) => v.into(),
-        LinkTarget::Label(v) => v.into(),
-    }
 }
 
 impl From<Destination> for LinkTarget {

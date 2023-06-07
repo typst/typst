@@ -138,7 +138,7 @@
 }
 
 ---
-// Error: 3 expected closing brace
+// Error: 2-3 unclosed delimiter
 #{
 
 ---

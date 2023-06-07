@@ -282,7 +282,7 @@ impl SourceId {
     }
 
     /// Extract the underlying number.
-    pub const fn into_u16(self) -> u16 {
+    pub const fn as_u16(self) -> u16 {
         self.0
     }
 }

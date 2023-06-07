@@ -3,16 +3,26 @@
 mod content;
 mod element;
 mod introspect;
+mod label;
 mod realize;
+mod selector;
 mod styles;
 
+#[doc(inline)]
 pub use typst_macros::element;
 
-pub use self::content::*;
-pub use self::element::*;
-pub use self::introspect::*;
-pub use self::realize::*;
-pub use self::styles::*;
+pub use self::content::{Content, MetaElem, PlainText};
+pub use self::element::{Construct, ElemFunc, Element, NativeElemFunc, Set};
+pub use self::introspect::{Introspector, Location, Locator};
+pub use self::label::{Label, Unlabellable};
+pub use self::realize::{
+    applicable, realize, Behave, Behaviour, Finalize, Guard, Locatable, Show, Synthesize,
+};
+pub use self::selector::{LocatableSelector, Selector, ShowableSelector};
+pub use self::styles::{
+    Fold, Property, Recipe, Resolve, Style, StyleChain, StyleVec, StyleVecBuilder,
+    Styles, Transform,
+};
 
 use std::mem::ManuallyDrop;
 

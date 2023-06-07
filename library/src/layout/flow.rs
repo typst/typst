@@ -251,6 +251,9 @@ impl<'a> FlowLayouter<'a> {
                 self.layout_item(vt, FlowItem::Placed(frame))?;
                 return Ok(());
             }
+        } else if self.regions.is_full() {
+            // Skip directly if region is already full.
+            self.finish_region()?;
         }
 
         // How to align the block.

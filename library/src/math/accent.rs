@@ -128,15 +128,12 @@ impl Accent {
     }
 }
 
-cast_from_value! {
+cast! {
     Accent,
+    self => self.0.into_value(),
     v: char => Self::new(v),
     v: Content => match v.to::<TextElem>() {
         Some(elem) => Value::Str(elem.text().into()).cast()?,
         None => Err("expected text")?,
     },
-}
-
-cast_to_value! {
-    v: Accent => v.0.into()
 }

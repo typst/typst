@@ -6,11 +6,11 @@ use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
 use std::io::{self, Write};
-use std::ops::Add;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use atty::Stream;
+use chrono::Datelike;
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
@@ -22,8 +22,6 @@ use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use termcolor::{ColorChoice, StandardStream, WriteColor};
-use time::macros::format_description;
-use time::Duration;
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::doc::Document;
 use typst::eval::{Datetime, Library};
@@ -359,8 +357,8 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let esc = 27 as char;
     let input = command.input.display();
     let output = command.output.display();
-    let time = time::OffsetDateTime::now_local().unwrap();
-    let timestamp = time.format(format_description!("[hour]:[minute]:[second]")).unwrap();
+    let time = chrono::offset::Local::now();
+    let timestamp = time.format("%H:%M:%S");
     let message = status.message();
     let color = status.color();
 
@@ -559,14 +557,20 @@ impl World for SystemWorld {
             .source
             .get_or_init(|| {
                 let buf = read(path)?;
-                let text = String::from_utf8(buf)?;
+                let text = if buf.starts_with(b"\xef\xbb\xbf") {
+                    // remove UTF-8 BOM
+                    std::str::from_utf8(&buf[3..])?.to_owned()
+                } else {
+                    // Assume UTF-8
+                    String::from_utf8(buf)?
+                };
                 Ok(self.insert(path, text))
             })
             .clone()
     }
 
     fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_u16() as usize]
+        &self.sources[id.as_u16() as usize]
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
@@ -593,14 +597,14 @@ impl World for SystemWorld {
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         if self.current_date.get().is_none() {
             let datetime = match offset {
-                None => time::OffsetDateTime::now_local().ok()?,
-                Some(o) => time::OffsetDateTime::now_utc().add(Duration::hours(o)),
+                None => chrono::Local::now().naive_local(),
+                Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
             };
 
             self.current_date.set(Some(Datetime::from_ymd(
                 datetime.year(),
                 datetime.month().try_into().ok()?,
-                datetime.day(),
+                datetime.day().try_into().ok()?,
             )?))
         }
 

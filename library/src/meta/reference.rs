@@ -193,7 +193,7 @@ impl Show for RefElem {
             Smart::Auto => refable.supplement(),
             Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                supplement.resolve(vt, [(*elem).clone().into()])?
+                supplement.resolve(vt, [(*elem).clone()])?
             }
         };
 
@@ -229,10 +229,10 @@ pub enum Supplement {
 
 impl Supplement {
     /// Tries to resolve the supplement into its content.
-    pub fn resolve(
+    pub fn resolve<T: IntoValue>(
         &self,
         vt: &mut Vt,
-        args: impl IntoIterator<Item = Value>,
+        args: impl IntoIterator<Item = T>,
     ) -> SourceResult<Content> {
         Ok(match self {
             Supplement::Content(content) => content.clone(),
@@ -241,17 +241,14 @@ impl Supplement {
     }
 }
 
-cast_from_value! {
+cast! {
     Supplement,
+    self => match self {
+        Self::Content(v) => v.into_value(),
+        Self::Func(v) => v.into_value(),
+    },
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
-}
-
-cast_to_value! {
-    v: Supplement => match v {
-        Supplement::Content(v) => v.into(),
-        Supplement::Func(v) => v.into(),
-    }
 }
 
 /// Marks an element as being able to be referenced. This is used to implement

@@ -239,7 +239,7 @@ fn decode_raster(data: &Buffer, format: RasterFormat) -> StrResult<Arc<DecodedIm
         decoder: ImageResult<T>,
     ) -> ImageResult<(image::DynamicImage, Option<IccProfile>)> {
         let mut decoder = decoder?;
-        let icc = decoder.icc_profile().map(IccProfile);
+        let icc = decoder.icc_profile().filter(|data| !data.is_empty()).map(IccProfile);
         decoder.set_limits(Limits::default())?;
         let dynamic = image::DynamicImage::from_decoder(decoder)?;
         Ok((dynamic, icc))

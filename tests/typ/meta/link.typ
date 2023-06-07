@@ -35,7 +35,7 @@ https://example.com/)
 
 ---
 // Verify that opening brackets without closing brackets throw an error.
-// Error: 22-22 expected closing bracket in link
+// Error: 1-22 automatic links cannot contain unbalanced brackets, use the `link` function instead
 https://exam(ple.com/
 
 ---

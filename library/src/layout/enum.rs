@@ -72,6 +72,11 @@ pub struct EnumElem {
     /// [leading]($func/par.leading) instead. This makes the enumeration more
     /// compact, which can look better if the items are short.
     ///
+    /// In markup mode, the value of this parameter is determined based on
+    /// whether items are separated with a blank line. If items directly follow
+    /// each other, this is set to `{true}`; if items are separated by a blank
+    /// line, this is set to `{false}`.
+    ///
     /// ```example
     /// + If an enum has a lot of text, and
     ///   maybe other inline content, it
@@ -283,7 +288,7 @@ pub struct EnumItem {
     pub body: Content,
 }
 
-cast_from_value! {
+cast! {
     EnumItem,
     array: Array => {
         let mut iter = array.into_iter();
@@ -298,13 +303,10 @@ cast_from_value! {
 
 struct Parent(usize);
 
-cast_from_value! {
+cast! {
     Parent,
+    self => self.0.into_value(),
     v: usize => Self(v),
-}
-
-cast_to_value! {
-    v: Parent => v.0.into()
 }
 
 impl Fold for Parent {

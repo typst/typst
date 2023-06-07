@@ -209,8 +209,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Int(a), Str(b)) => Str(b.repeat(a)?),
         (Array(a), Int(b)) => Array(a.repeat(b)?),
         (Int(a), Array(b)) => Array(b.repeat(a)?),
-        (Content(a), Int(b)) => Content(a.repeat(b)?),
-        (Int(a), Content(b)) => Content(b.repeat(a)?),
+        (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
+        (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })

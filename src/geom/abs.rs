@@ -214,8 +214,9 @@ impl<'a> Sum<&'a Self> for Abs {
     }
 }
 
-cast_to_value! {
-    v: Abs => Value::Length(v.into())
+cast! {
+    Abs,
+    self => Value::Length(self.into()),
 }
 
 /// Different units of absolute measurement.

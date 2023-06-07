@@ -59,11 +59,11 @@ pub fn module() -> Module {
 
     // Grouping.
     math.define("lr", LrElem::func());
-    math.define("abs", abs);
-    math.define("norm", norm);
-    math.define("floor", floor);
-    math.define("ceil", ceil);
-    math.define("round", round);
+    math.define("abs", abs_func());
+    math.define("norm", norm_func());
+    math.define("floor", floor_func());
+    math.define("ceil", ceil_func());
+    math.define("round", round_func());
 
     // Attachments and accents.
     math.define("attach", AttachElem::func());
@@ -86,24 +86,24 @@ pub fn module() -> Module {
     math.define("cases", CasesElem::func());
 
     // Roots.
-    math.define("sqrt", sqrt);
+    math.define("sqrt", sqrt_func());
     math.define("root", RootElem::func());
 
     // Styles.
-    math.define("upright", upright);
-    math.define("bold", bold);
-    math.define("italic", italic);
-    math.define("serif", serif);
-    math.define("sans", sans);
-    math.define("cal", cal);
-    math.define("frak", frak);
-    math.define("mono", mono);
-    math.define("bb", bb);
+    math.define("upright", upright_func());
+    math.define("bold", bold_func());
+    math.define("italic", italic_func());
+    math.define("serif", serif_func());
+    math.define("sans", sans_func());
+    math.define("cal", cal_func());
+    math.define("frak", frak_func());
+    math.define("mono", mono_func());
+    math.define("bb", bb_func());
 
-    math.define("display", display);
-    math.define("inline", inline);
-    math.define("script", script);
-    math.define("sscript", sscript);
+    math.define("display", display_func());
+    math.define("inline", inline_func());
+    math.define("script", script_func());
+    math.define("sscript", sscript_func());
 
     // Text operators.
     math.define("op", OpElem::func());
@@ -197,9 +197,7 @@ impl Synthesize for EquationElem {
         let supplement = match self.supplement(styles) {
             Smart::Auto => TextElem::packed(self.local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(supplement)) => {
-                supplement.resolve(vt, [self.clone().into()])?
-            }
+            Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
         };
 
         self.push_block(self.block(styles));
@@ -322,6 +320,8 @@ impl LocalName for EquationElem {
             Lang::CHINESE if option_eq(region, "TW") => "方程式",
             Lang::CHINESE => "等式",
             Lang::CZECH => "Rovnice",
+            Lang::DANISH => "Ligning",
+            Lang::DUTCH => "Vergelijking",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
             Lang::ITALIAN => "Equazione",
@@ -331,6 +331,7 @@ impl LocalName for EquationElem {
             Lang::RUSSIAN => "Уравнение",
             Lang::SLOVENIAN => "Enačba",
             Lang::SPANISH => "Ecuación",
+            Lang::SWEDISH => "Ekvation",
             Lang::UKRAINIAN => "Рівняння",
             Lang::VIETNAMESE => "Phương trình",
             Lang::ENGLISH | _ => "Equation",

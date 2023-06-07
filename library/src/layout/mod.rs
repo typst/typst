@@ -87,7 +87,19 @@ pub(super) fn define(global: &mut Scope) {
     global.define("scale", ScaleElem::func());
     global.define("rotate", RotateElem::func());
     global.define("hide", HideElem::func());
-    global.define("measure", measure);
+    global.define("measure", measure_func());
+    global.define("ltr", Dir::LTR);
+    global.define("rtl", Dir::RTL);
+    global.define("ttb", Dir::TTB);
+    global.define("btt", Dir::BTT);
+    global.define("start", GenAlign::Start);
+    global.define("end", GenAlign::End);
+    global.define("left", GenAlign::Specific(Align::Left));
+    global.define("center", GenAlign::Specific(Align::Center));
+    global.define("right", GenAlign::Specific(Align::Right));
+    global.define("top", GenAlign::Specific(Align::Top));
+    global.define("horizon", GenAlign::Specific(Align::Horizon));
+    global.define("bottom", GenAlign::Specific(Align::Bottom));
 }
 
 /// Root-level layout.

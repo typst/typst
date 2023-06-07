@@ -64,12 +64,44 @@
 ---
 // Test conversion to string.
 #test(str(123), "123")
+#test(str(123, base: 3), "11120")
+#test(str(-123, base: 16), "-7b")
+#test(str(9223372036854775807, base: 36), "1y2p0ij32e8e7")
 #test(str(50.14), "50.14")
 #test(str(10 / 3).len() > 10, true)
 
 ---
 // Error: 6-8 expected integer, float, label, or string, found content
 #str([])
+
+---
+// Error: 17-19 base must be between 2 and 36
+#str(123, base: 99)
+
+---
+// Error: 18-19 base is only supported for integers
+#str(1.23, base: 2)
+
+---
+// Test the unicode function.
+#test(str.from-unicode(97), "a")
+#test(str.to-unicode("a"), 97)
+
+---
+// Error: 19-22 expected integer, found content
+#str.from-unicode([a])
+
+---
+// Error: 17-21 expected exactly one character
+#str.to-unicode("ab")
+
+---
+// Error: 19-21 0xffffffffffffffff is not a valid codepoint
+#str.from-unicode(-1) // negative values are not valid
+
+---
+// Error: 19-27 0x110000 is not a valid codepoint
+#str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
 ---
 #assert(range(2, 5) == (2, 3, 4))
