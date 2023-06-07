@@ -72,6 +72,11 @@ pub struct EnumElem {
     /// [leading]($func/par.leading) instead. This makes the enumeration more
     /// compact, which can look better if the items are short.
     ///
+    /// In markup mode, the value of this parameter is determined based on
+    /// whether items are separated with a blank line. If items directly follow
+    /// each other, this is set to `{true}`; if items are separated by a blank
+    /// line, this is set to `{false}`.
+    ///
     /// ```example
     /// + If an enum has a lot of text, and
     ///   maybe other inline content, it
