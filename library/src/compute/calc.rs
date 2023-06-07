@@ -13,6 +13,7 @@ pub fn module() -> Module {
     let mut scope = Scope::new();
     scope.define("abs", abs_func());
     scope.define("pow", pow_func());
+    scope.define("exp", exp_func());
     scope.define("sqrt", sqrt_func());
     scope.define("sin", sin_func());
     scope.define("cos", cos_func());
@@ -25,6 +26,7 @@ pub fn module() -> Module {
     scope.define("cosh", cosh_func());
     scope.define("tanh", tanh_func());
     scope.define("log", log_func());
+    scope.define("ln", ln_func());
     scope.define("fact", fact_func());
     scope.define("perm", perm_func());
     scope.define("binom", binom_func());
@@ -96,7 +98,7 @@ cast! {
 pub fn pow(
     /// The base of the power.
     base: Num,
-    /// The exponent of the power. Must be non-negative.
+    /// The exponent of the power.
     exponent: Spanned<Num>,
     /// The callsite span.
     span: Span,
@@ -120,11 +122,52 @@ pub fn pow(
             .map(Num::Int)
             .ok_or("the result is too large")
             .at(span)?,
-        (a, Num::Int(b)) => Num::Float(a.float().powi(b as i32)),
-        (a, b) => Num::Float(a.float().powf(b.float())),
+        (a, b) => Num::Float(if a.float() == std::f64::consts::E {
+            b.float().exp()
+        } else if a.float() == 2.0 {
+            b.float().exp2()
+        } else if let Num::Int(b) = b {
+            a.float().powi(b as i32)
+        } else {
+            a.float().powf(b.float())
+        }),
     };
 
     if result.float().is_nan() {
+        bail!(span, "the result is not a real number")
+    }
+
+    Ok(result)
+}
+
+/// Raise a value to some exponent of e.
+///
+/// ## Example { #example }
+/// ```example
+/// #calc.exp(3)
+/// ```
+///
+/// Display: Exponential
+/// Category: calculate
+#[func]
+pub fn exp(
+    /// The exponent of the power.
+    exponent: Spanned<Num>,
+    /// The callsite span.
+    span: Span,
+) -> SourceResult<f64> {
+    match exponent.v {
+        Num::Int(i) if i32::try_from(i).is_err() => {
+            bail!(exponent.span, "exponent is too large")
+        }
+        Num::Float(f) if !f.is_normal() && f != 0.0 => {
+            bail!(exponent.span, "exponent may not be infinite, subnormal, or NaN")
+        }
+        _ => {}
+    };
+
+    let result = exponent.v.float().exp();
+    if result.is_nan() {
         bail!(span, "the result is not a real number")
     }
 
@@ -416,7 +459,9 @@ pub fn log(
         bail!(base.span, "base may not be zero, NaN, infinite, or subnormal")
     }
 
-    let result = if base.v == 2.0 {
+    let result = if base.v == std::f64::consts::E {
+        number.ln()
+    } else if base.v == 2.0 {
         number.log2()
     } else if base.v == 10.0 {
         number.log10()
@@ -426,6 +471,35 @@ pub fn log(
 
     if result.is_infinite() || result.is_nan() {
         bail!(span, "the result is not a real number")
+    }
+
+    Ok(result)
+}
+
+/// Calculate the natural logarithm of a number.
+///
+/// ## Example { #example }
+/// ```example
+/// #calc.ln(100)
+/// ```
+///
+/// Display: Natural Logarithm
+/// Category: calculate
+#[func]
+pub fn ln(
+    /// The number whose logarithm to calculate. Must be strictly positive.
+    value: Spanned<Num>,
+    /// The callsite span.
+    span: Span,
+) -> SourceResult<f64> {
+    let number = value.v.float();
+    if number <= 0.0 {
+        bail!(value.span, "value must be strictly positive")
+    }
+
+    let result = number.ln();
+    if result.is_infinite() {
+        bail!(span, "result close to -inf")
     }
 
     Ok(result)
