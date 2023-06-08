@@ -6,7 +6,8 @@ use super::{
 use crate::meta::{FootnoteElem, FootnoteEntry};
 use crate::prelude::*;
 use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, PathElem, PolygonElem, RectElem, SquareElem,
+    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
+    SquareElem,
 };
 
 /// Arrange spacing, paragraphs and block-level elements into a flow.
@@ -45,7 +46,8 @@ impl Layout for FlowElem {
                 layouter.layout_spacing(vt, elem, styles)?;
             } else if let Some(elem) = child.to::<ParElem>() {
                 layouter.layout_par(vt, elem, styles)?;
-            } else if child.is::<RectElem>()
+            } else if child.is::<LineElem>()
+                || child.is::<RectElem>()
                 || child.is::<SquareElem>()
                 || child.is::<EllipseElem>()
                 || child.is::<CircleElem>()
