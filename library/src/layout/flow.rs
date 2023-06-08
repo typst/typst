@@ -438,6 +438,7 @@ impl FlowLayouter<'_> {
             find_footnotes(&mut notes, frame);
         }
 
+        let prev_len = self.items.len();
         self.items.push(item);
 
         // No new footnotes.
@@ -473,10 +474,12 @@ impl FlowLayouter<'_> {
                 if !had_footnotes {
                     self.items.pop();
                 }
-                let item = self.items.pop();
+                let moved: Vec<_> = self.items.drain(prev_len..).collect();
                 self.finish_region()?;
-                self.items.extend(item);
+                self.has_footnotes =
+                    moved.iter().any(|item| matches!(item, FlowItem::Footnote(_)));
                 self.regions.size.y -= height;
+                self.items.extend(moved);
                 can_skip = false;
                 continue 'outer;
             }
