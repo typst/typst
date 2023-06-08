@@ -199,22 +199,20 @@ impl FontsSettings {
 
 /// Execute a compilation command.
 fn compile(mut command: CompileSettings) -> StrResult<()> {
-    let root = if let Some(root) = &command.root {
-        root.clone()
-    } else if let Some(dir) = command
+    // Determine the parent directory of the input file.
+    let parent = command
         .input
         .canonicalize()
         .ok()
         .as_ref()
         .and_then(|path| path.parent())
-    {
-        dir.into()
-    } else {
-        PathBuf::new()
-    };
+        .unwrap_or(Path::new("."))
+        .to_owned();
+
+    let root = command.root.as_ref().unwrap_or(&parent);
 
     // Create the world that serves sources, fonts and files.
-    let mut world = SystemWorld::new(root, &command.font_paths);
+    let mut world = SystemWorld::new(root.into(), &command.font_paths);
 
     // Perform initial compilation.
     let ok = compile_once(&mut world, &command)?;
@@ -236,10 +234,17 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
     let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
         .map_err(|_| "failed to watch directory")?;
 
-    // Watch root directory recursively.
+    // Watch the input file's parent directory recursively.
     watcher
-        .watch(&world.root, RecursiveMode::Recursive)
-        .map_err(|_| "failed to watch directory")?;
+        .watch(&parent, RecursiveMode::Recursive)
+        .map_err(|_| "failed to watch parent directory")?;
+
+    // Watch the root directory recursively.
+    if world.root != parent {
+        watcher
+            .watch(&world.root, RecursiveMode::Recursive)
+            .map_err(|_| "failed to watch root directory")?;
+    }
 
     // Handle events.
     let timeout = std::time::Duration::from_millis(100);
