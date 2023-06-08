@@ -285,12 +285,16 @@ impl<'a> FlowLayouter<'a> {
         }
         .resolve(styles);
 
-        let is_columns = block.is::<ColumnsElem>();
+        // Temporarily delegerate rootness to the columns.
+        let is_root = self.root;
+        if is_root && block.is::<ColumnsElem>() {
+            self.root = false;
+            self.regions.root = true;
+        }
 
         // Layout the block itself.
         let sticky = BlockElem::sticky_in(styles);
         let fragment = block.layout(vt, styles, self.regions)?;
-        self.regions.root = self.root && is_columns;
 
         for (i, frame) in fragment.into_iter().enumerate() {
             if i > 0
@@ -305,6 +309,7 @@ impl<'a> FlowLayouter<'a> {
             )?;
         }
 
+        self.root = is_root;
         self.regions.root = false;
         self.last_was_par = false;
 
