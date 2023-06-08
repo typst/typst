@@ -313,9 +313,9 @@ impl<'a> FlowLayouter<'a> {
             )?;
         }
 
-        if self.root && !self.handle_footnotes(vt, &mut notes, false)? {
+        if self.root && !self.handle_footnotes(vt, &mut notes, false, false)? {
             self.finish_region()?;
-            self.handle_footnotes(vt, &mut notes, true)?;
+            self.handle_footnotes(vt, &mut notes, false, true)?;
         }
 
         self.root = is_root;
@@ -352,12 +352,12 @@ impl<'a> FlowLayouter<'a> {
                     let mut notes = Vec::new();
                     find_footnotes(&mut notes, frame);
                     self.items.push(item);
-                    if !self.handle_footnotes(vt, &mut notes, false)? {
+                    if !self.handle_footnotes(vt, &mut notes, true, false)? {
                         let item = self.items.pop();
                         self.finish_region()?;
                         self.items.extend(item);
                         self.regions.size.y -= size.y;
-                        self.handle_footnotes(vt, &mut notes, true)?;
+                        self.handle_footnotes(vt, &mut notes, true, true)?;
                     }
                     return Ok(());
                 }
@@ -479,6 +479,7 @@ impl FlowLayouter<'_> {
         &mut self,
         vt: &mut Vt,
         notes: &mut Vec<FootnoteElem>,
+        movable: bool,
         force: bool,
     ) -> SourceResult<bool> {
         let items_len = self.items.len();
@@ -499,7 +500,10 @@ impl FlowLayouter<'_> {
 
             // If the entries didn't fit, abort (to keep footnote and entry
             // together).
-            if !force && k == 0 && frames.first().map_or(false, Frame::is_empty) {
+            if !force
+                && (k == 0 || movable)
+                && frames.first().map_or(false, Frame::is_empty)
+            {
                 // Remove existing footnotes attempts because we need to
                 // move the item to the next page.
                 notes.truncate(notes_len);
