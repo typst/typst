@@ -13,7 +13,7 @@ use crate::text::TextElem;
 /// ```example
 /// = Towards Advanced Deep Learning
 ///
-/// #box(height: 68pt,
+/// #box(height: 60pt,
 ///  columns(2, gutter: 11pt)[
 ///    #set par(justify: true)
 ///    This research was funded by the
@@ -22,6 +22,7 @@ use crate::text::TextElem;
 ///    tests and interviews with a
 ///    grant of up to USD 40.000 for a
 ///    period of 6 months.
+///    #lorem(40)
 ///  ]
 /// )
 ///
