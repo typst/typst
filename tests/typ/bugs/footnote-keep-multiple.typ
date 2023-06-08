@@ -5,6 +5,6 @@
 
 ---
 #set page(height: 100pt)
-#v(30pt)
+#v(40pt)
 A #footnote[a] \
 B #footnote[b]

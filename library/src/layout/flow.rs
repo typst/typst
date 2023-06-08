@@ -295,11 +295,15 @@ impl<'a> FlowLayouter<'a> {
         // Layout the block itself.
         let sticky = BlockElem::sticky_in(styles);
         let fragment = block.layout(vt, styles, self.regions)?;
+        let mut notes = Vec::new();
 
         for (i, frame) in fragment.into_iter().enumerate() {
-            if i > 0
-                && !self.items.iter().all(|item| matches!(item, FlowItem::Footnote(_)))
-            {
+            // Find footnotes in the frame.
+            if self.root {
+                find_footnotes(&mut notes, &frame);
+            }
+
+            if i > 0 {
                 self.finish_region()?;
             }
 
@@ -307,6 +311,11 @@ impl<'a> FlowLayouter<'a> {
                 vt,
                 FlowItem::Frame { frame, aligns, sticky, movable: false },
             )?;
+        }
+
+        if self.root && !self.handle_footnotes(vt, &mut notes, false)? {
+            self.finish_region()?;
+            self.handle_footnotes(vt, &mut notes, true)?;
         }
 
         self.root = is_root;
@@ -332,15 +341,25 @@ impl<'a> FlowLayouter<'a> {
                 self.regions.size.y -= v
             }
             FlowItem::Fractional(_) => {}
-            FlowItem::Frame { ref frame, .. } => {
+            FlowItem::Frame { ref frame, movable, .. } => {
                 let size = frame.size();
                 if !self.regions.size.y.fits(size.y) && !self.regions.in_last() {
                     self.finish_region()?;
                 }
 
                 self.regions.size.y -= size.y;
-                if self.root {
-                    return self.handle_footnotes(vt, item);
+                if self.root && movable {
+                    let mut notes = Vec::new();
+                    find_footnotes(&mut notes, frame);
+                    self.items.push(item);
+                    if !self.handle_footnotes(vt, &mut notes, false)? {
+                        let item = self.items.pop();
+                        self.finish_region()?;
+                        self.items.extend(item);
+                        self.regions.size.y -= size.y;
+                        self.handle_footnotes(vt, &mut notes, true)?;
+                    }
+                    return Ok(());
                 }
             }
             FlowItem::Placed(_) => {}
@@ -456,34 +475,18 @@ impl<'a> FlowLayouter<'a> {
 impl FlowLayouter<'_> {
     /// Processes all footnotes in the frame.
     #[tracing::instrument(skip_all)]
-    fn handle_footnotes(&mut self, vt: &mut Vt, item: FlowItem) -> SourceResult<()> {
-        // Find footnotes in the frame.
-        let mut notes = Vec::new();
+    fn handle_footnotes(
+        &mut self,
+        vt: &mut Vt,
+        notes: &mut Vec<FootnoteElem>,
+        force: bool,
+    ) -> SourceResult<bool> {
+        let items_len = self.items.len();
+        let notes_len = notes.len();
 
-        let mut is_movable = true;
-        if let FlowItem::Frame { frame, movable, .. } = &item {
-            find_footnotes(&mut notes, frame);
-            is_movable = *movable;
-        }
-
-        let prev_len = self.items.len();
-        self.items.push(item);
-
-        // No new footnotes.
-        if notes.is_empty() {
-            return Ok(());
-        }
-
-        // The currently handled footnote.
+        // Process footnotes one at a time.
         let mut k = 0;
-
-        // Whether we can still skip one region to ensure that the footnote
-        // and its entry are on the same page.
-        let mut can_skip = true;
-
-        // Process footnotes.
-        'outer: while k < notes.len() {
-            let had_footnotes = self.has_footnotes;
+        while k < notes.len() {
             if !self.has_footnotes {
                 self.layout_footnote_separator(vt)?;
             }
@@ -494,33 +497,24 @@ impl FlowLayouter<'_> {
                 .layout(vt, self.styles, self.regions.with_root(false))?
                 .into_frames();
 
-            // If the entries didn't fit, undo the separator layout, move the
-            // item into the next region (to keep footnote and entry together)
-            // and try again.
-            if can_skip && frames.first().map_or(false, Frame::is_empty) {
-                // Remove separator
-                if !had_footnotes {
-                    self.items.pop();
+            // If the entries didn't fit, abort (to keep footnote and entry
+            // together).
+            if !force && k == 0 && frames.first().map_or(false, Frame::is_empty) {
+                // Remove existing footnotes attempts because we need to
+                // move the item to the next page.
+                notes.truncate(notes_len);
+
+                // Undo region modifications.
+                for item in self.items.drain(items_len..) {
+                    self.regions.size.y -= item.height();
                 }
 
-                if is_movable {
-                    let moved: Vec<_> = self.items.drain(prev_len..).collect();
-                    self.finish_region()?;
-                    self.has_footnotes =
-                        moved.iter().any(|item| matches!(item, FlowItem::Footnote(_)));
-                    self.regions.size.y -= moved.iter().map(FlowItem::height).sum();
-                    self.items.extend(moved);
-                } else {
-                    self.finish_region()?;
-                }
-
-                can_skip = false;
-                continue 'outer;
+                return Ok(false);
             }
 
             let prev = notes.len();
             for (i, frame) in frames.into_iter().enumerate() {
-                find_footnotes(&mut notes, &frame);
+                find_footnotes(notes, &frame);
                 if i > 0 {
                     self.finish_region()?;
                     self.layout_footnote_separator(vt)?;
@@ -532,14 +526,15 @@ impl FlowLayouter<'_> {
 
             k += 1;
 
-            // Process the nested notes before dealing with further notes.
+            // Process the nested notes before dealing with further top-level
+            // notes.
             let nested = notes.len() - prev;
             if nested > 0 {
                 notes[k..].rotate_right(nested);
             }
         }
 
-        Ok(())
+        Ok(true)
     }
 
     /// Layout and save the footnote separator, typically a line.
