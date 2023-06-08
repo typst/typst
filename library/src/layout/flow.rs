@@ -60,11 +60,12 @@ impl Layout for FlowElem {
             } else if child.is::<MetaElem>() {
                 let mut frame = Frame::new(Size::zero());
                 frame.meta(styles, true);
-                layouter.items.push(FlowItem::Frame(
+                layouter.items.push(FlowItem::Frame {
                     frame,
-                    Axes::new(Align::Top, Align::Left),
-                    true,
-                ));
+                    aligns: Axes::new(Align::Top, Align::Left),
+                    sticky: true,
+                    movable: false,
+                });
             } else if child.can::<dyn Layout>() {
                 layouter.layout_multiple(vt, child, styles)?;
             } else if child.is::<ColbreakElem>() {
@@ -120,12 +121,25 @@ enum FlowItem {
     Absolute(Abs, bool),
     /// Fractional spacing between other items.
     Fractional(Fr),
-    /// A frame for a layouted block, how to align it, and whether it is sticky.
-    Frame(Frame, Axes<Align>, bool),
+    /// A frame for a layouted block, how to align it, whether it sticks to the
+    /// item after it (for orphan preventation), and whether it is movable
+    /// (to keep it together with its footnotes).
+    Frame { frame: Frame, aligns: Axes<Align>, sticky: bool, movable: bool },
     /// An absolutely placed frame.
     Placed(Frame),
     /// A footnote frame (can also be the separator).
     Footnote(Frame),
+}
+
+impl FlowItem {
+    /// The inherent height of the item.
+    fn height(&self) -> Abs {
+        match self {
+            Self::Absolute(v, _) => *v,
+            Self::Fractional(_) | Self::Placed(_) => Abs::zero(),
+            Self::Frame { frame, .. } | Self::Footnote(frame) => frame.height(),
+        }
+    }
 }
 
 impl<'a> FlowLayouter<'a> {
@@ -194,7 +208,7 @@ impl<'a> FlowLayouter<'a> {
         for (i, item) in self.items.iter().enumerate().rev() {
             match *item {
                 FlowItem::Absolute(_, _) => {}
-                FlowItem::Frame(.., true) => sticky = i,
+                FlowItem::Frame { sticky: true, .. } => sticky = i,
                 _ => break,
             }
         }
@@ -214,7 +228,10 @@ impl<'a> FlowLayouter<'a> {
                 self.layout_item(vt, FlowItem::Absolute(leading, true))?;
             }
 
-            self.layout_item(vt, FlowItem::Frame(frame, aligns, false))?;
+            self.layout_item(
+                vt,
+                FlowItem::Frame { frame, aligns, sticky: false, movable: true },
+            )?;
         }
 
         self.last_was_par = true;
@@ -233,7 +250,7 @@ impl<'a> FlowLayouter<'a> {
         let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
         let frame = content.layout(vt, styles, pod)?.into_frame();
-        self.layout_item(vt, FlowItem::Frame(frame, aligns, sticky))?;
+        self.layout_item(vt, FlowItem::Frame { frame, aligns, sticky, movable: true })?;
         self.last_was_par = false;
         Ok(())
     }
@@ -276,11 +293,16 @@ impl<'a> FlowLayouter<'a> {
         self.regions.root = self.root && is_columns;
 
         for (i, frame) in fragment.into_iter().enumerate() {
-            if i > 0 {
+            if i > 0
+                && !self.items.iter().all(|item| matches!(item, FlowItem::Footnote(_)))
+            {
                 self.finish_region()?;
             }
 
-            self.layout_item(vt, FlowItem::Frame(frame, aligns, sticky))?;
+            self.layout_item(
+                vt,
+                FlowItem::Frame { frame, aligns, sticky, movable: false },
+            )?;
         }
 
         self.regions.root = false;
@@ -295,14 +317,17 @@ impl<'a> FlowLayouter<'a> {
         match item {
             FlowItem::Absolute(v, weak) => {
                 if weak
-                    && !self.items.iter().any(|item| matches!(item, FlowItem::Frame(..)))
+                    && !self
+                        .items
+                        .iter()
+                        .any(|item| matches!(item, FlowItem::Frame { .. }))
                 {
                     return Ok(());
                 }
                 self.regions.size.y -= v
             }
             FlowItem::Fractional(_) => {}
-            FlowItem::Frame(ref frame, ..) => {
+            FlowItem::Frame { ref frame, .. } => {
                 let size = frame.size();
                 if !self.regions.size.y.fits(size.y) && !self.regions.in_last() {
                     self.finish_region()?;
@@ -310,7 +335,7 @@ impl<'a> FlowLayouter<'a> {
 
                 self.regions.size.y -= size.y;
                 if self.root {
-                    return self.handle_footnotes(vt, item, size.y);
+                    return self.handle_footnotes(vt, item);
                 }
             }
             FlowItem::Placed(_) => {}
@@ -341,7 +366,7 @@ impl<'a> FlowLayouter<'a> {
             match item {
                 FlowItem::Absolute(v, _) => used.y += *v,
                 FlowItem::Fractional(v) => fr += *v,
-                FlowItem::Frame(frame, ..) => {
+                FlowItem::Frame { frame, .. } => {
                     let size = frame.size();
                     used.y += size.y;
                     used.x.set_max(size.x);
@@ -383,7 +408,7 @@ impl<'a> FlowLayouter<'a> {
                     let remaining = self.initial.y - used.y;
                     offset += v.share(fr, remaining);
                 }
-                FlowItem::Frame(frame, aligns, _) => {
+                FlowItem::Frame { frame, aligns, .. } => {
                     ruler = ruler.max(aligns.y);
                     let x = aligns.x.position(size.x - frame.width());
                     let y = offset + ruler.position(size.y - used.y);
@@ -426,16 +451,14 @@ impl<'a> FlowLayouter<'a> {
 impl FlowLayouter<'_> {
     /// Processes all footnotes in the frame.
     #[tracing::instrument(skip_all)]
-    fn handle_footnotes(
-        &mut self,
-        vt: &mut Vt,
-        item: FlowItem,
-        height: Abs,
-    ) -> SourceResult<()> {
+    fn handle_footnotes(&mut self, vt: &mut Vt, item: FlowItem) -> SourceResult<()> {
         // Find footnotes in the frame.
         let mut notes = Vec::new();
-        if let FlowItem::Frame(frame, ..) = &item {
+
+        let mut is_movable = true;
+        if let FlowItem::Frame { frame, movable, .. } = &item {
             find_footnotes(&mut notes, frame);
+            is_movable = *movable;
         }
 
         let prev_len = self.items.len();
@@ -474,12 +497,18 @@ impl FlowLayouter<'_> {
                 if !had_footnotes {
                     self.items.pop();
                 }
-                let moved: Vec<_> = self.items.drain(prev_len..).collect();
-                self.finish_region()?;
-                self.has_footnotes =
-                    moved.iter().any(|item| matches!(item, FlowItem::Footnote(_)));
-                self.regions.size.y -= height;
-                self.items.extend(moved);
+
+                if is_movable {
+                    let moved: Vec<_> = self.items.drain(prev_len..).collect();
+                    self.finish_region()?;
+                    self.has_footnotes =
+                        moved.iter().any(|item| matches!(item, FlowItem::Footnote(_)));
+                    self.regions.size.y -= moved.iter().map(FlowItem::height).sum();
+                    self.items.extend(moved);
+                } else {
+                    self.finish_region()?;
+                }
+
                 can_skip = false;
                 continue 'outer;
             }
