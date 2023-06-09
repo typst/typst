@@ -241,7 +241,7 @@ impl Reflect for ShowableSelector {
             CastInfo::Type("function"),
             CastInfo::Type("label"),
             CastInfo::Type("string"),
-            CastInfo::Type("regex"),
+            CastInfo::Type("regular expression"),
             CastInfo::Type("symbol"),
             CastInfo::Type("selector"),
         ])
@@ -250,7 +250,12 @@ impl Reflect for ShowableSelector {
     fn castable(value: &Value) -> bool {
         matches!(
             value.type_name(),
-            "symbol" | "string" | "label" | "function" | "regex" | "selector"
+            "symbol"
+                | "string"
+                | "label"
+                | "function"
+                | "regular expression"
+                | "selector"
         )
     }
 }
