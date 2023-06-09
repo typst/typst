@@ -1,4 +1,5 @@
 use typst::diag::{format_xml_like_error, FileError};
+use typst::eval::Datetime;
 
 use crate::prelude::*;
 
@@ -268,8 +269,24 @@ fn convert_toml(value: toml::Value) -> Value {
             .map(|(key, value)| (key.into(), convert_toml(value)))
             .collect::<Dict>()
             .into_value(),
-        // TODO: Make it use native date/time object(s) once it is implemented.
-        toml::Value::Datetime(v) => v.to_string().into_value(),
+        toml::Value::Datetime(v) => match (v.date, v.time) {
+            (None, None) => Value::None,
+            (Some(date), None) => {
+                Datetime::from_ymd(date.year as i32, date.month, date.day).into_value()
+            }
+            (None, Some(time)) => {
+                Datetime::from_hms(time.hour, time.minute, time.second).into_value()
+            }
+            (Some(date), Some(time)) => Datetime::from_ymd_hms(
+                date.year as i32,
+                date.month,
+                date.day,
+                time.hour,
+                time.minute,
+                time.second,
+            )
+            .into_value(),
+        },
     }
 }
 
