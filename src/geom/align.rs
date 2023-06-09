@@ -244,7 +244,7 @@ pub enum EvenOrOdd {
     /// Specifies the value should be even
     Even,
     /// Specifies the value should be odd
-    Odd
+    Odd,
 }
 
 cast! {

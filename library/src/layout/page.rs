@@ -262,8 +262,8 @@ pub struct PageElem {
     pub foreground: Option<Content>,
 
     /// Whether the page should be aligned to an even or odd page
-    /// 
-    /// If the value is `even` or `odd`, and empty page will be inserted if 
+    ///
+    /// If the value is `even` or `odd`, and empty page will be inserted if
     /// necessary to start the page on an even or odd numbered page. If `none`
     /// then the page will start on either an even or an odd page, whichever
     /// comes next.
@@ -331,9 +331,12 @@ impl PageElem {
         let child_fragment = child.layout(vt, styles, regions)?;
 
         let mut fragment;
-        
-        if (self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Even) && Into::<usize>::into(number) % 2 == 1)  || 
-        (self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Odd) && Into::<usize>::into(number) % 2 == 0) {
+
+        if (self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Even)
+            && Into::<usize>::into(number) % 2 == 1)
+            || (self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Odd)
+                && Into::<usize>::into(number) % 2 == 0)
+        {
             let mut all_fragments = Vec::<Frame>::new();
             if area.is_finite() {
                 // Can only add padding padding frames if size is known
@@ -343,7 +346,7 @@ impl PageElem {
             fragment = Fragment::frames(all_fragments);
         } else {
             fragment = Fragment::frames(child_fragment.into_frames());
-        }   
+        }
 
         let fill = self.fill(styles);
         let foreground = self.foreground(styles);
@@ -458,8 +461,8 @@ pub struct PagebreakElem {
     /// empty.
     #[default(false)]
     pub weak: bool,
-    
-    /// If `even` or `odd`, then the next page will start on an even or odd 
+
+    /// If `even` or `odd`, then the next page will start on an even or odd
     /// page, with an empty page being inserted in between if necessary. If
     /// none, no empty pages will be inserted.
     #[default(None)]

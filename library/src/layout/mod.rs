@@ -497,7 +497,11 @@ impl<'a> DocBuilder<'a> {
 
 impl Default for DocBuilder<'_> {
     fn default() -> Self {
-        Self { pages: StyleVecBuilder::new(), keep_next: true, clear_next: None }
+        Self {
+            pages: StyleVecBuilder::new(),
+            keep_next: true,
+            clear_next: None,
+        }
     }
 }
 
