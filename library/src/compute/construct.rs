@@ -188,11 +188,16 @@ cast! {
 ///
 /// ## Example
 /// ```example
-/// #datetime(
+/// #let date = datetime(
 ///   year: 2012,
 ///   month: 8,
 ///   day: 3,
-/// ).display()
+/// )
+///
+/// #date.display() \
+/// #date.display(
+///   "[day].[month].[year]"
+/// )
 /// ```
 ///
 /// ## Format
@@ -305,6 +310,9 @@ cast! {
 }
 
 /// Returns the current date.
+///
+/// Refer to the documentation of the [`display`]($type/datetime.display) method
+/// for details on how to affect the formatting of the date.
 ///
 /// ## Example
 /// ```example

@@ -20,8 +20,8 @@ description: |
   - Fixed alignment of [`line`]($func/line) elements
 
 - Math
-  - **Breaking change:** Improved parsing of function-like markup in
-    [attachments]($func/math.attach): `[$f^abs(3)$]` now parses as
+  - **Breaking change:** The syntax rules for mathematical
+    [attachments]($func/math.attach) were improved: `[$f^abs(3)$]` now parses as
     `[$f^(abs(3))$]` instead of `[$(f^abs)(3)$]`. To disambiguate, add a space:
     `[$f^zeta (3)$]`.
   - Added [forced size]($category/math/sizes) commands for math
