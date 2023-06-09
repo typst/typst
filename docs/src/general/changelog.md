@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.5.0 (June 9, 2023) { #v0.5.0 }
 - Text and Layout
   - Added [`raw`]($func/raw) syntax highlighting for many more languages
   - Added support for Korean [numbering]($func/numbering)
@@ -65,6 +65,8 @@ description: |
   - Fixed citations and other searchable elements in [`hide`]($func/hide)
   - Fixed bugs with [reference supplements]($func/ref.supplement)
   - Fixed Nix flake
+
+<contributors from="v0.4.0" to="v0.5.0" />
 
 ## Version 0.4.0 (May 20, 2023) { #v0.4.0 }
 - Footnotes
