@@ -168,7 +168,7 @@ fn create_cmap(
     // prefer them over pre-existing text mappings from the document. Only
     // things that don't have a corresponding codepoint (or only a private-use
     // one) like the "Th" in Linux Libertine get the text of their first
-    // occurances in the document instead.
+    // occurrences in the document instead.
     for subtable in ttf.tables().cmap.into_iter().flat_map(|table| table.subtables) {
         if !subtable.is_unicode() {
             continue;
