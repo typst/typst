@@ -77,15 +77,7 @@ impl LayoutMath for AttachElem {
         let b = layout_attachment(ctx, Self::b)?;
         ctx.unstyle();
 
-        let as_limits = self.base().is::<LimitsElem>()
-            || (!self.base().is::<ScriptsElem>()
-                && ctx.style.size == MathSize::Display
-                && base.class() == Some(MathClass::Large)
-                && match &base {
-                    MathFragment::Variant(variant) => LIMITS.contains(&variant.c),
-                    MathFragment::Frame(fragment) => fragment.limits,
-                    _ => false,
-                });
+        let as_limits = base.limits().active(ctx);
 
         let (t, tr) = if as_limits || tr.is_some() { (t, tr) } else { (None, t) };
         let (b, br) = if as_limits || br.is_some() { (b, br) } else { (None, b) };
@@ -112,7 +104,7 @@ pub struct ScriptsElem {
 impl LayoutMath for ScriptsElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.body().layout_math(ctx)
+        layout_limits(ctx, self.body(), LimitsType::Never)
     }
 }
 
@@ -135,8 +127,60 @@ pub struct LimitsElem {
 impl LayoutMath for LimitsElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        self.body().layout_math(ctx)
+        layout_limits(ctx, self.body(), LimitsType::Always)
     }
+}
+
+/// Describes when frame should use the limits for the attachments
+#[derive(Debug, Copy, Clone)]
+pub enum LimitsType {
+    Never,
+    /// Display limits only in `display` math
+    Display,
+    Always,
+}
+
+impl LimitsType {
+    /// Create "default" limits
+    /// - true  -> `Display`
+    /// - false -> `Never`
+    pub fn from_bool(v: bool) -> Self {
+        if v {
+            LimitsType::Display
+        } else {
+            LimitsType::Never
+        }
+    }
+    /// Whether limits should be displayed in this context
+    pub fn active(&self, ctx: &MathContext) -> bool {
+        match self {
+            Self::Always => true,
+            Self::Display => ctx.style.size == MathSize::Display,
+            Self::Never => false,
+        }
+    }
+
+    /// Unicode codepoints that should have sub- and superscripts attached as limits.
+    #[rustfmt::skip]
+    pub const LIMITS: &[char] = &[
+        /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
+        /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
+        /* ⋂ */ '\u{22C2}', /* ⋃ */ '\u{22C3}',
+        /* ⨀ */ '\u{2A00}', /* ⨁ */ '\u{2A01}', /* ⨂ */ '\u{2A02}',
+        /* ⨃ */ '\u{2A03}', /* ⨄ */ '\u{2A04}',
+        /* ⨅ */ '\u{2A05}', /* ⨆ */ '\u{2A06}',
+    ];
+}
+
+fn layout_limits(
+    ctx: &mut MathContext,
+    body: Content,
+    limits: LimitsType,
+) -> SourceResult<()> {
+    let mut fragment = ctx.layout_fragment(&body)?;
+    fragment.set_limits(limits);
+    ctx.push(fragment);
+    Ok(())
 }
 
 macro_rules! measure {
@@ -358,14 +402,3 @@ fn is_atomic_text_frame(frame: &Frame) -> bool {
         .filter(|item| !matches!(item, FrameItem::Meta(_, _)));
     matches!(iter.next(), Some(FrameItem::Text(_))) && iter.next().is_none()
 }
-
-/// Unicode codepoints that should have sub- and superscripts attached as limits.
-#[rustfmt::skip]
-const LIMITS: &[char] = &[
-    /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
-    /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
-    /* ⋂ */ '\u{22C2}', /* ⋃ */ '\u{22C3}',
-    /* ⨀ */ '\u{2A00}', /* ⨁ */ '\u{2A01}', /* ⨂ */ '\u{2A02}',
-    /* ⨃ */ '\u{2A03}', /* ⨄ */ '\u{2A04}',
-    /* ⨅ */ '\u{2A05}', /* ⨆ */ '\u{2A06}',
-];

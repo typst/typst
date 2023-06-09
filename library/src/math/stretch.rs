@@ -185,6 +185,7 @@ fn assemble(
         italics_correction: Abs::zero(),
         class: base.class,
         span: base.span,
+        limits: base.limits,
     }
 }
 
