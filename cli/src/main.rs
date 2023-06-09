@@ -92,26 +92,19 @@ fn typst_version() -> &'static str {
 struct CompileSettings {
     /// The path to the input file.
     input: PathBuf,
-
     /// The path to the output file.
     output: PathBuf,
-
     /// Whether to watch the input files for changes.
     watch: bool,
-
     /// The root directory for absolute paths.
     root: Option<PathBuf>,
-
     /// The paths to search for fonts.
     font_paths: Vec<PathBuf>,
-
     /// The open command to use.
     open: Option<Option<String>>,
-
     /// The PPI to use for PNG export.
     ppi: Option<f32>,
-
-    /// In which format to emit diagnostics
+    /// In which format to emit diagnostics.
     diagnostic_format: DiagnosticFormat,
 }
 
@@ -173,7 +166,6 @@ impl CompileSettings {
 struct FontsSettings {
     /// The font paths
     font_paths: Vec<PathBuf>,
-
     /// Whether to include font variants
     variants: bool,
 }
@@ -505,7 +497,7 @@ struct SystemWorld {
     hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
-    current_date: Cell<Option<Datetime>>,
+    today: Cell<Option<Datetime>>,
     main: SourceId,
 }
 
@@ -536,7 +528,7 @@ impl SystemWorld {
             hashes: RefCell::default(),
             paths: RefCell::default(),
             sources: FrozenVec::new(),
-            current_date: Cell::new(None),
+            today: Cell::new(None),
             main: SourceId::detached(),
         }
     }
@@ -599,20 +591,20 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        if self.current_date.get().is_none() {
+        if self.today.get().is_none() {
             let datetime = match offset {
                 None => chrono::Local::now().naive_local(),
                 Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
             };
 
-            self.current_date.set(Some(Datetime::from_ymd(
+            self.today.set(Some(Datetime::from_ymd(
                 datetime.year(),
                 datetime.month().try_into().ok()?,
                 datetime.day().try_into().ok()?,
             )?))
         }
 
-        self.current_date.get()
+        self.today.get()
     }
 }
 
@@ -675,7 +667,7 @@ impl SystemWorld {
         self.sources.as_mut().clear();
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();
-        self.current_date.set(None);
+        self.today.set(None);
     }
 }
 

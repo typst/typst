@@ -188,7 +188,9 @@ getting the current date with [`datetime.today`]($func/datetime.today).
 )
 
 #date.display() \
-#date.display("y:[year repr:last_two]")
+#date.display(
+  "y:[year repr:last_two]"
+)
 
 #let time = datetime(
   hour: 18,
@@ -197,20 +199,22 @@ getting the current date with [`datetime.today`]($func/datetime.today).
 )
 
 #time.display() \
-#time.display("h:[hour repr:12][period]")
+#time.display(
+  "h:[hour repr:12][period]"
+)
 ```
 
 ## Format
-You can specify a customized formatting using the `display` method.
-The format of a datetime is specified by providing
-_components_ with a specified number of _modifiers_. A component represents a
-certain part of the datetime that you want to display, and with the help of
-modifiers you can define how you want to display that component. In order to
-display a component, you wrap the name of the component in square brackets
-(e.g. `[year]` will display the year). In order to add modifiers,
-you add a space after the component name followed by the name of the modifier,
-a colon and the value of the modifier (e.g. `[month repr:short]` will display
-the short representation of the month).
+You can specify a customized formatting using the
+[`display`]($type/datetime.display) method. The format of a datetime is
+specified by providing _components_ with a specified number of _modifiers_. A
+component represents a certain part of the datetime that you want to display,
+and with the help of modifiers you can define how you want to display that
+component. In order to display a component, you wrap the name of the component
+in square brackets (e.g. `[[year]]` will display the year). In order to add
+modifiers, you add a space after the component name followed by the name of the
+modifier, a colon and the value of the modifier (e.g. `[[month repr:short]]`
+will display the short representation of the month).
 
 The possible combination of components and their respective modifiers is as
 follows:
@@ -262,7 +266,7 @@ follows:
     is padded.
 
 Keep in mind that not always all components can be used. For example, if
-you create a new datetime with `#datetime(year: 2023, month: 10, day: 13)`, it
+you create a new datetime with `{datetime(year: 2023, month: 10, day: 13)}`, it
 will be stored as a plain date internally, meaning that you cannot use
 components such as `hour` or `minute`, which would only work on datetimes
 that have a specified time.
@@ -271,47 +275,49 @@ that have a specified time.
 ### display()
 Displays the datetime in a certain way. Depending on whether you have defined
 just a date, a time or both, the default format will be different.
-If you specified a date, it will be `[year]-[month]-[day]`. If you specified a
-time, it will be `[hour]:[minute]:[second]`. In the case of a datetime, it will
-be `[year]-[month]-[day] [hour]:[minute]:[second]`.
+If you specified a date, it will be `[[year]-[month]-[day]]`. If you specified a
+time, it will be `[[hour]:[minute]:[second]]`. In the case of a datetime, it
+will be `[[year]-[month]-[day] [hour]:[minute]:[second]]`.
 
 - pattern: string (positional)
   The format used to display the datetime.
 - returns: string
 
 ### year()
-Returns the year of the datetime, if it exists. Otherwise, it returns `none`.
+Returns the year of the datetime, if it exists. Otherwise, it returns `{none}`.
 
 - returns: integer or none
 
 ### month()
-Returns the month of the datetime, if it exists. Otherwise, it returns `none`.
+Returns the month of the datetime, if it exists. Otherwise, it returns `{none}`.
 
 - returns: integer or none
 
 ### weekday()
 Returns the weekday of the datetime as a number starting with 1 from Monday, if
-it exists. Otherwise, it returns `none`.
+it exists. Otherwise, it returns `{none}`.
 
 - returns: integer or none
 
 ### day()
-Returns the day of the datetime, if it exists. Otherwise, it returns `none`.
+Returns the day of the datetime, if it exists. Otherwise, it returns `{none}`.
 
 - returns: integer or none
 
 ### hour()
-Returns the hour of the datetime, if it exists. Otherwise, it returns `none`.
+Returns the hour of the datetime, if it exists. Otherwise, it returns `{none}`.
 
 - returns: integer or none
 
 ### minute()
-Returns the minute of the datetime, if it exists. Otherwise, it returns `none`.
+Returns the minute of the datetime, if it exists. Otherwise, it returns
+`{none}`.
 
 - returns: integer or none
 
 ### second()
-Returns the second of the datetime, if it exists. Otherwise, it returns `none`.
+Returns the second of the datetime, if it exists. Otherwise, it returns
+`{none}`.
 
 - returns: integer or none
 
@@ -608,7 +614,10 @@ field does not exist or fails with an error if no default value was specified.
 Return the fields of this content.
 
 ```example
-#repr(rect(width: 10cm, height: 10cm).fields())
+#rect(
+  width: 10cm,
+  height: 10cm,
+).fields()
 ```
 
 ### location()

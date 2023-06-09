@@ -143,7 +143,7 @@ pub fn pow(
 ///
 /// ## Example { #example }
 /// ```example
-/// #calc.exp(3)
+/// #calc.exp(1)
 /// ```
 ///
 /// Display: Exponential
@@ -479,7 +479,7 @@ pub fn log(
 ///
 /// ## Example { #example }
 /// ```example
-/// #calc.ln(100)
+/// #calc.ln(calc.e)
 /// ```
 ///
 /// Display: Natural Logarithm
