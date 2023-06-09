@@ -402,7 +402,7 @@ pub fn color_module() -> Module {
 /// Create a color by mixing two or more colors.
 ///
 /// By default, this happens in a perceptual color space (Oklab). You can
-/// specify a color space (`"oklab"` or `"srgb"`) as a positional argument.
+/// specify a color space (`"oklab"` or `"srgb"`) as a named argument.
 ///
 /// ## Example
 /// ```example
