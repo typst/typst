@@ -472,7 +472,7 @@ struct DocBuilder<'a> {
     pages: StyleVecBuilder<'a, Content>,
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
-
+    /// Whether the next page should be cleared to an even or odd number.
     clear_next: Option<EvenOrOdd>,
 }
 
