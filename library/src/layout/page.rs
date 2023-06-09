@@ -267,7 +267,7 @@ pub struct PageElem {
     /// necessary to start the page on an even or odd numbered page. If `none`
     /// then the page will start on either an even or an odd page, whichever
     /// comes next.
-    /// 
+    ///
     /// Note that this only works for pages with defines size (i.e., not `auto`)
     pub clear_to: Option<EvenOrOdd>,
 

@@ -43,3 +43,17 @@ First
 #page[Second]
 #pagebreak(weak: true)
 #page[Third]
+
+---
+// Test Clearing to even or odd pages
+#set page(width: 80pt, height: 30pt)
+First
+#pagebreak(clear-to: odd)
+Third
+#pagebreak(clear-to: even)
+Fourth
+#pagebreak(clear-to: even)
+Sixth
+#pagebreak()
+Seventh
+#page(clear-to: odd, [Nineth])
