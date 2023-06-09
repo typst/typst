@@ -5,11 +5,10 @@ use std::cell::{Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use atty::Stream;
 use chrono::Datelike;
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -368,7 +367,7 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let color = status.color();
 
     let mut w = color_stream();
-    if atty::is(Stream::Stderr) {
+    if std::io::stderr().is_terminal() {
         // Clear the terminal.
         write!(w, "{esc}c{esc}[1;1H")?;
     }
@@ -392,7 +391,7 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
 
 /// Get stderr with color support if desirable.
 fn color_stream() -> termcolor::StandardStream {
-    termcolor::StandardStream::stderr(if atty::is(Stream::Stderr) {
+    termcolor::StandardStream::stderr(if std::io::stderr().is_terminal() {
         ColorChoice::Auto
     } else {
         ColorChoice::Never
