@@ -326,8 +326,8 @@ pub trait Outlinable: Refable {
 #[derive(Debug, Clone)]
 pub enum OutlineIndent {
     Bool(bool),
-    Length(Spacing),
-    Function(Func),
+    Rel(Rel<Length>),
+    Func(Func),
 }
 
 impl OutlineIndent {
@@ -338,7 +338,7 @@ impl OutlineIndent {
         seq: &mut Vec<Content>,
         span: Span,
     ) -> SourceResult<()> {
-        match &indent {
+        match indent {
             // 'none' | 'false' => no indenting
             None | Some(Smart::Custom(OutlineIndent::Bool(false))) => {}
 
@@ -366,23 +366,20 @@ impl OutlineIndent {
             }
 
             // Length => indent with some fixed spacing per level
-            Some(Smart::Custom(OutlineIndent::Length(length))) => {
-                seq.push(HElem::new(*length).pack().repeat(ancestors.len()));
+            Some(Smart::Custom(OutlineIndent::Rel(length))) => {
+                seq.push(
+                    HElem::new(Spacing::Rel(*length)).pack().repeat(ancestors.len()),
+                );
             }
 
             // Function => call function with the current depth and take
             // the returned content
-            Some(Smart::Custom(OutlineIndent::Function(func))) => {
+            Some(Smart::Custom(OutlineIndent::Func(func))) => {
                 let depth = ancestors.len();
-                let returned = func.call_vt(vt, [depth])?;
-                let Ok(returned) = returned.cast::<Content>() else {
-                    bail!(
-                        span,
-                        "indent function must return content"
-                    );
-                };
-                if !returned.is_empty() {
-                    seq.push(returned);
+                let LengthOrContent(content) =
+                    func.call_vt(vt, [depth])?.cast().at(span)?;
+                if !content.is_empty() {
+                    seq.push(content);
                 }
             }
         };
@@ -395,10 +392,18 @@ cast! {
     OutlineIndent,
     self => match self {
         Self::Bool(v) => v.into_value(),
-        Self::Length(v) => v.into_value(),
-        Self::Function(v) => v.into_value()
+        Self::Rel(v) => v.into_value(),
+        Self::Func(v) => v.into_value()
     },
     v: bool => OutlineIndent::Bool(v),
-    v: Spacing => OutlineIndent::Length(v),
-    v: Func => OutlineIndent::Function(v),
+    v: Rel<Length> => OutlineIndent::Rel(v),
+    v: Func => OutlineIndent::Func(v),
+}
+
+struct LengthOrContent(Content);
+
+cast! {
+    LengthOrContent,
+    v: Rel<Length> => Self(HElem::new(Spacing::Rel(v)).pack()),
+    v: Content => Self(v),
 }
