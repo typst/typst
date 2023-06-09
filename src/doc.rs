@@ -514,6 +514,7 @@ impl Glyph {
 pub struct Lang([u8; 3], u8);
 
 impl Lang {
+    pub const ALBANIAN: Self = Self(*b"sq ", 2);
     pub const ARABIC: Self = Self(*b"ar ", 2);
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
