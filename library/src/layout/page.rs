@@ -328,22 +328,22 @@ impl PageElem {
         regions.root = true;
 
         // Layout the child.
-        let first_fragment = child.layout(vt, styles, regions)?;
-        let mut all_fragments = Vec::<Frame>::new();
-        if area.is_finite() {
-            all_fragments.push(Frame::new(area));
-        }
-            
-        if self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Even) && Into::<usize>::into(number) % 2 == 1 {
-            all_fragments.extend(first_fragment.into_frames());
-        } else if self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Odd) && Into::<usize>::into(number) % 2 == 0 {
-            all_fragments.extend(first_fragment.into_frames());
-        } else {
-            all_fragments = first_fragment.into_frames();
-        }
+        let child_fragment = child.layout(vt, styles, regions)?;
 
-        let mut fragment = Fragment::frames(all_fragments);
-            
+        let mut fragment;
+        
+        if (self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Even) && Into::<usize>::into(number) % 2 == 1)  || 
+        (self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Odd) && Into::<usize>::into(number) % 2 == 0) {
+            let mut all_fragments = Vec::<Frame>::new();
+            if area.is_finite() {
+                // Can only add padding padding frames if size is known
+                all_fragments.push(Frame::new(area));
+            }
+            all_fragments.extend(child_fragment.into_frames());
+            fragment = Fragment::frames(all_fragments);
+        } else {
+            fragment = Fragment::frames(child_fragment.into_frames());
+        }   
 
         let fill = self.fill(styles);
         let foreground = self.foreground(styles);
