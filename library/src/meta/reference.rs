@@ -180,7 +180,7 @@ impl Show for RefElem {
         let numbering = refable
             .numbering()
             .ok_or_else(|| {
-                eco_format!("cannot reference {0} without numbering. Did you forget a #set {0}(numbering: \"1.\")?", elem.func().name())
+                eco_format!("cannot reference {0} without numbering - did you mean to use `#set {0}(numbering: \"1.\")`?", elem.func().name())
             })
             .at(span)?;
 

@@ -242,7 +242,7 @@ impl CastInfo {
             if parts.iter().any(|p| p == "length");
             if !matching_type;
             then {
-                write!(msg, ": a length needs a unit – did you mean {i}pt?").unwrap();
+                write!(msg, ": a length needs a unit - did you mean {i}pt?").unwrap();
             }
         };
 
