@@ -382,7 +382,7 @@ cast! {
 /// A module with functions operating on colors.
 pub fn color_module() -> Module {
     let mut scope = Scope::new();
-    scope.define("mix", mix);
+    scope.define("mix", mix_func());
     Module::new("color").with_scope(scope)
 }
 
@@ -408,8 +408,8 @@ pub fn mix(
     #[named]
     #[default]
     space: ColorSpace,
-) -> Value {
-    Value::Color(mix_colors(colors.iter(), space))
+) -> Color {
+    mix_colors(colors.iter(), space)
 }
 
 /// Create a custom symbol with modifiers.
