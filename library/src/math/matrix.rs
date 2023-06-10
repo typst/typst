@@ -93,15 +93,15 @@ pub struct MatElem {
         let mut width = 0;
 
         let values = args.all::<Spanned<Value>>()?;
-        if values.iter().all(|spanned| matches!(spanned.v, Value::Content(_))) {
-            rows = vec![values.into_iter().map(|spanned| spanned.v.display()).collect()];
-        } else {
+        if values.iter().any(|spanned| matches!(spanned.v, Value::Array(_))) {
             for Spanned { v, span } in values {
                 let array = v.cast::<Array>().at(span)?;
                 let row: Vec<_> = array.into_iter().map(Value::display).collect();
                 width = width.max(row.len());
                 rows.push(row);
             }
+        } else {
+            rows = vec![values.into_iter().map(|spanned| spanned.v.display()).collect()];
         }
 
         for row in &mut rows {

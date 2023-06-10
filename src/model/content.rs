@@ -8,11 +8,11 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
-    Location, PlainText, Recipe, Selector, Style, Styles, Synthesize,
+    Location, Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
-use crate::eval::{Cast, Str, Value, Vm};
+use crate::eval::{Dict, FromValue, IntoValue, Str, Value, Vm};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -153,23 +153,24 @@ impl Content {
     pub fn with_field(
         mut self,
         name: impl Into<EcoString>,
-        value: impl Into<Value>,
+        value: impl IntoValue,
     ) -> Self {
         self.push_field(name, value);
         self
     }
 
     /// Attach a field to the content.
-    pub fn push_field(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
+    pub fn push_field(&mut self, name: impl Into<EcoString>, value: impl IntoValue) {
         let name = name.into();
         if let Some(i) = self.attrs.iter().position(|attr| match attr {
             Attr::Field(field) => *field == name,
             _ => false,
         }) {
-            self.attrs.make_mut()[i + 1] = Attr::Value(Prehashed::new(value.into()));
+            self.attrs.make_mut()[i + 1] =
+                Attr::Value(Prehashed::new(value.into_value()));
         } else {
             self.attrs.push(Attr::Field(name));
-            self.attrs.push(Attr::Value(Prehashed::new(value.into())));
+            self.attrs.push(Attr::Value(Prehashed::new(value.into_value())));
         }
     }
 
@@ -226,7 +227,7 @@ impl Content {
     }
 
     /// Try to access a field on the content as a specified type.
-    pub fn cast_field<T: Cast>(&self, name: &str) -> Option<T> {
+    pub fn cast_field<T: FromValue>(&self, name: &str) -> Option<T> {
         match self.field(name) {
             Some(value) => value.cast().ok(),
             None => None,
@@ -235,7 +236,7 @@ impl Content {
 
     /// Expect a field on the content to exist as a specified type.
     #[track_caller]
-    pub fn expect_field<T: Cast>(&self, name: &str) -> T {
+    pub fn expect_field<T: FromValue>(&self, name: &str) -> T {
         self.field(name).unwrap().cast().unwrap()
     }
 
@@ -249,6 +250,13 @@ impl Content {
         self.field(field)
             .or(default)
             .ok_or_else(|| missing_field_no_default(field))
+    }
+
+    /// Return the fields of the content as a dict.
+    pub fn dict(&self) -> Dict {
+        self.fields()
+            .map(|(key, value)| (key.to_owned().into(), value))
+            .collect()
     }
 
     /// The content's label.
@@ -304,12 +312,9 @@ impl Content {
         }
     }
 
-    /// Repeat this content `n` times.
-    pub fn repeat(&self, n: i64) -> StrResult<Self> {
-        let count = usize::try_from(n)
-            .map_err(|_| format!("cannot repeat this content {} times", n))?;
-
-        Ok(Self::sequence(vec![self.clone(); count]))
+    /// Repeat this content `count` times.
+    pub fn repeat(&self, count: usize) -> Self {
+        Self::sequence(vec![self.clone(); count])
     }
 
     /// Disable a show rule recipe.
@@ -590,6 +595,12 @@ impl Fold for Vec<Meta> {
         self.extend(outer);
         self
     }
+}
+
+/// Tries to extract the plain-text representation of the element.
+pub trait PlainText {
+    /// Write this element's plain text into the given buffer.
+    fn plain_text(&self, text: &mut EcoString);
 }
 
 /// The missing key access error message when no default value was given.

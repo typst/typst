@@ -9,13 +9,12 @@ use super::*;
 ///
 /// Display: Square Root
 /// Category: math
-/// Returns: content
 #[func]
 pub fn sqrt(
     /// The expression to take the square root of.
     radicand: Content,
-) -> Value {
-    RootElem::new(radicand).pack().into()
+) -> Content {
+    RootElem::new(radicand).pack()
 }
 
 /// A general root.

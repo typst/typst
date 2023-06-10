@@ -1,4 +1,4 @@
-use typst_macros::{cast_from_value, Cast};
+use typst_macros::{cast, Cast};
 
 use super::*;
 use crate::eval::Array;
@@ -14,7 +14,7 @@ pub enum ColorSpace {
 
 pub struct WeightedColor(Color, f32);
 
-cast_from_value! {
+cast! {
     WeightedColor,
     v: Color => Self(v, 1.0),
     v: Array => {

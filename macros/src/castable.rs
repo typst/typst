@@ -1,7 +1,7 @@
 use super::*;
 
 /// Expand the `#[derive(Cast)]` macro.
-pub fn cast(item: DeriveInput) -> Result<TokenStream> {
+pub fn derive_cast(item: &DeriveInput) -> Result<TokenStream> {
     let ty = &item.ident;
 
     let syn::Data::Enum(data) = &item.data else {
@@ -15,7 +15,7 @@ pub fn cast(item: DeriveInput) -> Result<TokenStream> {
         }
 
         let string = if let Some(attr) =
-            variant.attrs.iter().find(|attr| attr.path.is_ident("string"))
+            variant.attrs.iter().find(|attr| attr.path().is_ident("string"))
         {
             attr.parse_args::<syn::LitStr>()?.value()
         } else {
@@ -43,107 +43,117 @@ pub fn cast(item: DeriveInput) -> Result<TokenStream> {
     });
 
     Ok(quote! {
-        ::typst::eval::cast_from_value! {
+        ::typst::eval::cast! {
             #ty,
-            #(#strs_to_variants),*
-        }
-
-        ::typst::eval::cast_to_value! {
-            v: #ty => ::typst::eval::Value::from(match v {
+            self => ::typst::eval::IntoValue::into_value(match self {
                 #(#variants_to_strs),*
-            })
+            }),
+            #(#strs_to_variants),*
         }
     })
 }
 
+/// An enum variant in a `derive(Cast)`.
 struct Variant {
     ident: Ident,
     string: String,
     docs: String,
 }
 
-/// Expand the `cast_from_value!` macro.
-pub fn cast_from_value(stream: TokenStream) -> Result<TokenStream> {
-    let castable: Castable = syn::parse2(stream)?;
-    let ty = &castable.ty;
+/// Expand the `cast!` macro.
+pub fn cast(stream: TokenStream) -> Result<TokenStream> {
+    let input: CastInput = syn::parse2(stream)?;
+    let ty = &input.ty;
+    let eval = quote! { ::typst::eval };
 
-    if castable.casts.is_empty() && castable.name.is_none() {
-        bail!(castable.ty, "expected at least one pattern");
-    }
+    let castable_body = create_castable_body(&input);
+    let describe_body = create_describe_body(&input);
+    let into_value_body = create_into_value_body(&input);
+    let from_value_body = create_from_value_body(&input);
 
-    let is_func = create_is_func(&castable);
-    let cast_func = create_cast_func(&castable);
-    let describe_func = create_describe_func(&castable);
-    let dynamic_impls = castable.name.as_ref().map(|name| {
+    let reflect = (!input.from_value.is_empty() || input.name.is_some()).then(|| {
         quote! {
-            impl ::typst::eval::Type for #ty {
-                const TYPE_NAME: &'static str = #name;
-            }
+            impl #eval::Reflect for #ty {
+                fn describe() -> #eval::CastInfo {
+                    #describe_body
+                }
 
-            impl From<#ty> for ::typst::eval::Value {
-                fn from(v: #ty) -> Self {
-                    ::typst::eval::Value::Dyn(::typst::eval::Dynamic::new(v))
+                fn castable(value: &#eval::Value) -> bool {
+                    #castable_body
                 }
             }
         }
     });
 
-    Ok(quote! {
-        impl ::typst::eval::Cast for #ty {
-            #is_func
-            #cast_func
-            #describe_func
-        }
-
-        #dynamic_impls
-    })
-}
-
-/// Expand the `cast_to_value!` macro.
-pub fn cast_to_value(stream: TokenStream) -> Result<TokenStream> {
-    let cast: Cast = syn::parse2(stream)?;
-    let Pattern::Ty(pat, ty) = &cast.pattern else {
-        bail!(callsite, "expected pattern");
-    };
-
-    let expr = &cast.expr;
-    Ok(quote! {
-        impl ::std::convert::From<#ty> for ::typst::eval::Value {
-            fn from(#pat: #ty) -> Self {
-                #expr
+    let into_value = (input.into_value.is_some() || input.name.is_some()).then(|| {
+        quote! {
+            impl #eval::IntoValue for #ty {
+                fn into_value(self) -> #eval::Value {
+                    #into_value_body
+                }
             }
         }
+    });
+
+    let from_value = (!input.from_value.is_empty() || input.name.is_some()).then(|| {
+        quote! {
+            impl #eval::FromValue for #ty {
+                fn from_value(value: #eval::Value) -> ::typst::diag::StrResult<Self> {
+                    #from_value_body
+                }
+            }
+        }
+    });
+
+    let ty = input.name.as_ref().map(|name| {
+        quote! {
+            impl #eval::Type for #ty {
+                const TYPE_NAME: &'static str = #name;
+            }
+        }
+    });
+
+    Ok(quote! {
+        #reflect
+        #into_value
+        #from_value
+        #ty
     })
 }
 
-struct Castable {
+/// The input to `cast!`.
+struct CastInput {
     ty: syn::Type,
     name: Option<syn::LitStr>,
-    casts: Punctuated<Cast, Token![,]>,
+    into_value: Option<syn::Expr>,
+    from_value: Punctuated<Cast, Token![,]>,
 }
 
-struct Cast {
-    attrs: Vec<syn::Attribute>,
-    pattern: Pattern,
-    expr: syn::Expr,
-}
-
-enum Pattern {
-    Str(syn::LitStr),
-    Ty(syn::Pat, syn::Type),
-}
-
-impl Parse for Castable {
+impl Parse for CastInput {
     fn parse(input: ParseStream) -> Result<Self> {
-        let ty = input.parse()?;
+        let ty;
         let mut name = None;
-        if input.peek(Token![:]) {
+        if input.peek(syn::Token![type]) {
+            let _: syn::Token![type] = input.parse()?;
+            ty = input.parse()?;
             let _: syn::Token![:] = input.parse()?;
             name = Some(input.parse()?);
+        } else {
+            ty = input.parse()?;
         }
+
         let _: syn::Token![,] = input.parse()?;
-        let casts = Punctuated::parse_terminated(input)?;
-        Ok(Self { ty, name, casts })
+
+        let mut into_value = None;
+        if input.peek(syn::Token![self]) {
+            let _: syn::Token![self] = input.parse()?;
+            let _: syn::Token![=>] = input.parse()?;
+            into_value = Some(input.parse()?);
+            let _: syn::Token![,] = input.parse()?;
+        }
+
+        let from_value = Punctuated::parse_terminated(input)?;
+        Ok(Self { ty, name, into_value, from_value })
     }
 }
 
@@ -162,7 +172,7 @@ impl Parse for Pattern {
         if input.peek(syn::LitStr) {
             Ok(Pattern::Str(input.parse()?))
         } else {
-            let pat = input.parse()?;
+            let pat = syn::Pat::parse_single(input)?;
             let _: syn::Token![:] = input.parse()?;
             let ty = input.parse()?;
             Ok(Pattern::Ty(pat, ty))
@@ -170,19 +180,31 @@ impl Parse for Pattern {
     }
 }
 
-/// Create the castable's `is` function.
-fn create_is_func(castable: &Castable) -> TokenStream {
-    let mut string_arms = vec![];
-    let mut cast_checks = vec![];
+/// A single cast, e.g. `v: i64 => Self::Int(v)`.
+struct Cast {
+    attrs: Vec<syn::Attribute>,
+    pattern: Pattern,
+    expr: syn::Expr,
+}
 
-    for cast in &castable.casts {
+/// A pattern in a cast, e.g.`"ascender"` or `v: i64`.
+enum Pattern {
+    Str(syn::LitStr),
+    Ty(syn::Pat, syn::Type),
+}
+
+fn create_castable_body(input: &CastInput) -> TokenStream {
+    let mut strings = vec![];
+    let mut casts = vec![];
+
+    for cast in &input.from_value {
         match &cast.pattern {
             Pattern::Str(lit) => {
-                string_arms.push(quote! { #lit => return true });
+                strings.push(quote! { #lit => return true });
             }
             Pattern::Ty(_, ty) => {
-                cast_checks.push(quote! {
-                    if <#ty as ::typst::eval::Cast>::is(value) {
+                casts.push(quote! {
+                    if <#ty as ::typst::eval::Reflect>::castable(value) {
                         return true;
                     }
                 });
@@ -190,7 +212,7 @@ fn create_is_func(castable: &Castable) -> TokenStream {
         }
     }
 
-    let dynamic_check = castable.name.is_some().then(|| {
+    let dynamic_check = input.name.is_some().then(|| {
         quote! {
             if let ::typst::eval::Value::Dyn(dynamic) = &value {
                 if dynamic.is::<Self>() {
@@ -200,11 +222,11 @@ fn create_is_func(castable: &Castable) -> TokenStream {
         }
     });
 
-    let str_check = (!string_arms.is_empty()).then(|| {
+    let str_check = (!strings.is_empty()).then(|| {
         quote! {
             if let ::typst::eval::Value::Str(string) = &value {
                 match string.as_str() {
-                    #(#string_arms,)*
+                    #(#strings,)*
                     _ => {}
                 }
             }
@@ -212,21 +234,57 @@ fn create_is_func(castable: &Castable) -> TokenStream {
     });
 
     quote! {
-        fn is(value: &::typst::eval::Value) -> bool {
-            #dynamic_check
-            #str_check
-            #(#cast_checks)*
-            false
-        }
+        #dynamic_check
+        #str_check
+        #(#casts)*
+        false
     }
 }
 
-/// Create the castable's `cast` function.
-fn create_cast_func(castable: &Castable) -> TokenStream {
+fn create_describe_body(input: &CastInput) -> TokenStream {
+    let mut infos = vec![];
+
+    for cast in &input.from_value {
+        let docs = documentation(&cast.attrs);
+        infos.push(match &cast.pattern {
+            Pattern::Str(lit) => {
+                quote! {
+                    ::typst::eval::CastInfo::Value(
+                        ::typst::eval::IntoValue::into_value(#lit),
+                        #docs,
+                    )
+                }
+            }
+            Pattern::Ty(_, ty) => {
+                quote! { <#ty as ::typst::eval::Reflect>::describe() }
+            }
+        });
+    }
+
+    if let Some(name) = &input.name {
+        infos.push(quote! {
+            ::typst::eval::CastInfo::Type(#name)
+        });
+    }
+
+    quote! {
+        #(#infos)+*
+    }
+}
+
+fn create_into_value_body(input: &CastInput) -> TokenStream {
+    if let Some(expr) = &input.into_value {
+        quote! { #expr }
+    } else {
+        quote! { ::typst::eval::Value::dynamic(self) }
+    }
+}
+
+fn create_from_value_body(input: &CastInput) -> TokenStream {
     let mut string_arms = vec![];
     let mut cast_checks = vec![];
 
-    for cast in &castable.casts {
+    for cast in &input.from_value {
         let expr = &cast.expr;
         match &cast.pattern {
             Pattern::Str(lit) => {
@@ -234,8 +292,8 @@ fn create_cast_func(castable: &Castable) -> TokenStream {
             }
             Pattern::Ty(binding, ty) => {
                 cast_checks.push(quote! {
-                    if <#ty as ::typst::eval::Cast>::is(&value) {
-                        let #binding = <#ty as ::typst::eval::Cast>::cast(value)?;
+                    if <#ty as ::typst::eval::Reflect>::castable(&value) {
+                        let #binding = <#ty as ::typst::eval::FromValue>::from_value(value)?;
                         return Ok(#expr);
                     }
                 });
@@ -243,7 +301,7 @@ fn create_cast_func(castable: &Castable) -> TokenStream {
         }
     }
 
-    let dynamic_check = castable.name.is_some().then(|| {
+    let dynamic_check = input.name.is_some().then(|| {
         quote! {
             if let ::typst::eval::Value::Dyn(dynamic) = &value {
                 if let Some(concrete) = dynamic.downcast::<Self>() {
@@ -265,40 +323,9 @@ fn create_cast_func(castable: &Castable) -> TokenStream {
     });
 
     quote! {
-        fn cast(value: ::typst::eval::Value) -> ::typst::diag::StrResult<Self> {
-            #dynamic_check
-            #str_check
-            #(#cast_checks)*
-            <Self as ::typst::eval::Cast>::error(value)
-        }
-    }
-}
-
-/// Create the castable's `describe` function.
-fn create_describe_func(castable: &Castable) -> TokenStream {
-    let mut infos = vec![];
-
-    for cast in &castable.casts {
-        let docs = documentation(&cast.attrs);
-        infos.push(match &cast.pattern {
-            Pattern::Str(lit) => {
-                quote! { ::typst::eval::CastInfo::Value(#lit.into(), #docs) }
-            }
-            Pattern::Ty(_, ty) => {
-                quote! { <#ty as ::typst::eval::Cast>::describe() }
-            }
-        });
-    }
-
-    if let Some(name) = &castable.name {
-        infos.push(quote! {
-            ::typst::eval::CastInfo::Type(#name)
-        });
-    }
-
-    quote! {
-        fn describe() -> ::typst::eval::CastInfo {
-            #(#infos)+*
-        }
+        #dynamic_check
+        #str_check
+        #(#cast_checks)*
+        Err(<Self as ::typst::eval::Reflect>::error(&value))
     }
 }

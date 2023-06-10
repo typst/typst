@@ -5,7 +5,7 @@ use typst::util::option_eq;
 use super::{
     Counter, CounterKey, HeadingElem, LocalName, Numbering, NumberingPattern, Refable,
 };
-use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem};
+use crate::layout::{BoxElem, HElem, HideElem, ParbreakElem, RepeatElem, Spacing};
 use crate::prelude::*;
 use crate::text::{LinebreakElem, SpaceElem, TextElem};
 
@@ -110,24 +110,57 @@ pub struct OutlineElem {
     /// ```
     pub depth: Option<NonZeroUsize>,
 
-    /// Whether to indent the sub-elements to align the start of their numbering
-    /// with the title of their parents. This will only have an effect if a
-    /// [heading numbering]($func/heading.numbering) is set.
+    /// How to indent the outline's entries.
+    ///
+    /// - `{none}`: No indent
+    /// - `{auto}`: Indents the numbering of the nested entry with the title of
+    ///   its parent entry. This only has an effect if the entries are numbered
+    ///   (e.g., via [heading numbering]($func/heading.numbering)).
+    /// - [Relative length]($type/relative): Indents the item by this length
+    ///   multiplied by its nesting level. Specifying `{2em}`, for instance,
+    ///   would indent top-level headings (not nested) by `{0em}`, second level
+    ///   headings by `{2em}` (nested once), third-level headings by `{4em}`
+    ///   (nested twice) and so on.
+    /// - [Function]($type/function): You can completely customize this setting
+    ///   with a function. That function receives the nesting level as a
+    ///   parameter (starting at 0 for top-level headings/elements) and can
+    ///   return a relative length or content making up the indent. For example,
+    ///   `{n => n * 2em}` would be equivalent to just specifiying `{2em}`,
+    ///   while `{n => [→ ] * n}` would indent with one arrow per nesting
+    ///   level.
+    ///
+    /// *Migration hints:*  Specifying `{true}` (equivalent to `{auto}`) or
+    /// `{false}` (equivalent to `{none}`) for this option is deprecated and
+    /// will be removed in a future release.
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")
-    /// #outline(indent: true)
+    ///
+    /// #outline(
+    ///   title: [Contents (Automatic)],
+    ///   indent: auto,
+    /// )
+    ///
+    /// #outline(
+    ///   title: [Contents (Length)],
+    ///   indent: 2em,
+    /// )
+    ///
+    /// #outline(
+    ///   title: [Contents (Function)],
+    ///   indent: n => [→ ] * n,
+    /// )
     ///
     /// = About ACME Corp.
-    ///
     /// == History
+    /// === Origins
     /// #lorem(10)
     ///
     /// == Products
     /// #lorem(10)
     /// ```
-    #[default(false)]
-    pub indent: bool,
+    #[default(None)]
+    pub indent: Option<Smart<OutlineIndent>>,
 
     /// Content to fill the space between the title and the page number. Can be
     /// set to `none` to disable filling.
@@ -190,27 +223,7 @@ impl Show for OutlineElem {
                 ancestors.pop();
             }
 
-            // Add hidden ancestors numberings to realize the indent.
-            if indent {
-                let mut hidden = Content::empty();
-                for ancestor in &ancestors {
-                    let ancestor_outlinable = ancestor.with::<dyn Outlinable>().unwrap();
-
-                    if let Some(numbering) = ancestor_outlinable.numbering() {
-                        let numbers = ancestor_outlinable
-                            .counter()
-                            .at(vt, ancestor.location().unwrap())?
-                            .display(vt, &numbering)?;
-
-                        hidden += numbers + SpaceElem::new().pack();
-                    };
-                }
-
-                if !ancestors.is_empty() {
-                    seq.push(HideElem::new(hidden).pack());
-                    seq.push(SpaceElem::new().pack());
-                }
-            }
+            OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
 
             // Add the outline of the element.
             seq.push(outline.linked(Destination::Location(location)));
@@ -271,6 +284,8 @@ impl LocalName for OutlineElem {
             Lang::CHINESE if option_eq(region, "TW") => "目錄",
             Lang::CHINESE => "目录",
             Lang::CZECH => "Obsah",
+            Lang::DANISH => "Indhold",
+            Lang::DUTCH => "Inhoudsopgave",
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ITALIAN => "Indice",
@@ -280,6 +295,7 @@ impl LocalName for OutlineElem {
             Lang::RUSSIAN => "Содержание",
             Lang::SLOVENIAN => "Kazalo",
             Lang::SPANISH => "Índice",
+            Lang::SWEDISH => "Innehåll",
             Lang::UKRAINIAN => "Зміст",
             Lang::VIETNAMESE => "Mục lục",
             Lang::ENGLISH | _ => "Contents",
@@ -297,4 +313,89 @@ pub trait Outlinable: Refable {
     fn level(&self) -> NonZeroUsize {
         NonZeroUsize::ONE
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum OutlineIndent {
+    Bool(bool),
+    Rel(Rel<Length>),
+    Func(Func),
+}
+
+impl OutlineIndent {
+    fn apply(
+        indent: &Option<Smart<Self>>,
+        vt: &mut Vt,
+        ancestors: &Vec<&Content>,
+        seq: &mut Vec<Content>,
+        span: Span,
+    ) -> SourceResult<()> {
+        match indent {
+            // 'none' | 'false' => no indenting
+            None | Some(Smart::Custom(OutlineIndent::Bool(false))) => {}
+
+            // 'auto' | 'true' => use numbering alignment for indenting
+            Some(Smart::Auto | Smart::Custom(OutlineIndent::Bool(true))) => {
+                // Add hidden ancestors numberings to realize the indent.
+                let mut hidden = Content::empty();
+                for ancestor in ancestors {
+                    let ancestor_outlinable = ancestor.with::<dyn Outlinable>().unwrap();
+
+                    if let Some(numbering) = ancestor_outlinable.numbering() {
+                        let numbers = ancestor_outlinable
+                            .counter()
+                            .at(vt, ancestor.location().unwrap())?
+                            .display(vt, &numbering)?;
+
+                        hidden += numbers + SpaceElem::new().pack();
+                    };
+                }
+
+                if !ancestors.is_empty() {
+                    seq.push(HideElem::new(hidden).pack());
+                    seq.push(SpaceElem::new().pack());
+                }
+            }
+
+            // Length => indent with some fixed spacing per level
+            Some(Smart::Custom(OutlineIndent::Rel(length))) => {
+                seq.push(
+                    HElem::new(Spacing::Rel(*length)).pack().repeat(ancestors.len()),
+                );
+            }
+
+            // Function => call function with the current depth and take
+            // the returned content
+            Some(Smart::Custom(OutlineIndent::Func(func))) => {
+                let depth = ancestors.len();
+                let LengthOrContent(content) =
+                    func.call_vt(vt, [depth])?.cast().at(span)?;
+                if !content.is_empty() {
+                    seq.push(content);
+                }
+            }
+        };
+
+        Ok(())
+    }
+}
+
+cast! {
+    OutlineIndent,
+    self => match self {
+        Self::Bool(v) => v.into_value(),
+        Self::Rel(v) => v.into_value(),
+        Self::Func(v) => v.into_value()
+    },
+    v: bool => OutlineIndent::Bool(v),
+    v: Rel<Length> => OutlineIndent::Rel(v),
+    v: Func => OutlineIndent::Func(v),
+}
+
+struct LengthOrContent(Content);
+
+cast! {
+    LengthOrContent,
+    v: Rel<Length> => Self(HElem::new(Spacing::Rel(v)).pack()),
+    v: Content => Self(v),
 }

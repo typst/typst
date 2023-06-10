@@ -104,9 +104,7 @@ impl Synthesize for HeadingElem {
         let supplement = match self.supplement(styles) {
             Smart::Auto => TextElem::packed(self.local_name_in(styles)),
             Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(supplement)) => {
-                supplement.resolve(vt, [self.clone().into()])?
-            }
+            Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
         };
 
         self.push_level(self.level(styles));
@@ -164,7 +162,7 @@ impl Count for HeadingElem {
     }
 }
 
-cast_from_value! {
+cast! {
     HeadingElem,
     v: Content => v.to::<Self>().ok_or("expected heading")?.clone(),
 }
@@ -217,6 +215,8 @@ impl LocalName for HeadingElem {
             Lang::CHINESE if option_eq(region, "TW") => "小節",
             Lang::CHINESE => "小节",
             Lang::CZECH => "Kapitola",
+            Lang::DANISH => "Afsnit",
+            Lang::DUTCH => "Hoofdstuk",
             Lang::FRENCH => "Chapitre",
             Lang::GERMAN => "Abschnitt",
             Lang::ITALIAN => "Sezione",
@@ -226,6 +226,7 @@ impl LocalName for HeadingElem {
             Lang::RUSSIAN => "Раздел",
             Lang::SLOVENIAN => "Poglavje",
             Lang::SPANISH => "Sección",
+            Lang::SWEDISH => "Kapitel",
             Lang::UKRAINIAN => "Розділ",
             Lang::VIETNAMESE => "Phần", // TODO: This may be wrong.
             Lang::ENGLISH | _ => "Section",

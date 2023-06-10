@@ -1,11 +1,9 @@
-use quote::ToTokens;
-
 use super::*;
 
 /// Expand the `#[func]` macro.
-pub fn func(item: syn::ItemFn) -> Result<TokenStream> {
-    let func = prepare(&item)?;
-    Ok(create(&func))
+pub fn func(stream: TokenStream, item: &syn::ItemFn) -> Result<TokenStream> {
+    let func = prepare(stream, item)?;
+    Ok(create(&func, item))
 }
 
 struct Func {
@@ -16,9 +14,14 @@ struct Func {
     docs: String,
     vis: syn::Visibility,
     ident: Ident,
+    ident_func: Ident,
+    parent: Option<syn::Type>,
+    vm: bool,
+    vt: bool,
+    args: bool,
+    span: bool,
     params: Vec<Param>,
-    returns: Vec<String>,
-    body: syn::Block,
+    returns: syn::Type,
     scope: Option<BlockWithReturn>,
 }
 
@@ -33,9 +36,15 @@ struct Param {
     ty: syn::Type,
 }
 
-fn prepare(item: &syn::ItemFn) -> Result<Func> {
+fn prepare(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
     let sig = &item.sig;
 
+    let Parent(parent) = syn::parse2(stream)?;
+
+    let mut vm = false;
+    let mut vt = false;
+    let mut args = false;
+    let mut span = false;
     let mut params = vec![];
     for input in &sig.inputs {
         let syn::FnArg::Typed(typed) = input else {
@@ -51,99 +60,148 @@ fn prepare(item: &syn::ItemFn) -> Result<Func> {
             bail!(typed.pat, "expected identifier");
         };
 
-        if sig.output.to_token_stream().to_string() != "-> Value" {
-            bail!(sig.output, "must return `Value`");
+        match ident.to_string().as_str() {
+            "vm" => vm = true,
+            "vt" => vt = true,
+            "args" => args = true,
+            "span" => span = true,
+            _ => {
+                let mut attrs = typed.attrs.clone();
+                params.push(Param {
+                    name: kebab_case(ident),
+                    docs: documentation(&attrs),
+                    external: has_attr(&mut attrs, "external"),
+                    named: has_attr(&mut attrs, "named"),
+                    variadic: has_attr(&mut attrs, "variadic"),
+                    default: parse_attr(&mut attrs, "default")?.map(|expr| {
+                        expr.unwrap_or_else(
+                            || parse_quote! { ::std::default::Default::default() },
+                        )
+                    }),
+                    ident: ident.clone(),
+                    ty: (*typed.ty).clone(),
+                });
+
+                validate_attrs(&attrs)?;
+            }
         }
-
-        let mut attrs = typed.attrs.clone();
-        params.push(Param {
-            name: kebab_case(ident),
-            docs: documentation(&attrs),
-            external: has_attr(&mut attrs, "external"),
-            named: has_attr(&mut attrs, "named"),
-            variadic: has_attr(&mut attrs, "variadic"),
-            default: parse_attr(&mut attrs, "default")?.map(|expr| {
-                expr.unwrap_or_else(
-                    || parse_quote! { ::std::default::Default::default() },
-                )
-            }),
-            ident: ident.clone(),
-            ty: (*typed.ty).clone(),
-        });
-
-        validate_attrs(&attrs)?;
     }
 
     let mut attrs = item.attrs.clone();
     let docs = documentation(&attrs);
     let mut lines = docs.split('\n').collect();
-    let returns = meta_line(&mut lines, "Returns")?
-        .split(" or ")
-        .map(Into::into)
-        .collect();
     let keywords = meta_line(&mut lines, "Keywords").ok().map(Into::into);
     let category = meta_line(&mut lines, "Category")?.into();
     let display = meta_line(&mut lines, "Display")?.into();
     let docs = lines.join("\n").trim().into();
 
     let func = Func {
-        name: sig.ident.to_string().replace('_', ""),
+        name: sig.ident.to_string().trim_end_matches('_').replace('_', "-"),
         display,
         category,
         keywords,
         docs,
         vis: item.vis.clone(),
         ident: sig.ident.clone(),
+        ident_func: Ident::new(
+            &format!("{}_func", sig.ident.to_string().trim_end_matches('_')),
+            sig.ident.span(),
+        ),
+        parent,
         params,
-        returns,
-        body: (*item.block).clone(),
+        returns: match &sig.output {
+            syn::ReturnType::Default => parse_quote! { () },
+            syn::ReturnType::Type(_, ty) => ty.as_ref().clone(),
+        },
         scope: parse_attr(&mut attrs, "scope")?.flatten(),
+        vm,
+        vt,
+        args,
+        span,
     };
 
-    validate_attrs(&attrs)?;
     Ok(func)
 }
 
-fn create(func: &Func) -> TokenStream {
+fn create(func: &Func, item: &syn::ItemFn) -> TokenStream {
     let Func {
         name,
         display,
-        keywords,
         category,
         docs,
         vis,
         ident,
-        params,
+        ident_func,
         returns,
-        body,
         ..
     } = func;
-    let handlers = params.iter().filter(|param| !param.external).map(create_param_parser);
-    let params = params.iter().map(create_param_info);
+
+    let handlers = func
+        .params
+        .iter()
+        .filter(|param| !param.external)
+        .map(create_param_parser);
+
+    let args = func
+        .params
+        .iter()
+        .filter(|param| !param.external)
+        .map(|param| &param.ident);
+
+    let parent = func.parent.as_ref().map(|ty| quote! { #ty:: });
+    let vm_ = func.vm.then(|| quote! { vm, });
+    let vt_ = func.vt.then(|| quote! { &mut vm.vt, });
+    let args_ = func.args.then(|| quote! { args.take(), });
+    let span_ = func.span.then(|| quote! { args.span, });
+    let wrapper = quote! {
+        |vm, args| {
+            let __typst_func = #parent #ident;
+            #(#handlers)*
+            let output = __typst_func(#(#args,)* #vm_ #vt_ #args_ #span_);
+            ::typst::eval::IntoResult::into_result(output, args.span)
+        }
+    };
+
+    let mut item = item.clone();
+    item.attrs.clear();
+
+    let inputs = item.sig.inputs.iter().cloned().filter_map(|mut input| {
+        if let syn::FnArg::Typed(typed) = &mut input {
+            if typed.attrs.iter().any(|attr| attr.path().is_ident("external")) {
+                return None;
+            }
+            typed.attrs.clear();
+        }
+        Some(input)
+    });
+
+    item.sig.inputs = parse_quote! { #(#inputs),* };
+
+    let keywords = quote_option(&func.keywords);
+    let params = func.params.iter().map(create_param_info);
     let scope = create_scope_builder(func.scope.as_ref());
-    let keywords = quote_option(keywords);
+
     quote! {
-        #[doc = #docs]
-        #vis fn #ident() -> &'static ::typst::eval::NativeFunc {
+        #[doc(hidden)]
+        #vis fn #ident_func() -> &'static ::typst::eval::NativeFunc {
             static FUNC: ::typst::eval::NativeFunc = ::typst::eval::NativeFunc {
-                func: |vm, args| {
-                    #(#handlers)*
-                    #[allow(unreachable_code)]
-                    Ok(#body)
-                },
+                func: #wrapper,
                 info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
                     name: #name,
                     display: #display,
                     keywords: #keywords,
+                    category: #category,
                     docs: #docs,
                     params: ::std::vec![#(#params),*],
-                    returns: ::std::vec![#(#returns),*],
-                    category: #category,
+                    returns: <#returns as ::typst::eval::Reflect>::describe(),
                     scope: #scope,
                 }),
             };
             &FUNC
         }
+
+        #[doc = #docs]
+        #item
     }
 }
 
@@ -156,7 +214,7 @@ fn create_param_info(param: &Param) -> TokenStream {
         quote! {
             || {
                 let typed: #ty = #default;
-                ::typst::eval::Value::from(typed)
+                ::typst::eval::IntoValue::into_value(typed)
             }
         }
     }));
@@ -169,9 +227,7 @@ fn create_param_info(param: &Param) -> TokenStream {
         ::typst::eval::ParamInfo {
             name: #name,
             docs: #docs,
-            cast: <#ty as ::typst::eval::Cast<
-                ::typst::syntax::Spanned<::typst::eval::Value>
-            >>::describe(),
+            cast: <#ty as ::typst::eval::Reflect>::describe(),
             default: #default,
             positional: #positional,
             named: #named,
@@ -200,5 +256,13 @@ fn create_param_parser(param: &Param) -> TokenStream {
         value = quote! { #value.unwrap_or_else(|| #default) }
     }
 
-    quote! { let #ident: #ty = #value; }
+    quote! { let mut #ident: #ty = #value; }
+}
+
+struct Parent(Option<syn::Type>);
+
+impl Parse for Parent {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self(if !input.is_empty() { Some(input.parse()?) } else { None }))
+    }
 }

@@ -6,7 +6,8 @@ use super::{
 use crate::meta::{FootnoteElem, FootnoteEntry};
 use crate::prelude::*;
 use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, PathElem, PolygonElem, RectElem, SquareElem,
+    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
+    SquareElem,
 };
 
 /// Arrange spacing, paragraphs and block-level elements into a flow.
@@ -45,7 +46,8 @@ impl Layout for FlowElem {
                 layouter.layout_spacing(vt, elem, styles)?;
             } else if let Some(elem) = child.to::<ParElem>() {
                 layouter.layout_par(vt, elem, styles)?;
-            } else if child.is::<RectElem>()
+            } else if child.is::<LineElem>()
+                || child.is::<RectElem>()
                 || child.is::<SquareElem>()
                 || child.is::<EllipseElem>()
                 || child.is::<CircleElem>()
@@ -58,11 +60,12 @@ impl Layout for FlowElem {
             } else if child.is::<MetaElem>() {
                 let mut frame = Frame::new(Size::zero());
                 frame.meta(styles, true);
-                layouter.items.push(FlowItem::Frame(
+                layouter.items.push(FlowItem::Frame {
                     frame,
-                    Axes::new(Align::Top, Align::Left),
-                    true,
-                ));
+                    aligns: Axes::new(Align::Top, Align::Left),
+                    sticky: true,
+                    movable: false,
+                });
             } else if child.can::<dyn Layout>() {
                 layouter.layout_multiple(vt, child, styles)?;
             } else if child.is::<ColbreakElem>() {
@@ -118,12 +121,25 @@ enum FlowItem {
     Absolute(Abs, bool),
     /// Fractional spacing between other items.
     Fractional(Fr),
-    /// A frame for a layouted block, how to align it, and whether it is sticky.
-    Frame(Frame, Axes<Align>, bool),
+    /// A frame for a layouted block, how to align it, whether it sticks to the
+    /// item after it (for orphan preventation), and whether it is movable
+    /// (to keep it together with its footnotes).
+    Frame { frame: Frame, aligns: Axes<Align>, sticky: bool, movable: bool },
     /// An absolutely placed frame.
     Placed(Frame),
     /// A footnote frame (can also be the separator).
     Footnote(Frame),
+}
+
+impl FlowItem {
+    /// The inherent height of the item.
+    fn height(&self) -> Abs {
+        match self {
+            Self::Absolute(v, _) => *v,
+            Self::Fractional(_) | Self::Placed(_) => Abs::zero(),
+            Self::Frame { frame, .. } | Self::Footnote(frame) => frame.height(),
+        }
+    }
 }
 
 impl<'a> FlowLayouter<'a> {
@@ -192,7 +208,7 @@ impl<'a> FlowLayouter<'a> {
         for (i, item) in self.items.iter().enumerate().rev() {
             match *item {
                 FlowItem::Absolute(_, _) => {}
-                FlowItem::Frame(.., true) => sticky = i,
+                FlowItem::Frame { sticky: true, .. } => sticky = i,
                 _ => break,
             }
         }
@@ -212,7 +228,10 @@ impl<'a> FlowLayouter<'a> {
                 self.layout_item(vt, FlowItem::Absolute(leading, true))?;
             }
 
-            self.layout_item(vt, FlowItem::Frame(frame, aligns, false))?;
+            self.layout_item(
+                vt,
+                FlowItem::Frame { frame, aligns, sticky: false, movable: true },
+            )?;
         }
 
         self.last_was_par = true;
@@ -231,7 +250,7 @@ impl<'a> FlowLayouter<'a> {
         let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
         let frame = content.layout(vt, styles, pod)?.into_frame();
-        self.layout_item(vt, FlowItem::Frame(frame, aligns, sticky))?;
+        self.layout_item(vt, FlowItem::Frame { frame, aligns, sticky, movable: true })?;
         self.last_was_par = false;
         Ok(())
     }
@@ -243,11 +262,6 @@ impl<'a> FlowLayouter<'a> {
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Skip directly if region is already full.
-        if self.regions.is_full() {
-            self.finish_region()?;
-        }
-
         // Placed elements that are out of flow produce placed items which
         // aren't aligned later.
         if let Some(placed) = block.to::<PlaceElem>() {
@@ -256,6 +270,9 @@ impl<'a> FlowLayouter<'a> {
                 self.layout_item(vt, FlowItem::Placed(frame))?;
                 return Ok(());
             }
+        } else if self.regions.is_full() {
+            // Skip directly if region is already full.
+            self.finish_region()?;
         }
 
         // How to align the block.
@@ -268,21 +285,40 @@ impl<'a> FlowLayouter<'a> {
         }
         .resolve(styles);
 
-        let is_columns = block.is::<ColumnsElem>();
+        // Temporarily delegerate rootness to the columns.
+        let is_root = self.root;
+        if is_root && block.is::<ColumnsElem>() {
+            self.root = false;
+            self.regions.root = true;
+        }
 
         // Layout the block itself.
         let sticky = BlockElem::sticky_in(styles);
         let fragment = block.layout(vt, styles, self.regions)?;
-        self.regions.root = self.root && is_columns;
+        let mut notes = Vec::new();
 
         for (i, frame) in fragment.into_iter().enumerate() {
+            // Find footnotes in the frame.
+            if self.root {
+                find_footnotes(&mut notes, &frame);
+            }
+
             if i > 0 {
                 self.finish_region()?;
             }
 
-            self.layout_item(vt, FlowItem::Frame(frame, aligns, sticky))?;
+            self.layout_item(
+                vt,
+                FlowItem::Frame { frame, aligns, sticky, movable: false },
+            )?;
         }
 
+        if self.root && !self.handle_footnotes(vt, &mut notes, false, false)? {
+            self.finish_region()?;
+            self.handle_footnotes(vt, &mut notes, false, true)?;
+        }
+
+        self.root = is_root;
         self.regions.root = false;
         self.last_was_par = false;
 
@@ -295,22 +331,35 @@ impl<'a> FlowLayouter<'a> {
         match item {
             FlowItem::Absolute(v, weak) => {
                 if weak
-                    && !self.items.iter().any(|item| matches!(item, FlowItem::Frame(..)))
+                    && !self
+                        .items
+                        .iter()
+                        .any(|item| matches!(item, FlowItem::Frame { .. }))
                 {
                     return Ok(());
                 }
                 self.regions.size.y -= v
             }
             FlowItem::Fractional(_) => {}
-            FlowItem::Frame(ref frame, ..) => {
+            FlowItem::Frame { ref frame, movable, .. } => {
                 let size = frame.size();
                 if !self.regions.size.y.fits(size.y) && !self.regions.in_last() {
                     self.finish_region()?;
                 }
 
                 self.regions.size.y -= size.y;
-                if self.root {
-                    return self.handle_footnotes(vt, item, size.y);
+                if self.root && movable {
+                    let mut notes = Vec::new();
+                    find_footnotes(&mut notes, frame);
+                    self.items.push(item);
+                    if !self.handle_footnotes(vt, &mut notes, true, false)? {
+                        let item = self.items.pop();
+                        self.finish_region()?;
+                        self.items.extend(item);
+                        self.regions.size.y -= size.y;
+                        self.handle_footnotes(vt, &mut notes, true, true)?;
+                    }
+                    return Ok(());
                 }
             }
             FlowItem::Placed(_) => {}
@@ -341,7 +390,7 @@ impl<'a> FlowLayouter<'a> {
             match item {
                 FlowItem::Absolute(v, _) => used.y += *v,
                 FlowItem::Fractional(v) => fr += *v,
-                FlowItem::Frame(frame, ..) => {
+                FlowItem::Frame { frame, .. } => {
                     let size = frame.size();
                     used.y += size.y;
                     used.x.set_max(size.x);
@@ -383,7 +432,7 @@ impl<'a> FlowLayouter<'a> {
                     let remaining = self.initial.y - used.y;
                     offset += v.share(fr, remaining);
                 }
-                FlowItem::Frame(frame, aligns, _) => {
+                FlowItem::Frame { frame, aligns, .. } => {
                     ruler = ruler.max(aligns.y);
                     let x = aligns.x.position(size.x - frame.width());
                     let y = offset + ruler.position(size.y - used.y);
@@ -429,32 +478,16 @@ impl FlowLayouter<'_> {
     fn handle_footnotes(
         &mut self,
         vt: &mut Vt,
-        item: FlowItem,
-        height: Abs,
-    ) -> SourceResult<()> {
-        // Find footnotes in the frame.
-        let mut notes = Vec::new();
-        if let FlowItem::Frame(frame, ..) = &item {
-            find_footnotes(&mut notes, frame);
-        }
+        notes: &mut Vec<FootnoteElem>,
+        movable: bool,
+        force: bool,
+    ) -> SourceResult<bool> {
+        let items_len = self.items.len();
+        let notes_len = notes.len();
 
-        self.items.push(item);
-
-        // No new footnotes.
-        if notes.is_empty() {
-            return Ok(());
-        }
-
-        // The currently handled footnote.
+        // Process footnotes one at a time.
         let mut k = 0;
-
-        // Whether we can still skip one region to ensure that the footnote
-        // and its entry are on the same page.
-        let mut can_skip = true;
-
-        // Process footnotes.
-        'outer: while k < notes.len() {
-            let had_footnotes = self.has_footnotes;
+        while k < notes.len() {
             if !self.has_footnotes {
                 self.layout_footnote_separator(vt)?;
             }
@@ -465,25 +498,27 @@ impl FlowLayouter<'_> {
                 .layout(vt, self.styles, self.regions.with_root(false))?
                 .into_frames();
 
-            // If the entries didn't fit, undo the separator layout, move the
-            // item into the next region (to keep footnote and entry together)
-            // and try again.
-            if can_skip && frames.first().map_or(false, Frame::is_empty) {
-                // Remove separator
-                if !had_footnotes {
-                    self.items.pop();
+            // If the entries didn't fit, abort (to keep footnote and entry
+            // together).
+            if !force
+                && (k == 0 || movable)
+                && frames.first().map_or(false, Frame::is_empty)
+            {
+                // Remove existing footnotes attempts because we need to
+                // move the item to the next page.
+                notes.truncate(notes_len);
+
+                // Undo region modifications.
+                for item in self.items.drain(items_len..) {
+                    self.regions.size.y -= item.height();
                 }
-                let item = self.items.pop();
-                self.finish_region()?;
-                self.items.extend(item);
-                self.regions.size.y -= height;
-                can_skip = false;
-                continue 'outer;
+
+                return Ok(false);
             }
 
             let prev = notes.len();
             for (i, frame) in frames.into_iter().enumerate() {
-                find_footnotes(&mut notes, &frame);
+                find_footnotes(notes, &frame);
                 if i > 0 {
                     self.finish_region()?;
                     self.layout_footnote_separator(vt)?;
@@ -495,14 +530,15 @@ impl FlowLayouter<'_> {
 
             k += 1;
 
-            // Process the nested notes before dealing with further notes.
+            // Process the nested notes before dealing with further top-level
+            // notes.
             let nested = notes.len() - prev;
             if nested > 0 {
                 notes[k..].rotate_right(nested);
             }
         }
 
-        Ok(())
+        Ok(true)
     }
 
     /// Layout and save the footnote separator, typically a line.

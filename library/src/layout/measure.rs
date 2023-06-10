@@ -39,17 +39,18 @@ use crate::prelude::*;
 ///
 /// Display: Measure
 /// Category: layout
-/// Returns: dictionary
 #[func]
 pub fn measure(
     /// The content whose size to measure.
     content: Content,
     /// The styles with which to layout the content.
     styles: Styles,
-) -> Value {
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Dict> {
     let pod = Regions::one(Axes::splat(Abs::inf()), Axes::splat(false));
     let styles = StyleChain::new(&styles);
     let frame = content.measure(&mut vm.vt, styles, pod)?.into_frame();
     let Size { x, y } = frame.size();
-    dict! { "width" => x, "height" => y }.into()
+    Ok(dict! { "width" => x, "height" => y })
 }

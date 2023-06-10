@@ -5,6 +5,69 @@ description: |
 ---
 
 # Changelog
+## Version 0.5.0 (June 9, 2023) { #v0.5.0 }
+- Text and Layout
+  - Added [`raw`]($func/raw) syntax highlighting for many more languages
+  - Added support for Korean [numbering]($func/numbering)
+  - Added basic i18n for a few more languages (NL, SV, DA)
+  - Improved linebreaking for East Asian languages
+  - Expanded functionality of outline [`indent`]($func/outline.indent) property
+  - Fixed footnotes in columns
+  - Fixed page breaking bugs with [footnotes]($func/footnote)
+  - Fixed bug with handling of footnotes in lists, tables, and figures
+  - Fixed a bug with CJK punctuation adjustment
+  - Fixed a crash with rounded rectangles
+  - Fixed alignment of [`line`]($func/line) elements
+
+- Math
+  - **Breaking change:** The syntax rules for mathematical
+    [attachments]($func/math.attach) were improved: `[$f^abs(3)$]` now parses as
+    `[$f^(abs(3))$]` instead of `[$(f^abs)(3)$]`. To disambiguate, add a space:
+    `[$f^zeta (3)$]`.
+  - Added [forced size]($category/math/sizes) commands for math
+    (e.g., [`display`]($func/math.display))
+  - Added [`supplement`]($func/math.equation.supplement) parameter to
+    [`equation`]($func/math.equation), used by [references]($func/ref)
+  - New [symbols]($category/symbols/sym): `bullet`, `xor`, `slash.big`,
+    `sigma.alt`, `tack.r.not`, `tack.r.short`, `tack.r.double.not`
+  - Fixed a bug with symbols in matrices
+  - Fixed a crash in the [`attach`]($func/math.attach) function
+
+- Scripting
+  - Added new [`datetime`]($type/datetime) type and
+    [`datetime.today()`]($func/datetime.today) to retrieve the current date
+  - Added [`str.from-unicode`]($func/str.from-unicode) and
+    [`str.to-unicode`]($func/str.to-unicode) functions
+  - Added [`fields`]($type/content.fields) method on content
+  - Added `base` parameter to [`str`]($func/str) function
+  - Added [`calc.exp`]($func/calc.exp) and [`calc.ln`]($func/calc.ln)
+  - Improved accuracy of [`calc.pow`]($func/calc.pow) and
+    [`calc.log`]($func/calc.log) for specific bases
+  - Fixed [removal]($type/dictionary.remove) order for dictionary
+  - Fixed `.at(default: ..)` for [strings]($type/string.at) and
+    [content]($type/content.at)
+  - Fixed field access on styled elements
+  - Removed deprecated `calc.mod` function
+
+- Command line interface
+  - Added PNG export via `typst compile source.typ output-{n}.png`. The output
+    path must contain `[{n}]` if the document has multiple pages.
+  - Added `--diagnostic-format=short` for Unix-style short diagnostics
+  - Doesn't emit color codes anymore if stderr isn't a TTY
+  - Now sets the correct exit when invoked with a non-existent file
+  - Now ignores UTF-8 BOM in Typst files
+
+- Miscellaneous Improvements
+  - Improved errors for mismatched delimiters
+  - Improved error message for failed length comparisons
+  - Fixed a bug with images not showing up in Apple Preview
+  - Fixed multiple bugs with the PDF outline
+  - Fixed citations and other searchable elements in [`hide`]($func/hide)
+  - Fixed bugs with [reference supplements]($func/ref.supplement)
+  - Fixed Nix flake
+
+<contributors from="v0.4.0" to="v0.5.0" />
+
 ## Version 0.4.0 (May 20, 2023) { #v0.4.0 }
 - Footnotes
   - Implemented support for footnotes
@@ -50,7 +113,7 @@ description: |
   - Exposed [list]($func/list.item), [enum]($func/enum.item), and
     [term list]($func/terms.item) items in their respective functions' scope
   - The `at` methods on [strings]($type/string.at), [arrays]($type/array.at),
-    [dictionaries]($type/dict.at), and [content]($type/content.at) now support
+    [dictionaries]($type/dictionary.at), and [content]($type/content.at) now support
     specifying a default value
   - Added support for passing a function to [`replace`]($type/string.replace)
     that is called with each match.
