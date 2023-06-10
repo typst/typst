@@ -20,3 +20,8 @@
   // Error: 3-6 unknown variable: a-1 – if you meant to use subtraction, try adding spaces around the minus sign.
   a-1 = 2
 }
+
+---
+= Heading <intro>
+// Error: 1:20-1:26 cannot reference heading without numbering - did you mean to use `#set heading(numbering: "1.")`?
+Can not be used as @intro
