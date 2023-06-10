@@ -1,7 +1,7 @@
 // Tests a multi-page document with two-sided: true set for pages
 
 ---
-#set page(margin: (outside: 0.25in, inside: 0.5in), height: 100pt)
+#set page(margin: (outside: 0.25in, inside: 0.5in), height: 110pt)
 
 #set align(center + horizon)
 
