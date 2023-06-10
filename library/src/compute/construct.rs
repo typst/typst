@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Datetime, Regex};
+use typst::eval::{Datetime, Module, Regex};
 
 use crate::prelude::*;
 
@@ -401,7 +401,6 @@ pub fn color_module() -> Module {
 ///
 /// Display: Mix
 /// Category: construct
-/// Returns: color
 #[func]
 pub fn mix(
     #[variadic] colors: Vec<WeightedColor>,
