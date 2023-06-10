@@ -3,7 +3,7 @@
 mod book;
 mod variant;
 
-pub use self::book::{FontBook, FontFlags, FontInfo};
+pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};
 pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
 
 use std::fmt::{self, Debug, Formatter};
