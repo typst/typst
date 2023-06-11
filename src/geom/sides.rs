@@ -58,7 +58,7 @@ impl FromValue for Margin {
                 let implicitly_not_two_sided = left.is_some() || right.is_some();
 
                 if implicitly_two_sided && implicitly_not_two_sided {
-                    panic!("Error: Cannot determine if file is two-sided. Use either outside and inside margins or left and right margins, but not both.");
+                    return Err("Error: Cannot determine if the page is two-sided. Use either outside and inside margins or left and right margins, but not both.".into());
                 }
                 let two_sided = match implicitly_two_sided {
                     true => Some(true),
