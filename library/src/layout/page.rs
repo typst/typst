@@ -98,8 +98,10 @@ pub struct PageElem {
     ///   - `right`: The right margin.
     ///   - `bottom`: The bottom margin.
     ///   - `left`: The left margin.
-    ///   - `inside`: The inner margin for two-sided documents.
-    ///   - `outside`: The outer margin for two-sided documents.
+    ///   - `inside`: The inner margin for two-sided documents. This value must
+    ///   be mutually exclusive with `left` and `right`.
+    ///   - `outside`: The outer margin for two-sided documents. This value must
+    ///   be mutually exclusive with `left` and `right`.
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
     ///   - `rest`: The margins on all sides except those for which the
