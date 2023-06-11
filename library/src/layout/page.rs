@@ -593,9 +593,17 @@ impl FromValue for Margin {
                 if implicitly_two_sided && implicitly_not_two_sided {
                     return Err("Error: Cannot determine if the page is two-sided. Use either outside and inside margins or left and right margins, but not both.".into());
                 }
-                let two_sided = match implicitly_two_sided {
-                    true => Some(true),
-                    false => None,
+
+                let two_sided = if implicitly_two_sided || implicitly_not_two_sided {
+                    // if 'implicitly_two_sided' is false here, then
+                    // 'implicitly_not_two_sided' will be guaranteed to be true
+                    //  due to the previous two 'if' conditions.
+                    Some(implicitly_two_sided)
+                } else {
+                    // if both are false, this means that this margin change does not
+                    // affect lateral margins, and thus shouldn't make a difference on
+                    // the 'two_sided' attribute of this margin.
+                    None
                 };
 
                 left = outside.or(left).or(x);
