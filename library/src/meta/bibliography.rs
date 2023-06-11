@@ -84,14 +84,11 @@ pub struct BibliographyElem {
 #[derive(Debug, Default, Clone, Hash)]
 pub struct BibPaths(Vec<EcoString>);
 
-cast_from_value! {
+cast! {
     BibPaths,
+    self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
-}
-
-cast_to_value! {
-    v: BibPaths => v.0.into()
 }
 
 impl BibliographyElem {
@@ -218,6 +215,8 @@ impl LocalName for BibliographyElem {
             Lang::CHINESE if option_eq(region, "TW") => "書目",
             Lang::CHINESE => "参考文献",
             Lang::CZECH => "Bibliografie",
+            Lang::DANISH => "Bibliografi",
+            Lang::DUTCH => "Bibliografie",
             Lang::FRENCH => "Bibliographie",
             Lang::GERMAN => "Bibliographie",
             Lang::ITALIAN => "Bibliografia",
@@ -227,6 +226,7 @@ impl LocalName for BibliographyElem {
             Lang::RUSSIAN => "Библиография",
             Lang::SLOVENIAN => "Literatura",
             Lang::SPANISH => "Bibliografía",
+            Lang::SWEDISH => "Bibliografi",
             Lang::UKRAINIAN => "Бібліографія",
             Lang::VIETNAMESE => "Tài liệu tham khảo",
             Lang::ENGLISH | _ => "Bibliography",
@@ -371,7 +371,7 @@ impl Show for CiteElem {
     }
 }
 
-cast_from_value! {
+cast! {
     CiteElem,
     v: Content => v.to::<Self>().cloned().ok_or("expected citation")?,
 }

@@ -115,13 +115,10 @@ impl Show for StrongElem {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Delta(pub i64);
 
-cast_from_value! {
+cast! {
     Delta,
+    self => self.0.into_value(),
     v: i64 => Self(v),
-}
-
-cast_to_value! {
-    v: Delta => v.0.into()
 }
 
 impl Fold for Delta {
@@ -176,13 +173,10 @@ impl Show for EmphElem {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Toggle;
 
-cast_from_value! {
+cast! {
     Toggle,
+    self => Value::None,
     _: Value => Self,
-}
-
-cast_to_value! {
-    _: Toggle => Value::None
 }
 
 impl Fold for Toggle {
@@ -204,12 +198,11 @@ impl Fold for Toggle {
 ///
 /// Display: Lowercase
 /// Category: text
-/// Returns: string or content
 #[func]
 pub fn lower(
     /// The text to convert to lowercase.
-    text: ToCase,
-) -> Value {
+    text: Caseable,
+) -> Caseable {
     case(text, Case::Lower)
 }
 
@@ -224,31 +217,36 @@ pub fn lower(
 ///
 /// Display: Uppercase
 /// Category: text
-/// Returns: string or content
 #[func]
 pub fn upper(
     /// The text to convert to uppercase.
-    text: ToCase,
-) -> Value {
+    text: Caseable,
+) -> Caseable {
     case(text, Case::Upper)
 }
 
 /// Change the case of text.
-fn case(text: ToCase, case: Case) -> Value {
+fn case(text: Caseable, case: Case) -> Caseable {
     match text {
-        ToCase::Str(v) => Value::Str(case.apply(&v).into()),
-        ToCase::Content(v) => Value::Content(v.styled(TextElem::set_case(Some(case)))),
+        Caseable::Str(v) => Caseable::Str(case.apply(&v).into()),
+        Caseable::Content(v) => {
+            Caseable::Content(v.styled(TextElem::set_case(Some(case))))
+        }
     }
 }
 
 /// A value whose case can be changed.
-enum ToCase {
+pub enum Caseable {
     Str(Str),
     Content(Content),
 }
 
-cast_from_value! {
-    ToCase,
+cast! {
+    Caseable,
+    self => match self {
+        Self::Str(v) => v.into_value(),
+        Self::Content(v) => v.into_value(),
+    },
     v: Str => Self::Str(v),
     v: Content => Self::Content(v),
 }
@@ -297,13 +295,12 @@ impl Case {
 ///
 /// Display: Small Capitals
 /// Category: text
-/// Returns: content
 #[func]
 pub fn smallcaps(
     /// The text to display to small capitals.
     body: Content,
-) -> Value {
-    Value::Content(body.styled(TextElem::set_smallcaps(true)))
+) -> Content {
+    body.styled(TextElem::set_smallcaps(true))
 }
 
 /// Create blind text.
@@ -324,11 +321,10 @@ pub fn smallcaps(
 ///
 /// Display: Blind Text
 /// Category: text
-/// Returns: string
 #[func]
 pub fn lorem(
     /// The length of the blind text in words.
     words: usize,
-) -> Value {
-    Value::Str(lipsum::lipsum(words).replace("--", "–").into())
+) -> Str {
+    lipsum::lipsum(words).replace("--", "–").into()
 }

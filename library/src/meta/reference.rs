@@ -95,6 +95,9 @@ pub struct RefElem {
     /// For references to headings or figures, this is added before the
     /// referenced number. For citations, this can be used to add a page number.
     ///
+    /// If a function is specified, it is passed the referenced element and
+    /// should return content.
+    ///
     /// ```example
     /// #set heading(numbering: "1.")
     /// #set ref(supplement: it => {
@@ -149,43 +152,57 @@ impl Show for RefElem {
 
         let target = self.target();
         let elem = vt.introspector.query_label(&self.target());
+        let span = self.span();
 
         if BibliographyElem::has(vt, &target.0) {
             if elem.is_ok() {
-                bail!(self.span(), "label occurs in the document and its bibliography");
+                bail!(span, "label occurs in the document and its bibliography");
             }
 
-            return Ok(self.to_citation(vt, styles)?.pack().spanned(self.span()));
+            return Ok(self.to_citation(vt, styles)?.pack().spanned(span));
         }
 
-        let elem = elem.at(self.span())?;
-        if !elem.can::<dyn Refable>() {
-            if elem.can::<dyn Figurable>() {
-                bail!(
-                    self.span(),
-                    "cannot reference {} directly, try putting it into a figure",
-                    elem.func().name()
-                );
-            } else {
-                bail!(self.span(), "cannot reference {}", elem.func().name());
-            }
-        }
+        let elem = elem.at(span)?;
+        let refable = elem
+            .with::<dyn Refable>()
+            .ok_or_else(|| {
+                if elem.can::<dyn Figurable>() {
+                    eco_format!(
+                        "cannot reference {} directly, try putting it into a figure",
+                        elem.func().name()
+                    )
+                } else {
+                    eco_format!("cannot reference {}", elem.func().name())
+                }
+            })
+            .at(span)?;
+
+        let numbering = refable
+            .numbering()
+            .ok_or_else(|| {
+                eco_format!("cannot reference {} without numbering", elem.func().name())
+            })
+            .at(span)?;
+
+        let numbers = refable
+            .counter()
+            .at(vt, elem.location().unwrap())?
+            .display(vt, &numbering.trimmed())?;
 
         let supplement = match self.supplement(styles) {
-            Smart::Auto | Smart::Custom(None) => None,
+            Smart::Auto => refable.supplement(),
+            Smart::Custom(None) => Content::empty(),
             Smart::Custom(Some(supplement)) => {
-                Some(supplement.resolve(vt, [(*elem).clone().into()])?)
+                supplement.resolve(vt, [(*elem).clone()])?
             }
         };
 
-        let lang = TextElem::lang_in(styles);
-        let region = TextElem::region_in(styles);
-        let reference = elem
-            .with::<dyn Refable>()
-            .expect("element should be refable")
-            .reference(vt, supplement, lang, region)?;
+        let mut content = numbers;
+        if !supplement.is_empty() {
+            content = supplement + TextElem::packed("\u{a0}") + content;
+        }
 
-        Ok(reference.linked(Destination::Location(elem.location().unwrap())))
+        Ok(content.linked(Destination::Location(elem.location().unwrap())))
     }
 }
 
@@ -212,81 +229,37 @@ pub enum Supplement {
 
 impl Supplement {
     /// Tries to resolve the supplement into its content.
-    pub fn resolve(
+    pub fn resolve<T: IntoValue>(
         &self,
         vt: &mut Vt,
-        args: impl IntoIterator<Item = Value>,
+        args: impl IntoIterator<Item = T>,
     ) -> SourceResult<Content> {
-        match self {
-            Supplement::Content(content) => Ok(content.clone()),
-            Supplement::Func(func) => func.call_vt(vt, args).map(|v| v.display()),
-        }
-    }
-
-    /// Tries to get the content of the supplement.
-    /// Returns `None` if the supplement is a function.
-    pub fn as_content(self) -> Option<Content> {
-        match self {
-            Supplement::Content(content) => Some(content),
-            _ => None,
-        }
+        Ok(match self {
+            Supplement::Content(content) => content.clone(),
+            Supplement::Func(func) => func.call_vt(vt, args)?.display(),
+        })
     }
 }
 
-cast_from_value! {
+cast! {
     Supplement,
+    self => match self {
+        Self::Content(v) => v.into_value(),
+        Self::Func(v) => v.into_value(),
+    },
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
 }
 
-cast_to_value! {
-    v: Supplement => match v {
-        Supplement::Content(v) => v.into(),
-        Supplement::Func(v) => v.into(),
-    }
-}
-
 /// Marks an element as being able to be referenced. This is used to implement
-/// the `@ref` element. It is expected to build the [`Content`] that gets linked
-/// by the [`RefElem`].
+/// the `@ref` element.
 pub trait Refable {
-    /// Tries to build a reference content for this element.
-    ///
-    /// # Arguments
-    /// - `vt` - The virtual typesetter.
-    /// - `supplement` - The supplement of the reference.
-    /// - `lang`: The language of the reference.
-    /// - `region`: The region of the reference.
-    fn reference(
-        &self,
-        vt: &mut Vt,
-        supplement: Option<Content>,
-        lang: Lang,
-        region: Option<Region>,
-    ) -> SourceResult<Content>;
-
-    /// Tries to build an outline element for this element.
-    /// If this returns `None`, the outline will not include this element.
-    /// By default this just calls [`Refable::reference`].
-    fn outline(
-        &self,
-        vt: &mut Vt,
-        lang: Lang,
-        region: Option<Region>,
-    ) -> SourceResult<Option<Content>> {
-        self.reference(vt, None, lang, region).map(Some)
-    }
-
-    /// Returns the level of this element.
-    /// This is used to determine the level of the outline.
-    /// By default this returns `0`.
-    fn level(&self) -> usize {
-        0
-    }
-
-    /// Returns the numbering of this element.
-    fn numbering(&self) -> Option<Numbering>;
+    /// The supplement, if not overriden by the reference.
+    fn supplement(&self) -> Content;
 
     /// Returns the counter of this element.
     fn counter(&self) -> Counter;
+
+    /// Returns the numbering of this element.
+    fn numbering(&self) -> Option<Numbering>;
 }

@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{ops, Args, Func, Value, Vm};
+use super::{ops, Args, CastInfo, FromValue, Func, IntoValue, Reflect, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
@@ -14,11 +14,16 @@ use crate::util::pretty_array_like;
 #[doc(hidden)]
 macro_rules! __array {
     ($value:expr; $count:expr) => {
-        $crate::eval::Array::from_vec($crate::eval::eco_vec![$value.into(); $count])
+        $crate::eval::Array::from($crate::eval::eco_vec![
+            $crate::eval::IntoValue::into_value($value);
+            $count
+        ])
     };
 
     ($($value:expr),* $(,)?) => {
-        $crate::eval::Array::from_vec($crate::eval::eco_vec![$($value.into()),*])
+        $crate::eval::Array::from($crate::eval::eco_vec![$(
+            $crate::eval::IntoValue::into_value($value)
+        ),*])
     };
 }
 
@@ -38,19 +43,14 @@ impl Array {
         Self::default()
     }
 
-    /// Create a new array from an eco vector of values.
-    pub fn from_vec(vec: EcoVec<Value>) -> Self {
-        Self(vec)
-    }
-
     /// Return `true` if the length is 0.
     pub fn is_empty(&self) -> bool {
         self.0.len() == 0
     }
 
     /// The length of the array.
-    pub fn len(&self) -> i64 {
-        self.0.len() as i64
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
     /// The first value in the array.
@@ -134,14 +134,14 @@ impl Array {
             .filter(|&start| start <= self.0.len())
             .ok_or_else(|| out_of_bounds(start, len))?;
 
-        let end = end.unwrap_or(self.len());
+        let end = end.unwrap_or(self.len() as i64);
         let end = self
             .locate(end)
             .filter(|&end| end <= self.0.len())
             .ok_or_else(|| out_of_bounds(end, len))?
             .max(start);
 
-        Ok(Self::from_vec(self.0[start..end].into()))
+        Ok(self.0[start..end].into())
     }
 
     /// Whether the array contains a specific value.
@@ -182,7 +182,7 @@ impl Array {
                 kept.push(item.clone())
             }
         }
-        Ok(Self::from_vec(kept))
+        Ok(kept.into())
     }
 
     /// Transform each item in the array with a function.
@@ -273,7 +273,7 @@ impl Array {
                 flat.push(item.clone());
             }
         }
-        Self::from_vec(flat)
+        flat.into()
     }
 
     /// Returns a new array with reversed order.
@@ -317,9 +317,7 @@ impl Array {
     pub fn zip(&self, other: Array) -> Array {
         self.iter()
             .zip(other)
-            .map(|(first, second)| {
-                Value::Array(Array::from_vec(eco_vec![first.clone(), second]))
-            })
+            .map(|(first, second)| array![first.clone(), second].into_value())
             .collect()
     }
 
@@ -344,17 +342,14 @@ impl Array {
         vec.make_mut().sort_by(|a, b| {
             // Until we get `try` blocks :)
             match (key_of(a.clone()), key_of(b.clone())) {
-                (Ok(a), Ok(b)) => a.partial_cmp(&b).unwrap_or_else(|| {
-                    if result.is_ok() {
-                        result = Err(eco_format!(
-                            "cannot order {} and {}",
-                            a.type_name(),
-                            b.type_name(),
-                        ))
-                        .at(span);
-                    }
-                    Ordering::Equal
-                }),
+                (Ok(a), Ok(b)) => {
+                    typst::eval::ops::compare(&a, &b).unwrap_or_else(|err| {
+                        if result.is_ok() {
+                            result = Err(err).at(span);
+                        }
+                        Ordering::Equal
+                    })
+                }
                 (Err(e), _) | (_, Err(e)) => {
                     if result.is_ok() {
                         result = Err(e);
@@ -363,7 +358,7 @@ impl Array {
                 }
             }
         });
-        result.map(|_| Self::from_vec(vec))
+        result.map(|_| vec.into())
     }
 
     /// Repeat this array `n` times.
@@ -388,19 +383,20 @@ impl Array {
 
     /// Resolve an index.
     fn locate(&self, index: i64) -> Option<usize> {
-        usize::try_from(if index >= 0 { index } else { self.len().checked_add(index)? })
-            .ok()
+        usize::try_from(if index >= 0 {
+            index
+        } else {
+            (self.len() as i64).checked_add(index)?
+        })
+        .ok()
     }
 
     /// Enumerate all items in the array.
     pub fn enumerate(&self) -> Self {
-        let v = self
-            .iter()
+        self.iter()
             .enumerate()
-            .map(|(i, value)| array![i, value.clone()])
-            .map(Value::Array)
-            .collect();
-        Self::from_vec(v)
+            .map(|(i, value)| array![i, value.clone()].into_value())
+            .collect()
     }
 }
 
@@ -456,6 +452,40 @@ impl<'a> IntoIterator for &'a Array {
     }
 }
 
+impl From<EcoVec<Value>> for Array {
+    fn from(v: EcoVec<Value>) -> Self {
+        Array(v)
+    }
+}
+
+impl From<&[Value]> for Array {
+    fn from(v: &[Value]) -> Self {
+        Array(v.into())
+    }
+}
+
+impl<T> Reflect for Vec<T> {
+    fn describe() -> CastInfo {
+        Array::describe()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Array::castable(value)
+    }
+}
+
+impl<T: IntoValue> IntoValue for Vec<T> {
+    fn into_value(self) -> Value {
+        Value::Array(self.into_iter().map(IntoValue::into_value).collect())
+    }
+}
+
+impl<T: FromValue> FromValue for Vec<T> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        value.cast::<Array>()?.into_iter().map(Value::cast).collect()
+    }
+}
+
 /// The error message when the array is empty.
 #[cold]
 fn array_is_empty() -> EcoString {
@@ -464,17 +494,15 @@ fn array_is_empty() -> EcoString {
 
 /// The out of bounds access error message.
 #[cold]
-fn out_of_bounds(index: i64, len: i64) -> EcoString {
-    eco_format!("array index out of bounds (index: {}, len: {})", index, len)
+fn out_of_bounds(index: i64, len: usize) -> EcoString {
+    eco_format!("array index out of bounds (index: {index}, len: {len})")
 }
 
 /// The out of bounds access error message when no default value was given.
 #[cold]
-fn out_of_bounds_no_default(index: i64, len: i64) -> EcoString {
+fn out_of_bounds_no_default(index: i64, len: usize) -> EcoString {
     eco_format!(
-        "array index out of bounds (index: {}, len: {}) \
+        "array index out of bounds (index: {index}, len: {len}) \
          and no default value was specified",
-        index,
-        len
     )
 }

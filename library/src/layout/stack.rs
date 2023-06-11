@@ -90,17 +90,14 @@ impl Debug for StackChild {
     }
 }
 
-cast_from_value! {
+cast! {
     StackChild,
+    self => match self {
+        Self::Spacing(spacing) => spacing.into_value(),
+        Self::Block(content) => content.into_value(),
+    },
     v: Spacing => Self::Spacing(v),
     v: Content => Self::Block(v),
-}
-
-cast_to_value! {
-    v: StackChild => match v {
-        StackChild::Spacing(spacing) => spacing.into(),
-        StackChild::Block(content) => content.into(),
-    }
 }
 
 /// Performs stack layout.

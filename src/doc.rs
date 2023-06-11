@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 
-use crate::eval::{cast_from_value, cast_to_value, dict, Dict, Value};
+use crate::eval::{cast, dict, Dict, Value};
 use crate::font::Font;
 use crate::geom::{
     self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Length,
@@ -263,12 +263,18 @@ impl Frame {
 
     /// Attach metadata from an iterator.
     pub fn meta_iter(&mut self, iter: impl IntoIterator<Item = Meta>) {
+        let mut hide = false;
         for meta in iter {
             if matches!(meta, Meta::Hide) {
-                self.clear();
-                break;
+                hide = true;
+            } else {
+                self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
             }
-            self.prepend(Point::zero(), FrameItem::Meta(meta, self.size));
+        }
+        if hide {
+            Arc::make_mut(&mut self.items).retain(|(_, item)| {
+                matches!(item, FrameItem::Group(_) | FrameItem::Meta(Meta::Elem(_), _))
+            });
         }
     }
 
@@ -512,16 +518,20 @@ impl Lang {
     pub const BOKMÅL: Self = Self(*b"nb ", 2);
     pub const CHINESE: Self = Self(*b"zh ", 2);
     pub const CZECH: Self = Self(*b"cs ", 2);
+    pub const DANISH: Self = Self(*b"da ", 2);
+    pub const DUTCH: Self = Self(*b"nl ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
+    pub const JAPANESE: Self = Self(*b"ja ", 2);
     pub const NYNORSK: Self = Self(*b"nn ", 2);
     pub const POLISH: Self = Self(*b"pl ", 2);
     pub const PORTUGUESE: Self = Self(*b"pt ", 2);
     pub const RUSSIAN: Self = Self(*b"ru ", 2);
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
     pub const SPANISH: Self = Self(*b"es ", 2);
+    pub const SWEDISH: Self = Self(*b"sv ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
 
@@ -557,13 +567,10 @@ impl FromStr for Lang {
     }
 }
 
-cast_from_value! {
+cast! {
     Lang,
+    self => self.as_str().into_value(),
     string: EcoString => Self::from_str(&string)?,
-}
-
-cast_to_value! {
-    v: Lang => v.as_str().into()
 }
 
 /// An identifier for a region somewhere in the world.
@@ -598,13 +605,10 @@ impl FromStr for Region {
     }
 }
 
-cast_from_value! {
+cast! {
     Region,
+    self => self.as_str().into_value(),
     string: EcoString => Self::from_str(&string)?,
-}
-
-cast_to_value! {
-    v: Region => v.as_str().into()
 }
 
 /// Meta information that isn't visible or renderable.
@@ -623,6 +627,10 @@ pub enum Meta {
     Hide,
 }
 
+cast! {
+    type Meta: "meta",
+}
+
 impl Debug for Meta {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
@@ -632,10 +640,6 @@ impl Debug for Meta {
             Self::Hide => f.pad("Hide"),
         }
     }
-}
-
-cast_from_value! {
-    Meta: "meta",
 }
 
 /// A link destination.
@@ -649,19 +653,16 @@ pub enum Destination {
     Location(Location),
 }
 
-cast_from_value! {
+cast! {
     Destination,
+    self => match self {
+        Self::Url(v) => v.into_value(),
+        Self::Position(v) => v.into_value(),
+        Self::Location(v) => v.into_value(),
+    },
     v: EcoString => Self::Url(v),
     v: Position => Self::Position(v),
     v: Location => Self::Location(v),
-}
-
-cast_to_value! {
-    v: Destination => match v {
-        Destination::Url(v) => v.into(),
-        Destination::Position(v) => v.into(),
-        Destination::Location(v) => v.into(),
-    }
 }
 
 /// A physical position in a document.
@@ -673,8 +674,9 @@ pub struct Position {
     pub point: Point,
 }
 
-cast_from_value! {
+cast! {
     Position,
+    self => Value::Dict(self.into()),
     mut dict: Dict => {
         let page = dict.take("page")?.cast()?;
         let x: Length = dict.take("x")?.cast()?;
@@ -684,12 +686,14 @@ cast_from_value! {
     },
 }
 
-cast_to_value! {
-    v: Position => Value::Dict(dict! {
-        "page" => Value::Int(v.page.get() as i64),
-        "x" => Value::Length(v.point.x.into()),
-        "y" => Value::Length(v.point.y.into()),
-    })
+impl From<Position> for Dict {
+    fn from(pos: Position) -> Self {
+        dict! {
+            "page" => pos.page,
+            "x" => pos.point.x,
+            "y" => pos.point.y,
+        }
+    }
 }
 
 #[cfg(test)]

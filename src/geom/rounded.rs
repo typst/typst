@@ -1,7 +1,5 @@
 use super::*;
 
-use std::mem;
-
 /// Produce shapes that together make up a rounded rectangle.
 pub fn rounded_rect(
     size: Size,
@@ -52,7 +50,7 @@ fn stroke_segments(
     let mut connection = Connection::default();
     let mut path = Path::new();
     let mut always_continuous = true;
-    let max_radius = size.x.min(size.y) / 2.0;
+    let max_radius = size.x.min(size.y).max(Abs::zero()) / 2.0;
 
     for side in [Side::Top, Side::Right, Side::Bottom, Side::Left] {
         let continuous = stroke.get_ref(side) == stroke.get_ref(side.next_cw());
@@ -69,7 +67,7 @@ fn stroke_segments(
         );
 
         if !continuous {
-            res.push((mem::take(&mut path), stroke.get_ref(side).clone()));
+            res.push((std::mem::take(&mut path), stroke.get_ref(side).clone()));
         }
     }
 

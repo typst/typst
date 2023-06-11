@@ -42,8 +42,10 @@ use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
 use crate::layout::{HElem, ParElem, Spacing};
-use crate::meta::Refable;
-use crate::meta::{Count, Counter, CounterUpdate, LocalName, Numbering};
+use crate::meta::Supplement;
+use crate::meta::{
+    Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
+};
 use crate::prelude::*;
 use crate::text::{
     families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
@@ -57,11 +59,11 @@ pub fn module() -> Module {
 
     // Grouping.
     math.define("lr", LrElem::func());
-    math.define("abs", abs);
-    math.define("norm", norm);
-    math.define("floor", floor);
-    math.define("ceil", ceil);
-    math.define("round", round);
+    math.define("abs", abs_func());
+    math.define("norm", norm_func());
+    math.define("floor", floor_func());
+    math.define("ceil", ceil_func());
+    math.define("round", round_func());
 
     // Attachments and accents.
     math.define("attach", AttachElem::func());
@@ -84,19 +86,24 @@ pub fn module() -> Module {
     math.define("cases", CasesElem::func());
 
     // Roots.
-    math.define("sqrt", sqrt);
+    math.define("sqrt", sqrt_func());
     math.define("root", RootElem::func());
 
     // Styles.
-    math.define("upright", upright);
-    math.define("bold", bold);
-    math.define("italic", italic);
-    math.define("serif", serif);
-    math.define("sans", sans);
-    math.define("cal", cal);
-    math.define("frak", frak);
-    math.define("mono", mono);
-    math.define("bb", bb);
+    math.define("upright", upright_func());
+    math.define("bold", bold_func());
+    math.define("italic", italic_func());
+    math.define("serif", serif_func());
+    math.define("sans", sans_func());
+    math.define("cal", cal_func());
+    math.define("frak", frak_func());
+    math.define("mono", mono_func());
+    math.define("bb", bb_func());
+
+    math.define("display", display_func());
+    math.define("inline", inline_func());
+    math.define("script", script_func());
+    math.define("sscript", sscript_func());
 
     // Text operators.
     math.define("op", OpElem::func());
@@ -140,7 +147,8 @@ pub fn module() -> Module {
 /// Display: Equation
 /// Category: math
 #[element(
-    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable
+    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable,
+    Outlinable
 )]
 pub struct EquationElem {
     /// Whether the equation is displayed as a separate block.
@@ -160,15 +168,42 @@ pub struct EquationElem {
     /// ```
     pub numbering: Option<Numbering>,
 
+    /// A supplement for the equation.
+    ///
+    /// For references to equations, this is added before the referenced number.
+    ///
+    /// If a function is specified, it is passed the referenced equation and
+    /// should return content.
+    ///
+    /// ```example
+    /// #set math.equation(numbering: "(1)", supplement: [Eq.])
+    ///
+    /// We define:
+    /// $ phi.alt := (1 + sqrt(5)) / 2 $ <ratio>
+    ///
+    /// With @ratio, we get:
+    /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
+    /// ```
+    pub supplement: Smart<Option<Supplement>>,
+
     /// The contents of the equation.
     #[required]
     pub body: Content,
 }
 
 impl Synthesize for EquationElem {
-    fn synthesize(&mut self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+    fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+        // Resolve the supplement.
+        let supplement = match self.supplement(styles) {
+            Smart::Auto => TextElem::packed(self.local_name_in(styles)),
+            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(Some(supplement)) => supplement.resolve(vt, [self.clone()])?,
+        };
+
         self.push_block(self.block(styles));
         self.push_numbering(self.numbering(styles));
+        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+
         Ok(())
     }
 }
@@ -285,6 +320,8 @@ impl LocalName for EquationElem {
             Lang::CHINESE if option_eq(region, "TW") => "方程式",
             Lang::CHINESE => "等式",
             Lang::CZECH => "Rovnice",
+            Lang::DANISH => "Ligning",
+            Lang::DUTCH => "Vergelijking",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
             Lang::ITALIAN => "Equazione",
@@ -294,6 +331,7 @@ impl LocalName for EquationElem {
             Lang::RUSSIAN => "Уравнение",
             Lang::SLOVENIAN => "Enačba",
             Lang::SPANISH => "Ecuación",
+            Lang::SWEDISH => "Ekvation",
             Lang::UKRAINIAN => "Рівняння",
             Lang::VIETNAMESE => "Phương trình",
             Lang::ENGLISH | _ => "Equation",
@@ -302,41 +340,45 @@ impl LocalName for EquationElem {
 }
 
 impl Refable for EquationElem {
-    fn reference(
-        &self,
-        vt: &mut Vt,
-        supplement: Option<Content>,
-        lang: Lang,
-        region: Option<Region>,
-    ) -> SourceResult<Content> {
-        // first we create the supplement of the heading
-        let mut supplement =
-            supplement.unwrap_or_else(|| TextElem::packed(self.local_name(lang, region)));
+    fn supplement(&self) -> Content {
+        // After synthesis, this should always be custom content.
+        match self.supplement(StyleChain::default()) {
+            Smart::Custom(Some(Supplement::Content(content))) => content,
+            _ => Content::empty(),
+        }
+    }
 
-        // we append a space if the supplement is not empty
-        if !supplement.is_empty() {
-            supplement += TextElem::packed('\u{a0}')
-        };
-
-        // we check for a numbering
-        let Some(numbering) = self.numbering(StyleChain::default()) else {
-            bail!(self.span(), "only numbered equations can be referenced");
-        };
-
-        // we get the counter and display it
-        let numbers = Counter::of(Self::func())
-            .at(vt, self.0.location().expect("missing location"))?
-            .display(vt, &numbering.trimmed())?;
-
-        Ok(supplement + numbers)
+    fn counter(&self) -> Counter {
+        Counter::of(Self::func())
     }
 
     fn numbering(&self) -> Option<Numbering> {
         self.numbering(StyleChain::default())
     }
+}
 
-    fn counter(&self) -> Counter {
-        Counter::of(Self::func())
+impl Outlinable for EquationElem {
+    fn outline(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
+        let Some(numbering) = self.numbering(StyleChain::default()) else {
+            return Ok(None);
+        };
+
+        // After synthesis, this should always be custom content.
+        let mut supplement = match self.supplement(StyleChain::default()) {
+            Smart::Custom(Some(Supplement::Content(content))) => content,
+            _ => Content::empty(),
+        };
+
+        if !supplement.is_empty() {
+            supplement += TextElem::packed("\u{a0}");
+        }
+
+        let numbers = self
+            .counter()
+            .at(vt, self.0.location().unwrap())?
+            .display(vt, &numbering)?;
+
+        Ok(Some(supplement + numbers))
     }
 }
 

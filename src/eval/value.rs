@@ -8,12 +8,12 @@ use ecow::eco_format;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
-    cast_to_value, format_str, ops, Args, Array, Cast, CastInfo, Content, Dict, Func,
-    Label, Module, Str, Symbol,
+    cast, format_str, ops, Args, Array, CastInfo, Content, Dict, FromValue, Func,
+    IntoValue, Module, Reflect, Str, Symbol,
 };
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
-use crate::model::Styles;
+use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
 
 /// A computational value.
@@ -79,11 +79,11 @@ impl Value {
     pub fn numeric(pair: (f64, ast::Unit)) -> Self {
         let (v, unit) = pair;
         match unit {
-            ast::Unit::Length(unit) => Abs::with_unit(v, unit).into(),
-            ast::Unit::Angle(unit) => Angle::with_unit(v, unit).into(),
-            ast::Unit::Em => Em::new(v).into(),
-            ast::Unit::Fr => Fr::new(v).into(),
-            ast::Unit::Percent => Ratio::new(v / 100.0).into(),
+            ast::Unit::Length(unit) => Abs::with_unit(v, unit).into_value(),
+            ast::Unit::Angle(unit) => Angle::with_unit(v, unit).into_value(),
+            ast::Unit::Em => Em::new(v).into_value(),
+            ast::Unit::Fr => Fr::new(v).into_value(),
+            ast::Unit::Percent => Ratio::new(v / 100.0).into_value(),
         }
     }
 
@@ -116,8 +116,8 @@ impl Value {
     }
 
     /// Try to cast the value into a specific type.
-    pub fn cast<T: Cast>(self) -> StrResult<T> {
-        T::cast(self)
+    pub fn cast<T: FromValue>(self) -> StrResult<T> {
+        T::from_value(self)
     }
 
     /// Try to access a field on the value.
@@ -207,7 +207,7 @@ impl PartialEq for Value {
 
 impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        ops::compare(self, other)
+        ops::compare(self, other).ok()
     }
 }
 
@@ -283,8 +283,9 @@ impl PartialEq for Dynamic {
     }
 }
 
-cast_to_value! {
-    v: Dynamic => Value::Dyn(v)
+cast! {
+    Dynamic,
+    self => Value::Dyn(self),
 }
 
 trait Bounds: Debug + Sync + Send + 'static {
@@ -337,20 +338,32 @@ pub trait Type {
 /// Implement traits for primitives.
 macro_rules! primitive {
     (
-        $type:ty: $name:literal, $variant:ident
+        $ty:ty: $name:literal, $variant:ident
         $(, $other:ident$(($binding:ident))? => $out:expr)*
     ) => {
-        impl Type for $type {
+        impl Type for $ty {
             const TYPE_NAME: &'static str = $name;
         }
 
-        impl Cast for $type {
-            fn is(value: &Value) -> bool {
+        impl Reflect for $ty {
+            fn describe() -> CastInfo {
+                CastInfo::Type(Self::TYPE_NAME)
+            }
+
+            fn castable(value: &Value) -> bool {
                 matches!(value, Value::$variant(_)
                     $(|  primitive!(@$other $(($binding))?))*)
             }
+        }
 
-            fn cast(value: Value) -> StrResult<Self> {
+        impl IntoValue for $ty {
+            fn into_value(self) -> Value {
+                Value::$variant(self)
+            }
+        }
+
+        impl FromValue for $ty {
+            fn from_value(value: Value) -> StrResult<Self> {
                 match value {
                     Value::$variant(v) => Ok(v),
                     $(Value::$other$(($binding))? => Ok($out),)*
@@ -360,16 +373,6 @@ macro_rules! primitive {
                         v.type_name(),
                     )),
                 }
-            }
-
-            fn describe() -> CastInfo {
-                CastInfo::Type(Self::TYPE_NAME)
-            }
-        }
-
-        impl From<$type> for Value {
-            fn from(v: $type) -> Self {
-                Value::$variant(v)
             }
         }
     };
@@ -408,8 +411,8 @@ primitive! { Styles: "styles", Styles }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
 primitive! { Func: "function", Func }
-primitive! { Module: "module", Module }
 primitive! { Args: "arguments", Args }
+primitive! { Module: "module", Module }
 
 #[cfg(test)]
 mod tests {
@@ -418,8 +421,8 @@ mod tests {
     use crate::geom::RgbaColor;
 
     #[track_caller]
-    fn test(value: impl Into<Value>, exp: &str) {
-        assert_eq!(format!("{:?}", value.into()), exp);
+    fn test(value: impl IntoValue, exp: &str) {
+        assert_eq!(format!("{:?}", value.into_value()), exp);
     }
 
     #[test]

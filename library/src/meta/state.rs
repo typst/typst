@@ -233,7 +233,6 @@ use crate::prelude::*;
 ///
 /// Display: State
 /// Category: meta
-/// Returns: state
 #[func]
 pub fn state(
     /// The key that identifies this state.
@@ -241,8 +240,8 @@ pub fn state(
     /// The initial value of the state.
     #[default]
     init: Value,
-) -> Value {
-    Value::dynamic(State { key, init })
+) -> State {
+    State { key, init }
 }
 
 /// A state.
@@ -265,10 +264,10 @@ impl State {
         span: Span,
     ) -> SourceResult<Value> {
         let value = match method {
-            "display" => self.display(args.eat()?).into(),
+            "display" => self.display(args.eat()?).into_value(),
             "at" => self.at(&mut vm.vt, args.expect("location")?)?,
             "final" => self.final_(&mut vm.vt, args.expect("location")?)?,
-            "update" => self.update(args.expect("value or function")?).into(),
+            "update" => self.update(args.expect("value or function")?).into_value(),
             _ => bail!(span, "type state has no method `{}`", method),
         };
         args.finish()?;
@@ -284,10 +283,7 @@ impl State {
     #[tracing::instrument(skip(self, vt))]
     pub fn at(self, vt: &mut Vt, location: Location) -> SourceResult<Value> {
         let sequence = self.sequence(vt)?;
-        let offset = vt
-            .introspector
-            .query(&Selector::before(self.selector(), location, true))
-            .len();
+        let offset = vt.introspector.query(&self.selector().before(location, true)).len();
         Ok(sequence[offset].clone())
     }
 
@@ -358,8 +354,8 @@ impl Debug for State {
     }
 }
 
-cast_from_value! {
-    State: "state",
+cast! {
+    type State: "state",
 }
 
 /// An update to perform on a state.
@@ -377,8 +373,8 @@ impl Debug for StateUpdate {
     }
 }
 
-cast_from_value! {
-    StateUpdate: "state update",
+cast! {
+    type StateUpdate: "state update",
     v: Func => Self::Func(v),
     v: Value => Self::Set(v),
 }

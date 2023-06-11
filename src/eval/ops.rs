@@ -1,6 +1,7 @@
 //! Operations on values.
 
 use std::cmp::Ordering;
+use std::fmt::Debug;
 
 use ecow::eco_format;
 
@@ -208,8 +209,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Int(a), Str(b)) => Str(b.repeat(a)?),
         (Array(a), Int(b)) => Array(a.repeat(b)?),
         (Int(a), Array(b)) => Array(b.repeat(a)?),
-        (Content(a), Int(b)) => Content(a.repeat(b)?),
-        (Int(a), Content(b)) => Content(b.repeat(a)?),
+        (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
+        (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
@@ -318,11 +319,8 @@ macro_rules! comparison {
     ($name:ident, $op:tt, $($pat:tt)*) => {
         /// Compute how a value compares with another value.
         pub fn $name(lhs: Value, rhs: Value) -> StrResult<Value> {
-            if let Some(ordering) = compare(&lhs, &rhs) {
-                Ok(Bool(matches!(ordering, $($pat)*)))
-            } else {
-                mismatch!(concat!("cannot apply '", $op, "' to {} and {}"), lhs, rhs);
-            }
+            let ordering = compare(&lhs, &rhs)?;
+            Ok(Bool(matches!(ordering, $($pat)*)))
         }
     };
 }
@@ -371,28 +369,34 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
 }
 
 /// Compare two values.
-pub fn compare(lhs: &Value, rhs: &Value) -> Option<Ordering> {
-    match (lhs, rhs) {
-        (Bool(a), Bool(b)) => a.partial_cmp(b),
-        (Int(a), Int(b)) => a.partial_cmp(b),
-        (Float(a), Float(b)) => a.partial_cmp(b),
-        (Length(a), Length(b)) => a.partial_cmp(b),
-        (Angle(a), Angle(b)) => a.partial_cmp(b),
-        (Ratio(a), Ratio(b)) => a.partial_cmp(b),
-        (Relative(a), Relative(b)) => a.partial_cmp(b),
-        (Fraction(a), Fraction(b)) => a.partial_cmp(b),
-        (Str(a), Str(b)) => a.partial_cmp(b),
+pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
+    Ok(match (lhs, rhs) {
+        (Bool(a), Bool(b)) => a.cmp(b),
+        (Int(a), Int(b)) => a.cmp(b),
+        (Float(a), Float(b)) => try_cmp_values(a, b)?,
+        (Length(a), Length(b)) => try_cmp_values(a, b)?,
+        (Angle(a), Angle(b)) => a.cmp(b),
+        (Ratio(a), Ratio(b)) => a.cmp(b),
+        (Relative(a), Relative(b)) => try_cmp_values(a, b)?,
+        (Fraction(a), Fraction(b)) => a.cmp(b),
+        (Str(a), Str(b)) => a.cmp(b),
 
         // Some technically different things should be comparable.
-        (&Int(a), &Float(b)) => (a as f64).partial_cmp(&b),
-        (&Float(a), &Int(b)) => a.partial_cmp(&(b as f64)),
-        (&Length(a), &Relative(b)) if b.rel.is_zero() => a.partial_cmp(&b.abs),
-        (&Ratio(a), &Relative(b)) if b.abs.is_zero() => a.partial_cmp(&b.rel),
-        (&Relative(a), &Length(b)) if a.rel.is_zero() => a.abs.partial_cmp(&b),
-        (&Relative(a), &Ratio(b)) if a.abs.is_zero() => a.rel.partial_cmp(&b),
+        (Int(a), Float(b)) => try_cmp_values(&(*a as f64), b)?,
+        (Float(a), Int(b)) => try_cmp_values(a, &(*b as f64))?,
+        (Length(a), Relative(b)) if b.rel.is_zero() => try_cmp_values(a, &b.abs)?,
+        (Ratio(a), Relative(b)) if b.abs.is_zero() => a.cmp(&b.rel),
+        (Relative(a), Length(b)) if a.rel.is_zero() => try_cmp_values(&a.abs, b)?,
+        (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
-        _ => Option::None,
-    }
+        _ => mismatch!("cannot compare {} and {}", lhs, rhs),
+    })
+}
+
+/// Try to compare two values.
+fn try_cmp_values<T: PartialOrd + Debug>(a: &T, b: &T) -> StrResult<Ordering> {
+    a.partial_cmp(b)
+        .ok_or_else(|| eco_format!("cannot compare {:?} with {:?}", a, b))
 }
 
 /// Test whether one value is "in" another one.

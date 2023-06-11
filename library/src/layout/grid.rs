@@ -129,15 +129,12 @@ impl Layout for GridElem {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct TrackSizings(pub Vec<Sizing>);
 
-cast_from_value! {
+cast! {
     TrackSizings,
+    self => self.0.into_value(),
     sizing: Sizing => Self(vec![sizing]),
     count: NonZeroUsize => Self(vec![Sizing::Auto; count.get()]),
     values: Array => Self(values.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
-}
-
-cast_to_value! {
-    v: TrackSizings => v.0.into()
 }
 
 /// Performs grid layout.

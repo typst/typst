@@ -2,8 +2,9 @@
 
 use ecow::EcoString;
 
-use super::{Args, Str, Value, Vm};
+use super::{Args, IntoValue, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
+use crate::eval::Datetime;
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -20,70 +21,71 @@ pub fn call(
 
     let output = match value {
         Value::Color(color) => match method {
-            "lighten" => Value::Color(color.lighten(args.expect("amount")?)),
-            "darken" => Value::Color(color.darken(args.expect("amount")?)),
-            "negate" => Value::Color(color.negate()),
+            "lighten" => color.lighten(args.expect("amount")?).into_value(),
+            "darken" => color.darken(args.expect("amount")?).into_value(),
+            "negate" => color.negate().into_value(),
             _ => return missing(),
         },
 
         Value::Str(string) => match method {
-            "len" => Value::Int(string.len()),
-            "first" => Value::Str(string.first().at(span)?),
-            "last" => Value::Str(string.last().at(span)?),
-            "at" => Value::Str(string.at(args.expect("index")?, None).at(span)?),
+            "len" => string.len().into_value(),
+            "first" => string.first().at(span)?.into_value(),
+            "last" => string.last().at(span)?.into_value(),
+            "at" => {
+                let index = args.expect("index")?;
+                let default = args.named::<EcoString>("default")?;
+                string.at(index, default.as_deref()).at(span)?.into_value()
+            }
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
                 if end.is_none() {
                     end = args.named("count")?.map(|c: i64| start + c);
                 }
-                Value::Str(string.slice(start, end).at(span)?)
+                string.slice(start, end).at(span)?.into_value()
             }
-            "clusters" => Value::Array(string.clusters()),
-            "codepoints" => Value::Array(string.codepoints()),
-            "contains" => Value::Bool(string.contains(args.expect("pattern")?)),
-            "starts-with" => Value::Bool(string.starts_with(args.expect("pattern")?)),
-            "ends-with" => Value::Bool(string.ends_with(args.expect("pattern")?)),
-            "find" => {
-                string.find(args.expect("pattern")?).map_or(Value::None, Value::Str)
-            }
-            "position" => string
-                .position(args.expect("pattern")?)
-                .map_or(Value::None, Value::Int),
-            "match" => string
-                .match_(args.expect("pattern")?)
-                .map_or(Value::None, Value::Dict),
-            "matches" => Value::Array(string.matches(args.expect("pattern")?)),
+            "clusters" => string.clusters().into_value(),
+            "codepoints" => string.codepoints().into_value(),
+            "contains" => string.contains(args.expect("pattern")?).into_value(),
+            "starts-with" => string.starts_with(args.expect("pattern")?).into_value(),
+            "ends-with" => string.ends_with(args.expect("pattern")?).into_value(),
+            "find" => string.find(args.expect("pattern")?).into_value(),
+            "position" => string.position(args.expect("pattern")?).into_value(),
+            "match" => string.match_(args.expect("pattern")?).into_value(),
+            "matches" => string.matches(args.expect("pattern")?).into_value(),
             "replace" => {
                 let pattern = args.expect("pattern")?;
                 let with = args.expect("string or function")?;
                 let count = args.named("count")?;
-                Value::Str(string.replace(vm, pattern, with, count)?)
+                string.replace(vm, pattern, with, count)?.into_value()
             }
             "trim" => {
                 let pattern = args.eat()?;
                 let at = args.named("at")?;
                 let repeat = args.named("repeat")?.unwrap_or(true);
-                Value::Str(string.trim(pattern, at, repeat))
+                string.trim(pattern, at, repeat).into_value()
             }
-            "split" => Value::Array(string.split(args.eat()?)),
+            "split" => string.split(args.eat()?).into_value(),
             _ => return missing(),
         },
 
         Value::Content(content) => match method {
-            "func" => content.func().into(),
-            "has" => Value::Bool(content.has(&args.expect::<EcoString>("field")?)),
-            "at" => content.at(&args.expect::<EcoString>("field")?, None).at(span)?,
+            "func" => content.func().into_value(),
+            "has" => content.has(&args.expect::<EcoString>("field")?).into_value(),
+            "at" => content
+                .at(&args.expect::<EcoString>("field")?, args.named("default")?)
+                .at(span)?,
+            "fields" => content.dict().into_value(),
             "location" => content
                 .location()
                 .ok_or("this method can only be called on content returned by query(..)")
                 .at(span)?
-                .into(),
+                .into_value(),
             _ => return missing(),
         },
 
         Value::Array(array) => match method {
-            "len" => Value::Int(array.len()),
+            "len" => array.len().into_value(),
             "first" => array.first().at(span)?.clone(),
             "last" => array.last().at(span)?.clone(),
             "at" => array
@@ -96,93 +98,104 @@ pub fn call(
                 if end.is_none() {
                     end = args.named("count")?.map(|c: i64| start + c);
                 }
-                Value::Array(array.slice(start, end).at(span)?)
+                array.slice(start, end).at(span)?.into_value()
             }
-            "contains" => Value::Bool(array.contains(&args.expect("value")?)),
-            "find" => array.find(vm, args.expect("function")?)?.unwrap_or(Value::None),
-            "position" => array
-                .position(vm, args.expect("function")?)?
-                .map_or(Value::None, Value::Int),
-            "filter" => Value::Array(array.filter(vm, args.expect("function")?)?),
-            "map" => Value::Array(array.map(vm, args.expect("function")?)?),
+            "contains" => array.contains(&args.expect("value")?).into_value(),
+            "find" => array.find(vm, args.expect("function")?)?.into_value(),
+            "position" => array.position(vm, args.expect("function")?)?.into_value(),
+            "filter" => array.filter(vm, args.expect("function")?)?.into_value(),
+            "map" => array.map(vm, args.expect("function")?)?.into_value(),
             "fold" => {
                 array.fold(vm, args.expect("initial value")?, args.expect("function")?)?
             }
             "sum" => array.sum(args.named("default")?, span)?,
             "product" => array.product(args.named("default")?, span)?,
-            "any" => Value::Bool(array.any(vm, args.expect("function")?)?),
-            "all" => Value::Bool(array.all(vm, args.expect("function")?)?),
-            "flatten" => Value::Array(array.flatten()),
-            "rev" => Value::Array(array.rev()),
-            "split" => Value::Array(array.split(args.expect("separator")?)),
+            "any" => array.any(vm, args.expect("function")?)?.into_value(),
+            "all" => array.all(vm, args.expect("function")?)?.into_value(),
+            "flatten" => array.flatten().into_value(),
+            "rev" => array.rev().into_value(),
+            "split" => array.split(args.expect("separator")?).into_value(),
             "join" => {
                 let sep = args.eat()?;
                 let last = args.named("last")?;
                 array.join(sep, last).at(span)?
             }
-            "sorted" => Value::Array(array.sorted(vm, span, args.named("key")?)?),
-            "zip" => Value::Array(array.zip(args.expect("other")?)),
-            "enumerate" => Value::Array(array.enumerate()),
+            "sorted" => array.sorted(vm, span, args.named("key")?)?.into_value(),
+            "zip" => array.zip(args.expect("other")?).into_value(),
+            "enumerate" => array.enumerate().into_value(),
             _ => return missing(),
         },
 
         Value::Dict(dict) => match method {
-            "len" => Value::Int(dict.len()),
+            "len" => dict.len().into_value(),
             "at" => dict
                 .at(&args.expect::<Str>("key")?, args.named("default")?.as_ref())
                 .at(span)?
                 .clone(),
-            "keys" => Value::Array(dict.keys()),
-            "values" => Value::Array(dict.values()),
-            "pairs" => Value::Array(dict.pairs()),
+            "keys" => dict.keys().into_value(),
+            "values" => dict.values().into_value(),
+            "pairs" => dict.pairs().into_value(),
             _ => return missing(),
         },
 
         Value::Func(func) => match method {
-            "with" => Value::Func(func.with(args.take())),
+            "with" => func.with(args.take()).into_value(),
             "where" => {
                 let fields = args.to_named();
                 args.items.retain(|arg| arg.name.is_none());
-                Value::dynamic(
-                    func.element()
-                        .ok_or("`where()` can only be called on element functions")
-                        .at(span)?
-                        .where_(fields),
-                )
+                func.element()
+                    .ok_or("`where()` can only be called on element functions")
+                    .at(span)?
+                    .where_(fields)
+                    .into_value()
             }
             _ => return missing(),
         },
 
         Value::Args(args) => match method {
-            "pos" => Value::Array(args.to_pos()),
-            "named" => Value::Dict(args.to_named()),
+            "pos" => args.to_pos().into_value(),
+            "named" => args.to_named().into_value(),
             _ => return missing(),
         },
 
         Value::Dyn(dynamic) => {
             if let Some(location) = dynamic.downcast::<Location>() {
                 match method {
-                    "page" => vm.vt.introspector.page(*location).into(),
-                    "position" => vm.vt.introspector.position(*location).into(),
+                    "page" => vm.vt.introspector.page(*location).into_value(),
+                    "position" => vm.vt.introspector.position(*location).into_value(),
                     "page-numbering" => vm.vt.introspector.page_numbering(*location),
                     _ => return missing(),
                 }
             } else if let Some(selector) = dynamic.downcast::<Selector>() {
                 match method {
-                    "or" => selector.clone().or(args.all::<Selector>()?).into(),
-                    "and" => selector.clone().and(args.all::<Selector>()?).into(),
+                    "or" => selector.clone().or(args.all::<Selector>()?).into_value(),
+                    "and" => selector.clone().and(args.all::<Selector>()?).into_value(),
                     "before" => {
                         let location = args.expect::<Selector>("selector")?;
                         let inclusive =
                             args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
-                        selector.clone().before(location, inclusive).into()
+                        selector.clone().before(location, inclusive).into_value()
                     }
                     "after" => {
                         let location = args.expect::<Selector>("selector")?;
                         let inclusive =
                             args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
-                        selector.clone().after(location, inclusive).into()
+                        selector.clone().after(location, inclusive).into_value()
                     }
+                    _ => return missing(),
+                }
+            } else if let Some(&datetime) = dynamic.downcast::<Datetime>() {
+                match method {
+                    "display" => {
+                        datetime.display(args.eat()?).at(args.span)?.into_value()
+                    }
+                    "year" => datetime.year().into_value(),
+                    "month" => datetime.month().into_value(),
+                    "weekday" => datetime.weekday().into_value(),
+                    "day" => datetime.day().into_value(),
+                    "hour" => datetime.hour().into_value(),
+                    "minute" => datetime.minute().into_value(),
+                    "second" => datetime.second().into_value(),
                     _ => return missing(),
                 }
             } else {
@@ -301,7 +314,13 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
-        "content" => &[("func", false), ("has", true), ("at", true), ("location", false)],
+        "content" => &[
+            ("func", false),
+            ("has", true),
+            ("at", true),
+            ("fields", false),
+            ("location", false),
+        ],
         "array" => &[
             ("all", true),
             ("any", true),

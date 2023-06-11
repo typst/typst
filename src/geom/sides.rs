@@ -1,3 +1,5 @@
+use crate::eval::{CastInfo, FromValue, IntoValue, Reflect};
+
 use super::*;
 
 /// A container with left, top, right and bottom components.
@@ -281,19 +283,51 @@ impl Side {
     }
 }
 
-impl<T> Cast for Sides<Option<T>>
-where
-    T: Default + Cast + Clone,
-{
-    fn is(value: &Value) -> bool {
-        matches!(value, Value::Dict(_)) || T::is(value)
+impl<T: Reflect> Reflect for Sides<Option<T>> {
+    fn describe() -> CastInfo {
+        T::describe() + Dict::describe()
     }
 
-    fn cast(mut value: Value) -> StrResult<Self> {
+    fn castable(value: &Value) -> bool {
+        Dict::castable(value) || T::castable(value)
+    }
+}
+
+impl<T> IntoValue for Sides<T>
+where
+    T: PartialEq + IntoValue,
+{
+    fn into_value(self) -> Value {
+        if self.is_uniform() {
+            return self.left.into_value();
+        }
+
+        let mut dict = Dict::new();
+        let mut handle = |key: &str, component: T| {
+            let value = component.into_value();
+            if value != Value::None {
+                dict.insert(key.into(), value);
+            }
+        };
+
+        handle("left", self.left);
+        handle("top", self.top);
+        handle("right", self.right);
+        handle("bottom", self.bottom);
+
+        Value::Dict(dict)
+    }
+}
+
+impl<T> FromValue for Sides<Option<T>>
+where
+    T: Default + FromValue + Clone,
+{
+    fn from_value(mut value: Value) -> StrResult<Self> {
         let keys = ["left", "top", "right", "bottom", "x", "y", "rest"];
         if let Value::Dict(dict) = &mut value {
             if dict.iter().any(|(key, _)| keys.contains(&key.as_str())) {
-                let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+                let mut take = |key| dict.take(key).ok().map(T::from_value).transpose();
                 let rest = take("rest")?;
                 let x = take("x")?.or_else(|| rest.clone());
                 let y = take("y")?.or_else(|| rest.clone());
@@ -309,41 +343,11 @@ where
             }
         }
 
-        if T::is(&value) {
-            Ok(Self::splat(Some(T::cast(value)?)))
+        if T::castable(&value) {
+            Ok(Self::splat(Some(T::from_value(value)?)))
         } else {
-            <Self as Cast>::error(value)
+            Err(Self::error(&value))
         }
-    }
-
-    fn describe() -> CastInfo {
-        T::describe() + CastInfo::Type("dictionary")
-    }
-}
-
-impl<T> From<Sides<T>> for Value
-where
-    T: PartialEq + Into<Value>,
-{
-    fn from(sides: Sides<T>) -> Self {
-        if sides.is_uniform() {
-            return sides.left.into();
-        }
-
-        let mut dict = Dict::new();
-        let mut handle = |key: &str, component: T| {
-            let value = component.into();
-            if value != Value::None {
-                dict.insert(key.into(), value);
-            }
-        };
-
-        handle("left", sides.left);
-        handle("top", sides.top);
-        handle("right", sides.right);
-        handle("bottom", sides.bottom);
-
-        Value::Dict(dict)
     }
 }
 

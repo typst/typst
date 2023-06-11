@@ -29,6 +29,7 @@ pub use self::reference::*;
 pub use self::state::*;
 
 use crate::prelude::*;
+use crate::text::TextElem;
 
 /// Hook up all meta definitions.
 pub(super) fn define(global: &mut Scope) {
@@ -41,18 +42,23 @@ pub(super) fn define(global: &mut Scope) {
     global.define("footnote", FootnoteElem::func());
     global.define("cite", CiteElem::func());
     global.define("bibliography", BibliographyElem::func());
-    global.define("locate", locate);
-    global.define("style", style);
-    global.define("layout", layout);
-    global.define("counter", counter);
-    global.define("numbering", numbering);
-    global.define("state", state);
-    global.define("query", query);
-    global.define("selector", selector);
+    global.define("locate", locate_func());
+    global.define("style", style_func());
+    global.define("layout", layout_func());
+    global.define("counter", counter_func());
+    global.define("numbering", numbering_func());
+    global.define("state", state_func());
+    global.define("query", query_func());
+    global.define("selector", selector_func());
 }
 
 /// The named with which an element is referenced.
 pub trait LocalName {
     /// Get the name in the given language and (optionally) region.
     fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str;
+
+    /// Resolve the local name with a style chain.
+    fn local_name_in(&self, styles: StyleChain) -> &'static str {
+        self.local_name(TextElem::lang_in(styles), TextElem::region_in(styles))
+    }
 }

@@ -415,7 +415,8 @@ fn func_model(
         name = name
             .strip_prefix(parent)
             .or(name.strip_prefix(parent.strip_suffix('s').unwrap_or(parent)))
-            .unwrap_or(name);
+            .unwrap_or(name)
+            .trim_matches('-');
     }
     path.push(name);
 
@@ -429,6 +430,13 @@ fn func_model(
         })
         .collect();
 
+    let mut returns = vec![];
+    casts(resolver, &mut returns, &mut vec![], &info.returns);
+    returns.sort_by_key(|ty| type_index(ty));
+    if returns == ["none"] {
+        returns.clear();
+    }
+
     FuncModel {
         path,
         display: info.display,
@@ -437,7 +445,7 @@ fn func_model(
         element: func.element().is_some(),
         details: Html::markdown_with_id_base(resolver, docs, id_base),
         params: info.params.iter().map(|param| param_model(resolver, param)).collect(),
-        returns: info.returns.clone(),
+        returns,
         methods: method_models(resolver, info.docs),
         scope,
     }
@@ -931,6 +939,7 @@ const TYPE_ORDER: &[&str] = &[
     "relative length",
     "fraction",
     "color",
+    "datetime",
     "string",
     "regex",
     "label",

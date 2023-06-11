@@ -7,9 +7,6 @@ use ecow::EcoString;
 
 use crate::diag::StrResult;
 
-#[doc(inline)]
-pub use typst_macros::symbols;
-
 /// A symbol, possibly with variants.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(Repr);

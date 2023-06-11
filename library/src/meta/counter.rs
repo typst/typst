@@ -277,7 +277,6 @@ use crate::prelude::*;
 ///
 /// Display: Counter
 /// Category: meta
-/// Returns: counter
 #[func]
 pub fn counter(
     /// The key that identifies this counter.
@@ -288,8 +287,8 @@ pub fn counter(
     /// - If this is an element function or selector, counts through its elements,
     /// - If this is the [`page`]($func/page) function, counts through pages.
     key: CounterKey,
-) -> Value {
-    Value::dynamic(Counter::new(key))
+) -> Counter {
+    Counter::new(key)
 }
 
 /// Counts through pages, elements, and more.
@@ -317,17 +316,17 @@ impl Counter {
         span: Span,
     ) -> SourceResult<Value> {
         let value = match method {
-            "display" => {
-                self.display(args.eat()?, args.named("both")?.unwrap_or(false)).into()
-            }
+            "display" => self
+                .display(args.eat()?, args.named("both")?.unwrap_or(false))
+                .into_value(),
             "step" => self
                 .update(CounterUpdate::Step(
                     args.named("level")?.unwrap_or(NonZeroUsize::ONE),
                 ))
-                .into(),
-            "update" => self.update(args.expect("value or function")?).into(),
-            "at" => self.at(&mut vm.vt, args.expect("location")?)?.into(),
-            "final" => self.final_(&mut vm.vt, args.expect("location")?)?.into(),
+                .into_value(),
+            "update" => self.update(args.expect("value or function")?).into_value(),
+            "at" => self.at(&mut vm.vt, args.expect("location")?)?.into_value(),
+            "final" => self.final_(&mut vm.vt, args.expect("location")?)?.into_value(),
             _ => bail!(span, "type counter has no method `{}`", method),
         };
         args.finish()?;
@@ -342,10 +341,7 @@ impl Counter {
     /// Get the value of the state at the given location.
     pub fn at(&self, vt: &mut Vt, location: Location) -> SourceResult<CounterState> {
         let sequence = self.sequence(vt)?;
-        let offset = vt
-            .introspector
-            .query(&Selector::before(self.selector(), location, true))
-            .len();
+        let offset = vt.introspector.query(&self.selector().before(location, true)).len();
         let (mut state, page) = sequence[offset].clone();
         if self.is_page() {
             let delta = vt.introspector.page(location).get().saturating_sub(page.get());
@@ -479,8 +475,8 @@ impl Debug for Counter {
     }
 }
 
-cast_from_value! {
-    Counter: "counter",
+cast! {
+    type Counter: "counter",
 }
 
 /// Identifies a counter.
@@ -495,7 +491,7 @@ pub enum CounterKey {
     Str(Str),
 }
 
-cast_from_value! {
+cast! {
     CounterKey,
     v: Str => Self::Str(v),
     label: Label => Self::Selector(Selector::Label(label)),
@@ -503,7 +499,7 @@ cast_from_value! {
         if v == PageElem::func() {
             Self::Page
         } else {
-            Self::Selector(LocatableSelector::cast(Value::from(v))?.0)
+            Self::Selector(LocatableSelector::from_value(v.into_value())?.0)
         }
     },
     selector: LocatableSelector => Self::Selector(selector.0),
@@ -536,8 +532,8 @@ impl Debug for CounterUpdate {
     }
 }
 
-cast_from_value! {
-    CounterUpdate: "counter update",
+cast! {
+    type CounterUpdate: "counter update",
     v: CounterState => Self::Set(v),
     v: Func => Self::Func(v),
 }
@@ -559,10 +555,7 @@ impl CounterState {
             CounterUpdate::Set(state) => *self = state,
             CounterUpdate::Step(level) => self.step(level, 1),
             CounterUpdate::Func(func) => {
-                *self = func
-                    .call_vt(vt, self.0.iter().copied().map(Into::into))?
-                    .cast()
-                    .at(func.span())?
+                *self = func.call_vt(vt, self.0.iter().copied())?.cast().at(func.span())?
             }
         }
         Ok(())
@@ -593,17 +586,14 @@ impl CounterState {
     }
 }
 
-cast_from_value! {
+cast! {
     CounterState,
+    self => Value::Array(self.0.into_iter().map(IntoValue::into_value).collect()),
     num: usize => Self(smallvec![num]),
     array: Array => Self(array
         .into_iter()
         .map(Value::cast)
         .collect::<StrResult<_>>()?),
-}
-
-cast_to_value! {
-    v: CounterState => Value::Array(v.0.into_iter().map(Into::into).collect())
 }
 
 /// Executes a display of a state.

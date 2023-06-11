@@ -18,5 +18,5 @@ $ underline(f' : NN -> RR) \
 $ dot \ dots \ ast \ tilde \ star $
 
 ---
-// Error: 1:3 expected dollar sign
+// Error: 1-2 unclosed delimiter
 $a

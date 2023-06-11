@@ -396,6 +396,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     not: '¬',
     and: ['∧', big: '⋀', curly: '⋏', dot: '⟑', double: '⩓'],
     or: ['∨', big: '⋁', curly: '⋎', dot: '⟇', double: '⩔'],
+    xor: ['⊕', big: '⨁'],
     models: '⊧',
     therefore: '∴',
     because: '∵',
@@ -446,6 +447,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     suit: [club: '♣', diamond: '♦', heart: '♥', spade: '♠'],
 
     // Shapes.
+    bullet: '•',
     circle: [
         stroked: '○',
         stroked.tiny: '∘',
@@ -718,8 +720,11 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
     ],
     tack: [
         r: '⊢',
+        r.not: '⊬',
         r.long: '⟝',
+        r.short: '⊦',
         r.double: '⊨',
+        r.double.not: '⊭',
         l: '⊣',
         l.long: '⟞',
         l.short: '⫞',
@@ -756,7 +761,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
      pi: ['π', alt: 'ϖ'],
      psi: 'ψ',
      rho: ['ρ', alt: 'ϱ'],
-     sigma: 'σ',
+     sigma: ['σ', alt: 'ς'],
      tau: 'τ',
      theta: ['θ', alt: 'ϑ'],
      upsilon: 'υ',

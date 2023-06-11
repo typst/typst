@@ -32,5 +32,5 @@ let f() , ; : | + - /= == 12 "string"
 
 ---
 // Unterminated.
-// Error: 6 expected closing brace
+// Error: 1-6 unclosed unicode escape sequence
 \u{41[*Bold*]

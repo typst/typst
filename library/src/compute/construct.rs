@@ -1,7 +1,9 @@
 use std::num::NonZeroI64;
 use std::str::FromStr;
 
-use typst::eval::Regex;
+use time::{Month, PrimitiveDateTime};
+
+use typst::eval::{Datetime, Regex};
 
 use crate::prelude::*;
 
@@ -21,19 +23,18 @@ use crate::prelude::*;
 ///
 /// Display: Integer
 /// Category: construct
-/// Returns: integer
 #[func]
 pub fn int(
     /// The value that should be converted to an integer.
     value: ToInt,
-) -> Value {
-    Value::Int(value.0)
+) -> i64 {
+    value.0
 }
 
 /// A value that can be cast to an integer.
-struct ToInt(i64);
+pub struct ToInt(i64);
 
-cast_from_value! {
+cast! {
     ToInt,
     v: bool => Self(v as i64),
     v: i64 => Self(v),
@@ -61,19 +62,18 @@ cast_from_value! {
 ///
 /// Display: Float
 /// Category: construct
-/// Returns: float
 #[func]
 pub fn float(
     /// The value that should be converted to a float.
     value: ToFloat,
-) -> Value {
-    Value::Float(value.0)
+) -> f64 {
+    value.0
 }
 
 /// A value that can be cast to a float.
-struct ToFloat(f64);
+pub struct ToFloat(f64);
 
-cast_from_value! {
+cast! {
     ToFloat,
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
@@ -93,13 +93,12 @@ cast_from_value! {
 ///
 /// Display: Luma
 /// Category: construct
-/// Returns: color
 #[func]
 pub fn luma(
     /// The gray component.
     gray: Component,
-) -> Value {
-    Value::Color(LumaColor::new(gray.0).into())
+) -> Color {
+    LumaColor::new(gray.0).into()
 }
 
 /// Create an RGB(A) color.
@@ -119,7 +118,6 @@ pub fn luma(
 ///
 /// Display: RGB
 /// Category: construct
-/// Returns: color
 #[func]
 pub fn rgb(
     /// The color in hexadecimal notation.
@@ -148,11 +146,14 @@ pub fn rgb(
     /// The alpha component.
     #[external]
     alpha: Component,
-) -> Value {
-    Value::Color(if let Some(string) = args.find::<Spanned<EcoString>>()? {
+    /// The arguments.
+    args: Args,
+) -> SourceResult<Color> {
+    let mut args = args;
+    Ok(if let Some(string) = args.find::<Spanned<EcoString>>()? {
         match RgbaColor::from_str(&string.v) {
             Ok(color) => color.into(),
-            Err(msg) => bail!(string.span, msg),
+            Err(msg) => bail!(string.span, "{msg}"),
         }
     } else {
         let Component(r) = args.expect("red component")?;
@@ -164,9 +165,9 @@ pub fn rgb(
 }
 
 /// An integer or ratio component.
-struct Component(u8);
+pub struct Component(u8);
 
-cast_from_value! {
+cast! {
     Component,
     v: i64 => match v {
         0 ..= 255 => Self(v as u8),
@@ -177,6 +178,164 @@ cast_from_value! {
     } else {
         Err("ratio must be between 0% and 100%")?
     },
+}
+
+/// Create a new datetime.
+///
+/// You can specify the [datetime]($type/datetime) using a year, month, day,
+/// hour, minute, and second. You can also get the current date with
+/// [`datetime.today`]($func/datetime.today).
+///
+/// ## Example
+/// ```example
+/// #let date = datetime(
+///   year: 2012,
+///   month: 8,
+///   day: 3,
+/// )
+///
+/// #date.display() \
+/// #date.display(
+///   "[day].[month].[year]"
+/// )
+/// ```
+///
+/// ## Format
+/// _Note_: Depending on which components of the datetime you specify, Typst
+/// will store it in one of the following three ways:
+/// * If you specify year, month and day, Typst will store just a date.
+/// * If you specify hour, minute and second, Typst will store just a time.
+/// * If you specify all of year, month, day, hour, minute and second, Typst
+///   will store a full datetime.
+///
+/// Depending on how it is stored, the [`display`]($type/datetime.display)
+/// method will choose a different formatting by default.
+///
+/// Display: Datetime
+/// Category: construct
+#[func]
+#[scope(
+    scope.define("today", datetime_today_func());
+    scope
+)]
+pub fn datetime(
+    /// The year of the datetime.
+    #[named]
+    year: Option<YearComponent>,
+    /// The month of the datetime.
+    #[named]
+    month: Option<MonthComponent>,
+    /// The day of the datetime.
+    #[named]
+    day: Option<DayComponent>,
+    /// The hour of the datetime.
+    #[named]
+    hour: Option<HourComponent>,
+    /// The minute of the datetime.
+    #[named]
+    minute: Option<MinuteComponent>,
+    /// The second of the datetime.
+    #[named]
+    second: Option<SecondComponent>,
+) -> StrResult<Datetime> {
+    let time = match (hour, minute, second) {
+        (Some(hour), Some(minute), Some(second)) => {
+            match time::Time::from_hms(hour.0, minute.0, second.0) {
+                Ok(time) => Some(time),
+                Err(_) => bail!("time is invalid"),
+            }
+        }
+        (None, None, None) => None,
+        _ => bail!("time is incomplete"),
+    };
+
+    let date = match (year, month, day) {
+        (Some(year), Some(month), Some(day)) => {
+            match time::Date::from_calendar_date(year.0, month.0, day.0) {
+                Ok(date) => Some(date),
+                Err(_) => bail!("date is invalid"),
+            }
+        }
+        (None, None, None) => None,
+        _ => bail!("date is incomplete"),
+    };
+
+    Ok(match (date, time) {
+        (Some(date), Some(time)) => {
+            Datetime::Datetime(PrimitiveDateTime::new(date, time))
+        }
+        (Some(date), None) => Datetime::Date(date),
+        (None, Some(time)) => Datetime::Time(time),
+        (None, None) => {
+            bail!("at least one of date or time must be fully specified")
+        }
+    })
+}
+
+pub struct YearComponent(i32);
+pub struct MonthComponent(Month);
+pub struct DayComponent(u8);
+pub struct HourComponent(u8);
+pub struct MinuteComponent(u8);
+pub struct SecondComponent(u8);
+
+cast! {
+    YearComponent,
+    v: i32 => Self(v),
+}
+
+cast! {
+    MonthComponent,
+    v: u8 => Self(Month::try_from(v).map_err(|_| "month is invalid")?)
+}
+
+cast! {
+    DayComponent,
+    v: u8 => Self(v),
+}
+
+cast! {
+    HourComponent,
+    v: u8 => Self(v),
+}
+
+cast! {
+    MinuteComponent,
+    v: u8 => Self(v),
+}
+
+cast! {
+    SecondComponent,
+    v: u8 => Self(v),
+}
+
+/// Returns the current date.
+///
+/// Refer to the documentation of the [`display`]($type/datetime.display) method
+/// for details on how to affect the formatting of the date.
+///
+/// ## Example
+/// ```example
+/// Today's date is
+/// #datetime.today().display().
+/// ```
+///
+/// Display: Today
+/// Category: construct
+#[func]
+pub fn datetime_today(
+    /// An offset to apply to the current UTC date. If set to `{auto}`, the
+    /// offset will be the local offset.
+    #[named]
+    #[default]
+    offset: Smart<i64>,
+    /// The virtual machine.
+    vt: &mut Vt,
+) -> StrResult<Datetime> {
+    Ok(vt
+        .world
+        .today(offset.as_custom())
+        .ok_or("unable to get the current date")?)
 }
 
 /// Create a CMYK color.
@@ -194,7 +353,6 @@ cast_from_value! {
 ///
 /// Display: CMYK
 /// Category: construct
-/// Returns: color
 #[func]
 pub fn cmyk(
     /// The cyan component.
@@ -205,14 +363,14 @@ pub fn cmyk(
     yellow: RatioComponent,
     /// The key component.
     key: RatioComponent,
-) -> Value {
-    Value::Color(CmykColor::new(cyan.0, magenta.0, yellow.0, key.0).into())
+) -> Color {
+    CmykColor::new(cyan.0, magenta.0, yellow.0, key.0).into()
 }
 
 /// A component that must be a ratio.
-struct RatioComponent(u8);
+pub struct RatioComponent(u8);
 
-cast_from_value! {
+cast! {
     RatioComponent,
     v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
@@ -242,7 +400,6 @@ cast_from_value! {
 ///
 /// Display: Symbol
 /// Category: construct
-/// Returns: symbol
 #[func]
 pub fn symbol(
     /// The variants of the symbol.
@@ -254,10 +411,12 @@ pub fn symbol(
     /// all attached modifiers and the minimum number of other modifiers.
     #[variadic]
     variants: Vec<Spanned<Variant>>,
-) -> Value {
+    /// The callsite span.
+    span: Span,
+) -> SourceResult<Symbol> {
     let mut list = Vec::new();
     if variants.is_empty() {
-        bail!(args.span, "expected at least one variant");
+        bail!(span, "expected at least one variant");
     }
     for Spanned { v, span } in variants {
         if list.iter().any(|(prev, _)| &v.0 == prev) {
@@ -265,13 +424,13 @@ pub fn symbol(
         }
         list.push((v.0, v.1));
     }
-    Value::Symbol(Symbol::runtime(list.into_boxed_slice()))
+    Ok(Symbol::runtime(list.into_boxed_slice()))
 }
 
 /// A value that can be cast to a symbol.
-struct Variant(EcoString, char);
+pub struct Variant(EcoString, char);
 
-cast_from_value! {
+cast! {
     Variant,
     c: char => Self(EcoString::new(), c),
     array: Array => {
@@ -285,13 +444,19 @@ cast_from_value! {
 
 /// Convert a value to a string.
 ///
-/// - Integers are formatted in base 10.
+/// - Integers are formatted in base 10. This can be overridden with the
+///   optional `base` parameter.
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
+///
+/// If you wish to convert from and to Unicode code points, see
+/// [`str.to-unicode`]($func/str.to-unicode) and
+/// [`str.from-unicode`]($func/str.from-unicode).
 ///
 /// ## Example { #example }
 /// ```example
 /// #str(10) \
+/// #str(4000, base: 16) \
 /// #str(2.7) \
 /// #str(1e8) \
 /// #str(<intro>)
@@ -299,24 +464,135 @@ cast_from_value! {
 ///
 /// Display: String
 /// Category: construct
-/// Returns: string
 #[func]
+#[scope(
+    scope.define("to-unicode", str_to_unicode_func());
+    scope.define("from-unicode", str_from_unicode_func());
+    scope
+)]
 pub fn str(
     /// The value that should be converted to a string.
     value: ToStr,
-) -> Value {
-    Value::Str(value.0)
+    /// The base (radix) to display integers in, between 2 and 36.
+    #[named]
+    #[default(Spanned::new(10, Span::detached()))]
+    base: Spanned<i64>,
+) -> SourceResult<Str> {
+    Ok(match value {
+        ToStr::Str(s) => {
+            if base.v != 10 {
+                bail!(base.span, "base is only supported for integers");
+            }
+            s
+        }
+        ToStr::Int(n) => {
+            if base.v < 2 || base.v > 36 {
+                bail!(base.span, "base must be between 2 and 36");
+            }
+            int_to_base(n, base.v).into()
+        }
+    })
 }
 
 /// A value that can be cast to a string.
-struct ToStr(Str);
+pub enum ToStr {
+    /// A string value ready to be used as-is.
+    Str(Str),
+    /// An integer about to be formatted in a given base.
+    Int(i64),
+}
 
-cast_from_value! {
+cast! {
     ToStr,
-    v: i64 => Self(format_str!("{}", v)),
-    v: f64 => Self(format_str!("{}", v)),
-    v: Label => Self(v.0.into()),
-    v: Str => Self(v),
+    v: i64 => Self::Int(v),
+    v: f64 => Self::Str(format_str!("{}", v)),
+    v: Label => Self::Str(v.0.into()),
+    v: Str => Self::Str(v),
+}
+
+/// Format an integer in a base.
+fn int_to_base(mut n: i64, base: i64) -> EcoString {
+    if n == 0 {
+        return "0".into();
+    }
+
+    // In Rust, `format!("{:x}", -14i64)` is not `-e` but `fffffffffffffff2`.
+    // So we can only use the built-in for decimal, not bin/oct/hex.
+    if base == 10 {
+        return eco_format!("{n}");
+    }
+
+    // The largest output is `to_base(i64::MIN, 2)`, which is 65 chars long.
+    const SIZE: usize = 65;
+    let mut digits = [b'\0'; SIZE];
+    let mut i = SIZE;
+
+    // It's tempting to take the absolute value, but this will fail for i64::MIN.
+    // Instead, we turn n negative, as -i64::MAX is perfectly representable.
+    let negative = n < 0;
+    if n > 0 {
+        n = -n;
+    }
+
+    while n != 0 {
+        let digit = char::from_digit(-(n % base) as u32, base as u32);
+        i -= 1;
+        digits[i] = digit.unwrap_or('?') as u8;
+        n /= base;
+    }
+
+    if negative {
+        i -= 1;
+        digits[i] = b'-';
+    }
+
+    std::str::from_utf8(&digits[i..]).unwrap_or_default().into()
+}
+
+/// Converts a character into its corresponding code point.
+///
+/// ## Example
+/// ```example
+/// #str.to-unicode("a") \
+/// #"a\u{0300}".codepoints().map(str.to-unicode)
+/// ```
+///
+/// Display: String To Unicode
+/// Category: construct
+#[func]
+pub fn str_to_unicode(
+    /// The character that should be converted.
+    value: char,
+) -> u32 {
+    value.into()
+}
+
+/// Converts a unicode code point into its corresponding string.
+///
+/// ```example
+/// #str.from-unicode(97)
+/// ```
+///
+/// Display: String From Unicode
+/// Category: construct
+#[func]
+pub fn str_from_unicode(
+    /// The code point that should be converted.
+    value: CodePoint,
+) -> Str {
+    format_str!("{}", value.0)
+}
+
+/// The numeric representation of a single unicode code point.
+pub struct CodePoint(char);
+
+cast! {
+    CodePoint,
+    v: i64 => {
+        Self(v.try_into().ok().and_then(|v: u32| v.try_into().ok()).ok_or_else(
+            || eco_format!("{:#x} is not a valid codepoint", v),
+        )?)
+    },
 }
 
 /// Create a label from a string.
@@ -340,13 +616,12 @@ cast_from_value! {
 ///
 /// Display: Label
 /// Category: construct
-/// Returns: label
 #[func]
 pub fn label(
     /// The name of the label.
     name: EcoString,
-) -> Value {
-    Value::Label(Label(name))
+) -> Label {
+    Label(name)
 }
 
 /// Create a regular expression from a string.
@@ -372,7 +647,6 @@ pub fn label(
 ///
 /// Display: Regex
 /// Category: construct
-/// Returns: regex
 #[func]
 pub fn regex(
     /// The regular expression as a string.
@@ -386,8 +660,8 @@ pub fn regex(
     /// and extract its text to use it for your regular expressions:
     /// ```{regex(`\d+\.\d+\.\d+`.text)}```.
     regex: Spanned<EcoString>,
-) -> Value {
-    Regex::new(&regex.v).at(regex.span)?.into()
+) -> SourceResult<Regex> {
+    Regex::new(&regex.v).at(regex.span)
 }
 
 /// Create an array consisting of a sequence of numbers.
@@ -407,7 +681,6 @@ pub fn regex(
 ///
 /// Display: Range
 /// Category: construct
-/// Returns: array
 #[func]
 pub fn range(
     /// The start of the range (inclusive).
@@ -421,7 +694,10 @@ pub fn range(
     #[named]
     #[default(NonZeroI64::new(1).unwrap())]
     step: NonZeroI64,
-) -> Value {
+    /// The arguments.
+    args: Args,
+) -> SourceResult<Array> {
+    let mut args = args;
     let first = args.expect::<i64>("end")?;
     let (start, end) = match args.eat::<i64>()? {
         Some(second) => (first, second),
@@ -438,5 +714,31 @@ pub fn range(
         x += step;
     }
 
-    Value::Array(array)
+    Ok(array)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_to_base() {
+        assert_eq!(&int_to_base(0, 10), "0");
+        assert_eq!(&int_to_base(0, 16), "0");
+        assert_eq!(&int_to_base(0, 36), "0");
+        assert_eq!(
+            &int_to_base(i64::MAX, 2),
+            "111111111111111111111111111111111111111111111111111111111111111"
+        );
+        assert_eq!(
+            &int_to_base(i64::MIN, 2),
+            "-1000000000000000000000000000000000000000000000000000000000000000"
+        );
+        assert_eq!(&int_to_base(i64::MAX, 10), "9223372036854775807");
+        assert_eq!(&int_to_base(i64::MIN, 10), "-9223372036854775808");
+        assert_eq!(&int_to_base(i64::MAX, 16), "7fffffffffffffff");
+        assert_eq!(&int_to_base(i64::MIN, 16), "-8000000000000000");
+        assert_eq!(&int_to_base(i64::MAX, 36), "1y2p0ij32e8e7");
+        assert_eq!(&int_to_base(i64::MIN, 36), "-1y2p0ij32e8e8");
+    }
 }

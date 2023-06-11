@@ -113,12 +113,11 @@ fn scale(
 ///
 /// Display: Floor
 /// Category: math
-/// Returns: content
 #[func]
 pub fn floor(
     /// The expression to floor.
     body: Content,
-) -> Value {
+) -> Content {
     delimited(body, '⌊', '⌋')
 }
 
@@ -131,12 +130,11 @@ pub fn floor(
 ///
 /// Display: Ceil
 /// Category: math
-/// Returns: content
 #[func]
 pub fn ceil(
     /// The expression to ceil.
     body: Content,
-) -> Value {
+) -> Content {
     delimited(body, '⌈', '⌉')
 }
 
@@ -149,12 +147,11 @@ pub fn ceil(
 ///
 /// Display: Round
 /// Category: math
-/// Returns: content
 #[func]
 pub fn round(
     /// The expression to round.
     body: Content,
-) -> Value {
+) -> Content {
     delimited(body, '⌊', '⌉')
 }
 
@@ -168,12 +165,11 @@ pub fn round(
 ///
 /// Display: Abs
 /// Category: math
-/// Returns: content
 #[func]
 pub fn abs(
     /// The expression to take the absolute value of.
     body: Content,
-) -> Value {
+) -> Content {
     delimited(body, '|', '|')
 }
 
@@ -186,21 +182,19 @@ pub fn abs(
 ///
 /// Display: Norm
 /// Category: math
-/// Returns: content
 #[func]
 pub fn norm(
     /// The expression to take the norm of.
     body: Content,
-) -> Value {
+) -> Content {
     delimited(body, '‖', '‖')
 }
 
-fn delimited(body: Content, left: char, right: char) -> Value {
+fn delimited(body: Content, left: char, right: char) -> Content {
     LrElem::new(Content::sequence([
         TextElem::packed(left),
         body,
         TextElem::packed(right),
     ]))
     .pack()
-    .into()
 }

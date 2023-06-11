@@ -4,7 +4,7 @@ use std::num::NonZeroUsize;
 
 use comemo::Tracked;
 use ecow::EcoString;
-use once_cell::sync::OnceCell;
+use std::sync::OnceLock;
 
 use super::{Args, Dynamic, Module, Value, Vm};
 use crate::diag::SourceResult;
@@ -158,7 +158,7 @@ impl Hash for LangItems {
 
 /// Global storage for lang items.
 #[doc(hidden)]
-pub static LANG_ITEMS: OnceCell<LangItems> = OnceCell::new();
+pub static LANG_ITEMS: OnceLock<LangItems> = OnceLock::new();
 
 /// Set the lang items.
 ///

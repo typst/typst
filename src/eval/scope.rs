@@ -4,7 +4,7 @@ use std::hash::Hash;
 
 use ecow::{eco_format, EcoString};
 
-use super::{Library, Value};
+use super::{IntoValue, Library, Value};
 use crate::diag::StrResult;
 
 /// A stack of scopes.
@@ -95,7 +95,7 @@ impl Scope {
 
     /// Bind a value to a name.
     #[track_caller]
-    pub fn define(&mut self, name: impl Into<EcoString>, value: impl Into<Value>) {
+    pub fn define(&mut self, name: impl Into<EcoString>, value: impl IntoValue) {
         let name = name.into();
 
         #[cfg(debug_assertions)]
@@ -103,16 +103,13 @@ impl Scope {
             panic!("duplicate definition: {name}");
         }
 
-        self.0.insert(name, Slot::new(value.into(), Kind::Normal));
+        self.0.insert(name, Slot::new(value.into_value(), Kind::Normal));
     }
 
     /// Define a captured, immutable binding.
-    pub fn define_captured(
-        &mut self,
-        var: impl Into<EcoString>,
-        value: impl Into<Value>,
-    ) {
-        self.0.insert(var.into(), Slot::new(value.into(), Kind::Captured));
+    pub fn define_captured(&mut self, var: impl Into<EcoString>, value: impl IntoValue) {
+        self.0
+            .insert(var.into(), Slot::new(value.into_value(), Kind::Captured));
     }
 
     /// Try to access a variable immutably.

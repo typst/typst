@@ -1,6 +1,7 @@
 //! Typst's standard library.
 
 #![allow(clippy::wildcard_in_or_patterns)]
+#![allow(clippy::manual_range_contains)]
 #![allow(clippy::comparison_chain)]
 
 pub mod compute;
@@ -15,7 +16,7 @@ pub mod visualize;
 
 use typst::diag::At;
 use typst::eval::{LangItems, Library, Module, Scope};
-use typst::geom::{Align, Color, Dir, GenAlign, Smart};
+use typst::geom::Smart;
 use typst::model::{Element, Styles};
 
 use self::layout::LayoutRoot;
@@ -40,40 +41,6 @@ fn global(math: Module) -> Module {
     compute::define(&mut global);
     symbols::define(&mut global);
     global.define("math", math);
-
-    // Colors.
-    global.define("black", Color::BLACK);
-    global.define("gray", Color::GRAY);
-    global.define("silver", Color::SILVER);
-    global.define("white", Color::WHITE);
-    global.define("navy", Color::NAVY);
-    global.define("blue", Color::BLUE);
-    global.define("aqua", Color::AQUA);
-    global.define("teal", Color::TEAL);
-    global.define("eastern", Color::EASTERN);
-    global.define("purple", Color::PURPLE);
-    global.define("fuchsia", Color::FUCHSIA);
-    global.define("maroon", Color::MAROON);
-    global.define("red", Color::RED);
-    global.define("orange", Color::ORANGE);
-    global.define("yellow", Color::YELLOW);
-    global.define("olive", Color::OLIVE);
-    global.define("green", Color::GREEN);
-    global.define("lime", Color::LIME);
-
-    // Other constants.
-    global.define("ltr", Dir::LTR);
-    global.define("rtl", Dir::RTL);
-    global.define("ttb", Dir::TTB);
-    global.define("btt", Dir::BTT);
-    global.define("start", GenAlign::Start);
-    global.define("end", GenAlign::End);
-    global.define("left", GenAlign::Specific(Align::Left));
-    global.define("center", GenAlign::Specific(Align::Center));
-    global.define("right", GenAlign::Specific(Align::Right));
-    global.define("top", GenAlign::Specific(Align::Top));
-    global.define("horizon", GenAlign::Specific(Align::Horizon));
-    global.define("bottom", GenAlign::Specific(Align::Bottom));
 
     Module::new("global").with_scope(global)
 }

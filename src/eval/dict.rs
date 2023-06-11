@@ -17,8 +17,8 @@ macro_rules! __dict {
     ($($key:expr => $value:expr),* $(,)?) => {{
         #[allow(unused_mut)]
         let mut map = $crate::eval::IndexMap::new();
-        $(map.insert($key.into(), $value.into());)*
-        $crate::eval::Dict::from_map(map)
+        $(map.insert($key.into(), $crate::eval::IntoValue::into_value($value));)*
+        $crate::eval::Dict::from(map)
     }};
 }
 
@@ -38,19 +38,14 @@ impl Dict {
         Self::default()
     }
 
-    /// Create a new dictionary from a mapping of strings to values.
-    pub fn from_map(map: IndexMap<Str, Value>) -> Self {
-        Self(Arc::new(map))
-    }
-
     /// Whether the dictionary is empty.
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
     }
 
     /// The number of pairs in the dictionary.
-    pub fn len(&self) -> i64 {
-        self.0.len() as i64
+    pub fn len(&self) -> usize {
+        self.0.len()
     }
 
     /// Borrow the value the given `key` maps to,
@@ -88,7 +83,7 @@ impl Dict {
 
     /// Remove a mapping by `key` and return the value.
     pub fn remove(&mut self, key: &str) -> StrResult<Value> {
-        match Arc::make_mut(&mut self.0).remove(key) {
+        match Arc::make_mut(&mut self.0).shift_remove(key) {
             Some(value) => Ok(value),
             None => Err(missing_key(key)),
         }
@@ -214,6 +209,12 @@ impl<'a> IntoIterator for &'a Dict {
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
+    }
+}
+
+impl From<IndexMap<Str, Value>> for Dict {
+    fn from(map: IndexMap<Str, Value>) -> Self {
+        Self(Arc::new(map))
     }
 }
 

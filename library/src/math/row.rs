@@ -233,3 +233,22 @@ impl<T: Into<MathFragment>> From<T> for MathRow {
         Self(vec![fragment.into()])
     }
 }
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+enum LeftRightAlternator {
+    Left,
+    Right,
+}
+
+impl Iterator for LeftRightAlternator {
+    type Item = LeftRightAlternator;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let r = Some(*self);
+        match self {
+            Self::Left => *self = Self::Right,
+            Self::Right => *self = Self::Left,
+        }
+        r
+    }
+}

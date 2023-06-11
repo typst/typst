@@ -46,7 +46,6 @@ use crate::prelude::*;
 ///
 /// Display: Locate
 /// Category: meta
-/// Returns: content
 #[func]
 pub fn locate(
     /// A function that receives a `location`. Its return value is displayed
@@ -56,8 +55,8 @@ pub fn locate(
     /// `locate` appears in the document. That makes it possible to generate
     /// content that depends on its own location in the document.
     func: Func,
-) -> Value {
-    LocateElem::new(func).pack().into()
+) -> Content {
+    LocateElem::new(func).pack()
 }
 
 /// Executes a `locate` call.
@@ -79,7 +78,7 @@ impl Show for LocateElem {
         }
 
         let location = self.0.location().unwrap();
-        Ok(self.func().call_vt(vt, [location.into()])?.display())
+        Ok(self.func().call_vt(vt, [location])?.display())
     }
 }
 
@@ -102,7 +101,6 @@ impl Show for LocateElem {
 ///
 /// Display: Style
 /// Category: meta
-/// Returns: content
 #[func]
 pub fn style(
     /// A function to call with the styles. Its return value is displayed
@@ -112,8 +110,8 @@ pub fn style(
     /// `style` appears in the document. That makes it possible to generate
     /// content that depends on the style context it appears in.
     func: Func,
-) -> Value {
-    StyleElem::new(func).pack().into()
+) -> Content {
+    StyleElem::new(func).pack()
 }
 
 /// Executes a style access.
@@ -130,7 +128,7 @@ struct StyleElem {
 impl Show for StyleElem {
     #[tracing::instrument(name = "StyleElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        Ok(self.func().call_vt(vt, [styles.to_map().into()])?.display())
+        Ok(self.func().call_vt(vt, [styles.to_map()])?.display())
     }
 }
 
@@ -177,7 +175,6 @@ impl Show for StyleElem {
 ///
 /// Display: Layout
 /// Category: meta
-/// Returns: content
 #[func]
 pub fn layout(
     /// A function to call with the outer container's size. Its return value is
@@ -190,8 +187,8 @@ pub fn layout(
     /// `layout` appears in the document. That makes it possible to generate
     /// content that depends on the size of the container it is inside of.
     func: Func,
-) -> Value {
-    LayoutElem::new(func).pack().into()
+) -> Content {
+    LayoutElem::new(func).pack()
 }
 
 /// Executes a `layout` call.
@@ -213,16 +210,13 @@ impl Layout for LayoutElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        // Gets the current region's base size, which will be the size of the outer container,
-        // or of the page if there is no such container.
+        // Gets the current region's base size, which will be the size of the
+        // outer container, or of the page if there is no such container.
         let Size { x, y } = regions.base();
-        let size_dict = dict! { "width" => x, "height" => y }.into();
-
         let result = self
             .func()
-            .call_vt(vt, [size_dict])? // calls func(size)
+            .call_vt(vt, [dict! { "width" => x, "height" => y }])?
             .display();
-
         result.layout(vt, styles, regions)
     }
 }

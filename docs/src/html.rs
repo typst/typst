@@ -5,6 +5,7 @@ use md::escape::escape_html;
 use pulldown_cmark as md;
 use typed_arena::Arena;
 use typst::diag::FileResult;
+use typst::eval::Datetime;
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
 use typst::syntax::{Source, SourceId};
@@ -123,6 +124,7 @@ struct Metadata {
 struct Handler<'a> {
     resolver: &'a dyn Resolver,
     lang: Option<String>,
+    code: String,
     outline: Vec<OutlineItem>,
     id_base: String,
     ids: &'a Arena<String>,
@@ -133,6 +135,7 @@ impl<'a> Handler<'a> {
         Self {
             resolver,
             lang: None,
+            code: String::new(),
             outline: vec![],
             id_base,
             ids,
@@ -140,7 +143,6 @@ impl<'a> Handler<'a> {
     }
 
     fn handle(&mut self, event: &mut md::Event<'a>) -> bool {
-        let lang = self.lang.take();
         match event {
             // Rewrite Markdown images.
             md::Event::Start(md::Tag::Image(_, path, _)) => {
@@ -206,17 +208,21 @@ impl<'a> Handler<'a> {
             // Code blocks.
             md::Event::Start(md::Tag::CodeBlock(md::CodeBlockKind::Fenced(lang))) => {
                 self.lang = Some(lang.as_ref().into());
+                self.code = String::new();
                 return false;
             }
             md::Event::End(md::Tag::CodeBlock(md::CodeBlockKind::Fenced(_))) => {
-                return false;
+                let Some(lang) = self.lang.take() else { return false };
+                let html = code_block(self.resolver, &lang, &self.code);
+                *event = md::Event::Html(html.raw.into());
             }
 
             // Example with preview.
             md::Event::Text(text) => {
-                let Some(lang) = lang.as_deref() else { return true };
-                let html = code_block(self.resolver, lang, text);
-                *event = md::Event::Html(html.raw.into());
+                if self.lang.is_some() {
+                    self.code.push_str(text);
+                    return false;
+                }
             }
 
             _ => {}
@@ -302,8 +308,9 @@ impl<'a> Handler<'a> {
             route.push_str(method);
         } else if root == "$func" {
             let mut parts = rest.split('.').peekable();
+            let first = parts.peek().copied();
             let mut focus = &LIBRARY.global;
-            while let Some(m) = parts.peek().and_then(|name| module(focus, name).ok()) {
+            while let Some(m) = first.and_then(|name| module(focus, name).ok()) {
                 focus = m;
                 parts.next();
             }
@@ -318,6 +325,7 @@ impl<'a> Handler<'a> {
 
             if let Some(group) = GROUPS
                 .iter()
+                .filter(|_| first == Some("math"))
                 .find(|group| group.functions.iter().any(|func| func == info.name))
             {
                 route.push_str(&group.name);
@@ -470,7 +478,7 @@ impl World for DocWorld {
     }
 
     fn source(&self, id: SourceId) -> &Source {
-        assert_eq!(id.into_u16(), 0, "invalid source id");
+        assert_eq!(id.as_u16(), 0, "invalid source id");
         &self.0
     }
 
@@ -488,5 +496,9 @@ impl World for DocWorld {
             .unwrap_or_else(|| panic!("failed to load {path:?}"))
             .contents()
             .into())
+    }
+
+    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+        Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
 }

@@ -56,3 +56,10 @@ _Visible_
 ---
 // Test that incomplete label is text.
 1 < 2 is #if 1 < 2 [not] a label.
+
+---
+// Test label on text, styled, and sequence.
+// Ref: false
+#test([Hello<hi>].label, <hi>)
+#test([#[A *B* C]<hi>].label, <hi>)
+#test([#text(red)[Hello]<hi>].label, <hi>)

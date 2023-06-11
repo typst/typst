@@ -3,8 +3,8 @@
 mod book;
 mod variant;
 
-pub use self::book::*;
-pub use self::variant::*;
+pub use self::book::{Coverage, FontBook, FontFlags, FontInfo};
+pub use self::variant::{FontStretch, FontStyle, FontVariant, FontWeight};
 
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use ttf_parser::GlyphId;
 
+use self::book::find_name;
 use crate::eval::Cast;
 use crate::geom::Em;
 use crate::util::Buffer;

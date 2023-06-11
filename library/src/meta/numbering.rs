@@ -32,14 +32,13 @@ use crate::text::Case;
 ///
 /// Display: Numbering
 /// Category: meta
-/// Returns: any
 #[func]
 pub fn numbering(
     /// Defines how the numbering works.
     ///
-    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `い`, `イ`,
-    /// `א`, and `*`. They are replaced by the number in the sequence,
-    /// in the given case.
+    /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `い`, `イ`, `א`, `가`,
+    /// `ㄱ`, and `*`. They are replaced by the number in the sequence, in the
+    /// given case.
     ///
     /// The `*` character means that symbols should be used to count, in the
     /// order of `*`, `†`, `‡`, `§`, `¶`, and `‖`. If there are more than six
@@ -52,9 +51,9 @@ pub fn numbering(
     /// suffixes. They are repeated as-is at in front of their rendered
     /// equivalent of their counting symbol.
     ///
-    /// This parameter can also be an arbitrary function that gets each number as
-    /// an individual argument. When given a function, the `numbering` function
-    /// just forwards the arguments to that function. While this is not
+    /// This parameter can also be an arbitrary function that gets each number
+    /// as an individual argument. When given a function, the `numbering`
+    /// function just forwards the arguments to that function. While this is not
     /// particularly useful in itself, it means that you can just give arbitrary
     /// numberings to the `numbering` function without caring whether they are
     /// defined as a pattern or function.
@@ -65,8 +64,10 @@ pub fn numbering(
     /// given, the last counting symbol with its prefix is repeated.
     #[variadic]
     numbers: Vec<usize>,
-) -> Value {
-    numbering.apply_vm(vm, &numbers)?
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Value> {
+    numbering.apply_vm(vm, &numbers)
 }
 
 /// How to number a sequence of things.
@@ -84,8 +85,7 @@ impl Numbering {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => {
-                let args =
-                    Args::new(func.span(), numbers.iter().map(|&n| Value::Int(n as i64)));
+                let args = Args::new(func.span(), numbers.iter().copied());
                 func.call_vm(vm, args)?
             }
         })
@@ -95,9 +95,7 @@ impl Numbering {
     pub fn apply_vt(&self, vt: &mut Vt, numbers: &[usize]) -> SourceResult<Value> {
         Ok(match self {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
-            Self::Func(func) => {
-                func.call_vt(vt, numbers.iter().map(|&n| Value::Int(n as i64)))?
-            }
+            Self::Func(func) => func.call_vt(vt, numbers.iter().copied())?,
         })
     }
 
@@ -116,23 +114,20 @@ impl From<NumberingPattern> for Numbering {
     }
 }
 
-cast_from_value! {
+cast! {
     Numbering,
+    self => match self {
+        Self::Pattern(pattern) => pattern.into_value(),
+        Self::Func(func) => func.into_value(),
+    },
     v: NumberingPattern => Self::Pattern(v),
     v: Func => Self::Func(v),
-}
-
-cast_to_value! {
-    v: Numbering => match v {
-        Numbering::Pattern(pattern) => pattern.into(),
-        Numbering::Func(func) => func.into(),
-    }
 }
 
 /// How to turn a number into text.
 ///
 /// A pattern consists of a prefix, followed by one of `1`, `a`, `A`, `i`,
-/// `I`, `い`, `イ`, `א`, or `*`, and then a suffix.
+/// `I`, `い`, `イ`, `א`, `가`, `ㄱ`, or `*`, and then a suffix.
 ///
 /// Examples of valid patterns:
 /// - `1)`
@@ -230,15 +225,11 @@ impl FromStr for NumberingPattern {
     }
 }
 
-cast_from_value! {
+cast! {
     NumberingPattern,
-    v: Str => v.parse()?,
-}
-
-cast_to_value! {
-    v: NumberingPattern => {
+    self => {
         let mut pat = EcoString::new();
-        for (prefix, kind, case) in &v.pieces {
+        for (prefix, kind, case) in &self.pieces {
             pat.push_str(prefix);
             let mut c = kind.to_char();
             if *case == Case::Upper {
@@ -246,9 +237,10 @@ cast_to_value! {
             }
             pat.push(c);
         }
-        pat.push_str(&v.suffix);
-        pat.into()
-    }
+        pat.push_str(&self.suffix);
+        pat.into_value()
+    },
+    v: Str => v.parse()?,
 }
 
 /// Different kinds of numberings.
@@ -269,6 +261,8 @@ enum NumberingKind {
     TraditionalChinese,
     HiraganaIroha,
     KatakanaIroha,
+    KoreanJamo,
+    KoreanSyllable,
 }
 
 impl NumberingKind {
@@ -283,6 +277,8 @@ impl NumberingKind {
             '一' | '壹' => NumberingKind::SimplifiedChinese,
             'い' => NumberingKind::HiraganaIroha,
             'イ' => NumberingKind::KatakanaIroha,
+            'ㄱ' => NumberingKind::KoreanJamo,
+            '가' => NumberingKind::KoreanSyllable,
             _ => return None,
         })
     }
@@ -299,6 +295,8 @@ impl NumberingKind {
             Self::TraditionalChinese => '一',
             Self::HiraganaIroha => 'い',
             Self::KatakanaIroha => 'イ',
+            Self::KoreanJamo => 'ㄱ',
+            Self::KoreanSyllable => '가',
         }
     }
 
@@ -464,6 +462,24 @@ impl NumberingKind {
                     Err(_) => '-'.into(),
                 }
             }
+            Self::KoreanJamo => zeroless::<14>(
+                |x| {
+                    [
+                        'ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ',
+                        'ㅌ', 'ㅍ', 'ㅎ',
+                    ][x]
+                },
+                n,
+            ),
+            Self::KoreanSyllable => zeroless::<14>(
+                |x| {
+                    [
+                        '가', '나', '다', '라', '마', '바', '사', '아', '자', '차', '카',
+                        '타', '파', '하',
+                    ][x]
+                },
+                n,
+            ),
         }
     }
 }
