@@ -659,11 +659,7 @@ impl Fold for Margin {
                     (Some(value), Some(outer)) => Some(value.fold(outer)),
                     _ => inner.or(outer),
                 });
-        let two_sided = match (self.two_sided, outer.two_sided) {
-            (_, Some(two_sided)) => Some(two_sided),
-            (Some(two_sided), None) => Some(two_sided),
-            (None, None) => None,
-        };
+        let two_sided = self.two_sided.or(outer.two_sided);
         Margin { sides, two_sided }
     }
 }
