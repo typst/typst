@@ -657,9 +657,7 @@ impl Fold for Margin {
                 .zip(outer.sides)
                 .map(|(inner, outer)| match (inner, outer) {
                     (Some(value), Some(outer)) => Some(value.fold(outer)),
-                    (Some(value), None) => Some(value),
-                    (None, Some(outer)) => Some(outer),
-                    (None, None) => None,
+                    _ => inner.or(outer),
                 });
         let two_sided = match (self.two_sided, outer.two_sided) {
             (_, Some(two_sided)) => Some(two_sided),
@@ -669,6 +667,7 @@ impl Fold for Margin {
         Margin { sides, two_sided }
     }
 }
+
 // All paper sizes in mm.
 //
 // Resources:
