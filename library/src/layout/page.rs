@@ -580,6 +580,8 @@ impl FromValue for Margin {
                 let rest = take("rest")?;
                 let x = take("x")?.or(rest);
                 let y = take("y")?.or(rest);
+                let top = take("top")?.or(y);
+                let bottom = take("bottom")?.or(y);
                 let outside = take("outside")?;
                 let inside = take("inside")?;
                 let mut left = take("left")?;
@@ -599,12 +601,7 @@ impl FromValue for Margin {
                 left = outside.or(left).or(x);
                 right = inside.or(right).or(x);
 
-                let sides = Sides {
-                    left,
-                    top: take("top")?.or(y),
-                    right,
-                    bottom: take("bottom")?.or(y),
-                };
+                let sides = Sides { left, top, right, bottom };
 
                 let margin = Margin { sides, two_sided };
 
