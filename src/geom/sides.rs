@@ -21,8 +21,24 @@ pub struct Margin {
     pub two_sided: Option<bool>,
 }
 
-impl Cast for Margin {
-    fn cast(value: Value) -> StrResult<Self> {
+impl Reflect for Margin {
+    fn castable(value: &Value) -> bool {
+        matches!(
+            value,
+            Value::Auto | Value::Dict(_) | Value::Length(_) | Value::Relative(_)
+        )
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Type("auto")
+            + CastInfo::Type("dictionary")
+            + CastInfo::Type("length")
+            + CastInfo::Type("relative length")
+    }
+}
+
+impl FromValue for Margin {
+    fn from_value(value: Value) -> StrResult<Self> {
         match value {
             Value::Auto => Ok(Self::splat(Some(Value::cast(value)?))),
             Value::Length(value) => Ok(Self::splat(Some(Smart::Custom(value.into())))),
@@ -68,22 +84,8 @@ impl Cast for Margin {
 
                 Ok(margin)
             }
-            _ => <Self as Cast>::error(value),
+            _ => Err(Self::error(&value)),
         }
-    }
-
-    fn is(value: &Value) -> bool {
-        matches!(
-            value,
-            Value::Auto | Value::Dict(_) | Value::Length(_) | Value::Relative(_)
-        )
-    }
-
-    fn describe() -> CastInfo {
-        CastInfo::Type("auto")
-            + CastInfo::Type("dictionary")
-            + CastInfo::Type("length")
-            + CastInfo::Type("relative length")
     }
 }
 
@@ -94,24 +96,24 @@ impl Margin {
     }
 }
 
-impl From<Margin> for Value {
-    fn from(margin: Margin) -> Self {
+impl IntoValue for Margin {
+    fn into_value(self) -> Value {
         let mut dict = Dict::new();
         let mut handle = |key: &str, component: Value| {
-            let value = component.into();
+            let value = component.into_value();
             if value != Value::None {
                 dict.insert(key.into(), value);
             }
         };
 
-        handle("top", margin.sides.top.into());
-        handle("bottom", margin.sides.bottom.into());
-        if margin.two_sided.unwrap_or(false) {
-            handle("inside", margin.sides.right.into());
-            handle("outside", margin.sides.left.into());
+        handle("top", self.sides.top.into_value());
+        handle("bottom", self.sides.bottom.into_value());
+        if self.two_sided.unwrap_or(false) {
+            handle("inside", self.sides.right.into_value());
+            handle("outside", self.sides.left.into_value());
         } else {
-            handle("left", margin.sides.left.into());
-            handle("right", margin.sides.right.into());
+            handle("left", self.sides.left.into_value());
+            handle("right", self.sides.right.into_value());
         }
 
         Value::Dict(dict)
