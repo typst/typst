@@ -1,4 +1,4 @@
-// Tests a multi-page document with two-sided: true set for pages
+// Tests a multi-page document with two-sided pages
 
 ---
 #set page(margin: (outside: 0.25in, inside: 0.5in), height: 110pt)
