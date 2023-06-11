@@ -24,11 +24,11 @@ use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, Margin, RgbaColor, Smart};
+use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
 use typst::util::{Buffer, PathExt};
 use typst::World;
-use typst_library::layout::PageElem;
+use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
 
 const TYP_DIR: &str = "typ";

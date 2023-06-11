@@ -46,7 +46,7 @@ pub use self::rel::Rel;
 pub use self::rounded::rounded_rect;
 pub use self::scalar::Scalar;
 pub use self::shape::{Geometry, Shape};
-pub use self::sides::{Margin, Side, Sides};
+pub use self::sides::{Side, Sides};
 pub use self::size::Size;
 pub use self::smart::Smart;
 pub use self::stroke::{

@@ -4,6 +4,7 @@ use std::str::FromStr;
 use super::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, Numbering};
 use crate::prelude::*;
+use typst::eval::{CastInfo, FromValue, IntoValue, Reflect};
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -540,6 +541,132 @@ macro_rules! papers {
     };
 }
 
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Margin {
+    pub sides: Sides<Option<Smart<Rel<Length>>>>,
+    pub two_sided: Option<bool>,
+}
+
+impl Reflect for Margin {
+    fn castable(value: &Value) -> bool {
+        matches!(
+            value,
+            Value::Auto | Value::Dict(_) | Value::Length(_) | Value::Relative(_)
+        )
+    }
+
+    fn describe() -> CastInfo {
+        CastInfo::Type("auto")
+            + CastInfo::Type("dictionary")
+            + CastInfo::Type("length")
+            + CastInfo::Type("relative length")
+    }
+}
+
+impl FromValue for Margin {
+    fn from_value(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Auto => Ok(Self::splat(Some(Value::cast(value)?))),
+            Value::Length(value) => Ok(Self::splat(Some(Smart::Custom(value.into())))),
+            Value::Relative(value) => Ok(Self::splat(Some(Smart::Custom(value)))),
+            Value::Dict(mut dict) => {
+                let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
+
+                let rest = take("rest")?;
+                let x = take("x")?.or(rest);
+                let y = take("y")?.or(rest);
+                let outside = take("outside")?;
+                let inside = take("inside")?;
+                let mut left = take("left")?;
+                let mut right = take("right")?;
+
+                let implicitly_two_sided = outside.is_some() || inside.is_some();
+                let implicitly_not_two_sided = left.is_some() || right.is_some();
+
+                if implicitly_two_sided && implicitly_not_two_sided {
+                    return Err("Error: Cannot determine if the page is two-sided. Use either outside and inside margins or left and right margins, but not both.".into());
+                }
+                let two_sided = match implicitly_two_sided {
+                    true => Some(true),
+                    false => None,
+                };
+
+                left = outside.or(left).or(x);
+                right = inside.or(right).or(x);
+
+                let sides = Sides {
+                    left,
+                    top: take("top")?.or(y),
+                    right,
+                    bottom: take("bottom")?.or(y),
+                };
+
+                let margin = Margin { sides, two_sided };
+
+                dict.finish(&[
+                    "left", "top", "right", "bottom", "x", "y", "outside", "inside",
+                    "rest",
+                ])?;
+
+                Ok(margin)
+            }
+            _ => Err(Self::error(&value)),
+        }
+    }
+}
+
+impl Margin {
+    /// Create an instance with four equal components.
+    pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
+        Self { sides: Sides::splat(value), two_sided: None }
+    }
+}
+
+impl IntoValue for Margin {
+    fn into_value(self) -> Value {
+        let mut dict = Dict::new();
+        let mut handle = |key: &str, component: Value| {
+            let value = component.into_value();
+            if value != Value::None {
+                dict.insert(key.into(), value);
+            }
+        };
+
+        handle("top", self.sides.top.into_value());
+        handle("bottom", self.sides.bottom.into_value());
+        if self.two_sided.unwrap_or(false) {
+            handle("inside", self.sides.right.into_value());
+            handle("outside", self.sides.left.into_value());
+        } else {
+            handle("left", self.sides.left.into_value());
+            handle("right", self.sides.right.into_value());
+        }
+
+        Value::Dict(dict)
+    }
+}
+
+impl Fold for Margin {
+    type Output = Margin;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        let sides =
+            self.sides
+                .zip(outer.sides)
+                .map(|(inner, outer)| match (inner, outer) {
+                    (Some(value), Some(outer)) => Some(value.fold(outer)),
+                    (Some(value), None) => Some(value),
+                    (None, Some(outer)) => Some(outer),
+                    (None, None) => None,
+                });
+        let two_sided = match (self.two_sided, outer.two_sided) {
+            (_, Some(two_sided)) => Some(two_sided),
+            (Some(two_sided), None) => Some(two_sided),
+            (None, None) => None,
+        };
+        Margin { sides, two_sided }
+    }
+}
 // All paper sizes in mm.
 //
 // Resources:
