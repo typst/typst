@@ -11,13 +11,13 @@
   a = 1-a
   a = a -1
 
-  // Error: 7-10 unknown variable: a-1 – if you meant to use subtraction, try adding spaces around the minus sign.
+  // Error: 7-10 unknown variable: a-1 - if you meant to use subtraction, try adding spaces around the minus sign.
   a = a-1
 }
 
 ---
 #{
-  // Error: 3-6 unknown variable: a-1 – if you meant to use subtraction, try adding spaces around the minus sign.
+  // Error: 3-6 unknown variable: a-1 - if you meant to use subtraction, try adding spaces around the minus sign.
   a-1 = 2
 }
 
