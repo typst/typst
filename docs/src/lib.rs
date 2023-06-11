@@ -19,8 +19,8 @@ use serde_yaml as yaml;
 use typst::doc::Frame;
 use typst::eval::{CastInfo, Func, FuncInfo, Library, Module, ParamInfo, Value};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Margin, Smart};
-use typst_library::layout::PageElem;
+use typst::geom::{Abs, Smart};
+use typst_library::layout::{Margin, PageElem};
 use unscanny::Scanner;
 
 static SRC: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src");

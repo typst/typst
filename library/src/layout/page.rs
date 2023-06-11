@@ -308,8 +308,8 @@ impl PageElem {
         // Determine the margins.
         let default = Rel::<Length>::from(0.1190 * min);
 
-        let margin = self
-            .margin(styles)
+        let margin = self.margin(styles);
+        let margin_sides = margin
             .sides
             .map(|side| side.unwrap_or(Smart::Custom(default)))
             .map(|side| side.unwrap_or(default))
@@ -323,7 +323,7 @@ impl PageElem {
             child = ColumnsElem::new(child).with_count(columns).pack();
         }
 
-        let area = size - margin.sum_by_axis();
+        let area = size - margin_sides.sum_by_axis();
         let mut regions = Regions::repeat(area, area.map(Abs::is_finite));
         regions.root = true;
 
@@ -360,19 +360,19 @@ impl PageElem {
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
-            // Make a copy of the original margin in case you need to modify the
-            // margins for a two-sided document.
-            let mut margin = margin;
+            // Make a copy of the original margin sides in case you need to
+            // modify the margins for a two-sided document.
+            let mut margin_sides = margin_sides;
 
             // Swap right and left margins if the document is two-sided and the
             // page number is even.
-            if self.margin(styles).two_sided.unwrap_or(false) && number.get() % 2 == 0 {
-                std::mem::swap(&mut margin.left, &mut margin.right);
+            if margin.two_sided.unwrap_or(false) && number.get() % 2 == 0 {
+                std::mem::swap(&mut margin_sides.left, &mut margin_sides.right);
             }
 
             // Realize margins.
-            frame.set_size(frame.size() + margin.sum_by_axis());
-            frame.translate(Point::new(margin.left, margin.top));
+            frame.set_size(frame.size() + margin_sides.sum_by_axis());
+            frame.translate(Point::new(margin_sides.left, margin_sides.top));
             frame.push(Point::zero(), numbering_meta.clone());
 
             // The page size with margins.
@@ -391,14 +391,17 @@ impl PageElem {
 
                 let (pos, area, align);
                 if ptr::eq(marginal, &header) {
-                    let ascent = header_ascent.relative_to(margin.top);
-                    pos = Point::with_x(margin.left);
-                    area = Size::new(pw, margin.top - ascent);
+                    let ascent = header_ascent.relative_to(margin_sides.top);
+                    pos = Point::with_x(margin_sides.left);
+                    area = Size::new(pw, margin_sides.top - ascent);
                     align = Align::Bottom.into();
                 } else if ptr::eq(marginal, &footer) {
-                    let descent = footer_descent.relative_to(margin.bottom);
-                    pos = Point::new(margin.left, size.y - margin.bottom + descent);
-                    area = Size::new(pw, margin.bottom - descent);
+                    let descent = footer_descent.relative_to(margin_sides.bottom);
+                    pos = Point::new(
+                        margin_sides.left,
+                        size.y - margin_sides.bottom + descent,
+                    );
+                    area = Size::new(pw, margin_sides.bottom - descent);
                     align = Align::Top.into();
                 } else {
                     pos = Point::zero();
