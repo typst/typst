@@ -254,7 +254,7 @@ cast! {
 /// Marks an element as being able to be referenced. This is used to implement
 /// the `@ref` element.
 pub trait Refable {
-    /// The supplement, if not overriden by the reference.
+    /// The supplement, if not overridden by the reference.
     fn supplement(&self) -> Content;
 
     /// Returns the counter of this element.

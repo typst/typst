@@ -126,7 +126,7 @@ pub struct OutlineElem {
     /// - `{auto}`: Indents the numbering of the nested entry with the title of
     ///   its parent entry. This only has an effect if the entries are numbered
     ///   (e.g., via [heading numbering]($func/heading.numbering)).
-    /// - [Relative length]($type/relative): Indents the item by this length
+    /// - [Relative length]($type/relative-length): Indents the item by this length
     ///   multiplied by its nesting level. Specifying `{2em}`, for instance,
     ///   would indent top-level headings (not nested) by `{0em}`, second level
     ///   headings by `{2em}` (nested once), third-level headings by `{4em}`
@@ -135,7 +135,7 @@ pub struct OutlineElem {
     ///   with a function. That function receives the nesting level as a
     ///   parameter (starting at 0 for top-level headings/elements) and can
     ///   return a relative length or content making up the indent. For example,
-    ///   `{n => n * 2em}` would be equivalent to just specifiying `{2em}`,
+    ///   `{n => n * 2em}` would be equivalent to just specifying `{2em}`,
     ///   while `{n => [→ ] * n}` would indent with one arrow per nesting
     ///   level.
     ///

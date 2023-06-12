@@ -122,7 +122,7 @@ enum FlowItem {
     /// Fractional spacing between other items.
     Fractional(Fr),
     /// A frame for a layouted block, how to align it, whether it sticks to the
-    /// item after it (for orphan preventation), and whether it is movable
+    /// item after it (for orphan prevention), and whether it is movable
     /// (to keep it together with its footnotes).
     Frame { frame: Frame, aligns: Axes<Align>, sticky: bool, movable: bool },
     /// An absolutely placed frame.
