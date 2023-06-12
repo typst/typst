@@ -7,7 +7,8 @@ use ttf_parser::{name_id, GlyphId, Tag};
 use unicode_general_category::GeneralCategory;
 
 use super::{deflate, EmExt, PdfContext, RefExt};
-use crate::util::SliceExt;
+use crate::font::Font;
+use crate::util::{Buffer, SliceExt};
 
 const CMAP_NAME: Name = Name(b"Custom");
 const SYSTEM_INFO: SystemInfo = SystemInfo {
@@ -138,16 +139,8 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         ctx.writer.cmap(cmap_ref, &cmap.finish());
 
         // Subset and write the font's bytes.
-        let data = font.data();
-        let subsetted = {
-            let glyphs: Vec<_> = glyph_set.keys().copied().collect();
-            let profile = subsetter::Profile::pdf(&glyphs);
-            subsetter::subset(data, font.index(), profile)
-        };
-
-        // Compress and write the font's bytes.
-        let data = subsetted.as_deref().unwrap_or(data);
-        let data = deflate(data);
+        let glyphs: Vec<_> = glyph_set.keys().copied().collect();
+        let data = subset_font(font, &glyphs);
         let mut stream = ctx.writer.stream(data_ref, &data);
         stream.filter(Filter::FlateDecode);
 
@@ -157,6 +150,16 @@ pub fn write_fonts(ctx: &mut PdfContext) {
 
         stream.finish();
     }
+}
+
+/// Subset a font to the given glyphs.
+#[comemo::memoize]
+fn subset_font(font: &Font, glyphs: &[u16]) -> Buffer {
+    let data = font.data();
+    let profile = subsetter::Profile::pdf(glyphs);
+    let subsetted = subsetter::subset(data, font.index(), profile);
+    let data = subsetted.as_deref().unwrap_or(data);
+    deflate(data).into()
 }
 
 /// Create a /ToUnicode CMap.
