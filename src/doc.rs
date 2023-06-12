@@ -532,6 +532,7 @@ impl Lang {
     pub const SLOVENIAN: Self = Self(*b"sl ", 2);
     pub const SPANISH: Self = Self(*b"es ", 2);
     pub const SWEDISH: Self = Self(*b"sv ", 2);
+    pub const TURKISH: Self = Self(*b"tr ", 2);
     pub const UKRAINIAN: Self = Self(*b"ua ", 2);
     pub const VIETNAMESE: Self = Self(*b"vi ", 2);
 
