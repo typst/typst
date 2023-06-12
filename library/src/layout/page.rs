@@ -4,6 +4,7 @@ use std::str::FromStr;
 use super::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, Numbering};
 use crate::prelude::*;
+use crate::text::TextElem;
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -97,14 +98,17 @@ pub struct PageElem {
     ///   - `right`: The right margin.
     ///   - `bottom`: The bottom margin.
     ///   - `left`: The left margin.
-    ///   - `inside`: The inner margin for two-sided documents. Mutually
-    ///      exclusive with `left`, `right`, and `x`.
-    ///   - `outside`: The outer margin for two-sided documents. Mutually
-    ///      exclusive with `left`, `right`, and `x`.
+    ///   - `inside`: The margin at the inner side of the page (where the
+    ///     [binding]($func/page.binding) is).
+    ///   - `outside`: The margin at the outer side of the page (opposite to the
+    ///     [binding]($func/page.binding)).
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
     ///   - `rest`: The margins on all sides except those for which the
     ///     dictionary explicitly sets a size.
+    ///
+    /// The values for `left` and `right` are mutually exclusive with
+    /// the values for `inside` and `outside`.
     ///
     /// ```example
     /// #set page(
@@ -121,6 +125,17 @@ pub struct PageElem {
     /// ```
     #[fold]
     pub margin: Margin,
+
+    /// On which side the pages will be bound.
+    ///
+    /// - `{auto}`: Equivalent to `left` if the [text direction]($func/text.dir)
+    ///   is left-to-right and `right` if it is right-to-left.
+    /// - `left`: Bound on the left side.
+    /// - `right`: Bound on the right side.
+    ///
+    /// This affects the meaning of the `inside` and `outside` options for
+    /// margins.
+    pub binding: Smart<Binding>,
 
     /// How many columns the page has.
     ///
@@ -314,6 +329,14 @@ impl PageElem {
             .resolve(styles)
             .relative_to(size);
 
+        // Determine the binding.
+        let binding =
+            self.binding(styles)
+                .unwrap_or_else(|| match TextElem::dir_in(styles) {
+                    Dir::LTR => Binding::Left,
+                    _ => Binding::Right,
+                });
+
         // Realize columns.
         let mut child = self.body();
         let columns = self.columns(styles);
@@ -358,11 +381,11 @@ impl PageElem {
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
-            // Swap right and left margins if the document is two-sided and the
-            // page number is even. Make a copy of the original margin sides in
-            // case we need to modify the margins for a two-sided document.
+            // If two sided, left becomes inside and right becomes outside.
+            // Thus, for left-bound pages, we want to swap on even pages and
+            // for right-bound pages, we want to swap on odd pages.
             let mut margin = margin;
-            if two_sided && number.get() % 2 == 0 {
+            if two_sided && binding.swap(number) {
                 std::mem::swap(&mut margin.left, &mut margin.right);
             }
 
@@ -451,39 +474,13 @@ pub struct PagebreakElem {
     pub weak: bool,
 }
 
-/// A header, footer, foreground or background definition.
-#[derive(Debug, Clone, Hash)]
-pub enum Marginal {
-    /// Bare content.
-    Content(Content),
-    /// A closure mapping from a page number to content.
-    Func(Func),
-}
-
-impl Marginal {
-    /// Resolve the marginal based on the page number.
-    pub fn resolve(&self, vt: &mut Vt, page: usize) -> SourceResult<Content> {
-        Ok(match self {
-            Self::Content(content) => content.clone(),
-            Self::Func(func) => func.call_vt(vt, [page])?.display(),
-        })
-    }
-}
-
-cast! {
-    Marginal,
-    self => match self {
-        Self::Content(v) => v.into_value(),
-        Self::Func(v) => v.into_value(),
-    },
-    v: Content => Self::Content(v),
-    v: Func => Self::Func(v),
-}
-
 /// Specification of the page's margins.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Margin {
+    /// The margins for each side.
     pub sides: Sides<Option<Smart<Rel<Length>>>>,
+    /// Whether to swap `left` and `right` to make them `inside` and `outside`
+    /// (when to swap depends on the binding).
     pub two_sided: Option<bool>,
 }
 
@@ -524,8 +521,8 @@ cast! {
         handle("top", self.sides.top.into_value());
         handle("bottom", self.sides.bottom.into_value());
         if self.two_sided.unwrap_or(false) {
-            handle("inside", self.sides.right.into_value());
-            handle("outside", self.sides.left.into_value());
+            handle("inside", self.sides.left.into_value());
+            handle("outside", self.sides.right.into_value());
         } else {
             handle("left", self.sides.left.into_value());
             handle("right", self.sides.right.into_value());
@@ -551,13 +548,13 @@ cast! {
         let implicitly_two_sided = outside.is_some() || inside.is_some();
         let implicitly_not_two_sided = left.is_some() || right.is_some();
         if implicitly_two_sided && implicitly_not_two_sided {
-            bail!("`inside` and `outside` is mutually exclusive with `left`, `right`, and `x`");
+            bail!("`inside` and `outside` are mutually exclusive with `left` and `right`");
         }
 
-        // - if 'implicitly_two_sided' is false here, then
+        // - If 'implicitly_two_sided' is false here, then
         //   'implicitly_not_two_sided' will be guaranteed to be true
         //    due to the previous two 'if' conditions.
-        // - if both are false, this means that this margin change does not
+        // - If both are false, this means that this margin change does not
         //   affect lateral margins, and thus shouldn't make a difference on
         //   the 'two_sided' attribute of this margin.
         let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
@@ -569,14 +566,79 @@ cast! {
 
         Margin {
             sides: Sides {
-                left: outside.or(left).or(x),
+                left: inside.or(left).or(x),
                 top,
-                right: inside.or(right).or(x),
+                right: outside.or(right).or(x),
                 bottom,
             },
             two_sided,
         }
     }
+}
+
+/// Specification of the page's binding.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Binding {
+    /// Bound on the left, as customary in LTR languages.
+    Left,
+    /// Bound on the right, as customary in RTL languages.
+    Right,
+}
+
+impl Binding {
+    /// Whether to swap left and right margin for the page with this number.
+    fn swap(self, number: NonZeroUsize) -> bool {
+        match self {
+            // Left-bound must swap on even pages
+            // (because it is correct on the first page).
+            Self::Left => number.get() % 2 == 0,
+            // Right-bound must swap on odd pages
+            // (because it is wrong on the first page).
+            Self::Right => number.get() % 2 == 1,
+        }
+    }
+}
+
+cast! {
+    Binding,
+    self => match self {
+        Self::Left => GenAlign::Specific(Align::Left).into_value(),
+        Self::Right => GenAlign::Specific(Align::Right).into_value(),
+    },
+    v: GenAlign => match v {
+        GenAlign::Specific(Align::Left) => Self::Left,
+        GenAlign::Specific(Align::Right) => Self::Right,
+        _ => Err("must be `left` or `right`")?,
+    },
+}
+
+/// A header, footer, foreground or background definition.
+#[derive(Debug, Clone, Hash)]
+pub enum Marginal {
+    /// Bare content.
+    Content(Content),
+    /// A closure mapping from a page number to content.
+    Func(Func),
+}
+
+impl Marginal {
+    /// Resolve the marginal based on the page number.
+    pub fn resolve(&self, vt: &mut Vt, page: usize) -> SourceResult<Content> {
+        Ok(match self {
+            Self::Content(content) => content.clone(),
+            Self::Func(func) => func.call_vt(vt, [page])?.display(),
+        })
+    }
+}
+
+cast! {
+    Marginal,
+    self => match self {
+        Self::Content(v) => v.into_value(),
+        Self::Func(v) => v.into_value(),
+    },
+    v: Content => Self::Content(v),
+    v: Func => Self::Func(v),
 }
 
 /// Specification of a paper.
