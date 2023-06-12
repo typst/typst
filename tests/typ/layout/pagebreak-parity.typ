@@ -13,3 +13,11 @@ Sixth
 Seventh
 #pagebreak(to: "odd")
 #page[Nineth]
+
+---
+#set page(width: auto, height: auto)
+
+// Test with auto-sized page.
+First
+#pagebreak(to: "odd")
+Third

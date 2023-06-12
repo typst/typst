@@ -358,7 +358,7 @@ impl PageElem {
 
         // Align the child to the pagebreak's parity.
         if self.clear_to(styles).is_some_and(|p| !p.matches(number.get())) {
-            let size = area.map(Abs::is_finite).select(area, margin.sum_by_axis());
+            let size = area.map(Abs::is_finite).select(area, Size::zero());
             frames.insert(0, Frame::new(size));
         }
 
@@ -651,8 +651,16 @@ pub struct PagebreakElem {
     #[default(false)]
     pub weak: bool,
 
-    /// If given, ensures then the next page will start on an even/odd page,
-    /// with an empty page being inserted in between if necessary.
+    /// If given, ensures that the next page will be an even/odd page, with an
+    /// empty page in between if necessary.
+    ///
+    /// ```example
+    /// #set page(height: 30pt)
+    ///
+    /// First.
+    /// #pagebreak(to: "odd")
+    /// Third.
+    /// ```
     pub to: Option<Parity>,
 }
 
