@@ -42,14 +42,14 @@ pub(super) fn define(global: &mut Scope) {
     global.define("footnote", FootnoteElem::func());
     global.define("cite", CiteElem::func());
     global.define("bibliography", BibliographyElem::func());
-    global.define("locate", locate);
-    global.define("style", style);
-    global.define("layout", layout);
-    global.define("counter", counter);
-    global.define("numbering", numbering);
-    global.define("state", state);
-    global.define("query", query);
-    global.define("selector", selector);
+    global.define("locate", locate_func());
+    global.define("style", style_func());
+    global.define("layout", layout_func());
+    global.define("counter", counter_func());
+    global.define("numbering", numbering_func());
+    global.define("state", state_func());
+    global.define("query", query_func());
+    global.define("selector", selector_func());
 }
 
 /// The named with which an element is referenced.

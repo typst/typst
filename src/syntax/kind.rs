@@ -234,7 +234,7 @@ pub enum SyntaxKind {
     WhileLoop,
     /// A for loop: `for x in y { z }`.
     ForLoop,
-    /// A module import: `import a, b, c from "utils.typ"`.
+    /// A module import: `import "utils.typ": a, b, c`.
     ModuleImport,
     /// Items to import from a module: `a, b, c`.
     ImportItems,

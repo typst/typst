@@ -2,14 +2,11 @@ use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use ecow::EcoString;
 use once_cell::sync::Lazy;
 
 use super::{Content, Selector, Styles};
 use crate::diag::SourceResult;
-use crate::eval::{
-    cast_from_value, cast_to_value, Args, Dict, Func, FuncInfo, Value, Vm,
-};
+use crate::eval::{cast, Args, Dict, Func, FuncInfo, Value, Vm};
 
 /// A document element.
 pub trait Element: Construct + Set + Sized + 'static {
@@ -110,13 +107,10 @@ impl Hash for ElemFunc {
     }
 }
 
-cast_from_value! {
+cast! {
     ElemFunc,
+    self => Value::Func(self.into()),
     v: Func => v.element().ok_or("expected element function")?,
-}
-
-cast_to_value! {
-    v: ElemFunc => Value::Func(v.into())
 }
 
 impl From<&'static NativeElemFunc> for ElemFunc {
@@ -137,23 +131,4 @@ pub struct NativeElemFunc {
     pub set: fn(&mut Args) -> SourceResult<Styles>,
     /// Details about the function.
     pub info: Lazy<FuncInfo>,
-}
-
-/// A label for an element.
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Label(pub EcoString);
-
-impl Debug for Label {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "<{}>", self.0)
-    }
-}
-
-/// Indicates that an element cannot be labelled.
-pub trait Unlabellable {}
-
-/// Tries to extract the plain-text representation of the element.
-pub trait PlainText {
-    /// Write this element's plain text into the given buffer.
-    fn plain_text(&self, text: &mut EcoString);
 }

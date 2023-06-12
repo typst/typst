@@ -1,7 +1,5 @@
 use super::*;
 
-use std::mem;
-
 /// Produce shapes that together make up a rounded rectangle.
 pub fn rounded_rect(
     size: Size,
@@ -69,7 +67,7 @@ fn stroke_segments(
         );
 
         if !continuous {
-            res.push((mem::take(&mut path), stroke.get_ref(side).clone()));
+            res.push((std::mem::take(&mut path), stroke.get_ref(side).clone()));
         }
     }
 

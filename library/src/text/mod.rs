@@ -14,8 +14,6 @@ pub use self::raw::*;
 pub use self::shaping::*;
 pub use self::shift::*;
 
-use std::borrow::Cow;
-
 use rustybuzz::Tag;
 use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
@@ -29,16 +27,16 @@ pub(super) fn define(global: &mut Scope) {
     global.define("smartquote", SmartQuoteElem::func());
     global.define("strong", StrongElem::func());
     global.define("emph", EmphElem::func());
-    global.define("lower", lower);
-    global.define("upper", upper);
-    global.define("smallcaps", smallcaps);
+    global.define("lower", lower_func());
+    global.define("upper", upper_func());
+    global.define("smallcaps", smallcaps_func());
     global.define("sub", SubElem::func());
     global.define("super", SuperElem::func());
     global.define("underline", UnderlineElem::func());
     global.define("strike", StrikeElem::func());
     global.define("overline", OverlineElem::func());
     global.define("raw", RawElem::func());
-    global.define("lorem", lorem);
+    global.define("lorem", lorem_func());
 }
 
 /// Customize the look and layout of text in a variety of ways.
@@ -560,13 +558,10 @@ impl Debug for FontFamily {
     }
 }
 
-cast_from_value! {
+cast! {
     FontFamily,
+    self => self.0.into_value(),
     string: EcoString => Self::new(&string),
-}
-
-cast_to_value! {
-    v: FontFamily => v.0.into()
 }
 
 /// Font family fallback list.
@@ -582,18 +577,15 @@ impl IntoIterator for FontList {
     }
 }
 
-cast_from_value! {
+cast! {
     FontList,
+    self => if self.0.len() == 1 {
+        self.0.into_iter().next().unwrap().0.into_value()
+    } else {
+        self.0.into_value()
+    },
     family: FontFamily => Self(vec![family]),
     values: Array => Self(values.into_iter().map(|v| v.cast()).collect::<StrResult<_>>()?),
-}
-
-cast_to_value! {
-    v: FontList => if v.0.len() == 1 {
-        v.0.into_iter().next().unwrap().0.into()
-    } else {
-        v.0.into()
-    }
 }
 
 /// The size of text.
@@ -608,13 +600,10 @@ impl Fold for TextSize {
     }
 }
 
-cast_from_value! {
+cast! {
     TextSize,
+    self => self.0.into_value(),
     v: Length => Self(v),
-}
-
-cast_to_value! {
-    v: TextSize => v.0.into()
 }
 
 /// Specifies the bottom or top edge of text.
@@ -636,35 +625,29 @@ impl TextEdge {
     }
 }
 
-cast_from_value! {
+cast! {
     TextEdge,
+    self => match self {
+        Self::Metric(metric) => metric.into_value(),
+        Self::Length(length) => length.into_value(),
+    },
     v: VerticalFontMetric => Self::Metric(v),
     v: Length => Self::Length(v),
-}
-
-cast_to_value! {
-    v: TextEdge => match v {
-        TextEdge::Metric(metric) => metric.into(),
-        TextEdge::Length(length) => length.into(),
-    }
 }
 
 /// The direction of text and inline objects in their line.
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct TextDir(pub Smart<Dir>);
 
-cast_from_value! {
+cast! {
     TextDir,
+    self => self.0.into_value(),
     v: Smart<Dir> => {
         if v.map_or(false, |dir| dir.axis() == Axis::Y) {
             Err("text direction must be horizontal")?;
         }
         Self(v)
     },
-}
-
-cast_to_value! {
-    v: TextDir => v.0.into()
 }
 
 impl Resolve for TextDir {
@@ -682,13 +665,10 @@ impl Resolve for TextDir {
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Hyphenate(pub Smart<bool>);
 
-cast_from_value! {
+cast! {
     Hyphenate,
+    self => self.0.into_value(),
     v: Smart<bool> => Self(v),
-}
-
-cast_to_value! {
-    v: Hyphenate => v.0.into()
 }
 
 impl Resolve for Hyphenate {
@@ -718,16 +698,13 @@ impl StylisticSet {
     }
 }
 
-cast_from_value! {
+cast! {
     StylisticSet,
+    self => self.0.into_value(),
     v: i64 => match v {
         1 ..= 20 => Self::new(v as u8),
         _ => Err("stylistic set must be between 1 and 20")?,
     },
-}
-
-cast_to_value! {
-    v: StylisticSet => v.0.into()
 }
 
 /// Which kind of numbers / figures to select.
@@ -754,8 +731,17 @@ pub enum NumberWidth {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct FontFeatures(pub Vec<(Tag, u32)>);
 
-cast_from_value! {
+cast! {
     FontFeatures,
+    self => self.0
+        .into_iter()
+        .map(|(tag, num)| {
+            let bytes = tag.to_bytes();
+            let key = std::str::from_utf8(&bytes).unwrap_or_default();
+            (key.into(), num.into_value())
+        })
+        .collect::<Dict>()
+        .into_value(),
     values: Array => Self(values
         .into_iter()
         .map(|v| {
@@ -771,18 +757,6 @@ cast_from_value! {
             Ok((tag, num))
         })
         .collect::<StrResult<_>>()?),
-}
-
-cast_to_value! {
-    v: FontFeatures => Value::Dict(
-        v.0.into_iter()
-            .map(|(tag, num)| {
-                let bytes = tag.to_bytes();
-                let key = std::str::from_utf8(&bytes).unwrap_or_default();
-                (key.into(), num.into())
-            })
-            .collect(),
-    )
 }
 
 impl Fold for FontFeatures {

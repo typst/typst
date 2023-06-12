@@ -5,11 +5,10 @@ use std::cell::{Cell, RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs::{self, File};
 use std::hash::Hash;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use atty::Stream;
 use chrono::Datelike;
 use clap::Parser;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
@@ -18,9 +17,9 @@ use comemo::Prehashed;
 use elsa::FrozenVec;
 use memmap2::Mmap;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
-use once_cell::unsync::OnceCell;
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
+use std::cell::OnceCell;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{FileError, FileResult, SourceError, StrResult};
 use typst::doc::Document;
@@ -93,26 +92,19 @@ fn typst_version() -> &'static str {
 struct CompileSettings {
     /// The path to the input file.
     input: PathBuf,
-
     /// The path to the output file.
     output: PathBuf,
-
     /// Whether to watch the input files for changes.
     watch: bool,
-
     /// The root directory for absolute paths.
     root: Option<PathBuf>,
-
     /// The paths to search for fonts.
     font_paths: Vec<PathBuf>,
-
     /// The open command to use.
     open: Option<Option<String>>,
-
     /// The PPI to use for PNG export.
     ppi: Option<f32>,
-
-    /// In which format to emit diagnostics
+    /// In which format to emit diagnostics.
     diagnostic_format: DiagnosticFormat,
 }
 
@@ -174,7 +166,6 @@ impl CompileSettings {
 struct FontsSettings {
     /// The font paths
     font_paths: Vec<PathBuf>,
-
     /// Whether to include font variants
     variants: bool,
 }
@@ -199,22 +190,20 @@ impl FontsSettings {
 
 /// Execute a compilation command.
 fn compile(mut command: CompileSettings) -> StrResult<()> {
-    let root = if let Some(root) = &command.root {
-        root.clone()
-    } else if let Some(dir) = command
+    // Determine the parent directory of the input file.
+    let parent = command
         .input
         .canonicalize()
         .ok()
         .as_ref()
         .and_then(|path| path.parent())
-    {
-        dir.into()
-    } else {
-        PathBuf::new()
-    };
+        .unwrap_or(Path::new("."))
+        .to_owned();
+
+    let root = command.root.as_ref().unwrap_or(&parent);
 
     // Create the world that serves sources, fonts and files.
-    let mut world = SystemWorld::new(root, &command.font_paths);
+    let mut world = SystemWorld::new(root.into(), &command.font_paths);
 
     // Perform initial compilation.
     let ok = compile_once(&mut world, &command)?;
@@ -236,10 +225,17 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
     let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
         .map_err(|_| "failed to watch directory")?;
 
-    // Watch root directory recursively.
+    // Watch the input file's parent directory recursively.
     watcher
-        .watch(&world.root, RecursiveMode::Recursive)
-        .map_err(|_| "failed to watch directory")?;
+        .watch(&parent, RecursiveMode::Recursive)
+        .map_err(|_| "failed to watch parent directory")?;
+
+    // Watch the root directory recursively.
+    if world.root != parent {
+        watcher
+            .watch(&world.root, RecursiveMode::Recursive)
+            .map_err(|_| "failed to watch root directory")?;
+    }
 
     // Handle events.
     let timeout = std::time::Duration::from_millis(100);
@@ -363,7 +359,7 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
     let color = status.color();
 
     let mut w = color_stream();
-    if atty::is(Stream::Stderr) {
+    if std::io::stderr().is_terminal() {
         // Clear the terminal.
         write!(w, "{esc}c{esc}[1;1H")?;
     }
@@ -387,7 +383,7 @@ fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
 
 /// Get stderr with color support if desirable.
 fn color_stream() -> termcolor::StandardStream {
-    termcolor::StandardStream::stderr(if atty::is(Stream::Stderr) {
+    termcolor::StandardStream::stderr(if std::io::stderr().is_terminal() {
         ColorChoice::Auto
     } else {
         ColorChoice::Never
@@ -501,7 +497,7 @@ struct SystemWorld {
     hashes: RefCell<HashMap<PathBuf, FileResult<PathHash>>>,
     paths: RefCell<HashMap<PathHash, PathSlot>>,
     sources: FrozenVec<Box<Source>>,
-    current_date: Cell<Option<Datetime>>,
+    today: Cell<Option<Datetime>>,
     main: SourceId,
 }
 
@@ -532,7 +528,7 @@ impl SystemWorld {
             hashes: RefCell::default(),
             paths: RefCell::default(),
             sources: FrozenVec::new(),
-            current_date: Cell::new(None),
+            today: Cell::new(None),
             main: SourceId::detached(),
         }
     }
@@ -570,7 +566,7 @@ impl World for SystemWorld {
     }
 
     fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_u16() as usize]
+        &self.sources[id.as_u16() as usize]
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
@@ -595,20 +591,20 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        if self.current_date.get().is_none() {
+        if self.today.get().is_none() {
             let datetime = match offset {
                 None => chrono::Local::now().naive_local(),
                 Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
             };
 
-            self.current_date.set(Some(Datetime::from_ymd(
+            self.today.set(Some(Datetime::from_ymd(
                 datetime.year(),
                 datetime.month().try_into().ok()?,
                 datetime.day().try_into().ok()?,
             )?))
         }
 
-        self.current_date.get()
+        self.today.get()
     }
 }
 
@@ -671,7 +667,7 @@ impl SystemWorld {
         self.sources.as_mut().clear();
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();
-        self.current_date.set(None);
+        self.today.set(None);
     }
 }
 

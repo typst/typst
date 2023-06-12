@@ -2,7 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 
 use serde::{Deserialize, Serialize};
 
-use crate::eval::{cast_from_value, cast_to_value, Cast, Value};
+use crate::eval::{cast, Cast, IntoValue};
 use crate::geom::Ratio;
 
 /// Properties that distinguish a font from other fonts in the same family.
@@ -130,8 +130,20 @@ impl Debug for FontWeight {
     }
 }
 
-cast_from_value! {
+cast! {
     FontWeight,
+    self => IntoValue::into_value(match self {
+        FontWeight::THIN => "thin",
+        FontWeight::EXTRALIGHT => "extralight",
+        FontWeight::LIGHT => "light",
+        FontWeight::REGULAR => "regular",
+        FontWeight::MEDIUM => "medium",
+        FontWeight::SEMIBOLD => "semibold",
+        FontWeight::BOLD => "bold",
+        FontWeight::EXTRABOLD => "extrabold",
+        FontWeight::BLACK => "black",
+        _ => return self.to_number().into_value(),
+    }),
     v: i64 => Self::from_number(v.clamp(0, u16::MAX as i64) as u16),
     /// Thin weight (100).
     "thin" => Self::THIN,
@@ -151,21 +163,6 @@ cast_from_value! {
     "extrabold" => Self::EXTRABOLD,
     /// Black weight (900).
     "black" => Self::BLACK,
-}
-
-cast_to_value! {
-    v: FontWeight => Value::from(match v {
-        FontWeight::THIN => "thin",
-        FontWeight::EXTRALIGHT => "extralight",
-        FontWeight::LIGHT => "light",
-        FontWeight::REGULAR => "regular",
-        FontWeight::MEDIUM => "medium",
-        FontWeight::SEMIBOLD => "semibold",
-        FontWeight::BOLD => "bold",
-        FontWeight::EXTRABOLD => "extrabold",
-        FontWeight::BLACK => "black",
-        _ => return v.to_number().into(),
-    })
 }
 
 /// The width of a font.
@@ -247,13 +244,10 @@ impl Debug for FontStretch {
     }
 }
 
-cast_from_value! {
+cast! {
     FontStretch,
+    self => self.to_ratio().into_value(),
     v: Ratio => Self::from_ratio(v),
-}
-
-cast_to_value! {
-    v: FontStretch => v.to_ratio().into()
 }
 
 #[cfg(test)]

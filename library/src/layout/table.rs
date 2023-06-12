@@ -1,3 +1,5 @@
+use typst::eval::{CastInfo, Reflect};
+
 use crate::layout::{AlignElem, GridLayouter, TrackSizings};
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
@@ -243,15 +245,12 @@ pub enum Celled<T> {
     Array(Vec<T>),
 }
 
-impl<T: Cast + Clone + Default> Celled<T> {
+impl<T: Default + Clone + FromValue> Celled<T> {
     /// Resolve the value based on the cell position.
     pub fn resolve(&self, vt: &mut Vt, x: usize, y: usize) -> SourceResult<T> {
         Ok(match self {
             Self::Value(value) => value.clone(),
-            Self::Func(func) => func
-                .call_vt(vt, [Value::Int(x as i64), Value::Int(y as i64)])?
-                .cast()
-                .at(func.span())?,
+            Self::Func(func) => func.call_vt(vt, [x, y])?.cast().at(func.span())?,
             Self::Array(array) => x
                 .checked_rem(array.len())
                 .and_then(|i| array.get(i))
@@ -267,33 +266,35 @@ impl<T: Default> Default for Celled<T> {
     }
 }
 
-impl<T: Cast> Cast for Celled<T> {
-    fn is(value: &Value) -> bool {
-        matches!(value, Value::Array(_) | Value::Func(_)) || T::is(value)
-    }
-
-    fn cast(value: Value) -> StrResult<Self> {
-        match value {
-            Value::Func(v) => Ok(Self::Func(v)),
-            Value::Array(array) => {
-                Ok(Self::Array(array.into_iter().map(T::cast).collect::<StrResult<_>>()?))
-            }
-            v if T::is(&v) => Ok(Self::Value(T::cast(v)?)),
-            v => <Self as Cast>::error(v),
-        }
-    }
-
+impl<T: Reflect> Reflect for Celled<T> {
     fn describe() -> CastInfo {
-        T::describe() + CastInfo::Type("array") + CastInfo::Type("function")
+        T::describe() + Array::describe() + Func::describe()
+    }
+
+    fn castable(value: &Value) -> bool {
+        Array::castable(value) || Func::castable(value) || T::castable(value)
     }
 }
 
-impl<T: Into<Value>> From<Celled<T>> for Value {
-    fn from(celled: Celled<T>) -> Self {
-        match celled {
-            Celled::Value(value) => value.into(),
-            Celled::Func(func) => func.into(),
-            Celled::Array(arr) => arr.into(),
+impl<T: IntoValue> IntoValue for Celled<T> {
+    fn into_value(self) -> Value {
+        match self {
+            Self::Value(value) => value.into_value(),
+            Self::Func(func) => func.into_value(),
+            Self::Array(arr) => arr.into_value(),
+        }
+    }
+}
+
+impl<T: FromValue> FromValue for Celled<T> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Func(v) => Ok(Self::Func(v)),
+            Value::Array(array) => Ok(Self::Array(
+                array.into_iter().map(T::from_value).collect::<StrResult<_>>()?,
+            )),
+            v if T::castable(&v) => Ok(Self::Value(T::from_value(v)?)),
+            v => Err(Self::error(&v)),
         }
     }
 }

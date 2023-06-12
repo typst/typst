@@ -209,7 +209,7 @@ impl Synthesize for FigureElem {
                 };
 
                 let target = descendant.unwrap_or_else(|| self.body());
-                supplement.resolve(vt, [target.into()])?
+                supplement.resolve(vt, [target])?
             }
         };
 
@@ -312,8 +312,8 @@ impl FigureElem {
             self.counter(),
             self.numbering(StyleChain::default()),
         ) {
-            let numbers =
-                counter.at(vt, self.0.location().unwrap())?.display(vt, &numbering)?;
+            let loc = self.0.location().unwrap();
+            let numbers = counter.at(vt, loc)?.display(vt, &numbering)?;
 
             if !supplement.is_empty() {
                 supplement += TextElem::packed("\u{a0}");
@@ -335,17 +335,14 @@ pub enum FigureKind {
     Name(EcoString),
 }
 
-cast_from_value! {
+cast! {
     FigureKind,
+    self => match self {
+        Self::Elem(v) => v.into_value(),
+        Self::Name(v) => v.into_value(),
+    },
     v: ElemFunc => Self::Elem(v),
     v: EcoString => Self::Name(v),
-}
-
-cast_to_value! {
-    v: FigureKind => match v {
-        FigureKind::Elem(v) => v.into(),
-        FigureKind::Name(v) => v.into(),
-    }
 }
 
 /// An element that can be auto-detected in a figure.

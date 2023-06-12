@@ -11,12 +11,12 @@ use indexmap::IndexMap;
 use super::{Content, Selector};
 use crate::diag::StrResult;
 use crate::doc::{Frame, FrameItem, Meta, Position};
-use crate::eval::{cast_from_value, Value};
+use crate::eval::{cast, Value};
 use crate::geom::{Point, Transform};
 use crate::model::Label;
 use crate::util::NonZeroExt;
 
-/// Uniquely identifies an element in the document across multiple layout passes.
+/// Identifies the location of an element in the document.
 ///
 /// This struct is created by [`Locator::locate`].
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -46,8 +46,8 @@ impl Debug for Location {
     }
 }
 
-cast_from_value! {
-    Location: "location",
+cast! {
+    type Location: "location",
 }
 
 /// Provides locations for elements in the document.

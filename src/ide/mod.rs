@@ -7,10 +7,10 @@ mod jump;
 mod tooltip;
 
 pub use self::analyze::analyze_labels;
-pub use self::complete::*;
-pub use self::highlight::*;
-pub use self::jump::*;
-pub use self::tooltip::*;
+pub use self::complete::{autocomplete, Completion, CompletionKind};
+pub use self::highlight::{highlight, highlight_html, Tag};
+pub use self::jump::{jump_from_click, jump_from_cursor, Jump};
+pub use self::tooltip::{tooltip, Tooltip};
 
 use std::fmt::Write;
 

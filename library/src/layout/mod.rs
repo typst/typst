@@ -58,7 +58,8 @@ use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, PathElem, PolygonElem, RectElem, SquareElem,
+    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
+    SquareElem,
 };
 
 /// Hook up all layout definitions.
@@ -87,7 +88,19 @@ pub(super) fn define(global: &mut Scope) {
     global.define("scale", ScaleElem::func());
     global.define("rotate", RotateElem::func());
     global.define("hide", HideElem::func());
-    global.define("measure", measure);
+    global.define("measure", measure_func());
+    global.define("ltr", Dir::LTR);
+    global.define("rtl", Dir::RTL);
+    global.define("ttb", Dir::TTB);
+    global.define("btt", Dir::BTT);
+    global.define("start", GenAlign::Start);
+    global.define("end", GenAlign::End);
+    global.define("left", GenAlign::Specific(Align::Left));
+    global.define("center", GenAlign::Specific(Align::Center));
+    global.define("right", GenAlign::Specific(Align::Right));
+    global.define("top", GenAlign::Specific(Align::Top));
+    global.define("horizon", GenAlign::Specific(Align::Horizon));
+    global.define("bottom", GenAlign::Specific(Align::Bottom));
 }
 
 /// Root-level layout.
@@ -236,6 +249,7 @@ fn realize_block<'a>(
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
     if content.can::<dyn Layout>()
+        && !content.is::<LineElem>()
         && !content.is::<RectElem>()
         && !content.is::<SquareElem>()
         && !content.is::<EllipseElem>()

@@ -57,3 +57,9 @@ $ a + mat(delim: #none, 1, 2; 3, 4) + b $
 ---
 // Error: 13-14 expected array, found content
 $ mat(1, 2; 3, 4, delim: "[") $,
+
+---
+$ mat(B, A B) $
+$ mat(B, A B, dots) $
+$ mat(B, A B, dots;) $
+$ mat(#1, #(foo: "bar")) $

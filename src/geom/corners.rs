@@ -1,3 +1,5 @@
+use crate::eval::{CastInfo, FromValue, IntoValue, Reflect};
+
 use super::*;
 
 /// A container with components for the four corners of a rectangle.
@@ -108,15 +110,47 @@ pub enum Corner {
     BottomLeft,
 }
 
-impl<T> Cast for Corners<Option<T>>
-where
-    T: Cast + Clone,
-{
-    fn is(value: &Value) -> bool {
-        matches!(value, Value::Dict(_)) || T::is(value)
+impl<T: Reflect> Reflect for Corners<Option<T>> {
+    fn describe() -> CastInfo {
+        T::describe() + Dict::describe()
     }
 
-    fn cast(mut value: Value) -> StrResult<Self> {
+    fn castable(value: &Value) -> bool {
+        Dict::castable(value) || T::castable(value)
+    }
+}
+
+impl<T> IntoValue for Corners<T>
+where
+    T: PartialEq + IntoValue,
+{
+    fn into_value(self) -> Value {
+        if self.is_uniform() {
+            return self.top_left.into_value();
+        }
+
+        let mut dict = Dict::new();
+        let mut handle = |key: &str, component: T| {
+            let value = component.into_value();
+            if value != Value::None {
+                dict.insert(key.into(), value);
+            }
+        };
+
+        handle("top-left", self.top_left);
+        handle("top-right", self.top_right);
+        handle("bottom-right", self.bottom_right);
+        handle("bottom-left", self.bottom_left);
+
+        Value::Dict(dict)
+    }
+}
+
+impl<T> FromValue for Corners<Option<T>>
+where
+    T: FromValue + Clone,
+{
+    fn from_value(mut value: Value) -> StrResult<Self> {
         let keys = [
             "top-left",
             "top-right",
@@ -131,7 +165,7 @@ where
 
         if let Value::Dict(dict) = &mut value {
             if dict.iter().any(|(key, _)| keys.contains(&key.as_str())) {
-                let mut take = |key| dict.take(key).ok().map(T::cast).transpose();
+                let mut take = |key| dict.take(key).ok().map(T::from_value).transpose();
                 let rest = take("rest")?;
                 let left = take("left")?.or_else(|| rest.clone());
                 let top = take("top")?.or_else(|| rest.clone());
@@ -157,15 +191,11 @@ where
             }
         }
 
-        if T::is(&value) {
-            Ok(Self::splat(Some(T::cast(value)?)))
+        if T::castable(&value) {
+            Ok(Self::splat(Some(T::from_value(value)?)))
         } else {
-            <Self as Cast>::error(value)
+            Err(Self::error(&value))
         }
-    }
-
-    fn describe() -> CastInfo {
-        T::describe() + CastInfo::Type("dictionary")
     }
 }
 
@@ -185,31 +215,5 @@ impl<T: Fold> Fold for Corners<Option<T>> {
             Some(value) => value.fold(outer),
             None => outer,
         })
-    }
-}
-
-impl<T> From<Corners<T>> for Value
-where
-    T: PartialEq + Into<Value>,
-{
-    fn from(corners: Corners<T>) -> Self {
-        if corners.is_uniform() {
-            return corners.top_left.into();
-        }
-
-        let mut dict = Dict::new();
-        let mut handle = |key: &str, component: T| {
-            let value = component.into();
-            if value != Value::None {
-                dict.insert(key.into(), value);
-            }
-        };
-
-        handle("top-left", corners.top_left);
-        handle("top-right", corners.top_right);
-        handle("bottom-right", corners.bottom_right);
-        handle("bottom-left", corners.bottom_left);
-
-        Value::Dict(dict)
     }
 }

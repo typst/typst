@@ -1,3 +1,5 @@
+use crate::eval::{AutoValue, CastInfo, FromValue, IntoValue, Reflect};
+
 use super::*;
 
 /// A value that can be automatically determined.
@@ -94,21 +96,32 @@ impl<T> Default for Smart<T> {
     }
 }
 
-impl<T: Cast> Cast for Smart<T> {
-    fn is(value: &Value) -> bool {
-        matches!(value, Value::Auto) || T::is(value)
-    }
-
-    fn cast(value: Value) -> StrResult<Self> {
-        match value {
-            Value::Auto => Ok(Self::Auto),
-            v if T::is(&v) => Ok(Self::Custom(T::cast(v)?)),
-            _ => <Self as Cast>::error(value),
-        }
+impl<T: Reflect> Reflect for Smart<T> {
+    fn castable(value: &Value) -> bool {
+        AutoValue::castable(value) || T::castable(value)
     }
 
     fn describe() -> CastInfo {
-        T::describe() + CastInfo::Type("auto")
+        T::describe() + AutoValue::describe()
+    }
+}
+
+impl<T: IntoValue> IntoValue for Smart<T> {
+    fn into_value(self) -> Value {
+        match self {
+            Smart::Custom(v) => v.into_value(),
+            Smart::Auto => Value::Auto,
+        }
+    }
+}
+
+impl<T: FromValue> FromValue for Smart<T> {
+    fn from_value(value: Value) -> StrResult<Self> {
+        match value {
+            Value::Auto => Ok(Self::Auto),
+            v if T::castable(&v) => Ok(Self::Custom(T::from_value(v)?)),
+            _ => Err(Self::error(&value)),
+        }
     }
 }
 
@@ -129,14 +142,5 @@ where
 
     fn fold(self, outer: Self::Output) -> Self::Output {
         self.map(|inner| inner.fold(outer.unwrap_or_default()))
-    }
-}
-
-impl<T: Into<Value>> From<Smart<T>> for Value {
-    fn from(v: Smart<T>) -> Self {
-        match v {
-            Smart::Custom(v) => v.into(),
-            Smart::Auto => Value::Auto,
-        }
     }
 }

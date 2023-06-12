@@ -6,7 +6,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::{format_description, PrimitiveDateTime};
 
-use crate::eval::cast_from_value;
+use crate::eval::cast;
 use crate::util::pretty_array_like;
 
 /// A datetime object that represents either a date, a time or a combination of
@@ -16,9 +16,9 @@ pub enum Datetime {
     /// Representation as a date.
     Date(time::Date),
     /// Representation as a time.
-    Datetime(time::PrimitiveDateTime),
-    /// Representation as a combination of date and time.
     Time(time::Time),
+    /// Representation as a combination of date and time.
+    Datetime(time::PrimitiveDateTime),
 }
 
 impl Datetime {
@@ -153,8 +153,8 @@ impl Debug for Datetime {
     }
 }
 
-cast_from_value! {
-    Datetime: "datetime",
+cast! {
+    type Datetime: "datetime",
 }
 
 /// Format the `Format` error of the time crate in an appropriate way.

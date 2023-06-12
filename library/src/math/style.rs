@@ -9,13 +9,12 @@ use super::*;
 ///
 /// Display: Bold
 /// Category: math
-/// Returns: content
 #[func]
 pub fn bold(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body).with_bold(Some(true)).pack().into()
+) -> Content {
+    MathStyleElem::new(body).with_bold(Some(true)).pack()
 }
 
 /// Upright (non-italic) font style in math.
@@ -27,13 +26,12 @@ pub fn bold(
 ///
 /// Display: Upright
 /// Category: math
-/// Returns: content
 #[func]
 pub fn upright(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body).with_italic(Some(false)).pack().into()
+) -> Content {
+    MathStyleElem::new(body).with_italic(Some(false)).pack()
 }
 
 /// Italic font style in math.
@@ -42,13 +40,12 @@ pub fn upright(
 ///
 /// Display: Italic
 /// Category: math
-/// Returns: content
 #[func]
 pub fn italic(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body).with_italic(Some(true)).pack().into()
+) -> Content {
+    MathStyleElem::new(body).with_italic(Some(true)).pack()
 }
 /// Serif (roman) font style in math.
 ///
@@ -56,16 +53,12 @@ pub fn italic(
 ///
 /// Display: Serif
 /// Category: math
-/// Returns: content
 #[func]
 pub fn serif(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body)
-        .with_variant(Some(MathVariant::Serif))
-        .pack()
-        .into()
+) -> Content {
+    MathStyleElem::new(body).with_variant(Some(MathVariant::Serif)).pack()
 }
 
 /// Sans-serif font style in math.
@@ -77,16 +70,12 @@ pub fn serif(
 ///
 /// Display: Sans-serif
 /// Category: math
-/// Returns: content
 #[func]
 pub fn sans(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body)
-        .with_variant(Some(MathVariant::Sans))
-        .pack()
-        .into()
+) -> Content {
+    MathStyleElem::new(body).with_variant(Some(MathVariant::Sans)).pack()
 }
 
 /// Calligraphic font style in math.
@@ -98,16 +87,12 @@ pub fn sans(
 ///
 /// Display: Calligraphic
 /// Category: math
-/// Returns: content
 #[func]
 pub fn cal(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body)
-        .with_variant(Some(MathVariant::Cal))
-        .pack()
-        .into()
+) -> Content {
+    MathStyleElem::new(body).with_variant(Some(MathVariant::Cal)).pack()
 }
 
 /// Fraktur font style in math.
@@ -119,16 +104,12 @@ pub fn cal(
 ///
 /// Display: Fraktur
 /// Category: math
-/// Returns: content
 #[func]
 pub fn frak(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body)
-        .with_variant(Some(MathVariant::Frak))
-        .pack()
-        .into()
+) -> Content {
+    MathStyleElem::new(body).with_variant(Some(MathVariant::Frak)).pack()
 }
 
 /// Monospace font style in math.
@@ -140,16 +121,12 @@ pub fn frak(
 ///
 /// Display: Monospace
 /// Category: math
-/// Returns: content
 #[func]
 pub fn mono(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body)
-        .with_variant(Some(MathVariant::Mono))
-        .pack()
-        .into()
+) -> Content {
+    MathStyleElem::new(body).with_variant(Some(MathVariant::Mono)).pack()
 }
 
 /// Blackboard bold (double-struck) font style in math.
@@ -166,16 +143,12 @@ pub fn mono(
 ///
 /// Display: Blackboard Bold
 /// Category: math
-/// Returns: content
 #[func]
 pub fn bb(
     /// The content to style.
     body: Content,
-) -> Value {
-    MathStyleElem::new(body)
-        .with_variant(Some(MathVariant::Bb))
-        .pack()
-        .into()
+) -> Content {
+    MathStyleElem::new(body).with_variant(Some(MathVariant::Bb)).pack()
 }
 
 /// Forced display style in math.
@@ -189,7 +162,6 @@ pub fn bb(
 ///
 /// Display: Display Size
 /// Category: math
-/// Returns: content
 #[func]
 pub fn display(
     /// The content to size.
@@ -198,13 +170,12 @@ pub fn display(
     /// and superscripts do.
     #[named]
     #[default(false)]
-    cramp: bool,
-) -> Value {
+    cramped: bool,
+) -> Content {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::Display))
-        .with_cramp(Some(cramp))
+        .with_cramped(Some(cramped))
         .pack()
-        .into()
 }
 
 /// Forced inline (text) style in math.
@@ -219,7 +190,6 @@ pub fn display(
 ///
 /// Display: Inline Size
 /// Category: math
-/// Returns: content
 #[func]
 pub fn inline(
     /// The content to size.
@@ -228,13 +198,12 @@ pub fn inline(
     /// and superscripts do.
     #[named]
     #[default(false)]
-    cramp: bool,
-) -> Value {
+    cramped: bool,
+) -> Content {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::Text))
-        .with_cramp(Some(cramp))
+        .with_cramped(Some(cramped))
         .pack()
-        .into()
 }
 
 /// Forced script style in math.
@@ -248,7 +217,6 @@ pub fn inline(
 ///
 /// Display: Script Size
 /// Category: math
-/// Returns: content
 #[func]
 pub fn script(
     /// The content to size.
@@ -257,13 +225,12 @@ pub fn script(
     /// and superscripts do.
     #[named]
     #[default(true)]
-    cramp: bool,
-) -> Value {
+    cramped: bool,
+) -> Content {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::Script))
-        .with_cramp(Some(cramp))
+        .with_cramped(Some(cramped))
         .pack()
-        .into()
 }
 
 /// Forced second script style in math.
@@ -278,7 +245,6 @@ pub fn script(
 ///
 /// Display: Script-Script Size
 /// Category: math
-/// Returns: content
 #[func]
 pub fn sscript(
     /// The content to size.
@@ -287,13 +253,12 @@ pub fn sscript(
     /// and superscripts do.
     #[named]
     #[default(true)]
-    cramp: bool,
-) -> Value {
+    cramped: bool,
+) -> Content {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::ScriptScript))
-        .with_cramp(Some(cramp))
+        .with_cramped(Some(cramped))
         .pack()
-        .into()
 }
 
 /// A font variant in math.
@@ -319,7 +284,7 @@ pub struct MathStyleElem {
     pub size: Option<MathSize>,
 
     /// Whether to limit height of exponents
-    pub cramp: Option<bool>,
+    pub cramped: Option<bool>,
 }
 
 impl LayoutMath for MathStyleElem {
@@ -338,7 +303,7 @@ impl LayoutMath for MathStyleElem {
         if let Some(size) = self.size(StyleChain::default()) {
             style = style.with_size(size);
         }
-        if let Some(cramped) = self.cramp(StyleChain::default()) {
+        if let Some(cramped) = self.cramped(StyleChain::default()) {
             style = style.with_cramped(cramped);
         }
         ctx.style(style);

@@ -1,4 +1,5 @@
 use typst::diag::{format_xml_like_error, FileError};
+use typst::eval::Datetime;
 
 use crate::prelude::*;
 
@@ -14,21 +15,22 @@ use crate::prelude::*;
 /// #raw(text, lang: "html")
 /// ```
 ///
-/// Display: Plain text
+/// Display: Read
 /// Category: data-loading
-/// Returns: string
 #[func]
 pub fn read(
     /// Path to a file.
     path: Spanned<EcoString>,
-) -> Value {
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Str> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
     let text = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
-    Value::Str(text.into())
+    Ok(text.into())
 }
 
 /// Read structured data from a CSV file.
@@ -51,7 +53,6 @@ pub fn read(
 ///
 /// Display: CSV
 /// Category: data-loading
-/// Returns: array
 #[func]
 pub fn csv(
     /// Path to a CSV file.
@@ -61,7 +62,9 @@ pub fn csv(
     #[named]
     #[default]
     delimiter: Delimiter,
-) -> Value {
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
@@ -74,22 +77,30 @@ pub fn csv(
     let mut array = Array::new();
 
     for (line, result) in reader.records().enumerate() {
-        // Original solution use line from error, but that is incorrect with has_headers set to false
-        // See issue: https://github.com/BurntSushi/rust-csv/issues/184
+        // Original solution use line from error, but that is incorrect with
+        // `has_headers` set to `false`. See issue:
+        // https://github.com/BurntSushi/rust-csv/issues/184
         let line = line + 1; // Counting lines from 1
         let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
-        let sub = row.into_iter().map(|field| Value::Str(field.into())).collect();
+        let sub = row.into_iter().map(|field| field.into_value()).collect();
         array.push(Value::Array(sub))
     }
 
-    Value::Array(array)
+    Ok(array)
 }
 
 /// The delimiter to use when parsing CSV files.
-struct Delimiter(char);
+pub struct Delimiter(char);
 
-cast_from_value! {
+impl Default for Delimiter {
+    fn default() -> Self {
+        Self(',')
+    }
+}
+
+cast! {
     Delimiter,
+    self => self.0.into_value(),
     v: EcoString => {
         let mut chars = v.chars();
         let first = chars.next().ok_or("delimiter must not be empty")?;
@@ -103,16 +114,6 @@ cast_from_value! {
 
         Self(first)
     },
-}
-
-cast_to_value! {
-    v: Delimiter => v.0.into()
-}
-
-impl Default for Delimiter {
-    fn default() -> Self {
-        Self(',')
-    }
 }
 
 /// Format the user-facing CSV error message.
@@ -168,38 +169,39 @@ fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
 ///
 /// Display: JSON
 /// Category: data-loading
-/// Returns: array or dictionary
 #[func]
 pub fn json(
     /// Path to a JSON file.
     path: Spanned<EcoString>,
-) -> Value {
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
     let value: serde_json::Value =
         serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
-    convert_json(value)
+    Ok(convert_json(value))
 }
 
 /// Convert a JSON value to a Typst value.
 fn convert_json(value: serde_json::Value) -> Value {
     match value {
         serde_json::Value::Null => Value::None,
-        serde_json::Value::Bool(v) => Value::Bool(v),
+        serde_json::Value::Bool(v) => v.into_value(),
         serde_json::Value::Number(v) => match v.as_i64() {
-            Some(int) => Value::Int(int),
-            None => Value::Float(v.as_f64().unwrap_or(f64::NAN)),
+            Some(int) => int.into_value(),
+            None => v.as_f64().unwrap_or(f64::NAN).into_value(),
         },
-        serde_json::Value::String(v) => Value::Str(v.into()),
+        serde_json::Value::String(v) => v.into_value(),
         serde_json::Value::Array(v) => {
-            Value::Array(v.into_iter().map(convert_json).collect())
+            v.into_iter().map(convert_json).collect::<Array>().into_value()
         }
-        serde_json::Value::Object(v) => Value::Dict(
-            v.into_iter()
-                .map(|(key, value)| (key.into(), convert_json(value)))
-                .collect(),
-        ),
+        serde_json::Value::Object(v) => v
+            .into_iter()
+            .map(|(key, value)| (key.into(), convert_json(value)))
+            .collect::<Dict>()
+            .into_value(),
     }
 }
 
@@ -233,12 +235,13 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 ///
 /// Display: TOML
 /// Category: data-loading
-/// Returns: dictionary
 #[func]
 pub fn toml(
     /// Path to a TOML file.
     path: Spanned<EcoString>,
-) -> Value {
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
@@ -248,24 +251,42 @@ pub fn toml(
         .at(span)?;
 
     let value: toml::Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
-    convert_toml(value)
+    Ok(convert_toml(value))
 }
 
 /// Convert a TOML value to a Typst value.
 fn convert_toml(value: toml::Value) -> Value {
     match value {
-        toml::Value::String(v) => Value::Str(v.into()),
-        toml::Value::Integer(v) => Value::Int(v),
-        toml::Value::Float(v) => Value::Float(v),
-        toml::Value::Boolean(v) => Value::Bool(v),
-        toml::Value::Array(v) => Value::Array(v.into_iter().map(convert_toml).collect()),
-        toml::Value::Table(v) => Value::Dict(
-            v.into_iter()
-                .map(|(key, value)| (key.into(), convert_toml(value)))
-                .collect(),
-        ),
-        // TODO: Make it use native date/time object(s) once it is implemented.
-        toml::Value::Datetime(v) => Value::Str(v.to_string().into()),
+        toml::Value::String(v) => v.into_value(),
+        toml::Value::Integer(v) => v.into_value(),
+        toml::Value::Float(v) => v.into_value(),
+        toml::Value::Boolean(v) => v.into_value(),
+        toml::Value::Array(v) => {
+            v.into_iter().map(convert_toml).collect::<Array>().into_value()
+        }
+        toml::Value::Table(v) => v
+            .into_iter()
+            .map(|(key, value)| (key.into(), convert_toml(value)))
+            .collect::<Dict>()
+            .into_value(),
+        toml::Value::Datetime(v) => match (v.date, v.time) {
+            (None, None) => Value::None,
+            (Some(date), None) => {
+                Datetime::from_ymd(date.year as i32, date.month, date.day).into_value()
+            }
+            (None, Some(time)) => {
+                Datetime::from_hms(time.hour, time.minute, time.second).into_value()
+            }
+            (Some(date), Some(time)) => Datetime::from_ymd_hms(
+                date.year as i32,
+                date.month,
+                date.day,
+                time.hour,
+                time.minute,
+                time.second,
+            )
+            .into_value(),
+        },
     }
 }
 
@@ -323,39 +344,40 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 ///
 /// Display: YAML
 /// Category: data-loading
-/// Returns: array or dictionary or none or boolean or integer or float or string
 #[func]
 pub fn yaml(
     /// Path to a YAML file.
     path: Spanned<EcoString>,
-) -> Value {
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
     let value: serde_yaml::Value =
         serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
-    convert_yaml(value)
+    Ok(convert_yaml(value))
 }
 
 /// Convert a YAML value to a Typst value.
 fn convert_yaml(value: serde_yaml::Value) -> Value {
     match value {
         serde_yaml::Value::Null => Value::None,
-        serde_yaml::Value::Bool(v) => Value::Bool(v),
+        serde_yaml::Value::Bool(v) => v.into_value(),
         serde_yaml::Value::Number(v) => match v.as_i64() {
-            Some(int) => Value::Int(int),
-            None => Value::Float(v.as_f64().unwrap_or(f64::NAN)),
+            Some(int) => int.into_value(),
+            None => v.as_f64().unwrap_or(f64::NAN).into_value(),
         },
-        serde_yaml::Value::String(v) => Value::Str(v.into()),
+        serde_yaml::Value::String(v) => v.into_value(),
         serde_yaml::Value::Sequence(v) => {
-            Value::Array(v.into_iter().map(convert_yaml).collect())
+            v.into_iter().map(convert_yaml).collect::<Array>().into_value()
         }
-        serde_yaml::Value::Mapping(v) => Value::Dict(
-            v.into_iter()
-                .map(|(key, value)| (convert_yaml_key(key), convert_yaml(value)))
-                .filter_map(|(key, value)| key.map(|key| (key, value)))
-                .collect(),
-        ),
+        serde_yaml::Value::Mapping(v) => v
+            .into_iter()
+            .map(|(key, value)| (convert_yaml_key(key), convert_yaml(value)))
+            .filter_map(|(key, value)| key.map(|key| (key, value)))
+            .collect::<Dict>()
+            .into_value(),
     }
 }
 
@@ -425,24 +447,25 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 ///
 /// Display: XML
 /// Category: data-loading
-/// Returns: array
 #[func]
 pub fn xml(
     /// Path to an XML file.
     path: Spanned<EcoString>,
-) -> Value {
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
     let data = vm.world().file(&path).at(span)?;
     let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
-    convert_xml(document.root())
+    Ok(convert_xml(document.root()))
 }
 
 /// Convert an XML node to a Typst value.
 fn convert_xml(node: roxmltree::Node) -> Value {
     if node.is_text() {
-        return Value::Str(node.text().unwrap_or_default().into());
+        return node.text().unwrap_or_default().into_value();
     }
 
     let children: Array = node.children().map(convert_xml).collect();
@@ -453,7 +476,7 @@ fn convert_xml(node: roxmltree::Node) -> Value {
     let tag: Str = node.tag_name().name().into();
     let attrs: Dict = node
         .attributes()
-        .map(|attr| (attr.name().into(), attr.value().into()))
+        .map(|attr| (attr.name().into(), attr.value().into_value()))
         .collect();
 
     Value::Dict(dict! {

@@ -63,6 +63,9 @@ pub struct RawElem {
 
     /// Whether the raw text is displayed as a separate block.
     ///
+    /// In markup mode, using one-backtick notation makes this `{false}`,
+    /// whereas using three-backtick notation makes it `{true}`.
+    ///
     /// ````example
     /// // Display inline code in a small box
     /// // that retains the correct baseline.
