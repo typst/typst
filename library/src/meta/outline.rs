@@ -51,8 +51,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// The outline element has several options for customization, such as its
 /// `title` and `indent` parameters. If desired, however, it is possible to
 /// have more control over the outline's look and style through the
-/// [`outline.entry`]($func/outline.entry) element; see its documentation for
-/// more information.
+/// [`outline.entry`]($func/outline.entry) element.
 ///
 /// Display: Outline
 /// Category: meta
@@ -214,8 +213,7 @@ impl Show for OutlineElem {
                 continue;
             };
 
-            let level = entry.level(styles);
-
+            let level = entry.level();
             if depth < level {
                 continue;
             }
@@ -232,11 +230,8 @@ impl Show for OutlineElem {
 
             OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
 
-            // Add the outline, filler content and page number of the element,
-            // through its (overridable) entry element.
+            // Add the overridable outline entry, followed by a line break.
             seq.push(entry.pack());
-
-            // Ensure entries are always followed by linebreaks.
             seq.push(LinebreakElem::new().pack());
 
             ancestors.push(elem);
@@ -381,126 +376,69 @@ cast! {
 }
 
 /// Represents each entry line in an outline, including the reference to the
-/// outlined element, its page number, and the filler content between both. Use
-/// this element with show rules to control the appearance of your outline.
+/// outlined element, its page number, and the filler content between both.
+///
+/// This element is intended for use with show rules to control the appearance
+/// of outlines.
 ///
 /// ## Example { #example }
+/// The example below shows how to style entries for top-level sections to make
+/// them stand out.
 ///
 /// ```example
-/// #show outline.entry.where(level: 1): strong
-/// #show outline.entry.where(level: 2): set text(red)
-///
 /// #set heading(numbering: "1.")
-/// #outline(indent: true)
 ///
-/// = About Me
+/// #show outline.entry.where(
+///   level: 1
+/// ): it => {
+///   v(12pt, weak: true)
+///   strong(it)
+/// }
 ///
-/// == Basic information
-///
-/// === Identification
-///
-/// #lorem(10)
-///
-/// === Tastes
-///
-/// #lorem(10)
-///
-/// = My work
-///
-/// == ACME Corp (1970-2000)
-///
-/// #lorem(10)
-///
-/// === CTO (1970-1980)
-///
-/// #lorem(10)
-/// ```
-///
-/// While the show rules seen in the last example are pretty simple and allow
-/// for easy styling of entire entry lines in the outline, sometimes more
-/// precise styling may be desired, such as styling different parts of the
-/// entry line in different ways (e.g. coloring the title of a heading or
-/// figure differently from its page number). In that case, a more complex show
-/// rule is necessary, where you build the entry line from scratch.
-///
-/// ```example
-/// #show outline.entry.where(level: 2): it => locate(loc => {
-///   let elem-loc = it.element.location()
-///
-///   // Ensure the corresponding page numbering style is being used.
-///   let page-numbering = elem-loc.page-numbering()
-///   let page-number = numbering(page-numbering, elem-loc.page())
-///   {
-///     // Displays the reference to the element (its outline) with blue and
-///     // emphasized text, while maintaing its link to the original element.
-///     set text(blue)
-///     emph(link(elem-loc, it.outline))
-///   }
-///   [
-///    // Inserting the fill content inside a content block with newlines
-///    // around ensures it is properly spaced apart from its neighbors.
-///    // It must be boxed in order to automatically expand to the correct
-///    // width.
-///    #box(width: 1fr, it.fill)
-///   ]
-///   {
-///     // Displays the page number in red, while also keeping its link to
-///     // the referred element.
-///     set text(red)
-///     link(elem-loc, page-number)
-///   }
-/// })
-///
-/// #set page(numbering: "I")
-/// #set heading(numbering: "I.a.")
-/// #outline(indent: true, fill: repeat[-])
+/// #outline(indent: auto)
 ///
 /// = Introduction
-///
-/// == Motivation
-///
-/// #lorem(10)
-///
-/// == Research
-///
-/// #lorem(10)
-///
-/// === Funding
-///
-/// #lorem(10)
+/// = Background
+/// == History
+/// == State of the Art
+/// = Analysis
+/// == Setup
 /// ```
 ///
+/// To completely customize an entry's line, you can also build it from
+/// scratch by accessing the `level`, `element`, `outline`, and `fill`
+/// fields on the entry.
 ///
 /// Display: Outline Entry
 /// Category: meta
 #[element(Show)]
 pub struct OutlineEntry {
-    /// The nesting level of this outline entry.
-    /// Starts at `{1}` for top-level entries.
-    #[default(NonZeroUsize::ONE)]
+    /// The nesting level of this outline entry. Starts at `{1}` for top-level
+    /// entries.
+    #[required]
     pub level: NonZeroUsize,
 
     /// The element this entry refers to. Its location will be available
-    /// through the [`location`]($type/content.location) method for content.
+    /// through the [`location`]($type/content.location) method on content
+    /// and can be [linked]($func/link) to.
+    #[required]
     pub element: Content,
 
     /// The content which is displayed in place of the referred element at its
-    /// entry in the outline.
-    /// For a heading, this would be its number followed by the heading's
-    /// title, for example.
-    pub outline: Content,
+    /// entry in the outline. For a heading, this would be its number followed
+    /// by the heading's title, for example.
+    #[required]
+    pub body: Content,
 
     /// The content used to fill the space between the element's outline and
     /// its page number, as defined by the outline element this entry is
     /// located in. When `{none}`, empty space is inserted in that gap instead.
     ///
     /// Note that, when using show rules to override outline entries, it is
-    /// recommended to wrap the filling content inside a `{box(width: 1fr)}`
-    /// so that the content automatically expands to the correct size of the
-    /// gap. For example, `{box(width: 1fr, repeat[-]}` would show precisely
-    /// as many `-` characters as necessary to fill a particular gap. See the
-    /// [box]($func/box) documentation for more information.
-    #[default(Some(RepeatElem::new(TextElem::packed(".")).pack()))]
+    /// recommended to wrap the filling content in a [`box`]($func/box) with
+    /// fractional width. For example, `{box(width: 1fr, repeat[-])}` would show
+    /// precisely as many `-` characters as necessary to fill a particular gap.
+    #[required]
     pub fill: Option<Content>,
 }
 
@@ -519,44 +457,29 @@ impl OutlineEntry {
             bail!(span, "cannot outline {}", elem.func().name());
         };
 
-        let Some(outline) = outlinable.outline(vt)? else {
+        let Some(body) = outlinable.outline(vt)? else {
             return Ok(None);
         };
 
-        Ok(Some(
-            Self::new()
-                .with_level(outlinable.level())
-                .with_element(elem)
-                .with_outline(outline)
-                .with_fill(fill),
-        ))
+        Ok(Some(Self::new(outlinable.level(), elem, body, fill)))
     }
 }
 
 impl Show for OutlineEntry {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
-        let elem = self.element(styles);
+        let elem = self.element();
 
         // In case a user constructs an outline entry with an arbitrary element.
         let Some(location) = elem.location() else {
             bail!(self.span(), "cannot outline {}", elem.func().name())
         };
 
-        // The outline text remains overridable.
-        seq.push(self.outline(styles).linked(Destination::Location(location)));
-
-        let page_numbering = vt
-            .introspector
-            .page_numbering(location)
-            .cast::<Option<Numbering>>()
-            .unwrap()
-            .unwrap_or_else(|| {
-                Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
-            });
+        // The body text remains overridable.
+        seq.push(self.body().linked(Destination::Location(location)));
 
         // Add filler symbols between the section name and page number.
-        if let Some(filler) = self.fill(styles) {
+        if let Some(filler) = self.fill() {
             seq.push(SpaceElem::new().pack());
             seq.push(
                 BoxElem::new()
@@ -569,14 +492,22 @@ impl Show for OutlineEntry {
             seq.push(HElem::new(Fr::one().into()).pack());
         }
 
-        // Add the page number.
+        let page_numbering = vt
+            .introspector
+            .page_numbering(location)
+            .cast::<Option<Numbering>>()
+            .unwrap()
+            .unwrap_or_else(|| {
+                Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
+            });
+
         let page = Counter::new(CounterKey::Page)
             .at(vt, location)?
             .display(vt, &page_numbering)?;
 
+        // Add the page number.
         seq.push(page.linked(Destination::Location(location)));
 
-        let body = Content::sequence(seq);
-        Ok(body)
+        Ok(Content::sequence(seq))
     }
 }

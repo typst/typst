@@ -2,105 +2,56 @@
 
 ---
 #set page(width: 150pt)
-#set heading(numbering: "a.")
-#show outline.entry.where(level: 1): strong
-#show outline.entry.where(level: 2): set text(red)
-#show outline.entry.where(level: 4): it => {
-    if it.fill != repeat[-] {
-        outline.entry(
-            level: 4,
-            element: it.element,
-            outline: {
-                set text(red)
-                it.outline
-            },
-            fill: repeat[-]
-        )
-    } else {
-        it
-    }
+#set heading(numbering: "1.")
+
+#show outline.entry.where(
+  level: 1
+): it => {
+  v(12pt, weak: true)
+  strong(it)
 }
 
-#outline()
+#outline(indent: auto)
 
-= Top heading
+#set text(8pt)
+#show heading: set block(spacing: 0.65em)
 
-#lorem(10)
-
-== Not top heading
-
-#lorem(10)
-
-=== Lower heading
-
-#lorem(10)
-
-=== Lower too
-
-#lorem(10)
-
-== Also not top
-
-#lorem(10)
-
-= Another top heading
-
-== Middle heading
-
-=== Lower heading
-
-==== Lowest heading
+= Introduction
+= Background
+== History
+== State of the Art
+= Analysis
+== Setup
 
 ---
-#set page(width: 150pt, numbering: "I")
+#set page(width: 150pt, numbering: "I", margin: (bottom: 20pt))
 #set heading(numbering: "1.")
-#show outline.entry.where(level: 1): it => locate(loc => {
-    let elem-loc = it.element.location()
-    let page-numbering = elem-loc.page-numbering()
-    let page-number = numbering(page-numbering, elem-loc.page())
-    {
-        set text(blue)
-        emph(link(elem-loc, it.outline))
-    }
-    [
-        #set text(blue)
-        #box(width: 1fr, repeat[O#it.fill.body])
-    ]
-    {
-        set text(red)
-        link(elem-loc, page-number)
-    }
-})
+#show outline.entry.where(level: 1): it => [
+  #let loc = it.element.location()
+  #let num = numbering(loc.page-numbering(), ..counter(page).at(loc))
+  #emph(link(loc, it.body))
+  #text(luma(100), box(width: 1fr, repeat[#it.fill.body;·]))
+  #link(loc, num)
+]
 
-#outline(indent: auto, fill: repeat[!])
+#counter(page).update(3)
+#outline(indent: auto, fill: repeat[--])
+
+#set text(8pt)
+#show heading: set block(spacing: 0.65em)
 
 = Top heading
-
-#lorem(10)
-
 == Not top heading
-
-#lorem(10)
-
 === Lower heading
-
-#lorem(10)
-
 === Lower too
-
-#lorem(10)
-
 == Also not top
 
-#lorem(10)
+#pagebreak()
+#set page(numbering: "1")
 
 = Another top heading
-
 == Middle heading
-
 === Lower heading
-
-#lorem(10)
 
 ---
 // Error: 2-23 cannot outline cite
