@@ -175,6 +175,10 @@ impl Layout for TableElem {
 
         // Add lines and backgrounds.
         for (frame, rows) in layout.fragment.iter_mut().zip(&layout.rows) {
+            if layout.cols.is_empty() || rows.is_empty() {
+                continue;
+            }
+
             // Render table lines.
             if let Some(stroke) = &stroke {
                 let thickness = stroke.thickness;
