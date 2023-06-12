@@ -96,11 +96,11 @@ impl BibliographyElem {
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
         let mut iter = introspector.query(&Self::func().select()).into_iter();
         let Some(elem) = iter.next() else {
-            return Err("the document does not contain a bibliography".into());
+            bail!("the document does not contain a bibliography");
         };
 
         if iter.next().is_some() {
-            Err("multiple bibliographies are not supported")?;
+            bail!("multiple bibliographies are not supported");
         }
 
         Ok(elem.to::<Self>().unwrap().clone())
@@ -162,42 +162,40 @@ impl Show for BibliographyElem {
             seq.push(HeadingElem::new(title).with_level(NonZeroUsize::ONE).pack());
         }
 
-        if !vt.introspector.init() {
-            return Ok(Content::sequence(seq));
-        }
+        Ok(vt.delayed(|vt| {
+            let works = Works::new(vt).at(self.span())?;
 
-        let works = Works::new(vt).at(self.span())?;
+            let row_gutter = BlockElem::below_in(styles).amount();
+            if works.references.iter().any(|(prefix, _)| prefix.is_some()) {
+                let mut cells = vec![];
+                for (prefix, reference) in &works.references {
+                    cells.push(prefix.clone().unwrap_or_default());
+                    cells.push(reference.clone());
+                }
 
-        let row_gutter = BlockElem::below_in(styles).amount();
-        if works.references.iter().any(|(prefix, _)| prefix.is_some()) {
-            let mut cells = vec![];
-            for (prefix, reference) in &works.references {
-                cells.push(prefix.clone().unwrap_or_default());
-                cells.push(reference.clone());
+                seq.push(VElem::new(row_gutter).with_weakness(3).pack());
+                seq.push(
+                    GridElem::new(cells)
+                        .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
+                        .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
+                        .with_row_gutter(TrackSizings(vec![row_gutter.into()]))
+                        .pack(),
+                );
+            } else {
+                let mut entries = vec![];
+                for (_, reference) in &works.references {
+                    entries.push(VElem::new(row_gutter).with_weakness(3).pack());
+                    entries.push(reference.clone());
+                }
+
+                seq.push(
+                    Content::sequence(entries)
+                        .styled(ParElem::set_hanging_indent(INDENT.into())),
+                );
             }
 
-            seq.push(VElem::new(row_gutter).with_weakness(3).pack());
-            seq.push(
-                GridElem::new(cells)
-                    .with_columns(TrackSizings(vec![Sizing::Auto; 2]))
-                    .with_column_gutter(TrackSizings(vec![COLUMN_GUTTER.into()]))
-                    .with_row_gutter(TrackSizings(vec![row_gutter.into()]))
-                    .pack(),
-            );
-        } else {
-            let mut entries = vec![];
-            for (_, reference) in &works.references {
-                entries.push(VElem::new(row_gutter).with_weakness(3).pack());
-                entries.push(reference.clone());
-            }
-
-            seq.push(
-                Content::sequence(entries)
-                    .styled(ParElem::set_hanging_indent(INDENT.into())),
-            );
-        }
-
-        Ok(Content::sequence(seq))
+            Ok(Content::sequence(seq))
+        }))
     }
 }
 
@@ -357,19 +355,17 @@ impl Synthesize for CiteElem {
 impl Show for CiteElem {
     #[tracing::instrument(name = "CiteElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        if !vt.introspector.init() {
-            return Ok(Content::empty());
-        }
-
-        let works = Works::new(vt).at(self.span())?;
-        let location = self.0.location().unwrap();
-        works
-            .citations
-            .get(&location)
-            .cloned()
-            .flatten()
-            .ok_or("bibliography does not contain this key")
-            .at(self.span())
+        Ok(vt.delayed(|vt| {
+            let works = Works::new(vt).at(self.span())?;
+            let location = self.0.location().unwrap();
+            works
+                .citations
+                .get(&location)
+                .cloned()
+                .flatten()
+                .ok_or("bibliography does not contain this key")
+                .at(self.span())
+        }))
     }
 }
 

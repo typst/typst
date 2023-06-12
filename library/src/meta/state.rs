@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Formatter, Write};
 
 use ecow::{eco_vec, EcoVec};
 use typst::eval::Tracer;
+use typst::model::DelayedErrors;
 
 use crate::prelude::*;
 
@@ -306,9 +307,10 @@ impl State {
     fn sequence(&self, vt: &mut Vt) -> SourceResult<EcoVec<Value>> {
         self.sequence_impl(
             vt.world,
-            TrackedMut::reborrow_mut(&mut vt.tracer),
-            vt.locator.track(),
             vt.introspector,
+            vt.locator.track(),
+            TrackedMut::reborrow_mut(&mut vt.delayed),
+            TrackedMut::reborrow_mut(&mut vt.tracer),
         )
     }
 
@@ -317,12 +319,19 @@ impl State {
     fn sequence_impl(
         &self,
         world: Tracked<dyn World + '_>,
-        tracer: TrackedMut<Tracer>,
-        locator: Tracked<Locator>,
         introspector: Tracked<Introspector>,
+        locator: Tracked<Locator>,
+        delayed: TrackedMut<DelayedErrors>,
+        tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<Value>> {
         let mut locator = Locator::chained(locator);
-        let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
+        let mut vt = Vt {
+            world,
+            introspector,
+            locator: &mut locator,
+            delayed,
+            tracer,
+        };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];
 
@@ -397,16 +406,14 @@ struct DisplayElem {
 impl Show for DisplayElem {
     #[tracing::instrument(name = "DisplayElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        if !vt.introspector.init() {
-            return Ok(Content::empty());
-        }
-
-        let location = self.0.location().unwrap();
-        let value = self.state().at(vt, location)?;
-        Ok(match self.func() {
-            Some(func) => func.call_vt(vt, [value])?.display(),
-            None => value.display(),
-        })
+        Ok(vt.delayed(|vt| {
+            let location = self.0.location().unwrap();
+            let value = self.state().at(vt, location)?;
+            Ok(match self.func() {
+                Some(func) => func.call_vt(vt, [value])?.display(),
+                None => value.display(),
+            })
+        }))
     }
 }
 

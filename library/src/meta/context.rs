@@ -73,12 +73,10 @@ struct LocateElem {
 impl Show for LocateElem {
     #[tracing::instrument(name = "LocateElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        if !vt.introspector.init() {
-            return Ok(Content::empty());
-        }
-
-        let location = self.0.location().unwrap();
-        Ok(self.func().call_vt(vt, [location])?.display())
+        Ok(vt.delayed(|vt| {
+            let location = self.0.location().unwrap();
+            Ok(self.func().call_vt(vt, [location])?.display())
+        }))
     }
 }
 

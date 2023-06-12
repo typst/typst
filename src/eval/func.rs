@@ -11,7 +11,7 @@ use super::{
     Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::model::{ElemFunc, Introspector, Locator, Vt};
+use crate::model::{DelayedErrors, ElemFunc, Introspector, Locator, Vt};
 use crate::syntax::ast::{self, AstNode, Expr, Ident};
 use crate::syntax::{SourceId, Span, SyntaxNode};
 use crate::World;
@@ -102,9 +102,10 @@ impl Func {
                     self,
                     vm.world(),
                     route,
-                    TrackedMut::reborrow_mut(&mut vm.vt.tracer),
-                    vm.vt.locator.track(),
                     vm.vt.introspector,
+                    vm.vt.locator.track(),
+                    TrackedMut::reborrow_mut(&mut vm.vt.delayed),
+                    TrackedMut::reborrow_mut(&mut vm.vt.tracer),
                     vm.depth + 1,
                     args,
                 )
@@ -129,9 +130,10 @@ impl Func {
         let mut locator = Locator::chained(vt.locator.track());
         let vt = Vt {
             world: vt.world,
-            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
-            locator: &mut locator,
             introspector: vt.introspector,
+            locator: &mut locator,
+            delayed: TrackedMut::reborrow_mut(&mut vt.delayed),
+            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
         };
         let mut vm = Vm::new(vt, route.track(), id, scopes);
         let args = Args::new(self.span(), args);
@@ -326,9 +328,10 @@ impl Closure {
         this: &Func,
         world: Tracked<dyn World + '_>,
         route: Tracked<Route>,
-        tracer: TrackedMut<Tracer>,
-        locator: Tracked<Locator>,
         introspector: Tracked<Introspector>,
+        locator: Tracked<Locator>,
+        delayed: TrackedMut<DelayedErrors>,
+        tracer: TrackedMut<Tracer>,
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
@@ -344,7 +347,13 @@ impl Closure {
 
         // Prepare VT.
         let mut locator = Locator::chained(locator);
-        let vt = Vt { world, tracer, locator: &mut locator, introspector };
+        let vt = Vt {
+            world,
+            introspector,
+            locator: &mut locator,
+            delayed,
+            tracer,
+        };
 
         // Prepare VM.
         let mut vm = Vm::new(vt, route, closure.location, scopes);

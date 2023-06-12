@@ -241,11 +241,6 @@ impl Introspector {
 
 #[comemo::track]
 impl Introspector {
-    /// Whether this introspector is not yet initialized.
-    pub fn init(&self) -> bool {
-        self.pages > 0
-    }
-
     /// Query for all matching elements.
     pub fn query(&self, selector: &Selector) -> EcoVec<Prehashed<Content>> {
         let hash = crate::util::hash128(selector);

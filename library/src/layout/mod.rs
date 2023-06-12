@@ -50,6 +50,7 @@ use std::mem;
 use typed_arena::Arena;
 use typst::diag::SourceResult;
 use typst::eval::Tracer;
+use typst::model::DelayedErrors;
 use typst::model::{applicable, realize, StyleVecBuilder};
 
 use crate::math::{EquationElem, LayoutMath};
@@ -116,13 +117,20 @@ impl LayoutRoot for Content {
         fn cached(
             content: &Content,
             world: Tracked<dyn World + '_>,
-            tracer: TrackedMut<Tracer>,
-            locator: Tracked<Locator>,
             introspector: Tracked<Introspector>,
+            locator: Tracked<Locator>,
+            delayed: TrackedMut<DelayedErrors>,
+            tracer: TrackedMut<Tracer>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
             let mut locator = Locator::chained(locator);
-            let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
+            let mut vt = Vt {
+                world,
+                introspector,
+                locator: &mut locator,
+                delayed,
+                tracer,
+            };
             let scratch = Scratch::default();
             let (realized, styles) = realize_root(&mut vt, &scratch, content, styles)?;
             realized
@@ -132,13 +140,13 @@ impl LayoutRoot for Content {
         }
 
         tracing::info!("Starting layout");
-
         cached(
             self,
             vt.world,
-            TrackedMut::reborrow_mut(&mut vt.tracer),
-            vt.locator.track(),
             vt.introspector,
+            vt.locator.track(),
+            TrackedMut::reborrow_mut(&mut vt.delayed),
+            TrackedMut::reborrow_mut(&mut vt.tracer),
             styles,
         )
     }
@@ -168,9 +176,10 @@ pub trait Layout {
         let mut locator = Locator::chained(vt.locator.track());
         let mut vt = Vt {
             world: vt.world,
-            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
-            locator: &mut locator,
             introspector: vt.introspector,
+            locator: &mut locator,
+            tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
+            delayed: TrackedMut::reborrow_mut(&mut vt.delayed),
         };
         self.layout(&mut vt, styles, regions)
     }
@@ -184,18 +193,26 @@ impl Layout for Content {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
+        #[allow(clippy::too_many_arguments)]
         #[comemo::memoize]
         fn cached(
             content: &Content,
             world: Tracked<dyn World + '_>,
-            tracer: TrackedMut<Tracer>,
-            locator: Tracked<Locator>,
             introspector: Tracked<Introspector>,
+            locator: Tracked<Locator>,
+            delayed: TrackedMut<DelayedErrors>,
+            tracer: TrackedMut<Tracer>,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment> {
             let mut locator = Locator::chained(locator);
-            let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
+            let mut vt = Vt {
+                world,
+                introspector,
+                locator: &mut locator,
+                delayed,
+                tracer,
+            };
             let scratch = Scratch::default();
             let (realized, styles) = realize_block(&mut vt, &scratch, content, styles)?;
             realized
@@ -209,9 +226,10 @@ impl Layout for Content {
         let fragment = cached(
             self,
             vt.world,
-            TrackedMut::reborrow_mut(&mut vt.tracer),
-            vt.locator.track(),
             vt.introspector,
+            vt.locator.track(),
+            TrackedMut::reborrow_mut(&mut vt.delayed),
+            TrackedMut::reborrow_mut(&mut vt.tracer),
             styles,
             regions,
         )?;

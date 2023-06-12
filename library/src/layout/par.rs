@@ -5,6 +5,7 @@ use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::{LineBreakIteratorUtf8, LineSegmenter};
 use once_cell::sync::Lazy;
 use typst::eval::Tracer;
+use typst::model::DelayedErrors;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
 use unicode_script::{Script, UnicodeScript};
 
@@ -148,16 +149,23 @@ impl ParElem {
         fn cached(
             par: &ParElem,
             world: Tracked<dyn World + '_>,
-            tracer: TrackedMut<Tracer>,
-            locator: Tracked<Locator>,
             introspector: Tracked<Introspector>,
+            locator: Tracked<Locator>,
+            delayed: TrackedMut<DelayedErrors>,
+            tracer: TrackedMut<Tracer>,
             styles: StyleChain,
             consecutive: bool,
             region: Size,
             expand: bool,
         ) -> SourceResult<Fragment> {
             let mut locator = Locator::chained(locator);
-            let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
+            let mut vt = Vt {
+                world,
+                introspector,
+                locator: &mut locator,
+                delayed,
+                tracer,
+            };
             let children = par.children();
 
             // Collect all text into one string for BiDi analysis.
@@ -178,9 +186,10 @@ impl ParElem {
         let fragment = cached(
             self,
             vt.world,
-            TrackedMut::reborrow_mut(&mut vt.tracer),
-            vt.locator.track(),
             vt.introspector,
+            vt.locator.track(),
+            TrackedMut::reborrow_mut(&mut vt.delayed),
+            TrackedMut::reborrow_mut(&mut vt.tracer),
             styles,
             consecutive,
             region,
