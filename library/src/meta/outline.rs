@@ -47,10 +47,20 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// )
 /// ```
 ///
+/// ## Styling the outline { #styling-the-outline }
+/// The outline element has several options for customization, such as its
+/// `title` and `indent` parameters. If desired, however, it is possible to
+/// have more control over the outline's look and style through the
+/// [`outline.entry`]($func/outline.entry) element.
+///
 /// Display: Outline
 /// Category: meta
 /// Keywords: Table of Contents
 #[element(Show, Finalize, LocalName)]
+#[scope(
+    scope.define("entry", OutlineEntry::func());
+    scope
+)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
@@ -199,64 +209,29 @@ impl Show for OutlineElem {
         let elems = vt.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
-            let Some(outlinable) = elem.with::<dyn Outlinable>() else {
-                bail!(self.span(), "cannot outline {}", elem.func().name());
+            let Some(entry) = OutlineEntry::from_outlinable(vt, self.span(), elem.clone().into_inner(), self.fill(styles))? else {
+                continue;
             };
 
-            if depth < outlinable.level() {
+            let level = entry.level();
+            if depth < level {
                 continue;
             }
-
-            let Some(outline) = outlinable.outline(vt)? else {
-                continue;
-            };
-
-            let location = elem.location().unwrap();
 
             // Deals with the ancestors of the current element.
             // This is only applicable for elements with a hierarchy/level.
             while ancestors
                 .last()
                 .and_then(|ancestor| ancestor.with::<dyn Outlinable>())
-                .map_or(false, |last| last.level() >= outlinable.level())
+                .map_or(false, |last| last.level() >= level)
             {
                 ancestors.pop();
             }
 
             OutlineIndent::apply(&indent, vt, &ancestors, &mut seq, self.span())?;
 
-            // Add the outline of the element.
-            seq.push(outline.linked(Destination::Location(location)));
-
-            let page_numbering = vt
-                .introspector
-                .page_numbering(location)
-                .cast::<Option<Numbering>>()
-                .unwrap()
-                .unwrap_or_else(|| {
-                    Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
-                });
-
-            // Add filler symbols between the section name and page number.
-            if let Some(filler) = self.fill(styles) {
-                seq.push(SpaceElem::new().pack());
-                seq.push(
-                    BoxElem::new()
-                        .with_body(Some(filler.clone()))
-                        .with_width(Fr::one().into())
-                        .pack(),
-                );
-                seq.push(SpaceElem::new().pack());
-            } else {
-                seq.push(HElem::new(Fr::one().into()).pack());
-            }
-
-            // Add the page number and linebreak.
-            let page = Counter::new(CounterKey::Page)
-                .at(vt, location)?
-                .display(vt, &page_numbering)?;
-
-            seq.push(page.linked(Destination::Location(location)));
+            // Add the overridable outline entry, followed by a line break.
+            seq.push(entry.pack());
             seq.push(LinebreakElem::new().pack());
 
             ancestors.push(elem);
@@ -398,4 +373,141 @@ cast! {
     LengthOrContent,
     v: Rel<Length> => Self(HElem::new(Spacing::Rel(v)).pack()),
     v: Content => Self(v),
+}
+
+/// Represents each entry line in an outline, including the reference to the
+/// outlined element, its page number, and the filler content between both.
+///
+/// This element is intended for use with show rules to control the appearance
+/// of outlines.
+///
+/// ## Example { #example }
+/// The example below shows how to style entries for top-level sections to make
+/// them stand out.
+///
+/// ```example
+/// #set heading(numbering: "1.")
+///
+/// #show outline.entry.where(
+///   level: 1
+/// ): it => {
+///   v(12pt, weak: true)
+///   strong(it)
+/// }
+///
+/// #outline(indent: auto)
+///
+/// = Introduction
+/// = Background
+/// == History
+/// == State of the Art
+/// = Analysis
+/// == Setup
+/// ```
+///
+/// To completely customize an entry's line, you can also build it from
+/// scratch by accessing the `level`, `element`, `outline`, and `fill`
+/// fields on the entry.
+///
+/// Display: Outline Entry
+/// Category: meta
+#[element(Show)]
+pub struct OutlineEntry {
+    /// The nesting level of this outline entry. Starts at `{1}` for top-level
+    /// entries.
+    #[required]
+    pub level: NonZeroUsize,
+
+    /// The element this entry refers to. Its location will be available
+    /// through the [`location`]($type/content.location) method on content
+    /// and can be [linked]($func/link) to.
+    #[required]
+    pub element: Content,
+
+    /// The content which is displayed in place of the referred element at its
+    /// entry in the outline. For a heading, this would be its number followed
+    /// by the heading's title, for example.
+    #[required]
+    pub body: Content,
+
+    /// The content used to fill the space between the element's outline and
+    /// its page number, as defined by the outline element this entry is
+    /// located in. When `{none}`, empty space is inserted in that gap instead.
+    ///
+    /// Note that, when using show rules to override outline entries, it is
+    /// recommended to wrap the filling content in a [`box`]($func/box) with
+    /// fractional width. For example, `{box(width: 1fr, repeat[-])}` would show
+    /// precisely as many `-` characters as necessary to fill a particular gap.
+    #[required]
+    pub fill: Option<Content>,
+}
+
+impl OutlineEntry {
+    /// Generates an OutlineEntry from the given element, if possible
+    /// (errors if the element does not implement Outlinable).
+    /// If the element cannot be outlined (e.g. heading with 'outlined: false'),
+    /// does not generate an entry instance (returns Ok(None)).
+    fn from_outlinable(
+        vt: &mut Vt,
+        span: Span,
+        elem: Content,
+        fill: Option<Content>,
+    ) -> SourceResult<Option<Self>> {
+        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+            bail!(span, "cannot outline {}", elem.func().name());
+        };
+
+        let Some(body) = outlinable.outline(vt)? else {
+            return Ok(None);
+        };
+
+        Ok(Some(Self::new(outlinable.level(), elem, body, fill)))
+    }
+}
+
+impl Show for OutlineEntry {
+    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+        let mut seq = vec![];
+        let elem = self.element();
+
+        // In case a user constructs an outline entry with an arbitrary element.
+        let Some(location) = elem.location() else {
+            bail!(self.span(), "cannot outline {}", elem.func().name())
+        };
+
+        // The body text remains overridable.
+        seq.push(self.body().linked(Destination::Location(location)));
+
+        // Add filler symbols between the section name and page number.
+        if let Some(filler) = self.fill() {
+            seq.push(SpaceElem::new().pack());
+            seq.push(
+                BoxElem::new()
+                    .with_body(Some(filler))
+                    .with_width(Fr::one().into())
+                    .pack(),
+            );
+            seq.push(SpaceElem::new().pack());
+        } else {
+            seq.push(HElem::new(Fr::one().into()).pack());
+        }
+
+        let page_numbering = vt
+            .introspector
+            .page_numbering(location)
+            .cast::<Option<Numbering>>()
+            .unwrap()
+            .unwrap_or_else(|| {
+                Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
+            });
+
+        let page = Counter::new(CounterKey::Page)
+            .at(vt, location)?
+            .display(vt, &page_numbering)?;
+
+        // Add the page number.
+        seq.push(page.linked(Destination::Location(location)));
+
+        Ok(Content::sequence(seq))
+    }
 }
