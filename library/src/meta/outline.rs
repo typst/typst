@@ -254,6 +254,7 @@ impl Finalize for OutlineElem {
 impl LocalName for OutlineElem {
     fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
+            Lang::ALBANIAN => "Përmbajtja",
             Lang::ARABIC => "المحتويات",
             Lang::BOKMÅL => "Innhold",
             Lang::CHINESE if option_eq(region, "TW") => "目錄",
