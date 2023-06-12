@@ -101,8 +101,6 @@ pub(super) fn define(global: &mut Scope) {
     global.define("top", GenAlign::Specific(Align::Top));
     global.define("horizon", GenAlign::Specific(Align::Horizon));
     global.define("bottom", GenAlign::Specific(Align::Bottom));
-    global.define("even", EvenOrOdd::Even);
-    global.define("odd", EvenOrOdd::Odd);
 }
 
 /// Root-level layout.
@@ -450,18 +448,13 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         let Some(doc) = &mut self.doc else { return Ok(()) };
         if !self.flow.0.is_empty() || (doc.keep_next && styles.is_some()) {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
-            let clear_to = doc.clear_next;
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()
             } else {
                 shared
             };
-            let mut page = PageElem::new(FlowElem::new(flow.to_vec()).pack());
-            if clear_to.is_some() {
-                page.push_clear_to(clear_to);
-            }
-            let page_content = page.pack();
-            let stored = self.scratch.content.alloc(page_content);
+            let page = PageElem::new(FlowElem::new(flow.to_vec()).pack());
+            let stored = self.scratch.content.alloc(page.pack());
             self.accept(stored, styles)?;
         }
         Ok(())
@@ -475,21 +468,28 @@ struct DocBuilder<'a> {
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
     /// Whether the next page should be cleared to an even or odd number.
-    clear_next: Option<EvenOrOdd>,
+    clear_next: Option<Parity>,
 }
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.to::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
-            self.clear_next = pagebreak.clear_to(styles);
+            self.clear_next = pagebreak.to(styles);
             return true;
         }
 
-        if content.is::<PageElem>() {
-            self.pages.push(content.clone(), styles);
+        if let Some(page) = content.to::<PageElem>() {
+            let elem = if let Some(clear_to) = self.clear_next.take() {
+                let mut page = page.clone();
+                page.push_clear_to(Some(clear_to));
+                page.pack()
+            } else {
+                content.clone()
+            };
+
+            self.pages.push(elem, styles);
             self.keep_next = false;
-            self.clear_next = None;
             return true;
         }
 

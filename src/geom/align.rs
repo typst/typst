@@ -237,16 +237,3 @@ cast! {
         Self(align)
     },
 }
-
-/// Specifies whether something should be even or odd
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum EvenOrOdd {
-    /// Specifies the value should be even
-    Even,
-    /// Specifies the value should be odd
-    Odd,
-}
-
-cast! {
-    type EvenOrOdd: "even_or_odd",
-}

@@ -280,16 +280,6 @@ pub struct PageElem {
     /// ```
     pub foreground: Option<Content>,
 
-    /// Whether the page should be aligned to an even or odd page
-    ///
-    /// If the value is `even` or `odd`, and empty page will be inserted if
-    /// necessary to start the page on an even or odd numbered page. If `none`
-    /// then the page will start on either an even or an odd page, whichever
-    /// comes next.
-    ///
-    /// Note that this only works for pages with defines size (i.e., not `auto`)
-    pub clear_to: Option<EvenOrOdd>,
-
     /// The contents of the page(s).
     ///
     /// Multiple pages will be created if the content does not fit on a single
@@ -297,6 +287,11 @@ pub struct PageElem {
     /// will be created after the body has been typeset.
     #[required]
     pub body: Content,
+
+    /// Whether the page should be aligned to an even or odd page.
+    /// Not part of the public API for now.
+    #[internal]
+    pub clear_to: Option<Parity>,
 }
 
 impl PageElem {
@@ -359,24 +354,12 @@ impl PageElem {
         regions.root = true;
 
         // Layout the child.
-        let child_fragment = child.layout(vt, styles, regions)?;
+        let mut frames = child.layout(vt, styles, regions)?.into_frames();
 
-        let mut fragment;
-
-        if (self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Even)
-            && Into::<usize>::into(number) % 2 == 1)
-            || (self.clear_to(styles).is_some_and(|c| c == EvenOrOdd::Odd)
-                && Into::<usize>::into(number) % 2 == 0)
-        {
-            let mut all_fragments = Vec::<Frame>::new();
-            if area.is_finite() {
-                // Can only add padding padding frames if size is known
-                all_fragments.push(Frame::new(area));
-            }
-            all_fragments.extend(child_fragment.into_frames());
-            fragment = Fragment::frames(all_fragments);
-        } else {
-            fragment = Fragment::frames(child_fragment.into_frames());
+        // Align the child to the pagebreak's parity.
+        if self.clear_to(styles).is_some_and(|p| !p.matches(number.get())) {
+            let size = area.map(Abs::is_finite).select(area, margin.sum_by_axis());
+            frames.insert(0, Frame::new(size));
         }
 
         let fill = self.fill(styles);
@@ -403,7 +386,7 @@ impl PageElem {
         );
 
         // Post-process pages.
-        for frame in fragment.iter_mut() {
+        for frame in frames.iter_mut() {
             tracing::info!("Layouting page #{number}");
 
             // The padded width of the page's content without margins.
@@ -474,38 +457,8 @@ impl PageElem {
             number = number.saturating_add(1);
         }
 
-        Ok(fragment)
+        Ok(Fragment::frames(frames))
     }
-}
-
-/// A manual page break.
-///
-/// Must not be used inside any containers.
-///
-/// ## Example { #example }
-/// ```example
-/// The next page contains
-/// more details on compound theory.
-/// #pagebreak()
-///
-/// == Compound Theory
-/// In 1984, the first ...
-/// ```
-///
-/// Display: Page Break
-/// Category: layout
-#[element]
-pub struct PagebreakElem {
-    /// If `{true}`, the page break is skipped if the current page is already
-    /// empty.
-    #[default(false)]
-    pub weak: bool,
-
-    /// If `even` or `odd`, then the next page will start on an even or odd
-    /// page, with an empty page being inserted in between if necessary. If
-    /// none, no empty pages will be inserted.
-    #[default(None)]
-    pub clear_to: Option<EvenOrOdd>,
 }
 
 /// Specification of the page's margins.
@@ -673,6 +626,53 @@ cast! {
     },
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
+}
+
+/// A manual page break.
+///
+/// Must not be used inside any containers.
+///
+/// ## Example { #example }
+/// ```example
+/// The next page contains
+/// more details on compound theory.
+/// #pagebreak()
+///
+/// == Compound Theory
+/// In 1984, the first ...
+/// ```
+///
+/// Display: Page Break
+/// Category: layout
+#[element]
+pub struct PagebreakElem {
+    /// If `{true}`, the page break is skipped if the current page is already
+    /// empty.
+    #[default(false)]
+    pub weak: bool,
+
+    /// If given, ensures then the next page will start on an even/odd page,
+    /// with an empty page being inserted in between if necessary.
+    pub to: Option<Parity>,
+}
+
+/// Whether something should be even or odd.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum Parity {
+    /// Next page will be an even page.
+    Even,
+    /// Next page will be an odd page.
+    Odd,
+}
+
+impl Parity {
+    /// Whether the given number matches the parity.
+    fn matches(self, number: usize) -> bool {
+        match self {
+            Self::Even => number % 2 == 0,
+            Self::Odd => number % 2 == 1,
+        }
+    }
 }
 
 /// Specification of a paper.
