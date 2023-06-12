@@ -256,7 +256,7 @@ impl<'a> Vm<'a> {
             }
         }
 
-        Err("cannot access file system from here".into())
+        bail!("cannot access file system from here")
     }
 }
 

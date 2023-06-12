@@ -216,7 +216,7 @@ cast! {
     v: Content => Self::Content(vec![v]),
     array: Array => {
         if array.is_empty() {
-            Err("array must contain at least one marker")?;
+            bail!("array must contain at least one marker");
         }
         Self::Content(array.into_iter().map(Value::display).collect())
     },

@@ -205,7 +205,7 @@ cast! {
             (Some(a), Some(b), Some(c), None) => {
                 AllControlPoints(a.cast()?, b.cast()?, c.cast()?)
             },
-            _ => Err("path vertex must have 1, 2, or 3 points")?,
+            _ => bail!("path vertex must have 1, 2, or 3 points"),
         }
     },
 }

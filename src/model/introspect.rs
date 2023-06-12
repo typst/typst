@@ -9,7 +9,7 @@ use ecow::EcoVec;
 use indexmap::IndexMap;
 
 use super::{Content, Selector};
-use crate::diag::StrResult;
+use crate::diag::{bail, StrResult};
 use crate::doc::{Frame, FrameItem, Meta, Position};
 use crate::eval::{cast, Value};
 use crate::geom::{Point, Transform};
@@ -313,7 +313,7 @@ impl Introspector {
         let mut found = None;
         for elem in self.all().filter(|elem| elem.label() == Some(label)) {
             if found.is_some() {
-                return Err("label occurs multiple times in the document".into());
+                bail!("label occurs multiple times in the document");
             }
             found = Some(elem.clone());
         }

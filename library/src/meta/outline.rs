@@ -407,9 +407,8 @@ cast! {
 /// == Setup
 /// ```
 ///
-/// To completely customize an entry's line, you can also build it from
-/// scratch by accessing the `level`, `element`, `outline`, and `fill`
-/// fields on the entry.
+/// To completely customize an entry's line, you can also build it from scratch
+/// by accessing the `level`, `element`, `body`, and `fill` fields on the entry.
 ///
 /// Display: Outline Entry
 /// Category: meta

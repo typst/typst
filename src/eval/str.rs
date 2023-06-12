@@ -7,7 +7,7 @@ use ecow::EcoString;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{cast, dict, Args, Array, Dict, Func, IntoValue, Value, Vm};
-use crate::diag::{At, SourceResult, StrResult};
+use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::geom::GenAlign;
 
 /// Create a new [`Str`] from a format string.
@@ -507,7 +507,7 @@ cast! {
         let mut chars = string.chars();
         match (chars.next(), chars.next()) {
             (Some(c), None) => c,
-            _ => Err("expected exactly one character")?,
+            _ => bail!("expected exactly one character"),
         }
     },
 }
@@ -600,7 +600,7 @@ cast! {
     align: GenAlign => match align {
         GenAlign::Start => Self::Start,
         GenAlign::End => Self::End,
-        _ => Err("expected either `start` or `end`")?,
+        _ => bail!("expected either `start` or `end`"),
     },
 }
 

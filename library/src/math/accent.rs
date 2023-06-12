@@ -134,6 +134,6 @@ cast! {
     v: char => Self::new(v),
     v: Content => match v.to::<TextElem>() {
         Some(elem) => Value::Str(elem.text().into()).cast()?,
-        None => Err("expected text")?,
+        None => bail!("expected text"),
     },
 }

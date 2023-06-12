@@ -595,7 +595,7 @@ cast! {
     v: GenAlign => match v {
         GenAlign::Specific(Align::Left) => Self::Left,
         GenAlign::Specific(Align::Right) => Self::Right,
-        _ => Err("must be `left` or `right`")?,
+        _ => bail!("must be `left` or `right`"),
     },
 }
 

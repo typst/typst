@@ -280,7 +280,7 @@ cast! {
         let mut iter = array.into_iter();
         match (iter.next(), iter.next(), iter.next()) {
             (Some(a), Some(b), None) => Axes::new(a.cast()?, b.cast()?),
-            _ => Err("point array must contain exactly two entries")?,
+            _ => bail!("point array must contain exactly two entries"),
         }
     },
 }

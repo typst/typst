@@ -218,7 +218,7 @@ impl FromStr for NumberingPattern {
 
         let suffix = pattern[handled..].into();
         if pieces.is_empty() {
-            Err("invalid numbering pattern")?;
+            return Err("invalid numbering pattern");
         }
 
         Ok(Self { pieces, suffix, trimmed: false })

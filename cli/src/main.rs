@@ -21,7 +21,7 @@ use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use std::cell::OnceCell;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
-use typst::diag::{FileError, FileResult, SourceError, StrResult};
+use typst::diag::{bail, FileError, FileResult, SourceError, StrResult};
 use typst::doc::Document;
 use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
@@ -314,7 +314,7 @@ fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
             let string = command.output.to_str().unwrap_or_default();
             let numbered = string.contains("{n}");
             if !numbered && document.pages.len() > 1 {
-                Err("cannot export multiple PNGs without `{n}` in output path")?;
+                bail!("cannot export multiple PNGs without `{{n}}` in output path");
             }
 
             // Find a number width that accommodates all pages. For instance, the

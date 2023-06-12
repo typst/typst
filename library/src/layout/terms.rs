@@ -158,7 +158,7 @@ cast! {
         let mut iter = array.into_iter();
         let (term, description) = match (iter.next(), iter.next(), iter.next()) {
             (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
-            _ => Err("array must contain exactly two entries")?,
+            _ => bail!("array must contain exactly two entries"),
         };
         Self::new(term, description)
     },

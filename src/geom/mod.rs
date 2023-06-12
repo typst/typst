@@ -61,7 +61,7 @@ use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::*;
 
-use crate::diag::StrResult;
+use crate::diag::{bail, StrResult};
 use crate::eval::{array, cast, Array, Dict, Value};
 use crate::model::{Fold, Resolve, StyleChain};
 

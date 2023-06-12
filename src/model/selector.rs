@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{Content, ElemFunc, Label, Location};
-use crate::diag::StrResult;
+use crate::diag::{bail, StrResult};
 use crate::eval::{
     cast, CastInfo, Dict, FromValue, Func, IntoValue, Reflect, Regex, Value,
 };
@@ -201,8 +201,8 @@ impl FromValue for LocatableSelector {
                 }
                 Selector::Location(_) => {}
                 Selector::Label(_) => {}
-                Selector::Regex(_) => Err("text is not locatable")?,
-                Selector::Can(_) => Err("capability is not locatable")?,
+                Selector::Regex(_) => bail!("text is not locatable"),
+                Selector::Can(_) => bail!("capability is not locatable"),
                 Selector::Or(list) | Selector::And(list) => {
                     for selector in list {
                         validate(selector)?;
@@ -279,7 +279,7 @@ impl FromValue for ShowableSelector {
                 | Selector::Can(_)
                 | Selector::Before { .. }
                 | Selector::After { .. } => {
-                    Err("this selector cannot be used with show")?
+                    bail!("this selector cannot be used with show")
                 }
             }
             Ok(())

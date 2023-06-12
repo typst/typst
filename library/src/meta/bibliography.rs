@@ -633,7 +633,7 @@ fn parse_bib(path_str: &str, src: &str) -> StrResult<Vec<hayagriva::Entry>> {
                 .map(|error| format_biblatex_error(path_str, src, error))
                 .unwrap_or_else(|| eco_format!("failed to parse {path_str}"))
         }),
-        _ => Err("unknown bibliography format (must be .yml/.yaml or .bib)".into()),
+        _ => bail!("unknown bibliography format (must be .yml/.yaml or .bib)"),
     }
 }
 

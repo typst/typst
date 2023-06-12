@@ -6,7 +6,7 @@ use std::fmt::Debug;
 use ecow::eco_format;
 
 use super::{format_str, Regex, Value};
-use crate::diag::StrResult;
+use crate::diag::{bail, StrResult};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use Value::*;
 
@@ -219,7 +219,7 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 /// Compute the quotient of two values.
 pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
     if is_zero(&rhs) {
-        Err("cannot divide by zero")?;
+        bail!("cannot divide by zero");
     }
 
     Ok(match (lhs, rhs) {

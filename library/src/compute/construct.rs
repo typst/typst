@@ -171,12 +171,12 @@ cast! {
     Component,
     v: i64 => match v {
         0 ..= 255 => Self(v as u8),
-        _ => Err("number must be between 0 and 255")?,
+        _ => bail!("number must be between 0 and 255"),
     },
     v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
     } else {
-        Err("ratio must be between 0% and 100%")?
+        bail!("ratio must be between 0% and 100%");
     },
 }
 
@@ -375,7 +375,7 @@ cast! {
     v: Ratio => if (0.0 ..= 1.0).contains(&v.get()) {
         Self((v.get() * 255.0).round() as u8)
     } else {
-        Err("ratio must be between 0% and 100%")?
+        bail!("ratio must be between 0% and 100%");
     },
 }
 
@@ -437,7 +437,7 @@ cast! {
         let mut iter = array.into_iter();
         match (iter.next(), iter.next(), iter.next()) {
             (Some(a), Some(b), None) => Self(a.cast()?, b.cast()?),
-            _ => Err("point array must contain exactly two entries")?,
+            _ => bail!("point array must contain exactly two entries"),
         }
     },
 }
