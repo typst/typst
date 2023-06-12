@@ -453,8 +453,8 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             } else {
                 shared
             };
-            let page = PageElem::new(FlowElem::new(flow.to_vec()).pack()).pack();
-            let stored = self.scratch.content.alloc(page);
+            let page = PageElem::new(FlowElem::new(flow.to_vec()).pack());
+            let stored = self.scratch.content.alloc(page.pack());
             self.accept(stored, styles)?;
         }
         Ok(())
@@ -467,17 +467,28 @@ struct DocBuilder<'a> {
     pages: StyleVecBuilder<'a, Content>,
     /// Whether to keep a following page even if it is empty.
     keep_next: bool,
+    /// Whether the next page should be cleared to an even or odd number.
+    clear_next: Option<Parity>,
 }
 
 impl<'a> DocBuilder<'a> {
     fn accept(&mut self, content: &Content, styles: StyleChain<'a>) -> bool {
         if let Some(pagebreak) = content.to::<PagebreakElem>() {
             self.keep_next = !pagebreak.weak(styles);
+            self.clear_next = pagebreak.to(styles);
             return true;
         }
 
-        if content.is::<PageElem>() {
-            self.pages.push(content.clone(), styles);
+        if let Some(page) = content.to::<PageElem>() {
+            let elem = if let Some(clear_to) = self.clear_next.take() {
+                let mut page = page.clone();
+                page.push_clear_to(Some(clear_to));
+                page.pack()
+            } else {
+                content.clone()
+            };
+
+            self.pages.push(elem, styles);
             self.keep_next = false;
             return true;
         }
@@ -488,7 +499,11 @@ impl<'a> DocBuilder<'a> {
 
 impl Default for DocBuilder<'_> {
     fn default() -> Self {
-        Self { pages: StyleVecBuilder::new(), keep_next: true }
+        Self {
+            pages: StyleVecBuilder::new(),
+            keep_next: true,
+            clear_next: None,
+        }
     }
 }
 
