@@ -4,7 +4,6 @@ use std::str::FromStr;
 use super::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, Numbering};
 use crate::prelude::*;
-use typst::eval::{CastInfo, FromValue, IntoValue, Reflect};
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -98,10 +97,10 @@ pub struct PageElem {
     ///   - `right`: The right margin.
     ///   - `bottom`: The bottom margin.
     ///   - `left`: The left margin.
-    ///   - `inside`: The inner margin for two-sided documents. This value must
-    ///   be mutually exclusive with `left` and `right`.
-    ///   - `outside`: The outer margin for two-sided documents. This value must
-    ///   be mutually exclusive with `left` and `right`.
+    ///   - `inside`: The inner margin for two-sided documents. Mutually
+    ///      exclusive with `left`, `right`, and `x`.
+    ///   - `outside`: The outer margin for two-sided documents. Mutually
+    ///      exclusive with `left`, `right`, and `x`.
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
     ///   - `rest`: The margins on all sides except those for which the
@@ -307,12 +306,11 @@ impl PageElem {
 
         // Determine the margins.
         let default = Rel::<Length>::from(0.1190 * min);
-
         let margin = self.margin(styles);
-        let margin_sides = margin
+        let two_sided = margin.two_sided.unwrap_or(false);
+        let margin = margin
             .sides
-            .map(|side| side.unwrap_or(Smart::Custom(default)))
-            .map(|side| side.unwrap_or(default))
+            .map(|side| side.and_then(Smart::as_custom).unwrap_or(default))
             .resolve(styles)
             .relative_to(size);
 
@@ -323,7 +321,7 @@ impl PageElem {
             child = ColumnsElem::new(child).with_count(columns).pack();
         }
 
-        let area = size - margin_sides.sum_by_axis();
+        let area = size - margin.sum_by_axis();
         let mut regions = Regions::repeat(area, area.map(Abs::is_finite));
         regions.root = true;
 
@@ -360,19 +358,17 @@ impl PageElem {
             // The padded width of the page's content without margins.
             let pw = frame.width();
 
-            // Make a copy of the original margin sides in case you need to
-            // modify the margins for a two-sided document.
-            let mut margin_sides = margin_sides;
-
             // Swap right and left margins if the document is two-sided and the
-            // page number is even.
-            if margin.two_sided.unwrap_or(false) && number.get() % 2 == 0 {
-                std::mem::swap(&mut margin_sides.left, &mut margin_sides.right);
+            // page number is even. Make a copy of the original margin sides in
+            // case we need to modify the margins for a two-sided document.
+            let mut margin = margin;
+            if two_sided && number.get() % 2 == 0 {
+                std::mem::swap(&mut margin.left, &mut margin.right);
             }
 
             // Realize margins.
-            frame.set_size(frame.size() + margin_sides.sum_by_axis());
-            frame.translate(Point::new(margin_sides.left, margin_sides.top));
+            frame.set_size(frame.size() + margin.sum_by_axis());
+            frame.translate(Point::new(margin.left, margin.top));
             frame.push(Point::zero(), numbering_meta.clone());
 
             // The page size with margins.
@@ -391,17 +387,14 @@ impl PageElem {
 
                 let (pos, area, align);
                 if ptr::eq(marginal, &header) {
-                    let ascent = header_ascent.relative_to(margin_sides.top);
-                    pos = Point::with_x(margin_sides.left);
-                    area = Size::new(pw, margin_sides.top - ascent);
+                    let ascent = header_ascent.relative_to(margin.top);
+                    pos = Point::with_x(margin.left);
+                    area = Size::new(pw, margin.top - ascent);
                     align = Align::Bottom.into();
                 } else if ptr::eq(marginal, &footer) {
-                    let descent = footer_descent.relative_to(margin_sides.bottom);
-                    pos = Point::new(
-                        margin_sides.left,
-                        size.y - margin_sides.bottom + descent,
-                    );
-                    area = Size::new(pw, margin_sides.bottom - descent);
+                    let descent = footer_descent.relative_to(margin.bottom);
+                    pos = Point::new(margin.left, size.y - margin.bottom + descent);
+                    area = Size::new(pw, margin.bottom - descent);
                     align = Align::Top.into();
                 } else {
                     pos = Point::zero();
@@ -487,6 +480,105 @@ cast! {
     v: Func => Self::Func(v),
 }
 
+/// Specification of the page's margins.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Margin {
+    pub sides: Sides<Option<Smart<Rel<Length>>>>,
+    pub two_sided: Option<bool>,
+}
+
+impl Margin {
+    /// Create an instance with four equal components.
+    pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
+        Self { sides: Sides::splat(value), two_sided: None }
+    }
+}
+
+impl Fold for Margin {
+    type Output = Margin;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        let sides =
+            self.sides
+                .zip(outer.sides)
+                .map(|(inner, outer)| match (inner, outer) {
+                    (Some(value), Some(outer)) => Some(value.fold(outer)),
+                    _ => inner.or(outer),
+                });
+        let two_sided = self.two_sided.or(outer.two_sided);
+        Margin { sides, two_sided }
+    }
+}
+
+cast! {
+    Margin,
+    self => {
+        let mut dict = Dict::new();
+        let mut handle = |key: &str, component: Value| {
+            let value = component.into_value();
+            if value != Value::None {
+                dict.insert(key.into(), value);
+            }
+        };
+
+        handle("top", self.sides.top.into_value());
+        handle("bottom", self.sides.bottom.into_value());
+        if self.two_sided.unwrap_or(false) {
+            handle("inside", self.sides.right.into_value());
+            handle("outside", self.sides.left.into_value());
+        } else {
+            handle("left", self.sides.left.into_value());
+            handle("right", self.sides.right.into_value());
+        }
+
+        Value::Dict(dict)
+    },
+    _: AutoValue => Self::splat(Some(Smart::Auto)),
+    v: Rel<Length> => Self::splat(Some(Smart::Custom(v))),
+    mut dict: Dict => {
+        let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
+
+        let rest = take("rest")?;
+        let x = take("x")?.or(rest);
+        let y = take("y")?.or(rest);
+        let top = take("top")?.or(y);
+        let bottom = take("bottom")?.or(y);
+        let outside = take("outside")?;
+        let inside = take("inside")?;
+        let left = take("left")?;
+        let right = take("right")?;
+
+        let implicitly_two_sided = outside.is_some() || inside.is_some();
+        let implicitly_not_two_sided = left.is_some() || right.is_some();
+        if implicitly_two_sided && implicitly_not_two_sided {
+            bail!("`inside` and `outside` is mutually exclusive with `left`, `right`, and `x`");
+        }
+
+        // - if 'implicitly_two_sided' is false here, then
+        //   'implicitly_not_two_sided' will be guaranteed to be true
+        //    due to the previous two 'if' conditions.
+        // - if both are false, this means that this margin change does not
+        //   affect lateral margins, and thus shouldn't make a difference on
+        //   the 'two_sided' attribute of this margin.
+        let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
+            .then_some(implicitly_two_sided);
+
+        dict.finish(&[
+            "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
+        ])?;
+
+        Margin {
+            sides: Sides {
+                left: outside.or(left).or(x),
+                top,
+                right: inside.or(right).or(x),
+                bottom,
+            },
+            two_sided,
+        }
+    }
+}
+
 /// Specification of a paper.
 #[derive(Debug, Copy, Clone, Hash)]
 pub struct Paper {
@@ -544,132 +636,6 @@ macro_rules! papers {
             )*
         }
     };
-}
-
-#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct Margin {
-    pub sides: Sides<Option<Smart<Rel<Length>>>>,
-    pub two_sided: Option<bool>,
-}
-
-impl Reflect for Margin {
-    fn castable(value: &Value) -> bool {
-        matches!(
-            value,
-            Value::Auto | Value::Dict(_) | Value::Length(_) | Value::Relative(_)
-        )
-    }
-
-    fn describe() -> CastInfo {
-        CastInfo::Type("auto")
-            + CastInfo::Type("dictionary")
-            + CastInfo::Type("length")
-            + CastInfo::Type("relative length")
-    }
-}
-
-impl FromValue for Margin {
-    fn from_value(value: Value) -> StrResult<Self> {
-        match value {
-            Value::Auto => Ok(Self::splat(Some(Value::cast(value)?))),
-            Value::Length(value) => Ok(Self::splat(Some(Smart::Custom(value.into())))),
-            Value::Relative(value) => Ok(Self::splat(Some(Smart::Custom(value)))),
-            Value::Dict(mut dict) => {
-                let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
-
-                let rest = take("rest")?;
-                let x = take("x")?.or(rest);
-                let y = take("y")?.or(rest);
-                let top = take("top")?.or(y);
-                let bottom = take("bottom")?.or(y);
-                let outside = take("outside")?;
-                let inside = take("inside")?;
-                let mut left = take("left")?;
-                let mut right = take("right")?;
-
-                let implicitly_two_sided = outside.is_some() || inside.is_some();
-                let implicitly_not_two_sided = left.is_some() || right.is_some();
-
-                if implicitly_two_sided && implicitly_not_two_sided {
-                    return Err("Error: Cannot determine if the page is two-sided. Use either outside and inside margins or left and right margins, but not both.".into());
-                }
-
-                let two_sided = if implicitly_two_sided || implicitly_not_two_sided {
-                    // if 'implicitly_two_sided' is false here, then
-                    // 'implicitly_not_two_sided' will be guaranteed to be true
-                    //  due to the previous two 'if' conditions.
-                    Some(implicitly_two_sided)
-                } else {
-                    // if both are false, this means that this margin change does not
-                    // affect lateral margins, and thus shouldn't make a difference on
-                    // the 'two_sided' attribute of this margin.
-                    None
-                };
-
-                left = outside.or(left).or(x);
-                right = inside.or(right).or(x);
-
-                let sides = Sides { left, top, right, bottom };
-
-                let margin = Margin { sides, two_sided };
-
-                dict.finish(&[
-                    "left", "top", "right", "bottom", "x", "y", "outside", "inside",
-                    "rest",
-                ])?;
-
-                Ok(margin)
-            }
-            _ => Err(Self::error(&value)),
-        }
-    }
-}
-
-impl Margin {
-    /// Create an instance with four equal components.
-    pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
-        Self { sides: Sides::splat(value), two_sided: None }
-    }
-}
-
-impl IntoValue for Margin {
-    fn into_value(self) -> Value {
-        let mut dict = Dict::new();
-        let mut handle = |key: &str, component: Value| {
-            let value = component.into_value();
-            if value != Value::None {
-                dict.insert(key.into(), value);
-            }
-        };
-
-        handle("top", self.sides.top.into_value());
-        handle("bottom", self.sides.bottom.into_value());
-        if self.two_sided.unwrap_or(false) {
-            handle("inside", self.sides.right.into_value());
-            handle("outside", self.sides.left.into_value());
-        } else {
-            handle("left", self.sides.left.into_value());
-            handle("right", self.sides.right.into_value());
-        }
-
-        Value::Dict(dict)
-    }
-}
-
-impl Fold for Margin {
-    type Output = Margin;
-
-    fn fold(self, outer: Self::Output) -> Self::Output {
-        let sides =
-            self.sides
-                .zip(outer.sides)
-                .map(|(inner, outer)| match (inner, outer) {
-                    (Some(value), Some(outer)) => Some(value.fold(outer)),
-                    _ => inner.or(outer),
-                });
-        let two_sided = self.two_sided.or(outer.two_sided);
-        Margin { sides, two_sided }
-    }
 }
 
 // All paper sizes in mm.

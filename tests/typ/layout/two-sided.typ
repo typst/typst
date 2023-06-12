@@ -1,8 +1,7 @@
-// Tests a multi-page document with two-sided pages
+// Tests a multi-page document with two-sided pages.
 
 ---
 #set page(margin: (outside: 0.25in, inside: 0.5in), height: 110pt)
-
 #set align(center + horizon)
 
 #text(24pt)[Title]
@@ -20,4 +19,3 @@
 
 == Header 2
 #lorem(30)
-

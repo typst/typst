@@ -1,4 +1,4 @@
-// Tests a multi-page document by mixing two-sided and single-sided pages.
+// Tests a multi-page document with mixed two-sided and single-sided pages.
 
 ---
 #set page(margin: (outside: 0.2in, inside: 0.6in), height: 100pt)
