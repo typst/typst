@@ -293,7 +293,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
         for y in 0..self.rows.len() {
             // Skip to next region if current one is full, but only for content
             // rows, not for gutter rows.
-            if y % 2 == 0 && self.regions.is_full() {
+            if self.regions.is_full() && (!self.has_gutter || y % 2 == 0) {
                 self.finish_region()?;
             }
 
@@ -547,7 +547,7 @@ impl<'a, 'v> GridLayouter<'a, 'v> {
             self.finish_region()?;
 
             // Don't skip multiple regions for gutter and don't push a row.
-            if y % 2 == 1 {
+            if self.has_gutter && y % 2 == 1 {
                 return Ok(());
             }
         }

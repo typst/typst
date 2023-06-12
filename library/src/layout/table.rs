@@ -222,8 +222,8 @@ impl Layout for TableElem {
     }
 }
 
-/// Turn an iterator extents into an iterator of offsets before, in between, and
-/// after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
+/// Turn an iterator of extents into an iterator of offsets before, in between,
+/// and after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
 fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
     let mut offset = Abs::zero();
     std::iter::once(Abs::zero())
