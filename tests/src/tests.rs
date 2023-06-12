@@ -24,11 +24,11 @@ use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, RgbaColor, Sides, Smart};
+use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
 use typst::util::{Buffer, PathExt};
 use typst::World;
-use typst_library::layout::PageElem;
+use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
 
 const TYP_DIR: &str = "typ";
@@ -177,7 +177,7 @@ fn library() -> Library {
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Sides::splat(Some(Smart::Custom(
+    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
         Abs::pt(10.0).into(),
     )))));
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
