@@ -412,10 +412,10 @@ fn math_class(text: &str) -> Option<MathClass> {
 fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
     match kind {
         SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 3))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
         }
         SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 3))
+            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
         }
         SyntaxKind::Slash => {
             Some((SyntaxKind::MathFrac, SyntaxKind::Eof, ast::Assoc::Left, 1))
@@ -1060,7 +1060,7 @@ fn for_loop(p: &mut Parser) {
     p.assert(SyntaxKind::For);
     pattern(p);
     if p.at(SyntaxKind::Comma) {
-        p.expected("keyword `in`. did you mean to use a destructuring pattern?");
+        p.expected("keyword `in` - did you mean to use a destructuring pattern?");
         if !p.eat_if(SyntaxKind::Ident) {
             p.eat_if(SyntaxKind::Underscore);
         }

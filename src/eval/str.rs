@@ -567,7 +567,7 @@ impl Hash for Regex {
 }
 
 cast! {
-    type Regex: "regex",
+    type Regex: "regular expression",
 }
 
 /// A pattern which can be searched for in a string.

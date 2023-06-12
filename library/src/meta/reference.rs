@@ -180,7 +180,7 @@ impl Show for RefElem {
         let numbering = refable
             .numbering()
             .ok_or_else(|| {
-                eco_format!("cannot reference {} without numbering", elem.func().name())
+                eco_format!("cannot reference {0} without numbering - did you mean to use `#set {0}(numbering: \"1.\")`?", elem.func().name())
             })
             .at(span)?;
 
@@ -254,7 +254,7 @@ cast! {
 /// Marks an element as being able to be referenced. This is used to implement
 /// the `@ref` element.
 pub trait Refable {
-    /// The supplement, if not overriden by the reference.
+    /// The supplement, if not overridden by the reference.
     fn supplement(&self) -> Content;
 
     /// Returns the counter of this element.

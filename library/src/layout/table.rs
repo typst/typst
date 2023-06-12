@@ -302,6 +302,7 @@ impl<T: FromValue> FromValue for Celled<T> {
 impl LocalName for TableElem {
     fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
+            Lang::ALBANIAN => "Tabel",
             Lang::ARABIC => "جدول",
             Lang::BOKMÅL => "Tabell",
             Lang::CHINESE => "表",
@@ -318,6 +319,7 @@ impl LocalName for TableElem {
             Lang::SLOVENIAN => "Tabela",
             Lang::SPANISH => "Tabla",
             Lang::SWEDISH => "Tabell",
+            Lang::TURKISH => "Tablo",
             Lang::UKRAINIAN => "Таблиця",
             Lang::VIETNAMESE => "Bảng",
             Lang::ENGLISH | _ => "Table",

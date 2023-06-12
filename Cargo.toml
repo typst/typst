@@ -3,8 +3,8 @@ members = ["cli", "docs", "library", "macros", "tests"]
 default-members = ["cli"]
 
 [workspace.package]
-version = "0.4.0"
-rust-version = "1.67"
+version = "0.5.0"
+rust-version = "1.70" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2021"
 homepage = "https://typst.app"

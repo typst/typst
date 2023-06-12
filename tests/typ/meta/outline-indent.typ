@@ -35,7 +35,7 @@
 #outline(indent: true)
 #outline(indent: none)
 #outline(indent: auto)
-#outline(indent: 2em)
+#outline(indent: n => 2em * n)
 #outline(indent: n => ([-], [], [==], [====]).at(n))
 #outline(indent: n => "!" * calc.pow(2, n))
 
@@ -54,7 +54,7 @@
 #lorem(10)
 
 ---
-// Error: 2-35 indent function must return content
+// Error: 2-35 expected relative length or content, found dictionary
 #outline(indent: n => (a: "dict"))
 
 = Heading

@@ -58,7 +58,8 @@ use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use crate::visualize::{
-    CircleElem, EllipseElem, ImageElem, PathElem, PolygonElem, RectElem, SquareElem,
+    CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
+    SquareElem,
 };
 
 /// Hook up all layout definitions.
@@ -250,6 +251,7 @@ fn realize_block<'a>(
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
     if content.can::<dyn Layout>()
+        && !content.is::<LineElem>()
         && !content.is::<RectElem>()
         && !content.is::<SquareElem>()
         && !content.is::<EllipseElem>()

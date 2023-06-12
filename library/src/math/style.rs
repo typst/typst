@@ -170,11 +170,11 @@ pub fn display(
     /// and superscripts do.
     #[named]
     #[default(false)]
-    cramp: bool,
+    cramped: bool,
 ) -> Content {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::Display))
-        .with_cramp(Some(cramp))
+        .with_cramped(Some(cramped))
         .pack()
 }
 
@@ -198,11 +198,11 @@ pub fn inline(
     /// and superscripts do.
     #[named]
     #[default(false)]
-    cramp: bool,
+    cramped: bool,
 ) -> Content {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::Text))
-        .with_cramp(Some(cramp))
+        .with_cramped(Some(cramped))
         .pack()
 }
 
@@ -225,11 +225,11 @@ pub fn script(
     /// and superscripts do.
     #[named]
     #[default(true)]
-    cramp: bool,
+    cramped: bool,
 ) -> Content {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::Script))
-        .with_cramp(Some(cramp))
+        .with_cramped(Some(cramped))
         .pack()
 }
 
@@ -253,11 +253,11 @@ pub fn sscript(
     /// and superscripts do.
     #[named]
     #[default(true)]
-    cramp: bool,
+    cramped: bool,
 ) -> Content {
     MathStyleElem::new(body)
         .with_size(Some(MathSize::ScriptScript))
-        .with_cramp(Some(cramp))
+        .with_cramped(Some(cramped))
         .pack()
 }
 
@@ -284,7 +284,7 @@ pub struct MathStyleElem {
     pub size: Option<MathSize>,
 
     /// Whether to limit height of exponents
-    pub cramp: Option<bool>,
+    pub cramped: Option<bool>,
 }
 
 impl LayoutMath for MathStyleElem {
@@ -303,7 +303,7 @@ impl LayoutMath for MathStyleElem {
         if let Some(size) = self.size(StyleChain::default()) {
             style = style.with_size(size);
         }
-        if let Some(cramped) = self.cramp(StyleChain::default()) {
+        if let Some(cramped) = self.cramped(StyleChain::default()) {
             style = style.with_cramped(cramped);
         }
         ctx.style(style);

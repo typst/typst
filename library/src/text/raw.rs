@@ -63,6 +63,9 @@ pub struct RawElem {
 
     /// Whether the raw text is displayed as a separate block.
     ///
+    /// In markup mode, using one-backtick notation makes this `{false}`,
+    /// whereas using three-backtick notation makes it `{true}`.
+    ///
     /// ````example
     /// // Display inline code in a small box
     /// // that retains the correct baseline.
@@ -226,6 +229,7 @@ impl Finalize for RawElem {
 impl LocalName for RawElem {
     fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
+            Lang::ALBANIAN => "List",
             Lang::ARABIC => "قائمة",
             Lang::BOKMÅL => "Utskrift",
             Lang::CHINESE => "代码",
@@ -240,6 +244,7 @@ impl LocalName for RawElem {
             Lang::RUSSIAN => "Листинг",
             Lang::SLOVENIAN => "Program",
             Lang::SWEDISH => "Listing",
+            Lang::TURKISH => "Liste",
             Lang::UKRAINIAN => "Лістинг",
             Lang::VIETNAMESE => "Chương trình", // TODO: This may be wrong.
             Lang::ENGLISH | _ => "Listing",

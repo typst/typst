@@ -1,10 +1,11 @@
 use std::io::Cursor;
 
-use image::{DynamicImage, GenericImageView, ImageResult, Rgba};
+use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Filter, Finish};
 
 use super::{deflate, PdfContext, RefExt};
-use crate::image::{DecodedImage, RasterFormat};
+use crate::image::{DecodedImage, Image, RasterFormat};
+use crate::util::Buffer;
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
@@ -20,9 +21,9 @@ pub fn write_images(ctx: &mut PdfContext) {
         // Add the primary image.
         // TODO: Error if image could not be encoded.
         match image.decoded().as_ref() {
-            DecodedImage::Raster(dynamic, icc, format) => {
+            DecodedImage::Raster(dynamic, icc, _) => {
                 // TODO: Error if image could not be encoded.
-                let (data, filter, has_color) = encode_image(*format, dynamic).unwrap();
+                let (data, filter, has_color) = encode_image(image);
                 let mut image = ctx.writer.image_xobject(image_ref, &data);
                 image.filter(filter);
                 image.width(width as i32);
@@ -86,24 +87,28 @@ pub fn write_images(ctx: &mut PdfContext) {
 /// whether the image has color.
 ///
 /// Skips the alpha channel as that's encoded separately.
+#[comemo::memoize]
 #[tracing::instrument(skip_all)]
-fn encode_image(
-    format: RasterFormat,
-    dynamic: &DynamicImage,
-) -> ImageResult<(Vec<u8>, Filter, bool)> {
-    Ok(match (format, dynamic) {
+fn encode_image(image: &Image) -> (Buffer, Filter, bool) {
+    let decoded = image.decoded();
+    let (dynamic, format) = match decoded.as_ref() {
+        DecodedImage::Raster(dynamic, _, format) => (dynamic, *format),
+        _ => panic!("can only encode raster image"),
+    };
+
+    match (format, dynamic) {
         // 8-bit gray JPEG.
         (RasterFormat::Jpg, DynamicImage::ImageLuma8(_)) => {
             let mut data = Cursor::new(vec![]);
-            dynamic.write_to(&mut data, image::ImageFormat::Jpeg)?;
-            (data.into_inner(), Filter::DctDecode, false)
+            dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
+            (data.into_inner().into(), Filter::DctDecode, false)
         }
 
         // 8-bit RGB JPEG (CMYK JPEGs get converted to RGB earlier).
         (RasterFormat::Jpg, DynamicImage::ImageRgb8(_)) => {
             let mut data = Cursor::new(vec![]);
-            dynamic.write_to(&mut data, image::ImageFormat::Jpeg)?;
-            (data.into_inner(), Filter::DctDecode, true)
+            dynamic.write_to(&mut data, image::ImageFormat::Jpeg).unwrap();
+            (data.into_inner().into(), Filter::DctDecode, true)
         }
 
         // TODO: Encode flate streams with PNG-predictor?
@@ -111,7 +116,7 @@ fn encode_image(
         // 8-bit gray PNG.
         (RasterFormat::Png, DynamicImage::ImageLuma8(luma)) => {
             let data = deflate(luma.as_raw());
-            (data, Filter::FlateDecode, false)
+            (data.into(), Filter::FlateDecode, false)
         }
 
         // Anything else (including Rgb(a) PNGs).
@@ -125,9 +130,9 @@ fn encode_image(
             }
 
             let data = deflate(&pixels);
-            (data, Filter::FlateDecode, true)
+            (data.into(), Filter::FlateDecode, true)
         }
-    })
+    }
 }
 
 /// Encode an image's alpha channel if present.

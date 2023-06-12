@@ -183,15 +183,21 @@ cast! {
 /// Create a new datetime.
 ///
 /// You can specify the [datetime]($type/datetime) using a year, month, day,
-/// hour, minute, and second.
+/// hour, minute, and second. You can also get the current date with
+/// [`datetime.today`]($func/datetime.today).
 ///
 /// ## Example
 /// ```example
-/// #datetime(
+/// #let date = datetime(
 ///   year: 2012,
 ///   month: 8,
 ///   day: 3,
-/// ).display()
+/// )
+///
+/// #date.display() \
+/// #date.display(
+///   "[day].[month].[year]"
+/// )
 /// ```
 ///
 /// ## Format
@@ -304,6 +310,9 @@ cast! {
 }
 
 /// Returns the current date.
+///
+/// Refer to the documentation of the [`display`]($type/datetime.display) method
+/// for details on how to affect the formatting of the date.
 ///
 /// ## Example
 /// ```example
@@ -564,7 +573,7 @@ pub fn str_to_unicode(
 /// #str.from-unicode(97)
 /// ```
 ///
-/// Display: Sting From Unicode
+/// Display: String From Unicode
 /// Category: construct
 #[func]
 pub fn str_from_unicode(

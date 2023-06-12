@@ -16,9 +16,9 @@ pub enum Datetime {
     /// Representation as a date.
     Date(time::Date),
     /// Representation as a time.
-    Datetime(time::PrimitiveDateTime),
-    /// Representation as a combination of date and time.
     Time(time::Time),
+    /// Representation as a combination of date and time.
+    Datetime(time::PrimitiveDateTime),
 }
 
 impl Datetime {

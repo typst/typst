@@ -210,6 +210,7 @@ impl Finalize for BibliographyElem {
 impl LocalName for BibliographyElem {
     fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
+            Lang::ALBANIAN => "Bibliografi",
             Lang::ARABIC => "المراجع",
             Lang::BOKMÅL => "Bibliografi",
             Lang::CHINESE if option_eq(region, "TW") => "書目",
@@ -227,6 +228,7 @@ impl LocalName for BibliographyElem {
             Lang::SLOVENIAN => "Literatura",
             Lang::SPANISH => "Bibliografía",
             Lang::SWEDISH => "Bibliografi",
+            Lang::TURKISH => "Kaynakça",
             Lang::UKRAINIAN => "Бібліографія",
             Lang::VIETNAMESE => "Tài liệu tham khảo",
             Lang::ENGLISH | _ => "Bibliography",
