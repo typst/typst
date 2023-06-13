@@ -115,6 +115,12 @@ impl SourceError {
             ErrorPos::End => full.end..full.end,
         }
     }
+
+    /// Adds a user-facing hint to the error.
+    pub fn with_hints(mut self, hints: &mut Vec<EcoString>) -> Self {
+        self.hints.append(hints);
+        self
+    }
 }
 
 /// A part of an error's [trace](SourceError::trace).
@@ -194,6 +200,23 @@ where
 {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|message| Box::new(vec![SourceError::new(span, message)]))
+    }
+}
+
+pub type StrWithHintResult<T> = Result<T, (EcoString, Vec<EcoString>)>;
+
+struct StrWithHint {
+    message: EcoString,
+    hints: Vec<EcoString>,
+}
+
+impl<T> At<T> for Result<T, StrWithHint> {
+    fn at(self, span: Span) -> SourceResult<T> {
+        self.map_err(|mut diags| {
+            Box::new(vec![
+                SourceError::new(span, diags.message).with_hints(&mut diags.hints)
+            ])
+        })
     }
 }
 
