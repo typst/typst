@@ -82,6 +82,8 @@ pub struct SourceError {
     pub message: EcoString,
     /// The trace of function calls leading to the error.
     pub trace: Vec<Spanned<Tracepoint>>,
+    /// Additonal hints to the user, indicating how this error could be avoided or worked around.
+    pub hints: Vec<EcoString>,
 }
 
 impl SourceError {
@@ -92,6 +94,7 @@ impl SourceError {
             pos: ErrorPos::Full,
             trace: vec![],
             message: message.into(),
+            hints: vec![],
         }
     }
 
