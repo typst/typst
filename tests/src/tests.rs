@@ -1,14 +1,14 @@
 #![allow(clippy::comparison_chain)]
 
 use std::cell::{RefCell, RefMut};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::Write as FmtWrite;
-use std::fs;
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::{env, io};
+use std::{fs, iter};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
@@ -518,20 +518,8 @@ fn test_part(
     }
 
     let metadata = parse_part_metadata(source);
-    let (local_compare_ref, mut ref_errors) = (
-        metadata.part_configuration.compare_ref,
-        metadata
-            .invariants
-            .iter()
-            .flat_map(|invariant| match invariant {
-                TestInvariant::Error(range, error) => {
-                    Some((range.to_owned(), error.to_owned()))
-                }
-                TestInvariant::Hint(_, _) => None,
-            })
-            .collect::<Vec<_>>(),
-    );
-    let compare_ref = local_compare_ref.unwrap_or(compare_ref);
+    let compare_ref = metadata.part_configuration.compare_ref.unwrap_or(compare_ref);
+    let validate_hints = metadata.part_configuration.validate_hints; // TODO: global hints disabling
 
     ok &= test_spans(output, source.root());
     ok &= test_reparse(output, world.source(id).text(), i, rng);
@@ -556,37 +544,75 @@ fn test_part(
     }
 
     // Map errors to range and message format, discard traces and errors from
-    // other files.
-    let mut errors: Vec<_> = errors
+    // other files. Collect hints.
+    //
+    // This has one caveat: due to the format of the expected hints, we can not verify if a hint belongs
+    // to a error or not. That should be irrelevant however, as the line of the hint is still verified.
+    let actual_errors_and_hints: HashSet<UserOutput> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)
-        .map(|error| (error.range(world), error.message.replace('\\', "/")))
+        .flat_map(|error| {
+            let output_error =
+                UserOutput::Error(error.range(world), error.message.replace('\\', "/"));
+            let hints = error.hints.to_owned();
+            let hints = hints
+                .iter()
+                .map(|hint| UserOutput::Hint(error.range(world), hint.to_string()));
+            iter::once(output_error).chain(hints).collect::<Vec<_>>()
+        })
         .collect();
 
-    errors.sort_by_key(|error| error.0.start);
-    ref_errors.sort_by_key(|error| error.0.start);
+    // Basically symmetric_difference, but we need to know where an item is coming from.
+    let mut unexpected_outputs = actual_errors_and_hints
+        .difference(&metadata.invariants)
+        .collect::<Vec<_>>();
+    let mut missing_outputs = metadata
+        .invariants
+        .difference(&actual_errors_and_hints)
+        .collect::<Vec<_>>();
 
-    if errors != ref_errors {
+    unexpected_outputs.sort_by_key(|&o| o.start());
+    missing_outputs.sort_by_key(|&o| o.start());
+
+    if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
         writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
         ok = false;
 
-        let source = world.source(id);
-        for error in errors.iter() {
-            if !ref_errors.contains(error) {
-                write!(output, "    Not annotated | ").unwrap();
-                print_error(output, source, line, error);
-            }
+        for unexpected in unexpected_outputs {
+            write!(output, "    Not emitted   | ").unwrap();
+            print_user_output(output, source, line, unexpected)
         }
 
-        for error in ref_errors.iter() {
-            if !errors.contains(error) {
-                write!(output, "    Not emitted   | ").unwrap();
-                print_error(output, source, line, error);
-            }
+        for missing in missing_outputs {
+            write!(output, "    Not annotated | ").unwrap();
+            print_user_output(output, source, line, missing)
         }
     }
 
     (ok, compare_ref, frames)
+}
+
+fn print_user_output(
+    output: &mut String,
+    source: &Source,
+    line: usize,
+    user_output: &UserOutput,
+) {
+    let (range, message) = match &user_output {
+        UserOutput::Error(r, m) => (r, m),
+        UserOutput::Hint(r, m) => (r, m),
+    };
+
+    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
+    let start_col = 1 + source.byte_to_column(range.start).unwrap();
+    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
+    let end_col = 1 + source.byte_to_column(range.end).unwrap();
+    let kind = match user_output {
+        UserOutput::Error(_, _) => "Error",
+        UserOutput::Hint(_, _) => "Hint",
+    };
+    writeln!(output, "{kind}: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
+        .unwrap();
 }
 
 struct TestConfiguration {
@@ -596,12 +622,22 @@ struct TestConfiguration {
 
 struct TestPartMetadata {
     part_configuration: TestConfiguration,
-    invariants: Vec<TestInvariant>,
+    invariants: HashSet<UserOutput>,
 }
 
-enum TestInvariant {
+#[derive(PartialEq, Eq, Debug, Hash)]
+enum UserOutput {
     Error(Range<usize>, String),
     Hint(Range<usize>, String),
+}
+
+impl UserOutput {
+    fn start(&self) -> usize {
+        match self {
+            UserOutput::Error(r, _) => r.start,
+            UserOutput::Hint(r, _) => r.start,
+        }
+    }
 }
 
 fn parse_part_metadata(source: &Source) -> TestPartMetadata {
@@ -647,23 +683,9 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
         invariants: errors
             .to_owned()
             .iter()
-            .map(|err| TestInvariant::Error(err.0.to_owned(), err.1.to_owned()))
+            .map(|err| UserOutput::Error(err.0.to_owned(), err.1.to_owned()))
             .collect(),
     }
-}
-
-fn print_error(
-    output: &mut String,
-    source: &Source,
-    line: usize,
-    (range, message): &(Range<usize>, String),
-) {
-    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
-    let start_col = 1 + source.byte_to_column(range.start).unwrap();
-    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
-    let end_col = 1 + source.byte_to_column(range.end).unwrap();
-    writeln!(output, "Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
-        .unwrap();
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the
