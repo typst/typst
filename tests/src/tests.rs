@@ -586,17 +586,19 @@ fn test_part(
     unexpected_outputs.sort_by_key(|&o| o.start());
     missing_outputs.sort_by_key(|&o| o.start());
 
+    // This prints all unexpected emits first, then all missing emits.
+    // Is this reasonable or subject to change?
     if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
         writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
         ok = false;
 
         for unexpected in unexpected_outputs {
-            write!(output, "    Not emitted   | ").unwrap();
+            write!(output, "    Not annotated | ").unwrap();
             print_user_output(output, source, line, unexpected)
         }
 
         for missing in missing_outputs {
-            write!(output, "    Not annotated | ").unwrap();
+            write!(output, "    Not emitted   | ").unwrap();
             print_user_output(output, source, line, missing)
         }
     }
