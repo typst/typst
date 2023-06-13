@@ -203,9 +203,9 @@ where
     }
 }
 
-pub type StrWithHintResult<T> = Result<T, (EcoString, Vec<EcoString>)>;
+pub type StrWithHintResult<T> = Result<T, StrWithHint>;
 
-struct StrWithHint {
+pub struct StrWithHint {
     message: EcoString,
     hints: Vec<EcoString>,
 }
@@ -216,6 +216,35 @@ impl<T> At<T> for Result<T, StrWithHint> {
             Box::new(vec![
                 SourceError::new(span, diags.message).with_hints(&mut diags.hints)
             ])
+        })
+    }
+}
+
+/// Allows adding a user-facing hint in addition to the error.
+pub trait Hint<T, S>
+where
+    S: Into<EcoString>,
+{
+    fn hint(self, hint: S) -> StrWithHintResult<T>;
+}
+
+impl<T, S> Hint<T, S> for StrResult<T>
+where
+    S: Into<EcoString>,
+{
+    fn hint(self, hint: S) -> StrWithHintResult<T> {
+        self.map_err(|message| StrWithHint { message, hints: vec![hint.into()] })
+    }
+}
+
+impl<T, S> Hint<T, S> for StrWithHintResult<T>
+where
+    S: Into<EcoString>,
+{
+    fn hint(self, hint: S) -> StrWithHintResult<T> {
+        self.map_err(|mut diags| {
+            diags.hints.push(hint.into());
+            diags
         })
     }
 }
