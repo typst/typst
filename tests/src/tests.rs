@@ -517,7 +517,20 @@ fn test_part(
         writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
     }
 
-    let (local_compare_ref, mut ref_errors) = parse_metadata(source);
+    let metadata = parse_part_metadata(source);
+    let (local_compare_ref, mut ref_errors) = (
+        metadata.part_configuration.compare_ref,
+        metadata
+            .invariants
+            .iter()
+            .flat_map(|invariant| match invariant {
+                TestInvariant::Error(range, error) => {
+                    Some((range.to_owned(), error.to_owned()))
+                }
+                TestInvariant::Hint(_, _) => None,
+            })
+            .collect::<Vec<_>>(),
+    );
     let compare_ref = local_compare_ref.unwrap_or(compare_ref);
 
     ok &= test_spans(output, source.root());
@@ -576,7 +589,22 @@ fn test_part(
     (ok, compare_ref, frames)
 }
 
-fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>) {
+struct TestConfiguration {
+    compare_ref: Option<bool>,
+    validate_hints: Option<bool>,
+}
+
+struct TestPartMetadata {
+    part_configuration: TestConfiguration,
+    invariants: Vec<TestInvariant>,
+}
+
+enum TestInvariant {
+    Error(Range<usize>, String),
+    Hint(Range<usize>, String),
+}
+
+fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
     let mut errors = vec![];
 
@@ -614,7 +642,14 @@ fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>
         errors.push((range, s.after().trim().to_string()));
     }
 
-    (compare_ref, errors)
+    TestPartMetadata {
+        part_configuration: TestConfiguration { compare_ref, validate_hints: None },
+        invariants: errors
+            .to_owned()
+            .iter()
+            .map(|err| TestInvariant::Error(err.0.to_owned(), err.1.to_owned()))
+            .collect(),
+    }
 }
 
 fn print_error(
