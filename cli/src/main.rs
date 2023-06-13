@@ -23,7 +23,7 @@ use std::cell::OnceCell;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{bail, FileError, FileResult, SourceError, StrResult};
 use typst::doc::Document;
-use typst::eval::{Datetime, Library};
+use typst::eval::{eco_format, Datetime, Library};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::geom::Color;
 use typst::syntax::{Source, SourceId};
@@ -436,6 +436,13 @@ fn print_diagnostics(
         let range = error.range(world);
         let diag = Diagnostic::error()
             .with_message(error.message)
+            .with_notes(
+                error
+                    .hints
+                    .iter()
+                    .map(|e| (eco_format!("hint: {e}")).into())
+                    .collect(),
+            )
             .with_labels(vec![Label::primary(error.span.source(), range)]);
 
         term::emit(&mut w, &config, world, &diag)?;
