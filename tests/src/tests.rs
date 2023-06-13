@@ -654,49 +654,48 @@ impl UserOutput {
 
 fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
-    let mut errors = vec![];
+    let mut validate_hints = None;
+    let mut expectations = HashSet::default();
 
     let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
-        if line.starts_with("// Ref: false") {
-            compare_ref = Some(false);
-        }
-
-        if line.starts_with("// Ref: true") {
-            compare_ref = Some(true);
-        }
+        compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
+        validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
 
         fn num(s: &mut Scanner) -> usize {
             s.eat_while(char::is_numeric).parse().unwrap()
         }
 
-        let comments =
+        let comments_until_code =
             lines[i..].iter().take_while(|line| line.starts_with("//")).count();
 
         let pos = |s: &mut Scanner| -> usize {
             let first = num(s) - 1;
             let (delta, column) =
                 if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
-            let line = (i + comments) + delta;
+            let line = (i + comments_until_code) + delta;
             source.line_column_to_byte(line, column).unwrap()
         };
 
-        let Some(rest) = line.strip_prefix("// Error: ") else { continue; };
-        let mut s = Scanner::new(rest);
-        let start = pos(&mut s);
-        let end = if s.eat_if('-') { pos(&mut s) } else { start };
-        let range = start..end;
+        let error_metadata = get_metadata(line, "Error")
+            .map::<(_, fn(_, _) -> UserOutput), _>(|s| (s, UserOutput::Error));
+        let get_hint_metadata = || {
+            get_metadata(line, "Hint")
+                .map::<(_, fn(_, _) -> UserOutput), _>(|s| (s, UserOutput::Hint))
+        };
+        if let Some((expectation, kind)) = error_metadata.or_else(get_hint_metadata) {
+            let mut s = Scanner::new(expectation);
+            let start = pos(&mut s);
+            let end = if s.eat_if('-') { pos(&mut s) } else { start };
+            let range = start..end;
 
-        errors.push((range, s.after().trim().to_string()));
+            expectations.insert(kind(range, s.after().trim().to_string()));
+        };
     }
 
     TestPartMetadata {
-        part_configuration: TestConfiguration { compare_ref, validate_hints: None },
-        invariants: errors
-            .to_owned()
-            .iter()
-            .map(|err| UserOutput::Error(err.0.to_owned(), err.1.to_owned()))
-            .collect(),
+        part_configuration: TestConfiguration { compare_ref, validate_hints },
+        invariants: expectations,
     }
 }
 
