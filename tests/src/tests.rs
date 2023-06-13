@@ -22,7 +22,7 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{func, Datetime, Library, NoneValue, Value};
+use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
@@ -372,7 +372,8 @@ fn test(
     let mut updated = false;
     let mut frames = vec![];
     let mut line = 0;
-    let mut compare_ref = true;
+    let mut compare_ref = None;
+    let mut validate_hints = None;
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
@@ -400,9 +401,8 @@ fn test(
 
         if is_header {
             for line in part.lines() {
-                if line.starts_with("// Ref: false") {
-                    compare_ref = false;
-                }
+                compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
+                validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
             }
         } else {
             let (part_ok, compare_here, part_frames) = test_part(
@@ -411,7 +411,8 @@ fn test(
                 src_path,
                 part.into(),
                 i,
-                compare_ref,
+                compare_ref.unwrap_or(true),
+                validate_hints.unwrap_or(true),
                 line,
                 &mut rng,
             );
@@ -489,6 +490,14 @@ fn test(
     ok
 }
 
+fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+    line.strip_prefix(eco_format!("// {key}: ").as_str())
+}
+
+fn get_flag_metadata<'a>(line: &'a str, key: &str) -> Option<bool> {
+    get_metadata(line, key).map(|value| value == "true")
+}
+
 fn update_image(png_path: &Path, ref_path: &Path) {
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
@@ -506,6 +515,7 @@ fn test_part(
     text: String,
     i: usize,
     compare_ref: bool,
+    validate_hints: bool,
     line: usize,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Frame>) {
@@ -519,7 +529,8 @@ fn test_part(
 
     let metadata = parse_part_metadata(source);
     let compare_ref = metadata.part_configuration.compare_ref.unwrap_or(compare_ref);
-    let validate_hints = metadata.part_configuration.validate_hints; // TODO: global hints disabling
+    let validate_hints =
+        metadata.part_configuration.validate_hints.unwrap_or(validate_hints);
 
     ok &= test_spans(output, source.root());
     ok &= test_reparse(output, world.source(id).text(), i, rng);
@@ -557,6 +568,7 @@ fn test_part(
             let hints = error.hints.to_owned();
             let hints = hints
                 .iter()
+                .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
                 .map(|hint| UserOutput::Hint(error.range(world), hint.to_string()));
             iter::once(output_error).chain(hints).collect::<Vec<_>>()
         })
