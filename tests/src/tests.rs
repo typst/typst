@@ -650,6 +650,14 @@ impl UserOutput {
             UserOutput::Hint(r, _) => r.start,
         }
     }
+
+    fn error(range: Range<usize>, message: String) -> UserOutput {
+        UserOutput::Error(range, message)
+    }
+
+    fn hint(range: Range<usize>, message: String) -> UserOutput {
+        UserOutput::Hint(range, message)
+    }
 }
 
 fn parse_part_metadata(source: &Source) -> TestPartMetadata {
@@ -677,19 +685,19 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
             source.line_column_to_byte(line, column).unwrap()
         };
 
-        let error_metadata = get_metadata(line, "Error")
-            .map::<(_, fn(_, _) -> UserOutput), _>(|s| (s, UserOutput::Error));
-        let get_hint_metadata = || {
-            get_metadata(line, "Hint")
-                .map::<(_, fn(_, _) -> UserOutput), _>(|s| (s, UserOutput::Hint))
-        };
-        if let Some((expectation, kind)) = error_metadata.or_else(get_hint_metadata) {
+        let error_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::error;
+        let hint_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::hint;
+
+        let error_metadata = get_metadata(line, "Error").map(|s| (s, error_factory));
+        let get_hint_metadata = || get_metadata(line, "Hint").map(|s| (s, hint_factory));
+
+        if let Some((expectation, factory)) = error_metadata.or_else(get_hint_metadata) {
             let mut s = Scanner::new(expectation);
             let start = pos(&mut s);
             let end = if s.eat_if('-') { pos(&mut s) } else { start };
             let range = start..end;
 
-            expectations.insert(kind(range, s.after().trim().to_string()));
+            expectations.insert(factory(range, s.after().trim().to_string()));
         };
     }
 
