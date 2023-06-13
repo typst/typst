@@ -151,7 +151,6 @@ impl Layout for ListElem {
         }
 
         let layouter = GridLayouter::new(
-            vt,
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
@@ -164,7 +163,7 @@ impl Layout for ListElem {
             styles,
         );
 
-        Ok(layouter.layout()?.fragment)
+        Ok(layouter.layout(vt)?.fragment)
     }
 }
 

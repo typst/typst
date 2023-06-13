@@ -256,7 +256,6 @@ impl Layout for EnumElem {
         }
 
         let layouter = GridLayouter::new(
-            vt,
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
@@ -269,7 +268,7 @@ impl Layout for EnumElem {
             styles,
         );
 
-        Ok(layouter.layout()?.fragment)
+        Ok(layouter.layout(vt)?.fragment)
     }
 }
 

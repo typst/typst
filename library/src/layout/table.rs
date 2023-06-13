@@ -162,7 +162,6 @@ impl Layout for TableElem {
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
-            vt,
             tracks.as_deref(),
             gutter.as_deref(),
             &cells,
@@ -171,7 +170,7 @@ impl Layout for TableElem {
         );
 
         // Measure the columns and layout the grid row-by-row.
-        let mut layout = layouter.layout()?;
+        let mut layout = layouter.layout(vt)?;
 
         // Add lines and backgrounds.
         for (frame, rows) in layout.fragment.iter_mut().zip(&layout.rows) {
