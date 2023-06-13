@@ -114,8 +114,12 @@ pub trait World {
     /// Try to access the font with the given id.
     fn font(&self, id: usize) -> Option<Font>;
 
-    /// Try to access a file at a path.
+    /// Try to access (read) a file at a path.
     fn file(&self, path: &Path) -> FileResult<Buffer>;
+
+    /// Write or append data to a file at a path.
+    /// The first call to a given path is always a write. All subsequent are append.
+    fn write(&self, path: &Path) -> FileResult<()>;
 
     /// Get the current date.
     ///

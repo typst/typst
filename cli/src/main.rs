@@ -509,10 +509,44 @@ struct FontSlot {
 }
 
 /// Holds canonical data for all paths pointing to the same entity.
-#[derive(Default)]
 struct PathSlot {
     source: OnceCell<FileResult<SourceId>>,
-    buffer: OnceCell<FileResult<Buffer>>,
+    buffer: FileData,
+}
+
+#[allow(dead_code)]
+enum FileData {
+    Read(OnceCell<FileResult<Buffer>>),
+    /// As WRITE requires mutability, we put it behind a refcounter
+    /// We do not hide it behind a FileResult, as the actual file operations are handeled later.
+    Write(RefCell<Vec<Buffer>>), 
+}
+
+impl PathSlot {
+    /// Register a new file in read mode.
+    fn read() -> Self {
+        PathSlot { source: OnceCell::default(), buffer: FileData::Read(OnceCell::default()) }
+    }
+    /// Register a new file in write mode.
+    fn _write() -> Self {
+        PathSlot { source: OnceCell::default(), buffer: FileData::Write(RefCell::default()) }
+    }
+}
+impl FileData {
+    /// Attempt a read operation on the file
+    fn as_read(&self) -> FileResult<&OnceCell<FileResult<Buffer>>> {
+        match self {
+            Self::Read(x) => return Ok(x),
+            Self::Write(_) => return Err(FileError::WrongMode),
+        }
+    }
+    /// Attempt a write operation on the file
+    fn _as_write(&self) -> FileResult<&RefCell<Vec<Buffer>>> {
+        match self {
+            Self::Read(_) => return Err(FileError::WrongMode),
+            Self::Write(x) => return Ok(x),
+        }
+    }
 }
 
 impl SystemWorld {
@@ -549,7 +583,7 @@ impl World for SystemWorld {
 
     #[tracing::instrument(skip_all)]
     fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        self.slot(path)?
+        self.slot_or(path, PathSlot::read())?
             .source
             .get_or_init(|| {
                 let buf = read(path)?;
@@ -584,10 +618,15 @@ impl World for SystemWorld {
     }
 
     fn file(&self, path: &Path) -> FileResult<Buffer> {
-        self.slot(path)?
+        self.slot_or(path, PathSlot::read())?
             .buffer
+            .as_read()?
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
+    }
+
+    fn write(&self,_path: &Path) -> FileResult<()> {
+        todo!()
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
@@ -610,7 +649,7 @@ impl World for SystemWorld {
 
 impl SystemWorld {
     #[tracing::instrument(skip_all)]
-    fn slot(&self, path: &Path) -> FileResult<RefMut<PathSlot>> {
+    fn slot_or(&self, path: &Path, on_failure: PathSlot) -> FileResult<RefMut<PathSlot>> {
         let mut hashes = self.hashes.borrow_mut();
         let hash = match hashes.get(path).cloned() {
             Some(hash) => hash,
@@ -625,7 +664,7 @@ impl SystemWorld {
         }?;
 
         Ok(std::cell::RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(hash).or_default()
+            paths.entry(hash).or_insert(on_failure)
         }))
     }
 
