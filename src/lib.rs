@@ -62,6 +62,8 @@ use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
 use crate::syntax::{Source, SourceId};
 use crate::util::Buffer;
+use crate::model::Location;
+
 
 /// Compile a source file into a fully layouted document.
 #[tracing::instrument(skip(world))]
@@ -119,7 +121,11 @@ pub trait World {
 
     /// Write or append data to a file at a path.
     /// The first call to a given path is always a write. All subsequent are append.
-    fn write(&self, path: &Path) -> FileResult<()>;
+    /// 
+    /// Note that there is an issue with this implementation:
+    ///   As location is simply a parameter, anything and anyone may "wear a mustache"
+    ///   and pass as another content element (by stealing its location!)
+    fn write(&self, path: &Path, from: Location, what: Vec<u8>) -> FileResult<()>;
 
     /// Get the current date.
     ///

@@ -19,6 +19,7 @@ use memmap2::Mmap;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use same_file::{is_same_file, Handle};
 use siphasher::sip128::{Hasher128, SipHasher13};
+use typst::model::Location;
 use std::cell::OnceCell;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{bail, FileError, FileResult, SourceError, StrResult};
@@ -289,6 +290,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Export the PDF / PNG.
         Ok(document) => {
             export(&document, command)?;
+            write(world, Path::new("records"), "txt", command)?;
             status(command, Status::Success).unwrap();
             tracing::info!("Compilation succeeded");
             Ok(true)
@@ -341,6 +343,33 @@ fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
         }
     }
     Ok(())
+}
+
+/// Apply write calls
+/// These are very limited in where they can write, which is no issue as we excpect to be unable to write everywhere
+fn write(world: &SystemWorld, what: &Path, kind: &str, command: &CompileSettings) -> StrResult<()> {
+    // Find file
+    let slot = world.slot_or(what, PathSlot::write())?;
+    let data = match slot.buffer.as_write() {
+        Ok(x) => x,
+        Err(_) => return Ok(()), //No file to write (but a file to read!)
+    }.borrow_mut();
+    
+    if data.is_empty() {
+        // Nothing to write
+        return Ok(())
+    } else {
+        // Remember; we aren't interested with order conservation here! what's important is that the data is there.
+        let buffer: Vec<u8> = data.values()
+            .flat_map(|b| b.as_ref().to_owned())
+            .collect();
+        // Generate file name, and write
+        let dest = command.output.with_file_name(what).with_extension(kind);
+        fs::write(dest, buffer).map_err(|_| format!("failed to write {kind} file"))?;
+
+        Ok(())
+    }
+
 }
 
 /// Clear the terminal and render the status message.
@@ -519,7 +548,7 @@ enum FileData {
     Read(OnceCell<FileResult<Buffer>>),
     /// As WRITE requires mutability, we put it behind a refcounter
     /// We do not hide it behind a FileResult, as the actual file operations are handeled later.
-    Write(RefCell<Vec<Buffer>>), 
+    Write(RefCell<HashMap<Location, Buffer>>), 
 }
 
 impl PathSlot {
@@ -528,7 +557,7 @@ impl PathSlot {
         PathSlot { source: OnceCell::default(), buffer: FileData::Read(OnceCell::default()) }
     }
     /// Register a new file in write mode.
-    fn _write() -> Self {
+    fn write() -> Self {
         PathSlot { source: OnceCell::default(), buffer: FileData::Write(RefCell::default()) }
     }
 }
@@ -541,7 +570,7 @@ impl FileData {
         }
     }
     /// Attempt a write operation on the file
-    fn _as_write(&self) -> FileResult<&RefCell<Vec<Buffer>>> {
+    fn as_write(&self) -> FileResult<&RefCell<HashMap<Location, Buffer>>> {
         match self {
             Self::Read(_) => return Err(FileError::WrongMode),
             Self::Write(x) => return Ok(x),
@@ -625,8 +654,13 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn write(&self,_path: &Path) -> FileResult<()> {
-        todo!()
+    /// We do not give access to anything but the 'record' file.
+    fn write(&self, _: &Path, from: Location, what: Vec<u8>) -> FileResult<()> {
+        self.slot_or(Path::new("record"), PathSlot::write())?
+            .buffer.as_write()?
+            .borrow_mut()
+            .insert(from, what.into())
+            .map_or(FileResult::Err(FileError::AccessDenied), |_| FileResult::Ok(()))
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
