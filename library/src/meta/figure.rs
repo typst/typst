@@ -3,7 +3,7 @@ use std::str::FromStr;
 use super::{
     Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
 };
-use crate::layout::{BlockElem, VElem};
+use crate::layout::{BlockElem, TableElem, VElem};
 use crate::meta::{Outlinable, Refable, Supplement};
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -11,9 +11,9 @@ use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
 ///
-/// Automatically detects its contents to select the correct counting track.
-/// For example, figures containing images will be numbered separately from
-/// figures containing tables.
+/// Automatically detects its contents to select the correct counting track
+/// and caption position. For example, figures containing images will be
+/// numbered separately from figures containing tables.
 ///
 /// ## Examples { #examples }
 /// The example below shows a basic figure with an image:
@@ -29,7 +29,7 @@ use crate::visualize::ImageElem;
 ///
 /// You can also insert [tables]($func/table) into figures to give them a
 /// caption. The figure will detect this and automatically use a separate
-/// counter.
+/// counter and position the caption on top.
 ///
 /// ```example
 /// #figure(
@@ -43,7 +43,8 @@ use crate::visualize::ImageElem;
 /// ```
 ///
 /// This behaviour can be overridden by explicitly specifying the figure's
-/// `kind`. All figures of the same kind share a common counter.
+/// `kind` and `caption-position` respectively. All figures of the same
+/// kind share a common counter.
 ///
 /// ## Modifying the appearance { #modifying-appearance }
 /// You can completely customize the look of your figures with a [show
@@ -85,6 +86,34 @@ pub struct FigureElem {
 
     /// The figure's caption.
     pub caption: Option<Content>,
+
+    /// The captions position.
+    ///
+    /// If set to `{auto}`, the figure will try to automatically determine its
+    /// caption position.
+    ///
+    /// Setting this to something other than `{auto}` will override the
+    /// automatic detection. This can be useful if
+    /// - you wish to create a custom figure type that is not an
+    ///   [image]($func/image), a [table]($func/table) or [code]($func/raw),
+    /// - you want to force the figure to use a specific caption-position
+    ///   regardless of its content.
+    ///
+    /// You can set the caption position to `{top}` or `{bottom}`.
+    ///
+    /// ```example
+    /// #figure(
+    ///   table(columns: 2)[A][B],
+    //    caption: [I'm up here],
+    /// )
+    /// #figure(
+    ///   table(columns: 2)[A][B],
+    ///   caption: [I'm down here],
+    ///   caption-position: bottom,
+    /// )
+    /// ```
+    #[default(Smart::Auto)]
+    pub caption_position: Smart<VerticalAlign>,
 
     /// The kind of the figure this is.
     ///
@@ -174,6 +203,23 @@ impl Synthesize for FigureElem {
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::func()))
         });
 
+        let caption_position =
+            VerticalAlign(GenAlign::Specific(match self.caption_position(styles) {
+                Smart::Auto => match &kind {
+                    FigureKind::Elem(func) if func.name() == TableElem::func().name() => {
+                        Align::Top
+                    }
+                    _ => Align::Bottom,
+                },
+                Smart::Custom(VerticalAlign(GenAlign::Specific(Align::Top))) => {
+                    Align::Top
+                }
+                Smart::Custom(VerticalAlign(GenAlign::Specific(Align::Bottom))) => {
+                    Align::Bottom
+                }
+                _ => bail!(self.span(), "caption-position can only be top or bottom"),
+            }));
+
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
             Smart::Auto => {
@@ -221,6 +267,7 @@ impl Synthesize for FigureElem {
             }),
         )));
 
+        self.push_caption_position(Smart::Custom(caption_position));
         self.push_caption(self.caption(styles));
         self.push_kind(Smart::Custom(kind));
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
@@ -239,9 +286,16 @@ impl Show for FigureElem {
 
         // Build the caption, if any.
         if let Some(caption) = self.full_caption(vt)? {
-            realized += VElem::weak(self.gap(styles).into()).pack();
-            realized += caption;
-        }
+            let v = VElem::weak(self.gap(styles).into()).pack();
+            realized = if matches!(
+                self.caption_position(styles),
+                Smart::Custom(VerticalAlign(GenAlign::Specific(Align::Bottom)))
+            ) {
+                realized + v + caption
+            } else {
+                caption + v + realized
+            }
+        };
 
         // Wrap the contents in a block.
         Ok(BlockElem::new()
