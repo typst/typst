@@ -494,7 +494,7 @@ fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
     line.strip_prefix(eco_format!("// {key}: ").as_str())
 }
 
-fn get_flag_metadata<'a>(line: &'a str, key: &str) -> Option<bool> {
+fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
     get_metadata(line, key).map(|value| value == "true")
 }
 
@@ -565,8 +565,8 @@ fn test_part(
         .flat_map(|error| {
             let output_error =
                 UserOutput::Error(error.range(world), error.message.replace('\\', "/"));
-            let hints = error.hints.to_owned();
-            let hints = hints
+            let hints = error
+                .hints
                 .iter()
                 .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
                 .map(|hint| UserOutput::Hint(error.range(world), hint.to_string()));
