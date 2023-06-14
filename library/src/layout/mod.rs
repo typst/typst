@@ -464,7 +464,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
     fn interrupt_page(&mut self, styles: Option<StyleChain<'a>>) -> SourceResult<()> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
-        if !self.flow.0.is_empty() || (doc.keep_next && styles.is_some()) {
+        if !self.flow.0.is_basically_empty() || (doc.keep_next && styles.is_some()) {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()

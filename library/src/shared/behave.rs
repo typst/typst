@@ -34,10 +34,9 @@ impl<'a> BehavedBuilder<'a> {
     /// probably collapse.
     pub fn is_basically_empty(&self) -> bool {
         self.builder.is_empty()
-            && self
-                .staged
-                .iter()
-                .all(|(_, behaviour, _)| matches!(behaviour, Behaviour::Weak(_)))
+            && self.staged.iter().all(|(_, behaviour, _)| {
+                matches!(behaviour, Behaviour::Weak(_) | Behaviour::Ignorant)
+            })
     }
 
     /// Push an item into the sequence.
