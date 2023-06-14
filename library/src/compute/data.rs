@@ -26,7 +26,7 @@ pub fn read(
 ) -> SourceResult<Str> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let data = vm.world().read(&path).at(span)?;
     let text = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
@@ -67,7 +67,7 @@ pub fn csv(
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let data = vm.world().read(&path).at(span)?;
 
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
@@ -178,7 +178,7 @@ pub fn json(
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let data = vm.world().read(&path).at(span)?;
     let value: serde_json::Value =
         serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
     Ok(convert_json(value))
@@ -244,7 +244,7 @@ pub fn toml(
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let data = vm.world().read(&path).at(span)?;
 
     let raw = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
@@ -353,7 +353,7 @@ pub fn yaml(
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let data = vm.world().read(&path).at(span)?;
     let value: serde_yaml::Value =
         serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
     Ok(convert_yaml(value))
@@ -456,7 +456,7 @@ pub fn xml(
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let data = vm.world().read(&path).at(span)?;
     let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
     Ok(convert_xml(document.root()))

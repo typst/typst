@@ -115,7 +115,7 @@ pub trait World {
     fn font(&self, id: usize) -> Option<Font>;
 
     /// Try to access (read) a file at a path.
-    fn file(&self, path: &Path) -> FileResult<Buffer>;
+    fn read(&self, path: &Path) -> FileResult<Buffer>;
 
     /// Write or append data to a file at a path.
     /// The first call to a given path is always a write. All subsequent are append.

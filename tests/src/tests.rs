@@ -288,7 +288,7 @@ impl World for TestWorld {
         Some(self.fonts[id].clone())
     }
 
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
+    fn read(&self, path: &Path) -> FileResult<Buffer> {
         self.slot(path)
             .buffer
             .get_or_init(|| read(path).map(Buffer::from))

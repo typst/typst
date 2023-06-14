@@ -594,7 +594,7 @@ fn load(
 
     // We might have multiple bib/yaml files
     for path in &paths.0 {
-        let buffer = world.file(Path::new(path.as_str()))?;
+        let buffer = world.read(Path::new(path.as_str()))?;
         let src = std::str::from_utf8(&buffer).map_err(|_| "file is not valid utf-8")?;
         let entries = parse_bib(path, src)?;
         result.extend(entries);

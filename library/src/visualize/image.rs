@@ -178,7 +178,7 @@ fn load(
     alt: Option<EcoString>,
 ) -> StrResult<Image> {
     let full = Path::new(full);
-    let buffer = world.file(full)?;
+    let buffer = world.read(full)?;
     let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
     let format = match ext.to_lowercase().as_str() {
         "png" => ImageFormat::Raster(RasterFormat::Png),

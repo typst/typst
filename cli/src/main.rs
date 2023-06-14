@@ -611,13 +611,13 @@ impl World for SystemWorld {
         let slot = &self.fonts[id];
         slot.font
             .get_or_init(|| {
-                let data = self.file(&slot.path).ok()?;
+                let data = self.read(&slot.path).ok()?;
                 Font::new(data, slot.index)
             })
             .clone()
     }
 
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
+    fn read(&self, path: &Path) -> FileResult<Buffer> {
         self.slot_or(path, PathSlot::read())?
             .buffer
             .as_read()?

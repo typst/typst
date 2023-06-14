@@ -490,12 +490,16 @@ impl World for DocWorld {
         Some(FONTS.1[id].clone())
     }
 
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
+    fn read(&self, path: &Path) -> FileResult<Buffer> {
         Ok(FILES
             .get_file(path)
             .unwrap_or_else(|| panic!("failed to load {path:?}"))
             .contents()
             .into())
+    }
+
+    fn write(&self,path: &Path) -> FileResult<()> {
+        todo!()
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {

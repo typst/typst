@@ -144,7 +144,7 @@ impl World for BenchWorld {
         Some(self.font.clone())
     }
 
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
+    fn read(&self, path: &Path) -> FileResult<Buffer> {
         Err(FileError::NotFound(path.into()))
     }
 
