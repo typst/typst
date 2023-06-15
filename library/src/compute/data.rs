@@ -33,6 +33,40 @@ pub fn read(
     Ok(text.into())
 }
 
+/// Write plain text to a file.
+///
+/// The text will be added to a buffer and written once compilation is over.
+/// Please note that this function does not ensure the call's order. Instead, you should make sure to add identifiers to your calls, if you want to find them later.
+/// The file you write to will be named "record.txt", found in the same directory as your generated PDF/PNG(s).
+/// We require a location to reduce de amount of code that depends on the 
+///
+/// ## Example { #example }
+/// ```example
+/// #let text = write("data.html")
+///
+/// An example for a HTML file:\
+/// #raw(text, lang: "html")
+/// ```
+///
+/// Note to self: Could use macro Locatable instead
+/// 
+/// Display: Read
+/// Category: data-loading
+#[func]
+pub fn write(
+    /// The text to write.
+    text: Spanned<EcoString>,
+    /// The location one is writing from
+    location: Location,
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<()> {
+    let Spanned { v: text, span } = text;
+    vm.world().write(std::path::Path::new(""), location, text.as_bytes().to_owned()).at(span)?;
+
+    Ok(())
+}
+
 /// Read structured data from a CSV file.
 ///
 /// The CSV file will be read and parsed into a 2-dimensional array of strings:

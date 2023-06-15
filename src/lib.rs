@@ -94,9 +94,15 @@ pub trait World {
     /// The path relative to which absolute paths are.
     ///
     /// Defaults to the empty path.
-    fn root(&self) -> &Path {
-        Path::new("")
+    /// Fails when reading has been disabled. 
+    fn root(&self) -> FileResult<&Path> {
+        Ok(Path::new(""))
     }
+
+    /// The path relative to which destination paths are.
+    /// The directory where files created by compilation (apart from the compilation result: logs, records...) are stored
+    /// Fails when writing has been disabled.
+    fn dest(&self) -> FileResult<&Path>;
 
     /// The standard library.
     fn library(&self) -> &Prehashed<Library>;

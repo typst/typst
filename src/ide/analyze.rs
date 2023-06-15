@@ -67,7 +67,7 @@ pub fn analyze_import(
     path: &str,
 ) -> Option<Module> {
     let full: PathBuf = if let Some(path) = path.strip_prefix('/') {
-        world.root().join(path).normalize()
+        world.root().ok()?.join(path).normalize()
     } else if let Some(dir) = source.path().parent() {
         dir.join(path).normalize()
     } else {

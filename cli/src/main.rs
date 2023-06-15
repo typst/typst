@@ -99,6 +99,8 @@ struct CompileSettings {
     watch: bool,
     /// The root directory for absolute paths.
     root: Option<PathBuf>,
+    /// The destination directory for absolute paths.
+    dest: Option<PathBuf>,
     /// The paths to search for fonts.
     font_paths: Vec<PathBuf>,
     /// The open command to use.
@@ -117,6 +119,7 @@ impl CompileSettings {
         output: Option<PathBuf>,
         watch: bool,
         root: Option<PathBuf>,
+        dest: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
         open: Option<Option<String>>,
         ppi: Option<f32>,
@@ -131,6 +134,7 @@ impl CompileSettings {
             output,
             watch,
             root,
+            dest,
             font_paths,
             open,
             diagnostic_format,
@@ -156,6 +160,7 @@ impl CompileSettings {
             output,
             watch,
             args.root,
+            args.dest,
             args.font_paths,
             open,
             ppi,
@@ -202,9 +207,56 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
         .to_owned();
 
     let root = command.root.as_ref().unwrap_or(&parent);
+    let root = match fs::metadata(root) { // !note: Not TOCTTOU safe! (but, at least, more comprehensive in its errors)
+        Err(_) => FileResult::Err(FileError::NotFound(root.to_owned())), //Does not exist, or cannot access info
+        Ok(m) => {
+            if !m.is_dir() {
+                // Disable read access
+                FileResult::Err(FileError::IsFile)
+            } else {
+                FileResult::Ok(root.to_owned())
+            }
+        }
+    };
+    let dest = match command.dest.as_ref() { // !note: Not TOCTTOU safe!
+        Some(p) => match fs::metadata(p) {
+            Err(_) => FileResult::Err(FileError::NotFound(p.to_owned())), //Does not exist, or cannot access info
+            Ok(m) => {
+                if !m.is_dir() {
+                    // We disable write access (by setting dir to an impossible value)
+                    FileResult::Err(FileError::IsFile)
+                } else {
+                    FileResult::Ok(p.to_owned())
+                }
+            },
+        },
+        None => {
+            let mut dir = parent.clone();
+            dir.push("results");
+
+            match fs::metadata(&dir) {
+                Err(_) => { //Does not exist (1), or cannot access info (2)
+                    //(Should) fail on (2), will fail on specific declinations of (1) (if we cannot write to parent for example)
+                    match fs::create_dir(&dir).map_err(|e| e.to_string()) {
+                        Ok(_) => FileResult::Ok(dir),
+                        Err(_) => FileResult::Err(FileError::AccessDenied), //Technically not always accessdenied, but only on a TOCTTOU. Still, we disable write access
+                    }
+                },
+                Ok(m) => {
+                    if !m.is_dir() {
+                        // We disable write access (by setting dir to an impossible value)
+                        FileResult::Err(FileError::IsFile)
+                    } else {
+                        FileResult::Ok(dir)
+                    }
+                },
+            }
+
+        }
+    };
 
     // Create the world that serves sources, fonts and files.
-    let mut world = SystemWorld::new(root.into(), &command.font_paths);
+    let mut world = SystemWorld::new(root, dest, &command.font_paths);
 
     // Perform initial compilation.
     let ok = compile_once(&mut world, &command)?;
@@ -232,10 +284,12 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
         .map_err(|_| "failed to watch parent directory")?;
 
     // Watch the root directory recursively.
-    if world.root != parent {
-        watcher
-            .watch(&world.root, RecursiveMode::Recursive)
-            .map_err(|_| "failed to watch root directory")?;
+    if let Ok(root) = &world.root { //No root to watch!
+        if *root != parent {
+            watcher
+                .watch(&root, RecursiveMode::Recursive)
+                .map_err(|_| "failed to watch root directory")?;
+        }
     }
 
     // Handle events.
@@ -290,7 +344,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Export the PDF / PNG.
         Ok(document) => {
             export(&document, command)?;
-            write(world, Path::new("records"), "txt", command)?;
+            write(world, Path::new("record"), "txt", command)?; //todo!
             status(command, Status::Success).unwrap();
             tracing::info!("Compilation succeeded");
             Ok(true)
@@ -349,7 +403,7 @@ fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
 /// These are very limited in where they can write, which is no issue as we excpect to be unable to write everywhere
 fn write(world: &SystemWorld, what: &Path, kind: &str, command: &CompileSettings) -> StrResult<()> {
     // Find file
-    let slot = world.slot_or(what, PathSlot::write())?;
+    let slot = world.slot_w(what)?;
     let data = match slot.buffer.as_write() {
         Ok(x) => x,
         Err(_) => return Ok(()), //No file to write (but a file to read!)
@@ -519,7 +573,8 @@ fn fonts(command: FontsSettings) -> StrResult<()> {
 
 /// A world that provides access to the operating system.
 struct SystemWorld {
-    root: PathBuf,
+    root: FileResult<PathBuf>,
+    dest: FileResult<PathBuf>,
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<FontSlot>,
@@ -579,12 +634,12 @@ impl FileData {
 }
 
 impl SystemWorld {
-    fn new(root: PathBuf, font_paths: &[PathBuf]) -> Self {
+    fn new(root: FileResult<PathBuf>, dest: FileResult<PathBuf>, font_paths: &[PathBuf]) -> Self {
         let mut searcher = FontSearcher::new();
         searcher.search(font_paths);
 
         Self {
-            root,
+            root, dest,
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
@@ -598,8 +653,18 @@ impl SystemWorld {
 }
 
 impl World for SystemWorld {
-    fn root(&self) -> &Path {
-        &self.root
+    fn root(&self) -> FileResult<&Path> {
+        match &self.root {
+            Err(e) => Err(e.clone()),
+            Ok(p) => Ok(&p),
+        }
+    }
+
+    fn dest(&self) ->  FileResult<&Path> {
+        match &self.dest {
+            Err(e) => Err(e.clone()),
+            Ok(p) => Ok(&p),
+        }
     }
 
     fn library(&self) -> &Prehashed<Library> {
@@ -612,7 +677,7 @@ impl World for SystemWorld {
 
     #[tracing::instrument(skip_all)]
     fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        self.slot_or(path, PathSlot::read())?
+        self.slot_r(path)?
             .source
             .get_or_init(|| {
                 let buf = read(path)?;
@@ -647,16 +712,15 @@ impl World for SystemWorld {
     }
 
     fn read(&self, path: &Path) -> FileResult<Buffer> {
-        self.slot_or(path, PathSlot::read())?
+        self.slot_r(path)?
             .buffer
             .as_read()?
             .get_or_init(|| read(path).map(Buffer::from))
             .clone()
     }
 
-    /// We do not give access to anything but the 'record' file.
-    fn write(&self, _: &Path, from: Location, what: Vec<u8>) -> FileResult<()> {
-        self.slot_or(Path::new("record"), PathSlot::write())?
+    fn write(&self, path: &Path, from: Location, what: Vec<u8>) -> FileResult<()> {
+        self.slot_w(path)?
             .buffer.as_write()?
             .borrow_mut()
             .insert(from, what.into())
@@ -683,7 +747,7 @@ impl World for SystemWorld {
 
 impl SystemWorld {
     #[tracing::instrument(skip_all)]
-    fn slot_or(&self, path: &Path, on_failure: PathSlot) -> FileResult<RefMut<PathSlot>> {
+    fn slot_r(&self, path: &Path) -> FileResult<RefMut<PathSlot>> {
         let mut hashes = self.hashes.borrow_mut();
         let hash = match hashes.get(path).cloned() {
             Some(hash) => hash,
@@ -698,7 +762,27 @@ impl SystemWorld {
         }?;
 
         Ok(std::cell::RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(hash).or_insert(on_failure)
+            paths.entry(hash).or_insert(PathSlot::read())
+        }))
+    }
+
+    #[tracing::instrument(skip_all)]
+    fn slot_w(&self, path: &Path) -> FileResult<RefMut<PathSlot>> { //todo
+        let mut hashes = self.hashes.borrow_mut();
+        let hash = match hashes.get(path).cloned() {
+            Some(hash) => hash,
+            None => {
+                let hash = PathHash::new(path);
+                if let  Ok(canon) = path.canonicalize() {
+                    hashes.insert(canon.normalize(), hash.clone());
+                }
+                hashes.insert(path.into(), hash.clone());
+                hash
+            }
+        }?;
+
+        Ok(std::cell::RefMut::map(self.paths.borrow_mut(), |paths| {
+            paths.entry(hash).or_insert(PathSlot::write())
         }))
     }
 

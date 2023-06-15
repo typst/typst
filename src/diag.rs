@@ -206,6 +206,8 @@ pub enum FileError {
     AccessDenied,
     /// A directory was found, but a file was expected.
     IsDirectory,
+    /// A file was found, but a directory was expected.
+    IsFile,
     /// The file is not a Typst source file, but should have been.
     NotSource,
     /// The file is already open, in the opposite mode (read instead of write, or opposite).
@@ -242,6 +244,7 @@ impl Display for FileError {
             }
             Self::AccessDenied => f.pad("failed to load file (access denied)"),
             Self::IsDirectory => f.pad("failed to load file (is a directory)"),
+            Self::IsFile => f.pad("failed to access directory (is a file)"),
             Self::NotSource => f.pad("not a typst source file"),
             Self::WrongMode => f.pad("tried to read and write to the same file"),
             Self::InvalidUtf8 => f.pad("file is not valid utf-8"),

@@ -248,7 +248,7 @@ impl<'a> Vm<'a> {
     pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
-                return Ok(self.world().root().join(path).normalize());
+                return Ok(self.world().root()?.join(path).normalize());
             }
 
             if let Some(dir) = self.world().source(self.location).path().parent() {

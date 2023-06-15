@@ -19,6 +19,11 @@ pub struct CliArguments {
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
     pub root: Option<PathBuf>,
 
+    /// Configure the destination for special generated files
+    /// If unset, a results directory will be created on the same directory as the output file(s)
+    #[clap(long = "dest", env = "TYPST_DEST", value_name = "DIR")]
+    pub dest: Option<PathBuf>,
+
     /// Sets the level of logging verbosity:
     /// -v = warning & error, -vv = info, -vvv = debug, -vvvv = trace
     #[clap(short, long, action = ArgAction::Count)]
