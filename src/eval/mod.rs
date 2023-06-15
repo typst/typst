@@ -53,13 +53,14 @@ pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::Symbol;
 pub use self::value::{Dynamic, Type, Value};
 
-use std::collections::HashSet;
+use std::{collections::HashSet, path::Component};
 use std::mem;
 use std::path::{Path, PathBuf};
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
 use unicode_segmentation::UnicodeSegmentation;
+use bitflags::bitflags;
 
 use self::func::{CapturesVisitor, Closure};
 use crate::model::{
@@ -245,18 +246,63 @@ impl<'a> Vm<'a> {
     /// Resolve a user-entered path to be relative to the compilation
     /// environment's root.
     #[tracing::instrument(skip_all)]
-    pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
+    pub fn locate_r(&self, path: &str) -> StrResult<PathBuf> {
+        self._locate_impl(path, self.world().root()?, LocatePerm::FileRelative)
+    }
+
+    /// Resolve a user-entered path to be relative to the compilation
+    /// environment's dest.
+    #[tracing::instrument(skip_all)]
+    pub fn locate_w(&self, path: &str) -> StrResult<PathBuf> {
+        self._locate_impl(path, self.world().dest()?, LocatePerm::Local)
+    }
+
+    /// Resolve a path to be relative to a directory.
+    #[tracing::instrument(skip_all)]
+    fn _locate_impl(&self, path: &str, abs: &Path, options: LocatePerm) -> StrResult<PathBuf> {
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
-                return Ok(self.world().root()?.join(path).normalize());
+                let path = PathBuf::from(path).normalize();
+                self._check_contents(&path, options)?;
+                return Ok(abs.join(path));
             }
 
             if let Some(dir) = self.world().source(self.location).path().parent() {
-                return Ok(dir.join(path).normalize());
+                if options.contains(LocatePerm::FileRelative) { // Allow path strings that do not start from 'abs'.
+                    let path = PathBuf::from(path).normalize();
+                    self._check_contents(&path, options)?;
+                    return Ok(dir.join(path));
+                }
+                bail!("path '{}' should be prefixed with a /", path)
             }
         }
 
         bail!("cannot access file system from here")
+    }
+
+    fn _check_contents(&self, path: &PathBuf, options: LocatePerm) -> StrResult<()> {
+        for c in path.components() {
+            if (c == Component::RootDir) && !options.contains(LocatePerm::Global) {
+                bail!("path '{}' should not be prefixed with a //", path.display())
+            }
+            if (c == Component::ParentDir) && !options.contains(LocatePerm::Upwards) {
+                bail!("path '{}' should not point to its parent", path.display())
+            }
+        }
+
+        return Ok(())
+    }
+}
+
+bitflags!{
+    /// A location permission, describes what kind of accesses can be made.
+    #[derive(Debug)]
+    struct LocatePerm: u32 {
+        const Local        = 0b00000000; // No permission
+        const Global       = 0b00000001; // Double slash paths, or paths that start from the filesystem's root, rather than typst's
+        const FileRelative = 0b00000010; // No-slash paths, or paths that start from the file invoking locate.
+        const Upwards      = 0b00000100; // Paths that allow ../ as a component //note: we may need a smarter system
+        // We could add SYMLINK (would require adding some kind of metadata function to world, to access information regarding wether a component is a symlink)
     }
 }
 
@@ -1766,7 +1812,7 @@ fn import(
 
     // Load the source file.
     let world = vm.world();
-    let full = vm.locate(&path).at(span)?;
+    let full = vm.locate_r(&path).at(span)?;
     let id = world.resolve(&full).at(span)?;
 
     // Prevent cyclic importing.

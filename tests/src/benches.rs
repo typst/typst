@@ -8,6 +8,7 @@ use typst::font::{Font, FontBook};
 use typst::geom::Color;
 use typst::syntax::{Source, SourceId};
 use typst::util::Buffer;
+use typst::model::Location;
 use typst::World;
 use unscanny::Scanner;
 
@@ -120,6 +121,10 @@ impl BenchWorld {
 }
 
 impl World for BenchWorld {
+    fn dest(&self) -> FileResult<&Path> {
+        Err(FileError::AccessDenied) //No writing in bench mode (for now at least)
+    }
+
     fn library(&self) -> &Prehashed<Library> {
         &self.library
     }
@@ -148,7 +153,7 @@ impl World for BenchWorld {
         Err(FileError::NotFound(path.into()))
     }
 
-    fn write(&self,_path: &Path) -> FileResult<()> {
+    fn write(&self, _: &Path, _: Location, _: Vec<u8>) -> FileResult<()> {
         todo!()
     }
 

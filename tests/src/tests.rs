@@ -27,6 +27,7 @@ use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
 use typst::util::{Buffer, PathExt};
+use typst::model::Location;
 use typst::World;
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
@@ -253,8 +254,12 @@ impl TestWorld {
 }
 
 impl World for TestWorld {
-    fn root(&self) -> &Path {
-        Path::new(FILE_DIR)
+    fn root(&self) -> FileResult<&Path> {
+        Ok(Path::new(FILE_DIR))
+    }
+
+    fn dest(&self) -> FileResult<&Path> {
+        Err(FileError::AccessDenied) //No writing in test mode (for now at least)
     }
 
     fn library(&self) -> &Prehashed<Library> {
@@ -295,7 +300,7 @@ impl World for TestWorld {
             .clone()
     }
 
-    fn write(&self,_path: &Path) -> FileResult<()> {
+    fn write(&self,_path: &Path, _: Location, _: Vec<u8>) -> FileResult<()> {
         todo!()
     }
 

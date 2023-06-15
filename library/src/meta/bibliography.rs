@@ -53,7 +53,7 @@ pub struct BibliographyElem {
             args.expect::<Spanned<BibPaths>>("path to bibliography file")?;
         for path in &mut paths.0 {
             // resolve paths
-            *path = vm.locate(path).at(span)?.to_string_lossy().into();
+            *path = vm.locate_r(path).at(span)?.to_string_lossy().into();
         }
         // check that parsing works
         let _ = load(vm.world(), &paths).at(span)?;

@@ -37,7 +37,7 @@ pub struct ImageElem {
     #[parse(
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
-        let path: EcoString = vm.locate(&path).at(span)?.to_string_lossy().into();
+        let path: EcoString = vm.locate_r(&path).at(span)?.to_string_lossy().into();
         let _ = load(vm.world(), &path, None, None).at(span)?;
         path
     )]

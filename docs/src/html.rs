@@ -4,12 +4,13 @@ use comemo::Prehashed;
 use md::escape::escape_html;
 use pulldown_cmark as md;
 use typed_arena::Arena;
-use typst::diag::FileResult;
+use typst::diag::{FileResult, FileError};
 use typst::eval::Datetime;
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
 use typst::syntax::{Source, SourceId};
 use typst::util::Buffer;
+use typst::model::Location;
 use typst::World;
 use yaml_front_matter::YamlFrontMatter;
 
@@ -465,6 +466,10 @@ fn nest_heading(level: &mut md::HeadingLevel) {
 struct DocWorld(Source);
 
 impl World for DocWorld {
+    fn dest(&self) -> FileResult<&Path> {
+        Err(FileError::AccessDenied) //No writing in bench mode (for now at least)
+    }
+
     fn library(&self) -> &Prehashed<Library> {
         &LIBRARY
     }
@@ -498,7 +503,7 @@ impl World for DocWorld {
             .into())
     }
 
-    fn write(&self,path: &Path) -> FileResult<()> {
+    fn write(&self, _: &Path, _: Location, _: Vec<u8>) -> FileResult<()> {
         todo!()
     }
 

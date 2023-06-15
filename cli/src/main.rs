@@ -236,11 +236,12 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
 
             match fs::metadata(&dir) {
                 Err(_) => { //Does not exist (1), or cannot access info (2)
+                    FileResult::Ok(dir) //We assume (1), and parent writtable.
                     //(Should) fail on (2), will fail on specific declinations of (1) (if we cannot write to parent for example)
-                    match fs::create_dir(&dir).map_err(|e| e.to_string()) {
+                    /*match fs::create_dir(&dir).map_err(|e| e.to_string()) {
                         Ok(_) => FileResult::Ok(dir),
                         Err(_) => FileResult::Err(FileError::AccessDenied), //Technically not always accessdenied, but only on a TOCTTOU. Still, we disable write access
-                    }
+                    }*/
                 },
                 Ok(m) => {
                     if !m.is_dir() {
@@ -344,7 +345,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Export the PDF / PNG.
         Ok(document) => {
             export(&document, command)?;
-            write(world, Path::new("record"), "txt", command)?; //todo!
+            //write(world, Path::new("record"), "txt", command)?; //todo!
             status(command, Status::Success).unwrap();
             tracing::info!("Compilation succeeded");
             Ok(true)
@@ -401,7 +402,7 @@ fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
 
 /// Apply write calls
 /// These are very limited in where they can write, which is no issue as we excpect to be unable to write everywhere
-fn write(world: &SystemWorld, what: &Path, kind: &str, command: &CompileSettings) -> StrResult<()> {
+fn _write(world: &SystemWorld, what: &Path, kind: &str, command: &CompileSettings) -> StrResult<()> {
     // Find file
     let slot = world.slot_w(what)?;
     let data = match slot.buffer.as_write() {
