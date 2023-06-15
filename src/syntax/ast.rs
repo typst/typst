@@ -160,6 +160,8 @@ pub enum Expr {
     Binary(Binary),
     /// A field access: `properties.age`.
     FieldAccess(FieldAccess),
+    /// An optional field access: `properties?.age`.
+    OptionalFieldAccess(OptionalFieldAccess),
     /// An invocation of a function or method: `f(x, y)`.
     FuncCall(FuncCall),
     /// A closure: `(x, y) => z`.
@@ -303,6 +305,7 @@ impl AstNode for Expr {
             Self::Unary(v) => v.as_untyped(),
             Self::Binary(v) => v.as_untyped(),
             Self::FieldAccess(v) => v.as_untyped(),
+            Self::OptionalFieldAccess(v) => v.as_untyped(),
             Self::FuncCall(v) => v.as_untyped(),
             Self::Closure(v) => v.as_untyped(),
             Self::Let(v) => v.as_untyped(),
@@ -1489,6 +1492,23 @@ node! {
 }
 
 impl FieldAccess {
+    /// The expression to access the field on.
+    pub fn target(&self) -> Expr {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The name of the field.
+    pub fn field(&self) -> Ident {
+        self.0.cast_last_match().unwrap_or_default()
+    }
+}
+
+node! {
+    /// An optional field access: `properties?.age`.
+    OptionalFieldAccess
+}
+
+impl OptionalFieldAccess {
     /// The expression to access the field on.
     pub fn target(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()

@@ -175,6 +175,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         }),
         SyntaxKind::Hat => Some(Tag::MathOperator),
         SyntaxKind::Dot => Some(Tag::Punctuation),
+        SyntaxKind::QuestionDot => Some(Tag::Punctuation),
         SyntaxKind::Eq => match node.parent_kind() {
             Some(SyntaxKind::Heading) => None,
             _ => Some(Tag::Operator),
@@ -230,6 +231,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::Unary => None,
         SyntaxKind::Binary => None,
         SyntaxKind::FieldAccess => None,
+        SyntaxKind::OptionalFieldAccess => None,
         SyntaxKind::FuncCall => None,
         SyntaxKind::Args => None,
         SyntaxKind::Spread => None,

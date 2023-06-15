@@ -492,6 +492,7 @@ impl Eval for ast::Expr {
             Self::Dict(v) => v.eval(vm).map(Value::Dict),
             Self::Parenthesized(v) => v.eval(vm),
             Self::FieldAccess(v) => v.eval(vm),
+            Self::OptionalFieldAccess(v) => v.eval(vm),
             Self::FuncCall(v) => v.eval(vm),
             Self::Closure(v) => v.eval(vm),
             Self::Unary(v) => v.eval(vm),
@@ -1087,6 +1088,20 @@ impl Eval for ast::FieldAccess {
         let value = self.target().eval(vm)?;
         let field = self.field();
         value.field(&field).at(field.span())
+    }
+}
+
+impl Eval for ast::OptionalFieldAccess {
+    type Output = Value;
+
+    #[tracing::instrument(name = "FieldAccess::eval", skip_all)]
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let value = self.target().eval(vm)?;
+        let field = self.field();
+        match value {
+            Value::None => Ok(Value::None),
+            _ => value.field(&field).at(field.span()),
+        }
     }
 }
 

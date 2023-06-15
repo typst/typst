@@ -110,6 +110,8 @@ pub enum SyntaxKind {
     Hat,
     /// The field access and method call operator: `.`.
     Dot,
+    /// The optional field access and method call operator: `?.`.
+    QuestionDot,
     /// The assignment operator: `=`.
     Eq,
     /// The equality operator: `==`.
@@ -212,6 +214,8 @@ pub enum SyntaxKind {
     Binary,
     /// A field access: `properties.age`.
     FieldAccess,
+    /// An optional field access: `properties?.age`.
+    OptionalFieldAccess,
     /// An invocation of a function or method: `f(x, y)`.
     FuncCall,
     /// A function call's argument list: `(12pt, y)`.
@@ -370,6 +374,7 @@ impl SyntaxKind {
             Self::Slash => "slash",
             Self::Hat => "hat",
             Self::Dot => "dot",
+            Self::QuestionDot => "optional field access operator",
             Self::Eq => "equals sign",
             Self::EqEq => "equality operator",
             Self::ExclEq => "inequality operator",
@@ -420,6 +425,7 @@ impl SyntaxKind {
             Self::Unary => "unary expression",
             Self::Binary => "binary expression",
             Self::FieldAccess => "field access",
+            Self::OptionalFieldAccess => "optional field access",
             Self::FuncCall => "function call",
             Self::Args => "call arguments",
             Self::Spread => "spread",

@@ -613,6 +613,12 @@ fn code_expr_prec(
             continue;
         }
 
+        if p.eat_if(SyntaxKind::QuestionDot) {
+            p.expect(SyntaxKind::Ident);
+            p.wrap(m, SyntaxKind::OptionalFieldAccess);
+            continue;
+        }
+
         let binop =
             if ast::BinOp::NotIn.precedence() >= min_prec && p.eat_if(SyntaxKind::Not) {
                 if p.at(SyntaxKind::In) {
