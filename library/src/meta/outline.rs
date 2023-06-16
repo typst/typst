@@ -408,7 +408,7 @@ cast! {
 /// ```
 ///
 /// To completely customize an entry's line, you can also build it from scratch
-/// by accessing the `level`, `element`, `body`, and `fill` fields on the entry.
+/// by accessing the `level`, `element`, `body`, `fill` and `page` fields on the entry.
 ///
 /// Display: Outline Entry
 /// Category: meta
@@ -441,6 +441,12 @@ pub struct OutlineEntry {
     /// precisely as many `-` characters as necessary to fill a particular gap.
     #[required]
     pub fill: Option<Content>,
+
+    /// The content representing the page number of the element this entry
+    /// links to. By default it will use the numbering format used by the
+    /// the referened page.
+    #[required]
+    pub page: Content,
 }
 
 impl OutlineEntry {
@@ -454,7 +460,7 @@ impl OutlineEntry {
         elem: Content,
         fill: Option<Content>,
     ) -> SourceResult<Option<Self>> {
-        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
+        let (Some(outlinable), Some(location)) = (elem.with::<dyn Outlinable>(), elem.location()) else {
             bail!(span, "cannot outline {}", elem.func().name());
         };
 
@@ -462,12 +468,25 @@ impl OutlineEntry {
             return Ok(None);
         };
 
-        Ok(Some(Self::new(outlinable.level(), elem, body, fill)))
+        let page_numbering = vt
+            .introspector
+            .page_numbering(location)
+            .cast::<Option<Numbering>>()
+            .unwrap()
+            .unwrap_or_else(|| {
+                Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
+            });
+
+        let page = Counter::new(CounterKey::Page)
+            .at(vt, location)?
+            .display(vt, &page_numbering)?;
+
+        Ok(Some(Self::new(outlinable.level(), elem, body, fill, page)))
     }
 }
 
 impl Show for OutlineEntry {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
         let elem = self.element();
 
@@ -493,21 +512,9 @@ impl Show for OutlineEntry {
             seq.push(HElem::new(Fr::one().into()).pack());
         }
 
-        let page_numbering = vt
-            .introspector
-            .page_numbering(location)
-            .cast::<Option<Numbering>>()
-            .unwrap()
-            .unwrap_or_else(|| {
-                Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
-            });
-
-        let page = Counter::new(CounterKey::Page)
-            .at(vt, location)?
-            .display(vt, &page_numbering)?;
-
         // Add the page number.
-        seq.push(page.linked(Destination::Location(location)));
+        let page = self.page().linked(Destination::Location(location));
+        seq.push(page);
 
         Ok(Content::sequence(seq))
     }
