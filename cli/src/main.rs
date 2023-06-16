@@ -18,7 +18,6 @@ use elsa::FrozenVec;
 use memmap2::Mmap;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use same_file::{is_same_file, Handle};
-use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::model::Location;
 use std::cell::OnceCell;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
@@ -28,7 +27,7 @@ use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::geom::Color;
 use typst::syntax::{Source, SourceId};
-use typst::util::{Buffer, PathExt};
+use typst::util::{Buffer, PathExt, Access, AccessMode, hash128};
 use typst::World;
 use walkdir::WalkDir;
 
@@ -345,7 +344,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Export the PDF / PNG.
         Ok(document) => {
             export(&document, command)?;
-            //write(world, Path::new("record"), "txt", command)?; //todo!
+            write(world)?;
             status(command, Status::Success).unwrap();
             tracing::info!("Compilation succeeded");
             Ok(true)
@@ -402,29 +401,36 @@ fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
 
 /// Apply write calls
 /// These are very limited in where they can write, which is no issue as we excpect to be unable to write everywhere
-fn _write(world: &SystemWorld, what: &Path, kind: &str, command: &CompileSettings) -> StrResult<()> {
+#[tracing::instrument(skip_all)]
+fn write(world: &SystemWorld) -> StrResult<()> {
     // Find file
-    let slot = world.slot_w(what)?;
-    let data = match slot.buffer.as_write() {
-        Ok(x) => x,
-        Err(_) => return Ok(()), //No file to write (but a file to read!)
-    }.borrow_mut();
-    
-    if data.is_empty() {
-        // Nothing to write
-        return Ok(())
-    } else {
-        // Remember; we aren't interested with order conservation here! what's important is that the data is there.
-        let buffer: Vec<u8> = data.values()
-            .flat_map(|b| b.as_ref().to_owned())
-            .collect();
-        // Generate file name, and write
-        let dest = command.output.with_file_name(what).with_extension(kind);
-        fs::write(dest, buffer).map_err(|_| format!("failed to write {kind} file"))?;
-
-        Ok(())
+    tracing::info!("Writing result files..");
+    let hashes = world.hashes.borrow();
+    for (h, s) in world.paths.borrow().iter() {
+        if s.buffer.is(AccessMode::W) {
+            // Wasteful, do something better (store mode in hashes?)
+            // Also, collision issue maybe? probs not
+            let loc = hashes.iter()
+                .find(|(_, v)| match v {
+                    Err(_) => false,
+                    Ok(v) => v == h,
+                });
+            if let Some((path, _)) = loc {
+                let data = s.buffer.as_write()?.borrow();
+                if data.is_empty() {
+                    // Nothing to write
+                    continue;
+                } else {
+                    // Remember; we aren't interested with order conservation here! what's important is that the data is there.
+                    let buffer: Vec<u8> = data.to_owned();
+                    // Generate file name, and write
+                    tracing::info!("Writing file: {}", path.to_str().unwrap_or("{invalid_name}"));
+                    fs::write(path, buffer).map_err(|_| format!("failed to write {} file", path.file_name().map_or("..", |s| s.to_str().unwrap_or("{invalid_name}"))))?;
+                }
+            }
+        }
     }
-
+    Ok(())
 }
 
 /// Clear the terminal and render the status message.
@@ -596,41 +602,17 @@ struct FontSlot {
 /// Holds canonical data for all paths pointing to the same entity.
 struct PathSlot {
     source: OnceCell<FileResult<SourceId>>,
-    buffer: FileData,
-}
-
-#[allow(dead_code)]
-enum FileData {
-    Read(OnceCell<FileResult<Buffer>>),
-    /// As WRITE requires mutability, we put it behind a refcounter
-    /// We do not hide it behind a FileResult, as the actual file operations are handeled later.
-    Write(RefCell<HashMap<Location, Buffer>>), 
+    buffer: Access<OnceCell<FileResult<Buffer>>, RefCell<Vec<u8>>>,
 }
 
 impl PathSlot {
     /// Register a new file in read mode.
     fn read() -> Self {
-        PathSlot { source: OnceCell::default(), buffer: FileData::Read(OnceCell::default()) }
+        PathSlot { source: OnceCell::default(), buffer: Access::Read(OnceCell::default()) }
     }
     /// Register a new file in write mode.
     fn write() -> Self {
-        PathSlot { source: OnceCell::default(), buffer: FileData::Write(RefCell::default()) }
-    }
-}
-impl FileData {
-    /// Attempt a read operation on the file
-    fn as_read(&self) -> FileResult<&OnceCell<FileResult<Buffer>>> {
-        match self {
-            Self::Read(x) => return Ok(x),
-            Self::Write(_) => return Err(FileError::WrongMode),
-        }
-    }
-    /// Attempt a write operation on the file
-    fn as_write(&self) -> FileResult<&RefCell<HashMap<Location, Buffer>>> {
-        match self {
-            Self::Read(_) => return Err(FileError::WrongMode),
-            Self::Write(x) => return Ok(x),
-        }
+        PathSlot { source: OnceCell::default(), buffer: Access::Write(RefCell::default()) }
     }
 }
 
@@ -654,17 +636,16 @@ impl SystemWorld {
 }
 
 impl World for SystemWorld {
-    fn root(&self) -> FileResult<&Path> {
-        match &self.root {
-            Err(e) => Err(e.clone()),
-            Ok(p) => Ok(&p),
-        }
-    }
-
-    fn dest(&self) ->  FileResult<&Path> {
-        match &self.dest {
-            Err(e) => Err(e.clone()),
-            Ok(p) => Ok(&p),
+    fn root(&self, mode: AccessMode) -> FileResult<&Path> {
+        match mode {
+            Access::Read(_) => match &self.root {
+                Err(e) => Err(e.clone()),
+                Ok(p) => Ok(&p),
+            },
+            Access::Write(_) => match &self.dest {
+                Err(e) => Err(e.clone()),
+                Ok(p) => Ok(&p),
+            }
         }
     }
 
@@ -720,12 +701,15 @@ impl World for SystemWorld {
             .clone()
     }
 
-    fn write(&self, path: &Path, from: Location, what: Vec<u8>) -> FileResult<()> {
+
+    fn write(&self, path: &Path, _: Location, what: Vec<u8>) -> FileResult<()> {
+        //println!("{}", self.slot_w(path)?.buffer.as_write()?.borrow_mut().iter().flat_map(|(_,v)| String::from_utf8(v.to_vec()).unwrap_or("ough".to_owned())).collect::<String>());
         self.slot_w(path)?
             .buffer.as_write()?
-            .borrow_mut()
-            .insert(from, what.into())
-            .map_or(FileResult::Err(FileError::AccessDenied), |_| FileResult::Ok(()))
+            .borrow_mut().extend(what);
+        Ok(())
+            //.insert(from, what.into())
+            //.map_or(FileResult::Err(FileError::AccessDenied), |_| FileResult::Ok(()))
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
@@ -753,7 +737,7 @@ impl SystemWorld {
         let hash = match hashes.get(path).cloned() {
             Some(hash) => hash,
             None => {
-                let hash = PathHash::new(path);
+                let hash = PathHash::new(path, AccessMode::R);
                 if let Ok(canon) = path.canonicalize() {
                     hashes.insert(canon.normalize(), hash.clone());
                 }
@@ -773,7 +757,7 @@ impl SystemWorld {
         let hash = match hashes.get(path).cloned() {
             Some(hash) => hash,
             None => {
-                let hash = PathHash::new(path);
+                let hash = PathHash::new(path, AccessMode::W);
                 if let  Ok(canon) = path.canonicalize() {
                     hashes.insert(canon.normalize(), hash.clone());
                 }
@@ -816,7 +800,7 @@ impl SystemWorld {
 
     fn dependant(&self, path: &Path) -> bool {
         self.hashes.borrow().contains_key(&path.normalize())
-            || PathHash::new(path)
+            || PathHash::new(path, AccessMode::R)
                 .map_or(false, |hash| self.paths.borrow().contains_key(&hash))
     }
 
@@ -834,12 +818,17 @@ impl SystemWorld {
 struct PathHash(u128);
 
 impl PathHash {
-    fn new(path: &Path) -> FileResult<Self> {
+    fn new(path: &Path, mode: AccessMode) -> FileResult<Self> {
         let f = |e| FileError::from_io(e, path);
-        let handle = Handle::from_path(path).map_err(f)?;
-        let mut state = SipHasher13::new();
-        handle.hash(&mut state);
-        Ok(Self(state.finish128().as_u128()))
+        let handle = match mode {
+            Access::Read(_) => Handle::from_path(path).map_err(f)?, //note: opening twice???
+            Access::Write(_) => {
+                let file = File::create(path).map_err(f)?;
+                Handle::from_file(file).map_err(f)?
+            }
+        };
+        let state = hash128(&handle);
+        Ok(Self(state))
     }
 }
 

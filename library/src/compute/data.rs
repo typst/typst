@@ -1,5 +1,6 @@
 use typst::diag::{format_xml_like_error, FileError};
 use typst::eval::Datetime;
+use typst::util::AccessMode;
 
 use crate::prelude::*;
 
@@ -25,7 +26,7 @@ pub fn read(
     vm: &mut Vm,
 ) -> SourceResult<Str> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate_r(&path).at(span)?;
+    let path = vm.locate(&path, AccessMode::R).at(span)?;
     let data = vm.world().read(&path).at(span)?;
     let text = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
@@ -50,7 +51,7 @@ pub fn read(
 ///
 /// Note to self: Could use macro Locatable instead
 /// 
-/// Display: Read
+/// Display: Write
 /// Category: data-loading
 #[func]
 pub fn write(
@@ -62,8 +63,9 @@ pub fn write(
     vm: &mut Vm,
 ) -> SourceResult<()> {
     let Spanned { v: text, span } = text;
-    vm.world().write(std::path::Path::new(""), location, text.as_bytes().to_owned()).at(span)?;
-
+    let path = "record.txt";
+    let path = vm.locate(&path, AccessMode::W).at(span)?;
+    vm.world().write(&path, location, text.as_bytes().to_vec()).at(span)?;
     Ok(())
 }
 
@@ -100,7 +102,7 @@ pub fn csv(
     vm: &mut Vm,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate_r(&path).at(span)?;
+    let path = vm.locate(&path, AccessMode::R).at(span)?;
     let data = vm.world().read(&path).at(span)?;
 
     let mut builder = csv::ReaderBuilder::new();
@@ -211,7 +213,7 @@ pub fn json(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate_r(&path).at(span)?;
+    let path = vm.locate(&path, AccessMode::R).at(span)?;
     let data = vm.world().read(&path).at(span)?;
     let value: serde_json::Value =
         serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
@@ -277,7 +279,7 @@ pub fn toml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate_r(&path).at(span)?;
+    let path = vm.locate(&path, AccessMode::R).at(span)?;
     let data = vm.world().read(&path).at(span)?;
 
     let raw = std::str::from_utf8(&data)
@@ -386,7 +388,7 @@ pub fn yaml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate_r(&path).at(span)?;
+    let path = vm.locate(&path, AccessMode::R).at(span)?;
     let data = vm.world().read(&path).at(span)?;
     let value: serde_yaml::Value =
         serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
@@ -489,7 +491,7 @@ pub fn xml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate_r(&path).at(span)?;
+    let path = vm.locate(&path, AccessMode::R).at(span)?;
     let data = vm.world().read(&path).at(span)?;
     let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;

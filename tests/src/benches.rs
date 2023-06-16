@@ -121,10 +121,6 @@ impl BenchWorld {
 }
 
 impl World for BenchWorld {
-    fn dest(&self) -> FileResult<&Path> {
-        Err(FileError::AccessDenied) //No writing in bench mode (for now at least)
-    }
-
     fn library(&self) -> &Prehashed<Library> {
         &self.library
     }

@@ -7,7 +7,7 @@ use ecow::{eco_vec, EcoVec};
 use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
-use typst::util::option_eq;
+use typst::util::{option_eq, AccessMode};
 
 use super::{LinkElem, LocalName, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
@@ -53,7 +53,7 @@ pub struct BibliographyElem {
             args.expect::<Spanned<BibPaths>>("path to bibliography file")?;
         for path in &mut paths.0 {
             // resolve paths
-            *path = vm.locate_r(path).at(span)?.to_string_lossy().into();
+            *path = vm.locate(path, AccessMode::R).at(span)?.to_string_lossy().into();
         }
         // check that parsing works
         let _ = load(vm.world(), &paths).at(span)?;

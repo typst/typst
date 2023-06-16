@@ -61,7 +61,7 @@ use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
 use crate::syntax::{Source, SourceId};
-use crate::util::Buffer;
+use crate::util::{Buffer, AccessMode};
 use crate::model::Location;
 
 
@@ -94,15 +94,11 @@ pub trait World {
     /// The path relative to which absolute paths are.
     ///
     /// Defaults to the empty path.
-    /// Fails when reading has been disabled. 
-    fn root(&self) -> FileResult<&Path> {
+    /// Fails when access has been disabled for target mode
+    fn root(&self, mode: AccessMode) -> FileResult<&Path> {
+        mode.as_read()?;
         Ok(Path::new(""))
     }
-
-    /// The path relative to which destination paths are.
-    /// The directory where files created by compilation (apart from the compilation result: logs, records...) are stored
-    /// Fails when writing has been disabled.
-    fn dest(&self) -> FileResult<&Path>;
 
     /// The standard library.
     fn library(&self) -> &Prehashed<Library>;

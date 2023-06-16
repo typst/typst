@@ -2,6 +2,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
+use typst::util::{AccessMode};
 
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
@@ -37,7 +38,7 @@ pub struct ImageElem {
     #[parse(
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
-        let path: EcoString = vm.locate_r(&path).at(span)?.to_string_lossy().into();
+        let path: EcoString = vm.locate(&path, AccessMode::R).at(span)?.to_string_lossy().into();
         let _ = load(vm.world(), &path, None, None).at(span)?;
         path
     )]

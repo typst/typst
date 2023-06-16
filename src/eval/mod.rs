@@ -71,7 +71,7 @@ use crate::syntax::ast::AstNode;
 use crate::syntax::{
     ast, parse_code, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode,
 };
-use crate::util::PathExt;
+use crate::util::{PathExt, AccessMode};
 use crate::World;
 use crate::{
     diag::{bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint},
@@ -246,15 +246,8 @@ impl<'a> Vm<'a> {
     /// Resolve a user-entered path to be relative to the compilation
     /// environment's root.
     #[tracing::instrument(skip_all)]
-    pub fn locate_r(&self, path: &str) -> StrResult<PathBuf> {
-        self._locate_impl(path, self.world().root()?, LocatePerm::FileRelative)
-    }
-
-    /// Resolve a user-entered path to be relative to the compilation
-    /// environment's dest.
-    #[tracing::instrument(skip_all)]
-    pub fn locate_w(&self, path: &str) -> StrResult<PathBuf> {
-        self._locate_impl(path, self.world().dest()?, LocatePerm::Local)
+    pub fn locate(&self, path: &str, mode: AccessMode) -> StrResult<PathBuf> {
+        self._locate_impl(path, self.world().root(mode)?, LocatePerm::FileRelative)
     }
 
     /// Resolve a path to be relative to a directory.
@@ -1812,7 +1805,7 @@ fn import(
 
     // Load the source file.
     let world = vm.world();
-    let full = vm.locate_r(&path).at(span)?;
+    let full = vm.locate(&path, AccessMode::R).at(span)?;
     let id = world.resolve(&full).at(span)?;
 
     // Prevent cyclic importing.

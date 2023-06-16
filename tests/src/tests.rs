@@ -26,7 +26,7 @@ use typst::eval::{func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
-use typst::util::{Buffer, PathExt};
+use typst::util::{Buffer, PathExt, AccessMode};
 use typst::model::Location;
 use typst::World;
 use typst_library::layout::{Margin, PageElem};
@@ -254,12 +254,9 @@ impl TestWorld {
 }
 
 impl World for TestWorld {
-    fn root(&self) -> FileResult<&Path> {
+    fn root(&self, mode: AccessMode) -> FileResult<&Path> {
+        mode.as_read()?;
         Ok(Path::new(FILE_DIR))
-    }
-
-    fn dest(&self) -> FileResult<&Path> {
-        Err(FileError::AccessDenied) //No writing in test mode (for now at least)
     }
 
     fn library(&self) -> &Prehashed<Library> {

@@ -14,6 +14,8 @@ use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
 
+use crate::diag::{FileResult, FileError};
+
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
 where
@@ -232,4 +234,53 @@ where
     L: PartialEq<R>,
 {
     left.map(|v| v == other).unwrap_or(false)
+}
+
+/// An access descriptor
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Access<T,U> {
+    Read(T),
+    Write(U), 
+}
+
+impl<T,U> Access<T,U> {
+    /// Attempt a read operation on the file
+    pub fn as_read(&self) -> FileResult<&T> {
+        match self {
+            Self::Read(x) => return Ok(x),
+            Self::Write(_) => return Err(FileError::WrongMode),
+        }
+    }
+    /// Attempt a write operation on the file
+    pub fn as_write(&self) -> FileResult<&U> {
+        match self {
+            Self::Read(_) => return Err(FileError::WrongMode),
+            Self::Write(x) => return Ok(x),
+        }
+    }
+}
+
+impl<T,U> Default for Access<T,U>
+where T: Default {
+    fn default() -> Self {
+        Access::Read(T::default())
+    }
+}
+
+pub type AccessMode = Access<(),()>;
+
+impl AccessMode {
+    pub const R: AccessMode = AccessMode::Read(());
+    pub const W: AccessMode = AccessMode::Write(());
+}
+
+impl<T,U> Access<T,U> {
+    /// Compares modes, not values
+    pub fn is(&self, mode: AccessMode) -> bool {
+        match self {
+            Access::Read(_) if Access::Read(()) == mode => true,
+            Access::Write(_) if Access::Write(()) == mode => true,
+            _ => false,
+        }
+    }
 }

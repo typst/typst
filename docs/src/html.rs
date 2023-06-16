@@ -4,7 +4,7 @@ use comemo::Prehashed;
 use md::escape::escape_html;
 use pulldown_cmark as md;
 use typed_arena::Arena;
-use typst::diag::{FileResult, FileError};
+use typst::diag::{FileResult};
 use typst::eval::Datetime;
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
@@ -466,10 +466,6 @@ fn nest_heading(level: &mut md::HeadingLevel) {
 struct DocWorld(Source);
 
 impl World for DocWorld {
-    fn dest(&self) -> FileResult<&Path> {
-        Err(FileError::AccessDenied) //No writing in bench mode (for now at least)
-    }
-
     fn library(&self) -> &Prehashed<Library> {
         &LIBRARY
     }

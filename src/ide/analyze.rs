@@ -7,7 +7,7 @@ use crate::doc::Frame;
 use crate::eval::{eval, Module, Route, Tracer, Value};
 use crate::model::{Introspector, Label};
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
-use crate::util::PathExt;
+use crate::util::{PathExt, AccessMode};
 use crate::World;
 
 /// Try to determine a set of possible values for an expression.
@@ -67,7 +67,7 @@ pub fn analyze_import(
     path: &str,
 ) -> Option<Module> {
     let full: PathBuf = if let Some(path) = path.strip_prefix('/') {
-        world.root().ok()?.join(path).normalize()
+        world.root(AccessMode::R).ok()?.join(path).normalize()
     } else if let Some(dir) = source.path().parent() {
         dir.join(path).normalize()
     } else {
