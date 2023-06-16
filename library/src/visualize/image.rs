@@ -137,6 +137,7 @@ impl LocalName for ImageElem {
             Lang::CZECH => "Obrázek",
             Lang::DANISH => "Figur",
             Lang::DUTCH => "Figuur",
+            Lang::FILIPINO => "Pigura",
             Lang::FRENCH => "Figure",
             Lang::GERMAN => "Abbildung",
             Lang::ITALIAN => "Figura",
