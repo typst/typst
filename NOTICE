@@ -63,7 +63,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ================================================================================
 
 ================================================================================
-Syntaxes in `assets/data/syntect.bin` are generated from syntax definitions
+Syntaxes in `library/assets/syntect.bin` are generated from syntax definitions
 which can be found here:
 https://github.com/sharkdp/bat/tree/master/assets/syntaxes
 
