@@ -32,6 +32,8 @@ bench = false
 [dependencies]
 typst-macros = { path = "macros" }
 bitflags = { version = "2", features = ["serde"] }
+base64 = "0.21.0"
+xmlparser = "0.13.5"
 bytemuck = "1"
 comemo = "0.3"
 ecow = "0.1"
@@ -64,6 +66,7 @@ unscanny = "0.1"
 usvg = { version = "0.32", default-features = false, features = ["text"] }
 xmp-writer = "0.1"
 time = { version = "0.3.20", features = ["std", "formatting"] }
+rkyv = { version = "0.7.42", optional = true, features = ["validation", "alloc"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = "0.1.15"
@@ -77,3 +80,9 @@ codegen-units = 1
 
 [profile.release.package."typst-cli"]
 strip = true
+
+[features]
+rkyv = ["dep:rkyv"]
+rkyv-validation = ["dep:rkyv"]
+flat-vector = ["rkyv", "rkyv-validation"]
+default = []

@@ -1,0 +1,61 @@
+.typst-txt {
+  pointer-events: bounding-box;
+}
+
+.tsel span,
+.tsel {
+  position: fixed;
+  text-align: justify;
+  white-space: nowrap;
+  width: 100%;
+  height: 100%;
+  text-align-last: justify;
+  color: transparent;
+}
+.tsel span::-moz-selection,
+.tsel::-moz-selection {
+  color: transpaent;
+  background: #7db9dea0;
+}
+.tsel span::selection,
+.tsel::selection {
+  color: transpaent;
+  background: #7db9dea0;
+}
+svg {
+  --glyph_fill: black;
+}
+.pseudo-link {
+  fill: transparent;
+  cursor: pointer;
+  pointer-events: all;
+}
+.image_glyph image,
+.outline_glyph path {
+  transform: matrix(1, 0, 0, 1, var(--o), 0);
+}
+.outline_glyph path {
+  fill: var(--glyph_fill);
+}
+.outline_glyph path {
+  transition: 0.2s all;
+}
+.hover .typst-txt {
+  --glyph_fill: #66bab7;
+}
+.typst-ripple {
+  width: 0;
+  height: 0;
+  background-color: transparent;
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid #66bab7;
+}
+@keyframes typst-ripple-effect {
+  to {
+    width: 10vw;
+    height: 10vw;
+    opacity: 0.01;
+    margin: -5vw;
+  }
+}

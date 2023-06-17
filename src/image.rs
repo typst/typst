@@ -68,6 +68,17 @@ impl Image {
         }))))
     }
 
+    pub fn new_with_size(
+        data: Buffer,
+        format: ImageFormat,
+        alt: Option<EcoString>,
+        size: Axes<u32>,
+    ) -> StrResult<Self> {
+        let loader = PreparedLoader::default();
+
+        Ok(Self(Arc::new(Prehashed::new(Repr { data, format, size, loader, alt }))))
+    }
+
     /// Create a font-dependant image from a buffer and a format.
     #[comemo::memoize]
     pub fn with_fonts(
