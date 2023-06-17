@@ -36,6 +36,7 @@ const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
+const SVG_DIR: &str = "svg";
 const FONT_DIR: &str = "../assets/fonts";
 const ASSET_DIR: &str = "../assets";
 
@@ -117,11 +118,19 @@ fn main() {
             let path = src_path.strip_prefix(TYP_DIR).unwrap();
             let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
             let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
+            let svg_path = Path::new(SVG_DIR).join(path).with_extension("svg");
             let pdf_path =
                 args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-            test(world, &src_path, &png_path, &ref_path, pdf_path.as_deref(), &args)
-                as usize
+            test(
+                world,
+                &src_path,
+                &png_path,
+                &ref_path,
+                pdf_path.as_deref(),
+                &svg_path,
+                &args,
+            ) as usize
         })
         .collect::<Vec<_>>();
 
@@ -329,6 +338,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
+    svg_path: &Path,
     args: &Args,
 ) -> bool {
     struct PanicGuard<'a>(&'a Path);
@@ -419,6 +429,13 @@ fn test(
         let canvas = render(&document.pages);
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
+
+        let svg = typst::export::render_svg(&document);
+        fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
+        std::fs::write(svg_path, svg).unwrap();
+
+        let svg = typst::export::render_svg_html(&document);
+        std::fs::write(svg_path.with_extension("html"), svg).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
             if canvas.width() != ref_pixmap.width()
