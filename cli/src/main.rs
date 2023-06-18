@@ -46,7 +46,7 @@ fn main() -> ExitCode {
     let _guard = match crate::trace::init_tracing(&arguments) {
         Ok(guard) => guard,
         Err(err) => {
-            eprintln!("failed to initialize tracing {}", err);
+            _ = writeln!(io::stderr().lock(), "failed to initialize tracing {err}");
             None
         }
     };
@@ -476,11 +476,15 @@ fn fonts(command: FontsSettings) -> StrResult<()> {
     searcher.search(&command.font_paths);
 
     for (name, infos) in searcher.book.families() {
-        println!("{name}");
+        let mut stdout = io::stdout().lock();
+        _ = writeln!(stdout, "{name}");
         if command.variants {
             for info in infos {
                 let FontVariant { style, weight, stretch } = info.variant;
-                println!("- Style: {style:?}, Weight: {weight:?}, Stretch: {stretch:?}");
+                _ = writeln!(
+                    stdout,
+                    "- Style: {style:?}, Weight: {weight:?}, Stretch: {stretch:?}"
+                );
             }
         }
     }

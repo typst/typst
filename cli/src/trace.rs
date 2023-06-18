@@ -1,5 +1,6 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Error, ErrorKind, Seek, SeekFrom};
+use std::io;
+use std::io::{BufReader, BufWriter, Error, ErrorKind, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
 use inferno::flamegraph::Options;
@@ -55,7 +56,10 @@ impl Drop for TracingGuard {
             if let Err(e) = self.finish() {
                 // Since we are finished, we cannot rely on tracing to log the
                 // error.
-                eprintln!("Failed to flush tracing flamegraph: {e}");
+                _ = writeln!(
+                    io::stderr().lock(),
+                    "Failed to flush tracing flamegraph: {e}"
+                );
             }
         }
     }
