@@ -631,7 +631,8 @@ impl World for SystemWorld {
         self.slot_r(path)?
             .source
             .get_or_init(|| {
-                let buf = read(path)?;
+                let path = path.canonicalize().map_err(|f| FileError::from_io(f, path))?; 
+                let buf = read(&path)?;
                 let text = if buf.starts_with(b"\xef\xbb\xbf") {
                     // remove UTF-8 BOM
                     std::str::from_utf8(&buf[3..])?.to_owned()
@@ -639,7 +640,7 @@ impl World for SystemWorld {
                     // Assume UTF-8
                     String::from_utf8(buf)?
                 };
-                Ok(self.insert(path, text))
+                Ok(self.insert(&path, text))
             })
             .clone()
     }

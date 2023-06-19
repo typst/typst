@@ -6,7 +6,7 @@ mod buffer;
 
 pub use buffer::Buffer;
 
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug, Formatter, Display};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::path::{Component, Path, PathBuf};
@@ -272,6 +272,15 @@ pub type AccessMode = Access<(),()>;
 impl AccessMode {
     pub const R: AccessMode = AccessMode::Read(());
     pub const W: AccessMode = AccessMode::Write(());
+
+    /// Returns the other.
+    /// That is, the mode that is not self (i.e: write if self is read...)
+    pub fn other(&self) -> AccessMode {
+        match self {
+            &AccessMode::R => AccessMode::W,
+            &AccessMode::W => AccessMode::R,
+        }
+    } 
 }
 
 impl<T,U> Access<T,U> {
@@ -281,6 +290,15 @@ impl<T,U> Access<T,U> {
             Access::Read(_) if Access::Read(()) == mode => true,
             Access::Write(_) if Access::Write(()) == mode => true,
             _ => false,
+        }
+    }
+}
+
+impl Display for AccessMode {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            &AccessMode::R => write!(f, "read"),
+            &AccessMode::W => write!(f, "write"),
         }
     }
 }

@@ -288,21 +288,24 @@ impl<'a> Vm<'a> {
     }
 
     /// Check that no forbidden directory is accessed (i.e: dest for a read operation)
+    /// The methodology is basically: check that path is closer to its mode's root than to other mode's roots. (For example, when dest is within root, this means dest can still be accessed (but only as write))
+    /// 
+    /// Using mathematical operators: path_root < path && !(path_root < other_root)
     fn _verify_loc_constraints(&self, path: PathBuf, mode: AccessMode) -> StrResult<PathBuf> {
-        match mode {
-            FAccess::Read(()) => {
-                if path.starts_with(self.world().root(AccessMode::W)?) {
-                    bail!("path '{}' tries to access write directory", path.display())
-                }
-                return Ok(path);
-            },
-            FAccess::Write(()) => {
-                if path.starts_with(self.world().root(AccessMode::R)?) {
-                    bail!("path '{}' tries to access read directory", path.display())
-                }
+        let world = self.world();
+        let path_root = world.root(mode)?;
+        let other_root = world.root(mode.other())?;
+        let pth_parent = path.parent()
+            .ok_or(EcoString::from("root access is forbidden"))?;
+        if pth_parent.starts_with(other_root) { //Path is in Other
+            if pth_parent.starts_with(path_root) && path_root.parent()
+                .map_or(false, |p| p.starts_with(other_root))
+                { //Allowed if Path is also in Self and Self in other
                 return Ok(path);
             }
+            bail!("path '{}' tries to access {} directory", path.display(), mode.other())
         }
+        return Ok(path);
     }
 }
 
