@@ -255,8 +255,8 @@ impl TestWorld {
 
 impl World for TestWorld {
     fn root(&self, mode: AccessMode) -> FileResult<&Path> {
-        mode.as_read()?;
-        Ok(Path::new(FILE_DIR))
+        mode.as_read()
+            .map_or(Err(FileError::Disabled), |_| Ok(Path::new(FILE_DIR)))
     }
 
     fn library(&self) -> &Prehashed<Library> {

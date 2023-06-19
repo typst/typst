@@ -204,56 +204,18 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
         .and_then(|path| path.parent())
         .unwrap_or(Path::new("."))
         .to_owned();
+    let root = Ok(command.root.as_ref().unwrap_or(&parent).to_owned());
+    let parent_dest = command
+        .output
+        .canonicalize()
+        .ok()
+        .as_ref()
+        .and_then(|path| path.parent())
+        .unwrap_or(Path::new("."))
+        .to_owned();
+    let dest = Ok(command.dest.as_ref().unwrap_or(&parent_dest.join("dest")).to_owned());
 
-    let root = command.root.as_ref().unwrap_or(&parent);
-    let root = match fs::metadata(root) { // !note: Not TOCTTOU safe! (but, at least, more comprehensive in its errors)
-        Err(_) => FileResult::Err(FileError::NotFound(root.to_owned())), //Does not exist, or cannot access info
-        Ok(m) => {
-            if !m.is_dir() {
-                // Disable read access
-                FileResult::Err(FileError::IsFile)
-            } else {
-                FileResult::Ok(root.to_owned())
-            }
-        }
-    };
-    let dest = match command.dest.as_ref() { // !note: Not TOCTTOU safe!
-        Some(p) => match fs::metadata(p) {
-            Err(_) => FileResult::Err(FileError::NotFound(p.to_owned())), //Does not exist, or cannot access info
-            Ok(m) => {
-                if !m.is_dir() {
-                    // We disable write access (by setting dir to an impossible value)
-                    FileResult::Err(FileError::IsFile)
-                } else {
-                    FileResult::Ok(p.to_owned())
-                }
-            },
-        },
-        None => {
-            let mut dir = parent.clone();
-            dir.push("results");
-
-            match fs::metadata(&dir) {
-                Err(_) => { //Does not exist (1), or cannot access info (2)
-                    FileResult::Ok(dir) //We assume (1), and parent writtable.
-                    //(Should) fail on (2), will fail on specific declinations of (1) (if we cannot write to parent for example)
-                    /*match fs::create_dir(&dir).map_err(|e| e.to_string()) {
-                        Ok(_) => FileResult::Ok(dir),
-                        Err(_) => FileResult::Err(FileError::AccessDenied), //Technically not always accessdenied, but only on a TOCTTOU. Still, we disable write access
-                    }*/
-                },
-                Ok(m) => {
-                    if !m.is_dir() {
-                        // We disable write access (by setting dir to an impossible value)
-                        FileResult::Err(FileError::IsFile)
-                    } else {
-                        FileResult::Ok(dir)
-                    }
-                },
-            }
-
-        }
-    };
+    //neither reading nor writing are disabled, by default, though they may be, if need be.
 
     // Create the world that serves sources, fonts and files.
     let mut world = SystemWorld::new(root, dest, &command.font_paths);
@@ -289,6 +251,13 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
             watcher
                 .watch(&root, RecursiveMode::Recursive)
                 .map_err(|_| "failed to watch root directory")?;
+        }
+    }
+    // Unwatch the dest directory recursively.
+    if let Ok(dest) = &world.dest { //No dest to unwatch!
+        if *dest != parent {
+            let _ = watcher
+                .unwatch(&dest); //we discard the result
         }
     }
 

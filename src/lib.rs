@@ -56,7 +56,7 @@ use std::path::Path;
 
 use comemo::{Prehashed, Track, TrackedMut};
 
-use crate::diag::{FileResult, SourceResult};
+use crate::diag::{FileResult, SourceResult, FileError};
 use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
@@ -94,10 +94,11 @@ pub trait World {
     /// The path relative to which absolute paths are.
     ///
     /// Defaults to the empty path.
-    /// Fails when access has been disabled for target mode
+    /// Fails with FileError::Disabled when access has been disabled for target
+    /// mode. Always fails for writing by default.
     fn root(&self, mode: AccessMode) -> FileResult<&Path> {
-        mode.as_read()?;
-        Ok(Path::new(""))
+        mode.as_read()
+            .map_or(Err(FileError::Disabled), |_| Ok(Path::new("")))
     }
 
     /// The standard library.

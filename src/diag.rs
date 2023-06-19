@@ -214,6 +214,9 @@ pub enum FileError {
     WrongMode,
     /// The file was not valid UTF-8, but should have been.
     InvalidUtf8,
+    /// Access to this file was disabled from within the source code
+    /// Not returned by any function, but may be set manually by developpers.
+    Disabled,
     /// Another error.
     Other,
 }
@@ -249,6 +252,7 @@ impl Display for FileError {
             Self::NotSource => f.pad("not a typst source file"),
             Self::WrongMode => f.pad("tried to read and write to the same file"),
             Self::InvalidUtf8 => f.pad("file is not valid utf-8"),
+            Self::Disabled => f.pad("access was disabled by devoppement team"), //maybe not the clearest message
             Self::Other => f.pad("failed to load file"),
         }
     }
