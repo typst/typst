@@ -732,7 +732,7 @@ impl World for SystemWorld {
 
 impl SystemWorld {
     #[tracing::instrument(skip_all)]
-    fn slot_r(&self, path: &Path) -> FileResult<RefMut<PathSlot>> {
+    fn slot_r(&self, path: &Path) -> FileResult<RefMut<PathSlot>> { //todo: merge
         let mut hashes = self.hashes.borrow_mut();
         let hash = match hashes.get(path).cloned() {
             Some(hash) => hash,

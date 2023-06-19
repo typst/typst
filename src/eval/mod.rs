@@ -71,7 +71,7 @@ use crate::syntax::ast::AstNode;
 use crate::syntax::{
     ast, parse_code, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode,
 };
-use crate::util::{PathExt, AccessMode};
+use crate::util::{PathExt, AccessMode, Access as FAccess};
 use crate::World;
 use crate::{
     diag::{bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint},
@@ -247,11 +247,11 @@ impl<'a> Vm<'a> {
     /// environment's root.
     #[tracing::instrument(skip_all)]
     pub fn locate(&self, path: &str, mode: AccessMode) -> StrResult<PathBuf> {
-        self._locate_impl(path, self.world().root(mode)?, LocatePerm::FileRelative)
+        let r = self._locate_impl(path, self.world().root(mode)?, LocatePerm::FileRelative)?;
+        self._verify_loc_constraints(r, mode)
     }
 
     /// Resolve a path to be relative to a directory.
-    #[tracing::instrument(skip_all)]
     fn _locate_impl(&self, path: &str, abs: &Path, options: LocatePerm) -> StrResult<PathBuf> {
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
@@ -284,6 +284,24 @@ impl<'a> Vm<'a> {
         }
 
         return Ok(())
+    }
+
+    /// Check that no forbidden directory is accessed (i.e: dest for a read operation)
+    fn _verify_loc_constraints(&self, path: PathBuf, mode: AccessMode) -> StrResult<PathBuf> {
+        match mode {
+            FAccess::Read(()) => {
+                if path.starts_with(self.world().root(AccessMode::W)?) {
+                    bail!("path '{}' tries to access write directory", path.display())
+                }
+                return Ok(path);
+            },
+            FAccess::Write(()) => {
+                if path.starts_with(self.world().root(AccessMode::R)?) {
+                    bail!("path '{}' tries to access read directory", path.display())
+                }
+                return Ok(path);
+            }
+        }
     }
 }
 
