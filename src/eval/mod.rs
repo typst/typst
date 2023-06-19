@@ -247,12 +247,13 @@ impl<'a> Vm<'a> {
     /// environment's root.
     #[tracing::instrument(skip_all)]
     pub fn locate(&self, path: &str, mode: AccessMode) -> StrResult<PathBuf> {
-        let r = self._locate_impl(path, self.world().root(mode)?, LocatePerm::FileRelative)?;
+        let r = self._locate_impl(path, self.world().root(mode)?, mode.into())?;
         self._verify_loc_constraints(r, mode)
     }
 
     /// Resolve a path to be relative to a directory.
     fn _locate_impl(&self, path: &str, abs: &Path, options: LocatePerm) -> StrResult<PathBuf> {
+        println!("{}", abs.display());
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
                 let path = PathBuf::from(path).normalize();
@@ -313,7 +314,17 @@ bitflags!{
         const Global       = 0b00000001; // Double slash paths, or paths that start from the filesystem's root, rather than typst's
         const FileRelative = 0b00000010; // No-slash paths, or paths that start from the file invoking locate.
         const Upwards      = 0b00000100; // Paths that allow ../ as a component //note: we may need a smarter system
+        //const CrossOrigin  = 0b00001000; // Paths that allow access to another root than their own (i.e: Accessing to `dest` from within `root`) //not implemented
         // We could add SYMLINK (would require adding some kind of metadata function to world, to access information regarding wether a component is a symlink)
+    }
+}
+
+impl From<AccessMode> for LocatePerm {
+    fn from(value: AccessMode) -> Self {
+        match value {
+            FAccess::Write(_) => LocatePerm::Local,
+            FAccess::Read(_) => LocatePerm::FileRelative,
+        }
     }
 }
 

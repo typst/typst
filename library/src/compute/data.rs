@@ -63,7 +63,7 @@ pub fn write(
     vm: &mut Vm,
 ) -> SourceResult<()> {
     let Spanned { v: text, span } = text;
-    let path = "record.txt";
+    let path = "/record.txt";
     let path = vm.locate(&path, AccessMode::W).at(span)?;
     vm.world().write(&path, location, text.as_bytes().to_vec()).at(span)?;
     Ok(())

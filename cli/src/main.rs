@@ -670,7 +670,6 @@ impl World for SystemWorld {
             .clone()
     }
 
-
     fn write(&self, path: &Path, _: Location, what: Vec<u8>) -> FileResult<()> {
         //println!("{}", self.slot_w(path)?.buffer.as_write()?.borrow_mut().iter().flat_map(|(_,v)| String::from_utf8(v.to_vec()).unwrap_or("ough".to_owned())).collect::<String>());
         self.slot_w(path)?
@@ -791,7 +790,9 @@ impl PathHash {
         let f = |e| FileError::from_io(e, path);
         let handle = match mode {
             Access::Read(_) => Handle::from_path(path).map_err(f)?, //note: opening twice???
-            Access::Write(_) => {
+            Access::Write(_) => { //Path has been validated, so we can create all misssing directories
+                fs::create_dir_all(path.parent().ok_or(FileError::AccessDenied)?)
+                    .map_err(f)?;
                 let file = File::create(path).map_err(f)?;
                 Handle::from_file(file).map_err(f)?
             }
