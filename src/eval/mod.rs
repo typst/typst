@@ -253,7 +253,6 @@ impl<'a> Vm<'a> {
 
     /// Resolve a path to be relative to a directory.
     fn _locate_impl(&self, path: &str, abs: &Path, options: LocatePerm) -> StrResult<PathBuf> {
-        println!("{}", abs.display());
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
                 let path = PathBuf::from(path).normalize();
@@ -294,7 +293,11 @@ impl<'a> Vm<'a> {
     fn _verify_loc_constraints(&self, path: PathBuf, mode: AccessMode) -> StrResult<PathBuf> {
         let world = self.world();
         let path_root = world.root(mode)?;
-        let other_root = world.root(mode.other())?;
+        let other_root = match world.root(mode.other()) { //Access as mode.other can be disabled
+            Ok(v) => v,
+            Err(_) => return Ok(path), //As there are only two modes for now, no checks are needed if one of them is unavailable!
+        };
+        
         let pth_parent = path.parent()
             .ok_or(EcoString::from("root access is forbidden"))?;
         if pth_parent.starts_with(other_root) { //Path is in Other

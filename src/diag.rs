@@ -224,7 +224,6 @@ pub enum FileError {
 impl FileError {
     /// Create a file error from an I/O error.
     pub fn from_io(error: io::Error, path: &Path) -> Self {
-        println!("{:?}", error.kind());
         match error.kind() {
             io::ErrorKind::NotFound => Self::NotFound(path.into()),
             io::ErrorKind::PermissionDenied => Self::AccessDenied,
