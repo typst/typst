@@ -307,6 +307,12 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     }
 
     while !p.eof() && !p.at(stop) {
+        if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
+            p.eat();
+            p.wrap(m, SyntaxKind::Math);
+            continue;
+        }
+
         let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
             break;
         };
