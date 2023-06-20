@@ -584,6 +584,14 @@ impl PathSlot {
         PathSlot { source: OnceCell::default(), buffer: Access::Write(RefCell::default()) }
     }
 }
+impl From<AccessMode> for PathSlot {
+    fn from(value: AccessMode) -> Self {
+        match value {
+            AccessMode::R => PathSlot::read(),
+            AccessMode::W => PathSlot::write(),
+        }
+    }
+}
 
 impl SystemWorld {
     fn new(root: FileResult<PathBuf>, dest: FileResult<PathBuf>, font_paths: &[PathBuf]) -> Self {
@@ -628,7 +636,7 @@ impl World for SystemWorld {
 
     #[tracing::instrument(skip_all)]
     fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        self.slot_r(path)?
+        self.slot(path, AccessMode::R)?
             .source
             .get_or_init(|| {
                 let path = path.canonicalize().map_err(|f| FileError::from_io(f, path))?; 
@@ -664,7 +672,7 @@ impl World for SystemWorld {
     }
 
     fn read(&self, path: &Path) -> FileResult<Buffer> {
-        self.slot_r(path)?
+        self.slot(path, AccessMode::R)?
             .buffer
             .as_read()?
             .get_or_init(|| read(path).map(Buffer::from))
@@ -673,7 +681,7 @@ impl World for SystemWorld {
 
     fn write(&self, path: &Path, _: Location, what: Vec<u8>) -> FileResult<()> {
         //println!("{}", self.slot_w(path)?.buffer.as_write()?.borrow_mut().iter().flat_map(|(_,v)| String::from_utf8(v.to_vec()).unwrap_or("ough".to_owned())).collect::<String>());
-        self.slot_w(path)?
+        self.slot(path, AccessMode::W)?
             .buffer.as_write()?
             .borrow_mut().extend(what);
         Ok(())
@@ -701,12 +709,12 @@ impl World for SystemWorld {
 
 impl SystemWorld {
     #[tracing::instrument(skip_all)]
-    fn slot_r(&self, path: &Path) -> FileResult<RefMut<PathSlot>> { //todo: merge
+    fn slot(&self, path: &Path, mode: AccessMode) -> FileResult<RefMut<PathSlot>> {
         let mut hashes = self.hashes.borrow_mut();
         let hash = match hashes.get(path).cloned() {
             Some(hash) => hash,
             None => {
-                let hash = PathHash::new(path, AccessMode::R);
+                let hash = PathHash::new(path, mode);
                 if let Ok(canon) = path.canonicalize() {
                     hashes.insert(canon.normalize(), hash.clone());
                 }
@@ -716,27 +724,7 @@ impl SystemWorld {
         }?;
 
         Ok(std::cell::RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(hash).or_insert(PathSlot::read())
-        }))
-    }
-
-    #[tracing::instrument(skip_all)]
-    fn slot_w(&self, path: &Path) -> FileResult<RefMut<PathSlot>> { //todo
-        let mut hashes = self.hashes.borrow_mut();
-        let hash = match hashes.get(path).cloned() {
-            Some(hash) => hash,
-            None => {
-                let hash = PathHash::new(path, AccessMode::W);
-                if let  Ok(canon) = path.canonicalize() {
-                    hashes.insert(canon.normalize(), hash.clone());
-                }
-                hashes.insert(path.into(), hash.clone());
-                hash
-            }
-        }?;
-
-        Ok(std::cell::RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(hash).or_insert(PathSlot::write())
+            paths.entry(hash).or_insert(mode.into())
         }))
     }
 
