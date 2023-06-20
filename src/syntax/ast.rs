@@ -244,6 +244,7 @@ impl AstNode for Expr {
             SyntaxKind::Unary => node.cast().map(Self::Unary),
             SyntaxKind::Binary => node.cast().map(Self::Binary),
             SyntaxKind::FieldAccess => node.cast().map(Self::FieldAccess),
+            SyntaxKind::OptionalFieldAccess => node.cast().map(Self::OptionalFieldAccess),
             SyntaxKind::FuncCall => node.cast().map(Self::FuncCall),
             SyntaxKind::Closure => node.cast().map(Self::Closure),
             SyntaxKind::LetBinding => node.cast().map(Self::Let),

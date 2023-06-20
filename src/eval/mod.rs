@@ -1094,7 +1094,7 @@ impl Eval for ast::FieldAccess {
 impl Eval for ast::OptionalFieldAccess {
     type Output = Value;
 
-    #[tracing::instrument(name = "FieldAccess::eval", skip_all)]
+    #[tracing::instrument(name = "OptionalFieldAccess::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.target().eval(vm)?;
         let field = self.field();
@@ -1103,6 +1103,71 @@ impl Eval for ast::OptionalFieldAccess {
             _ => value.field(&field).at(field.span()),
         }
     }
+}
+
+enum MethodCallEval {
+    Return(Value),
+    Forward(Value, Args),
+}
+
+fn eval_method_call(
+    vm: &mut Vm,
+    target: ast::Expr,
+    field: ast::Ident,
+    args: &ast::Args,
+    span: Span,
+    optional: bool,
+) -> SourceResult<MethodCallEval> {
+    let field_span = field.span();
+    let field = field.take();
+    let point = || Tracepoint::Call(Some(field.clone()));
+    let (callee, args) = if methods::is_mutating(&field) {
+        let args = args.eval(vm)?;
+        let target = target.access(vm)?;
+
+        if optional && matches!(target, Value::None) {
+            return Ok(MethodCallEval::Return(Value::None));
+        }
+
+        // Prioritize a function's own methods (with, where) over its
+        // fields. This is fine as we define each field of a function,
+        // if it has any.
+        // ('methods_on' will be empty for Symbol and Module - their
+        // method calls always refer to their fields.)
+        if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
+            || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
+        {
+            return Ok(MethodCallEval::Return(
+                methods::call_mut(target, &field, args, span).trace(
+                    vm.world(),
+                    point,
+                    span,
+                )?,
+            ));
+        }
+        (target.field(&field).at(field_span)?, args)
+    } else {
+        let target = target.eval(vm)?;
+        let args = args.eval(vm)?;
+
+        if optional && matches!(target, Value::None) {
+            return Ok(MethodCallEval::Return(Value::None));
+        }
+
+        if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
+            || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
+        {
+            return Ok(MethodCallEval::Return(
+                methods::call(vm, target, &field, args, span).trace(
+                    vm.world(),
+                    point,
+                    span,
+                )?,
+            ));
+        }
+        (target.field(&field).at(field_span)?, args)
+    };
+    Ok(MethodCallEval::Forward(callee, args))
 }
 
 impl Eval for ast::FuncCall {
@@ -1122,48 +1187,34 @@ impl Eval for ast::FuncCall {
 
         // Try to evaluate as a method call. This is possible if the callee is a
         // field access and does not evaluate to a module.
-        let (callee, mut args) = if let ast::Expr::FieldAccess(access) = callee {
-            let target = access.target();
-            let field = access.field();
-            let field_span = field.span();
-            let field = field.take();
-            let point = || Tracepoint::Call(Some(field.clone()));
-            if methods::is_mutating(&field) {
-                let args = args.eval(vm)?;
-                let target = target.access(vm)?;
-
-                // Prioritize a function's own methods (with, where) over its
-                // fields. This is fine as we define each field of a function,
-                // if it has any.
-                // ('methods_on' will be empty for Symbol and Module - their
-                // method calls always refer to their fields.)
-                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
-                    || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
-                {
-                    return methods::call_mut(target, &field, args, span).trace(
-                        vm.world(),
-                        point,
-                        span,
-                    );
+        let (callee, mut args) = match callee {
+            ast::Expr::FieldAccess(access) => {
+                match eval_method_call(
+                    vm,
+                    access.target(),
+                    access.field(),
+                    &args,
+                    span,
+                    false,
+                )? {
+                    MethodCallEval::Return(val) => return Ok(val),
+                    MethodCallEval::Forward(callee, args) => (callee, args),
                 }
-                (target.field(&field).at(field_span)?, args)
-            } else {
-                let target = target.eval(vm)?;
-                let args = args.eval(vm)?;
-
-                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
-                    || methods_on(target.type_name()).iter().any(|(m, _)| m == &field)
-                {
-                    return methods::call(vm, target, &field, args, span).trace(
-                        vm.world(),
-                        point,
-                        span,
-                    );
-                }
-                (target.field(&field).at(field_span)?, args)
             }
-        } else {
-            (callee.eval(vm)?, args.eval(vm)?)
+            ast::Expr::OptionalFieldAccess(access) => {
+                match eval_method_call(
+                    vm,
+                    access.target(),
+                    access.field(),
+                    &args,
+                    span,
+                    true,
+                )? {
+                    MethodCallEval::Return(val) => return Ok(val),
+                    MethodCallEval::Forward(callee, args) => (callee, args),
+                }
+            }
+            _ => (callee.eval(vm)?, args.eval(vm)?),
         };
 
         // Handle math special cases for non-functions:

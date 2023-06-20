@@ -600,8 +600,9 @@ fn code_expr_prec(
             continue;
         }
 
-        let at_field_or_method =
-            p.directly_at(SyntaxKind::Dot) && p.lexer.clone().next() == SyntaxKind::Ident;
+        let at_field_or_method = (p.directly_at(SyntaxKind::Dot)
+            || p.directly_at(SyntaxKind::QuestionDot))
+            && p.lexer.clone().next() == SyntaxKind::Ident;
 
         if atomic && !at_field_or_method {
             break;
