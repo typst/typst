@@ -249,7 +249,7 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
     if let Ok(root) = &world.root { //No root to watch!
         if *root != parent {
             watcher
-                .watch(&root, RecursiveMode::Recursive)
+                .watch(root, RecursiveMode::Recursive)
                 .map_err(|_| "failed to watch root directory")?;
         }
     }
@@ -257,7 +257,7 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
     if let Ok(dest) = &world.dest { //No dest to unwatch!
         if *dest != parent {
             let _ = watcher
-                .unwatch(&dest); //we discard the result
+                .unwatch(dest); //we discard the result
         }
     }
 
@@ -617,11 +617,11 @@ impl World for SystemWorld {
         match mode {
             Access::Read(_) => match &self.root {
                 Err(e) => Err(e.clone()),
-                Ok(p) => Ok(&p),
+                Ok(p) => Ok(p),
             },
             Access::Write(_) => match &self.dest {
                 Err(e) => Err(e.clone()),
-                Ok(p) => Ok(&p),
+                Ok(p) => Ok(p),
             }
         }
     }

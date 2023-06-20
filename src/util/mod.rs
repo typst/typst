@@ -247,15 +247,15 @@ impl<T,U> Access<T,U> {
     /// Attempt a read operation on the file
     pub fn as_read(&self) -> FileResult<&T> {
         match self {
-            Self::Read(x) => return Ok(x),
-            Self::Write(_) => return Err(FileError::WrongMode),
+            Self::Read(x) => Ok(x),
+            Self::Write(_) => Err(FileError::WrongMode),
         }
     }
     /// Attempt a write operation on the file
     pub fn as_write(&self) -> FileResult<&U> {
         match self {
-            Self::Read(_) => return Err(FileError::WrongMode),
-            Self::Write(x) => return Ok(x),
+            Self::Read(_) => Err(FileError::WrongMode),
+            Self::Write(x) => Ok(x),
         }
     }
 }
@@ -276,9 +276,9 @@ impl AccessMode {
     /// Returns the other.
     /// That is, the mode that is not self (i.e: write if self is read...)
     pub fn other(&self) -> AccessMode {
-        match self {
-            &AccessMode::R => AccessMode::W,
-            &AccessMode::W => AccessMode::R,
+        match *self {
+            AccessMode::R => AccessMode::W,
+            AccessMode::W => AccessMode::R,
         }
     } 
 }
@@ -296,9 +296,9 @@ impl<T,U> Access<T,U> {
 
 impl Display for AccessMode {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            &AccessMode::R => write!(f, "read"),
-            &AccessMode::W => write!(f, "write"),
+        match *self {
+            AccessMode::R => write!(f, "read"),
+            AccessMode::W => write!(f, "write"),
         }
     }
 }

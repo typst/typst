@@ -273,7 +273,7 @@ impl<'a> Vm<'a> {
         bail!("cannot access file system from here")
     }
 
-    fn _check_contents(&self, path: &PathBuf, options: LocatePerm) -> StrResult<()> {
+    fn _check_contents(&self, path: &Path, options: LocatePerm) -> StrResult<()> {
         for c in path.components() {
             if (c == Component::RootDir) && !options.contains(LocatePerm::Global) {
                 bail!("path '{}' should not be prefixed with a //", path.display())
@@ -283,7 +283,7 @@ impl<'a> Vm<'a> {
             }
         }
 
-        return Ok(())
+        Ok(())
     }
 
     /// Check that no forbidden directory is accessed (i.e: dest for a read operation)
@@ -308,7 +308,7 @@ impl<'a> Vm<'a> {
             }
             bail!("path '{}' tries to access {} directory", path.display(), mode.other())
         }
-        return Ok(path);
+        Ok(path)
     }
 }
 
