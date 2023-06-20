@@ -91,3 +91,11 @@ $ limits(integral)_a^b != integral_a^b $
 ---
 // Error: 30-34 unknown variable: oops
 $ attach(A, t: #locate(it => oops)) $
+
+---
+// Show and let rules for limits and scripts
+#let eq = $ ∫_a^b iota_a^b $
+#eq
+#show "∫": math.limits
+#show math.iota: math.limits
+#eq

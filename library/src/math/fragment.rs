@@ -90,6 +90,15 @@ impl MathFragment {
         }
     }
 
+    pub fn set_limits(&mut self, limits: Limits) {
+        match self {
+            Self::Glyph(glyph) => glyph.limits = limits,
+            Self::Variant(variant) => variant.limits = limits,
+            Self::Frame(fragment) => fragment.limits = limits,
+            _ => {}
+        }
+    }
+
     pub fn is_spaced(&self) -> bool {
         match self {
             MathFragment::Frame(frame) => frame.spaced,
@@ -111,6 +120,15 @@ impl MathFragment {
             Self::Variant(variant) => variant.frame,
             Self::Frame(fragment) => fragment.frame,
             _ => Frame::new(self.size()),
+        }
+    }
+
+    pub fn limits(&self) -> Limits {
+        match self {
+            MathFragment::Glyph(glyph) => glyph.limits,
+            MathFragment::Variant(variant) => variant.limits,
+            MathFragment::Frame(fragment) => fragment.limits,
+            _ => Limits::Never,
         }
     }
 }
@@ -149,6 +167,7 @@ pub struct GlyphFragment {
     pub class: Option<MathClass>,
     pub span: Span,
     pub meta: Vec<Meta>,
+    pub limits: Limits,
 }
 
 impl GlyphFragment {
@@ -164,6 +183,10 @@ impl GlyphFragment {
     }
 
     pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
+        let class = match c {
+            ':' => Some(MathClass::Relation),
+            _ => unicode_math_class::class(c),
+        };
         let mut fragment = Self {
             id,
             c,
@@ -175,11 +198,9 @@ impl GlyphFragment {
             width: Abs::zero(),
             ascent: Abs::zero(),
             descent: Abs::zero(),
+            limits: Limits::for_char(c),
             italics_correction: Abs::zero(),
-            class: match c {
-                ':' => Some(MathClass::Relation),
-                _ => unicode_math_class::class(c),
-            },
+            class,
             span,
             meta: MetaElem::data_in(ctx.styles()),
         };
@@ -224,6 +245,7 @@ impl GlyphFragment {
             italics_correction: self.italics_correction,
             class: self.class,
             span: self.span,
+            limits: self.limits,
             frame: self.into_frame(),
         }
     }
@@ -268,6 +290,7 @@ pub struct VariantFragment {
     pub font_size: Abs,
     pub class: Option<MathClass>,
     pub span: Span,
+    pub limits: Limits,
 }
 
 impl Debug for VariantFragment {
@@ -282,7 +305,7 @@ pub struct FrameFragment {
     pub style: MathStyle,
     pub font_size: Abs,
     pub class: MathClass,
-    pub limits: bool,
+    pub limits: Limits,
     pub spaced: bool,
     pub base_ascent: Abs,
 }
@@ -296,7 +319,7 @@ impl FrameFragment {
             font_size: ctx.size,
             style: ctx.style,
             class: MathClass::Normal,
-            limits: false,
+            limits: Limits::Never,
             spaced: false,
             base_ascent,
         }
@@ -306,7 +329,7 @@ impl FrameFragment {
         Self { class, ..self }
     }
 
-    pub fn with_limits(self, limits: bool) -> Self {
+    pub fn with_limits(self, limits: Limits) -> Self {
         Self { limits, ..self }
     }
 
