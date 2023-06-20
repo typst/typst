@@ -287,9 +287,9 @@ impl<'a> Vm<'a> {
     }
 
     /// Check that no forbidden directory is accessed (i.e: dest for a read operation)
-    /// The methodology is basically: check that path is closer to its mode's root than to other mode's roots. (For example, when dest is within root, this means dest can still be accessed (but only as write))
+    /// The methodology is basically: if a path is within a root that is not its own, check that it is, at least, within its own root, AND that its own root is within that other root (and not the other way around!)
     /// 
-    /// Using mathematical operators: path_root < path && !(path_root < other_root)
+    /// Using mathematical operators: !(other_root < path) || (other_root < path_root < path)
     fn _verify_loc_constraints(&self, path: PathBuf, mode: AccessMode) -> StrResult<PathBuf> {
         let world = self.world();
         let path_root = world.root(mode)?;
