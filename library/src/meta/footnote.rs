@@ -28,6 +28,11 @@ use crate::visualize::LineElem;
 /// there is a space before it in the markup. To force space, you can use the
 /// string `[#" "]` or explicit [horizontal spacing]($func/h).
 ///
+/// _Note:_ Set and show rules in the scope where `footnote` is called may not
+/// apply to the footnote's content. See [here][issue] more information.
+///
+/// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
+///
 /// Display: Footnote
 /// Category: meta
 #[element(Locatable, Synthesize, Show)]
