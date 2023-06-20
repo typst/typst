@@ -90,6 +90,15 @@ impl MathFragment {
         }
     }
 
+    pub fn set_limits(&mut self, limits: Limits) {
+        match self {
+            Self::Glyph(glyph) => glyph.limits = limits,
+            Self::Variant(variant) => variant.limits = limits,
+            Self::Frame(fragment) => fragment.limits = limits,
+            _ => {}
+        }
+    }
+
     pub fn is_spaced(&self) -> bool {
         match self {
             MathFragment::Frame(frame) => frame.spaced,
@@ -114,21 +123,12 @@ impl MathFragment {
         }
     }
 
-    pub fn limits(&self) -> LimitsType {
+    pub fn limits(&self) -> Limits {
         match self {
             MathFragment::Glyph(glyph) => glyph.limits,
             MathFragment::Variant(variant) => variant.limits,
             MathFragment::Frame(fragment) => fragment.limits,
-            _ => LimitsType::Never,
-        }
-    }
-
-    pub fn set_limits(&mut self, limits: LimitsType) {
-        match self {
-            Self::Glyph(glyph) => glyph.limits = limits,
-            Self::Variant(variant) => variant.limits = limits,
-            Self::Frame(fragment) => fragment.limits = limits,
-            _ => {}
+            _ => Limits::Never,
         }
     }
 }
@@ -167,7 +167,7 @@ pub struct GlyphFragment {
     pub class: Option<MathClass>,
     pub span: Span,
     pub meta: Vec<Meta>,
-    pub limits: LimitsType,
+    pub limits: Limits,
 }
 
 impl GlyphFragment {
@@ -198,9 +198,7 @@ impl GlyphFragment {
             width: Abs::zero(),
             ascent: Abs::zero(),
             descent: Abs::zero(),
-            limits: LimitsType::from_bool(
-                LimitsType::LIMITS.contains(&c) && class == Some(MathClass::Large),
-            ),
+            limits: Limits::for_char(c),
             italics_correction: Abs::zero(),
             class,
             span,
@@ -292,7 +290,7 @@ pub struct VariantFragment {
     pub font_size: Abs,
     pub class: Option<MathClass>,
     pub span: Span,
-    pub limits: LimitsType,
+    pub limits: Limits,
 }
 
 impl Debug for VariantFragment {
@@ -307,7 +305,7 @@ pub struct FrameFragment {
     pub style: MathStyle,
     pub font_size: Abs,
     pub class: MathClass,
-    pub limits: LimitsType,
+    pub limits: Limits,
     pub spaced: bool,
     pub base_ascent: Abs,
 }
@@ -321,7 +319,7 @@ impl FrameFragment {
             font_size: ctx.size,
             style: ctx.style,
             class: MathClass::Normal,
-            limits: LimitsType::Never,
+            limits: Limits::Never,
             spaced: false,
             base_ascent,
         }
@@ -331,7 +329,7 @@ impl FrameFragment {
         Self { class, ..self }
     }
 
-    pub fn with_limits(self, limits: LimitsType) -> Self {
+    pub fn with_limits(self, limits: Limits) -> Self {
         Self { limits, ..self }
     }
 

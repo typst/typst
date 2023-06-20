@@ -26,7 +26,7 @@ pub struct OpElem {
     #[required]
     pub text: EcoString,
 
-    /// Whether the operator should force attachments to display as limits.
+    /// Whether the operator should show attachments as limits in display mode.
     #[default(false)]
     pub limits: bool,
 }
@@ -39,7 +39,11 @@ impl LayoutMath for OpElem {
         ctx.push(
             FrameFragment::new(ctx, fragment.into_frame())
                 .with_class(MathClass::Large)
-                .with_limits(LimitsType::from_bool(self.limits(ctx.styles()))),
+                .with_limits(if self.limits(ctx.styles()) {
+                    Limits::Display
+                } else {
+                    Limits::Never
+                }),
         );
         Ok(())
     }

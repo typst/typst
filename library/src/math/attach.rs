@@ -77,10 +77,9 @@ impl LayoutMath for AttachElem {
         let b = layout_attachment(ctx, Self::b)?;
         ctx.unstyle();
 
-        let as_limits = base.limits().active(ctx);
-
-        let (t, tr) = if as_limits || tr.is_some() { (t, tr) } else { (None, t) };
-        let (b, br) = if as_limits || br.is_some() { (b, br) } else { (None, b) };
+        let limits = base.limits().active(ctx);
+        let (t, tr) = if limits || tr.is_some() { (t, tr) } else { (None, t) };
+        let (b, br) = if limits || br.is_some() { (b, br) } else { (None, b) };
         layout_attachments(ctx, base, [tl, t, tr, bl, b, br])
     }
 }
@@ -104,7 +103,10 @@ pub struct ScriptsElem {
 impl LayoutMath for ScriptsElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout_limits(ctx, self.body(), LimitsType::Never)
+        let mut fragment = ctx.layout_fragment(&self.body())?;
+        fragment.set_limits(Limits::Never);
+        ctx.push(fragment);
+        Ok(())
     }
 }
 
@@ -127,30 +129,34 @@ pub struct LimitsElem {
 impl LayoutMath for LimitsElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout_limits(ctx, self.body(), LimitsType::Always)
+        let mut fragment = ctx.layout_fragment(&self.body())?;
+        fragment.set_limits(Limits::Always);
+        ctx.push(fragment);
+        Ok(())
     }
 }
 
-/// Describes when frame should use the limits for the attachments
+/// Describes in which situation a frame should use limits for attachments.
 #[derive(Debug, Copy, Clone)]
-pub enum LimitsType {
+pub enum Limits {
+    /// Always scripts.
     Never,
-    /// Display limits only in `display` math
+    /// Display limits only in `display` math.
     Display,
+    /// Always limits.
     Always,
 }
 
-impl LimitsType {
-    /// Create "default" limits
-    /// - true  -> `Display`
-    /// - false -> `Never`
-    pub fn from_bool(v: bool) -> Self {
-        if v {
-            LimitsType::Display
+impl Limits {
+    /// The default limit configuration if the given character is the base.
+    pub fn for_char(c: char) -> Self {
+        if Self::DEFAULT_TO_LIMITS.contains(&c) {
+            Limits::Display
         } else {
-            LimitsType::Never
+            Limits::Never
         }
     }
+
     /// Whether limits should be displayed in this context
     pub fn active(&self, ctx: &MathContext) -> bool {
         match self {
@@ -160,9 +166,10 @@ impl LimitsType {
         }
     }
 
-    /// Unicode codepoints that should have sub- and superscripts attached as limits.
+    /// Unicode codepoints that should show attachments as limits in display
+    /// mode.
     #[rustfmt::skip]
-    pub const LIMITS: &[char] = &[
+    const DEFAULT_TO_LIMITS: &[char] = &[
         /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
         /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
         /* ⋂ */ '\u{22C2}', /* ⋃ */ '\u{22C3}',
@@ -170,17 +177,6 @@ impl LimitsType {
         /* ⨃ */ '\u{2A03}', /* ⨄ */ '\u{2A04}',
         /* ⨅ */ '\u{2A05}', /* ⨆ */ '\u{2A06}',
     ];
-}
-
-fn layout_limits(
-    ctx: &mut MathContext,
-    body: Content,
-    limits: LimitsType,
-) -> SourceResult<()> {
-    let mut fragment = ctx.layout_fragment(&body)?;
-    fragment.set_limits(limits);
-    ctx.push(fragment);
-    Ok(())
 }
 
 macro_rules! measure {

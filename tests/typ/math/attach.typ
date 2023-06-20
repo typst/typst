@@ -94,10 +94,8 @@ $ attach(A, t: #locate(it => oops)) $
 
 ---
 // Show and let rules for limits and scripts
-#let I1 =  $limits(∫)$
-#let I2 = math.limits(math.integral)
-#show math.iota: math.limits(math.integral)
-
-$ I1_a^b $
-$ I2_a^b $
-$ iota_a^b $
+#let eq = $ ∫_a^b iota_a^b $
+#eq
+#show "∫": math.limits
+#show math.iota: math.limits
+#eq
