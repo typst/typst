@@ -444,7 +444,7 @@ pub struct OutlineEntry {
 
     /// The content representing the page number of the element this entry
     /// links to. By default it will use the numbering format used by the
-    /// the referened page.
+    /// the referenced page.
     #[required]
     pub page: Content,
 }
