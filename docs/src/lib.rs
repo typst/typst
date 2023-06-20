@@ -40,6 +40,11 @@ static FONTS: Lazy<(Prehashed<FontBook>, Vec<Font>)> = Lazy::new(|| {
 
 static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
     let mut lib = typst_library::build();
+    // Hack for documenting the `mix` function in the color module.
+    // Will be superseded by proper associated functions.
+    lib.global
+        .scope_mut()
+        .define("mix", typst_library::compute::mix_func());
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(240.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));

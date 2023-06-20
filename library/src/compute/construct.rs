@@ -396,6 +396,10 @@ pub fn color_module() -> Module {
 /// #color.mix((red, 30%), (green, 70%))
 /// ````
 ///
+/// _Note:_ This function must be specified as `color.mix`, not just `mix`.
+/// Currently, `color` is a module, but it is designed to be forward compatible
+/// with a future `color` type.
+///
 /// Display: Mix
 /// Category: construct
 #[func]
