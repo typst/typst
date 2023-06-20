@@ -61,7 +61,7 @@
 #rgb(10%, 20%, 30%, false)
 
 ---
-// Error: 12-24 weights must be integer, float or ratio
+// Error: 12-24 expected float or ratio, found string
 #color.mix((red, "yes"), (green, "no"))
 
 ---

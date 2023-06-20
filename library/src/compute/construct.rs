@@ -388,9 +388,6 @@ pub fn color_module() -> Module {
 
 /// Create a color by mixing two or more colors.
 ///
-/// By default, this happens in a perceptual color space (Oklab). You can
-/// specify a color space (`"oklab"` or `"srgb"`) as a named argument.
-///
 /// ## Example
 /// ```example
 /// #color.mix(red, green)
@@ -403,12 +400,17 @@ pub fn color_module() -> Module {
 /// Category: construct
 #[func]
 pub fn mix(
-    #[variadic] colors: Vec<WeightedColor>,
+    /// The colors, optionally with weights, specified as a pair (array of
+    /// length two) of color and weight (float or ratio).
+    #[variadic]
+    colors: Vec<WeightedColor>,
+    /// The color space to mix in. By default, this happens in a perceptual
+    /// color space (Oklab).
     #[named]
-    #[default]
+    #[default(ColorSpace::Oklab)]
     space: ColorSpace,
-) -> Color {
-    mix_colors(colors.iter(), space)
+) -> StrResult<Color> {
+    Color::mix(colors, space)
 }
 
 /// Create a custom symbol with modifiers.

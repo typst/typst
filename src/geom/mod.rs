@@ -13,7 +13,6 @@ mod ellipse;
 mod em;
 mod fr;
 mod length;
-mod mix;
 mod paint;
 mod path;
 mod point;
@@ -32,14 +31,15 @@ pub use self::abs::{Abs, AbsUnit};
 pub use self::align::{Align, GenAlign, HorizontalAlign, VerticalAlign};
 pub use self::angle::{Angle, AngleUnit};
 pub use self::axes::{Axes, Axis};
-pub use self::color::{CmykColor, Color, LumaColor, RgbaColor};
+pub use self::color::{
+    CmykColor, Color, ColorSpace, LumaColor, RgbaColor, WeightedColor,
+};
 pub use self::corners::{Corner, Corners};
 pub use self::dir::Dir;
 pub use self::ellipse::ellipse;
 pub use self::em::Em;
 pub use self::fr::Fr;
 pub use self::length::Length;
-pub use self::mix::{mix_colors, ColorSpace, WeightedColor};
 pub use self::paint::Paint;
 pub use self::path::{Path, PathItem};
 pub use self::point::Point;
