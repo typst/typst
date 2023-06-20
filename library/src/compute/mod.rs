@@ -30,7 +30,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("regex", regex_func());
     global.define("range", range_func());
     global.define("read", read_func());
-    global.define("record", write_func());
+    //global.define("record", write_func());
     global.define("csv", csv_func());
     global.define("json", json_func());
     global.define("toml", toml_func());
