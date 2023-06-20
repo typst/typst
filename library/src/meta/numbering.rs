@@ -218,7 +218,7 @@ impl FromStr for NumberingPattern {
 
         let suffix = pattern[handled..].into();
         if pieces.is_empty() {
-            Err("invalid numbering pattern")?;
+            return Err("invalid numbering pattern");
         }
 
         Ok(Self { pieces, suffix, trimmed: false })
@@ -253,7 +253,7 @@ enum NumberingKind {
     Hebrew,
     SimplifiedChinese,
     // TODO: Pick the numbering pattern based on languages choice.
-    // As the `1st` numbering character of Chinese (Simplifed) and
+    // As the `1st` numbering character of Chinese (Simplified) and
     // Chinese (Traditional) is same, we are unable to determine
     // if the context is Simplified or Traditional by only this
     // character.

@@ -151,7 +151,6 @@ impl Layout for ListElem {
         }
 
         let layouter = GridLayouter::new(
-            vt,
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
@@ -164,7 +163,7 @@ impl Layout for ListElem {
             styles,
         );
 
-        Ok(layouter.layout()?.fragment)
+        Ok(layouter.layout(vt)?.fragment)
     }
 }
 
@@ -216,7 +215,7 @@ cast! {
     v: Content => Self::Content(vec![v]),
     array: Array => {
         if array.is_empty() {
-            Err("array must contain at least one marker")?;
+            bail!("array must contain at least one marker");
         }
         Self::Content(array.into_iter().map(Value::display).collect())
     },

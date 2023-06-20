@@ -4,6 +4,7 @@ use std::str::FromStr;
 use ecow::{eco_vec, EcoVec};
 use smallvec::{smallvec, SmallVec};
 use typst::eval::Tracer;
+use typst::model::DelayedErrors;
 
 use super::{FigureElem, HeadingElem, Numbering, NumberingPattern};
 use crate::layout::PageElem;
@@ -397,9 +398,10 @@ impl Counter {
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         self.sequence_impl(
             vt.world,
-            TrackedMut::reborrow_mut(&mut vt.tracer),
-            vt.locator.track(),
             vt.introspector,
+            vt.locator.track(),
+            TrackedMut::reborrow_mut(&mut vt.delayed),
+            TrackedMut::reborrow_mut(&mut vt.tracer),
         )
     }
 
@@ -408,12 +410,19 @@ impl Counter {
     fn sequence_impl(
         &self,
         world: Tracked<dyn World + '_>,
-        tracer: TrackedMut<Tracer>,
-        locator: Tracked<Locator>,
         introspector: Tracked<Introspector>,
+        locator: Tracked<Locator>,
+        delayed: TrackedMut<DelayedErrors>,
+        tracer: TrackedMut<Tracer>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut locator = Locator::chained(locator);
-        let mut vt = Vt { world, tracer, locator: &mut locator, introspector };
+        let mut vt = Vt {
+            world,
+            introspector,
+            locator: &mut locator,
+            delayed,
+            tracer,
+        };
         let mut state = CounterState(match &self.0 {
             // special case, because pages always start at one.
             CounterKey::Page => smallvec![1],
@@ -618,37 +627,36 @@ struct DisplayElem {
 impl Show for DisplayElem {
     #[tracing::instrument(name = "DisplayElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        if !vt.introspector.init() {
-            return Ok(Content::empty());
-        }
+        Ok(vt.delayed(|vt| {
+            let location = self.0.location().unwrap();
+            let counter = self.counter();
+            let numbering = self
+                .numbering()
+                .or_else(|| {
+                    let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
+                    return None;
+                };
 
-        let location = self.0.location().unwrap();
-        let counter = self.counter();
-        let numbering = self
-            .numbering()
-            .or_else(|| {
-                let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
-                return None;
+                    if func == HeadingElem::func() {
+                        HeadingElem::numbering_in(styles)
+                    } else if func == FigureElem::func() {
+                        FigureElem::numbering_in(styles)
+                    } else if func == EquationElem::func() {
+                        EquationElem::numbering_in(styles)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
+
+            let state = if self.both() {
+                counter.both(vt, location)?
+            } else {
+                counter.at(vt, location)?
             };
 
-                if func == HeadingElem::func() {
-                    HeadingElem::numbering_in(styles)
-                } else if func == FigureElem::func() {
-                    FigureElem::numbering_in(styles)
-                } else if func == EquationElem::func() {
-                    EquationElem::numbering_in(styles)
-                } else {
-                    None
-                }
-            })
-            .unwrap_or_else(|| NumberingPattern::from_str("1.1").unwrap().into());
-
-        let state = if self.both() {
-            counter.both(vt, location)?
-        } else {
-            counter.at(vt, location)?
-        };
-        state.display(vt, &numbering)
+            state.display(vt, &numbering)
+        }))
     }
 }
 

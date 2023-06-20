@@ -1060,7 +1060,7 @@ fn for_loop(p: &mut Parser) {
     p.assert(SyntaxKind::For);
     pattern(p);
     if p.at(SyntaxKind::Comma) {
-        p.expected("keyword `in`. did you mean to use a destructuring pattern?");
+        p.expected("keyword `in` - did you mean to use a destructuring pattern?");
         if !p.eat_if(SyntaxKind::Ident) {
             p.eat_if(SyntaxKind::Underscore);
         }

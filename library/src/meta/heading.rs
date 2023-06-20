@@ -210,6 +210,7 @@ impl Outlinable for HeadingElem {
 impl LocalName for HeadingElem {
     fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
+            Lang::ALBANIAN => "Kapitull",
             Lang::ARABIC => "الفصل",
             Lang::BOKMÅL => "Kapittel",
             Lang::CHINESE if option_eq(region, "TW") => "小節",
@@ -227,6 +228,7 @@ impl LocalName for HeadingElem {
             Lang::SLOVENIAN => "Poglavje",
             Lang::SPANISH => "Sección",
             Lang::SWEDISH => "Kapitel",
+            Lang::TURKISH => "Bölüm",
             Lang::UKRAINIAN => "Розділ",
             Lang::VIETNAMESE => "Phần", // TODO: This may be wrong.
             Lang::ENGLISH | _ => "Section",

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 
-use crate::diag::StrResult;
+use crate::diag::{bail, StrResult};
 
 /// A symbol, possibly with variants.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -72,7 +72,7 @@ impl Symbol {
             }
         }
 
-        Err("unknown symbol modifier".into())
+        bail!("unknown symbol modifier")
     }
 
     /// The characters that are covered by this symbol.

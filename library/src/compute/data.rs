@@ -105,11 +105,11 @@ cast! {
         let mut chars = v.chars();
         let first = chars.next().ok_or("delimiter must not be empty")?;
         if chars.next().is_some() {
-            Err("delimiter must be a single character")?
+            bail!("delimiter must be a single character");
         }
 
         if !first.is_ascii() {
-            Err("delimiter must be an ASCII character")?
+            bail!("delimiter must be an ASCII character");
         }
 
         Self(first)

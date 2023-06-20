@@ -256,7 +256,6 @@ impl Layout for EnumElem {
         }
 
         let layouter = GridLayouter::new(
-            vt,
             Axes::with_x(&[
                 Sizing::Rel(indent.into()),
                 Sizing::Auto,
@@ -269,7 +268,7 @@ impl Layout for EnumElem {
             styles,
         );
 
-        Ok(layouter.layout()?.fragment)
+        Ok(layouter.layout(vt)?.fragment)
     }
 }
 
@@ -294,7 +293,7 @@ cast! {
         let mut iter = array.into_iter();
         let (number, body) = match (iter.next(), iter.next(), iter.next()) {
             (Some(a), Some(b), None) => (a.cast()?, b.cast()?),
-            _ => Err("array must contain exactly two entries")?,
+            _ => bail!("array must contain exactly two entries"),
         };
         Self::new(body).with_number(number)
     },

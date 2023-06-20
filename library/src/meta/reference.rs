@@ -132,7 +132,7 @@ impl Synthesize for RefElem {
         self.push_element(None);
 
         let target = self.target();
-        if vt.introspector.init() && !BibliographyElem::has(vt, &target.0) {
+        if !BibliographyElem::has(vt, &target.0) {
             if let Ok(elem) = vt.introspector.query_label(&target) {
                 self.push_element(Some(elem.into_inner()));
                 return Ok(());
@@ -146,63 +146,65 @@ impl Synthesize for RefElem {
 impl Show for RefElem {
     #[tracing::instrument(name = "RefElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        if !vt.introspector.init() {
-            return Ok(Content::empty());
-        }
+        Ok(vt.delayed(|vt| {
+            let target = self.target();
+            let elem = vt.introspector.query_label(&self.target());
+            let span = self.span();
 
-        let target = self.target();
-        let elem = vt.introspector.query_label(&self.target());
-        let span = self.span();
+            if BibliographyElem::has(vt, &target.0) {
+                if elem.is_ok() {
+                    bail!(span, "label occurs in the document and its bibliography");
+                }
 
-        if BibliographyElem::has(vt, &target.0) {
-            if elem.is_ok() {
-                bail!(span, "label occurs in the document and its bibliography");
+                return Ok(self.to_citation(vt, styles)?.pack().spanned(span));
             }
 
-            return Ok(self.to_citation(vt, styles)?.pack().spanned(span));
-        }
+            let elem = elem.at(span)?;
+            let refable = elem
+                .with::<dyn Refable>()
+                .ok_or_else(|| {
+                    if elem.can::<dyn Figurable>() {
+                        eco_format!(
+                            "cannot reference {} directly, try putting it into a figure",
+                            elem.func().name()
+                        )
+                    } else {
+                        eco_format!("cannot reference {}", elem.func().name())
+                    }
+                })
+                .at(span)?;
 
-        let elem = elem.at(span)?;
-        let refable = elem
-            .with::<dyn Refable>()
-            .ok_or_else(|| {
-                if elem.can::<dyn Figurable>() {
+            let numbering = refable
+                .numbering()
+                .ok_or_else(|| {
                     eco_format!(
-                        "cannot reference {} directly, try putting it into a figure",
+                        "cannot reference {0} without numbering \
+                        - did you mean to use `#set {0}(numbering: \"1.\")`?",
                         elem.func().name()
                     )
-                } else {
-                    eco_format!("cannot reference {}", elem.func().name())
+                })
+                .at(span)?;
+
+            let numbers = refable
+                .counter()
+                .at(vt, elem.location().unwrap())?
+                .display(vt, &numbering.trimmed())?;
+
+            let supplement = match self.supplement(styles) {
+                Smart::Auto => refable.supplement(),
+                Smart::Custom(None) => Content::empty(),
+                Smart::Custom(Some(supplement)) => {
+                    supplement.resolve(vt, [(*elem).clone()])?
                 }
-            })
-            .at(span)?;
+            };
 
-        let numbering = refable
-            .numbering()
-            .ok_or_else(|| {
-                eco_format!("cannot reference {} without numbering", elem.func().name())
-            })
-            .at(span)?;
-
-        let numbers = refable
-            .counter()
-            .at(vt, elem.location().unwrap())?
-            .display(vt, &numbering.trimmed())?;
-
-        let supplement = match self.supplement(styles) {
-            Smart::Auto => refable.supplement(),
-            Smart::Custom(None) => Content::empty(),
-            Smart::Custom(Some(supplement)) => {
-                supplement.resolve(vt, [(*elem).clone()])?
+            let mut content = numbers;
+            if !supplement.is_empty() {
+                content = supplement + TextElem::packed("\u{a0}") + content;
             }
-        };
 
-        let mut content = numbers;
-        if !supplement.is_empty() {
-            content = supplement + TextElem::packed("\u{a0}") + content;
-        }
-
-        Ok(content.linked(Destination::Location(elem.location().unwrap())))
+            Ok(content.linked(Destination::Location(elem.location().unwrap())))
+        }))
     }
 }
 
@@ -254,7 +256,7 @@ cast! {
 /// Marks an element as being able to be referenced. This is used to implement
 /// the `@ref` element.
 pub trait Refable {
-    /// The supplement, if not overriden by the reference.
+    /// The supplement, if not overridden by the reference.
     fn supplement(&self) -> Content;
 
     /// Returns the counter of this element.

@@ -216,7 +216,7 @@ cast! {
     self => self.0.into_value(),
     align: GenAlign => {
         if align.axis() != Axis::X {
-            Err("alignment must be horizontal")?;
+            bail!("alignment must be horizontal");
         }
         Self(align)
     },
@@ -232,7 +232,7 @@ cast! {
     self => self.0.into_value(),
     align: GenAlign => {
         if align.axis() != Axis::Y {
-            Err("alignment must be vertical")?;
+            bail!("alignment must be vertical");
         }
         Self(align)
     },

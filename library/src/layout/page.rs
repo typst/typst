@@ -4,6 +4,7 @@ use std::str::FromStr;
 use super::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, Numbering};
 use crate::prelude::*;
+use crate::text::TextElem;
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -97,10 +98,17 @@ pub struct PageElem {
     ///   - `right`: The right margin.
     ///   - `bottom`: The bottom margin.
     ///   - `left`: The left margin.
+    ///   - `inside`: The margin at the inner side of the page (where the
+    ///     [binding]($func/page.binding) is).
+    ///   - `outside`: The margin at the outer side of the page (opposite to the
+    ///     [binding]($func/page.binding)).
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
     ///   - `rest`: The margins on all sides except those for which the
     ///     dictionary explicitly sets a size.
+    ///
+    /// The values for `left` and `right` are mutually exclusive with
+    /// the values for `inside` and `outside`.
     ///
     /// ```example
     /// #set page(
@@ -116,7 +124,18 @@ pub struct PageElem {
     /// )
     /// ```
     #[fold]
-    pub margin: Sides<Option<Smart<Rel<Length>>>>,
+    pub margin: Margin,
+
+    /// On which side the pages will be bound.
+    ///
+    /// - `{auto}`: Equivalent to `left` if the [text direction]($func/text.dir)
+    ///   is left-to-right and `right` if it is right-to-left.
+    /// - `left`: Bound on the left side.
+    /// - `right`: Bound on the right side.
+    ///
+    /// This affects the meaning of the `inside` and `outside` options for
+    /// margins.
+    pub binding: Smart<Binding>,
 
     /// How many columns the page has.
     ///
@@ -268,6 +287,11 @@ pub struct PageElem {
     /// will be created after the body has been typeset.
     #[required]
     pub body: Content,
+
+    /// Whether the page should be aligned to an even or odd page.
+    /// Not part of the public API for now.
+    #[internal]
+    pub clear_to: Option<Parity>,
 }
 
 impl PageElem {
@@ -301,12 +325,22 @@ impl PageElem {
         }
 
         // Determine the margins.
-        let default = Rel::from(0.1190 * min);
-        let margin = self
-            .margin(styles)
-            .map(|side| side.unwrap_or(default))
+        let default = Rel::<Length>::from(0.1190 * min);
+        let margin = self.margin(styles);
+        let two_sided = margin.two_sided.unwrap_or(false);
+        let margin = margin
+            .sides
+            .map(|side| side.and_then(Smart::as_custom).unwrap_or(default))
             .resolve(styles)
             .relative_to(size);
+
+        // Determine the binding.
+        let binding =
+            self.binding(styles)
+                .unwrap_or_else(|| match TextElem::dir_in(styles) {
+                    Dir::LTR => Binding::Left,
+                    _ => Binding::Right,
+                });
 
         // Realize columns.
         let mut child = self.body();
@@ -320,7 +354,13 @@ impl PageElem {
         regions.root = true;
 
         // Layout the child.
-        let mut fragment = child.layout(vt, styles, regions)?;
+        let mut frames = child.layout(vt, styles, regions)?.into_frames();
+
+        // Align the child to the pagebreak's parity.
+        if self.clear_to(styles).is_some_and(|p| !p.matches(number.get())) {
+            let size = area.map(Abs::is_finite).select(area, Size::zero());
+            frames.insert(0, Frame::new(size));
+        }
 
         let fill = self.fill(styles);
         let foreground = self.foreground(styles);
@@ -346,11 +386,19 @@ impl PageElem {
         );
 
         // Post-process pages.
-        for frame in fragment.iter_mut() {
+        for frame in frames.iter_mut() {
             tracing::info!("Layouting page #{number}");
 
             // The padded width of the page's content without margins.
             let pw = frame.width();
+
+            // If two sided, left becomes inside and right becomes outside.
+            // Thus, for left-bound pages, we want to swap on even pages and
+            // for right-bound pages, we want to swap on odd pages.
+            let mut margin = margin;
+            if two_sided && binding.swap(number) {
+                std::mem::swap(&mut margin.left, &mut margin.right);
+            }
 
             // Realize margins.
             frame.set_size(frame.size() + margin.sum_by_axis());
@@ -409,32 +457,146 @@ impl PageElem {
             number = number.saturating_add(1);
         }
 
-        Ok(fragment)
+        Ok(Fragment::frames(frames))
     }
 }
 
-/// A manual page break.
-///
-/// Must not be used inside any containers.
-///
-/// ## Example { #example }
-/// ```example
-/// The next page contains
-/// more details on compound theory.
-/// #pagebreak()
-///
-/// == Compound Theory
-/// In 1984, the first ...
-/// ```
-///
-/// Display: Page Break
-/// Category: layout
-#[element]
-pub struct PagebreakElem {
-    /// If `{true}`, the page break is skipped if the current page is already
-    /// empty.
-    #[default(false)]
-    pub weak: bool,
+/// Specification of the page's margins.
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Margin {
+    /// The margins for each side.
+    pub sides: Sides<Option<Smart<Rel<Length>>>>,
+    /// Whether to swap `left` and `right` to make them `inside` and `outside`
+    /// (when to swap depends on the binding).
+    pub two_sided: Option<bool>,
+}
+
+impl Margin {
+    /// Create an instance with four equal components.
+    pub fn splat(value: Option<Smart<Rel<Length>>>) -> Self {
+        Self { sides: Sides::splat(value), two_sided: None }
+    }
+}
+
+impl Fold for Margin {
+    type Output = Margin;
+
+    fn fold(self, outer: Self::Output) -> Self::Output {
+        let sides =
+            self.sides
+                .zip(outer.sides)
+                .map(|(inner, outer)| match (inner, outer) {
+                    (Some(value), Some(outer)) => Some(value.fold(outer)),
+                    _ => inner.or(outer),
+                });
+        let two_sided = self.two_sided.or(outer.two_sided);
+        Margin { sides, two_sided }
+    }
+}
+
+cast! {
+    Margin,
+    self => {
+        let mut dict = Dict::new();
+        let mut handle = |key: &str, component: Value| {
+            let value = component.into_value();
+            if value != Value::None {
+                dict.insert(key.into(), value);
+            }
+        };
+
+        handle("top", self.sides.top.into_value());
+        handle("bottom", self.sides.bottom.into_value());
+        if self.two_sided.unwrap_or(false) {
+            handle("inside", self.sides.left.into_value());
+            handle("outside", self.sides.right.into_value());
+        } else {
+            handle("left", self.sides.left.into_value());
+            handle("right", self.sides.right.into_value());
+        }
+
+        Value::Dict(dict)
+    },
+    _: AutoValue => Self::splat(Some(Smart::Auto)),
+    v: Rel<Length> => Self::splat(Some(Smart::Custom(v))),
+    mut dict: Dict => {
+        let mut take = |key| dict.take(key).ok().map(Value::cast).transpose();
+
+        let rest = take("rest")?;
+        let x = take("x")?.or(rest);
+        let y = take("y")?.or(rest);
+        let top = take("top")?.or(y);
+        let bottom = take("bottom")?.or(y);
+        let outside = take("outside")?;
+        let inside = take("inside")?;
+        let left = take("left")?;
+        let right = take("right")?;
+
+        let implicitly_two_sided = outside.is_some() || inside.is_some();
+        let implicitly_not_two_sided = left.is_some() || right.is_some();
+        if implicitly_two_sided && implicitly_not_two_sided {
+            bail!("`inside` and `outside` are mutually exclusive with `left` and `right`");
+        }
+
+        // - If 'implicitly_two_sided' is false here, then
+        //   'implicitly_not_two_sided' will be guaranteed to be true
+        //    due to the previous two 'if' conditions.
+        // - If both are false, this means that this margin change does not
+        //   affect lateral margins, and thus shouldn't make a difference on
+        //   the 'two_sided' attribute of this margin.
+        let two_sided = (implicitly_two_sided || implicitly_not_two_sided)
+            .then_some(implicitly_two_sided);
+
+        dict.finish(&[
+            "left", "top", "right", "bottom", "outside", "inside", "x", "y", "rest",
+        ])?;
+
+        Margin {
+            sides: Sides {
+                left: inside.or(left).or(x),
+                top,
+                right: outside.or(right).or(x),
+                bottom,
+            },
+            two_sided,
+        }
+    }
+}
+
+/// Specification of the page's binding.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum Binding {
+    /// Bound on the left, as customary in LTR languages.
+    Left,
+    /// Bound on the right, as customary in RTL languages.
+    Right,
+}
+
+impl Binding {
+    /// Whether to swap left and right margin for the page with this number.
+    fn swap(self, number: NonZeroUsize) -> bool {
+        match self {
+            // Left-bound must swap on even pages
+            // (because it is correct on the first page).
+            Self::Left => number.get() % 2 == 0,
+            // Right-bound must swap on odd pages
+            // (because it is wrong on the first page).
+            Self::Right => number.get() % 2 == 1,
+        }
+    }
+}
+
+cast! {
+    Binding,
+    self => match self {
+        Self::Left => GenAlign::Specific(Align::Left).into_value(),
+        Self::Right => GenAlign::Specific(Align::Right).into_value(),
+    },
+    v: GenAlign => match v {
+        GenAlign::Specific(Align::Left) => Self::Left,
+        GenAlign::Specific(Align::Right) => Self::Right,
+        _ => bail!("must be `left` or `right`"),
+    },
 }
 
 /// A header, footer, foreground or background definition.
@@ -464,6 +626,61 @@ cast! {
     },
     v: Content => Self::Content(v),
     v: Func => Self::Func(v),
+}
+
+/// A manual page break.
+///
+/// Must not be used inside any containers.
+///
+/// ## Example { #example }
+/// ```example
+/// The next page contains
+/// more details on compound theory.
+/// #pagebreak()
+///
+/// == Compound Theory
+/// In 1984, the first ...
+/// ```
+///
+/// Display: Page Break
+/// Category: layout
+#[element]
+pub struct PagebreakElem {
+    /// If `{true}`, the page break is skipped if the current page is already
+    /// empty.
+    #[default(false)]
+    pub weak: bool,
+
+    /// If given, ensures that the next page will be an even/odd page, with an
+    /// empty page in between if necessary.
+    ///
+    /// ```example
+    /// #set page(height: 30pt)
+    ///
+    /// First.
+    /// #pagebreak(to: "odd")
+    /// Third.
+    /// ```
+    pub to: Option<Parity>,
+}
+
+/// Whether something should be even or odd.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum Parity {
+    /// Next page will be an even page.
+    Even,
+    /// Next page will be an odd page.
+    Odd,
+}
+
+impl Parity {
+    /// Whether the given number matches the parity.
+    fn matches(self, number: usize) -> bool {
+        match self {
+            Self::Even => number % 2 == 0,
+            Self::Odd => number % 2 == 1,
+        }
+    }
 }
 
 /// Specification of a paper.

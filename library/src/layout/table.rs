@@ -162,7 +162,6 @@ impl Layout for TableElem {
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
-            vt,
             tracks.as_deref(),
             gutter.as_deref(),
             &cells,
@@ -171,10 +170,14 @@ impl Layout for TableElem {
         );
 
         // Measure the columns and layout the grid row-by-row.
-        let mut layout = layouter.layout()?;
+        let mut layout = layouter.layout(vt)?;
 
         // Add lines and backgrounds.
         for (frame, rows) in layout.fragment.iter_mut().zip(&layout.rows) {
+            if layout.cols.is_empty() || rows.is_empty() {
+                continue;
+            }
+
             // Render table lines.
             if let Some(stroke) = &stroke {
                 let thickness = stroke.thickness;
@@ -222,8 +225,8 @@ impl Layout for TableElem {
     }
 }
 
-/// Turn an iterator extents into an iterator of offsets before, in between, and
-/// after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
+/// Turn an iterator of extents into an iterator of offsets before, in between,
+/// and after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
 fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
     let mut offset = Abs::zero();
     std::iter::once(Abs::zero())
@@ -302,6 +305,7 @@ impl<T: FromValue> FromValue for Celled<T> {
 impl LocalName for TableElem {
     fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
+            Lang::ALBANIAN => "Tabel",
             Lang::ARABIC => "جدول",
             Lang::BOKMÅL => "Tabell",
             Lang::CHINESE => "表",
@@ -318,6 +322,7 @@ impl LocalName for TableElem {
             Lang::SLOVENIAN => "Tabela",
             Lang::SPANISH => "Tabla",
             Lang::SWEDISH => "Tabell",
+            Lang::TURKISH => "Tablo",
             Lang::UKRAINIAN => "Таблиця",
             Lang::VIETNAMESE => "Bảng",
             Lang::ENGLISH | _ => "Table",

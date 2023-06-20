@@ -13,6 +13,15 @@ use crate::syntax::{ErrorPos, Span, Spanned};
 use crate::World;
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
+///
+/// If called with just a string and format args, returns with a
+/// `StrResult`. If called with a span, a string and format args, returns
+/// a `SourceResult`.
+///
+/// ```
+/// bail!("bailing with a {}", "string result");
+/// bail!(span, "bailing with a {}", "source result");
+/// ```
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __bail {

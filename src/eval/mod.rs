@@ -62,9 +62,6 @@ use ecow::{EcoString, EcoVec};
 use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::{CapturesVisitor, Closure};
-use crate::diag::{
-    bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
-};
 use crate::model::{
     Content, Introspector, Label, Locator, Recipe, ShowableSelector, Styles, Transform,
     Unlabellable, Vt,
@@ -75,6 +72,10 @@ use crate::syntax::{
 };
 use crate::util::PathExt;
 use crate::World;
+use crate::{
+    diag::{bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint},
+    model::DelayedErrors,
+};
 
 const MAX_ITERATIONS: usize = 10_000;
 const MAX_CALL_DEPTH: usize = 64;
@@ -102,11 +103,13 @@ pub fn eval(
     // Prepare VT.
     let mut locator = Locator::default();
     let introspector = Introspector::default();
+    let mut delayed = DelayedErrors::default();
     let vt = Vt {
         world,
-        tracer,
-        locator: &mut locator,
         introspector: introspector.track(),
+        locator: &mut locator,
+        delayed: delayed.track_mut(),
+        tracer,
     };
 
     // Prepare VM.
@@ -151,12 +154,14 @@ pub fn eval_string(
     // Prepare VT.
     let mut tracer = Tracer::default();
     let mut locator = Locator::default();
+    let mut delayed = DelayedErrors::default();
     let introspector = Introspector::default();
     let vt = Vt {
         world,
-        tracer: tracer.track_mut(),
-        locator: &mut locator,
         introspector: introspector.track(),
+        locator: &mut locator,
+        delayed: delayed.track_mut(),
+        tracer: tracer.track_mut(),
     };
 
     // Prepare VM.
@@ -251,7 +256,7 @@ impl<'a> Vm<'a> {
             }
         }
 
-        Err("cannot access file system from here".into())
+        bail!("cannot access file system from here")
     }
 }
 

@@ -644,7 +644,7 @@ cast! {
     self => self.0.into_value(),
     v: Smart<Dir> => {
         if v.map_or(false, |dir| dir.axis() == Axis::Y) {
-            Err("text direction must be horizontal")?;
+            bail!("text direction must be horizontal");
         }
         Self(v)
     },
@@ -703,7 +703,7 @@ cast! {
     self => self.0.into_value(),
     v: i64 => match v {
         1 ..= 20 => Self::new(v as u8),
-        _ => Err("stylistic set must be between 1 and 20")?,
+        _ => bail!("stylistic set must be between 1 and 20"),
     },
 }
 

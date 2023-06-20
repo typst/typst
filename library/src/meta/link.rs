@@ -91,21 +91,18 @@ impl Show for LinkElem {
     #[tracing::instrument(name = "LinkElem::show", skip(self, vt))]
     fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         let body = self.body();
-        let dest = match self.dest() {
-            LinkTarget::Dest(dest) => dest,
-            LinkTarget::Label(label) => {
-                if !vt.introspector.init() {
-                    return Ok(body);
-                }
-
-                let elem = vt.introspector.query_label(&label).at(self.span())?;
-                Destination::Location(elem.location().unwrap())
-            }
+        let linked = match self.dest() {
+            LinkTarget::Dest(dest) => body.linked(dest),
+            LinkTarget::Label(label) => vt
+                .delayed(|vt| {
+                    let elem = vt.introspector.query_label(&label).at(self.span())?;
+                    let dest = Destination::Location(elem.location().unwrap());
+                    Ok(Some(body.clone().linked(dest)))
+                })
+                .unwrap_or(body),
         };
 
-        Ok(body
-            .linked(dest)
-            .styled(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false)))))
+        Ok(linked.styled(TextElem::set_hyphenate(Hyphenate(Smart::Custom(false)))))
     }
 }
 

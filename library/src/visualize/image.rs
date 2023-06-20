@@ -130,6 +130,7 @@ impl Layout for ImageElem {
 impl LocalName for ImageElem {
     fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
+            Lang::ALBANIAN => "Figurë",
             Lang::ARABIC => "شكل",
             Lang::BOKMÅL => "Figur",
             Lang::CHINESE => "图",
@@ -146,6 +147,7 @@ impl LocalName for ImageElem {
             Lang::SLOVENIAN => "Slika",
             Lang::SPANISH => "Figura",
             Lang::SWEDISH => "Figur",
+            Lang::TURKISH => "Şekil",
             Lang::UKRAINIAN => "Рисунок",
             Lang::VIETNAMESE => "Hình",
             Lang::ENGLISH | _ => "Figure",
@@ -183,7 +185,7 @@ fn load(
         "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
         "gif" => ImageFormat::Raster(RasterFormat::Gif),
         "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
-        _ => return Err("unknown image format".into()),
+        _ => bail!("unknown image format"),
     };
     Image::with_fonts(buffer, format, world, fallback_family, alt)
 }
