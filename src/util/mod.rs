@@ -6,7 +6,7 @@ mod buffer;
 
 pub use buffer::Buffer;
 
-use std::fmt::{self, Debug, Formatter, Display};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 use std::path::{Component, Path, PathBuf};
@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
 
-use crate::diag::{FileResult, FileError};
+use crate::diag::{FileError, FileResult};
 
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
@@ -238,12 +238,12 @@ where
 
 /// An access descriptor
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum Access<T,U> {
+pub enum Access<T, U> {
     Read(T),
-    Write(U), 
+    Write(U),
 }
 
-impl<T,U> Access<T,U> {
+impl<T, U> Access<T, U> {
     /// Attempt a read operation on the file
     pub fn as_read(&self) -> FileResult<&T> {
         match self {
@@ -260,14 +260,16 @@ impl<T,U> Access<T,U> {
     }
 }
 
-impl<T,U> Default for Access<T,U>
-where T: Default {
+impl<T, U> Default for Access<T, U>
+where
+    T: Default,
+{
     fn default() -> Self {
         Access::Read(T::default())
     }
 }
 
-pub type AccessMode = Access<(),()>;
+pub type AccessMode = Access<(), ()>;
 
 impl AccessMode {
     pub const R: AccessMode = AccessMode::Read(());
@@ -280,10 +282,10 @@ impl AccessMode {
             AccessMode::R => AccessMode::W,
             AccessMode::W => AccessMode::R,
         }
-    } 
+    }
 }
 
-impl<T,U> Access<T,U> {
+impl<T, U> Access<T, U> {
     /// Compares modes, not values
     pub fn is(&self, mode: AccessMode) -> bool {
         match self {

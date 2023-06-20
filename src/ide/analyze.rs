@@ -7,7 +7,7 @@ use crate::doc::Frame;
 use crate::eval::{eval, Module, Route, Tracer, Value};
 use crate::model::{Introspector, Label};
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
-use crate::util::{PathExt, AccessMode};
+use crate::util::{AccessMode, PathExt};
 use crate::World;
 
 /// Try to determine a set of possible values for an expression.

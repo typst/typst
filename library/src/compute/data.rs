@@ -39,7 +39,7 @@ pub fn read(
 /// The text will be added to a buffer and written once compilation is over.
 /// Please note that this function does not ensure the call's order. Instead, you should make sure to add identifiers to your calls, if you want to find them later.
 /// The file you write to will be named "record.txt", found in the same directory as your generated PDF/PNG(s).
-/// We require a location to reduce de amount of code that depends on the 
+/// We require a location to reduce de amount of code that depends on the
 ///
 /// ## Example { #example }
 /// ```example
@@ -50,7 +50,7 @@ pub fn read(
 /// ```
 ///
 /// Note to self: Could use macro Locatable instead
-/// 
+///
 /// Display: Write
 /// Category: data-loading
 #[func]

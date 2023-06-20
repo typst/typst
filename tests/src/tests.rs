@@ -25,9 +25,9 @@ use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
-use typst::syntax::{Source, SourceId, Span, SyntaxNode};
-use typst::util::{Buffer, PathExt, AccessMode};
 use typst::model::Location;
+use typst::syntax::{Source, SourceId, Span, SyntaxNode};
+use typst::util::{AccessMode, Buffer, PathExt};
 use typst::World;
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
@@ -297,7 +297,7 @@ impl World for TestWorld {
             .clone()
     }
 
-    fn write(&self,_path: &Path, _: Location, _: Vec<u8>) -> FileResult<()> {
+    fn write(&self, _path: &Path, _: Location, _: Vec<u8>) -> FileResult<()> {
         todo!()
     }
 

@@ -53,14 +53,14 @@ pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::Symbol;
 pub use self::value::{Dynamic, Type, Value};
 
-use std::{collections::HashSet, path::Component};
 use std::mem;
 use std::path::{Path, PathBuf};
+use std::{collections::HashSet, path::Component};
 
+use bitflags::bitflags;
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
 use unicode_segmentation::UnicodeSegmentation;
-use bitflags::bitflags;
 
 use self::func::{CapturesVisitor, Closure};
 use crate::model::{
@@ -71,7 +71,7 @@ use crate::syntax::ast::AstNode;
 use crate::syntax::{
     ast, parse_code, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode,
 };
-use crate::util::{PathExt, AccessMode, Access as FAccess};
+use crate::util::{Access as FAccess, AccessMode, PathExt};
 use crate::World;
 use crate::{
     diag::{bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint},
@@ -252,7 +252,12 @@ impl<'a> Vm<'a> {
     }
 
     /// Resolve a path to be relative to a directory.
-    fn _locate_impl(&self, path: &str, abs: &Path, options: LocatePerm) -> StrResult<PathBuf> {
+    fn _locate_impl(
+        &self,
+        path: &str,
+        abs: &Path,
+        options: LocatePerm,
+    ) -> StrResult<PathBuf> {
         if !self.location.is_detached() {
             if let Some(path) = path.strip_prefix('/') {
                 let path = PathBuf::from(path).normalize();
@@ -261,7 +266,8 @@ impl<'a> Vm<'a> {
             }
 
             if let Some(dir) = self.world().source(self.location).path().parent() {
-                if options.contains(LocatePerm::FileRelative) { // Allow path strings that do not start from 'abs'.
+                if options.contains(LocatePerm::FileRelative) {
+                    // Allow path strings that do not start from 'abs'.
                     let path = PathBuf::from(path).normalize();
                     self._check_contents(&path, options)?;
                     return Ok(dir.join(path));
@@ -288,22 +294,29 @@ impl<'a> Vm<'a> {
 
     /// Check that no forbidden directory is accessed (i.e: dest for a read operation)
     /// The methodology is basically: if a path is within a root that is not its own, check that it is, at least, within its own root, AND that its own root is within that other root (and not the other way around!)
-    /// 
+    ///
     /// Using mathematical operators: !(other_root < path) || (other_root < path_root < path)
-    fn _verify_loc_constraints(&self, path: PathBuf, mode: AccessMode) -> StrResult<PathBuf> {
+    fn _verify_loc_constraints(
+        &self,
+        path: PathBuf,
+        mode: AccessMode,
+    ) -> StrResult<PathBuf> {
         let world = self.world();
         let path_root = world.root(mode)?;
-        let other_root = match world.root(mode.other()) { //Access as mode.other can be disabled
+        let other_root = match world.root(mode.other()) {
+            //Access as mode.other can be disabled
             Ok(v) => v,
             Err(_) => return Ok(path), //As there are only two modes for now, no checks are needed if one of them is unavailable!
         };
-        
-        let pth_parent = path.parent()
-            .ok_or(EcoString::from("root access is forbidden"))?;
-        if pth_parent.starts_with(other_root) { //Path is in Other
-            if pth_parent.starts_with(path_root) && path_root.parent()
-                .map_or(false, |p| p.starts_with(other_root))
-                { //Allowed if Path is also in Self and Self in other
+
+        let pth_parent =
+            path.parent().ok_or(EcoString::from("root access is forbidden"))?;
+        if pth_parent.starts_with(other_root) {
+            //Path is in Other
+            if pth_parent.starts_with(path_root)
+                && path_root.parent().map_or(false, |p| p.starts_with(other_root))
+            {
+                //Allowed if Path is also in Self and Self in other
                 return Ok(path);
             }
             bail!("path '{}' tries to access {} directory", path.display(), mode.other())
@@ -312,7 +325,7 @@ impl<'a> Vm<'a> {
     }
 }
 
-bitflags!{
+bitflags! {
     /// A location permission, describes what kind of accesses can be made.
     #[derive(Debug)]
     struct LocatePerm: u32 {

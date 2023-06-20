@@ -2,7 +2,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
-use typst::util::{AccessMode};
+use typst::util::AccessMode;
 
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;

@@ -56,14 +56,13 @@ use std::path::Path;
 
 use comemo::{Prehashed, Track, TrackedMut};
 
-use crate::diag::{FileResult, SourceResult, FileError};
+use crate::diag::{FileError, FileResult, SourceResult};
 use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
-use crate::syntax::{Source, SourceId};
-use crate::util::{Buffer, AccessMode};
 use crate::model::Location;
-
+use crate::syntax::{Source, SourceId};
+use crate::util::{AccessMode, Buffer};
 
 /// Compile a source file into a fully layouted document.
 #[tracing::instrument(skip(world))]
@@ -97,8 +96,7 @@ pub trait World {
     /// Fails with FileError::Disabled when access has been disabled for target
     /// mode. Always fails for writing by default.
     fn root(&self, mode: AccessMode) -> FileResult<&Path> {
-        mode.as_read()
-            .map_or(Err(FileError::Disabled), |_| Ok(Path::new("")))
+        mode.as_read().map_or(Err(FileError::Disabled), |_| Ok(Path::new("")))
     }
 
     /// The standard library.
@@ -124,7 +122,7 @@ pub trait World {
 
     /// Write or append data to a file at a path.
     /// The first call to a given path is always a write. All subsequent are append.
-    /// 
+    ///
     /// Note that there is an issue with this implementation:
     ///   As location is simply a parameter, anything and anyone may "wear a mustache"
     ///   and pass as another content element (by stealing its location!)

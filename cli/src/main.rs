@@ -18,7 +18,6 @@ use elsa::FrozenVec;
 use memmap2::Mmap;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use same_file::{is_same_file, Handle};
-use typst::model::Location;
 use std::cell::OnceCell;
 use termcolor::{ColorChoice, StandardStream, WriteColor};
 use typst::diag::{bail, FileError, FileResult, SourceError, StrResult};
@@ -26,8 +25,9 @@ use typst::doc::Document;
 use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use typst::geom::Color;
+use typst::model::Location;
 use typst::syntax::{Source, SourceId};
-use typst::util::{Buffer, PathExt, Access, AccessMode, hash128};
+use typst::util::{hash128, Access, AccessMode, Buffer, PathExt};
 use typst::World;
 use walkdir::WalkDir;
 
@@ -246,7 +246,7 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
         .map_err(|_| "failed to watch parent directory")?;
 
     // Watch the root directory recursively.
-    if let Ok(root) = &world.root { //No root to watch!
+    if let Ok(root) = &world.root {
         if *root != parent {
             watcher
                 .watch(root, RecursiveMode::Recursive)
@@ -254,10 +254,9 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
         }
     }
     // Unwatch the dest directory recursively.
-    if let Ok(dest) = &world.dest { //No dest to unwatch!
+    if let Ok(dest) = &world.dest {
         if *dest != parent {
-            let _ = watcher
-                .unwatch(dest); //we discard the result
+            let _ = watcher.unwatch(dest); //we discard the result
         }
     }
 
@@ -378,12 +377,11 @@ fn write(world: &SystemWorld) -> StrResult<()> {
     for (h, s) in world.paths.borrow().iter() {
         if s.buffer.is(AccessMode::W) {
             // Wasteful, do something better (store mode in hashes?)
-            // Also, collision issue maybe? probs not
-            let loc = hashes.iter()
-                .find(|(_, v)| match v {
-                    Err(_) => false,
-                    Ok(v) => v == h,
-                });
+            // Also, collision issue maybe? probably not
+            let loc = hashes.iter().find(|(_, v)| match v {
+                Err(_) => false,
+                Ok(v) => v == h,
+            });
             if let Some((path, _)) = loc {
                 let data = s.buffer.as_write()?.borrow();
                 if data.is_empty() {
@@ -393,8 +391,17 @@ fn write(world: &SystemWorld) -> StrResult<()> {
                     // Remember; we aren't interested with order conservation here! what's important is that the data is there.
                     let buffer: Vec<u8> = data.to_owned();
                     // Generate file name, and write
-                    tracing::info!("Writing file: {}", path.to_str().unwrap_or("{invalid_name}"));
-                    fs::write(path, buffer).map_err(|_| format!("failed to write {} file", path.file_name().map_or("..", |s| s.to_str().unwrap_or("{invalid_name}"))))?;
+                    tracing::info!(
+                        "Writing file: {}",
+                        path.to_str().unwrap_or("{invalid_name}")
+                    );
+                    fs::write(path, buffer).map_err(|_| {
+                        format!(
+                            "failed to write {} file",
+                            path.file_name()
+                                .map_or("..", |s| s.to_str().unwrap_or("{invalid_name}"))
+                        )
+                    })?;
                 }
             }
         }
@@ -577,11 +584,17 @@ struct PathSlot {
 impl PathSlot {
     /// Register a new file in read mode.
     fn read() -> Self {
-        PathSlot { source: OnceCell::default(), buffer: Access::Read(OnceCell::default()) }
+        PathSlot {
+            source: OnceCell::default(),
+            buffer: Access::Read(OnceCell::default()),
+        }
     }
     /// Register a new file in write mode.
     fn write() -> Self {
-        PathSlot { source: OnceCell::default(), buffer: Access::Write(RefCell::default()) }
+        PathSlot {
+            source: OnceCell::default(),
+            buffer: Access::Write(RefCell::default()),
+        }
     }
 }
 impl From<AccessMode> for PathSlot {
@@ -594,12 +607,17 @@ impl From<AccessMode> for PathSlot {
 }
 
 impl SystemWorld {
-    fn new(root: FileResult<PathBuf>, dest: FileResult<PathBuf>, font_paths: &[PathBuf]) -> Self {
+    fn new(
+        root: FileResult<PathBuf>,
+        dest: FileResult<PathBuf>,
+        font_paths: &[PathBuf],
+    ) -> Self {
         let mut searcher = FontSearcher::new();
         searcher.search(font_paths);
 
         Self {
-            root, dest,
+            root,
+            dest,
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
@@ -622,7 +640,7 @@ impl World for SystemWorld {
             Access::Write(_) => match &self.dest {
                 Err(e) => Err(e.clone()),
                 Ok(p) => Ok(p),
-            }
+            },
         }
     }
 
@@ -639,7 +657,8 @@ impl World for SystemWorld {
         self.slot(path, AccessMode::R)?
             .source
             .get_or_init(|| {
-                let path = path.canonicalize().map_err(|f| FileError::from_io(f, path))?; 
+                let path =
+                    path.canonicalize().map_err(|f| FileError::from_io(f, path))?;
                 let buf = read(&path)?;
                 let text = if buf.starts_with(b"\xef\xbb\xbf") {
                     // remove UTF-8 BOM
@@ -682,11 +701,13 @@ impl World for SystemWorld {
     fn write(&self, path: &Path, _: Location, what: Vec<u8>) -> FileResult<()> {
         //println!("{}", self.slot_w(path)?.buffer.as_write()?.borrow_mut().iter().flat_map(|(_,v)| String::from_utf8(v.to_vec()).unwrap_or("ough".to_owned())).collect::<String>());
         self.slot(path, AccessMode::W)?
-            .buffer.as_write()?
-            .borrow_mut().extend(what);
+            .buffer
+            .as_write()?
+            .borrow_mut()
+            .extend(what);
         Ok(())
-            //.insert(from, what.into())
-            //.map_or(FileResult::Err(FileError::AccessDenied), |_| FileResult::Ok(()))
+        //.insert(from, what.into())
+        //.map_or(FileResult::Err(FileError::AccessDenied), |_| FileResult::Ok(()))
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
@@ -779,7 +800,8 @@ impl PathHash {
         let f = |e| FileError::from_io(e, path);
         let handle = match mode {
             Access::Read(_) => Handle::from_path(path).map_err(f)?, //note: opening twice???
-            Access::Write(_) => { //Path has been validated, so we can create all misssing directories
+            Access::Write(_) => {
+                //Path has been validated, so we can create all misssing directories
                 fs::create_dir_all(path.parent().ok_or(FileError::AccessDenied)?)
                     .map_err(f)?;
                 let file = File::create(path).map_err(f)?;

@@ -6,9 +6,9 @@ use typst::diag::{FileError, FileResult};
 use typst::eval::{Datetime, Library};
 use typst::font::{Font, FontBook};
 use typst::geom::Color;
+use typst::model::Location;
 use typst::syntax::{Source, SourceId};
 use typst::util::Buffer;
-use typst::model::Location;
 use typst::World;
 use unscanny::Scanner;
 

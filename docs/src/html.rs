@@ -4,13 +4,13 @@ use comemo::Prehashed;
 use md::escape::escape_html;
 use pulldown_cmark as md;
 use typed_arena::Arena;
-use typst::diag::{FileResult};
+use typst::diag::FileResult;
 use typst::eval::Datetime;
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
+use typst::model::Location;
 use typst::syntax::{Source, SourceId};
 use typst::util::Buffer;
-use typst::model::Location;
 use typst::World;
 use yaml_front_matter::YamlFrontMatter;
 
