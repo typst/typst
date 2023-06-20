@@ -209,7 +209,12 @@ impl Show for OutlineElem {
         let elems = vt.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
-            let Some(entry) = OutlineEntry::from_outlinable(vt, self.span(), elem.clone().into_inner(), self.fill(styles))? else {
+            let Some(entry) = OutlineEntry::from_outlinable(
+                vt,
+                self.span(),
+                elem.clone().into_inner(),
+                self.fill(styles),
+            )? else {
                 continue;
             };
 
@@ -442,25 +447,24 @@ pub struct OutlineEntry {
     #[required]
     pub fill: Option<Content>,
 
-    /// The content representing the page number of the element this entry
-    /// links to. By default it will use the numbering format used by the
-    /// the referenced page.
+    /// The page number of the element this entry links to, formatted with the
+    /// numbering set for the referenced page.
     #[required]
     pub page: Content,
 }
 
 impl OutlineEntry {
-    /// Generates an OutlineEntry from the given element, if possible
-    /// (errors if the element does not implement Outlinable).
-    /// If the element cannot be outlined (e.g. heading with 'outlined: false'),
-    /// does not generate an entry instance (returns Ok(None)).
+    /// Generates an OutlineEntry from the given element, if possible (errors if
+    /// the element does not implement `Outlinable`). If the element should not
+    /// be outlined (e.g. heading with 'outlined: false'), does not generate an
+    /// entry instance (returns `Ok(None)`).
     fn from_outlinable(
         vt: &mut Vt,
         span: Span,
         elem: Content,
         fill: Option<Content>,
     ) -> SourceResult<Option<Self>> {
-        let (Some(outlinable), Some(location)) = (elem.with::<dyn Outlinable>(), elem.location()) else {
+        let Some(outlinable) = elem.with::<dyn Outlinable>() else {
             bail!(span, "cannot outline {}", elem.func().name());
         };
 
@@ -468,6 +472,7 @@ impl OutlineEntry {
             return Ok(None);
         };
 
+        let location = elem.location().unwrap();
         let page_numbering = vt
             .introspector
             .page_numbering(location)
