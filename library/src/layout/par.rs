@@ -609,7 +609,10 @@ fn collect<'a>(
                         elem.text().chars().next()
                     } else if child.is::<SmartQuoteElem>() {
                         Some('"')
-                    } else if child.is::<SpaceElem>() || child.is::<HElem>() {
+                    } else if child.is::<SpaceElem>()
+                        || child.is::<HElem>()
+                        || child.is::<LinebreakElem>()
+                    {
                         Some(SPACING_REPLACE)
                     } else {
                         Some(OBJ_REPLACE)
