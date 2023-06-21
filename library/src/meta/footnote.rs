@@ -95,7 +95,7 @@ impl Show for FootnoteElem {
 
 impl Refable for FootnoteElem {
     fn supplement(&self) -> Content {
-        // No supplement: the reference is displayed just like any other footnote
+        // Footnotes do not have a `supplement` parameter
         Content::empty()
     }
 
