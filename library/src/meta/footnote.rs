@@ -29,6 +29,14 @@ use crate::visualize::LineElem;
 /// there is a space before it in the markup. To force space, you can use the
 /// string `[#" "]` or explicit [horizontal spacing]($func/h).
 ///
+/// By giving a label to a footnote, you can have multiple references to it.
+///
+/// ```example
+/// You can edit Typst documents online.
+/// #footnote[https://typst.app/app] <fn-site>
+/// Checkout Typst's website. @fn-site
+/// ```
+///
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
 /// apply to the footnote's content. See [here][issue] more information.
 ///
