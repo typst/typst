@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use super::{Counter, Numbering, NumberingPattern};
 use crate::layout::{HElem, ParElem};
+use crate::meta::Refable;
 use crate::prelude::*;
 use crate::text::{SuperElem, TextElem, TextSize};
 use crate::visualize::LineElem;
@@ -35,7 +36,7 @@ use crate::visualize::LineElem;
 ///
 /// Display: Footnote
 /// Category: meta
-#[element(Locatable, Synthesize, Show)]
+#[element(Locatable, Synthesize, Show, Refable)]
 #[scope(
     scope.define("entry", FootnoteEntry::func());
     scope
@@ -81,6 +82,26 @@ impl Show for FootnoteElem {
         let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
         let loc = self.0.location().unwrap().variant(1);
         Ok(hole + sup.linked(Destination::Location(loc)))
+    }
+}
+
+impl Refable for FootnoteElem {
+    fn supplement(&self) -> Content {
+        // No supplement: the reference is displayed just like any other footnote
+        Content::empty()
+    }
+
+    fn counter(&self) -> Counter {
+        Counter::of(Self::func())
+    }
+
+    fn numbering(&self) -> Option<Numbering> {
+        Some(self.numbering(StyleChain::default()))
+    }
+
+    fn destination(&self) -> Option<Destination> {
+        // The location of the entry
+        Some(Destination::Location(self.0.location().unwrap().variant(1)))
     }
 }
 

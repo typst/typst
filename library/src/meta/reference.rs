@@ -1,6 +1,8 @@
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
+use crate::layout::HElem;
+use crate::meta::FootnoteElem;
 use crate::prelude::*;
-use crate::text::TextElem;
+use crate::text::{SuperElem, TextElem};
 
 /// A reference to a label or bibliography.
 ///
@@ -202,8 +204,17 @@ impl Show for RefElem {
             if !supplement.is_empty() {
                 content = supplement + TextElem::packed("\u{a0}") + content;
             }
+            if elem.func() == FootnoteElem::func() {
+                let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
+                let sup = SuperElem::new(content).pack();
+                content = hole + sup;
+            }
 
-            Ok(content.linked(Destination::Location(elem.location().unwrap())))
+            let destination = refable
+                .destination()
+                .unwrap_or_else(|| Destination::Location(elem.location().unwrap()));
+
+            Ok(content.linked(destination))
         }))
     }
 }
@@ -264,4 +275,9 @@ pub trait Refable {
 
     /// Returns the numbering of this element.
     fn numbering(&self) -> Option<Numbering>;
+
+    /// Returns a destination if a reference to this element should point to a different element.
+    fn destination(&self) -> Option<Destination> {
+        None
+    }
 }
