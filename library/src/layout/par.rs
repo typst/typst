@@ -93,8 +93,10 @@ pub struct ParElem {
 
     /// The indent the first line of a paragraph should have.
     ///
-    /// Only the first line of a consecutive paragraph will be indented (not
-    /// the first one in a block or on the page).
+    /// If [`always_indent_first_line`] is `false`, only the first line of
+    /// a consecutive paragraph will be indented (not the first one in a
+    /// block or on the page). Otherwise, the first line of all paragraphs will
+    /// be indented.
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
     /// space between paragraphs or by indented first lines. Consider reducing
@@ -102,6 +104,14 @@ pub struct ParElem {
     /// using this property (e.g. using
     /// `[#show par: set block(spacing: 0.65em)]`).
     pub first_line_indent: Length,
+
+    /// The first line of a paragraph always indent.
+    ///
+    /// If `true`, the first line of a paragraph is always indented, even if it
+    /// is the first paragraph in a block or on a page. This is need for CJK
+    /// typesetting.
+    #[default(false)]
+    pub always_indent_first_line: bool,
 
     /// The indent all but the first line of a paragraph should have.
     #[resolve]
@@ -169,7 +179,12 @@ impl ParElem {
             let children = par.children();
 
             // Collect all text into one string for BiDi analysis.
-            let (text, segments, spans) = collect(&children, &styles, consecutive)?;
+            let (text, segments, spans) = collect(
+                &children,
+                &styles,
+                consecutive,
+                par.always_indent_first_line(styles),
+            )?;
 
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
@@ -540,6 +555,7 @@ fn collect<'a>(
     children: &'a [Content],
     styles: &'a StyleChain<'a>,
     consecutive: bool,
+    always_indent_first_line: bool,
 ) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>, SpanMapper)> {
     let mut full = String::new();
     let mut quoter = Quoter::new();
@@ -549,7 +565,7 @@ fn collect<'a>(
 
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
-        && consecutive
+        && (consecutive || always_indent_first_line)
         && AlignElem::alignment_in(*styles).x.resolve(*styles)
             == TextElem::dir_in(*styles).start().into()
     {

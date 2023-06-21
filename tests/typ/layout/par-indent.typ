@@ -49,3 +49,19 @@ Welcome \ here. Does this work well?
 #set text(dir: rtl)
 لآن وقد أظلم الليل وبدأت النجوم
 تنضخ وجه الطبيعة التي أعْيَتْ من طول ما انبعثت في النهار
+
+---
+// Test always indent first line (even for the first paragraph of a block/page)
+#set par(first-line-indent: 2em)
+#block(stroke: black, inset: 2pt, width: 100%, par(always-indent-first-line: true)[
+  天地玄黄，
+
+  宇宙洪荒。
+])
+#block(stroke: black, inset: 2pt, width: 100%, par(always-indent-first-line: false)[
+  天地玄黄，
+
+  宇宙洪荒。
+])
+
+
