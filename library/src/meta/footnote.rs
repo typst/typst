@@ -28,8 +28,8 @@ cast! {
 
 /// A footnote.
 ///
-/// Include additional remarks and references on the same page with footnotes. A
-/// footnote will insert a superscript number that links to the note at the
+/// Includes additional remarks and references on the same page with footnotes.
+/// A footnote will insert a superscript number that links to the note at the
 /// bottom of the page. Notes are numbered sequentially throughout your document
 /// and can break across multiple pages.
 ///
@@ -54,6 +54,7 @@ cast! {
 /// You can edit Typst documents online.
 /// #footnote[https://typst.app/app] <fn-site>
 /// Checkout Typst's website. @fn-site
+/// Checkout Typst's online app. #footnote(<fn-site>)
 /// ```
 ///
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
@@ -86,7 +87,8 @@ pub struct FootnoteElem {
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
-    /// The content to put into the footnote.
+    /// The content to put into the footnote. Can also be the label of another
+    /// footnote this one should point to.
     #[required]
     pub body: FootnoteBody,
 }
