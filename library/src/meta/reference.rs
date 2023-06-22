@@ -1,8 +1,7 @@
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
-use crate::layout::HElem;
 use crate::meta::FootnoteElem;
 use crate::prelude::*;
-use crate::text::{SuperElem, TextElem};
+use crate::text::TextElem;
 
 /// A reference to a label or bibliography.
 ///
@@ -162,6 +161,13 @@ impl Show for RefElem {
             }
 
             let elem = elem.at(span)?;
+
+            if elem.func() == FootnoteElem::func() {
+                let mut elem = FootnoteElem::new_reference(target);
+                elem.synthesize(vt, styles)?;
+                return Ok(elem.pack().spanned(span));
+            }
+
             let refable = elem
                 .with::<dyn Refable>()
                 .ok_or_else(|| {
@@ -204,17 +210,8 @@ impl Show for RefElem {
             if !supplement.is_empty() {
                 content = supplement + TextElem::packed("\u{a0}") + content;
             }
-            if elem.func() == FootnoteElem::func() {
-                let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
-                let sup = SuperElem::new(content).pack();
-                content = hole + sup;
-            }
 
-            let destination = refable
-                .destination()
-                .unwrap_or_else(|| Destination::Location(elem.location().unwrap()));
-
-            Ok(content.linked(destination))
+            Ok(content.linked(Destination::Location(elem.location().unwrap())))
         }))
     }
 }
@@ -275,9 +272,4 @@ pub trait Refable {
 
     /// Returns the numbering of this element.
     fn numbering(&self) -> Option<Numbering>;
-
-    /// Returns a destination if a reference to this element should point to a different element.
-    fn destination(&self) -> Option<Destination> {
-        None
-    }
 }

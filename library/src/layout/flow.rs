@@ -488,6 +488,11 @@ impl FlowLayouter<'_> {
         // Process footnotes one at a time.
         let mut k = 0;
         while k < notes.len() {
+            if notes[k].is_ref() {
+                k += 1;
+                continue;
+            }
+
             if !self.has_footnotes {
                 self.layout_footnote_separator(vt)?;
             }

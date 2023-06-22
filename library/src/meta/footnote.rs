@@ -1,11 +1,30 @@
+use comemo::Prehashed;
 use std::str::FromStr;
 
 use super::{Counter, Numbering, NumberingPattern};
 use crate::layout::{HElem, ParElem};
-use crate::meta::Refable;
+use crate::meta::{Count, CounterUpdate};
 use crate::prelude::*;
 use crate::text::{SuperElem, TextElem, TextSize};
 use crate::visualize::LineElem;
+
+/// The body of a footnote can be either some content or a label referencing
+/// another footnote.
+#[derive(Debug)]
+pub enum FootnoteBody {
+    Content(Content),
+    Reference(Label),
+}
+
+cast! {
+    FootnoteBody,
+    self => match self {
+        Self::Content(v) => v.into_value(),
+        Self::Reference(v) => v.into_value(),
+    },
+    v: Content => Self::Content(v),
+    v: Label => Self::Reference(v),
+}
 
 /// A footnote.
 ///
@@ -44,7 +63,7 @@ use crate::visualize::LineElem;
 ///
 /// Display: Footnote
 /// Category: meta
-#[element(Locatable, Synthesize, Show, Refable)]
+#[element(Locatable, Synthesize, Show, Count)]
 #[scope(
     scope.define("entry", FootnoteEntry::func());
     scope
@@ -69,7 +88,61 @@ pub struct FootnoteElem {
 
     /// The content to put into the footnote.
     #[required]
-    pub body: Content,
+    pub body: FootnoteBody,
+}
+
+impl FootnoteElem {
+    /// Creates a new footnote that the passed content as its body.
+    pub fn new_with_content(content: Content) -> Self {
+        Self::new(FootnoteBody::Content(content))
+    }
+
+    /// Creates a new footnote referencing the footnote with the specified label.
+    pub fn new_reference(label: Label) -> Self {
+        Self::new(FootnoteBody::Reference(label))
+    }
+
+    /// Tests if this footnote is a reference to another footnote.
+    pub fn is_ref(&self) -> bool {
+        matches!(self.body(), FootnoteBody::Reference(_))
+    }
+
+    /// Returns the content of the body of this footnote if it is not a ref.
+    pub fn body_content(&self) -> Option<Content> {
+        match self.body() {
+            FootnoteBody::Content(content) => Some(content),
+            _ => None,
+        }
+    }
+
+    /// Returns the location of the definition of this footnote.
+    pub fn declaration_location(&self, vt: &Vt) -> StrResult<Location> {
+        match self.body() {
+            FootnoteBody::Reference(label) => {
+                let element: Prehashed<Content> = vt.introspector.query_label(&label)?;
+                let footnote = element
+                    .to::<FootnoteElem>()
+                    .ok_or("referenced element should be a footnote")?;
+                footnote.declaration_location(vt)
+            }
+            _ => Ok(self.0.location().unwrap()),
+        }
+    }
+
+    /// Returns the location of the body of this footnote (the body of the labelled
+    /// footnote in case this footnote is a reference).
+    pub fn body_location(&self, vt: &Vt) -> StrResult<Location> {
+        match self.body() {
+            FootnoteBody::Reference(label) => {
+                let element: Prehashed<Content> = vt.introspector.query_label(&label)?;
+                let footnote = element
+                    .to::<FootnoteElem>()
+                    .ok_or("referenced element should be a footnote")?;
+                footnote.body_location(vt)
+            }
+            _ => Ok(self.0.location().unwrap().variant(1)),
+        }
+    }
 }
 
 impl Synthesize for FootnoteElem {
@@ -82,34 +155,20 @@ impl Synthesize for FootnoteElem {
 impl Show for FootnoteElem {
     #[tracing::instrument(name = "FootnoteElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let loc = self.0.location().unwrap();
+        let loc = self.declaration_location(vt).at(self.span())?;
         let numbering = self.numbering(styles);
         let counter = Counter::of(Self::func());
         let num = counter.at(vt, loc)?.display(vt, &numbering)?;
         let sup = SuperElem::new(num).pack();
         let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
-        let loc = self.0.location().unwrap().variant(1);
+        let loc = self.body_location(vt).at(self.span())?;
         Ok(hole + sup.linked(Destination::Location(loc)))
     }
 }
 
-impl Refable for FootnoteElem {
-    fn supplement(&self) -> Content {
-        // Footnotes do not have a `supplement` parameter
-        Content::empty()
-    }
-
-    fn counter(&self) -> Counter {
-        Counter::of(Self::func())
-    }
-
-    fn numbering(&self) -> Option<Numbering> {
-        Some(self.numbering(StyleChain::default()))
-    }
-
-    fn destination(&self) -> Option<Destination> {
-        // The location of the entry
-        Some(Destination::Location(self.0.location().unwrap().variant(1)))
+impl Count for FootnoteElem {
+    fn update(&self) -> Option<CounterUpdate> {
+        (!self.is_ref()).then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
 }
 
@@ -230,7 +289,7 @@ impl Show for FootnoteEntry {
             HElem::new(self.indent(styles).into()).pack(),
             sup,
             HElem::new(number_gap.into()).with_weak(true).pack(),
-            note.body(),
+            note.body_content().unwrap(),
         ]))
     }
 }
@@ -247,5 +306,5 @@ impl Finalize for FootnoteEntry {
 
 cast! {
     FootnoteElem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new_with_content(v.clone())),
 }
