@@ -161,10 +161,8 @@ public beta.
 
 ## Contributing
 We would love to see contributions from the community. If you experience bugs,
-feel free to open an issue or send a PR with a fix. For new features, we would
-invite you to open an issue first so we can explore the design space together.
-If you want to contribute and are wondering how everything works, also check out
-the [`ARCHITECTURE.md`][architecture] file. It explains how the compiler works.
+feel free to open an issue. If you would like to implement a new feature or bug
+fix, please follow the steps outlined in the [contribution guide][contributing].
 
 To build Typst yourself, first ensure that you have the
 [latest stable Rust][rust] installed. Then, clone this repository and build the
@@ -220,4 +218,5 @@ instant preview. To achieve these goals, we follow three core design principles:
 [rust]: https://rustup.rs/
 [releases]: https://github.com/typst/typst/releases/
 [architecture]: https://github.com/typst/typst/blob/main/ARCHITECTURE.md
+[contributing]: https://github.com/typst/typst/blob/main/CONTRIBUTING.md
 [`comemo`]: https://github.com/typst/comemo/
