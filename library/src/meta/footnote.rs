@@ -52,9 +52,9 @@ cast! {
 ///
 /// ```example
 /// You can edit Typst documents online.
-/// #footnote[https://typst.app/app] <fn-site>
-/// Checkout Typst's website. @fn-site
-/// Checkout Typst's online app. #footnote(<fn-site>)
+/// #footnote[https://typst.app/app] <fn>
+/// Checkout Typst's website. @fn
+/// And the online app. #footnote(<fn>)
 /// ```
 ///
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
