@@ -24,3 +24,9 @@ Definition #footnote[Hi]<fn>
 // Footnote ref in footnote
 #footnote[Reference to myself @fn]<fn>
 #footnote[Reference to previous @fn]
+
+---
+// Styling
+#show footnote: text.with(fill: red)
+Real #footnote[...]<fn> \
+Ref @fn
