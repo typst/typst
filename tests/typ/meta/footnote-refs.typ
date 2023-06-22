@@ -19,3 +19,8 @@ Second ref again @fn2
 // Forward reference
 Usage @fn \
 Definition #footnote[Hi]<fn>
+
+---
+// Footnote ref in footnote
+#footnote[Reference to myself @fn]<fn>
+#footnote[Reference to previous @fn]
