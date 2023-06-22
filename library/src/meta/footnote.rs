@@ -23,7 +23,6 @@ cast! {
         Self::Reference(v) => v.into_value(),
     },
     v: Content => Self::Content(v),
-    v: Label => Self::Reference(v),
 }
 
 /// A footnote.
