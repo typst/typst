@@ -155,14 +155,21 @@ impl Synthesize for FootnoteElem {
 impl Show for FootnoteElem {
     #[tracing::instrument(name = "FootnoteElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let loc = self.declaration_location(vt).at(self.span())?;
-        let numbering = self.numbering(styles);
-        let counter = Counter::of(Self::func());
-        let num = counter.at(vt, loc)?.display(vt, &numbering)?;
-        let sup = SuperElem::new(num).pack();
-        let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
-        let loc = self.body_location(vt).at(self.span())?;
-        Ok(hole + sup.linked(Destination::Location(loc)))
+        let work = |vt: &mut Vt| {
+            let loc = self.declaration_location(vt).at(self.span())?;
+            let numbering = self.numbering(styles);
+            let counter = Counter::of(Self::func());
+            let num = counter.at(vt, loc)?.display(vt, &numbering)?;
+            let sup = SuperElem::new(num).pack();
+            let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
+            let loc = self.body_location(vt).at(self.span())?;
+            Ok(hole + sup.linked(Destination::Location(loc)))
+        };
+        if self.is_ref() {
+            Ok(vt.delayed(work))
+        } else {
+            work(vt)
+        }
     }
 }
 

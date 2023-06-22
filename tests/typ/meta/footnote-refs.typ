@@ -31,3 +31,9 @@ Definition #footnote[Hi]<fn>
 #show footnote: text.with(fill: red)
 Real #footnote[...]<fn> \
 Ref @fn
+
+---
+// Footnote call with label
+#footnote[Hi]<fn>
+#ref(<fn>)
+#footnote(<fn>)
