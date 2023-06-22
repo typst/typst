@@ -34,6 +34,7 @@ Ref @fn
 
 ---
 // Footnote call with label
+#footnote(<fn>)
 #footnote[Hi]<fn>
 #ref(<fn>)
 #footnote(<fn>)
