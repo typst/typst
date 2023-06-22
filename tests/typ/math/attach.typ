@@ -97,5 +97,6 @@ $ attach(A, t: #locate(it => oops)) $
 #let eq = $ ∫_a^b iota_a^b $
 #eq
 #show "∫": math.limits
-#show math.iota: math.limits
+#show math.iota: math.limits.with(inline: false)
 #eq
+$iota_a^b$
