@@ -157,7 +157,7 @@ pub fn bb(
 ///
 /// ## Example { #example }
 /// ```example
-/// $sum_i x_i/2 = display(sum_i x/2)$
+/// $sum_i x_i/2 = display(sum_i x_i/2)$
 /// ```
 ///
 /// Display: Display Size
