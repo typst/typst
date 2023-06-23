@@ -66,6 +66,8 @@ pub struct Quoter {
     expect_opening: bool,
     /// Whether the last character was numeric.
     last_num: bool,
+    /// The previous type of quote character, if it was an opening quote.
+    prev_quote_type: Option<bool>,
 }
 
 impl Quoter {
@@ -75,13 +77,17 @@ impl Quoter {
             quote_depth: 0,
             expect_opening: true,
             last_num: false,
+            prev_quote_type: None,
         }
     }
 
     /// Process the last seen character.
-    pub fn last(&mut self, c: char) {
+    pub fn last(&mut self, c: char, is_quote: bool) {
         self.expect_opening = is_ignorable(c) || is_opening_bracket(c);
         self.last_num = c.is_numeric();
+        if !is_quote {
+            self.prev_quote_type = None;
+        }
     }
 
     /// Process and substitute a quote.
@@ -92,8 +98,17 @@ impl Quoter {
         peeked: Option<char>,
     ) -> &'a str {
         let peeked = peeked.unwrap_or(' ');
-        if self.expect_opening {
+        let mut expect_opening = self.expect_opening;
+        if let Some(prev_double) = self.prev_quote_type {
+            if double != prev_double {
+                expect_opening = true;
+            }
+        }
+
+        self.prev_quote_type = None;
+        if expect_opening {
             self.quote_depth += 1;
+            self.prev_quote_type = Some(double);
             quotes.open(double)
         } else if self.quote_depth > 0
             && (peeked.is_ascii_punctuation() || is_ignorable(peeked))

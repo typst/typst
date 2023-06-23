@@ -642,7 +642,7 @@ fn collect<'a>(
         };
 
         if let Some(last) = full.chars().last() {
-            quoter.last(last);
+            quoter.last(last, child.is::<SmartQuoteElem>());
         }
 
         spans.push(segment.len(), child.span());
