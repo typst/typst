@@ -1,6 +1,6 @@
 # Contributing to Typst
 Thank you for considering to contribute to Typst. We want to foster a welcoming
-and productive atmosphere for contributers. Therefore, we outline a few steps to
+and productive atmosphere for contributors. Therefore, we outline a few steps to
 land your contribution below.
 
 1. Before starting significant work on a feature or refactoring, please
@@ -16,8 +16,8 @@ land your contribution below.
    have a look at the [`ARCHITECTURE.md`][architecture] file. It explains how
    the compiler works.
 3. Create a pull request (PR) in the Typst repository, outlining your
-   contribution, the technical rationale behind it, and if it is a new features,
-   how users will use it. Best to link to an existing issue with this
+   contribution, the technical rationale behind it, and, if it includes a new
+   feature, how users will use it. Best to link to an existing issue with this
    information here.
 4. When you send a PR, automated CI checks will run. Your PR can only be merged
    if CI passes and will often also only get its first review round once it has
@@ -69,4 +69,5 @@ Typst!
 [issue]: https://github.com/typst/typst/issues
 [testing]: https://github.com/typst/typst/blob/main/tests/README.md
 [#contributors]: https://discord.com/channels/1054443721975922748/1088371867913572452
+[architecture]: https://github.com/typst/typst/blob/main/ARCHITECTURE.md
 [changelog]: https://typst.app/docs/changelog/
