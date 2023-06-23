@@ -203,8 +203,10 @@ fn layout(
     let gap = gap.scaled(ctx);
     let body = ctx.layout_row(body)?;
     let body_class = body.class();
+    let body = body.into_fragment(ctx);
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
+    let body = MathRow::new(vec![body]);
 
     let mut rows = vec![body, stretched.into()];
     ctx.style(if reverse {
@@ -243,6 +245,7 @@ pub(super) fn stack(
     gap: Abs,
     baseline: usize,
 ) -> Frame {
+    let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()
