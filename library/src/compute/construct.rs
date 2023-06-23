@@ -7,7 +7,7 @@ use typst::eval::{Datetime, Regex};
 
 use crate::prelude::*;
 
-/// Convert a value to an integer.
+/// Converts a value to an integer.
 ///
 /// - Booleans are converted to `0` or `1`.
 /// - Floats are floored to the next 64-bit integer.
@@ -42,7 +42,7 @@ cast! {
     v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid integer: {}", v))?),
 }
 
-/// Convert a value to a float.
+/// Converts a value to a float.
 ///
 /// - Booleans are converted to `0.0` or `1.0`.
 /// - Integers are converted to the closest 64-bit float.
@@ -82,7 +82,7 @@ cast! {
     v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid float: {}", v))?),
 }
 
-/// Create a grayscale color.
+/// Creates a grayscale color.
 ///
 /// ## Example { #example }
 /// ```example
@@ -101,7 +101,7 @@ pub fn luma(
     LumaColor::new(gray.0).into()
 }
 
-/// Create an RGB(A) color.
+/// Creates an RGB(A) color.
 ///
 /// The color is specified in the sRGB color space.
 ///
@@ -180,7 +180,7 @@ cast! {
     },
 }
 
-/// Create a new datetime.
+/// Creates a new datetime.
 ///
 /// You can specify the [datetime]($type/datetime) using a year, month, day,
 /// hour, minute, and second. You can also get the current date with
@@ -338,7 +338,7 @@ pub fn datetime_today(
         .ok_or("unable to get the current date")?)
 }
 
-/// Create a CMYK color.
+/// Creates a CMYK color.
 ///
 /// This is useful if you want to target a specific printer. The conversion
 /// to RGB for display preview might differ from how your printer reproduces
@@ -379,7 +379,7 @@ cast! {
     },
 }
 
-/// Create a custom symbol with modifiers.
+/// Creates a custom symbol with modifiers.
 ///
 /// ## Example { #example }
 /// ```example
@@ -442,7 +442,7 @@ cast! {
     },
 }
 
-/// Convert a value to a string.
+/// Converts a value to a string.
 ///
 /// - Integers are formatted in base 10. This can be overridden with the
 ///   optional `base` parameter.
@@ -567,7 +567,7 @@ pub fn str_to_unicode(
     value.into()
 }
 
-/// Converts a unicode code point into its corresponding string.
+/// Converts a Unicode code point into its corresponding string.
 ///
 /// ```example
 /// #str.from-unicode(97)
@@ -595,7 +595,7 @@ cast! {
     },
 }
 
-/// Create a label from a string.
+/// Creates a label from a string.
 ///
 /// Inserting a label into content attaches it to the closest previous element
 /// that is not a space. Then, the element can be [referenced]($func/ref) and
@@ -624,14 +624,13 @@ pub fn label(
     Label(name)
 }
 
-/// Create a regular expression from a string.
+/// Creates a regular expression from a string.
 ///
 /// The result can be used as a
 /// [show rule selector]($styling/#show-rules) and with
 /// [string methods]($type/string) like `find`, `split`, and `replace`.
 ///
-/// [See here](https://docs.rs/regex/latest/regex/#syntax) for a specification
-/// of the supported syntax.
+/// See [the specification of the supported syntax](https://docs.rs/regex/latest/regex/#syntax).
 ///
 /// ## Example { #example }
 /// ```example
@@ -664,7 +663,7 @@ pub fn regex(
     Regex::new(&regex.v).at(regex.span)
 }
 
-/// Create an array consisting of a sequence of numbers.
+/// Creates an array consisting of consecutive integers.
 ///
 /// If you pass just one positional parameter, it is interpreted as the `end` of
 /// the range. If you pass two, they describe the `start` and `end` of the

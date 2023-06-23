@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-/// Hide content without affecting layout.
+/// Hides content without affecting layout.
 ///
 /// The `hide` function allows you to hide content while the layout still 'sees'
 /// it. This is useful to create whitespace that is exactly as large as some

@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-/// Align content horizontally and vertically.
+/// Aligns content horizontally and vertically.
 ///
 /// ## Example { #example }
 /// ```example

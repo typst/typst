@@ -2,7 +2,7 @@ use super::*;
 
 /// Displays a diagonal line over a part of an equation.
 ///
-/// This is commonly used to show the eliminiation of a term.
+/// This is commonly used to show the elimination of a term.
 ///
 /// ## Example { #example }
 /// ```example
@@ -53,8 +53,8 @@ pub struct CancelElem {
     #[default(false)]
     pub cross: bool,
 
-    /// Rotate the cancel line by a certain angle. See the
-    /// [line's documentation]($func/line.angle) for more details.
+    /// How to rotate the cancel line. See the [line's
+    /// documentation]($func/line.angle) for more details.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)

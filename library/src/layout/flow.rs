@@ -10,10 +10,10 @@ use crate::visualize::{
     SquareElem,
 };
 
-/// Arrange spacing, paragraphs and block-level elements into a flow.
+/// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
-/// This element is responsible for layouting both the top-level content flow and
-/// the contents of boxes.
+/// This element is responsible for layouting both the top-level content flow
+/// and the contents of boxes.
 ///
 /// Display: Flow
 /// Category: layout

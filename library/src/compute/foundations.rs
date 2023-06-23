@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-/// Determine a value's type.
+/// Determines the type of a value.
 ///
 /// Returns the name of the value's type.
 ///
@@ -24,7 +24,7 @@ pub fn type_(
     value.type_name().into()
 }
 
-/// The string representation of a value.
+/// Returns the string representation of a value.
 ///
 /// When inserted into content, most values are displayed as this representation
 /// in monospace with syntax-highlighting. The exceptions are `{none}`,
@@ -51,7 +51,7 @@ pub fn repr(
     value.repr()
 }
 
-/// Fail with an error.
+/// Fails with an error.
 ///
 /// ## Example { #example }
 /// The code below produces the error `panicked with: "this is wrong"`.
@@ -80,7 +80,7 @@ pub fn panic(
     Err(msg)
 }
 
-/// Ensure that a condition is fulfilled.
+/// Ensures that a condition is fulfilled.
 ///
 /// Fails with an error if the condition is not fulfilled. Does not
 /// produce any output in the document.
@@ -118,7 +118,7 @@ pub fn assert(
     Ok(NoneValue)
 }
 
-/// Ensure that two values are equal.
+/// Ensures that two values are equal.
 ///
 /// Fails with an error if the first value is not equal to the second. Does not
 /// produce any output in the document.
@@ -153,7 +153,7 @@ pub fn assert_eq(
     Ok(NoneValue)
 }
 
-/// Ensure that two values are not equal.
+/// Ensures that two values are not equal.
 ///
 /// Fails with an error if the first value is equal to the second. Does not
 /// produce any output in the document.
@@ -188,7 +188,7 @@ pub fn assert_ne(
     Ok(NoneValue)
 }
 
-/// Evaluate a string as Typst code.
+/// Evaluates a string as Typst code.
 ///
 /// This function should only be used as a last resort.
 ///

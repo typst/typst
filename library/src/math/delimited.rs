@@ -104,7 +104,7 @@ fn scale(
     }
 }
 
-/// Floor an expression.
+/// Floors an expression.
 ///
 /// ## Example { #example }
 /// ```example
@@ -121,7 +121,7 @@ pub fn floor(
     delimited(body, '⌊', '⌋')
 }
 
-/// Ceil an expression.
+/// Ceils an expression.
 ///
 /// ## Example { #example }
 /// ```example
@@ -138,7 +138,7 @@ pub fn ceil(
     delimited(body, '⌈', '⌉')
 }
 
-/// Round an expression.
+/// Rounds an expression.
 ///
 /// ## Example { #example }
 /// ```example
@@ -155,7 +155,7 @@ pub fn round(
     delimited(body, '⌊', '⌉')
 }
 
-/// Take the absolute value of an expression.
+/// Takes the absolute value of an expression.
 ///
 /// ## Example { #example }
 /// ```example
@@ -173,7 +173,7 @@ pub fn abs(
     delimited(body, '|', '|')
 }
 
-/// Take the norm of an expression.
+/// Takes the norm of an expression.
 ///
 /// ## Example { #example }
 /// ```example

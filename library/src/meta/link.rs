@@ -1,12 +1,10 @@
 use crate::prelude::*;
 use crate::text::{Hyphenate, TextElem};
 
-/// Link to a URL or a location in the document.
+/// Links to a URL or a location in the document.
 ///
-/// The link function makes its positional `body` argument clickable and links
-/// it to the destination specified by the `dest` argument. By default, links
-/// are not styled any different from normal text. However, you can easily apply
-/// a style of your choice with a show rule.
+/// By default, links are not styled any different from normal text. However,
+/// you can easily apply a style of your choice with a show rule.
 ///
 /// ## Example { #example }
 /// ```example

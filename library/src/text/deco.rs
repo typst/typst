@@ -4,7 +4,7 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use super::TextElem;
 use crate::prelude::*;
 
-/// Underline text.
+/// Underlines text.
 ///
 /// ## Example { #example }
 /// ```example
@@ -32,8 +32,8 @@ pub struct UnderlineElem {
     #[fold]
     pub stroke: Smart<PartialStroke>,
 
-    /// Position of the line relative to the baseline, read from the font tables
-    /// if `{auto}`.
+    /// The position of the line relative to the baseline, read from the font
+    /// tables if `{auto}`.
     ///
     /// ```example
     /// #underline(offset: 5pt)[
@@ -43,7 +43,8 @@ pub struct UnderlineElem {
     #[resolve]
     pub offset: Smart<Length>,
 
-    /// Amount that the line will be longer or shorter than its associated text.
+    /// The amount by which to extend the line beyond (or within if negative)
+    /// the content.
     ///
     /// ```example
     /// #align(center,
@@ -81,7 +82,7 @@ impl Show for UnderlineElem {
     }
 }
 
-/// Add a line over text.
+/// Adds a line over text.
 ///
 /// ## Example { #example }
 /// ```example
@@ -110,8 +111,8 @@ pub struct OverlineElem {
     #[fold]
     pub stroke: Smart<PartialStroke>,
 
-    /// Position of the line relative to the baseline, read from the font tables
-    /// if `{auto}`.
+    /// The position of the line relative to the baseline. Read from the font
+    /// tables if `{auto}`.
     ///
     /// ```example
     /// #overline(offset: -1.2em)[
@@ -121,7 +122,8 @@ pub struct OverlineElem {
     #[resolve]
     pub offset: Smart<Length>,
 
-    /// Amount that the line will be longer or shorter than its associated text.
+    /// The amount by which to extend the line beyond (or within if negative)
+    /// the content.
     ///
     /// ```example
     /// #set overline(extent: 4pt)
@@ -164,7 +166,7 @@ impl Show for OverlineElem {
     }
 }
 
-/// Strike through text.
+/// Strikes through text.
 ///
 /// ## Example { #example }
 /// ```example
@@ -192,8 +194,8 @@ pub struct StrikeElem {
     #[fold]
     pub stroke: Smart<PartialStroke>,
 
-    /// Position of the line relative to the baseline, read from the font tables
-    /// if `{auto}`.
+    /// The position of the line relative to the baseline. Read from the font
+    /// tables if `{auto}`.
     ///
     /// This is useful if you are unhappy with the offset your font provides.
     ///
@@ -205,7 +207,8 @@ pub struct StrikeElem {
     #[resolve]
     pub offset: Smart<Length>,
 
-    /// Amount that the line will be longer or shorter than its associated text.
+    /// The amount by which to extend the line beyond (or within if negative)
+    /// the content.
     ///
     /// ```example
     /// This #strike(extent: -2pt)[skips] parts of the word.

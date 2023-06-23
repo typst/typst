@@ -203,7 +203,7 @@ impl Lexer<'_> {
         if self.s.eat_if("u{") {
             let hex = self.s.eat_while(char::is_ascii_alphanumeric);
             if !self.s.eat_if('}') {
-                return self.error("unclosed unicode escape sequence");
+                return self.error("unclosed Unicode escape sequence");
             }
 
             if u32::from_str_radix(hex, 16)
@@ -211,7 +211,7 @@ impl Lexer<'_> {
                 .and_then(std::char::from_u32)
                 .is_none()
             {
-                return self.error(eco_format!("invalid unicode codepoint: {}", hex));
+                return self.error(eco_format!("invalid Unicode codepoint: {}", hex));
             }
 
             return SyntaxKind::Escape;

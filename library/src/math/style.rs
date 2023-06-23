@@ -153,7 +153,7 @@ pub fn bb(
 
 /// Forced display style in math.
 ///
-/// This is the normal size for display equations.
+/// This is the normal size for block equations.
 ///
 /// ## Example { #example }
 /// ```example

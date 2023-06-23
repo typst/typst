@@ -3,7 +3,7 @@ use crate::text::TextElem;
 
 use super::Sizing;
 
-/// Arrange content in a grid.
+/// Arranges content in a grid.
 ///
 /// The grid element allows you to arrange content in a grid. You can define the
 /// number of rows and columns, as well as the size of the gutters between them.
@@ -63,7 +63,7 @@ use super::Sizing;
 /// Category: layout
 #[element(Layout)]
 pub struct GridElem {
-    /// Defines the column sizes.
+    /// The column sizes.
     ///
     /// Either specify a track size array or provide an integer to create a grid
     /// with that many `{auto}`-sized columns. Note that opposed to rows and
@@ -71,26 +71,26 @@ pub struct GridElem {
     /// column.
     pub columns: TrackSizings,
 
-    /// Defines the row sizes.
+    /// The row sizes.
     ///
     /// If there are more cells than fit the defined rows, the last row is
     /// repeated until there are no more cells.
     pub rows: TrackSizings,
 
-    /// Defines the gaps between rows & columns.
+    /// The gaps between rows & columns.
     ///
     /// If there are more gutters than defined sizes, the last gutter is repeated.
     #[external]
     pub gutter: TrackSizings,
 
-    /// Defines the gaps between columns. Takes precedence over `gutter`.
+    /// The gaps between columns. Takes precedence over `gutter`.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
     )]
     pub column_gutter: TrackSizings,
 
-    /// Defines the gaps between rows. Takes precedence over `gutter`.
+    /// The gaps between rows. Takes precedence over `gutter`.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 

@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::prelude::*;
 
-/// Insert horizontal spacing into a paragraph.
+/// Inserts horizontal spacing into a paragraph.
 ///
 /// The spacing can be absolute, relative, or fractional. In the last case, the
 /// remaining space on the line is distributed among all fractional spacings
@@ -27,7 +27,7 @@ pub struct HElem {
     #[required]
     pub amount: Spacing,
 
-    /// If true, the spacing collapses at the start or end of a paragraph.
+    /// If `{true}`, the spacing collapses at the start or end of a paragraph.
     /// Moreover, from multiple adjacent weak spacings all but the largest one
     /// collapse.
     ///
@@ -62,7 +62,7 @@ impl Behave for HElem {
     }
 }
 
-/// Insert vertical spacing into a flow of blocks.
+/// Inserts vertical spacing into a flow of blocks.
 ///
 /// The spacing can be absolute, relative, or fractional. In the last case,
 /// the remaining space on the page is distributed among all fractional spacings
@@ -91,10 +91,10 @@ pub struct VElem {
     #[required]
     pub amount: Spacing,
 
-    /// If true, the spacing collapses at the start or end of a flow. Moreover,
-    /// from multiple adjacent weak spacings all but the largest one collapse.
-    /// Weak spacings will always collapse adjacent paragraph spacing, even if the
-    /// paragraph spacing is larger.
+    /// If `{true}`, the spacing collapses at the start or end of a flow.
+    /// Moreover, from multiple adjacent weak spacings all but the largest one
+    /// collapse. Weak spacings will always collapse adjacent paragraph spacing,
+    /// even if the paragraph spacing is larger.
     ///
     /// ```example
     /// The following theorem is
@@ -107,7 +107,7 @@ pub struct VElem {
     #[external]
     pub weak: bool,
 
-    /// The elements's weakness level, see also [`Behaviour`].
+    /// The element's weakness level, see also [`Behaviour`].
     #[internal]
     #[parse(args.named("weak")?.map(|v: bool| v as usize))]
     pub weakness: usize,

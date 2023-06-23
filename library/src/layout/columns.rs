@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use crate::text::TextElem;
 
-/// Separate a region into multiple equally sized columns.
+/// Separates a region into multiple equally sized columns.
 ///
 /// The `column` function allows to separate the interior of any container into
 /// multiple columns. It will not equalize the height of the columns, instead,
@@ -127,7 +127,7 @@ impl Layout for ColumnsElem {
     }
 }
 
-/// A forced column break.
+/// Forces a column break.
 ///
 /// The function will behave like a [page break]($func/pagebreak) when used in a
 /// single column layout or the last column on a page. Otherwise, content after
