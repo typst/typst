@@ -157,7 +157,7 @@ impl Synthesize for FootnoteElem {
 impl Show for FootnoteElem {
     #[tracing::instrument(name = "FootnoteElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let work = |vt: &mut Vt| {
+        let display = |vt: &mut Vt| {
             let loc = self.declaration_location(vt).at(self.span())?;
             let numbering = self.numbering(styles);
             let counter = Counter::of(Self::func());
@@ -168,9 +168,9 @@ impl Show for FootnoteElem {
             Ok(hole + sup.linked(Destination::Location(loc)))
         };
         if self.is_ref() {
-            Ok(vt.delayed(work))
+            Ok(vt.delayed(display))
         } else {
-            work(vt)
+            display(vt)
         }
     }
 }
