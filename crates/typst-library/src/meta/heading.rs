@@ -81,8 +81,8 @@ pub struct HeadingElem {
     /// Whether the heading should appear in the [outline]($func/outline).
     ///
     /// Note that this property does not affect whether or not headings are
-    /// shown in the exported PDF's outline (when exporting to PDF). Such
-    /// behavior is exclusively determined by the `bookmarked` property.
+    /// shown as a bookmark in the exported PDF's outline (when exporting to
+    /// PDF). To change that behavior, use the `bookmarked` property.
     ///
     /// ```example
     /// #outline()
