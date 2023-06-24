@@ -114,7 +114,7 @@ pub struct HeadingElem {
     /// won't be bookmarked in the
     /// resulting PDF.
     ///
-    /// #heading(outlined: false, bookmarked: false)[Fully hidden]
+    /// #heading(outlined: false, bookmark: false)[Fully hidden]
     /// This heading is hidden both
     /// from the Typst outline and
     /// from the resulting PDF's
