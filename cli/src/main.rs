@@ -237,6 +237,16 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
             .map_err(|_| "failed to watch root directory")?;
     }
 
+    // Watch all the files that are used in the input file and its dependencies
+    let mut dependencies = world.dependencies();
+
+    for dep in &dependencies {
+        tracing::debug!("Watching {:?}", dep);
+        watcher
+            .watch(dep, RecursiveMode::NonRecursive)
+            .map_err(|_| format!("failed to watch {:?}", dep))?;
+    }
+
     // Handle events.
     let timeout = std::time::Duration::from_millis(100);
     loop {
@@ -261,6 +271,20 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
         if recompile {
             let ok = compile_once(&mut world, &command)?;
             comemo::evict(30);
+
+            // Unwatch all the previous dependencies before watching the new dependencies
+            for dep in &dependencies {
+                watcher
+                    .unwatch(dep)
+                    .map_err(|_| format!("failed to unwatch {:?}", dep))?;
+            }
+            dependencies = world.dependencies();
+            for dep in &dependencies {
+                tracing::debug!("Watching {:?}", dep);
+                watcher
+                    .watch(dep, RecursiveMode::NonRecursive)
+                    .map_err(|_| format!("failed to watch {:?}", dep))?;
+            }
 
             // Ipen the file if requested, this must be done on the first
             // **successful** compilation
@@ -506,6 +530,7 @@ struct SystemWorld {
     sources: FrozenVec<Box<Source>>,
     today: Cell<Option<Datetime>>,
     main: SourceId,
+    dependencies: RefCell<Vec<PathBuf>>,
 }
 
 /// Holds details about the location of a font and lazily the font itself.
@@ -537,6 +562,7 @@ impl SystemWorld {
             sources: FrozenVec::new(),
             today: Cell::new(None),
             main: SourceId::detached(),
+            dependencies: RefCell::default(),
         }
     }
 }
@@ -567,6 +593,7 @@ impl World for SystemWorld {
                     // Assume UTF-8
                     String::from_utf8(buf)?
                 };
+                self.dependencies.borrow_mut().push(path.to_owned());
                 Ok(self.insert(path, text))
             })
             .clone()
@@ -593,7 +620,10 @@ impl World for SystemWorld {
     fn file(&self, path: &Path) -> FileResult<Buffer> {
         self.slot(path)?
             .buffer
-            .get_or_init(|| read(path).map(Buffer::from))
+            .get_or_init(|| {
+                self.dependencies.borrow_mut().push(path.to_owned());
+                read(path).map(Buffer::from)
+            })
             .clone()
     }
 
@@ -675,6 +705,12 @@ impl SystemWorld {
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();
         self.today.set(None);
+        self.dependencies.borrow_mut().clear();
+    }
+
+    // Return a list of files the document depends on
+    fn dependencies(&self) -> Vec<PathBuf> {
+        self.dependencies.borrow().clone()
     }
 }
 
