@@ -18,7 +18,7 @@ use crate::text::{
     SpaceElem, TextElem,
 };
 
-/// Arrange text, spacing and inline-level elements into a paragraph.
+/// Arranges text, spacing and inline-level elements into a paragraph.
 ///
 /// Although this function is primarily used in set rules to affect paragraph
 /// properties, it can also be used to explicitly render its argument onto a

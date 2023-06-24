@@ -39,11 +39,11 @@ pub(super) fn define(global: &mut Scope) {
     global.define("lorem", lorem_func());
 }
 
-/// Customize the look and layout of text in a variety of ways.
+/// Customizes the look and layout of text in a variety of ways.
 ///
-/// This function is used often, both with set rules and directly. While the set
-/// rule is often the simpler choice, calling the text function directly can be
-/// useful when passing text as an argument to another function.
+/// This function is used frequently, both with set rules and directly. While
+/// the set rule is often the simpler choice, calling the `text` function
+/// directly can be useful when passing text as an argument to another function.
 ///
 /// ## Example { #example }
 /// ```example

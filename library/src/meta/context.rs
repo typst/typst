@@ -15,7 +15,7 @@ use crate::prelude::*;
 ///
 /// ## Methods
 /// ### page()
-/// Return the page number for this location.
+/// Returns the page number for this location.
 ///
 /// Note that this does not return the value of the [page counter]($func/counter)
 /// at this location, but the true page number (starting from one).
@@ -26,7 +26,7 @@ use crate::prelude::*;
 /// - returns: integer
 ///
 /// ### position()
-/// Return a dictionary with the page number and the x, y position for this
+/// Returns a dictionary with the page number and the x, y position for this
 /// location. The page number starts at one and the coordinates are measured
 /// from the top-left of the page.
 ///

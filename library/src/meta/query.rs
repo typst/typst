@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-/// Find elements in the document.
+/// Finds elements in the document.
 ///
 /// The `query` functions lets you search your document for elements of a
 /// particular type or with a particular label.

@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-/// Place content at an absolute position.
+/// Places content at an absolute position.
 ///
 /// Placed content will not affect the position of other content. Place is
 /// always relative to its parent container and will be in the foreground of all

@@ -6,14 +6,14 @@ use typst::model::DelayedErrors;
 
 use crate::prelude::*;
 
-/// Manage stateful parts of your document.
+/// Manages stateful parts of your document.
 ///
 /// Let's say you have some computations in your document and want to remember
 /// the result of your last computation to use it in the next one. You might try
-/// something similar the code below and would expect it to output 10, 13, 26,
-/// and 21. However this **does not work** in Typst. If you test this code, you
-/// will see that Typst complains with the following error message: _Variables
-/// from outside the function are read-only and cannot be modified._
+/// something similar to the code below and expect it to output 10, 13, 26, and
+/// 21. However this **does not work** in Typst. If you test this code, you will
+/// see that Typst complains with the following error message: _Variables from
+/// outside the function are read-only and cannot be modified._
 ///
 /// ```typ
 /// #let x = 0
@@ -177,13 +177,13 @@ use crate::prelude::*;
 /// ```
 ///
 /// In general, you should _typically_ not generate state updates from within
-/// `locate` calls or `display` calls of state or counters. Instead pass a
+/// `locate` calls or `display` calls of state or counters. Instead, pass a
 /// function to `update` that determines the value of the state based on its
 /// previous value.
 ///
 /// ## Methods
 /// ### display()
-/// Display the value of the state.
+/// Displays the value of the state.
 ///
 /// - format: function (positional)
 ///   A function which receives the value of the state and can return arbitrary
@@ -193,7 +193,7 @@ use crate::prelude::*;
 /// - returns: content
 ///
 /// ### update()
-/// Update the value of the state.
+/// Updates the value of the state.
 ///
 /// The update will be in effect at the position where the returned content is
 /// inserted into the document. If you don't put the output into the document,
@@ -209,7 +209,7 @@ use crate::prelude::*;
 /// - returns: content
 ///
 /// ### at()
-/// Get the value of the state at the given location.
+/// Gets the value of the state at the given location.
 ///
 /// - location: location (positional, required)
 ///   The location at which the state's value should be retrieved. A suitable
@@ -219,7 +219,7 @@ use crate::prelude::*;
 /// - returns: any
 ///
 /// ### final()
-/// Get the value of the state at the end of the document.
+/// Gets the value of the state at the end of the document.
 ///
 /// - location: location (positional, required)
 ///   Can be any location. Why is it required then? As noted before, Typst has

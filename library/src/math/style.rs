@@ -153,11 +153,11 @@ pub fn bb(
 
 /// Forced display style in math.
 ///
-/// This is the normal size for display equations.
+/// This is the normal size for block equations.
 ///
 /// ## Example { #example }
 /// ```example
-/// $sum_i x_i/2 = display(sum_i x/2)$
+/// $sum_i x_i/2 = display(sum_i x_i/2)$
 /// ```
 ///
 /// Display: Display Size

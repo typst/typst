@@ -84,7 +84,7 @@ impl LayoutMath for AttachElem {
     }
 }
 
-/// Force a base to display attachments as scripts.
+/// Forces a base to display attachments as scripts.
 ///
 /// ## Example { #example }
 /// ```example
@@ -110,7 +110,7 @@ impl LayoutMath for ScriptsElem {
     }
 }
 
-/// Force a base to display attachments as limits.
+/// Forces a base to display attachments as limits.
 ///
 /// ## Example { #example }
 /// ```example

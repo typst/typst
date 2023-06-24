@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-/// Measure the layouted size of content.
+/// Measures the layouted size of content.
 ///
 /// The `measure` function lets you determine the layouted size of content.
 /// Note that an infinite space is assumed, therefore the measured height/width

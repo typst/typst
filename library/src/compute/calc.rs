@@ -51,7 +51,7 @@ pub fn module() -> Module {
     Module::new("calc").with_scope(scope)
 }
 
-/// Calculate the absolute value of a numeric value.
+/// Calculates the absolute value of a numeric value.
 ///
 /// ## Example { #example }
 /// ```example
@@ -84,7 +84,7 @@ cast! {
     v: Fr => Self(Value::Fraction(v.abs())),
 }
 
-/// Raise a value to some exponent.
+/// Raises a value to some exponent.
 ///
 /// ## Example { #example }
 /// ```example
@@ -139,7 +139,7 @@ pub fn pow(
     Ok(result)
 }
 
-/// Raise a value to some exponent of e.
+/// Raises a value to some exponent of e.
 ///
 /// ## Example { #example }
 /// ```example
@@ -173,7 +173,7 @@ pub fn exp(
     Ok(result)
 }
 
-/// Calculate the square root of a number.
+/// Extracts the square root of a number.
 ///
 /// ## Example { #example }
 /// ```example
@@ -194,7 +194,7 @@ pub fn sqrt(
     Ok(value.v.float().sqrt())
 }
 
-/// Calculate the sine of an angle.
+/// Calculates the sine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
@@ -220,7 +220,7 @@ pub fn sin(
     }
 }
 
-/// Calculate the cosine of an angle.
+/// Calculates the cosine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
@@ -246,7 +246,7 @@ pub fn cos(
     }
 }
 
-/// Calculate the tangent of an angle.
+/// Calculates the tangent of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
@@ -271,7 +271,7 @@ pub fn tan(
     }
 }
 
-/// Calculate the arcsine of a number.
+/// Calculates the arcsine of a number.
 ///
 /// ## Example { #example }
 /// ```example
@@ -293,7 +293,7 @@ pub fn asin(
     Ok(Angle::rad(val.asin()))
 }
 
-/// Calculate the arccosine of a number.
+/// Calculates the arccosine of a number.
 ///
 /// ## Example { #example }
 /// ```example
@@ -315,7 +315,7 @@ pub fn acos(
     Ok(Angle::rad(val.acos()))
 }
 
-/// Calculate the arctangent of a number.
+/// Calculates the arctangent of a number.
 ///
 /// ## Example { #example }
 /// ```example
@@ -333,7 +333,7 @@ pub fn atan(
     Angle::rad(value.float().atan())
 }
 
-/// Calculate the four-quadrant arctangent of a coordinate.
+/// Calculates the four-quadrant arctangent of a coordinate.
 ///
 /// The arguments are `(x, y)`, not `(y, x)`.
 ///
@@ -355,7 +355,7 @@ pub fn atan2(
     Angle::rad(f64::atan2(y.float(), x.float()))
 }
 
-/// Calculate the hyperbolic sine of an angle.
+/// Calculates the hyperbolic sine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
@@ -379,7 +379,7 @@ pub fn sinh(
     }
 }
 
-/// Calculate the hyperbolic cosine of an angle.
+/// Calculates the hyperbolic cosine of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
@@ -403,7 +403,7 @@ pub fn cosh(
     }
 }
 
-/// Calculate the hyperbolic tangent of an angle.
+/// Calculates the hyperbolic tangent of an angle.
 ///
 /// When called with an integer or a float, they will be interpreted as radians.
 ///
@@ -427,7 +427,7 @@ pub fn tanh(
     }
 }
 
-/// Calculate the logarithm of a number.
+/// Calculates the logarithm of a number.
 ///
 /// If the base is not specified, the logarithm is calculated in base 10.
 ///
@@ -475,7 +475,7 @@ pub fn log(
     Ok(result)
 }
 
-/// Calculate the natural logarithm of a number.
+/// Calculates the natural logarithm of a number.
 ///
 /// ## Example { #example }
 /// ```example
@@ -504,7 +504,7 @@ pub fn ln(
     Ok(result)
 }
 
-/// Calculate the factorial of a number.
+/// Calculates the factorial of a number.
 ///
 /// ## Example { #example }
 /// ```example
@@ -521,7 +521,7 @@ pub fn fact(
     Ok(fact_impl(1, number).ok_or("the result is too large")?)
 }
 
-/// Calculate a permutation.
+/// Calculates a permutation.
 ///
 /// ## Example { #example }
 /// ```example
@@ -562,7 +562,7 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
     count.try_into().ok()
 }
 
-/// Calculate a binomial coefficient.
+/// Calculates a binomial coefficient.
 ///
 /// ## Example { #example }
 /// ```example
@@ -603,7 +603,7 @@ fn binom_impl(n: u64, k: u64) -> Option<i64> {
     result.try_into().ok()
 }
 
-/// Calculate the greatest common divisor of two integers.
+/// Calculates the greatest common divisor of two integers.
 ///
 /// ## Example { #example }
 /// ```example
@@ -629,7 +629,7 @@ pub fn gcd(
     a.abs()
 }
 
-/// Calculate the least common multiple of two integers.
+/// Calculates the least common multiple of two integers.
 ///
 /// ## Example { #example }
 /// ```example
@@ -655,7 +655,7 @@ pub fn lcm(
         .ok_or("the return value is too large")?)
 }
 
-/// Round a number down to the nearest integer.
+/// Rounds a number down to the nearest integer.
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
@@ -679,7 +679,7 @@ pub fn floor(
     }
 }
 
-/// Round a number up to the nearest integer.
+/// Rounds a number up to the nearest integer.
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
@@ -729,7 +729,7 @@ pub fn trunc(
 
 /// Returns the fractional part of a number.
 ///
-/// If the number is an integer, it returns `0`.
+/// If the number is an integer, returns `0`.
 ///
 /// ## Example { #example }
 /// ```example
@@ -750,7 +750,7 @@ pub fn fract(
     }
 }
 
-/// Round a number to the nearest integer.
+/// Rounds a number to the nearest integer.
 ///
 /// Optionally, a number of decimal places can be specified.
 ///
@@ -782,7 +782,7 @@ pub fn round(
     }
 }
 
-/// Clamp a number between a minimum and maximum value.
+/// Clamps a number between a minimum and maximum value.
 ///
 /// ## Example { #example }
 /// ```example
@@ -808,7 +808,7 @@ pub fn clamp(
     Ok(value.apply3(min, max.v, i64::clamp, f64::clamp))
 }
 
-/// Determine the minimum of a sequence of values.
+/// Determines the minimum of a sequence of values.
 ///
 /// ## Example { #example }
 /// ```example
@@ -830,7 +830,7 @@ pub fn min(
     minmax(span, values, Ordering::Less)
 }
 
-/// Determine the maximum of a sequence of values.
+/// Determines the maximum of a sequence of values.
 ///
 /// ## Example { #example }
 /// ```example
@@ -873,7 +873,7 @@ fn minmax(
     Ok(extremum)
 }
 
-/// Determine whether an integer is even.
+/// Determines whether an integer is even.
 ///
 /// ## Example { #example }
 /// ```example
@@ -892,7 +892,7 @@ pub fn even(
     value % 2 == 0
 }
 
-/// Determine whether an integer is odd.
+/// Determines whether an integer is odd.
 ///
 /// ## Example { #example }
 /// ```example
@@ -911,7 +911,7 @@ pub fn odd(
     value % 2 != 0
 }
 
-/// Calculate the remainder of two numbers.
+/// Calculates the remainder of two numbers.
 ///
 /// ## Example { #example }
 /// ```example
@@ -934,7 +934,7 @@ pub fn rem(
     Ok(dividend.apply2(divisor.v, Rem::rem, Rem::rem))
 }
 
-/// Calculate the quotient of two numbers.
+/// Calculates the quotient of two numbers.
 ///
 /// ## Example { #example }
 /// ```example

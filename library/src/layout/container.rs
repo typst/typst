@@ -169,7 +169,7 @@ impl Layout for BoxElem {
 
 /// A block-level container.
 ///
-/// Such a container can be used to separate content, size it and give it a
+/// Such a container can be used to separate content, size it, and give it a
 /// background or border.
 ///
 /// ## Examples { #examples }
@@ -214,9 +214,9 @@ pub struct BlockElem {
     /// ```
     pub width: Smart<Rel<Length>>,
 
-    /// The block's height. When the height is larger than the remaining space on
-    /// a page and [`breakable`]($func/block.breakable) is `{true}`, the block
-    /// will continue on the next page with the remaining height.
+    /// The block's height. When the height is larger than the remaining space
+    /// on a page and [`breakable`]($func/block.breakable) is `{true}`, the
+    /// block will continue on the next page with the remaining height.
     ///
     /// ```example
     /// #set page(height: 80pt)

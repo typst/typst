@@ -1,10 +1,9 @@
 use crate::prelude::*;
 
-/// Add spacing around content.
+/// Adds spacing around content.
 ///
-/// The `pad` function adds spacing around content. The spacing can be specified
-/// for each side individually, or for all sides at once by specifying a
-/// positional argument.
+/// The spacing can be specified for each side individually, or for all sides at
+/// once by specifying a positional argument.
 ///
 /// ## Example { #example }
 /// ```example

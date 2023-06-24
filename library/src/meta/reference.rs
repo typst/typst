@@ -6,11 +6,11 @@ use crate::text::TextElem;
 
 /// A reference to a label or bibliography.
 ///
-/// The reference function produces a textual reference to a label. For example,
-/// a reference to a heading will yield an appropriate string such as "Section
-/// 1" for a reference to the first heading. The references are also links to
-/// the respective element. Reference syntax can also be used to
-/// [cite]($func/cite) from a bibliography.
+/// Produces a textual reference to a label. For example, a reference to a
+/// heading will yield an appropriate string such as "Section 1" for a reference
+/// to the first heading. The references are also links to the respective
+/// element. Reference syntax can also be used to [cite]($func/cite) from a
+/// bibliography.
 ///
 /// Referenceable elements include [headings]($func/heading),
 /// [figures]($func/figure), and [equations]($func/math.equation). To create a
