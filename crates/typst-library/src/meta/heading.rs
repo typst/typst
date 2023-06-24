@@ -78,7 +78,11 @@ pub struct HeadingElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
-    /// Whether the heading should appear in the outline.
+    /// Whether the heading should appear in the [outline]($func/outline).
+    ///
+    /// Note that this property does not affect whether or not headings are
+    /// shown in the exported PDF's outline (when exporting to PDF). Such
+    /// behavior is exclusively determined by the `bookmark` property.
     ///
     /// ```example
     /// #outline()
@@ -97,28 +101,15 @@ pub struct HeadingElem {
     /// outline. Doesn't affect other export formats, such as PNG.
     ///
     /// ```example
-    /// #outline()
-    ///
     /// #heading[Normal heading]
-    /// Nothing changes here.
-    ///
-    /// #heading(outlined: false)[Still bookmarked]
-    /// This heading does not appear
-    /// in the Typst outline, but
-    /// will still appear in the
-    /// PDF's bookmark outline.
+    /// This heading will be shown in
+    /// the PDF's bookmark outline.
     ///
     /// #heading(bookmark: false)[Not bookmarked]
-    /// This heading still appears
-    /// in the Typst outline, but
-    /// won't be bookmarked in the
-    /// resulting PDF.
-    ///
-    /// #heading(outlined: false, bookmark: false)[Fully hidden]
-    /// This heading is hidden both
-    /// from the Typst outline and
-    /// from the resulting PDF's
-    /// bookmark outline.
+    /// This heading won't be
+    /// bookmarked in the resulting
+    /// PDF.
+    /// ```
     #[default(true)]
     pub bookmark: bool,
 
