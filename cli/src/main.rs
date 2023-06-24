@@ -303,15 +303,16 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
 #[tracing::instrument(skip_all)]
 fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
     tracing::info!("Starting compilation");
-    let start_time = std::time::Instant::now();
 
+    let start = std::time::Instant::now();
     status(command, Status::Compiling).unwrap();
 
     world.reset();
     world.main = world.resolve(&command.input).map_err(|err| err.to_string())?;
 
     let result = typst::compile(world);
-    let duration = start_time.elapsed();
+    let duration = start.elapsed();
+
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
@@ -427,9 +428,9 @@ enum Status {
 impl Status {
     fn message(&self) -> String {
         match self {
-            Self::Compiling => "compiling ...".to_string(),
+            Self::Compiling => "compiling ...".into(),
             Self::Success(duration) => format!("compiled successfully in {duration:.2?}"),
-            Self::Error => "compiled with errors".to_string(),
+            Self::Error => "compiled with errors".into(),
         }
     }
 

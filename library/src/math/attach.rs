@@ -125,11 +125,10 @@ pub struct LimitsElem {
     #[required]
     pub body: Content,
 
-    /// Whether to apply limits in inline equations.
+    /// Whether to also force limits in inline equations.
     ///
-    /// It is useful to disable this setting
-    /// in most cases of applying limits globally
-    /// (inside show rules or new elements)
+    /// When applying limits globally (e.g., through a show rule), it is
+    /// typically a good idea to disable this.
     #[default(true)]
     pub inline: bool,
 }

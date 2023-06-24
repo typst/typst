@@ -85,11 +85,11 @@ impl MathRow {
         self.0.iter()
     }
 
-    /// It is very unintuitive, but in current state of things
-    /// `MathRow` can contain several actual rows.
-    /// That function deconstructs it to "single" rows.
+    /// Extract the sublines of the row.
     ///
-    /// Hopefully that cloner is only a temporary hack
+    /// It is very unintuitive, but in current state of things, a `MathRow` can
+    /// contain several actual rows. That function deconstructs it to "single"
+    /// rows. Hopefully this is only a temporary hack.
     pub fn rows(&self) -> Vec<Self> {
         self.0
             .split(|frag| matches!(frag, MathFragment::Linebreak))

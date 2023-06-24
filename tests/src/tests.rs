@@ -2,13 +2,14 @@
 
 use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::ffi::OsStr;
 use std::fmt::Write as FmtWrite;
-use std::io::Write;
+use std::fs;
+use std::io::{self, Write};
+use std::iter;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::{env, io};
-use std::{fs, iter};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
@@ -555,10 +556,11 @@ fn test_part(
     }
 
     // Map errors to range and message format, discard traces and errors from
-    // other files. Collect hints.
+    // other files, collect hints.
     //
-    // This has one caveat: due to the format of the expected hints, we can not verify if a hint belongs
-    // to a error or not. That should be irrelevant however, as the line of the hint is still verified.
+    // This has one caveat: due to the format of the expected hints, we can not
+    // verify if a hint belongs to a error or not. That should be irrelevant
+    // however, as the line of the hint is still verified.
     let actual_errors_and_hints: HashSet<UserOutput> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)

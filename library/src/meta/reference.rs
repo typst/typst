@@ -1,5 +1,3 @@
-use typst::diag::Hint;
-
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
 use crate::prelude::*;
 use crate::text::TextElem;

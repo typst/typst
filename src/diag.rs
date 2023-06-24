@@ -82,7 +82,8 @@ pub struct SourceError {
     pub message: EcoString,
     /// The trace of function calls leading to the error.
     pub trace: Vec<Spanned<Tracepoint>>,
-    /// Additonal hints to the user, indicating how this error could be avoided or worked around.
+    /// Additonal hints to the user, indicating how this error could be avoided
+    /// or worked around.
     pub hints: Vec<EcoString>,
 }
 
@@ -104,6 +105,12 @@ impl SourceError {
         self
     }
 
+    /// Adds user-facing hints to the error.
+    pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
+        self.hints.extend(hints);
+        self
+    }
+
     /// The range in the source file identified by
     /// [`self.span.source()`](Span::source) where the error should be
     /// annotated.
@@ -114,12 +121,6 @@ impl SourceError {
             ErrorPos::Start => full.start..full.start,
             ErrorPos::End => full.end..full.end,
         }
-    }
-
-    /// Adds a user-facing hint to the error.
-    pub fn with_hints(mut self, hints: &mut Vec<EcoString>) -> Self {
-        self.hints.append(hints);
-        self
     }
 }
 
@@ -203,48 +204,44 @@ where
     }
 }
 
-pub type StrWithHintResult<T> = Result<T, StrWithHint>;
+/// A result type with a string error message and hints.
+pub type HintedStrResult<T> = Result<T, HintedString>;
 
-pub struct StrWithHint {
-    message: EcoString,
-    hints: Vec<EcoString>,
+/// A string message with hints.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct HintedString {
+    /// A diagnostic message describing the problem.
+    pub message: EcoString,
+    /// Additonal hints to the user, indicating how this error could be avoided
+    /// or worked around.
+    pub hints: Vec<EcoString>,
 }
 
-impl<T> At<T> for Result<T, StrWithHint> {
+impl<T> At<T> for Result<T, HintedString> {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|mut diags| {
-            Box::new(vec![
-                SourceError::new(span, diags.message).with_hints(&mut diags.hints)
-            ])
+        self.map_err(|diags| {
+            Box::new(vec![SourceError::new(span, diags.message).with_hints(diags.hints)])
         })
     }
 }
 
-/// Allows adding a user-facing hint in addition to the error.
-pub trait Hint<T, S>
-where
-    S: Into<EcoString>,
-{
-    fn hint(self, hint: S) -> StrWithHintResult<T>;
+/// Enrich a [`StrResult`] or [`HintedStrResult`] with a hint.
+pub trait Hint<T> {
+    /// Add the hint.
+    fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T>;
 }
 
-impl<T, S> Hint<T, S> for StrResult<T>
-where
-    S: Into<EcoString>,
-{
-    fn hint(self, hint: S) -> StrWithHintResult<T> {
-        self.map_err(|message| StrWithHint { message, hints: vec![hint.into()] })
+impl<T> Hint<T> for StrResult<T> {
+    fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
+        self.map_err(|message| HintedString { message, hints: vec![hint.into()] })
     }
 }
 
-impl<T, S> Hint<T, S> for StrWithHintResult<T>
-where
-    S: Into<EcoString>,
-{
-    fn hint(self, hint: S) -> StrWithHintResult<T> {
-        self.map_err(|mut diags| {
-            diags.hints.push(hint.into());
-            diags
+impl<T> Hint<T> for HintedStrResult<T> {
+    fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
+        self.map_err(|mut error| {
+            error.hints.push(hint.into());
+            error
         })
     }
 }

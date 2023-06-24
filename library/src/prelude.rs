@@ -10,7 +10,7 @@ pub use comemo::{Track, Tracked, TrackedMut};
 #[doc(no_inline)]
 pub use ecow::{eco_format, EcoString};
 #[doc(no_inline)]
-pub use typst::diag::{bail, error, At, SourceResult, StrResult};
+pub use typst::diag::{bail, error, At, Hint, SourceResult, StrResult};
 #[doc(no_inline)]
 pub use typst::doc::*;
 #[doc(no_inline)]

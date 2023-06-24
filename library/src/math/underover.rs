@@ -206,9 +206,8 @@ fn layout(
     let body = body.into_fragment(ctx);
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
-    let body = MathRow::new(vec![body]);
 
-    let mut rows = vec![body, stretched.into()];
+    let mut rows = vec![MathRow::new(vec![body]), stretched.into()];
     ctx.style(if reverse {
         ctx.style.for_subscript()
     } else {
