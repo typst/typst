@@ -578,23 +578,8 @@ pub fn shape<'a>(
         text
     );
     #[cfg(debug_assertions)]
-    {
-        // Iterator::is_sorted and friends are unstable as of Rust 1.70.0
-        if !ctx.glyphs.is_empty() {
-            for i in 0..(ctx.glyphs.len() - 1) {
-                let a = &ctx.glyphs[i];
-                let b = &ctx.glyphs[i + 1];
-                let ord = a.range.start.cmp(&b.range.start);
-                let ord = if dir.is_positive() { ord } else { ord.reverse() };
-                if ord == Ordering::Greater {
-                    panic!(
-                        "glyph ranges should be monotonically {}, but found glyphs out of order:\n\nfirst: {a:#?}\nsecond: {b:#?}",
-                        if dir.is_positive() { "increasing" } else { "decreasing" }
-                    );
-                }
-            }
-        }
-    }
+    assert_glyph_ranges_in_order(&ctx.glyphs, dir);
+
     ShapedText {
         base,
         text,
@@ -964,4 +949,25 @@ fn all_glyphs_in_range(glyphs: &[ShapedGlyph], range: &Range<usize>) -> bool {
     glyphs
         .iter()
         .all(|g| g.range.start >= range.start && g.range.end <= range.end)
+}
+
+/// Asserts that the ranges of `glyphs` is in the proper order according to `dir`.
+///
+/// This asserts instead of returning a bool in order to provide a more informative message when the invariant is violated.
+fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
+    // Iterator::is_sorted and friends are unstable as of Rust 1.70.0
+    if !glyphs.is_empty() {
+        for i in 0..(glyphs.len() - 1) {
+            let a = &glyphs[i];
+            let b = &glyphs[i + 1];
+            let ord = a.range.start.cmp(&b.range.start);
+            let ord = if dir.is_positive() { ord } else { ord.reverse() };
+            if ord == Ordering::Greater {
+                panic!(
+                        "glyph ranges should be monotonically {}, but found glyphs out of order:\n\nfirst: {a:#?}\nsecond: {b:#?}",
+                        if dir.is_positive() { "increasing" } else { "decreasing" }
+                    );
+            }
+        }
+    }
 }
