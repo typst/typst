@@ -292,7 +292,7 @@ pub(super) fn decorate(
     let gap_padding = 0.08 * text.size;
     let min_width = 0.162 * text.size;
 
-    let mut start = pos.x - deco.extent;
+    let start = pos.x - deco.extent;
     let end = pos.x + (width + 2.0 * deco.extent);
 
     let mut push_segment = |from: Abs, to: Abs| {
@@ -346,29 +346,23 @@ pub(super) fn decorate(
         }
     }
 
+    // Add start and end points, taking padding into account.
+    intersections.push(start - gap_padding);
+    intersections.push(end + gap_padding);
     // When emitting the decorative line segments, we move from left to
     // right. The intersections are not necessarily in this order, yet.
     intersections.sort();
 
-    for gap in intersections.chunks_exact(2) {
-        let l = gap[0] - gap_padding;
-        let r = gap[1] + gap_padding;
+    for edge in intersections.windows(2) {
+        let l = edge[0];
+        let r = edge[1];
 
-        if start >= end {
-            break;
-        }
-
-        if start >= l {
-            start = r;
+        // If we are too close, don't draw the segment
+        if r - l < gap_padding {
             continue;
+        } else {
+            push_segment(l + gap_padding, r - gap_padding);
         }
-
-        push_segment(start, l);
-        start = r;
-    }
-
-    if start < end {
-        push_segment(start, end);
     }
 }
 
