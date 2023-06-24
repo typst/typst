@@ -163,7 +163,7 @@ impl Show for RefElem {
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::func() {
-                let mut elem = FootnoteElem::new_reference(target);
+                let mut elem = FootnoteElem::with_label(target);
                 elem.synthesize(vt, styles)?;
                 return Ok(elem.pack().spanned(span));
             }

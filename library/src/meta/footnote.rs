@@ -95,12 +95,12 @@ pub struct FootnoteElem {
 
 impl FootnoteElem {
     /// Creates a new footnote that the passed content as its body.
-    pub fn new_with_content(content: Content) -> Self {
+    pub fn with_content(content: Content) -> Self {
         Self::new(FootnoteBody::Content(content))
     }
 
     /// Creates a new footnote referencing the footnote with the specified label.
-    pub fn new_reference(label: Label) -> Self {
+    pub fn with_label(label: Label) -> Self {
         Self::new(FootnoteBody::Reference(label))
     }
 
@@ -130,21 +130,6 @@ impl FootnoteElem {
             _ => Ok(self.0.location().unwrap()),
         }
     }
-
-    /// Returns the location of the body of this footnote (the body of the labelled
-    /// footnote in case this footnote is a reference).
-    pub fn body_location(&self, vt: &Vt) -> StrResult<Location> {
-        match self.body() {
-            FootnoteBody::Reference(label) => {
-                let element: Prehashed<Content> = vt.introspector.query_label(&label)?;
-                let footnote = element
-                    .to::<FootnoteElem>()
-                    .ok_or("referenced element should be a footnote")?;
-                footnote.body_location(vt)
-            }
-            _ => Ok(self.0.location().unwrap().variant(1)),
-        }
-    }
 }
 
 impl Synthesize for FootnoteElem {
@@ -157,21 +142,16 @@ impl Synthesize for FootnoteElem {
 impl Show for FootnoteElem {
     #[tracing::instrument(name = "FootnoteElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let display = |vt: &mut Vt| {
+        Ok(vt.delayed(|vt| {
             let loc = self.declaration_location(vt).at(self.span())?;
             let numbering = self.numbering(styles);
             let counter = Counter::of(Self::func());
             let num = counter.at(vt, loc)?.display(vt, &numbering)?;
             let sup = SuperElem::new(num).pack();
             let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
-            let loc = self.body_location(vt).at(self.span())?;
+            let loc = loc.variant(1);
             Ok(hole + sup.linked(Destination::Location(loc)))
-        };
-        if self.is_ref() {
-            Ok(vt.delayed(display))
-        } else {
-            display(vt)
-        }
+        }))
     }
 }
 
@@ -315,5 +295,5 @@ impl Finalize for FootnoteEntry {
 
 cast! {
     FootnoteElem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new_with_content(v.clone())),
+    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::with_content(v.clone())),
 }
