@@ -13,7 +13,7 @@ pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
     for heading in ctx.introspector.query(&item!(heading_func).select()) {
         let leaf = HeadingNode::leaf((*heading).clone());
 
-        if leaf.bookmark {
+        if leaf.bookmarked {
             let mut children = &mut tree;
             while children.last().map_or(false, |last| last.level < leaf.level) {
                 children = &mut children.last_mut().unwrap().children;
@@ -50,7 +50,7 @@ pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
 struct HeadingNode {
     element: Content,
     level: NonZeroUsize,
-    bookmark: bool,
+    bookmarked: bool,
     children: Vec<HeadingNode>,
 }
 
@@ -58,7 +58,7 @@ impl HeadingNode {
     fn leaf(element: Content) -> Self {
         HeadingNode {
             level: element.expect_field::<NonZeroUsize>("level"),
-            bookmark: element.expect_field::<bool>("bookmark"),
+            bookmarked: element.expect_field::<bool>("bookmarked"),
             element,
             children: Vec::new(),
         }

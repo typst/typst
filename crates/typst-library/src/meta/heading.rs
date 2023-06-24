@@ -82,7 +82,7 @@ pub struct HeadingElem {
     ///
     /// Note that this property does not affect whether or not headings are
     /// shown in the exported PDF's outline (when exporting to PDF). Such
-    /// behavior is exclusively determined by the `bookmark` property.
+    /// behavior is exclusively determined by the `bookmarked` property.
     ///
     /// ```example
     /// #outline()
@@ -105,13 +105,13 @@ pub struct HeadingElem {
     /// This heading will be shown in
     /// the PDF's bookmark outline.
     ///
-    /// #heading(bookmark: false)[Not bookmarked]
+    /// #heading(bookmarked: false)[Not bookmarked]
     /// This heading won't be
     /// bookmarked in the resulting
     /// PDF.
     /// ```
     #[default(true)]
-    pub bookmark: bool,
+    pub bookmarked: bool,
 
     /// The heading's title.
     #[required]
@@ -131,7 +131,7 @@ impl Synthesize for HeadingElem {
         self.push_numbering(self.numbering(styles));
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         self.push_outlined(self.outlined(styles));
-        self.push_bookmark(self.bookmark(styles));
+        self.push_bookmarked(self.bookmarked(styles));
 
         Ok(())
     }

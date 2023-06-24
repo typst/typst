@@ -30,8 +30,8 @@ fn main() {
 ==== Deep Stuff
 Ok ...
 
-// Ensure 'bookmark' option doesn't affect the outline
-#set heading(numbering: "(I)", bookmark: false)
+// Ensure 'bookmarked' option doesn't affect the outline
+#set heading(numbering: "(I)", bookmarked: false)
 
 = #text(blue)[Zusammen]fassung
 #lorem(10)
