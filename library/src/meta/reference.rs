@@ -1,3 +1,5 @@
+use typst::diag::Hint;
+
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -178,11 +180,14 @@ impl Show for RefElem {
                 .numbering()
                 .ok_or_else(|| {
                     eco_format!(
-                        "cannot reference {0} without numbering \
-                        - did you mean to use `#set {0}(numbering: \"1.\")`?",
+                        "cannot reference {} without numbering",
                         elem.func().name()
                     )
                 })
+                .hint(eco_format!(
+                    "did you mean to use `#set {}(numbering: \"1.\")`?",
+                    elem.func().name()
+                ))
                 .at(span)?;
 
             let numbers = refable

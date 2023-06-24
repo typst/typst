@@ -1,14 +1,14 @@
 #![allow(clippy::comparison_chain)]
 
 use std::cell::{RefCell, RefMut};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::OsStr;
 use std::fmt::Write as FmtWrite;
-use std::fs;
 use std::io::Write;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::{env, io};
+use std::{fs, iter};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
@@ -22,7 +22,7 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{func, Datetime, Library, NoneValue, Value};
+use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{Source, SourceId, Span, SyntaxNode};
@@ -372,7 +372,8 @@ fn test(
     let mut updated = false;
     let mut frames = vec![];
     let mut line = 0;
-    let mut compare_ref = true;
+    let mut compare_ref = None;
+    let mut validate_hints = None;
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
@@ -400,9 +401,8 @@ fn test(
 
         if is_header {
             for line in part.lines() {
-                if line.starts_with("// Ref: false") {
-                    compare_ref = false;
-                }
+                compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
+                validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
             }
         } else {
             let (part_ok, compare_here, part_frames) = test_part(
@@ -411,7 +411,8 @@ fn test(
                 src_path,
                 part.into(),
                 i,
-                compare_ref,
+                compare_ref.unwrap_or(true),
+                validate_hints.unwrap_or(true),
                 line,
                 &mut rng,
             );
@@ -489,6 +490,14 @@ fn test(
     ok
 }
 
+fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+    line.strip_prefix(eco_format!("// {key}: ").as_str())
+}
+
+fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
+    get_metadata(line, key).map(|value| value == "true")
+}
+
 fn update_image(png_path: &Path, ref_path: &Path) {
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
@@ -506,6 +515,7 @@ fn test_part(
     text: String,
     i: usize,
     compare_ref: bool,
+    validate_hints: bool,
     line: usize,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Frame>) {
@@ -517,8 +527,10 @@ fn test_part(
         writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
     }
 
-    let (local_compare_ref, mut ref_errors) = parse_metadata(source);
-    let compare_ref = local_compare_ref.unwrap_or(compare_ref);
+    let metadata = parse_part_metadata(source);
+    let compare_ref = metadata.part_configuration.compare_ref.unwrap_or(compare_ref);
+    let validate_hints =
+        metadata.part_configuration.validate_hints.unwrap_or(validate_hints);
 
     ok &= test_spans(output, source.root());
     ok &= test_reparse(output, world.source(id).text(), i, rng);
@@ -543,92 +555,158 @@ fn test_part(
     }
 
     // Map errors to range and message format, discard traces and errors from
-    // other files.
-    let mut errors: Vec<_> = errors
+    // other files. Collect hints.
+    //
+    // This has one caveat: due to the format of the expected hints, we can not verify if a hint belongs
+    // to a error or not. That should be irrelevant however, as the line of the hint is still verified.
+    let actual_errors_and_hints: HashSet<UserOutput> = errors
         .into_iter()
         .filter(|error| error.span.source() == id)
-        .map(|error| (error.range(world), error.message.replace('\\', "/")))
+        .flat_map(|error| {
+            let output_error =
+                UserOutput::Error(error.range(world), error.message.replace('\\', "/"));
+            let hints = error
+                .hints
+                .iter()
+                .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
+                .map(|hint| UserOutput::Hint(error.range(world), hint.to_string()));
+            iter::once(output_error).chain(hints).collect::<Vec<_>>()
+        })
         .collect();
 
-    errors.sort_by_key(|error| error.0.start);
-    ref_errors.sort_by_key(|error| error.0.start);
+    // Basically symmetric_difference, but we need to know where an item is coming from.
+    let mut unexpected_outputs = actual_errors_and_hints
+        .difference(&metadata.invariants)
+        .collect::<Vec<_>>();
+    let mut missing_outputs = metadata
+        .invariants
+        .difference(&actual_errors_and_hints)
+        .collect::<Vec<_>>();
 
-    if errors != ref_errors {
+    unexpected_outputs.sort_by_key(|&o| o.start());
+    missing_outputs.sort_by_key(|&o| o.start());
+
+    // This prints all unexpected emits first, then all missing emits.
+    // Is this reasonable or subject to change?
+    if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
         writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
         ok = false;
 
-        let source = world.source(id);
-        for error in errors.iter() {
-            if !ref_errors.contains(error) {
-                write!(output, "    Not annotated | ").unwrap();
-                print_error(output, source, line, error);
-            }
+        for unexpected in unexpected_outputs {
+            write!(output, "    Not annotated | ").unwrap();
+            print_user_output(output, source, line, unexpected)
         }
 
-        for error in ref_errors.iter() {
-            if !errors.contains(error) {
-                write!(output, "    Not emitted   | ").unwrap();
-                print_error(output, source, line, error);
-            }
+        for missing in missing_outputs {
+            write!(output, "    Not emitted   | ").unwrap();
+            print_user_output(output, source, line, missing)
         }
     }
 
     (ok, compare_ref, frames)
 }
 
-fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>) {
+fn print_user_output(
+    output: &mut String,
+    source: &Source,
+    line: usize,
+    user_output: &UserOutput,
+) {
+    let (range, message) = match &user_output {
+        UserOutput::Error(r, m) => (r, m),
+        UserOutput::Hint(r, m) => (r, m),
+    };
+
+    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
+    let start_col = 1 + source.byte_to_column(range.start).unwrap();
+    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
+    let end_col = 1 + source.byte_to_column(range.end).unwrap();
+    let kind = match user_output {
+        UserOutput::Error(_, _) => "Error",
+        UserOutput::Hint(_, _) => "Hint",
+    };
+    writeln!(output, "{kind}: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
+        .unwrap();
+}
+
+struct TestConfiguration {
+    compare_ref: Option<bool>,
+    validate_hints: Option<bool>,
+}
+
+struct TestPartMetadata {
+    part_configuration: TestConfiguration,
+    invariants: HashSet<UserOutput>,
+}
+
+#[derive(PartialEq, Eq, Debug, Hash)]
+enum UserOutput {
+    Error(Range<usize>, String),
+    Hint(Range<usize>, String),
+}
+
+impl UserOutput {
+    fn start(&self) -> usize {
+        match self {
+            UserOutput::Error(r, _) => r.start,
+            UserOutput::Hint(r, _) => r.start,
+        }
+    }
+
+    fn error(range: Range<usize>, message: String) -> UserOutput {
+        UserOutput::Error(range, message)
+    }
+
+    fn hint(range: Range<usize>, message: String) -> UserOutput {
+        UserOutput::Hint(range, message)
+    }
+}
+
+fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
-    let mut errors = vec![];
+    let mut validate_hints = None;
+    let mut expectations = HashSet::default();
 
     let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
-        if line.starts_with("// Ref: false") {
-            compare_ref = Some(false);
-        }
-
-        if line.starts_with("// Ref: true") {
-            compare_ref = Some(true);
-        }
+        compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
+        validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
 
         fn num(s: &mut Scanner) -> usize {
             s.eat_while(char::is_numeric).parse().unwrap()
         }
 
-        let comments =
+        let comments_until_code =
             lines[i..].iter().take_while(|line| line.starts_with("//")).count();
 
         let pos = |s: &mut Scanner| -> usize {
             let first = num(s) - 1;
             let (delta, column) =
                 if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
-            let line = (i + comments) + delta;
+            let line = (i + comments_until_code) + delta;
             source.line_column_to_byte(line, column).unwrap()
         };
 
-        let Some(rest) = line.strip_prefix("// Error: ") else { continue; };
-        let mut s = Scanner::new(rest);
-        let start = pos(&mut s);
-        let end = if s.eat_if('-') { pos(&mut s) } else { start };
-        let range = start..end;
+        let error_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::error;
+        let hint_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::hint;
 
-        errors.push((range, s.after().trim().to_string()));
+        let error_metadata = get_metadata(line, "Error").map(|s| (s, error_factory));
+        let get_hint_metadata = || get_metadata(line, "Hint").map(|s| (s, hint_factory));
+
+        if let Some((expectation, factory)) = error_metadata.or_else(get_hint_metadata) {
+            let mut s = Scanner::new(expectation);
+            let start = pos(&mut s);
+            let end = if s.eat_if('-') { pos(&mut s) } else { start };
+            let range = start..end;
+
+            expectations.insert(factory(range, s.after().trim().to_string()));
+        };
     }
 
-    (compare_ref, errors)
-}
-
-fn print_error(
-    output: &mut String,
-    source: &Source,
-    line: usize,
-    (range, message): &(Range<usize>, String),
-) {
-    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
-    let start_col = 1 + source.byte_to_column(range.start).unwrap();
-    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
-    let end_col = 1 + source.byte_to_column(range.end).unwrap();
-    writeln!(output, "Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
-        .unwrap();
+    TestPartMetadata {
+        part_configuration: TestConfiguration { compare_ref, validate_hints },
+        invariants: expectations,
+    }
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the

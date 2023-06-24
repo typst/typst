@@ -82,6 +82,8 @@ pub struct SourceError {
     pub message: EcoString,
     /// The trace of function calls leading to the error.
     pub trace: Vec<Spanned<Tracepoint>>,
+    /// Additonal hints to the user, indicating how this error could be avoided or worked around.
+    pub hints: Vec<EcoString>,
 }
 
 impl SourceError {
@@ -92,6 +94,7 @@ impl SourceError {
             pos: ErrorPos::Full,
             trace: vec![],
             message: message.into(),
+            hints: vec![],
         }
     }
 
@@ -111,6 +114,12 @@ impl SourceError {
             ErrorPos::Start => full.start..full.start,
             ErrorPos::End => full.end..full.end,
         }
+    }
+
+    /// Adds a user-facing hint to the error.
+    pub fn with_hints(mut self, hints: &mut Vec<EcoString>) -> Self {
+        self.hints.append(hints);
+        self
     }
 }
 
@@ -191,6 +200,52 @@ where
 {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|message| Box::new(vec![SourceError::new(span, message)]))
+    }
+}
+
+pub type StrWithHintResult<T> = Result<T, StrWithHint>;
+
+pub struct StrWithHint {
+    message: EcoString,
+    hints: Vec<EcoString>,
+}
+
+impl<T> At<T> for Result<T, StrWithHint> {
+    fn at(self, span: Span) -> SourceResult<T> {
+        self.map_err(|mut diags| {
+            Box::new(vec![
+                SourceError::new(span, diags.message).with_hints(&mut diags.hints)
+            ])
+        })
+    }
+}
+
+/// Allows adding a user-facing hint in addition to the error.
+pub trait Hint<T, S>
+where
+    S: Into<EcoString>,
+{
+    fn hint(self, hint: S) -> StrWithHintResult<T>;
+}
+
+impl<T, S> Hint<T, S> for StrResult<T>
+where
+    S: Into<EcoString>,
+{
+    fn hint(self, hint: S) -> StrWithHintResult<T> {
+        self.map_err(|message| StrWithHint { message, hints: vec![hint.into()] })
+    }
+}
+
+impl<T, S> Hint<T, S> for StrWithHintResult<T>
+where
+    S: Into<EcoString>,
+{
+    fn hint(self, hint: S) -> StrWithHintResult<T> {
+        self.map_err(|mut diags| {
+            diags.hints.push(hint.into());
+            diags
+        })
     }
 }
 
