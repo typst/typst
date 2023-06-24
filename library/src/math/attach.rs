@@ -124,13 +124,25 @@ pub struct LimitsElem {
     /// The base to attach the limits to.
     #[required]
     pub body: Content,
+
+    /// Whether to apply limits in inline equations.
+    ///
+    /// It is useful to disable this setting
+    /// in most cases of applying limits globally
+    /// (inside show rules or new elements)
+    #[default(true)]
+    pub inline: bool,
 }
 
 impl LayoutMath for LimitsElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let mut fragment = ctx.layout_fragment(&self.body())?;
-        fragment.set_limits(Limits::Always);
+        fragment.set_limits(if self.inline(ctx.styles()) {
+            Limits::Always
+        } else {
+            Limits::Display
+        });
         ctx.push(fragment);
         Ok(())
     }
