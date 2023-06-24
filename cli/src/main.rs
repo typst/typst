@@ -279,18 +279,21 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
 #[tracing::instrument(skip_all)]
 fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
     tracing::info!("Starting compilation");
+    let start_time = std::time::Instant::now();
 
     status(command, Status::Compiling).unwrap();
 
     world.reset();
     world.main = world.resolve(&command.input).map_err(|err| err.to_string())?;
 
-    match typst::compile(world) {
+    let result = typst::compile(world);
+    let duration = start_time.elapsed();
+    match result {
         // Export the PDF / PNG.
         Ok(document) => {
             export(&document, command)?;
-            status(command, Status::Success).unwrap();
-            tracing::info!("Compilation succeeded");
+            status(command, Status::Success(duration)).unwrap();
+            tracing::info!("Compilation succeeded in {duration:?}");
             Ok(true)
         }
 
@@ -300,7 +303,7 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
             status(command, Status::Error).unwrap();
             print_diagnostics(world, *errors, command.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
-            tracing::info!("Compilation failed");
+            tracing::info!("Compilation failed after {duration:?}");
             Ok(false)
         }
     }
@@ -393,16 +396,16 @@ fn color_stream() -> termcolor::StandardStream {
 /// The status in which the watcher can be.
 enum Status {
     Compiling,
-    Success,
+    Success(std::time::Duration),
     Error,
 }
 
 impl Status {
-    fn message(&self) -> &str {
+    fn message(&self) -> String {
         match self {
-            Self::Compiling => "compiling ...",
-            Self::Success => "compiled successfully",
-            Self::Error => "compiled with errors",
+            Self::Compiling => "compiling ...".to_string(),
+            Self::Success(duration) => format!("compiled successfully in {duration:.2?}"),
+            Self::Error => "compiled with errors".to_string(),
         }
     }
 
