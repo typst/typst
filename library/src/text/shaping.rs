@@ -397,11 +397,7 @@ impl<'a> ShapedText<'a> {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
             debug_assert!(
-                {
-                    glyphs.iter().all(|g| {
-                        g.range.start >= text_range.start && g.range.end <= text_range.end
-                    })
-                },
+                all_glyphs_in_range(glyphs, &text_range),
                 "one or more glyphs in {:?} fell out of range",
                 text
             );
@@ -577,12 +573,7 @@ pub fn shape<'a>(
     calculate_adjustability(&mut ctx, lang, region);
 
     debug_assert!(
-        {
-            let line_range = base..(base + text.len());
-            ctx.glyphs.iter().all(|g| {
-                g.range.start >= line_range.start && g.range.end <= line_range.end
-            })
-        },
+        all_glyphs_in_range(&ctx.glyphs, &(base..(base + text.len()))),
         "one or more glyphs in {:?} fell out of range",
         text
     );
@@ -965,4 +956,12 @@ fn language(styles: StyleChain) -> rustybuzz::Language {
         bcp.push_str(region.as_str());
     }
     rustybuzz::Language::from_str(&bcp).unwrap()
+}
+
+/// Returns true if all glyphs in `glyphs` have ranges within the range `range`.
+#[cfg(debug_assertions)]
+fn all_glyphs_in_range(glyphs: &[ShapedGlyph], range: &Range<usize>) -> bool {
+    glyphs
+        .iter()
+        .all(|g| g.range.start >= range.start && g.range.end <= range.end)
 }
