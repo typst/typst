@@ -163,9 +163,7 @@ impl Show for RefElem {
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::func() {
-                let mut elem = FootnoteElem::with_label(target);
-                elem.synthesize(vt, styles)?;
-                return Ok(elem.pack().spanned(span));
+                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
             }
 
             let refable = elem
