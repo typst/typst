@@ -136,9 +136,8 @@ impl SyntaxNode {
     }
 
     pub fn err_with_hint(&mut self, hint: impl Into<EcoString>) {
-        match &mut self.0 {
-            Repr::Error(error) => Arc::make_mut(error).with_hint(hint),
-            _ => (),
+        if let Repr::Error(error) = &mut self.0 {
+            Arc::make_mut(error).with_hint(hint)
         }
     }
 
