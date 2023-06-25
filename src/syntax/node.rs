@@ -149,7 +149,8 @@ impl SyntaxNode {
         }
 
         if let Repr::Error(error) = &self.0 {
-            vec![SourceError::new(error.span, error.message.clone())]
+            vec![SourceError::new(error.span, error.message.clone())
+                .with_hints(error.hints.to_owned())]
         } else {
             self.children()
                 .filter(|node| node.erroneous())
