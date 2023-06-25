@@ -135,6 +135,13 @@ impl SyntaxNode {
         }
     }
 
+    pub fn err_with_hint(&mut self, hint: impl Into<EcoString>) {
+        match &mut self.0 {
+            Repr::Error(error) => Arc::make_mut(error).with_hint(hint),
+            _ => (),
+        }
+    }
+
     /// The error messages for this node and its descendants.
     pub fn errors(&self) -> Vec<SourceError> {
         if !self.erroneous() {
@@ -539,6 +546,9 @@ struct ErrorNode {
     text: EcoString,
     /// The node's span.
     span: Span,
+    /// Additonal hints to the user, indicating how this error could be avoided
+    /// or worked around.
+    hints: Vec<EcoString>,
 }
 
 impl ErrorNode {
@@ -548,12 +558,18 @@ impl ErrorNode {
             message: message.into(),
             text: text.into(),
             span: Span::detached(),
+            hints: vec![],
         }
     }
 
     /// The byte length of the node in the source text.
     fn len(&self) -> usize {
         self.text.len()
+    }
+
+    /// Add a user-presentable hint to this error node.
+    fn with_hint(&mut self, hint: impl Into<EcoString>) {
+        self.hints.push(hint.into());
     }
 }
 
