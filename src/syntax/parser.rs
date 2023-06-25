@@ -1,5 +1,5 @@
-use std::ops::{Range};
-use std::{collections::HashSet};
+use std::collections::HashSet;
+use std::ops::Range;
 
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
