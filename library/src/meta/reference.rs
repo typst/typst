@@ -1,4 +1,5 @@
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
+use crate::meta::FootnoteElem;
 use crate::prelude::*;
 use crate::text::TextElem;
 
@@ -11,11 +12,11 @@ use crate::text::TextElem;
 /// bibliography.
 ///
 /// Referenceable elements include [headings]($func/heading),
-/// [figures]($func/figure), and [equations]($func/math.equation). To create a
-/// custom referenceable element like a theorem, you can create a figure of a
-/// custom [`kind`]($func/figure.kind) and write a show rule for it. In the
-/// future, there might be a more direct way to define a custom referenceable
-/// element.
+/// [figures]($func/figure), [equations]($func/math.equation), and
+/// [footnotes]($func/footnote). To create a custom referenceable element like a
+/// theorem, you can create a figure of a custom [`kind`]($func/figure.kind) and
+/// write a show rule for it. In the future, there might be a more direct way to
+/// define a custom referenceable element.
 ///
 /// If you just want to link to a labelled element and not get an automatic
 /// textual reference, consider using the [`link`]($func/link) function instead.
@@ -160,6 +161,11 @@ impl Show for RefElem {
             }
 
             let elem = elem.at(span)?;
+
+            if elem.func() == FootnoteElem::func() {
+                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+            }
+
             let refable = elem
                 .with::<dyn Refable>()
                 .ok_or_else(|| {

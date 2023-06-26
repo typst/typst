@@ -1,15 +1,35 @@
+use comemo::Prehashed;
 use std::str::FromStr;
 
 use super::{Counter, Numbering, NumberingPattern};
 use crate::layout::{HElem, ParElem};
+use crate::meta::{Count, CounterUpdate};
 use crate::prelude::*;
 use crate::text::{SuperElem, TextElem, TextSize};
 use crate::visualize::LineElem;
 
+/// The body of a footnote can be either some content or a label referencing
+/// another footnote.
+#[derive(Debug)]
+pub enum FootnoteBody {
+    Content(Content),
+    Reference(Label),
+}
+
+cast! {
+    FootnoteBody,
+    self => match self {
+        Self::Content(v) => v.into_value(),
+        Self::Reference(v) => v.into_value(),
+    },
+    v: Content => Self::Content(v),
+    v: Label => Self::Reference(v),
+}
+
 /// A footnote.
 ///
-/// Include additional remarks and references on the same page with footnotes. A
-/// footnote will insert a superscript number that links to the note at the
+/// Includes additional remarks and references on the same page with footnotes.
+/// A footnote will insert a superscript number that links to the note at the
 /// bottom of the page. Notes are numbered sequentially throughout your document
 /// and can break across multiple pages.
 ///
@@ -28,6 +48,15 @@ use crate::visualize::LineElem;
 /// there is a space before it in the markup. To force space, you can use the
 /// string `[#" "]` or explicit [horizontal spacing]($func/h).
 ///
+/// By giving a label to a footnote, you can have multiple references to it.
+///
+/// ```example
+/// You can edit Typst documents online.
+/// #footnote[https://typst.app/app] <fn>
+/// Checkout Typst's website. @fn
+/// And the online app. #footnote(<fn>)
+/// ```
+///
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
 /// apply to the footnote's content. See [here][issue] more information.
 ///
@@ -35,7 +64,7 @@ use crate::visualize::LineElem;
 ///
 /// Display: Footnote
 /// Category: meta
-#[element(Locatable, Synthesize, Show)]
+#[element(Locatable, Synthesize, Show, Count)]
 #[scope(
     scope.define("entry", FootnoteEntry::func());
     scope
@@ -58,9 +87,49 @@ pub struct FootnoteElem {
     #[default(Numbering::Pattern(NumberingPattern::from_str("1").unwrap()))]
     pub numbering: Numbering,
 
-    /// The content to put into the footnote.
+    /// The content to put into the footnote. Can also be the label of another
+    /// footnote this one should point to.
     #[required]
-    pub body: Content,
+    pub body: FootnoteBody,
+}
+
+impl FootnoteElem {
+    /// Creates a new footnote that the passed content as its body.
+    pub fn with_content(content: Content) -> Self {
+        Self::new(FootnoteBody::Content(content))
+    }
+
+    /// Creates a new footnote referencing the footnote with the specified label.
+    pub fn with_label(label: Label) -> Self {
+        Self::new(FootnoteBody::Reference(label))
+    }
+
+    /// Tests if this footnote is a reference to another footnote.
+    pub fn is_ref(&self) -> bool {
+        matches!(self.body(), FootnoteBody::Reference(_))
+    }
+
+    /// Returns the content of the body of this footnote if it is not a ref.
+    pub fn body_content(&self) -> Option<Content> {
+        match self.body() {
+            FootnoteBody::Content(content) => Some(content),
+            _ => None,
+        }
+    }
+
+    /// Returns the location of the definition of this footnote.
+    pub fn declaration_location(&self, vt: &Vt) -> StrResult<Location> {
+        match self.body() {
+            FootnoteBody::Reference(label) => {
+                let element: Prehashed<Content> = vt.introspector.query_label(&label)?;
+                let footnote = element
+                    .to::<FootnoteElem>()
+                    .ok_or("referenced element should be a footnote")?;
+                footnote.declaration_location(vt)
+            }
+            _ => Ok(self.0.location().unwrap()),
+        }
+    }
 }
 
 impl Synthesize for FootnoteElem {
@@ -73,14 +142,22 @@ impl Synthesize for FootnoteElem {
 impl Show for FootnoteElem {
     #[tracing::instrument(name = "FootnoteElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let loc = self.0.location().unwrap();
-        let numbering = self.numbering(styles);
-        let counter = Counter::of(Self::func());
-        let num = counter.at(vt, loc)?.display(vt, &numbering)?;
-        let sup = SuperElem::new(num).pack();
-        let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
-        let loc = self.0.location().unwrap().variant(1);
-        Ok(hole + sup.linked(Destination::Location(loc)))
+        Ok(vt.delayed(|vt| {
+            let loc = self.declaration_location(vt).at(self.span())?;
+            let numbering = self.numbering(styles);
+            let counter = Counter::of(Self::func());
+            let num = counter.at(vt, loc)?.display(vt, &numbering)?;
+            let sup = SuperElem::new(num).pack();
+            let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
+            let loc = loc.variant(1);
+            Ok(hole + sup.linked(Destination::Location(loc)))
+        }))
+    }
+}
+
+impl Count for FootnoteElem {
+    fn update(&self) -> Option<CounterUpdate> {
+        (!self.is_ref()).then(|| CounterUpdate::Step(NonZeroUsize::ONE))
     }
 }
 
@@ -201,7 +278,7 @@ impl Show for FootnoteEntry {
             HElem::new(self.indent(styles).into()).pack(),
             sup,
             HElem::new(number_gap.into()).with_weak(true).pack(),
-            note.body(),
+            note.body_content().unwrap(),
         ]))
     }
 }
@@ -218,5 +295,5 @@ impl Finalize for FootnoteEntry {
 
 cast! {
     FootnoteElem,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::with_content(v.clone())),
 }
