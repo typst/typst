@@ -3,7 +3,7 @@ use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use super::{ErrorPos, SyntaxKind};
+use super::SyntaxKind;
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -16,7 +16,7 @@ pub(super) struct Lexer<'s> {
     /// Whether the last token contained a newline.
     newline: bool,
     /// An error for the last token.
-    error: Option<(EcoString, ErrorPos)>,
+    error: Option<EcoString>,
 }
 
 /// What kind of tokens to emit.
@@ -69,7 +69,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<(EcoString, ErrorPos)> {
+    pub fn take_error(&mut self) -> Option<EcoString> {
         self.error.take()
     }
 }
@@ -77,7 +77,7 @@ impl<'s> Lexer<'s> {
 impl Lexer<'_> {
     /// Construct a full-positioned syntax error.
     fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
-        self.error = Some((message.into(), ErrorPos::Full));
+        self.error = Some(message.into());
         SyntaxKind::Error
     }
 }

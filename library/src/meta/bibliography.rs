@@ -7,7 +7,8 @@ use ecow::{eco_vec, EcoVec};
 use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
-use typst::util::option_eq;
+use typst::diag::FileError;
+use typst::util::{option_eq, Bytes};
 
 use super::{LinkElem, LocalName, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
@@ -49,17 +50,30 @@ pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
     #[parse(
-        let Spanned { v: mut paths, span } =
+        let Spanned { v:  paths, span } =
             args.expect::<Spanned<BibPaths>>("path to bibliography file")?;
-        for path in &mut paths.0 {
-            // resolve paths
-            *path = vm.locate(path).at(span)?.to_string_lossy().into();
-        }
-        // check that parsing works
-        let _ = load(vm.world(), &paths).at(span)?;
+
+        // Load bibliography files.
+        let data = paths.0
+            .iter()
+            .map(|path| {
+                let id = vm.location().join(path).at(span)?;
+                vm.world().file(id).at(span)
+            })
+            .collect::<SourceResult<Vec<Bytes>>>()?;
+
+        // Check that parsing works.
+        let _ = load(&paths, &data).at(span)?;
+
         paths
     )]
     pub path: BibPaths,
+
+    /// The raw file buffers.
+    #[internal]
+    #[required]
+    #[parse(data)]
+    pub data: Vec<Bytes>,
 
     /// The title of the bibliography.
     ///
@@ -80,7 +94,7 @@ pub struct BibliographyElem {
     pub style: BibliographyStyle,
 }
 
-/// A list of bib file paths.
+/// A list of bibliography file paths.
 #[derive(Debug, Default, Clone, Hash)]
 pub struct BibPaths(Vec<EcoString>);
 
@@ -111,18 +125,20 @@ impl BibliographyElem {
         vt.introspector
             .query(&Self::func().select())
             .into_iter()
-            .flat_map(|elem| load(vt.world, &elem.to::<Self>().unwrap().path()))
+            .flat_map(|elem| {
+                let elem = elem.to::<Self>().unwrap();
+                load(&elem.path(), &elem.data())
+            })
             .flatten()
             .any(|entry| entry.key() == key)
     }
 
     /// Find all bibliography keys.
     pub fn keys(
-        world: Tracked<dyn World + '_>,
         introspector: Tracked<Introspector>,
     ) -> Vec<(EcoString, Option<EcoString>)> {
         Self::find(introspector)
-            .and_then(|elem| load(world, &elem.path()))
+            .and_then(|elem| load(&elem.path(), &elem.data()))
             .into_iter()
             .flatten()
             .map(|entry| {
@@ -425,19 +441,15 @@ impl Works {
                 _ => elem.to::<CiteElem>().unwrap().clone(),
             })
             .collect();
-        Ok(create(vt.world, bibliography, citations))
+        Ok(create(bibliography, citations))
     }
 }
 
 /// Generate all citations and the whole bibliography.
 #[comemo::memoize]
-fn create(
-    world: Tracked<dyn World + '_>,
-    bibliography: BibliographyElem,
-    citations: Vec<CiteElem>,
-) -> Arc<Works> {
+fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works> {
     let span = bibliography.span();
-    let entries = load(world, &bibliography.path()).unwrap();
+    let entries = load(&bibliography.path(), &bibliography.data()).unwrap();
     let style = bibliography.style(StyleChain::default());
     let bib_location = bibliography.0.location().unwrap();
     let ref_location = |target: &Entry| {
@@ -587,16 +599,12 @@ fn create(
 
 /// Load bibliography entries from a path.
 #[comemo::memoize]
-fn load(
-    world: Tracked<dyn World + '_>,
-    paths: &BibPaths,
-) -> StrResult<EcoVec<hayagriva::Entry>> {
+fn load(paths: &BibPaths, data: &[Bytes]) -> StrResult<EcoVec<hayagriva::Entry>> {
     let mut result = EcoVec::new();
 
     // We might have multiple bib/yaml files
-    for path in &paths.0 {
-        let buffer = world.file(Path::new(path.as_str()))?;
-        let src = std::str::from_utf8(&buffer).map_err(|_| "file is not valid utf-8")?;
+    for (path, bytes) in paths.0.iter().zip(data) {
+        let src = std::str::from_utf8(bytes).map_err(|_| FileError::InvalidUtf8)?;
         let entries = parse_bib(path, src)?;
         result.extend(entries);
     }

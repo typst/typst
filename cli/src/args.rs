@@ -12,12 +12,13 @@ pub struct CliArguments {
     pub command: Command,
 
     /// Add additional directories to search for fonts
-    #[clap(long = "font-path", env = "TYPST_FONT_PATHS", value_name = "DIR", action = ArgAction::Append)]
+    #[clap(
+        long = "font-path",
+        env = "TYPST_FONT_PATHS",
+        value_name = "DIR",
+        action = ArgAction::Append,
+    )]
     pub font_paths: Vec<PathBuf>,
-
-    /// Configure the root for absolute paths
-    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
-    pub root: Option<PathBuf>,
 
     /// Sets the level of logging verbosity:
     /// -v = warning & error, -vv = info, -vvv = debug, -vvvv = trace

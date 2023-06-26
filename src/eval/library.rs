@@ -13,7 +13,6 @@ use crate::geom::{Abs, Dir};
 use crate::model::{Content, ElemFunc, Introspector, Label, StyleChain, Styles, Vt};
 use crate::syntax::Span;
 use crate::util::hash128;
-use crate::World;
 
 /// Definition of Typst's standard library.
 #[derive(Debug, Clone, Hash)]
@@ -66,10 +65,8 @@ pub struct LangItems {
     pub reference: fn(target: Label, supplement: Option<Content>) -> Content,
     /// The keys contained in the bibliography and short descriptions of them.
     #[allow(clippy::type_complexity)]
-    pub bibliography_keys: fn(
-        world: Tracked<dyn World + '_>,
-        introspector: Tracked<Introspector>,
-    ) -> Vec<(EcoString, Option<EcoString>)>,
+    pub bibliography_keys:
+        fn(introspector: Tracked<Introspector>) -> Vec<(EcoString, Option<EcoString>)>,
     /// A section heading: `= Introduction`.
     pub heading: fn(level: NonZeroUsize, body: Content) -> Content,
     /// The heading function.

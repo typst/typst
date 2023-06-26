@@ -55,27 +55,24 @@ pub use self::value::{Dynamic, Type, Value};
 
 use std::collections::HashSet;
 use std::mem;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
 use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::{CapturesVisitor, Closure};
+use crate::diag::{
+    bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
+};
+use crate::file::{FileId, PackageManifest, PackageSpec};
 use crate::model::{
-    Content, Introspector, Label, Locator, Recipe, ShowableSelector, Styles, Transform,
-    Unlabellable, Vt,
+    Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
+    Styles, Transform, Unlabellable, Vt,
 };
-use crate::syntax::ast::AstNode;
-use crate::syntax::{
-    ast, parse_code, Source, SourceId, Span, Spanned, SyntaxKind, SyntaxNode,
-};
-use crate::util::PathExt;
+use crate::syntax::ast::{self, AstNode};
+use crate::syntax::{parse_code, Source, Span, Spanned, SyntaxKind, SyntaxNode};
 use crate::World;
-use crate::{
-    diag::{bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint},
-    model::DelayedErrors,
-};
 
 const MAX_ITERATIONS: usize = 10_000;
 const MAX_CALL_DEPTH: usize = 64;
@@ -91,9 +88,8 @@ pub fn eval(
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
     let id = source.id();
-    let path = if id.is_detached() { Path::new("") } else { world.source(id).path() };
     if route.contains(id) {
-        panic!("Tried to cyclicly evaluate {}", path.display());
+        panic!("Tried to cyclicly evaluate {}", id.path().display());
     }
 
     // Hook up the lang items.
@@ -130,7 +126,7 @@ pub fn eval(
     }
 
     // Assemble the module.
-    let name = path.file_stem().unwrap_or_default().to_string_lossy();
+    let name = id.path().file_stem().unwrap_or_default().to_string_lossy();
     Ok(Module::new(name).with_scope(vm.scopes.top).with_content(result?))
 }
 
@@ -166,7 +162,7 @@ pub fn eval_string(
 
     // Prepare VM.
     let route = Route::default();
-    let id = SourceId::detached();
+    let id = FileId::detached();
     let scopes = Scopes::new(Some(world.library()));
     let mut vm = Vm::new(vt, route.track(), id, scopes);
 
@@ -194,7 +190,7 @@ pub struct Vm<'a> {
     /// The route of source ids the VM took to reach its current location.
     route: Tracked<'a, Route<'a>>,
     /// The current location.
-    location: SourceId,
+    location: FileId,
     /// A control flow event that is currently happening.
     flow: Option<FlowEvent>,
     /// The stack of scopes.
@@ -210,7 +206,7 @@ impl<'a> Vm<'a> {
     fn new(
         vt: Vt<'a>,
         route: Tracked<'a, Route>,
-        location: SourceId,
+        location: FileId,
         scopes: Scopes<'a>,
     ) -> Self {
         let traced = vt.tracer.span(location);
@@ -232,6 +228,11 @@ impl<'a> Vm<'a> {
         self.vt.world
     }
 
+    /// The location to which paths are relative currently.
+    pub fn location(&self) -> FileId {
+        self.location
+    }
+
     /// Define a variable in the current scope.
     #[tracing::instrument(skip_all)]
     pub fn define(&mut self, var: ast::Ident, value: impl IntoValue) {
@@ -240,23 +241,6 @@ impl<'a> Vm<'a> {
             self.vt.tracer.trace(value.clone());
         }
         self.scopes.top.define(var.take(), value);
-    }
-
-    /// Resolve a user-entered path to be relative to the compilation
-    /// environment's root.
-    #[tracing::instrument(skip_all)]
-    pub fn locate(&self, path: &str) -> StrResult<PathBuf> {
-        if !self.location.is_detached() {
-            if let Some(path) = path.strip_prefix('/') {
-                return Ok(self.world().root().join(path).normalize());
-            }
-
-            if let Some(dir) = self.world().source(self.location).path().parent() {
-                return Ok(dir.join(path).normalize());
-            }
-        }
-
-        bail!("cannot access file system from here")
     }
 }
 
@@ -296,12 +280,12 @@ pub struct Route<'a> {
     // covariant over the constraint. If it becomes invariant, we're in for a
     // world of lifetime pain.
     outer: Option<Tracked<'a, Self, <Route<'static> as Validate>::Constraint>>,
-    id: Option<SourceId>,
+    id: Option<FileId>,
 }
 
 impl<'a> Route<'a> {
     /// Create a new route with just one entry.
-    pub fn new(id: SourceId) -> Self {
+    pub fn new(id: FileId) -> Self {
         Self { id: Some(id), outer: None }
     }
 
@@ -309,7 +293,7 @@ impl<'a> Route<'a> {
     ///
     /// You must guarantee that `outer` lives longer than the resulting
     /// route is ever used.
-    pub fn insert(outer: Tracked<'a, Self>, id: SourceId) -> Self {
+    pub fn insert(outer: Tracked<'a, Self>, id: FileId) -> Self {
         Route { outer: Some(outer), id: Some(id) }
     }
 
@@ -328,7 +312,7 @@ impl<'a> Route<'a> {
 #[comemo::track]
 impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
-    fn contains(&self, id: SourceId) -> bool {
+    fn contains(&self, id: FileId) -> bool {
         self.id == Some(id) || self.outer.map_or(false, |outer| outer.contains(id))
     }
 }
@@ -358,8 +342,8 @@ impl Tracer {
 #[comemo::track]
 impl Tracer {
     /// The traced span if it is part of the given source file.
-    fn span(&self, id: SourceId) -> Option<Span> {
-        if self.span.map(Span::source) == Some(id) {
+    fn span(&self, id: FileId) -> Option<Span> {
+        if self.span.map(Span::id) == Some(id) {
             self.span
         } else {
             None
@@ -1764,20 +1748,49 @@ fn import(
         }
     };
 
+    // Handle package and file imports.
+    let path = path.as_str();
+    if path.starts_with('@') {
+        let spec = path.parse::<PackageSpec>().at(span)?;
+        import_package(vm, spec, span)
+    } else {
+        import_file(vm, path, span)
+    }
+}
+
+/// Import an external package.
+fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Module> {
+    // Evaluate the manifest.
+    let manifest_id = FileId::new(Some(spec.clone()), Path::new("/typst.toml"));
+    let bytes = vm.world().file(manifest_id).at(span)?;
+    let manifest = PackageManifest::parse(&bytes).at(span)?;
+    manifest.validate(&spec).at(span)?;
+
+    // Evaluate the entry point.
+    let entrypoint = Path::new("/").join(manifest.package.entrypoint.as_str());
+    let entrypoint_id = FileId::new(Some(spec), &entrypoint);
+    let source = vm.world().source(entrypoint_id).at(span)?;
+    let point = || Tracepoint::Import;
+    Ok(eval(vm.world(), vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)
+        .trace(vm.world(), point, span)?
+        .with_name(manifest.package.name))
+}
+
+/// Import a file from a path.
+fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     // Load the source file.
     let world = vm.world();
-    let full = vm.locate(&path).at(span)?;
-    let id = world.resolve(&full).at(span)?;
+    let id = vm.location().join(path).at(span)?;
+    let source = world.source(id).at(span)?;
 
     // Prevent cyclic importing.
-    if vm.route.contains(id) {
+    if vm.route.contains(source.id()) {
         bail!(span, "cyclic import");
     }
 
     // Evaluate the file.
-    let source = world.source(id);
     let point = || Tracepoint::Import;
-    eval(world, vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), source)
+    eval(world, vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)
         .trace(world, point, span)
 }
 

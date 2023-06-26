@@ -15,9 +15,11 @@ use ttf_parser::GlyphId;
 use self::book::find_name;
 use crate::eval::Cast;
 use crate::geom::Em;
-use crate::util::Buffer;
+use crate::util::Bytes;
 
 /// An OpenType font.
+///
+/// Values of this type are cheap to clone and hash.
 #[derive(Clone)]
 pub struct Font(Arc<Repr>);
 
@@ -26,7 +28,7 @@ struct Repr {
     /// The raw font data, possibly shared with other fonts from the same
     /// collection. The vector's allocation must not move, because `ttf` points
     /// into it using unsafe code.
-    data: Buffer,
+    data: Bytes,
     /// The font's index in the buffer.
     index: u32,
     /// Metadata about the font.
@@ -41,7 +43,7 @@ struct Repr {
 
 impl Font {
     /// Parse a font from data and collection index.
-    pub fn new(data: Buffer, index: u32) -> Option<Self> {
+    pub fn new(data: Bytes, index: u32) -> Option<Self> {
         // Safety:
         // - The slices's location is stable in memory:
         //   - We don't move the underlying vector
@@ -60,13 +62,13 @@ impl Font {
     }
 
     /// Parse all fonts in the given data.
-    pub fn iter(data: Buffer) -> impl Iterator<Item = Self> {
+    pub fn iter(data: Bytes) -> impl Iterator<Item = Self> {
         let count = ttf_parser::fonts_in_collection(&data).unwrap_or(1);
         (0..count).filter_map(move |index| Self::new(data.clone(), index))
     }
 
     /// The underlying buffer.
-    pub fn data(&self) -> &Buffer {
+    pub fn data(&self) -> &Bytes {
         &self.0.data
     }
 

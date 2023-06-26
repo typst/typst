@@ -8,7 +8,7 @@ use unicode_general_category::GeneralCategory;
 
 use super::{deflate, EmExt, PdfContext, RefExt};
 use crate::font::Font;
-use crate::util::{Buffer, SliceExt};
+use crate::util::{Bytes, SliceExt};
 
 const CMAP_NAME: Name = Name(b"Custom");
 const SYSTEM_INFO: SystemInfo = SystemInfo {
@@ -154,7 +154,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
 
 /// Subset a font to the given glyphs.
 #[comemo::memoize]
-fn subset_font(font: &Font, glyphs: &[u16]) -> Buffer {
+fn subset_font(font: &Font, glyphs: &[u16]) -> Bytes {
     let data = font.data();
     let profile = subsetter::Profile::pdf(glyphs);
     let subsetted = subsetter::subset(data, font.index(), profile);

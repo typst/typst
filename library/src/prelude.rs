@@ -19,6 +19,8 @@ pub use typst::eval::{
     Func, IntoValue, Never, NoneValue, Scope, Str, Symbol, Type, Value, Vm,
 };
 #[doc(no_inline)]
+pub use typst::file::FileId;
+#[doc(no_inline)]
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{

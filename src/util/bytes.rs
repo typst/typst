@@ -5,11 +5,11 @@ use std::sync::Arc;
 
 use comemo::Prehashed;
 
-/// A shared buffer that is cheap to clone and hash.
+/// A shared byte buffer that is cheap to clone and hash.
 #[derive(Clone, Hash, Eq, PartialEq)]
-pub struct Buffer(Arc<Prehashed<Cow<'static, [u8]>>>);
+pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
 
-impl Buffer {
+impl Bytes {
     /// Create a buffer from a static byte slice.
     pub fn from_static(slice: &'static [u8]) -> Self {
         Self(Arc::new(Prehashed::new(Cow::Borrowed(slice))))
@@ -26,19 +26,19 @@ impl Buffer {
     }
 }
 
-impl From<&[u8]> for Buffer {
+impl From<&[u8]> for Bytes {
     fn from(slice: &[u8]) -> Self {
         Self(Arc::new(Prehashed::new(slice.to_vec().into())))
     }
 }
 
-impl From<Vec<u8>> for Buffer {
+impl From<Vec<u8>> for Bytes {
     fn from(vec: Vec<u8>) -> Self {
         Self(Arc::new(Prehashed::new(vec.into())))
     }
 }
 
-impl Deref for Buffer {
+impl Deref for Bytes {
     type Target = [u8];
 
     fn deref(&self) -> &Self::Target {
@@ -46,14 +46,14 @@ impl Deref for Buffer {
     }
 }
 
-impl AsRef<[u8]> for Buffer {
+impl AsRef<[u8]> for Bytes {
     fn as_ref(&self) -> &[u8] {
         self
     }
 }
 
-impl Debug for Buffer {
+impl Debug for Bytes {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("Buffer(..)")
+        write!(f, "bytes({})", self.len())
     }
 }

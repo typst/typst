@@ -25,8 +25,8 @@ pub fn read(
     vm: &mut Vm,
 ) -> SourceResult<Str> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
     let text = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
@@ -66,8 +66,8 @@ pub fn csv(
     vm: &mut Vm,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
 
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
@@ -177,8 +177,8 @@ pub fn json(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
     let value: serde_json::Value =
         serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
     Ok(convert_json(value))
@@ -243,8 +243,8 @@ pub fn toml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
 
     let raw = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
@@ -352,8 +352,8 @@ pub fn yaml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
     let value: serde_yaml::Value =
         serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
     Ok(convert_yaml(value))
@@ -455,8 +455,8 @@ pub fn xml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
     let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
     Ok(convert_xml(document.root()))
