@@ -545,7 +545,7 @@ fn create(
             }
 
             if style == CitationStyle::ChicagoNotes {
-                content = FootnoteElem::new(content).pack();
+                content = FootnoteElem::with_content(content).pack();
             }
 
             (location, Some(content))
