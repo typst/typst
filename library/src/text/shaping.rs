@@ -396,11 +396,8 @@ impl<'a> ShapedText<'a> {
     ) -> ShapedText<'a> {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
-            debug_assert!(
-                all_glyphs_in_range(glyphs, &text_range),
-                "one or more glyphs in {:?} fell out of range",
-                text
-            );
+            #[cfg(debug_assertions)]
+            assert_all_glyphs_in_range(glyphs, text, text_range.clone());
             Self {
                 base: text_range.start,
                 text,
@@ -572,11 +569,8 @@ pub fn shape<'a>(
     track_and_space(&mut ctx);
     calculate_adjustability(&mut ctx, lang, region);
 
-    debug_assert!(
-        all_glyphs_in_range(&ctx.glyphs, &(base..(base + text.len()))),
-        "one or more glyphs in {:?} fell out of range",
-        text
-    );
+    #[cfg(debug_assertions)]
+    assert_all_glyphs_in_range(&ctx.glyphs, text, base..(base + text.len()));
     #[cfg(debug_assertions)]
     assert_glyph_ranges_in_order(&ctx.glyphs, dir);
 
@@ -945,29 +939,37 @@ fn language(styles: StyleChain) -> rustybuzz::Language {
 
 /// Returns true if all glyphs in `glyphs` have ranges within the range `range`.
 #[cfg(debug_assertions)]
-fn all_glyphs_in_range(glyphs: &[ShapedGlyph], range: &Range<usize>) -> bool {
-    glyphs
+fn assert_all_glyphs_in_range(glyphs: &[ShapedGlyph], text: &str, range: Range<usize>) {
+    if glyphs
         .iter()
-        .all(|g| g.range.start >= range.start && g.range.end <= range.end)
+        .any(|g| g.range.start < range.start || g.range.end > range.end)
+    {
+        panic!("one or more glyphs in {text:?} fell out of range");
+    }
 }
 
 /// Asserts that the ranges of `glyphs` is in the proper order according to `dir`.
 ///
 /// This asserts instead of returning a bool in order to provide a more informative message when the invariant is violated.
+#[cfg(debug_assertions)]
 fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
+    if glyphs.is_empty() {
+        return;
+    }
+
     // Iterator::is_sorted and friends are unstable as of Rust 1.70.0
-    if !glyphs.is_empty() {
-        for i in 0..(glyphs.len() - 1) {
-            let a = &glyphs[i];
-            let b = &glyphs[i + 1];
-            let ord = a.range.start.cmp(&b.range.start);
-            let ord = if dir.is_positive() { ord } else { ord.reverse() };
-            if ord == Ordering::Greater {
-                panic!(
-                        "glyph ranges should be monotonically {}, but found glyphs out of order:\n\nfirst: {a:#?}\nsecond: {b:#?}",
-                        if dir.is_positive() { "increasing" } else { "decreasing" }
-                    );
-            }
+    for i in 0..(glyphs.len() - 1) {
+        let a = &glyphs[i];
+        let b = &glyphs[i + 1];
+        let ord = a.range.start.cmp(&b.range.start);
+        let ord = if dir.is_positive() { ord } else { ord.reverse() };
+        if ord == Ordering::Greater {
+            panic!(
+                "glyph ranges should be monotonically {}, \
+                 but found glyphs out of order:\n\n\
+                 first: {a:#?}\nsecond: {b:#?}",
+                if dir.is_positive() { "increasing" } else { "decreasing" },
+            );
         }
     }
 }
