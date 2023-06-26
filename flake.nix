@@ -25,9 +25,6 @@
         ]
         (system: f nixpkgs.legacyPackages.${system});
 
-      rev = fallback:
-        self.shortRev or fallback;
-
       packageFor = pkgs:
         let
           rust = fenix.packages.${pkgs.stdenv.hostPlatform.system}.minimal.toolchain;
@@ -36,7 +33,7 @@
             rustc = rust;
           };
         in
-        rustPlatform.buildRustPackage rec {
+        rustPlatform.buildRustPackage {
           pname = "typst";
           inherit ((importTOML ./Cargo.toml).workspace.package) version;
 
@@ -67,7 +64,6 @@
           '';
 
           GEN_ARTIFACTS = "artifacts";
-          TYPST_VERSION = "${version} (${rev "unknown hash"})";
         };
     in
     {
