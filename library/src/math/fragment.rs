@@ -1,4 +1,5 @@
 use super::*;
+use ttf_parser::gsub::AlternateSet;
 
 #[derive(Debug, Clone)]
 pub enum MathFragment {
@@ -272,6 +273,25 @@ impl GlyphFragment {
         frame.meta_iter(self.meta);
         frame
     }
+
+    pub fn make_scriptsize(&mut self, ctx: &MathContext) {
+        let alt_id =
+            script_alternatives(ctx, self.id).and_then(|alts| alts.alternates.get(0));
+
+        if let Some(alt_id) = alt_id {
+            self.set_id(ctx, alt_id);
+        }
+    }
+
+    pub fn make_scriptscriptsize(&mut self, ctx: &MathContext) {
+        let alts = script_alternatives(ctx, self.id);
+        let alt_id = alts
+            .and_then(|alts| alts.alternates.get(1).or_else(|| alts.alternates.get(0)));
+
+        if let Some(alt_id) = alt_id {
+            self.set_id(ctx, alt_id);
+        }
+    }
 }
 
 impl Debug for GlyphFragment {
@@ -345,6 +365,16 @@ impl FrameFragment {
 /// Look up the italics correction for a glyph.
 fn italics_correction(ctx: &MathContext, id: GlyphId) -> Option<Abs> {
     Some(ctx.table.glyph_info?.italic_corrections?.get(id)?.scaled(ctx))
+}
+
+/// Look up the script/scriptscript alternates for a glyph
+fn script_alternatives<'a>(
+    ctx: &MathContext<'a, '_, '_>,
+    id: GlyphId,
+) -> Option<AlternateSet<'a>> {
+    ctx.ssty_table.and_then(|ssty| {
+        ssty.coverage.get(id).and_then(|index| ssty.alternate_sets.get(index))
+    })
 }
 
 /// Look up the italics correction for a glyph.

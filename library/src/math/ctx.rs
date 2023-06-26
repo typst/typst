@@ -31,6 +31,7 @@ pub struct MathContext<'a, 'b, 'v> {
     pub ttf: &'a ttf_parser::Face<'a>,
     pub table: ttf_parser::math::Table<'a>,
     pub constants: ttf_parser::math::Constants<'a>,
+    pub ssty_table: Option<ttf_parser::gsub::AlternateSubstitution<'a>>,
     pub space_width: Em,
     pub fragments: Vec<MathFragment>,
     pub local: Styles,
@@ -50,6 +51,27 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     ) -> Self {
         let table = font.ttf().tables().math.unwrap();
         let constants = table.constants.unwrap();
+
+        let ssty_table = font
+            .ttf()
+            .tables()
+            .gsub
+            .and_then(|gsub| {
+                gsub.features
+                    .find(ttf_parser::Tag::from_bytes(b"ssty"))
+                    .and_then(|feature| feature.lookup_indices.get(0))
+                    .and_then(|index| gsub.lookups.get(index))
+            })
+            .and_then(|ssty| {
+                ssty.subtables.get::<ttf_parser::gsub::SubstitutionSubtable>(0)
+            })
+            .and_then(|ssty| match ssty {
+                ttf_parser::gsub::SubstitutionSubtable::Alternate(alt_glyphs) => {
+                    Some(alt_glyphs)
+                }
+                _ => None,
+            });
+
         let size = TextElem::size_in(styles);
         let ttf = font.ttf();
         let space_width = ttf
@@ -66,6 +88,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             ttf: font.ttf(),
             table,
             constants,
+            ssty_table,
             space_width,
             fragments: vec![],
             local: Styles::new(),
@@ -129,20 +152,31 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let text = elem.text();
         let span = elem.span();
         let mut chars = text.chars();
-        let fragment = if let Some(glyph) = chars
+        let fragment = if let Some(mut glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
             .map(|c| self.style.styled_char(c))
             .and_then(|c| GlyphFragment::try_new(self, c, span))
         {
             // A single letter that is available in the math font.
-            if self.style.size == MathSize::Display
-                && glyph.class == Some(MathClass::Large)
-            {
-                let height = scaled!(self, display_operator_min_height);
-                glyph.stretch_vertical(self, height, Abs::zero()).into()
-            } else {
-                glyph.into()
+            match self.style.size {
+                MathSize::Display => {
+                    if glyph.class == Some(MathClass::Large) {
+                        let height = scaled!(self, display_operator_min_height);
+                        glyph.stretch_vertical(self, height, Abs::zero()).into()
+                    } else {
+                        glyph.into()
+                    }
+                }
+                MathSize::Script => {
+                    glyph.make_scriptsize(self);
+                    glyph.into()
+                }
+                MathSize::ScriptScript => {
+                    glyph.make_scriptscriptsize(self);
+                    glyph.into()
+                }
+                _ => glyph.into(),
             }
         } else if text.chars().all(|c| c.is_ascii_digit()) {
             // Numbers aren't that difficult.
