@@ -13,7 +13,7 @@
         genAttrs
         importTOML
         optionals
-        cleanSource
+        sourceByRegex
         ;
 
       eachSystem = f: genAttrs
@@ -40,7 +40,11 @@
           pname = "typst";
           inherit ((importTOML ./Cargo.toml).workspace.package) version;
 
-          src = cleanSource ./.;
+          src = sourceByRegex ./. [
+            "(assets|cli|docs|library|macros|src|tests)(/.*)?"
+            ''Cargo\.(toml|lock)''
+            ''build\.rs''
+          ];
 
           cargoLock = {
             lockFile = ./Cargo.lock;
