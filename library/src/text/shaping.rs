@@ -1,7 +1,5 @@
 use std::borrow::Cow;
-use std::cmp::Ordering;
 use std::ops::Range;
-use std::panic;
 use std::str::FromStr;
 
 use az::SaturatingAs;
@@ -963,7 +961,7 @@ fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
         let b = &glyphs[i + 1];
         let ord = a.range.start.cmp(&b.range.start);
         let ord = if dir.is_positive() { ord } else { ord.reverse() };
-        if ord == Ordering::Greater {
+        if ord == std::cmp::Ordering::Greater {
             panic!(
                 "glyph ranges should be monotonically {}, \
                  but found glyphs out of order:\n\n\
