@@ -49,3 +49,17 @@ Welcome \ here. Does this work well?
 #set text(dir: rtl)
 لآن وقد أظلم الليل وبدأت النجوم
 تنضخ وجه الطبيعة التي أعْيَتْ من طول ما انبعثت في النهار
+
+---
+#set par(first-line-indent: 12pt)
++ First
+
+The paragraph after an enumeration should be indented.
+
+- Second
+
+The paragraph after a list should be indented as well.
+
++ Third
+
+=== The Heading is not indented

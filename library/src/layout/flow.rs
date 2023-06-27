@@ -1,7 +1,8 @@
 use std::mem;
 
 use super::{
-    AlignElem, BlockElem, ColbreakElem, ColumnsElem, ParElem, PlaceElem, Spacing, VElem,
+    AlignElem, BlockElem, ColbreakElem, ColumnsElem, EnumElem, ListElem, ParElem,
+    PlaceElem, Spacing, VElem,
 };
 use crate::meta::{FootnoteElem, FootnoteEntry};
 use crate::prelude::*;
@@ -320,7 +321,8 @@ impl<'a> FlowLayouter<'a> {
 
         self.root = is_root;
         self.regions.root = false;
-        self.indent_next_par = false;
+        self.indent_next_par =
+            block.to::<ListElem>().is_some() || block.to::<EnumElem>().is_some();
 
         Ok(())
     }
