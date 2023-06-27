@@ -1,7 +1,10 @@
+use ttf_parser::gsub::{AlternateSubstitution, SingleSubstitution, SubstitutionSubtable};
 use ttf_parser::math::MathValue;
 use typst::font::{FontStyle, FontWeight};
 use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
+
+use crate::text::tags;
 
 use super::*;
 
@@ -32,6 +35,7 @@ pub struct MathContext<'a, 'b, 'v> {
     pub table: ttf_parser::math::Table<'a>,
     pub constants: ttf_parser::math::Constants<'a>,
     pub ssty_table: Option<ttf_parser::gsub::AlternateSubstitution<'a>>,
+    pub glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
     pub space_width: Em,
     pub fragments: Vec<MathFragment>,
     pub local: Styles,
@@ -49,28 +53,46 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         font: &'a Font,
         block: bool,
     ) -> Self {
-        let table = font.ttf().tables().math.unwrap();
-        let constants = table.constants.unwrap();
+        let math_table = font.ttf().tables().math.unwrap();
+        let gsub_table = font.ttf().tables().gsub;
+        let constants = math_table.constants.unwrap();
 
-        let ssty_table = font
-            .ttf()
-            .tables()
-            .gsub
+        let ssty_table = gsub_table
             .and_then(|gsub| {
                 gsub.features
                     .find(ttf_parser::Tag::from_bytes(b"ssty"))
                     .and_then(|feature| feature.lookup_indices.get(0))
                     .and_then(|index| gsub.lookups.get(index))
             })
-            .and_then(|ssty| {
-                ssty.subtables.get::<ttf_parser::gsub::SubstitutionSubtable>(0)
-            })
+            .and_then(|ssty| ssty.subtables.get::<SubstitutionSubtable>(0))
             .and_then(|ssty| match ssty {
-                ttf_parser::gsub::SubstitutionSubtable::Alternate(alt_glyphs) => {
-                    Some(alt_glyphs)
-                }
+                SubstitutionSubtable::Alternate(alt_glyphs) => Some(alt_glyphs),
                 _ => None,
             });
+
+        let features = tags(styles);
+        let glyphwise_tables = gsub_table.map(|gsub| {
+            features
+                .iter()
+                .filter_map(|feature| {
+                    let ssty = gsub
+                        .features
+                        .find(feature.tag)
+                        .and_then(|feature| feature.lookup_indices.get(0))
+                        .and_then(|index| gsub.lookups.get(index))?;
+                    let ssty = ssty.subtables.get::<SubstitutionSubtable>(0)?;
+                    match ssty {
+                        SubstitutionSubtable::Single(single_glyphs) => {
+                            Some(GlyphwiseSubsts::Single(single_glyphs))
+                        }
+                        SubstitutionSubtable::Alternate(alt_glyphs) => {
+                            Some(GlyphwiseSubsts::Alternate(alt_glyphs, feature.value))
+                        }
+                        _ => None,
+                    }
+                })
+                .collect::<Vec<_>>()
+        });
 
         let size = TextElem::size_in(styles);
         let ttf = font.ttf();
@@ -86,9 +108,10 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             regions: Regions::one(regions.base(), Axes::splat(false)),
             font,
             ttf: font.ttf(),
-            table,
+            table: math_table,
             constants,
             ssty_table,
+            glyphwise_tables,
             space_width,
             fragments: vec![],
             local: Styles::new(),
@@ -264,5 +287,35 @@ impl Scaled for Em {
 impl Scaled for MathValue<'_> {
     fn scaled(self, ctx: &MathContext) -> Abs {
         self.value.scaled(ctx)
+    }
+}
+
+/// An OpenType substitution table that is applicable to glyph-wise substitutions.
+pub enum GlyphwiseSubsts<'a> {
+    Single(SingleSubstitution<'a>),
+    Alternate(AlternateSubstitution<'a>, u32),
+}
+
+impl<'a> GlyphwiseSubsts<'a> {
+    pub fn try_apply(&self, glyph_id: GlyphId) -> Option<GlyphId> {
+        match self {
+            GlyphwiseSubsts::Single(single) => match single {
+                SingleSubstitution::Format1 { coverage, delta } => coverage
+                    .get(glyph_id)
+                    .map(|_| GlyphId(glyph_id.0.wrapping_add(*delta as u16))),
+                SingleSubstitution::Format2 { coverage, substitutes } => {
+                    coverage.get(glyph_id).and_then(|idx| substitutes.get(idx))
+                }
+            },
+            GlyphwiseSubsts::Alternate(alternate, value) => alternate
+                .coverage
+                .get(glyph_id)
+                .and_then(|idx| alternate.alternate_sets.get(idx))
+                .and_then(|set| set.alternates.get(*value as u16)),
+        }
+    }
+
+    pub fn apply(&self, glyph_id: GlyphId) -> GlyphId {
+        self.try_apply(glyph_id).unwrap_or(glyph_id)
     }
 }

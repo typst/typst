@@ -172,14 +172,24 @@ pub struct GlyphFragment {
 }
 
 impl GlyphFragment {
+    fn adjust_glyph_index(ctx: &MathContext, id: GlyphId) -> GlyphId {
+        if let Some(glyphwise_tables) = &ctx.glyphwise_tables {
+            glyphwise_tables.iter().fold(id, |id, table| table.apply(id))
+        } else {
+            id
+        }
+    }
+
     pub fn new(ctx: &MathContext, c: char, span: Span) -> Self {
         let id = ctx.ttf.glyph_index(c).unwrap_or_default();
+        let id = Self::adjust_glyph_index(ctx, id);
         Self::with_id(ctx, c, id, span)
     }
 
     pub fn try_new(ctx: &MathContext, c: char, span: Span) -> Option<Self> {
         let c = ctx.style.styled_char(c);
         let id = ctx.ttf.glyph_index(c)?;
+        let id = Self::adjust_glyph_index(ctx, id);
         Some(Self::with_id(ctx, c, id, span))
     }
 
