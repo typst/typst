@@ -95,8 +95,8 @@ struct FlowLayouter<'a> {
     /// The initial size of `regions.size` that was available before we started
     /// subtracting.
     initial: Size,
-    /// Whether the last block was a paragraph.
-    last_was_par: bool,
+    /// Whether the next paragraph should be indented.
+    indent_next_par: bool,
     /// Spacing and layouted blocks for the current region.
     items: Vec<FlowItem>,
     /// Whether we have any footnotes in the current region.
@@ -157,7 +157,7 @@ impl<'a> FlowLayouter<'a> {
             styles,
             expand,
             initial: regions.size,
-            last_was_par: false,
+            indent_next_par: false,
             items: vec![],
             has_footnotes: false,
             footnote_config: FootnoteConfig {
@@ -199,7 +199,7 @@ impl<'a> FlowLayouter<'a> {
     ) -> SourceResult<()> {
         let aligns = AlignElem::alignment_in(styles).resolve(styles);
         let leading = ParElem::leading_in(styles);
-        let consecutive = self.last_was_par;
+        let consecutive = self.indent_next_par;
         let lines = par
             .layout(vt, styles, consecutive, self.regions.base(), self.regions.expand.x)?
             .into_frames();
@@ -234,7 +234,7 @@ impl<'a> FlowLayouter<'a> {
             )?;
         }
 
-        self.last_was_par = true;
+        self.indent_next_par = true;
         Ok(())
     }
 
@@ -251,7 +251,7 @@ impl<'a> FlowLayouter<'a> {
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
         let frame = content.layout(vt, styles, pod)?.into_frame();
         self.layout_item(vt, FlowItem::Frame { frame, aligns, sticky, movable: true })?;
-        self.last_was_par = false;
+        self.indent_next_par = false;
         Ok(())
     }
 
@@ -320,7 +320,7 @@ impl<'a> FlowLayouter<'a> {
 
         self.root = is_root;
         self.regions.root = false;
-        self.last_was_par = false;
+        self.indent_next_par = false;
 
         Ok(())
     }
