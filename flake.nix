@@ -13,7 +13,7 @@
         genAttrs
         importTOML
         optionals
-        cleanSource
+        sourceByRegex
         ;
 
       eachSystem = f: genAttrs
@@ -25,9 +25,6 @@
         ]
         (system: f nixpkgs.legacyPackages.${system});
 
-      rev = fallback:
-        self.shortRev or fallback;
-
       packageFor = pkgs:
         let
           rust = fenix.packages.${pkgs.stdenv.hostPlatform.system}.minimal.toolchain;
@@ -36,11 +33,15 @@
             rustc = rust;
           };
         in
-        rustPlatform.buildRustPackage rec {
+        rustPlatform.buildRustPackage {
           pname = "typst";
           inherit ((importTOML ./Cargo.toml).workspace.package) version;
 
-          src = cleanSource ./.;
+          src = sourceByRegex ./. [
+            "(assets|cli|docs|library|macros|src|tests)(/.*)?"
+            ''Cargo\.(toml|lock)''
+            ''build\.rs''
+          ];
 
           cargoLock = {
             lockFile = ./Cargo.lock;
@@ -63,7 +64,6 @@
           '';
 
           GEN_ARTIFACTS = "artifacts";
-          TYPST_VERSION = "${version} (${rev "unknown hash"})";
         };
     in
     {
