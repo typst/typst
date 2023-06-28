@@ -1767,8 +1767,7 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     manifest.validate(&spec).at(span)?;
 
     // Evaluate the entry point.
-    let entrypoint = Path::new("/").join(manifest.package.entrypoint.as_str());
-    let entrypoint_id = FileId::new(Some(spec), &entrypoint);
+    let entrypoint_id = manifest_id.join(&manifest.package.entrypoint).at(span)?;
     let source = vm.world().source(entrypoint_id).at(span)?;
     let point = || Tracepoint::Import;
     Ok(eval(vm.world(), vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)

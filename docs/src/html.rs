@@ -415,7 +415,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         return Html::new(format!("<pre>{}</pre>", highlighted.as_str()));
     }
 
-    let id = FileId::new(None, Path::new("main.typ"));
+    let id = FileId::new(None, Path::new("/main.typ"));
     let source = Source::new(id, compile);
     let world = DocWorld(source);
     let mut frames = match typst::compile(&world) {
@@ -486,7 +486,7 @@ impl World for DocWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         assert!(id.package().is_none());
         Ok(FILES
-            .get_file(id.path())
+            .get_file(id.path().strip_prefix("/").unwrap())
             .unwrap_or_else(|| panic!("failed to load {:?}", id.path().display()))
             .contents()
             .into())

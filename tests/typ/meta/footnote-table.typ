@@ -12,7 +12,7 @@
   [This cell
    #footnote[This footnote is not on the same page]
    breaks over multiple pages.],
-  image("/tiger.jpg"),
+  image("/files/tiger.jpg"),
 )
 
 #table(

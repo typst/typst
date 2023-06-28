@@ -29,28 +29,44 @@ type Pair = &'static (Option<PackageSpec>, PathBuf);
 
 /// Identifies a file.
 ///
-/// This type is interned and thus cheap to clone, compare, and hash.
+/// This type is globally interned and thus cheap to copy, compare, and hash.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct FileId(u16);
 
 impl FileId {
     /// Create a new interned file specification.
     ///
-    /// Normalizes the path before interning.
+    /// The path must start with a `/` or this function will panic.
+    /// Note that the path is normalized before interning.
+    #[track_caller]
     pub fn new(package: Option<PackageSpec>, path: &Path) -> Self {
+        assert_eq!(
+            path.components().next(),
+            Some(std::path::Component::RootDir),
+            "file path must be absolute within project or package: {}",
+            path.display(),
+        );
+
+        // Try to find an existing entry that we can reuse.
         let pair = (package, path.normalize());
+        if let Some(&id) = INTERNER.read().unwrap().to_id.get(&pair) {
+            return id;
+        }
+
         let mut interner = INTERNER.write().unwrap();
-        interner.to_id.get(&pair).copied().unwrap_or_else(|| {
-            let leaked = Box::leak(Box::new(pair));
-            let len = interner.from_id.len();
-            if len >= usize::from(u16::MAX) {
-                panic!("too many file specifications");
-            }
-            let id = FileId(len as u16);
-            interner.to_id.insert(leaked, id);
-            interner.from_id.push(leaked);
-            id
-        })
+        let len = interner.from_id.len();
+        if len >= usize::from(u16::MAX) {
+            panic!("too many file specifications");
+        }
+
+        // Create a new entry forever by leaking the pair. We can't leak more
+        // than 2^16 pair (and typically will leak a lot less), so its not a
+        // big deal.
+        let id = FileId(len as u16);
+        let leaked = Box::leak(Box::new(pair));
+        interner.to_id.insert(leaked, id);
+        interner.from_id.push(leaked);
+        id
     }
 
     /// Get an id that does not identify any real file.
@@ -72,11 +88,11 @@ impl FileId {
         }
     }
 
-    /// The normalized path to the file (within the package if there's a
-    /// package).
+    /// The absolute and normalized path to the file _within_ the project or
+    /// package.
     pub fn path(&self) -> &'static Path {
         if self.is_detached() {
-            Path::new("<detached>")
+            Path::new("/detached.typ")
         } else {
             &self.pair().1
         }
@@ -117,7 +133,7 @@ impl Display for FileId {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let path = self.path().display();
         match self.package() {
-            Some(package) => write!(f, "{package}/{path}"),
+            Some(package) => write!(f, "{package}{path}"),
             None => write!(f, "{path}"),
         }
     }

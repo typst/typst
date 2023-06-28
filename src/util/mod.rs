@@ -140,7 +140,6 @@ impl PathExt for Path {
             match component {
                 Component::CurDir => {}
                 Component::ParentDir => match out.components().next_back() {
-                    Some(Component::RootDir) => {}
                     Some(Component::Normal(_)) => {
                         out.pop();
                     }

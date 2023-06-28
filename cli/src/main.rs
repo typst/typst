@@ -93,6 +93,8 @@ fn typst_version() -> &'static str {
 
 /// A summary of the input arguments relevant to compilation.
 struct CompileSettings {
+    /// The project's root directory.
+    root: Option<PathBuf>,
     /// The path to the input file.
     input: PathBuf,
     /// The path to the output file.
@@ -115,8 +117,9 @@ impl CompileSettings {
     fn new(
         input: PathBuf,
         output: Option<PathBuf>,
-        watch: bool,
+        root: Option<PathBuf>,
         font_paths: Vec<PathBuf>,
+        watch: bool,
         open: Option<Option<String>>,
         ppi: Option<f32>,
         diagnostic_format: DiagnosticFormat,
@@ -126,6 +129,7 @@ impl CompileSettings {
             None => input.with_extension("pdf"),
         };
         Self {
+            root,
             input,
             output,
             watch,
@@ -149,7 +153,16 @@ impl CompileSettings {
                 _ => unreachable!(),
             };
 
-        Self::new(input, output, watch, args.font_paths, open, ppi, diagnostic_format)
+        Self::new(
+            input,
+            output,
+            args.root,
+            args.font_paths,
+            watch,
+            open,
+            ppi,
+            diagnostic_format,
+        )
     }
 }
 
@@ -179,22 +192,22 @@ impl FontsSettings {
 }
 
 /// Execute a compilation command.
-fn compile(mut command: CompileSettings) -> StrResult<()> {
+fn compile(mut settings: CompileSettings) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
-    let mut world = SystemWorld::new(&command.input, &command.font_paths);
+    let mut world = SystemWorld::new(&settings)?;
 
     // Perform initial compilation.
-    let ok = compile_once(&mut world, &command)?;
+    let ok = compile_once(&mut world, &settings)?;
 
     // Open the file if requested, this must be done on the first **successful**
     // compilation.
     if ok {
-        if let Some(open) = command.open.take() {
-            open_file(open.as_deref(), &command.output)?;
+        if let Some(open) = settings.open.take() {
+            open_file(open.as_deref(), &settings.output)?;
         }
     }
 
-    if !command.watch {
+    if !settings.watch {
         return Ok(());
     }
 
@@ -219,7 +232,7 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
             if event
                 .paths
                 .iter()
-                .all(|path| is_same_file(path, &command.output).unwrap_or(false))
+                .all(|path| is_same_file(path, &settings.output).unwrap_or(false))
             {
                 continue;
             }
@@ -232,7 +245,7 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
             let dependencies = world.dependencies();
 
             // Recompile.
-            let ok = compile_once(&mut world, &command)?;
+            let ok = compile_once(&mut world, &settings)?;
             comemo::evict(10);
 
             // Adjust the watching.
@@ -241,8 +254,8 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
             // Open the file if requested, this must be done on the first
             // **successful** compilation
             if ok {
-                if let Some(open) = command.open.take() {
-                    open_file(open.as_deref(), &command.output)?;
+                if let Some(open) = settings.open.take() {
+                    open_file(open.as_deref(), &settings.output)?;
                 }
             }
         }
@@ -253,11 +266,11 @@ fn compile(mut command: CompileSettings) -> StrResult<()> {
 ///
 /// Returns whether it compiled without errors.
 #[tracing::instrument(skip_all)]
-fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult<bool> {
+fn compile_once(world: &mut SystemWorld, settings: &CompileSettings) -> StrResult<bool> {
     tracing::info!("Starting compilation");
 
     let start = std::time::Instant::now();
-    status(command, Status::Compiling).unwrap();
+    status(settings, Status::Compiling).unwrap();
 
     // Reset everything and ensure that the main file is still present.
     world.reset();
@@ -269,8 +282,8 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
-            export(&document, command)?;
-            status(command, Status::Success(duration)).unwrap();
+            export(&document, settings)?;
+            status(settings, Status::Success(duration)).unwrap();
             tracing::info!("Compilation succeeded in {duration:?}");
             Ok(true)
         }
@@ -278,8 +291,8 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
         // Print diagnostics.
         Err(errors) => {
             set_failed();
-            status(command, Status::Error).unwrap();
-            print_diagnostics(world, *errors, command.diagnostic_format)
+            status(settings, Status::Error).unwrap();
+            print_diagnostics(world, *errors, settings.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
             tracing::info!("Compilation failed after {duration:?}");
             Ok(false)
@@ -288,11 +301,11 @@ fn compile_once(world: &mut SystemWorld, command: &CompileSettings) -> StrResult
 }
 
 /// Export into the target format.
-fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
-    match command.output.extension() {
+fn export(document: &Document, settings: &CompileSettings) -> StrResult<()> {
+    match settings.output.extension() {
         Some(ext) if ext.eq_ignore_ascii_case("png") => {
             // Determine whether we have a `{n}` numbering.
-            let string = command.output.to_str().unwrap_or_default();
+            let string = settings.output.to_str().unwrap_or_default();
             let numbered = string.contains("{n}");
             if !numbered && document.pages.len() > 1 {
                 bail!("cannot export multiple PNGs without `{{n}}` in output path");
@@ -302,7 +315,7 @@ fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
             // first page should be numbered "001" if there are between 100 and
             // 999 pages.
             let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
-            let ppi = command.ppi.unwrap_or(2.0);
+            let ppi = settings.ppi.unwrap_or(2.0);
             let mut storage;
 
             for (i, frame) in document.pages.iter().enumerate() {
@@ -311,14 +324,15 @@ fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
                     storage = string.replace("{n}", &format!("{:0width$}", i + 1));
                     Path::new(&storage)
                 } else {
-                    command.output.as_path()
+                    settings.output.as_path()
                 };
                 pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
             }
         }
         _ => {
             let buffer = typst::export::pdf(document);
-            fs::write(&command.output, buffer).map_err(|_| "failed to write PDF file")?;
+            fs::write(&settings.output, buffer)
+                .map_err(|_| "failed to write PDF file")?;
         }
     }
     Ok(())
@@ -326,14 +340,14 @@ fn export(document: &Document, command: &CompileSettings) -> StrResult<()> {
 
 /// Clear the terminal and render the status message.
 #[tracing::instrument(skip_all)]
-fn status(command: &CompileSettings, status: Status) -> io::Result<()> {
-    if !command.watch {
+fn status(settings: &CompileSettings, status: Status) -> io::Result<()> {
+    if !settings.watch {
         return Ok(());
     }
 
     let esc = 27 as char;
-    let input = command.input.display();
-    let output = command.output.display();
+    let input = settings.input.display();
+    let output = settings.output.display();
     let time = chrono::offset::Local::now();
     let timestamp = time.format("%H:%M:%S");
     let message = status.message();
@@ -506,31 +520,43 @@ struct PathSlot {
 }
 
 impl SystemWorld {
-    fn new(input: &Path, font_paths: &[PathBuf]) -> Self {
+    fn new(settings: &CompileSettings) -> StrResult<Self> {
         let mut searcher = FontSearcher::new();
-        searcher.search(font_paths);
+        searcher.search(&settings.font_paths);
 
-        let root = input
-            .canonicalize()
-            .ok()
-            .as_ref()
-            .and_then(|path| path.parent())
-            .unwrap_or(Path::new("."))
-            .to_owned();
+        // Resolve the system-global input path.
+        let system_input = settings.input.canonicalize().map_err(|_| {
+            eco_format!("input file not found (searched at {})", settings.input.display())
+        })?;
 
-        let file = input.file_name().unwrap_or(input.as_os_str());
-        let main = FileId::new(None, Path::new(file));
+        // Resolve the system-global root directory.
+        let root = {
+            let path = settings
+                .root
+                .as_deref()
+                .or_else(|| system_input.parent())
+                .unwrap_or(Path::new("."));
+            path.canonicalize().map_err(|_| {
+                eco_format!("root directory not found (searched at {})", path.display())
+            })?
+        };
 
-        Self {
+        // Resolve the input path within the project.
+        let project_input = system_input
+            .strip_prefix(&root)
+            .map(|path| Path::new("/").join(path))
+            .map_err(|_| "input file must be contained in project root")?;
+
+        Ok(Self {
             root,
-            main,
+            main: FileId::new(None, &project_input),
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             hashes: RefCell::default(),
             paths: RefCell::default(),
             today: OnceCell::new(),
-        }
+        })
     }
 }
 

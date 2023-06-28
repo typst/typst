@@ -37,7 +37,7 @@ const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../assets/fonts";
-const FILE_DIR: &str = "../assets/files";
+const ASSET_DIR: &str = "../assets";
 
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
@@ -281,7 +281,7 @@ impl World for TestWorld {
 
 impl TestWorld {
     fn set(&mut self, path: &Path, text: String) -> Source {
-        self.main = FileId::new(None, path);
+        self.main = FileId::new(None, &Path::new("/").join(path));
         let mut slot = self.slot(self.main).unwrap();
         let source = Source::new(self.main, text);
         slot.source = OnceCell::from(Ok(source.clone()));
@@ -289,11 +289,9 @@ impl TestWorld {
     }
 
     fn slot(&self, id: FileId) -> FileResult<RefMut<PathSlot>> {
-        let path = id.path();
         let root: PathBuf = match id.package() {
             Some(spec) => format!("packages/{}-{}", spec.name, spec.version).into(),
-            None if path.is_relative() => PathBuf::new(),
-            None => FILE_DIR.into(),
+            None => PathBuf::new(),
         };
 
         let system_path = root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
@@ -310,16 +308,18 @@ impl TestWorld {
 
 /// Read as file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
-    let suffix = path
-        .strip_prefix(FILE_DIR)
-        .map(|suffix| Path::new("/").join(suffix))
-        .unwrap_or_else(|_| path.into());
+    // Basically symlinks `assets/files` to `tests/files` so that the assets
+    // are within the test project root.
+    let mut resolved = path.to_path_buf();
+    if path.starts_with("files/") {
+        resolved = Path::new(ASSET_DIR).join(path);
+    }
 
-    let f = |e| FileError::from_io(e, &suffix);
-    if fs::metadata(path).map_err(f)?.is_dir() {
+    let f = |e| FileError::from_io(e, path);
+    if fs::metadata(&resolved).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(path).map_err(f)
+        fs::read(&resolved).map_err(f)
     }
 }
 

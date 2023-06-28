@@ -11,6 +11,10 @@ pub struct CliArguments {
     #[command(subcommand)]
     pub command: Command,
 
+    /// Configure the project root
+    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
+    pub root: Option<PathBuf>,
+
     /// Add additional directories to search for fonts
     #[clap(
         long = "font-path",
