@@ -304,7 +304,8 @@ impl Lexer<'_> {
     }
 
     fn ref_marker(&mut self) -> SyntaxKind {
-        self.s.eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.' | ';'));
+        self.s
+            .eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.' | ';'));
 
         // Don't include the trailing characters likely to be part of text.
         while matches!(self.s.scout(-1), Some('.' | ':' | ';')) {

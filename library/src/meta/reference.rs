@@ -167,7 +167,9 @@ impl Show for RefElem {
                 // If cannot find the whole thing in bibliography elements,
                 // try to split them
                 let mut sub_targets = target.0.split(';');
-                let mut sub_elems = sub_targets.clone().map(|t| vt.introspector.query_label(&Label(t.into())));
+                let mut sub_elems = sub_targets
+                    .clone()
+                    .map(|t| vt.introspector.query_label(&Label(t.into())));
                 if sub_targets.all(|t| BibliographyElem::has(vt, t)) {
                     if sub_elems.any(|e| e.is_ok()) {
                         bail!(span, "label occurs in the document and its bibliography");
