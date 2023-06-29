@@ -224,6 +224,7 @@ impl LocalName for HeadingElem {
             Lang::ITALIAN => "Sezione",
             Lang::NYNORSK => "Kapittel",
             Lang::POLISH => "Sekcja",
+            Lang::PORTUGUESE if option_eq(region, "PT") => "Secção",
             Lang::PORTUGUESE => "Seção",
             Lang::RUSSIAN => "Раздел",
             Lang::SLOVENIAN => "Poglavje",
