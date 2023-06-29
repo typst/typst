@@ -143,7 +143,7 @@ impl Synthesize for RefElem {
                 }
             }
         }
-        if target_push_flat == true {
+        if target_push_flat {
             return Ok(());
         }
 
