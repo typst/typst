@@ -4,7 +4,7 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use super::TextElem;
 use crate::prelude::*;
 
-/// Underline text.
+/// Underlines text.
 ///
 /// ## Example { #example }
 /// ```example
@@ -32,8 +32,8 @@ pub struct UnderlineElem {
     #[fold]
     pub stroke: Smart<PartialStroke>,
 
-    /// Position of the line relative to the baseline, read from the font tables
-    /// if `{auto}`.
+    /// The position of the line relative to the baseline, read from the font
+    /// tables if `{auto}`.
     ///
     /// ```example
     /// #underline(offset: 5pt)[
@@ -43,7 +43,8 @@ pub struct UnderlineElem {
     #[resolve]
     pub offset: Smart<Length>,
 
-    /// Amount that the line will be longer or shorter than its associated text.
+    /// The amount by which to extend the line beyond (or within if negative)
+    /// the content.
     ///
     /// ```example
     /// #align(center,
@@ -81,7 +82,7 @@ impl Show for UnderlineElem {
     }
 }
 
-/// Add a line over text.
+/// Adds a line over text.
 ///
 /// ## Example { #example }
 /// ```example
@@ -110,8 +111,8 @@ pub struct OverlineElem {
     #[fold]
     pub stroke: Smart<PartialStroke>,
 
-    /// Position of the line relative to the baseline, read from the font tables
-    /// if `{auto}`.
+    /// The position of the line relative to the baseline. Read from the font
+    /// tables if `{auto}`.
     ///
     /// ```example
     /// #overline(offset: -1.2em)[
@@ -121,7 +122,8 @@ pub struct OverlineElem {
     #[resolve]
     pub offset: Smart<Length>,
 
-    /// Amount that the line will be longer or shorter than its associated text.
+    /// The amount by which to extend the line beyond (or within if negative)
+    /// the content.
     ///
     /// ```example
     /// #set overline(extent: 4pt)
@@ -164,7 +166,7 @@ impl Show for OverlineElem {
     }
 }
 
-/// Strike through text.
+/// Strikes through text.
 ///
 /// ## Example { #example }
 /// ```example
@@ -192,8 +194,8 @@ pub struct StrikeElem {
     #[fold]
     pub stroke: Smart<PartialStroke>,
 
-    /// Position of the line relative to the baseline, read from the font tables
-    /// if `{auto}`.
+    /// The position of the line relative to the baseline. Read from the font
+    /// tables if `{auto}`.
     ///
     /// This is useful if you are unhappy with the offset your font provides.
     ///
@@ -205,7 +207,8 @@ pub struct StrikeElem {
     #[resolve]
     pub offset: Smart<Length>,
 
-    /// Amount that the line will be longer or shorter than its associated text.
+    /// The amount by which to extend the line beyond (or within if negative)
+    /// the content.
     ///
     /// ```example
     /// This #strike(extent: -2pt)[skips] parts of the word.
@@ -289,7 +292,7 @@ pub(super) fn decorate(
     let gap_padding = 0.08 * text.size;
     let min_width = 0.162 * text.size;
 
-    let mut start = pos.x - deco.extent;
+    let start = pos.x - deco.extent;
     let end = pos.x + (width + 2.0 * deco.extent);
 
     let mut push_segment = |from: Abs, to: Abs| {
@@ -343,29 +346,23 @@ pub(super) fn decorate(
         }
     }
 
+    // Add start and end points, taking padding into account.
+    intersections.push(start - gap_padding);
+    intersections.push(end + gap_padding);
     // When emitting the decorative line segments, we move from left to
     // right. The intersections are not necessarily in this order, yet.
     intersections.sort();
 
-    for gap in intersections.chunks_exact(2) {
-        let l = gap[0] - gap_padding;
-        let r = gap[1] + gap_padding;
+    for edge in intersections.windows(2) {
+        let l = edge[0];
+        let r = edge[1];
 
-        if start >= end {
-            break;
-        }
-
-        if start >= l {
-            start = r;
+        // If we are too close, don't draw the segment
+        if r - l < gap_padding {
             continue;
+        } else {
+            push_segment(l + gap_padding, r - gap_padding);
         }
-
-        push_segment(start, l);
-        start = r;
-    }
-
-    if start < end {
-        push_segment(start, end);
     }
 }
 

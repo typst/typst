@@ -6,8 +6,9 @@ use std::sync::Arc;
 use ecow::EcoString;
 
 use super::ast::AstNode;
-use super::{SourceId, Span, SyntaxKind};
+use super::{Span, SyntaxKind};
 use crate::diag::SourceError;
+use crate::file::FileId;
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -36,12 +37,8 @@ impl SyntaxNode {
     }
 
     /// Create a new error node.
-    pub fn error(
-        message: impl Into<EcoString>,
-        text: impl Into<EcoString>,
-        pos: ErrorPos,
-    ) -> Self {
-        Self(Repr::Error(Arc::new(ErrorNode::new(message, text, pos))))
+    pub fn error(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
+        Self(Repr::Error(Arc::new(ErrorNode::new(message, text))))
     }
 
     /// The type of the node.
@@ -145,7 +142,7 @@ impl SyntaxNode {
         }
 
         if let Repr::Error(error) = &self.0 {
-            vec![SourceError::new(error.span, error.message.clone()).with_pos(error.pos)]
+            vec![SourceError::new(error.span, error.message.clone())]
         } else {
             self.children()
                 .filter(|node| node.erroneous())
@@ -186,14 +183,14 @@ impl SyntaxNode {
     /// Convert the child to an error.
     pub(super) fn convert_to_error(&mut self, message: impl Into<EcoString>) {
         let text = std::mem::take(self).into_text();
-        *self = SyntaxNode::error(message, text, ErrorPos::Full);
+        *self = SyntaxNode::error(message, text);
     }
 
     /// Assign spans to each node.
     #[tracing::instrument(skip_all)]
     pub(super) fn numberize(
         &mut self,
-        id: SourceId,
+        id: FileId,
         within: Range<u64>,
     ) -> NumberingResult {
         if within.start >= within.end {
@@ -285,7 +282,7 @@ impl Debug for SyntaxNode {
 
 impl Default for SyntaxNode {
     fn default() -> Self {
-        Self::error("", "", ErrorPos::Full)
+        Self::error("", "")
     }
 }
 
@@ -381,7 +378,7 @@ impl InnerNode {
     /// a `range` of its children.
     fn numberize(
         &mut self,
-        id: SourceId,
+        id: FileId,
         range: Option<Range<usize>>,
         within: Range<u64>,
     ) -> NumberingResult {
@@ -492,7 +489,7 @@ impl InnerNode {
 
             // Try to renumber.
             let within = start_number..end_number;
-            let id = self.span.source();
+            let id = self.span.id();
             if self.numberize(id, Some(renumber), within).is_ok() {
                 return Ok(());
             }
@@ -540,23 +537,16 @@ struct ErrorNode {
     message: EcoString,
     /// The source text of the node.
     text: EcoString,
-    /// Where in the node an error should be annotated.
-    pos: ErrorPos,
     /// The node's span.
     span: Span,
 }
 
 impl ErrorNode {
     /// Create new error node.
-    fn new(
-        message: impl Into<EcoString>,
-        text: impl Into<EcoString>,
-        pos: ErrorPos,
-    ) -> Self {
+    fn new(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
         Self {
             message: message.into(),
             text: text.into(),
-            pos,
             span: Span::detached(),
         }
     }
@@ -571,17 +561,6 @@ impl Debug for ErrorNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "Error: {:?} ({})", self.text, self.message)
     }
-}
-
-/// Where in a node an error should be annotated,
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum ErrorPos {
-    /// Over the full width of the node.
-    Full,
-    /// At the start of the node.
-    Start,
-    /// At the end of the node.
-    End,
 }
 
 /// A syntax node in a context.

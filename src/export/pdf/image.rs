@@ -5,7 +5,7 @@ use pdf_writer::{Filter, Finish};
 
 use super::{deflate, PdfContext, RefExt};
 use crate::image::{DecodedImage, Image, RasterFormat};
-use crate::util::Buffer;
+use crate::util::Bytes;
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
@@ -89,7 +89,7 @@ pub fn write_images(ctx: &mut PdfContext) {
 /// Skips the alpha channel as that's encoded separately.
 #[comemo::memoize]
 #[tracing::instrument(skip_all)]
-fn encode_image(image: &Image) -> (Buffer, Filter, bool) {
+fn encode_image(image: &Image) -> (Bytes, Filter, bool) {
     let decoded = image.decoded();
     let (dynamic, format) = match decoded.as_ref() {
         DecodedImage::Raster(dynamic, _, format) => (dynamic, *format),

@@ -3,16 +3,17 @@ use std::num::NonZeroUsize;
 use ecow::EcoString;
 
 use crate::doc::{Destination, Frame, FrameItem, Meta, Position};
+use crate::file::FileId;
 use crate::geom::{Geometry, Point, Size};
 use crate::model::Introspector;
-use crate::syntax::{LinkedNode, Source, SourceId, Span, SyntaxKind};
+use crate::syntax::{LinkedNode, Source, Span, SyntaxKind};
 use crate::World;
 
 /// Where to [jump](jump_from_click) to.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Jump {
     /// Jump to a position in a source file.
-    Source(SourceId, usize),
+    Source(FileId, usize),
     /// Jump to an external URL.
     Url(EcoString),
     /// Jump to a point on a page.
@@ -21,9 +22,9 @@ pub enum Jump {
 
 impl Jump {
     fn from_span(world: &dyn World, span: Span) -> Option<Self> {
-        let source = world.source(span.source());
+        let source = world.source(span.id()).ok()?;
         let node = source.find(span)?;
-        Some(Self::Source(source.id(), node.offset()))
+        Some(Self::Source(span.id(), node.offset()))
     }
 }
 
@@ -78,7 +79,7 @@ pub fn jump_from_click(
                         Size::new(width, text.size),
                         click,
                     ) {
-                        let source = world.source(span.source());
+                        let source = world.source(span.id()).ok()?;
                         let node = source.find(span)?;
                         let pos = if node.kind() == SyntaxKind::Text {
                             let range = node.range();

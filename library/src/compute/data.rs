@@ -3,7 +3,7 @@ use typst::eval::Datetime;
 
 use crate::prelude::*;
 
-/// Read plain text from a file.
+/// Reads plain text from a file.
 ///
 /// The file will be read and returned as a string.
 ///
@@ -25,15 +25,15 @@ pub fn read(
     vm: &mut Vm,
 ) -> SourceResult<Str> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
     let text = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
     Ok(text.into())
 }
 
-/// Read structured data from a CSV file.
+/// Reads structured data from a CSV file.
 ///
 /// The CSV file will be read and parsed into a 2-dimensional array of strings:
 /// Each row in the CSV file will be represented as an array of strings, and all
@@ -66,8 +66,8 @@ pub fn csv(
     vm: &mut Vm,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
 
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
@@ -129,7 +129,7 @@ fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
     }
 }
 
-/// Read structured data from a JSON file.
+/// Reads structured data from a JSON file.
 ///
 /// The file must contain a valid JSON object or array. JSON objects will be
 /// converted into Typst dictionaries, and JSON arrays will be converted into
@@ -177,8 +177,8 @@ pub fn json(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
     let value: serde_json::Value =
         serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
     Ok(convert_json(value))
@@ -211,7 +211,7 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
     eco_format!("failed to parse json file: syntax error in line {}", error.line())
 }
 
-/// Read structured data from a TOML file.
+/// Reads structured data from a TOML file.
 ///
 /// The file must contain a valid TOML table. TOML tables will be
 /// converted into Typst dictionaries, and TOML arrays will be converted into
@@ -243,8 +243,8 @@ pub fn toml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
 
     let raw = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
@@ -304,7 +304,7 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
     }
 }
 
-/// Read structured data from a YAML file.
+/// Reads structured data from a YAML file.
 ///
 /// The file must contain a valid YAML object or array. YAML mappings will be
 /// converted into Typst dictionaries, and YAML sequences will be converted into
@@ -352,8 +352,8 @@ pub fn yaml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
     let value: serde_yaml::Value =
         serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
     Ok(convert_yaml(value))
@@ -396,7 +396,7 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
     eco_format!("failed to parse yaml file: {}", error.to_string().trim())
 }
 
-/// Read structured data from an XML file.
+/// Reads structured data from an XML file.
 ///
 /// The XML file is parsed into an array of dictionaries and strings. XML nodes
 /// can be elements or strings. Elements are represented as dictionaries with
@@ -455,8 +455,8 @@ pub fn xml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let path = vm.locate(&path).at(span)?;
-    let data = vm.world().file(&path).at(span)?;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
     let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
     Ok(convert_xml(document.root()))

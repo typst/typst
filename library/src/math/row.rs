@@ -85,8 +85,16 @@ impl MathRow {
         self.0.iter()
     }
 
-    pub fn width(&self) -> Abs {
-        self.iter().map(MathFragment::width).sum()
+    /// Extract the sublines of the row.
+    ///
+    /// It is very unintuitive, but in current state of things, a `MathRow` can
+    /// contain several actual rows. That function deconstructs it to "single"
+    /// rows. Hopefully this is only a temporary hack.
+    pub fn rows(&self) -> Vec<Self> {
+        self.0
+            .split(|frag| matches!(frag, MathFragment::Linebreak))
+            .map(|slice| Self(slice.to_vec()))
+            .collect()
     }
 
     pub fn ascent(&self) -> Abs {
@@ -126,23 +134,19 @@ impl MathRow {
     }
 
     pub fn into_aligned_frame(
-        mut self,
+        self,
         ctx: &MathContext,
         points: &[Abs],
         align: Align,
     ) -> Frame {
         if self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
-            let fragments: Vec<_> = std::mem::take(&mut self.0);
             let leading = if ctx.style.size >= MathSize::Text {
                 ParElem::leading_in(ctx.styles())
             } else {
                 TIGHT_LEADING.scaled(ctx)
             };
 
-            let mut rows: Vec<_> = fragments
-                .split(|frag| matches!(frag, MathFragment::Linebreak))
-                .map(|slice| Self(slice.to_vec()))
-                .collect();
+            let mut rows: Vec<_> = self.rows();
 
             if matches!(rows.last(), Some(row) if row.0.is_empty()) {
                 rows.pop();

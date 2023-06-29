@@ -39,36 +39,36 @@ use crate::prelude::*;
 /// Category: layout
 #[element(Layout, LocalName, Figurable)]
 pub struct TableElem {
-    /// Defines the column sizes. See the [grid documentation]($func/grid) for
-    /// more information on track sizing.
+    /// The column sizes. See the [grid documentation]($func/grid) for more
+    /// information on track sizing.
     pub columns: TrackSizings,
 
-    /// Defines the row sizes. See the [grid documentation]($func/grid) for more
+    /// The row sizes. See the [grid documentation]($func/grid) for more
     /// information on track sizing.
     pub rows: TrackSizings,
 
-    /// Defines the gaps between rows & columns. See the [grid
+    /// The gaps between rows & columns. See the [grid
     /// documentation]($func/grid) for more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
-    /// Defines the gaps between columns. Takes precedence over `gutter`. See
-    /// the [grid documentation]($func/grid) for more information on gutters.
+    /// The gaps between columns. Takes precedence over `gutter`. See the [grid
+    /// documentation]($func/grid) for more information on gutters.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
     )]
     pub column_gutter: TrackSizings,
 
-    /// Defines the gaps between rows. Takes precedence over `gutter`. See the
-    /// [grid documentation]($func/grid) for more information on gutters.
+    /// The gaps between rows. Takes precedence over `gutter`. See the [grid
+    /// documentation]($func/grid) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 
     /// How to fill the cells.
     ///
     /// This can be a color or a function that returns a color. The function is
-    /// passed the cell's column and row index, starting at zero. This can be
+    /// passed the cells' column and row index, starting at zero. This can be
     /// used to implement striped tables.
     ///
     /// ```example
@@ -87,11 +87,11 @@ pub struct TableElem {
     /// ```
     pub fill: Celled<Option<Paint>>,
 
-    /// How to align the cell's content.
+    /// How to align the cells' content.
     ///
     /// This can either be a single alignment, an array of alignments
     /// (corresponding to each column) or a function that returns an alignment.
-    /// The function is passed the cell's column and row index, starting at zero.
+    /// The function is passed the cells' column and row index, starting at zero.
     /// If set to `{auto}`, the outer alignment is used.
     ///
     /// ```example
@@ -117,7 +117,7 @@ pub struct TableElem {
     #[default(Some(PartialStroke::default()))]
     pub stroke: Option<PartialStroke>,
 
-    /// How much to pad the cells's content.
+    /// How much to pad the cells' content.
     #[default(Abs::pt(5.0).into())]
     pub inset: Rel<Length>,
 
@@ -312,6 +312,7 @@ impl LocalName for TableElem {
             Lang::CZECH => "Tabulka",
             Lang::DANISH => "Tabel",
             Lang::DUTCH => "Tabel",
+            Lang::FILIPINO => "Talaan",
             Lang::FRENCH => "Tableau",
             Lang::GERMAN => "Tabelle",
             Lang::ITALIAN => "Tabella",

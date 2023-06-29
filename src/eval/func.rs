@@ -11,9 +11,10 @@ use super::{
     Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
+use crate::file::FileId;
 use crate::model::{DelayedErrors, ElemFunc, Introspector, Locator, Vt};
 use crate::syntax::ast::{self, AstNode, Expr, Ident};
-use crate::syntax::{SourceId, Span, SyntaxNode};
+use crate::syntax::{Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
@@ -125,7 +126,6 @@ impl Func {
         args: impl IntoIterator<Item = T>,
     ) -> SourceResult<Value> {
         let route = Route::default();
-        let id = SourceId::detached();
         let scopes = Scopes::new(None);
         let mut locator = Locator::chained(vt.locator.track());
         let vt = Vt {
@@ -135,7 +135,7 @@ impl Func {
             delayed: TrackedMut::reborrow_mut(&mut vt.delayed),
             tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
         };
-        let mut vm = Vm::new(vt, route.track(), id, scopes);
+        let mut vm = Vm::new(vt, route.track(), FileId::detached(), scopes);
         let args = Args::new(self.span(), args);
         self.call_vm(&mut vm, args)
     }
@@ -297,7 +297,7 @@ pub struct ParamInfo {
 #[derive(Hash)]
 pub(super) struct Closure {
     /// The source file where the closure was defined.
-    pub location: SourceId,
+    pub location: FileId,
     /// The name of the closure.
     pub name: Option<Ident>,
     /// Captured values from outer scopes.

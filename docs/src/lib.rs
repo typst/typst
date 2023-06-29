@@ -62,6 +62,7 @@ pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
         tutorial_pages(resolver),
         reference_pages(resolver),
         guides_pages(resolver),
+        packages_page(),
         markdown_page(resolver, "/docs/", "general/changelog.md"),
         markdown_page(resolver, "/docs/", "general/community.md"),
     ]
@@ -123,6 +124,7 @@ pub enum BodyModel {
     Funcs(FuncsModel),
     Type(TypeModel),
     Symbols(SymbolsModel),
+    Packages,
 }
 
 /// Build the tutorial.
@@ -135,14 +137,6 @@ fn tutorial_pages(resolver: &dyn Resolver) -> PageModel {
         .filter(|file| file.path() != Path::new("tutorial/welcome.md"))
         .map(|file| markdown_page(resolver, "/docs/tutorial/", file.path()))
         .collect();
-    page
-}
-
-/// Build the guides section.
-fn guides_pages(resolver: &dyn Resolver) -> PageModel {
-    let mut page = markdown_page(resolver, "/docs/", "guides/welcome.md");
-    page.children =
-        vec![markdown_page(resolver, "/docs/guides/", "guides/guide-for-latex-users.md")];
     page
 }
 
@@ -167,6 +161,27 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
         category_page(resolver, "data-loading"),
     ];
     page
+}
+
+/// Build the guides section.
+fn guides_pages(resolver: &dyn Resolver) -> PageModel {
+    let mut page = markdown_page(resolver, "/docs/", "guides/welcome.md");
+    page.children =
+        vec![markdown_page(resolver, "/docs/guides/", "guides/guide-for-latex-users.md")];
+    page
+}
+
+/// Build the packages section.
+fn packages_page() -> PageModel {
+    PageModel {
+        route: "/docs/packages/".into(),
+        title: "Packages".into(),
+        description: "Packages for Typst.".into(),
+        part: None,
+        outline: vec![],
+        body: BodyModel::Packages,
+        children: vec![],
+    }
 }
 
 /// Create a page from a markdown file.

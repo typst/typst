@@ -3,7 +3,7 @@ use unicode_ident::{is_xid_continue, is_xid_start};
 use unicode_segmentation::UnicodeSegmentation;
 use unscanny::Scanner;
 
-use super::{ErrorPos, SyntaxKind};
+use super::SyntaxKind;
 
 /// Splits up a string of source code into tokens.
 #[derive(Clone)]
@@ -16,7 +16,7 @@ pub(super) struct Lexer<'s> {
     /// Whether the last token contained a newline.
     newline: bool,
     /// An error for the last token.
-    error: Option<(EcoString, ErrorPos)>,
+    error: Option<EcoString>,
 }
 
 /// What kind of tokens to emit.
@@ -69,7 +69,7 @@ impl<'s> Lexer<'s> {
     }
 
     /// Take out the last error, if any.
-    pub fn take_error(&mut self) -> Option<(EcoString, ErrorPos)> {
+    pub fn take_error(&mut self) -> Option<EcoString> {
         self.error.take()
     }
 }
@@ -77,7 +77,7 @@ impl<'s> Lexer<'s> {
 impl Lexer<'_> {
     /// Construct a full-positioned syntax error.
     fn error(&mut self, message: impl Into<EcoString>) -> SyntaxKind {
-        self.error = Some((message.into(), ErrorPos::Full));
+        self.error = Some(message.into());
         SyntaxKind::Error
     }
 }
@@ -203,7 +203,7 @@ impl Lexer<'_> {
         if self.s.eat_if("u{") {
             let hex = self.s.eat_while(char::is_ascii_alphanumeric);
             if !self.s.eat_if('}') {
-                return self.error("unclosed unicode escape sequence");
+                return self.error("unclosed Unicode escape sequence");
             }
 
             if u32::from_str_radix(hex, 16)
@@ -211,7 +211,7 @@ impl Lexer<'_> {
                 .and_then(std::char::from_u32)
                 .is_none()
             {
-                return self.error(eco_format!("invalid unicode codepoint: {}", hex));
+                return self.error(eco_format!("invalid Unicode codepoint: {}", hex));
             }
 
             return SyntaxKind::Escape;

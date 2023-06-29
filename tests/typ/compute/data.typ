@@ -3,22 +3,22 @@
 
 ---
 // Test reading plain text files
-#let data = read("/hello.txt")
+#let data = read("/files/hello.txt")
 #test(data, "Hello, world!")
 
 ---
-// Error: 18-32 file not found (searched at /missing.txt)
-#let data = read("/missing.txt")
+// Error: 18-38 file not found (searched at files/missing.txt)
+#let data = read("/files/missing.txt")
 
 ---
-// Error: 18-28 file is not valid utf-8
-#let data = read("/bad.txt")
+// Error: 18-34 file is not valid utf-8
+#let data = read("/files/bad.txt")
 
 ---
 // Test reading CSV data.
 // Ref: true
 #set page(width: auto)
-#let data = csv("/zoo.csv")
+#let data = csv("/files/zoo.csv")
 #let cells = data.at(0).map(strong) + data.slice(1).flatten()
 #table(columns: data.at(0).len(), ..cells)
 
@@ -27,23 +27,23 @@
 #csv("nope.csv")
 
 ---
-// Error: 6-16 failed to parse csv file: found 3 instead of 2 fields in line 3
-#csv("/bad.csv")
+// Error: 6-22 failed to parse csv file: found 3 instead of 2 fields in line 3
+#csv("/files/bad.csv")
 
 ---
 // Test reading JSON data.
-#let data = json("/zoo.json")
+#let data = json("/files/zoo.json")
 #test(data.len(), 3)
 #test(data.at(0).name, "Debby")
 #test(data.at(2).weight, 150)
 
 ---
-// Error: 7-18 failed to parse json file: syntax error in line 3
-#json("/bad.json")
+// Error: 7-24 failed to parse json file: syntax error in line 3
+#json("/files/bad.json")
 
 ---
 // Test reading TOML data.
-#let data = toml("/toml-types.toml")
+#let data = toml("/files/toml-types.toml")
 #test(data.string, "wonderful")
 #test(data.integer, 42)
 #test(data.float, 3.14)
@@ -62,12 +62,12 @@
 ))
 
 ---
-// Error: 7-18 failed to parse toml file: expected `.`, `=`, index 15-15
-#toml("/bad.toml")
+// Error: 7-24 failed to parse toml file: expected `.`, `=`, index 15-15
+#toml("/files/bad.toml")
 
 ---
 // Test reading YAML data
-#let data = yaml("/yaml-types.yaml")
+#let data = yaml("/files/yaml-types.yaml")
 #test(data.len(), 7)
 #test(data.null_key, (none, none))
 #test(data.string, "text")
@@ -80,12 +80,12 @@
 ---
 
 ---
-// Error: 7-18 failed to parse yaml file: while parsing a flow sequence, expected ',' or ']' at line 2 column 1
-#yaml("/bad.yaml")
+// Error: 7-24 failed to parse yaml file: while parsing a flow sequence, expected ',' or ']' at line 2 column 1
+#yaml("/files/bad.yaml")
 
 ---
 // Test reading XML data.
-#let data = xml("/data.xml")
+#let data = xml("/files/data.xml")
 #test(data, ((
   tag: "data",
   attrs: (:),
@@ -109,5 +109,5 @@
 ),))
 
 ---
-// Error: 6-16 failed to parse xml file: found closing tag 'data' instead of 'hello' in line 3
-#xml("/bad.xml")
+// Error: 6-22 failed to parse xml file: found closing tag 'data' instead of 'hello' in line 3
+#xml("/files/bad.xml")

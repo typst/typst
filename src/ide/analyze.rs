@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 use comemo::Track;
 use ecow::EcoString;
 
@@ -7,7 +5,6 @@ use crate::doc::Frame;
 use crate::eval::{eval, Module, Route, Tracer, Value};
 use crate::model::{Introspector, Label};
 use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
-use crate::util::PathExt;
 use crate::World;
 
 /// Try to determine a set of possible values for an expression.
@@ -42,7 +39,7 @@ pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Val
                 world.track(),
                 route.track(),
                 tracer.track_mut(),
-                world.main(),
+                &world.main(),
             )
             .and_then(|module| {
                 typst::model::typeset(
@@ -66,18 +63,11 @@ pub fn analyze_import(
     source: &Source,
     path: &str,
 ) -> Option<Module> {
-    let full: PathBuf = if let Some(path) = path.strip_prefix('/') {
-        world.root().join(path).normalize()
-    } else if let Some(dir) = source.path().parent() {
-        dir.join(path).normalize()
-    } else {
-        path.into()
-    };
     let route = Route::default();
     let mut tracer = Tracer::default();
-    let id = world.resolve(&full).ok()?;
-    let source = world.source(id);
-    eval(world.track(), route.track(), tracer.track_mut(), source).ok()
+    let id = source.id().join(path).ok()?;
+    let source = world.source(id).ok()?;
+    eval(world.track(), route.track(), tracer.track_mut(), &source).ok()
 }
 
 /// Find all labels and details for them.
@@ -112,7 +102,7 @@ pub fn analyze_labels(
     let split = output.len();
 
     // Bibliography keys.
-    for (key, detail) in (items.bibliography_keys)(world.track(), introspector.track()) {
+    for (key, detail) in (items.bibliography_keys)(introspector.track()) {
         output.push((Label(key), detail));
     }
 

@@ -18,7 +18,7 @@ use usvg::{TreeParsing, TreeTextToPath};
 use crate::diag::{format_xml_like_error, StrResult};
 use crate::font::Font;
 use crate::geom::Axes;
-use crate::util::Buffer;
+use crate::util::Bytes;
 use crate::World;
 
 /// A raster or vector image.
@@ -31,7 +31,7 @@ pub struct Image(Arc<Prehashed<Repr>>);
 #[derive(Hash)]
 struct Repr {
     /// The raw, undecoded image data.
-    data: Buffer,
+    data: Bytes,
     /// The format of the encoded `buffer`.
     format: ImageFormat,
     /// The size of the image.
@@ -47,7 +47,7 @@ impl Image {
     /// Create an image from a buffer and a format.
     #[comemo::memoize]
     pub fn new(
-        data: Buffer,
+        data: Bytes,
         format: ImageFormat,
         alt: Option<EcoString>,
     ) -> StrResult<Self> {
@@ -71,7 +71,7 @@ impl Image {
     /// Create a font-dependant image from a buffer and a format.
     #[comemo::memoize]
     pub fn with_fonts(
-        data: Buffer,
+        data: Bytes,
         format: ImageFormat,
         world: Tracked<dyn World + '_>,
         fallback_family: Option<&str>,
@@ -95,7 +95,7 @@ impl Image {
     }
 
     /// The raw image data.
-    pub fn data(&self) -> &Buffer {
+    pub fn data(&self) -> &Bytes {
         &self.0.data
     }
 
@@ -234,7 +234,7 @@ pub struct IccProfile(pub Vec<u8>);
 
 /// Decode a raster image.
 #[comemo::memoize]
-fn decode_raster(data: &Buffer, format: RasterFormat) -> StrResult<Arc<DecodedImage>> {
+fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Arc<DecodedImage>> {
     fn decode_with<'a, T: ImageDecoder<'a>>(
         decoder: ImageResult<T>,
     ) -> ImageResult<(image::DynamicImage, Option<IccProfile>)> {
@@ -259,7 +259,7 @@ fn decode_raster(data: &Buffer, format: RasterFormat) -> StrResult<Arc<DecodedIm
 /// Decode an SVG image.
 #[comemo::memoize]
 fn decode_svg(
-    data: &Buffer,
+    data: &Bytes,
     loader: Tracked<dyn SvgFontLoader + '_>,
 ) -> StrResult<Arc<DecodedImage>> {
     // Disable usvg's default to "Times New Roman". Instead, we default to

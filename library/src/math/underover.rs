@@ -1,8 +1,13 @@
 use super::*;
 
-const LINE_GAP: Em = Em::new(0.15);
 const BRACE_GAP: Em = Em::new(0.25);
 const BRACKET_GAP: Em = Em::new(0.25);
+
+/// A marker to distinguish under- vs. overlines.
+enum LineKind {
+    Over,
+    Under,
+}
 
 /// A horizontal line under content.
 ///
@@ -23,7 +28,7 @@ pub struct UnderlineElem {
 impl LayoutMath for UnderlineElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &None, '\u{305}', LINE_GAP, false, self.span())
+        layout_underoverline(ctx, &self.body(), self.span(), LineKind::Under)
     }
 }
 
@@ -46,8 +51,70 @@ pub struct OverlineElem {
 impl LayoutMath for OverlineElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(ctx, &self.body(), &None, '\u{332}', LINE_GAP, true, self.span())
+        layout_underoverline(ctx, &self.body(), self.span(), LineKind::Over)
     }
+}
+
+/// layout under- or overlined content
+fn layout_underoverline(
+    ctx: &mut MathContext,
+    body: &Content,
+    span: Span,
+    line: LineKind,
+) -> SourceResult<()> {
+    let (extra_height, content, line_pos, content_pos, baseline, bar_height);
+    match line {
+        LineKind::Under => {
+            let sep = scaled!(ctx, underbar_extra_descender);
+            bar_height = scaled!(ctx, underbar_rule_thickness);
+            let gap = scaled!(ctx, underbar_vertical_gap);
+            extra_height = sep + bar_height + gap;
+
+            content = ctx.layout_fragment(body)?;
+
+            line_pos = Point::with_y(content.height() + gap + bar_height / 2.0);
+            content_pos = Point::zero();
+            baseline = content.ascent()
+        }
+        LineKind::Over => {
+            let sep = scaled!(ctx, overbar_extra_ascender);
+            bar_height = scaled!(ctx, overbar_rule_thickness);
+            let gap = scaled!(ctx, overbar_vertical_gap);
+            extra_height = sep + bar_height + gap;
+
+            ctx.style(ctx.style.with_cramped(true));
+            content = ctx.layout_fragment(body)?;
+            ctx.unstyle();
+
+            line_pos = Point::with_y(sep + bar_height / 2.0);
+            content_pos = Point::with_y(extra_height);
+            baseline = content.ascent() + extra_height;
+        }
+    }
+
+    let width = content.width();
+    let height = content.height() + extra_height;
+    let size = Size::new(width, height);
+
+    let content_class = content.class().unwrap_or(MathClass::Normal);
+    let mut frame = Frame::new(size);
+    frame.set_baseline(baseline);
+    frame.push_frame(content_pos, content.into_frame());
+    frame.push(
+        line_pos,
+        FrameItem::Shape(
+            Geometry::Line(Point::with_x(width)).stroked(Stroke {
+                paint: TextElem::fill_in(ctx.styles()),
+                thickness: bar_height,
+                ..Stroke::default()
+            }),
+            span,
+        ),
+    );
+
+    ctx.push(FrameFragment::new(ctx, frame).with_class(content_class));
+
+    Ok(())
 }
 
 /// A horizontal brace under content, with an optional annotation below.
@@ -73,7 +140,7 @@ pub struct UnderbraceElem {
 impl LayoutMath for UnderbraceElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(
+        layout_underoverspreader(
             ctx,
             &self.body(),
             &self.annotation(ctx.styles()),
@@ -108,7 +175,7 @@ pub struct OverbraceElem {
 impl LayoutMath for OverbraceElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(
+        layout_underoverspreader(
             ctx,
             &self.body(),
             &self.annotation(ctx.styles()),
@@ -143,7 +210,7 @@ pub struct UnderbracketElem {
 impl LayoutMath for UnderbracketElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(
+        layout_underoverspreader(
             ctx,
             &self.body(),
             &self.annotation(ctx.styles()),
@@ -178,7 +245,7 @@ pub struct OverbracketElem {
 impl LayoutMath for OverbracketElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        layout(
+        layout_underoverspreader(
             ctx,
             &self.body(),
             &self.annotation(ctx.styles()),
@@ -190,8 +257,8 @@ impl LayoutMath for OverbracketElem {
     }
 }
 
-/// Layout an over- or underthing.
-fn layout(
+/// Layout an over- or underbrace-like object.
+fn layout_underoverspreader(
     ctx: &mut MathContext,
     body: &Content,
     annotation: &Option<Content>,
@@ -203,10 +270,11 @@ fn layout(
     let gap = gap.scaled(ctx);
     let body = ctx.layout_row(body)?;
     let body_class = body.class();
+    let body = body.into_fragment(ctx);
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
-    let mut rows = vec![body, stretched.into()];
+    let mut rows = vec![MathRow::new(vec![body]), stretched.into()];
     ctx.style(if reverse {
         ctx.style.for_subscript()
     } else {
@@ -243,6 +311,7 @@ pub(super) fn stack(
     gap: Abs,
     baseline: usize,
 ) -> Frame {
+    let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
     let AlignmentResult { points, width } = alignments(&rows);
     let rows: Vec<_> = rows
         .into_iter()

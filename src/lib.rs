@@ -45,6 +45,7 @@ pub mod diag;
 pub mod eval;
 pub mod doc;
 pub mod export;
+pub mod file;
 pub mod font;
 pub mod geom;
 pub mod ide;
@@ -52,16 +53,15 @@ pub mod image;
 pub mod model;
 pub mod syntax;
 
-use std::path::Path;
-
 use comemo::{Prehashed, Track, TrackedMut};
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
+use crate::file::FileId;
 use crate::font::{Font, FontBook};
-use crate::syntax::{Source, SourceId};
-use crate::util::Buffer;
+use crate::syntax::Source;
+use crate::util::Bytes;
 
 /// Compile a source file into a fully layouted document.
 #[tracing::instrument(skip(world))]
@@ -79,7 +79,7 @@ pub fn compile(world: &dyn World) -> SourceResult<Document> {
         world,
         route.track(),
         TrackedMut::reborrow_mut(&mut tracer),
-        world.main(),
+        &world.main(),
     )?;
 
     // Typeset the module's contents.
@@ -87,35 +87,38 @@ pub fn compile(world: &dyn World) -> SourceResult<Document> {
 }
 
 /// The environment in which typesetting occurs.
+///
+/// All loading functions (`main`, `source`, `file`, `font`) should perform
+/// internal caching so that they are relatively cheap on repeated invocations
+/// with the same argument. [`Source`], [`Bytes`], and [`Font`] are
+/// all reference-counted and thus cheap to clone.
+///
+/// The compiler doesn't do the caching itself because the world has much more
+/// information on when something can change. For example, fonts typically don't
+/// change and can thus even be cached across multiple compilations (for
+/// long-running applications like `typst watch`). Source files on the other
+/// hand can change and should thus be cleared after. Advanced clients like
+/// language servers can also retain the source files and [edited](Source::edit)
+/// them in-place to benefit from better incremental performance.
 #[comemo::track]
 pub trait World {
-    /// The path relative to which absolute paths are.
-    ///
-    /// Defaults to the empty path.
-    fn root(&self) -> &Path {
-        Path::new("")
-    }
-
     /// The standard library.
     fn library(&self) -> &Prehashed<Library>;
-
-    /// The main source file.
-    fn main(&self) -> &Source;
-
-    /// Try to resolve the unique id of a source file.
-    fn resolve(&self, path: &Path) -> FileResult<SourceId>;
-
-    /// Access a source file by id.
-    fn source(&self, id: SourceId) -> &Source;
 
     /// Metadata about all known fonts.
     fn book(&self) -> &Prehashed<FontBook>;
 
-    /// Try to access the font with the given id.
-    fn font(&self, id: usize) -> Option<Font>;
+    /// Access the main source file.
+    fn main(&self) -> Source;
 
-    /// Try to access a file at a path.
-    fn file(&self, path: &Path) -> FileResult<Buffer>;
+    /// Try to access the specified source file.
+    fn source(&self, id: FileId) -> FileResult<Source>;
+
+    /// Try to access the specified file.
+    fn file(&self, id: FileId) -> FileResult<Bytes>;
+
+    /// Try to access the font with the given index in the font book.
+    fn font(&self, index: usize) -> Option<Font>;
 
     /// Get the current date.
     ///

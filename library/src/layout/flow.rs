@@ -10,10 +10,10 @@ use crate::visualize::{
     SquareElem,
 };
 
-/// Arrange spacing, paragraphs and block-level elements into a flow.
+/// Arranges spacing, paragraphs and block-level elements into a flow.
 ///
-/// This element is responsible for layouting both the top-level content flow and
-/// the contents of boxes.
+/// This element is responsible for layouting both the top-level content flow
+/// and the contents of boxes.
 ///
 /// Display: Flow
 /// Category: layout
@@ -488,6 +488,11 @@ impl FlowLayouter<'_> {
         // Process footnotes one at a time.
         let mut k = 0;
         while k < notes.len() {
+            if notes[k].is_ref() {
+                k += 1;
+                continue;
+            }
+
             if !self.has_footnotes {
                 self.layout_footnote_separator(vt)?;
             }

@@ -11,7 +11,7 @@ use crate::layout::PageElem;
 use crate::math::EquationElem;
 use crate::prelude::*;
 
-/// Count through pages, elements, and more.
+/// Counts through pages, elements, and more.
 ///
 /// With the counter function, you can access and modify counters for pages,
 /// headings, figures, and more. Moreover, you can define custom counters for
@@ -23,9 +23,9 @@ use crate::prelude::*;
 /// on the counter. To see any output, you also have to enable heading
 /// [numbering]($func/heading.numbering).
 ///
-/// The display function optionally takes an argument telling it how to
-/// format the counter. This can be a
-/// [numbering pattern or a function]($func/numbering).
+/// The `display` method optionally takes an argument telling it how to format
+/// the counter. This can be a [numbering pattern or a
+/// function]($func/numbering).
 ///
 /// ```example
 /// #set heading(numbering: "1.")
@@ -203,7 +203,7 @@ use crate::prelude::*;
 ///
 /// ## Methods
 /// ### display()
-/// Display the value of the counter.
+/// Displays the value of the counter.
 ///
 /// - numbering: string or function (positional)
 ///   A [numbering pattern or a function]($func/numbering), which specifies how
@@ -224,7 +224,7 @@ use crate::prelude::*;
 /// - returns: content
 ///
 /// ### step()
-/// Increase the value of the counter by one.
+/// Increases the value of the counter by one.
 ///
 /// The update will be in effect at the position where the returned content is
 /// inserted into the document. If you don't put the output into the document,
@@ -238,7 +238,7 @@ use crate::prelude::*;
 /// - returns: content
 ///
 /// ### update()
-/// Update the value of the counter.
+/// Updates the value of the counter.
 ///
 /// Just like with `step`, the update only occurs if you put the resulting
 /// content into the document.
@@ -252,7 +252,7 @@ use crate::prelude::*;
 /// - returns: content
 ///
 /// ### at()
-/// Get the value of the counter at the given location. Always returns an
+/// Gets the value of the counter at the given location. Always returns an
 /// array of integers, even if the counter has just one number.
 ///
 /// - location: location (positional, required)
@@ -263,7 +263,7 @@ use crate::prelude::*;
 /// - returns: array
 ///
 /// ### final()
-/// Get the value of the counter at the end of the document. Always returns an
+/// Gets the value of the counter at the end of the document. Always returns an
 /// array of integers, even if the counter has just one number.
 ///
 /// - location: location (positional, required)

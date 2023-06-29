@@ -1,7 +1,7 @@
 use super::{AlignElem, Spacing};
 use crate::prelude::*;
 
-/// Arrange content and spacing horizontally or vertically.
+/// Arranges content and spacing horizontally or vertically.
 ///
 /// The stack places a list of items along an axis, with optional spacing
 /// between each item.

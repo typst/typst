@@ -2,6 +2,7 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
+use typst::util::Bytes;
 
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
@@ -37,11 +38,17 @@ pub struct ImageElem {
     #[parse(
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
-        let path: EcoString = vm.locate(&path).at(span)?.to_string_lossy().into();
-        let _ = load(vm.world(), &path, None, None).at(span)?;
+        let id = vm.location().join(&path).at(span)?;
+        let data = vm.world().file(id).at(span)?;
         path
     )]
     pub path: EcoString,
+
+    /// The raw file data.
+    #[internal]
+    #[required]
+    #[parse(data)]
+    pub data: Bytes,
 
     /// The width of the image.
     pub width: Smart<Rel<Length>>,
@@ -65,10 +72,29 @@ impl Layout for ImageElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let first = families(styles).next();
-        let fallback_family = first.as_ref().map(|f| f.as_str());
-        let image =
-            load(vt.world, &self.path(), fallback_family, self.alt(styles)).unwrap();
+        let ext = Path::new(self.path().as_str())
+            .extension()
+            .and_then(OsStr::to_str)
+            .unwrap_or_default()
+            .to_lowercase();
+
+        let format = match ext.as_str() {
+            "png" => ImageFormat::Raster(RasterFormat::Png),
+            "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
+            "gif" => ImageFormat::Raster(RasterFormat::Gif),
+            "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
+            _ => bail!(self.span(), "unknown image format"),
+        };
+
+        let image = Image::with_fonts(
+            self.data(),
+            format,
+            vt.world,
+            families(styles).next().as_ref().map(|f| f.as_str()),
+            self.alt(styles),
+        )
+        .at(self.span())?;
+
         let sizing = Axes::new(self.width(styles), self.height(styles));
         let region = sizing
             .zip(regions.base())
@@ -137,6 +163,7 @@ impl LocalName for ImageElem {
             Lang::CZECH => "Obrázek",
             Lang::DANISH => "Figur",
             Lang::DUTCH => "Figuur",
+            Lang::FILIPINO => "Pigura",
             Lang::FRENCH => "Figure",
             Lang::GERMAN => "Abbildung",
             Lang::ITALIAN => "Figura",
@@ -167,25 +194,4 @@ pub enum ImageFit {
     /// The image should be stretched so that it exactly fills the area, even if
     /// this means that the image will be distorted.
     Stretch,
-}
-
-/// Load an image from a path.
-#[comemo::memoize]
-fn load(
-    world: Tracked<dyn World + '_>,
-    full: &str,
-    fallback_family: Option<&str>,
-    alt: Option<EcoString>,
-) -> StrResult<Image> {
-    let full = Path::new(full);
-    let buffer = world.file(full)?;
-    let ext = full.extension().and_then(OsStr::to_str).unwrap_or_default();
-    let format = match ext.to_lowercase().as_str() {
-        "png" => ImageFormat::Raster(RasterFormat::Png),
-        "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
-        "gif" => ImageFormat::Raster(RasterFormat::Gif),
-        "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
-        _ => bail!("unknown image format"),
-    };
-    Image::with_fonts(buffer, format, world, fallback_family, alt)
 }

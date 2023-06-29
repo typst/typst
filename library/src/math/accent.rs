@@ -3,7 +3,7 @@ use super::*;
 /// How much the accent can be shorter than the base.
 const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
-/// Attach an accent to a base.
+/// Attaches an accent to a base.
 ///
 /// ## Example { #example }
 /// ```example

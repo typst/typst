@@ -2,13 +2,15 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU64;
 use std::ops::Range;
 
-use super::SourceId;
+use super::Source;
+use crate::file::FileId;
+use crate::World;
 
 /// A unique identifier for a syntax node.
 ///
 /// This is used throughout the compiler to track which source section an error
-/// or element stems from. Can be [mapped back](super::Source::range) to a byte
-/// range for user facing display.
+/// or element stems from. Can be [mapped back](Self::range) to a byte range for
+/// user facing display.
 ///
 /// During editing, the span values stay mostly stable, even for nodes behind an
 /// insertion. This is not true for simple ranges as they would shift. Spans can
@@ -39,7 +41,7 @@ impl Span {
     ///
     /// Panics if the `number` is not contained in `FULL`.
     #[track_caller]
-    pub const fn new(id: SourceId, number: u64) -> Self {
+    pub const fn new(id: FileId, number: u64) -> Self {
         assert!(
             Self::FULL.start <= number && number < Self::FULL.end,
             "span number outside valid range"
@@ -50,12 +52,12 @@ impl Span {
 
     /// A span that does not point into any source file.
     pub const fn detached() -> Self {
-        Self::pack(SourceId::detached(), Self::DETACHED)
+        Self::pack(FileId::detached(), Self::DETACHED)
     }
 
     /// Pack the components into a span.
     #[track_caller]
-    const fn pack(id: SourceId, number: u64) -> Span {
+    const fn pack(id: FileId, number: u64) -> Span {
         let bits = ((id.as_u16() as u64) << Self::BITS) | number;
         match NonZeroU64::new(bits) {
             Some(v) => Self(v),
@@ -63,19 +65,37 @@ impl Span {
         }
     }
 
-    /// Whether the span is detached.
-    pub const fn is_detached(self) -> bool {
-        self.source().is_detached()
-    }
-
     /// The id of the source file the span points into.
-    pub const fn source(self) -> SourceId {
-        SourceId::from_u16((self.0.get() >> Self::BITS) as u16)
+    pub const fn id(self) -> FileId {
+        FileId::from_u16((self.0.get() >> Self::BITS) as u16)
     }
 
     /// The unique number of the span within its source file.
     pub const fn number(self) -> u64 {
         self.0.get() & ((1 << Self::BITS) - 1)
+    }
+
+    /// Whether the span is detached.
+    pub const fn is_detached(self) -> bool {
+        self.id().is_detached()
+    }
+
+    /// Get the byte range for this span.
+    #[track_caller]
+    pub fn range(self, world: &dyn World) -> Range<usize> {
+        let source = world
+            .source(self.id())
+            .expect("span does not point into any source file");
+        self.range_in(&source)
+    }
+
+    /// Get the byte range for this span in the given source file.
+    #[track_caller]
+    pub fn range_in(self, source: &Source) -> Range<usize> {
+        source
+            .find(self)
+            .expect("span does not point into this source file")
+            .range()
     }
 }
 
@@ -116,13 +136,13 @@ impl<T: Debug> Debug for Spanned<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{SourceId, Span};
+    use super::{FileId, Span};
 
     #[test]
     fn test_span_encoding() {
-        let id = SourceId::from_u16(5);
+        let id = FileId::from_u16(5);
         let span = Span::new(id, 10);
-        assert_eq!(span.source(), id);
+        assert_eq!(span.id(), id);
         assert_eq!(span.number(), 10);
     }
 }

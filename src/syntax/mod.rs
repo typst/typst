@@ -12,9 +12,9 @@ mod span;
 
 pub use self::kind::SyntaxKind;
 pub use self::lexer::{is_ident, is_newline};
-pub use self::node::{ErrorPos, LinkedChildren, LinkedNode, SyntaxNode};
+pub use self::node::{LinkedChildren, LinkedNode, SyntaxNode};
 pub use self::parser::{parse, parse_code};
-pub use self::source::{Source, SourceId};
+pub use self::source::Source;
 pub use self::span::{Span, Spanned};
 
 pub(crate) use self::lexer::{is_id_continue, is_id_start};

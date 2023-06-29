@@ -2,11 +2,11 @@ use typst::geom::Transform;
 
 use crate::prelude::*;
 
-/// Move content without affecting layout.
+/// Moves content without affecting layout.
 ///
 /// The `move` function allows you to move content while the layout still 'sees'
-/// it at the original positions. Containers will still be sized as if the content
-/// was not moved.
+/// it at the original positions. Containers will still be sized as if the
+/// content was not moved.
 ///
 /// ## Example { #example }
 /// ```example
@@ -53,9 +53,9 @@ impl Layout for MoveElem {
     }
 }
 
-/// Rotate content without affecting layout.
+/// Rotates content without affecting layout.
 ///
-/// Rotate an element by a given angle. The layout will act as if the element
+/// Rotates an element by a given angle. The layout will act as if the element
 /// was not rotated.
 ///
 /// ## Example { #example }
@@ -126,11 +126,9 @@ impl Layout for RotateElem {
     }
 }
 
-/// Scale content without affecting layout.
+/// Scales content without affecting layout.
 ///
-/// The `scale` function allows you to scale and mirror content without
-/// affecting the layout.
-///
+/// Lets you mirror content by specifying a negative scale on a single axis.
 ///
 /// ## Example { #example }
 /// ```example

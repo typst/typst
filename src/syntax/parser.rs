@@ -4,7 +4,7 @@ use std::ops::Range;
 use ecow::{eco_format, EcoString};
 use unicode_math_class::MathClass;
 
-use super::{ast, is_newline, ErrorPos, LexMode, Lexer, SyntaxKind, SyntaxNode};
+use super::{ast, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
 
 /// Parse a source file.
 pub fn parse(text: &str) -> SyntaxNode {
@@ -307,6 +307,12 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     }
 
     while !p.eof() && !p.at(stop) {
+        if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
+            p.eat();
+            p.wrap(m, SyntaxKind::Math);
+            continue;
+        }
+
         let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
             break;
         };
@@ -1554,8 +1560,8 @@ impl<'s> Parser<'s> {
     fn save(&mut self) {
         let text = self.current_text();
         if self.at(SyntaxKind::Error) {
-            let (message, pos) = self.lexer.take_error().unwrap();
-            self.nodes.push(SyntaxNode::error(message, text, pos));
+            let message = self.lexer.take_error().unwrap();
+            self.nodes.push(SyntaxNode::error(message, text));
         } else {
             self.nodes.push(SyntaxNode::leaf(self.current, text));
         }
@@ -1602,14 +1608,14 @@ impl<'s> Parser<'s> {
             .map_or(true, |child| child.kind() != SyntaxKind::Error)
         {
             let message = eco_format!("expected {}", thing);
-            self.nodes.push(SyntaxNode::error(message, "", ErrorPos::Full));
+            self.nodes.push(SyntaxNode::error(message, ""));
         }
         self.skip();
     }
 
     fn expected_at(&mut self, m: Marker, thing: &str) {
         let message = eco_format!("expected {}", thing);
-        let error = SyntaxNode::error(message, "", ErrorPos::Full);
+        let error = SyntaxNode::error(message, "");
         self.nodes.insert(m.0, error);
     }
 

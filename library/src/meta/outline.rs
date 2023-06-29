@@ -209,7 +209,12 @@ impl Show for OutlineElem {
         let elems = vt.introspector.query(&self.target(styles).0);
 
         for elem in &elems {
-            let Some(entry) = OutlineEntry::from_outlinable(vt, self.span(), elem.clone().into_inner(), self.fill(styles))? else {
+            let Some(entry) = OutlineEntry::from_outlinable(
+                vt,
+                self.span(),
+                elem.clone().into_inner(),
+                self.fill(styles),
+            )? else {
                 continue;
             };
 
@@ -262,6 +267,7 @@ impl LocalName for OutlineElem {
             Lang::CZECH => "Obsah",
             Lang::DANISH => "Indhold",
             Lang::DUTCH => "Inhoudsopgave",
+            Lang::FILIPINO => "Talaan ng mga Nilalaman",
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ITALIAN => "Indice",
@@ -408,7 +414,7 @@ cast! {
 /// ```
 ///
 /// To completely customize an entry's line, you can also build it from scratch
-/// by accessing the `level`, `element`, `body`, and `fill` fields on the entry.
+/// by accessing the `level`, `element`, `body`, `fill` and `page` fields on the entry.
 ///
 /// Display: Outline Entry
 /// Category: meta
@@ -441,13 +447,18 @@ pub struct OutlineEntry {
     /// precisely as many `-` characters as necessary to fill a particular gap.
     #[required]
     pub fill: Option<Content>,
+
+    /// The page number of the element this entry links to, formatted with the
+    /// numbering set for the referenced page.
+    #[required]
+    pub page: Content,
 }
 
 impl OutlineEntry {
-    /// Generates an OutlineEntry from the given element, if possible
-    /// (errors if the element does not implement Outlinable).
-    /// If the element cannot be outlined (e.g. heading with 'outlined: false'),
-    /// does not generate an entry instance (returns Ok(None)).
+    /// Generates an OutlineEntry from the given element, if possible (errors if
+    /// the element does not implement `Outlinable`). If the element should not
+    /// be outlined (e.g. heading with 'outlined: false'), does not generate an
+    /// entry instance (returns `Ok(None)`).
     fn from_outlinable(
         vt: &mut Vt,
         span: Span,
@@ -462,12 +473,26 @@ impl OutlineEntry {
             return Ok(None);
         };
 
-        Ok(Some(Self::new(outlinable.level(), elem, body, fill)))
+        let location = elem.location().unwrap();
+        let page_numbering = vt
+            .introspector
+            .page_numbering(location)
+            .cast::<Option<Numbering>>()
+            .unwrap()
+            .unwrap_or_else(|| {
+                Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
+            });
+
+        let page = Counter::new(CounterKey::Page)
+            .at(vt, location)?
+            .display(vt, &page_numbering)?;
+
+        Ok(Some(Self::new(outlinable.level(), elem, body, fill, page)))
     }
 }
 
 impl Show for OutlineEntry {
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         let mut seq = vec![];
         let elem = self.element();
 
@@ -493,21 +518,9 @@ impl Show for OutlineEntry {
             seq.push(HElem::new(Fr::one().into()).pack());
         }
 
-        let page_numbering = vt
-            .introspector
-            .page_numbering(location)
-            .cast::<Option<Numbering>>()
-            .unwrap()
-            .unwrap_or_else(|| {
-                Numbering::Pattern(NumberingPattern::from_str("1").unwrap())
-            });
-
-        let page = Counter::new(CounterKey::Page)
-            .at(vt, location)?
-            .display(vt, &page_numbering)?;
-
         // Add the page number.
-        seq.push(page.linked(Destination::Location(location)));
+        let page = self.page().linked(Destination::Location(location));
+        seq.push(page);
 
         Ok(Content::sequence(seq))
     }

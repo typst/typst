@@ -19,7 +19,7 @@ pub fn reparse(
     replacement_len: usize,
 ) -> Range<usize> {
     try_reparse(text, replaced, replacement_len, None, root, 0).unwrap_or_else(|| {
-        let id = root.span().source();
+        let id = root.span().id();
         *root = parse(text);
         root.numberize(id, Span::FULL).unwrap();
         0..text.len()

@@ -488,14 +488,24 @@ fn render_image(
     let view_width = size.x.to_f32();
     let view_height = size.y.to_f32();
 
+    // For better-looking output, resize `image` to its final size before
+    // painting it to `canvas`. For the math, see:
+    // https://github.com/typst/typst/issues/1404#issuecomment-1598374652
+    let theta = f32::atan2(-ts.kx, ts.sx);
+
+    // To avoid division by 0, choose the one of { sin, cos } that is
+    // further from 0.
+    let prefer_sin = theta.sin().abs() > std::f32::consts::FRAC_1_SQRT_2;
+    let scale_x =
+        f32::abs(if prefer_sin { ts.kx / theta.sin() } else { ts.sx / theta.cos() });
+
     let aspect = (image.width() as f32) / (image.height() as f32);
-    let scale = ts.sx.max(ts.sy);
-    let w = (scale * view_width.max(aspect * view_height)).ceil() as u32;
+    let w = (scale_x * view_width.max(aspect * view_height)).ceil() as u32;
     let h = ((w as f32) / aspect).ceil() as u32;
 
     let pixmap = scaled_texture(image, w, h)?;
-    let scale_x = view_width / pixmap.width() as f32;
-    let scale_y = view_height / pixmap.height() as f32;
+    let paint_scale_x = view_width / pixmap.width() as f32;
+    let paint_scale_y = view_height / pixmap.height() as f32;
 
     let paint = sk::Paint {
         shader: sk::Pattern::new(
@@ -503,7 +513,7 @@ fn render_image(
             sk::SpreadMode::Pad,
             sk::FilterQuality::Nearest,
             1.0,
-            sk::Transform::from_scale(scale_x, scale_y),
+            sk::Transform::from_scale(paint_scale_x, paint_scale_y),
         ),
         ..Default::default()
     };

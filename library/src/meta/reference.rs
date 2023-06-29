@@ -1,21 +1,22 @@
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
+use crate::meta::FootnoteElem;
 use crate::prelude::*;
 use crate::text::TextElem;
 
 /// A reference to a label or bibliography.
 ///
-/// The reference function produces a textual reference to a label. For example,
-/// a reference to a heading will yield an appropriate string such as "Section
-/// 1" for a reference to the first heading. The references are also links to
-/// the respective element. Reference syntax can also be used to
-/// [cite]($func/cite) from a bibliography.
+/// Produces a textual reference to a label. For example, a reference to a
+/// heading will yield an appropriate string such as "Section 1" for a reference
+/// to the first heading. The references are also links to the respective
+/// element. Reference syntax can also be used to [cite]($func/cite) from a
+/// bibliography.
 ///
 /// Referenceable elements include [headings]($func/heading),
-/// [figures]($func/figure), and [equations]($func/math.equation). To create a
-/// custom referenceable element like a theorem, you can create a figure of a
-/// custom [`kind`]($func/figure.kind) and write a show rule for it. In the
-/// future, there might be a more direct way to define a custom referenceable
-/// element.
+/// [figures]($func/figure), [equations]($func/math.equation), and
+/// [footnotes]($func/footnote). To create a custom referenceable element like a
+/// theorem, you can create a figure of a custom [`kind`]($func/figure.kind) and
+/// write a show rule for it. In the future, there might be a more direct way to
+/// define a custom referenceable element.
 ///
 /// If you just want to link to a labelled element and not get an automatic
 /// textual reference, consider using the [`link`]($func/link) function instead.
@@ -160,6 +161,11 @@ impl Show for RefElem {
             }
 
             let elem = elem.at(span)?;
+
+            if elem.func() == FootnoteElem::func() {
+                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+            }
+
             let refable = elem
                 .with::<dyn Refable>()
                 .ok_or_else(|| {
@@ -178,11 +184,14 @@ impl Show for RefElem {
                 .numbering()
                 .ok_or_else(|| {
                     eco_format!(
-                        "cannot reference {0} without numbering \
-                        - did you mean to use `#set {0}(numbering: \"1.\")`?",
+                        "cannot reference {} without numbering",
                         elem.func().name()
                     )
                 })
+                .hint(eco_format!(
+                    "you can enable heading numbering with `#set {}(numbering: \"1.\")`?",
+                    elem.func().name()
+                ))
                 .at(span)?;
 
             let numbers = refable

@@ -1,7 +1,7 @@
 use super::{variant, SpaceElem, TextElem, TextSize};
 use crate::prelude::*;
 
-/// Set text in subscript.
+/// Renders text in subscript.
 ///
 /// The text is rendered smaller and its baseline is lowered.
 ///
@@ -64,7 +64,7 @@ impl Show for SubElem {
     }
 }
 
-/// Set text in superscript.
+/// Renders text in superscript.
 ///
 /// The text is rendered smaller and its baseline is raised.
 ///

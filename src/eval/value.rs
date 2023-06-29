@@ -15,9 +15,10 @@ use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
+use crate::util::Bytes;
 
 /// A computational value.
-#[derive(Clone, Default)]
+#[derive(Default, Clone)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     #[default]
@@ -46,6 +47,8 @@ pub enum Value {
     Symbol(Symbol),
     /// A string: `"string"`.
     Str(Str),
+    /// Raw bytes.
+    Bytes(Bytes),
     /// A label: `<intro>`.
     Label(Label),
     /// A content value: `[*Hi* there]`.
@@ -103,6 +106,7 @@ impl Value {
             Self::Color(_) => Color::TYPE_NAME,
             Self::Symbol(_) => Symbol::TYPE_NAME,
             Self::Str(_) => Str::TYPE_NAME,
+            Self::Bytes(_) => Bytes::TYPE_NAME,
             Self::Label(_) => Label::TYPE_NAME,
             Self::Content(_) => Content::TYPE_NAME,
             Self::Styles(_) => Styles::TYPE_NAME,
@@ -186,6 +190,7 @@ impl Debug for Value {
             Self::Color(v) => Debug::fmt(v, f),
             Self::Symbol(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
+            Self::Bytes(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
             Self::Content(v) => Debug::fmt(v, f),
             Self::Styles(v) => Debug::fmt(v, f),
@@ -228,6 +233,7 @@ impl Hash for Value {
             Self::Color(v) => v.hash(state),
             Self::Symbol(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
+            Self::Bytes(v) => v.hash(state),
             Self::Label(v) => v.hash(state),
             Self::Content(v) => v.hash(state),
             Self::Styles(v) => v.hash(state),
@@ -400,6 +406,7 @@ primitive! {
     Str,
     Symbol(symbol) => symbol.get().into()
 }
+primitive! { Bytes: "bytes", Bytes }
 primitive! { Label: "label", Label }
 primitive! { Content: "content",
     Content,

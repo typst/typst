@@ -6,7 +6,7 @@ use ecow::EcoVec;
 use crate::prelude::*;
 use crate::text::Case;
 
-/// Apply a numbering to a sequence of numbers.
+/// Applies a numbering to a sequence of numbers.
 ///
 /// A numbering defines how a sequence of numbers should be displayed as
 /// content. It is defined either through a pattern string or an arbitrary

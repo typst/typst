@@ -58,6 +58,12 @@ pub struct ShapedGlyph {
     /// The byte range of this glyph's cluster in the full paragraph. A cluster
     /// is a sequence of one or multiple glyphs that cannot be separated and
     /// must always be treated as a union.
+    ///
+    /// The range values of the glyphs in a [`ShapedText`] should not
+    /// overlap with each other, and they should be monotonically
+    /// increasing (for left-to-right or top-to-bottom text) or
+    /// monotonically decreasing (for right-to-left or bottom-to-top
+    /// text).
     pub range: Range<usize>,
     /// Whether splitting the shaping result before this glyph would yield the
     /// same results as shaping the parts to both sides of `text_index`
@@ -388,6 +394,8 @@ impl<'a> ShapedText<'a> {
     ) -> ShapedText<'a> {
         let text = &self.text[text_range.start - self.base..text_range.end - self.base];
         if let Some(glyphs) = self.slice_safe_to_break(text_range.clone()) {
+            #[cfg(debug_assertions)]
+            assert_all_glyphs_in_range(glyphs, text, text_range.clone());
             Self {
                 base: text_range.start,
                 text,
@@ -559,6 +567,11 @@ pub fn shape<'a>(
     track_and_space(&mut ctx);
     calculate_adjustability(&mut ctx, lang, region);
 
+    #[cfg(debug_assertions)]
+    assert_all_glyphs_in_range(&ctx.glyphs, text, base..(base + text.len()));
+    #[cfg(debug_assertions)]
+    assert_glyph_ranges_in_order(&ctx.glyphs, dir);
+
     ShapedText {
         base,
         text,
@@ -708,7 +721,7 @@ fn shape_segment(
 /// Shape the text with tofus from the given font.
 fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
     let x_advance = font.advance(0).unwrap_or_default();
-    for (cluster, c) in text.char_indices() {
+    let add_glyph = |(cluster, c): (usize, char)| {
         let start = base + cluster;
         let end = start + c.len_utf8();
         ctx.glyphs.push(ShapedGlyph {
@@ -723,6 +736,11 @@ fn shape_tofus(ctx: &mut ShapingContext, base: usize, text: &str, font: Font) {
             c,
             span: ctx.spans.span_at(start),
         });
+    };
+    if ctx.dir.is_positive() {
+        text.char_indices().for_each(add_glyph);
+    } else {
+        text.char_indices().rev().for_each(add_glyph);
     }
 }
 
@@ -915,4 +933,41 @@ fn language(styles: StyleChain) -> rustybuzz::Language {
         bcp.push_str(region.as_str());
     }
     rustybuzz::Language::from_str(&bcp).unwrap()
+}
+
+/// Returns true if all glyphs in `glyphs` have ranges within the range `range`.
+#[cfg(debug_assertions)]
+fn assert_all_glyphs_in_range(glyphs: &[ShapedGlyph], text: &str, range: Range<usize>) {
+    if glyphs
+        .iter()
+        .any(|g| g.range.start < range.start || g.range.end > range.end)
+    {
+        panic!("one or more glyphs in {text:?} fell out of range");
+    }
+}
+
+/// Asserts that the ranges of `glyphs` is in the proper order according to `dir`.
+///
+/// This asserts instead of returning a bool in order to provide a more informative message when the invariant is violated.
+#[cfg(debug_assertions)]
+fn assert_glyph_ranges_in_order(glyphs: &[ShapedGlyph], dir: Dir) {
+    if glyphs.is_empty() {
+        return;
+    }
+
+    // Iterator::is_sorted and friends are unstable as of Rust 1.70.0
+    for i in 0..(glyphs.len() - 1) {
+        let a = &glyphs[i];
+        let b = &glyphs[i + 1];
+        let ord = a.range.start.cmp(&b.range.start);
+        let ord = if dir.is_positive() { ord } else { ord.reverse() };
+        if ord == std::cmp::Ordering::Greater {
+            panic!(
+                "glyph ranges should be monotonically {}, \
+                 but found glyphs out of order:\n\n\
+                 first: {a:#?}\nsecond: {b:#?}",
+                if dir.is_positive() { "increasing" } else { "decreasing" },
+            );
+        }
+    }
 }

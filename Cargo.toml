@@ -34,7 +34,7 @@ typst-macros = { path = "macros" }
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
 comemo = "0.3"
-ecow = "0.1"
+ecow = { version = "0.1.1", features = ["serde"] }
 flate2 = "1"
 fontdb = "0.13"
 if_chain = "1"
@@ -55,6 +55,7 @@ siphasher = "0.3"
 subsetter = "0.1.1"
 svg2pdf = { git = "https://github.com/typst/svg2pdf" }
 tiny-skia = "0.9.0"
+toml = { version = "0.7.3", default-features = false, features = ["parse"] }
 tracing = "0.1.37"
 ttf-parser = "0.18.1"
 unicode-general-category = "0.6"

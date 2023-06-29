@@ -236,6 +236,7 @@ impl LocalName for RawElem {
             Lang::CZECH => "Seznam",
             Lang::DANISH => "Liste",
             Lang::DUTCH => "Listing",
+            Lang::FILIPINO => "Listahan",
             Lang::FRENCH => "Liste",
             Lang::GERMAN => "Listing",
             Lang::ITALIAN => "Codice",
@@ -342,9 +343,8 @@ fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
 /// syntaxes/02_Extra/VimHelp.sublime-syntax
 /// syntaxes/02_Extra/cmd-help/syntaxes/cmd-help.sublime-syntax
 /// ```
-static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> = Lazy::new(|| {
-    syntect::dumps::from_binary(include_bytes!("../../../assets/data/syntect.bin"))
-});
+static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
+    Lazy::new(|| syntect::dumps::from_binary(include_bytes!("../../assets/syntect.bin")));
 
 /// The default theme used for syntax highlighting.
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {

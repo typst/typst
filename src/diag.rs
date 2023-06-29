@@ -2,14 +2,14 @@
 
 use std::fmt::{self, Display, Formatter};
 use std::io;
-use std::ops::Range;
 use std::path::{Path, PathBuf};
 use std::str::Utf8Error;
 use std::string::FromUtf8Error;
 
 use comemo::Tracked;
 
-use crate::syntax::{ErrorPos, Span, Spanned};
+use crate::file::PackageSpec;
+use crate::syntax::{Span, Spanned};
 use crate::World;
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -76,12 +76,13 @@ pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;
 pub struct SourceError {
     /// The span of the erroneous node in the source code.
     pub span: Span,
-    /// The position in the node where the error should be annotated.
-    pub pos: ErrorPos,
     /// A diagnostic message describing the problem.
     pub message: EcoString,
     /// The trace of function calls leading to the error.
     pub trace: Vec<Spanned<Tracepoint>>,
+    /// Additonal hints to the user, indicating how this error could be avoided
+    /// or worked around.
+    pub hints: Vec<EcoString>,
 }
 
 impl SourceError {
@@ -89,28 +90,16 @@ impl SourceError {
     pub fn new(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             span,
-            pos: ErrorPos::Full,
             trace: vec![],
             message: message.into(),
+            hints: vec![],
         }
     }
 
-    /// Adjust the position in the node where the error should be annotated.
-    pub fn with_pos(mut self, pos: ErrorPos) -> Self {
-        self.pos = pos;
+    /// Adds user-facing hints to the error.
+    pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
+        self.hints.extend(hints);
         self
-    }
-
-    /// The range in the source file identified by
-    /// [`self.span.source()`](Span::source) where the error should be
-    /// annotated.
-    pub fn range(&self, world: &dyn World) -> Range<usize> {
-        let full = world.source(self.span.source()).range(self.span);
-        match self.pos {
-            ErrorPos::Full => full,
-            ErrorPos::Start => full.start..full.start,
-            ErrorPos::End => full.end..full.end,
-        }
     }
 }
 
@@ -161,12 +150,17 @@ impl<T> Trace<T> for SourceResult<T> {
             if span.is_detached() {
                 return errors;
             }
-            let range = world.source(span.source()).range(span);
+
+            let trace_range = span.range(&*world);
             for error in errors.iter_mut().filter(|e| !e.span.is_detached()) {
                 // Skip traces that surround the error.
-                let error_range = world.source(error.span.source()).range(error.span);
-                if range.start <= error_range.start && range.end >= error_range.end {
-                    continue;
+                if error.span.id() == span.id() {
+                    let error_range = error.span.range(&*world);
+                    if trace_range.start <= error_range.start
+                        && trace_range.end >= error_range.end
+                    {
+                        continue;
+                    }
                 }
 
                 error.trace.push(Spanned::new(make_point(), span));
@@ -194,6 +188,48 @@ where
     }
 }
 
+/// A result type with a string error message and hints.
+pub type HintedStrResult<T> = Result<T, HintedString>;
+
+/// A string message with hints.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct HintedString {
+    /// A diagnostic message describing the problem.
+    pub message: EcoString,
+    /// Additonal hints to the user, indicating how this error could be avoided
+    /// or worked around.
+    pub hints: Vec<EcoString>,
+}
+
+impl<T> At<T> for Result<T, HintedString> {
+    fn at(self, span: Span) -> SourceResult<T> {
+        self.map_err(|diags| {
+            Box::new(vec![SourceError::new(span, diags.message).with_hints(diags.hints)])
+        })
+    }
+}
+
+/// Enrich a [`StrResult`] or [`HintedStrResult`] with a hint.
+pub trait Hint<T> {
+    /// Add the hint.
+    fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T>;
+}
+
+impl<T> Hint<T> for StrResult<T> {
+    fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
+        self.map_err(|message| HintedString { message, hints: vec![hint.into()] })
+    }
+}
+
+impl<T> Hint<T> for HintedStrResult<T> {
+    fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
+        self.map_err(|mut error| {
+            error.hints.push(hint.into());
+            error
+        })
+    }
+}
+
 /// A result type with a file-related error.
 pub type FileResult<T> = Result<T, FileError>;
 
@@ -210,6 +246,8 @@ pub enum FileError {
     NotSource,
     /// The file was not valid UTF-8, but should have been.
     InvalidUtf8,
+    /// The package the file is part of could not be loaded.
+    Package(PackageError),
     /// Another error.
     Other,
 }
@@ -242,6 +280,7 @@ impl Display for FileError {
             Self::IsDirectory => f.pad("failed to load file (is a directory)"),
             Self::NotSource => f.pad("not a typst source file"),
             Self::InvalidUtf8 => f.pad("file is not valid utf-8"),
+            Self::Package(error) => error.fmt(f),
             Self::Other => f.pad("failed to load file"),
         }
     }
@@ -259,12 +298,54 @@ impl From<FromUtf8Error> for FileError {
     }
 }
 
+impl From<PackageError> for FileError {
+    fn from(error: PackageError) -> Self {
+        Self::Package(error)
+    }
+}
+
 impl From<FileError> for EcoString {
     fn from(error: FileError) -> Self {
         eco_format!("{error}")
     }
 }
 
+/// A result type with a package-related error.
+pub type PackageResult<T> = Result<T, PackageError>;
+
+/// An error that occured while trying to load a package.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum PackageError {
+    /// The specified package does not exist.
+    NotFound(PackageSpec),
+    /// Failed to retrieve the package through the network.
+    NetworkFailed,
+    /// The package archive was malformed.
+    MalformedArchive,
+    /// Another error.
+    Other,
+}
+
+impl std::error::Error for PackageError {}
+
+impl Display for PackageError {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        match self {
+            Self::NotFound(spec) => {
+                write!(f, "package not found (searched for {spec})",)
+            }
+            Self::NetworkFailed => f.pad("failed to load package (network failed)"),
+            Self::MalformedArchive => f.pad("failed to load package (archive malformed)"),
+            Self::Other => f.pad("failed to load package"),
+        }
+    }
+}
+
+impl From<PackageError> for EcoString {
+    fn from(error: PackageError) -> Self {
+        eco_format!("{error}")
+    }
+}
 /// Format a user-facing error message for an XML-like file format.
 pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString {
     match error {
