@@ -642,14 +642,13 @@ node! {
 
 impl Ref {
     /// Get the target.
-    pub fn target(&self) -> Vec<&str> {
-        self.0
+    pub fn target(&self) -> &str {
+        let res = self.0
             .children()
             .find(|node| node.kind() == SyntaxKind::RefMarker)
             .map(|node| node.text().trim_start_matches('@'))
-            .unwrap_or_default()
-            .split(';')
-            .collect()
+            .unwrap_or_default();
+        res
     }
 
     /// Get the supplement.

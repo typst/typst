@@ -626,9 +626,9 @@ impl Eval for ast::Ref {
     #[tracing::instrument(name = "Ref::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         // let label = Label(self.target().into());
-        let labels = self.target().into_iter().map(|n| Label(n.into())).collect();
+        let label = Label(self.target().into());
         let supplement = self.supplement().map(|block| block.eval(vm)).transpose()?;
-        Ok((vm.items.reference)(labels, supplement))
+        Ok((vm.items.reference)(label, supplement))
     }
 }
 

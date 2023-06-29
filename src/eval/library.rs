@@ -62,7 +62,7 @@ pub struct LangItems {
     /// A hyperlink: `https://typst.org`.
     pub link: fn(url: EcoString) -> Content,
     /// A reference: `@target`, `@target[..]`.
-    pub reference: fn(target: Vec<Label>, supplement: Option<Content>) -> Content,
+    pub reference: fn(target: Label, supplement: Option<Content>) -> Content,
     /// The keys contained in the bibliography and short descriptions of them.
     #[allow(clippy::type_complexity)]
     pub bibliography_keys:
