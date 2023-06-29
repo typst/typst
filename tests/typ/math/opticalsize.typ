@@ -28,3 +28,10 @@ $sum_(k in NN)^prime 1/k^2$
 $ 1/(x^A) $
 #[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
 
+---
+// Test dedicated syntax for primes
+$a'$, $a'''_b$, $'$, $'''''''$
+
+$ (A'_c')^(d'_b'), A'^b' $
+
+$∫'$, $∑'$, $ ∑' $

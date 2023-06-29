@@ -84,6 +84,46 @@ impl LayoutMath for AttachElem {
     }
 }
 
+/// Creates specified amount of tight primes
+///
+/// ## Example { #example }
+/// ```example
+/// $ a'''_b = a^'''_b $
+/// ```
+///
+/// ## Syntax
+/// This function has dedicated syntax: use apostrophes instead of primes.
+/// They will automatically attach to previous element,
+/// moving superscripts to the next level.
+///
+/// Display: Attachment
+/// Category: math
+#[element(LayoutMath)]
+pub struct PrimesElem {
+    /// Number of grouped primes
+    #[required]
+    pub count: usize,
+}
+
+impl LayoutMath for PrimesElem {
+    #[tracing::instrument(skip(ctx))]
+    fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
+        let prime = ctx.layout_fragment(&TextElem::packed('′'))?.into_frame();
+        let width = prime.width() * (self.count() + 1) as f64 / 2.0;
+        let mut frame = Frame::new(Size::new(width, prime.height()));
+        frame.set_baseline(prime.ascent());
+
+        for i in 0..self.count() {
+            frame.push_frame(
+                Point::new(prime.width() * (i as f64 / 2.0), Abs::zero()),
+                prime.clone(),
+            )
+        }
+        ctx.push(FrameFragment::new(ctx, frame));
+        Ok(())
+    }
+}
+
 /// Forces a base to display attachments as scripts.
 ///
 /// ## Example { #example }

@@ -460,6 +460,7 @@ impl Eval for ast::Expr {
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
             Self::MathAttach(v) => v.eval(vm).map(Value::Content),
+            Self::MathPrimes(v) => v.eval(vm).map(Value::Content),
             Self::MathFrac(v) => v.eval(vm).map(Value::Content),
             Self::MathRoot(v) => v.eval(vm).map(Value::Content),
             Self::Ident(v) => v.eval(vm),
@@ -733,9 +734,23 @@ impl Eval for ast::MathAttach {
     #[tracing::instrument(name = "MathAttach::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let base = self.base().eval_display(vm)?;
-        let top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
+        let mut top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
+
+        if top.is_none() && self.has_primes() {
+            top = Some(self.primes().eval(vm)?);
+        }
+
         let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
         Ok((vm.items.math_attach)(base, top, bottom, None, None, None, None))
+    }
+}
+
+impl Eval for ast::MathPrimes {
+    type Output = Content;
+
+    #[tracing::instrument(name = "MathAttach::eval", skip_all)]
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.items.math_primes)(self.count()))
     }
 }
 

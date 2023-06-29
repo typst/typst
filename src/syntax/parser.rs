@@ -295,6 +295,12 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
+        // means that there is nothing to attach prime to
+        SyntaxKind::Prime => {
+            while p.eat_if(SyntaxKind::Prime) {}
+            p.wrap(m, SyntaxKind::MathPrimes);
+        }
+
         _ => p.expected("expression"),
     }
 
@@ -306,6 +312,8 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         p.wrap(m, SyntaxKind::Math);
     }
 
+    let mut primed = false;
+
     while !p.eof() && !p.at(stop) {
         if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
             p.eat();
@@ -313,7 +321,23 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             continue;
         }
 
+        if p.eat_if(SyntaxKind::Prime) {
+            // eat as many primes as possible
+            while p.eat_if(SyntaxKind::Prime) {}
+            primed = true;
+        }
+
+        // separate primes and superscripts to different attachments
+        if primed && p.current() == SyntaxKind::Hat {
+            p.wrap(m, SyntaxKind::MathAttach);
+        }
+
         let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
+            // no more attachments, so need to wrap that as attachment
+            if primed{
+                p.wrap(m, SyntaxKind::MathAttach);
+            }
+
             break;
         };
 
