@@ -89,7 +89,7 @@ use crate::text::TextElem;
 pub struct RefElem {
     /// The target label that should be referenced.
     #[required]
-    pub target: Label,
+    pub target: Vec<Label>,
 
     /// A supplement for the reference.
     ///
@@ -132,12 +132,19 @@ impl Synthesize for RefElem {
         self.push_citation(Some(citation));
         self.push_element(None);
 
-        let target = self.target();
-        if !BibliographyElem::has(vt, &target.0) {
-            if let Ok(elem) = vt.introspector.query_label(&target) {
-                self.push_element(Some(elem.into_inner()));
-                return Ok(());
+        let targets = self.target();
+        let mut target_push_flat = true;
+        for target in targets {
+            if !BibliographyElem::has(vt, &target.0) {
+                if let Ok(elem) = vt.introspector.query_label(&target) {
+                    self.push_element(Some(elem.into_inner()));
+                } else {
+                    target_push_flat = false
+                }
             }
+        }
+        if target_push_flat == true {
+            return Ok(());
         }
 
         Ok(())
@@ -148,22 +155,25 @@ impl Show for RefElem {
     #[tracing::instrument(name = "RefElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(vt.delayed(|vt| {
-            let target = self.target();
-            let elem = vt.introspector.query_label(&self.target());
+            let targets = self.target();
+            let mut elems = targets.iter().map(|target| vt.introspector.query_label(target));
             let span = self.span();
 
-            if BibliographyElem::has(vt, &target.0) {
-                if elem.is_ok() {
+            if targets.iter().all(|t: &Label| BibliographyElem::has(vt, &t.0)) {
+                if elems.any(|e| e.is_ok()) {
                     bail!(span, "label occurs in the document and its bibliography");
                 }
 
-                return Ok(self.to_citation(vt, styles)?.pack().spanned(span));
+                return Ok(self.to_citation(vt, styles)?.pack().spanned(span))
             }
 
-            let elem = elem.at(span)?;
+            // If the elements are not bibliography element,
+            // only one label (the last one) is supported
+            let target = targets.last().expect("there needs at least one target");
+            let elem = elems.last().expect("there needs at least one element").at(span)?;
 
             if elem.func() == FootnoteElem::func() {
-                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
+                return Ok(FootnoteElem::with_label(target.clone()).pack().spanned(span));
             }
 
             let refable = elem
@@ -220,7 +230,8 @@ impl Show for RefElem {
 impl RefElem {
     /// Turn the reference into a citation.
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
-        let mut elem = CiteElem::new(vec![self.target().0]);
+        let keys: Vec<EcoString> = self.target().iter().map(|t| t.0.clone()).collect();
+        let mut elem = CiteElem::new(keys);
         elem.0.set_location(self.0.location().unwrap());
         elem.synthesize(vt, styles)?;
         elem.push_supplement(match self.supplement(styles) {
