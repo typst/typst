@@ -180,7 +180,7 @@ impl Show for RefElem {
             let elem = elem.at(span)?;
 
             if elem.func() == FootnoteElem::func() {
-                return Ok(FootnoteElem::with_label(target.clone()).pack().spanned(span));
+                return Ok(FootnoteElem::with_label(target).pack().spanned(span));
             }
 
             let refable = elem
@@ -239,7 +239,7 @@ impl RefElem {
     pub fn to_citation(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<CiteElem> {
         let target = self.target();
         let targets = target.0.split(';');
-        let keys: Vec<EcoString> = targets.map(|t| EcoString::from(t)).collect();
+        let keys: Vec<EcoString> = targets.map(EcoString::from).collect();
         let mut elem = CiteElem::new(keys);
         elem.0.set_location(self.0.location().unwrap());
         elem.synthesize(vt, styles)?;
