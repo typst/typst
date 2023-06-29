@@ -108,18 +108,33 @@ pub struct PrimesElem {
 impl LayoutMath for PrimesElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let prime = ctx.layout_fragment(&TextElem::packed('′'))?.into_frame();
-        let width = prime.width() * (self.count() + 1) as f64 / 2.0;
-        let mut frame = Frame::new(Size::new(width, prime.height()));
-        frame.set_baseline(prime.ascent());
+        match self.count() {
+            1..=4 => {
+                let f = ctx.layout_fragment(&TextElem::packed(match self.count() {
+                    1 => '′',
+                    2 => '″',
+                    3 => '‴',
+                    4 => '⁗',
+                    _ => unreachable!(),
+                }))?;
+                ctx.push(f)
+            }
+            _ => {
+                // custom amount of primes
+                let prime = ctx.layout_fragment(&TextElem::packed('′'))?.into_frame();
+                let width = prime.width() * (self.count() + 1) as f64 / 2.0;
+                let mut frame = Frame::new(Size::new(width, prime.height()));
+                frame.set_baseline(prime.ascent());
 
-        for i in 0..self.count() {
-            frame.push_frame(
-                Point::new(prime.width() * (i as f64 / 2.0), Abs::zero()),
-                prime.clone(),
-            )
+                for i in 0..self.count() {
+                    frame.push_frame(
+                        Point::new(prime.width() * (i as f64 / 2.0), Abs::zero()),
+                        prime.clone(),
+                    )
+                }
+                ctx.push(FrameFragment::new(ctx, frame))
+            }
         }
-        ctx.push(FrameFragment::new(ctx, frame));
         Ok(())
     }
 }
