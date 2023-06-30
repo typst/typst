@@ -634,8 +634,8 @@ impl Show for DisplayElem {
                 .numbering()
                 .or_else(|| {
                     let CounterKey::Selector(Selector::Elem(func, _)) = counter.0 else {
-                    return None;
-                };
+                        return None;
+                    };
 
                     if func == HeadingElem::func() {
                         HeadingElem::numbering_in(styles)

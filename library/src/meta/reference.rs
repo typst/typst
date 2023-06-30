@@ -189,7 +189,7 @@ impl Show for RefElem {
                     )
                 })
                 .hint(eco_format!(
-                    "you can enable heading numbering with `#set {}(numbering: \"1.\")`?",
+                    "you can enable heading numbering with `#set {}(numbering: \"1.\")`",
                     elem.func().name()
                 ))
                 .at(span)?;

@@ -5,12 +5,14 @@ use std::sync::Arc;
 
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
+use pixglyph::Bitmap;
 use resvg::FitTo;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::{NodeExt, TreeParsing};
 
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
+use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Geometry, LineCap, LineJoin, Paint, PathItem, Shape, Size, Stroke,
     Transform,
@@ -297,10 +299,26 @@ fn render_outline_glyph(
     }
 
     // Rasterize the glyph with `pixglyph`.
+    #[comemo::memoize]
+    fn rasterize(
+        font: &Font,
+        id: GlyphId,
+        x: u32,
+        y: u32,
+        size: u32,
+    ) -> Option<Arc<Bitmap>> {
+        let glyph = pixglyph::Glyph::load(font.ttf(), id)?;
+        Some(Arc::new(glyph.rasterize(
+            f32::from_bits(x),
+            f32::from_bits(y),
+            f32::from_bits(size),
+        )))
+    }
+
     // Try to retrieve a prepared glyph or prepare it from scratch if it
     // doesn't exist, yet.
-    let glyph = pixglyph::Glyph::load(text.font.ttf(), id)?;
-    let bitmap = glyph.rasterize(ts.tx, ts.ty, ppem);
+    let bitmap =
+        rasterize(&text.font, id, ts.tx.to_bits(), ts.ty.to_bits(), ppem.to_bits())?;
 
     // If we have a clip mask we first render to a pixmap that we then blend
     // with our canvas
@@ -333,8 +351,6 @@ fn render_outline_glyph(
             sk::Transform::identity(),
             mask,
         );
-
-        Some(())
     } else {
         let cw = canvas.width() as i32;
         let ch = canvas.height() as i32;
@@ -372,9 +388,9 @@ fn render_outline_glyph(
                 pixels[pi] = blend_src_over(applied, pixels[pi]);
             }
         }
-
-        Some(())
     }
+
+    Some(())
 }
 
 /// Render a geometrical shape into the canvas.

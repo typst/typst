@@ -89,6 +89,7 @@ pub fn analyze_labels(
         let Some(label) = elem.label().cloned() else { continue };
         let details = elem
             .field("caption")
+            .or_else(|| elem.field("body"))
             .and_then(|field| match field {
                 Value::Content(content) => Some(content),
                 _ => None,
