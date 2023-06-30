@@ -60,7 +60,7 @@ macro_rules! ops {
             );)*
 
             let dif = |d| {
-                HElem::new(THIN.into()).pack()
+                HElem::new(THIN.into()).with_weak(true).pack()
                     + MathStyleElem::new(TextElem::packed(d)).with_italic(Some(false)).pack()
             };
             math.define("dif", dif('d'));
