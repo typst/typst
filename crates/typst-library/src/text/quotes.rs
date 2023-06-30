@@ -46,7 +46,7 @@ pub struct SmartQuoteElem {
     /// Whether to use alternative quotation marks.
     ///
     /// Does nothing for languages that don't have alternative quotation marks.
-    #[default(true)]
+    #[default(false)]
     pub alternative: bool,
 }
 
