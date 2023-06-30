@@ -315,6 +315,12 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let mut primed = false;
 
     while !p.eof() && !p.at(stop) {
+        // if `stop` is hat, than prime is also stop
+        // a_b' works like a_b^'
+        if stop == SyntaxKind::Hat && p.at(SyntaxKind::Prime) {
+            break;
+        }
+
         if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
             p.eat();
             p.wrap(m, SyntaxKind::Math);
@@ -359,11 +365,14 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         math_expr_prec(p, prec, stop);
         math_unparen(p, m2);
 
-        if p.eat_if(SyntaxKind::Underscore) || p.eat_if(SyntaxKind::Hat) {
+        if p.eat_if(SyntaxKind::Underscore) || (!primed && p.eat_if(SyntaxKind::Hat)) {
             let m3 = p.marker();
             math_expr_prec(p, prec, SyntaxKind::Eof);
             math_unparen(p, m3);
         }
+
+        // now eat all primes that were attached to the end, like a_b'^c
+        while p.eat_if(SyntaxKind::Prime) {}
 
         p.wrap(m, kind);
     }
