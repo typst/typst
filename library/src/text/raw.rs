@@ -343,7 +343,7 @@ fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
 /// syntaxes/02_Extra/VimHelp.sublime-syntax
 /// syntaxes/02_Extra/cmd-help/syntaxes/cmd-help.sublime-syntax
 /// ```
-static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
+pub static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
     Lazy::new(|| syntect::dumps::from_binary(include_bytes!("../../assets/syntect.bin")));
 
 /// The default theme used for syntax highlighting.

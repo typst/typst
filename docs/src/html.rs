@@ -1,7 +1,6 @@
 use std::ops::Range;
 
 use comemo::Prehashed;
-use md::escape::escape_html;
 use pulldown_cmark as md;
 use typed_arena::Arena;
 use typst::diag::FileResult;
@@ -402,10 +401,21 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         }
     }
 
-    if !matches!(lang, "example" | "typ") {
+    if lang.is_empty() {
         let mut buf = String::from("<pre>");
-        escape_html(&mut buf, &display).unwrap();
+        md::escape::escape_html(&mut buf, &display).unwrap();
         buf.push_str("</pre>");
+        return Html::new(buf);
+    } else if !matches!(lang, "example" | "typ") {
+        let set = &*typst_library::text::SYNTAXES;
+        let buf = syntect::html::highlighted_html_for_string(
+            &display,
+            set,
+            set.find_syntax_by_token(lang)
+                .unwrap_or_else(|| panic!("unsupported highlighting language: {lang}")),
+            &typst_library::text::THEME,
+        )
+        .expect("failed to highlight code");
         return Html::new(buf);
     }
 
