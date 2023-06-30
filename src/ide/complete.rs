@@ -7,7 +7,7 @@ use unscanny::Scanner;
 use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
-use crate::eval::{methods_on, CastInfo, Library, Scope, Value};
+use crate::eval::{format_str, methods_on, CastInfo, Library, Scope, Value};
 use crate::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
@@ -402,6 +402,22 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
 
 /// Complete imports.
 fn complete_imports(ctx: &mut CompletionContext) -> bool {
+    // In an import path for a package:
+    // "#import "@|",
+    if_chain! {
+        if matches!(
+            ctx.leaf.parent_kind(),
+            Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude)
+        );
+        if let Some(ast::Expr::Str(str)) = ctx.leaf.cast();
+        if str.get().starts_with('@');
+        then {
+            ctx.from = ctx.leaf.offset();
+            ctx.package_completions();
+            return true;
+        }
+    }
+
     // Behind an import list:
     // "#import "path.typ": |",
     // "#import "path.typ": a, b, |".
@@ -413,7 +429,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.cursor;
-            import_completions(ctx, &items, &value);
+            import_item_completions(ctx, &items, &value);
             return true;
         }
     }
@@ -431,7 +447,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.leaf.offset();
-            import_completions(ctx, &items, &value);
+            import_item_completions(ctx, &items, &value);
             return true;
         }
     }
@@ -440,7 +456,7 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for all exports of a module.
-fn import_completions(
+fn import_item_completions(
     ctx: &mut CompletionContext,
     existing: &[ast::Ident],
     value: &Value,
@@ -839,14 +855,26 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
     );
 
     ctx.snippet_completion(
-        "import",
-        "import \"${file.typ}\": ${items}",
+        "import (file)",
+        "import \"${file}.typ\": ${items}",
         "Imports variables from another file.",
     );
 
     ctx.snippet_completion(
-        "include",
-        "include \"${file.typ}\"",
+        "import (package)",
+        "import \"@${}\": ${items}",
+        "Imports variables from another file.",
+    );
+
+    ctx.snippet_completion(
+        "include (file)",
+        "include \"${file}.typ\"",
+        "Includes content from another file.",
+    );
+
+    ctx.snippet_completion(
+        "include (package)",
+        "include \"@${}\"",
         "Includes content from another file.",
     );
 
@@ -960,6 +988,18 @@ impl<'a> CompletionContext<'a> {
         }
     }
 
+    /// Add completions for all available packages.
+    fn package_completions(&mut self) {
+        for (package, description) in self.world.packages() {
+            self.value_completion(
+                None,
+                &Value::Str(format_str!("{package}")),
+                false,
+                description.as_deref(),
+            );
+        }
+    }
+
     /// Add completions for raw block tags.
     fn raw_completions(&mut self) {
         for (name, mut tags) in (self.library.items.raw_languages)() {
@@ -1014,7 +1054,10 @@ impl<'a> CompletionContext<'a> {
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
             Value::Func(func) => func.info().map(|info| plain_docs_sentence(info.docs)),
-            v => Some(v.repr().into()),
+            v => {
+                let repr = v.repr();
+                (repr.as_str() != label).then(|| repr.into())
+            }
         });
 
         if parens && matches!(value, Value::Func(_)) {

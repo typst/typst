@@ -54,11 +54,12 @@ pub mod model;
 pub mod syntax;
 
 use comemo::{Prehashed, Track, TrackedMut};
+use ecow::EcoString;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
-use crate::file::FileId;
+use crate::file::{FileId, PackageSpec};
 use crate::font::{Font, FontBook};
 use crate::syntax::Source;
 use crate::util::Bytes;
@@ -112,6 +113,11 @@ pub trait World {
     fn main(&self) -> Source;
 
     /// Try to access the specified source file.
+    ///
+    /// The returned `Source` file's [id](Source::id) does not have to match the
+    /// given `id`. Due to symlinks, two different file id's can point to the
+    /// same on-disk file. Implementors can deduplicate and return the same
+    /// `Source` if they want to, but do not have to.
     fn source(&self, id: FileId) -> FileResult<Source>;
 
     /// Try to access the specified file.
@@ -124,5 +130,18 @@ pub trait World {
     ///
     /// If no offset is specified, the local date should be chosen. Otherwise,
     /// the UTC date should be chosen with the corresponding offset in hours.
+    ///
+    /// If this function returns `None`, Typst's `datetime` function will
+    /// return an error.
     fn today(&self, offset: Option<i64>) -> Option<Datetime>;
+
+    /// A list of all available packages and optionally descriptions for them.
+    ///
+    /// This function is optional to implement. It enhances the user experience
+    /// by enabling autocompletion for packages. Details about packages from the
+    /// `@preview` namespace are available from
+    /// `https://packages.typst.org/preview/index.json`.
+    fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
+        &[]
+    }
 }

@@ -34,9 +34,6 @@ struct Repr {
 
 impl Source {
     /// Create a new source file.
-    ///
-    /// The path must be canonical, so that the same source file has the same
-    /// id even if accessed through different paths.
     #[tracing::instrument(skip_all)]
     pub fn new(id: FileId, text: String) -> Self {
         let mut root = parse(&text);

@@ -290,6 +290,8 @@ impl PackageManifest {
 }
 
 /// The `package` key in the manifest.
+///
+/// More fields are specified, but they are not relevant to the compiler.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct PackageInfo {
     /// The name of the package within its namespace.
