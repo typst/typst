@@ -152,7 +152,6 @@ impl<'s> Quotes<'s> {
                 true => low_high,
             },
             "cs" | "da" | "de" | "sk" | "sl" if alternative => ("›", "‹", "»", "«"),
-            "lt" | "lv" if alternative => ("'", "'", "\"", "\""),
             "cs" | "da" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => low_high,
             "fr" => match alternative {
                 false => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
