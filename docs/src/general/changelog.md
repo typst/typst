@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.6.0 (June 30, 2023) { #v0.6.0 }
 - Package Management
   - Typst now has built-in [package management]($scripting/#packages)
   - You can import [published]($packages) community packages or create and use
@@ -54,14 +54,16 @@ description: |
   - Added some hints for error messages
   - Added some missing syntaxes for [`raw`]($func/raw) highlighting
   - Improved rendering of rotated images in PNG export and web app
-  - Made [footnotes]($func/footnote) reusable and referencable
+  - Made [footnotes]($func/footnote) reusable and referenceable
   - Fixed bug with citations and bibliographies in [`locate`]($func/locate)
   - Fixed inconsistent tense in documentation
 
 - Development
   - Added [contribution guide](https://github.com/typst/typst/blob/main/CONTRIBUTING.md)
-  - Reworked `World` interface to accommodate for package managment and make
+  - Reworked `World` interface to accommodate for package management and make
     it a bit simpler to implement _(Breaking change for implementors)_
+
+<contributors from="v0.5.0" to="v0.6.0" />
 
 ## Version 0.5.0 (June 9, 2023) { #v0.5.0 }
 - Text and Layout
