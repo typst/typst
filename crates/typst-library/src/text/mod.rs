@@ -15,7 +15,8 @@ pub use self::shaping::*;
 pub use self::shift::*;
 
 use rustybuzz::Tag;
-use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
+use ttf_parser::Rect;
+use typst::font::{Font, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
 use crate::layout::ParElem;
 use crate::prelude::*;
@@ -606,21 +607,42 @@ cast! {
     v: Length => Self(v),
 }
 
+/// Specifies the bottom or top edge of a bounding box.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum BboxVertical {
+    /// The top edge of the bounding box.
+    BboxTop,
+    /// The bottom edge of the bounding box.
+    BboxBottom,
+}
+
 /// Specifies the bottom or top edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum TextEdge {
     /// An edge specified using one of the well-known font metrics.
     Metric(VerticalFontMetric),
+    /// An edge specified by the bounding box of the text.
+    Bbox(BboxVertical),
     /// An edge specified as a length.
     Length(Length),
 }
 
 impl TextEdge {
+    /// Determine if edge is specified from bounding box info
+    pub fn is_bbox(&self) -> bool {
+        matches!(self, Self::Bbox(_))
+    }
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, metrics: &FontMetrics) -> Abs {
+    pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
-            Self::Metric(metric) => metrics.vertical(metric).resolve(styles),
-            Self::Length(length) => length.resolve(styles),
+            TextEdge::Metric(metric) => font.metrics().vertical(metric).resolve(styles),
+            TextEdge::Length(length) => length.resolve(styles),
+            TextEdge::Bbox(BboxVertical::BboxTop) => bbox
+                .map(|bbox| (font.to_em(bbox.y_max)).resolve(styles))
+                .unwrap_or(Abs::zero()),
+            TextEdge::Bbox(BboxVertical::BboxBottom) => bbox
+                .map(|bbox| (font.to_em(bbox.y_min)).resolve(styles))
+                .unwrap_or(Abs::zero()),
         }
     }
 }
@@ -629,9 +651,11 @@ cast! {
     TextEdge,
     self => match self {
         Self::Metric(metric) => metric.into_value(),
+        Self::Bbox(bbv) => bbv.into_value(),
         Self::Length(length) => length.into_value(),
     },
     v: VerticalFontMetric => Self::Metric(v),
+    v: BboxVertical => Self::Bbox(v),
     v: Length => Self::Length(v),
 }
 

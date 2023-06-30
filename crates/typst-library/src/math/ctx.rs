@@ -5,7 +5,7 @@ use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
-use crate::text::tags;
+use crate::text::{tags, BboxVertical, TextEdge};
 
 macro_rules! scaled {
     ($ctx:expr, text: $text:ident, display: $display:ident $(,)?) => {
@@ -203,7 +203,27 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 style = style.with_italic(false);
             }
             let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
-            let frame = self.layout_content(&TextElem::packed(text).spanned(span))?;
+            let text = TextElem::packed(text)
+                .styled(TextElem::set_top_edge(TextEdge::Bbox(BboxVertical::BboxTop)))
+                .styled(TextElem::set_bottom_edge(TextEdge::Bbox(
+                    BboxVertical::BboxBottom,
+                )))
+                .spanned(span);
+            let par = ParElem::new(vec![text]);
+
+            // There isn't a natural width for a paragraph in a math environment;
+            // because it will be placed somewhere probably not at the left margin
+            // it will overflow.  So emulate an `hbox` instead and allow the paragraph
+            // to extend as far as needed.
+            let frame = par
+                .layout(
+                    self.vt,
+                    self.outer.chain(&self.local),
+                    false,
+                    Size::splat(Abs::inf()),
+                    false,
+                )?
+                .into_frame();
             FrameFragment::new(self, frame)
                 .with_class(MathClass::Alphabetic)
                 .with_spaced(spaced)
