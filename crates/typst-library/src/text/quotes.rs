@@ -42,6 +42,12 @@ pub struct SmartQuoteElem {
     /// ```
     #[default(true)]
     pub enabled: bool,
+
+    /// Whether to use alternative quotation marks.
+    ///
+    /// Does nothing for languages that don't have alternative quotation marks.
+    #[default(true)]
+    pub alternative: bool,
 }
 
 /// State machine for smart quote substitution.
@@ -135,17 +141,29 @@ impl<'s> Quotes<'s> {
     /// Norwegian.
     ///
     /// For unknown languages, the English quotes are used.
-    pub fn from_lang(lang: Lang, region: Option<Region>) -> Self {
+    pub fn from_lang(lang: Lang, region: Option<Region>, alternative: bool) -> Self {
         let region = region.as_ref().map(Region::as_str);
+
+        let low_high = ("‚", "‘", "„", "“");
+
         let (single_open, single_close, double_open, double_close) = match lang.as_str() {
-            "de" if matches!(region, Some("CH" | "LI")) => ("‹", "›", "«", "»"),
-            "cs" | "da" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => {
-                ("‚", "‘", "„", "“")
-            }
-            "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
+            "de" if matches!(region, Some("CH" | "LI")) => match alternative {
+                false => ("‹", "›", "«", "»"),
+                true => low_high,
+            },
+            "cs" | "da" | "de" | "sk" | "sl" if alternative => ("›", "‹", "»", "«"),
+            "lt" | "lv" if alternative => ("'", "'", "\"", "\""),
+            "cs" | "da" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => low_high,
+            "fr" => match alternative {
+                false => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
+                true => ("‘\u{00A0}", "\u{00A0}’", "“\u{00A0}", "\u{00A0}”"),
+            },
+            "fi" | "sv" if alternative => ("’", "’", "»", "»"),
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
             "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
             "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
+            "ru" if alternative => return Self::default(),
+            "no" | "nb" | "nn" if alternative => low_high,
             "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => return Self::default(),
