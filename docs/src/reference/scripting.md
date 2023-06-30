@@ -294,6 +294,25 @@ the following example:
 #face.grin
 ```
 
+## Packages { #packages }
+To reuse building blocks across projects, you can also create and import Typst
+_packages._ A package import is specified as a triple of a namespace, a name,
+and a version.
+
+```example
+>>> #let add(x, y) = x + y
+<<< #import "@preview/example:0.1.0": add
+#add(2, 7)
+```
+
+The `preview` namespace contains packages shared by the community. You can find
+a searchable list of available community packages in the [packages]($packages)
+section.
+
+If you are using Typst locally, you can also create your own system-local
+packages. For more details on this, see the
+[package repository](https://github.com/typst/packages).
+
 ## Operators { #operators }
 The following table lists all available unary and binary operators with effect,
 arity (unary, binary) and precedence level (higher binds stronger).
@@ -322,3 +341,5 @@ arity (unary, binary) and precedence level (higher binds stronger).
 |  `{-=}`    | Subtraction-Assignment          | Binary |     1      |
 |  `{*=}`    | Multiplication-Assignment       | Binary |     1      |
 |  `{/=}`    | Division-Assignment             | Binary |     1      |
+
+[semver]: https://semver.org/

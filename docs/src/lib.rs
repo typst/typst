@@ -57,7 +57,7 @@ pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
         tutorial_pages(resolver),
         reference_pages(resolver),
         guides_pages(resolver),
-        packages_page(),
+        packages_page(resolver),
         markdown_page(resolver, "/docs/", "general/changelog.md"),
         markdown_page(resolver, "/docs/", "general/community.md"),
     ]
@@ -119,7 +119,7 @@ pub enum BodyModel {
     Funcs(FuncsModel),
     Type(TypeModel),
     Symbols(SymbolsModel),
-    Packages,
+    Packages(Html),
 }
 
 /// Build the tutorial.
@@ -167,14 +167,14 @@ fn guides_pages(resolver: &dyn Resolver) -> PageModel {
 }
 
 /// Build the packages section.
-fn packages_page() -> PageModel {
+fn packages_page(resolver: &dyn Resolver) -> PageModel {
     PageModel {
         route: "/docs/packages/".into(),
         title: "Packages".into(),
         description: "Packages for Typst.".into(),
         part: None,
         outline: vec![],
-        body: BodyModel::Packages,
+        body: BodyModel::Packages(Html::markdown(resolver, details("packages"))),
         children: vec![],
     }
 }

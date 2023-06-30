@@ -293,6 +293,7 @@ impl<'a> Handler<'a> {
             "$type" => "/docs/reference/types/",
             "$func" => "/docs/reference/",
             "$guides" => "/docs/guides/",
+            "$packages" => "/docs/packages/",
             "$changelog" => "/docs/changelog/",
             "$community" => "/docs/community/",
             _ => panic!("unknown link root: {root}"),
