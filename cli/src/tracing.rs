@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufReader, BufWriter, Error, ErrorKind, Seek, SeekFrom};
+use std::io::{self, BufReader, BufWriter, Seek, SeekFrom};
 use std::path::PathBuf;
 
 use inferno::flamegraph::Options;
@@ -9,69 +9,21 @@ use tracing_flame::{FlameLayer, FlushGuard};
 use tracing_subscriber::fmt;
 use tracing_subscriber::prelude::*;
 
-use crate::args::CliArguments;
-
-/// Will flush the flamegraph to disk when dropped.
-pub struct TracingGuard {
-    flush_guard: Option<FlushGuard<BufWriter<File>>>,
-    temp_file: File,
-    output_svg: PathBuf,
-}
-
-impl TracingGuard {
-    pub fn finish(&mut self) -> Result<(), Error> {
-        if self.flush_guard.is_none() {
-            return Ok(());
-        }
-
-        tracing::info!("Flushing tracing flamegraph...");
-
-        // At this point, we're done tracing, so we can drop the guard.
-        // This will flush the tracing output to disk.
-        // We can then read the file and generate the flamegraph.
-        drop(self.flush_guard.take());
-
-        // Reset the file pointer to the beginning.
-        self.temp_file.seek(SeekFrom::Start(0))?;
-
-        // Create the readers and writers.
-        let reader = BufReader::new(&mut self.temp_file);
-        let output = BufWriter::new(File::create(&self.output_svg)?);
-
-        // Create the options: default in flame chart mode
-        let mut options = Options::default();
-        options.flame_chart = true;
-
-        inferno::flamegraph::from_reader(&mut options, reader, output)
-            .map_err(|e| Error::new(ErrorKind::Other, e))?;
-
-        Ok(())
-    }
-}
-
-impl Drop for TracingGuard {
-    fn drop(&mut self) {
-        if !std::thread::panicking() {
-            if let Err(e) = self.finish() {
-                // Since we are finished, we cannot rely on tracing to log the
-                // error.
-                eprintln!("Failed to flush tracing flamegraph: {e}");
-            }
-        }
-    }
-}
+use crate::args::{CliArguments, Command};
 
 /// Initializes the tracing system and returns a guard that will flush the
 /// flamegraph to disk when dropped.
-pub fn init_tracing(args: &CliArguments) -> Result<Option<TracingGuard>, Error> {
-    let flamegraph = args.command.as_compile().and_then(|c| c.flamegraph.as_ref());
-
-    if flamegraph.is_some() && args.command.is_watch() {
-        return Err(Error::new(
-            ErrorKind::InvalidInput,
-            "cannot use --flamegraph with watch command",
-        ));
-    }
+pub fn setup_tracing(args: &CliArguments) -> io::Result<Option<impl Drop>> {
+    let flamegraph = match &args.command {
+        Command::Compile(command) => command.flamegraph.as_ref(),
+        Command::Watch(command) if command.flamegraph.is_some() => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "cannot use --flamegraph with watch command",
+            ));
+        }
+        _ => None,
+    };
 
     // Short circuit if we don't need to initialize flamegraph or debugging.
     if flamegraph.is_none() && args.verbosity == 0 {
@@ -132,5 +84,55 @@ fn level_filter(args: &CliArguments) -> LevelFilter {
         2 => LevelFilter::INFO,
         3 => LevelFilter::DEBUG,
         _ => LevelFilter::TRACE,
+    }
+}
+
+/// Will flush the flamegraph to disk when dropped.
+struct TracingGuard {
+    flush_guard: Option<FlushGuard<BufWriter<File>>>,
+    temp_file: File,
+    output_svg: PathBuf,
+}
+
+impl TracingGuard {
+    fn finish(&mut self) -> io::Result<()> {
+        if self.flush_guard.is_none() {
+            return Ok(());
+        }
+
+        tracing::info!("Flushing tracing flamegraph...");
+
+        // At this point, we're done tracing, so we can drop the guard.
+        // This will flush the tracing output to disk.
+        // We can then read the file and generate the flamegraph.
+        drop(self.flush_guard.take());
+
+        // Reset the file pointer to the beginning.
+        self.temp_file.seek(SeekFrom::Start(0))?;
+
+        // Create the readers and writers.
+        let reader = BufReader::new(&mut self.temp_file);
+        let output = BufWriter::new(File::create(&self.output_svg)?);
+
+        // Create the options: default in flame chart mode
+        let mut options = Options::default();
+        options.flame_chart = true;
+
+        inferno::flamegraph::from_reader(&mut options, reader, output)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        Ok(())
+    }
+}
+
+impl Drop for TracingGuard {
+    fn drop(&mut self) {
+        if !std::thread::panicking() {
+            if let Err(e) = self.finish() {
+                // Since we are finished, we cannot rely on tracing to log the
+                // error.
+                eprintln!("failed to flush tracing flamegraph: {e}");
+            }
+        }
     }
 }
