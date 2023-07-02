@@ -13,7 +13,7 @@ land your contribution below.
 2. Fork the Typst repository and start with your contribution. If you, at any
    point in this process, are unsure about how to do something in the Typst
    codebase, reach out to a maintainer or a more experienced contributor. Also
-   have a look at the [`ARCHITECTURE.md`][architecture] file. It explains how
+   have a look at the [`architecture.md`][architecture] file. It explains how
    the compiler works.
 3. Create a pull request (PR) in the Typst repository, outlining your
    contribution, the technical rationale behind it, and, if it includes a new
@@ -69,5 +69,5 @@ Typst!
 [issue]: https://github.com/typst/typst/issues
 [testing]: https://github.com/typst/typst/blob/main/tests/README.md
 [#contributors]: https://discord.com/channels/1054443721975922748/1088371867913572452
-[architecture]: https://github.com/typst/typst/blob/main/ARCHITECTURE.md
+[architecture]: https://github.com/typst/typst/blob/main/docs/dev/architecture.md
 [changelog]: https://typst.app/docs/changelog/

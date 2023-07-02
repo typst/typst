@@ -17,7 +17,7 @@ doctest = false
 bench = false
 
 [dependencies]
-typst = { path = ".." }
+typst = { path = "../typst" }
 az = "1.2"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 comemo = "0.3"

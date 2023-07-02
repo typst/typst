@@ -23,13 +23,13 @@ use typst::geom::{Abs, Smart};
 use typst_library::layout::{Margin, PageElem};
 use unscanny::Scanner;
 
-static SRC: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/src");
-static FILES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../assets/files");
+static DOCS: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../docs");
+static FILES: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../assets/files");
 static DETAILS: Lazy<yaml::Mapping> = Lazy::new(|| yaml("reference/details.yml"));
 static GROUPS: Lazy<Vec<GroupData>> = Lazy::new(|| yaml("reference/groups.yml"));
 
 static FONTS: Lazy<(Prehashed<FontBook>, Vec<Font>)> = Lazy::new(|| {
-    static DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../assets/fonts");
+    static DIR: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../assets/fonts");
     let fonts: Vec<_> = DIR
         .files()
         .flat_map(|file| Font::iter(file.contents().into()))
@@ -53,13 +53,13 @@ static LIBRARY: Lazy<Prehashed<Library>> = Lazy::new(|| {
 /// Build documentation pages.
 pub fn provide(resolver: &dyn Resolver) -> Vec<PageModel> {
     vec![
-        markdown_page(resolver, "/docs/", "general/overview.md").with_route("/docs/"),
+        markdown_page(resolver, "/docs/", "overview.md").with_route("/docs/"),
         tutorial_pages(resolver),
         reference_pages(resolver),
         guides_pages(resolver),
         packages_page(resolver),
-        markdown_page(resolver, "/docs/", "general/changelog.md"),
-        markdown_page(resolver, "/docs/", "general/community.md"),
+        markdown_page(resolver, "/docs/", "changelog.md"),
+        markdown_page(resolver, "/docs/", "community.md"),
     ]
 }
 
@@ -125,7 +125,7 @@ pub enum BodyModel {
 /// Build the tutorial.
 fn tutorial_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = markdown_page(resolver, "/docs/", "tutorial/welcome.md");
-    page.children = SRC
+    page.children = DOCS
         .get_dir("tutorial")
         .unwrap()
         .files()
@@ -187,7 +187,7 @@ fn markdown_page(
     path: impl AsRef<Path>,
 ) -> PageModel {
     assert!(parent.starts_with('/') && parent.ends_with('/'));
-    let md = SRC.get_file(path).unwrap().contents_utf8().unwrap();
+    let md = DOCS.get_file(path).unwrap().contents_utf8().unwrap();
     let html = Html::markdown(resolver, md);
     let title = html.title().expect("chapter lacks a title").to_string();
     PageModel {
@@ -652,7 +652,7 @@ fn types_page(resolver: &dyn Resolver, parent: &str) -> PageModel {
 
 /// Produce the types' models.
 fn type_models(resolver: &dyn Resolver) -> Vec<TypeModel> {
-    let file = SRC.get_file("reference/types.md").unwrap();
+    let file = DOCS.get_file("reference/types.md").unwrap();
     let text = file.contents_utf8().unwrap();
 
     let mut s = unscanny::Scanner::new(text);
@@ -906,7 +906,7 @@ fn module<'a>(parent: &'a Module, name: &str) -> Result<&'a Module, String> {
 /// Load YAML from a path.
 #[track_caller]
 fn yaml<T: DeserializeOwned>(path: &str) -> T {
-    let file = SRC.get_file(path).unwrap();
+    let file = DOCS.get_file(path).unwrap();
     yaml::from_slice(file.contents()).unwrap()
 }
 

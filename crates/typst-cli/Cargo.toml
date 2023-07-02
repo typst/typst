@@ -20,8 +20,8 @@ bench = false
 doc = false
 
 [dependencies]
-typst = { path = ".." }
-typst-library = { path = "../library" }
+typst = { path = "../typst" }
+typst-library = { path = "../typst-library" }
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
 clap = { version = "4.2.4", features = ["derive", "env"] }
 codespan-reporting = "0.11"

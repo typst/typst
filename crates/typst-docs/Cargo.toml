@@ -11,8 +11,8 @@ doctest = false
 bench = false
 
 [dependencies]
-typst = { path = ".." }
-typst-library = { path = "../library" }
+typst = { path = "../typst" }
+typst-library = { path = "../typst-library" }
 comemo = "0.3"
 heck = "0.4"
 include_dir = "0.7"

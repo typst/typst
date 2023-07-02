@@ -95,7 +95,7 @@ impl FontSearcher {
 
         macro_rules! add {
             ($filename:literal) => {
-                process(include_bytes!(concat!("../../assets/fonts/", $filename,)));
+                process(include_bytes!(concat!("../../../assets/fonts/", $filename)));
             };
         }
 
