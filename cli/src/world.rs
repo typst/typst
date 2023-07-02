@@ -1,12 +1,11 @@
 use std::cell::{OnceCell, RefCell, RefMut};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
 use chrono::Datelike;
 use comemo::Prehashed;
-use notify::{RecursiveMode, Watcher};
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
@@ -45,6 +44,7 @@ pub struct SystemWorld {
 }
 
 impl SystemWorld {
+    /// Create a new system world.
     pub fn new(command: &CompileCommand) -> StrResult<Self> {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
@@ -89,47 +89,12 @@ impl SystemWorld {
         self.main
     }
 
-    /// Adjust the file watching. Watches all new dependencies and unwatches
-    /// all `previous` dependencies that are not relevant anymore.
-    #[tracing::instrument(skip_all)]
-    pub fn watch(
-        &self,
-        watcher: &mut dyn Watcher,
-        mut previous: HashSet<PathBuf>,
-    ) -> StrResult<()> {
-        // Watch new paths that weren't watched yet.
-        for slot in self.paths.borrow().values() {
-            let path = &slot.system_path;
-            let watched = previous.remove(path);
-            if path.exists() && !watched {
-                tracing::info!("Watching {}", path.display());
-                watcher
-                    .watch(path, RecursiveMode::NonRecursive)
-                    .map_err(|_| eco_format!("failed to watch {path:?}"))?;
-            }
-        }
-
-        // Unwatch old paths that don't need to be watched anymore.
-        for path in previous {
-            tracing::info!("Unwatching {}", path.display());
-            watcher.unwatch(&path).ok();
-        }
-
-        Ok(())
+    /// Return all paths the last compilation depended on.
+    pub fn dependencies(&mut self) -> impl Iterator<Item = &Path> {
+        self.paths.get_mut().values().map(|slot| slot.system_path.as_path())
     }
 
-    /// Collect all paths the last compilation depended on.
-    #[tracing::instrument(skip_all)]
-    pub fn dependencies(&self) -> HashSet<PathBuf> {
-        self.paths
-            .borrow()
-            .values()
-            .map(|slot| slot.system_path.clone())
-            .collect()
-    }
-
-    /// Reset th compilation state in preparation of a new compilation.
-    #[tracing::instrument(skip_all)]
+    /// Reset the compilation state in preparation of a new compilation.
     pub fn reset(&mut self) {
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();

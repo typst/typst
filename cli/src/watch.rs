@@ -1,12 +1,13 @@
 use std::collections::HashSet;
 use std::io::{self, IsTerminal, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use codespan_reporting::term::{self, termcolor};
-use notify::{RecommendedWatcher, Watcher};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use same_file::is_same_file;
 use termcolor::WriteColor;
 use typst::diag::StrResult;
+use typst::eval::eco_format;
 
 use crate::args::CompileCommand;
 use crate::color_stream;
@@ -27,7 +28,7 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
         .map_err(|_| "failed to setup file watching")?;
 
     // Watch all the files that are used by the input file and its dependencies.
-    world.watch(&mut watcher, HashSet::new())?;
+    watch_dependencies(&mut world, &mut watcher, HashSet::new())?;
 
     // Handle events.
     let timeout = std::time::Duration::from_millis(100);
@@ -45,16 +46,45 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
 
         if recompile {
             // Retrieve the dependencies of the last compilation.
-            let dependencies = world.dependencies();
+            let previous: HashSet<PathBuf> =
+                world.dependencies().map(ToOwned::to_owned).collect();
 
             // Recompile.
             compile_once(&mut world, &mut command, true)?;
             comemo::evict(10);
 
             // Adjust the watching.
-            world.watch(&mut watcher, dependencies)?;
+            watch_dependencies(&mut world, &mut watcher, previous)?;
         }
     }
+}
+
+/// Adjust the file watching. Watches all new dependencies and unwatches
+/// all `previous` dependencies that are not relevant anymore.
+#[tracing::instrument(skip_all)]
+fn watch_dependencies(
+    world: &mut SystemWorld,
+    watcher: &mut dyn Watcher,
+    mut previous: HashSet<PathBuf>,
+) -> StrResult<()> {
+    // Watch new paths that weren't watched yet.
+    for path in world.dependencies() {
+        let watched = previous.remove(path);
+        if path.exists() && !watched {
+            tracing::info!("Watching {}", path.display());
+            watcher
+                .watch(path, RecursiveMode::NonRecursive)
+                .map_err(|_| eco_format!("failed to watch {path:?}"))?;
+        }
+    }
+
+    // Unwatch old paths that don't need to be watched anymore.
+    for path in previous {
+        tracing::info!("Unwatching {}", path.display());
+        watcher.unwatch(&path).ok();
+    }
+
+    Ok(())
 }
 
 /// Whether a watch event is relevant for compilation.
