@@ -30,6 +30,8 @@ pub struct HElem {
     /// If `{true}`, the spacing collapses at the start or end of a paragraph.
     /// Moreover, from multiple adjacent weak spacings all but the largest one
     /// collapse.
+    /// Also, calling a weak spacing from markup causes all adjacent markup
+    /// spaces to be removed, regardless of the amount of spacing inserted.
     ///
     /// ```example
     /// #h(1cm, weak: true)
@@ -40,6 +42,13 @@ pub struct HElem {
     /// supported
     /// #h(8pt, weak: true) on both
     /// sides, they do show up.
+    ///
+    /// Further #h(0pt, weak: true) more,
+    /// even the smallest of them swallow
+    /// adjacent markup spaces.
+    ///
+    /// 1#h(0pt, weak: true)#{" "}2
+    /// 3#h(0pt, weak: true)~4
     /// ```
     #[default(false)]
     pub weak: bool,
