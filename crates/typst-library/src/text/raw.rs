@@ -252,7 +252,7 @@ impl Show for RawElem {
                 load(&self.syntaxes(styles), &self.data(styles)).at(self.span())?;
             let syntax = syntax_set
                 .find_syntax_by_token(&token)
-                .ok_or_else(|| format!("unknown syntax `{}`", token))
+                .ok_or_else(|| eco_format!("unknown syntax `{token}`"))
                 .at(self.span())?;
 
             let mut seq = vec![];
@@ -415,9 +415,10 @@ fn load(paths: &SyntaxPaths, bytes: &Vec<Bytes>) -> StrResult<Arc<SyntaxSet>> {
     // We might have multiple sublime-syntax/yaml files
     for ((token, path), bytes) in paths.0.iter().zip(bytes.iter()) {
         let src = std::str::from_utf8(bytes).map_err(|_| FileError::InvalidUtf8)?;
-        out.add(SyntaxDefinition::load_from_str(src, false, Some(&**token)).map_err(
-            |e| format!("failed to parse syntax file `{}`: {}", path, e.to_string()),
-        )?);
+        out.add(
+            SyntaxDefinition::load_from_str(src, false, Some(&**token))
+                .map_err(|e| eco_format!("failed to parse syntax file `{path}`: {e}"))?,
+        );
     }
 
     Ok(Arc::new(out.build()))
