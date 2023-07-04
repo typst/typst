@@ -1471,7 +1471,7 @@ impl Eval for ast::SetRule {
             })
             .at(target.span())?;
         let args = self.args().eval(vm)?;
-        Ok(target.set(args)?.spanned(self.span()))
+        Ok(target.set(vm, args)?.spanned(self.span()))
     }
 }
 

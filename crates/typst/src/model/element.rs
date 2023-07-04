@@ -32,7 +32,7 @@ pub trait Construct {
 /// An element's set rule.
 pub trait Set {
     /// Parse relevant arguments into style properties for this element.
-    fn set(args: &mut Args) -> SourceResult<Styles>;
+    fn set(vm: &mut Vm, args: &mut Args) -> SourceResult<Styles>;
 }
 
 /// An element's function.
@@ -80,8 +80,8 @@ impl ElemFunc {
     }
 
     /// Execute the set rule for the element and return the resulting style map.
-    pub fn set(self, mut args: Args) -> SourceResult<Styles> {
-        let styles = (self.0.set)(&mut args)?;
+    pub fn set(self, vm: &mut Vm, mut args: Args) -> SourceResult<Styles> {
+        let styles = (self.0.set)(vm, &mut args)?;
         args.finish()?;
         Ok(styles)
     }
@@ -128,7 +128,7 @@ pub struct NativeElemFunc {
     /// The element's constructor.
     pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
     /// The element's set rule.
-    pub set: fn(&mut Args) -> SourceResult<Styles>,
+    pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
     /// Details about the function.
     pub info: Lazy<FuncInfo>,
 }

@@ -1,6 +1,13 @@
+use std::hash::Hash;
+use std::sync::Arc;
+
+use ecow::EcoVec;
 use once_cell::sync::Lazy;
 use syntect::highlighting as synt;
+use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
+use typst::diag::FileError;
 use typst::syntax::{self, LinkedNode};
+use typst::util::Bytes;
 
 use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
@@ -126,6 +133,34 @@ pub struct RawElem {
     /// ````
     #[default(HorizontalAlign(GenAlign::Start))]
     pub align: HorizontalAlign,
+
+    #[parse(
+        let (syntaxes, data) = if let Some(Spanned { v: paths, span }) = args.named::<Spanned<SyntaxPaths>>("syntaxes")? {
+            // Load bibliography files.
+            let data = paths.0
+                .iter()
+                .map(|(_, path)| {
+                    let id = vm.location().join(path).at(span)?;
+                    vm.world().file(id).at(span)
+                })
+                .collect::<SourceResult<Vec<Bytes>>>()?;
+
+            // Check that parsing works.
+            let _ = load(&paths, &data).at(span)?;
+
+            (Some(paths), Some(data))
+        } else {
+            (None, None)
+        };
+
+        syntaxes
+    )]
+    pub syntaxes: SyntaxPaths,
+
+    /// The raw file buffers.
+    #[internal]
+    #[parse(data)]
+    pub data: Vec<Bytes>,
 }
 
 impl RawElem {
@@ -154,7 +189,7 @@ impl Synthesize for RawElem {
 
 impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
@@ -182,7 +217,7 @@ impl Show for RawElem {
 
             Content::sequence(seq)
         } else if let Some(syntax) =
-            lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
+            lang.as_ref().and_then(|token| SYNTAXES.find_syntax_by_token(&token))
         {
             let mut seq = vec![];
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
@@ -193,6 +228,29 @@ impl Show for RawElem {
 
                 for (style, piece) in
                     highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
+                {
+                    seq.push(styled(piece, foreground.into(), style));
+                }
+            }
+
+            Content::sequence(seq)
+        } else if let Some(token) = lang {
+            let syntax_set =
+                load(&self.syntaxes(styles), &self.data(styles)).at(self.span())?;
+            let syntax = syntax_set
+                .find_syntax_by_token(&token)
+                .ok_or_else(|| format!("unknown syntax `{}`", token))
+                .at(self.span())?;
+
+            let mut seq = vec![];
+            let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
+            for (i, line) in text.lines().enumerate() {
+                if i != 0 {
+                    seq.push(LinebreakElem::new().pack());
+                }
+
+                for (style, piece) in
+                    highlighter.highlight_line(line, &syntax_set).into_iter().flatten()
                 {
                     seq.push(styled(piece, foreground.into(), style));
                 }
@@ -316,6 +374,40 @@ fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> RgbaColor {
 
 fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
     synt::Color { r, g, b, a }
+}
+
+#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct SyntaxPaths(EcoVec<(Str, Str)>);
+
+cast! {
+    SyntaxPaths,
+    self => {
+        Value::Dict(self.0.iter().map(|(k, v)| (k.clone(), Value::Str(v.clone()))).collect::<Dict>())
+    },
+    v: Dict => {
+        let mut out = SyntaxPaths(EcoVec::new());
+        for (key, value) in v {
+            out.0.push((key, value.cast::<Str>()?));
+        }
+
+        out
+    },
+}
+
+/// Load a syntax set from a list of syntax file paths.
+#[comemo::memoize]
+fn load(paths: &SyntaxPaths, bytes: &Vec<Bytes>) -> StrResult<Arc<SyntaxSet>> {
+    let mut out = SyntaxSetBuilder::new();
+
+    // We might have multiple sublime-syntax/yaml files
+    for ((token, path), bytes) in paths.0.iter().zip(bytes.iter()) {
+        let src = std::str::from_utf8(bytes).map_err(|_| FileError::InvalidUtf8)?;
+        out.add(SyntaxDefinition::load_from_str(src, false, Some(&**token)).map_err(
+            |e| format!("failed to parse syntax file `{}`: {}", path, e.to_string()),
+        )?);
+    }
+
+    Ok(Arc::new(out.build()))
 }
 
 /// The syntect syntax definitions.
