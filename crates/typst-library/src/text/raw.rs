@@ -230,7 +230,7 @@ impl Show for RawElem {
 
             Content::sequence(seq)
         } else if let Some(syntax) =
-            lang.as_ref().and_then(|token| SYNTAXES.find_syntax_by_token(&token))
+            lang.as_ref().and_then(|token| SYNTAXES.find_syntax_by_token(token))
         {
             let mut seq = vec![];
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
