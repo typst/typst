@@ -62,9 +62,9 @@ pub fn write_outline(ctx: &mut PdfContext) -> Option<Ref> {
 
             // Since this heading was bookmarked, the next heading, if it is a
             // child of this one, won't have a skipped direct ancestor (indeed,
-            // this heading would be its most direct bookmarked ancestor, and
-            // wasn't skipped). Therefore, it can be added as a child of this
-            // one, if needed, following the usual rules listed above.
+            // this heading would be its most direct ancestor, and wasn't
+            // skipped). Therefore, it can be added as a child of this one, if
+            // needed, following the usual rules listed above.
             last_skipped_level = None;
             children.push(leaf);
         } else if last_skipped_level.map_or(true, |l| leaf.level < l) {
