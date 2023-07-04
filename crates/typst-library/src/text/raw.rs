@@ -134,6 +134,19 @@ pub struct RawElem {
     #[default(HorizontalAlign(GenAlign::Start))]
     pub align: HorizontalAlign,
 
+    /// A set of additional syntax definitions to load.
+    /// The syntax definitions should be in the `sublime-syntax` file format.
+    /// Syntaxes are a dictionary of the language name and the syntax file.
+    /// 
+    /// ````example
+    /// #set raw(syntaxes: (phos: "Phos.sublime-syntax"))
+    /// 
+    /// ```phos
+    /// fn hello() {
+    ///     print("Hello, World!")
+    /// }
+    /// ```
+    /// ````
     #[parse(
         let (syntaxes, data) = if let Some(Spanned { v: paths, span }) = args.named::<Spanned<SyntaxPaths>>("syntaxes")? {
             // Load bibliography files.
