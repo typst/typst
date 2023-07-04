@@ -1,7 +1,6 @@
 use std::hash::Hash;
 use std::sync::Arc;
 
-use ecow::EcoVec;
 use once_cell::sync::Lazy;
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
@@ -139,12 +138,14 @@ pub struct RawElem {
     /// Syntaxes are a dictionary of the language name and the syntax file.
     ///
     /// ````example
-    /// #set raw(syntaxes: (phos: "Phos.sublime-syntax"))
+    /// #set raw(syntaxes: "SExpressions.sublime-syntax")
     ///
-    /// ```phos
-    /// fn hello() {
-    ///     print("Hello, World!")
-    /// }
+    /// ```sexp
+    /// (defun factorial (x)
+    ///    (if (zerop x)
+    ///        ; with a comment
+    ///        1
+    ///        (* x (factorial (- x 1)))))
     /// ```
     /// ````
     #[parse(
@@ -152,7 +153,7 @@ pub struct RawElem {
             // Load bibliography files.
             let data = paths.0
                 .iter()
-                .map(|(_, path)| {
+                .map(|path| {
                     let id = vm.location().join(path).at(span)?;
                     vm.world().file(id).at(span)
                 })
@@ -250,26 +251,27 @@ impl Show for RawElem {
         } else if let Some(token) = lang {
             let syntax_set =
                 load(&self.syntaxes(styles), &self.data(styles)).at(self.span())?;
-            let syntax = syntax_set
-                .find_syntax_by_token(&token)
-                .ok_or_else(|| eco_format!("unknown syntax `{token}`"))
-                .at(self.span())?;
+            if let Some(syntax) = syntax_set.find_syntax_by_token(&token) {
+                let mut seq = vec![];
+                let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
+                for (i, line) in text.lines().enumerate() {
+                    if i != 0 {
+                        seq.push(LinebreakElem::new().pack());
+                    }
 
-            let mut seq = vec![];
-            let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
-            for (i, line) in text.lines().enumerate() {
-                if i != 0 {
-                    seq.push(LinebreakElem::new().pack());
+                    for (style, piece) in highlighter
+                        .highlight_line(line, &syntax_set)
+                        .into_iter()
+                        .flatten()
+                    {
+                        seq.push(styled(piece, foreground.into(), style));
+                    }
                 }
 
-                for (style, piece) in
-                    highlighter.highlight_line(line, &syntax_set).into_iter().flatten()
-                {
-                    seq.push(styled(piece, foreground.into(), style));
-                }
+                Content::sequence(seq)
+            } else {
+                TextElem::packed(text)
             }
-
-            Content::sequence(seq)
         } else {
             TextElem::packed(text)
         };
@@ -389,22 +391,15 @@ fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
     synt::Color { r, g, b, a }
 }
 
-#[derive(Default, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct SyntaxPaths(EcoVec<(Str, Str)>);
+/// A list of bibliography file paths.
+#[derive(Debug, Default, Clone, Hash)]
+pub struct SyntaxPaths(Vec<EcoString>);
 
 cast! {
     SyntaxPaths,
-    self => {
-        Value::Dict(self.0.iter().map(|(k, v)| (k.clone(), Value::Str(v.clone()))).collect::<Dict>())
-    },
-    v: Dict => {
-        let mut out = SyntaxPaths(EcoVec::new());
-        for (key, value) in v {
-            out.0.push((key, value.cast::<Str>()?));
-        }
-
-        out
-    },
+    self => self.0.into_value(),
+    v: EcoString => Self(vec![v]),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 
 /// Load a syntax set from a list of syntax file paths.
@@ -413,10 +408,10 @@ fn load(paths: &SyntaxPaths, bytes: &Vec<Bytes>) -> StrResult<Arc<SyntaxSet>> {
     let mut out = SyntaxSetBuilder::new();
 
     // We might have multiple sublime-syntax/yaml files
-    for ((token, path), bytes) in paths.0.iter().zip(bytes.iter()) {
+    for (path, bytes) in paths.0.iter().zip(bytes.iter()) {
         let src = std::str::from_utf8(bytes).map_err(|_| FileError::InvalidUtf8)?;
         out.add(
-            SyntaxDefinition::load_from_str(src, false, Some(&**token))
+            SyntaxDefinition::load_from_str(src, false, None)
                 .map_err(|e| eco_format!("failed to parse syntax file `{path}`: {e}"))?,
         );
     }
