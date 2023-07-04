@@ -3,11 +3,11 @@ use std::path::PathBuf;
 
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 
-/// typst creates PDF files from .typ files
+/// The Typst compiler.
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst", version = crate::typst_version(), author)]
 pub struct CliArguments {
-    /// The typst command to run
+    /// The command to run
     #[command(subcommand)]
     pub command: Command,
 
@@ -21,15 +21,15 @@ pub struct CliArguments {
 #[derive(Debug, Clone, Subcommand)]
 #[command()]
 pub enum Command {
-    /// Compiles the input file into a PDF file
+    /// Compiles an input file into a PDF or PNG file
     #[command(visible_alias = "c")]
     Compile(CompileCommand),
 
-    /// Watches the input file and recompiles on changes
+    /// Watches an input file and recompiles on changes
     #[command(visible_alias = "w")]
     Watch(CompileCommand),
 
-    /// List all discovered fonts in system and custom font paths
+    /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
 }
 
@@ -42,11 +42,11 @@ pub struct CompileCommand {
     /// Path to output PDF file or PNG file(s)
     pub output: Option<PathBuf>,
 
-    /// Configure the project root
+    /// Configures the project root
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
     pub root: Option<PathBuf>,
 
-    /// Add additional directories to search for fonts
+    /// Adds additional directories to search for fonts
     #[clap(
         long = "font-path",
         env = "TYPST_FONT_PATHS",
@@ -55,11 +55,11 @@ pub struct CompileCommand {
     )]
     pub font_paths: Vec<PathBuf>,
 
-    /// Opens the output file after compilation using the default PDF viewer
+    /// Opens the output file using the default viewer after compilation
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
 
-    /// The PPI to use if exported as PNG
+    /// The PPI (pixels per inch) to use for PNG export
     #[arg(long = "ppi", default_value_t = 144.0)]
     pub ppi: f32,
 
@@ -85,10 +85,10 @@ impl CompileCommand {
     }
 }
 
-/// List all discovered fonts in system and custom font paths
+/// Lists all discovered fonts in system and custom font paths
 #[derive(Debug, Clone, Parser)]
 pub struct FontsCommand {
-    /// Add additional directories to search for fonts
+    /// Adds additional directories to search for fonts
     #[clap(
         long = "font-path",
         env = "TYPST_FONT_PATHS",
@@ -97,7 +97,7 @@ pub struct FontsCommand {
     )]
     pub font_paths: Vec<PathBuf>,
 
-    /// Also list style variants of each font family
+    /// Also lists style variants of each font family
     #[arg(long)]
     pub variants: bool,
 }
