@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 use pdf_writer::{Finish, Ref, TextStr};
 
 use super::{AbsExt, PdfContext, RefExt};
-use crate::geom::Abs;
+use crate::geom::{Abs, Smart};
 use crate::model::Content;
 
 /// Construct the outline for the document.
@@ -114,7 +114,10 @@ impl HeadingNode {
     fn leaf(element: Content) -> Self {
         HeadingNode {
             level: element.expect_field::<NonZeroUsize>("level"),
-            bookmarked: element.expect_field::<bool>("bookmarked"),
+            // 'bookmarked' set to 'auto' falls back to the value of 'outlined'.
+            bookmarked: element
+                .expect_field::<Smart<bool>>("bookmarked")
+                .unwrap_or_else(|| element.expect_field::<bool>("outlined")),
             element,
             children: Vec::new(),
         }
