@@ -137,10 +137,10 @@ pub struct RawElem {
     /// A set of additional syntax definitions to load.
     /// The syntax definitions should be in the `sublime-syntax` file format.
     /// Syntaxes are a dictionary of the language name and the syntax file.
-    /// 
+    ///
     /// ````example
     /// #set raw(syntaxes: (phos: "Phos.sublime-syntax"))
-    /// 
+    ///
     /// ```phos
     /// fn hello() {
     ///     print("Hello, World!")
