@@ -2,7 +2,7 @@ use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::fmt::Write;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use super::{Html, Resolver};
 
@@ -73,13 +73,13 @@ struct Contributor {
 }
 
 /// A commit on the `typst` repository.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Commit {
     author: Author,
 }
 
 /// A commit author.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Author {
     login: String,
     avatar_url: String,

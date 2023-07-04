@@ -73,7 +73,7 @@ pub trait Resolver {
     fn image(&self, filename: &str, data: &[u8]) -> String;
 
     /// Produce HTML for an example.
-    fn example(&self, source: Html, frames: &[Frame]) -> Html;
+    fn example(&self, hash: u128, source: Html, frames: &[Frame]) -> Html;
 
     /// Determine the commits between two tags.
     fn commits(&self, from: &str, to: &str) -> Vec<Commit>;
@@ -988,7 +988,7 @@ mod tests {
             None
         }
 
-        fn example(&self, _: Html, _: &[Frame]) -> Html {
+        fn example(&self, _: u128, _: Html, _: &[Frame]) -> Html {
             Html::new(String::new())
         }
 
