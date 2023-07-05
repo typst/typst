@@ -3,8 +3,8 @@ Licenses for third party components used by this project can be found below.
 ================================================================================
 The MIT License applies to:
 
-* The default color set defined in `src/geom/color.rs` which is adapted from
-  the colors.css project
+* The default color set defined in `crates/typst/src/geom/color.rs` which is
+  adapted from the colors.css project
   (https://clrs.cc/)
 
 The MIT License (MIT)
@@ -29,8 +29,9 @@ THE SOFTWARE.
 ================================================================================
 
 ================================================================================
-Alpha multiplication and source-over blending in `src/export/render.rs` are
-ported from Skia code which can be found here:
+Alpha multiplication and source-over blending in
+`crates/typst/src/export/render.rs` are ported from Skia code which can be found
+here:
 https://skia.googlesource.com/skia/+/refs/heads/main/include/core/SkColorPriv.h
 
 Copyright (c) 2011 Google Inc. All rights reserved.
@@ -63,8 +64,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ================================================================================
 
 ================================================================================
-Syntaxes in `assets/data/syntect.bin` are generated from syntax definitions
-which can be found here:
+Syntaxes in `crates/typst-library/assets/syntect.bin` are generated from syntax
+definitions which can be found here:
 https://github.com/sharkdp/bat/tree/master/assets/syntaxes
 
 The syntax definitions are used under their respective licenses.

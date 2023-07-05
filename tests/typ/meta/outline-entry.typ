@@ -57,4 +57,4 @@
 // Error: 2-23 cannot outline cite
 #outline(target: cite)
 #cite("arrgh", "distress", [p. 22])
-#bibliography("/works.bib")
+#bibliography("/files/works.bib")
