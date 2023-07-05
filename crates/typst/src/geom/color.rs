@@ -1,6 +1,8 @@
 use std::str::FromStr;
 
 use super::*;
+use crate::diag::bail;
+use crate::eval::{cast, Array, Cast};
 
 /// A color in a dynamic format.
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
@@ -68,6 +70,31 @@ impl Color {
             Self::Cmyk(cmyk) => Self::Cmyk(cmyk.negate()),
         }
     }
+
+    /// Mixes multiple colors through weight.
+    pub fn mix(
+        colors: impl IntoIterator<Item = WeightedColor>,
+        space: ColorSpace,
+    ) -> StrResult<Color> {
+        let mut total = 0.0;
+        let mut acc = [0.0; 4];
+
+        for WeightedColor(color, weight) in colors.into_iter() {
+            let v = rgba_to_vec4(color.to_rgba(), space);
+            acc[0] += weight * v[0];
+            acc[1] += weight * v[1];
+            acc[2] += weight * v[2];
+            acc[3] += weight * v[3];
+            total += weight;
+        }
+
+        if total <= 0.0 {
+            bail!("sum of weights must be positive");
+        }
+
+        let mixed = acc.map(|v| v / total);
+        Ok(vec4_to_rgba(mixed, space).into())
+    }
 }
 
 impl Debug for Color {
@@ -78,6 +105,74 @@ impl Debug for Color {
             Self::Cmyk(c) => Debug::fmt(c, f),
         }
     }
+}
+
+/// A color with a weight.
+pub struct WeightedColor(Color, f32);
+
+cast! {
+    WeightedColor,
+    v: Color => Self(v, 1.0),
+    v: Array => {
+        let mut iter = v.into_iter();
+        match (iter.next(), iter.next(), iter.next()) {
+            (Some(c), Some(w), None) => Self(c.cast()?, w.cast::<Weight>()?.0),
+            _ => bail!("expected a color or color-weight pair"),
+        }
+    }
+}
+
+/// A weight for color mixing.
+struct Weight(f32);
+
+cast! {
+    Weight,
+    v: f64 => Self(v as f32),
+    v: Ratio => Self(v.get() as f32),
+}
+
+/// Convert an RGBA color to four components in the given color space.
+fn rgba_to_vec4(color: RgbaColor, space: ColorSpace) -> [f32; 4] {
+    match space {
+        ColorSpace::Oklab => {
+            let RgbaColor { r, g, b, a } = color;
+            let oklab = oklab::srgb_to_oklab(oklab::RGB { r, g, b });
+            [oklab.l, oklab.a, oklab.b, a as f32 / 255.0]
+        }
+        ColorSpace::Srgb => {
+            let RgbaColor { r, g, b, a } = color;
+            [r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0]
+        }
+    }
+}
+
+/// Convert four components in the given color space to RGBA.
+fn vec4_to_rgba(vec: [f32; 4], space: ColorSpace) -> RgbaColor {
+    match space {
+        ColorSpace::Oklab => {
+            let [l, a, b, alpha] = vec;
+            let oklab::RGB { r, g, b } = oklab::oklab_to_srgb(oklab::Oklab { l, a, b });
+            RgbaColor { r, g, b, a: (alpha * 255.0).round() as u8 }
+        }
+        ColorSpace::Srgb => {
+            let [r, g, b, a] = vec;
+            RgbaColor {
+                r: (r * 255.0).round() as u8,
+                g: (g * 255.0).round() as u8,
+                b: (b * 255.0).round() as u8,
+                a: (a * 255.0).round() as u8,
+            }
+        }
+    }
+}
+
+/// A color space for mixing.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum ColorSpace {
+    /// A perceptual color space.
+    Oklab,
+    /// The standard RGB color space.
+    Srgb,
 }
 
 /// An 8-bit grayscale color.

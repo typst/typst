@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Datetime, Regex};
+use typst::eval::{Datetime, Module, Regex};
 
 use crate::prelude::*;
 
@@ -377,6 +377,44 @@ cast! {
     } else {
         bail!("ratio must be between 0% and 100%");
     },
+}
+
+/// A module with functions operating on colors.
+pub fn color_module() -> Module {
+    let mut scope = Scope::new();
+    scope.define("mix", mix_func());
+    Module::new("color").with_scope(scope)
+}
+
+/// Create a color by mixing two or more colors.
+///
+/// ## Example
+/// ```example
+/// #color.mix(red, green)
+/// #color.mix(red, green, white)
+/// #color.mix(red, green, space: "srgb")
+/// #color.mix((red, 30%), (green, 70%))
+/// ````
+///
+/// _Note:_ This function must be specified as `color.mix`, not just `mix`.
+/// Currently, `color` is a module, but it is designed to be forward compatible
+/// with a future `color` type.
+///
+/// Display: Mix
+/// Category: construct
+#[func]
+pub fn mix(
+    /// The colors, optionally with weights, specified as a pair (array of
+    /// length two) of color and weight (float or ratio).
+    #[variadic]
+    colors: Vec<WeightedColor>,
+    /// The color space to mix in. By default, this happens in a perceptual
+    /// color space (Oklab).
+    #[named]
+    #[default(ColorSpace::Oklab)]
+    space: ColorSpace,
+) -> StrResult<Color> {
+    Color::mix(colors, space)
 }
 
 /// Creates a custom symbol with modifiers.
