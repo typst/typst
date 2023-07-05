@@ -89,17 +89,8 @@ pub struct FigureElem {
 
     /// The caption's position.
     ///
-    /// If set to `{auto}`, the figure will try to automatically determine its
-    /// caption position.
-    ///
-    /// Setting this to something other than `{auto}` will override the
-    /// automatic detection. This can be useful if
-    /// - you wish to create a custom figure type that is not an
-    ///   [image]($func/image), a [table]($func/table) or [code]($func/raw),
-    /// - you want to force the figure to use a specific caption-position
-    ///   regardless of its content.
-    ///
-    /// You can set the caption position to `{top}` or `{bottom}`.
+    /// You can set the caption position to `{top}` or `{bottom}`, defaults to
+    /// `{bottom}`.
     ///
     /// ```example
     /// #figure(
