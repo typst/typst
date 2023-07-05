@@ -87,7 +87,7 @@ pub struct FigureElem {
     /// The figure's caption.
     pub caption: Option<Content>,
 
-    /// The captions position.
+    /// The caption's position.
     ///
     /// If set to `{auto}`, the figure will try to automatically determine its
     /// caption position.
@@ -109,11 +109,11 @@ pub struct FigureElem {
     /// #figure(
     ///   table(columns: 2)[A][B],
     ///   caption: [I'm down here],
-    ///   caption-position: bottom,
+    ///   caption-pos: bottom,
     /// )
     /// ```
     #[default(Smart::Auto)]
-    pub caption_position: Smart<VerticalAlign>,
+    pub caption_pos: Smart<VerticalAlign>,
 
     /// The kind of the figure this is.
     ///
@@ -203,8 +203,8 @@ impl Synthesize for FigureElem {
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::func()))
         });
 
-        let caption_position =
-            VerticalAlign(GenAlign::Specific(match self.caption_position(styles) {
+        let caption_pos =
+            VerticalAlign(GenAlign::Specific(match self.caption_pos(styles) {
                 Smart::Auto => match &kind {
                     FigureKind::Elem(func) if func.name() == TableElem::func().name() => {
                         Align::Top
@@ -267,7 +267,7 @@ impl Synthesize for FigureElem {
             }),
         )));
 
-        self.push_caption_position(Smart::Custom(caption_position));
+        self.push_caption_pos(Smart::Custom(caption_pos));
         self.push_caption(self.caption(styles));
         self.push_kind(Smart::Custom(kind));
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
@@ -288,7 +288,7 @@ impl Show for FigureElem {
         if let Some(caption) = self.full_caption(vt)? {
             let v = VElem::weak(self.gap(styles).into()).pack();
             realized = if matches!(
-                self.caption_position(styles),
+                self.caption_pos(styles),
                 Smart::Custom(VerticalAlign(GenAlign::Specific(Align::Bottom)))
             ) {
                 realized + v + caption
