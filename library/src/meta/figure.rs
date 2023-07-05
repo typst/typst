@@ -112,8 +112,8 @@ pub struct FigureElem {
     ///   caption-pos: bottom,
     /// )
     /// ```
-    #[default(Smart::Auto)]
-    pub caption_pos: Smart<VerticalAlign>,
+    #[default(VerticalAlign(GenAlign::Specific(Align::Bottom)))]
+    pub caption_pos: VerticalAlign,
 
     /// The kind of the figure this is.
     ///
@@ -205,18 +205,8 @@ impl Synthesize for FigureElem {
 
         let caption_pos =
             VerticalAlign(GenAlign::Specific(match self.caption_pos(styles) {
-                Smart::Auto => match &kind {
-                    FigureKind::Elem(func) if func.name() == TableElem::func().name() => {
-                        Align::Top
-                    }
-                    _ => Align::Bottom,
-                },
-                Smart::Custom(VerticalAlign(GenAlign::Specific(Align::Top))) => {
-                    Align::Top
-                }
-                Smart::Custom(VerticalAlign(GenAlign::Specific(Align::Bottom))) => {
-                    Align::Bottom
-                }
+                VerticalAlign(GenAlign::Specific(Align::Top)) => Align::Top,
+                VerticalAlign(GenAlign::Specific(Align::Bottom)) => Align::Bottom,
                 _ => bail!(self.span(), "caption-position can only be top or bottom"),
             }));
 
@@ -267,7 +257,7 @@ impl Synthesize for FigureElem {
             }),
         )));
 
-        self.push_caption_pos(Smart::Custom(caption_pos));
+        self.push_caption_pos(caption_pos);
         self.push_caption(self.caption(styles));
         self.push_kind(Smart::Custom(kind));
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
@@ -289,7 +279,7 @@ impl Show for FigureElem {
             let v = VElem::weak(self.gap(styles).into()).pack();
             realized = if matches!(
                 self.caption_pos(styles),
-                Smart::Custom(VerticalAlign(GenAlign::Specific(Align::Bottom)))
+                VerticalAlign(GenAlign::Specific(Align::Bottom))
             ) {
                 realized + v + caption
             } else {
