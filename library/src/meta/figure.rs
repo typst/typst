@@ -3,7 +3,7 @@ use std::str::FromStr;
 use super::{
     Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
 };
-use crate::layout::{BlockElem, TableElem, VElem};
+use crate::layout::{BlockElem, VElem};
 use crate::meta::{Outlinable, Refable, Supplement};
 use crate::prelude::*;
 use crate::text::TextElem;
