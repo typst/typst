@@ -76,19 +76,23 @@ impl Color {
         colors: impl IntoIterator<Item = WeightedColor>,
         space: ColorSpace,
     ) -> StrResult<Color> {
-        let mut iter = colors.into_iter();
-        let WeightedColor(color, weight) =
-            iter.next().ok_or("expected at least one color")?;
+        let mut total = 0.0;
+        let mut acc = [0.0; 4];
 
-        let mut mixed = rgba_to_vec4(color.to_rgba(), space);
-        let mut total = weight;
-
-        for WeightedColor(color, weight) in iter {
-            let vec = rgba_to_vec4(color.to_rgba(), space);
+        for WeightedColor(color, weight) in colors.into_iter() {
+            let v = rgba_to_vec4(color.to_rgba(), space);
+            acc[0] += weight * v[0];
+            acc[1] += weight * v[1];
+            acc[2] += weight * v[2];
+            acc[3] += weight * v[3];
             total += weight;
-            mixed = lerp4(mixed, vec, weight / total);
         }
 
+        if total <= 0.0 {
+            bail!("sum of weights must be positive");
+        }
+
+        let mixed = acc.map(|v| v / total);
         Ok(vec4_to_rgba(mixed, space).into())
     }
 }
@@ -101,15 +105,6 @@ impl Debug for Color {
             Self::Cmyk(c) => Debug::fmt(c, f),
         }
     }
-}
-
-/// A color space for mixing.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum ColorSpace {
-    /// A perceptual color space.
-    Oklab,
-    /// The standard RGB color space.
-    Srgb,
 }
 
 /// A color with a weight.
@@ -171,19 +166,13 @@ fn vec4_to_rgba(vec: [f32; 4], space: ColorSpace) -> RgbaColor {
     }
 }
 
-/// Linearly interpolate two 4-component vectors.
-fn lerp4(v0: [f32; 4], v1: [f32; 4], t: f32) -> [f32; 4] {
-    [
-        lerp(v0[0], v1[0], t),
-        lerp(v0[1], v1[1], t),
-        lerp(v0[2], v1[2], t),
-        lerp(v0[3], v1[3], t),
-    ]
-}
-
-/// Linearly interpolate between two floats.
-fn lerp(v0: f32, v1: f32, t: f32) -> f32 {
-    t.mul_add(v1 - v0, v0)
+/// A color space for mixing.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum ColorSpace {
+    /// A perceptual color space.
+    Oklab,
+    /// The standard RGB color space.
+    Srgb,
 }
 
 /// An 8-bit grayscale color.
