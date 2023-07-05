@@ -220,7 +220,7 @@ instant preview. To achieve these goals, we follow three core design principles:
 [scripting]: https://typst.app/docs/reference/scripting/
 [rust]: https://rustup.rs/
 [releases]: https://github.com/typst/typst/releases/
-[architecture]: https://github.com/typst/typst/blob/main/ARCHITECTURE.md
+[architecture]: https://github.com/typst/typst/blob/main/docs/dev/architecture.md
 [contributing]: https://github.com/typst/typst/blob/main/CONTRIBUTING.md
 [packages]: https://github.com/typst/packages/
 [`comemo`]: https://github.com/typst/comemo/
