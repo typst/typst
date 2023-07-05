@@ -248,6 +248,7 @@ impl LocalName for RawElem {
             Lang::TURKISH => "Liste",
             Lang::UKRAINIAN => "Лістинг",
             Lang::VIETNAMESE => "Chương trình", // TODO: This may be wrong.
+            Lang::JAPANESE => "リスト",
             Lang::ENGLISH | _ => "Listing",
         }
     }

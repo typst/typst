@@ -246,6 +246,7 @@ impl LocalName for BibliographyElem {
             Lang::TURKISH => "Kaynakça",
             Lang::UKRAINIAN => "Бібліографія",
             Lang::VIETNAMESE => "Tài liệu tham khảo",
+            Lang::JAPANESE => "参考文献",
             Lang::ENGLISH | _ => "Bibliography",
         }
     }
