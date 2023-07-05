@@ -31,15 +31,26 @@ pub struct HElem {
     /// Moreover, from multiple adjacent weak spacings all but the largest one
     /// collapse.
     ///
+    /// Weak spacing in markup also causes all adjacent markup spaces to be
+    /// removed, regardless of the amount of spacing inserted. To force a space
+    /// next to weak spacing, you can explicitly write `[#" "]` (for a normal
+    /// space) or `[~]` (for a non-breaking space). The latter can be useful to
+    /// create a construct that always attaches to the preceding word with one
+    /// non-breaking space, independently of wether a markup space existed in
+    /// front or not.
+    ///
     /// ```example
     /// #h(1cm, weak: true)
-    /// We identified a group of
-    /// _weak_ specimens that fail to
-    /// manifest in most cases. However,
-    /// when #h(8pt, weak: true)
-    /// supported
-    /// #h(8pt, weak: true) on both
-    /// sides, they do show up.
+    /// We identified a group of _weak_
+    /// specimens that fail to manifest
+    /// in most cases. However, when
+    /// #h(8pt, weak: true) supported
+    /// #h(8pt, weak: true) on both sides,
+    /// they do show up.
+    ///
+    /// Further #h(0pt, weak: true) more,
+    /// even the smallest of them swallow
+    /// adjacent markup spaces.
     /// ```
     #[default(false)]
     pub weak: bool,
