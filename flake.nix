@@ -38,7 +38,7 @@
           inherit ((importTOML ./Cargo.toml).workspace.package) version;
 
           src = sourceByRegex ./. [
-            "(assets|cli|docs|library|macros|src|tests)(/.*)?"
+            "(assets|crates|tests)(/.*)?"
             ''Cargo\.(toml|lock)''
             ''build\.rs''
           ];
@@ -57,10 +57,10 @@
           ];
 
           postInstall = ''
-            installManPage cli/artifacts/*.1
+            installManPage crates/typst-cli/artifacts/*.1
             installShellCompletion \
-              cli/artifacts/typst.{bash,fish} \
-              --zsh cli/artifacts/_typst
+              crates/typst-cli/artifacts/typst.{bash,fish} \
+              --zsh crates/typst-cli/artifacts/_typst
           '';
 
           GEN_ARTIFACTS = "artifacts";
