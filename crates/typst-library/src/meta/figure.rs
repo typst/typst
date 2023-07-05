@@ -11,9 +11,9 @@ use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
 ///
-/// Automatically detects its contents to select the correct counting track
-/// and caption position. For example, figures containing images will be
-/// numbered separately from figures containing tables.
+/// Automatically detects its contents to select the correct counting track.
+/// For example, figures containing images will be numbered separately from
+/// figures containing tables.
 ///
 /// ## Examples { #examples }
 /// The example below shows a basic figure with an image:
@@ -29,7 +29,7 @@ use crate::visualize::ImageElem;
 ///
 /// You can also insert [tables]($func/table) into figures to give them a
 /// caption. The figure will detect this and automatically use a separate
-/// counter and position the caption on top.
+/// counter.
 ///
 /// ```example
 /// #figure(
@@ -43,8 +43,7 @@ use crate::visualize::ImageElem;
 /// ```
 ///
 /// This behaviour can be overridden by explicitly specifying the figure's
-/// `kind` and `caption-position` respectively. All figures of the same
-/// kind share a common counter.
+/// `kind`. All figures of the same kind share a common counter.
 ///
 /// ## Modifying the appearance { #modifying-appearance }
 /// You can completely customize the look of your figures with a [show
