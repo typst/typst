@@ -1,13 +1,12 @@
-use std::path::Path;
-
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
-use typst::diag::{FileError, FileResult};
-use typst::eval::Library;
+use typst::diag::FileResult;
+use typst::eval::{Datetime, Library};
+use typst::file::FileId;
 use typst::font::{Font, FontBook};
 use typst::geom::Color;
-use typst::syntax::{Source, SourceId};
-use typst::util::Buffer;
+use typst::syntax::Source;
+use typst::util::Bytes;
 use typst::World;
 use unscanny::Scanner;
 
@@ -124,27 +123,27 @@ impl World for BenchWorld {
         &self.library
     }
 
-    fn main(&self) -> &Source {
-        &self.source
-    }
-
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        Err(FileError::NotFound(path.into()))
-    }
-
-    fn source(&self, _: SourceId) -> &Source {
-        &self.source
-    }
-
     fn book(&self) -> &Prehashed<FontBook> {
         &self.book
+    }
+
+    fn main(&self) -> Source {
+        self.source.clone()
+    }
+
+    fn source(&self, _: FileId) -> FileResult<Source> {
+        unimplemented!()
+    }
+
+    fn file(&self, _: FileId) -> FileResult<Bytes> {
+        unimplemented!()
     }
 
     fn font(&self, _: usize) -> Option<Font> {
         Some(self.font.clone())
     }
 
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
-        Err(FileError::NotFound(path.into()))
+    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+        unimplemented!()
     }
 }

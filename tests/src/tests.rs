@@ -1,35 +1,35 @@
 #![allow(clippy::comparison_chain)]
 
 use std::cell::{RefCell, RefMut};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::env;
 use std::ffi::OsStr;
 use std::fmt::Write as FmtWrite;
 use std::fs;
-use std::io::Write;
+use std::io::{self, Write};
+use std::iter;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
-use std::{env, io};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
-use elsa::FrozenVec;
-use once_cell::unsync::OnceCell;
 use oxipng::{InFile, Options, OutFile};
-use rayon::iter::ParallelBridge;
-use rayon::iter::ParallelIterator;
+use rayon::iter::{ParallelBridge, ParallelIterator};
+use std::cell::OnceCell;
 use tiny_skia as sk;
+use typst::file::FileId;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
-use typst::diag::{bail, FileError, FileResult};
+use typst::diag::{bail, FileError, FileResult, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{func, Library, Value};
+use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, RgbaColor, Sides, Smart};
-use typst::syntax::{Source, SourceId, Span, SyntaxNode};
-use typst::util::{Buffer, PathExt};
+use typst::geom::{Abs, Color, RgbaColor, Smart};
+use typst::syntax::{Source, Span, SyntaxNode};
+use typst::util::{Bytes, PathExt};
 use typst::World;
-use typst_library::layout::PageElem;
+use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
 
 const TYP_DIR: &str = "typ";
@@ -37,7 +37,7 @@ const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../assets/fonts";
-const FILE_DIR: &str = "../assets/files";
+const ASSET_DIR: &str = "../assets";
 
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
@@ -146,20 +146,18 @@ fn main() {
 fn library() -> Library {
     /// Display: Test
     /// Category: test
-    /// Returns:
     #[func]
-    fn test(lhs: Value, rhs: Value) -> Value {
+    fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
         if lhs != rhs {
-            bail!(args.span, "Assertion failed: {:?} != {:?}", lhs, rhs,);
+            bail!("Assertion failed: {lhs:?} != {rhs:?}");
         }
-        Value::None
+        Ok(NoneValue)
     }
 
     /// Display: Print
     /// Category: test
-    /// Returns:
     #[func]
-    fn print(#[variadic] values: Vec<Value>) -> Value {
+    fn print(#[variadic] values: Vec<Value>) -> NoneValue {
         let mut stdout = io::stdout().lock();
         write!(stdout, "> ").unwrap();
         for (i, value) in values.into_iter().enumerate() {
@@ -169,7 +167,7 @@ fn library() -> Library {
             write!(stdout, "{value:?}").unwrap();
         }
         writeln!(stdout).unwrap();
-        Value::None
+        NoneValue
     }
 
     let mut lib = typst_library::build();
@@ -180,14 +178,14 @@ fn library() -> Library {
     lib.styles
         .set(PageElem::set_width(Smart::Custom(Abs::pt(120.0).into())));
     lib.styles.set(PageElem::set_height(Smart::Auto));
-    lib.styles.set(PageElem::set_margin(Sides::splat(Some(Smart::Custom(
+    lib.styles.set(PageElem::set_margin(Margin::splat(Some(Smart::Custom(
         Abs::pt(10.0).into(),
     )))));
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
 
     // Hook up helpers into the global scope.
-    lib.global.scope_mut().define("test", test);
-    lib.global.scope_mut().define("print", print);
+    lib.global.scope_mut().define("test", test_func());
+    lib.global.scope_mut().define("print", print_func());
     lib.global
         .scope_mut()
         .define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
@@ -199,34 +197,21 @@ fn library() -> Library {
 }
 
 /// A world that provides access to the tests environment.
+#[derive(Clone)]
 struct TestWorld {
     print: PrintConfig,
+    main: FileId,
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<Font>,
     paths: RefCell<HashMap<PathBuf, PathSlot>>,
-    sources: FrozenVec<Box<Source>>,
-    main: SourceId,
 }
 
-impl Clone for TestWorld {
-    fn clone(&self) -> Self {
-        Self {
-            print: self.print,
-            library: self.library.clone(),
-            book: self.book.clone(),
-            fonts: self.fonts.clone(),
-            paths: self.paths.clone(),
-            sources: FrozenVec::from_iter(self.sources.iter().cloned().map(Box::new)),
-            main: self.main,
-        }
-    }
-}
-
-#[derive(Default, Clone)]
+#[derive(Clone)]
 struct PathSlot {
-    source: OnceCell<FileResult<SourceId>>,
-    buffer: OnceCell<FileResult<Buffer>>,
+    system_path: PathBuf,
+    source: OnceCell<FileResult<Source>>,
+    buffer: OnceCell<FileResult<Bytes>>,
 }
 
 impl TestWorld {
@@ -245,103 +230,96 @@ impl TestWorld {
 
         Self {
             print,
+            main: FileId::detached(),
             library: Prehashed::new(library()),
             book: Prehashed::new(FontBook::from_fonts(&fonts)),
             fonts,
             paths: RefCell::default(),
-            sources: FrozenVec::new(),
-            main: SourceId::detached(),
         }
     }
 }
 
 impl World for TestWorld {
-    fn root(&self) -> &Path {
-        Path::new(FILE_DIR)
-    }
-
     fn library(&self) -> &Prehashed<Library> {
         &self.library
-    }
-
-    fn main(&self) -> &Source {
-        self.source(self.main)
-    }
-
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        self.slot(path)
-            .source
-            .get_or_init(|| {
-                let buf = read(path)?;
-                let text = String::from_utf8(buf)?;
-                Ok(self.insert(path, text))
-            })
-            .clone()
-    }
-
-    fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.into_u16() as usize]
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }
 
+    fn main(&self) -> Source {
+        self.source(self.main).unwrap()
+    }
+
+    fn source(&self, id: FileId) -> FileResult<Source> {
+        let slot = self.slot(id)?;
+        slot.source
+            .get_or_init(|| {
+                let buf = read(&slot.system_path)?;
+                let text = String::from_utf8(buf)?;
+                Ok(Source::new(id, text))
+            })
+            .clone()
+    }
+
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
+        let slot = self.slot(id)?;
+        slot.buffer
+            .get_or_init(|| read(&slot.system_path).map(Bytes::from))
+            .clone()
+    }
+
     fn font(&self, id: usize) -> Option<Font> {
         Some(self.fonts[id].clone())
     }
 
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
-        self.slot(path)
-            .buffer
-            .get_or_init(|| read(path).map(Buffer::from))
-            .clone()
+    fn today(&self, _: Option<i64>) -> Option<Datetime> {
+        Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
 }
 
 impl TestWorld {
-    fn set(&mut self, path: &Path, text: String) -> SourceId {
-        let slot = self.slot(path);
-        let id = if let Some(&Ok(id)) = slot.source.get() {
-            drop(slot);
-            self.sources.as_mut()[id.into_u16() as usize].replace(text);
-            id
-        } else {
-            let id = self.insert(path, text);
-            slot.source.set(Ok(id)).unwrap();
-            drop(slot);
-            id
+    fn set(&mut self, path: &Path, text: String) -> Source {
+        self.main = FileId::new(None, &Path::new("/").join(path));
+        let mut slot = self.slot(self.main).unwrap();
+        let source = Source::new(self.main, text);
+        slot.source = OnceCell::from(Ok(source.clone()));
+        source
+    }
+
+    fn slot(&self, id: FileId) -> FileResult<RefMut<PathSlot>> {
+        let root: PathBuf = match id.package() {
+            Some(spec) => format!("packages/{}-{}", spec.name, spec.version).into(),
+            None => PathBuf::new(),
         };
-        self.main = id;
-        id
-    }
 
-    fn slot(&self, path: &Path) -> RefMut<PathSlot> {
-        RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(path.normalize()).or_default()
-        })
-    }
+        let system_path = root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
 
-    fn insert(&self, path: &Path, text: String) -> SourceId {
-        let id = SourceId::from_u16(self.sources.len() as u16);
-        let source = Source::new(id, path, text);
-        self.sources.push(Box::new(source));
-        id
+        Ok(RefMut::map(self.paths.borrow_mut(), |paths| {
+            paths.entry(system_path.clone()).or_insert_with(|| PathSlot {
+                system_path,
+                source: OnceCell::new(),
+                buffer: OnceCell::new(),
+            })
+        }))
     }
 }
 
 /// Read as file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
-    let suffix = path
-        .strip_prefix(FILE_DIR)
-        .map(|suffix| Path::new("/").join(suffix))
-        .unwrap_or_else(|_| path.into());
+    // Basically symlinks `assets/files` to `tests/files` so that the assets
+    // are within the test project root.
+    let mut resolved = path.to_path_buf();
+    if path.starts_with("files/") {
+        resolved = Path::new(ASSET_DIR).join(path);
+    }
 
-    let f = |e| FileError::from_io(e, &suffix);
-    if fs::metadata(path).map_err(f)?.is_dir() {
+    let f = |e| FileError::from_io(e, path);
+    if fs::metadata(&resolved).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(path).map_err(f)
+        fs::read(&resolved).map_err(f)
     }
 }
 
@@ -371,11 +349,16 @@ fn test(
     let mut updated = false;
     let mut frames = vec![];
     let mut line = 0;
-    let mut compare_ref = true;
+    let mut compare_ref = None;
+    let mut validate_hints = None;
     let mut compare_ever = false;
     let mut rng = LinearShift::new();
 
-    let parts: Vec<_> = text.split("\n---").collect();
+    let parts: Vec<_> = text
+        .split("\n---")
+        .map(|s| s.strip_suffix('\r').unwrap_or(s))
+        .collect();
+
     for (i, &part) in parts.iter().enumerate() {
         if let Some(x) = args.subtest {
             let x = usize::try_from(
@@ -395,9 +378,8 @@ fn test(
 
         if is_header {
             for line in part.lines() {
-                if line.starts_with("// Ref: false") {
-                    compare_ref = false;
-                }
+                compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
+                validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
             }
         } else {
             let (part_ok, compare_here, part_frames) = test_part(
@@ -406,7 +388,8 @@ fn test(
                 src_path,
                 part.into(),
                 i,
-                compare_ref,
+                compare_ref.unwrap_or(true),
+                validate_hints.unwrap_or(true),
                 line,
                 &mut rng,
             );
@@ -484,6 +467,14 @@ fn test(
     ok
 }
 
+fn get_metadata<'a>(line: &'a str, key: &str) -> Option<&'a str> {
+    line.strip_prefix(eco_format!("// {key}: ").as_str())
+}
+
+fn get_flag_metadata(line: &str, key: &str) -> Option<bool> {
+    get_metadata(line, key).map(|value| value == "true")
+}
+
 fn update_image(png_path: &Path, ref_path: &Path) {
     oxipng::optimize(
         &InFile::Path(png_path.to_owned()),
@@ -501,29 +492,31 @@ fn test_part(
     text: String,
     i: usize,
     compare_ref: bool,
+    validate_hints: bool,
     line: usize,
     rng: &mut LinearShift,
 ) -> (bool, bool, Vec<Frame>) {
     let mut ok = true;
 
-    let id = world.set(src_path, text);
-    let source = world.source(id);
+    let source = world.set(src_path, text);
     if world.print.syntax {
         writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
     }
 
-    let (local_compare_ref, mut ref_errors) = parse_metadata(source);
-    let compare_ref = local_compare_ref.unwrap_or(compare_ref);
+    let metadata = parse_part_metadata(&source);
+    let compare_ref = metadata.part_configuration.compare_ref.unwrap_or(compare_ref);
+    let validate_hints =
+        metadata.part_configuration.validate_hints.unwrap_or(validate_hints);
 
     ok &= test_spans(output, source.root());
-    ok &= test_reparse(output, world.source(id).text(), i, rng);
+    ok &= test_reparse(output, source.text(), i, rng);
 
     if world.print.model {
         let world = (world as &dyn World).track();
         let route = typst::eval::Route::default();
         let mut tracer = typst::eval::Tracer::default();
         let module =
-            typst::eval::eval(world, route.track(), tracer.track_mut(), source).unwrap();
+            typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
@@ -538,92 +531,161 @@ fn test_part(
     }
 
     // Map errors to range and message format, discard traces and errors from
-    // other files.
-    let mut errors: Vec<_> = errors
+    // other files, collect hints.
+    //
+    // This has one caveat: due to the format of the expected hints, we can not
+    // verify if a hint belongs to a error or not. That should be irrelevant
+    // however, as the line of the hint is still verified.
+    let actual_errors_and_hints: HashSet<UserOutput> = errors
         .into_iter()
-        .filter(|error| error.span.source() == id)
-        .map(|error| (error.range(world), error.message.replace('\\', "/")))
+        .inspect(|error| assert!(!error.span.is_detached()))
+        .filter(|error| error.span.id() == source.id())
+        .flat_map(|error| {
+            let range = error.span.range(world);
+            let output_error =
+                UserOutput::Error(range.clone(), error.message.replace('\\', "/"));
+            let hints = error
+                .hints
+                .iter()
+                .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
+                .map(|hint| UserOutput::Hint(range.clone(), hint.to_string()));
+            iter::once(output_error).chain(hints).collect::<Vec<_>>()
+        })
         .collect();
 
-    errors.sort_by_key(|error| error.0.start);
-    ref_errors.sort_by_key(|error| error.0.start);
+    // Basically symmetric_difference, but we need to know where an item is coming from.
+    let mut unexpected_outputs = actual_errors_and_hints
+        .difference(&metadata.invariants)
+        .collect::<Vec<_>>();
+    let mut missing_outputs = metadata
+        .invariants
+        .difference(&actual_errors_and_hints)
+        .collect::<Vec<_>>();
 
-    if errors != ref_errors {
+    unexpected_outputs.sort_by_key(|&o| o.start());
+    missing_outputs.sort_by_key(|&o| o.start());
+
+    // This prints all unexpected emits first, then all missing emits.
+    // Is this reasonable or subject to change?
+    if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
         writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
         ok = false;
 
-        let source = world.source(id);
-        for error in errors.iter() {
-            if !ref_errors.contains(error) {
-                write!(output, "    Not annotated | ").unwrap();
-                print_error(output, source, line, error);
-            }
+        for unexpected in unexpected_outputs {
+            write!(output, "    Not annotated | ").unwrap();
+            print_user_output(output, &source, line, unexpected)
         }
 
-        for error in ref_errors.iter() {
-            if !errors.contains(error) {
-                write!(output, "    Not emitted   | ").unwrap();
-                print_error(output, source, line, error);
-            }
+        for missing in missing_outputs {
+            write!(output, "    Not emitted   | ").unwrap();
+            print_user_output(output, &source, line, missing)
         }
     }
 
     (ok, compare_ref, frames)
 }
 
-fn parse_metadata(source: &Source) -> (Option<bool>, Vec<(Range<usize>, String)>) {
+fn print_user_output(
+    output: &mut String,
+    source: &Source,
+    line: usize,
+    user_output: &UserOutput,
+) {
+    let (range, message) = match &user_output {
+        UserOutput::Error(r, m) => (r, m),
+        UserOutput::Hint(r, m) => (r, m),
+    };
+
+    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
+    let start_col = 1 + source.byte_to_column(range.start).unwrap();
+    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
+    let end_col = 1 + source.byte_to_column(range.end).unwrap();
+    let kind = match user_output {
+        UserOutput::Error(_, _) => "Error",
+        UserOutput::Hint(_, _) => "Hint",
+    };
+    writeln!(output, "{kind}: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
+        .unwrap();
+}
+
+struct TestConfiguration {
+    compare_ref: Option<bool>,
+    validate_hints: Option<bool>,
+}
+
+struct TestPartMetadata {
+    part_configuration: TestConfiguration,
+    invariants: HashSet<UserOutput>,
+}
+
+#[derive(PartialEq, Eq, Debug, Hash)]
+enum UserOutput {
+    Error(Range<usize>, String),
+    Hint(Range<usize>, String),
+}
+
+impl UserOutput {
+    fn start(&self) -> usize {
+        match self {
+            UserOutput::Error(r, _) => r.start,
+            UserOutput::Hint(r, _) => r.start,
+        }
+    }
+
+    fn error(range: Range<usize>, message: String) -> UserOutput {
+        UserOutput::Error(range, message)
+    }
+
+    fn hint(range: Range<usize>, message: String) -> UserOutput {
+        UserOutput::Hint(range, message)
+    }
+}
+
+fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
-    let mut errors = vec![];
+    let mut validate_hints = None;
+    let mut expectations = HashSet::default();
 
     let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
-        if line.starts_with("// Ref: false") {
-            compare_ref = Some(false);
-        }
-
-        if line.starts_with("// Ref: true") {
-            compare_ref = Some(true);
-        }
+        compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
+        validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
 
         fn num(s: &mut Scanner) -> usize {
             s.eat_while(char::is_numeric).parse().unwrap()
         }
 
-        let comments =
+        let comments_until_code =
             lines[i..].iter().take_while(|line| line.starts_with("//")).count();
 
         let pos = |s: &mut Scanner| -> usize {
             let first = num(s) - 1;
             let (delta, column) =
                 if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
-            let line = (i + comments) + delta;
+            let line = (i + comments_until_code) + delta;
             source.line_column_to_byte(line, column).unwrap()
         };
 
-        let Some(rest) = line.strip_prefix("// Error: ") else { continue; };
-        let mut s = Scanner::new(rest);
-        let start = pos(&mut s);
-        let end = if s.eat_if('-') { pos(&mut s) } else { start };
-        let range = start..end;
+        let error_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::error;
+        let hint_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::hint;
 
-        errors.push((range, s.after().trim().to_string()));
+        let error_metadata = get_metadata(line, "Error").map(|s| (s, error_factory));
+        let get_hint_metadata = || get_metadata(line, "Hint").map(|s| (s, hint_factory));
+
+        if let Some((expectation, factory)) = error_metadata.or_else(get_hint_metadata) {
+            let mut s = Scanner::new(expectation);
+            let start = pos(&mut s);
+            let end = if s.eat_if('-') { pos(&mut s) } else { start };
+            let range = start..end;
+
+            expectations.insert(factory(range, s.after().trim().to_string()));
+        };
     }
 
-    (compare_ref, errors)
-}
-
-fn print_error(
-    output: &mut String,
-    source: &Source,
-    line: usize,
-    (range, message): &(Range<usize>, String),
-) {
-    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
-    let start_col = 1 + source.byte_to_column(range.start).unwrap();
-    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
-    let end_col = 1 + source.byte_to_column(range.end).unwrap();
-    writeln!(output, "Error: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
-        .unwrap();
+    TestPartMetadata {
+        part_configuration: TestConfiguration { compare_ref, validate_hints },
+        invariants: expectations,
+    }
 }
 
 /// Pseudorandomly edit the source file and test whether a reparse produces the
@@ -735,7 +797,7 @@ fn test_reparse(
 
     let source = Source::detached(text);
     let leafs = leafs(source.root());
-    let start = source.range(leafs[pick(0..leafs.len())].span()).start;
+    let start = source.find(leafs[pick(0..leafs.len())].span()).unwrap().offset();
     let supplement = supplements[pick(0..supplements.len())];
     ok &= apply(start..start, supplement);
 

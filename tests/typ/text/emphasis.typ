@@ -27,17 +27,17 @@ Normal
 *Medium* and *#[*Bold*]*
 
 ---
-// Error: 13 expected underscore
+// Error: 6-7 unclosed delimiter
 #box[_Scoped] to body.
 
 ---
 // Ends at paragraph break.
-// Error: 7 expected underscore
+// Error: 1-2 unclosed delimiter
 _Hello
 
 World
 
 ---
-// Error: 26 expected star
-// Error: 26 expected underscore
+// Error: 11-12 unclosed delimiter
+// Error: 3-4 unclosed delimiter
 #[_Cannot *be interleaved]
