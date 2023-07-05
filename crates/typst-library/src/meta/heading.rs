@@ -78,7 +78,11 @@ pub struct HeadingElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
-    /// Whether the heading should appear in the outline.
+    /// Whether the heading should appear in the [outline]($func/outline).
+    ///
+    /// Note that this property, if set to `{true}`, ensures the heading is
+    /// also shown as a bookmark in the exported PDF's outline (when exporting
+    /// to PDF). To change that behavior, use the `bookmarked` property.
     ///
     /// ```example
     /// #outline()
@@ -92,6 +96,29 @@ pub struct HeadingElem {
     /// ```
     #[default(true)]
     pub outlined: bool,
+
+    /// Whether the heading should appear as a bookmark in the exported PDF's
+    /// outline. Doesn't affect other export formats, such as PNG.
+    ///
+    /// The default value of `{auto}` indicates that the heading will only
+    /// appear in the exported PDF's outline if its `outlined` property is set
+    /// to `{true}`, that is, if it would also be listed in Typst's
+    /// [outline]($func/outline). Setting this property to either
+    /// `{true}` (bookmark) or `{false}` (don't bookmark) bypasses that
+    /// behavior.
+    ///
+    /// ```example
+    /// #heading[Normal heading]
+    /// This heading will be shown in
+    /// the PDF's bookmark outline.
+    ///
+    /// #heading(bookmarked: false)[Not bookmarked]
+    /// This heading won't be
+    /// bookmarked in the resulting
+    /// PDF.
+    /// ```
+    #[default(Smart::Auto)]
+    pub bookmarked: Smart<bool>,
 
     /// The heading's title.
     #[required]
@@ -111,6 +138,7 @@ impl Synthesize for HeadingElem {
         self.push_numbering(self.numbering(styles));
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         self.push_outlined(self.outlined(styles));
+        self.push_bookmarked(self.bookmarked(styles));
 
         Ok(())
     }
