@@ -27,10 +27,10 @@ let f() , ; : | + - /= == 12 "string"
 
 ---
 // Unicode codepoint does not exist.
-// Error: 1-11 invalid unicode codepoint: FFFFFF
+// Error: 1-11 invalid Unicode codepoint: FFFFFF
 \u{FFFFFF}
 
 ---
 // Unterminated.
-// Error: 6 expected closing brace
+// Error: 1-6 unclosed Unicode escape sequence
 \u{41[*Bold*]

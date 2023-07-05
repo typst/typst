@@ -26,11 +26,11 @@
 #float(float)
 
 ---
-// Error: 6-12 not a valid integer
+// Error: 6-12 invalid integer: nope
 #int("nope")
 
 ---
-// Error: 8-15 not a valid float
+// Error: 8-15 invalid float: 1.2.3
 #float("1.2.3")
 
 ---
@@ -94,9 +94,11 @@
 #test(calc.min("hi"), "hi")
 
 ---
-// Test the `calc` function.
+// Test the `pow`, `log`, `exp`, and `ln` functions.
 #test(calc.pow(10, 0), 1)
 #test(calc.pow(2, 4), 16)
+#test(calc.exp(2), calc.pow(calc.e, 2))
+#test(calc.ln(10), calc.log(10, base: calc.e))
 
 ---
 // Error: 10-16 zero to the power of zero is undefined
@@ -191,8 +193,12 @@
 #calc.min()
 
 ---
-// Error: 14-18 cannot compare integer and string
+// Error: 14-18 cannot compare string and integer
 #calc.min(1, "hi")
+
+---
+// Error: 16-19 cannot compare 1pt with 1em
+#calc.max(1em, 1pt)
 
 ---
 // Test the `range` function.

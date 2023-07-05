@@ -1,8 +1,13 @@
 name: Continuous integration
 on: [push, pull_request]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   RUSTFLAGS: "-Dwarnings"
+  RUSTDOCFLAGS: "-Dwarnings"
 
 jobs:
   tests:
@@ -16,20 +21,33 @@ jobs:
       - run: cargo test --workspace --no-fail-fast
 
   checks:
-    name: Check formatting and clippy
+    name: Check clippy, formatting, and documentation
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo fmt --check --all
       - run: cargo clippy --workspace --all-targets
+      - run: cargo fmt --check --all
+      - run: cargo doc --workspace --no-deps
 
   min-version:
     name: Check mininum Rust version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: dtolnay/rust-toolchain@1.65.0
+      - uses: dtolnay/rust-toolchain@1.70.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
+
+  nix-flake:
+    name: Test Nix Flake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: DeterminateSystems/nix-installer-action@v4
+      - uses: DeterminateSystems/magic-nix-cache-action@v2
+      - run: nix flake check
+      - run: nix build
+      - run: nix shell -c typst --version
+      - run: nix run . -- --version

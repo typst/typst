@@ -56,18 +56,15 @@
     (0pt, 20pt), (15pt, 0pt), (0pt, 40pt), (15pt, 45pt)),
 )
 ---
-
 // Error: 29-56 unexpected key "thicknes", valid keys are "paint", "thickness", "cap", "join", "dash", and "miter-limit"
 #line(length: 60pt, stroke: (paint: red, thicknes: 1pt))
 
 ---
-
-// Error: 29-55 expected "solid", "dotted", "densely-dotted", "loosely-dotted", "dashed", "densely-dashed", "loosely-dashed", "dash-dotted", "densely-dash-dotted", "loosely-dash-dotted", array, dictionary, dash pattern, or none
+// Error: 29-55 expected "solid", "dotted", "densely-dotted", "loosely-dotted", "dashed", "densely-dashed", "loosely-dashed", "dash-dotted", "densely-dash-dotted", "loosely-dash-dotted", array, dictionary, or none
 #line(length: 60pt, stroke: (paint: red, dash: "dash"))
 
 ---
 // 0pt strokes must function exactly like 'none' strokes and not draw anything
-
 #rect(width: 10pt, height: 10pt, stroke: none)
 #rect(width: 10pt, height: 10pt, stroke: 0pt)
 #rect(width: 10pt, height: 10pt, stroke: none, fill: blue)

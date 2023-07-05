@@ -14,12 +14,12 @@ Top level directory structure:
 ## Running the tests
 Running all tests (including unit tests):
 ```bash
-cargo test --all
+cargo test --workspace
 ```
 
 Running just the integration tests (the tests in this directory):
 ```bash
-cargo test --all --test tests
+cargo test --workspace --test tests
 ```
 
 You may want to [make yourself an alias](#making-an-alias) like:
@@ -73,13 +73,13 @@ testit empty.typ
 ### Bash
 Open your Bash configuration by executing `nano ~/.bashrc`.
 ```bash
-alias testit="cargo test --all --test tests --"
+alias testit="cargo test --workspace --test tests --"
 ```
 
 ### PowerShell
 Open your PowerShell profile by executing `notepad $profile`.
 ```ps
 function testit {
-    cargo test --all --test tests -- $args
+    cargo test --workspace --test tests -- $args
 }
 ```

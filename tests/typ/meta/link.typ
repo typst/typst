@@ -35,7 +35,7 @@ https://example.com/)
 
 ---
 // Verify that opening brackets without closing brackets throw an error.
-// Error: 22-22 expected closing bracket in link
+// Error: 1-22 automatic links cannot contain unbalanced brackets, use the `link` function instead
 https://exam(ple.com/
 
 ---
@@ -54,7 +54,7 @@ My cool #box(move(dx: 0.7cm, dy: 0.7cm, rotate(10deg, scale(200%, mylink))))
 // Link containing a block.
 #link("https://example.com/", block[
   My cool rhino
-  #box(move(dx: 10pt, image("/rhino.png", width: 1cm)))
+  #box(move(dx: 10pt, image("/files/rhino.png", width: 1cm)))
 ])
 
 ---
