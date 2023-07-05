@@ -135,9 +135,10 @@ impl SyntaxNode {
         }
     }
 
-    pub fn err_with_hint(&mut self, hint: impl Into<EcoString>) {
+    /// Adds a user-presentable hint if this is an error node.
+    pub fn hint(&mut self, hint: impl Into<EcoString>) {
         if let Repr::Error(error) = &mut self.0 {
-            Arc::make_mut(error).with_hint(hint)
+            Arc::make_mut(error).hint(hint);
         }
     }
 
@@ -568,7 +569,7 @@ impl ErrorNode {
     }
 
     /// Add a user-presentable hint to this error node.
-    fn with_hint(&mut self, hint: impl Into<EcoString>) {
+    fn hint(&mut self, hint: impl Into<EcoString>) {
         self.hints.push(hint.into());
     }
 }

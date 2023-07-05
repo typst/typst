@@ -1067,7 +1067,7 @@ fn for_loop(p: &mut Parser) {
     pattern(p);
     if p.at(SyntaxKind::Comma) {
         p.expected("keyword `in`");
-        p.err_with_hint("did you mean to use a destructuring pattern?");
+        p.hint("did you mean to use a destructuring pattern?");
         if !p.eat_if(SyntaxKind::Ident) {
             p.eat_if(SyntaxKind::Underscore);
         }
@@ -1615,10 +1615,10 @@ impl<'s> Parser<'s> {
     }
 
     // Adds a hint to the last node, if the last node is an error.
-    fn err_with_hint(&mut self, hint: impl Into<EcoString>) {
+    fn hint(&mut self, hint: impl Into<EcoString>) {
         self.unskip();
         if let Some(last) = self.nodes.last_mut() {
-            last.err_with_hint(hint);
+            last.hint(hint);
         }
         self.skip();
     }
