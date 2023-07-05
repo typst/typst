@@ -85,6 +85,7 @@ a table listing all syntax that is available in code mode:
 | Field access             | `{x.y}`                       | [Scripting]($scripting/#fields)    |
 | Method call              | `{x.flatten()}`               | [Scripting]($scripting/#methods)   |
 | Function call            | `{min(x, y)}`                 | [Function]($type/function)         |
+| Argument spreading       | `{min(..nums)}`               | [Arguments]($type/arguments)       |
 | Unnamed function         | `{(x, y) => x + y}`           | [Function]($type/function)         |
 | Let binding              | `{let x = 1}`                 | [Scripting]($scripting/#bindings)  |
 | Named function           | `{let f(x) = 2 * x}`          | [Function]($type/function)         |

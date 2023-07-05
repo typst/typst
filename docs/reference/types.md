@@ -1066,24 +1066,34 @@ whose fields have the values of the given arguments.
 # Arguments
 Captured arguments to a function.
 
+## Argument Sinks
 Like built-in functions, custom functions can also take a variable number of
 arguments. You can specify an _argument sink_ which collects all excess
 arguments as `..sink`. The resulting `sink` value is of the `arguments` type. It
-exposes methods to access the positional and named arguments and is iterable
-with a [for loop]($scripting/#loops). Inversely, you can spread
-arguments, arrays and dictionaries into a function call with the spread operator:
-`{func(..args)}`.
+exposes methods to access the positional and named arguments.
 
-## Example
 ```example
-#let format(title, ..authors) = [
-  *#title* \
-  _Written by #(authors
+#let format(title, ..authors) = {
+  let by = authors
     .pos()
-    .join(", ", last: " and "));._
-]
+    .join(", ", last: " and ")
+
+  [*#title* \ _Written by #by;_]
+}
 
 #format("ArtosFlow", "Jane", "Joe")
+```
+
+## Spreading
+Inversely to an argument sink, you can _spread_ arguments, arrays and
+dictionaries into a function call with the `..spread` operator:
+
+```example
+#let array = (2, 3, 5)
+#calc.min(..array)
+
+#let dict = (fill: blue)
+#text(..dict)[Hello]
 ```
 
 ## Methods
