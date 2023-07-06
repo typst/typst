@@ -43,9 +43,16 @@ pub struct SmartQuoteElem {
     #[default(true)]
     pub enabled: bool,
 
-    /// Whether to use alternative quotation marks.
+    /// Whether to use alternative quotes.
     ///
-    /// Does nothing for languages that don't have alternative quotation marks.
+    /// Does nothing for languages that don't have alternative quotes.
+    ///
+    /// ```example
+    /// #set text(lang: "de")
+    /// #set smartquote(alternative: true)
+    ///
+    /// "Das ist in anderen Anführungszeichen."
+    /// ```
     #[default(false)]
     pub alternative: bool,
 }
