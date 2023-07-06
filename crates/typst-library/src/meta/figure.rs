@@ -86,6 +86,25 @@ pub struct FigureElem {
     /// The figure's caption.
     pub caption: Option<Content>,
 
+    /// The caption's position.
+    ///
+    /// You can set the caption position to `{top}` or `{bottom}`, defaults to
+    /// `{bottom}`.
+    ///
+    /// ```example
+    /// #figure(
+    ///   table(columns: 2)[A][B],
+    //    caption: [I'm up here],
+    /// )
+    /// #figure(
+    ///   table(columns: 2)[A][B],
+    ///   caption: [I'm down here],
+    ///   caption-pos: bottom,
+    /// )
+    /// ```
+    #[default(VerticalAlign(GenAlign::Specific(Align::Bottom)))]
+    pub caption_pos: VerticalAlign,
+
     /// The kind of the figure this is.
     ///
     /// If set to `{auto}`, the figure will try to automatically determine its
@@ -174,6 +193,13 @@ impl Synthesize for FigureElem {
                 .unwrap_or_else(|| FigureKind::Elem(ImageElem::func()))
         });
 
+        let caption_pos =
+            VerticalAlign(GenAlign::Specific(match self.caption_pos(styles) {
+                VerticalAlign(GenAlign::Specific(Align::Top)) => Align::Top,
+                VerticalAlign(GenAlign::Specific(Align::Bottom)) => Align::Bottom,
+                _ => bail!(self.span(), "caption-position can only be top or bottom"),
+            }));
+
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
             Smart::Auto => {
@@ -221,6 +247,7 @@ impl Synthesize for FigureElem {
             }),
         )));
 
+        self.push_caption_pos(caption_pos);
         self.push_caption(self.caption(styles));
         self.push_kind(Smart::Custom(kind));
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
@@ -239,9 +266,16 @@ impl Show for FigureElem {
 
         // Build the caption, if any.
         if let Some(caption) = self.full_caption(vt)? {
-            realized += VElem::weak(self.gap(styles).into()).pack();
-            realized += caption;
-        }
+            let v = VElem::weak(self.gap(styles).into()).pack();
+            realized = if matches!(
+                self.caption_pos(styles),
+                VerticalAlign(GenAlign::Specific(Align::Bottom))
+            ) {
+                realized + v + caption
+            } else {
+                caption + v + realized
+            }
+        };
 
         // Wrap the contents in a block.
         Ok(BlockElem::new()
