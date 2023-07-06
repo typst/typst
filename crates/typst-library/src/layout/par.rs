@@ -119,11 +119,11 @@ pub struct ParElem {
 }
 
 impl Construct for ParElem {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The paragraph constructor is special: It doesn't create a paragraph
         // element. Instead, it just ensures that the passed content lives in a
         // separate paragraph and styles it.
-        let styles = Self::set(args)?;
+        let styles = Self::set(vm, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(Content::sequence([
             ParbreakElem::new().pack(),

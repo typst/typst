@@ -748,3 +748,12 @@ where
         self.map(|inner| inner.fold(outer.unwrap_or_default()))
     }
 }
+
+impl<T> Fold for Vec<T> {
+    type Output = Vec<T>;
+
+    fn fold(mut self, outer: Self::Output) -> Self::Output {
+        self.extend(outer);
+        self
+    }
+}

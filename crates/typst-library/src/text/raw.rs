@@ -1,6 +1,13 @@
+use std::hash::Hash;
+use std::sync::Arc;
+
 use once_cell::sync::Lazy;
+use once_cell::unsync::Lazy as UnsyncLazy;
 use syntect::highlighting as synt;
+use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
+use typst::diag::FileError;
 use typst::syntax::{self, LinkedNode};
+use typst::util::Bytes;
 
 use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
@@ -126,6 +133,33 @@ pub struct RawElem {
     /// ````
     #[default(HorizontalAlign(GenAlign::Start))]
     pub align: HorizontalAlign,
+
+    /// One or multiple additional syntax definitions to load. The syntax
+    /// definitions should be in the `sublime-syntax` file format.
+    ///
+    /// ````example
+    /// #set raw(syntaxes: "SExpressions.sublime-syntax")
+    ///
+    /// ```sexp
+    /// (defun factorial (x)
+    ///   (if (zerop x)
+    ///     ; with a comment
+    ///     1
+    ///     (* x (factorial (- x 1)))))
+    /// ```
+    /// ````
+    #[parse(
+        let (syntaxes, data) = parse_syntaxes(vm, args)?;
+        syntaxes
+    )]
+    #[fold]
+    pub syntaxes: SyntaxPaths,
+
+    /// The raw file buffers.
+    #[internal]
+    #[parse(data)]
+    #[fold]
+    pub data: Vec<Bytes>,
 }
 
 impl RawElem {
@@ -163,6 +197,9 @@ impl Show for RawElem {
             .map(to_typst)
             .map_or(Color::BLACK, Color::from);
 
+        let extra_syntaxes =
+            UnsyncLazy::new(|| load(&self.syntaxes(styles), &self.data(styles)).unwrap());
+
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
@@ -181,9 +218,16 @@ impl Show for RawElem {
             );
 
             Content::sequence(seq)
-        } else if let Some(syntax) =
-            lang.and_then(|token| SYNTAXES.find_syntax_by_token(&token))
-        {
+        } else if let Some((syntax_set, syntax)) = lang.and_then(|token| {
+            SYNTAXES
+                .find_syntax_by_token(&token)
+                .map(|syntax| (&*SYNTAXES, syntax))
+                .or_else(|| {
+                    extra_syntaxes
+                        .find_syntax_by_token(&token)
+                        .map(|syntax| (&**extra_syntaxes, syntax))
+                })
+        }) {
             let mut seq = vec![];
             let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
             for (i, line) in text.lines().enumerate() {
@@ -192,7 +236,7 @@ impl Show for RawElem {
                 }
 
                 for (style, piece) in
-                    highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
+                    highlighter.highlight_line(line, syntax_set).into_iter().flatten()
                 {
                     seq.push(styled(piece, foreground.into(), style));
                 }
@@ -317,6 +361,71 @@ fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> RgbaColor {
 
 fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
     synt::Color { r, g, b, a }
+}
+
+/// A list of bibliography file paths.
+#[derive(Debug, Default, Clone, Hash)]
+pub struct SyntaxPaths(Vec<EcoString>);
+
+cast! {
+    SyntaxPaths,
+    self => self.0.into_value(),
+    v: EcoString => Self(vec![v]),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+impl Fold for SyntaxPaths {
+    type Output = Self;
+
+    fn fold(mut self, outer: Self::Output) -> Self::Output {
+        self.0.extend(outer.0);
+        self
+    }
+}
+
+/// Load a syntax set from a list of syntax file paths.
+#[comemo::memoize]
+fn load(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSet>> {
+    let mut out = SyntaxSetBuilder::new();
+
+    // We might have multiple sublime-syntax/yaml files
+    for (path, bytes) in paths.0.iter().zip(bytes.iter()) {
+        let src = std::str::from_utf8(bytes).map_err(|_| FileError::InvalidUtf8)?;
+        out.add(
+            SyntaxDefinition::load_from_str(src, false, None)
+                .map_err(|e| eco_format!("failed to parse syntax file `{path}`: {e}"))?,
+        );
+    }
+
+    Ok(Arc::new(out.build()))
+}
+
+/// Function to parse the syntaxes argument.
+/// Much nicer than having it be part of the `element` macro.
+fn parse_syntaxes(
+    vm: &mut Vm,
+    args: &mut Args,
+) -> SourceResult<(Option<SyntaxPaths>, Option<Vec<Bytes>>)> {
+    let Some(Spanned { v: paths, span }) =
+        args.named::<Spanned<SyntaxPaths>>("syntaxes")?
+    else {
+        return Ok((None, None));
+    };
+
+    // Load syntax files.
+    let data = paths
+        .0
+        .iter()
+        .map(|path| {
+            let id = vm.location().join(path).at(span)?;
+            vm.world().file(id).at(span)
+        })
+        .collect::<SourceResult<Vec<Bytes>>>()?;
+
+    // Check that parsing works.
+    let _ = load(&paths, &data).at(span)?;
+
+    Ok((Some(paths), Some(data)))
 }
 
 /// The syntect syntax definitions.

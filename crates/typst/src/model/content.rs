@@ -7,8 +7,8 @@ use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{
-    element, Behave, Behaviour, ElemFunc, Element, Fold, Guard, Label, Locatable,
-    Location, Recipe, Selector, Style, Styles, Synthesize,
+    element, Behave, Behaviour, ElemFunc, Element, Guard, Label, Locatable, Location,
+    Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
@@ -585,15 +585,6 @@ pub struct MetaElem {
 impl Behave for MetaElem {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Ignorant
-    }
-}
-
-impl Fold for Vec<Meta> {
-    type Output = Self;
-
-    fn fold(mut self, outer: Self::Output) -> Self::Output {
-        self.extend(outer);
-        self
     }
 }
 

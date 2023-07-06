@@ -520,11 +520,11 @@ impl TextElem {
 }
 
 impl Construct for TextElem {
-    fn construct(_: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+    fn construct(vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
         // The text constructor is special: It doesn't create a text element.
         // Instead, it leaves the passed argument structurally unchanged, but
         // styles all text in it.
-        let styles = Self::set(args)?;
+        let styles = Self::set(vm, args)?;
         let body = args.expect::<Content>("body")?;
         Ok(body.styled_with_map(styles))
     }
