@@ -79,7 +79,7 @@ With show-set rules you can mix and match properties from different functions to
 achieve many different effects. But they still limit you to what is predefined
 in Typst. For maximum flexibility, you can instead write a show rule that
 defines how to format an element from scratch. To write such a show rule,
-replace the set rule behind the colon with an arbitrary
+replace the set rule after the colon with an arbitrary
 [function]($type/function). This function receives the element in question and
 can return arbitrary content. Different
 [fields]($scripting/#fields) are available on the element passed
