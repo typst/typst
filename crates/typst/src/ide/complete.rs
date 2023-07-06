@@ -1042,14 +1042,8 @@ impl<'a> CompletionContext<'a> {
         parens: bool,
         docs: Option<&str>,
     ) {
+        let at = label.as_deref().map_or(false, |field| !is_ident(field));
         let label = label.unwrap_or_else(|| value.repr().into());
-        let mut apply = None;
-
-        if label.starts_with('"') && self.after.starts_with('"') {
-            if let Some(trimmed) = label.strip_suffix('"') {
-                apply = Some(trimmed.into());
-            }
-        }
 
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
@@ -1060,8 +1054,15 @@ impl<'a> CompletionContext<'a> {
             }
         });
 
+        let mut apply = None;
         if parens && matches!(value, Value::Func(_)) {
             apply = Some(eco_format!("{label}(${{}})"));
+        } else if at {
+            apply = Some(eco_format!("at(\"{label}\")"));
+        } else if label.starts_with('"') && self.after.starts_with('"') {
+            if let Some(trimmed) = label.strip_suffix('"') {
+                apply = Some(trimmed.into());
+            }
         }
 
         self.completions.push(Completion {
