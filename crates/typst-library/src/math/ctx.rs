@@ -1,9 +1,11 @@
+use ttf_parser::gsub::SubstitutionSubtable;
 use ttf_parser::math::MathValue;
 use typst::font::{FontStyle, FontWeight};
 use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
+use crate::text::tags;
 
 macro_rules! scaled {
     ($ctx:expr, text: $text:ident, display: $display:ident $(,)?) => {
@@ -32,6 +34,7 @@ pub struct MathContext<'a, 'b, 'v> {
     pub table: ttf_parser::math::Table<'a>,
     pub constants: ttf_parser::math::Constants<'a>,
     pub ssty_table: Option<ttf_parser::gsub::AlternateSubstitution<'a>>,
+    pub glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
     pub space_width: Em,
     pub fragments: Vec<MathFragment>,
     pub local: Styles,
@@ -49,28 +52,30 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         font: &'a Font,
         block: bool,
     ) -> Self {
-        let table = font.ttf().tables().math.unwrap();
-        let constants = table.constants.unwrap();
+        let math_table = font.ttf().tables().math.unwrap();
+        let gsub_table = font.ttf().tables().gsub;
+        let constants = math_table.constants.unwrap();
 
-        let ssty_table = font
-            .ttf()
-            .tables()
-            .gsub
+        let ssty_table = gsub_table
             .and_then(|gsub| {
                 gsub.features
                     .find(ttf_parser::Tag::from_bytes(b"ssty"))
                     .and_then(|feature| feature.lookup_indices.get(0))
                     .and_then(|index| gsub.lookups.get(index))
             })
-            .and_then(|ssty| {
-                ssty.subtables.get::<ttf_parser::gsub::SubstitutionSubtable>(0)
-            })
+            .and_then(|ssty| ssty.subtables.get::<SubstitutionSubtable>(0))
             .and_then(|ssty| match ssty {
-                ttf_parser::gsub::SubstitutionSubtable::Alternate(alt_glyphs) => {
-                    Some(alt_glyphs)
-                }
+                SubstitutionSubtable::Alternate(alt_glyphs) => Some(alt_glyphs),
                 _ => None,
             });
+
+        let features = tags(styles);
+        let glyphwise_tables = gsub_table.map(|gsub| {
+            features
+                .into_iter()
+                .filter_map(|feature| GlyphwiseSubsts::new(gsub, feature))
+                .collect()
+        });
 
         let size = TextElem::size_in(styles);
         let ttf = font.ttf();
@@ -86,9 +91,10 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             regions: Regions::one(regions.base(), Axes::splat(false)),
             font,
             ttf: font.ttf(),
-            table,
+            table: math_table,
             constants,
             ssty_table,
+            glyphwise_tables,
             space_width,
             fragments: vec![],
             local: Styles::new(),

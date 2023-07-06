@@ -858,7 +858,7 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
 }
 
 /// Collect the tags of the OpenType features to apply.
-fn tags(styles: StyleChain) -> Vec<Feature> {
+pub fn tags(styles: StyleChain) -> Vec<Feature> {
     let mut tags = vec![];
     let mut feat = |tag, value| {
         tags.push(Feature::new(Tag::from_bytes(tag), value, ..));

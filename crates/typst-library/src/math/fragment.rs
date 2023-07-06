@@ -1,5 +1,10 @@
+use rustybuzz::Feature;
+use ttf_parser::gsub::{
+    AlternateSet, AlternateSubstitution, SingleSubstitution, SubstitutionSubtable,
+};
+use ttf_parser::opentype_layout::LayoutTable;
+
 use super::*;
-use ttf_parser::gsub::AlternateSet;
 
 #[derive(Debug, Clone)]
 pub enum MathFragment {
@@ -174,12 +179,14 @@ pub struct GlyphFragment {
 impl GlyphFragment {
     pub fn new(ctx: &MathContext, c: char, span: Span) -> Self {
         let id = ctx.ttf.glyph_index(c).unwrap_or_default();
+        let id = Self::adjust_glyph_index(ctx, id);
         Self::with_id(ctx, c, id, span)
     }
 
     pub fn try_new(ctx: &MathContext, c: char, span: Span) -> Option<Self> {
         let c = ctx.style.styled_char(c);
         let id = ctx.ttf.glyph_index(c)?;
+        let id = Self::adjust_glyph_index(ctx, id);
         Some(Self::with_id(ctx, c, id, span))
     }
 
@@ -207,6 +214,15 @@ impl GlyphFragment {
         };
         fragment.set_id(ctx, id);
         fragment
+    }
+
+    /// Apply GSUB substitutions.
+    fn adjust_glyph_index(ctx: &MathContext, id: GlyphId) -> GlyphId {
+        if let Some(glyphwise_tables) = &ctx.glyphwise_tables {
+            glyphwise_tables.iter().fold(id, |id, table| table.apply(id))
+        } else {
+            id
+        }
     }
 
     /// Sets element id and boxes in appropriate way without changing other
@@ -411,4 +427,52 @@ fn kern_at_height(
     }
 
     Some(kern.kern(i)?.scaled(ctx))
+}
+
+/// An OpenType substitution table that is applicable to glyph-wise substitutions.
+pub enum GlyphwiseSubsts<'a> {
+    Single(SingleSubstitution<'a>),
+    Alternate(AlternateSubstitution<'a>, u32),
+}
+
+impl<'a> GlyphwiseSubsts<'a> {
+    pub fn new(gsub: LayoutTable<'a>, feature: Feature) -> Option<Self> {
+        let ssty = gsub
+            .features
+            .find(feature.tag)
+            .and_then(|feature| feature.lookup_indices.get(0))
+            .and_then(|index| gsub.lookups.get(index))?;
+        let ssty = ssty.subtables.get::<SubstitutionSubtable>(0)?;
+        match ssty {
+            SubstitutionSubtable::Single(single_glyphs) => {
+                Some(Self::Single(single_glyphs))
+            }
+            SubstitutionSubtable::Alternate(alt_glyphs) => {
+                Some(Self::Alternate(alt_glyphs, feature.value))
+            }
+            _ => None,
+        }
+    }
+
+    pub fn try_apply(&self, glyph_id: GlyphId) -> Option<GlyphId> {
+        match self {
+            Self::Single(single) => match single {
+                SingleSubstitution::Format1 { coverage, delta } => coverage
+                    .get(glyph_id)
+                    .map(|_| GlyphId(glyph_id.0.wrapping_add(*delta as u16))),
+                SingleSubstitution::Format2 { coverage, substitutes } => {
+                    coverage.get(glyph_id).and_then(|idx| substitutes.get(idx))
+                }
+            },
+            Self::Alternate(alternate, value) => alternate
+                .coverage
+                .get(glyph_id)
+                .and_then(|idx| alternate.alternate_sets.get(idx))
+                .and_then(|set| set.alternates.get(*value as u16)),
+        }
+    }
+
+    pub fn apply(&self, glyph_id: GlyphId) -> GlyphId {
+        self.try_apply(glyph_id).unwrap_or(glyph_id)
+    }
 }
