@@ -21,7 +21,7 @@ pub fn parse_code(text: &str) -> SyntaxNode {
     let m = p.marker();
     p.skip();
     code_exprs(&mut p, |_| false);
-    p.wrap_skipless(m, SyntaxKind::Code);
+    p.wrap_all(m, SyntaxKind::Code);
     p.finish().into_iter().next().unwrap()
 }
 
@@ -567,9 +567,13 @@ fn embedded_code_expr(p: &mut Parser) {
     let prev = p.prev_end();
     code_expr_prec(p, true, 0, false);
 
-    // Consume error for things like `#12p` or `#"abc\"`.
+    // Consume error for things like `#12p` or `#"abc\"`.#
     if !p.progress(prev) {
-        p.unexpected();
+        if p.current().is_trivia() {
+            // p.unskip();
+        } else if !p.eof() {
+            p.unexpected();
+        }
     }
 
     let semi =
@@ -1021,9 +1025,7 @@ fn set_rule(p: &mut Parser) {
 fn show_rule(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Show);
-    p.unskip();
-    let m2 = p.marker();
-    p.skip();
+    let m2 = p.before_trivia();
 
     if !p.at(SyntaxKind::Colon) {
         code_expr(p);
@@ -1488,16 +1490,20 @@ impl<'s> Parser<'s> {
             .filter(|child| !child.kind().is_error() && !child.kind().is_trivia())
     }
 
-    fn wrap(&mut self, m: Marker, kind: SyntaxKind) {
-        self.unskip();
-        self.wrap_skipless(m, kind);
-        self.skip();
+    fn wrap(&mut self, from: Marker, kind: SyntaxKind) {
+        self.wrap_within(from, self.before_trivia(), kind);
     }
 
-    fn wrap_skipless(&mut self, m: Marker, kind: SyntaxKind) {
-        let from = m.0.min(self.nodes.len());
-        let children = self.nodes.drain(from..).collect();
-        self.nodes.push(SyntaxNode::inner(kind, children));
+    fn wrap_all(&mut self, from: Marker, kind: SyntaxKind) {
+        self.wrap_within(from, Marker(self.nodes.len()), kind)
+    }
+
+    fn wrap_within(&mut self, from: Marker, to: Marker, kind: SyntaxKind) {
+        let len = self.nodes.len();
+        let to = to.0.min(len);
+        let from = from.0.min(to);
+        let children = self.nodes.drain(from..to).collect();
+        self.nodes.insert(from, SyntaxNode::inner(kind, children));
     }
 
     fn progress(&self, offset: usize) -> bool {
@@ -1602,23 +1608,16 @@ impl<'s> Parser<'s> {
 
     /// Produce an error that the given `thing` was expected.
     fn expected(&mut self, thing: &str) {
-        self.unskip();
         if !self.after_error() {
-            let message = eco_format!("expected {thing}");
-            self.nodes.push(SyntaxNode::error(message, ""));
+            self.expected_at(self.before_trivia(), thing);
         }
-        self.skip();
     }
 
     /// Produce an error that the given `thing` was expected but another
-    /// thing was `found` and consumethe next token.
+    /// thing was `found` and consume the next token.
     fn expected_found(&mut self, thing: &str, found: &str) {
-        self.unskip();
-        if !self.after_error() {
-            self.skip();
-            self.convert_to_error(eco_format!("expected {thing}, found {found}"));
-        }
-        self.skip();
+        self.trim_errors();
+        self.convert_to_error(eco_format!("expected {thing}, found {found}"));
     }
 
     /// Produce an error that the given `thing` was expected at the position
@@ -1637,24 +1636,11 @@ impl<'s> Parser<'s> {
         }
     }
 
-    /// Consume the next token and produce an error stating that it was
+    /// Consume the next token (if any) and produce an error stating that it was
     /// unexpected.
     fn unexpected(&mut self) {
-        self.unskip();
-        while self
-            .nodes
-            .last()
-            .map_or(false, |child| child.kind().is_error() && child.is_empty())
-        {
-            self.nodes.pop();
-        }
-        self.skip();
+        self.trim_errors();
         self.convert_to_error(eco_format!("unexpected {}", self.current.name()));
-    }
-
-    /// Whether the last node is an error.
-    fn after_error(&self) -> bool {
-        self.nodes.last().map_or(false, |child| child.kind().is_error())
     }
 
     /// Consume the next token and turn it into an error.
@@ -1670,10 +1656,39 @@ impl<'s> Parser<'s> {
 
     /// Adds a hint to the last node, if the last node is an error.
     fn hint(&mut self, hint: impl Into<EcoString>) {
-        self.unskip();
-        if let Some(last) = self.nodes.last_mut() {
-            last.hint(hint);
+        let m = self.before_trivia();
+        if m.0 > 0 {
+            self.nodes[m.0 - 1].hint(hint);
         }
-        self.skip();
+    }
+
+    /// Get a marker after the last non-trivia node.
+    fn before_trivia(&self) -> Marker {
+        let mut i = self.nodes.len();
+        if self.lexer.mode() != LexMode::Markup && self.prev_end != self.current_start {
+            while i > 0 && self.nodes[i - 1].kind().is_trivia() {
+                i -= 1;
+            }
+        }
+        Marker(i)
+    }
+
+    /// Whether the last non-trivia node is an error.
+    fn after_error(&mut self) -> bool {
+        let m = self.before_trivia();
+        m.0 > 0 && self.nodes[m.0 - 1].kind().is_error()
+    }
+
+    /// Remove trailing errors with zero length.
+    fn trim_errors(&mut self) {
+        let Marker(end) = self.before_trivia();
+        let mut start = end;
+        while start > 0
+            && self.nodes[start - 1].kind().is_error()
+            && self.nodes[start - 1].is_empty()
+        {
+            start -= 1;
+        }
+        self.nodes.drain(start..end);
     }
 }
