@@ -754,7 +754,6 @@ impl<T> Fold for Vec<T> {
 
     fn fold(mut self, outer: Self::Output) -> Self::Output {
         self.extend(outer);
-
         self
     }
 }

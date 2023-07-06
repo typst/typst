@@ -2,6 +2,7 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use once_cell::sync::Lazy;
+use once_cell::unsync::Lazy as UnsyncLazy;
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst::diag::FileError;
@@ -133,24 +134,22 @@ pub struct RawElem {
     #[default(HorizontalAlign(GenAlign::Start))]
     pub align: HorizontalAlign,
 
-    /// A set of additional syntax definitions to load.
-    /// The syntax definitions should be in the `sublime-syntax` file format.
-    /// Syntaxes are a dictionary of the language name and the syntax file.
+    /// One or multiple additional syntax definitions to load. The syntax
+    /// definitions should be in the `sublime-syntax` file format.
     ///
     /// ````example
     /// #set raw(syntaxes: "SExpressions.sublime-syntax")
     ///
     /// ```sexp
     /// (defun factorial (x)
-    ///    (if (zerop x)
-    ///        ; with a comment
-    ///        1
-    ///        (* x (factorial (- x 1)))))
+    ///   (if (zerop x)
+    ///     ; with a comment
+    ///     1
+    ///     (* x (factorial (- x 1)))))
     /// ```
     /// ````
     #[parse(
         let (syntaxes, data) = parse_syntaxes(vm, args)?;
-
         syntaxes
     )]
     #[fold]
@@ -198,6 +197,9 @@ impl Show for RawElem {
             .map(to_typst)
             .map_or(Color::BLACK, Color::from);
 
+        let extra_syntaxes =
+            UnsyncLazy::new(|| load(&self.syntaxes(styles), &self.data(styles)).unwrap());
+
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
@@ -216,35 +218,31 @@ impl Show for RawElem {
             );
 
             Content::sequence(seq)
-        } else if let Some(token) = lang {
-            // First we find the appropriate `SyntaxSet`.
-            let syntax_set = SYNTAXES
+        } else if let Some((syntax_set, syntax)) = lang.and_then(|token| {
+            SYNTAXES
                 .find_syntax_by_token(&token)
-                .map(|_| Ok(Arc::clone(&SYNTAXES)))
-                .unwrap_or_else(|| load(&self.syntaxes(styles), &self.data(styles)))
-                .at(self.span())?;
-
-            if let Some(syntax) = syntax_set.find_syntax_by_token(&token) {
-                let mut seq = vec![];
-                let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
-                for (i, line) in text.lines().enumerate() {
-                    if i != 0 {
-                        seq.push(LinebreakElem::new().pack());
-                    }
-
-                    for (style, piece) in highlighter
-                        .highlight_line(line, &syntax_set)
-                        .into_iter()
-                        .flatten()
-                    {
-                        seq.push(styled(piece, foreground.into(), style));
-                    }
+                .map(|syntax| (&*SYNTAXES, syntax))
+                .or_else(|| {
+                    extra_syntaxes
+                        .find_syntax_by_token(&token)
+                        .map(|syntax| (&**extra_syntaxes, syntax))
+                })
+        }) {
+            let mut seq = vec![];
+            let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
+            for (i, line) in text.lines().enumerate() {
+                if i != 0 {
+                    seq.push(LinebreakElem::new().pack());
                 }
 
-                Content::sequence(seq)
-            } else {
-                TextElem::packed(text)
+                for (style, piece) in
+                    highlighter.highlight_line(line, syntax_set).into_iter().flatten()
+                {
+                    seq.push(styled(piece, foreground.into(), style));
+                }
             }
+
+            Content::sequence(seq)
         } else {
             TextElem::packed(text)
         };
@@ -380,7 +378,6 @@ impl Fold for SyntaxPaths {
 
     fn fold(mut self, outer: Self::Output) -> Self::Output {
         self.0.extend(outer.0);
-
         self
     }
 }
@@ -400,6 +397,34 @@ fn load(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSet>> {
     }
 
     Ok(Arc::new(out.build()))
+}
+
+/// Function to parse the syntaxes argument.
+/// Much nicer than having it be part of the `element` macro.
+fn parse_syntaxes(
+    vm: &mut Vm,
+    args: &mut Args,
+) -> SourceResult<(Option<SyntaxPaths>, Option<Vec<Bytes>>)> {
+    let Some(Spanned { v: paths, span }) =
+        args.named::<Spanned<SyntaxPaths>>("syntaxes")?
+    else {
+        return Ok((None, None));
+    };
+
+    // Load syntax files.
+    let data = paths
+        .0
+        .iter()
+        .map(|path| {
+            let id = vm.location().join(path).at(span)?;
+            vm.world().file(id).at(span)
+        })
+        .collect::<SourceResult<Vec<Bytes>>>()?;
+
+    // Check that parsing works.
+    let _ = load(&paths, &data).at(span)?;
+
+    Ok((Some(paths), Some(data)))
 }
 
 /// The syntect syntax definitions.
@@ -427,9 +452,8 @@ fn load(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSet>> {
 /// syntaxes/02_Extra/VimHelp.sublime-syntax
 /// syntaxes/02_Extra/cmd-help/syntaxes/cmd-help.sublime-syntax
 /// ```
-pub static SYNTAXES: Lazy<Arc<syntect::parsing::SyntaxSet>> = Lazy::new(|| {
-    Arc::new(syntect::dumps::from_binary(include_bytes!("../../assets/syntect.bin")))
-});
+pub static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
+    Lazy::new(|| syntect::dumps::from_binary(include_bytes!("../../assets/syntect.bin")));
 
 /// The default theme used for syntax highlighting.
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
@@ -479,33 +503,5 @@ fn item(
             background: None,
             font_style,
         },
-    }
-}
-
-/// Function to parse the syntaxes argument.
-/// Much nicer than having it be part of the `element` macro.
-fn parse_syntaxes(
-    vm: &mut Vm,
-    args: &mut Args,
-) -> SourceResult<(Option<SyntaxPaths>, Option<Vec<Bytes>>)> {
-    if let Some(Spanned { v: paths, span }) =
-        args.named::<Spanned<SyntaxPaths>>("syntaxes")?
-    {
-        // Load syntax files.
-        let data = paths
-            .0
-            .iter()
-            .map(|path| {
-                let id = vm.location().join(path).at(span)?;
-                vm.world().file(id).at(span)
-            })
-            .collect::<SourceResult<Vec<Bytes>>>()?;
-
-        // Check that parsing works.
-        let _ = load(&paths, &data).at(span)?;
-
-        Ok((Some(paths), Some(data)))
-    } else {
-        Ok((None, None))
     }
 }
