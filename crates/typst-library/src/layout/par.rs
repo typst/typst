@@ -598,7 +598,11 @@ fn collect<'a>(
             if SmartQuoteElem::enabled_in(styles) {
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
-                let quotes = Quotes::from_lang(lang, region);
+                let quotes = Quotes::from_lang(
+                    lang,
+                    region,
+                    SmartQuoteElem::alternative_in(styles),
+                );
                 let peeked = iter.peek().and_then(|child| {
                     let child = if let Some((child, _)) = child.to_styled() {
                         child
