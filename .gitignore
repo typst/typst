@@ -13,7 +13,6 @@ tarpaulin-report.html
 
 # Rust
 /target
-bench/target
 **/*.rs.bk
 
 # Node

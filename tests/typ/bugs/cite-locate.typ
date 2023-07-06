@@ -20,4 +20,4 @@
 #locate(loc => [Citation @distress on page #loc.page()])
 
 #pagebreak()
-#bibliography("/works.bib", style: "chicago-notes")
+#bibliography("/files/works.bib", style: "chicago-notes")

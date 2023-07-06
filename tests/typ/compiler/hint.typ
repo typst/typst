@@ -1,4 +1,4 @@
-// Test diagnostics.
+// Test hints on diagnostics.
 // Ref: false
 
 ---
@@ -23,13 +23,17 @@
 
 ---
 = Heading <intro>
+
 // Error: 1:20-1:26 cannot reference heading without numbering
-// Hint: 1:20-1:26 did you mean to use `#set heading(numbering: "1.")`?
+// Hint: 1:20-1:26 you can enable heading numbering with `#set heading(numbering: "1.")`
 Can not be used as @intro
 
 ---
+// This test is more of a tooling test. It checks if hint annotation validation
+// can be turned off.
 // Hints: false
-// This test is more of a tooling test. It checks if hint annotation validation can be turned off.
+
 = Heading <intro>
+
 // Error: 1:20-1:26 cannot reference heading without numbering
 Can not be used as @intro

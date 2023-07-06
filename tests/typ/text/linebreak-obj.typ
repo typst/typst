@@ -7,7 +7,7 @@
 They can look for the details in @netwok,
 which is the authoritative source.
 
-#bibliography("/works.bib")
+#bibliography("/files/works.bib")
 
 ---
 // Test punctuation after math equations.

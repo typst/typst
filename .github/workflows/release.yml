@@ -25,9 +25,6 @@ jobs:
         - target: armv7-unknown-linux-musleabi
           os: ubuntu-latest
           cross: true
-        - target: riscv64gc-unknown-linux-gnu
-          os: ubuntu-latest
-          cross: true
         - target: x86_64-apple-darwin
           os: macos-latest
           cross: false
@@ -37,9 +34,6 @@ jobs:
         - target: x86_64-pc-windows-msvc
           os: windows-latest
           cross: false
-        - target: aarch64-pc-windows-msvc
-          os: windows-latest
-          cross: true
 
     steps:
     - uses: actions/checkout@v3

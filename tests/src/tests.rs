@@ -13,11 +13,11 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
-use elsa::FrozenVec;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
 use tiny_skia as sk;
+use typst::file::FileId;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
@@ -26,8 +26,8 @@ use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
-use typst::syntax::{Source, SourceId, Span, SyntaxNode};
-use typst::util::{Buffer, PathExt};
+use typst::syntax::{Source, Span, SyntaxNode};
+use typst::util::{Bytes, PathExt};
 use typst::World;
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
@@ -37,7 +37,7 @@ const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
 const FONT_DIR: &str = "../assets/fonts";
-const FILE_DIR: &str = "../assets/files";
+const ASSET_DIR: &str = "../assets";
 
 #[derive(Debug, Clone, Parser)]
 #[clap(name = "typst-test", author)]
@@ -197,34 +197,21 @@ fn library() -> Library {
 }
 
 /// A world that provides access to the tests environment.
+#[derive(Clone)]
 struct TestWorld {
     print: PrintConfig,
+    main: FileId,
     library: Prehashed<Library>,
     book: Prehashed<FontBook>,
     fonts: Vec<Font>,
     paths: RefCell<HashMap<PathBuf, PathSlot>>,
-    sources: FrozenVec<Box<Source>>,
-    main: SourceId,
 }
 
-impl Clone for TestWorld {
-    fn clone(&self) -> Self {
-        Self {
-            print: self.print,
-            library: self.library.clone(),
-            book: self.book.clone(),
-            fonts: self.fonts.clone(),
-            paths: self.paths.clone(),
-            sources: FrozenVec::from_iter(self.sources.iter().cloned().map(Box::new)),
-            main: self.main,
-        }
-    }
-}
-
-#[derive(Default, Clone)]
+#[derive(Clone)]
 struct PathSlot {
-    source: OnceCell<FileResult<SourceId>>,
-    buffer: OnceCell<FileResult<Buffer>>,
+    system_path: PathBuf,
+    source: OnceCell<FileResult<Source>>,
+    buffer: OnceCell<FileResult<Bytes>>,
 }
 
 impl TestWorld {
@@ -243,57 +230,48 @@ impl TestWorld {
 
         Self {
             print,
+            main: FileId::detached(),
             library: Prehashed::new(library()),
             book: Prehashed::new(FontBook::from_fonts(&fonts)),
             fonts,
             paths: RefCell::default(),
-            sources: FrozenVec::new(),
-            main: SourceId::detached(),
         }
     }
 }
 
 impl World for TestWorld {
-    fn root(&self) -> &Path {
-        Path::new(FILE_DIR)
-    }
-
     fn library(&self) -> &Prehashed<Library> {
         &self.library
-    }
-
-    fn main(&self) -> &Source {
-        self.source(self.main)
-    }
-
-    fn resolve(&self, path: &Path) -> FileResult<SourceId> {
-        self.slot(path)
-            .source
-            .get_or_init(|| {
-                let buf = read(path)?;
-                let text = String::from_utf8(buf)?;
-                Ok(self.insert(path, text))
-            })
-            .clone()
-    }
-
-    fn source(&self, id: SourceId) -> &Source {
-        &self.sources[id.as_u16() as usize]
     }
 
     fn book(&self) -> &Prehashed<FontBook> {
         &self.book
     }
 
-    fn font(&self, id: usize) -> Option<Font> {
-        Some(self.fonts[id].clone())
+    fn main(&self) -> Source {
+        self.source(self.main).unwrap()
     }
 
-    fn file(&self, path: &Path) -> FileResult<Buffer> {
-        self.slot(path)
-            .buffer
-            .get_or_init(|| read(path).map(Buffer::from))
+    fn source(&self, id: FileId) -> FileResult<Source> {
+        let slot = self.slot(id)?;
+        slot.source
+            .get_or_init(|| {
+                let buf = read(&slot.system_path)?;
+                let text = String::from_utf8(buf)?;
+                Ok(Source::new(id, text))
+            })
             .clone()
+    }
+
+    fn file(&self, id: FileId) -> FileResult<Bytes> {
+        let slot = self.slot(id)?;
+        slot.buffer
+            .get_or_init(|| read(&slot.system_path).map(Bytes::from))
+            .clone()
+    }
+
+    fn font(&self, id: usize) -> Option<Font> {
+        Some(self.fonts[id].clone())
     }
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
@@ -302,48 +280,46 @@ impl World for TestWorld {
 }
 
 impl TestWorld {
-    fn set(&mut self, path: &Path, text: String) -> SourceId {
-        let slot = self.slot(path);
-        let id = if let Some(&Ok(id)) = slot.source.get() {
-            drop(slot);
-            self.sources.as_mut()[id.as_u16() as usize].replace(text);
-            id
-        } else {
-            let id = self.insert(path, text);
-            slot.source.set(Ok(id)).unwrap();
-            drop(slot);
-            id
+    fn set(&mut self, path: &Path, text: String) -> Source {
+        self.main = FileId::new(None, &Path::new("/").join(path));
+        let mut slot = self.slot(self.main).unwrap();
+        let source = Source::new(self.main, text);
+        slot.source = OnceCell::from(Ok(source.clone()));
+        source
+    }
+
+    fn slot(&self, id: FileId) -> FileResult<RefMut<PathSlot>> {
+        let root: PathBuf = match id.package() {
+            Some(spec) => format!("packages/{}-{}", spec.name, spec.version).into(),
+            None => PathBuf::new(),
         };
-        self.main = id;
-        id
-    }
 
-    fn slot(&self, path: &Path) -> RefMut<PathSlot> {
-        RefMut::map(self.paths.borrow_mut(), |paths| {
-            paths.entry(path.normalize()).or_default()
-        })
-    }
+        let system_path = root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
 
-    fn insert(&self, path: &Path, text: String) -> SourceId {
-        let id = SourceId::from_u16(self.sources.len() as u16);
-        let source = Source::new(id, path, text);
-        self.sources.push(Box::new(source));
-        id
+        Ok(RefMut::map(self.paths.borrow_mut(), |paths| {
+            paths.entry(system_path.clone()).or_insert_with(|| PathSlot {
+                system_path,
+                source: OnceCell::new(),
+                buffer: OnceCell::new(),
+            })
+        }))
     }
 }
 
 /// Read as file.
 fn read(path: &Path) -> FileResult<Vec<u8>> {
-    let suffix = path
-        .strip_prefix(FILE_DIR)
-        .map(|suffix| Path::new("/").join(suffix))
-        .unwrap_or_else(|_| path.into());
+    // Basically symlinks `assets/files` to `tests/files` so that the assets
+    // are within the test project root.
+    let mut resolved = path.to_path_buf();
+    if path.starts_with("files/") {
+        resolved = Path::new(ASSET_DIR).join(path);
+    }
 
-    let f = |e| FileError::from_io(e, &suffix);
-    if fs::metadata(path).map_err(f)?.is_dir() {
+    let f = |e| FileError::from_io(e, path);
+    if fs::metadata(&resolved).map_err(f)?.is_dir() {
         Err(FileError::IsDirectory)
     } else {
-        fs::read(path).map_err(f)
+        fs::read(&resolved).map_err(f)
     }
 }
 
@@ -522,26 +498,25 @@ fn test_part(
 ) -> (bool, bool, Vec<Frame>) {
     let mut ok = true;
 
-    let id = world.set(src_path, text);
-    let source = world.source(id);
+    let source = world.set(src_path, text);
     if world.print.syntax {
         writeln!(output, "Syntax Tree:\n{:#?}\n", source.root()).unwrap();
     }
 
-    let metadata = parse_part_metadata(source);
+    let metadata = parse_part_metadata(&source);
     let compare_ref = metadata.part_configuration.compare_ref.unwrap_or(compare_ref);
     let validate_hints =
         metadata.part_configuration.validate_hints.unwrap_or(validate_hints);
 
     ok &= test_spans(output, source.root());
-    ok &= test_reparse(output, world.source(id).text(), i, rng);
+    ok &= test_reparse(output, source.text(), i, rng);
 
     if world.print.model {
         let world = (world as &dyn World).track();
         let route = typst::eval::Route::default();
         let mut tracer = typst::eval::Tracer::default();
         let module =
-            typst::eval::eval(world, route.track(), tracer.track_mut(), source).unwrap();
+            typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
@@ -563,15 +538,17 @@ fn test_part(
     // however, as the line of the hint is still verified.
     let actual_errors_and_hints: HashSet<UserOutput> = errors
         .into_iter()
-        .filter(|error| error.span.source() == id)
+        .inspect(|error| assert!(!error.span.is_detached()))
+        .filter(|error| error.span.id() == source.id())
         .flat_map(|error| {
+            let range = error.span.range(world);
             let output_error =
-                UserOutput::Error(error.range(world), error.message.replace('\\', "/"));
+                UserOutput::Error(range.clone(), error.message.replace('\\', "/"));
             let hints = error
                 .hints
                 .iter()
                 .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
-                .map(|hint| UserOutput::Hint(error.range(world), hint.to_string()));
+                .map(|hint| UserOutput::Hint(range.clone(), hint.to_string()));
             iter::once(output_error).chain(hints).collect::<Vec<_>>()
         })
         .collect();
@@ -596,12 +573,12 @@ fn test_part(
 
         for unexpected in unexpected_outputs {
             write!(output, "    Not annotated | ").unwrap();
-            print_user_output(output, source, line, unexpected)
+            print_user_output(output, &source, line, unexpected)
         }
 
         for missing in missing_outputs {
             write!(output, "    Not emitted   | ").unwrap();
-            print_user_output(output, source, line, missing)
+            print_user_output(output, &source, line, missing)
         }
     }
 
@@ -820,7 +797,7 @@ fn test_reparse(
 
     let source = Source::detached(text);
     let leafs = leafs(source.root());
-    let start = source.range(leafs[pick(0..leafs.len())].span()).start;
+    let start = source.find(leafs[pick(0..leafs.len())].span()).unwrap().offset();
     let supplement = supplements[pick(0..supplements.len())];
     ok &= apply(start..start, supplement);
 

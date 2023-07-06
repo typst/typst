@@ -176,6 +176,9 @@ cargo build --release
 
 The optimized binary will be stored in `target/release/`.
 
+Another good way to contribute is by [sharing packages][packages] with the
+community.
+
 ## Pronunciation and Spelling
 IPA: /taɪpst/. "Ty" like in **Ty**pesetting and "pst" like in Hi**pst**er. When
 writing about Typst, capitalize its name as a proper noun, with a capital "T".
@@ -217,6 +220,7 @@ instant preview. To achieve these goals, we follow three core design principles:
 [scripting]: https://typst.app/docs/reference/scripting/
 [rust]: https://rustup.rs/
 [releases]: https://github.com/typst/typst/releases/
-[architecture]: https://github.com/typst/typst/blob/main/ARCHITECTURE.md
+[architecture]: https://github.com/typst/typst/blob/main/docs/dev/architecture.md
 [contributing]: https://github.com/typst/typst/blob/main/CONTRIBUTING.md
+[packages]: https://github.com/typst/packages/
 [`comemo`]: https://github.com/typst/comemo/

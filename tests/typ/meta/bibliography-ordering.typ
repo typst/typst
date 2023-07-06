@@ -4,4 +4,4 @@
 @netwok, @issue201, @arrgh, @quark, @distress,
 @glacier-melt, @issue201, @tolkien54, @sharing, @restful
 
-#bibliography("/works.bib")
+#bibliography("/files/works.bib")
