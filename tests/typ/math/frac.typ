@@ -21,6 +21,11 @@ $ binom(circle, square) $
 $ binom(x^2) $
 
 ---
+// Test dif.
+$ (dif y)/(dif x), dif/x, x/dif, dif/dif \
+  frac(dif y, dif x), frac(dif, x), frac(x, dif), frac(dif, dif) $
+
+---
 // Test associativity.
 $ 1/2/3 = (1/2)/3 = 1/(2/3) $
 

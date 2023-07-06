@@ -47,6 +47,7 @@ use crate::meta::{
     Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
 };
 use crate::prelude::*;
+use crate::shared::BehavedBuilder;
 use crate::text::{
     families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
 };
@@ -414,7 +415,11 @@ impl LayoutMath for Content {
         }
 
         if let Some(children) = self.to_sequence() {
+            let mut bb = BehavedBuilder::new();
             for child in children {
+                bb.push(child.clone(), StyleChain::default());
+            }
+            for (child, _) in bb.finish().0.iter() {
                 child.layout_math(ctx)?;
             }
             return Ok(());
