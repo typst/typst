@@ -1,12 +1,11 @@
-use ttf_parser::gsub::{AlternateSubstitution, SingleSubstitution, SubstitutionSubtable};
+use ttf_parser::gsub::SubstitutionSubtable;
 use ttf_parser::math::MathValue;
 use typst::font::{FontStyle, FontWeight};
 use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::text::tags;
-
 use super::*;
+use crate::text::tags;
 
 macro_rules! scaled {
     ($ctx:expr, text: $text:ident, display: $display:ident $(,)?) => {
@@ -73,25 +72,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let features = tags(styles);
         let glyphwise_tables = gsub_table.map(|gsub| {
             features
-                .iter()
-                .filter_map(|feature| {
-                    let ssty = gsub
-                        .features
-                        .find(feature.tag)
-                        .and_then(|feature| feature.lookup_indices.get(0))
-                        .and_then(|index| gsub.lookups.get(index))?;
-                    let ssty = ssty.subtables.get::<SubstitutionSubtable>(0)?;
-                    match ssty {
-                        SubstitutionSubtable::Single(single_glyphs) => {
-                            Some(GlyphwiseSubsts::Single(single_glyphs))
-                        }
-                        SubstitutionSubtable::Alternate(alt_glyphs) => {
-                            Some(GlyphwiseSubsts::Alternate(alt_glyphs, feature.value))
-                        }
-                        _ => None,
-                    }
-                })
-                .collect::<Vec<_>>()
+                .into_iter()
+                .filter_map(|feature| GlyphwiseSubsts::new(gsub, feature))
+                .collect()
         });
 
         let size = TextElem::size_in(styles);
@@ -287,35 +270,5 @@ impl Scaled for Em {
 impl Scaled for MathValue<'_> {
     fn scaled(self, ctx: &MathContext) -> Abs {
         self.value.scaled(ctx)
-    }
-}
-
-/// An OpenType substitution table that is applicable to glyph-wise substitutions.
-pub enum GlyphwiseSubsts<'a> {
-    Single(SingleSubstitution<'a>),
-    Alternate(AlternateSubstitution<'a>, u32),
-}
-
-impl<'a> GlyphwiseSubsts<'a> {
-    pub fn try_apply(&self, glyph_id: GlyphId) -> Option<GlyphId> {
-        match self {
-            GlyphwiseSubsts::Single(single) => match single {
-                SingleSubstitution::Format1 { coverage, delta } => coverage
-                    .get(glyph_id)
-                    .map(|_| GlyphId(glyph_id.0.wrapping_add(*delta as u16))),
-                SingleSubstitution::Format2 { coverage, substitutes } => {
-                    coverage.get(glyph_id).and_then(|idx| substitutes.get(idx))
-                }
-            },
-            GlyphwiseSubsts::Alternate(alternate, value) => alternate
-                .coverage
-                .get(glyph_id)
-                .and_then(|idx| alternate.alternate_sets.get(idx))
-                .and_then(|set| set.alternates.get(*value as u16)),
-        }
-    }
-
-    pub fn apply(&self, glyph_id: GlyphId) -> GlyphId {
-        self.try_apply(glyph_id).unwrap_or(glyph_id)
     }
 }
