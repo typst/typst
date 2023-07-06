@@ -90,8 +90,9 @@ pub struct PageElem {
 
     /// The page's margins.
     ///
+    /// - `{auto}`: The margins are set automatically to 2.5/21 times the smaller
+    ///   dimension of the page. This results in 2.5cm margins for an A4 page.
     /// - A single length: The same margin on all sides.
-    /// - `{auto}`: The margin is set to the default value for the page's size.
     /// - A dictionary: With a dictionary, the margins can be set individually.
     ///   The dictionary can contain the following keys in order of precedence:
     ///   - `top`: The top margin.
@@ -325,7 +326,7 @@ impl PageElem {
         }
 
         // Determine the margins.
-        let default = Rel::<Length>::from(0.1190 * min);
+        let default = Rel::<Length>::from((2.5 / 21.0) * min);
         let margin = self.margin(styles);
         let two_sided = margin.two_sided.unwrap_or(false);
         let margin = margin
