@@ -149,31 +149,17 @@ pub struct RawElem {
     /// ```
     /// ````
     #[parse(
-        let (syntaxes, data) = if let Some(Spanned { v: paths, span }) = args.named::<Spanned<SyntaxPaths>>("syntaxes")? {
-            // Load bibliography files.
-            let data = paths.0
-                .iter()
-                .map(|path| {
-                    let id = vm.location().join(path).at(span)?;
-                    vm.world().file(id).at(span)
-                })
-                .collect::<SourceResult<Vec<Bytes>>>()?;
-
-            // Check that parsing works.
-            let _ = load(&paths, &data).at(span)?;
-
-            (Some(paths), Some(data))
-        } else {
-            (None, None)
-        };
+        let (syntaxes, data) = parse_syntaxes(vm, args)?;
 
         syntaxes
     )]
+    #[fold]
     pub syntaxes: SyntaxPaths,
 
     /// The raw file buffers.
     #[internal]
     #[parse(data)]
+    #[fold]
     pub data: Vec<Bytes>,
 }
 
@@ -203,7 +189,7 @@ impl Synthesize for RawElem {
 
 impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
-    fn show(&self, _vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
         let foreground = THEME
@@ -230,27 +216,14 @@ impl Show for RawElem {
             );
 
             Content::sequence(seq)
-        } else if let Some(syntax) =
-            lang.as_ref().and_then(|token| SYNTAXES.find_syntax_by_token(token))
-        {
-            let mut seq = vec![];
-            let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
-            for (i, line) in text.lines().enumerate() {
-                if i != 0 {
-                    seq.push(LinebreakElem::new().pack());
-                }
-
-                for (style, piece) in
-                    highlighter.highlight_line(line, &SYNTAXES).into_iter().flatten()
-                {
-                    seq.push(styled(piece, foreground.into(), style));
-                }
-            }
-
-            Content::sequence(seq)
         } else if let Some(token) = lang {
-            let syntax_set =
-                load(&self.syntaxes(styles), &self.data(styles)).at(self.span())?;
+            // First we find the appropriate `SyntaxSet`.
+            let syntax_set = SYNTAXES
+                .find_syntax_by_token(&token)
+                .map(|_| Ok(Arc::clone(&SYNTAXES)))
+                .unwrap_or_else(|| load(&self.syntaxes(styles), &self.data(styles)))
+                .at(self.span())?;
+
             if let Some(syntax) = syntax_set.find_syntax_by_token(&token) {
                 let mut seq = vec![];
                 let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
@@ -402,9 +375,19 @@ cast! {
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }
 
+impl Fold for SyntaxPaths {
+    type Output = Self;
+
+    fn fold(mut self, outer: Self::Output) -> Self::Output {
+        self.0.extend(outer.0);
+
+        self
+    }
+}
+
 /// Load a syntax set from a list of syntax file paths.
 #[comemo::memoize]
-fn load(paths: &SyntaxPaths, bytes: &Vec<Bytes>) -> StrResult<Arc<SyntaxSet>> {
+fn load(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSet>> {
     let mut out = SyntaxSetBuilder::new();
 
     // We might have multiple sublime-syntax/yaml files
@@ -444,8 +427,9 @@ fn load(paths: &SyntaxPaths, bytes: &Vec<Bytes>) -> StrResult<Arc<SyntaxSet>> {
 /// syntaxes/02_Extra/VimHelp.sublime-syntax
 /// syntaxes/02_Extra/cmd-help/syntaxes/cmd-help.sublime-syntax
 /// ```
-pub static SYNTAXES: Lazy<syntect::parsing::SyntaxSet> =
-    Lazy::new(|| syntect::dumps::from_binary(include_bytes!("../../assets/syntect.bin")));
+pub static SYNTAXES: Lazy<Arc<syntect::parsing::SyntaxSet>> = Lazy::new(|| {
+    Arc::new(syntect::dumps::from_binary(include_bytes!("../../assets/syntect.bin")))
+});
 
 /// The default theme used for syntax highlighting.
 pub static THEME: Lazy<synt::Theme> = Lazy::new(|| synt::Theme {
@@ -495,5 +479,33 @@ fn item(
             background: None,
             font_style,
         },
+    }
+}
+
+/// Function to parse the syntaxes argument.
+/// Much nicer than having it be part of the `element` macro.
+fn parse_syntaxes(
+    vm: &mut Vm,
+    args: &mut Args,
+) -> SourceResult<(Option<SyntaxPaths>, Option<Vec<Bytes>>)> {
+    if let Some(Spanned { v: paths, span }) =
+        args.named::<Spanned<SyntaxPaths>>("syntaxes")?
+    {
+        // Load syntax files.
+        let data = paths
+            .0
+            .iter()
+            .map(|path| {
+                let id = vm.location().join(path).at(span)?;
+                vm.world().file(id).at(span)
+            })
+            .collect::<SourceResult<Vec<Bytes>>>()?;
+
+        // Check that parsing works.
+        let _ = load(&paths, &data).at(span)?;
+
+        Ok((Some(paths), Some(data)))
+    } else {
+        Ok((None, None))
     }
 }
