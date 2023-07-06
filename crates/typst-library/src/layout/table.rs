@@ -326,6 +326,7 @@ impl LocalName for TableElem {
             Lang::TURKISH => "Tablo",
             Lang::UKRAINIAN => "Таблиця",
             Lang::VIETNAMESE => "Bảng",
+            Lang::JAPANESE => "表",
             Lang::ENGLISH | _ => "Table",
         }
     }
