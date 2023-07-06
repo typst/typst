@@ -304,6 +304,32 @@ impl SyntaxKind {
         )
     }
 
+    /// Is this node is a keyword.
+    pub fn is_keyword(self) -> bool {
+        matches!(
+            self,
+            Self::Not
+                | Self::And
+                | Self::Or
+                | Self::None
+                | Self::Auto
+                | Self::Let
+                | Self::Set
+                | Self::Show
+                | Self::If
+                | Self::Else
+                | Self::For
+                | Self::In
+                | Self::While
+                | Self::Break
+                | Self::Continue
+                | Self::Return
+                | Self::Import
+                | Self::Include
+                | Self::As
+        )
+    }
+
     /// Whether this kind of node is automatically skipped by the parser in
     /// code and math mode.
     pub fn is_trivia(self) -> bool {

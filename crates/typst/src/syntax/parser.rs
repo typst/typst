@@ -1583,11 +1583,16 @@ impl<'s> Parser<'s> {
             self.current = SyntaxKind::Eof;
         }
     }
+}
 
+impl<'s> Parser<'s> {
+    /// Consume the given syntax `kind` or produce an error.
     fn expect(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
         if at {
             self.eat();
+        } else if kind == SyntaxKind::Ident && self.current.is_keyword() {
+            self.expected_found(kind.name(), self.current.name());
         } else {
             self.balanced &= !kind.is_grouping();
             self.expected(kind.name());
@@ -1595,59 +1600,80 @@ impl<'s> Parser<'s> {
         at
     }
 
-    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
-        if !self.eat_if(kind) {
-            self.nodes[open.0].convert_to_error("unclosed delimiter");
-        }
-    }
-
+    /// Produce an error that the given `thing` was expected.
     fn expected(&mut self, thing: &str) {
         self.unskip();
-        if self
-            .nodes
-            .last()
-            .map_or(true, |child| child.kind() != SyntaxKind::Error)
-        {
-            let message = eco_format!("expected {}", thing);
+        if !self.after_error() {
+            let message = eco_format!("expected {thing}");
             self.nodes.push(SyntaxNode::error(message, ""));
         }
         self.skip();
     }
 
-    // Adds a hint to the last node, if the last node is an error.
-    fn hint(&mut self, hint: impl Into<EcoString>) {
+    /// Produce an error that the given `thing` was expected but another
+    /// thing was `found` and consumethe next token.
+    fn expected_found(&mut self, thing: &str, found: &str) {
         self.unskip();
-        if let Some(last) = self.nodes.last_mut() {
-            last.hint(hint);
+        if !self.after_error() {
+            self.skip();
+            self.convert_to_error(eco_format!("expected {thing}, found {found}"));
         }
         self.skip();
     }
 
+    /// Produce an error that the given `thing` was expected at the position
+    /// of the marker `m`.
     fn expected_at(&mut self, m: Marker, thing: &str) {
         let message = eco_format!("expected {}", thing);
         let error = SyntaxNode::error(message, "");
         self.nodes.insert(m.0, error);
     }
 
+    /// Produce an error for the unclosed delimiter `kind` at the position
+    /// `open`.
+    fn expect_closing_delimiter(&mut self, open: Marker, kind: SyntaxKind) {
+        if !self.eat_if(kind) {
+            self.nodes[open.0].convert_to_error("unclosed delimiter");
+        }
+    }
+
+    /// Consume the next token and produce an error stating that it was
+    /// unexpected.
     fn unexpected(&mut self) {
         self.unskip();
         while self
             .nodes
             .last()
-            .map_or(false, |child| child.kind() == SyntaxKind::Error && child.is_empty())
+            .map_or(false, |child| child.kind().is_error() && child.is_empty())
         {
             self.nodes.pop();
         }
         self.skip();
+        self.convert_to_error(eco_format!("unexpected {}", self.current.name()));
+    }
 
+    /// Whether the last node is an error.
+    fn after_error(&self) -> bool {
+        self.nodes.last().map_or(false, |child| child.kind().is_error())
+    }
+
+    /// Consume the next token and turn it into an error.
+    fn convert_to_error(&mut self, message: EcoString) {
         let kind = self.current;
         let offset = self.nodes.len();
         self.eat();
         self.balanced &= !kind.is_grouping();
-
         if !kind.is_error() {
-            self.nodes[offset]
-                .convert_to_error(eco_format!("unexpected {}", kind.name()));
+            self.nodes[offset].convert_to_error(message);
         }
+    }
+
+    /// Adds a hint to the last node, if the last node is an error.
+    fn hint(&mut self, hint: impl Into<EcoString>) {
+        self.unskip();
+        if let Some(last) = self.nodes.last_mut() {
+            last.hint(hint);
+        }
+        self.skip();
     }
 }
