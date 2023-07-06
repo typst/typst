@@ -196,6 +196,7 @@ pub fn call(
                     "hour" => datetime.hour().into_value(),
                     "minute" => datetime.minute().into_value(),
                     "second" => datetime.second().into_value(),
+                    "as-unix" => datetime.as_unix().into_value(),
                     _ => return missing(),
                 }
             } else {

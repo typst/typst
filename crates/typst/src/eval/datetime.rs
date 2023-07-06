@@ -4,7 +4,7 @@ use std::hash::Hash;
 
 use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
-use time::{format_description, PrimitiveDateTime};
+use time::{format_description, OffsetDateTime, PrimitiveDateTime};
 
 use crate::eval::cast;
 use crate::util::pretty_array_like;
@@ -133,6 +133,24 @@ impl Datetime {
                 .ok()?;
         let time = time::Time::from_hms(hour, minute, second).ok()?;
         Some(Datetime::Datetime(PrimitiveDateTime::new(date, time)))
+    }
+
+    pub fn from_unix(timestamp: i64) -> Result<Self, EcoString> {
+        let date_time = OffsetDateTime::from_unix_timestamp(timestamp)
+            .map_err(|e| eco_format!("could not construct date: {e}"))?;
+        Ok(Datetime::Datetime(PrimitiveDateTime::new(date_time.date(), date_time.time())))
+    }
+
+    pub fn as_unix(&self) -> Option<i64> {
+        match self {
+            Datetime::Date(date) => Some(
+                PrimitiveDateTime::new(*date, time::Time::MIDNIGHT)
+                    .assume_utc()
+                    .unix_timestamp(),
+            ),
+            Datetime::Time(_) => None,
+            Datetime::Datetime(datetime) => Some(datetime.assume_utc().unix_timestamp()),
+        }
     }
 }
 

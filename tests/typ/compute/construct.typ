@@ -192,6 +192,12 @@
 #test(datetime.today(offset: auto).display(), "1970-01-01")
 #test(datetime.today(offset: 2).display(), "1970-01-01")
 
+// Test conversions from and to Unix timestamps
+#let timestamp-datetime = datetime.from-unix(1688503678)
+#let component-datetime = datetime(year: 2023, month: 7, day: 4, hour: 20, minute: 47, second: 58)
+#test(timestamp-datetime, component-datetime)
+#test(component-datetime.as-unix(), 1688503678)
+
 ---
 // Error: 10-12 at least one of date or time must be fully specified
 #datetime()

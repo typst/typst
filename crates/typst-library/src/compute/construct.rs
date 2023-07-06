@@ -216,6 +216,7 @@ cast! {
 #[func]
 #[scope(
     scope.define("today", datetime_today_func());
+    scope.define("from-unix", datetime_from_unix_func());
     scope
 )]
 pub fn datetime(
@@ -336,6 +337,29 @@ pub fn datetime_today(
         .world
         .today(offset.as_custom())
         .ok_or("unable to get the current date")?)
+}
+
+/// Returns the datetime corresponding to the given Unix timestamp.
+///
+/// This function always returns a full datetime in UTC.
+///
+/// Refer to the documentation of the [`display`]($type/datetime.display) method
+/// for details on how to affect the formatting of the date.
+///
+/// ## Example
+/// ```example
+/// We went to get ice cream on
+/// #datetime.from-unix(1688503678).display().
+/// ```
+///
+/// Display: From Unix
+/// Category: construct
+#[func]
+pub fn datetime_from_unix(
+    /// The Unix timestamp.
+    timestamp: i64,
+) -> StrResult<Datetime> {
+    Datetime::from_unix(timestamp)
 }
 
 /// Creates a CMYK color.
