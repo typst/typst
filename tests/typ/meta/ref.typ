@@ -21,102 +21,28 @@ As seen in @intro, we proceed.
 @foo
 
 ---
+#set heading(numbering: "1.", supplement: [Chapter])
+#set math.equation(numbering: "(1)", supplement: [Eq.])
 
-#show ref: it => {
-  if it.element != none and it.element.func() == figure {
-    let element = it.element
-    "["
-    element.supplement
-    "-"
-    str(element.counter.at(element.location()).at(0))
-    "]"
-    // it
-  } else {
-    it
-  }
-}
-
+= Intro
 #figure(
-  image("/cylinder.svg", height: 3cm),
-  caption: [A sylinder.],
+  image("/files/cylinder.svg", height: 1cm),
+  caption: [A cylinder.],
   supplement: "Fig",
 ) <fig1>
 
 #figure(
-  image("/tiger.jpg", height: 3cm),
+  image("/files/tiger.jpg", height: 1cm),
   caption: [A tiger.],
-  supplement: "Figg",
+  supplement: "Tig",
 ) <fig2>
 
-#figure(
-  $ A = 1 $,
-  kind: "equation",
-  supplement: "Equa",
+$ A = 1 $ <eq1>
 
-) <eq1>
-@fig1
+#set math.equation(supplement: none)
+$ A = 1 $ <eq2>
 
-@fig2
+@fig1, @fig2, @eq1, (@eq2)
 
-@eq1
-
----
-#set heading(numbering: (..nums) => {
-  nums.pos().map(str).join(".")
-  }, supplement: [Chapt])
-
-#show ref: it => {
-  if it.element != none and it.element.func() == heading {
-    let element = it.element
-    "["
-    emph(element.supplement)
-    "-"
-    numbering(element.numbering, ..counter(heading).at(element.location()))
-    "]"
-  } else {
-    it
-  }
-}
-
-= Introduction <intro>
-
-= Summary <sum>
-
-== Subsection <sub>
-
-@intro
-
-@sum
-
-@sub
-
----
-
-#show ref: it => {
-  if it.element != none {
-    if it.element.func() == text {
-      let element = it.element
-      "["
-      element
-      "]"
-    } else if it.element.func() == underline {
-      let element = it.element
-      "{"
-      element
-      "}"
-    } else {
-      it
-    }
-  } else {
-    it
-  }
-}
-
-@txt
-
-Ref something unreferable <txt>
-
-@under
-#underline[
-Some underline text.
-] <under>
+#set ref(supplement: none)
+@fig1, @fig2, @eq1, @eq2

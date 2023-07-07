@@ -24,7 +24,13 @@
 // Test the `at` method.
 #test("Hello".at(1), "e")
 #test("Hello".at(4), "o")
+#test("Hello".at(-1), "o")
+#test("Hello".at(-2), "l")
 #test("Hey: 🏳️‍🌈 there!".at(5), "🏳️‍🌈")
+
+---
+// Test `at`'s 'default' parameter.
+#test("z", "Hello".at(5, default: "z"))
 
 ---
 // Error: 2-14 string index 2 is not a character boundary
@@ -33,6 +39,10 @@
 ---
 // Error: 2-15 no default value was specified and string index out of bounds (index: 5, len: 5)
 #"Hello".at(5)
+
+---
+// Error: 25-32 expected string, found dictionary
+#"Hello".at(5, default: (a: 10))
 
 ---
 // Test the `slice` method.
@@ -202,5 +212,5 @@
 #test("a123c".split(regex("\d+")), ("a", "c"))
 
 ---
-// Error: 2:1 expected quote
+// Error: 2-2:1 unclosed string
 #"hello\"

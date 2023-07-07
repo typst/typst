@@ -8,7 +8,7 @@
 #for x in () [Nope]
 
 // Dictionary is traversed in insertion order.
-// Should output `Age: 2. Name: Typst.`.
+// Should output `Name: Typst. Age: 2.`.
 #for (k, v) in (Name: "Typst", Age: 2) [
   #k: #v.
 ]
@@ -92,7 +92,8 @@
 
 ---
 // Destructuring without parentheses.
-// Error: 7 expected keyword `in`. did you mean to use a destructuring pattern?
+// Error: 7 expected keyword `in`
+// Hint: 7 did you mean to use a destructuring pattern?
 #for k, v in (a: 4, b: 5) {
   dont-care
 }

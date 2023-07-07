@@ -26,12 +26,16 @@
 #(not ())
 
 ---
-// Error: 3-19 cannot apply '<=' to relative length and ratio
+// Error: 3-19 cannot compare relative length and ratio
 #(30% + 1pt <= 40%)
 
 ---
-// Error: 3-14 cannot apply '<=' to length and length
+// Error: 3-14 cannot compare 1em with 10pt
 #(1em <= 10pt)
+
+---
+// Error: 3-22 cannot compare 2.2 with NaN
+#(2.2 <= float("nan"))
 
 ---
 // Error: 3-12 cannot divide by zero
