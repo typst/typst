@@ -149,17 +149,17 @@ pub struct RawElem {
     /// ```
     /// ````
     #[parse(
-        let (syntaxes, data) = parse_syntaxes(vm, args)?;
+        let (syntaxes, syntaxes_data) = parse_syntaxes(vm, args)?;
         syntaxes
     )]
     #[fold]
     pub syntaxes: SyntaxPaths,
 
-    /// The raw file buffers.
+    /// The raw file buffers of syntax definition files.
     #[internal]
-    #[parse(data)]
+    #[parse(syntaxes_data)]
     #[fold]
-    pub data: Vec<Bytes>,
+    pub syntaxes_data: Vec<Bytes>,
 }
 
 impl RawElem {
@@ -197,8 +197,9 @@ impl Show for RawElem {
             .map(to_typst)
             .map_or(Color::BLACK, Color::from);
 
-        let extra_syntaxes =
-            UnsyncLazy::new(|| load(&self.syntaxes(styles), &self.data(styles)).unwrap());
+        let extra_syntaxes = UnsyncLazy::new(|| {
+            load_syntaxes(&self.syntaxes(styles), &self.syntaxes_data(styles)).unwrap()
+        });
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
@@ -385,7 +386,7 @@ impl Fold for SyntaxPaths {
 
 /// Load a syntax set from a list of syntax file paths.
 #[comemo::memoize]
-fn load(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSet>> {
+fn load_syntaxes(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSet>> {
     let mut out = SyntaxSetBuilder::new();
 
     // We might have multiple sublime-syntax/yaml files
@@ -423,7 +424,7 @@ fn parse_syntaxes(
         .collect::<SourceResult<Vec<Bytes>>>()?;
 
     // Check that parsing works.
-    let _ = load(&paths, &data).at(span)?;
+    let _ = load_syntaxes(&paths, &data).at(span)?;
 
     Ok((Some(paths), Some(data)))
 }
