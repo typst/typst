@@ -2,15 +2,15 @@
 
 ---
 // Test characters.
-$ a class(+, "normal") b \
-  a class(., "binary") b \
-  lr(class(\/, "opening") a/b class(\\, "closing")) \
-  { x class(\;, "fence") x > 0} \
-  a class(\/, "large") b \
-  a class(:, "punctuation") b \
-  a class(~, "relation") b \
-  a + class(times, "unary") b \
-  class(:, "vary") a class(:, "vary") b $
+$ a class("normal", +) b \
+  a class("binary", .) b \
+  lr(class("opening", \/) a/b class("closing", \\)) \
+  { x class("fence", \;) x > 0} \
+  a class("large", \/) b \
+  a class("punctuation", :) b \
+  a class("relation", ~) b \
+  a + class("unary", times) b \
+  class("vary", :) a class("vary", :) b $
 
 ---
 // Test custom content.
@@ -21,12 +21,13 @@ $ a class(+, "normal") b \
 )
 
 $ a dotsq b \
-  a class(dotsq, "normal") b \
-  a class(dotsq, "vary") b \
-  a + class(dotsq, "vary") b \
-  a class(dotsq, "punctuation") b $
+  a class("normal", dotsq) b \
+  a class("vary", dotsq) b \
+  a + class("vary", dotsq) b \
+  a class("punctuation", dotsq) b $
 
 ---
 // Test nested.
-#let pluseq = $class(class(+, "normal") class(=, "normal"), "binary")$
+#let normal = math.class.with("normal")
+#let pluseq = $class("binary", normal(+) normal(=))$
 $ a pluseq 5 $

@@ -14,13 +14,13 @@ use super::*;
 /// Category: math
 #[element(LayoutMath)]
 pub struct ClassElem {
-    /// The content to which the class is applied.
-    #[required]
-    pub body: Content,
-    
     /// The class to apply to the content.
     #[required]
     pub class: MathClass,
+
+    /// The content to which the class is applied.
+    #[required]
+    pub body: Content,
 }
 
 impl LayoutMath for ClassElem {
