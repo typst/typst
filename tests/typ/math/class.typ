@@ -14,13 +14,13 @@ $ a class(+, "normal") b \
 
 ---
 // Test custom content.
-#let plusdot = square(
+#let dotsq = square(
   size: 0.7em,
   stroke: 0.5pt,
   align(center+horizon, circle(radius: 0.15em, fill: black))
 )
 
-$ a plusdot b \
-  a class(plusdot, "vary") b \
-  a + class(plusdot, "vary")b \
-  a class(plusdot, "punctuation") b $
+$ a dotsq b \
+  a class(dotsq, "vary") b \
+  a + class(dotsq, "vary")b \
+  a class(dotsq, "punctuation") b $
