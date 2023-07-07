@@ -261,8 +261,16 @@ pub fn sscript(
         .pack()
 }
 
-/// Override the class of a math element.
-/// 
+/// Overrides the math class of content.
+///
+/// This is useful to treat certain symbols as if they were of a different
+/// class, e.g. to make text behave like a binary operator.
+///
+/// # Example
+/// ```example
+/// $x class("+=", "binary") 5$
+/// ```
+///
 /// Display: Class
 /// Category: math
 #[func]
