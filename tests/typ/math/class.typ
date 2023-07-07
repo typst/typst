@@ -21,8 +21,9 @@ $ a class(+, "normal") b \
 )
 
 $ a dotsq b \
+  a class(dotsq, "normal") b \
   a class(dotsq, "vary") b \
-  a + class(dotsq, "vary")b \
+  a + class(dotsq, "vary") b \
   a class(dotsq, "punctuation") b $
 
 ---

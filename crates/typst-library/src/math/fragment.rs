@@ -95,15 +95,15 @@ impl MathFragment {
             Self::Glyph(glyph) => {
                 glyph.class = Some(class);
                 set_style_class!(glyph);
-            },
+            }
             Self::Variant(variant) => {
                 variant.class = Some(class);
                 set_style_class!(variant);
-            },
+            }
             Self::Frame(fragment) => {
                 fragment.class = class;
                 set_style_class!(fragment);
-            },
+            }
             _ => {}
         }
     }
@@ -119,7 +119,13 @@ impl MathFragment {
 
     pub fn is_spaced(&self) -> bool {
         match self {
-            MathFragment::Frame(frame) => frame.spaced,
+            MathFragment::Frame(frame) => {
+                match self.style().and_then(|style| style.class.as_custom()) {
+                    Some(MathClass::Fence) => true,
+                    Some(_) => false,
+                    None => frame.spaced,
+                }
+            }
             _ => self.class() == Some(MathClass::Fence),
         }
     }
