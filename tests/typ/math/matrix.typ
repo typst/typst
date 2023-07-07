@@ -63,3 +63,27 @@ $ mat(B, A B) $
 $ mat(B, A B, dots) $
 $ mat(B, A B, dots;) $
 $ mat(#1, #(foo: "bar")) $
+
+---
+
+// Test matrix line drawing (augmentation).
+#grid(
+  columns: 2,
+  gutter: 10pt,
+
+  $ mat(10, 2, 3, 4; 5, 6, 7, 8; vline: 3) $,
+  $ mat(vline: 3, 10, 2, 3, 4; 5, 6, 7, 8) $,
+
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; hline: 2) $,
+  $ mat(hline: 2, 100, 2, 3; 4, 5, 6; 7, 8, 9) $,
+
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; hline: 1, hline: 1) $,
+  $ mat(hline: 1, vline: 1, 100, 2, 3; 4, 5, 6; 7, 8, 9) $,
+)
+
+---
+
+// Test using matrix line drawing with a set rule.
+#set math.mat(hline: 2, vline: 1)
+$ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
+#set math.mat(hline: none, vline: none)
