@@ -212,7 +212,11 @@ impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
-        let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
+        let lang = self
+            .lang(styles)
+            .as_ref()
+            .map(|s| s.to_lowercase())
+            .or(Some("txt".into()));
 
         let extra_syntaxes = UnsyncLazy::new(|| {
             load_syntaxes(&self.syntaxes(styles), &self.syntaxes_data(styles)).unwrap()
