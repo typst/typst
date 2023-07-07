@@ -24,3 +24,8 @@ $ a dotsq b \
   a class(dotsq, "vary") b \
   a + class(dotsq, "vary")b \
   a class(dotsq, "punctuation") b $
+
+---
+// Test nested.
+#let pluseq = $class(class(+, "normal") class(=, "normal"), "binary")$
+$ a pluseq 5 $
