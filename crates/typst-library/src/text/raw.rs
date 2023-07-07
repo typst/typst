@@ -160,6 +160,28 @@ pub struct RawElem {
     #[parse(syntaxes_data)]
     #[fold]
     pub syntaxes_data: Vec<Bytes>,
+
+    /// The theme to use for syntax highlighting. Theme files should be in the in the
+    /// `tmTheme` file format.
+    ///
+    /// ````example
+    /// #set raw(theme: "halcyon.tmTheme")
+    ///
+    /// ```typ
+    /// = Chapter 1
+    /// #let hi = "Hello World"
+    /// ```
+    /// ````
+    #[parse(
+        let (theme_path, theme_data) = parse_theme(vm, args)?;
+        theme_path.map(Some)
+    )]
+    pub theme: Option<EcoString>,
+
+    /// The raw file buffer of syntax theme file.
+    #[internal]
+    #[parse(theme_data.map(Some))]
+    pub theme_data: Option<Bytes>,
 }
 
 impl RawElem {
@@ -191,15 +213,16 @@ impl Show for RawElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let text = self.text();
         let lang = self.lang(styles).as_ref().map(|s| s.to_lowercase());
-        let foreground = THEME
-            .settings
-            .foreground
-            .map(to_typst)
-            .map_or(Color::BLACK, Color::from);
 
         let extra_syntaxes = UnsyncLazy::new(|| {
             load_syntaxes(&self.syntaxes(styles), &self.syntaxes_data(styles)).unwrap()
         });
+
+        let theme = self.theme(styles).map(|theme_path| {
+            load_theme(theme_path, self.theme_data(styles).unwrap()).unwrap()
+        });
+
+        let theme = theme.as_deref().unwrap_or(&THEME);
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
@@ -208,13 +231,13 @@ impl Show for RawElem {
             };
 
             let mut seq = vec![];
-            let highlighter = synt::Highlighter::new(&THEME);
+            let highlighter = synt::Highlighter::new(theme);
             highlight_themed(
                 &LinkedNode::new(&root),
                 vec![],
                 &highlighter,
                 &mut |node, style| {
-                    seq.push(styled(&text[node.range()], foreground.into(), style));
+                    seq.push(styled(&text[node.range()], style));
                 },
             );
 
@@ -230,7 +253,7 @@ impl Show for RawElem {
                 })
         }) {
             let mut seq = vec![];
-            let mut highlighter = syntect::easy::HighlightLines::new(syntax, &THEME);
+            let mut highlighter = syntect::easy::HighlightLines::new(syntax, theme);
             for (i, line) in text.lines().enumerate() {
                 if i != 0 {
                     seq.push(LinebreakElem::new().pack());
@@ -239,7 +262,7 @@ impl Show for RawElem {
                 for (style, piece) in
                     highlighter.highlight_line(line, syntax_set).into_iter().flatten()
                 {
-                    seq.push(styled(piece, foreground.into(), style));
+                    seq.push(styled(piece, style));
                 }
             }
 
@@ -248,10 +271,15 @@ impl Show for RawElem {
             TextElem::packed(text)
         };
 
+        let background = theme.settings.background.map(to_typst);
+
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(Axes::with_x(Some(self.align(styles).into())));
-            realized = BlockElem::new().with_body(Some(realized)).pack();
+            realized = BlockElem::new()
+                .with_body(Some(realized))
+                .with_fill(background.map(From::from))
+                .pack();
         }
 
         Ok(realized)
@@ -333,13 +361,11 @@ fn highlight_themed<F>(
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
+fn styled(piece: &str, style: synt::Style) -> Content {
     let mut body = TextElem::packed(piece);
 
     let paint = to_typst(style.foreground).into();
-    if paint != foreground {
-        body = body.styled(TextElem::set_fill(paint));
-    }
+    body = body.styled(TextElem::set_fill(paint));
 
     if style.font_style.contains(synt::FontStyle::BOLD) {
         body = body.strong();
@@ -427,6 +453,37 @@ fn parse_syntaxes(
     let _ = load_syntaxes(&paths, &data).at(span)?;
 
     Ok((Some(paths), Some(data)))
+}
+
+#[comemo::memoize]
+fn load_theme(path: EcoString, bytes: Bytes) -> StrResult<Arc<synt::Theme>> {
+    let mut cursor = std::io::Cursor::new(bytes.as_slice());
+
+    synt::ThemeSet::load_from_reader(&mut cursor)
+        .map(Arc::new)
+        .map_err(|e| eco_format!("failed to parse theme file `{path}`: {e}"))
+}
+
+/// Function to parse the theme argument.
+/// Much nicer than having it be part of the `element` macro.
+fn parse_theme(
+    vm: &mut Vm,
+    args: &mut Args,
+) -> SourceResult<(Option<EcoString>, Option<Bytes>)> {
+    let Some(Spanned { v: path, span }) =
+        args.named::<Spanned<EcoString>>("theme")?
+    else {
+        return Ok((None, None));
+    };
+
+    // Load theme file.
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
+
+    // Check that parsing works.
+    let _ = load_theme(path.clone(), data.clone()).at(span)?;
+
+    Ok((Some(path), Some(data)))
 }
 
 /// The syntect syntax definitions.
