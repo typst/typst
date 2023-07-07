@@ -261,28 +261,6 @@ pub fn sscript(
         .pack()
 }
 
-/// Forced use of a certain math class.
-///
-/// This is useful to treat certain symbols as if they were of a different
-/// class, e.g. to make text behave like a binary operator.
-///
-/// # Example
-/// ```example
-/// $x class("+=", "binary") 5$
-/// ```
-///
-/// Display: Class
-/// Category: math
-#[func]
-pub fn class(
-    /// The content to change the class of.
-    body: Content,
-    /// The class to use.
-    class: MathClass,
-) -> Content {
-    MathStyleElem::new(body).with_class(Some(class)).pack()
-}
-
 /// A font variant in math.
 ///
 /// Display: Bold
@@ -295,9 +273,6 @@ pub struct MathStyleElem {
 
     /// The variant to select.
     pub variant: Option<MathVariant>,
-
-    /// The class to use.
-    pub class: Option<MathClass>,
 
     /// Whether to use bold glyphs.
     pub bold: Option<bool>,
@@ -318,9 +293,6 @@ impl LayoutMath for MathStyleElem {
         let mut style = ctx.style;
         if let Some(variant) = self.variant(StyleChain::default()) {
             style = style.with_variant(variant);
-        }
-        if let Some(class) = self.class(StyleChain::default()) {
-            style = style.with_class(class);
         }
         if let Some(bold) = self.bold(StyleChain::default()) {
             style = style.with_bold(bold);
