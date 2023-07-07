@@ -105,6 +105,8 @@ pub fn module() -> Module {
     math.define("script", script_func());
     math.define("sscript", sscript_func());
 
+    math.define("class", class_func());
+
     // Text operators.
     math.define("op", OpElem::func());
     op::define(&mut math);

@@ -56,12 +56,12 @@ impl MathFragment {
     }
 
     pub fn class(&self) -> Option<MathClass> {
-        match self {
+        self.style().and_then(|style| style.class.as_custom()).or(match self {
             Self::Glyph(glyph) => glyph.class,
             Self::Variant(variant) => variant.class,
             Self::Frame(fragment) => Some(fragment.class),
             _ => None,
-        }
+        })
     }
 
     pub fn style(&self) -> Option<MathStyle> {
@@ -83,10 +83,27 @@ impl MathFragment {
     }
 
     pub fn set_class(&mut self, class: MathClass) {
+        macro_rules! set_style_class {
+            ($fragment:ident) => {
+                if $fragment.style.class.is_custom() {
+                    $fragment.style.class = Smart::Custom(class);
+                }
+            };
+        }
+
         match self {
-            Self::Glyph(glyph) => glyph.class = Some(class),
-            Self::Variant(variant) => variant.class = Some(class),
-            Self::Frame(fragment) => fragment.class = class,
+            Self::Glyph(glyph) => {
+                glyph.class = Some(class);
+                set_style_class!(glyph);
+            },
+            Self::Variant(variant) => {
+                variant.class = Some(class);
+                set_style_class!(variant);
+            },
+            Self::Frame(fragment) => {
+                fragment.class = class;
+                set_style_class!(fragment);
+            },
             _ => {}
         }
     }

@@ -261,6 +261,20 @@ pub fn sscript(
         .pack()
 }
 
+/// Override the class of a math element.
+/// 
+/// Display: Class
+/// Category: math
+#[func]
+pub fn class(
+    /// The content to style.
+    body: Content,
+    /// The class to select.
+    class: MathClass,
+) -> Content {
+    MathStyleElem::new(body).with_class(Some(class)).pack()
+}
+
 /// A font variant in math.
 ///
 /// Display: Bold
@@ -273,6 +287,9 @@ pub struct MathStyleElem {
 
     /// The variant to select.
     pub variant: Option<MathVariant>,
+
+    /// The class to use.
+    pub class: Option<MathClass>,
 
     /// Whether to use bold glyphs.
     pub bold: Option<bool>,
@@ -293,6 +310,9 @@ impl LayoutMath for MathStyleElem {
         let mut style = ctx.style;
         if let Some(variant) = self.variant(StyleChain::default()) {
             style = style.with_variant(variant);
+        }
+        if let Some(class) = self.class(StyleChain::default()) {
+            style = style.with_class(class);
         }
         if let Some(bold) = self.bold(StyleChain::default()) {
             style = style.with_bold(bold);
@@ -320,6 +340,8 @@ pub struct MathStyle {
     pub variant: MathVariant,
     /// The size of the glyphs.
     pub size: MathSize,
+    /// The class of the element.
+    pub class: Smart<MathClass>,
     /// Affects the height of exponents.
     pub cramped: bool,
     /// Whether to use bold glyphs.
@@ -337,6 +359,11 @@ impl MathStyle {
     /// This style, with the given `size`.
     pub fn with_size(self, size: MathSize) -> Self {
         Self { size, ..self }
+    }
+
+    // This style, with the given `class`.
+    pub fn with_class(self, class: MathClass) -> Self {
+        Self { class: Smart::Custom(class), ..self }
     }
 
     /// This style, with `cramped` set to the given value.

@@ -95,6 +95,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             style: MathStyle {
                 variant: MathVariant::Serif,
                 size: if block { MathSize::Display } else { MathSize::Text },
+                class: Smart::Auto,
                 cramped: false,
                 bold: variant.weight >= FontWeight::BOLD,
                 italic: match variant.style {
@@ -161,7 +162,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             // A single letter that is available in the math font.
             match self.style.size {
                 MathSize::Display => {
-                    if glyph.class == Some(MathClass::Large) {
+                    let class = self.style.class.as_custom().or(glyph.class);
+                    if class == Some(MathClass::Large) {
                         let height = scaled!(self, display_operator_min_height);
                         glyph.stretch_vertical(self, height, Abs::zero()).into()
                     } else {
