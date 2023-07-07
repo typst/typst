@@ -12,11 +12,11 @@ use super::*;
 /// ```
 ///
 /// ## Predefined Operators { #predefined }
-/// Typst predefines the operators `arccos`,  `arcsin`,  `arctan`,  `arg`,
-/// `cos`,  `cosh`,  `cot`, `ctg`, `coth`,  `csc`,  `deg`,  `det`,  `dim`,
-/// `exp`, `gcd`,  `hom`,  `mod`,  `inf`,  `ker`,  `lg`,  `lim`,  `ln`,  `log`,
-/// `max`, `min`,  `Pr`,  `sec`,  `sin`,  `sinc`,  `sinh`,  `sup`,  `tan`, `tg`,
-/// `tanh`, `liminf`, and `limsup`.
+/// Typst predefines the operators `arccos`, `arcsin`, `arctan`, `arg`, `cos`,
+/// `cosh`, `cot`, `coth`, `csc`, `ctg`, `deg`, `det`, `dim`, `exp`, `gcd`,
+/// `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`, `limsup`, `ln`,
+/// `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sin`, `sinc`, `sinh`, `sup`,
+/// `tan`, `tanh`, `tg` and `tr`.
 ///
 /// Display: Text Operator
 /// Category: math
@@ -78,7 +78,6 @@ ops! {
     arcsin,
     arctan,
     arg,
-    cl,
     cos,
     cosh,
     cot,
@@ -94,7 +93,6 @@ ops! {
     id,
     im,
     inf (limits),
-    int,
     ker,
     lg,
     lim (limits),
