@@ -32,6 +32,14 @@ $ 1/(x^A) $
 // Test dedicated syntax for primes
 $a'$, $a'''_b$, $'$, $'''''''$
 
-$ (A'_c')^(d'_b'), A'^b' $
+---
+// Test spaces between
+$a' ' '$, $' ' '$, $a' '/b$
 
-$∫'$, $∑'$, $ ∑' $
+---
+// Test complex prime combilnations
+$a'_b^c$, $a_b'^c$, $a_b^c'$, $a_b'^c'^d'$
+
+$(a'_b')^(c'_d')$, $a'/b'$, $a_b'/c_d'$
+
+$∫'$, $∑'$, $ ∑'_S' $

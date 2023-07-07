@@ -846,20 +846,9 @@ impl MathAttach {
             .find_map(SyntaxNode::cast)
     }
 
-    pub fn has_primes(&self) -> bool {
-        self.0.children().any(|node| matches!(node.kind(), SyntaxKind::Prime))
-    }
-
-    /// Extract primes
-    pub fn primes(&self) -> MathPrimes {
-        MathPrimes(SyntaxNode::inner(
-            SyntaxKind::MathPrimes,
-            self.0
-                .children()
-                .filter(|node| matches!(node.kind(), SyntaxKind::Prime))
-                .cloned()
-                .collect(),
-        ))
+    /// Extract possible primes
+    pub fn primes(&self) -> Option<MathPrimes> {
+        self.0.children().find_map(SyntaxNode::cast)
     }
 }
 

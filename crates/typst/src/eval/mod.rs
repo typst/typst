@@ -736,8 +736,10 @@ impl Eval for ast::MathAttach {
         let base = self.base().eval_display(vm)?;
         let mut top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
 
-        if top.is_none() && self.has_primes() {
-            top = Some(self.primes().eval(vm)?);
+        if top.is_none() {
+            if let Some(primes) = self.primes() {
+                top = Some(primes.eval(vm)?);
+            }
         }
 
         let bottom = self.bottom().map(|expr| expr.eval_display(vm)).transpose()?;
