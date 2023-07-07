@@ -561,6 +561,7 @@ impl Raw {
             let dedent = lines
                 .iter()
                 .skip(1)
+                .filter(|line| !line.is_empty())
                 .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
                 .min()
                 .unwrap_or(0);

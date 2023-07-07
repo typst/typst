@@ -49,6 +49,14 @@ The keyword ```rust let```.
      ```
 
 ---
+// Do not take empty lines into account when computing dedent.
+```
+        A
+
+        B
+```
+
+---
 // Text show rule
 #show raw: set text(font: "Roboto")
 `Roboto`
