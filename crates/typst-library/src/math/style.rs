@@ -261,7 +261,7 @@ pub fn sscript(
         .pack()
 }
 
-/// Overrides the math class of content.
+/// Forced use of a certain math class.
 ///
 /// This is useful to treat certain symbols as if they were of a different
 /// class, e.g. to make text behave like a binary operator.
@@ -275,9 +275,9 @@ pub fn sscript(
 /// Category: math
 #[func]
 pub fn class(
-    /// The content to style.
+    /// The content to change the class of.
     body: Content,
-    /// The class to select.
+    /// The class to use.
     class: MathClass,
 ) -> Content {
     MathStyleElem::new(body).with_class(Some(class)).pack()
