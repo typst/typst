@@ -55,7 +55,9 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                         .clone()
                         .unwrap_or_else(|| Stroke::default().line_join)
                         .into_value(),
-                    "dash_pattern" => stroke.dash_pattern.clone().unwrap_or(None).into_value(),
+                    "dash_pattern" => {
+                        stroke.dash_pattern.clone().unwrap_or(None).into_value()
+                    }
                     "miter_limit" => stroke
                         .miter_limit
                         .unwrap_or_else(|| Stroke::default().miter_limit)

@@ -1,4 +1,4 @@
-use crate::eval::{Cast, dict, FromValue};
+use crate::eval::{dict, Cast, FromValue};
 
 use super::*;
 

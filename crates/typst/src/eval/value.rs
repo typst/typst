@@ -8,8 +8,8 @@ use ecow::eco_format;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
-    cast, fields, format_str, ops, Args, Array, CastInfo, Content, Dict, FromValue,
-    Func, IntoValue, Module, Reflect, Str, Symbol,
+    cast, fields, format_str, ops, Args, Array, CastInfo, Content, Dict, FromValue, Func,
+    IntoValue, Module, Reflect, Str, Symbol,
 };
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};

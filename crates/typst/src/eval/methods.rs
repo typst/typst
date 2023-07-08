@@ -224,7 +224,9 @@ pub fn call(
             } else if let Some(direction) = dynamic.downcast::<Dir>() {
                 match method {
                     "axis" => direction.axis().description().into_value(),
-                    "start" => GenAlign::from(Align::from(direction.start())).into_value(),
+                    "start" => {
+                        GenAlign::from(Align::from(direction.start())).into_value()
+                    }
                     "end" => GenAlign::from(Align::from(direction.end())).into_value(),
                     "inv" => direction.inv().into_value(),
                     _ => return missing(),
