@@ -591,6 +591,32 @@ impl Lexer<'_> {
         };
 
         if suffix.is_empty() {
+            // Provide diagnostic for input like "1 pt" where "1pt" was intended.
+            let mut excursion = self.s.clone();
+            excursion.eat_whitespace();
+            let suffix_after_whitespace = if excursion.eat_if('%') {
+                "%"
+            } else {
+                excursion.eat_while(char::is_ascii_alphanumeric)
+            };
+            if matches!(
+                suffix_after_whitespace,
+                // Don't match "in"; we don't want to mistake the operator for the suffix.
+                "pt" | "mm" | "cm" | "deg" | "rad" | "em" | "fr" | "%"
+            ) {
+                self.s = excursion;
+                return self.error(eco_format!(
+                    "whitespace between number and number suffix, did you mean {}{}{}?",
+                    match base {
+                        2 => "0b",
+                        8 => "0o",
+                        16 => "0x",
+                        _ => "",
+                    },
+                    number,
+                    suffix_after_whitespace
+                ));
+            }
             return kind;
         }
 

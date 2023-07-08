@@ -25,6 +25,10 @@
 #2.3fr
 
 ---
+// Error: 2-8 whitespace between number and number suffix, did you mean 2.3fr?
+#2.3 fr
+
+---
 // Colors and strokes.
 #set text(0.8em)
 #rgb("f7a205") \
