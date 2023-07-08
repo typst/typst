@@ -119,6 +119,19 @@ Typst supports the following angular units:
 #rotate(10deg)[Hello there!]
 ```
 
+## Methods
+### deg()
+Converts this angle to degrees, returning the result
+as a [float]($type/float).
+
+- returns: float
+
+### rad()
+Converts this angle to radians, returning the result
+as a [float]($type/float).
+
+- returns: float
+
 # Ratio
 A ratio of a whole.
 
