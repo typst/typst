@@ -75,7 +75,7 @@
 // Test color '.rgba()', '.cmyk()' and '.luma()' without conversions
 #test(rgb(1, 2, 3, 4).rgba(), (1, 2, 3, 4))
 #test(rgb(1, 2, 3).rgba(), (1, 2, 3, 255))
-#test(repr(cmyk(4%, 5%, 6%, 7%).cmyk()), repr((3.9%, 5.1%, 5.9%, 7.1%)))
+#test(cmyk(20%, 20%, 40%, 20%).cmyk(), (20%, 20%, 40%, 20%))
 #test(luma(40).luma(), 40)
 
 ---
@@ -86,7 +86,7 @@
 #test(cmyk(4%, 5%, 6%, 7%).hex(), "#e4e1df")
 #test(luma(40).rgba(), (40, 40, 40, 255))
 #test(luma(40).hex(), "#282828")
-#test(repr(luma(40).cmyk()), repr((11.8%, 10.6%, 10.6%, 14.1%)))
+#test(repr(luma(40).cmyk()), repr((11.76%, 10.59%, 10.59%, 14.12%)))
 
 ---
 // Error: 2-24 cannot obtain CMYK values from color kind 'rgba'
