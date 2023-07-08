@@ -184,6 +184,7 @@ pub fn call(
 
         Value::Angle(angle) => match method {
             "rad" => angle.to_rad().into_value(),
+            "deg" => angle.to_deg().into_value(),
             _ => return missing(),
         },
 
@@ -423,7 +424,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
         ],
         "function" => &[("where", true), ("with", true)],
         "length" => &[("cm", false), ("mm", false), ("inches", false)],
-        "angle" => &[("rad", false)],
+        "angle" => &[("rad", false), ("deg", false)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
         "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],
