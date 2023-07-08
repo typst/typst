@@ -74,6 +74,11 @@ pub struct CompileCommand {
     /// Produces a flamegraph of the compilation process
     #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
     pub flamegraph: Option<Option<PathBuf>>,
+
+    /// Produces an error when the document fails to converge within
+    /// the allotted number of iterations while performing layout
+    #[clap(long = "require-relayout-convergence")]
+    pub require_relayout_convergence: bool,
 }
 
 impl CompileCommand {

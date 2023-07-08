@@ -151,4 +151,10 @@ pub trait World {
             .expect("span does not point into any source file")
             .range(span)
     }
+
+    /// If true, then produces an error when the document fails to converge within
+    /// the allotted number of iterations while performing layout.
+    fn require_relayout_convergence(&self) -> bool {
+        false
+    }
 }

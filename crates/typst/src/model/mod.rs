@@ -82,7 +82,22 @@ pub fn typeset(
         introspector = ManuallyDrop::new(Introspector::new(&document.pages));
         iter += 1;
 
-        if iter >= 5 || introspector.validate(&constraint) {
+        if introspector.validate(&constraint) {
+            break;
+        }
+
+        if iter >= 5 {
+            if world.require_relayout_convergence() {
+                tracer.warn(
+                    SourceDiagnostic::warning(
+                        world.main().root().span(),
+                        "layout did not converge in 5 attempts",
+                    )
+                    .with_hints([
+                        "this error was produced because --require-relayout-convergence was passed to Typst".into(),
+                        "check if any states or queries are updating themselves".into(),
+                    ]));
+            }
             break;
         }
     }
