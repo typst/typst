@@ -146,6 +146,7 @@ impl MathFragment {
         match self {
             Self::Glyph(glyph) => glyph.italics_correction,
             Self::Variant(variant) => variant.italics_correction,
+            Self::Frame(fragment) => fragment.italics_correction,
             _ => Abs::zero(),
         }
     }
@@ -389,6 +390,7 @@ pub struct FrameFragment {
     pub limits: Limits,
     pub spaced: bool,
     pub base_ascent: Abs,
+    pub italics_correction: Abs,
 }
 
 impl FrameFragment {
@@ -403,6 +405,7 @@ impl FrameFragment {
             limits: Limits::Never,
             spaced: false,
             base_ascent,
+            italics_correction: Abs::zero(),
         }
     }
 
@@ -420,6 +423,10 @@ impl FrameFragment {
 
     pub fn with_base_ascent(self, base_ascent: Abs) -> Self {
         Self { base_ascent, ..self }
+    }
+
+    pub fn with_italics_correction(self, italics_correction: Abs) -> Self {
+        Self { italics_correction, ..self }
     }
 }
 
