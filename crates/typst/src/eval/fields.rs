@@ -17,12 +17,12 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
     let result = match value {
         Value::Length(length) => match field {
             "em" => length.em.into_value(),
-            "pt" => length.abs.into_value(),
+            "abs" => length.abs.into_value(),
             _ => return missing(),
         },
         Value::Relative(rel) => match field {
-            "relative" => rel.rel.into_value(),
-            "absolute" => rel.abs.into_value(),
+            "ratio" => rel.rel.into_value(),
+            "length" => rel.abs.into_value(),
             _ => return missing(),
         },
         Value::Dyn(dynamic) => {
@@ -37,18 +37,16 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                         .thickness
                         .unwrap_or_else(|| Stroke::default().thickness.into())
                         .into_value(),
-                    "line_cap" => stroke
+                    "cap" => stroke
                         .line_cap
                         .unwrap_or_else(|| Stroke::default().line_cap)
                         .into_value(),
-                    "line_join" => stroke
+                    "join" => stroke
                         .line_join
                         .unwrap_or_else(|| Stroke::default().line_join)
                         .into_value(),
-                    "dash_pattern" => {
-                        stroke.dash_pattern.clone().unwrap_or(None).into_value()
-                    }
-                    "miter_limit" => stroke
+                    "dash" => stroke.dash_pattern.clone().unwrap_or(None).into_value(),
+                    "miter-limit" => stroke
                         .miter_limit
                         .unwrap_or_else(|| Stroke::default().miter_limit)
                         .0
@@ -86,16 +84,9 @@ fn missing_field(type_name: &str, field: &str) -> EcoString {
 /// List the available fields for a type.
 pub fn fields_on(type_name: &str) -> &[&'static str] {
     match type_name {
-        "length" => &["em", "pt"],
-        "relative length" => &["relative", "absolute"],
-        "stroke" => &[
-            "paint",
-            "thickness",
-            "line_cap",
-            "line_join",
-            "dash_pattern",
-            "miter_limit",
-        ],
+        "length" => &["em", "abs"],
+        "relative length" => &["ratio", "length"],
+        "stroke" => &["paint", "thickness", "cap", "join", "dash", "miter-limit"],
         "2d alignment" => &["x", "y"],
         _ => &[],
     }

@@ -65,29 +65,29 @@
 
 ---
 // Test relative length fields.
-#test((100% + 2em + 2pt).relative, 100%)
-#test((100% + 2em + 2pt).absolute, 2em + 2pt)
-#test((100% + 2pt).absolute, 2pt)
-#test((100% + 2pt - 2pt).absolute, 0pt)
-#test((56% + 2pt - 56%).relative, 0%)
+#test((100% + 2em + 2pt).ratio, 100%)
+#test((100% + 2em + 2pt).length, 2em + 2pt)
+#test((100% + 2pt).length, 2pt)
+#test((100% + 2pt - 2pt).length, 0pt)
+#test((56% + 2pt - 56%).ratio, 0%)
 
 ---
 // Test length fields.
 #test((1pt).em, 0em)
-#test((1pt).pt, 1pt)
+#test((1pt).abs, 1pt)
 #test((3em).em, 3em)
-#test((3em).pt, 0pt)
+#test((3em).abs, 0pt)
 #test((2em + 2pt).em, 2em)
-#test((2em + 2pt).pt, 2pt)
+#test((2em + 2pt).abs, 2pt)
 
 ---
 // Test stroke fields.
 #test((1em + blue).paint, blue)
 #test((1em + blue).thickness, 1em)
-#test((1em + blue).line_cap, "butt")
-#test((1em + blue).line_join, "miter")
-#test((1em + blue).dash_pattern, none)
-#test((1em + blue).miter_limit, 4.0)
+#test((1em + blue).cap, "butt")
+#test((1em + blue).join, "miter")
+#test((1em + blue).dash, none)
+#test((1em + blue).miter-limit, 4.0)
 
 ---
 // Test 2d alignment 'horizontal' field.
