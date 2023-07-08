@@ -155,6 +155,16 @@ Furthermore, Typst provides the following built-in colors:
 `lime`.
 
 ## Methods
+### kind()
+Returns the constructor function for this color's kind
+([`rgb`]($func/rgb), [`cmyk`]($func/cmyk) or [`luma`]($func/luma)).
+
+```example
+#{cmyk(1%, 2%, 3%, 4%).kind() == cmyk}
+```
+
+- returns: function
+
 ### lighten()
 Lightens a color.
 
@@ -173,6 +183,33 @@ Darkens a color.
 Produces the negative of the color.
 
 - returns: color
+
+### hex()
+Returns the color's RGB(A) hex representation (such as `#ffaa32` or `#020304fe`).
+The alpha component (last two digits in `#020304fe`) is omitted if it is equal
+to `ff` (255 / 100%).
+
+- returns: string
+
+### rgba()
+Converts this color to sRGB and returns its components (R, G, B, A) as an array
+of [integers]($type/integer).
+
+- returns: array
+
+### cmyk()
+Converts this color to Digital CMYK and returns its components (C, M, Y, K) as an
+array of [ratio]($type/ratio). Note that this function will throw an error when
+applied to an [rgb]($func/rgb) color, since its conversion to CMYK is not available.
+
+- returns: array
+
+### luma()
+If this color was created with [luma]($func/luma), returns the [integer]($type/integer)
+value used on construction. Otherwise (for [rgb]($func/rgb) and [cmyk]($func/cmyk) colors),
+throws an error.
+
+- returns: integer
 
 # Datetime
 Represents a date, a time, or a combination of both. Can be created by either
