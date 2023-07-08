@@ -1,7 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
-use crate::geom::{Axes, Color, GenAlign, PartialStroke, Stroke};
+use crate::geom::{Axes, GenAlign, PartialStroke, Stroke};
 
 use super::{IntoValue, Value};
 
@@ -15,14 +15,6 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
 
     // Special cases, such as module and dict, are handled by Value itself
     let result = match value {
-        Value::Color(color) => match field {
-            "values" => match color {
-                Color::Luma(luma) => vec![luma.0].into_value(),
-                Color::Rgba(rgba) => rgba.to_array().into_value(),
-                Color::Cmyk(cmyk) => cmyk.to_array().into_value(),
-            },
-            _ => return missing(),
-        },
         Value::Length(length) => match field {
             "em" => length.em.into_value(),
             "pt" => length.abs.into_value(),
@@ -94,7 +86,6 @@ fn missing_field(type_name: &str, field: &str) -> EcoString {
 /// List the available fields for a type.
 pub fn fields_on(type_name: &str) -> &[&'static str] {
     match type_name {
-        "color" => &["value"],
         "length" => &["em", "pt"],
         "relative length" => &["relative", "absolute"],
         "stroke" => &[

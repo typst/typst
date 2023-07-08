@@ -71,21 +71,33 @@
 #test(luma(40).kind(), "luma")
 
 ---
-// Test color conversion methods.
-#test(rgb(1, 2, 3).hex(), "#010203")
-#test(rgb(1, 2, 3, 4).hex(), "#01020304")
-#test(cmyk(4%, 5%, 6%, 7%).to-rgba().kind(), "rgba")
-#test(cmyk(4%, 5%, 6%, 7%).to-rgba().values, (228, 225, 223, 255))
-#test(cmyk(4%, 5%, 6%, 7%).hex(), "#e4e1df")
-#test(luma(40).to-rgba().kind(), "rgba")
-#test(luma(40).to-rgba().values, (40, 40, 40, 255))
-#test(luma(40).hex(), "#282828")
-#test(luma(40).to-cmyk().kind(), "cmyk")
-#test(repr(luma(40).to-cmyk().values), repr((11.8%, 10.6%, 10.6%, 14.1%)))
+// Test color '.rgba()', '.cmyk()' and '.luma()' without conversions
+#test(rgb(1, 2, 3, 4).rgba(), (1, 2, 3, 4))
+#test(rgb(1, 2, 3).rgba(), (1, 2, 3, 255))
+#test(repr(cmyk(4%, 5%, 6%, 7%).cmyk()), repr((3.9%, 5.1%, 5.9%, 7.1%)))
+#test(luma(40).luma(), 40)
 
 ---
-// Error: 2-27 cannot convert color kind 'rgba' to 'cmyk'
-#rgb(1, 2, 3, 4).to-cmyk()
+// Test color conversions.
+#test(rgb(1, 2, 3).hex(), "#010203")
+#test(rgb(1, 2, 3, 4).hex(), "#01020304")
+#test(cmyk(4%, 5%, 6%, 7%).rgba(), (228, 225, 223, 255))
+#test(cmyk(4%, 5%, 6%, 7%).hex(), "#e4e1df")
+#test(luma(40).rgba(), (40, 40, 40, 255))
+#test(luma(40).hex(), "#282828")
+#test(repr(luma(40).cmyk()), repr((11.8%, 10.6%, 10.6%, 14.1%)))
+
+---
+// Error: 2-24 cannot obtain CMYK values from color kind 'rgba'
+#rgb(1, 2, 3, 4).cmyk()
+
+---
+// Error: 2-24 cannot obtain the luma value of color kind 'rgba'
+#rgb(1, 2, 3, 4).luma()
+
+---
+// Error: 2-29 cannot obtain the luma value of color kind 'cmyk'
+#cmyk(4%, 5%, 6%, 7%).luma()
 
 ---
 // Test alignment methods.

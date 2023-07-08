@@ -27,14 +27,23 @@ pub fn call(
             "negate" => color.negate().into_value(),
             "kind" => color.kind().into_value(),
             "hex" => color.to_rgba().to_hex().into_value(),
-            "to-rgba" => color.to_rgba().into_value(),
-            "to-cmyk" => match color {
-                Color::Luma(luma) => luma.to_cmyk().into_value(),
+            "rgba" => color.to_rgba().to_array().into_value(),
+            "cmyk" => match color {
+                Color::Luma(luma) => luma.to_cmyk().to_array().into_value(),
                 Color::Rgba(_) => {
-                    return Err("cannot convert color kind 'rgba' to 'cmyk'").at(span)
+                    return Err("cannot obtain CMYK values from color kind 'rgba'").at(span)
                 }
-                Color::Cmyk(_) => color.into_value(),
-            },
+                Color::Cmyk(cmyk) => cmyk.to_array().into_value(),
+            }
+            "luma" => match color {
+                Color::Luma(luma) => luma.0.into_value(),
+                Color::Rgba(_) => {
+                    return Err("cannot obtain the luma value of color kind 'rgba'").at(span)
+                }
+                Color::Cmyk(_) => {
+                    return Err("cannot obtain the luma value of color kind 'cmyk'").at(span)
+                }
+            }
             _ => return missing(),
         },
 
@@ -344,8 +353,9 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("negate", false),
             ("kind", false),
             ("hex", false),
-            ("to-rgba", false),
-            ("to-cmyk", false),
+            ("rgba", false),
+            ("cmyk", false),
+            ("luma", false),
         ],
         "string" => &[
             ("len", false),

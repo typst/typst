@@ -81,13 +81,6 @@
 #test((2em + 2pt).pt, 2pt)
 
 ---
-// Test color fields.
-#test(rgb(1, 2, 3, 4).values, (1, 2, 3, 4))
-#test(rgb(1, 2, 3).values, (1, 2, 3, 255))
-#test(repr(cmyk(4%, 5%, 6%, 7%).values), repr((3.9%, 5.1%, 5.9%, 7.1%)))
-#test(luma(40).values, (40,))
-
----
 // Test stroke fields.
 #test((1em + blue).paint, blue)
 #test((1em + blue).thickness, 1em)
