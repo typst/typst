@@ -96,15 +96,6 @@ impl Color {
         let mixed = acc.map(|v| v / total);
         Ok(vec4_to_rgba(mixed, space).into())
     }
-
-    /// Obtain this color's kind ("rgba", "luma" or "cmyk").
-    pub fn kind(&self) -> &'static str {
-        match self {
-            Self::Luma(_) => "luma",
-            Self::Rgba(_) => "rgba",
-            Self::Cmyk(_) => "cmyk",
-        }
-    }
 }
 
 impl Debug for Color {

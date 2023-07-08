@@ -25,7 +25,11 @@ pub fn call(
             "lighten" => color.lighten(args.expect("amount")?).into_value(),
             "darken" => color.darken(args.expect("amount")?).into_value(),
             "negate" => color.negate().into_value(),
-            "kind" => color.kind().into_value(),
+            "kind" => match color {
+                Color::Luma(_) => vm.items.luma_func.into_value(),
+                Color::Rgba(_) => vm.items.rgb_func.into_value(),
+                Color::Cmyk(_) => vm.items.cmyk_func.into_value(),
+            },
             "hex" => color.to_rgba().to_hex().into_value(),
             "rgba" => color.to_rgba().to_array().into_value(),
             "cmyk" => match color {

@@ -66,9 +66,10 @@
 
 ---
 // Test color kind method.
-#test(rgb(1, 2, 3, 4).kind(), "rgba")
-#test(cmyk(4%, 5%, 6%, 7%).kind(), "cmyk")
-#test(luma(40).kind(), "luma")
+#test(rgb(1, 2, 3, 4).kind(), rgb)
+#test(cmyk(4%, 5%, 6%, 7%).kind(), cmyk)
+#test(luma(40).kind(), luma)
+#test(rgb(1, 2, 3, 4).kind() != luma, true)
 
 ---
 // Test color '.rgba()', '.cmyk()' and '.luma()' without conversions
