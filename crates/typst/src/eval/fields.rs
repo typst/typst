@@ -65,8 +65,8 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                 }
             } else if let Some(align2d) = dynamic.downcast::<Axes<GenAlign>>() {
                 match field {
-                    "x" => align2d.x.into(),
-                    "y" => align2d.y.into(),
+                    "x" => align2d.x.into_value(),
+                    "y" => align2d.y.into_value(),
                     _ => return missing(),
                 }
             } else {

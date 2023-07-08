@@ -1,4 +1,4 @@
-use crate::eval::{Cast, FromValue};
+use crate::eval::{Cast, dict, FromValue};
 
 use super::*;
 
@@ -322,6 +322,7 @@ impl Resolve for DashPattern {
 // https://tex.stackexchange.com/questions/45275/tikz-get-values-for-predefined-dash-patterns
 cast! {
     DashPattern,
+    self => dict! { "array" => self.array, "phase" => self.phase }.into_value(),
 
     "solid" => Vec::new().into(),
     "dotted" => vec![DashLength::LineWidth, Abs::pt(2.0).into()].into(),
@@ -382,6 +383,11 @@ impl Resolve for DashLength {
 
 cast! {
     DashLength,
+    self => match self {
+        Self::LineWidth => "dot".into_value(),
+        Self::Length(l) => l.into_value(),
+    },
+
     "dot" => Self::LineWidth,
     v: Length => Self::Length(v),
 }
