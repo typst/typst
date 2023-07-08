@@ -31,19 +31,22 @@ pub fn call(
             "cmyk" => match color {
                 Color::Luma(luma) => luma.to_cmyk().to_array().into_value(),
                 Color::Rgba(_) => {
-                    return Err("cannot obtain CMYK values from color kind 'rgba'").at(span)
+                    return Err("cannot obtain CMYK values from color kind 'rgba'")
+                        .at(span)
                 }
                 Color::Cmyk(cmyk) => cmyk.to_array().into_value(),
-            }
+            },
             "luma" => match color {
                 Color::Luma(luma) => luma.0.into_value(),
                 Color::Rgba(_) => {
-                    return Err("cannot obtain the luma value of color kind 'rgba'").at(span)
+                    return Err("cannot obtain the luma value of color kind 'rgba'")
+                        .at(span)
                 }
                 Color::Cmyk(_) => {
-                    return Err("cannot obtain the luma value of color kind 'cmyk'").at(span)
+                    return Err("cannot obtain the luma value of color kind 'cmyk'")
+                        .at(span)
                 }
-            }
+            },
             _ => return missing(),
         },
 
