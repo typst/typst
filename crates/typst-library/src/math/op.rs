@@ -12,11 +12,11 @@ use super::*;
 /// ```
 ///
 /// ## Predefined Operators { #predefined }
-/// Typst predefines the operators `arccos`,  `arcsin`,  `arctan`,  `arg`,
-/// `cos`,  `cosh`,  `cot`, `ctg`, `coth`,  `csc`,  `deg`,  `det`,  `dim`,
-/// `exp`, `gcd`,  `hom`,  `mod`,  `inf`,  `ker`,  `lg`,  `lim`,  `ln`,  `log`,
-/// `max`, `min`,  `Pr`,  `sec`,  `sin`,  `sinc`,  `sinh`,  `sup`,  `tan`, `tg`,
-/// `tanh`, `liminf`, and `limsup`.
+/// Typst predefines the operators `arccos`, `arcsin`, `arctan`, `arg`, `cos`,
+/// `cosh`, `cot`, `coth`, `csc`, `ctg`, `deg`, `det`, `dim`, `exp`, `gcd`,
+/// `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`, `limsup`, `ln`,
+/// `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sin`, `sinc`, `sinh`, `sup`,
+/// `tan`, `tanh`, `tg` and `tr`.
 ///
 /// Display: Text Operator
 /// Category: math
@@ -81,24 +81,28 @@ ops! {
     cos,
     cosh,
     cot,
-    ctg,
     coth,
     csc,
+    ctg,
     deg,
     det (limits),
     dim,
     exp,
     gcd (limits),
     hom,
-    mod,
+    id,
+    im,
     inf (limits),
     ker,
     lg,
     lim (limits),
+    liminf: "lim inf" (limits),
+    limsup: "lim sup" (limits),
     ln,
     log,
     max (limits),
     min (limits),
+    mod,
     Pr (limits),
     sec,
     sin,
@@ -106,8 +110,7 @@ ops! {
     sinh,
     sup (limits),
     tan,
-    tg,
     tanh,
-    liminf: "lim inf" (limits),
-    limsup: "lim sup" (limits),
+    tg,
+    tr,
 }
