@@ -592,7 +592,7 @@ impl Lexer<'_> {
 
         if suffix.is_empty() {
             // Provide diagnostic for input like "1 pt" where "1pt" was intended.
-            let mut excursion = self.s.clone();
+            let mut excursion = self.s;
             excursion.eat_whitespace();
             let suffix_after_whitespace = if excursion.eat_if('%') {
                 "%"
