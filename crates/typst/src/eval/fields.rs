@@ -47,12 +47,10 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                         .into_value(),
                     "line_cap" => stroke
                         .line_cap
-                        .clone()
                         .unwrap_or_else(|| Stroke::default().line_cap)
                         .into_value(),
                     "line_join" => stroke
                         .line_join
-                        .clone()
                         .unwrap_or_else(|| Stroke::default().line_join)
                         .into_value(),
                     "dash_pattern" => {
