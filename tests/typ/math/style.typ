@@ -16,7 +16,7 @@ $A, italic(A), upright(A), bold(A), bold(upright(A)), \
 // Test forcing math size
 $a/b, display(a/b), display(a)/display(b), inline(a/b), script(a/b), sscript(a/b) \
  mono(script(a/b)), script(mono(a/b))\
- script(a^b, cramp: #true), script(a^b, cramp: #false)$
+ script(a^b, cramped: #true), script(a^b, cramped: #false)$
 
 ---
 // Test a few style exceptions.

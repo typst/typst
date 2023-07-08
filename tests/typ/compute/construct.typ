@@ -14,6 +14,26 @@
 #test(rgb("#133337").negate(), rgb(236, 204, 200))
 #test(white.lighten(100%), white)
 
+// Color mixing, in Oklab space by default.
+#test(color.mix(rgb("#ff0000"), rgb("#00ff00")), rgb("#d0a800"))
+#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "oklab"), rgb("#d0a800"))
+#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "srgb"), rgb("#808000"))
+
+#test(color.mix(red, green, blue), rgb("#909282"))
+#test(color.mix(red, blue, green), rgb("#909282"))
+#test(color.mix(blue, red, green), rgb("#909282"))
+
+// Mix with weights.
+#test(color.mix((red, 50%), (green, 50%)), rgb("#c0983b"))
+#test(color.mix((red, 0.5), (green, 0.5)), rgb("#c0983b"))
+#test(color.mix((red, 5), (green, 5)), rgb("#c0983b"))
+#test(color.mix((green, 5), (white, 0), (red, 5)), rgb("#c0983b"))
+#test(color.mix((red, 100%), (green, 0%)), red)
+#test(color.mix((red, 0%), (green, 100%)), green)
+#test(color.mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: "srgb"), rgb("#aa40bf"))
+#test(color.mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: "srgb"), rgb("#aa8080"))
+#test(color.mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: "srgb"), rgb("#aabf40"))
+
 ---
 // Test gray color conversion.
 // Ref: true
@@ -41,6 +61,18 @@
 #rgb(10%, 20%, 30%, false)
 
 ---
+// Error: 12-24 expected float or ratio, found string
+#color.mix((red, "yes"), (green, "no"))
+
+---
+// Error: 12-23 expected a color or color-weight pair
+#color.mix((red, 1, 2))
+
+---
+// Error: 31-38 expected "oklab" or "srgb"
+#color.mix(red, green, space: "cyber")
+
+---
 // Ref: true
 #let envelope = symbol(
   "🖂",
@@ -64,12 +96,44 @@
 ---
 // Test conversion to string.
 #test(str(123), "123")
+#test(str(123, base: 3), "11120")
+#test(str(-123, base: 16), "-7b")
+#test(str(9223372036854775807, base: 36), "1y2p0ij32e8e7")
 #test(str(50.14), "50.14")
 #test(str(10 / 3).len() > 10, true)
 
 ---
 // Error: 6-8 expected integer, float, label, or string, found content
 #str([])
+
+---
+// Error: 17-19 base must be between 2 and 36
+#str(123, base: 99)
+
+---
+// Error: 18-19 base is only supported for integers
+#str(1.23, base: 2)
+
+---
+// Test the unicode function.
+#test(str.from-unicode(97), "a")
+#test(str.to-unicode("a"), 97)
+
+---
+// Error: 19-22 expected integer, found content
+#str.from-unicode([a])
+
+---
+// Error: 17-21 expected exactly one character
+#str.to-unicode("ab")
+
+---
+// Error: 19-21 0xffffffffffffffff is not a valid codepoint
+#str.from-unicode(-1) // negative values are not valid
+
+---
+// Error: 19-27 0x110000 is not a valid codepoint
+#str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
 ---
 #assert(range(2, 5) == (2, 3, 4))

@@ -7,7 +7,7 @@
   dx: -10pt,
   dy: -10pt,
   image(
-    "/tiger.jpg",
+    "/files/tiger.jpg",
     fit: "cover",
     width: 100% + 20pt,
     height: 100% + 20pt,

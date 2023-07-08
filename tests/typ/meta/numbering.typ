@@ -32,7 +32,7 @@
 }
 
 ---
-#set text(lang: "zh")
+#set text(lang: "zh", font: ("Linux Libertine", "Noto Serif CJK SC"))
 #for i in range(9,21, step: 2){
   numbering("一", i)
   [ and ]
@@ -41,6 +41,7 @@
 }
 
 ---
+#set text(lang: "jp", font: ("Linux Libertine", "Noto Serif CJK JP"))
 #for i in range(0, 4) {
   numbering("イ", i)
   [ (or ]
@@ -57,6 +58,27 @@
 ... \
 #for i in range(2256, 2260) {
   numbering("イ", i)
+  [ for #i \ ]
+}
+
+---
+#set text(lang: "ko", font: ("Linux Libertine", "Noto Serif CJK KR"))
+#for i in range(0, 4) {
+  numbering("가", i)
+  [ (or ]
+  numbering("ㄱ", i)
+  [) for #i \ ]
+}
+... \
+#for i in range(47, 51) {
+  numbering("가", i)
+  [ (or ]
+  numbering("ㄱ", i)
+  [) for #i \ ]
+}
+... \
+#for i in range(2256, 2260) {
+  numbering("ㄱ", i)
   [ for #i \ ]
 }
 
