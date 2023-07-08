@@ -90,20 +90,17 @@ Typst supports the following length units:
 
 ## Methods
 ### cm()
-Converts this length to centimeters, returning the result
-as a [float]($type/float).
+Converts this length to centimeters.
 
 - returns: float
 
 ### mm()
-Converts this length to milimeters, returning the result
-as a [float]($type/float).
+Converts this length to milimeters.
 
 - returns: float
 
 ### inches()
-Converts this length to inches, returning the result
-as a [float]($type/float).
+Converts this length to inches.
 
 - returns: float
 
@@ -121,14 +118,12 @@ Typst supports the following angular units:
 
 ## Methods
 ### deg()
-Converts this angle to degrees, returning the result
-as a [float]($type/float).
+Converts this angle to degrees.
 
 - returns: float
 
 ### rad()
-Converts this angle to radians, returning the result
-as a [float]($type/float).
+Converts this angle to radians.
 
 - returns: float
 
