@@ -88,6 +88,25 @@ Typst supports the following length units:
 #rect(width: 1in)
 ```
 
+## Methods
+### cm()
+Converts this length to centimeters, returning the result
+as a [float]($type/float).
+
+- returns: float
+
+### mm()
+Converts this length to milimeters, returning the result
+as a [float]($type/float).
+
+- returns: float
+
+### inches()
+Converts this length to inches, returning the result
+as a [float]($type/float).
+
+- returns: float
+
 # Angle
 An angle describing a rotation.
 Typst supports the following angular units:
