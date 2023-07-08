@@ -7,7 +7,7 @@ use super::{IntoValue, Value};
 
 /// Try to access a field on a value.
 /// This function is exclusively for types which have
-/// predefined fields, such as color and length.
+/// predefined fields, such as stroke and length.
 pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
     let name = value.type_name();
     let not_supported = || Err(no_fields(name));
