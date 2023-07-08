@@ -63,6 +63,12 @@
 #test((4.12345678mm).mm(), 4.12345678)
 #test((5.333666999in).inches(), 5.333666999)
 #test((4.123456789123456mm).mm(), 4.123456789123456)
+#test((254cm).mm(), 2540.0)
+#test(calc.round((254cm).inches(), digits: 2), 100.0)
+#test((2540mm).cm(), 254.0)
+#test(calc.round((2540mm).inches(), digits: 2), 100.0)
+#test(calc.round((100in).cm(), digits: 2), 254.0)
+#test(calc.round((100in).mm(), digits: 2), 2540.0)
 
 ---
 // Test color kind method.
