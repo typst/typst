@@ -34,6 +34,7 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
     let timeout = std::time::Duration::from_millis(100);
     let output = command.output();
     loop {
+        let mut removed = HashSet::new();
         let mut recompile = false;
         for event in rx
             .recv()
@@ -41,13 +42,32 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
             .chain(std::iter::from_fn(|| rx.recv_timeout(timeout).ok()))
         {
             let event = event.map_err(|_| "failed to watch directory")?;
+
+            // Workaround for notify-rs' implicit unwatch on remove/rename
+            // (triggered by some editors when saving files) with the inotify
+            // backend. By keeping track of the removed files, we can allow
+            // those we still depend on to be watched again later on.
+            if matches!(
+                event.kind,
+                notify::EventKind::Remove(notify::event::RemoveKind::File)
+            ) {
+                let path = &event.paths[0];
+                removed.insert(path.clone());
+
+                // Remove the watch in case it still exists.
+                watcher.unwatch(path).ok();
+            }
+
             recompile |= is_event_relevant(&event, &output);
         }
 
         if recompile {
             // Retrieve the dependencies of the last compilation.
-            let previous: HashSet<PathBuf> =
-                world.dependencies().map(ToOwned::to_owned).collect();
+            let previous: HashSet<PathBuf> = world
+                .dependencies()
+                .filter(|path| !removed.contains(*path))
+                .map(ToOwned::to_owned)
+                .collect();
 
             // Recompile.
             compile_once(&mut world, &mut command, true)?;
