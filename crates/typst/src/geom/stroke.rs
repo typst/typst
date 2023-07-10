@@ -1,4 +1,4 @@
-use crate::eval::{dict, Cast, FromValue};
+use crate::eval::{dict, Cast, FromValue, NoneValue};
 
 use super::*;
 
@@ -159,7 +159,12 @@ impl<T: Debug> Debug for PartialStroke<T> {
                 sep = ", ";
             }
             if let Smart::Custom(dash) = &dash_pattern {
-                write!(f, "{}dash: {:?}", sep, dash)?;
+                write!(f, "{}dash: ", sep)?;
+                if let Some(dash) = dash {
+                    Debug::fmt(dash, f)?;
+                } else {
+                    Debug::fmt(&NoneValue, f)?;
+                }
                 sep = ", ";
             }
             if let Smart::Custom(miter_limit) = &miter_limit {
@@ -349,7 +354,7 @@ cast! {
 }
 
 /// The length of a dash in a line dash pattern
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub enum DashLength<T = Length> {
     LineWidth,
     Length(T),
@@ -370,6 +375,15 @@ impl<T> DashLength<T> {
     }
 }
 
+impl<T: Debug> Debug for DashLength<T> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::LineWidth => write!(f, "\"dot\""),
+            Self::Length(v) => Debug::fmt(v, f),
+        }
+    }
+}
+
 impl Resolve for DashLength {
     type Output = DashLength<Abs>;
 
@@ -385,7 +399,7 @@ cast! {
     DashLength,
     self => match self {
         Self::LineWidth => "dot".into_value(),
-        Self::Length(l) => l.into_value(),
+        Self::Length(v) => v.into_value(),
     },
 
     "dot" => Self::LineWidth,
