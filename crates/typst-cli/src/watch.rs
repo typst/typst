@@ -43,10 +43,10 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
         {
             let event = event.map_err(|_| "failed to watch directory")?;
 
-            // Workaround for notify-rs' implicit unwatch on remove/rename (triggered
-            // by some editors when saving files) with the inotify backend.
-            // By keeping track of the removed files, we can allow those we still
-            // depend on to be watched again later on.
+            // Workaround for notify-rs' implicit unwatch on remove/rename
+            // (triggered by some editors when saving files) with the inotify
+            // backend. By keeping track of the removed files, we can allow
+            // those we still depend on to be watched again later on.
             if matches!(
                 event.kind,
                 notify::EventKind::Remove(notify::event::RemoveKind::File)
@@ -54,13 +54,8 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
                 let path = &event.paths[0];
                 removed.insert(path.clone());
 
-                // Remove the watch if it still exists.
-                if let Err(notify::Error { kind, .. }) = watcher.unwatch(path) {
-                    match kind {
-                        notify::ErrorKind::WatchNotFound => {}
-                        _ => return Err("failed to unwatch file".into()),
-                    }
-                }
+                // Remove the watch in case it still exists.
+                watcher.unwatch(path).ok();
             }
 
             recompile |= is_event_relevant(&event, &output);
