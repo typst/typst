@@ -846,14 +846,14 @@ impl MathAttach {
             .find_map(SyntaxNode::cast)
     }
 
-    /// Extract possible primes
+    /// Extract primes if present.
     pub fn primes(&self) -> Option<MathPrimes> {
-        self.0.children().find_map(SyntaxNode::cast)
+        self.0.cast_first_match()
     }
 }
 
 node! {
-    /// Grouped math primes.
+    /// Grouped primes in math: `a'''`.
     MathPrimes
 }
 

@@ -65,7 +65,7 @@ pub enum SyntaxKind {
     MathDelimited,
     /// A base with optional attachments in math: `a_1^2`.
     MathAttach,
-    /// Grouped primes: `a'''`.
+    /// Grouped primes in math: `a'''`.
     MathPrimes,
     /// A fraction in math: `x/2`.
     MathFrac,
@@ -110,7 +110,7 @@ pub enum SyntaxKind {
     Slash,
     /// The superscript operator in math: `^`.
     Hat,
-    /// The devariative and modifier in math.
+    /// The prime in math: `'`.
     Prime,
     /// The field access and method call operator: `.`.
     Dot,

@@ -734,8 +734,8 @@ impl Eval for ast::MathAttach {
     #[tracing::instrument(name = "MathAttach::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let base = self.base().eval_display(vm)?;
-        let mut top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
 
+        let mut top = self.top().map(|expr| expr.eval_display(vm)).transpose()?;
         if top.is_none() {
             if let Some(primes) = self.primes() {
                 top = Some(primes.eval(vm)?);
@@ -750,7 +750,7 @@ impl Eval for ast::MathAttach {
 impl Eval for ast::MathPrimes {
     type Output = Content;
 
-    #[tracing::instrument(name = "MathAttach::eval", skip_all)]
+    #[tracing::instrument(name = "MathPrimes::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         Ok((vm.items.math_primes)(self.count()))
     }

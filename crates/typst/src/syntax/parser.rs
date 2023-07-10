@@ -295,14 +295,13 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
-        // means that there is nothing to attach prime to
         SyntaxKind::Prime => {
+            // Means that there is nothing to attach the prime to.
             continuable = true;
-
             while p.at(SyntaxKind::Prime) {
                 let m2 = p.marker();
                 p.eat();
-                // eat the group until the space
+                // Eat the group until the space.
                 while p.eat_if_direct(SyntaxKind::Prime) {}
                 p.wrap(m2, SyntaxKind::MathPrimes);
             }
@@ -319,7 +318,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         p.wrap(m, SyntaxKind::Math);
     }
 
-    // Whether there were *any* primes in the loop
+    // Whether there were _any_ primes in the loop.
     let mut primed = false;
 
     while !p.eof() && !p.at(stop) {
@@ -330,14 +329,12 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         let prime_marker = p.marker();
-
         if p.eat_if_direct(SyntaxKind::Prime) {
-            // eat as many primes as possible, but _ignore spaces_
+            // Eat as many primes as possible.
             while p.eat_if_direct(SyntaxKind::Prime) {}
             p.wrap(prime_marker, SyntaxKind::MathPrimes);
 
-            // will not be continued, so need to wrap
-            // the prime as attachment
+            // Will not be continued, so need to wrap the prime as attachment.
             if p.at(stop) {
                 p.wrap(m, SyntaxKind::MathAttach);
             }
@@ -346,13 +343,13 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             continue;
         }
 
-        // separate primes and superscripts to different attachments
+        // Separate primes and superscripts to different attachments.
         if primed && p.current() == SyntaxKind::Hat {
             p.wrap(m, SyntaxKind::MathAttach);
         }
 
         let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
-            // no attachments, so need to wrap primes as attachment
+            // No attachments, so we need to wrap primes as attachment.
             if primed {
                 p.wrap(m, SyntaxKind::MathAttach);
             }
@@ -1496,12 +1493,10 @@ impl<'s> Parser<'s> {
         self.current == kind && self.prev_end == self.current_start
     }
 
-    /// Eats if at `kind`
+    /// Eats if at `kind`.
     ///
-    /// *Note*: that will ignore spaces,
-    /// since spaces count as part of syntax kind.
-    /// To forbid eating spaces for single symbols
-    /// consider using `eat_if_direct`.
+    /// Note: In math and code mode, this will ignore trivia in front of the
+    /// `kind`, To forbid skipping trivia, consider using `eat_if_direct`.
     fn eat_if(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
         if at {

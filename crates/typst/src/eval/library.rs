@@ -96,6 +96,7 @@ pub struct LangItems {
         tr: Option<Content>,
         br: Option<Content>,
     ) -> Content,
+    /// Grouped primes: `a'''`.
     pub math_primes: fn(count: usize) -> Content,
     /// A base with an accent: `arrow(x)`.
     pub math_accent: fn(base: Content, accent: char) -> Content,
