@@ -1,4 +1,5 @@
 pub use typst_macros::{cast, Cast};
+use unicode_math_class::MathClass;
 
 use std::fmt::Write;
 use std::ops::Add;
@@ -313,4 +314,35 @@ impl FromValue for Never {
     fn from_value(value: Value) -> StrResult<Self> {
         Err(Self::error(&value))
     }
+}
+
+cast! {
+    MathClass,
+    self => IntoValue::into_value(match self {
+        MathClass::Normal => "normal",
+        MathClass::Alphabetic => "alphabetic",
+        MathClass::Binary => "binary",
+        MathClass::Closing => "closing",
+        MathClass::Diacritic => "diacritic",
+        MathClass::Fence => "fence",
+        MathClass::GlyphPart => "glyph-part",
+        MathClass::Large => "large",
+        MathClass::Opening => "opening",
+        MathClass::Punctuation => "punctuation",
+        MathClass::Relation => "relation",
+        MathClass::Space => "space",
+        MathClass::Unary => "unary",
+        MathClass::Vary => "vary",
+        MathClass::Special => "special",
+    }),
+    "normal" => MathClass::Normal,
+    "binary" => MathClass::Binary,
+    "closing" => MathClass::Closing,
+    "fence" => MathClass::Fence,
+    "large" => MathClass::Large,
+    "opening" => MathClass::Opening,
+    "punctuation" => MathClass::Punctuation,
+    "relation" => MathClass::Relation,
+    "unary" => MathClass::Unary,
+    "vary" => MathClass::Vary,
 }

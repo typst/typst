@@ -320,6 +320,8 @@ pub struct MathStyle {
     pub variant: MathVariant,
     /// The size of the glyphs.
     pub size: MathSize,
+    /// The class of the element.
+    pub class: Smart<MathClass>,
     /// Affects the height of exponents.
     pub cramped: bool,
     /// Whether to use bold glyphs.
@@ -337,6 +339,11 @@ impl MathStyle {
     /// This style, with the given `size`.
     pub fn with_size(self, size: MathSize) -> Self {
         Self { size, ..self }
+    }
+
+    // This style, with the given `class`.
+    pub fn with_class(self, class: MathClass) -> Self {
+        Self { class: Smart::Custom(class), ..self }
     }
 
     /// This style, with `cramped` set to the given value.

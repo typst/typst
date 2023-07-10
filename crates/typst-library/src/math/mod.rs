@@ -6,6 +6,7 @@ mod accent;
 mod align;
 mod attach;
 mod cancel;
+mod class;
 mod delimited;
 mod frac;
 mod fragment;
@@ -22,6 +23,7 @@ pub use self::accent::*;
 pub use self::align::*;
 pub use self::attach::*;
 pub use self::cancel::*;
+pub use self::class::*;
 pub use self::delimited::*;
 pub use self::frac::*;
 pub use self::matrix::*;
@@ -105,6 +107,8 @@ pub fn module() -> Module {
     math.define("inline", inline_func());
     math.define("script", script_func());
     math.define("sscript", sscript_func());
+
+    math.define("class", ClassElem::func());
 
     // Text operators.
     math.define("op", OpElem::func());
