@@ -5,6 +5,10 @@
 `A``B`
 
 ---
+// Empty raw block.
+Empty raw block:``.
+
+---
 // Typst syntax inside.
 ```typ #let x = 1``` \
 ```typ #f(1)```
@@ -55,6 +59,14 @@ The keyword ```rust let```.
 
         B
 ```
+
+---
+// Take last line into account when computing dedent.
+```
+        A
+
+        B
+    ```
 
 ---
 // Text show rule
