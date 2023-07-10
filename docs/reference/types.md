@@ -105,7 +105,7 @@ Converts this length to millimeters.
 
 Fails with an error if this length has non-zero `em` units
 (such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($func/float.pt) method for more info.
+[`pt()`]($type/float.pt) method for more info.
 
 - returns: float
 
@@ -114,7 +114,7 @@ Converts this length to centimeters.
 
 Fails with an error if this length has non-zero `em` units
 (such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($func/float.pt) method for more info.
+[`pt()`]($type/float.pt) method for more info.
 
 - returns: float
 
@@ -123,7 +123,7 @@ Converts this length to inches.
 
 Fails with an error if this length has non-zero `em` units
 (such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($func/float.pt) method for more info.
+[`pt()`]($type/float.pt) method for more info.
 
 - returns: float
 
