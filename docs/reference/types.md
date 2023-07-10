@@ -183,9 +183,16 @@ This type is a combination of a [length]($type/length) with a
 of a length and a ratio. Wherever a relative length is expected, you can also
 use a bare length or ratio.
 
+A relative length has the following fields:
+- `length`: Its length component.
+- `ratio`: Its ratio component.
+
 ## Example
 ```example
 #rect(width: 100% - 50pt)
+
+#(100% - 50pt).length
+#(100% - 50pt).ratio
 ```
 
 # Fraction
