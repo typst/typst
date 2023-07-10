@@ -40,9 +40,6 @@ pub struct SystemWorld {
     /// The current date if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
     today: OnceCell<Option<Datetime>>,
-    /// If true, then produces an error when the document fails to converge within
-    /// the allotted number of iterations while performing layout.
-    pub require_relayout_convergence: bool,
 }
 
 impl SystemWorld {
@@ -83,7 +80,6 @@ impl SystemWorld {
             hashes: RefCell::default(),
             paths: RefCell::default(),
             today: OnceCell::new(),
-            require_relayout_convergence: command.require_relayout_convergence,
         })
     }
 
@@ -149,10 +145,6 @@ impl World for SystemWorld {
                 naive.day().try_into().ok()?,
             )
         })
-    }
-
-    fn require_relayout_convergence(&self) -> bool {
-        self.require_relayout_convergence
     }
 }
 
