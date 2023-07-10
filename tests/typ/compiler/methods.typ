@@ -69,6 +69,18 @@
 #test(calc.round((2540mm).inches(), digits: 2), 100.0)
 #test(calc.round((100in).cm(), digits: 2), 254.0)
 #test(calc.round((100in).mm(), digits: 2), 2540.0)
+#test(5em.abs.cm(), 0.0)
+#test((5em + 6in).abs.inches(), 6.0)
+
+---
+// Error: 2-12 cannot convert a length with non-zero em units (3em) to cm
+// Hint: 2-12 use 'length.abs.cm()' instead to ignore its em component
+#(3em).cm()
+
+---
+// Error: 2-24 cannot convert a length with non-zero em units (432pt + 4.5em) to inches
+// Hint: 2-24 use 'length.abs.inches()' instead to ignore its em component
+#(4.5em + 6in).inches()
 
 ---
 // Test color kind method.

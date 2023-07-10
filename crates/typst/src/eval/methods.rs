@@ -1,11 +1,11 @@
 //! Methods on values.
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 
 use super::{Args, IntoValue, Str, Value, Vm};
-use crate::diag::{At, SourceResult};
+use crate::diag::{At, Hint, SourceResult};
 use crate::eval::{bail, Datetime};
-use crate::geom::{Align, Axes, Color, Dir, GenAlign};
+use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -177,9 +177,19 @@ pub fn call(
         },
 
         Value::Length(length) => match method {
-            "cm" => length.abs.to_cm().into_value(),
-            "mm" => length.abs.to_mm().into_value(),
-            "inches" => length.abs.to_inches().into_value(),
+            unit @ ("cm" | "mm" | "inches") => {
+                if length.em != Em::zero() {
+                    return Err(eco_format!("cannot convert a length with non-zero em units ({length:?}) to {unit}"))
+                        .hint(eco_format!("use 'length.abs.{unit}()' instead to ignore its em component"))
+                        .at(span);
+                }
+                match unit {
+                    "cm" => length.abs.to_cm().into_value(),
+                    "mm" => length.abs.to_mm().into_value(),
+                    "inches" => length.abs.to_inches().into_value(),
+                    _ => unreachable!(),
+                }
+            }
             _ => return missing(),
         },
 
