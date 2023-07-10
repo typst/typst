@@ -33,9 +33,22 @@ pub struct AlignElem {
     /// - `horizon`
     /// - `bottom`
     ///
+    /// You may use the `axis` method on a single-axis alignment to obtain
+    /// whether it is `{"horizontal"}` or `{"vertical"}`. You may also use the
+    /// `inv` method to obtain its inverse alignment. For example,
+    /// `{top.axis()}` is `{"vertical"}`, while `{top.inv()}` is equal to
+    /// `{bottom}`.
+    ///
     /// To align along both axes at the same time, add the two alignments using
     /// the `+` operator to get a `2d alignment`. For example, `top + right`
     /// aligns the content to the top right corner.
+    ///
+    /// For 2d alignments, you may use the `x` and `y` fields to access their
+    /// horizontal and vertical components, respectively. Additionally, you may
+    /// use the `inv` method to obtain a 2d alignment with both components
+    /// inverted. For instance, `{(top + right).x}` is `right`,
+    /// `{(top + right).y}` is `top`, and `{(top + right).inv()}` is equal to
+    /// `bottom + left`.
     ///
     /// ```example
     /// #set page(height: 6cm)

@@ -69,6 +69,11 @@ pub struct LineElem {
     ///       the array above), and `phase` (of type [length]($type/length)),
     ///       which defines where in the pattern to start drawing.
     ///
+    /// Note that, for any `stroke` object, you may access any of the fields
+    /// mentioned in the dictionary format above. For example,
+    /// `{(2pt + blue).thickness}` is `{2pt}`, `{(2pt + blue).miter-limit}` is
+    /// `{4.0}` (the default), and so on.
+    ///
     /// ```example
     /// #set line(length: 100%)
     /// #stack(

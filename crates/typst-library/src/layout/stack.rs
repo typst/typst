@@ -26,6 +26,15 @@ pub struct StackElem {
     /// - `{rtl}`: Right to left.
     /// - `{ttb}`: Top to bottom.
     /// - `{btt}`: Bottom to top.
+    ///
+    /// You may use the `start` and `end` methods to obtain the initial and
+    /// final points (respectively) of a direction, as `alignment`. You may
+    /// also use the `axis` method to obtain whether a direction is
+    /// `{"horizontal"}` or `{"vertical"}`. Finally, the `inv` method returns
+    /// its inverse direction.
+    ///
+    /// For example, `{ttb.start()}` is `top`, `{ttb.end()}` is `bottom`,
+    /// `{ttb.axis()}` is `{"vertical"}` and `{ttb.inv()}` is equal to `btt`.
     #[default(Dir::TTB)]
     pub dir: Dir,
 
