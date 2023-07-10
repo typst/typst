@@ -177,13 +177,14 @@ pub fn call(
         },
 
         Value::Length(length) => match method {
-            unit @ ("cm" | "mm" | "inches") => {
+            unit @ ("pt" | "cm" | "mm" | "inches") => {
                 if length.em != Em::zero() {
                     return Err(eco_format!("cannot convert a length with non-zero em units ({length:?}) to {unit}"))
                         .hint(eco_format!("use 'length.abs.{unit}()' instead to ignore its em component"))
                         .at(span);
                 }
                 match unit {
+                    "pt" => length.abs.to_pt().into_value(),
                     "cm" => length.abs.to_cm().into_value(),
                     "mm" => length.abs.to_mm().into_value(),
                     "inches" => length.abs.to_inches().into_value(),
@@ -434,7 +435,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("values", false),
         ],
         "function" => &[("where", true), ("with", true)],
-        "length" => &[("cm", false), ("mm", false), ("inches", false)],
+        "length" => &[("pt", false), ("cm", false), ("mm", false), ("inches", false)],
         "angle" => &[("deg", false), ("rad", false)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
