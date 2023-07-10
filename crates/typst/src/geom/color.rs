@@ -436,7 +436,6 @@ impl CmykColor {
     pub fn to_array(self) -> Array {
         // convert to ratio
         let g = |c| Ratio::new(c as f64 / 255.0);
-
         array![g(self.c), g(self.m), g(self.y), g(self.k)]
     }
 }
