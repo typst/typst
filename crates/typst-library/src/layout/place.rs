@@ -27,12 +27,43 @@ use crate::prelude::*;
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
-    /// When an axis of the page is `{auto}` sized, all alignments relative to that
-    /// axis will be ignored, instead, the item will be placed in the origin of the
-    /// axis.
+    /// Cannot be `{auto}` if `float` is `{false}` and must be either
+    /// `{auto}`, `{top}`, or `{bottom}` if `float` is `{true}`.
+    ///
+    /// When an axis of the page is `{auto}` sized, all alignments relative to
+    /// that axis will be ignored, instead, the item will be placed in the
+    /// origin of the axis.
     #[positional]
-    #[default(Axes::with_x(Some(GenAlign::Start)))]
-    pub alignment: Axes<Option<GenAlign>>,
+    #[default(Smart::Custom(Axes::with_x(Some(GenAlign::Start))))]
+    pub alignment: Smart<Axes<Option<GenAlign>>>,
+
+    /// Whether the placed element has floating layout.
+    ///
+    /// Floating elements are positioned at the top or bottom of the page,
+    /// displacing in-flow content.
+    ///
+    /// ```example
+    /// #set page(height: 150pt)
+    /// #let note(where, body) = place(
+    ///   center + where,
+    ///   float: true,
+    ///   clearance: 6pt,
+    ///   rect(body),
+    /// )
+    ///
+    /// #lorem(10)
+    /// #note(bottom)[Bottom 1]
+    /// #note(bottom)[Bottom 2]
+    /// #lorem(40)
+    /// #note(top)[Top]
+    /// #lorem(10)
+    /// ```
+    pub float: bool,
+
+    /// The amount of clearance the placed element has in a floating layout.
+    #[default(Em::new(1.5).into())]
+    #[resolve]
+    pub clearance: Length,
 
     /// The horizontal displacement of the placed content.
     ///
@@ -61,22 +92,7 @@ impl Layout for PlaceElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let out_of_flow = self.out_of_flow(styles);
-
-        // The pod is the base area of the region because for absolute
-        // placement we don't really care about the already used area.
-        let pod = {
-            let finite = regions.base().map(Abs::is_finite);
-            let expand = finite & (regions.expand | out_of_flow);
-            Regions::one(regions.base(), expand)
-        };
-
-        let child = self
-            .body()
-            .moved(Axes::new(self.dx(styles), self.dy(styles)))
-            .aligned(self.alignment(styles));
-
-        let mut frame = child.layout(vt, styles, pod)?.into_frame();
+        let mut frame = self.layout_inner(vt, styles, regions)?.into_frame();
 
         // If expansion is off, zero all sizes so that we don't take up any
         // space in our parent. Otherwise, respect the expand settings.
@@ -88,11 +104,48 @@ impl Layout for PlaceElem {
 }
 
 impl PlaceElem {
-    /// Whether this element wants to be placed relative to its its parent's
-    /// base origin. Instead of relative to the parent's current flow/cursor
-    /// position.
-    pub fn out_of_flow(&self, styles: StyleChain) -> bool {
-        self.alignment(styles).y.is_some()
+    /// Layout without zeroing the frame size.
+    pub fn layout_inner(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        // The pod is the base area of the region because for absolute
+        // placement we don't really care about the already used area.
+        let base = regions.base();
+        let expand =
+            Axes::new(base.x.is_finite(), base.y.is_finite() && !self.float(styles));
+
+        let pod = Regions::one(base, expand);
+
+        let float = self.float(styles);
+        let alignment = self.alignment(styles);
+        if float
+            && !matches!(
+                alignment,
+                Smart::Auto
+                    | Smart::Custom(Axes {
+                        y: Some(GenAlign::Specific(Align::Top | Align::Bottom)),
+                        ..
+                    })
+            )
+        {
+            bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
+        } else if !float && alignment.is_auto() {
+            return Err("automatic positioning is only available for floating placement")
+                .hint("you can enable floating placement with `place(float: true, ..)`")
+                .at(self.span());
+        }
+
+        let child = self
+            .body()
+            .moved(Axes::new(self.dx(styles), self.dy(styles)))
+            .aligned(
+                alignment.unwrap_or_else(|| Axes::with_x(Some(Align::Center.into()))),
+            );
+
+        child.layout(vt, styles, pod)
     }
 }
 

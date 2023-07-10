@@ -338,6 +338,12 @@ impl Frame {
 impl Frame {
     /// Add a full size aqua background and a red baseline for debugging.
     pub fn debug(mut self) -> Self {
+        self.debug_in_place();
+        self
+    }
+
+    /// Debug in place.
+    pub fn debug_in_place(&mut self) {
         self.insert(
             0,
             Point::zero(),
@@ -359,7 +365,6 @@ impl Frame {
                 Span::detached(),
             ),
         );
-        self
     }
 
     /// Add a green marker at a position for debugging.

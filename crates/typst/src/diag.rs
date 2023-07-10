@@ -215,9 +215,15 @@ pub trait Hint<T> {
     fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T>;
 }
 
-impl<T> Hint<T> for StrResult<T> {
+impl<T, S> Hint<T> for Result<T, S>
+where
+    S: Into<EcoString>,
+{
     fn hint(self, hint: impl Into<EcoString>) -> HintedStrResult<T> {
-        self.map_err(|message| HintedString { message, hints: vec![hint.into()] })
+        self.map_err(|message| HintedString {
+            message: message.into(),
+            hints: vec![hint.into()],
+        })
     }
 }
 

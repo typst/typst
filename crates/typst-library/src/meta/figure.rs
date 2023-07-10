@@ -3,7 +3,7 @@ use std::str::FromStr;
 use super::{
     Count, Counter, CounterKey, CounterUpdate, LocalName, Numbering, NumberingPattern,
 };
-use crate::layout::{BlockElem, VElem};
+use crate::layout::{BlockElem, PlaceElem, VElem};
 use crate::meta::{Outlinable, Refable, Supplement};
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -72,7 +72,7 @@ use crate::visualize::ImageElem;
 ///
 /// If your figure is too large and its contents are breakable across pages
 /// (e.g. if it contains a large table), then you can make the figure breakable
-/// across pages as well by using `#show figure: set block(breakable: true)`
+/// across pages as well by using `[#show figure: set block(breakable: true)]`
 /// (see the [block]($func/block) documentation for more information).
 ///
 /// Display: Figure
@@ -83,29 +83,49 @@ pub struct FigureElem {
     #[required]
     pub body: Content,
 
+    /// The figure's placement on the page.
+    ///
+    /// - `{none}`: The figure stays in-flow exactly where it was specified
+    ///   like other content.
+    /// - `{auto}`: The figure picks `{top}` or `{bottom}` depending on which
+    ///   is closer.
+    /// - `{top}`: The figure floats to the top of the page.
+    /// - `{bottom}`: The figure floats to the bottom of the page.
+    ///
+    /// ```example
+    /// #set page(height: 200pt)
+    ///
+    /// = Introduction
+    /// #figure(
+    ///   placement: bottom,
+    ///   caption: [A glacier],
+    ///   image("glacier.jpg", width: 60%),
+    /// )
+    /// #lorem(60)
+    /// ```
+    pub placement: Option<Smart<VerticalAlign>>,
+
     /// The figure's caption.
     pub caption: Option<Content>,
 
-    /// The caption's position.
-    ///
-    /// You can set the caption position to `{top}` or `{bottom}`, defaults to
-    /// `{bottom}`.
+    /// The caption's position. Either `{top}` or `{bottom}`.
     ///
     /// ```example
     /// #figure(
     ///   table(columns: 2)[A][B],
-    //    caption: [I'm up here],
+    ///   caption: [I'm up here],
+    ///   caption-pos: top,
     /// )
+    ///
     /// #figure(
     ///   table(columns: 2)[A][B],
     ///   caption: [I'm down here],
-    ///   caption-pos: bottom,
     /// )
     /// ```
     #[default(VerticalAlign(GenAlign::Specific(Align::Bottom)))]
     pub caption_pos: VerticalAlign,
 
-    /// The kind of the figure this is.
+    /// The kind of figure this is.
     ///
     /// If set to `{auto}`, the figure will try to automatically determine its
     /// kind. All figures of the same kind share a common counter.
@@ -247,6 +267,7 @@ impl Synthesize for FigureElem {
             }),
         )));
 
+        self.push_placement(self.placement(styles));
         self.push_caption_pos(caption_pos);
         self.push_caption(self.caption(styles));
         self.push_kind(Smart::Custom(kind));
@@ -278,10 +299,22 @@ impl Show for FigureElem {
         };
 
         // Wrap the contents in a block.
-        Ok(BlockElem::new()
+        realized = BlockElem::new()
             .with_body(Some(realized))
             .pack()
-            .aligned(Axes::with_x(Some(Align::Center.into()))))
+            .aligned(Axes::with_x(Some(Align::Center.into())));
+
+        // Wrap in a float.
+        if let Some(align) = self.placement(styles) {
+            realized = PlaceElem::new(realized)
+                .with_float(true)
+                .with_alignment(align.map(|VerticalAlign(align)| {
+                    Axes::new(Some(Align::Center.into()), Some(align))
+                }))
+                .pack();
+        }
+
+        Ok(realized)
     }
 }
 
