@@ -565,6 +565,9 @@ impl Raw {
             let dedent = lines
                 .iter()
                 .skip(1)
+                .filter(|line| !line.chars().all(char::is_whitespace))
+                // The line with the closing ``` is always taken into account
+                .chain(lines.last())
                 .map(|line| line.chars().take_while(|c| c.is_whitespace()).count())
                 .min()
                 .unwrap_or(0);
