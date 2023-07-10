@@ -4,7 +4,7 @@ use ecow::EcoString;
 
 use super::{Args, IntoValue, Str, Value, Vm};
 use crate::diag::{At, SourceResult};
-use crate::eval::Datetime;
+use crate::eval::{bail, Datetime};
 use crate::geom::{Align, Axes, Color, Dir, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
@@ -35,20 +35,17 @@ pub fn call(
             "cmyk" => match color {
                 Color::Luma(luma) => luma.to_cmyk().to_array().into_value(),
                 Color::Rgba(_) => {
-                    return Err("cannot obtain CMYK values from color kind 'rgba'")
-                        .at(span)
+                    bail!(span, "cannot obtain cmyk values from rgba color")
                 }
                 Color::Cmyk(cmyk) => cmyk.to_array().into_value(),
             },
             "luma" => match color {
                 Color::Luma(luma) => luma.0.into_value(),
                 Color::Rgba(_) => {
-                    return Err("cannot obtain the luma value of color kind 'rgba'")
-                        .at(span)
+                    bail!(span, "cannot obtain the luma value of rgba color")
                 }
                 Color::Cmyk(_) => {
-                    return Err("cannot obtain the luma value of color kind 'cmyk'")
-                        .at(span)
+                    bail!(span, "cannot obtain the luma value of cmyk color")
                 }
             },
             _ => return missing(),
