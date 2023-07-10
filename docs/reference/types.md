@@ -83,9 +83,9 @@ Typst supports the following length units:
 
 A length has the following fields:
 
-- `em`: Returns the amount of `em` units in this length, as a [float]($type/float).
-- `abs`: Returns a new length with just the absolute component of the current
-length (that is, excluding the `em` component).
+- `em`: The amount of `em` units in this length, as a [float]($type/float).
+- `abs`: A length with just the absolute component of the current length
+(that is, excluding the `em` component).
 
 ## Example
 ```example
