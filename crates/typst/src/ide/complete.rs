@@ -361,12 +361,17 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
     }
 
     for &field in fields_on(value.type_name()) {
-        ctx.completions.push(Completion {
-            kind: CompletionKind::Constant,
-            label: field.into(),
-            apply: None,
-            detail: None,
-        })
+        // Complete the field name along with its value. Notes:
+        // 1. No parentheses since function fields cannot currently be called
+        // with method syntax;
+        // 2. We can unwrap the field's value since it's a field belonging to
+        // this value's type, so accessing it should not fail.
+        ctx.value_completion(
+            Some(field.into()),
+            &value.field(field).unwrap(),
+            false,
+            None,
+        );
     }
 
     match value {
