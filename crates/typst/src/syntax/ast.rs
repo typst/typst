@@ -124,6 +124,8 @@ pub enum Expr {
     MathDelimited(MathDelimited),
     /// A base with optional attachments in math: `a_1^2`.
     MathAttach(MathAttach),
+    /// Grouped math primes
+    MathPrimes(MathPrimes),
     /// A fraction in math: `x/2`.
     MathFrac(MathFrac),
     /// A root in math: `√x`, `∛x` or `∜x`.
@@ -224,6 +226,7 @@ impl AstNode for Expr {
             SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
             SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
             SyntaxKind::MathAttach => node.cast().map(Self::MathAttach),
+            SyntaxKind::MathPrimes => node.cast().map(Self::MathPrimes),
             SyntaxKind::MathFrac => node.cast().map(Self::MathFrac),
             SyntaxKind::MathRoot => node.cast().map(Self::MathRoot),
             SyntaxKind::Ident => node.cast().map(Self::Ident),
@@ -285,6 +288,7 @@ impl AstNode for Expr {
             Self::MathAlignPoint(v) => v.as_untyped(),
             Self::MathDelimited(v) => v.as_untyped(),
             Self::MathAttach(v) => v.as_untyped(),
+            Self::MathPrimes(v) => v.as_untyped(),
             Self::MathFrac(v) => v.as_untyped(),
             Self::MathRoot(v) => v.as_untyped(),
             Self::Ident(v) => v.as_untyped(),
@@ -840,6 +844,25 @@ impl MathAttach {
             .children()
             .skip_while(|node| !matches!(node.kind(), SyntaxKind::Hat))
             .find_map(SyntaxNode::cast)
+    }
+
+    /// Extract primes if present.
+    pub fn primes(&self) -> Option<MathPrimes> {
+        self.0.cast_first_match()
+    }
+}
+
+node! {
+    /// Grouped primes in math: `a'''`.
+    MathPrimes
+}
+
+impl MathPrimes {
+    pub fn count(&self) -> usize {
+        self.0
+            .children()
+            .filter(|node| matches!(node.kind(), SyntaxKind::Prime))
+            .count()
     }
 }
 

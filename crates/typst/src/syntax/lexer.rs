@@ -422,13 +422,14 @@ impl Lexer<'_> {
             '|' if self.s.eat_if('|') => SyntaxKind::Shorthand,
             '~' if self.s.eat_if("~>") => SyntaxKind::Shorthand,
             '~' if self.s.eat_if('>') => SyntaxKind::Shorthand,
-            '*' | '\'' | '-' => SyntaxKind::Shorthand,
+            '*' | '-' => SyntaxKind::Shorthand,
 
             '#' => SyntaxKind::Hashtag,
             '_' => SyntaxKind::Underscore,
             '$' => SyntaxKind::Dollar,
             '/' => SyntaxKind::Slash,
             '^' => SyntaxKind::Hat,
+            '\'' => SyntaxKind::Prime,
             '&' => SyntaxKind::MathAlignPoint,
             '√' | '∛' | '∜' => SyntaxKind::Root,
 

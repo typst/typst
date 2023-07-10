@@ -147,6 +147,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::MathAttach => None,
         SyntaxKind::MathFrac => None,
         SyntaxKind::MathRoot => None,
+        SyntaxKind::MathPrimes => None,
 
         SyntaxKind::Hashtag => highlight_hashtag(node),
         SyntaxKind::LeftBrace => Some(Tag::Punctuation),
@@ -174,6 +175,7 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
             _ => Tag::Operator,
         }),
         SyntaxKind::Hat => Some(Tag::MathOperator),
+        SyntaxKind::Prime => Some(Tag::MathOperator),
         SyntaxKind::Dot => Some(Tag::Punctuation),
         SyntaxKind::Eq => match node.parent_kind() {
             Some(SyntaxKind::Heading) => None,

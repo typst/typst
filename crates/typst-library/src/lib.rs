@@ -120,6 +120,7 @@ fn items() -> LangItems {
             }
             elem.pack()
         },
+        math_primes: |count| math::PrimesElem::new(count).pack(),
         math_accent: |base, accent| {
             math::AccentElem::new(base, math::Accent::new(accent)).pack()
         },

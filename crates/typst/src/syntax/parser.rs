@@ -295,6 +295,18 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
+        SyntaxKind::Prime => {
+            // Means that there is nothing to attach the prime to.
+            continuable = true;
+            while p.at(SyntaxKind::Prime) {
+                let m2 = p.marker();
+                p.eat();
+                // Eat the group until the space.
+                while p.eat_if_direct(SyntaxKind::Prime) {}
+                p.wrap(m2, SyntaxKind::MathPrimes);
+            }
+        }
+
         _ => p.expected("expression"),
     }
 
@@ -306,6 +318,9 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         p.wrap(m, SyntaxKind::Math);
     }
 
+    // Whether there were _any_ primes in the loop.
+    let mut primed = false;
+
     while !p.eof() && !p.at(stop) {
         if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
             p.eat();
@@ -313,9 +328,38 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             continue;
         }
 
+        let prime_marker = p.marker();
+        if p.eat_if_direct(SyntaxKind::Prime) {
+            // Eat as many primes as possible.
+            while p.eat_if_direct(SyntaxKind::Prime) {}
+            p.wrap(prime_marker, SyntaxKind::MathPrimes);
+
+            // Will not be continued, so need to wrap the prime as attachment.
+            if p.at(stop) {
+                p.wrap(m, SyntaxKind::MathAttach);
+            }
+
+            primed = true;
+            continue;
+        }
+
+        // Separate primes and superscripts to different attachments.
+        if primed && p.current() == SyntaxKind::Hat {
+            p.wrap(m, SyntaxKind::MathAttach);
+        }
+
         let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
+            // No attachments, so we need to wrap primes as attachment.
+            if primed {
+                p.wrap(m, SyntaxKind::MathAttach);
+            }
+
             break;
         };
+
+        if primed && kind == SyntaxKind::MathFrac {
+            p.wrap(m, SyntaxKind::MathAttach);
+        }
 
         if prec < min_prec {
             break;
@@ -335,7 +379,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         math_expr_prec(p, prec, stop);
         math_unparen(p, m2);
 
-        if p.eat_if(SyntaxKind::Underscore) || p.eat_if(SyntaxKind::Hat) {
+        if p.eat_if(SyntaxKind::Underscore) || (!primed && p.eat_if(SyntaxKind::Hat)) {
             let m3 = p.marker();
             math_expr_prec(p, prec, SyntaxKind::Eof);
             math_unparen(p, m3);
@@ -1451,8 +1495,21 @@ impl<'s> Parser<'s> {
         self.current == kind && self.prev_end == self.current_start
     }
 
+    /// Eats if at `kind`.
+    ///
+    /// Note: In math and code mode, this will ignore trivia in front of the
+    /// `kind`, To forbid skipping trivia, consider using `eat_if_direct`.
     fn eat_if(&mut self, kind: SyntaxKind) -> bool {
         let at = self.at(kind);
+        if at {
+            self.eat();
+        }
+        at
+    }
+
+    /// Eats only if currently at the start of `kind`.
+    fn eat_if_direct(&mut self, kind: SyntaxKind) -> bool {
+        let at = self.directly_at(kind);
         if at {
             self.eat();
         }

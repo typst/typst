@@ -28,3 +28,18 @@ $sum_(k in NN)^prime 1/k^2$
 $ 1/(x^A) $
 #[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
 
+---
+// Test dedicated syntax for primes
+$a'$, $a'''_b$, $'$, $'''''''$
+
+---
+// Test spaces between
+$a' ' '$, $' ' '$, $a' '/b$
+
+---
+// Test complex prime combilnations
+$a'_b^c$, $a_b'^c$, $a_b^c'$, $a_b'^c'^d'$
+
+$(a'_b')^(c'_d')$, $a'/b'$, $a_b'/c_d'$
+
+$∫'$, $∑'$, $ ∑'_S' $

@@ -65,6 +65,8 @@ pub enum SyntaxKind {
     MathDelimited,
     /// A base with optional attachments in math: `a_1^2`.
     MathAttach,
+    /// Grouped primes in math: `a'''`.
+    MathPrimes,
     /// A fraction in math: `x/2`.
     MathFrac,
     /// A root in math: `√x`, `∛x` or `∜x`.
@@ -108,6 +110,8 @@ pub enum SyntaxKind {
     Slash,
     /// The superscript operator in math: `^`.
     Hat,
+    /// The prime in math: `'`.
+    Prime,
     /// The field access and method call operator: `.`.
     Dot,
     /// The assignment operator: `=`.
@@ -378,6 +382,7 @@ impl SyntaxKind {
             Self::MathAttach => "math attachments",
             Self::MathFrac => "math fraction",
             Self::MathRoot => "math root",
+            Self::MathPrimes => "math primes",
             Self::Hashtag => "hashtag",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",
@@ -395,6 +400,7 @@ impl SyntaxKind {
             Self::Minus => "minus",
             Self::Slash => "slash",
             Self::Hat => "hat",
+            Self::Prime => "prime",
             Self::Dot => "dot",
             Self::Eq => "equals sign",
             Self::EqEq => "equality operator",
