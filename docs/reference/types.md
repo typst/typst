@@ -89,18 +89,41 @@ Typst supports the following length units:
 ```
 
 ## Methods
-### cm()
-Converts this length to centimeters.
+### pt()
+Converts this length to points.
+
+Fails with an error if this length has non-zero `em` units
+(such as `5em + 2pt` instead of just `2pt`). Use the `abs`
+field (such as in `(5em + 2pt).abs.pt()`) to ignore the
+`em` component of the length (thus converting only its
+absolute component).
 
 - returns: float
 
 ### mm()
-Converts this length to milimeters.
+Converts this length to millimeters.
+
+Fails with an error if this length has non-zero `em` units
+(such as `5em + 2pt` instead of just `2pt`). See the
+[`pt()`]($func/float.pt) method for more info.
+
+- returns: float
+
+### cm()
+Converts this length to centimeters.
+
+Fails with an error if this length has non-zero `em` units
+(such as `5em + 2pt` instead of just `2pt`). See the
+[`pt()`]($func/float.pt) method for more info.
 
 - returns: float
 
 ### inches()
 Converts this length to inches.
+
+Fails with an error if this length has non-zero `em` units
+(such as `5em + 2pt` instead of just `2pt`). See the
+[`pt()`]($func/float.pt) method for more info.
 
 - returns: float
 
