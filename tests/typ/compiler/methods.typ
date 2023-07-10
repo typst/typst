@@ -95,15 +95,15 @@
 #test(repr(luma(40).cmyk()), repr((11.76%, 10.59%, 10.59%, 14.12%)))
 
 ---
-// Error: 2-24 cannot obtain CMYK values from color kind 'rgba'
+// Error: 2-24 cannot obtain cmyk values from rgba color
 #rgb(1, 2, 3, 4).cmyk()
 
 ---
-// Error: 2-24 cannot obtain the luma value of color kind 'rgba'
+// Error: 2-24 cannot obtain the luma value of rgba color
 #rgb(1, 2, 3, 4).luma()
 
 ---
-// Error: 2-29 cannot obtain the luma value of color kind 'cmyk'
+// Error: 2-29 cannot obtain the luma value of cmyk color
 #cmyk(4%, 5%, 6%, 7%).luma()
 
 ---
