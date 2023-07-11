@@ -630,6 +630,11 @@ fn shape_segment(
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     buffer.set_language(language(ctx.styles));
+    if let Some(script) = TextElem::writing_script_in(ctx.styles)
+        .and_then(|tag| rustybuzz::Script::from_iso15924_tag(tag.0))
+    {
+        buffer.set_script(script)
+    }
     buffer.set_direction(match ctx.dir {
         Dir::LTR => rustybuzz::Direction::LeftToRight,
         Dir::RTL => rustybuzz::Direction::RightToLeft,

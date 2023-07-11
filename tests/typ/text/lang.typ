@@ -23,6 +23,18 @@
 #text(lang: "sr")[Бб]
 
 ---
+// Verify that writing script/language combination has an effect
+#{
+  set text(size:20pt)
+  set text(writing-script:"latn", lang:"en")
+  [Ş ]
+  set text(writing-script:"latn", lang:"ro")
+  [Ş ]
+  set text(writing-script:"grek", lang:"ro")
+  [Ş ]
+}
+
+---
 // Error: 17-21 expected string, found none
 #set text(lang: none)
 

@@ -264,6 +264,26 @@ pub struct TextElem {
     #[default(TextEdge::Metric(VerticalFontMetric::Baseline))]
     pub bottom_edge: TextEdge,
 
+    /// The OpenType writing script setting.
+    /// The combination of `{writing-script}` and `{lang`} determine how
+    /// font features, such as glyph substitution, are implemented.
+    /// Frequently the value is a modified (all-lowercase) ISO 15924 script identifier, and
+    /// the `math` writing script is used for features appropriate
+    /// for mathematical symbols.
+    ///
+    /// ```example
+    /// #let scedilla = [Ş]
+    /// #set text(font:"Linux Libertine",size:20pt)
+    /// #scedilla // S with a cedilla
+    ///
+    /// #set text(writing-script:"latn",lang:"ro")
+    /// #scedilla // S with a subscript comma
+    ///
+    /// #set text(writing-script:"grek",lang:"ro")
+    /// #scedilla // S with a cedilla
+    /// ```
+    pub writing_script: Option<WritingScript>,
+
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
     /// Setting the correct language affects various parts of Typst:
@@ -705,6 +725,31 @@ cast! {
         1 ..= 20 => Self::new(v as u8),
         _ => bail!("stylistic set must be between 1 and 20"),
     },
+}
+
+/// An ISO 15924-type script identifier
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct WritingScript(Tag);
+
+impl WritingScript {
+    /// Create from a string representation of an ISO 15924-type code.
+    pub fn new(tag: EcoString) -> Self {
+        WritingScript(Tag::from_bytes_lossy(tag.as_bytes()))
+    }
+
+    /// Create from a byte array containing an ISO 15924-type code.
+    pub fn from_bytes(bytes: &[u8; 4]) -> Self {
+        WritingScript(Tag::from_bytes(bytes))
+    }
+}
+
+cast! {
+    WritingScript,
+    self => {
+        let bytes = self.0.to_bytes();
+        std::str::from_utf8(&bytes).unwrap_or_default().into_value()
+    },
+    tag: EcoString => WritingScript::new(tag),
 }
 
 /// Which kind of numbers / figures to select.
