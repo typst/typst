@@ -1,14 +1,13 @@
+use super::{cast, Args, Value};
 use crate::diag::SourceResult;
+use crate::diag::StrResult;
 use crate::Bytes;
-use ecow::EcoString;
 use std::{
     ops::{Deref, DerefMut},
     sync::{Arc, Mutex, MutexGuard},
 };
 use typst::diag::At;
-use wasmi::{Caller, Engine, Func as Function, Linker, Module, Value};
-
-use super::cast;
+use wasmi::{Caller, Engine, Func as Function, Linker, Module, Value as WasiValue};
 
 #[derive(Debug, Clone)]
 pub struct Plugin(Arc<Repr>);
@@ -45,7 +44,7 @@ struct PersistentData {
 }
 
 impl Plugin {
-    pub fn new_from_bytes(bytes: Bytes) -> Result<Self, String> {
+    pub fn new_from_bytes(bytes: Bytes) -> StrResult<Self> {
         let engine = Engine::default();
         let data = PersistentData {
             result_data: String::default(),
@@ -109,11 +108,7 @@ impl Plugin {
         self.store().data_mut().arg_buffer = all_args;
     }
 
-    pub fn call(
-        &self,
-        function: &str,
-        args: &mut typst::eval::Args,
-    ) -> SourceResult<typst::eval::Value> {
+    pub fn call(&self, function: &str, args: &mut Args) -> SourceResult<Value> {
         let span = args.span;
         let ty = self
             .get_function(function)
@@ -124,7 +119,7 @@ impl Plugin {
         let mut str_args = vec![];
         for k in 0..arg_count {
             let arg = args
-                .eat::<typst::eval::Value>()?
+                .eat::<Value>()?
                 .ok_or(format!("plugin methods takes {arg_count} args, {k} provided"))
                 .at(span)?
                 .cast::<String>()
@@ -137,7 +132,7 @@ impl Plugin {
                 str_args.iter().map(|x| x.as_str()).collect::<Vec<_>>().as_slice(),
             )
             .at(span)?;
-        Ok(typst::eval::Value::Str(s.into()))
+        Ok(Value::Str(s.into()))
     }
 
     fn call_inner(&self, function: &str, args: &[&str]) -> Result<String, String> {
@@ -148,28 +143,28 @@ impl Plugin {
             .ok_or(format!("Plugin doesn't have the method: {function}"))?;
 
         let result_args =
-            args.iter().map(|a| Value::I32(a.len() as _)).collect::<Vec<_>>();
+            args.iter().map(|a| WasiValue::I32(a.len() as _)).collect::<Vec<_>>();
 
-        let mut code = [Value::I32(2)];
+        let mut code = [WasiValue::I32(2)];
         let is_err = function
             .call(self.store().deref_mut(), &result_args, &mut code)
             .is_err();
         let code = if is_err {
-            Value::I32(2)
+            WasiValue::I32(2)
         } else {
-            code.first().cloned().unwrap_or(Value::I32(3)) // if the function returns nothing
+            code.first().cloned().unwrap_or(WasiValue::I32(3)) // if the function returns nothing
         };
 
         let s = std::mem::take(&mut self.store().data_mut().result_data);
 
         match code {
-            Value::I32(0) => Ok(s),
-            Value::I32(1) => Err(format!(
+            WasiValue::I32(0) => Ok(s),
+            WasiValue::I32(1) => Err(format!(
                 "plugin errored with: {:?} with code: {}",
                 s,
                 code.i32().unwrap()
             )),
-            Value::I32(2) => Err("plugin panicked".to_string()),
+            WasiValue::I32(2) => Err("plugin panicked".to_string()),
             _ => Err("plugin did not respect the protocol".to_string()),
         }
     }
