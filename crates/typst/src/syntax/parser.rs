@@ -1240,7 +1240,8 @@ fn validate_dict<'a>(children: impl Iterator<Item = &'a mut SyntaxNode>) {
             SyntaxKind::LeftParen
             | SyntaxKind::RightParen
             | SyntaxKind::Comma
-            | SyntaxKind::Colon => {}
+            | SyntaxKind::Colon
+            | SyntaxKind::Space => {}
             kind => {
                 child.convert_to_error(eco_format!(
                     "expected named or keyed pair, found {}",
