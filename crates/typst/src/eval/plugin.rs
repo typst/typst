@@ -1,76 +1,38 @@
 use crate::diag::SourceResult;
 use crate::Bytes;
 use ecow::EcoString;
-use std::sync::Mutex;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::{Arc, Mutex, MutexGuard},
+};
 use typst::diag::At;
-use wasmi::{AsContext, Caller, Engine, Func as Function, Linker, Module, Value};
+use wasmi::{Caller, Engine, Func as Function, Linker, Module, Value};
+
+use super::cast;
+
+#[derive(Debug, Clone)]
+pub struct Plugin(Arc<Repr>);
 
 #[derive(Debug)]
-pub struct Plugin(Mutex<PluginInstance>, Bytes);
+struct Repr {
+    bytes: Bytes,
+    functions: Vec<(String, Function)>,
+    store: Mutex<Store>,
+}
 
-impl crate::eval::Type for Plugin {
-    const TYPE_NAME: &'static str = "Plugin";
+cast! {
+    type Plugin : "plugin",
 }
 
 impl PartialEq for Plugin {
     fn eq(&self, other: &Self) -> bool {
-        self.1 == other.1
+        self.0.bytes == other.0.bytes
     }
 }
 
 impl std::hash::Hash for Plugin {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.1.hash(state);
-    }
-}
-
-impl Plugin {
-    pub fn new(instance: PluginInstance, bytes: Bytes) -> Self {
-        Self(Mutex::new(instance), bytes)
-    }
-    pub fn call(
-        &self,
-        function: &str,
-        args: &mut typst::eval::Args,
-    ) -> SourceResult<typst::eval::Value> {
-        let span = args.span;
-        let plugin = &mut self.0.lock().unwrap();
-        let ty = plugin
-            .get_function(function)
-            .ok_or("Plugin doesn't have the method: {function}")
-            .at(span)?
-            .ty(plugin.get_store());
-        let arg_count = ty.params().len();
-        let mut str_args = vec![];
-        for k in 0..arg_count {
-            let arg = args
-                .eat::<typst::eval::Value>()?
-                .ok_or(format!("plugin methods takes {arg_count} args, {k} provided"))
-                .at(span)?
-                .cast::<String>()
-                .at(span)?;
-            str_args.push(arg);
-        }
-        let s = plugin
-            .call(
-                function,
-                str_args.iter().map(|x| x.as_str()).collect::<Vec<_>>().as_slice(),
-            )
-            .at(span)?;
-        Ok(typst::eval::Value::Str(s.into()))
-    }
-
-    pub fn has_function(&self, method: &str) -> bool {
-        self.0.lock().unwrap().has_function(method)
-    }
-
-    pub fn iter_func(&self) -> Vec<EcoString> {
-        self.0
-            .lock()
-            .unwrap()
-            .iter_functions()
-            .map(|x| x.to_string().into())
-            .collect::<Vec<_>>()
+        self.0.bytes.hash(state);
     }
 }
 
@@ -82,14 +44,8 @@ struct PersistentData {
     arg_buffer: String,
 }
 
-#[derive(Debug)]
-pub struct PluginInstance {
-    store: Store,
-    functions: Vec<(String, Function)>,
-}
-
-impl PluginInstance {
-    pub fn new_from_bytes(bytes: impl AsRef<[u8]>) -> Result<Self, String> {
+impl Plugin {
+    pub fn new_from_bytes(bytes: Bytes) -> Result<Self, String> {
         let engine = Engine::default();
         let data = PersistentData {
             result_data: String::default(),
@@ -138,38 +94,73 @@ impl PluginInstance {
                 e.into_func().map(|func| (name, func))
             })
             .collect::<Vec<_>>();
-        Ok(Self { store, functions })
+        Ok(Plugin(Arc::new(Repr { bytes, functions, store: Mutex::new(store) })))
     }
 
-    pub fn write(&mut self, args: &[&str]) {
+    fn store(&self) -> MutexGuard<'_, wasmi::Store<PersistentData>> {
+        self.0.store.lock().unwrap()
+    }
+
+    fn write(&self, args: &[&str]) {
         let mut all_args = String::new();
         for arg in args {
             all_args += arg;
         }
-        self.store.data_mut().arg_buffer = all_args;
+        self.store().data_mut().arg_buffer = all_args;
     }
 
-    pub fn call(&mut self, function: &str, args: &[&str]) -> Result<String, String> {
+    pub fn call(
+        &self,
+        function: &str,
+        args: &mut typst::eval::Args,
+    ) -> SourceResult<typst::eval::Value> {
+        let span = args.span;
+        let ty = self
+            .get_function(function)
+            .ok_or("plugin doesn't have the method: {function}")
+            .at(span)?
+            .ty(self.store().deref());
+        let arg_count = ty.params().len();
+        let mut str_args = vec![];
+        for k in 0..arg_count {
+            let arg = args
+                .eat::<typst::eval::Value>()?
+                .ok_or(format!("plugin methods takes {arg_count} args, {k} provided"))
+                .at(span)?
+                .cast::<String>()
+                .at(span)?;
+            str_args.push(arg);
+        }
+        let s = self
+            .call_inner(
+                function,
+                str_args.iter().map(|x| x.as_str()).collect::<Vec<_>>().as_slice(),
+            )
+            .at(span)?;
+        Ok(typst::eval::Value::Str(s.into()))
+    }
+
+    fn call_inner(&self, function: &str, args: &[&str]) -> Result<String, String> {
         self.write(args);
 
-        let (_, function) = self
-            .functions
-            .iter()
-            .find(|(s, _)| s == function)
+        let function = self
+            .get_function(function)
             .ok_or(format!("Plugin doesn't have the method: {function}"))?;
 
         let result_args =
             args.iter().map(|a| Value::I32(a.len() as _)).collect::<Vec<_>>();
 
         let mut code = [Value::I32(2)];
-        let is_err = function.call(&mut self.store, &result_args, &mut code).is_err();
+        let is_err = function
+            .call(self.store().deref_mut(), &result_args, &mut code)
+            .is_err();
         let code = if is_err {
             Value::I32(2)
         } else {
             code.first().cloned().unwrap_or(Value::I32(3)) // if the function returns nothing
         };
 
-        let s = std::mem::take(&mut self.store.data_mut().result_data);
+        let s = std::mem::take(&mut self.store().data_mut().result_data);
 
         match code {
             Value::I32(0) => Ok(s),
@@ -184,21 +175,17 @@ impl PluginInstance {
     }
 
     pub fn has_function(&self, method: &str) -> bool {
-        self.functions.iter().any(|(s, _)| s == method)
+        self.0.functions.iter().any(|(s, _)| s == method)
     }
 
     pub fn get_function(&self, function_name: &str) -> Option<Function> {
-        let Some((_, function)) = self.functions.iter().find(|(s, _)| s == function_name) else {
+        let Some((_, function)) = self.0.functions.iter().find(|(s, _)| s == function_name) else {
             return None
         };
         Some(*function)
     }
 
     pub fn iter_functions(&self) -> impl Iterator<Item = &String> {
-        self.functions.as_slice().iter().map(|(x, _)| x)
-    }
-
-    pub fn get_store(&self) -> &impl AsContext {
-        &self.store
+        self.0.functions.as_slice().iter().map(|(func_name, _)| func_name)
     }
 }

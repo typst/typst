@@ -851,13 +851,11 @@ pub fn plugin(
     path: Spanned<EcoString>,
     /// The virtual machine.
     vm: &mut Vm,
-) -> SourceResult<super::Value> {
+) -> SourceResult<typst::eval::Plugin> {
     let Spanned { v: path, span } = path;
     let id = vm.location().join(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-
-    let plugin_instance = typst::eval::PluginInstance::new_from_bytes(&data).at(span)?;
-    Ok(typst::eval::Value::dynamic(typst::eval::Plugin::new(plugin_instance, data)))
+    typst::eval::Plugin::new_from_bytes(data).at(span)
 }
 
 #[cfg(test)]

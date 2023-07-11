@@ -27,7 +27,7 @@ mod plugin;
 mod scope;
 mod symbol;
 mod tracer;
-pub use plugin::{Plugin, PluginInstance};
+pub use plugin::Plugin;
 
 #[doc(hidden)]
 pub use {

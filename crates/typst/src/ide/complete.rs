@@ -415,10 +415,10 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
         Value::Dyn(val) => {
             if let Some(plugin) = val.downcast::<Plugin>() {
-                for func_name in plugin.iter_func() {
+                for func_name in plugin.iter_functions() {
                     ctx.completions.push(Completion {
                         kind: CompletionKind::Func,
-                        label: func_name,
+                        label: func_name.to_owned().into(),
                         apply: None,
                         detail: None,
                     })
