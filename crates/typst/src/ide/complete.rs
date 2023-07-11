@@ -7,7 +7,7 @@ use unscanny::Scanner;
 use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
-use crate::eval::{format_str, methods_on, CastInfo, Library, Scope, Value};
+use crate::eval::{fields_on, format_str, methods_on, CastInfo, Library, Scope, Value};
 use crate::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
@@ -358,6 +358,20 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
             }),
             detail: None,
         })
+    }
+
+    for &field in fields_on(value.type_name()) {
+        // Complete the field name along with its value. Notes:
+        // 1. No parentheses since function fields cannot currently be called
+        // with method syntax;
+        // 2. We can unwrap the field's value since it's a field belonging to
+        // this value's type, so accessing it should not fail.
+        ctx.value_completion(
+            Some(field.into()),
+            &value.field(field).unwrap(),
+            false,
+            None,
+        );
     }
 
     match value {

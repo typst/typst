@@ -95,6 +95,9 @@ fn items() -> LangItems {
             elem.pack()
         },
         term_item: |term, description| layout::TermItem::new(term, description).pack(),
+        rgb_func: compute::rgb_func(),
+        cmyk_func: compute::cmyk_func(),
+        luma_func: compute::luma_func(),
         equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointElem::new().pack(),
         math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),

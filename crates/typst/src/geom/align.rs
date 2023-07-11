@@ -98,6 +98,15 @@ impl GenAlign {
             Self::Specific(align) => align.axis(),
         }
     }
+
+    /// The inverse alignment.
+    pub const fn inv(self) -> Self {
+        match self {
+            Self::Start => Self::End,
+            Self::End => Self::Start,
+            Self::Specific(align) => Self::Specific(align.inv()),
+        }
+    }
 }
 
 impl From<Align> for GenAlign {

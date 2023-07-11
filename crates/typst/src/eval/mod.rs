@@ -15,6 +15,7 @@ mod value;
 mod args;
 mod auto;
 mod datetime;
+mod fields;
 mod func;
 mod int;
 mod methods;
@@ -43,6 +44,7 @@ pub use self::cast::{
 };
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
+pub use self::fields::fields_on;
 pub use self::func::{Func, FuncInfo, NativeFunc, Param, ParamInfo};
 pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::methods::methods_on;

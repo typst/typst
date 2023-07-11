@@ -81,12 +81,63 @@ Typst supports the following length units:
 - Inches: `{1in}`
 - Relative to font size: `{2.5em}`
 
+A length has the following fields:
+
+- `em`: The amount of `em` units in this length, as a [float]($type/float).
+- `abs`: A length with just the absolute component of the current length
+(that is, excluding the `em` component).
+
 ## Example
 ```example
 #rect(width: 20pt)
 #rect(width: 2em)
 #rect(width: 1in)
+
+#(3em + 5pt).em
+#(20pt).em
+
+#(40em + 2pt).abs
+#(5em).abs
 ```
+
+## Methods
+### pt()
+Converts this length to points.
+
+Fails with an error if this length has non-zero `em` units
+(such as `5em + 2pt` instead of just `2pt`). Use the `abs`
+field (such as in `(5em + 2pt).abs.pt()`) to ignore the
+`em` component of the length (thus converting only its
+absolute component).
+
+- returns: float
+
+### mm()
+Converts this length to millimeters.
+
+Fails with an error if this length has non-zero `em` units
+(such as `5em + 2pt` instead of just `2pt`). See the
+[`pt()`]($type/float.pt) method for more info.
+
+- returns: float
+
+### cm()
+Converts this length to centimeters.
+
+Fails with an error if this length has non-zero `em` units
+(such as `5em + 2pt` instead of just `2pt`). See the
+[`pt()`]($type/float.pt) method for more info.
+
+- returns: float
+
+### inches()
+Converts this length to inches.
+
+Fails with an error if this length has non-zero `em` units
+(such as `5em + 2pt` instead of just `2pt`). See the
+[`pt()`]($type/float.pt) method for more info.
+
+- returns: float
 
 # Angle
 An angle describing a rotation.
@@ -99,6 +150,17 @@ Typst supports the following angular units:
 ```example
 #rotate(10deg)[Hello there!]
 ```
+
+## Methods
+### deg()
+Converts this angle to degrees.
+
+- returns: float
+
+### rad()
+Converts this angle to radians.
+
+- returns: float
 
 # Ratio
 A ratio of a whole.
@@ -121,9 +183,16 @@ This type is a combination of a [length]($type/length) with a
 of a length and a ratio. Wherever a relative length is expected, you can also
 use a bare length or ratio.
 
+A relative length has the following fields:
+- `length`: Its length component.
+- `ratio`: Its ratio component.
+
 ## Example
 ```example
 #rect(width: 100% - 50pt)
+
+#(100% - 50pt).length
+#(100% - 50pt).ratio
 ```
 
 # Fraction
@@ -155,6 +224,16 @@ Furthermore, Typst provides the following built-in colors:
 `lime`.
 
 ## Methods
+### kind()
+Returns the constructor function for this color's kind
+([`rgb`]($func/rgb), [`cmyk`]($func/cmyk) or [`luma`]($func/luma)).
+
+```example
+#{cmyk(1%, 2%, 3%, 4%).kind() == cmyk}
+```
+
+- returns: function
+
 ### lighten()
 Lightens a color.
 
@@ -173,6 +252,33 @@ Darkens a color.
 Produces the negative of the color.
 
 - returns: color
+
+### hex()
+Returns the color's RGB(A) hex representation (such as `#ffaa32` or `#020304fe`).
+The alpha component (last two digits in `#020304fe`) is omitted if it is equal
+to `ff` (255 / 100%).
+
+- returns: string
+
+### rgba()
+Converts this color to sRGB and returns its components (R, G, B, A) as an array
+of [integers]($type/integer).
+
+- returns: array
+
+### cmyk()
+Converts this color to Digital CMYK and returns its components (C, M, Y, K) as an
+array of [ratio]($type/ratio). Note that this function will throw an error when
+applied to an [rgb]($func/rgb) color, since its conversion to CMYK is not available.
+
+- returns: array
+
+### luma()
+If this color was created with [luma]($func/luma), returns the [integer]($type/integer)
+value used on construction. Otherwise (for [rgb]($func/rgb) and [cmyk]($func/cmyk) colors),
+throws an error.
+
+- returns: integer
 
 # Datetime
 Represents a date, a time, or a combination of both. Can be created by either

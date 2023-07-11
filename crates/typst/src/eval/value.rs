@@ -8,7 +8,7 @@ use ecow::eco_format;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
-    cast, format_str, ops, Args, Array, CastInfo, Content, Dict, FromValue, Func,
+    cast, fields, format_str, ops, Args, Array, CastInfo, Content, Dict, FromValue, Func,
     IntoValue, Module, Reflect, Str, Symbol,
 };
 use crate::diag::StrResult;
@@ -132,7 +132,7 @@ impl Value {
             Self::Content(content) => content.at(field, None),
             Self::Module(module) => module.get(field).cloned(),
             Self::Func(func) => func.get(field).cloned(),
-            v => Err(eco_format!("cannot access fields on type {}", v.type_name())),
+            _ => fields::field(self, field),
         }
     }
 

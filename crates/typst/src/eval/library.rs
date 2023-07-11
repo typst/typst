@@ -6,7 +6,7 @@ use comemo::Tracked;
 use ecow::EcoString;
 use std::sync::OnceLock;
 
-use super::{Args, Dynamic, Module, Value, Vm};
+use super::{Args, Dynamic, Module, NativeFunc, Value, Vm};
 use crate::diag::SourceResult;
 use crate::doc::Document;
 use crate::geom::{Abs, Dir};
@@ -77,6 +77,12 @@ pub struct LangItems {
     pub enum_item: fn(number: Option<usize>, body: Content) -> Content,
     /// An item in a term list: `/ Term: Details`.
     pub term_item: fn(term: Content, description: Content) -> Content,
+    /// The constructor for the 'rgba' color kind.
+    pub rgb_func: &'static NativeFunc,
+    /// The constructor for the 'cmyk' color kind.
+    pub cmyk_func: &'static NativeFunc,
+    /// The constructor for the 'luma' color kind.
+    pub luma_func: &'static NativeFunc,
     /// A mathematical equation: `$x$`, `$ x^2 $`.
     pub equation: fn(body: Content, block: bool) -> Content,
     /// An alignment point in math: `&`.
@@ -144,6 +150,9 @@ impl Hash for LangItems {
         self.list_item.hash(state);
         self.enum_item.hash(state);
         self.term_item.hash(state);
+        self.rgb_func.hash(state);
+        self.cmyk_func.hash(state);
+        self.luma_func.hash(state);
         self.equation.hash(state);
         self.math_align_point.hash(state);
         self.math_delimited.hash(state);

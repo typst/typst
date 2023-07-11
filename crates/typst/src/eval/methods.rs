@@ -1,10 +1,11 @@
 //! Methods on values.
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 
 use super::{Args, IntoValue, Str, Value, Vm};
-use crate::diag::{At, SourceResult};
-use crate::eval::Datetime;
+use crate::diag::{At, Hint, SourceResult};
+use crate::eval::{bail, Datetime};
+use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
 
@@ -24,6 +25,29 @@ pub fn call(
             "lighten" => color.lighten(args.expect("amount")?).into_value(),
             "darken" => color.darken(args.expect("amount")?).into_value(),
             "negate" => color.negate().into_value(),
+            "kind" => match color {
+                Color::Luma(_) => vm.items.luma_func.into_value(),
+                Color::Rgba(_) => vm.items.rgb_func.into_value(),
+                Color::Cmyk(_) => vm.items.cmyk_func.into_value(),
+            },
+            "hex" => color.to_rgba().to_hex().into_value(),
+            "rgba" => color.to_rgba().to_array().into_value(),
+            "cmyk" => match color {
+                Color::Luma(luma) => luma.to_cmyk().to_array().into_value(),
+                Color::Rgba(_) => {
+                    bail!(span, "cannot obtain cmyk values from rgba color")
+                }
+                Color::Cmyk(cmyk) => cmyk.to_array().into_value(),
+            },
+            "luma" => match color {
+                Color::Luma(luma) => luma.0.into_value(),
+                Color::Rgba(_) => {
+                    bail!(span, "cannot obtain the luma value of rgba color")
+                }
+                Color::Cmyk(_) => {
+                    bail!(span, "cannot obtain the luma value of cmyk color")
+                }
+            },
             _ => return missing(),
         },
 
@@ -152,6 +176,30 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Length(length) => match method {
+            unit @ ("pt" | "cm" | "mm" | "inches") => {
+                if length.em != Em::zero() {
+                    return Err(eco_format!("cannot convert a length with non-zero em units ({length:?}) to {unit}"))
+                        .hint(eco_format!("use 'length.abs.{unit}()' instead to ignore its em component"))
+                        .at(span);
+                }
+                match unit {
+                    "pt" => length.abs.to_pt().into_value(),
+                    "cm" => length.abs.to_cm().into_value(),
+                    "mm" => length.abs.to_mm().into_value(),
+                    "inches" => length.abs.to_inches().into_value(),
+                    _ => unreachable!(),
+                }
+            }
+            _ => return missing(),
+        },
+
+        Value::Angle(angle) => match method {
+            "deg" => angle.to_deg().into_value(),
+            "rad" => angle.to_rad().into_value(),
+            _ => return missing(),
+        },
+
         Value::Args(args) => match method {
             "pos" => args.to_pos().into_value(),
             "named" => args.to_named().into_value(),
@@ -196,6 +244,27 @@ pub fn call(
                     "hour" => datetime.hour().into_value(),
                     "minute" => datetime.minute().into_value(),
                     "second" => datetime.second().into_value(),
+                    _ => return missing(),
+                }
+            } else if let Some(direction) = dynamic.downcast::<Dir>() {
+                match method {
+                    "axis" => direction.axis().description().into_value(),
+                    "start" => {
+                        GenAlign::from(Align::from(direction.start())).into_value()
+                    }
+                    "end" => GenAlign::from(Align::from(direction.end())).into_value(),
+                    "inv" => direction.inv().into_value(),
+                    _ => return missing(),
+                }
+            } else if let Some(align) = dynamic.downcast::<GenAlign>() {
+                match method {
+                    "axis" => align.axis().description().into_value(),
+                    "inv" => align.inv().into_value(),
+                    _ => return missing(),
+                }
+            } else if let Some(align2d) = dynamic.downcast::<Axes<GenAlign>>() {
+                match method {
+                    "inv" => align2d.map(GenAlign::inv).into_value(),
                     _ => return missing(),
                 }
             } else {
@@ -294,7 +363,16 @@ fn missing_method(type_name: &str, method: &str) -> String {
 /// List the available methods for a type and whether they take arguments.
 pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
     match type_name {
-        "color" => &[("lighten", true), ("darken", true), ("negate", false)],
+        "color" => &[
+            ("lighten", true),
+            ("darken", true),
+            ("negate", false),
+            ("kind", false),
+            ("hex", false),
+            ("rgba", false),
+            ("cmyk", false),
+            ("luma", false),
+        ],
         "string" => &[
             ("len", false),
             ("at", true),
@@ -357,9 +435,16 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("values", false),
         ],
         "function" => &[("where", true), ("with", true)],
+        "length" => &[("pt", false), ("cm", false), ("mm", false), ("inches", false)],
+        "angle" => &[("deg", false), ("rad", false)],
         "arguments" => &[("named", false), ("pos", false)],
         "location" => &[("page", false), ("position", false), ("page-numbering", false)],
         "selector" => &[("or", true), ("and", true), ("before", true), ("after", true)],
+        "direction" => {
+            &[("axis", false), ("start", false), ("end", false), ("inv", false)]
+        }
+        "alignment" => &[("axis", false), ("inv", false)],
+        "2d alignment" => &[("inv", false)],
         "counter" => &[
             ("display", true),
             ("at", true),

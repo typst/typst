@@ -178,14 +178,19 @@ impl Axis {
             Self::Y => Self::X,
         }
     }
+
+    /// A description of this axis' direction.
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::X => "horizontal",
+            Self::Y => "vertical",
+        }
+    }
 }
 
 impl Debug for Axis {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::X => "horizontal",
-            Self::Y => "vertical",
-        })
+        f.pad(self.description())
     }
 }
 

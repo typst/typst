@@ -62,3 +62,89 @@
 ---
 // Error: 9-13 cannot access fields on type boolean
 #{false.true}
+
+---
+// Test relative length fields.
+#test((100% + 2em + 2pt).ratio, 100%)
+#test((100% + 2em + 2pt).length, 2em + 2pt)
+#test((100% + 2pt).length, 2pt)
+#test((100% + 2pt - 2pt).length, 0pt)
+#test((56% + 2pt - 56%).ratio, 0%)
+
+---
+// Test length fields.
+#test((1pt).em, 0em)
+#test((1pt).abs, 1pt)
+#test((3em).em, 3em)
+#test((3em).abs, 0pt)
+#test((2em + 2pt).em, 2em)
+#test((2em + 2pt).abs, 2pt)
+
+---
+// Test stroke fields for simple strokes.
+#test((1em + blue).paint, blue)
+#test((1em + blue).thickness, 1em)
+#test((1em + blue).cap, "butt")
+#test((1em + blue).join, "miter")
+#test((1em + blue).dash, none)
+#test((1em + blue).miter-limit, 4.0)
+
+---
+// Test complex stroke fields.
+#let r1 = rect(stroke: (paint: cmyk(1%, 2%, 3%, 4%), thickness: 4em + 2pt, cap: "round", join: "bevel", miter-limit: 5.0, dash: none))
+#let r2 = rect(stroke: (paint: cmyk(1%, 2%, 3%, 4%), thickness: 4em + 2pt, cap: "round", join: "bevel", miter-limit: 5.0, dash: (3pt, "dot", 4em)))
+#let r3 = rect(stroke: (paint: cmyk(1%, 2%, 3%, 4%), thickness: 4em + 2pt, cap: "round", join: "bevel", dash: (array: (3pt, "dot", 4em), phase: 5em)))
+#let s1 = r1.stroke
+#let s2 = r2.stroke
+#let s3 = r3.stroke
+#test(s1.paint, cmyk(1%, 2%, 3%, 4%))
+#test(s1.thickness, 4em + 2pt)
+#test(s1.cap, "round")
+#test(s1.join, "bevel")
+#test(s1.miter-limit, 5.0)
+#test(s3.miter-limit, 4.0)
+#test(s1.dash, none)
+#test(s2.dash, (array: (3pt, "dot", 4em), phase: 0pt))
+#test(s3.dash, (array: (3pt, "dot", 4em), phase: 5em))
+
+---
+// Test 2d alignment 'horizontal' field.
+#test((start + top).x, start)
+#test((end + top).x, end)
+#test((left + top).x, left)
+#test((right + top).x, right)
+#test((center + top).x, center)
+#test((start + bottom).x, start)
+#test((end + bottom).x, end)
+#test((left + bottom).x, left)
+#test((right + bottom).x, right)
+#test((center + bottom).x, center)
+#test((start + horizon).x, start)
+#test((end + horizon).x, end)
+#test((left + horizon).x, left)
+#test((right + horizon).x, right)
+#test((center + horizon).x, center)
+#test((top + start).x, start)
+#test((bottom + end).x, end)
+#test((horizon + center).x, center)
+
+---
+// Test 2d alignment 'vertical' field.
+#test((start + top).y, top)
+#test((end + top).y, top)
+#test((left + top).y, top)
+#test((right + top).y, top)
+#test((center + top).y, top)
+#test((start + bottom).y, bottom)
+#test((end + bottom).y, bottom)
+#test((left + bottom).y, bottom)
+#test((right + bottom).y, bottom)
+#test((center + bottom).y, bottom)
+#test((start + horizon).y, horizon)
+#test((end + horizon).y, horizon)
+#test((left + horizon).y, horizon)
+#test((right + horizon).y, horizon)
+#test((center + horizon).y, horizon)
+#test((top + start).y, top)
+#test((bottom + end).y, bottom)
+#test((horizon + center).y, horizon)

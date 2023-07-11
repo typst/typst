@@ -1,3 +1,4 @@
+use ecow::{eco_format, EcoString};
 use std::str::FromStr;
 
 use super::*;
@@ -287,6 +288,20 @@ impl RgbaColor {
             a: self.a,
         }
     }
+
+    /// Converts this color to a RGB Hex Code.
+    pub fn to_hex(self) -> EcoString {
+        if self.a != 255 {
+            eco_format!("#{:02x}{:02x}{:02x}{:02x}", self.r, self.g, self.b, self.a)
+        } else {
+            eco_format!("#{:02x}{:02x}{:02x}", self.r, self.g, self.b)
+        }
+    }
+
+    /// Converts this color to an array of R, G, B, A components.
+    pub fn to_array(self) -> Array {
+        array![self.r, self.g, self.b, self.a]
+    }
 }
 
 impl FromStr for RgbaColor {
@@ -335,11 +350,7 @@ impl Debug for RgbaColor {
         if f.alternate() {
             write!(f, "rgba({}, {}, {}, {})", self.r, self.g, self.b, self.a,)?;
         } else {
-            write!(f, "rgb(\"#{:02x}{:02x}{:02x}", self.r, self.g, self.b)?;
-            if self.a != 255 {
-                write!(f, "{:02x}", self.a)?;
-            }
-            write!(f, "\")")?;
+            write!(f, "rgb(\"{}\")", self.to_hex())?;
         }
         Ok(())
     }
@@ -420,6 +431,13 @@ impl CmykColor {
             k: self.k,
         }
     }
+
+    /// Converts this color to an array of C, M, Y, K components.
+    pub fn to_array(self) -> Array {
+        // convert to ratio
+        let g = |c| Ratio::new(c as f64 / 255.0);
+        array![g(self.c), g(self.m), g(self.y), g(self.k)]
+    }
 }
 
 impl Debug for CmykColor {
@@ -440,6 +458,11 @@ impl From<CmykColor> for Color {
     fn from(cmyk: CmykColor) -> Self {
         Self::Cmyk(cmyk)
     }
+}
+
+cast! {
+    CmykColor,
+    self => Value::Color(self.into()),
 }
 
 /// Convert to the closest u8.
