@@ -2,7 +2,7 @@
 
 use ecow::{eco_format, EcoString};
 
-use super::{Args, IntoValue, Str, Value, Vm};
+use super::{Args, IntoValue, Plugin, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
 use crate::eval::{bail, Datetime};
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
@@ -279,6 +279,12 @@ pub fn call(
                 match method {
                     "inv" => align2d.map(GenAlign::inv).into_value(),
                     _ => return missing(),
+                }
+            } else if let Some(plugin) = dynamic.downcast::<Plugin>() {
+                if plugin.has_function(method) {
+                    plugin.call(method, &mut args)?.into_value()
+                } else {
+                    return missing();
                 }
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);

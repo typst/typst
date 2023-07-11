@@ -9,7 +9,7 @@ use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
 use crate::eval::{
-    fields_on, format_str, methods_on, CastInfo, Func, Library, Scope, Value,
+    fields_on, format_str, methods_on, CastInfo, Func, Library, Plugin, Scope, Value,
 };
 use crate::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
@@ -410,6 +410,18 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 // Consider all names from the function's scope.
                 for (name, value) in info.scope.iter() {
                     ctx.value_completion(Some(name.clone()), value, true, None);
+                }
+            }
+        }
+        Value::Dyn(val) => {
+            if let Some(plugin) = val.downcast::<Plugin>() {
+                for func_name in plugin.iter_func() {
+                    ctx.completions.push(Completion {
+                        kind: CompletionKind::Func,
+                        label: func_name,
+                        apply: None,
+                        detail: None,
+                    })
                 }
             }
         }

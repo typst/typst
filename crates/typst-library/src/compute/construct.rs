@@ -831,6 +831,35 @@ pub fn range(
     Ok(array)
 }
 
+/// Loads a wasm plugin and return a plugin instance.
+///
+/// Plugins functions may accept strings as argument and
+/// return a single string.
+///
+/// ## Example { #example }
+/// ```example
+/// #let plugin = plugin("hello.wasm")
+///
+/// #plugin.hello() // returns the string hello world
+/// ```
+///
+/// Display: Plugin
+/// Category: data-loading
+#[func]
+pub fn plugin(
+    /// Path to a file.
+    path: Spanned<EcoString>,
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<super::Value> {
+    let Spanned { v: path, span } = path;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
+
+    let plugin_instance = typst::eval::PluginInstance::new_from_bytes(&data).at(span)?;
+    Ok(typst::eval::Value::dynamic(typst::eval::Plugin::new(plugin_instance, data)))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

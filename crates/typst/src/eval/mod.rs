@@ -23,9 +23,11 @@ mod methods;
 mod module;
 mod none;
 pub mod ops;
+mod plugin;
 mod scope;
 mod symbol;
 mod tracer;
+pub use plugin::{Plugin, PluginInstance};
 
 #[doc(hidden)]
 pub use {
