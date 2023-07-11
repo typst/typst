@@ -281,7 +281,7 @@ pub fn call(
                     _ => return missing(),
                 }
             } else if let Some(plugin) = dynamic.downcast::<Plugin>() {
-                if plugin.has_function(method) {
+                if plugin.iter_functions().any(|func_name| func_name == method) {
                     plugin.call(method, &mut args)?.into_value()
                 } else {
                     return missing();

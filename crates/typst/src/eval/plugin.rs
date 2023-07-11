@@ -169,10 +169,6 @@ impl Plugin {
         }
     }
 
-    pub fn has_function(&self, method: &str) -> bool {
-        self.0.functions.iter().any(|(s, _)| s == method)
-    }
-
     pub fn get_function(&self, function_name: &str) -> Option<Function> {
         let Some((_, function)) = self.0.functions.iter().find(|(s, _)| s == function_name) else {
             return None
