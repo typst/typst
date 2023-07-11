@@ -27,7 +27,6 @@ mod plugin;
 mod scope;
 mod symbol;
 mod tracer;
-pub use plugin::Plugin;
 
 #[doc(hidden)]
 pub use {
@@ -55,6 +54,7 @@ pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::methods::methods_on;
 pub use self::module::Module;
 pub use self::none::NoneValue;
+pub use self::plugin::Plugin;
 pub use self::scope::{Scope, Scopes};
 pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::Symbol;

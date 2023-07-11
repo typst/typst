@@ -831,7 +831,7 @@ pub fn range(
     Ok(array)
 }
 
-/// Loads a wasm plugin and return a plugin instance.
+/// Loads a WebAssembly plugin.
 ///
 /// Plugins functions may accept strings as argument and
 /// return a single string.
@@ -840,7 +840,7 @@ pub fn range(
 /// ```example
 /// #let plugin = plugin("hello.wasm")
 ///
-/// #plugin.hello() // returns the string hello world
+/// #plugin.hello()
 /// ```
 ///
 /// Display: Plugin
