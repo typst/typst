@@ -224,6 +224,12 @@ impl Show for RawElem {
 
         let theme = theme.as_deref().unwrap_or(&THEME);
 
+        let foreground = theme
+            .settings
+            .foreground
+            .map(to_typst)
+            .map_or(Color::BLACK, Color::from);
+
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
                 Some("typc") => syntax::parse_code(&text),
@@ -237,7 +243,7 @@ impl Show for RawElem {
                 vec![],
                 &highlighter,
                 &mut |node, style| {
-                    seq.push(styled(&text[node.range()], style));
+                    seq.push(styled(&text[node.range()], foreground.into(), style));
                 },
             );
 
@@ -262,7 +268,7 @@ impl Show for RawElem {
                 for (style, piece) in
                     highlighter.highlight_line(line, syntax_set).into_iter().flatten()
                 {
-                    seq.push(styled(piece, style));
+                    seq.push(styled(piece, foreground.into(), style));
                 }
             }
 
@@ -271,15 +277,10 @@ impl Show for RawElem {
             TextElem::packed(text)
         };
 
-        let background = theme.settings.background.map(to_typst);
-
         if self.block(styles) {
             // Align the text before inserting it into the block.
             realized = realized.aligned(Axes::with_x(Some(self.align(styles).into())));
-            realized = BlockElem::new()
-                .with_body(Some(realized))
-                .with_fill(background.map(From::from))
-                .pack();
+            realized = BlockElem::new().with_body(Some(realized)).pack();
         }
 
         Ok(realized)
@@ -361,11 +362,13 @@ fn highlight_themed<F>(
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, style: synt::Style) -> Content {
+fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
     let mut body = TextElem::packed(piece);
 
     let paint = to_typst(style.foreground).into();
-    body = body.styled(TextElem::set_fill(paint));
+    if paint != foreground {
+        body = body.styled(TextElem::set_fill(paint));
+    }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {
         body = body.strong();
