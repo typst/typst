@@ -246,8 +246,8 @@ pub struct TextElem {
     /// #set text(top-edge: "cap-height")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    #[default(TextEdge::Metric(VerticalFontMetric::CapHeight))]
-    pub top_edge: TextEdge,
+    #[default(TextTopEdge::Metric(TopEdgeMetric::CapHeight))]
+    pub top_edge: TextTopEdge,
 
     /// The bottom end of the conceptual frame around the text used for layout
     /// and positioning. This affects the size of containers that hold text.
@@ -262,8 +262,8 @@ pub struct TextElem {
     /// #set text(bottom-edge: "descender")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    #[default(TextEdge::Metric(VerticalFontMetric::Baseline))]
-    pub bottom_edge: TextEdge,
+    #[default(TextBottomEdge::Metric(BottomEdgeMetric::Baseline))]
+    pub bottom_edge: TextBottomEdge,
 
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
@@ -607,55 +607,137 @@ cast! {
     v: Length => Self(v),
 }
 
-/// Specifies the bottom or top edge of a bounding box.
+/// Metrics that describe the top edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum BboxVertical {
+pub enum TopEdgeMetric {
+    /// The font's ascender, which typically exceeds the height of all glyphs.
+    Ascender,
+    /// The approximate height of uppercase letters.
+    CapHeight,
+    /// The approximate height of non-ascending lowercase letters.
+    XHeight,
+    /// The baseline on which the letters rest.
+    Baseline,
     /// The top edge of the bounding box.
-    BboxTop,
-    /// The bottom edge of the bounding box.
-    BboxBottom,
+    BoundingBox,
 }
 
-/// Specifies the bottom or top edge of text.
+impl TryInto<VerticalFontMetric> for TopEdgeMetric {
+    type Error = ();
+
+    fn try_into(self) -> Result<VerticalFontMetric, Self::Error> {
+        match self {
+            Self::Ascender => Ok(VerticalFontMetric::Ascender),
+            Self::CapHeight => Ok(VerticalFontMetric::CapHeight),
+            Self::XHeight => Ok(VerticalFontMetric::XHeight),
+            Self::Baseline => Ok(VerticalFontMetric::Baseline),
+            _ => Err(()),
+        }
+    }
+}
+
+/// Metrics that describe the bottom edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum BottomEdgeMetric {
+    /// The baseline on which the letters rest.
+    Baseline,
+    /// The font's descender, which typically exceeds the depth of all glyphs.
+    Descender,
+    /// The bottom edge of the bounding box.
+    BoundingBox,
+}
+
+impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
+    type Error = ();
+
+    fn try_into(self) -> Result<VerticalFontMetric, Self::Error> {
+        match self {
+            Self::Baseline => Ok(VerticalFontMetric::Baseline),
+            Self::Descender => Ok(VerticalFontMetric::Descender),
+            _ => Err(()),
+        }
+    }
+}
+
+/// Specifies the top edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum TextEdge {
-    /// An edge specified using one of the well-known font metrics.
-    Metric(VerticalFontMetric),
-    /// An edge specified by the bounding box of the text.
-    Bbox(BboxVertical),
+pub enum TextTopEdge {
+    /// An edge specified via font metrics or bounding box.
+    Metric(TopEdgeMetric),
     /// An edge specified as a length.
     Length(Length),
 }
 
-impl TextEdge {
-    /// Determine if edge is specified from bounding box info
+impl TextTopEdge {
+    /// Determine if the edge is specified from bounding box info
+    #[inline(always)]
     pub fn is_bbox(&self) -> bool {
-        matches!(self, Self::Bbox(_))
+        matches!(self, Self::Metric(TopEdgeMetric::BoundingBox))
     }
     /// Resolve the value of the text edge given a font's metrics.
     pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
-            TextEdge::Metric(metric) => font.metrics().vertical(metric).resolve(styles),
-            TextEdge::Length(length) => length.resolve(styles),
-            TextEdge::Bbox(BboxVertical::BboxTop) => bbox
-                .map(|bbox| (font.to_em(bbox.y_max)).resolve(styles))
-                .unwrap_or(Abs::zero()),
-            TextEdge::Bbox(BboxVertical::BboxBottom) => bbox
-                .map(|bbox| (font.to_em(bbox.y_min)).resolve(styles))
-                .unwrap_or(Abs::zero()),
+            TextTopEdge::Metric(metric) => {
+                if let Ok(metric) = metric.try_into() {
+                    font.metrics().vertical(metric).resolve(styles)
+                } else {
+                    bbox.map(|bbox| (font.to_em(bbox.y_max)).resolve(styles))
+                        .unwrap_or(Abs::zero())
+                }
+            }
+            TextTopEdge::Length(length) => length.resolve(styles),
         }
     }
 }
 
 cast! {
-    TextEdge,
+    TextTopEdge,
     self => match self {
         Self::Metric(metric) => metric.into_value(),
-        Self::Bbox(bbv) => bbv.into_value(),
         Self::Length(length) => length.into_value(),
     },
-    v: VerticalFontMetric => Self::Metric(v),
-    v: BboxVertical => Self::Bbox(v),
+    v: TopEdgeMetric => Self::Metric(v),
+    v: Length => Self::Length(v),
+}
+
+/// Specifies the top edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum TextBottomEdge {
+    /// An edge specified via font metrics or bounding box.
+    Metric(BottomEdgeMetric),
+    /// An edge specified as a length.
+    Length(Length),
+}
+
+impl TextBottomEdge {
+    /// Determine if the edge is specified from bounding box info
+    #[inline(always)]
+    pub fn is_bbox(&self) -> bool {
+        matches!(self, Self::Metric(BottomEdgeMetric::BoundingBox))
+    }
+    /// Resolve the value of the text edge given a font's metrics.
+    pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
+        match self {
+            TextBottomEdge::Metric(metric) => {
+                if let Ok(metric) = metric.try_into() {
+                    font.metrics().vertical(metric).resolve(styles)
+                } else {
+                    bbox.map(|bbox| (font.to_em(bbox.y_min)).resolve(styles))
+                        .unwrap_or(Abs::zero())
+                }
+            }
+            TextBottomEdge::Length(length) => length.resolve(styles),
+        }
+    }
+}
+
+cast! {
+    TextBottomEdge,
+    self => match self {
+        Self::Metric(metric) => metric.into_value(),
+        Self::Length(length) => length.into_value(),
+    },
+    v: BottomEdgeMetric => Self::Metric(v),
     v: Length => Self::Length(v),
 }
 
