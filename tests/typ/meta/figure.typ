@@ -100,3 +100,19 @@ We can clearly see that @fig-cylinder and
 #show figure: set block(breakable: true)
 
 #figure(table[a][b][c][d][e], caption: [A table])
+
+---
+// Test figure.caption element
+#show figure.caption: emph
+
+#figure("Not italicized", caption: "Italicized")
+
+---
+// Test figure.caption element for specific figure kinds
+#show figure.where(kind: table): it => {
+  show figure.caption: underline
+  it
+}
+
+#figure([Not a table], caption: "Not underlined")
+#figure(table[A table], caption: "Underlined")
