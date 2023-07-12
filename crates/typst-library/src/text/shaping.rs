@@ -631,6 +631,7 @@ fn shape_segment(
     buffer.push_str(text);
     buffer.set_language(language(ctx.styles));
     if let Some(script) = TextElem::writing_script_in(ctx.styles)
+        .as_custom()
         .and_then(|tag| rustybuzz::Script::from_iso15924_tag(tag.0))
     {
         buffer.set_script(script)

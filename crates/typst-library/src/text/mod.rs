@@ -282,7 +282,7 @@ pub struct TextElem {
     /// #set text(writing-script:"grek",lang:"ro")
     /// #scedilla // S with a cedilla
     /// ```
-    pub writing_script: Option<WritingScript>,
+    pub writing_script: Smart<WritingScript>,
 
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
