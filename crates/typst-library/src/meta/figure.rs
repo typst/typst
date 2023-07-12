@@ -78,6 +78,10 @@ use crate::visualize::ImageElem;
 /// Display: Figure
 /// Category: meta
 #[element(Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
+#[scope(
+    scope.define("caption", FigureCaption::func());
+    scope
+)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($func/image).
     #[required]
@@ -286,7 +290,8 @@ impl Show for FigureElem {
         let mut realized = self.body();
 
         // Build the caption, if any.
-        if let Some(caption) = self.full_caption(vt)? {
+        if let Some(caption_content) = self.full_caption(vt)? {
+            let caption = FigureCaption::new(caption_content).pack();
             let v = VElem::weak(self.gap(styles).into()).pack();
             realized = if matches!(
                 self.caption_pos(styles),
@@ -390,6 +395,29 @@ impl FigureElem {
         }
 
         Ok(Some(caption))
+    }
+}
+
+/// The caption of a figure.
+///
+/// Display: Figure Caption
+/// Category: meta
+#[element(Show)]
+pub struct FigureCaption {
+    /// The caption's body.
+    #[required]
+    pub body: Content,
+}
+
+cast! {
+    FigureCaption,
+    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+}
+
+impl Show for FigureCaption {
+    #[tracing::instrument(name = "FigureCaption::show", skip(self))]
+    fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+        Ok(self.body())
     }
 }
 
