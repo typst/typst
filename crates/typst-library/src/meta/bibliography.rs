@@ -359,6 +359,10 @@ pub struct CiteElem {
     /// #bibliography("works.bib")
     /// ```
     pub style: Smart<CitationStyle>,
+
+    /// Whether multiple citations should be sorted by their order in
+    /// the bibliography.
+    pub sort: Smart<bool>,
 }
 
 impl Synthesize for CiteElem {
@@ -366,6 +370,7 @@ impl Synthesize for CiteElem {
         self.push_supplement(self.supplement(styles));
         self.push_brackets(self.brackets(styles));
         self.push_style(self.style(styles));
+        self.push_sort(self.sort(styles));
         Ok(())
     }
 }
@@ -484,17 +489,29 @@ fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works
     let mut citation_style: Box<dyn style::CitationStyle> =
         Box::new(style::Numerical::new());
 
+    let bibliography_style: Box<dyn style::BibliographyStyle> = match style {
+        BibliographyStyle::Apa => Box::new(style::Apa::new()),
+        BibliographyStyle::ChicagoAuthorDate => Box::new(style::ChicagoAuthorDate::new()),
+        BibliographyStyle::ChicagoNotes => Box::new(style::ChicagoNotes::new()),
+        BibliographyStyle::Ieee => Box::new(style::Ieee::new()),
+        BibliographyStyle::Mla => Box::new(style::Mla::new()),
+    };
+    let bibliography = db.bibliography(&*bibliography_style, None);
+
     let citations = preliminary
         .into_iter()
         .map(|(citation, cited)| {
             let location = citation.0.location().unwrap();
-            let Some(cited) = cited else { return (location, None) };
+            let Some(mut cited) = cited else { return (location, None) };
 
             let mut supplement = citation.supplement(StyleChain::default());
             let brackets = citation.brackets(StyleChain::default());
             let style = citation
                 .style(StyleChain::default())
                 .unwrap_or(style.default_citation_style());
+            let sort_entries = citation
+                .sort(StyleChain::default())
+                .unwrap_or(style == CitationStyle::Numerical);
 
             if style != current {
                 current = style;
@@ -512,6 +529,14 @@ fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works
                     }
                     CitationStyle::Keys => Box::new(style::Keys::new()),
                 };
+            }
+
+            if sort_entries {
+                cited.sort_by_cached_key(|entry| {
+                    bibliography
+                        .iter()
+                        .position(|bib_entry| std::ptr::eq(bib_entry.entry, *entry))
+                });
             }
 
             let len = cited.len();
@@ -565,16 +590,10 @@ fn create(bibliography: BibliographyElem, citations: Vec<CiteElem>) -> Arc<Works
         })
         .collect();
 
-    let bibliography_style: Box<dyn style::BibliographyStyle> = match style {
-        BibliographyStyle::Apa => Box::new(style::Apa::new()),
-        BibliographyStyle::ChicagoAuthorDate => Box::new(style::ChicagoAuthorDate::new()),
-        BibliographyStyle::ChicagoNotes => Box::new(style::ChicagoNotes::new()),
-        BibliographyStyle::Ieee => Box::new(style::Ieee::new()),
-        BibliographyStyle::Mla => Box::new(style::Mla::new()),
-    };
-
-    let references = db
-        .bibliography(&*bibliography_style, None)
+    // Recompute this, as prior Database::citation calls might have
+    // mutated the db
+    let bibliography = db.bibliography(&*bibliography_style, None);
+    let references = bibliography
         .into_iter()
         .map(|reference| {
             let backlink = ref_location(reference.entry);

@@ -41,3 +41,20 @@ And quark! @quark
 = Multiple Bibs
 Now we have multiple bibliographies containing #cite("glacier-melt", "keshav2007read")
 #bibliography(("/files/works.bib", "/files/works_too.bib"))
+
+---
+#set bibliography(style: "apa")
+
+#set cite(sort: true)
+
+Sort by order of apperance:
+#cite("tolkien54", "sharing")
+#cite("sharing", "tolkien54")
+
+#set cite(sort: false)
+
+Do not sort:
+#cite("tolkien54", "sharing")
+#cite("sharing", "tolkien54")
+
+#bibliography("/files/works.bib")
