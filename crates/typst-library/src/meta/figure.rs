@@ -398,7 +398,22 @@ impl FigureElem {
     }
 }
 
-/// The caption of a figure.
+/// The caption of a figure, including the supplement and counter.
+///
+/// This element is intended to be used in show rules to customize the
+/// appearance of the whole caption for all figure kinds.
+///
+/// ```example
+/// #show figure.caption: emph
+///
+/// #figure(
+///   rect(),
+///   caption: [A rectangle],
+/// )
+/// ```
+///
+/// When using a show rule for figures, you can wrap the full caption in a
+/// `{figure.caption}` element if you want it to be styled as other captions.
 ///
 /// Display: Figure Caption
 /// Category: meta
