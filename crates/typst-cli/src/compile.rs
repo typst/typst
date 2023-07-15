@@ -86,6 +86,7 @@ pub fn compile_once(
 fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
     match command.output().extension() {
         Some(ext) if ext.eq_ignore_ascii_case("png") => export_png(document, command),
+        Some(ext) if ext.eq_ignore_ascii_case("svg") => export_svg(document, command),
         _ => export_pdf(document, command),
     }
 }
@@ -125,6 +126,13 @@ fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
         pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
     }
 
+    Ok(())
+}
+
+fn export_svg(document: &Document, command: &CompileCommand) -> StrResult<()> {
+    let output = command.output();
+    let buffer = typst::export::svg(&document.pages[0]);
+    fs::write(output, buffer).map_err(|_| "failed to write SVG file")?;
     Ok(())
 }
 
