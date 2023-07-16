@@ -11,7 +11,8 @@ $a not b$ \
 $a+b, a*b$ \
 $sum x, sum(x)$ \
 $sum product x$ \
-$f(x), zeta(x), "frac"(x)$
+$f(x), zeta(x), "frac"(x)$ \
+$a+dots.c+b$
 
 ---
 // Test ignored vs non-ignored spaces.
