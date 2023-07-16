@@ -130,9 +130,31 @@ fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
 }
 
 fn export_svg(document: &Document, command: &CompileCommand) -> StrResult<()> {
+    // Determine whether we have a `{n}` numbering.
     let output = command.output();
-    let buffer = typst::export::svg(&document.pages[0]);
-    fs::write(output, buffer).map_err(|_| "failed to write SVG file")?;
+    let string = output.to_str().unwrap_or_default();
+    let numbered = string.contains("{n}");
+    if !numbered && document.pages.len() > 1 {
+        bail!("cannot export multiple PNGs without `{{n}}` in output path");
+    }
+
+    // Find a number width that accommodates all pages. For instance, the
+    // first page should be numbered "001" if there are between 100 and
+    // 999 pages.
+    let width = 1 + document.pages.len().checked_ilog10().unwrap_or(0) as usize;
+    let mut storage;
+
+    for (i, frame) in document.pages.iter().enumerate() {
+        let svg = typst::export::svg(frame);
+        let path = if numbered {
+            storage = string.replace("{n}", &format!("{:0width$}", i + 1));
+            Path::new(&storage)
+        } else {
+            output.as_path()
+        };
+        fs::write(path, svg).map_err(|_| "failed to write SVG file")?;
+    }
+
     Ok(())
 }
 
