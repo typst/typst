@@ -3,14 +3,15 @@ use std::{
     fmt::{Display, Write},
 };
 
+use base64::Engine;
 use ttf_parser::{GlyphId, OutlineBuilder};
 
-use crate::geom::Paint::Solid;
 use crate::{
     doc::{Frame, TextItem},
     geom::{Abs, Axes, Shape, Transform},
     util::hash128,
 };
+use crate::{geom::Paint::Solid, image::Image};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct GlyphHash(u128);
@@ -83,12 +84,14 @@ impl SVGRenderer {
             let y = pos.y.to_f32();
             let str = match item {
                 crate::doc::FrameItem::Group(group) => {
-                    assert!(!group.clips); // fixme: assume that group has no clip path
+                    // assert!(!group.clips); // fixme: assume that group has no clip path
                     self.render_page(&group.frame, group.transform)
                 }
                 crate::doc::FrameItem::Text(text) => self.render_text(text),
                 crate::doc::FrameItem::Shape(shape, _) => self.render_shape(shape),
-                crate::doc::FrameItem::Image(_, _, _) => todo!(),
+                crate::doc::FrameItem::Image(image, size, _) => {
+                    self.render_image(image, size)
+                }
                 crate::doc::FrameItem::Meta(_, _) => continue,
             };
             page.push_str(format!(r#"<g transform="translate({} {})">"#, x, y).as_str());
@@ -216,6 +219,28 @@ impl SVGRenderer {
             }
         };
         format!(r#"<path d="{}" {} />"#, path_builder.0, attr_set,)
+    }
+
+    fn render_image(&mut self, image: &Image, size: &Axes<Abs>) -> String {
+        let format = match image.format() {
+            crate::image::ImageFormat::Raster(f) => match f {
+                crate::image::RasterFormat::Png => "jpeg",
+                crate::image::RasterFormat::Jpg => "png",
+                crate::image::RasterFormat::Gif => "gif",
+            },
+            crate::image::ImageFormat::Vector(f) => match f {
+                crate::image::VectorFormat::Svg => "svg+xml",
+            },
+        };
+        let mut url = format!("data:image/{};base64,", format);
+        let data = base64::engine::general_purpose::STANDARD.encode(image.data());
+        url.push_str(&data);
+        format!(
+            r#"<image x="0" y="0" width="{}" height="{}" style="fill" xlink:href="{}" preserveAspectRatio="none" />"#,
+            size.x.to_pt(),
+            size.y.to_pt(),
+            url
+        )
     }
 }
 
