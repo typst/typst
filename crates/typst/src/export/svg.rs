@@ -14,17 +14,19 @@ use crate::{
 use crate::{geom::Paint::Solid, image::Image};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct GlyphHash(u128);
+struct RenderHash(u128);
 
-impl From<u128> for GlyphHash {
+impl From<u128> for RenderHash {
     fn from(value: u128) -> Self {
         Self(value)
     }
 }
 
-impl Display for GlyphHash {
+impl Display for RenderHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:x}", self.0)
+        base64::engine::general_purpose::STANDARD
+            .encode(self.0.to_le_bytes())
+            .fmt(f)
     }
 }
 
@@ -39,7 +41,8 @@ pub fn svg(page: &Frame) -> String {
 #[derive(Debug, Clone, Default)]
 struct SVGRenderer {
     body: String,
-    glyphs: HashMap<GlyphHash, String>,
+    glyphs: HashMap<RenderHash, String>,
+    clip_paths: HashMap<RenderHash, String>,
 }
 
 impl SVGRenderer {
@@ -59,6 +62,16 @@ impl SVGRenderer {
                     hash, path
                 )
                 .as_str(),
+            );
+            res.push('\n');
+        }
+        res.push_str(r#"</defs>"#);
+        res.push('\n');
+        res.push_str(r#"<defs id="clip-path">"#);
+        for (hash, path) in &self.clip_paths {
+            res.push_str(
+                format!(r#"<clipPath id="{}"> <path d="{}"/> </clipPath>"#, hash, path)
+                    .as_str(),
             );
             res.push('\n');
         }
@@ -84,8 +97,30 @@ impl SVGRenderer {
             let y = pos.y.to_f32();
             let str = match item {
                 crate::doc::FrameItem::Group(group) => {
-                    // assert!(!group.clips); // fixme: assume that group has no clip path
-                    self.render_page(&group.frame, group.transform)
+                    let mut str = String::new();
+                    if group.clips {
+                        let clip_path_hash = hash128(&group).into();
+                        let x = group.frame.size().x.to_f32();
+                        let y = group.frame.size().y.to_f32();
+                        self.clip_paths.entry(clip_path_hash).or_insert_with(|| {
+                            let mut builder = SVGPath2DBuilder(String::new());
+                            builder.move_to(0.0, 0.0);
+                            builder.line_to(0.0, y);
+                            builder.line_to(x, y);
+                            builder.line_to(x, 0.0);
+                            builder.close();
+                            builder.0
+                        });
+                        let clip =
+                            format!(r##"<g clip-path="url(#{})">"##, clip_path_hash);
+                        str.push_str(&clip);
+                    }
+                    let page = self.render_page(&group.frame, group.transform);
+                    str.push_str(&page);
+                    if group.clips {
+                        str.push_str("</g>");
+                    }
+                    str
                 }
                 crate::doc::FrameItem::Text(text) => self.render_text(text),
                 crate::doc::FrameItem::Shape(shape, _) => self.render_shape(shape),
