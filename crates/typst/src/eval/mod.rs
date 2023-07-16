@@ -66,7 +66,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::{CapturesVisitor, Closure};
 use crate::diag::{
-    bail, error, At, FileError, SourceError, SourceResult, StrResult, Trace, Tracepoint,
+    bail, error, At, FileError, SourceDiagnostic, SourceResult, StrResult, Trace,
+    Tracepoint,
 };
 use crate::model::{
     Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
@@ -292,7 +293,7 @@ pub enum FlowEvent {
 
 impl FlowEvent {
     /// Return an error stating that this control flow is forbidden.
-    pub fn forbidden(&self) -> SourceError {
+    pub fn forbidden(&self) -> SourceDiagnostic {
         match *self {
             Self::Break(span) => {
                 error!(span, "cannot break outside of loop")

@@ -4,7 +4,7 @@ use std::path::Path;
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
-use typst::diag::{bail, SourceError, StrResult};
+use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
 use typst::doc::Document;
 use typst::eval::eco_format;
 use typst::geom::Color;
@@ -51,13 +51,20 @@ pub fn compile_once(
 
     match result {
         // Export the PDF / PNG.
-        Ok(document) => {
+        (Ok(document), warnings) => {
             export(&document, command)?;
 
             tracing::info!("Compilation succeeded in {duration:?}");
             if watching {
-                Status::Success(duration).print(command).unwrap();
+                if warnings.is_empty() {
+                    Status::Success(duration).print(command).unwrap();
+                } else {
+                    Status::PartialSuccess(duration).print(command).unwrap();
+                }
             }
+
+            print_diagnostics(world, vec![], warnings, command.diagnostic_format)
+                .map_err(|_| "failed to print diagnostics")?;
 
             if let Some(open) = command.open.take() {
                 open_file(open.as_deref(), &command.output())?;
@@ -65,7 +72,7 @@ pub fn compile_once(
         }
 
         // Print diagnostics.
-        Err(errors) => {
+        (Err(errors), warnings) => {
             set_failed();
             tracing::info!("Compilation failed");
 
@@ -73,7 +80,7 @@ pub fn compile_once(
                 Status::Error.print(command).unwrap();
             }
 
-            print_diagnostics(world, *errors, command.diagnostic_format)
+            print_diagnostics(world, *errors, warnings, command.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
         }
     }
@@ -143,7 +150,8 @@ fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
 /// Print diagnostic messages to the terminal.
 fn print_diagnostics(
     world: &SystemWorld,
-    errors: Vec<SourceError>,
+    errors: Vec<SourceDiagnostic>,
+    warnings: Vec<SourceDiagnostic>,
     diagnostic_format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
     let mut w = match diagnostic_format {
@@ -156,23 +164,28 @@ fn print_diagnostics(
         config.display_style = term::DisplayStyle::Short;
     }
 
-    for error in errors {
-        // The main diagnostic.
-        let diag = Diagnostic::error()
-            .with_message(error.message)
-            .with_notes(
-                error
-                    .hints
-                    .iter()
-                    .map(|e| (eco_format!("hint: {e}")).into())
-                    .collect(),
-            )
-            .with_labels(vec![Label::primary(error.span.id(), world.range(error.span))]);
+    for diagnostic in warnings.iter().chain(errors.iter()) {
+        let diag = match diagnostic.severity {
+            Severity::Error => Diagnostic::error(),
+            Severity::Warning => Diagnostic::warning(),
+        }
+        .with_message(diagnostic.message.clone())
+        .with_notes(
+            diagnostic
+                .hints
+                .iter()
+                .map(|e| (eco_format!("hint: {e}")).into())
+                .collect(),
+        )
+        .with_labels(vec![Label::primary(
+            diagnostic.span.id(),
+            world.range(diagnostic.span),
+        )]);
 
         term::emit(&mut w, &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
-        for point in error.trace {
+        for point in &diagnostic.trace {
             let message = point.v.to_string();
             let help = Diagnostic::help().with_message(message).with_labels(vec![
                 Label::primary(point.span.id(), world.range(point.span)),

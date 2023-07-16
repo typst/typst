@@ -429,8 +429,8 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     let source = Source::new(id, compile);
     let world = DocWorld(source);
     let mut frames = match typst::compile(&world) {
-        Ok(doc) => doc.pages,
-        Err(err) => {
+        (Ok(doc), _) => doc.pages,
+        (Err(err), _) => {
             let msg = &err[0].message;
             panic!("while trying to compile:\n{text}:\n\nerror: {msg}");
         }

@@ -48,6 +48,7 @@ pub mod font;
 pub mod geom;
 pub mod ide;
 pub mod image;
+pub mod lint;
 pub mod model;
 
 #[doc(inline)]
@@ -56,18 +57,20 @@ pub use typst_syntax as syntax;
 use std::ops::Range;
 
 use comemo::{Prehashed, Track, TrackedMut};
+use diag::SourceDiagnostic;
 use ecow::EcoString;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
+use crate::lint::lint;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::util::Bytes;
 
 /// Compile a source file into a fully layouted document.
 #[tracing::instrument(skip(world))]
-pub fn compile(world: &dyn World) -> SourceResult<Document> {
+pub fn compile(world: &dyn World) -> (SourceResult<Document>, Vec<SourceDiagnostic>) {
     let route = Route::default();
     let mut tracer = Tracer::default();
 
@@ -75,16 +78,20 @@ pub fn compile(world: &dyn World) -> SourceResult<Document> {
     let world = world.track();
     let mut tracer = tracer.track_mut();
 
+    // Lint the module.
+    let warnings = lint(&world.main());
+
     // Evaluate the source file into a module.
-    let module = eval::eval(
+
+    match eval::eval(
         world,
         route.track(),
         TrackedMut::reborrow_mut(&mut tracer),
         &world.main(),
-    )?;
-
-    // Typeset the module's contents.
-    model::typeset(world, tracer, &module.content())
+    ) {
+        Ok(module) => (model::typeset(world, tracer, &module.content()), warnings),
+        Err(error) => (Err(error), warnings),
+    }
 }
 
 /// The environment in which typesetting occurs.

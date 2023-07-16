@@ -33,7 +33,7 @@ macro_rules! __bail {
     };
 
     ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
-        return Err(Box::new(vec![$crate::diag::SourceError::new(
+        return Err(Box::new(vec![$crate::diag::SourceDiagnostic::new_error(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
         )]))
@@ -43,7 +43,7 @@ macro_rules! __bail {
 #[doc(inline)]
 pub use crate::__bail as bail;
 
-/// Construct an [`EcoString`] or [`SourceError`].
+/// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __error {
@@ -52,7 +52,19 @@ macro_rules! __error {
     };
 
     ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
-        $crate::diag::SourceError::new(
+        $crate::diag::SourceDiagnostic::new_error(
+            $span,
+            $crate::diag::eco_format!($fmt, $($arg),*),
+        )
+    };
+}
+
+/// Construct a [`SourceDiagnostic`] with severity `Warning`.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! __warning {
+    ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
+        $crate::diag::SourceDiagnostic::new_warning(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
         )
@@ -61,33 +73,45 @@ macro_rules! __error {
 
 #[doc(inline)]
 pub use crate::__error as error;
+#[doc(inline)]
+pub use crate::__warning as warning;
 #[doc(hidden)]
 pub use ecow::{eco_format, EcoString};
 
 /// A result that can carry multiple source errors.
-pub type SourceResult<T> = Result<T, Box<Vec<SourceError>>>;
+pub type SourceResult<T> = Result<T, Box<Vec<SourceDiagnostic>>>;
 
-/// An error in a source file.
+/// An error or warning in a source file.
 ///
 /// The contained spans will only be detached if any of the input source files
 /// were detached.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct SourceError {
-    /// The span of the erroneous node in the source code.
+pub struct SourceDiagnostic {
+    /// Whether the diagnostic is an error or a warning.
+    pub severity: Severity,
+    /// The span of the relevant node in the source code.
     pub span: Span,
     /// A diagnostic message describing the problem.
     pub message: EcoString,
-    /// The trace of function calls leading to the error.
+    /// The trace of function calls leading to the problem.
     pub trace: Vec<Spanned<Tracepoint>>,
-    /// Additonal hints to the user, indicating how this error could be avoided
+    /// Additonal hints to the user, indicating how this problem could be avoided
     /// or worked around.
     pub hints: Vec<EcoString>,
 }
 
-impl SourceError {
+/// The severity of a [`SourceDiagnostic`].
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+pub enum Severity {
+    Error,
+    Warning,
+}
+
+impl SourceDiagnostic {
     /// Create a new, bare error.
-    pub fn new(span: Span, message: impl Into<EcoString>) -> Self {
+    pub fn new_error(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
+            severity: Severity::Error,
             span,
             trace: vec![],
             message: message.into(),
@@ -95,16 +119,33 @@ impl SourceError {
         }
     }
 
-    /// Adds user-facing hints to the error.
+    pub fn new_warning(span: Span, message: impl Into<EcoString>) -> Self {
+        Self {
+            severity: Severity::Warning,
+            span,
+            trace: vec![],
+            message: message.into(),
+            hints: vec![],
+        }
+    }
+
+    /// Adds user-facing hints to the diagnostic.
     pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
         self.hints.extend(hints);
         self
     }
+
+    /// Adds a single hint to the diagnostic.
+    pub fn with_hint(mut self, hint: EcoString) -> Self {
+        self.hints.push(hint);
+        self
+    }
 }
 
-impl From<SyntaxError> for SourceError {
+impl From<SyntaxError> for SourceDiagnostic {
     fn from(error: SyntaxError) -> Self {
         Self {
+            severity: Severity::Error,
             span: error.span,
             message: error.message,
             trace: vec![],
@@ -113,7 +154,7 @@ impl From<SyntaxError> for SourceError {
     }
 }
 
-/// A part of an error's [trace](SourceError::trace).
+/// A part of a diagnostic's [trace](SourceDiagnostic::trace).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Tracepoint {
     /// A function call.
@@ -194,7 +235,7 @@ where
     S: Into<EcoString>,
 {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|message| Box::new(vec![SourceError::new(span, message)]))
+        self.map_err(|message| Box::new(vec![SourceDiagnostic::new_error(span, message)]))
     }
 }
 
@@ -214,7 +255,9 @@ pub struct HintedString {
 impl<T> At<T> for Result<T, HintedString> {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|diags| {
-            Box::new(vec![SourceError::new(span, diags.message).with_hints(diags.hints)])
+            Box::new(vec![
+                SourceDiagnostic::new_error(span, diags.message).with_hints(diags.hints)
+            ])
         })
     }
 }

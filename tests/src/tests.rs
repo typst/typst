@@ -20,7 +20,7 @@ use tiny_skia as sk;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
-use typst::diag::{bail, FileError, FileResult, StrResult};
+use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
@@ -519,46 +519,56 @@ fn test_part(
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
-    let (mut frames, errors) = match typst::compile(world) {
-        Ok(document) => (document.pages, vec![]),
-        Err(errors) => (vec![], *errors),
+    let (mut frames, diagnostics) = match typst::compile(world) {
+        (Ok(document), warnings) => (document.pages, warnings),
+        (Err(mut errors), mut warnings) => {
+            warnings.append(&mut *errors);
+            (vec![], warnings)
+        }
     };
 
-    // Don't retain frames if we don't wanna compare with reference images.
+    // Don't retain frames if we don't want to compare with reference images.
     if !compare_ref {
         frames.clear();
     }
 
-    // Map errors to range and message format, discard traces and errors from
+    // Map diagnostics to range and message format, discard traces and errors from
     // other files, collect hints.
     //
     // This has one caveat: due to the format of the expected hints, we can not
-    // verify if a hint belongs to a error or not. That should be irrelevant
+    // verify if a hint belongs to a diagnostic or not. That should be irrelevant
     // however, as the line of the hint is still verified.
-    let actual_errors_and_hints: HashSet<UserOutput> = errors
+    let actual_diagnostics: HashSet<UserOutput> = diagnostics
         .into_iter()
-        .inspect(|error| assert!(!error.span.is_detached()))
-        .filter(|error| error.span.id() == source.id())
-        .flat_map(|error| {
-            let range = world.range(error.span);
-            let output_error =
-                UserOutput::Error(range.clone(), error.message.replace('\\', "/"));
-            let hints = error
+        .inspect(|diagnostic| assert!(!diagnostic.span.is_detached()))
+        .filter(|diagnostic| diagnostic.span.id() == source.id())
+        .flat_map(|diagnostic| {
+            let range = world.range(diagnostic.span);
+
+            let message = diagnostic.message.replace('\\', "/");
+
+            let output_diag = match diagnostic.severity {
+                Severity::Error => UserOutput::Error(range.clone(), message),
+                Severity::Warning => UserOutput::Warning(range.clone(), message),
+            };
+
+            let hints = diagnostic
                 .hints
                 .iter()
                 .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
                 .map(|hint| UserOutput::Hint(range.clone(), hint.to_string()));
-            iter::once(output_error).chain(hints).collect::<Vec<_>>()
+
+            iter::once(output_diag).chain(hints).collect::<Vec<_>>()
         })
         .collect();
 
     // Basically symmetric_difference, but we need to know where an item is coming from.
-    let mut unexpected_outputs = actual_errors_and_hints
+    let mut unexpected_outputs = actual_diagnostics
         .difference(&metadata.invariants)
         .collect::<Vec<_>>();
     let mut missing_outputs = metadata
         .invariants
-        .difference(&actual_errors_and_hints)
+        .difference(&actual_diagnostics)
         .collect::<Vec<_>>();
 
     unexpected_outputs.sort_by_key(|&o| o.start());
@@ -592,6 +602,7 @@ fn print_user_output(
 ) {
     let (range, message) = match &user_output {
         UserOutput::Error(r, m) => (r, m),
+        UserOutput::Warning(r, m) => (r, m),
         UserOutput::Hint(r, m) => (r, m),
     };
 
@@ -601,6 +612,7 @@ fn print_user_output(
     let end_col = 1 + source.byte_to_column(range.end).unwrap();
     let kind = match user_output {
         UserOutput::Error(_, _) => "Error",
+        UserOutput::Warning(_, _) => "Warning",
         UserOutput::Hint(_, _) => "Hint",
     };
     writeln!(output, "{kind}: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
@@ -620,6 +632,7 @@ struct TestPartMetadata {
 #[derive(PartialEq, Eq, Debug, Hash)]
 enum UserOutput {
     Error(Range<usize>, String),
+    Warning(Range<usize>, String),
     Hint(Range<usize>, String),
 }
 
@@ -627,12 +640,17 @@ impl UserOutput {
     fn start(&self) -> usize {
         match self {
             UserOutput::Error(r, _) => r.start,
+            UserOutput::Warning(r, _) => r.start,
             UserOutput::Hint(r, _) => r.start,
         }
     }
 
     fn error(range: Range<usize>, message: String) -> UserOutput {
         UserOutput::Error(range, message)
+    }
+
+    fn warning(range: Range<usize>, message: String) -> UserOutput {
+        UserOutput::Warning(range, message)
     }
 
     fn hint(range: Range<usize>, message: String) -> UserOutput {
@@ -666,12 +684,18 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
         };
 
         let error_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::error;
+        let warning_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::warning;
         let hint_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::hint;
 
         let error_metadata = get_metadata(line, "Error").map(|s| (s, error_factory));
+        let get_warning_metadata =
+            || get_metadata(line, "Warning").map(|s| (s, warning_factory));
         let get_hint_metadata = || get_metadata(line, "Hint").map(|s| (s, hint_factory));
 
-        if let Some((expectation, factory)) = error_metadata.or_else(get_hint_metadata) {
+        if let Some((expectation, factory)) = error_metadata
+            .or_else(get_warning_metadata)
+            .or_else(get_hint_metadata)
+        {
             let mut s = Scanner::new(expectation);
             let start = pos(&mut s);
             let end = if s.eat_if('-') { pos(&mut s) } else { start };
