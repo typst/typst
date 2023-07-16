@@ -177,7 +177,7 @@ impl SVGRenderer {
         }
 
         // Parse XML.
-        let xml: &str = std::str::from_utf8(data).ok()?;
+        let xml = std::str::from_utf8(data).ok()?;
         let document = roxmltree::Document::parse(xml).ok()?;
         let root = document.root_element();
 
@@ -185,7 +185,6 @@ impl SVGRenderer {
         let opts = usvg::Options::default();
         let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
         let view_box = tree.view_box.rect;
-
         // If there's no viewbox defined, use the em square for our scale
         // transformation ...
         let upem = text.font.units_per_em() as f32;
@@ -201,6 +200,8 @@ impl SVGRenderer {
             height = view_box.height() as f32;
         }
 
+        let size = text.size.to_f32();
+
         // Compute the space we need to draw our glyph.
         // See https://github.com/RazrFalcon/resvg/issues/602 for why
         // using the svg size is problematic here.
@@ -210,12 +211,22 @@ impl SVGRenderer {
                 bbox = bbox.expand(rect);
             }
         }
-
+        let height = size;
+        let width = (bbox.width() / bbox.height()) as f32 * height;
         self.glyphs.entry(glyph_hash).or_insert_with(|| {
             let mut url = "data:image/svg+xml;base64,".to_string();
+            // fixme: this is a hack to remove the viewbox from the glyph
+            // this is because the viewbox of noto color emoji is wrong,
+            let re = regex::Regex::new(r#"viewBox=".*?""#).unwrap();
+            let xml = re.replace(xml, "");
             let data = base64::engine::general_purpose::STANDARD.encode(xml.as_bytes());
             url.push_str(&data);
-            format!(r#"<g transform=""> <image xlink:href="{}" x="{}" y="{}" width="{}" height="{}" /> </g>"#, url, bbox.x(), bbox.y(), bbox.width(), bbox.height())
+            format!(
+                r#"<symbol id="{glyph_hash}"><image xlink:href="{}" x="0" y="0" width="{}" height="{}" /></symbol>"#,
+                url,
+                width * inv_scale,
+                height * inv_scale
+            )
         });
 
         Some(format!(
