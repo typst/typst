@@ -1,13 +1,15 @@
 use std::{
     collections::HashMap,
     fmt::{Display, Write},
+    io::Read,
 };
 
 use base64::Engine;
 use ttf_parser::{GlyphId, OutlineBuilder};
+use usvg::{NodeExt, TreeParsing};
 
 use crate::{
-    doc::{Frame, TextItem},
+    doc::{Frame, Glyph, TextItem},
     geom::{Abs, Axes, Shape, Transform},
     util::hash128,
 };
@@ -56,13 +58,7 @@ impl SVGRenderer {
         );
         res.push_str(r#"<defs id="glyph">"#);
         for (hash, path) in &self.glyphs {
-            res.push_str(
-                format!(
-                    r#"<symbol id="{}" overflow="visible"> <path d="{}"/> </symbol>"#,
-                    hash, path
-                )
-                .as_str(),
-            );
+            res.push_str(&path);
             res.push('\n');
         }
         res.push_str(r#"</defs>"#);
@@ -149,29 +145,136 @@ impl SVGRenderer {
             format!(r#"<g class="typst-text" transform="scale({} {})">"#, scale, -scale);
         let mut x_offset: f32 = 0.0;
         for glyph in &text.glyphs {
-            let glyph_hash = hash128(&(&text.font, glyph)).into();
-            // fixme: only outline glyph for now
-            self.glyphs.entry(glyph_hash).or_insert_with(|| {
-                let mut builder = SVGPath2DBuilder(String::new());
-                text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
-                builder.0
-            });
-            let Solid(text_color) = text.fill;
-            res.push_str(
-                format!(
-                    r##"<use xlink:href="#{}" x="{}" fill="{}"/>"##,
-                    glyph_hash,
-                    x_offset * inv_scale,
-                    text_color.to_rgba().to_hex()
-                )
-                .as_str(),
-            );
+            if let Some(rendered_glyph) = self
+                .render_svg_glyph(text, glyph, x_offset, inv_scale)
+                .or_else(|| self.render_bitmap_glyph(text, glyph, x_offset, inv_scale))
+                .or_else(|| self.render_outline_glyph(text, glyph, x_offset, inv_scale))
+            {
+                res.push_str(&rendered_glyph);
+            }
             x_offset += glyph.x_advance.at(text.size).to_f32();
         }
         res.push_str("</g>");
         res
     }
 
+    fn render_svg_glyph(
+        &mut self,
+        text: &TextItem,
+        glyph: &Glyph,
+        x_offset: f32,
+        inv_scale: f32,
+    ) -> Option<String> {
+        let mut data = text.font.ttf().glyph_svg_image(GlyphId(glyph.id))?;
+        let glyph_hash: RenderHash = hash128(&(&text.font, glyph)).into();
+
+        // Decompress SVGZ.
+        let mut decoded = vec![];
+        if data.starts_with(&[0x1f, 0x8b]) {
+            let mut decoder = flate2::read::GzDecoder::new(data);
+            decoder.read_to_end(&mut decoded).ok()?;
+            data = &decoded;
+        }
+
+        // Parse XML.
+        let xml: &str = std::str::from_utf8(data).ok()?;
+        let document = roxmltree::Document::parse(xml).ok()?;
+        let root = document.root_element();
+
+        // Parse SVG.
+        let opts = usvg::Options::default();
+        let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+        let view_box = tree.view_box.rect;
+
+        // If there's no viewbox defined, use the em square for our scale
+        // transformation ...
+        let upem = text.font.units_per_em() as f32;
+        let (mut width, mut height) = (upem, upem);
+
+        // ... but if there's a viewbox or width, use that.
+        if root.has_attribute("viewBox") || root.has_attribute("width") {
+            width = view_box.width() as f32;
+        }
+
+        // Same as for width.
+        if root.has_attribute("viewBox") || root.has_attribute("height") {
+            height = view_box.height() as f32;
+        }
+
+        // Compute the space we need to draw our glyph.
+        // See https://github.com/RazrFalcon/resvg/issues/602 for why
+        // using the svg size is problematic here.
+        let mut bbox = usvg::Rect::new_bbox();
+        for node in tree.root.descendants() {
+            if let Some(rect) = node.calculate_bbox().and_then(|b| b.to_rect()) {
+                bbox = bbox.expand(rect);
+            }
+        }
+
+        self.glyphs.entry(glyph_hash).or_insert_with(|| {
+            let mut url = "data:image/svg+xml;base64,".to_string();
+            let data = base64::engine::general_purpose::STANDARD.encode(xml.as_bytes());
+            url.push_str(&data);
+            format!(r#"<g transform=""> <image xlink:href="{}" x="{}" y="{}" width="{}" height="{}" /> </g>"#, url, bbox.x(), bbox.y(), bbox.width(), bbox.height())
+        });
+
+        Some(format!(
+            r##"<use xlink:href="#{}" x="{}"/>"##,
+            glyph_hash,
+            x_offset * inv_scale,
+        ))
+    }
+
+    fn render_bitmap_glyph(
+        &mut self,
+        text: &TextItem,
+        glyph: &Glyph,
+        x_offset: f32,
+        inv_scale: f32,
+    ) -> Option<String> {
+        let bitmap =
+            text.font.ttf().glyph_raster_image(GlyphId(glyph.id), std::u16::MAX)?;
+        let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
+        let size = text.size.to_f32();
+        let h = text.size;
+        let w = (image.width() as f64 / image.height() as f64) * h;
+        let dx = (bitmap.x as f32) / (image.width() as f32) * size;
+        let dy = (bitmap.y as f32) / (image.height() as f32) * size;
+
+        let image = self.render_image(&image, &Axes { x: w, y: h });
+        Some(format!(
+            r#"<g transform="scale({inv_scale} -{inv_scale}) translate({}, {})"> {image} </g>"#,
+            dx + x_offset,
+            -size - dy,
+        ))
+    }
+
+    fn render_outline_glyph(
+        &mut self,
+        text: &TextItem,
+        glyph: &Glyph,
+        x_offset: f32,
+        inv_scale: f32,
+    ) -> Option<String> {
+        let mut builder = SVGPath2DBuilder(String::new());
+        text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder)?;
+        let glyph_hash = hash128(&(&text.font, glyph)).into();
+        self.glyphs.entry(glyph_hash).or_insert_with(|| {
+            let path = builder.0;
+            format!(
+                r#"<symbol id="{}" overflow="visible"> <path d="{}"/> </symbol>"#,
+                glyph_hash, path
+            )
+        });
+        let Solid(text_color) = text.fill;
+
+        Some(format!(
+            r##"<use xlink:href="#{}" x="{}" fill="{}"/>"##,
+            glyph_hash,
+            x_offset * inv_scale,
+            text_color.to_rgba().to_hex()
+        ))
+    }
     fn render_shape(&mut self, shape: &Shape) -> String {
         let mut attr_set = AttributeSet::default();
         if let Some(paint) = &shape.fill {
@@ -271,7 +374,7 @@ impl SVGRenderer {
         let data = base64::engine::general_purpose::STANDARD.encode(image.data());
         url.push_str(&data);
         format!(
-            r#"<image x="0" y="0" width="{}" height="{}" style="fill" xlink:href="{}" preserveAspectRatio="none" />"#,
+            r#"<image x="0" y="0" width="{}" height="{}" xlink:href="{}" preserveAspectRatio="none" />"#,
             size.x.to_pt(),
             size.y.to_pt(),
             url
