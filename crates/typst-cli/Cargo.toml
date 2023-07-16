@@ -30,6 +30,7 @@ dirs = "5"
 flate2 = "1"
 inferno = "0.11.15"
 memmap2 = "0.5"
+mimalloc = { version = "*", default-features = false }
 notify = "5"
 once_cell = "1"
 open = "4.0.2"

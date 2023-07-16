@@ -17,6 +17,11 @@ use termcolor::{ColorChoice, WriteColor};
 
 use crate::args::{CliArguments, Command};
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 thread_local! {
     /// The CLI's exit code.
     static EXIT: Cell<ExitCode> = Cell::new(ExitCode::SUCCESS);
