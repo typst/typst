@@ -3,13 +3,12 @@ use std::{
     fmt::{Display, Write},
 };
 
-use ecow::EcoString;
 use ttf_parser::{GlyphId, OutlineBuilder};
 
+use crate::geom::Paint::Solid;
 use crate::{
-    doc::{Document, Frame, Meta, TextItem},
-    font::Font,
-    geom::{Abs, Axes, Transform},
+    doc::{Frame, TextItem},
+    geom::{Abs, Axes, Shape, Transform},
     util::hash128,
 };
 
@@ -65,6 +64,7 @@ impl SVGRenderer {
         res.push_str(r#"</defs>"#);
         res
     }
+
     fn finalize(&self, size: Axes<Abs>) -> String {
         let mut header = self.header(size);
         header.push_str(&self.body);
@@ -87,12 +87,13 @@ impl SVGRenderer {
                     self.render_page(&group.frame, group.transform)
                 }
                 crate::doc::FrameItem::Text(text) => self.render_text(text),
-                crate::doc::FrameItem::Shape(_, _) => todo!(),
+                crate::doc::FrameItem::Shape(shape, _) => self.render_shape(shape),
                 crate::doc::FrameItem::Image(_, _, _) => todo!(),
                 crate::doc::FrameItem::Meta(_, _) => continue,
             };
             page.push_str(format!(r#"<g transform="translate({} {})">"#, x, y).as_str());
             page.push_str(&str);
+            page.push('\n');
             page.push_str("</g>");
         }
         page.push_str("</g>");
@@ -113,15 +114,17 @@ impl SVGRenderer {
             let glyph_hash = hash128(&(&text.font, glyph)).into();
             // fixme: only outline glyph for now
             self.glyphs.entry(glyph_hash).or_insert_with(|| {
-                let mut builder = OutlineGlyphBuilder(String::new());
+                let mut builder = SVGPath2DBuilder(String::new());
                 text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
                 builder.0
             });
+            let Solid(text_color) = text.fill;
             res.push_str(
                 format!(
-                    r##"<use xlink:href="#{}" x="{}"/>"##,
+                    r##"<use xlink:href="#{}" x="{}" fill="{}"/>"##,
                     glyph_hash,
-                    x_offset * inv_scale
+                    x_offset * inv_scale,
+                    text_color.to_rgba().to_hex()
                 )
                 .as_str(),
             );
@@ -129,6 +132,90 @@ impl SVGRenderer {
         }
         res.push_str("</g>");
         res
+    }
+
+    fn render_shape(&mut self, shape: &Shape) -> String {
+        let mut attr_set = AttributeSet::default();
+        if let Some(paint) = &shape.fill {
+            let Solid(color) = paint;
+            attr_set.set("fill", color.to_rgba().to_hex().to_string());
+        }
+        if let Some(stroke) = &shape.stroke {
+            let Solid(color) = stroke.paint;
+            attr_set.set("stroke", color.to_rgba().to_hex().to_string());
+            attr_set.set("stroke-width", stroke.thickness.to_pt().to_string());
+            attr_set.set(
+                "stroke-linecap",
+                match stroke.line_cap {
+                    crate::geom::LineCap::Butt => "butt",
+                    crate::geom::LineCap::Round => "round",
+                    crate::geom::LineCap::Square => "square",
+                }
+                .to_string(),
+            );
+            attr_set.set(
+                "stroke-linejoin",
+                match stroke.line_join {
+                    crate::geom::LineJoin::Miter => "miter",
+                    crate::geom::LineJoin::Round => "round",
+                    crate::geom::LineJoin::Bevel => "bevel",
+                }
+                .to_string(),
+            );
+            attr_set.set("stroke-miterlimit", stroke.miter_limit.0.to_string());
+            if let Some(pattern) = &stroke.dash_pattern {
+                attr_set.set("stroke-dashoffset", pattern.phase.to_pt().to_string());
+                attr_set.set(
+                    "stroke-dasharray",
+                    pattern
+                        .array
+                        .iter()
+                        .map(|dash| dash.to_pt().to_string())
+                        .collect::<Vec<_>>()
+                        .join(" "),
+                );
+            }
+        }
+        let mut path_builder = SVGPath2DBuilder(String::new());
+        match &shape.geometry {
+            crate::geom::Geometry::Line(t) => {
+                path_builder.move_to(0.0, 0.0);
+                path_builder.line_to(t.x.to_f32(), t.y.to_f32());
+            }
+            crate::geom::Geometry::Rect(rect) => {
+                let x = rect.x.to_f32();
+                let y = rect.y.to_f32();
+                // 0,0 <-> x,y
+                path_builder.move_to(0.0, 0.0);
+                path_builder.line_to(0.0, y);
+                path_builder.line_to(x, y);
+                path_builder.line_to(x, 0.0);
+                path_builder.close();
+            }
+            crate::geom::Geometry::Path(p) => {
+                for item in &p.0 {
+                    match item {
+                        crate::geom::PathItem::MoveTo(m) => {
+                            path_builder.move_to(m.x.to_f32(), m.y.to_f32())
+                        }
+                        crate::geom::PathItem::LineTo(l) => {
+                            path_builder.line_to(l.x.to_f32(), l.y.to_f32())
+                        }
+                        crate::geom::PathItem::CubicTo(c1, c2, t) => path_builder
+                            .curve_to(
+                                c1.x.to_f32(),
+                                c1.y.to_f32(),
+                                c2.x.to_f32(),
+                                c2.y.to_f32(),
+                                t.x.to_f32(),
+                                t.y.to_f32(),
+                            ),
+                        crate::geom::PathItem::ClosePath => path_builder.close(),
+                    }
+                }
+            }
+        };
+        format!(r#"<path d="{}" {} />"#, path_builder.0, attr_set,)
     }
 }
 
@@ -162,9 +249,9 @@ impl TransformExt for Transform {
     }
 }
 
-struct OutlineGlyphBuilder(pub String);
+struct SVGPath2DBuilder(pub String);
 
-impl ttf_parser::OutlineBuilder for OutlineGlyphBuilder {
+impl ttf_parser::OutlineBuilder for SVGPath2DBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
         write!(&mut self.0, "M {} {} ", x, y).unwrap();
     }
@@ -183,5 +270,27 @@ impl ttf_parser::OutlineBuilder for OutlineGlyphBuilder {
 
     fn close(&mut self) {
         write!(&mut self.0, "Z ").unwrap();
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+struct AttributeSet(HashMap<String, String>);
+
+impl Display for AttributeSet {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for (key, value) in &self.0 {
+            write!(f, r#" {}="{}""#, key, value)?;
+        }
+        Ok(())
+    }
+}
+
+impl AttributeSet {
+    fn set(&mut self, key: &str, value: String) {
+        self.0.insert(key.to_string(), value);
+    }
+
+    fn get(&self, key: &str) -> Option<&str> {
+        self.0.get(key).map(|s| s.as_str())
     }
 }
