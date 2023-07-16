@@ -57,8 +57,8 @@ impl SVGRenderer {
             size.y.to_pt()
         );
         res.push_str(r#"<defs id="glyph">"#);
-        for (hash, path) in &self.glyphs {
-            res.push_str(&path);
+        for path in self.glyphs.values() {
+            res.push_str(path);
             res.push('\n');
         }
         res.push_str(r#"</defs>"#);
@@ -179,26 +179,10 @@ impl SVGRenderer {
         // Parse XML.
         let xml = std::str::from_utf8(data).ok()?;
         let document = roxmltree::Document::parse(xml).ok()?;
-        let root = document.root_element();
 
         // Parse SVG.
         let opts = usvg::Options::default();
         let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-        let view_box = tree.view_box.rect;
-        // If there's no viewbox defined, use the em square for our scale
-        // transformation ...
-        let upem = text.font.units_per_em() as f32;
-        let (mut width, mut height) = (upem, upem);
-
-        // ... but if there's a viewbox or width, use that.
-        if root.has_attribute("viewBox") || root.has_attribute("width") {
-            width = view_box.width() as f32;
-        }
-
-        // Same as for width.
-        if root.has_attribute("viewBox") || root.has_attribute("height") {
-            height = view_box.height() as f32;
-        }
 
         let size = text.size.to_f32();
 
@@ -462,9 +446,5 @@ impl Display for AttributeSet {
 impl AttributeSet {
     fn set(&mut self, key: &str, value: String) {
         self.0.insert(key.to_string(), value);
-    }
-
-    fn get(&self, key: &str) -> Option<&str> {
-        self.0.get(key).map(|s| s.as_str())
     }
 }
