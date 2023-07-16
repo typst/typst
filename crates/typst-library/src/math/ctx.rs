@@ -167,24 +167,29 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         {
             // A single letter that is available in the math font.
             match self.style.size {
-                MathSize::Display => {
-                    let class = self.style.class.as_custom().or(glyph.class);
-                    if class == Some(MathClass::Large) {
-                        let height = scaled!(self, display_operator_min_height);
-                        glyph.stretch_vertical(self, height, Abs::zero()).into()
-                    } else {
-                        glyph.into()
-                    }
-                }
                 MathSize::Script => {
                     glyph.make_scriptsize(self);
-                    glyph.into()
                 }
                 MathSize::ScriptScript => {
                     glyph.make_scriptscriptsize(self);
-                    glyph.into()
                 }
-                _ => glyph.into(),
+                _ => (),
+            }
+
+            let class = self.style.class.as_custom().or(glyph.class);
+            if class == Some(MathClass::Large) {
+                let mut variant = if self.style.size == MathSize::Display {
+                    let height = scaled!(self, display_operator_min_height);
+                    glyph.stretch_vertical(self, height, Abs::zero())
+                } else {
+                    glyph.into_variant()
+                };
+                // TeXbook p 155. Large operators are always vertically centered on the axis.
+                let h = variant.frame.height();
+                variant.frame.set_baseline(h / 2.0 + scaled!(self, axis_height));
+                variant.into()
+            } else {
+                glyph.into()
             }
         } else if text.chars().all(|c| c.is_ascii_digit()) {
             // Numbers aren't that difficult.
