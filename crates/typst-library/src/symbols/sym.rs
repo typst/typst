@@ -436,7 +436,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
 
     // Number theory.
     divides: ['∣', not: '∤'],
-    
 
     // Algebra.
     wreath: '≀',
