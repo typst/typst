@@ -66,7 +66,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::{CapturesVisitor, Closure};
 use crate::diag::{
-    bail, error, At, FileError, SourceError, SourceResult, StrResult, Trace, Tracepoint,
+    bail, error, At, FileError, Hint, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
 use crate::model::{
     Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
@@ -1989,11 +1989,17 @@ fn access_dict<'a>(
 ) -> SourceResult<&'a mut Dict> {
     match access.target().access(vm)? {
         Value::Dict(dict) => Ok(dict),
-        value => bail!(
-            access.target().span(),
-            "expected dictionary, found {}",
-            value.type_name(),
-        ),
+        value => {
+            let type_name = value.type_name();
+            let span = access.target().span();
+            if fields::fields_on(type_name).is_empty() {
+                bail!(span, "cannot mutate fields on {type_name}");
+            } else {
+                Err(eco_format!("fields on {type_name} are not yet mutable"))
+                    .hint(eco_format!("try creating a new {type_name} with the updated field value instead"))
+                    .at(span)
+            }
+        }
     }
 }
 
