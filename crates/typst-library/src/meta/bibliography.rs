@@ -362,6 +362,8 @@ pub struct CiteElem {
 
     /// Whether multiple citations should be sorted by their order in
     /// the bibliography.
+    ///
+    /// When set to `{auto}`, enables this when `style` is `numerical`.
     pub sort: Smart<bool>,
 }
 
