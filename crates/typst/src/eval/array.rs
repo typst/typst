@@ -400,9 +400,9 @@ impl Array {
     }
 
     /// Deduplicates all items in the array.
-    pub fn dedup(&self, vm: &mut Vm, by: Option<Func>) -> SourceResult<Self> {
+    pub fn dedup(&self, vm: &mut Vm, key: Option<Func>) -> SourceResult<Self> {
         let mut out = EcoVec::with_capacity(self.0.len());
-        let mut key_of = |x: Value| match &by {
+        let mut key_of = |x: Value| match &key {
             // NOTE: We are relying on `comemo`'s memoization of function
             // evaluation to not excessively reevaluate the `key`.
             Some(f) => f.call_vm(vm, Args::new(f.span(), [x])),

@@ -977,7 +977,7 @@ Only the first element of each duplicate is kept.
 }
 ```
 
-- by: function (named)
+- key: function (named)
   If given, applies this function to the elements in the array to determine the keys to deduplicate by.
 - returns: array
 

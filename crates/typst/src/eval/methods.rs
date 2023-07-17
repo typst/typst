@@ -147,7 +147,7 @@ pub fn call(
             "sorted" => array.sorted(vm, span, args.named("key")?)?.into_value(),
             "zip" => array.zip(args.expect("other")?).into_value(),
             "enumerate" => array.enumerate().into_value(),
-            "dedup" => array.dedup(vm, args.named_or_find("by")?)?.into_value(),
+            "dedup" => array.dedup(vm, args.named_or_find("key")?)?.into_value(),
             _ => return missing(),
         },
 
