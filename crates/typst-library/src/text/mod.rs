@@ -15,7 +15,8 @@ pub use self::shaping::*;
 pub use self::shift::*;
 
 use rustybuzz::Tag;
-use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
+use ttf_parser::Rect;
+use typst::font::{Font, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
 use crate::layout::ParElem;
 use crate::prelude::*;
@@ -245,8 +246,8 @@ pub struct TextElem {
     /// #set text(top-edge: "cap-height")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    #[default(TextEdge::Metric(VerticalFontMetric::CapHeight))]
-    pub top_edge: TextEdge,
+    #[default(TopEdge::Metric(TopEdgeMetric::CapHeight))]
+    pub top_edge: TopEdge,
 
     /// The bottom end of the conceptual frame around the text used for layout
     /// and positioning. This affects the size of containers that hold text.
@@ -261,8 +262,8 @@ pub struct TextElem {
     /// #set text(bottom-edge: "descender")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    #[default(TextEdge::Metric(VerticalFontMetric::Baseline))]
-    pub bottom_edge: TextEdge,
+    #[default(BottomEdge::Metric(BottomEdgeMetric::Baseline))]
+    pub bottom_edge: BottomEdge,
 
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
@@ -606,33 +607,138 @@ cast! {
     v: Length => Self(v),
 }
 
-/// Specifies the bottom or top edge of text.
+/// Specifies the top edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum TextEdge {
-    /// An edge specified using one of the well-known font metrics.
-    Metric(VerticalFontMetric),
+pub enum TopEdge {
+    /// An edge specified via font metrics or bounding box.
+    Metric(TopEdgeMetric),
     /// An edge specified as a length.
     Length(Length),
 }
 
-impl TextEdge {
+impl TopEdge {
+    /// Determine if the edge is specified from bounding box info.
+    pub fn is_bounds(&self) -> bool {
+        matches!(self, Self::Metric(TopEdgeMetric::Bounds))
+    }
+
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, metrics: &FontMetrics) -> Abs {
+    pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
-            Self::Metric(metric) => metrics.vertical(metric).resolve(styles),
-            Self::Length(length) => length.resolve(styles),
+            TopEdge::Metric(metric) => {
+                if let Ok(metric) = metric.try_into() {
+                    font.metrics().vertical(metric).resolve(styles)
+                } else {
+                    bbox.map(|bbox| (font.to_em(bbox.y_max)).resolve(styles))
+                        .unwrap_or_default()
+                }
+            }
+            TopEdge::Length(length) => length.resolve(styles),
         }
     }
 }
 
 cast! {
-    TextEdge,
+    TopEdge,
     self => match self {
         Self::Metric(metric) => metric.into_value(),
         Self::Length(length) => length.into_value(),
     },
-    v: VerticalFontMetric => Self::Metric(v),
+    v: TopEdgeMetric => Self::Metric(v),
     v: Length => Self::Length(v),
+}
+
+/// Metrics that describe the top edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum TopEdgeMetric {
+    /// The font's ascender, which typically exceeds the height of all glyphs.
+    Ascender,
+    /// The approximate height of uppercase letters.
+    CapHeight,
+    /// The approximate height of non-ascending lowercase letters.
+    XHeight,
+    /// The baseline on which the letters rest.
+    Baseline,
+    /// The top edge of the glyph's bounding box.
+    Bounds,
+}
+
+impl TryInto<VerticalFontMetric> for TopEdgeMetric {
+    type Error = ();
+
+    fn try_into(self) -> Result<VerticalFontMetric, Self::Error> {
+        match self {
+            Self::Ascender => Ok(VerticalFontMetric::Ascender),
+            Self::CapHeight => Ok(VerticalFontMetric::CapHeight),
+            Self::XHeight => Ok(VerticalFontMetric::XHeight),
+            Self::Baseline => Ok(VerticalFontMetric::Baseline),
+            _ => Err(()),
+        }
+    }
+}
+
+/// Specifies the top edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum BottomEdge {
+    /// An edge specified via font metrics or bounding box.
+    Metric(BottomEdgeMetric),
+    /// An edge specified as a length.
+    Length(Length),
+}
+
+impl BottomEdge {
+    /// Determine if the edge is specified from bounding box info.
+    pub fn is_bounds(&self) -> bool {
+        matches!(self, Self::Metric(BottomEdgeMetric::Bounds))
+    }
+
+    /// Resolve the value of the text edge given a font's metrics.
+    pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
+        match self {
+            BottomEdge::Metric(metric) => {
+                if let Ok(metric) = metric.try_into() {
+                    font.metrics().vertical(metric).resolve(styles)
+                } else {
+                    bbox.map(|bbox| (font.to_em(bbox.y_min)).resolve(styles))
+                        .unwrap_or_default()
+                }
+            }
+            BottomEdge::Length(length) => length.resolve(styles),
+        }
+    }
+}
+
+cast! {
+    BottomEdge,
+    self => match self {
+        Self::Metric(metric) => metric.into_value(),
+        Self::Length(length) => length.into_value(),
+    },
+    v: BottomEdgeMetric => Self::Metric(v),
+    v: Length => Self::Length(v),
+}
+
+/// Metrics that describe the bottom edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum BottomEdgeMetric {
+    /// The baseline on which the letters rest.
+    Baseline,
+    /// The font's descender, which typically exceeds the depth of all glyphs.
+    Descender,
+    /// The bottom edge of the glyph's bounding box.
+    Bounds,
+}
+
+impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
+    type Error = ();
+
+    fn try_into(self) -> Result<VerticalFontMetric, Self::Error> {
+        match self {
+            Self::Baseline => Ok(VerticalFontMetric::Baseline),
+            Self::Descender => Ok(VerticalFontMetric::Descender),
+            _ => Err(()),
+        }
+    }
 }
 
 /// The direction of text and inline objects in their line.

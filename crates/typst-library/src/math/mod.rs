@@ -292,9 +292,9 @@ impl Layout for EquationElem {
             }
         } else {
             let slack = ParElem::leading_in(styles) * 0.7;
-            let top_edge = TextElem::top_edge_in(styles).resolve(styles, font.metrics());
+            let top_edge = TextElem::top_edge_in(styles).resolve(styles, &font, None);
             let bottom_edge =
-                -TextElem::bottom_edge_in(styles).resolve(styles, font.metrics());
+                -TextElem::bottom_edge_in(styles).resolve(styles, &font, None);
 
             let ascent = top_edge.max(frame.ascent() - slack);
             let descent = bottom_edge.max(frame.descent() - slack);
