@@ -221,7 +221,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         triple: '≡',
         quad: '≣',
     ],
-    neq:'≠',
     gt: [
         '>',
         circle: '⧁',
@@ -230,7 +229,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         curly.double: '⪼',
         curly.eq: '≽',
         curly.eq.not: '⋡',
-        curly.neq:'⋡',
         curly.equiv: '⪴',
         curly.napprox: '⪺',
         curly.nequiv: '⪶',
@@ -243,7 +241,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         eq.slant: '⩾',
         eq.lt: '⋛',
         eq.not: '≱',
-        neq: '≱',
         equiv: '≧',
         lt: '≷',
         lt.not: '≹',
@@ -256,7 +253,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         tri: '⊳',
         tri.eq: '⊵',
         tri.eq.not: '⋭',
-        tri.neq:'⋭',
         tri.not: '⋫',
         triple: '⋙',
         triple.nested: '⫸',
@@ -269,7 +265,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         curly.double: '⪻',
         curly.eq: '≼',
         curly.eq.not: '⋠',
-        curly.neq: '⋠',
         curly.equiv: '⪳',
         curly.napprox: '⪹',
         curly.nequiv: '⪵',
@@ -282,7 +277,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         eq.slant: '⩽' ,
         eq.gt: '⋚',
         eq.not: '≰',
-        neq: '≰',
         equiv: '≦',
         gt: '≶',
         gt.not: '≸',
@@ -295,7 +289,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         tri: '⊲',
         tri.eq: '⊴',
         tri.eq.not: '⋬',
-        tri.neq: '⋬',
         tri.not: '⋪',
         triple: '⋘',
         triple.nested: '⫷',
@@ -307,7 +300,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         double: '⪻',
         eq: '≼',
         eq.not: '⋠',
-        neq: '⋠',
         equiv: '⪳',
         napprox: '⪹',
         nequiv: '⪵',
@@ -321,7 +313,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         double: '⪼',
         eq: '≽',
         eq.not: '⋡',
-        neq: '⋡',
         equiv: '⪴',
         napprox: '⪺',
         nequiv: '⪶',
@@ -330,7 +321,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         tilde: '≿',
     ],
     equiv: ['≡', not: '≢'],
-    nequiv:['≢'],
     prop: '∝',
 
     // Set theory.
@@ -446,8 +436,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
 
     // Number theory.
     divides: ['∣', not: '∤'],
-    mid: ['|', not:'∤'],
-    nmid: '∤',
+    
 
     // Algebra.
     wreath: '≀',
