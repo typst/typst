@@ -514,8 +514,15 @@ fn test_part(
         let world = (world as &dyn World).track();
         let route = typst::eval::Route::default();
         let mut tracer = typst::eval::Tracer::default();
-        let module =
-            typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
+        let mut warnings = typst::diag::Warnings::default();
+        let module = typst::eval::eval(
+            world,
+            route.track(),
+            tracer.track_mut(),
+            warnings.track_mut(),
+            &source,
+        )
+        .unwrap();
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 

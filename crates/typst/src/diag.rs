@@ -81,6 +81,23 @@ pub use ecow::{eco_format, EcoString};
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, Box<Vec<SourceDiagnostic>>>;
 
+/// Contains warnings that arise during compilation.
+#[derive(Default, Clone)]
+pub struct Warnings(Vec<SourceDiagnostic>);
+
+#[comemo::track]
+impl Warnings {
+    /// Get the warnings.
+    pub fn finish(&self) -> Vec<SourceDiagnostic> {
+        self.0.to_vec()
+    }
+
+    /// Add a warning to the list of warnings
+    pub fn push(&mut self, warning: SourceDiagnostic) {
+        self.0.push(warning);
+    }
+}
+
 /// An error or warning in a source file.
 ///
 /// The contained spans will only be detached if any of the input source files

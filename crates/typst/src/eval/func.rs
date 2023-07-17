@@ -10,7 +10,7 @@ use super::{
     cast, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes, Tracer,
     Value, Vm,
 };
-use crate::diag::{bail, SourceResult, StrResult};
+use crate::diag::{bail, SourceResult, StrResult, Warnings};
 use crate::model::{DelayedErrors, ElemFunc, Introspector, Locator, Vt};
 use crate::syntax::ast::{self, AstNode, Expr, Ident};
 use crate::syntax::{FileId, Span, SyntaxNode};
@@ -106,6 +106,7 @@ impl Func {
                     vm.vt.locator.track(),
                     TrackedMut::reborrow_mut(&mut vm.vt.delayed),
                     TrackedMut::reborrow_mut(&mut vm.vt.tracer),
+                    TrackedMut::reborrow_mut(&mut vm.vt.warnings),
                     vm.depth + 1,
                     args,
                 )
@@ -133,6 +134,7 @@ impl Func {
             locator: &mut locator,
             delayed: TrackedMut::reborrow_mut(&mut vt.delayed),
             tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
+            warnings: TrackedMut::reborrow_mut(&mut vt.warnings),
         };
         let mut vm = Vm::new(vt, route.track(), FileId::detached(), scopes);
         let args = Args::new(self.span(), args);
@@ -331,6 +333,7 @@ impl Closure {
         locator: Tracked<Locator>,
         delayed: TrackedMut<DelayedErrors>,
         tracer: TrackedMut<Tracer>,
+        warnings: TrackedMut<Warnings>,
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
@@ -352,6 +355,7 @@ impl Closure {
             locator: &mut locator,
             delayed,
             tracer,
+            warnings,
         };
 
         // Prepare VM.

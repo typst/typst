@@ -4,6 +4,7 @@ use icu_provider_adapters::fork::ForkByKeyProvider;
 use icu_provider_blob::BlobDataProvider;
 use icu_segmenter::{LineBreakIteratorUtf8, LineSegmenter};
 use once_cell::sync::Lazy;
+use typst::diag::Warnings;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 use unicode_bidi::{BidiInfo, Level as BidiLevel};
@@ -153,6 +154,7 @@ impl ParElem {
             locator: Tracked<Locator>,
             delayed: TrackedMut<DelayedErrors>,
             tracer: TrackedMut<Tracer>,
+            warnings: TrackedMut<Warnings>,
             styles: StyleChain,
             consecutive: bool,
             region: Size,
@@ -165,6 +167,7 @@ impl ParElem {
                 locator: &mut locator,
                 delayed,
                 tracer,
+                warnings,
             };
             let children = par.children();
 
@@ -190,6 +193,7 @@ impl ParElem {
             vt.locator.track(),
             TrackedMut::reborrow_mut(&mut vt.delayed),
             TrackedMut::reborrow_mut(&mut vt.tracer),
+            TrackedMut::reborrow_mut(&mut vt.warnings),
             styles,
             consecutive,
             region,

@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use ecow::{eco_vec, EcoVec};
 use smallvec::{smallvec, SmallVec};
+use typst::diag::Warnings;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 
@@ -402,6 +403,7 @@ impl Counter {
             vt.locator.track(),
             TrackedMut::reborrow_mut(&mut vt.delayed),
             TrackedMut::reborrow_mut(&mut vt.tracer),
+            TrackedMut::reborrow_mut(&mut vt.warnings),
         )
     }
 
@@ -414,6 +416,7 @@ impl Counter {
         locator: Tracked<Locator>,
         delayed: TrackedMut<DelayedErrors>,
         tracer: TrackedMut<Tracer>,
+        warnings: TrackedMut<Warnings>,
     ) -> SourceResult<EcoVec<(CounterState, NonZeroUsize)>> {
         let mut locator = Locator::chained(locator);
         let mut vt = Vt {
@@ -422,6 +425,7 @@ impl Counter {
             locator: &mut locator,
             delayed,
             tracer,
+            warnings,
         };
         let mut state = CounterState(match &self.0 {
             // special case, because pages always start at one.

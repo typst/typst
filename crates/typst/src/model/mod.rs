@@ -28,7 +28,7 @@ use std::mem::ManuallyDrop;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 
-use crate::diag::{SourceDiagnostic, SourceResult};
+use crate::diag::{SourceDiagnostic, SourceResult, Warnings};
 use crate::doc::Document;
 use crate::eval::Tracer;
 use crate::World;
@@ -39,6 +39,7 @@ use crate::World;
 pub fn typeset(
     world: Tracked<dyn World + '_>,
     mut tracer: TrackedMut<Tracer>,
+    mut warnings: TrackedMut<Warnings>,
     content: &Content,
 ) -> SourceResult<Document> {
     tracing::info!("Starting typesetting");
@@ -69,6 +70,7 @@ pub fn typeset(
             locator: &mut locator,
             introspector: introspector.track_with(&constraint),
             delayed: delayed.track_mut(),
+            warnings: TrackedMut::reborrow_mut(&mut warnings),
         };
 
         // Layout!
@@ -112,6 +114,8 @@ pub struct Vt<'a> {
     pub delayed: TrackedMut<'a, DelayedErrors>,
     /// The tracer for inspection of the values an expression produces.
     pub tracer: TrackedMut<'a, Tracer>,
+    /// The list of warnings
+    pub warnings: TrackedMut<'a, Warnings>,
 }
 
 impl Vt<'_> {

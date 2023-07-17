@@ -48,7 +48,6 @@ pub mod font;
 pub mod geom;
 pub mod ide;
 pub mod image;
-pub mod lint;
 pub mod model;
 
 #[doc(inline)]
@@ -60,11 +59,10 @@ use comemo::{Prehashed, Track, TrackedMut};
 use diag::SourceDiagnostic;
 use ecow::EcoString;
 
-use crate::diag::{FileResult, SourceResult};
+use crate::diag::{FileResult, SourceResult, Warnings};
 use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
-use crate::lint::lint;
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::util::Bytes;
 
@@ -73,13 +71,12 @@ use crate::util::Bytes;
 pub fn compile(world: &dyn World) -> (SourceResult<Document>, Vec<SourceDiagnostic>) {
     let route = Route::default();
     let mut tracer = Tracer::default();
+    let mut warnings = Warnings::default();
 
     // Call `track` just once to keep comemo's ID stable.
     let world = world.track();
     let mut tracer = tracer.track_mut();
-
-    // Lint the module.
-    let warnings = lint(&world.main());
+    let mut warnings = warnings.track_mut();
 
     // Evaluate the source file into a module.
 
@@ -87,10 +84,20 @@ pub fn compile(world: &dyn World) -> (SourceResult<Document>, Vec<SourceDiagnost
         world,
         route.track(),
         TrackedMut::reborrow_mut(&mut tracer),
+        TrackedMut::reborrow_mut(&mut warnings),
         &world.main(),
     ) {
-        Ok(module) => (model::typeset(world, tracer, &module.content()), warnings),
-        Err(error) => (Err(error), warnings),
+        Ok(module) => {
+            let doc = model::typeset(
+                world,
+                tracer,
+                TrackedMut::reborrow_mut(&mut warnings),
+                &module.content(),
+            );
+
+            (doc, warnings.finish())
+        }
+        Err(error) => (Err(error), warnings.finish()),
     }
 }
 
