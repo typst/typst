@@ -221,6 +221,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         triple: '≡',
         quad: '≣',
     ],
+    neq:'≠',
     gt: [
         '>',
         circle: '⧁',
@@ -321,6 +322,7 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         tilde: '≿',
     ],
     equiv: ['≡', not: '≢'],
+    nequiv:['≢'],
     prop: '∝',
 
     // Set theory.
@@ -436,13 +438,15 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
 
     // Number theory.
     divides: ['∣', not: '∤'],
-    perp: ['⟂', circle: '⦹'],
+    mid: ['|', not:'∤']
+    nmid: '∤',
 
     // Algebra.
     wreath: '≀',
 
     // Geometry.
     parallel: ['∥', circle: '⦷', not: '∦'],
+    perp: ['⟂', circle: '⦹'],
 
     // Miscellaneous Technical.
     diameter: '⌀',
