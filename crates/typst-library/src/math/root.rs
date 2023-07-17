@@ -46,10 +46,11 @@ impl LayoutMath for RootElem {
 
 /// Layout a root.
 ///
-/// https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot
+/// TeXbook page 443, page 360
+/// See also: https://www.w3.org/TR/mathml-core/#radicals-msqrt-mroot
 fn layout(
     ctx: &mut MathContext,
-    mut index: Option<&Content>,
+    index: Option<&Content>,
     radicand: &Content,
     span: Span,
 ) -> SourceResult<()> {
@@ -71,25 +72,23 @@ fn layout(
 
     // Layout root symbol.
     let target = radicand.height() + thickness + gap;
-    let sqrt = precomposed(ctx, index, target)
-        .map(|frame| {
-            index = None;
-            frame
-        })
-        .unwrap_or_else(|| {
-            let glyph = GlyphFragment::new(ctx, '√', span);
-            glyph.stretch_vertical(ctx, target, Abs::zero()).frame
-        });
+    let sqrt = GlyphFragment::new(ctx, '√', span)
+        .stretch_vertical(ctx, target, Abs::zero())
+        .frame;
 
     // Layout the index.
-    // Script-script style looks too small, we use Script style instead.
-    ctx.style(ctx.style.with_size(MathSize::Script));
+    ctx.style(ctx.style.with_size(MathSize::ScriptScript));
     let index = index.map(|elem| ctx.layout_frame(elem)).transpose()?;
     ctx.unstyle();
 
-    let gap = gap.max((sqrt.height() - radicand.height() - thickness) / 2.0);
-    let descent = radicand.descent() + gap;
-    let inner_ascent = extra_ascender + thickness + gap + radicand.ascent();
+    // TeXbook, page 443, item 11
+    // Keep original gap, and then distribute any remaining free space
+    // equally above and below.
+    let gap = gap.max((sqrt.height() - thickness - radicand.height() + gap) / 2.0);
+
+    let sqrt_ascent = radicand.ascent() + gap + thickness;
+    let descent = sqrt.height() - sqrt_ascent;
+    let inner_ascent = sqrt_ascent + extra_ascender;
 
     let mut sqrt_offset = Abs::zero();
     let mut shift_up = Abs::zero();
@@ -97,23 +96,32 @@ fn layout(
 
     if let Some(index) = &index {
         sqrt_offset = kern_before + index.width() + kern_after;
-        shift_up = raise_factor * sqrt.height() - descent + index.descent();
+        // The formula below for how much raise the index by comes from
+        // the TeXbook, page 360, in the definition of `\root`.
+        // However, the `+ index.descent()` part is different from TeX.
+        // Without it, descenders can collide with the surd, a rarity
+        // in practice, but possible.  MS Word also adjusts index positions
+        // for descenders.
+        shift_up = raise_factor * (inner_ascent - descent) + index.descent();
         ascent.set_max(shift_up + index.ascent());
     }
 
-    let radicant_offset = sqrt_offset + sqrt.width();
-    let width = radicant_offset + radicand.width();
+    let radicand_x = sqrt_offset + sqrt.width();
+    let radicand_y = ascent - radicand.ascent();
+    let width = radicand_x + radicand.width();
     let size = Size::new(width, ascent + descent);
 
-    let sqrt_pos = Point::new(sqrt_offset, ascent - inner_ascent);
-    let line_pos = Point::new(radicant_offset, ascent - inner_ascent + thickness / 2.0);
-    let radicand_pos = Point::new(radicant_offset, ascent - radicand.ascent());
+    // The extra "- thickness" comes from the fact that the sqrt is placed
+    // in `push_frame` with respect to its top, not its baseline.
+    let sqrt_pos = Point::new(sqrt_offset, radicand_y - gap - thickness);
+    let line_pos = Point::new(radicand_x, radicand_y - gap - (thickness / 2.0));
+    let radicand_pos = Point::new(radicand_x, radicand_y);
 
     let mut frame = Frame::new(size);
     frame.set_baseline(ascent);
 
     if let Some(index) = index {
-        let index_pos = Point::new(kern_before, ascent - shift_up - index.ascent());
+        let index_pos = Point::new(kern_before, ascent - index.ascent() - shift_up);
         frame.push_frame(index_pos, index);
     }
 
@@ -134,23 +142,4 @@ fn layout(
     ctx.push(FrameFragment::new(ctx, frame));
 
     Ok(())
-}
-
-/// Select a precomposed radical, if the font has it.
-fn precomposed(ctx: &MathContext, index: Option<&Content>, target: Abs) -> Option<Frame> {
-    let elem = index?.to::<TextElem>()?;
-    let c = match elem.text().as_str() {
-        "3" => '∛',
-        "4" => '∜',
-        _ => return None,
-    };
-
-    ctx.ttf.glyph_index(c)?;
-    let glyph = GlyphFragment::new(ctx, c, elem.span());
-    let variant = glyph.stretch_vertical(ctx, target, Abs::zero()).frame;
-    if variant.height() < target {
-        return None;
-    }
-
-    Some(variant)
 }
