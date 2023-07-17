@@ -135,7 +135,7 @@ fn export_svg(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let string = output.to_str().unwrap_or_default();
     let numbered = string.contains("{n}");
     if !numbered && document.pages.len() > 1 {
-        bail!("cannot export multiple PNGs without `{{n}}` in output path");
+        bail!("cannot export multiple SVGs without `{{n}}` in output path");
     }
 
     // Find a number width that accommodates all pages. For instance, the

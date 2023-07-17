@@ -275,6 +275,8 @@ impl SVGRenderer {
         if let Some(paint) = &shape.fill {
             let Solid(color) = paint;
             attr_set.set("fill", color.to_rgba().to_hex().to_string());
+        } else {
+            attr_set.set("fill", "none".to_string());
         }
         if let Some(stroke) = &shape.stroke {
             let Solid(color) = stroke.paint;
