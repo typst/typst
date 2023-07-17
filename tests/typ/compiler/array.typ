@@ -238,6 +238,21 @@
 #test(((1, 2), 3).zip((4, 5)), (((1, 2), 4), (3, 5)))
 #test((1, "hi").zip((true, false)), ((1, true), ("hi", false)))
 
+---
+// Test the `dedup` method.
+#test(().dedup(), ())
+#test((1,).dedup(), (1,))
+#test((1, 1).dedup(), (1,))
+#test((1, 2, 1).dedup(), (1, 2))
+#test(("Jane", "John", "Eric").dedup(), ("Jane", "John", "Eric"))
+#test(("Jane", "John", "Eric", "John").dedup(), ("Jane", "John", "Eric"))
+
+---
+// Test the `dedup` with the `by` argument.
+#test((1, 2, 3, 4, 5, 6).dedup(by: x => calc.rem(x, 2)), (1, 2))
+#test((1, 2, 3, 4, 5, 6).dedup(by: x => calc.rem(x, 3)), (1, 2, 3))
+#test(("Hello", "World", "Hi", "There").dedup(by: x => x.len()), ("Hello", "Hi"))
+#test(("Hello", "World", "Hi", "There").dedup(by: x => x.at(0)), ("Hello", "World", "There"))
 
 ---
 // Error: 32-37 cannot divide by zero
