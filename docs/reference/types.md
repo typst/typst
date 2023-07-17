@@ -973,7 +973,7 @@ Only the first element of each duplicate is kept.
 
 ```example
 #{
-  (1, 1, 2, 3).dedup() == (1, 2, 3)
+  (1, 1, 2, 3, 1).dedup() == (1, 2, 3)
 }
 ```
 
