@@ -226,6 +226,7 @@ impl<'a> ShapedText<'a> {
     ) -> Frame {
         let (top, bottom) = self.measure(vt);
         let size = Size::new(self.width, top + bottom);
+
         let mut offset = Abs::zero();
         let mut frame = Frame::new(size);
         frame.set_baseline(top);
@@ -340,7 +341,7 @@ impl<'a> ShapedText<'a> {
             }
         } else {
             for g in self.glyphs.iter() {
-                let bbox = if top_edge.is_bbox() || bottom_edge.is_bbox() {
+                let bbox = if top_edge.is_bounds() || bottom_edge.is_bounds() {
                     g.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(g.glyph_id))
                 } else {
                     None

@@ -5,8 +5,7 @@ use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
-use crate::text::{tags, TextBottomEdge, TextTopEdge};
-use crate::text::{BottomEdgeMetric, TopEdgeMetric};
+use crate::text::{tags, BottomEdge, BottomEdgeMetric, TopEdge, TopEdgeMetric};
 
 macro_rules! scaled {
     ($ctx:expr, text: $text:ident, display: $display:ident $(,)?) => {
@@ -205,11 +204,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             }
             let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
             let text = TextElem::packed(text)
-                .styled(TextElem::set_top_edge(TextTopEdge::Metric(
-                    TopEdgeMetric::BoundingBox,
-                )))
-                .styled(TextElem::set_bottom_edge(TextBottomEdge::Metric(
-                    BottomEdgeMetric::BoundingBox,
+                .styled(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)))
+                .styled(TextElem::set_bottom_edge(BottomEdge::Metric(
+                    BottomEdgeMetric::Bounds,
                 )))
                 .spanned(span);
             let par = ParElem::new(vec![text]);
