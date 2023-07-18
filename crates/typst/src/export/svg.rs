@@ -9,7 +9,7 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::{NodeExt, TreeParsing};
 
 use crate::{
-    doc::{Frame, Glyph, TextItem},
+    doc::{Document, Frame, Glyph, TextItem},
     geom::{Abs, Axes, Shape, Transform},
     util::hash128,
 };
@@ -33,11 +33,19 @@ impl Display for RenderHash {
 }
 
 /// Export a document into a SVG file.
-pub fn svg(page: &Frame) -> String {
+pub fn svg(doc: &Document) -> String {
     let mut renderer = SVGRenderer::default();
-    let page_string = renderer.render_page(page, Transform::identity());
-    renderer.append_page(page_string);
-    renderer.finalize(page.size())
+    let mut max_width = Abs::zero();
+    let mut y_offset = Abs::zero();
+    for page in &doc.pages {
+        let page_string =
+            renderer.render_frame(page, Transform::translate(Abs::zero(), y_offset));
+        renderer.append_page(page_string);
+        y_offset += page.size().y;
+        max_width = max_width.max(page.size().x);
+    }
+    let doc_size = Axes { x: max_width, y: y_offset };
+    renderer.finalize(doc_size)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -82,7 +90,7 @@ impl SVGRenderer {
         header
     }
 
-    fn render_page(&mut self, frame: &Frame, trans: Transform) -> String {
+    fn render_frame(&mut self, frame: &Frame, trans: Transform) -> String {
         let mut page = if trans.is_identity() {
             r#"<g>"#.to_string()
         } else {
@@ -111,7 +119,7 @@ impl SVGRenderer {
                             format!(r##"<g clip-path="url(#{})">"##, clip_path_hash);
                         str.push_str(&clip);
                     }
-                    let page = self.render_page(&group.frame, group.transform);
+                    let page = self.render_frame(&group.frame, group.transform);
                     str.push_str(&page);
                     if group.clips {
                         str.push_str("</g>");

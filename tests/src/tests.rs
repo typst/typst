@@ -430,7 +430,7 @@ fn test(
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
-        let svg = typst::export::svg(&document.pages[0]); // fixme: only page 0 is rendered
+        let svg = typst::export::svg(&document);
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
         std::fs::write(svg_path, svg).unwrap();
 
