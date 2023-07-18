@@ -266,7 +266,7 @@ pub struct TextElem {
 
     /// The OpenType writing script setting.
     ///
-    /// The combination of `{script}` and `{lang`} determine how
+    /// The combination of `{script}` and `{lang}` determine how
     /// font features, such as glyph substitution, are implemented.
     /// Frequently the value is a modified (all-lowercase) ISO 15924 script identifier, and
     /// the `math` writing script is used for features appropriate
