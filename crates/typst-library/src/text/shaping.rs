@@ -630,10 +630,9 @@ fn shape_segment(
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     buffer.set_language(language(ctx.styles));
-    if let Some(script) = TextElem::writing_script_in(ctx.styles)
-        .as_custom()
-        .and_then(|tag| rustybuzz::Script::from_iso15924_tag(tag.0))
-    {
+    if let Some(script) = TextElem::script_in(ctx.styles).as_custom().and_then(|script| {
+        rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
+    }) {
         buffer.set_script(script)
     }
     buffer.set_direction(match ctx.dir {
