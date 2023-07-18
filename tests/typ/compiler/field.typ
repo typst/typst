@@ -151,8 +151,43 @@
 
 ---
 #{
+  let object = sym.eq.not
+  // Error: 3-9 cannot mutate fields on symbol
+  object.property = "value"
+}
+
+---
+#{
+  let object = [hi]
+  // Error: 3-9 cannot mutate fields on content
+  object.property = "value"
+}
+
+---
+#{
+  let object = calc
+  // Error: 3-9 cannot mutate fields on module
+  object.property = "value"
+}
+
+---
+#{
+  let object = calc.sin
+  // Error: 3-9 cannot mutate fields on function
+  object.property = "value"
+}
+
+---
+#{
   let object = none
-  // Error: 3-9 cannot mutate fields on none
+  // Error: 3-9 none does not have accessible fields
+  object.property = "value"
+}
+
+---
+#{
+  let object = 10
+  // Error: 3-9 integer does not have accessible fields
   object.property = "value"
 }
 

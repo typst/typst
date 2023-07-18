@@ -66,7 +66,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::{CapturesVisitor, Closure};
 use crate::diag::{
-    bail, error, At, FileError, Hint, SourceError, SourceResult, StrResult, Trace, Tracepoint,
+    bail, error, At, FileError, Hint, SourceError, SourceResult, StrResult, Trace,
+    Tracepoint,
 };
 use crate::model::{
     Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
@@ -1992,9 +1993,16 @@ fn access_dict<'a>(
         value => {
             let type_name = value.type_name();
             let span = access.target().span();
-            if fields::fields_on(type_name).is_empty() {
+            if matches!(
+                value, // those types have their own field getters
+                Value::Symbol(_) | Value::Content(_) | Value::Module(_) | Value::Func(_)
+            ) {
                 bail!(span, "cannot mutate fields on {type_name}");
+            } else if fields::fields_on(type_name).is_empty() {
+                bail!(span, "{type_name} does not have accessible fields");
             } else {
+                // type supports static fields, which don't yet have
+                // setters
                 Err(eco_format!("fields on {type_name} are not yet mutable"))
                     .hint(eco_format!("try creating a new {type_name} with the updated field value instead"))
                     .at(span)
