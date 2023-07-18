@@ -272,6 +272,10 @@ pub struct TextElem {
     /// the `math` writing script is used for features appropriate
     /// for mathematical symbols.
     ///
+    /// When set to `{auto}`, the default and recommended setting,
+    /// an appropriate script is chosen for each block of characters
+    /// sharing a common Unicode script property.
+    ///
     /// ```example
     /// #let scedilla = [Ş]
     /// #set text(font: "Linux Libertine", size: 20pt)
