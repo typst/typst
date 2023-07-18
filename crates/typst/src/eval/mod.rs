@@ -74,8 +74,8 @@ use crate::model::{
 };
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{
-    parse_code, FileId, PackageSpec, PackageVersion, Source, Span, Spanned, SyntaxKind,
-    SyntaxNode,
+    parse, parse_code, parse_math, FileId, PackageSpec, PackageVersion, Source, Span,
+    Spanned, SyntaxKind, SyntaxNode,
 };
 use crate::World;
 
@@ -144,10 +144,16 @@ pub fn eval(
 #[comemo::memoize]
 pub fn eval_string(
     world: Tracked<dyn World + '_>,
-    code: &str,
+    string: &str,
+    mode: EvalMode,
     span: Span,
 ) -> SourceResult<Value> {
-    let mut root = parse_code(code);
+    let mut root = match mode {
+        EvalMode::Code => parse_code(string),
+        EvalMode::Markup => parse(string),
+        EvalMode::Math => parse_math(string),
+    };
+
     root.synthesize(span);
 
     let errors = root.errors();
@@ -175,8 +181,15 @@ pub fn eval_string(
     let mut vm = Vm::new(vt, route.track(), id, scopes);
 
     // Evaluate the code.
-    let code = root.cast::<ast::Code>().unwrap();
-    let result = code.eval(&mut vm);
+    let result = match mode {
+        EvalMode::Code => root.cast::<ast::Code>().unwrap().eval(&mut vm),
+        EvalMode::Markup => {
+            root.cast::<ast::Markup>().unwrap().eval(&mut vm).map(Value::Content)
+        }
+        EvalMode::Math => {
+            root.cast::<ast::Math>().unwrap().eval(&mut vm).map(Value::Content)
+        }
+    };
 
     // Handle control flow.
     if let Some(flow) = vm.flow {
@@ -184,6 +197,17 @@ pub fn eval_string(
     }
 
     result
+}
+
+/// In which mode to evaluate a string.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum EvalMode {
+    /// Evaluate as code, as after a hashtag.
+    Code,
+    /// Evaluate as markup, like in a Typst file.
+    Markup,
+    /// Evaluate as math, as in an equation.
+    Math,
 }
 
 /// A virtual machine.
