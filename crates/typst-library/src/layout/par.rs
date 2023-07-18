@@ -750,6 +750,7 @@ fn shape_range<'a>(
     spans: &SpanMapper,
     styles: StyleChain<'a>,
 ) {
+    let script = TextElem::script_in(styles);
     let lang = TextElem::lang_in(styles);
     let region = TextElem::region_in(styles);
     let mut process = |range: Range, level: BidiLevel| {
@@ -763,25 +764,31 @@ fn shape_range<'a>(
     let mut prev_script = Script::Unknown;
     let mut cursor = range.start;
 
-    // Group by embedding level and script.
+    // Group by embedding level and script.  If the text's script is explicitly
+    // set (rather than inferred from the glpyhs), we keep the script at an
+    // unchanging `Script::Unknown` so that only level changes cause breaks.
     for i in range.clone() {
         if !bidi.text.is_char_boundary(i) {
             continue;
         }
 
         let level = bidi.levels[i];
-        let script =
-            bidi.text[i..].chars().next().map_or(Script::Unknown, |c| c.script());
+        let curr_script = match script {
+            Smart::Auto => {
+                bidi.text[i..].chars().next().map_or(Script::Unknown, |c| c.script())
+            }
+            Smart::Custom(_) => Script::Unknown,
+        };
 
-        if level != prev_level || !is_compatible(script, prev_script) {
+        if level != prev_level || !is_compatible(curr_script, prev_script) {
             if cursor < i {
                 process(cursor..i, prev_level);
             }
             cursor = i;
             prev_level = level;
-            prev_script = script;
+            prev_script = curr_script;
         } else if is_generic_script(prev_script) {
-            prev_script = script;
+            prev_script = curr_script;
         }
     }
 
