@@ -1,7 +1,6 @@
 use comemo::Track;
 use ecow::EcoString;
 
-use crate::diag::Warnings;
 use crate::doc::Frame;
 use crate::eval::{eval, Module, Route, Tracer, Value};
 use crate::model::{Introspector, Label};
@@ -36,20 +35,17 @@ pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Val
 
             let route = Route::default();
             let mut tracer = Tracer::new(Some(node.span()));
-            let mut warnings = Warnings::default();
 
             typst::eval::eval(
                 world.track(),
                 route.track(),
                 tracer.track_mut(),
-                warnings.track_mut(),
                 &world.main(),
             )
             .and_then(|module| {
                 typst::model::typeset(
                     world.track(),
                     tracer.track_mut(),
-                    warnings.track_mut(),
                     &module.content(),
                 )
             })
@@ -70,12 +66,10 @@ pub fn analyze_import(
 ) -> Option<Module> {
     let route = Route::default();
     let mut tracer = Tracer::default();
-    let mut warnings = Warnings::default();
     let id = source.id().join(path).ok()?;
     let source = world.source(id).ok()?;
 
-    eval(world.track(), route.track(), tracer.track_mut(), warnings.track_mut(), &source)
-        .ok()
+    eval(world.track(), route.track(), tracer.track_mut(), &source).ok()
 }
 
 /// Find all labels and details for them.

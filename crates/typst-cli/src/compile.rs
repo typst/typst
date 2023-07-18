@@ -6,7 +6,7 @@ use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
 use typst::doc::Document;
-use typst::eval::eco_format;
+use typst::eval::{eco_format, Tracer};
 use typst::geom::Color;
 use typst::syntax::{FileId, Source};
 use typst::World;
@@ -46,12 +46,16 @@ pub fn compile_once(
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let result = typst::compile(world);
+    let mut tracer = Tracer::default();
+
+    let result = typst::compile(world, &mut tracer);
     let duration = start.elapsed();
+
+    let warnings = tracer.warnings();
 
     match result {
         // Export the PDF / PNG.
-        (Ok(document), warnings) => {
+        Ok(document) => {
             export(&document, command)?;
 
             tracing::info!("Compilation succeeded in {duration:?}");
@@ -72,7 +76,7 @@ pub fn compile_once(
         }
 
         // Print diagnostics.
-        (Err(errors), warnings) => {
+        Err(errors) => {
             set_failed();
             tracing::info!("Compilation failed");
 

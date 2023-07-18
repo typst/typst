@@ -49,7 +49,6 @@ use std::mem;
 
 use typed_arena::Arena;
 use typst::diag::SourceResult;
-use typst::diag::Warnings;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 use typst::model::{applicable, realize, StyleVecBuilder};
@@ -114,7 +113,6 @@ pub trait LayoutRoot {
 impl LayoutRoot for Content {
     #[tracing::instrument(name = "Content::layout_root", skip_all)]
     fn layout_root(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Document> {
-        #[allow(clippy::too_many_arguments)]
         #[comemo::memoize]
         fn cached(
             content: &Content,
@@ -123,7 +121,6 @@ impl LayoutRoot for Content {
             locator: Tracked<Locator>,
             delayed: TrackedMut<DelayedErrors>,
             tracer: TrackedMut<Tracer>,
-            warnings: TrackedMut<Warnings>,
             styles: StyleChain,
         ) -> SourceResult<Document> {
             let mut locator = Locator::chained(locator);
@@ -133,7 +130,6 @@ impl LayoutRoot for Content {
                 locator: &mut locator,
                 delayed,
                 tracer,
-                warnings,
             };
             let scratch = Scratch::default();
             let (realized, styles) = realize_root(&mut vt, &scratch, content, styles)?;
@@ -151,7 +147,6 @@ impl LayoutRoot for Content {
             vt.locator.track(),
             TrackedMut::reborrow_mut(&mut vt.delayed),
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.warnings),
             styles,
         )
     }
@@ -185,7 +180,6 @@ pub trait Layout {
             locator: &mut locator,
             tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
             delayed: TrackedMut::reborrow_mut(&mut vt.delayed),
-            warnings: TrackedMut::reborrow_mut(&mut vt.warnings),
         };
         self.layout(&mut vt, styles, regions)
     }
@@ -208,7 +202,6 @@ impl Layout for Content {
             locator: Tracked<Locator>,
             delayed: TrackedMut<DelayedErrors>,
             tracer: TrackedMut<Tracer>,
-            warnings: TrackedMut<Warnings>,
             styles: StyleChain,
             regions: Regions,
         ) -> SourceResult<Fragment> {
@@ -219,7 +212,6 @@ impl Layout for Content {
                 locator: &mut locator,
                 delayed,
                 tracer,
-                warnings,
             };
             let scratch = Scratch::default();
             let (realized, styles) = realize_block(&mut vt, &scratch, content, styles)?;
@@ -238,7 +230,6 @@ impl Layout for Content {
             vt.locator.track(),
             TrackedMut::reborrow_mut(&mut vt.delayed),
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.warnings),
             styles,
             regions,
         )?;

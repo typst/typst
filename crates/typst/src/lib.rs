@@ -56,10 +56,9 @@ pub use typst_syntax as syntax;
 use std::ops::Range;
 
 use comemo::{Prehashed, Track, TrackedMut};
-use diag::SourceDiagnostic;
 use ecow::EcoString;
 
-use crate::diag::{FileResult, SourceResult, Warnings};
+use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
@@ -67,38 +66,18 @@ use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::util::Bytes;
 
 /// Compile a source file into a fully layouted document.
-#[tracing::instrument(skip(world))]
-pub fn compile(world: &dyn World) -> (SourceResult<Document>, Vec<SourceDiagnostic>) {
+#[tracing::instrument(skip(world, tracer))]
+pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     let route = Route::default();
-    let mut tracer = Tracer::default();
-    let mut warnings = Warnings::default();
 
     // Call `track` just once to keep comemo's ID stable.
     let world = world.track();
     let mut tracer = tracer.track_mut();
-    let mut warnings = warnings.track_mut();
 
     // Evaluate the source file into a module.
 
-    match eval::eval(
-        world,
-        route.track(),
-        TrackedMut::reborrow_mut(&mut tracer),
-        TrackedMut::reborrow_mut(&mut warnings),
-        &world.main(),
-    ) {
-        Ok(module) => {
-            let doc = model::typeset(
-                world,
-                tracer,
-                TrackedMut::reborrow_mut(&mut warnings),
-                &module.content(),
-            );
-
-            (doc, warnings.finish())
-        }
-        Err(error) => (Err(error), warnings.finish()),
-    }
+    eval::eval(world, route.track(), TrackedMut::reborrow_mut(&mut tracer), &world.main())
+        .and_then(|module| model::typeset(world, tracer, &module.content()))
 }
 
 /// The environment in which typesetting occurs.

@@ -1,7 +1,6 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
 use ecow::{eco_vec, EcoVec};
-use typst::diag::Warnings;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 
@@ -312,7 +311,6 @@ impl State {
             vt.locator.track(),
             TrackedMut::reborrow_mut(&mut vt.delayed),
             TrackedMut::reborrow_mut(&mut vt.tracer),
-            TrackedMut::reborrow_mut(&mut vt.warnings),
         )
     }
 
@@ -325,7 +323,6 @@ impl State {
         locator: Tracked<Locator>,
         delayed: TrackedMut<DelayedErrors>,
         tracer: TrackedMut<Tracer>,
-        warnings: TrackedMut<Warnings>,
     ) -> SourceResult<EcoVec<Value>> {
         let mut locator = Locator::chained(locator);
         let mut vt = Vt {
@@ -334,7 +331,6 @@ impl State {
             locator: &mut locator,
             delayed,
             tracer,
-            warnings,
         };
         let mut state = self.init.clone();
         let mut stops = eco_vec![state.clone()];

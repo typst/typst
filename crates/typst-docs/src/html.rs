@@ -4,7 +4,7 @@ use comemo::Prehashed;
 use pulldown_cmark as md;
 use typed_arena::Arena;
 use typst::diag::FileResult;
-use typst::eval::Datetime;
+use typst::eval::{Datetime, Tracer};
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
 use typst::syntax::{FileId, Source};
@@ -428,9 +428,11 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     let id = FileId::new(None, Path::new("/main.typ"));
     let source = Source::new(id, compile);
     let world = DocWorld(source);
-    let mut frames = match typst::compile(&world) {
-        (Ok(doc), _) => doc.pages,
-        (Err(err), _) => {
+    let mut tracer = Tracer::default();
+
+    let mut frames = match typst::compile(&world, &mut tracer) {
+        Ok(doc) => doc.pages,
+        Err(err) => {
             let msg = &err[0].message;
             panic!("while trying to compile:\n{text}:\n\nerror: {msg}");
         }

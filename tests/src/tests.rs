@@ -22,7 +22,7 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Value};
+use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{FileId, Source, Span, SyntaxNode};
@@ -514,21 +514,19 @@ fn test_part(
         let world = (world as &dyn World).track();
         let route = typst::eval::Route::default();
         let mut tracer = typst::eval::Tracer::default();
-        let mut warnings = typst::diag::Warnings::default();
-        let module = typst::eval::eval(
-            world,
-            route.track(),
-            tracer.track_mut(),
-            warnings.track_mut(),
-            &source,
-        )
-        .unwrap();
+
+        let module =
+            typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
-    let (mut frames, diagnostics) = match typst::compile(world) {
-        (Ok(document), warnings) => (document.pages, warnings),
-        (Err(mut errors), mut warnings) => {
+    let mut tracer = Tracer::default();
+
+    let (mut frames, diagnostics) = match typst::compile(world, &mut tracer) {
+        Ok(document) => (document.pages, tracer.warnings()),
+        Err(mut errors) => {
+            let mut warnings = tracer.warnings();
+
             warnings.append(&mut *errors);
             (vec![], warnings)
         }

@@ -67,7 +67,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use self::func::{CapturesVisitor, Closure};
 use crate::diag::{
     bail, error, warning, At, FileError, SourceDiagnostic, SourceResult, StrResult,
-    Trace, Tracepoint, Warnings,
+    Trace, Tracepoint,
 };
 use crate::model::{
     Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
@@ -90,7 +90,6 @@ pub fn eval(
     world: Tracked<dyn World + '_>,
     route: Tracked<Route>,
     tracer: TrackedMut<Tracer>,
-    warnings: TrackedMut<Warnings>,
     source: &Source,
 ) -> SourceResult<Module> {
     // Prevent cyclic evaluation.
@@ -113,7 +112,6 @@ pub fn eval(
         locator: &mut locator,
         delayed: delayed.track_mut(),
         tracer,
-        warnings,
     };
 
     // Prepare VM.
@@ -167,7 +165,6 @@ pub fn eval_string(
 
     // Prepare VT.
     let mut tracer = Tracer::default();
-    let mut warnings = Warnings::default();
     let mut locator = Locator::default();
     let mut delayed = DelayedErrors::default();
     let introspector = Introspector::default();
@@ -177,7 +174,6 @@ pub fn eval_string(
         locator: &mut locator,
         delayed: delayed.track_mut(),
         tracer: tracer.track_mut(),
-        warnings: warnings.track_mut(),
     };
 
     // Prepare VM.
@@ -356,11 +352,13 @@ impl<'a> Route<'a> {
     }
 }
 
-/// Traces which values existed for an expression at a span.
+/// Traces warnings and which values existed for an expression at a span.
 #[derive(Default, Clone)]
 pub struct Tracer {
     span: Option<Span>,
     values: Vec<Value>,
+
+    warnings: Vec<SourceDiagnostic>,
 }
 
 impl Tracer {
@@ -369,12 +367,17 @@ impl Tracer {
 
     /// Create a new tracer, possibly with a span under inspection.
     pub fn new(span: Option<Span>) -> Self {
-        Self { span, values: vec![] }
+        Self { span, values: vec![], warnings: vec![] }
     }
 
     /// Get the traced values.
     pub fn finish(self) -> Vec<Value> {
         self.values
+    }
+
+    /// Get the stored warnings.
+    pub fn warnings(self) -> Vec<SourceDiagnostic> {
+        self.warnings
     }
 }
 
@@ -394,6 +397,11 @@ impl Tracer {
         if self.values.len() < Self::MAX {
             self.values.push(v);
         }
+    }
+
+    /// Add a warning
+    fn warn(&mut self, warning: SourceDiagnostic) {
+        self.warnings.push(warning);
     }
 }
 
@@ -623,8 +631,8 @@ impl Eval for ast::Strong {
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         if self.body().exprs().count() == 0 {
             vm.vt
-                .warnings
-                .push(warning!(self.span(), "no text within stars").with_hint(
+                .tracer
+                .warn(warning!(self.span(), "no text within stars").with_hint(
                 EcoString::from(
                     "using multiple consecutive stars (e.g. **) has no additional effect",
                 ),
@@ -1848,15 +1856,9 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     let entrypoint_id = manifest_id.join(&manifest.package.entrypoint).at(span)?;
     let source = vm.world().source(entrypoint_id).at(span)?;
     let point = || Tracepoint::Import;
-    Ok(eval(
-        vm.world(),
-        vm.route,
-        TrackedMut::reborrow_mut(&mut vm.vt.tracer),
-        TrackedMut::reborrow_mut(&mut vm.vt.warnings),
-        &source,
-    )
-    .trace(vm.world(), point, span)?
-    .with_name(manifest.package.name))
+    Ok(eval(vm.world(), vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)
+        .trace(vm.world(), point, span)?
+        .with_name(manifest.package.name))
 }
 
 /// Import a file from a path.
@@ -1873,14 +1875,8 @@ fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
 
     // Evaluate the file.
     let point = || Tracepoint::Import;
-    eval(
-        world,
-        vm.route,
-        TrackedMut::reborrow_mut(&mut vm.vt.tracer),
-        TrackedMut::reborrow_mut(&mut vm.vt.warnings),
-        &source,
-    )
-    .trace(world, point, span)
+    eval(world, vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)
+        .trace(world, point, span)
 }
 
 /// A parsed package manifest.
