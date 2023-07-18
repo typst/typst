@@ -72,7 +72,11 @@ impl<'a> Scopes<'a> {
 #[cold]
 fn unknown_variable(var: &str) -> EcoString {
     if var.contains('-') {
-        eco_format!("unknown variable: {} - if you meant to use subtraction, try adding spaces around the minus sign.", var)
+        eco_format!(
+            "unknown variable: {} - if you meant to use subtraction, \
+             try adding spaces around the minus sign.",
+            var
+        )
     } else {
         eco_format!("unknown variable: {}", var)
     }
@@ -171,7 +175,10 @@ impl Slot {
         match self.kind {
             Kind::Normal => Ok(&mut self.value),
             Kind::Captured => {
-                bail!("variables from outside the function are read-only and cannot be modified")
+                bail!(
+                    "variables from outside the function are \
+                     read-only and cannot be modified"
+                )
             }
         }
     }

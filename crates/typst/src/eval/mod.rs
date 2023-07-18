@@ -145,8 +145,9 @@ pub fn eval(
 pub fn eval_string(
     world: Tracked<dyn World + '_>,
     string: &str,
-    mode: EvalMode,
     span: Span,
+    mode: EvalMode,
+    scope: Scope,
 ) -> SourceResult<Value> {
     let mut root = match mode {
         EvalMode::Code => parse_code(string),
@@ -179,6 +180,7 @@ pub fn eval_string(
     let id = FileId::detached();
     let scopes = Scopes::new(Some(world.library()));
     let mut vm = Vm::new(vt, route.track(), id, scopes);
+    vm.scopes.scopes.push(scope);
 
     // Evaluate the code.
     let result = match mode {

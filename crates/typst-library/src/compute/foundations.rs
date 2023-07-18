@@ -218,9 +218,30 @@ pub fn eval(
     #[named]
     #[default(EvalMode::Code)]
     mode: EvalMode,
+    /// A scope of definitions that are made available.
+    ///
+    /// ```example
+    /// #eval("x + 1", scope: (x: 2)) \
+    /// #eval(
+    ///   "abc/xyz",
+    ///   mode: "math",
+    ///   scope: (
+    ///     abc: $a + b + c$,
+    ///     xyz: $x + y + z$,
+    ///   ),
+    /// )
+    /// ```
+    #[named]
+    #[default]
+    scope: Dict,
     /// The virtual machine.
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: text, span } = source;
-    typst::eval::eval_string(vm.world(), &text, mode, span)
+    let dict = scope;
+    let mut scope = Scope::new();
+    for (key, value) in dict {
+        scope.define(key, value);
+    }
+    typst::eval::eval_string(vm.world(), &text, span, mode, scope)
 }

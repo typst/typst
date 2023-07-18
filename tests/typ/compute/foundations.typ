@@ -73,7 +73,17 @@
 #test(type(10 / 3), "float")
 
 ---
-#eval("[_Hello" + " World!_]")
+// Test the eval function.
+#test(eval("1 + 2"), 3)
+#test(eval("1 + x", scope: (x: 3)), 4)
+#test(eval("let x = x + 1; x + 1", scope: (x: 1)), 3)
+
+---
+// Test evaluation in other modes.
+// Ref: true
+#eval("[_Hello" + " World!_]") \
+#eval("_Hello" + " World!_", mode: "markup") \
+#eval("RR_1^NN", mode: "math", scope: (RR: math.NN, NN: math.RR))
 
 ---
 // Error: 7-12 expected identifier
