@@ -35,6 +35,14 @@
 }
 
 ---
+// Error: 19-23 expected string or auto, found none
+#set text(script: none)
+
+---
+// Error: 19-23 expected three or four letter script code (ISO 15924 or 'math')
+#set text(script: "ab")
+
+---
 // Error: 17-21 expected string, found none
 #set text(lang: none)
 
