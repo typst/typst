@@ -24,6 +24,7 @@ mod none;
 pub mod ops;
 mod scope;
 mod symbol;
+mod tracer;
 
 #[doc(hidden)]
 pub use {
@@ -53,6 +54,7 @@ pub use self::none::NoneValue;
 pub use self::scope::{Scope, Scopes};
 pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::Symbol;
+pub use self::tracer::Tracer;
 pub use self::value::{Dynamic, Type, Value};
 
 use std::collections::HashSet;
@@ -349,59 +351,6 @@ impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     fn contains(&self, id: FileId) -> bool {
         self.id == Some(id) || self.outer.map_or(false, |outer| outer.contains(id))
-    }
-}
-
-/// Traces warnings and which values existed for an expression at a span.
-#[derive(Default, Clone)]
-pub struct Tracer {
-    span: Option<Span>,
-    values: Vec<Value>,
-
-    warnings: Vec<SourceDiagnostic>,
-}
-
-impl Tracer {
-    /// The maximum number of traced items.
-    pub const MAX: usize = 10;
-
-    /// Create a new tracer, possibly with a span under inspection.
-    pub fn new(span: Option<Span>) -> Self {
-        Self { span, values: vec![], warnings: vec![] }
-    }
-
-    /// Get the traced values.
-    pub fn finish(self) -> Vec<Value> {
-        self.values
-    }
-
-    /// Get the stored warnings.
-    pub fn warnings(self) -> Vec<SourceDiagnostic> {
-        self.warnings
-    }
-}
-
-#[comemo::track]
-impl Tracer {
-    /// The traced span if it is part of the given source file.
-    fn span(&self, id: FileId) -> Option<Span> {
-        if self.span.map(Span::id) == Some(id) {
-            self.span
-        } else {
-            None
-        }
-    }
-
-    /// Trace a value for the span.
-    fn trace(&mut self, v: Value) {
-        if self.values.len() < Self::MAX {
-            self.values.push(v);
-        }
-    }
-
-    /// Add a warning
-    fn warn(&mut self, warning: SourceDiagnostic) {
-        self.warnings.push(warning);
     }
 }
 

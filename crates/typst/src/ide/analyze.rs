@@ -1,5 +1,5 @@
 use comemo::Track;
-use ecow::EcoString;
+use ecow::{eco_vec, EcoString, EcoVec};
 
 use crate::doc::Frame;
 use crate::eval::{eval, Module, Route, Tracer, Value};
@@ -8,18 +8,18 @@ use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use crate::World;
 
 /// Try to determine a set of possible values for an expression.
-pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Value> {
+pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> EcoVec<Value> {
     match node.cast::<ast::Expr>() {
-        Some(ast::Expr::None(_)) => vec![Value::None],
-        Some(ast::Expr::Auto(_)) => vec![Value::Auto],
-        Some(ast::Expr::Bool(v)) => vec![Value::Bool(v.get())],
-        Some(ast::Expr::Int(v)) => vec![Value::Int(v.get())],
-        Some(ast::Expr::Float(v)) => vec![Value::Float(v.get())],
-        Some(ast::Expr::Numeric(v)) => vec![Value::numeric(v.get())],
-        Some(ast::Expr::Str(v)) => vec![Value::Str(v.get().into())],
+        Some(ast::Expr::None(_)) => eco_vec![Value::None],
+        Some(ast::Expr::Auto(_)) => eco_vec![Value::Auto],
+        Some(ast::Expr::Bool(v)) => eco_vec![Value::Bool(v.get())],
+        Some(ast::Expr::Int(v)) => eco_vec![Value::Int(v.get())],
+        Some(ast::Expr::Float(v)) => eco_vec![Value::Float(v.get())],
+        Some(ast::Expr::Numeric(v)) => eco_vec![Value::numeric(v.get())],
+        Some(ast::Expr::Str(v)) => eco_vec![Value::Str(v.get().into())],
 
         Some(ast::Expr::FieldAccess(access)) => {
-            let Some(child) = node.children().next() else { return vec![] };
+            let Some(child) = node.children().next() else { return eco_vec![] };
             analyze_expr(world, &child)
                 .into_iter()
                 .filter_map(|target| target.field(&access.field()).ok())
@@ -54,7 +54,7 @@ pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> Vec<Val
             tracer.finish()
         }
 
-        _ => vec![],
+        _ => eco_vec![],
     }
 }
 

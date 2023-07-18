@@ -523,9 +523,9 @@ fn test_part(
     let mut tracer = Tracer::default();
 
     let (mut frames, diagnostics) = match typst::compile(world, &mut tracer) {
-        Ok(document) => (document.pages, tracer.warnings()),
+        Ok(document) => (document.pages, tracer.warnings().to_vec()),
         Err(mut errors) => {
-            let mut warnings = tracer.warnings();
+            let mut warnings = tracer.warnings().to_vec();
 
             warnings.append(&mut *errors);
             (vec![], warnings)

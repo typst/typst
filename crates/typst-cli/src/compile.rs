@@ -67,8 +67,13 @@ pub fn compile_once(
                 }
             }
 
-            print_diagnostics(world, vec![], warnings, command.diagnostic_format)
-                .map_err(|_| "failed to print diagnostics")?;
+            print_diagnostics(
+                world,
+                vec![],
+                warnings.to_vec(),
+                command.diagnostic_format,
+            )
+            .map_err(|_| "failed to print diagnostics")?;
 
             if let Some(open) = command.open.take() {
                 open_file(open.as_deref(), &command.output())?;
@@ -84,8 +89,13 @@ pub fn compile_once(
                 Status::Error.print(command).unwrap();
             }
 
-            print_diagnostics(world, *errors, warnings, command.diagnostic_format)
-                .map_err(|_| "failed to print diagnostics")?;
+            print_diagnostics(
+                world,
+                *errors,
+                warnings.to_vec(),
+                command.diagnostic_format,
+            )
+            .map_err(|_| "failed to print diagnostics")?;
         }
     }
 
