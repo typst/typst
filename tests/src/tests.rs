@@ -17,7 +17,6 @@ use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
 use tiny_skia as sk;
-use typst::file::FileId;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
@@ -26,7 +25,7 @@ use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
-use typst::syntax::{Source, Span, SyntaxNode};
+use typst::syntax::{FileId, Source, Span, SyntaxNode};
 use typst::util::{Bytes, PathExt};
 use typst::World;
 use typst_library::layout::{Margin, PageElem};
@@ -541,7 +540,7 @@ fn test_part(
         .inspect(|error| assert!(!error.span.is_detached()))
         .filter(|error| error.span.id() == source.id())
         .flat_map(|error| {
-            let range = error.span.range(world);
+            let range = world.range(error.span);
             let output_error =
                 UserOutput::Error(range.clone(), error.message.replace('\\', "/"));
             let hints = error

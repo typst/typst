@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Display, Formatter};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::str::FromStr;
 use std::sync::RwLock;
 
@@ -10,9 +10,7 @@ use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::diag::{bail, FileError, StrResult};
-use crate::syntax::is_ident;
-use crate::util::PathExt;
+use super::is_ident;
 
 /// The global package-path interner.
 static INTERNER: Lazy<RwLock<Interner>> =
@@ -27,7 +25,7 @@ struct Interner {
 /// An interned pair of a package specification and a path.
 type Pair = &'static (Option<PackageSpec>, PathBuf);
 
-/// Identifies a file.
+/// Identifies a file in a project or package.
 ///
 /// This type is globally interned and thus cheap to copy, compare, and hash.
 #[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -48,7 +46,7 @@ impl FileId {
         );
 
         // Try to find an existing entry that we can reuse.
-        let pair = (package, path.normalize());
+        let pair = (package, normalize_path(path));
         if let Some(&id) = INTERNER.read().unwrap().to_id.get(&pair) {
             return id;
         }
@@ -99,9 +97,9 @@ impl FileId {
     }
 
     /// Resolve a file location relative to this file.
-    pub fn join(self, path: &str) -> StrResult<Self> {
+    pub fn join(self, path: &str) -> Result<Self, EcoString> {
         if self.is_detached() {
-            bail!("cannot access file system from here");
+            Err("cannot access file system from here")?;
         }
 
         let package = self.package().cloned();
@@ -145,6 +143,29 @@ impl Debug for FileId {
     }
 }
 
+/// Lexically normalize a path.
+fn normalize_path(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => match out.components().next_back() {
+                Some(Component::Normal(_)) => {
+                    out.pop();
+                }
+                _ => out.push(component),
+            },
+            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                out.push(component)
+            }
+        }
+    }
+    if out.as_os_str().is_empty() {
+        out.push(Component::CurDir);
+    }
+    out
+}
+
 /// Identifies a package.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PackageSpec {
@@ -153,7 +174,7 @@ pub struct PackageSpec {
     /// The name of the package within its namespace.
     pub name: EcoString,
     /// The package's version.
-    pub version: Version,
+    pub version: PackageVersion,
 }
 
 impl FromStr for PackageSpec {
@@ -162,30 +183,30 @@ impl FromStr for PackageSpec {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut s = unscanny::Scanner::new(s);
         if !s.eat_if('@') {
-            bail!("package specification must start with '@'");
+            Err("package specification must start with '@'")?;
         }
 
         let namespace = s.eat_until('/');
         if namespace.is_empty() {
-            bail!("package specification is missing namespace");
+            Err("package specification is missing namespace")?;
         } else if !is_ident(namespace) {
-            bail!("`{namespace}` is not a valid package namespace");
+            Err(eco_format!("`{namespace}` is not a valid package namespace"))?;
         }
 
         s.eat_if('/');
 
         let name = s.eat_until(':');
         if name.is_empty() {
-            bail!("package specification is missing name");
+            Err("package specification is missing name")?;
         } else if !is_ident(name) {
-            bail!("`{name}` is not a valid package name");
+            Err(eco_format!("`{name}` is not a valid package name"))?;
         }
 
         s.eat_if(':');
 
         let version = s.after();
         if version.is_empty() {
-            bail!("package specification is missing version");
+            Err("package specification is missing version")?;
         }
 
         Ok(Self {
@@ -204,7 +225,7 @@ impl Display for PackageSpec {
 
 /// A package's version.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct Version {
+pub struct PackageVersion {
     /// The package's major version.
     pub major: u32,
     /// The package's minor version.
@@ -213,15 +234,16 @@ pub struct Version {
     pub patch: u32,
 }
 
-impl FromStr for Version {
+impl FromStr for PackageVersion {
     type Err = EcoString;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut parts = s.split('.');
         let mut next = |kind| {
-            let Some(part) = parts.next().filter(|s| !s.is_empty()) else {
-                bail!("version number is missing {kind} version");
-            };
+            let part = parts
+                .next()
+                .filter(|s| !s.is_empty())
+                .ok_or_else(|| eco_format!("version number is missing {kind} version"))?;
             part.parse::<u32>()
                 .map_err(|_| eco_format!("`{part}` is not a valid {kind} version"))
         };
@@ -230,74 +252,28 @@ impl FromStr for Version {
         let minor = next("minor")?;
         let patch = next("patch")?;
         if let Some(rest) = parts.next() {
-            bail!("version number has unexpected fourth component: `{rest}`");
+            Err(eco_format!("version number has unexpected fourth component: `{rest}`"))?;
         }
 
         Ok(Self { major, minor, patch })
     }
 }
 
-impl Display for Version {
+impl Display for PackageVersion {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
 
-impl Serialize for Version {
+impl Serialize for PackageVersion {
     fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.collect_str(self)
     }
 }
 
-impl<'de> Deserialize<'de> for Version {
+impl<'de> Deserialize<'de> for PackageVersion {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let string = EcoString::deserialize(d)?;
         string.parse().map_err(serde::de::Error::custom)
     }
-}
-
-/// A parsed package manifest.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct PackageManifest {
-    /// Details about the package itself.
-    pub package: PackageInfo,
-}
-
-impl PackageManifest {
-    /// Parse the manifest from raw bytes.
-    pub fn parse(bytes: &[u8]) -> StrResult<Self> {
-        let string = std::str::from_utf8(bytes).map_err(FileError::from)?;
-        toml::from_str(string).map_err(|err| {
-            eco_format!("package manifest is malformed: {}", err.message())
-        })
-    }
-
-    /// Ensure that this manifest is indeed for the specified package.
-    pub fn validate(&self, spec: &PackageSpec) -> StrResult<()> {
-        if self.package.name != spec.name {
-            bail!("package manifest contains mismatched name `{}`", self.package.name);
-        }
-
-        if self.package.version != spec.version {
-            bail!(
-                "package manifest contains mismatched version {}",
-                self.package.version
-            );
-        }
-
-        Ok(())
-    }
-}
-
-/// The `package` key in the manifest.
-///
-/// More fields are specified, but they are not relevant to the compiler.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
-pub struct PackageInfo {
-    /// The name of the package within its namespace.
-    pub name: EcoString,
-    /// The package's version.
-    pub version: Version,
-    /// The path of the entrypoint into the package.
-    pub entrypoint: EcoString,
 }

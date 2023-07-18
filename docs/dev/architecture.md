@@ -41,7 +41,7 @@ them.
 
 
 ## Parsing
-The syntax tree and parser are located in `crates/typst/src/syntax`. Parsing is
+The syntax tree and parser are located in `crates/typst-syntax`. Parsing is
 a pure function `&str -> SyntaxNode` without any further dependencies. The
 result is a concrete syntax tree reflecting the whole file structure, including
 whitespace and comments. Parsing cannot fail. If there are syntactic errors, the

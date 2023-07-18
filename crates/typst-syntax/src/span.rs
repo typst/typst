@@ -2,15 +2,13 @@ use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroU64;
 use std::ops::Range;
 
-use super::Source;
-use crate::file::FileId;
-use crate::World;
+use super::FileId;
 
 /// A unique identifier for a syntax node.
 ///
 /// This is used throughout the compiler to track which source section an error
-/// or element stems from. Can be [mapped back](Self::range) to a byte range for
-/// user facing display.
+/// or element stems from. Can be [mapped back](super::Source::range) to a byte
+/// range for user facing display.
 ///
 /// During editing, the span values stay mostly stable, even for nodes behind an
 /// insertion. This is not true for simple ranges as they would shift. Spans can
@@ -78,24 +76,6 @@ impl Span {
     /// Whether the span is detached.
     pub const fn is_detached(self) -> bool {
         self.id().is_detached()
-    }
-
-    /// Get the byte range for this span.
-    #[track_caller]
-    pub fn range(self, world: &dyn World) -> Range<usize> {
-        let source = world
-            .source(self.id())
-            .expect("span does not point into any source file");
-        self.range_in(&source)
-    }
-
-    /// Get the byte range for this span in the given source file.
-    #[track_caller]
-    pub fn range_in(self, source: &Source) -> Range<usize> {
-        source
-            .find(self)
-            .expect("span does not point into this source file")
-            .range()
     }
 }
 

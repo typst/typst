@@ -11,10 +11,9 @@ use super::{
     Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::file::FileId;
 use crate::model::{DelayedErrors, ElemFunc, Introspector, Locator, Vt};
 use crate::syntax::ast::{self, AstNode, Expr, Ident};
-use crate::syntax::{Span, SyntaxNode};
+use crate::syntax::{FileId, Span, SyntaxNode};
 use crate::World;
 
 /// An evaluatable function.
@@ -380,8 +379,9 @@ impl Closure {
                     }
                     ast::Pattern::Normal(_) => unreachable!(),
                     _ => {
-                        pattern.define(
+                        super::define_pattern(
                             &mut vm,
+                            pattern,
                             args.expect::<Value>("pattern parameter")?,
                         )?;
                     }

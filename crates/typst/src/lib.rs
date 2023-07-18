@@ -40,18 +40,20 @@ extern crate self as typst;
 #[macro_use]
 pub mod util;
 #[macro_use]
-pub mod diag;
-#[macro_use]
 pub mod eval;
+pub mod diag;
 pub mod doc;
 pub mod export;
-pub mod file;
 pub mod font;
 pub mod geom;
 pub mod ide;
 pub mod image;
 pub mod model;
-pub mod syntax;
+
+#[doc(inline)]
+pub use typst_syntax as syntax;
+
+use std::ops::Range;
 
 use comemo::{Prehashed, Track, TrackedMut};
 use ecow::EcoString;
@@ -59,9 +61,8 @@ use ecow::EcoString;
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
 use crate::eval::{Datetime, Library, Route, Tracer};
-use crate::file::{FileId, PackageSpec};
 use crate::font::{Font, FontBook};
-use crate::syntax::Source;
+use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::util::Bytes;
 
 /// Compile a source file into a fully layouted document.
@@ -75,7 +76,6 @@ pub fn compile(world: &dyn World) -> SourceResult<Document> {
     let mut tracer = tracer.track_mut();
 
     // Evaluate the source file into a module.
-    tracing::info!("Starting evaluation");
     let module = eval::eval(
         world,
         route.track(),
@@ -143,5 +143,13 @@ pub trait World {
     /// `https://packages.typst.org/preview/index.json`.
     fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
         &[]
+    }
+
+    /// Get the byte range for a span.
+    #[track_caller]
+    fn range(&self, span: Span) -> Range<usize> {
+        self.source(span.id())
+            .expect("span does not point into any source file")
+            .range(span)
     }
 }

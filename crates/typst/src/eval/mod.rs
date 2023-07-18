@@ -61,19 +61,22 @@ use std::path::Path;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
+use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::{CapturesVisitor, Closure};
 use crate::diag::{
-    bail, error, At, SourceError, SourceResult, StrResult, Trace, Tracepoint,
+    bail, error, At, FileError, SourceError, SourceResult, StrResult, Trace, Tracepoint,
 };
-use crate::file::{FileId, PackageManifest, PackageSpec};
 use crate::model::{
     Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
     Styles, Transform, Unlabellable, Vt,
 };
 use crate::syntax::ast::{self, AstNode};
-use crate::syntax::{parse_code, Source, Span, Spanned, SyntaxKind, SyntaxNode};
+use crate::syntax::{
+    parse_code, FileId, PackageSpec, PackageVersion, Source, Span, Spanned, SyntaxKind,
+    SyntaxNode,
+};
 use crate::World;
 
 const MAX_ITERATIONS: usize = 10_000;
@@ -114,13 +117,16 @@ pub fn eval(
     let route = Route::insert(route, id);
     let scopes = Scopes::new(Some(library));
     let mut vm = Vm::new(vt, route.track(), id, scopes);
-    let root = match source.root().cast::<ast::Markup>() {
-        Some(markup) if vm.traced.is_some() => markup,
-        _ => source.ast()?,
-    };
+
+    let root = source.root();
+    let errors = root.errors();
+    if !errors.is_empty() && vm.traced.is_none() {
+        return Err(Box::new(errors.into_iter().map(Into::into).collect()));
+    }
 
     // Evaluate the module.
-    let result = root.eval(&mut vm);
+    let markup = root.cast::<ast::Markup>().unwrap();
+    let result = markup.eval(&mut vm);
 
     // Handle control flow.
     if let Some(flow) = vm.flow {
@@ -146,7 +152,7 @@ pub fn eval_string(
 
     let errors = root.errors();
     if !errors.is_empty() {
-        return Err(Box::new(errors));
+        return Err(Box::new(errors.into_iter().map(Into::into).collect()));
     }
 
     // Prepare VT.
@@ -506,7 +512,11 @@ impl Eval for ast::Expr {
     }
 }
 
-impl ast::Expr {
+trait ExprExt {
+    fn eval_display(&self, vm: &mut Vm) -> SourceResult<Content>;
+}
+
+impl ExprExt for ast::Expr {
     fn eval_display(&self, vm: &mut Vm) -> SourceResult<Content> {
         Ok(self.eval(vm)?.display().spanned(self.span()))
     }
@@ -1013,73 +1023,71 @@ impl Eval for ast::Binary {
     #[tracing::instrument(name = "Binary::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         match self.op() {
-            ast::BinOp::Add => self.apply(vm, ops::add),
-            ast::BinOp::Sub => self.apply(vm, ops::sub),
-            ast::BinOp::Mul => self.apply(vm, ops::mul),
-            ast::BinOp::Div => self.apply(vm, ops::div),
-            ast::BinOp::And => self.apply(vm, ops::and),
-            ast::BinOp::Or => self.apply(vm, ops::or),
-            ast::BinOp::Eq => self.apply(vm, ops::eq),
-            ast::BinOp::Neq => self.apply(vm, ops::neq),
-            ast::BinOp::Lt => self.apply(vm, ops::lt),
-            ast::BinOp::Leq => self.apply(vm, ops::leq),
-            ast::BinOp::Gt => self.apply(vm, ops::gt),
-            ast::BinOp::Geq => self.apply(vm, ops::geq),
-            ast::BinOp::In => self.apply(vm, ops::in_),
-            ast::BinOp::NotIn => self.apply(vm, ops::not_in),
-            ast::BinOp::Assign => self.assign(vm, |_, b| Ok(b)),
-            ast::BinOp::AddAssign => self.assign(vm, ops::add),
-            ast::BinOp::SubAssign => self.assign(vm, ops::sub),
-            ast::BinOp::MulAssign => self.assign(vm, ops::mul),
-            ast::BinOp::DivAssign => self.assign(vm, ops::div),
+            ast::BinOp::Add => apply_binary_expr(self, vm, ops::add),
+            ast::BinOp::Sub => apply_binary_expr(self, vm, ops::sub),
+            ast::BinOp::Mul => apply_binary_expr(self, vm, ops::mul),
+            ast::BinOp::Div => apply_binary_expr(self, vm, ops::div),
+            ast::BinOp::And => apply_binary_expr(self, vm, ops::and),
+            ast::BinOp::Or => apply_binary_expr(self, vm, ops::or),
+            ast::BinOp::Eq => apply_binary_expr(self, vm, ops::eq),
+            ast::BinOp::Neq => apply_binary_expr(self, vm, ops::neq),
+            ast::BinOp::Lt => apply_binary_expr(self, vm, ops::lt),
+            ast::BinOp::Leq => apply_binary_expr(self, vm, ops::leq),
+            ast::BinOp::Gt => apply_binary_expr(self, vm, ops::gt),
+            ast::BinOp::Geq => apply_binary_expr(self, vm, ops::geq),
+            ast::BinOp::In => apply_binary_expr(self, vm, ops::in_),
+            ast::BinOp::NotIn => apply_binary_expr(self, vm, ops::not_in),
+            ast::BinOp::Assign => apply_assignment(self, vm, |_, b| Ok(b)),
+            ast::BinOp::AddAssign => apply_assignment(self, vm, ops::add),
+            ast::BinOp::SubAssign => apply_assignment(self, vm, ops::sub),
+            ast::BinOp::MulAssign => apply_assignment(self, vm, ops::mul),
+            ast::BinOp::DivAssign => apply_assignment(self, vm, ops::div),
         }
     }
 }
 
-impl ast::Binary {
-    /// Apply a basic binary operation.
-    fn apply(
-        &self,
-        vm: &mut Vm,
-        op: fn(Value, Value) -> StrResult<Value>,
-    ) -> SourceResult<Value> {
-        let lhs = self.lhs().eval(vm)?;
+/// Apply a basic binary operation.
+fn apply_binary_expr(
+    binary: &ast::Binary,
+    vm: &mut Vm,
+    op: fn(Value, Value) -> StrResult<Value>,
+) -> SourceResult<Value> {
+    let lhs = binary.lhs().eval(vm)?;
 
-        // Short-circuit boolean operations.
-        if (self.op() == ast::BinOp::And && lhs == Value::Bool(false))
-            || (self.op() == ast::BinOp::Or && lhs == Value::Bool(true))
-        {
-            return Ok(lhs);
-        }
-
-        let rhs = self.rhs().eval(vm)?;
-        op(lhs, rhs).at(self.span())
+    // Short-circuit boolean operations.
+    if (binary.op() == ast::BinOp::And && lhs == Value::Bool(false))
+        || (binary.op() == ast::BinOp::Or && lhs == Value::Bool(true))
+    {
+        return Ok(lhs);
     }
 
-    /// Apply an assignment operation.
-    fn assign(
-        &self,
-        vm: &mut Vm,
-        op: fn(Value, Value) -> StrResult<Value>,
-    ) -> SourceResult<Value> {
-        let rhs = self.rhs().eval(vm)?;
-        let lhs = self.lhs();
+    let rhs = binary.rhs().eval(vm)?;
+    op(lhs, rhs).at(binary.span())
+}
 
-        // An assignment to a dictionary field is different from a normal access
-        // since it can create the field instead of just modifying it.
-        if self.op() == ast::BinOp::Assign {
-            if let ast::Expr::FieldAccess(access) = &lhs {
-                let dict = access.access_dict(vm)?;
-                dict.insert(access.field().take().into(), rhs);
-                return Ok(Value::None);
-            }
+/// Apply an assignment operation.
+fn apply_assignment(
+    binary: &ast::Binary,
+    vm: &mut Vm,
+    op: fn(Value, Value) -> StrResult<Value>,
+) -> SourceResult<Value> {
+    let rhs = binary.rhs().eval(vm)?;
+    let lhs = binary.lhs();
+
+    // An assignment to a dictionary field is different from a normal access
+    // since it can create the field instead of just modifying it.
+    if binary.op() == ast::BinOp::Assign {
+        if let ast::Expr::FieldAccess(access) = &lhs {
+            let dict = access_dict(vm, access)?;
+            dict.insert(access.field().take().into(), rhs);
+            return Ok(Value::None);
         }
-
-        let location = self.lhs().access(vm)?;
-        let lhs = std::mem::take(&mut *location);
-        *location = op(lhs, rhs).at(self.span())?;
-        Ok(Value::None)
     }
+
+    let location = binary.lhs().access(vm)?;
+    let lhs = std::mem::take(&mut *location);
+    *location = op(lhs, rhs).at(binary.span())?;
+    Ok(Value::None)
 }
 
 impl Eval for ast::FieldAccess {
@@ -1293,150 +1301,160 @@ impl Eval for ast::Closure {
     }
 }
 
-impl ast::Pattern {
-    fn destruct_array<F>(
-        &self,
-        vm: &mut Vm,
-        value: Array,
-        f: F,
-        destruct: &ast::Destructuring,
-    ) -> SourceResult<Value>
-    where
-        F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
-    {
-        let mut i = 0;
-        let len = value.as_slice().len();
-        for p in destruct.bindings() {
-            match p {
-                ast::DestructuringKind::Normal(expr) => {
-                    let Ok(v) = value.at(i as i64, None) else {
+/// Destruct the value into the pattern by binding.
+fn define_pattern(
+    vm: &mut Vm,
+    pattern: &ast::Pattern,
+    value: Value,
+) -> SourceResult<Value> {
+    destructure(vm, pattern, value, |vm, expr, value| match expr {
+        ast::Expr::Ident(ident) => {
+            vm.define(ident, value);
+            Ok(Value::None)
+        }
+        _ => bail!(expr.span(), "nested patterns are currently not supported"),
+    })
+}
+
+/// Destruct the value into the pattern by assignment.
+fn assign_pattern(
+    vm: &mut Vm,
+    pattern: &ast::Pattern,
+    value: Value,
+) -> SourceResult<Value> {
+    destructure(vm, pattern, value, |vm, expr, value| {
+        let location = expr.access(vm)?;
+        *location = value;
+        Ok(Value::None)
+    })
+}
+
+/// Destruct the given value into the pattern and apply the function to each binding.
+#[tracing::instrument(skip_all)]
+fn destructure<T>(
+    vm: &mut Vm,
+    pattern: &ast::Pattern,
+    value: Value,
+    f: T,
+) -> SourceResult<Value>
+where
+    T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+{
+    match pattern {
+        ast::Pattern::Normal(expr) => {
+            f(vm, expr.clone(), value)?;
+            Ok(Value::None)
+        }
+        ast::Pattern::Placeholder(_) => Ok(Value::None),
+        ast::Pattern::Destructuring(destruct) => match value {
+            Value::Array(value) => destructure_array(vm, pattern, value, f, destruct),
+            Value::Dict(value) => destructure_dict(vm, value, f, destruct),
+            _ => bail!(pattern.span(), "cannot destructure {}", value.type_name()),
+        },
+    }
+}
+
+fn destructure_array<F>(
+    vm: &mut Vm,
+    pattern: &ast::Pattern,
+    value: Array,
+    f: F,
+    destruct: &ast::Destructuring,
+) -> SourceResult<Value>
+where
+    F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+{
+    let mut i = 0;
+    let len = value.as_slice().len();
+    for p in destruct.bindings() {
+        match p {
+            ast::DestructuringKind::Normal(expr) => {
+                let Ok(v) = value.at(i as i64, None) else {
                         bail!(expr.span(), "not enough elements to destructure");
                     };
-                    f(vm, expr, v.clone())?;
-                    i += 1;
-                }
-                ast::DestructuringKind::Sink(spread) => {
-                    let sink_size = (1 + len).checked_sub(destruct.bindings().count());
-                    let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
-                    if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
-                        if let Some(expr) = spread.expr() {
-                            f(vm, expr, Value::Array(sink.into()))?;
-                        }
-                        i += sink_size;
-                    } else {
-                        bail!(self.span(), "not enough elements to destructure")
+                f(vm, expr, v.clone())?;
+                i += 1;
+            }
+            ast::DestructuringKind::Sink(spread) => {
+                let sink_size = (1 + len).checked_sub(destruct.bindings().count());
+                let sink = sink_size.and_then(|s| value.as_slice().get(i..i + s));
+                if let (Some(sink_size), Some(sink)) = (sink_size, sink) {
+                    if let Some(expr) = spread.expr() {
+                        f(vm, expr, Value::Array(sink.into()))?;
                     }
+                    i += sink_size;
+                } else {
+                    bail!(pattern.span(), "not enough elements to destructure")
                 }
-                ast::DestructuringKind::Named(named) => {
-                    bail!(named.span(), "cannot destructure named elements from an array")
-                }
-                ast::DestructuringKind::Placeholder(underscore) => {
-                    if i < len {
-                        i += 1
-                    } else {
-                        bail!(underscore.span(), "not enough elements to destructure")
-                    }
+            }
+            ast::DestructuringKind::Named(named) => {
+                bail!(named.span(), "cannot destructure named elements from an array")
+            }
+            ast::DestructuringKind::Placeholder(underscore) => {
+                if i < len {
+                    i += 1
+                } else {
+                    bail!(underscore.span(), "not enough elements to destructure")
                 }
             }
         }
-        if i < len {
-            bail!(self.span(), "too many elements to destructure");
-        }
-
-        Ok(Value::None)
+    }
+    if i < len {
+        bail!(pattern.span(), "too many elements to destructure");
     }
 
-    fn destruct_dict<F>(
-        &self,
-        vm: &mut Vm,
-        dict: Dict,
-        f: F,
-        destruct: &ast::Destructuring,
-    ) -> SourceResult<Value>
-    where
-        F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
-    {
-        let mut sink = None;
-        let mut used = HashSet::new();
-        for p in destruct.bindings() {
-            match p {
-                ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
-                    let v = dict
-                        .at(&ident, None)
-                        .map_err(|_| "destructuring key not found in dictionary")
-                        .at(ident.span())?;
-                    f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
-                    used.insert(ident.take());
-                }
-                ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
-                ast::DestructuringKind::Named(named) => {
-                    let name = named.name();
-                    let v = dict
-                        .at(&name, None)
-                        .map_err(|_| "destructuring key not found in dictionary")
-                        .at(name.span())?;
-                    f(vm, named.expr(), v.clone())?;
-                    used.insert(name.take());
-                }
-                ast::DestructuringKind::Placeholder(_) => {}
-                ast::DestructuringKind::Normal(expr) => {
-                    bail!(expr.span(), "expected key, found expression");
-                }
+    Ok(Value::None)
+}
+
+fn destructure_dict<F>(
+    vm: &mut Vm,
+    dict: Dict,
+    f: F,
+    destruct: &ast::Destructuring,
+) -> SourceResult<Value>
+where
+    F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+{
+    let mut sink = None;
+    let mut used = HashSet::new();
+    for p in destruct.bindings() {
+        match p {
+            ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
+                let v = dict
+                    .at(&ident, None)
+                    .map_err(|_| "destructuring key not found in dictionary")
+                    .at(ident.span())?;
+                f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
+                used.insert(ident.take());
+            }
+            ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
+            ast::DestructuringKind::Named(named) => {
+                let name = named.name();
+                let v = dict
+                    .at(&name, None)
+                    .map_err(|_| "destructuring key not found in dictionary")
+                    .at(name.span())?;
+                f(vm, named.expr(), v.clone())?;
+                used.insert(name.take());
+            }
+            ast::DestructuringKind::Placeholder(_) => {}
+            ast::DestructuringKind::Normal(expr) => {
+                bail!(expr.span(), "expected key, found expression");
             }
         }
+    }
 
-        if let Some(expr) = sink {
-            let mut sink = Dict::new();
-            for (key, value) in dict {
-                if !used.contains(key.as_str()) {
-                    sink.insert(key, value);
-                }
+    if let Some(expr) = sink {
+        let mut sink = Dict::new();
+        for (key, value) in dict {
+            if !used.contains(key.as_str()) {
+                sink.insert(key, value);
             }
-            f(vm, expr, Value::Dict(sink))?;
         }
-
-        Ok(Value::None)
+        f(vm, expr, Value::Dict(sink))?;
     }
 
-    /// Destruct the given value into the pattern and apply the function to each binding.
-    #[tracing::instrument(skip_all)]
-    fn apply<T>(&self, vm: &mut Vm, value: Value, f: T) -> SourceResult<Value>
-    where
-        T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
-    {
-        match self {
-            ast::Pattern::Normal(expr) => {
-                f(vm, expr.clone(), value)?;
-                Ok(Value::None)
-            }
-            ast::Pattern::Placeholder(_) => Ok(Value::None),
-            ast::Pattern::Destructuring(destruct) => match value {
-                Value::Array(value) => self.destruct_array(vm, value, f, destruct),
-                Value::Dict(value) => self.destruct_dict(vm, value, f, destruct),
-                _ => bail!(self.span(), "cannot destructure {}", value.type_name()),
-            },
-        }
-    }
-
-    /// Destruct the value into the pattern by binding.
-    pub fn define(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
-        self.apply(vm, value, |vm, expr, value| match expr {
-            ast::Expr::Ident(ident) => {
-                vm.define(ident, value);
-                Ok(Value::None)
-            }
-            _ => bail!(expr.span(), "nested patterns are currently not supported"),
-        })
-    }
-
-    /// Destruct the value into the pattern by assignment.
-    pub fn assign(&self, vm: &mut Vm, value: Value) -> SourceResult<Value> {
-        self.apply(vm, value, |vm, expr, value| {
-            let location = expr.access(vm)?;
-            *location = value;
-            Ok(Value::None)
-        })
-    }
+    Ok(Value::None)
 }
 
 impl Eval for ast::LetBinding {
@@ -1450,7 +1468,7 @@ impl Eval for ast::LetBinding {
         };
 
         match self.kind() {
-            ast::LetBindingKind::Normal(pattern) => pattern.define(vm, value),
+            ast::LetBindingKind::Normal(pattern) => define_pattern(vm, &pattern, value),
             ast::LetBindingKind::Closure(ident) => {
                 vm.define(ident, value);
                 Ok(Value::None)
@@ -1464,7 +1482,7 @@ impl Eval for ast::DestructAssignment {
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let value = self.value().eval(vm)?;
-        self.pattern().assign(vm, value)?;
+        assign_pattern(vm, &self.pattern(), value)?;
         Ok(Value::None)
     }
 }
@@ -1614,7 +1632,7 @@ impl Eval for ast::ForLoop {
 
                 #[allow(unused_parens)]
                 for value in $iter {
-                    $pat.define(vm, value.into_value())?;
+                    define_pattern(vm, &$pat, value.into_value())?;
 
                     let body = self.body();
                     let value = body.eval(vm)?;
@@ -1812,6 +1830,52 @@ fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
         .trace(world, point, span)
 }
 
+/// A parsed package manifest.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+struct PackageManifest {
+    /// Details about the package itself.
+    package: PackageInfo,
+}
+
+impl PackageManifest {
+    /// Parse the manifest from raw bytes.
+    fn parse(bytes: &[u8]) -> StrResult<Self> {
+        let string = std::str::from_utf8(bytes).map_err(FileError::from)?;
+        toml::from_str(string).map_err(|err| {
+            eco_format!("package manifest is malformed: {}", err.message())
+        })
+    }
+
+    /// Ensure that this manifest is indeed for the specified package.
+    fn validate(&self, spec: &PackageSpec) -> StrResult<()> {
+        if self.package.name != spec.name {
+            bail!("package manifest contains mismatched name `{}`", self.package.name);
+        }
+
+        if self.package.version != spec.version {
+            bail!(
+                "package manifest contains mismatched version {}",
+                self.package.version
+            );
+        }
+
+        Ok(())
+    }
+}
+
+/// The `package` key in the manifest.
+///
+/// More fields are specified, but they are not relevant to the compiler.
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+struct PackageInfo {
+    /// The name of the package within its namespace.
+    name: EcoString,
+    /// The package's version.
+    version: PackageVersion,
+    /// The path of the entrypoint into the package.
+    entrypoint: EcoString,
+}
+
 impl Eval for ast::LoopBreak {
     type Output = Value;
 
@@ -1889,20 +1953,21 @@ impl Access for ast::Parenthesized {
 
 impl Access for ast::FieldAccess {
     fn access<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
-        self.access_dict(vm)?.at_mut(&self.field().take()).at(self.span())
+        access_dict(vm, self)?.at_mut(&self.field().take()).at(self.span())
     }
 }
 
-impl ast::FieldAccess {
-    fn access_dict<'a>(&self, vm: &'a mut Vm) -> SourceResult<&'a mut Dict> {
-        match self.target().access(vm)? {
-            Value::Dict(dict) => Ok(dict),
-            value => bail!(
-                self.target().span(),
-                "expected dictionary, found {}",
-                value.type_name(),
-            ),
-        }
+fn access_dict<'a>(
+    vm: &'a mut Vm,
+    access: &ast::FieldAccess,
+) -> SourceResult<&'a mut Dict> {
+    match access.target().access(vm)? {
+        Value::Dict(dict) => Ok(dict),
+        value => bail!(
+            access.target().span(),
+            "expected dictionary, found {}",
+            value.type_name(),
+        ),
     }
 }
 

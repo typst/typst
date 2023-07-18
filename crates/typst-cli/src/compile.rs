@@ -7,9 +7,8 @@ use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, SourceError, StrResult};
 use typst::doc::Document;
 use typst::eval::eco_format;
-use typst::file::FileId;
 use typst::geom::Color;
-use typst::syntax::Source;
+use typst::syntax::{FileId, Source};
 use typst::World;
 
 use crate::args::{CompileCommand, DiagnosticFormat};
@@ -168,7 +167,7 @@ fn print_diagnostics(
                     .map(|e| (eco_format!("hint: {e}")).into())
                     .collect(),
             )
-            .with_labels(vec![Label::primary(error.span.id(), error.span.range(world))]);
+            .with_labels(vec![Label::primary(error.span.id(), world.range(error.span))]);
 
         term::emit(&mut w, &config, world, &diag)?;
 
@@ -176,7 +175,7 @@ fn print_diagnostics(
         for point in error.trace {
             let message = point.v.to_string();
             let help = Diagnostic::help().with_message(message).with_labels(vec![
-                Label::primary(point.span.id(), point.span.range(world)),
+                Label::primary(point.span.id(), world.range(point.span)),
             ]);
 
             term::emit(&mut w, &config, world, &help)?;

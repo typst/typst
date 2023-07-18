@@ -7,12 +7,8 @@ use std::sync::Arc;
 
 use comemo::Prehashed;
 
-use super::ast::Markup;
 use super::reparser::reparse;
-use super::{is_newline, parse, LinkedNode, Span, SyntaxNode};
-use crate::diag::SourceResult;
-use crate::file::FileId;
-use crate::util::StrExt;
+use super::{is_newline, parse, FileId, LinkedNode, Span, SyntaxNode};
 
 /// A source file.
 ///
@@ -66,16 +62,6 @@ impl Source {
     /// The root node of the file's untyped syntax tree.
     pub fn root(&self) -> &SyntaxNode {
         &self.0.root
-    }
-
-    /// The root node of the file's typed abstract syntax tree.
-    pub fn ast(&self) -> SourceResult<Markup> {
-        let errors = self.root().errors();
-        if errors.is_empty() {
-            Ok(self.root().cast().expect("root node must be markup"))
-        } else {
-            Err(Box::new(errors))
-        }
     }
 
     /// The id of the source file.
@@ -148,7 +134,7 @@ impl Source {
     /// Get the length of the file in UTF-16 code units.
     pub fn len_utf16(&self) -> usize {
         let last = self.0.lines.last().unwrap();
-        last.utf16_idx + self.0.text[last.byte_idx..].len_utf16()
+        last.utf16_idx + len_utf16(&self.0.text[last.byte_idx..])
     }
 
     /// Get the length of the file in lines.
@@ -163,12 +149,22 @@ impl Source {
         LinkedNode::new(self.root()).find(span)
     }
 
+    /// Get the byte range for the given span in this file.
+    ///
+    /// Panics if the span does not point into this source file.
+    #[track_caller]
+    pub fn range(&self, span: Span) -> Range<usize> {
+        self.find(span)
+            .expect("span does not point into this source file")
+            .range()
+    }
+
     /// Return the index of the UTF-16 code unit at the byte index.
     pub fn byte_to_utf16(&self, byte_idx: usize) -> Option<usize> {
         let line_idx = self.byte_to_line(byte_idx)?;
         let line = self.0.lines.get(line_idx)?;
         let head = self.0.text.get(line.byte_idx..byte_idx)?;
-        Some(line.utf16_idx + head.len_utf16())
+        Some(line.utf16_idx + len_utf16(head))
     }
 
     /// Return the index of the line that contains the given byte index.
@@ -304,6 +300,12 @@ fn lines_from(
 
         Some(Line { byte_idx: byte_offset + s.cursor(), utf16_idx })
     })
+}
+
+/// The number of code units this string would use if it was encoded in
+/// UTF16. This runs in linear time.
+fn len_utf16(string: &str) -> usize {
+    string.chars().map(char::len_utf16).sum()
 }
 
 #[cfg(test)]

@@ -17,6 +17,7 @@ bench = false
 
 [dependencies]
 typst-macros = { path = "../typst-macros" }
+typst-syntax = { path = "../typst-syntax" }
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
 comemo = "0.3"

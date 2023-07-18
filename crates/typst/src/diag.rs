@@ -8,8 +8,7 @@ use std::string::FromUtf8Error;
 
 use comemo::Tracked;
 
-use crate::file::PackageSpec;
-use crate::syntax::{Span, Spanned};
+use crate::syntax::{PackageSpec, Span, Spanned, SyntaxError};
 use crate::World;
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
@@ -103,6 +102,17 @@ impl SourceError {
     }
 }
 
+impl From<SyntaxError> for SourceError {
+    fn from(error: SyntaxError) -> Self {
+        Self {
+            span: error.span,
+            message: error.message,
+            trace: vec![],
+            hints: error.hints,
+        }
+    }
+}
+
 /// A part of an error's [trace](SourceError::trace).
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Tracepoint {
@@ -151,11 +161,11 @@ impl<T> Trace<T> for SourceResult<T> {
                 return errors;
             }
 
-            let trace_range = span.range(&*world);
+            let trace_range = world.range(span);
             for error in errors.iter_mut().filter(|e| !e.span.is_detached()) {
                 // Skip traces that surround the error.
                 if error.span.id() == span.id() {
-                    let error_range = error.span.range(&*world);
+                    let error_range = world.range(error.span);
                     if trace_range.start <= error_range.start
                         && trace_range.end >= error_range.end
                     {

@@ -7,21 +7,29 @@ use unicode_math_class::MathClass;
 use super::{ast, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
 
 /// Parse a source file.
+#[tracing::instrument(skip_all)]
 pub fn parse(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Markup);
     markup(&mut p, true, 0, |_| false);
     p.finish().into_iter().next().unwrap()
 }
 
-/// Parse code directly.
-///
-/// This is only used for syntax highlighting.
+/// Parse top-level code.
+#[tracing::instrument(skip_all)]
 pub fn parse_code(text: &str) -> SyntaxNode {
     let mut p = Parser::new(text, 0, LexMode::Code);
     let m = p.marker();
     p.skip();
     code_exprs(&mut p, |_| false);
     p.wrap_all(m, SyntaxKind::Code);
+    p.finish().into_iter().next().unwrap()
+}
+
+/// Parse top-level math.
+#[tracing::instrument(skip_all)]
+pub fn parse_math(text: &str) -> SyntaxNode {
+    let mut p = Parser::new(text, 0, LexMode::Math);
+    math(&mut p, |_| false);
     p.finish().into_iter().next().unwrap()
 }
 
