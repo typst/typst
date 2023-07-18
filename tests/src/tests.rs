@@ -430,12 +430,9 @@ fn test(
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
-        let svg = typst::export::render_svg(&document);
+        let svg = typst::export::svg(&document.pages[0]); // fixme: only page 0 is rendered
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
         std::fs::write(svg_path, svg).unwrap();
-
-        let svg = typst::export::render_svg_html(&document);
-        std::fs::write(svg_path.with_extension("html"), svg).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
             if canvas.width() != ref_pixmap.width()
