@@ -1,19 +1,18 @@
 use std::collections::HashSet;
 
 use ecow::{eco_vec, EcoVec};
-use typst_syntax::{FileId, Span};
-
-use crate::{diag::SourceDiagnostic, util::hash128};
 
 use super::Value;
+use crate::diag::SourceDiagnostic;
+use crate::syntax::{FileId, Span};
+use crate::util::hash128;
 
 /// Traces warnings and which values existed for an expression at a span.
 #[derive(Default, Clone)]
 pub struct Tracer {
-    pub span: Option<Span>,
-    pub values: EcoVec<Value>,
-
-    pub warnings: EcoVec<SourceDiagnostic>,
+    span: Option<Span>,
+    values: EcoVec<Value>,
+    warnings: EcoVec<SourceDiagnostic>,
     warnings_set: HashSet<u128>,
 }
 
@@ -32,7 +31,7 @@ impl Tracer {
     }
 
     /// Get the traced values.
-    pub fn finish(self) -> EcoVec<Value> {
+    pub fn values(self) -> EcoVec<Value> {
         self.values
     }
 
@@ -60,14 +59,11 @@ impl Tracer {
         }
     }
 
-    /// Add a warning
+    /// Add a warning.
     pub fn warn(&mut self, warning: SourceDiagnostic) {
-        // check if warning is a duplicate
-        let hash = hash128(&(warning.span, warning.message.clone()));
-
-        if !self.warnings_set.contains(&hash) {
-            self.warnings_set.insert(hash);
-
+        // Check if warning is a duplicate.
+        let hash = hash128(&(&warning.span, &warning.message));
+        if self.warnings_set.insert(hash) {
             self.warnings.push(warning);
         }
     }

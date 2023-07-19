@@ -8,7 +8,7 @@ use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
 use crate::World;
 
 /// Try to determine a set of possible values for an expression.
-pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> EcoVec<Value> {
+pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
     match node.cast::<ast::Expr>() {
         Some(ast::Expr::None(_)) => eco_vec![Value::None],
         Some(ast::Expr::Auto(_)) => eco_vec![Value::Auto],
@@ -33,25 +33,9 @@ pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> EcoVec<
                 }
             }
 
-            let route = Route::default();
             let mut tracer = Tracer::new(Some(node.span()));
-
-            typst::eval::eval(
-                world.track(),
-                route.track(),
-                tracer.track_mut(),
-                &world.main(),
-            )
-            .and_then(|module| {
-                typst::model::typeset(
-                    world.track(),
-                    tracer.track_mut(),
-                    &module.content(),
-                )
-            })
-            .ok();
-
-            tracer.finish()
+            crate::compile(world, &mut tracer).ok();
+            tracer.values()
         }
 
         _ => eco_vec![],
@@ -59,16 +43,11 @@ pub fn analyze_expr(world: &(dyn World + 'static), node: &LinkedNode) -> EcoVec<
 }
 
 /// Try to load a module from the current source file.
-pub fn analyze_import(
-    world: &(dyn World + 'static),
-    source: &Source,
-    path: &str,
-) -> Option<Module> {
+pub fn analyze_import(world: &dyn World, source: &Source, path: &str) -> Option<Module> {
     let route = Route::default();
     let mut tracer = Tracer::default();
     let id = source.id().join(path).ok()?;
     let source = world.source(id).ok()?;
-
     eval(world.track(), route.track(), tracer.track_mut(), &source).ok()
 }
 
@@ -79,7 +58,7 @@ pub fn analyze_import(
 /// - A split offset: All labels before this offset belong to nodes, all after
 ///   belong to a bibliography.
 pub fn analyze_labels(
-    world: &(dyn World + 'static),
+    world: &dyn World,
     frames: &[Frame],
 ) -> (Vec<(Label, Option<EcoString>)>, usize) {
     let mut output = vec![];

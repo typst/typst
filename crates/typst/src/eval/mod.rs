@@ -578,7 +578,8 @@ impl Eval for ast::Strong {
 
     #[tracing::instrument(name = "Strong::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        if self.body().exprs().count() == 0 {
+        let body = self.body();
+        if body.exprs().next().is_none() {
             vm.vt
                 .tracer
                 .warn(warning!(self.span(), "no text within stars").with_hint(
@@ -588,7 +589,7 @@ impl Eval for ast::Strong {
             ));
         }
 
-        Ok((vm.items.strong)(self.body().eval(vm)?))
+        Ok((vm.items.strong)(body.eval(vm)?))
     }
 }
 

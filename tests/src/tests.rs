@@ -523,11 +523,10 @@ fn test_part(
     let mut tracer = Tracer::default();
 
     let (mut frames, diagnostics) = match typst::compile(world, &mut tracer) {
-        Ok(document) => (document.pages, tracer.warnings().to_vec()),
-        Err(mut errors) => {
-            let mut warnings = tracer.warnings().to_vec();
-
-            warnings.append(&mut *errors);
+        Ok(document) => (document.pages, tracer.warnings()),
+        Err(errors) => {
+            let mut warnings = tracer.warnings();
+            warnings.extend(*errors);
             (vec![], warnings)
         }
     };
@@ -549,10 +548,8 @@ fn test_part(
         .filter(|diagnostic| diagnostic.span.id() == source.id())
         .flat_map(|diagnostic| {
             let range = world.range(diagnostic.span);
-
             let message = diagnostic.message.replace('\\', "/");
-
-            let output_diag = match diagnostic.severity {
+            let output = match diagnostic.severity {
                 Severity::Error => UserOutput::Error(range.clone(), message),
                 Severity::Warning => UserOutput::Warning(range.clone(), message),
             };
@@ -563,7 +560,7 @@ fn test_part(
                 .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
                 .map(|hint| UserOutput::Hint(range.clone(), hint.to_string()));
 
-            iter::once(output_diag).chain(hints).collect::<Vec<_>>()
+            iter::once(output).chain(hints).collect::<Vec<_>>()
         })
         .collect();
 

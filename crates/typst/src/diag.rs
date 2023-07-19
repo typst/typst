@@ -33,7 +33,7 @@ macro_rules! __bail {
     };
 
     ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
-        return Err(Box::new(vec![$crate::diag::SourceDiagnostic::new_error(
+        return Err(Box::new(vec![$crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
         )]))
@@ -52,7 +52,7 @@ macro_rules! __error {
     };
 
     ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
-        $crate::diag::SourceDiagnostic::new_error(
+        $crate::diag::SourceDiagnostic::error(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
         )
@@ -64,7 +64,7 @@ macro_rules! __error {
 #[doc(hidden)]
 macro_rules! __warning {
     ($span:expr, $fmt:literal $(, $arg:expr)* $(,)?) => {
-        $crate::diag::SourceDiagnostic::new_warning(
+        $crate::diag::SourceDiagnostic::warning(
             $span,
             $crate::diag::eco_format!($fmt, $($arg),*),
         )
@@ -103,13 +103,15 @@ pub struct SourceDiagnostic {
 /// The severity of a [`SourceDiagnostic`].
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
 pub enum Severity {
+    /// A fatal error.
     Error,
+    /// A non-fatal warning.
     Warning,
 }
 
 impl SourceDiagnostic {
     /// Create a new, bare error.
-    pub fn new_error(span: Span, message: impl Into<EcoString>) -> Self {
+    pub fn error(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             severity: Severity::Error,
             span,
@@ -119,7 +121,8 @@ impl SourceDiagnostic {
         }
     }
 
-    pub fn new_warning(span: Span, message: impl Into<EcoString>) -> Self {
+    /// Create a new, bare warning.
+    pub fn warning(span: Span, message: impl Into<EcoString>) -> Self {
         Self {
             severity: Severity::Warning,
             span,
@@ -129,15 +132,15 @@ impl SourceDiagnostic {
         }
     }
 
-    /// Adds user-facing hints to the diagnostic.
-    pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
-        self.hints.extend(hints);
-        self
-    }
-
     /// Adds a single hint to the diagnostic.
     pub fn with_hint(mut self, hint: EcoString) -> Self {
         self.hints.push(hint);
+        self
+    }
+
+    /// Adds user-facing hints to the diagnostic.
+    pub fn with_hints(mut self, hints: impl IntoIterator<Item = EcoString>) -> Self {
+        self.hints.extend(hints);
         self
     }
 }
@@ -235,7 +238,7 @@ where
     S: Into<EcoString>,
 {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|message| Box::new(vec![SourceDiagnostic::new_error(span, message)]))
+        self.map_err(|message| Box::new(vec![SourceDiagnostic::error(span, message)]))
     }
 }
 
@@ -256,7 +259,7 @@ impl<T> At<T> for Result<T, HintedString> {
     fn at(self, span: Span) -> SourceResult<T> {
         self.map_err(|diags| {
             Box::new(vec![
-                SourceDiagnostic::new_error(span, diags.message).with_hints(diags.hints)
+                SourceDiagnostic::error(span, diags.message).with_hints(diags.hints)
             ])
         })
     }

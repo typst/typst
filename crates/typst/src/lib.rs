@@ -66,7 +66,7 @@ use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::util::Bytes;
 
 /// Compile a source file into a fully layouted document.
-#[tracing::instrument(skip(world, tracer))]
+#[tracing::instrument(skip_all)]
 pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     let route = Route::default();
 
@@ -75,9 +75,15 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
     let mut tracer = tracer.track_mut();
 
     // Evaluate the source file into a module.
+    let module = eval::eval(
+        world,
+        route.track(),
+        TrackedMut::reborrow_mut(&mut tracer),
+        &world.main(),
+    )?;
 
-    eval::eval(world, route.track(), TrackedMut::reborrow_mut(&mut tracer), &world.main())
-        .and_then(|module| model::typeset(world, tracer, &module.content()))
+    // Typeset it.
+    model::typeset(world, tracer, &module.content())
 }
 
 /// The environment in which typesetting occurs.
