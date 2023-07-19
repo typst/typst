@@ -266,6 +266,8 @@ fn realize_block<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
+    // These elements implement `Layout` but still require a flow for
+    // proper layout.
     if content.can::<dyn Layout>()
         && !content.is::<LineElem>()
         && !content.is::<RectElem>()
@@ -275,6 +277,7 @@ fn realize_block<'a>(
         && !content.is::<ImageElem>()
         && !content.is::<PolygonElem>()
         && !content.is::<PathElem>()
+        && !content.is::<PlaceElem>()
         && !applicable(content, styles)
     {
         return Ok((content.clone(), styles));

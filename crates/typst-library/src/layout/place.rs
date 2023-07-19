@@ -92,35 +92,12 @@ impl Layout for PlaceElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut frame = self.layout_inner(vt, styles, regions)?.into_frame();
-
-        // If expansion is off, zero all sizes so that we don't take up any
-        // space in our parent. Otherwise, respect the expand settings.
-        let target = regions.expand.select(regions.size, Size::zero());
-        frame.resize(target, Align::LEFT_TOP);
-
-        Ok(Fragment::frame(frame))
-    }
-}
-
-impl PlaceElem {
-    /// Layout without zeroing the frame size.
-    pub fn layout_inner(
-        &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area.
         let base = regions.base();
-        let expand =
-            Axes::new(base.x.is_finite(), base.y.is_finite() && !self.float(styles));
-
-        let pod = Regions::one(base, expand);
-
         let float = self.float(styles);
         let alignment = self.alignment(styles);
+
         if float
             && !matches!(
                 alignment,
@@ -145,7 +122,9 @@ impl PlaceElem {
                 alignment.unwrap_or_else(|| Axes::with_x(Some(Align::Center.into()))),
             );
 
-        child.layout(vt, styles, pod)
+        let pod = Regions::one(base, Axes::splat(false));
+        let frame = child.layout(vt, styles, pod)?.into_frame();
+        Ok(Fragment::frame(frame))
     }
 }
 
