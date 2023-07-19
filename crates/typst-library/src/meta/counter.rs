@@ -385,7 +385,7 @@ impl Counter {
 
     /// Produce content that performs a state update.
     pub fn update(self, update: CounterUpdate) -> Content {
-        UpdateElem::new(self, update).pack()
+        UpdateElem::new(self.0, update).pack()
     }
 
     /// Produce the whole sequence of counter states.
@@ -461,7 +461,7 @@ impl Counter {
     /// The selector relevant for this counter's updates.
     fn selector(&self) -> Selector {
         let mut selector =
-            Selector::Elem(UpdateElem::func(), Some(dict! { "counter" => self.clone() }));
+            Selector::Elem(UpdateElem::func(), Some(dict! { "key" => self.0.clone() }));
 
         if let CounterKey::Selector(key) = &self.0 {
             selector = Selector::Or(eco_vec![selector, key.clone()]);
@@ -502,8 +502,13 @@ pub enum CounterKey {
 
 cast! {
     CounterKey,
+    self => match self {
+        Self::Page => PageElem::func().into_value(),
+        Self::Selector(v) => v.into_value(),
+        Self::Str(v) => v.into_value(),
+    },
     v: Str => Self::Str(v),
-    label: Label => Self::Selector(Selector::Label(label)),
+    v: Label => Self::Selector(Selector::Label(v)),
     v: ElemFunc => {
         if v == PageElem::func() {
             Self::Page
@@ -511,7 +516,7 @@ cast! {
             Self::Selector(LocatableSelector::from_value(v.into_value())?.0)
         }
     },
-    selector: LocatableSelector => Self::Selector(selector.0),
+    v: LocatableSelector => Self::Selector(v.0),
 }
 
 impl Debug for CounterKey {
@@ -666,9 +671,9 @@ impl Show for DisplayElem {
 /// Category: special
 #[element(Locatable, Show)]
 struct UpdateElem {
-    /// The counter.
+    /// The key that identifies the counter.
     #[required]
-    counter: Counter,
+    key: CounterKey,
 
     /// The update to perform on the counter.
     #[required]
