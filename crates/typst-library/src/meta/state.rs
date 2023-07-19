@@ -297,7 +297,7 @@ impl State {
 
     /// Produce content that performs a state update.
     pub fn update(self, update: StateUpdate) -> Content {
-        UpdateElem::new(self, update).pack()
+        UpdateElem::new(self.key, update).pack()
     }
 
     /// Produce the whole sequence of states.
@@ -349,7 +349,7 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        Selector::Elem(UpdateElem::func(), Some(dict! { "state" => self.clone() }))
+        Selector::Elem(UpdateElem::func(), Some(dict! { "key" => self.key.clone() }))
     }
 }
 
@@ -423,9 +423,9 @@ impl Show for DisplayElem {
 /// Category: special
 #[element(Locatable, Show)]
 struct UpdateElem {
-    /// The state.
+    /// The key that identifies the state.
     #[required]
-    state: State,
+    key: Str,
 
     /// The update to perform on the state.
     #[required]

@@ -436,13 +436,13 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
 
     // Number theory.
     divides: ['∣', not: '∤'],
-    perp: ['⟂', circle: '⦹'],
 
     // Algebra.
     wreath: '≀',
 
     // Geometry.
     parallel: ['∥', circle: '⦷', not: '∦'],
+    perp: ['⟂', circle: '⦹'],
 
     // Miscellaneous Technical.
     diameter: '⌀',

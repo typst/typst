@@ -24,6 +24,7 @@ mod none;
 pub mod ops;
 mod scope;
 mod symbol;
+mod tracer;
 
 #[doc(hidden)]
 pub use {
@@ -53,6 +54,7 @@ pub use self::none::NoneValue;
 pub use self::scope::{Scope, Scopes};
 pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::Symbol;
+pub use self::tracer::Tracer;
 pub use self::value::{Dynamic, Type, Value};
 
 use std::collections::HashSet;
@@ -66,8 +68,8 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::{CapturesVisitor, Closure};
 use crate::diag::{
-    bail, error, At, FileError, Hint, SourceError, SourceResult, StrResult, Trace,
-    Tracepoint,
+    bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult, StrResult, 
+    Trace, Tracepoint,
 };
 use crate::model::{
     Content, DelayedErrors, Introspector, Label, Locator, Recipe, ShowableSelector,
@@ -293,7 +295,7 @@ pub enum FlowEvent {
 
 impl FlowEvent {
     /// Return an error stating that this control flow is forbidden.
-    pub fn forbidden(&self) -> SourceError {
+    pub fn forbidden(&self) -> SourceDiagnostic {
         match *self {
             Self::Break(span) => {
                 error!(span, "cannot break outside of loop")
@@ -349,47 +351,6 @@ impl<'a> Route<'a> {
     /// Whether the given id is part of the route.
     fn contains(&self, id: FileId) -> bool {
         self.id == Some(id) || self.outer.map_or(false, |outer| outer.contains(id))
-    }
-}
-
-/// Traces which values existed for an expression at a span.
-#[derive(Default, Clone)]
-pub struct Tracer {
-    span: Option<Span>,
-    values: Vec<Value>,
-}
-
-impl Tracer {
-    /// The maximum number of traced items.
-    pub const MAX: usize = 10;
-
-    /// Create a new tracer, possibly with a span under inspection.
-    pub fn new(span: Option<Span>) -> Self {
-        Self { span, values: vec![] }
-    }
-
-    /// Get the traced values.
-    pub fn finish(self) -> Vec<Value> {
-        self.values
-    }
-}
-
-#[comemo::track]
-impl Tracer {
-    /// The traced span if it is part of the given source file.
-    fn span(&self, id: FileId) -> Option<Span> {
-        if self.span.map(Span::id) == Some(id) {
-            self.span
-        } else {
-            None
-        }
-    }
-
-    /// Trace a value for the span.
-    fn trace(&mut self, v: Value) {
-        if self.values.len() < Self::MAX {
-            self.values.push(v);
-        }
     }
 }
 
@@ -617,7 +578,18 @@ impl Eval for ast::Strong {
 
     #[tracing::instrument(name = "Strong::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.strong)(self.body().eval(vm)?))
+        let body = self.body();
+        if body.exprs().next().is_none() {
+            vm.vt
+                .tracer
+                .warn(warning!(self.span(), "no text within stars").with_hint(
+                EcoString::from(
+                    "using multiple consecutive stars (e.g. **) has no additional effect",
+                ),
+            ));
+        }
+
+        Ok((vm.items.strong)(body.eval(vm)?))
     }
 }
 

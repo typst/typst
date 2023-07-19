@@ -23,6 +23,26 @@
 #text(lang: "sr")[Бб]
 
 ---
+// Verify that writing script/language combination has an effect
+#{
+  set text(size:20pt)
+  set text(script: "latn", lang: "en")
+  [Ş ]
+  set text(script: "latn", lang: "ro")
+  [Ş ]
+  set text(script: "grek", lang: "ro")
+  [Ş ]
+}
+
+---
+// Error: 19-23 expected string or auto, found none
+#set text(script: none)
+
+---
+// Error: 19-23 expected three or four letter script code (ISO 15924 or 'math')
+#set text(script: "ab")
+
+---
 // Error: 17-21 expected string, found none
 #set text(lang: none)
 

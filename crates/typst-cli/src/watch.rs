@@ -138,6 +138,7 @@ fn is_event_relevant(event: &notify::Event, output: &Path) -> bool {
 pub enum Status {
     Compiling,
     Success(std::time::Duration),
+    PartialSuccess(std::time::Duration),
     Error,
 }
 
@@ -176,6 +177,9 @@ impl Status {
         match self {
             Self::Compiling => "compiling ...".into(),
             Self::Success(duration) => format!("compiled successfully in {duration:.2?}"),
+            Self::PartialSuccess(duration) => {
+                format!("compiled with warnings in {duration:.2?}")
+            }
             Self::Error => "compiled with errors".into(),
         }
     }
@@ -184,6 +188,7 @@ impl Status {
         let styles = term::Styles::default();
         match self {
             Self::Error => styles.header_error,
+            Self::PartialSuccess(_) => styles.header_warning,
             _ => styles.header_note,
         }
     }
