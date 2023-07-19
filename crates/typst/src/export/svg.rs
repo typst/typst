@@ -9,8 +9,9 @@ use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::{NodeExt, TreeParsing};
 
 use crate::{
-    doc::{Document, Frame, Glyph, TextItem},
-    geom::{Abs, Axes, Shape, Transform},
+    doc::{Document, Frame, FrameItem, Glyph, GroupItem, TextItem},
+    geom::{Abs, Axes, Geometry, LineCap, LineJoin, Shape, Transform},
+    image::{ImageFormat, RasterFormat, VectorFormat},
     util::hash128,
 };
 use crate::{geom::Paint::Solid, image::Image};
@@ -100,38 +101,11 @@ impl SVGRenderer {
             let x = pos.x.to_f32();
             let y = pos.y.to_f32();
             let str = match item {
-                crate::doc::FrameItem::Group(group) => {
-                    let mut str = String::new();
-                    if group.clips {
-                        let clip_path_hash = hash128(&group).into();
-                        let x = group.frame.size().x.to_f32();
-                        let y = group.frame.size().y.to_f32();
-                        self.clip_paths.entry(clip_path_hash).or_insert_with(|| {
-                            let mut builder = SVGPath2DBuilder(String::new());
-                            builder.move_to(0.0, 0.0);
-                            builder.line_to(0.0, y);
-                            builder.line_to(x, y);
-                            builder.line_to(x, 0.0);
-                            builder.close();
-                            builder.0
-                        });
-                        let clip =
-                            format!(r##"<g clip-path="url(#{})">"##, clip_path_hash);
-                        str.push_str(&clip);
-                    }
-                    let page = self.render_frame(&group.frame, group.transform);
-                    str.push_str(&page);
-                    if group.clips {
-                        str.push_str("</g>");
-                    }
-                    str
-                }
-                crate::doc::FrameItem::Text(text) => self.render_text(text),
-                crate::doc::FrameItem::Shape(shape, _) => self.render_shape(shape),
-                crate::doc::FrameItem::Image(image, size, _) => {
-                    self.render_image(image, size)
-                }
-                crate::doc::FrameItem::Meta(_, _) => continue,
+                FrameItem::Group(group) => self.render_group(group),
+                FrameItem::Text(text) => self.render_text(text),
+                FrameItem::Shape(shape, _) => self.render_shape(shape),
+                FrameItem::Image(image, size, _) => self.render_image(image, size),
+                FrameItem::Meta(_, _) => continue,
             };
             page.push_str(format!(r#"<g transform="translate({} {})">"#, x, y).as_str());
             page.push_str(&str);
@@ -144,6 +118,32 @@ impl SVGRenderer {
 
     fn append_page(&mut self, page: String) {
         self.body.push_str(&page);
+    }
+
+    fn render_group(&mut self, group: &GroupItem) -> String {
+        let mut str: String = String::new();
+        if group.clips {
+            let clip_path_hash = hash128(&group).into();
+            let x = group.frame.size().x.to_f32();
+            let y = group.frame.size().y.to_f32();
+            self.clip_paths.entry(clip_path_hash).or_insert_with(|| {
+                let mut builder = SVGPath2DBuilder(String::new());
+                builder.move_to(0.0, 0.0);
+                builder.line_to(0.0, y);
+                builder.line_to(x, y);
+                builder.line_to(x, 0.0);
+                builder.close();
+                builder.0
+            });
+            let clip = format!(r##"<g clip-path="url(#{})">"##, clip_path_hash);
+            str.push_str(&clip);
+        }
+        let page = self.render_frame(&group.frame, group.transform);
+        str.push_str(&page);
+        if group.clips {
+            str.push_str("</g>");
+        }
+        str
     }
 
     fn render_text(&mut self, text: &TextItem) -> String {
@@ -293,18 +293,18 @@ impl SVGRenderer {
             attr_set.set(
                 "stroke-linecap",
                 match stroke.line_cap {
-                    crate::geom::LineCap::Butt => "butt",
-                    crate::geom::LineCap::Round => "round",
-                    crate::geom::LineCap::Square => "square",
+                    LineCap::Butt => "butt",
+                    LineCap::Round => "round",
+                    LineCap::Square => "square",
                 }
                 .to_string(),
             );
             attr_set.set(
                 "stroke-linejoin",
                 match stroke.line_join {
-                    crate::geom::LineJoin::Miter => "miter",
-                    crate::geom::LineJoin::Round => "round",
-                    crate::geom::LineJoin::Bevel => "bevel",
+                    LineJoin::Miter => "miter",
+                    LineJoin::Round => "round",
+                    LineJoin::Bevel => "bevel",
                 }
                 .to_string(),
             );
@@ -324,11 +324,11 @@ impl SVGRenderer {
         }
         let mut path_builder = SVGPath2DBuilder(String::new());
         match &shape.geometry {
-            crate::geom::Geometry::Line(t) => {
+            Geometry::Line(t) => {
                 path_builder.move_to(0.0, 0.0);
                 path_builder.line_to(t.x.to_f32(), t.y.to_f32());
             }
-            crate::geom::Geometry::Rect(rect) => {
+            Geometry::Rect(rect) => {
                 let x = rect.x.to_f32();
                 let y = rect.y.to_f32();
                 // 0,0 <-> x,y
@@ -338,7 +338,7 @@ impl SVGRenderer {
                 path_builder.line_to(x, 0.0);
                 path_builder.close();
             }
-            crate::geom::Geometry::Path(p) => {
+            Geometry::Path(p) => {
                 for item in &p.0 {
                     match item {
                         crate::geom::PathItem::MoveTo(m) => {
@@ -366,13 +366,13 @@ impl SVGRenderer {
 
     fn render_image(&mut self, image: &Image, size: &Axes<Abs>) -> String {
         let format = match image.format() {
-            crate::image::ImageFormat::Raster(f) => match f {
-                crate::image::RasterFormat::Png => "jpeg",
-                crate::image::RasterFormat::Jpg => "png",
-                crate::image::RasterFormat::Gif => "gif",
+            ImageFormat::Raster(f) => match f {
+                RasterFormat::Png => "jpeg",
+                RasterFormat::Jpg => "png",
+                RasterFormat::Gif => "gif",
             },
-            crate::image::ImageFormat::Vector(f) => match f {
-                crate::image::VectorFormat::Svg => "svg+xml",
+            ImageFormat::Vector(f) => match f {
+                VectorFormat::Svg => "svg+xml",
             },
         };
         let mut url = format!("data:image/{};base64,", format);
