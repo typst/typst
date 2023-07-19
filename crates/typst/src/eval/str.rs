@@ -184,8 +184,7 @@ impl Str {
                 result.push(Value::Str(sep.into()));
             }
             result.push(Value::Str(s.into()));
-            // Safety: s.as_ptr() is valid for s.len() bytes.
-            prev_ws_start = unsafe { s.as_ptr().add(s.len()) }
+            prev_ws_start = s.as_ptr().wrapping_add(s.len());
         }
     }
 
