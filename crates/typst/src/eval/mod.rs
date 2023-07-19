@@ -68,7 +68,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use self::func::{CapturesVisitor, Closure};
 use crate::diag::{
-    bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult, StrResult, 
+    bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult, StrResult,
     Trace, Tracepoint,
 };
 use crate::model::{
