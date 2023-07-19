@@ -66,10 +66,9 @@ use crate::syntax::{FileId, PackageSpec, Source, Span};
 use crate::util::Bytes;
 
 /// Compile a source file into a fully layouted document.
-#[tracing::instrument(skip(world))]
-pub fn compile(world: &dyn World) -> SourceResult<Document> {
+#[tracing::instrument(skip_all)]
+pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     let route = Route::default();
-    let mut tracer = Tracer::default();
 
     // Call `track` just once to keep comemo's ID stable.
     let world = world.track();
@@ -83,7 +82,7 @@ pub fn compile(world: &dyn World) -> SourceResult<Document> {
         &world.main(),
     )?;
 
-    // Typeset the module's contents.
+    // Typeset it.
     model::typeset(world, tracer, &module.content())
 }
 
