@@ -265,6 +265,31 @@ pub struct TextElem {
     #[default(BottomEdge::Metric(BottomEdgeMetric::Baseline))]
     pub bottom_edge: BottomEdge,
 
+    /// The OpenType writing script setting.
+    ///
+    /// The combination of `{script}` and `{lang}` determine how
+    /// font features, such as glyph substitution, are implemented.
+    /// Frequently the value is a modified (all-lowercase) ISO 15924 script identifier, and
+    /// the `math` writing script is used for features appropriate
+    /// for mathematical symbols.
+    ///
+    /// When set to `{auto}`, the default and recommended setting,
+    /// an appropriate script is chosen for each block of characters
+    /// sharing a common Unicode script property.
+    ///
+    /// ```example
+    /// #let scedilla = [Ş]
+    /// #set text(font: "Linux Libertine", size: 20pt)
+    /// #scedilla // S with a cedilla
+    ///
+    /// #set text(script: "latn", lang: "ro")
+    /// #scedilla // S with a subscript comma
+    ///
+    /// #set text(script: "grek", lang: "ro")
+    /// #scedilla // S with a cedilla
+    /// ```
+    pub script: Smart<WritingScript>,
+
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
     /// Setting the correct language affects various parts of Typst:
