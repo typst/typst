@@ -206,10 +206,16 @@
 
 ---
 // Test the `split` method.
+#test("hello  wor\tld".split(), ("hello", "wor", "ld"));
 #test("abc".split(""), ("", "a", "b", "c", ""))
 #test("abc".split("b"), ("a", "c"))
 #test("a123c".split(regex("\d")), ("a", "", "", "c"))
 #test("a123c".split(regex("\d+")), ("a", "c"))
+
+#test("hello  wor\tld".split(keep-sep: true), ("hello", "  ", "wor", "\t", "ld"));
+#test("abc".split("b", keep-sep: true), ("a", "b", "c"))
+#test("abbc".split("b", keep-sep: true), ("a", "b", "", "b", "c"))
+#test("a123c".split(regex("\d+"), keep-sep: true), ("a", "123", "c"))
 
 ---
 // Error: 2-2:1 unclosed string

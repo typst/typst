@@ -89,7 +89,9 @@ pub fn call(
                 let repeat = args.named("repeat")?.unwrap_or(true);
                 string.trim(pattern, at, repeat).into_value()
             }
-            "split" => string.split(args.eat()?).into_value(),
+            "split" => string
+                .split(args.eat()?, args.named("keep-sep")?.unwrap_or(false))
+                .into_value(),
             _ => return missing(),
         },
 

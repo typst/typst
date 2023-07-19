@@ -166,16 +166,63 @@ impl Str {
         }
     }
 
-    /// Split this string at whitespace or a specific pattern.
-    pub fn split(&self, pattern: Option<StrPattern>) -> Array {
-        let s = self.as_str();
-        match pattern {
-            None => s.split_whitespace().map(|v| Value::Str(v.into())).collect(),
-            Some(StrPattern::Str(pat)) => {
-                s.split(pat.as_str()).map(|v| Value::Str(v.into())).collect()
+    // Gross method to recover the separators from a split-style
+    // iterator, since many of these don’t have equivalents that
+    // return the separators as well.
+    fn add_entries_with_separators<'a>(
+        result: &mut Array,
+        parent: &'a str,
+        it: impl Iterator<Item = &'a str>,
+    ) {
+        let parent_addr = parent.as_ptr() as usize;
+        let mut prev_ws_start: *const u8 = std::ptr::null();
+        for s in it {
+            if !prev_ws_start.is_null() {
+                let start = (prev_ws_start as usize) - parent_addr;
+                let end = (s.as_ptr() as usize) - parent_addr;
+                let sep = &parent[start..end];
+                result.push(Value::Str(sep.into()));
             }
-            Some(StrPattern::Regex(re)) => {
-                re.split(s).map(|v| Value::Str(v.into())).collect()
+            result.push(Value::Str(s.into()));
+            // Safety: s.as_ptr() is valid for s.len() bytes.
+            prev_ws_start = unsafe { s.as_ptr().add(s.len()) }
+        }
+    }
+
+    /// Split this string at whitespace or a specific pattern.
+    pub fn split(&self, pattern: Option<StrPattern>, keep_sep: bool) -> Array {
+        let s = self.as_str();
+        if keep_sep {
+            let mut result = Array::new();
+            match pattern {
+                None => {
+                    Self::add_entries_with_separators(
+                        &mut result,
+                        s,
+                        s.split_whitespace(),
+                    );
+                }
+                Some(StrPattern::Str(pat)) => {
+                    Self::add_entries_with_separators(
+                        &mut result,
+                        s,
+                        s.split(pat.as_str()),
+                    );
+                }
+                Some(StrPattern::Regex(re)) => {
+                    Self::add_entries_with_separators(&mut result, s, re.split(s));
+                }
+            }
+            result
+        } else {
+            match pattern {
+                None => s.split_whitespace().map(|v| Value::Str(v.into())).collect(),
+                Some(StrPattern::Str(pat)) => {
+                    s.split(pat.as_str()).map(|v| Value::Str(v.into())).collect()
+                }
+                Some(StrPattern::Regex(re)) => {
+                    re.split(s).map(|v| Value::Str(v.into())).collect()
+                }
             }
         }
     }
@@ -617,4 +664,29 @@ cast! {
     Replacement,
     text: Str => Self::Str(text),
     func: Func => Self::Func(func)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::eval::{Array, Value};
+
+    use super::Str;
+
+    #[test]
+    fn test_add_entries_with_separators() {
+        let mut result = Array::new();
+        let s = "a  b\tc";
+        Str::add_entries_with_separators(&mut result, s, s.split_whitespace());
+        assert_eq!(
+            result,
+            (&[
+                Value::Str("a".into()),
+                Value::Str("  ".into()),
+                Value::Str("b".into()),
+                Value::Str("\t".into()),
+                Value::Str("c".into())
+            ] as &[_])
+                .into()
+        )
+    }
 }

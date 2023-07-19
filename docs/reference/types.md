@@ -644,6 +644,9 @@ the resulting parts.
 
 - pattern: string or regex (positional)
   The pattern to split at. Defaults to whitespace.
+- keep-sep: boolean (named)
+  Whether to return the matches of the pattern in the result.
+  Defaults to `{false}`.
 - returns: array
 
 # Content
