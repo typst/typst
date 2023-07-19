@@ -134,6 +134,7 @@ enum FlowItem {
         frame: Frame,
         x_align: Align,
         y_align: Smart<Option<Align>>,
+        delta: Axes<Rel<Abs>>,
         float: bool,
         clearance: Abs,
     },
@@ -276,12 +277,13 @@ impl<'a> FlowLayouter<'a> {
         let float = placed.float(styles);
         let clearance = placed.clearance(styles);
         let alignment = placed.alignment(styles);
+        let delta = Axes::new(placed.dx(styles), placed.dy(styles)).resolve(styles);
         let x_align = alignment.map_or(Align::Center, |aligns| {
             aligns.x.unwrap_or(GenAlign::Start).resolve(styles)
         });
         let y_align = alignment.map(|align| align.y.resolve(styles));
         let frame = placed.layout(vt, styles, self.regions)?.into_frame();
-        let item = FlowItem::Placed { frame, x_align, y_align, float, clearance };
+        let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };
         self.layout_item(vt, item)
     }
 
@@ -508,7 +510,7 @@ impl<'a> FlowLayouter<'a> {
                     offset += frame.height();
                     output.push_frame(pos, frame);
                 }
-                FlowItem::Placed { frame, x_align, y_align, float, .. } => {
+                FlowItem::Placed { frame, x_align, y_align, delta, float, .. } => {
                     let x = x_align.position(size.x - frame.width());
                     let y = if float {
                         match y_align {
@@ -534,7 +536,10 @@ impl<'a> FlowLayouter<'a> {
                         }
                     };
 
-                    output.push_frame(Point::new(x, y), frame);
+                    let pos = Point::new(x, y)
+                        + delta.zip(size).map(|(d, s)| d.relative_to(s)).to_point();
+
+                    output.push_frame(pos, frame);
                 }
                 FlowItem::Footnote(frame) => {
                     let y = size.y - footnote_height + footnote_offset;

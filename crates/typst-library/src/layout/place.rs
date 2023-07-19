@@ -115,12 +115,9 @@ impl Layout for PlaceElem {
                 .at(self.span());
         }
 
-        let child = self
-            .body()
-            .moved(Axes::new(self.dx(styles), self.dy(styles)))
-            .aligned(
-                alignment.unwrap_or_else(|| Axes::with_x(Some(Align::Center.into()))),
-            );
+        let child = self.body().aligned(
+            alignment.unwrap_or_else(|| Axes::with_x(Some(Align::Center.into()))),
+        );
 
         let pod = Regions::one(base, Axes::splat(false));
         let frame = child.layout(vt, styles, pod)?.into_frame();
