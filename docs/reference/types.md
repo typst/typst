@@ -726,6 +726,8 @@ Return the fields of this content.
 ).fields()
 ```
 
+- returns: dictionary
+
 ### location()
 The location of the content. This is only available on content returned by
 [query]($func/query), for other content it will fail with an error. The
