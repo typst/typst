@@ -103,22 +103,9 @@ pub fn typeset(
     // Drop the introspector.
     ManuallyDrop::into_inner(introspector);
 
-    let delayed: Vec<_> = delayed
-        .0
-        .into_iter()
-        .filter_map(|e| {
-            if e.is_error() {
-                Some(e)
-            } else {
-                tracer.warn(e);
-                None
-            }
-        })
-        .collect();
-
     // Promote delayed errors.
-    if !delayed.is_empty() {
-        return Err(Box::new(delayed));
+    if !delayed.0.is_empty() {
+        return Err(Box::new(delayed.0));
     }
 
     Ok(document)
