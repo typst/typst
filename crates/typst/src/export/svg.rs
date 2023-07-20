@@ -56,7 +56,7 @@ pub fn svg(doc: &Document) -> String {
 
 enum RenderedGlyph {
     Path(String),
-    Image { url: String, width: f32, height: f32 },
+    Image { url: String, width: f64, height: f64 },
 }
 
 struct SVGRenderer {
@@ -141,8 +141,8 @@ impl SVGRenderer {
             self.xml.write_attribute("transform", &trans.to_svg());
         };
         for (pos, item) in frame.items() {
-            let x = pos.x.to_f32();
-            let y = pos.y.to_f32();
+            let x = pos.x.to_pt();
+            let y = pos.y.to_pt();
             self.xml.start_element("g");
             self.xml
                 .write_attribute("transform", format!("translate({} {})", x, y).as_str());
@@ -163,16 +163,10 @@ impl SVGRenderer {
         self.xml.write_attribute("class", "typst-group");
         if group.clips {
             let clip_path_hash = hash128(&group).into();
-            let x = group.frame.size().x.to_f32();
-            let y = group.frame.size().y.to_f32();
+            let x = group.frame.size().x.to_pt();
+            let y = group.frame.size().y.to_pt();
             self.clip_paths.entry(clip_path_hash).or_insert_with(|| {
-                let mut builder = SVGPath2DBuilder(String::new());
-                builder.move_to(0.0, 0.0);
-                builder.line_to(0.0, y);
-                builder.line_to(x, y);
-                builder.line_to(x, 0.0);
-                builder.close();
-                builder.0
+                SVGPath2DBuilder::rect(x as f32, y as f32)
             });
             self.xml.write_attribute_fmt(
                 "clip-path",
@@ -184,20 +178,20 @@ impl SVGRenderer {
     }
 
     fn render_text(&mut self, text: &TextItem) {
-        let scale: f32 = (text.size.to_pt() / text.font.units_per_em()) as f32;
-        let inv_scale: f32 = (text.font.units_per_em() / text.size.to_pt()) as f32;
+        let scale: f64 = text.size.to_pt() / text.font.units_per_em();
+        let inv_scale: f64 = text.font.units_per_em() / text.size.to_pt();
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-text");
         self.xml.write_attribute_fmt(
             "transform",
             format_args!("scale({} {})", scale, -scale),
         );
-        let mut x_offset: f32 = 0.0;
+        let mut x_offset: f64 = 0.0;
         for glyph in &text.glyphs {
             self.render_svg_glyph(text, glyph, x_offset, inv_scale)
                 .or_else(|| self.render_bitmap_glyph(text, glyph, x_offset, inv_scale))
                 .or_else(|| self.render_outline_glyph(text, glyph, x_offset, inv_scale));
-            x_offset += glyph.x_advance.at(text.size).to_f32();
+            x_offset += glyph.x_advance.at(text.size).to_pt();
         }
         self.xml.end_element();
     }
@@ -206,8 +200,8 @@ impl SVGRenderer {
         &mut self,
         text: &TextItem,
         glyph: &Glyph,
-        x_offset: f32,
-        inv_scale: f32,
+        x_offset: f64,
+        inv_scale: f64,
     ) -> Option<()> {
         let mut data = text.font.ttf().glyph_svg_image(GlyphId(glyph.id))?;
         let glyph_hash: RenderHash = hash128(&(&text.font, glyph)).into();
@@ -228,7 +222,7 @@ impl SVGRenderer {
         let opts = usvg::Options::default();
         let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
 
-        let size = text.size.to_f32();
+        let size = text.size.to_pt();
 
         // Compute the space we need to draw our glyph.
         // See https://github.com/RazrFalcon/resvg/issues/602 for why
@@ -240,7 +234,7 @@ impl SVGRenderer {
             }
         }
         let height = size;
-        let width = (bbox.width() / bbox.height()) as f32 * height;
+        let width = bbox.width() / bbox.height() * height;
         self.glyphs.entry(glyph_hash).or_insert_with(|| {
             let mut url = "data:image/svg+xml;base64,".to_string();
             // fixme: this is a hack to remove the viewbox from the glyph
@@ -269,17 +263,17 @@ impl SVGRenderer {
         &mut self,
         text: &TextItem,
         glyph: &Glyph,
-        x_offset: f32,
-        inv_scale: f32,
+        x_offset: f64,
+        inv_scale: f64,
     ) -> Option<()> {
         let bitmap =
             text.font.ttf().glyph_raster_image(GlyphId(glyph.id), std::u16::MAX)?;
         let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
-        let size = text.size.to_f32();
+        let size = text.size.to_pt();
         let h = text.size;
         let w = (image.width() as f64 / image.height() as f64) * h;
-        let dx = (bitmap.x as f32) / (image.width() as f32) * size;
-        let dy = (bitmap.y as f32) / (image.height() as f32) * size;
+        let dx = (bitmap.x as f64) / (image.width() as f64) * size;
+        let dy = (bitmap.y as f64) / (image.height() as f64) * size;
 
         self.xml.start_element("g");
         self.xml.write_attribute_fmt(
@@ -301,8 +295,8 @@ impl SVGRenderer {
         &mut self,
         text: &TextItem,
         glyph: &Glyph,
-        x_offset: f32,
-        inv_scale: f32,
+        x_offset: f64,
+        inv_scale: f64,
     ) -> Option<()> {
         let mut builder = SVGPath2DBuilder(String::new());
         text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder)?;
@@ -373,35 +367,30 @@ impl SVGRenderer {
         match &shape.geometry {
             Geometry::Line(t) => {
                 path_builder.move_to(0.0, 0.0);
-                path_builder.line_to(t.x.to_f32(), t.y.to_f32());
+                path_builder.line_to(t.x.to_pt() as f32, t.y.to_pt() as f32);
             }
             Geometry::Rect(rect) => {
-                let x = rect.x.to_f32();
-                let y = rect.y.to_f32();
-                // 0,0 <-> x,y
-                path_builder.move_to(0.0, 0.0);
-                path_builder.line_to(0.0, y);
-                path_builder.line_to(x, y);
-                path_builder.line_to(x, 0.0);
-                path_builder.close();
+                let x = rect.x.to_pt() as f32;
+                let y = rect.y.to_pt() as f32;
+                SVGPath2DBuilder::rect(x, y);
             }
             Geometry::Path(p) => {
                 for item in &p.0 {
                     match item {
                         crate::geom::PathItem::MoveTo(m) => {
-                            path_builder.move_to(m.x.to_f32(), m.y.to_f32())
+                            path_builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32)
                         }
                         crate::geom::PathItem::LineTo(l) => {
-                            path_builder.line_to(l.x.to_f32(), l.y.to_f32())
+                            path_builder.line_to(l.x.to_pt() as f32, l.y.to_pt() as f32)
                         }
                         crate::geom::PathItem::CubicTo(c1, c2, t) => path_builder
                             .curve_to(
-                                c1.x.to_f32(),
-                                c1.y.to_f32(),
-                                c2.x.to_f32(),
-                                c2.y.to_f32(),
-                                t.x.to_f32(),
-                                t.y.to_f32(),
+                                c1.x.to_pt() as f32,
+                                c1.y.to_pt() as f32,
+                                c2.x.to_pt() as f32,
+                                c2.y.to_pt() as f32,
+                                t.x.to_pt() as f32,
+                                t.y.to_pt() as f32,
                             ),
                         crate::geom::PathItem::ClosePath => path_builder.close(),
                     }
@@ -435,18 +424,6 @@ impl SVGRenderer {
     }
 }
 
-/// Additional methods for [`Length`].
-trait AbsExt {
-    /// Convert to a number of points as f32.
-    fn to_f32(self) -> f32;
-}
-
-impl AbsExt for Abs {
-    fn to_f32(self) -> f32 {
-        self.to_pt() as f32
-    }
-}
-
 trait TransformExt {
     fn to_svg(self) -> String;
 }
@@ -466,6 +443,18 @@ impl TransformExt for Transform {
 }
 
 struct SVGPath2DBuilder(pub String);
+
+impl SVGPath2DBuilder {
+    fn rect(width: f32, height: f32) -> String {
+        let mut builder = SVGPath2DBuilder(String::new());
+        builder.move_to(0.0, 0.0);
+        builder.line_to(0.0, height);
+        builder.line_to(width, height);
+        builder.line_to(width, 0.0);
+        builder.close();
+        builder.0
+    }
+}
 
 impl ttf_parser::OutlineBuilder for SVGPath2DBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
