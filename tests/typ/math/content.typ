@@ -27,3 +27,7 @@ $#here[f] := #here[Hi there]$.
      h(12pt)
      box(stroke: 0.2pt, $g #box(stroke: 0.2pt, $g$)$)
 }
+
+---
+// Test boxes with a baseline are respected
+#box(stroke: 0.2pt, $a #box(baseline:0.5em, stroke: 0.2pt, $a$)$)
