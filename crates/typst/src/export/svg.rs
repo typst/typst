@@ -165,9 +165,9 @@ impl SVGRenderer {
             let clip_path_hash = hash128(&group).into();
             let x = group.frame.size().x.to_pt();
             let y = group.frame.size().y.to_pt();
-            self.clip_paths.entry(clip_path_hash).or_insert_with(|| {
-                SVGPath2DBuilder::rect(x as f32, y as f32)
-            });
+            self.clip_paths
+                .entry(clip_path_hash)
+                .or_insert_with(|| SVGPath2DBuilder::rect(x as f32, y as f32));
             self.xml.write_attribute_fmt(
                 "clip-path",
                 format_args!("url(#{})", clip_path_hash),
