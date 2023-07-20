@@ -43,3 +43,10 @@ $ lr(
     text("(", fill: #green) a/b
     text(")", fill: #blue)
   ) $
+
+---
+// Test fences don't match through a linebreak
+$
+  a | b \
+  c | d
+$

@@ -415,7 +415,9 @@ fn math_delimited(p: &mut Parser, stop: MathClass) {
     let m2 = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
         let class = math_class(p.current_text());
-        if stop == MathClass::Fence && class == Some(MathClass::Closing) {
+        if stop == MathClass::Fence
+            && (class == Some(MathClass::Closing) || p.at(SyntaxKind::Linebreak))
+        {
             break;
         }
 
