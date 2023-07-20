@@ -122,13 +122,15 @@ fn layout(
     frame.push_frame(denom_pos, denom);
 
     if binom {
-        ctx.push(
-            GlyphFragment::new(ctx, '(', span).stretch_vertical(ctx, height, short_fall),
-        );
+        let mut left =
+            GlyphFragment::new(ctx, '(', span).stretch_vertical(ctx, height, short_fall);
+        left.center_on_axis(ctx);
+        ctx.push(left);
         ctx.push(FrameFragment::new(ctx, frame));
-        ctx.push(
-            GlyphFragment::new(ctx, ')', span).stretch_vertical(ctx, height, short_fall),
-        );
+        let mut right =
+            GlyphFragment::new(ctx, ')', span).stretch_vertical(ctx, height, short_fall);
+        right.center_on_axis(ctx);
+        ctx.push(right);
     } else {
         frame.push(
             line_pos,

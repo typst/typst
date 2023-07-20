@@ -295,18 +295,19 @@ fn layout_delimiters(
     frame.set_baseline(height / 2.0 + axis);
 
     if let Some(left) = left {
-        ctx.push(
-            GlyphFragment::new(ctx, left, span).stretch_vertical(ctx, target, short_fall),
-        );
+        let mut left =
+            GlyphFragment::new(ctx, left, span).stretch_vertical(ctx, target, short_fall);
+        left.center_on_axis(ctx);
+        ctx.push(left);
     }
 
     ctx.push(FrameFragment::new(ctx, frame));
 
     if let Some(right) = right {
-        ctx.push(
-            GlyphFragment::new(ctx, right, span)
-                .stretch_vertical(ctx, target, short_fall),
-        );
+        let mut right = GlyphFragment::new(ctx, right, span)
+            .stretch_vertical(ctx, target, short_fall);
+        right.center_on_axis(ctx);
+        ctx.push(right);
     }
 
     Ok(())

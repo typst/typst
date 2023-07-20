@@ -48,6 +48,7 @@ fn prepare(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
     let mut params = vec![];
     for input in &sig.inputs {
         let syn::FnArg::Typed(typed) = input else {
+            println!("option a");
             bail!(input, "self is not allowed here");
         };
 

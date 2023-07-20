@@ -353,6 +353,15 @@ pub struct VariantFragment {
     pub limits: Limits,
 }
 
+impl VariantFragment {
+    /// Vertically adjust the fragment's frame so that it is centered
+    /// on the axis.
+    pub fn center_on_axis(&mut self, ctx: &MathContext) {
+        let h = self.frame.height();
+        self.frame.set_baseline(h / 2.0 + scaled!(ctx, axis_height));
+    }
+}
+
 impl Debug for VariantFragment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "VariantFragment({:?})", self.c)
