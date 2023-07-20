@@ -185,8 +185,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                     glyph.into_variant()
                 };
                 // TeXbook p 155. Large operators are always vertically centered on the axis.
-                let h = variant.frame.height();
-                variant.frame.set_baseline(h / 2.0 + scaled!(self, axis_height));
+                variant.center_on_axis(self);
                 variant.into()
             } else {
                 glyph.into()
