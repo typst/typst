@@ -208,7 +208,7 @@ impl SVGRenderer {
         inv_scale: f64,
     ) -> Option<()> {
         let mut data = text.font.ttf().glyph_svg_image(GlyphId(glyph.id))?;
-        let glyph_hash: RenderHash = hash128(&(&text.font, glyph)).into();
+        let glyph_hash: RenderHash = hash128(&(&text.font, glyph.id)).into();
 
         // Decompress SVGZ.
         let mut decoded = vec![];
@@ -273,7 +273,7 @@ impl SVGRenderer {
     ) -> Option<()> {
         let bitmap =
             text.font.ttf().glyph_raster_image(GlyphId(glyph.id), std::u16::MAX)?;
-        let glyph_hash: RenderHash = hash128(&(&text.font, glyph)).into();
+        let glyph_hash: RenderHash = hash128(&(&text.font, glyph.id)).into();
         let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
         self.glyphs.entry(glyph_hash).or_insert_with(|| {
             let width = image.width() as f64;
@@ -312,7 +312,7 @@ impl SVGRenderer {
     ) -> Option<()> {
         let mut builder = SVGPath2DBuilder(String::new());
         text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder)?;
-        let glyph_hash = hash128(&(&text.font, glyph)).into();
+        let glyph_hash = hash128(&(&text.font, glyph.id)).into();
         self.glyphs.entry(glyph_hash).or_insert_with(|| {
             let path = builder.0;
             RenderedGlyph::Path(path)
