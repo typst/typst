@@ -56,7 +56,7 @@ pub fn svg(doc: &Document) -> String {
 
 enum RenderedGlyph {
     Path(String),
-    Image { url: String, width: f64, height: f64 },
+    Image { url: String, width: f64, height: f64, ts: Transform },
 }
 
 struct SVGRenderer {
@@ -102,11 +102,15 @@ impl SVGRenderer {
                     self.xml.write_attribute("d", &path);
                     self.xml.end_element();
                 }
-                RenderedGlyph::Image { url, width, height } => {
+                RenderedGlyph::Image { url, width, height, ts } => {
                     self.xml.start_element("image");
                     self.xml.write_attribute("xlink:href", &url);
                     self.xml.write_attribute("width", &width.to_string());
                     self.xml.write_attribute("height", &height.to_string());
+                    if !ts.is_identity() {
+                        self.xml.write_attribute("transform", &ts.to_svg());
+                    }
+                    self.xml.write_attribute("preserveAspectRatio", "none");
                     self.xml.end_element();
                 }
             }
@@ -247,6 +251,7 @@ impl SVGRenderer {
                 url,
                 width: width * inv_scale,
                 height: height * inv_scale,
+                ts: Transform::identity(),
             }
         });
 
@@ -268,25 +273,32 @@ impl SVGRenderer {
     ) -> Option<()> {
         let bitmap =
             text.font.ttf().glyph_raster_image(GlyphId(glyph.id), std::u16::MAX)?;
+        let glyph_hash: RenderHash = hash128(&(&text.font, glyph)).into();
         let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
-        let size = text.size.to_pt();
-        let h = text.size;
-        let w = (image.width() as f64 / image.height() as f64) * h;
-        let dx = (bitmap.x as f64) / (image.width() as f64) * size;
-        let dy = (bitmap.y as f64) / (image.height() as f64) * size;
-
-        self.xml.start_element("g");
+        self.glyphs.entry(glyph_hash).or_insert_with(|| {
+            let width = image.width() as f64;
+            let height = image.height() as f64;
+            let x_offset = bitmap.x as f64;
+            let y_offset = bitmap.y as f64;
+            let url = encode_image_to_url(&image);
+            let ts = Transform::translate(Abs::pt(x_offset), Abs::pt(-height - y_offset));
+            RenderedGlyph::Image { url, width, height, ts }
+        });
+        let target_height = text.size.to_pt();
+        self.xml.start_element("use");
+        self.xml.write_attribute_fmt(
+            "xlink:href",
+            format_args!("#{}", &glyph_hash.to_string()),
+        );
+        self.xml.write_attribute("x", &(x_offset * inv_scale).to_string());
         self.xml.write_attribute_fmt(
             "transform",
             format_args!(
-                "scale({} -{}) translate({}, {})",
-                inv_scale,
-                inv_scale,
-                dx + x_offset,
-                -size - dy
+                "scale({} -{})",
+                inv_scale * (target_height / image.height() as f64),
+                inv_scale * (target_height / image.height() as f64),
             ),
         );
-        self.render_image(&image, &Axes { x: w, y: h });
         self.xml.end_element();
         Some(())
     }
@@ -402,19 +414,7 @@ impl SVGRenderer {
     }
 
     fn render_image(&mut self, image: &Image, size: &Axes<Abs>) {
-        let format = match image.format() {
-            ImageFormat::Raster(f) => match f {
-                RasterFormat::Png => "jpeg",
-                RasterFormat::Jpg => "png",
-                RasterFormat::Gif => "gif",
-            },
-            ImageFormat::Vector(f) => match f {
-                VectorFormat::Svg => "svg+xml",
-            },
-        };
-        let mut url = format!("data:image/{};base64,", format);
-        let data = base64::engine::general_purpose::STANDARD.encode(image.data());
-        url.push_str(&data);
+        let url = encode_image_to_url(image);
         self.xml.start_element("image");
         self.xml.write_attribute("xlink:href", &url);
         self.xml.write_attribute("width", &size.x.to_pt().to_string());
@@ -422,6 +422,23 @@ impl SVGRenderer {
         self.xml.write_attribute("preserveAspectRatio", "none");
         self.xml.end_element();
     }
+}
+
+fn encode_image_to_url(image: &Image) -> String {
+    let format = match image.format() {
+        ImageFormat::Raster(f) => match f {
+            RasterFormat::Png => "jpeg",
+            RasterFormat::Jpg => "png",
+            RasterFormat::Gif => "gif",
+        },
+        ImageFormat::Vector(f) => match f {
+            VectorFormat::Svg => "svg+xml",
+        },
+    };
+    let mut url = format!("data:image/{};base64,", format);
+    let data = base64::engine::general_purpose::STANDARD.encode(image.data());
+    url.push_str(&data);
+    url
 }
 
 trait TransformExt {
