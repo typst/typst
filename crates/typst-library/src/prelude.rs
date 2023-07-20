@@ -19,8 +19,6 @@ pub use typst::eval::{
     Func, IntoValue, Never, NoneValue, Scope, Str, Symbol, Type, Value, Vm,
 };
 #[doc(no_inline)]
-pub use typst::file::FileId;
-#[doc(no_inline)]
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
@@ -30,7 +28,7 @@ pub use typst::model::{
     Unlabellable, Vt,
 };
 #[doc(no_inline)]
-pub use typst::syntax::{Span, Spanned};
+pub use typst::syntax::{FileId, Span, Spanned};
 #[doc(no_inline)]
 pub use typst::util::NonZeroExt;
 #[doc(no_inline)]

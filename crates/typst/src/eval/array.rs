@@ -398,6 +398,38 @@ impl Array {
             .map(|(i, value)| array![i, value.clone()].into_value())
             .collect()
     }
+
+    /// Deduplicates all items in the array.
+    pub fn dedup(&self, vm: &mut Vm, key: Option<Func>) -> SourceResult<Self> {
+        let mut out = EcoVec::with_capacity(self.0.len());
+        let mut key_of = |x: Value| match &key {
+            // NOTE: We are relying on `comemo`'s memoization of function
+            // evaluation to not excessively reevaluate the `key`.
+            Some(f) => f.call_vm(vm, Args::new(f.span(), [x])),
+            None => Ok(x),
+        };
+
+        // This algorithm is O(N^2) because we cannot rely on `HashSet` since:
+        // 1. We would like to preserve the order of the elements.
+        // 2. We cannot hash arbitrary `Value`.
+        'outer: for value in self.iter() {
+            let key = key_of(value.clone())?;
+            if out.is_empty() {
+                out.push(value.clone());
+                continue;
+            }
+
+            for second in out.iter() {
+                if typst::eval::ops::equal(&key, &key_of(second.clone())?) {
+                    continue 'outer;
+                }
+            }
+
+            out.push(value.clone());
+        }
+
+        Ok(Self(out))
+    }
 }
 
 impl Debug for Array {

@@ -216,6 +216,7 @@ impl GlyphFragment {
     pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
         let class = match c {
             ':' => Some(MathClass::Relation),
+            '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
             _ => unicode_math_class::class(c),
         };
         let mut fragment = Self {
@@ -350,6 +351,15 @@ pub struct VariantFragment {
     pub class: Option<MathClass>,
     pub span: Span,
     pub limits: Limits,
+}
+
+impl VariantFragment {
+    /// Vertically adjust the fragment's frame so that it is centered
+    /// on the axis.
+    pub fn center_on_axis(&mut self, ctx: &MathContext) {
+        let h = self.frame.height();
+        self.frame.set_baseline(h / 2.0 + scaled!(ctx, axis_height));
+    }
 }
 
 impl Debug for VariantFragment {

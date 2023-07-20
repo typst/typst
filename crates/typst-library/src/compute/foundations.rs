@@ -1,3 +1,5 @@
+use typst::eval::EvalMode;
+
 use crate::prelude::*;
 
 /// Determines the type of a value.
@@ -196,7 +198,7 @@ pub fn assert_ne(
 /// ```example
 /// #eval("1 + 1") \
 /// #eval("(1, 2, 3, 4)").len() \
-/// #eval("[*Strong text*]")
+/// #eval("*Markup!*", mode: "markup") \
 /// ```
 ///
 /// Display: Evaluate
@@ -207,9 +209,39 @@ pub fn eval(
     ///
     /// The code in the string cannot interact with the file system.
     source: Spanned<String>,
+    /// The syntactical mode in which the string is parsed.
+    ///
+    /// ```example
+    /// #eval("= Heading", mode: "markup")
+    /// #eval("1_2^3", mode: "math")
+    /// ```
+    #[named]
+    #[default(EvalMode::Code)]
+    mode: EvalMode,
+    /// A scope of definitions that are made available.
+    ///
+    /// ```example
+    /// #eval("x + 1", scope: (x: 2)) \
+    /// #eval(
+    ///   "abc/xyz",
+    ///   mode: "math",
+    ///   scope: (
+    ///     abc: $a + b + c$,
+    ///     xyz: $x + y + z$,
+    ///   ),
+    /// )
+    /// ```
+    #[named]
+    #[default]
+    scope: Dict,
     /// The virtual machine.
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: text, span } = source;
-    typst::eval::eval_string(vm.world(), &text, span)
+    let dict = scope;
+    let mut scope = Scope::new();
+    for (key, value) in dict {
+        scope.define(key, value);
+    }
+    typst::eval::eval_string(vm.world(), &text, span, mode, scope)
 }

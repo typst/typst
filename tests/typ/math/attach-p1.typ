@@ -1,4 +1,4 @@
-// Test t and b attachments.
+// Test t and b attachments, part 1.
 
 ---
 // Test basics, postscripts.
@@ -57,46 +57,3 @@ $ 1/(V^2^3^4^5),
     br: attach(2, br: attach(3, br: attach(4, br: 5))),
   )
 $
-
----
-// Test high subscript and superscript.
-$ sqrt(a_(1/2)^zeta), sqrt(a_alpha^(1/2)), sqrt(a_(1/2)^(3/4)) \
-  sqrt(attach(a, tl: 1/2, bl: 3/4)),
-  sqrt(attach(a, tl: 1/2, bl: 3/4, tr: 1/2, br: 3/4)) $
-
----
-// Test frame base.
-$ (-1)^n + (1/2 + 3)^(-1/2) $
-
----
-#set text(size: 8pt)
-
-// Test that the attachments are aligned horizontally.
-$ x_1 p_1 frak(p)_1 2_1 dot_1 lg_1 !_1 \\_1 ]_1 "ip"_1 op("iq")_1 \
-  x^1 b^1 frak(b)^1 2^1 dot^1 lg^1 !^1 \\^1 ]^1 "ib"^1 op("id")^1 \
-  x_1 y_1 "_"_1 x^1 l^1 "`"^1 attach(I,tl:1,bl:1,tr:1,br:1)
-  scripts(sum)_1^1 integral_1^1 |1/2|_1^1 \
-  x^1_1, "("b y")"^1_1 != (b y)^1_1, "[∫]"_1 [integral]_1 $
-
----
-// Test limit.
-$ lim_(n->oo \ n "grows") sum_(k=0 \ k in NN)^n k $
-
----
-// Test forcing scripts and limits.
-$ limits(A)_1^2 != A_1^2 $
-$ scripts(sum)_1^2 != sum_1^2 $
-$ limits(integral)_a^b != integral_a^b $
-
----
-// Error: 30-34 unknown variable: oops
-$ attach(A, t: #locate(it => oops)) $
-
----
-// Show and let rules for limits and scripts
-#let eq = $ ∫_a^b iota_a^b $
-#eq
-#show "∫": math.limits
-#show math.iota: math.limits.with(inline: false)
-#eq
-$iota_a^b$

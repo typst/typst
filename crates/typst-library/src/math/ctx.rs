@@ -5,7 +5,7 @@ use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
-use crate::text::tags;
+use crate::text::{tags, BottomEdge, BottomEdgeMetric, TopEdge, TopEdgeMetric};
 
 macro_rules! scaled {
     ($ctx:expr, text: $text:ident, display: $display:ident $(,)?) => {
@@ -167,24 +167,28 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         {
             // A single letter that is available in the math font.
             match self.style.size {
-                MathSize::Display => {
-                    let class = self.style.class.as_custom().or(glyph.class);
-                    if class == Some(MathClass::Large) {
-                        let height = scaled!(self, display_operator_min_height);
-                        glyph.stretch_vertical(self, height, Abs::zero()).into()
-                    } else {
-                        glyph.into()
-                    }
-                }
                 MathSize::Script => {
                     glyph.make_scriptsize(self);
-                    glyph.into()
                 }
                 MathSize::ScriptScript => {
                     glyph.make_scriptscriptsize(self);
-                    glyph.into()
                 }
-                _ => glyph.into(),
+                _ => (),
+            }
+
+            let class = self.style.class.as_custom().or(glyph.class);
+            if class == Some(MathClass::Large) {
+                let mut variant = if self.style.size == MathSize::Display {
+                    let height = scaled!(self, display_operator_min_height);
+                    glyph.stretch_vertical(self, height, Abs::zero())
+                } else {
+                    glyph.into_variant()
+                };
+                // TeXbook p 155. Large operators are always vertically centered on the axis.
+                variant.center_on_axis(self);
+                variant.into()
+            } else {
+                glyph.into()
             }
         } else if text.chars().all(|c| c.is_ascii_digit()) {
             // Numbers aren't that difficult.
@@ -203,7 +207,27 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 style = style.with_italic(false);
             }
             let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
-            let frame = self.layout_content(&TextElem::packed(text).spanned(span))?;
+            let text = TextElem::packed(text)
+                .styled(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)))
+                .styled(TextElem::set_bottom_edge(BottomEdge::Metric(
+                    BottomEdgeMetric::Bounds,
+                )))
+                .spanned(span);
+            let par = ParElem::new(vec![text]);
+
+            // There isn't a natural width for a paragraph in a math environment;
+            // because it will be placed somewhere probably not at the left margin
+            // it will overflow.  So emulate an `hbox` instead and allow the paragraph
+            // to extend as far as needed.
+            let frame = par
+                .layout(
+                    self.vt,
+                    self.outer.chain(&self.local),
+                    false,
+                    Size::splat(Abs::inf()),
+                    false,
+                )?
+                .into_frame();
             FrameFragment::new(self, frame)
                 .with_class(MathClass::Alphabetic)
                 .with_spaced(spaced)

@@ -82,8 +82,12 @@ impl Value {
     pub fn numeric(pair: (f64, ast::Unit)) -> Self {
         let (v, unit) = pair;
         match unit {
-            ast::Unit::Length(unit) => Abs::with_unit(v, unit).into_value(),
-            ast::Unit::Angle(unit) => Angle::with_unit(v, unit).into_value(),
+            ast::Unit::Pt => Abs::pt(v).into_value(),
+            ast::Unit::Mm => Abs::mm(v).into_value(),
+            ast::Unit::Cm => Abs::cm(v).into_value(),
+            ast::Unit::In => Abs::inches(v).into_value(),
+            ast::Unit::Rad => Angle::rad(v).into_value(),
+            ast::Unit::Deg => Angle::deg(v).into_value(),
             ast::Unit::Em => Em::new(v).into_value(),
             ast::Unit::Fr => Fr::new(v).into_value(),
             ast::Unit::Percent => Ratio::new(v / 100.0).into_value(),

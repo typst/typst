@@ -966,6 +966,21 @@ Return a new array with the same items, but sorted.
   If given, applies this function to the elements in the array to determine the keys to sort by.
 - returns: array
 
+### dedup()
+Returns a new array with all duplicate items removed.
+
+Only the first element of each duplicate is kept.
+
+```example
+#{
+  (1, 1, 2, 3, 1).dedup() == (1, 2, 3)
+}
+```
+
+- key: function (named)
+  If given, applies this function to the elements in the array to determine the keys to deduplicate by.
+- returns: array
+
 # Dictionary
 A map from string keys to values.
 

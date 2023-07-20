@@ -43,7 +43,7 @@ use self::ctx::*;
 use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
-use crate::layout::{HElem, ParElem, Spacing};
+use crate::layout::{BoxElem, HElem, ParElem, Spacing};
 use crate::meta::Supplement;
 use crate::meta::{
     Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
@@ -292,9 +292,9 @@ impl Layout for EquationElem {
             }
         } else {
             let slack = ParElem::leading_in(styles) * 0.7;
-            let top_edge = TextElem::top_edge_in(styles).resolve(styles, font.metrics());
+            let top_edge = TextElem::top_edge_in(styles).resolve(styles, &font, None);
             let bottom_edge =
-                -TextElem::bottom_edge_in(styles).resolve(styles, font.metrics());
+                -TextElem::bottom_edge_in(styles).resolve(styles, &font, None);
 
             let ascent = top_edge.max(frame.ascent() - slack);
             let descent = bottom_edge.max(frame.descent() - slack);
@@ -480,8 +480,12 @@ impl LayoutMath for Content {
 
         let mut frame = ctx.layout_content(self)?;
         if !frame.has_baseline() {
-            let axis = scaled!(ctx, axis_height);
-            frame.set_baseline(frame.height() / 2.0 + axis);
+            if self.is::<BoxElem>() {
+                frame.set_baseline(frame.height());
+            } else {
+                let axis = scaled!(ctx, axis_height);
+                frame.set_baseline(frame.height() / 2.0 + axis);
+            }
         }
         ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
 

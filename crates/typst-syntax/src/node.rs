@@ -6,9 +6,7 @@ use std::sync::Arc;
 use ecow::EcoString;
 
 use super::ast::AstNode;
-use super::{Span, SyntaxKind};
-use crate::diag::SourceError;
-use crate::file::FileId;
+use super::{FileId, Span, SyntaxKind};
 
 /// A node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -60,7 +58,7 @@ impl SyntaxNode {
         match &self.0 {
             Repr::Leaf(leaf) => leaf.len(),
             Repr::Inner(inner) => inner.len,
-            Repr::Error(error) => error.len(),
+            Repr::Error(node) => node.len(),
         }
     }
 
@@ -69,19 +67,19 @@ impl SyntaxNode {
         match &self.0 {
             Repr::Leaf(leaf) => leaf.span,
             Repr::Inner(inner) => inner.span,
-            Repr::Error(error) => error.span,
+            Repr::Error(node) => node.error.span,
         }
     }
 
-    /// The text of the node if it is a leaf node.
+    /// The text of the node if it is a leaf or error node.
     ///
     /// Returns the empty string if this is an inner node.
     pub fn text(&self) -> &EcoString {
         static EMPTY: EcoString = EcoString::new();
         match &self.0 {
             Repr::Leaf(leaf) => &leaf.text,
-            Repr::Error(error) => &error.text,
             Repr::Inner(_) => &EMPTY,
+            Repr::Error(node) => &node.text,
         }
     }
 
@@ -91,10 +89,10 @@ impl SyntaxNode {
     pub fn into_text(self) -> EcoString {
         match self.0 {
             Repr::Leaf(leaf) => leaf.text,
-            Repr::Error(error) => error.text.clone(),
-            Repr::Inner(node) => {
-                node.children.iter().cloned().map(Self::into_text).collect()
+            Repr::Inner(inner) => {
+                inner.children.iter().cloned().map(Self::into_text).collect()
             }
+            Repr::Error(node) => node.text.clone(),
         }
     }
 
@@ -130,27 +128,19 @@ impl SyntaxNode {
     pub fn erroneous(&self) -> bool {
         match &self.0 {
             Repr::Leaf(_) => false,
-            Repr::Inner(node) => node.erroneous,
+            Repr::Inner(inner) => inner.erroneous,
             Repr::Error(_) => true,
         }
     }
 
-    /// Adds a user-presentable hint if this is an error node.
-    pub fn hint(&mut self, hint: impl Into<EcoString>) {
-        if let Repr::Error(error) = &mut self.0 {
-            Arc::make_mut(error).hint(hint);
-        }
-    }
-
     /// The error messages for this node and its descendants.
-    pub fn errors(&self) -> Vec<SourceError> {
+    pub fn errors(&self) -> Vec<SyntaxError> {
         if !self.erroneous() {
             return vec![];
         }
 
-        if let Repr::Error(error) = &self.0 {
-            vec![SourceError::new(error.span, error.message.clone())
-                .with_hints(error.hints.to_owned())]
+        if let Repr::Error(node) = &self.0 {
+            vec![node.error.clone()]
         } else {
             self.children()
                 .filter(|node| node.erroneous())
@@ -159,12 +149,19 @@ impl SyntaxNode {
         }
     }
 
+    /// Add a user-presentable hint if this is an error node.
+    pub fn hint(&mut self, hint: impl Into<EcoString>) {
+        if let Repr::Error(node) = &mut self.0 {
+            Arc::make_mut(node).hint(hint);
+        }
+    }
+
     /// Set a synthetic span for the node and all its descendants.
     pub fn synthesize(&mut self, span: Span) {
         match &mut self.0 {
             Repr::Leaf(leaf) => leaf.span = span,
             Repr::Inner(inner) => Arc::make_mut(inner).synthesize(span),
-            Repr::Error(error) => Arc::make_mut(error).span = span,
+            Repr::Error(node) => Arc::make_mut(node).error.span = span,
         }
     }
 }
@@ -209,7 +206,7 @@ impl SyntaxNode {
         match &mut self.0 {
             Repr::Leaf(leaf) => leaf.span = mid,
             Repr::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
-            Repr::Error(error) => Arc::make_mut(error).span = mid,
+            Repr::Error(node) => Arc::make_mut(node).error.span = mid,
         }
 
         Ok(())
@@ -271,9 +268,9 @@ impl SyntaxNode {
     /// The upper bound of assigned numbers in this subtree.
     pub(super) fn upper(&self) -> u64 {
         match &self.0 {
-            Repr::Inner(inner) => inner.upper,
             Repr::Leaf(leaf) => leaf.span.number() + 1,
-            Repr::Error(error) => error.span.number() + 1,
+            Repr::Inner(inner) => inner.upper,
+            Repr::Error(node) => node.error.span.number() + 1,
         }
     }
 }
@@ -281,8 +278,8 @@ impl SyntaxNode {
 impl Debug for SyntaxNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match &self.0 {
-            Repr::Inner(node) => node.fmt(f),
-            Repr::Leaf(node) => node.fmt(f),
+            Repr::Leaf(leaf) => leaf.fmt(f),
+            Repr::Inner(inner) => inner.fmt(f),
             Repr::Error(node) => node.fmt(f),
         }
     }
@@ -541,25 +538,22 @@ impl Debug for InnerNode {
 /// An error node in the untyped syntax tree.
 #[derive(Clone, Eq, PartialEq, Hash)]
 struct ErrorNode {
-    /// The error message.
-    message: EcoString,
     /// The source text of the node.
     text: EcoString,
-    /// The node's span.
-    span: Span,
-    /// Additonal hints to the user, indicating how this error could be avoided
-    /// or worked around.
-    hints: Vec<EcoString>,
+    /// The syntax error.
+    error: SyntaxError,
 }
 
 impl ErrorNode {
     /// Create new error node.
     fn new(message: impl Into<EcoString>, text: impl Into<EcoString>) -> Self {
         Self {
-            message: message.into(),
             text: text.into(),
-            span: Span::detached(),
-            hints: vec![],
+            error: SyntaxError {
+                span: Span::detached(),
+                message: message.into(),
+                hints: vec![],
+            },
         }
     }
 
@@ -570,14 +564,26 @@ impl ErrorNode {
 
     /// Add a user-presentable hint to this error node.
     fn hint(&mut self, hint: impl Into<EcoString>) {
-        self.hints.push(hint.into());
+        self.error.hints.push(hint.into());
     }
 }
 
 impl Debug for ErrorNode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Error: {:?} ({})", self.text, self.message)
+        write!(f, "Error: {:?} ({})", self.text, self.error.message)
     }
+}
+
+/// A syntactical error.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct SyntaxError {
+    /// The node's span.
+    pub span: Span,
+    /// The error message.
+    pub message: EcoString,
+    /// Additonal hints to the user, indicating how this error could be avoided
+    /// or worked around.
+    pub hints: Vec<EcoString>,
 }
 
 /// A syntax node in a context.
@@ -870,7 +876,7 @@ impl std::error::Error for Unnumberable {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::syntax::Source;
+    use crate::Source;
 
     #[test]
     fn test_linked_node() {

@@ -3,10 +3,9 @@ use std::num::NonZeroUsize;
 use ecow::EcoString;
 
 use crate::doc::{Destination, Frame, FrameItem, Meta, Position};
-use crate::file::FileId;
 use crate::geom::{Geometry, Point, Size};
 use crate::model::Introspector;
-use crate::syntax::{LinkedNode, Source, Span, SyntaxKind};
+use crate::syntax::{FileId, LinkedNode, Source, Span, SyntaxKind};
 use crate::World;
 
 /// Where to [jump](jump_from_click) to.

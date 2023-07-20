@@ -11,8 +11,6 @@ use unscanny::Scanner;
 use super::{
     is_id_continue, is_id_start, is_newline, split_newlines, Span, SyntaxKind, SyntaxNode,
 };
-use crate::geom::{AbsUnit, AngleUnit};
-use crate::util::NonZeroExt;
 
 /// A typed AST node.
 pub trait AstNode: Sized {
@@ -680,7 +678,7 @@ impl Heading {
             .children()
             .find(|node| node.kind() == SyntaxKind::HeadingMarker)
             .and_then(|node| node.len().try_into().ok())
-            .unwrap_or(NonZeroUsize::ONE)
+            .unwrap_or(NonZeroUsize::new(1).unwrap())
     }
 }
 
@@ -1012,12 +1010,12 @@ impl Numeric {
         let split = text.len() - count;
         let value = text[..split].parse().unwrap_or_default();
         let unit = match &text[split..] {
-            "pt" => Unit::Length(AbsUnit::Pt),
-            "mm" => Unit::Length(AbsUnit::Mm),
-            "cm" => Unit::Length(AbsUnit::Cm),
-            "in" => Unit::Length(AbsUnit::In),
-            "deg" => Unit::Angle(AngleUnit::Deg),
-            "rad" => Unit::Angle(AngleUnit::Rad),
+            "pt" => Unit::Pt,
+            "mm" => Unit::Mm,
+            "cm" => Unit::Cm,
+            "in" => Unit::In,
+            "deg" => Unit::Deg,
+            "rad" => Unit::Rad,
             "em" => Unit::Em,
             "fr" => Unit::Fr,
             "%" => Unit::Percent,
@@ -1031,10 +1029,18 @@ impl Numeric {
 /// Unit of a numeric value.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Unit {
-    /// An absolute length unit.
-    Length(AbsUnit),
-    /// An angular unit.
-    Angle(AngleUnit),
+    /// Points.
+    Pt,
+    /// Millimeters.
+    Mm,
+    /// Centimeters.
+    Cm,
+    /// Inches.
+    In,
+    /// Radians.
+    Rad,
+    /// Degrees.
+    Deg,
     /// Font-relative: `1em` is the same as the font size.
     Em,
     /// Fractions: `fr`.

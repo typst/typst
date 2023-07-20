@@ -53,19 +53,6 @@ impl NonZeroExt for NonZeroUsize {
     };
 }
 
-/// Extra methods for [`str`].
-pub trait StrExt {
-    /// The number of code units this string would use if it was encoded in
-    /// UTF16. This runs in linear time.
-    fn len_utf16(&self) -> usize;
-}
-
-impl StrExt for str {
-    fn len_utf16(&self) -> usize {
-        self.chars().map(char::len_utf16).sum()
-    }
-}
-
 /// Extra methods for [`Arc`].
 pub trait ArcExt<T> {
     /// Takes the inner value if there is exactly one strong reference and
@@ -123,9 +110,6 @@ where
 
 /// Extra methods for [`Path`].
 pub trait PathExt {
-    /// Lexically normalize a path.
-    fn normalize(&self) -> PathBuf;
-
     /// Treat `self` as a virtual root relative to which the `path` is resolved.
     ///
     /// Returns `None` if the path lexically escapes the root. The path
@@ -134,28 +118,6 @@ pub trait PathExt {
 }
 
 impl PathExt for Path {
-    fn normalize(&self) -> PathBuf {
-        let mut out = PathBuf::new();
-        for component in self.components() {
-            match component {
-                Component::CurDir => {}
-                Component::ParentDir => match out.components().next_back() {
-                    Some(Component::Normal(_)) => {
-                        out.pop();
-                    }
-                    _ => out.push(component),
-                },
-                Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
-                    out.push(component)
-                }
-            }
-        }
-        if out.as_os_str().is_empty() {
-            out.push(Component::CurDir);
-        }
-        out
-    }
-
     fn join_rooted(&self, path: &Path) -> Option<PathBuf> {
         let mut parts: Vec<_> = self.components().collect();
         let root = parts.len();

@@ -25,6 +25,10 @@ OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ================================================================================
 The MIT License applies to:
 
+* The tmTheme in `assets/files/halcyon.tmTheme`
+  Copyright (c) 2018 Brittany Chiang
+  in the Sublime Text package `Halcyon` (https://github.com/bchiang7/Halcyon)
+
 * The default color set defined in `crates/typst/src/geom/color.rs` which is
   adapted from the colors.css project
   (https://clrs.cc/)

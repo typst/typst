@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::WriteColor;
 use typst::diag::{PackageError, PackageResult};
-use typst::file::PackageSpec;
+use typst::syntax::PackageSpec;
 
 use super::color_stream;
 

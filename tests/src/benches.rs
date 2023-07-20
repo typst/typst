@@ -1,11 +1,10 @@
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::FileResult;
-use typst::eval::{Datetime, Library};
-use typst::file::FileId;
+use typst::eval::{Datetime, Library, Tracer};
 use typst::font::{Font, FontBook};
 use typst::geom::Color;
-use typst::syntax::Source;
+use typst::syntax::{FileId, Source};
 use typst::util::Bytes;
 use typst::World;
 use unscanny::Scanner;
@@ -84,12 +83,14 @@ fn bench_typeset(iai: &mut Iai) {
 
 fn bench_compile(iai: &mut Iai) {
     let world = BenchWorld::new();
-    iai.run(|| typst::compile(&world));
+    let mut tracer = Tracer::default();
+    iai.run(|| typst::compile(&world, &mut tracer));
 }
 
 fn bench_render(iai: &mut Iai) {
     let world = BenchWorld::new();
-    let document = typst::compile(&world).unwrap();
+    let mut tracer = Tracer::default();
+    let document = typst::compile(&world, &mut tracer).unwrap();
     iai.run(|| typst::export::render(&document.pages[0], 1.0, Color::WHITE))
 }
 

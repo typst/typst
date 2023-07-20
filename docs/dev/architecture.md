@@ -1,8 +1,30 @@
 # Typst Compiler Architecture
 Wondering how to contribute or just curious how Typst works? This document
-covers the general architecture of Typst's compiler, so you get an understanding
-of what's where and how everything fits together.
+covers the general structure and architecture of Typst's compiler, so you get an
+understanding of what's where and how everything fits together.
 
+## Directories
+Let's start with a broad overview of the directories in this repository:
+
+- `crates/typst`: The main compiler crate which is home to the parser,
+  interpreter, exporters, IDE tooling, and more.
+- `crates/typst-library`: Typst's standard library with all global definitions
+  available in Typst. Also contains the layout and text handling pipeline.
+- `crates/typst-cli`: Typst's command line interface. This is a relatively small
+  layer on top of `typst` and `typst-library`.
+- `crates/typst-docs`: Generates the content of the official
+  [documentation][docs] from the content of the `docs` folder and the inline
+  Rust documentation. Only generates the content and structure, not the concrete
+  HTML (that part is currently closed source).
+- `crates/typst-macros`: Procedural macros for the compiler and library.
+- `docs`: Source files for longer-form parts of the documentation. Individual
+  elements and functions are documented inline with the Rust source code.
+- `assets`: Fonts and files used for tests and the documentation.
+- `tests`: Integration tests for Typst compilation.
+- `tools`: Tooling for development.
+
+
+## Compilation
 The source-to-PDF compilation process of a Typst file proceeds in four phases.
 
 1. **Parsing:** Turns a source string into a syntax tree.
@@ -19,13 +41,13 @@ them.
 
 
 ## Parsing
-The syntax tree and parser are located in `src/syntax`. Parsing is a pure
-function `&str -> SyntaxNode` without any further dependencies. The result is a
-concrete syntax tree reflecting the whole file structure, including whitespace
-and comments. Parsing cannot fail. If there are syntactic errors, the returned
-syntax tree contains error nodes instead. It's important that the parser deals
-well with broken code because it is also used for syntax highlighting and IDE
-functionality.
+The syntax tree and parser are located in `crates/typst-syntax`. Parsing is
+a pure function `&str -> SyntaxNode` without any further dependencies. The
+result is a concrete syntax tree reflecting the whole file structure, including
+whitespace and comments. Parsing cannot fail. If there are syntactic errors, the
+returned syntax tree contains error nodes instead. It's important that the
+parser deals well with broken code because it is also used for syntax
+highlighting and IDE functionality.
 
 **Typedness:**
 The syntax tree is untyped, any node can have any `SyntaxKind`. This makes it
@@ -51,9 +73,10 @@ incremental compilation.
 
 
 ## Evaluation
-The evaluation phase lives in `src/eval`. It takes a parsed `Source` file and
-evaluates it to a `Module`. A module consists of the `Content` that was written
-in it and a `Scope` with the bindings that were defined within it.
+The evaluation phase lives in `crates/typst/src/eval`. It takes a parsed
+`Source` file and evaluates it to a `Module`. A module consists of the `Content`
+that was written in it and a `Scope` with the bindings that were defined within
+it.
 
 A source file may depend on other files (imported sources, images, data files),
 which need to be resolved. Since Typst is deployed in different environments
@@ -114,8 +137,8 @@ reuse as much as possible.
 
 
 ## Export
-Exporters live in `src/export`. They turn layouted frames into an output file
-format.
+Exporters live in `crates/typst/src/export`. They turn layouted frames into an
+output file format.
 
 - The PDF exporter takes layouted frames and turns them into a PDF file.
 - The built-in renderer takes a frame and turns it into a pixel buffer.
@@ -125,8 +148,8 @@ format.
 
 
 ## IDE
-The `src/ide` module implements IDE functionality for Typst. It builds heavily
-on the other modules (most importantly, `syntax` and `eval`).
+The `crates/typst/src/ide` module implements IDE functionality for Typst. It
+builds heavily on the other modules (most importantly, `syntax` and `eval`).
 
 **Syntactic:**
 Basic IDE functionality is based on a file's syntax. However, the standard
@@ -168,4 +191,5 @@ the compiler; the PDF output itself is relatively straight-forward. IDE
 functionality is also mostly untested. PDF and IDE testing should be added in
 the future.
 
+[docs]: https://typst.app/docs/
 [`comemo`]: https://github.com/typst/comemo/

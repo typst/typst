@@ -649,7 +649,7 @@ fn keyword(ident: &str) -> Option<SyntaxKind> {
     })
 }
 
-/// Whether this character denotes a newline.
+/// Whether a character is interpreted as a newline by Typst.
 #[inline]
 pub fn is_newline(character: char) -> bool {
     matches!(
@@ -716,13 +716,13 @@ pub fn is_ident(string: &str) -> bool {
 
 /// Whether a character can start an identifier.
 #[inline]
-pub(crate) fn is_id_start(c: char) -> bool {
+pub fn is_id_start(c: char) -> bool {
     is_xid_start(c) || c == '_'
 }
 
 /// Whether a character can continue an identifier.
 #[inline]
-pub(crate) fn is_id_continue(c: char) -> bool {
+pub fn is_id_continue(c: char) -> bool {
     is_xid_continue(c) || c == '_' || c == '-'
 }
 

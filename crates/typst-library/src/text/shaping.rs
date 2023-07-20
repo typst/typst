@@ -320,10 +320,9 @@ impl<'a> ShapedText<'a> {
         let bottom_edge = TextElem::bottom_edge_in(self.styles);
 
         // Expand top and bottom by reading the font's vertical metrics.
-        let mut expand = |font: &Font| {
-            let metrics = font.metrics();
-            top.set_max(top_edge.resolve(self.styles, metrics));
-            bottom.set_max(-bottom_edge.resolve(self.styles, metrics));
+        let mut expand = |font: &Font, bbox: Option<ttf_parser::Rect>| {
+            top.set_max(top_edge.resolve(self.styles, font, bbox));
+            bottom.set_max(-bottom_edge.resolve(self.styles, font, bbox));
         };
 
         if self.glyphs.is_empty() {
@@ -336,13 +335,18 @@ impl<'a> ShapedText<'a> {
                     .select(family.as_str(), self.variant)
                     .and_then(|id| world.font(id))
                 {
-                    expand(&font);
+                    expand(&font, None);
                     break;
                 }
             }
         } else {
             for g in self.glyphs.iter() {
-                expand(&g.font);
+                let bbox = if top_edge.is_bounds() || bottom_edge.is_bounds() {
+                    g.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(g.glyph_id))
+                } else {
+                    None
+                };
+                expand(&g.font, bbox);
             }
         }
 
@@ -630,6 +634,11 @@ fn shape_segment(
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
     buffer.set_language(language(ctx.styles));
+    if let Some(script) = TextElem::script_in(ctx.styles).as_custom().and_then(|script| {
+        rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
+    }) {
+        buffer.set_script(script)
+    }
     buffer.set_direction(match ctx.dir {
         Dir::LTR => rustybuzz::Direction::LeftToRight,
         Dir::RTL => rustybuzz::Direction::RightToLeft,

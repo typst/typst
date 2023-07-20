@@ -28,7 +28,7 @@ use std::mem::ManuallyDrop;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 
-use crate::diag::{SourceError, SourceResult};
+use crate::diag::{SourceDiagnostic, SourceResult};
 use crate::doc::Document;
 use crate::eval::Tracer;
 use crate::World;
@@ -137,12 +137,12 @@ impl Vt<'_> {
 
 /// Holds delayed errors.
 #[derive(Default, Clone)]
-pub struct DelayedErrors(Vec<SourceError>);
+pub struct DelayedErrors(Vec<SourceDiagnostic>);
 
 #[comemo::track]
 impl DelayedErrors {
     /// Push a delayed error.
-    fn push(&mut self, error: SourceError) {
+    fn push(&mut self, error: SourceDiagnostic) {
         self.0.push(error);
     }
 }

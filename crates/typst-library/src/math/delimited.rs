@@ -95,9 +95,10 @@ fn scale(
         };
 
         let short_fall = DELIM_SHORT_FALL.scaled(ctx);
-        *fragment =
-            MathFragment::Variant(glyph.stretch_vertical(ctx, height, short_fall));
+        let mut stretched = glyph.stretch_vertical(ctx, height, short_fall);
+        stretched.center_on_axis(ctx);
 
+        *fragment = MathFragment::Variant(stretched);
         if let Some(class) = apply {
             fragment.set_class(class);
         }

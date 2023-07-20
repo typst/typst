@@ -66,6 +66,8 @@ impl Layout for FlowElem {
                     sticky: true,
                     movable: false,
                 });
+            } else if let Some(placed) = child.to::<PlaceElem>() {
+                layouter.layout_placed(vt, placed, styles)?;
             } else if child.can::<dyn Layout>() {
                 layouter.layout_multiple(vt, child, styles)?;
             } else if child.is::<ColbreakElem>() {
@@ -128,7 +130,14 @@ enum FlowItem {
     /// (to keep it together with its footnotes).
     Frame { frame: Frame, aligns: Axes<Align>, sticky: bool, movable: bool },
     /// An absolutely placed frame.
-    Placed { frame: Frame, y_align: Smart<Option<Align>>, float: bool, clearance: Abs },
+    Placed {
+        frame: Frame,
+        x_align: Align,
+        y_align: Smart<Option<Align>>,
+        delta: Axes<Rel<Abs>>,
+        float: bool,
+        clearance: Abs,
+    },
     /// A footnote frame (can also be the separator).
     Footnote(Frame),
 }
@@ -258,6 +267,26 @@ impl<'a> FlowLayouter<'a> {
         Ok(())
     }
 
+    /// Layout a placed element.
+    fn layout_placed(
+        &mut self,
+        vt: &mut Vt,
+        placed: &PlaceElem,
+        styles: StyleChain,
+    ) -> SourceResult<()> {
+        let float = placed.float(styles);
+        let clearance = placed.clearance(styles);
+        let alignment = placed.alignment(styles);
+        let delta = Axes::new(placed.dx(styles), placed.dy(styles)).resolve(styles);
+        let x_align = alignment.map_or(Align::Center, |aligns| {
+            aligns.x.unwrap_or(GenAlign::Start).resolve(styles)
+        });
+        let y_align = alignment.map(|align| align.y.resolve(styles));
+        let frame = placed.layout(vt, styles, self.regions)?.into_frame();
+        let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };
+        self.layout_item(vt, item)
+    }
+
     /// Layout into multiple regions.
     fn layout_multiple(
         &mut self,
@@ -265,16 +294,6 @@ impl<'a> FlowLayouter<'a> {
         block: &Content,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        // Handle placed elements.
-        if let Some(placed) = block.to::<PlaceElem>() {
-            let float = placed.float(styles);
-            let clearance = placed.clearance(styles);
-            let y_align = placed.alignment(styles).map(|align| align.y.resolve(styles));
-            let frame = placed.layout_inner(vt, styles, self.regions)?.into_frame();
-            let item = FlowItem::Placed { frame, y_align, float, clearance };
-            return self.layout_item(vt, item);
-        }
-
         // Temporarily delegerate rootness to the columns.
         let is_root = self.root;
         if is_root && block.is::<ColumnsElem>() {
@@ -491,7 +510,8 @@ impl<'a> FlowLayouter<'a> {
                     offset += frame.height();
                     output.push_frame(pos, frame);
                 }
-                FlowItem::Placed { frame, y_align, float, .. } => {
+                FlowItem::Placed { frame, x_align, y_align, delta, float, .. } => {
+                    let x = x_align.position(size.x - frame.width());
                     let y = if float {
                         match y_align {
                             Smart::Custom(Some(Align::Top)) => {
@@ -505,7 +525,7 @@ impl<'a> FlowLayouter<'a> {
                                 float_bottom_offset += frame.height();
                                 y
                             }
-                            _ => offset + ruler.position(size.y - used.y),
+                            _ => unreachable!("float must be y aligned"),
                         }
                     } else {
                         match y_align {
@@ -516,7 +536,10 @@ impl<'a> FlowLayouter<'a> {
                         }
                     };
 
-                    output.push_frame(Point::with_y(y), frame);
+                    let pos = Point::new(x, y)
+                        + delta.zip(size).map(|(d, s)| d.relative_to(s)).to_point();
+
+                    output.push_frame(pos, frame);
                 }
                 FlowItem::Footnote(frame) => {
                     let y = size.y - footnote_height + footnote_offset;
