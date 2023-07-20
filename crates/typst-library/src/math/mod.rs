@@ -43,7 +43,7 @@ use self::ctx::*;
 use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
-use crate::layout::{HElem, ParElem, Spacing};
+use crate::layout::{BoxElem, HElem, ParElem, Spacing};
 use crate::meta::Supplement;
 use crate::meta::{
     Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
@@ -480,8 +480,12 @@ impl LayoutMath for Content {
 
         let mut frame = ctx.layout_content(self)?;
         if !frame.has_baseline() {
-            let axis = scaled!(ctx, axis_height);
-            frame.set_baseline(frame.height() / 2.0 + axis);
+            if self.is::<BoxElem>() {
+                frame.set_baseline(frame.height());
+            } else {
+                let axis = scaled!(ctx, axis_height);
+                frame.set_baseline(frame.height() / 2.0 + axis);
+            }
         }
         ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
 
