@@ -7,6 +7,7 @@ use std::{
 use base64::Engine;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::{NodeExt, TreeParsing};
+use xmlwriter::XmlWriter;
 
 use crate::{
     doc::{Document, Frame, FrameItem, Glyph, GroupItem, TextItem},
@@ -35,93 +36,131 @@ impl Display for RenderHash {
 
 /// Export a document into a SVG file.
 pub fn svg(doc: &Document) -> String {
-    let mut renderer = SVGRenderer::default();
-    let mut max_width = Abs::zero();
+    let mut renderer = SVGRenderer::new();
+    let max_page_width = doc
+        .pages
+        .iter()
+        .map(|page| page.size().x)
+        .max_by(|a, b| a.partial_cmp(b).unwrap())
+        .unwrap_or(Abs::zero());
+    let total_page_height = doc.pages.iter().map(|page| page.size().y).sum::<Abs>();
+    let doc_size = Axes { x: max_page_width, y: total_page_height };
+    renderer.header(doc_size);
     let mut y_offset = Abs::zero();
     for page in &doc.pages {
-        let page_string =
-            renderer.render_frame(page, Transform::translate(Abs::zero(), y_offset));
-        renderer.append_page(page_string);
+        renderer.render_frame(page, Transform::translate(Abs::zero(), y_offset));
         y_offset += page.size().y;
-        max_width = max_width.max(page.size().x);
     }
-    let doc_size = Axes { x: max_width, y: y_offset };
-    renderer.finalize(doc_size)
+    renderer.finalize()
 }
 
-#[derive(Debug, Clone, Default)]
+enum RenderedGlyph {
+    Path(String),
+    Image { url: String, width: f32, height: f32 },
+}
+
 struct SVGRenderer {
-    body: String,
-    glyphs: HashMap<RenderHash, String>,
+    xml: XmlWriter,
+    glyphs: HashMap<RenderHash, RenderedGlyph>,
     clip_paths: HashMap<RenderHash, String>,
 }
 
 impl SVGRenderer {
-    fn header(&self, size: Axes<Abs>) -> String {
-        let mut res = format!(
-            r#"<svg class="typst-doc" viewBox="0 0 {0} {1}" width="{0}" height="{1}"
-    xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
-    xmlns:h5="http://www.w3.org/1999/xhtml">"#,
-            size.x.to_pt(),
-            size.y.to_pt()
+    fn new() -> Self {
+        SVGRenderer {
+            xml: XmlWriter::new(xmlwriter::Options::default()),
+            glyphs: HashMap::default(),
+            clip_paths: HashMap::default(),
+        }
+    }
+
+    fn header(&mut self, size: Axes<Abs>) {
+        self.xml.start_element("svg");
+        self.xml.write_attribute("class", "typst-doc");
+        self.xml.write_attribute_fmt(
+            "viewBox",
+            format_args!("0 0 {} {}", size.x.to_pt(), size.y.to_pt()),
         );
-        res.push_str(r#"<defs id="glyph">"#);
-        for path in self.glyphs.values() {
-            res.push_str(path);
-            res.push('\n');
-        }
-        res.push_str(r#"</defs>"#);
-        res.push('\n');
-        res.push_str(r#"<defs id="clip-path">"#);
-        for (hash, path) in &self.clip_paths {
-            res.push_str(
-                format!(r#"<clipPath id="{}"> <path d="{}"/> </clipPath>"#, hash, path)
-                    .as_str(),
-            );
-            res.push('\n');
-        }
-        res.push_str(r#"</defs>"#);
-        res
+        self.xml.write_attribute("width", &size.x.to_pt().to_string());
+        self.xml.write_attribute("height", &size.y.to_pt().to_string());
+        self.xml.write_attribute("xmlns", "http://www.w3.org/2000/svg");
+        self.xml
+            .write_attribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
+        self.xml.write_attribute("xmlns:h5", "http://www.w3.org/1999/xhtml");
     }
 
-    fn finalize(&self, size: Axes<Abs>) -> String {
-        let mut header = self.header(size);
-        header.push_str(&self.body);
-        header.push_str("</svg>");
-        header
+    fn build_glyph(&mut self) {
+        self.xml.start_element("defs");
+        self.xml.write_attribute("id", "glyph");
+        for (id, glyph) in &self.glyphs {
+            self.xml.start_element("symbol");
+            self.xml.write_attribute("id", &id.to_string());
+            self.xml.write_attribute("overflow", "visible");
+            match glyph {
+                RenderedGlyph::Path(path) => {
+                    self.xml.start_element("path");
+                    self.xml.write_attribute("d", &path);
+                    self.xml.end_element();
+                }
+                RenderedGlyph::Image { url, width, height } => {
+                    self.xml.start_element("image");
+                    self.xml.write_attribute("xlink:href", &url);
+                    self.xml.write_attribute("width", &width.to_string());
+                    self.xml.write_attribute("height", &height.to_string());
+                    self.xml.end_element();
+                }
+            }
+            self.xml.end_element();
+        }
+        self.xml.end_element();
     }
 
-    fn render_frame(&mut self, frame: &Frame, trans: Transform) -> String {
-        let mut page = if trans.is_identity() {
-            r#"<g>"#.to_string()
-        } else {
-            format!(r#"<g transform={}>"#, trans.to_svg())
+    fn build_clip_path(&mut self) {
+        self.xml.start_element("defs");
+        self.xml.write_attribute("id", "clip-path");
+        for (id, path) in &self.clip_paths {
+            self.xml.start_element("clipPath");
+            self.xml.write_attribute("id", &id.to_string());
+            self.xml.start_element("path");
+            self.xml.write_attribute("d", &path);
+            self.xml.end_element();
+            self.xml.end_element();
+        }
+        self.xml.end_element();
+    }
+
+    fn finalize(mut self) -> String {
+        self.build_clip_path();
+        self.build_glyph();
+        self.xml.end_document()
+    }
+
+    fn render_frame(&mut self, frame: &Frame, trans: Transform) {
+        self.xml.start_element("g");
+        if !trans.is_identity() {
+            self.xml.write_attribute("transform", &trans.to_svg());
         };
         for (pos, item) in frame.items() {
             let x = pos.x.to_f32();
             let y = pos.y.to_f32();
-            let str = match item {
+            self.xml.start_element("g");
+            self.xml
+                .write_attribute("transform", format!("translate({} {})", x, y).as_str());
+            match item {
                 FrameItem::Group(group) => self.render_group(group),
                 FrameItem::Text(text) => self.render_text(text),
                 FrameItem::Shape(shape, _) => self.render_shape(shape),
                 FrameItem::Image(image, size, _) => self.render_image(image, size),
-                FrameItem::Meta(_, _) => continue,
+                FrameItem::Meta(_, _) => {}
             };
-            page.push_str(format!(r#"<g transform="translate({} {})">"#, x, y).as_str());
-            page.push_str(&str);
-            page.push('\n');
-            page.push_str("</g>");
+            self.xml.end_element();
         }
-        page.push_str("</g>");
-        page
+        self.xml.end_element();
     }
 
-    fn append_page(&mut self, page: String) {
-        self.body.push_str(&page);
-    }
-
-    fn render_group(&mut self, group: &GroupItem) -> String {
-        let mut str: String = String::new();
+    fn render_group(&mut self, group: &GroupItem) {
+        self.xml.start_element("g");
+        self.xml.write_attribute("class", "typst-group");
         if group.clips {
             let clip_path_hash = hash128(&group).into();
             let x = group.frame.size().x.to_f32();
@@ -135,35 +174,32 @@ impl SVGRenderer {
                 builder.close();
                 builder.0
             });
-            let clip = format!(r##"<g clip-path="url(#{})">"##, clip_path_hash);
-            str.push_str(&clip);
+            self.xml.write_attribute_fmt(
+                "clip-path",
+                format_args!("url(#{})", clip_path_hash),
+            );
         }
-        let page = self.render_frame(&group.frame, group.transform);
-        str.push_str(&page);
-        if group.clips {
-            str.push_str("</g>");
-        }
-        str
+        self.render_frame(&group.frame, group.transform);
+        self.xml.end_element();
     }
 
-    fn render_text(&mut self, text: &TextItem) -> String {
+    fn render_text(&mut self, text: &TextItem) {
         let scale: f32 = (text.size.to_pt() / text.font.units_per_em()) as f32;
         let inv_scale: f32 = (text.font.units_per_em() / text.size.to_pt()) as f32;
-        let mut res =
-            format!(r#"<g class="typst-text" transform="scale({} {})">"#, scale, -scale);
+        self.xml.start_element("g");
+        self.xml.write_attribute("class", "typst-text");
+        self.xml.write_attribute_fmt(
+            "transform",
+            format_args!("scale({} {})", scale, -scale),
+        );
         let mut x_offset: f32 = 0.0;
         for glyph in &text.glyphs {
-            if let Some(rendered_glyph) = self
-                .render_svg_glyph(text, glyph, x_offset, inv_scale)
+            self.render_svg_glyph(text, glyph, x_offset, inv_scale)
                 .or_else(|| self.render_bitmap_glyph(text, glyph, x_offset, inv_scale))
-                .or_else(|| self.render_outline_glyph(text, glyph, x_offset, inv_scale))
-            {
-                res.push_str(&rendered_glyph);
-            }
+                .or_else(|| self.render_outline_glyph(text, glyph, x_offset, inv_scale));
             x_offset += glyph.x_advance.at(text.size).to_f32();
         }
-        res.push_str("</g>");
-        res
+        self.xml.end_element();
     }
 
     fn render_svg_glyph(
@@ -172,7 +208,7 @@ impl SVGRenderer {
         glyph: &Glyph,
         x_offset: f32,
         inv_scale: f32,
-    ) -> Option<String> {
+    ) -> Option<()> {
         let mut data = text.font.ttf().glyph_svg_image(GlyphId(glyph.id))?;
         let glyph_hash: RenderHash = hash128(&(&text.font, glyph)).into();
 
@@ -213,19 +249,20 @@ impl SVGRenderer {
             let xml = re.replace(xml, "");
             let data = base64::engine::general_purpose::STANDARD.encode(xml.as_bytes());
             url.push_str(&data);
-            format!(
-                r#"<symbol id="{glyph_hash}"><image xlink:href="{}" x="0" y="0" width="{}" height="{}" /></symbol>"#,
+            RenderedGlyph::Image {
                 url,
-                width * inv_scale,
-                height * inv_scale
-            )
+                width: width * inv_scale,
+                height: height * inv_scale,
+            }
         });
 
-        Some(format!(
-            r##"<use xlink:href="#{}" x="{}"/>"##,
-            glyph_hash,
-            x_offset * inv_scale,
-        ))
+        self.xml.start_element("use");
+        self.xml
+            .write_attribute_fmt("xlink:href", format_args!("#{}", glyph_hash));
+        self.xml
+            .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
+        self.xml.end_element();
+        Some(())
     }
 
     fn render_bitmap_glyph(
@@ -234,7 +271,7 @@ impl SVGRenderer {
         glyph: &Glyph,
         x_offset: f32,
         inv_scale: f32,
-    ) -> Option<String> {
+    ) -> Option<()> {
         let bitmap =
             text.font.ttf().glyph_raster_image(GlyphId(glyph.id), std::u16::MAX)?;
         let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
@@ -244,12 +281,20 @@ impl SVGRenderer {
         let dx = (bitmap.x as f32) / (image.width() as f32) * size;
         let dy = (bitmap.y as f32) / (image.height() as f32) * size;
 
-        let image = self.render_image(&image, &Axes { x: w, y: h });
-        Some(format!(
-            r#"<g transform="scale({inv_scale} -{inv_scale}) translate({}, {})"> {image} </g>"#,
-            dx + x_offset,
-            -size - dy,
-        ))
+        self.xml.start_element("g");
+        self.xml.write_attribute_fmt(
+            "transform",
+            format_args!(
+                "scale({} -{}) translate({}, {})",
+                inv_scale,
+                inv_scale,
+                dx + x_offset,
+                -size - dy
+            ),
+        );
+        self.render_image(&image, &Axes { x: w, y: h });
+        self.xml.end_element();
+        Some(())
     }
 
     fn render_outline_glyph(
@@ -258,62 +303,64 @@ impl SVGRenderer {
         glyph: &Glyph,
         x_offset: f32,
         inv_scale: f32,
-    ) -> Option<String> {
+    ) -> Option<()> {
         let mut builder = SVGPath2DBuilder(String::new());
         text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder)?;
         let glyph_hash = hash128(&(&text.font, glyph)).into();
         self.glyphs.entry(glyph_hash).or_insert_with(|| {
             let path = builder.0;
-            format!(
-                r#"<symbol id="{}" overflow="visible"> <path d="{}"/> </symbol>"#,
-                glyph_hash, path
-            )
+            RenderedGlyph::Path(path)
         });
         let Solid(text_color) = text.fill;
-
-        Some(format!(
-            r##"<use xlink:href="#{}" x="{}" fill="{}"/>"##,
-            glyph_hash,
-            x_offset * inv_scale,
-            text_color.to_rgba().to_hex()
-        ))
+        self.xml.start_element("use");
+        self.xml
+            .write_attribute_fmt("xlink:href", format_args!("#{}", glyph_hash));
+        self.xml
+            .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
+        self.xml.write_attribute("fill", &text_color.to_rgba().to_hex());
+        self.xml.end_element();
+        Some(())
     }
-    fn render_shape(&mut self, shape: &Shape) -> String {
-        let mut attr_set = AttributeSet::default();
+    fn render_shape(&mut self, shape: &Shape) {
+        self.xml.start_element("path");
+        self.xml.write_attribute("class", "typst-shape");
         if let Some(paint) = &shape.fill {
             let Solid(color) = paint;
-            attr_set.set("fill", color.to_rgba().to_hex().to_string());
+            self.xml.write_attribute("fill", &color.to_rgba().to_hex());
         } else {
-            attr_set.set("fill", "none".to_string());
+            self.xml.write_attribute("fill", "none");
         }
         if let Some(stroke) = &shape.stroke {
             let Solid(color) = stroke.paint;
-            attr_set.set("stroke", color.to_rgba().to_hex().to_string());
-            attr_set.set("stroke-width", stroke.thickness.to_pt().to_string());
-            attr_set.set(
+            self.xml.write_attribute("stoke", &color.to_rgba().to_hex());
+            self.xml
+                .write_attribute("stroke-width", &stroke.thickness.to_pt().to_string());
+            self.xml.write_attribute(
                 "stroke-linecap",
                 match stroke.line_cap {
                     LineCap::Butt => "butt",
                     LineCap::Round => "round",
                     LineCap::Square => "square",
-                }
-                .to_string(),
+                },
             );
-            attr_set.set(
-                "stroke-linejoin",
+            self.xml.write_attribute(
+                "stoke-linejoin",
                 match stroke.line_join {
                     LineJoin::Miter => "miter",
                     LineJoin::Round => "round",
                     LineJoin::Bevel => "bevel",
-                }
-                .to_string(),
+                },
             );
-            attr_set.set("stroke-miterlimit", stroke.miter_limit.0.to_string());
+            self.xml
+                .write_attribute("stoke-miterlimit", &stroke.miter_limit.0.to_string());
             if let Some(pattern) = &stroke.dash_pattern {
-                attr_set.set("stroke-dashoffset", pattern.phase.to_pt().to_string());
-                attr_set.set(
-                    "stroke-dasharray",
-                    pattern
+                self.xml.write_attribute(
+                    "stoken-dashoffset",
+                    &pattern.phase.to_pt().to_string(),
+                );
+                self.xml.write_attribute(
+                    "stoken-dasharray",
+                    &pattern
                         .array
                         .iter()
                         .map(|dash| dash.to_pt().to_string())
@@ -361,10 +408,11 @@ impl SVGRenderer {
                 }
             }
         };
-        format!(r#"<path d="{}" {} />"#, path_builder.0, attr_set,)
+        self.xml.write_attribute("d", &path_builder.0);
+        self.xml.end_element();
     }
 
-    fn render_image(&mut self, image: &Image, size: &Axes<Abs>) -> String {
+    fn render_image(&mut self, image: &Image, size: &Axes<Abs>) {
         let format = match image.format() {
             ImageFormat::Raster(f) => match f {
                 RasterFormat::Png => "jpeg",
@@ -378,12 +426,12 @@ impl SVGRenderer {
         let mut url = format!("data:image/{};base64,", format);
         let data = base64::engine::general_purpose::STANDARD.encode(image.data());
         url.push_str(&data);
-        format!(
-            r#"<image x="0" y="0" width="{}" height="{}" xlink:href="{}" preserveAspectRatio="none" />"#,
-            size.x.to_pt(),
-            size.y.to_pt(),
-            url
-        )
+        self.xml.start_element("image");
+        self.xml.write_attribute("xlink:href", &url);
+        self.xml.write_attribute("width", &size.x.to_pt().to_string());
+        self.xml.write_attribute("height", &size.y.to_pt().to_string());
+        self.xml.write_attribute("preserveAspectRatio", "none");
+        self.xml.end_element();
     }
 }
 
@@ -406,7 +454,7 @@ trait TransformExt {
 impl TransformExt for Transform {
     fn to_svg(self) -> String {
         format!(
-            "\"matrix({} {} {} {} {} {})\"",
+            "matrix({} {} {} {} {} {})",
             self.sx.get(),
             self.ky.get(),
             self.kx.get(),
@@ -438,23 +486,5 @@ impl ttf_parser::OutlineBuilder for SVGPath2DBuilder {
 
     fn close(&mut self) {
         write!(&mut self.0, "Z ").unwrap();
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-struct AttributeSet(HashMap<String, String>);
-
-impl Display for AttributeSet {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for (key, value) in &self.0 {
-            write!(f, r#" {}="{}""#, key, value)?;
-        }
-        Ok(())
-    }
-}
-
-impl AttributeSet {
-    fn set(&mut self, key: &str, value: String) {
-        self.0.insert(key.to_string(), value);
     }
 }

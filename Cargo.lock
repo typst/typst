@@ -2376,6 +2376,7 @@ dependencies = [
  "unicode-segmentation",
  "unscanny",
  "usvg",
+ "xmlwriter",
  "xmp-writer",
 ]
 
