@@ -6,6 +6,7 @@ mod abs;
 mod align;
 mod angle;
 mod axes;
+mod broken_parts;
 mod color;
 mod corners;
 mod dir;
@@ -31,6 +32,7 @@ pub use self::abs::{Abs, AbsUnit};
 pub use self::align::{Align, GenAlign, HorizontalAlign, VerticalAlign};
 pub use self::angle::{Angle, AngleUnit};
 pub use self::axes::{Axes, Axis};
+pub use self::broken_parts::{BrokenPart, BrokenParts};
 pub use self::color::{
     CmykColor, Color, ColorSpace, LumaColor, RgbaColor, WeightedColor,
 };
