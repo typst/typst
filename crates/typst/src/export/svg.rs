@@ -11,7 +11,7 @@ use xmlwriter::XmlWriter;
 
 use crate::{
     doc::{Document, Frame, FrameItem, Glyph, GroupItem, TextItem},
-    geom::{Abs, Axes, Geometry, LineCap, LineJoin, Shape, Transform, PathItem},
+    geom::{Abs, Axes, Geometry, LineCap, LineJoin, PathItem, Shape, Transform},
     image::{ImageFormat, RasterFormat, VectorFormat},
     util::hash128,
 };
@@ -395,15 +395,14 @@ impl SVGRenderer {
                         PathItem::LineTo(l) => {
                             path_builder.line_to(l.x.to_pt() as f32, l.y.to_pt() as f32)
                         }
-                        PathItem::CubicTo(c1, c2, t) => path_builder
-                            .curve_to(
-                                c1.x.to_pt() as f32,
-                                c1.y.to_pt() as f32,
-                                c2.x.to_pt() as f32,
-                                c2.y.to_pt() as f32,
-                                t.x.to_pt() as f32,
-                                t.y.to_pt() as f32,
-                            ),
+                        PathItem::CubicTo(c1, c2, t) => path_builder.curve_to(
+                            c1.x.to_pt() as f32,
+                            c1.y.to_pt() as f32,
+                            c2.x.to_pt() as f32,
+                            c2.y.to_pt() as f32,
+                            t.x.to_pt() as f32,
+                            t.y.to_pt() as f32,
+                        ),
                         PathItem::ClosePath => path_builder.close(),
                     }
                 }
