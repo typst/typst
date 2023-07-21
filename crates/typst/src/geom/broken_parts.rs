@@ -147,23 +147,17 @@ where
     T: Default + FromValue + Clone,
 {
     fn from_value(mut value: Value) -> StrResult<Self> {
-        let keys = ["first", "middle", "last", "single", "rest"];
+        let keys = ["first", "middle", "last", "single"];
         if let Value::Dict(dict) = &mut value {
             if dict.iter().any(|(key, _)| keys.contains(&key.as_str())) {
-                let mut take = |key| dict.take(key).ok().map(T::from_value).transpose();
-                let rest = take("rest")?;
-
-                // Make sure that either `rest` or all other keys have to be given.
-                let mut take_or_rest = |key| match dict.take(key) {
-                    Ok(val) => T::from_value(val),
-                    Err(e) => rest.clone().ok_or(e),
-                };
+                // Make sure that all keys have to be given.
+                let mut take = |key| dict.take(key).and_then(T::from_value);
 
                 let parts = BrokenParts {
-                    first: take_or_rest("first")?,
-                    middle: take_or_rest("middle")?,
-                    last: take_or_rest("last")?,
-                    single: take_or_rest("single")?,
+                    first: take("first")?,
+                    middle: take("middle")?,
+                    last: take("last")?,
+                    single: take("single")?,
                 };
 
                 dict.finish(&keys)?;
