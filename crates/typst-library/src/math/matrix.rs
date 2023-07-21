@@ -1,10 +1,12 @@
-use std::ops::Range;
+use typst::model::Resolve;
 
 use super::*;
 
 const ROW_GAP: Em = Em::new(0.5);
 const COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
+
+const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 
 /// A column vector.
 ///
@@ -82,25 +84,35 @@ pub struct MatElem {
     #[default(Some(Delimiter::Paren))]
     pub delim: Option<Delimiter>,
 
-    /// Draws a horizontal line in the matrix.
-    /// Defaults to `none`, resulting in no line.
+    /// Draws augmentation lines in a matrix.
+    ///
+    /// - `{none}`: No lines are drawn.
+    /// - A single number: A vertical augmentation line is drawn
+    ///   after the specified column number.
+    /// - A dictionary: With a dictionary, multiple augmentation lines can be drawn
+    ///   both horizontally and vertically. Additionally, the style of the lines can be set.
+    ///   The dictionary can contain the following keys:
+    ///   - `hline`: The offsets at which horizontal lines should be drawn. For example, an
+    ///     offset of `2` would result in a horizontal line being drawn after the second
+    ///     row of the matrix. Accepts either an integer for a single line, or an array
+    ///     of integers for multiple lines.
+    ///   - `vline`: The offsets at which vertical lines should be drawn. For example, an
+    ///     offset of `2` would result in a vertical line being drawn after the second
+    ///     column of the matrix. Accepts either an integer for a single line, or an array
+    ///     of integers for multiple lines.
+    ///   - `stroke`: How to stroke the line. See the [line's documentation]($func/line.stroke)
+    ///     for more details. If set to `{auto}`, takes on a thickness of 0.05em and square line caps.
     ///
     /// ```example
-    /// #set math.mat(hline: 1)
-    /// $ mat(1, 0, 1; 0, 1, 2) $
+    /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
     /// ```
-    #[default(None)]
-    pub hline: Option<Offset>,
-
-    /// Draws a vertical line in the matrix.
-    /// Defaults to `none`, resulting in no line.
     ///
     /// ```example
-    /// #set math.mat(vline: 2)
-    /// $ mat(1, 0, 1; 0, 1, 2) $
+    /// $ mat(0, 0, 0; 1, 1, 1; augment: #(hline: 1, stroke: 2pt + green)) $
     /// ```
     #[default(None)]
-    pub vline: Option<Offset>,
+    #[resolve]
+    pub augment: Option<Augment>,
 
     /// An array of arrays with the rows of the matrix.
     ///
@@ -142,34 +154,41 @@ impl LayoutMath for MatElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         // validate inputs
 
-        let hline = self.hline(ctx.styles());
-        let vline = self.vline(ctx.styles());
+        let augment = self.augment(ctx.styles());
 
-        if hline.is_some() && hline.unwrap().0 >= self.rows().len() {
-            bail!(
-                self.span(),
-                "cannot draw a horizontal line after row {} of a matrix with {} rows",
-                hline.unwrap().0,
-                self.rows().len()
-            );
-        }
+        if let Some(aug) = &augment {
+            if let Smart::Custom(hline) = &aug.hline {
+                for offset in &hline.0 {
+                    if *offset == 0 || *offset >= self.rows().len() {
+                        bail!(
+                            self.span(),
+                            "cannot draw a horizontal line after row {} of a matrix with {} rows",
+                            offset,
+                            self.rows().len()
+                        );
+                    }
+                }
+            }
 
-        if vline.is_some() {
-            let ncols = self.rows().first().map_or(0, |row| row.len());
+            if let Smart::Custom(vline) = &aug.vline {
+                let ncols = self.rows().first().map_or(0, |row| row.len());
 
-            if vline.unwrap().0 >= ncols {
-                bail!(
-                    self.span(),
-                    "cannot draw a vertical line after column {} of a matrix with {} columns",
-                    vline.unwrap().0,
-                    ncols
-                );
+                for offset in &vline.0 {
+                    if *offset == 0 || *offset >= ncols {
+                        bail!(
+                            self.span(),
+                            "cannot draw a vertical line after column {} of a matrix with {} columns",
+                            offset,
+                            ncols
+                        );
+                    }
+                }
             }
         }
 
         let delim = self.delim(ctx.styles());
 
-        let frame = layout_mat_body(ctx, &self.rows(), hline, vline, self.span())?;
+        let frame = layout_mat_body(ctx, &self.rows(), augment, self.span())?;
 
         layout_delimiters(
             ctx,
@@ -283,287 +302,156 @@ fn layout_vec_body(
 }
 
 /// Layout the inner contents of a matrix.
-/// To accommodate line drawing, the matrix is split into
-/// submatrices that are each laid out by `layout_submat_body`.
 fn layout_mat_body(
     ctx: &mut MathContext,
     rows: &[Vec<Content>],
-    hline: Option<Offset>,
-    vline: Option<Offset>,
+    augment: Option<Augment<Abs>>,
     span: Span,
 ) -> SourceResult<Frame> {
-    // we need to split into four cases based on
-    // whether hline and vline are none or some
-
-    // for each case, we generate frames for
-    // each of the submatrices split by the lines
-
-    // then, we combine them with appropriate spacing
-    // into one large frame, which we draw lines on and then return
-
     let row_gap = ROW_GAP.scaled(ctx);
     let col_gap = COL_GAP.scaled(ctx);
-
-    let ncols = rows.first().map_or(0, |row| row.len());
-    let nrows = rows.len();
-
-    if nrows == 0 || ncols == 0 {
-        return Ok(Frame::new(Size::zero()));
-    }
 
     let half_row_gap = row_gap * 0.5;
     let half_col_gap = col_gap * 0.5;
 
-    let mut cell_info = precompute_cell_info(ctx, rows)?;
+    // We provide a default stroke thickness that scales
+    // with font size to ensure that augmentation lines
+    // look correct by default at all matrix sizes.
+    // The line cap is also set to square because it looks more "correct".
+    let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.scaled(ctx);
+    let default_stroke = Stroke {
+        thickness: default_stroke_thickness,
+        line_cap: LineCap::Square,
+        ..Default::default()
+    };
 
-    if hline.is_some() && vline.is_some() {
-        // if we have both a horizontal and a vertical line
+    let (hline, vline, stroke) = match &augment {
+        Some(v) => (
+            v.hline_or_default(),
+            v.vline_or_default(),
+            v.stroke_or_default(default_stroke),
+        ),
+        _ => (vec![], vec![], default_stroke),
+    };
 
-        let top_left_frame = layout_submat_body(
-            ctx,
-            0..hline.unwrap().0,
-            0..vline.unwrap().0,
-            &mut cell_info,
-        )?;
-        let top_right_frame = layout_submat_body(
-            ctx,
-            0..hline.unwrap().0,
-            vline.unwrap().0..ncols,
-            &mut cell_info,
-        )?;
-        let bottom_left_frame = layout_submat_body(
-            ctx,
-            hline.unwrap().0..nrows,
-            0..vline.unwrap().0,
-            &mut cell_info,
-        )?;
-        let bottom_right_frame = layout_submat_body(
-            ctx,
-            hline.unwrap().0..nrows,
-            vline.unwrap().0..ncols,
-            &mut cell_info,
-        )?;
-
-        let left_width = top_left_frame.width();
-        let top_height = top_left_frame.height();
-
-        let total_width = left_width + row_gap + top_right_frame.width();
-        let total_height = top_height + col_gap + bottom_left_frame.height();
-
-        let mut frame = Frame::new(Axes { x: total_width, y: total_height });
-
-        frame.push_frame(Point::zero(), top_left_frame);
-        frame.push(
-            Point::with_x(left_width + half_row_gap),
-            vline_item(total_height, span),
-        );
-        frame.push(
-            Point::with_y(top_height + half_col_gap),
-            hline_item(total_width, span),
-        );
-        frame.push_frame(Point::with_x(left_width + row_gap), top_right_frame);
-        frame.push_frame(Point::with_y(top_height + col_gap), bottom_left_frame);
-        frame.push_frame(
-            Point { x: left_width + row_gap, y: top_height + col_gap },
-            bottom_right_frame,
-        );
-
-        Ok(frame)
-    } else if hline.is_some() {
-        // if we have just a horizontal line
-
-        let top_frame =
-            layout_submat_body(ctx, 0..hline.unwrap().0, 0..ncols, &mut cell_info)?;
-        let bottom_frame =
-            layout_submat_body(ctx, hline.unwrap().0..nrows, 0..ncols, &mut cell_info)?;
-
-        let top_height = top_frame.height();
-
-        let total_width = top_frame.width();
-        let total_height = top_height + col_gap + bottom_frame.height();
-
-        let mut frame = Frame::new(Axes { x: total_width, y: total_height });
-
-        frame.push_frame(Point::zero(), top_frame);
-        frame.push(
-            Point::with_y(top_height + half_col_gap),
-            hline_item(total_width, span),
-        );
-        frame.push_frame(Point::with_y(top_height + col_gap), bottom_frame);
-
-        Ok(frame)
-    } else if vline.is_some() {
-        // if we have just a vertical line
-
-        let left_frame =
-            layout_submat_body(ctx, 0..nrows, 0..vline.unwrap().0, &mut cell_info)?;
-        let right_frame =
-            layout_submat_body(ctx, 0..nrows, vline.unwrap().0..ncols, &mut cell_info)?;
-
-        let left_width = left_frame.width();
-
-        let total_width = left_width + row_gap + right_frame.width();
-        let total_height = left_frame.height();
-
-        let mut frame = Frame::new(Axes { x: total_width, y: left_frame.height() });
-
-        frame.push_frame(Point::zero(), left_frame);
-        frame.push(
-            Point::with_x(left_width + half_row_gap),
-            vline_item(total_height, span),
-        );
-        frame.push_frame(Point::with_x(left_width + row_gap), right_frame);
-
-        Ok(frame)
-    } else {
-        // if we have no line
-
-        Ok(layout_submat_body(ctx, 0..nrows, 0..ncols, &mut cell_info)?)
+    let ncols = rows.first().map_or(0, |row| row.len());
+    let nrows = rows.len();
+    if ncols == 0 || nrows == 0 {
+        return Ok(Frame::new(Size::zero()));
     }
+
+    // Before the full matrix body can be laid out, the
+    // individual cells must first be independently laid out
+    // so we can ensure alignment across rows and columns.
+
+    // This variable stores the maximum ascent and descent for each row.
+    let mut heights = vec![(Abs::zero(), Abs::zero()); nrows];
+
+    // We want to transpose our data layout to columns
+    // before final layout. For efficiency, the columns
+    // variable is set up here and newly generated
+    // individual cells are then added to it.
+    let mut cols = vec![vec![]; ncols];
+
+    ctx.style(ctx.style.for_denominator());
+    for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
+        for (cell, col) in row.iter().zip(&mut cols) {
+            let cell = ctx.layout_row(cell)?;
+
+            ascent.set_max(cell.ascent());
+            descent.set_max(cell.descent());
+
+            col.push(cell);
+        }
+    }
+    ctx.unstyle();
+
+    // For each row, combine maximum ascent and descent into a row height.
+    // Sum the row heights and then add the total height of the gaps between rows.
+    let total_height =
+        heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + row_gap * (nrows - 1) as f64;
+
+    // Width starts at zero because it can't be calculated until later
+    let mut frame = Frame::new(Size::new(Abs::zero(), total_height));
+
+    let mut x = Abs::zero();
+
+    for (index, col) in cols.into_iter().enumerate() {
+        let AlignmentResult { points, width: rcol } = alignments(&col);
+
+        let mut y = Abs::zero();
+
+        for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
+            let cell = cell.into_aligned_frame(ctx, &points, Align::Center);
+            let pos = Point::new(
+                if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
+                y + ascent - cell.ascent(),
+            );
+
+            frame.push_frame(pos, cell);
+
+            y += ascent + descent + row_gap;
+        }
+
+        // Advance to the end of the column
+        x += rcol;
+
+        // If a vertical line should be inserted after this column
+        if vline.contains(&(index + 1)) {
+            frame.push(
+                Point::with_x(x + half_col_gap),
+                vline_item(total_height, stroke.clone(), span),
+            );
+        }
+
+        // Advance to the start of the next column
+        x += col_gap;
+    }
+
+    // Once all the columns are laid out, the total width can be calculated
+    let total_width = x - col_gap;
+
+    // This allows the horizontal lines to be laid out
+    for line in hline {
+        let offset = (heights[0..line].iter().map(|&(a, b)| a + b).sum::<Abs>()
+            + row_gap * (line - 1) as f64)
+            + half_row_gap;
+
+        frame.push(Point::with_y(offset), hline_item(total_width, stroke.clone(), span));
+    }
+
+    frame.size_mut().x = total_width;
+
+    Ok(frame)
 }
 
-fn hline_item(length: Abs, span: Span) -> FrameItem {
+fn hline_item(length: Abs, stroke: Stroke, span: Span) -> FrameItem {
     let hline_geom = Geometry::Line(Point::with_x(length));
 
     FrameItem::Shape(
         Shape {
             geometry: hline_geom,
             fill: None,
-            stroke: Some(Stroke::default()),
+            stroke: Some(stroke),
         },
         span,
     )
 }
 
-fn vline_item(length: Abs, span: Span) -> FrameItem {
+fn vline_item(length: Abs, stroke: Stroke, span: Span) -> FrameItem {
     let vline_geom = Geometry::Line(Point::with_y(length));
 
     FrameItem::Shape(
         Shape {
             geometry: vline_geom,
             fill: None,
-            stroke: Some(Stroke::default()),
+            stroke: Some(stroke),
         },
         span,
     )
 }
 
-/// Layout the body of a matrix, with no additional lines drawn.
-/// `submat_rows` represents the indices of the rows to be included,
-/// and `submat_cols` represents the indices of the columns to be included.
-/// For example, passing `0..2` to `submat_rows` would result in the
-/// first and second rows of the matrix to be included.
-fn layout_submat_body(
-    ctx: &mut MathContext,
-    submat_rows: Range<usize>,
-    submat_cols: Range<usize>,
-    cell_info: &mut PrecomputedCellInfo,
-) -> SourceResult<Frame> {
-    let row_gap = ROW_GAP.scaled(ctx);
-    let col_gap = COL_GAP.scaled(ctx);
-
-    let nrows = submat_rows.end - submat_rows.start;
-
-    let PrecomputedCellInfo { cols, heights, alignment_points, alignment_widths } =
-        cell_info;
-
-    let mut frame = Frame::new(Size::new(
-        Abs::zero(),
-        heights[submat_rows.clone()].iter().map(|&(a, b)| a + b).sum::<Abs>()
-            + row_gap * (nrows - 1) as f64,
-    ));
-
-    let mut x = Abs::zero();
-
-    for col_index in submat_cols {
-        let col = &mut cols[col_index];
-
-        let points = &alignment_points[col_index];
-        let col_width = alignment_widths[col_index];
-
-        let mut y = Abs::zero();
-
-        for row_index in submat_rows.clone() {
-            // replace with a dummy mathrow to get ownership without
-            // doing any memory shifting
-            let math_row = std::mem::replace(&mut col[row_index], MathRow::new(vec![]));
-
-            let (ascent, descent) = heights[row_index];
-
-            let cell = math_row.into_aligned_frame(ctx, points, Align::Center);
-            let pos = Point::new(
-                if points.is_empty() { x + (col_width - cell.width()) / 2.0 } else { x },
-                y + ascent - cell.ascent(),
-            );
-
-            frame.push_frame(pos, cell);
-            y += ascent + descent + row_gap;
-        }
-        x += col_width + col_gap;
-    }
-
-    frame.size_mut().x = x - col_gap;
-
-    Ok(frame)
-}
-
-struct PrecomputedCellInfo {
-    cols: Vec<Vec<MathRow>>,
-    heights: Vec<(Abs, Abs)>,
-    alignment_points: Vec<Vec<Abs>>,
-    alignment_widths: Vec<Abs>,
-}
-
-/// To ensure alignment across submatrices, all cells of the matrix
-/// and corresponding alignment data are pre-computed
-/// before the submatrices are laid out.
-fn precompute_cell_info(
-    ctx: &mut MathContext,
-    rows: &[Vec<Content>],
-) -> SourceResult<PrecomputedCellInfo> {
-    let mut alignment_points = Vec::new();
-    let mut alignment_widths = Vec::new();
-
-    let ncols = rows.first().map_or(0, |row| row.len());
-    let nrows = rows.len();
-
-    if ncols == 0 || nrows == 0 {
-        return Ok(PrecomputedCellInfo {
-            cols: vec![],
-            heights: vec![],
-            alignment_points,
-            alignment_widths,
-        });
-    }
-
-    let mut heights = vec![(Abs::zero(), Abs::zero()); nrows];
-
-    ctx.style(ctx.style.for_denominator());
-
-    let mut cols = vec![vec![]; ncols];
-
-    for (row, (ascent, descent)) in rows.iter().zip(&mut heights) {
-        for (cell, col) in row.iter().zip(&mut cols) {
-            let cell = ctx.layout_row(cell)?;
-            ascent.set_max(cell.ascent());
-            descent.set_max(cell.descent());
-            col.push(cell);
-        }
-    }
-
-    ctx.unstyle();
-
-    for col in &cols {
-        let AlignmentResult { points, width } = alignments(col);
-
-        alignment_points.push(points);
-        alignment_widths.push(width);
-    }
-
-    Ok(PrecomputedCellInfo { cols, heights, alignment_points, alignment_widths })
-}
-
-/// Layout the outer wrapper around a vector's or matrices' body.
+/// Layout the outer wrapper around the body of a vector or matrix.
 fn layout_delimiters(
     ctx: &mut MathContext,
     mut frame: Frame,
@@ -596,22 +484,103 @@ fn layout_delimiters(
     Ok(())
 }
 
-/// Used for matrix line offsets.
-/// Required so that an integer can be passed
-/// as a parameter both in a `#set` rule and
-/// directly into the function.
-#[derive(Clone, Copy)]
-pub struct Offset(usize);
+/// Parameters specifying how augmentation lines
+/// should be drawn on a matrix.
+#[derive(Default, Clone, Hash)]
+pub struct Augment<T = Length> {
+    pub hline: Smart<Offsets>,
+    pub vline: Smart<Offsets>,
+    pub stroke: Smart<PartialStroke<T>>,
+}
+
+impl Augment<Abs> {
+    fn hline_or_default(&self) -> Vec<usize> {
+        match &self.hline {
+            Smart::Custom(v) => v.0.to_vec(),
+            _ => vec![],
+        }
+    }
+
+    fn vline_or_default(&self) -> Vec<usize> {
+        match &self.vline {
+            Smart::Custom(v) => v.0.to_vec(),
+            _ => vec![],
+        }
+    }
+
+    fn stroke_or_default(&self, default: Stroke) -> Stroke {
+        match &self.stroke {
+            Smart::Custom(v) => v.clone().unwrap_or(default),
+            _ => default,
+        }
+    }
+}
+
+impl Resolve for Augment {
+    type Output = Augment<Abs>;
+
+    fn resolve(self, styles: StyleChain) -> Self::Output {
+        Augment {
+            hline: self.hline,
+            vline: self.vline,
+            stroke: self.stroke.resolve(styles),
+        }
+    }
+}
 
 cast! {
-    Offset,
+    Augment,
+    self => {
+        let mut v = Dict::new();
+
+        let hline = match self.hline {
+            Smart::Custom(v) => v,
+            _ => Offsets(vec![]),
+        };
+
+        let vline = match self.vline {
+            Smart::Custom(v) => v,
+            _ => Offsets(vec![]),
+        };
+
+        let stroke = match self.stroke {
+            Smart::Custom(v) => v,
+            _ => PartialStroke::default(),
+        };
+
+        v.insert("hline".into(), hline.into_value());
+        v.insert("vline".into(), vline.into_value());
+        v.insert("stroke".into(), stroke.into_value());
+
+        v.into_value()
+    },
+    v: usize => Augment {
+        hline: Smart::Auto,
+        vline: Smart::Custom(Offsets(vec![v])),
+        stroke: Smart::Auto,
+    },
+    mut dict: Dict => {
+        let hline = dict.take("hline").ok().map(Offsets::from_value)
+            .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
+
+        let vline = dict.take("vline").ok().map(Offsets::from_value)
+            .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
+
+        let stroke = dict.take("stroke").ok().map(PartialStroke::from_value)
+            .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
+
+        Augment { hline, vline, stroke }
+    },
+}
+
+/// The offsets at which augmentation lines
+/// should be drawn on a matrix.
+#[derive(Debug, Default, Clone, Hash)]
+pub struct Offsets(Vec<usize>);
+
+cast! {
+    Offsets,
     self => self.0.into_value(),
-    v: i32 => match usize::try_from(v) {
-        Ok(val) => Offset(val),
-        Err(_) => bail!("expected non-negative integer")
-    },
-    v: Content => match v.plain_text().parse::<usize>() {
-        Ok(val) => Offset(val),
-        Err(_) => bail!("expected non-negative integer"),
-    },
+    v: usize => Self(vec![v]),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
 }

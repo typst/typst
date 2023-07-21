@@ -71,19 +71,23 @@ $ mat(#1, #(foo: "bar")) $
   columns: 2,
   gutter: 10pt,
 
-  $ mat(10, 2, 3, 4; 5, 6, 7, 8; vline: 3) $,
-  $ mat(vline: 3, 10, 2, 3, 4; 5, 6, 7, 8) $,
+  $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #3) $,
+  $ mat(augment: #3, 10, 2, 3, 4; 5, 6, 7, 8) $,
 
-  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; hline: 2) $,
-  $ mat(hline: 2, 100, 2, 3; 4, 5, 6; 7, 8, 9) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 2)) $,
+  $ mat(augment: #(hline: 2), 100, 2, 3; 4, 5, 6; 7, 8, 9) $,
 
-  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; hline: 1, hline: 1) $,
-  $ mat(hline: 1, vline: 1, 100, 2, 3; 4, 5, 6; 7, 8, 9) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 1, vline: 1)) $,
+  $ mat(augment: #(hline: 1, vline: 1), 100, 2, 3; 4, 5, 6; 7, 8, 9) $,
 )
 
 ---
 
 // Test using matrix line drawing with a set rule.
-#set math.mat(hline: 2, vline: 1)
+#set math.mat(augment: (hline: 2, vline: 1, stroke: 2pt + green))
 $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
-#set math.mat(hline: none, vline: none)
+#set math.mat(augment: none)
+
+---
+// Error: 3-37 cannot draw a vertical line after column 3 of a matrix with 3 columns
+$ mat(1, 0, 0; 0, 1, 1; augment: #3) $,
