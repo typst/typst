@@ -245,19 +245,19 @@ pub struct BlockElem {
 
     /// The block's background color. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
-    pub fill: Option<Paint>,
+    pub fill: BrokenParts<Option<Paint>>,
 
     /// The block's border color. See the
     /// [rectangle's documentation]($func/rect.stroke) for more details.
     #[resolve]
     #[fold]
-    pub stroke: Sides<Option<Option<PartialStroke>>>,
+    pub stroke: BrokenParts<Sides<Option<Option<PartialStroke>>>>,
 
     /// How much to round the block's corners. See the [rectangle's
     /// documentation]($func/rect.radius) for more details.
     #[resolve]
     #[fold]
-    pub radius: Corners<Option<Rel<Length>>>,
+    pub radius: BrokenParts<Corners<Option<Rel<Length>>>>,
 
     /// How much to pad the block's content. See the [rectangle's
     /// documentation]($func/rect.inset) for more details.
@@ -418,25 +418,78 @@ impl Layout for BlockElem {
 
         // Prepare fill and stroke.
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
+        let stroke = self
+            .stroke(styles)
+            .map(|sides| sides.map(|s| s.map(PartialStroke::unwrap_or_default)));
 
         // Add fill and/or stroke.
-        if fill.is_some() || stroke.iter().any(Option::is_some) {
-            let mut skip = false;
-            if let [first, rest @ ..] = frames.as_slice() {
-                skip = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
-            }
 
-            let outset = self.outset(styles);
-            let radius = self.radius(styles);
-            for frame in frames.iter_mut().skip(skip as usize) {
-                frame.fill_and_stroke(
-                    fill.clone(),
-                    stroke.clone(),
-                    outset,
-                    radius,
-                    self.span(),
-                );
+        let mut skip_first = false;
+        if let [first, rest @ ..] = frames.as_slice() {
+            skip_first = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
+        }
+
+        if frames.len() - skip_first as usize == 1 {
+            // single frame
+            let fill = fill.single;
+            let stroke = stroke.single;
+
+            if fill.is_some() || stroke.iter().any(Option::is_some) {
+                let outset = self.outset(styles);
+                let radius = self.radius(styles).single;
+
+                // todo: this for-loop is ugly as it only loops over a single frame
+                for frame in frames.iter_mut().skip(skip_first as usize) {
+                    frame.fill_and_stroke(
+                        fill.clone(),
+                        stroke.clone(),
+                        outset,
+                        radius,
+                        self.span(),
+                    );
+                }
+            }
+        } else {
+            // multiple frames
+            if fill.iter_multiple().any(Option::is_some)
+                || stroke
+                    .iter_multiple()
+                    .any(|stroke| stroke.iter().any(Option::is_some))
+            {
+                let outset = self.outset(styles);
+                let radius = self.radius(styles);
+
+                let mut iter = frames.iter_mut().skip(skip_first as usize);
+
+                if let Some(first) = iter.next() {
+                    first.fill_and_stroke(
+                        fill.first,
+                        stroke.first,
+                        outset,
+                        radius.first,
+                        self.span(),
+                    );
+                }
+
+                if let Some(first) = iter.next_back() {
+                    first.fill_and_stroke(
+                        fill.last,
+                        stroke.last,
+                        outset,
+                        radius.last,
+                        self.span(),
+                    );
+                }
+
+                for frame in iter {
+                    frame.fill_and_stroke(
+                        fill.middle.clone(),
+                        stroke.middle.clone(),
+                        outset,
+                        radius.middle,
+                        self.span(),
+                    );
+                }
             }
         }
 
