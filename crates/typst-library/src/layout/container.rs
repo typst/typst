@@ -433,7 +433,6 @@ impl Layout for BlockElem {
         };
 
         if let [frame] = frames_mut {
-            // single frame
             let fill = fill.single;
             let stroke = stroke.single;
 
@@ -450,7 +449,6 @@ impl Layout for BlockElem {
                 );
             }
         } else {
-            // multiple frames
             if fill.iter_multiple().any(Option::is_some)
                 || stroke
                     .iter_multiple()
