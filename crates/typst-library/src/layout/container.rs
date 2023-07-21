@@ -269,7 +269,7 @@ pub struct BlockElem {
     /// the [rectangle's documentation]($func/rect.outset) for more details.
     #[resolve]
     #[fold]
-    pub outset: Sides<Option<Rel<Length>>>,
+    pub outset: BrokenParts<Sides<Option<Rel<Length>>>>,
 
     /// The spacing around this block. This is shorthand to set `above` and
     /// `below` to the same value.
@@ -437,7 +437,7 @@ impl Layout for BlockElem {
             let stroke = stroke.single;
 
             if fill.is_some() || stroke.iter().any(Option::is_some) {
-                let outset = self.outset(styles);
+                let outset = self.outset(styles).single;
                 let radius = self.radius(styles).single;
 
                 frame.fill_and_stroke(
@@ -463,7 +463,7 @@ impl Layout for BlockElem {
                     first.fill_and_stroke(
                         fill.first,
                         stroke.first,
-                        outset,
+                        outset.first,
                         radius.first,
                         self.span(),
                     );
@@ -473,7 +473,7 @@ impl Layout for BlockElem {
                     first.fill_and_stroke(
                         fill.last,
                         stroke.last,
-                        outset,
+                        outset.last,
                         radius.last,
                         self.span(),
                     );
@@ -483,7 +483,7 @@ impl Layout for BlockElem {
                     frame.fill_and_stroke(
                         fill.middle.clone(),
                         stroke.middle.clone(),
-                        outset,
+                        outset.middle,
                         radius.middle,
                         self.span(),
                     );
