@@ -440,54 +440,46 @@ impl Layout for BlockElem {
                 let outset = self.outset(styles).single;
                 let radius = self.radius(styles).single;
 
-                frame.fill_and_stroke(
-                    fill.clone(),
-                    stroke.clone(),
-                    outset,
-                    radius,
+                frame.fill_and_stroke(fill, stroke, outset, radius, self.span());
+            }
+        } else if fill.iter_multiple().any(Option::is_some)
+            || stroke
+                .iter_multiple()
+                .any(|stroke| stroke.iter().any(Option::is_some))
+        {
+            let outset = self.outset(styles);
+            let radius = self.radius(styles);
+
+            let mut iter = frames_mut.iter_mut();
+
+            if let Some(first) = iter.next() {
+                first.fill_and_stroke(
+                    fill.first,
+                    stroke.first,
+                    outset.first,
+                    radius.first,
                     self.span(),
                 );
             }
-        } else {
-            if fill.iter_multiple().any(Option::is_some)
-                || stroke
-                    .iter_multiple()
-                    .any(|stroke| stroke.iter().any(Option::is_some))
-            {
-                let outset = self.outset(styles);
-                let radius = self.radius(styles);
 
-                let mut iter = frames_mut.iter_mut();
+            if let Some(first) = iter.next_back() {
+                first.fill_and_stroke(
+                    fill.last,
+                    stroke.last,
+                    outset.last,
+                    radius.last,
+                    self.span(),
+                );
+            }
 
-                if let Some(first) = iter.next() {
-                    first.fill_and_stroke(
-                        fill.first,
-                        stroke.first,
-                        outset.first,
-                        radius.first,
-                        self.span(),
-                    );
-                }
-
-                if let Some(first) = iter.next_back() {
-                    first.fill_and_stroke(
-                        fill.last,
-                        stroke.last,
-                        outset.last,
-                        radius.last,
-                        self.span(),
-                    );
-                }
-
-                for frame in iter {
-                    frame.fill_and_stroke(
-                        fill.middle.clone(),
-                        stroke.middle.clone(),
-                        outset.middle,
-                        radius.middle,
-                        self.span(),
-                    );
-                }
+            for frame in iter {
+                frame.fill_and_stroke(
+                    fill.middle.clone(),
+                    stroke.middle.clone(),
+                    outset.middle,
+                    radius.middle,
+                    self.span(),
+                );
             }
         }
 
