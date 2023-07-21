@@ -34,10 +34,11 @@ pub struct OpElem {
 impl LayoutMath for OpElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let fragment =
-            ctx.layout_text(&TextElem::new(self.text()).spanned(self.span()))?;
+        let var = VarElem::new(self.text()).spanned(self.span()).pack();
+        let frame = ctx.layout_fragment(&var)?.into_frame();
+
         ctx.push(
-            FrameFragment::new(ctx, fragment.into_frame())
+            FrameFragment::new(ctx, frame)
                 .with_class(MathClass::Large)
                 .with_limits(if self.limits(ctx.styles()) {
                     Limits::Display
@@ -61,7 +62,7 @@ macro_rules! ops {
 
             let dif = |d| {
                 HElem::new(THIN.into()).with_weak(true).pack()
-                    + MathStyleElem::new(TextElem::packed(d)).with_italic(Some(false)).pack()
+                    + MathStyleElem::new(VarElem::packed(d)).with_italic(Some(false)).pack()
             };
             math.define("dif", dif('d'));
             math.define("Dif", dif('D'));

@@ -156,16 +156,48 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     pub fn layout_text(&mut self, elem: &TextElem) -> SourceResult<MathFragment> {
-        let text = elem.text();
         let span = elem.span();
+        let text = elem.text();
+
+        let spaced = text.graphemes(true).nth(1).is_some();
+        let text = TextElem::packed(text)
+            .styled(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)))
+            .styled(TextElem::set_bottom_edge(BottomEdge::Metric(
+                BottomEdgeMetric::Bounds,
+            )))
+            .spanned(span);
+        let par = ParElem::new(vec![text]);
+
+        let frame = par
+            .layout(
+                self.vt,
+                self.outer.chain(&self.local),
+                false,
+                Size::splat(Abs::inf()),
+                false,
+            )?
+            .into_frame();
+        Ok(FrameFragment::new(self, frame)
+            .with_class(MathClass::Alphabetic)
+            .with_spaced(spaced)
+            .into())
+    }
+
+    pub fn layout_var(&mut self, elem: &VarElem) -> SourceResult<MathFragment> {
+        let span = elem.span();
+        let text = elem.text();
+
         let mut chars = text.chars();
-        let fragment = if let Some(mut glyph) = chars
+        if let Some(mut glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
             .map(|c| self.style.styled_char(c))
             .and_then(|c| GlyphFragment::try_new(self, c, span))
         {
-            // A single letter that is available in the math font.
+            // A single glyph in the math font. A lot of the later
+            // processing seems to depend on the GlyphFragment
+            // information being keep in the single glyph case, so
+            // we separate this out for now.
             match self.style.size {
                 MathSize::Script => {
                     glyph.make_scriptsize(self);
@@ -173,46 +205,65 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 MathSize::ScriptScript => {
                     glyph.make_scriptscriptsize(self);
                 }
-                _ => (),
+                _ => {}
             }
 
-            let class = self.style.class.as_custom().or(glyph.class);
-            if class == Some(MathClass::Large) {
-                let mut variant = if self.style.size == MathSize::Display {
-                    let height = scaled!(self, display_operator_min_height);
-                    glyph.stretch_vertical(self, height, Abs::zero())
+            let fragment: MathFragment = {
+                let class = self.style.class.as_custom().or(glyph.class);
+                if class == Some(MathClass::Large) {
+                    let mut variant = if self.style.size == MathSize::Display {
+                        let height = scaled!(self, display_operator_min_height);
+                        glyph.stretch_vertical(self, height, Abs::zero())
+                    } else {
+                        glyph.into_variant()
+                    };
+                    // TeXbook p 155. Large operators are always vertically centered on the axis.
+                    let h = variant.frame.height();
+                    variant.frame.set_baseline(h / 2.0 + scaled!(self, axis_height));
+                    variant.into()
                 } else {
-                    glyph.into_variant()
-                };
-                // TeXbook p 155. Large operators are always vertically centered on the axis.
-                variant.center_on_axis(self);
-                variant.into()
-            } else {
-                glyph.into()
-            }
-        } else if text.chars().all(|c| c.is_ascii_digit()) {
-            // Numbers aren't that difficult.
-            let mut fragments = vec![];
-            for c in text.chars() {
-                let c = self.style.styled_char(c);
-                fragments.push(GlyphFragment::new(self, c, span).into());
-            }
-            let frame = MathRow::new(fragments).into_frame(self);
-            FrameFragment::new(self, frame).into()
+                    glyph.into()
+                }
+            };
+            Ok(fragment)
         } else {
-            // Anything else is handled by Typst's standard text layout.
-            let spaced = text.graphemes(true).nth(1).is_some();
+            let is_number = text.chars().all(|c| c.is_ascii_digit());
+            let spaced = !is_number && text.graphemes(true).nth(1).is_some();
+
             let mut style = self.style;
-            if self.style.italic == Smart::Auto {
+            if self.style.italic == Smart::Auto && spaced {
                 style = style.with_italic(false);
             }
-            let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
-            let text = TextElem::packed(text)
-                .styled(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)))
-                .styled(TextElem::set_bottom_edge(BottomEdge::Metric(
-                    BottomEdgeMetric::Bounds,
-                )))
-                .spanned(span);
+
+            let mut styled_text = EcoString::new();
+            for c in text.chars() {
+                styled_text.push(style.styled_char(c));
+            }
+
+            let text = TextElem::packed(styled_text).spanned(span);
+
+            let mut mathstyle = Styles::new();
+            let math_script = Smart::Custom(WritingScript::MATH);
+            mathstyle.set(TextElem::set_script(math_script));
+
+            mathstyle.set(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)));
+            mathstyle.set(TextElem::set_bottom_edge(BottomEdge::Metric(
+                BottomEdgeMetric::Bounds,
+            )));
+
+            let ssty = ttf_parser::Tag::from_bytes(b"ssty");
+            match self.style.size {
+                MathSize::Script => {
+                    let features = crate::text::FontFeatures(vec![(ssty, 1)]);
+                    mathstyle.set(TextElem::set_features(features));
+                }
+                MathSize::ScriptScript => {
+                    let features = crate::text::FontFeatures(vec![(ssty, 2)]);
+                    mathstyle.set(TextElem::set_features(features));
+                }
+                _ => {}
+            }
+
             let par = ParElem::new(vec![text]);
 
             // There isn't a natural width for a paragraph in a math environment;
@@ -222,18 +273,18 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             let frame = par
                 .layout(
                     self.vt,
-                    self.outer.chain(&self.local),
+                    self.outer.chain(&self.local).chain(&mathstyle),
                     false,
                     Size::splat(Abs::inf()),
                     false,
                 )?
                 .into_frame();
-            FrameFragment::new(self, frame)
+
+            Ok(FrameFragment::new(self, frame)
                 .with_class(MathClass::Alphabetic)
                 .with_spaced(spaced)
-                .into()
-        };
-        Ok(fragment)
+                .into())
+        }
     }
 
     pub fn styles(&self) -> StyleChain {
@@ -258,7 +309,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.local.set(TextElem::set_weight(if style.bold {
             FontWeight::BOLD
         } else {
-            FontWeight::REGULAR
+            // The normal weight is what we started with.
+            // It's 400 for CM Regular, 450 for CM Book.
+            self.font.info().variant.weight
         }));
         self.style = style;
     }

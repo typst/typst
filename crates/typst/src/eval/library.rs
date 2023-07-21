@@ -47,6 +47,10 @@ pub struct LangItems {
     pub text_func: ElemFunc,
     /// Get the string if this is a text element.
     pub text_str: fn(&Content) -> Option<EcoString>,
+    /// A symbol (math or emoji).
+    pub symbol: fn(c: char) -> Content,
+    /// Get the character if this is a symbol.
+    pub symbol_char: fn(&Content) -> Option<char>,
     /// A smart quote: `'` or `"`.
     pub smart_quote: fn(double: bool) -> Content,
     /// A paragraph break.
@@ -85,6 +89,12 @@ pub struct LangItems {
     pub luma_func: &'static NativeFunc,
     /// A mathematical equation: `$x$`, `$ x^2 $`.
     pub equation: fn(body: Content, block: bool) -> Content,
+    /// Text to treat as mathematical content.
+    pub math_var: fn(body: EcoString) -> Content,
+    /// The var function.
+    pub math_var_func: ElemFunc,
+    /// Get the text if this is a math var.
+    pub math_var_str: fn(&Content) -> Option<EcoString>,
     /// An alignment point in math: `&`.
     pub math_align_point: fn() -> Content,
     /// Matched delimiters in math: `[x + y]`.

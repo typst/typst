@@ -29,6 +29,11 @@ $ 1/(x^A) $
 #[#set text(size:18pt); $1/(x^A)$] vs. #[#set text(size:14pt); $x^A$]
 
 ---
+// Test optical size for operators, numbers.
+#set text(size:20pt)
+$ e^(sin theta) eq.not x^(5/26)$
+
+---
 // Test dedicated syntax for primes
 $a'$, $a'''_b$, $'$, $'''''''$
 
@@ -37,7 +42,7 @@ $a'$, $a'''_b$, $'$, $'''''''$
 $a' ' '$, $' ' '$, $a' '/b$
 
 ---
-// Test complex prime combilnations
+// Test complex prime combinations
 $a'_b^c$, $a_b'^c$, $a_b^c'$, $a_b'^c'^d'$
 
 $(a'_b')^(c'_d')$, $a'/b'$, $a_b'/c_d'$

@@ -110,18 +110,22 @@ impl LayoutMath for PrimesElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         match self.count() {
             count @ 1..=4 => {
-                let f = ctx.layout_fragment(&TextElem::packed(match count {
+                let c = match count {
                     1 => '′',
                     2 => '″',
                     3 => '‴',
                     4 => '⁗',
                     _ => unreachable!(),
-                }))?;
-                ctx.push(f);
+                };
+
+                let prime = VarElem::new(c.into()).spanned(self.span()).pack();
+                let fragment = ctx.layout_fragment(&prime)?;
+                ctx.push(fragment);
             }
             count => {
                 // Custom amount of primes
-                let prime = ctx.layout_fragment(&TextElem::packed('′'))?.into_frame();
+                let primevar = VarElem::new('′'.into()).spanned(self.span()).pack();
+                let prime = ctx.layout_fragment(&primevar)?.into_frame();
                 let width = prime.width() * (count + 1) as f64 / 2.0;
                 let mut frame = Frame::new(Size::new(width, prime.height()));
                 frame.set_baseline(prime.ascent());

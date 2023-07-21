@@ -258,18 +258,20 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         SyntaxKind::MathIdent => {
             continuable = true;
             p.eat();
-            while p.directly_at(SyntaxKind::Text)
+            while p.directly_at(SyntaxKind::MathVar)
                 && p.current_text() == "."
                 && matches!(
                     p.lexer.clone().next(),
-                    SyntaxKind::MathIdent | SyntaxKind::Text
+                    SyntaxKind::MathIdent | SyntaxKind::MathVar
                 )
             {
                 p.convert(SyntaxKind::Dot);
                 p.convert(SyntaxKind::Ident);
                 p.wrap(m, SyntaxKind::FieldAccess);
             }
-            if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
+            if min_prec < 3
+                && p.directly_at(SyntaxKind::MathVar)
+                && p.current_text() == "("
             {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
@@ -277,7 +279,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
             }
         }
 
-        SyntaxKind::Text | SyntaxKind::Shorthand => {
+        SyntaxKind::MathVar | SyntaxKind::Shorthand => {
             continuable = matches!(
                 math_class(p.current_text()),
                 None | Some(MathClass::Alphabetic)
@@ -330,7 +332,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let mut primed = false;
 
     while !p.eof() && !p.at(stop) {
-        if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
+        if p.directly_at(SyntaxKind::MathVar) && p.current_text() == "!" {
             p.eat();
             p.wrap(m, SyntaxKind::Math);
             continue;
@@ -494,7 +496,7 @@ fn math_args(p: &mut Parser) {
 
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
         if namable
-            && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::Text))
+            && (p.at(SyntaxKind::MathIdent) || p.at(SyntaxKind::MathVar))
             && p.text[p.current_end()..].starts_with(':')
         {
             p.convert(SyntaxKind::Ident);
@@ -551,7 +553,7 @@ fn math_args(p: &mut Parser) {
         p.wrap(array, SyntaxKind::Array);
     }
 
-    if p.at(SyntaxKind::Text) && p.current_text() == ")" {
+    if p.at(SyntaxKind::MathVar) && p.current_text() == ")" {
         p.convert(SyntaxKind::RightParen);
     } else {
         p.expected("closing paren");

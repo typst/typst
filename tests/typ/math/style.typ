@@ -9,8 +9,8 @@ $a, A, delta, ϵ, diff, Delta, ϴ$
 $A, italic(A), upright(A), bold(A), bold(upright(A)), \
  serif(A), sans(A), cal(A), frak(A), mono(A), bb(A), \
  italic(diff), upright(diff), \
- bb("hello") + bold(cal("world")), \
- mono("SQRT")(x) wreath mono(123 + 456)$
+ bb(var("hello")) + bold(cal(var("world"))), \
+ mono(var("SQRT"))(x) wreath mono(123 + 456)$
 
 ---
 // Test forcing math size

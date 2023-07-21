@@ -18,6 +18,7 @@ mod spacing;
 mod stretch;
 mod style;
 mod underover;
+mod var;
 
 pub use self::accent::*;
 pub use self::align::*;
@@ -31,6 +32,7 @@ pub use self::op::*;
 pub use self::root::*;
 pub use self::style::*;
 pub use self::underover::*;
+pub use self::var::*;
 
 use ttf_parser::{GlyphId, Rect};
 use typst::eval::{Module, Scope};
@@ -50,6 +52,7 @@ use crate::meta::{
 };
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
+use crate::symbols::SymbolElem;
 use crate::text::{
     families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
 };
@@ -59,6 +62,7 @@ pub fn module() -> Module {
     let mut math = Scope::deduplicating();
     math.define("equation", EquationElem::func());
     math.define("text", TextElem::func());
+    math.define("var", VarElem::func());
 
     // Grouping.
     math.define("lr", LrElem::func());
@@ -471,6 +475,12 @@ impl LayoutMath for Content {
         if let Some(elem) = self.to::<TextElem>() {
             let fragment = ctx.layout_text(elem)?;
             ctx.push(fragment);
+            return Ok(());
+        }
+
+        if let Some(elem) = self.to::<SymbolElem>() {
+            let var = VarElem::new(elem.character().into()).spanned(elem.span()).pack();
+            var.layout_math(ctx)?;
             return Ok(());
         }
 

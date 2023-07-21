@@ -57,6 +57,7 @@ use crate::math::{EquationElem, LayoutMath};
 use crate::meta::DocumentElem;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
+use crate::symbols::SymbolElem;
 use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
 use crate::visualize::{
     CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
@@ -346,6 +347,14 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             return self.styled(elem, local, styles);
         }
 
+        if let Some(symbol) = content.to::<SymbolElem>() {
+            content = self
+                .scratch
+                .content
+                .alloc(TextElem::new(symbol.character().into()).pack());
+            return self.accept(content, styles);
+        }
+
         if let Some(children) = content.to_sequence() {
             for elem in children {
                 self.accept(elem, styles)?;
@@ -596,6 +605,7 @@ impl<'a> ParBuilder<'a> {
             }
         } else if content.is::<SpaceElem>()
             || content.is::<TextElem>()
+            || content.is::<SymbolElem>()
             || content.is::<HElem>()
             || content.is::<LinebreakElem>()
             || content.is::<SmartQuoteElem>()

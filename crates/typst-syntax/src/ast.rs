@@ -114,6 +114,8 @@ pub enum Expr {
     Equation(Equation),
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math(Math),
+    /// Text to treat as mathematical content.
+    MathVar(MathVar),
     /// An identifier in math: `pi`.
     MathIdent(MathIdent),
     /// An alignment point in math: `&`.
@@ -220,6 +222,7 @@ impl AstNode for Expr {
             SyntaxKind::TermItem => node.cast().map(Self::Term),
             SyntaxKind::Equation => node.cast().map(Self::Equation),
             SyntaxKind::Math => node.cast().map(Self::Math),
+            SyntaxKind::MathVar => node.cast().map(Self::MathVar),
             SyntaxKind::MathIdent => node.cast().map(Self::MathIdent),
             SyntaxKind::MathAlignPoint => node.cast().map(Self::MathAlignPoint),
             SyntaxKind::MathDelimited => node.cast().map(Self::MathDelimited),
@@ -282,6 +285,7 @@ impl AstNode for Expr {
             Self::Term(v) => v.as_untyped(),
             Self::Equation(v) => v.as_untyped(),
             Self::Math(v) => v.as_untyped(),
+            Self::MathVar(v) => v.as_untyped(),
             Self::MathIdent(v) => v.as_untyped(),
             Self::MathAlignPoint(v) => v.as_untyped(),
             Self::MathDelimited(v) => v.as_untyped(),
@@ -760,6 +764,17 @@ impl Math {
     /// The expressions the mathematical content consists of.
     pub fn exprs(&self) -> impl DoubleEndedIterator<Item = Expr> + '_ {
         self.0.children().filter_map(Expr::cast_with_space)
+    }
+}
+
+node! {
+    /// Text to be treated as mathematical content.
+    MathVar
+}
+impl MathVar {
+    /// Get the text.
+    pub fn get(&self) -> &EcoString {
+        self.0.text()
     }
 }
 

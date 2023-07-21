@@ -452,6 +452,7 @@ impl Eval for ast::Expr {
             Self::Term(v) => v.eval(vm).map(Value::Content),
             Self::Equation(v) => v.eval(vm).map(Value::Content),
             Self::Math(v) => v.eval(vm).map(Value::Content),
+            Self::MathVar(v) => v.eval(vm).map(Value::Content),
             Self::MathIdent(v) => v.eval(vm),
             Self::MathAlignPoint(v) => v.eval(vm).map(Value::Content),
             Self::MathDelimited(v) => v.eval(vm).map(Value::Content),
@@ -709,6 +710,15 @@ impl Eval for ast::Math {
     }
 }
 
+impl Eval for ast::MathVar {
+    type Output = Content;
+
+    #[tracing::instrument(name = "MathVar::eval", skip_all)]
+    fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        Ok((vm.items.math_var)(self.get().clone()))
+    }
+}
+
 impl Eval for ast::MathIdent {
     type Output = Value;
 
@@ -782,7 +792,7 @@ impl Eval for ast::MathRoot {
     type Output = Content;
 
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let index = self.index().map(|i| (vm.items.text)(eco_format!("{i}")));
+        let index = self.index().map(|i| (vm.items.math_var)(eco_format!("{i}")));
         let radicand = self.radicand().eval_display(vm)?;
         Ok((vm.items.math_root)(index, radicand))
     }
@@ -1176,16 +1186,16 @@ impl Eval for ast::FuncCall {
             let mut body = Content::empty();
             for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
                 if i > 0 {
-                    body += (vm.items.text)(','.into());
+                    body += (vm.items.math_var)(','.into());
                 }
                 body += arg;
             }
             return Ok(Value::Content(
                 callee.display().spanned(callee_span)
                     + (vm.items.math_delimited)(
-                        (vm.items.text)('('.into()),
+                        (vm.items.math_var)('('.into()),
                         body,
-                        (vm.items.text)(')'.into()),
+                        (vm.items.math_var)(')'.into()),
                     ),
             ));
         }

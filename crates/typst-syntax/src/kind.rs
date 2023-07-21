@@ -57,6 +57,8 @@ pub enum SyntaxKind {
 
     /// The contents of a mathematical equation: `x^2 + 1`.
     Math,
+    /// Text to be treated as mathematical content.
+    MathVar,
     /// An identifier in math: `pi`.
     MathIdent,
     /// An alignment point in math: `&`.
@@ -380,6 +382,7 @@ impl SyntaxKind {
             Self::MathAlignPoint => "math alignment point",
             Self::MathDelimited => "delimited math",
             Self::MathAttach => "math attachments",
+            Self::MathVar => "mathematical text",
             Self::MathFrac => "math fraction",
             Self::MathRoot => "math root",
             Self::MathPrimes => "math primes",

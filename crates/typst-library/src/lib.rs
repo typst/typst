@@ -61,6 +61,8 @@ fn items() -> LangItems {
         text: |text| text::TextElem::new(text).pack(),
         text_func: text::TextElem::func(),
         text_str: |content| Some(content.to::<text::TextElem>()?.text()),
+        symbol: |c| symbols::SymbolElem::new(c).pack(),
+        symbol_char: |content| Some(content.to::<symbols::SymbolElem>()?.character()),
         smart_quote: |double| text::SmartQuoteElem::new().with_double(double).pack(),
         parbreak: || layout::ParbreakElem::new().pack(),
         strong: |body| text::StrongElem::new(body).pack(),
@@ -99,6 +101,9 @@ fn items() -> LangItems {
         cmyk_func: compute::cmyk_func(),
         luma_func: compute::luma_func(),
         equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
+        math_var: |body| math::VarElem::new(body).pack(),
+        math_var_func: math::VarElem::func(),
+        math_var_str: |content| Some(content.to::<math::VarElem>()?.text()),
         math_align_point: || math::AlignPointElem::new().pack(),
         math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),
         math_attach: |base, t, b, tl, bl, tr, br| {

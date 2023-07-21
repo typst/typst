@@ -461,7 +461,7 @@ impl Lexer<'_> {
                 .map_or(0, str::len);
             self.s.jump(start + len);
         }
-        SyntaxKind::Text
+        SyntaxKind::MathVar
     }
 }
 

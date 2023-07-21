@@ -91,8 +91,15 @@ impl Selector {
             }
             Self::Label(label) => target.label() == Some(label),
             Self::Regex(regex) => {
-                target.func() == item!(text_func)
-                    && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
+                let elem_func = target.func();
+                if elem_func == item!(text_func) {
+                    item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
+                } else if elem_func == item!(math_var_func) {
+                    item!(math_var_str)(target)
+                        .map_or(false, |text| regex.is_match(&text))
+                } else {
+                    false
+                }
             }
             Self::Can(cap) => target.can_type_id(*cap),
             Self::Or(selectors) => selectors.iter().any(move |sel| sel.matches(target)),

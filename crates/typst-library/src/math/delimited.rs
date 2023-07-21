@@ -27,7 +27,7 @@ pub struct LrElem {
         let mut body = Content::empty();
         for (i, arg) in args.all::<Content>()?.into_iter().enumerate() {
             if i > 0 {
-                body += TextElem::packed(',');
+                body += VarElem::packed(',');
             }
             body += arg;
         }
@@ -192,10 +192,6 @@ pub fn norm(
 }
 
 fn delimited(body: Content, left: char, right: char) -> Content {
-    LrElem::new(Content::sequence([
-        TextElem::packed(left),
-        body,
-        TextElem::packed(right),
-    ]))
-    .pack()
+    LrElem::new(Content::sequence([VarElem::packed(left), body, VarElem::packed(right)]))
+        .pack()
 }

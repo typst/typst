@@ -132,8 +132,13 @@ cast! {
     Accent,
     self => self.0.into_value(),
     v: char => Self::new(v),
-    v: Content => match v.to::<TextElem>() {
-        Some(elem) => Value::Str(elem.text().into()).cast()?,
-        None => bail!("expected text"),
+    v: Content => {
+        if let Some(elem) = v.to::<TextElem>() {
+            Value::Str(elem.text().into()).cast()?
+        } else if let Some(elem) = v.to::<VarElem>() {
+            Value::Str(elem.text().into()).cast()?
+        } else {
+            bail!("expected text or var")
+        }
     },
 }

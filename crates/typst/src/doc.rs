@@ -519,6 +519,8 @@ impl Glyph {
 pub struct WritingScript([u8; 4], u8);
 
 impl WritingScript {
+    pub const MATH: Self = Self(*b"math", 4);
+
     /// Return the script as an all lowercase string slice.
     pub fn as_str(&self) -> &str {
         std::str::from_utf8(&self.0[..usize::from(self.1)]).unwrap_or_default()

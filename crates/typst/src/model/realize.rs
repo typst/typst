@@ -120,7 +120,11 @@ fn try_apply(
         }
 
         Some(Selector::Regex(regex)) => {
-            let Some(text) = item!(text_str)(target) else {
+            let text = if let Some(text_text) = item!(text_str)(target) {
+                text_text
+            } else if let Some(var_text) = item!(math_var_str)(target) {
+                var_text
+            } else {
                 return Ok(None);
             };
 

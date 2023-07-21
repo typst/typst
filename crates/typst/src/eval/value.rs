@@ -161,7 +161,7 @@ impl Value {
             Self::Int(v) => item!(text)(eco_format!("{}", v)),
             Self::Float(v) => item!(text)(eco_format!("{}", v)),
             Self::Str(v) => item!(text)(v.into()),
-            Self::Symbol(v) => item!(text)(v.get().into()),
+            Self::Symbol(v) => item!(symbol)(v.get()),
             Self::Content(v) => v,
             Self::Func(_) => Content::empty(),
             Self::Module(module) => module.content(),
@@ -415,7 +415,7 @@ primitive! { Label: "label", Label }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
-    Symbol(v) => item!(text)(v.get().into()),
+    Symbol(v) => item!(symbol)(v.get()),
     Str(v) => item!(text)(v.into())
 }
 primitive! { Styles: "styles", Styles }

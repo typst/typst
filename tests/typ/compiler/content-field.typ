@@ -4,7 +4,7 @@
   let vars = vars.named()
   let f(elem) = {
     let func = elem.func()
-    if func == text {
+    if func == math.var {
       let text = elem.text
       if regex("^\d+$") in text {
         int(text)
@@ -23,7 +23,7 @@
       elem
         .children
         .filter(v => v != [ ])
-        .split[+]
+        .split(math.var("+"))
         .map(xs => xs.fold(1, (prod, v) => prod * f(v)))
         .fold(0, (sum, v) => sum + v)
     }
@@ -32,7 +32,7 @@
   [With ]
   vars
     .pairs()
-    .map(p => $#p.first() = #p.last()$)
+    .map(p => $var(#str(p.first())) = var(#str(p.last()))$)
     .join(", ", last: " and ")
   [ we have:]
   $ equation = result $
