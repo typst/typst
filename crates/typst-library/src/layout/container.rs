@@ -423,13 +423,16 @@ impl Layout for BlockElem {
             .map(|sides| sides.map(|s| s.map(PartialStroke::unwrap_or_default)));
 
         // Add fill and/or stroke.
+        let frames_mut = match frames.as_mut_slice() {
+            [first, rest @ ..]
+                if first.is_empty() && rest.iter().any(|frame| !frame.is_empty()) =>
+            {
+                rest
+            }
+            sl => sl,
+        };
 
-        let mut skip_first = false;
-        if let [first, rest @ ..] = frames.as_slice() {
-            skip_first = first.is_empty() && rest.iter().any(|frame| !frame.is_empty());
-        }
-
-        if frames.len() - skip_first as usize == 1 {
+        if let [frame] = frames_mut {
             // single frame
             let fill = fill.single;
             let stroke = stroke.single;
@@ -438,16 +441,13 @@ impl Layout for BlockElem {
                 let outset = self.outset(styles);
                 let radius = self.radius(styles).single;
 
-                // todo: this for-loop is ugly as it only loops over a single frame
-                for frame in frames.iter_mut().skip(skip_first as usize) {
-                    frame.fill_and_stroke(
-                        fill.clone(),
-                        stroke.clone(),
-                        outset,
-                        radius,
-                        self.span(),
-                    );
-                }
+                frame.fill_and_stroke(
+                    fill.clone(),
+                    stroke.clone(),
+                    outset,
+                    radius,
+                    self.span(),
+                );
             }
         } else {
             // multiple frames
@@ -459,7 +459,7 @@ impl Layout for BlockElem {
                 let outset = self.outset(styles);
                 let radius = self.radius(styles);
 
-                let mut iter = frames.iter_mut().skip(skip_first as usize);
+                let mut iter = frames_mut.iter_mut();
 
                 if let Some(first) = iter.next() {
                     first.fill_and_stroke(
