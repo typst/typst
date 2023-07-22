@@ -6,12 +6,11 @@ use std::{
 
 use base64::Engine;
 use ttf_parser::{GlyphId, OutlineBuilder};
-use usvg::{NodeExt, TreeParsing};
 use xmlwriter::XmlWriter;
 
 use crate::{
     doc::{Document, Frame, FrameItem, Glyph, GroupItem, TextItem},
-    geom::{Abs, Axes, Geometry, LineCap, LineJoin, PathItem, Shape, Transform},
+    geom::{Abs, Axes, Geometry, LineCap, LineJoin, PathItem, Ratio, Shape, Transform},
     image::{ImageFormat, RasterFormat, VectorFormat},
     util::hash128,
 };
@@ -209,49 +208,96 @@ impl SVGRenderer {
     ) -> Option<()> {
         let mut data = text.font.ttf().glyph_svg_image(GlyphId(glyph.id))?;
         let glyph_hash: RenderHash = hash128(&(&text.font, glyph.id)).into();
+        let font = &text.font;
+
+        let font_metrics = font.metrics();
 
         // Decompress SVGZ.
         let mut decoded = vec![];
+        // The first three bytes of the gzip-encoded document header must be 0x1F, 0x8B,
+        // 0x08.
         if data.starts_with(&[0x1f, 0x8b]) {
             let mut decoder = flate2::read::GzDecoder::new(data);
             decoder.read_to_end(&mut decoded).ok()?;
             data = &decoded;
         }
 
+        // todo: When a font engine renders glyph 14, the result shall be the same as
+        // rendering the following SVG document   <svg> <defs> <use #glyph{id}>
+        // </svg>
+
+        let upem = typst::geom::Abs::raw(font.units_per_em());
+        let (width, height) = (upem.to_pt(), upem.to_pt());
+        let origin_ascender = font_metrics.ascender.at(upem).to_pt();
+
+        // let doc_string = String::from_utf8(data.to_owned()).unwrap();
+
+        // todo: verify SVG capability requirements and restrictions
+
         // Parse XML.
-        let xml = std::str::from_utf8(data).ok()?;
-        let document = roxmltree::Document::parse(xml).ok()?;
-
-        // Parse SVG.
-        let opts = usvg::Options::default();
-        let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
-
-        let size = text.size.to_pt();
-
-        // Compute the space we need to draw our glyph.
-        // See https://github.com/RazrFalcon/resvg/issues/602 for why
-        // using the svg size is problematic here.
-        let mut bbox = usvg::Rect::new_bbox();
-        for node in tree.root.descendants() {
-            if let Some(rect) = node.calculate_bbox().and_then(|b| b.to_rect()) {
-                bbox = bbox.expand(rect);
+        let mut svg_str = std::str::from_utf8(data).ok()?.to_owned();
+        let document = xmlparser::Tokenizer::from(svg_str.as_str());
+        let mut start_span = None;
+        let mut last_viewbox = None;
+        for n in document {
+            let tok = n.unwrap();
+            match tok {
+                xmlparser::Token::ElementStart { span, local, .. } => {
+                    if local.as_str() == "svg" {
+                        start_span = Some(span);
+                        break;
+                    }
+                }
+                xmlparser::Token::Attribute { span, local, value, .. } => {
+                    if local.as_str() == "viewBox" {
+                        last_viewbox = Some((span, value));
+                    }
+                }
+                xmlparser::Token::ElementEnd { .. } => break,
+                _ => {}
             }
         }
-        let height = size;
-        let width = bbox.width() / bbox.height() * height;
+
+        // update view box
+        let view_box = last_viewbox
+            .as_ref()
+            .map(|s| {
+                // WARN_VIEW_BOX.get_or_init(|| {
+                //     println!(
+                //         "render_svg_glyph with viewBox, This should be helpful if you can help us verify the result: {:?} {:?}",
+                //         font.info().family,
+                //         doc_string
+                //     );
+                // });
+                s.1.as_str().to_owned()
+            })
+            .unwrap_or_else(|| format!("0 {} {} {}", -origin_ascender, width, height));
+
+        match last_viewbox {
+            Some((span, ..)) => {
+                svg_str.replace_range(
+                    span.range(),
+                    format!(r#"viewBox="{}""#, view_box).as_str(),
+                );
+            }
+            None => {
+                svg_str.insert_str(
+                    start_span.unwrap().range().end,
+                    format!(r#" viewBox="{}""#, view_box).as_str(),
+                );
+            }
+        }
         self.glyphs.entry(glyph_hash).or_insert_with(|| {
             let mut url = "data:image/svg+xml;base64,".to_string();
-            // fixme: this is a hack to remove the viewbox from the glyph
-            // this is because the viewbox of noto color emoji is wrong,
-            let re = regex::Regex::new(r#"viewBox=".*?""#).unwrap();
-            let xml = re.replace(xml, "");
-            let data = base64::engine::general_purpose::STANDARD.encode(xml.as_bytes());
-            url.push_str(&data);
+            let b64_encoded =
+                base64::engine::general_purpose::STANDARD.encode(svg_str.as_bytes());
+            url.push_str(&b64_encoded);
             RenderedGlyph::Image {
                 url,
-                width: width * inv_scale,
-                height: height * inv_scale,
-                ts: Transform::identity(),
+                width,
+                height,
+                ts: Transform::translate(Abs::zero(), Abs::pt(-origin_ascender))
+                    .post_concat(Transform::scale(Ratio::new(1.0), Ratio::new(-1.0))),
             }
         });
 
