@@ -192,9 +192,11 @@ impl SVGRenderer {
             let clip_path_hash = hash128(&group).into();
             let x = group.frame.size().x.to_pt();
             let y = group.frame.size().y.to_pt();
-            self.clip_paths
-                .entry(clip_path_hash)
-                .or_insert_with(|| SVGPath2DBuilder::rect(x as f32, y as f32));
+            self.clip_paths.entry(clip_path_hash).or_insert_with(|| {
+                let mut builder = SVGPath2DBuilder(String::new());
+                builder.rect(x as f32, y as f32);
+                builder.0
+            });
             self.xml.write_attribute_fmt(
                 "clip-path",
                 format_args!("url(#{})", clip_path_hash),
@@ -459,7 +461,7 @@ impl SVGRenderer {
             Geometry::Rect(rect) => {
                 let x = rect.x.to_pt() as f32;
                 let y = rect.y.to_pt() as f32;
-                SVGPath2DBuilder::rect(x, y);
+                path_builder.rect(x, y);
             }
             Geometry::Path(p) => {
                 for item in &p.0 {
@@ -543,14 +545,12 @@ struct SVGPath2DBuilder(pub String);
 impl SVGPath2DBuilder {
     /// Create a rectangle path. The rectangle is created with the top-left corner at (0, 0).
     /// The width and height are the size of the rectangle.
-    fn rect(width: f32, height: f32) -> String {
-        let mut builder = SVGPath2DBuilder(String::new());
-        builder.move_to(0.0, 0.0);
-        builder.line_to(0.0, height);
-        builder.line_to(width, height);
-        builder.line_to(width, 0.0);
-        builder.close();
-        builder.0
+    fn rect(&mut self, width: f32, height: f32) {
+        self.move_to(0.0, 0.0);
+        self.line_to(0.0, height);
+        self.line_to(width, height);
+        self.line_to(width, 0.0);
+        self.close();
     }
 }
 
