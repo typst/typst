@@ -16,15 +16,19 @@ use crate::{
 };
 use crate::{geom::Paint::Solid, image::Image};
 
+/// [`RenderHash`] is a hash value for a rendered glyph or clip path.
+/// The hash value is used as the id of the glyph or clip path in the SVG file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct RenderHash(u128);
 
+/// Convert a [`u128`] into a [`RenderHash`].
 impl From<u128> for RenderHash {
     fn from(value: u128) -> Self {
         Self(value)
     }
 }
 
+/// Convert a [`RenderHash`] into a [`String`].
 impl Display for RenderHash {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         base64::engine::general_purpose::STANDARD
@@ -53,11 +57,24 @@ pub fn svg(doc: &Document) -> String {
     renderer.finalize()
 }
 
+/// Export a frame into a SVG file.
+pub fn svg_frame(frame: &Frame) -> String {
+    let mut renderer = SVGRenderer::new();
+    renderer.header(frame.size());
+    renderer.render_frame(frame, Transform::identity());
+    renderer.finalize()
+}
+
+/// [`RenderedGlyph`] represet glyph to be rendered.
 enum RenderedGlyph {
+    /// A path is a sequence of drawing commands.
     Path(String),
+    /// An image is a URL to an image file, plus the size and transform. The url is in the
+    /// format of `data:image/{format};base64,`.
     Image { url: String, width: f64, height: f64, ts: Transform },
 }
 
+/// [`SVGRenderer`] is a renderer that renders a document or frame into a SVG file.
 struct SVGRenderer {
     xml: XmlWriter,
     glyphs: HashMap<RenderHash, RenderedGlyph>,
@@ -65,6 +82,7 @@ struct SVGRenderer {
 }
 
 impl SVGRenderer {
+    /// Create a new SVG renderer with empty glyph and clip path.
     fn new() -> Self {
         SVGRenderer {
             xml: XmlWriter::new(xmlwriter::Options::default()),
@@ -73,6 +91,7 @@ impl SVGRenderer {
         }
     }
 
+    /// Write the SVG header, including the `viewBox` and `width` and `height` attributes.
     fn header(&mut self, size: Axes<Abs>) {
         self.xml.start_element("svg");
         self.xml.write_attribute("class", "typst-doc");
@@ -88,6 +107,7 @@ impl SVGRenderer {
         self.xml.write_attribute("xmlns:h5", "http://www.w3.org/1999/xhtml");
     }
 
+    /// Build the glyph definitions.
     fn build_glyph(&mut self) {
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "glyph");
@@ -118,6 +138,7 @@ impl SVGRenderer {
         self.xml.end_element();
     }
 
+    /// Build the clip path definitions.
     fn build_clip_path(&mut self) {
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "clip-path");
@@ -132,12 +153,14 @@ impl SVGRenderer {
         self.xml.end_element();
     }
 
+    /// Finalize the SVG file. This must be called after all rendering is done.
     fn finalize(mut self) -> String {
         self.build_clip_path();
         self.build_glyph();
         self.xml.end_document()
     }
 
+    /// Render a frame with the given transform.
     fn render_frame(&mut self, frame: &Frame, trans: Transform) {
         self.xml.start_element("g");
         if !trans.is_identity() {
@@ -161,6 +184,7 @@ impl SVGRenderer {
         self.xml.end_element();
     }
 
+    /// Render a group. If the group has `clips` set to true, a clip path will be created.
     fn render_group(&mut self, group: &GroupItem) {
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-group");
@@ -180,6 +204,9 @@ impl SVGRenderer {
         self.xml.end_element();
     }
 
+    /// Render a text item. The text is rendered as a group of glyphs.
+    /// We will try to render the text as SVG first, then bitmap, then outline.
+    /// If none of them works, we will skip the text.
     fn render_text(&mut self, text: &TextItem) {
         let scale: f64 = text.size.to_pt() / text.font.units_per_em();
         let inv_scale: f64 = text.font.units_per_em() / text.size.to_pt();
@@ -373,6 +400,7 @@ impl SVGRenderer {
         self.xml.end_element();
         Some(())
     }
+
     fn render_shape(&mut self, shape: &Shape) {
         self.xml.start_element("path");
         self.xml.write_attribute("class", "typst-shape");
@@ -469,6 +497,7 @@ impl SVGRenderer {
     }
 }
 
+/// Encode an image into a data URL. The format of the URL is `data:image/{format};base64,`.
 fn encode_image_to_url(image: &Image) -> String {
     let format = match image.format() {
         ImageFormat::Raster(f) => match f {
@@ -486,11 +515,14 @@ fn encode_image_to_url(image: &Image) -> String {
     url
 }
 
+/// A trait for converting a [`Transform`] into a SVG transform string.
 trait TransformExt {
     fn to_svg(self) -> String;
 }
 
 impl TransformExt for Transform {
+    /// Convert a [`Transform`] into a SVG transform string.
+    /// See https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
     fn to_svg(self) -> String {
         format!(
             "matrix({} {} {} {} {} {})",
@@ -504,9 +536,12 @@ impl TransformExt for Transform {
     }
 }
 
+/// A builder for SVG path.
 struct SVGPath2DBuilder(pub String);
 
 impl SVGPath2DBuilder {
+    /// Create a rectangle path. The rectangle is created with the top-left corner at (0, 0).
+    /// The width and height are the size of the rectangle.
     fn rect(width: f32, height: f32) -> String {
         let mut builder = SVGPath2DBuilder(String::new());
         builder.move_to(0.0, 0.0);
@@ -518,6 +553,7 @@ impl SVGPath2DBuilder {
     }
 }
 
+/// A builder for SVG path. This is used to build the path for a glyph.
 impl ttf_parser::OutlineBuilder for SVGPath2DBuilder {
     fn move_to(&mut self, x: f32, y: f32) {
         write!(&mut self.0, "M {} {} ", x, y).unwrap();

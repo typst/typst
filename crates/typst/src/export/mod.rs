@@ -6,4 +6,4 @@ mod svg;
 
 pub use self::pdf::pdf;
 pub use self::render::render;
-pub use self::svg::svg;
+pub use self::svg::{svg, svg_frame};
