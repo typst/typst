@@ -109,6 +109,7 @@ fn render_frame(
                 Meta::PageNumbering(_) => {}
                 Meta::Hide => {}
             },
+            FrameItem::InstancePlaceholder => (),
         }
     }
 }

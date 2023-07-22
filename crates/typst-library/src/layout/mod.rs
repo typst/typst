@@ -73,6 +73,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("h", HElem::func());
     global.define("box", BoxElem::func());
     global.define("block", BlockElem::func());
+    global.define("instance-block", InstanceBlockElem::func());
     global.define("list", ListElem::func());
     global.define("enum", EnumElem::func());
     global.define("terms", TermsElem::func());

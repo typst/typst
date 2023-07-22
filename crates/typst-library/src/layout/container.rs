@@ -495,3 +495,168 @@ cast! {
     v: Rel<Length> => Self::Rel(v),
     v: Fr => Self::Fr(v),
 }
+
+/// Display: Block
+/// Category: layout
+#[element(Layout)]
+pub struct InstanceBlockElem {
+    pub width: Smart<Rel<Length>>,
+    pub height: Smart<Rel<Length>>,
+    #[default(true)]
+    pub breakable: bool,
+    #[resolve]
+    #[fold]
+    pub inset: Sides<Option<Rel<Length>>>,
+    pub instance: Option<Func>,
+    #[positional]
+    pub body: Option<Content>,
+}
+
+impl Layout for InstanceBlockElem {
+    #[tracing::instrument(name = "InstanceBlockElem::layout", skip_all)]
+    fn layout(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Fragment> {
+        let Some(instance_func) = self.instance(styles) else {
+            return Ok(Fragment::frames(Vec::new()));
+        };
+
+        // Apply inset.
+        let mut body = self.body(styles).unwrap_or_default();
+        let inset = self.inset(styles);
+        if inset.iter().any(|v| !v.is_zero()) {
+            body = body.clone().padded(inset.map(|side| side.map(Length::from)));
+        }
+
+        // Resolve the sizing to a concrete size.
+        let sizing = Axes::new(self.width(styles), self.height(styles));
+        let mut expand = sizing.as_ref().map(Smart::is_custom);
+        let mut size = sizing
+            .resolve(styles)
+            .zip(regions.base())
+            .map(|(s, b)| s.map(|v| v.relative_to(b)))
+            .unwrap_or(regions.base());
+
+        // Layout the child.
+        let mut frames = if self.breakable(styles) {
+            // Measure to ensure frames for all regions have the same width.
+            if sizing.x == Smart::Auto {
+                let pod = Regions::one(size, Axes::splat(false));
+                let frame = body.measure(vt, styles, pod)?.into_frame();
+                size.x = frame.width();
+                expand.x = true;
+            }
+
+            let mut pod = regions;
+            pod.size.x = size.x;
+            pod.expand = expand;
+
+            if expand.y {
+                pod.full = size.y;
+            }
+
+            // Generate backlog for fixed height.
+            let mut heights = vec![];
+            if sizing.y.is_custom() {
+                let mut remaining = size.y;
+                for region in regions.iter() {
+                    let limited = region.y.min(remaining);
+                    heights.push(limited);
+                    remaining -= limited;
+                    if Abs::zero().fits(remaining) {
+                        break;
+                    }
+                }
+
+                if let Some(last) = heights.last_mut() {
+                    *last += remaining;
+                }
+
+                pod.size.y = heights[0];
+                pod.backlog = &heights[1..];
+                pod.last = None;
+            }
+
+            let mut frames = body.layout(vt, styles, pod)?.into_frames();
+            for (frame, &height) in frames.iter_mut().zip(&heights) {
+                *frame.size_mut() =
+                    expand.select(Size::new(size.x, height), frame.size());
+            }
+            frames
+        } else {
+            let pod = Regions::one(size, expand);
+            let mut frames = body.layout(vt, styles, pod)?.into_frames();
+            *frames[0].size_mut() = expand.select(size, frames[0].size());
+            frames
+        };
+
+        // Apply the instance to each frame.
+        let len = frames.len();
+        for (i, frame) in frames.iter_mut().enumerate() {
+            let size = frame.size();
+            let fake_content = InstancePlaceholderElem::new()
+                .with_size(size.map(|abs| Rel::from(Length::from(abs))))
+                .pack();
+
+            let inst = instance_func
+                .call_vt(
+                    vt,
+                    [i.into_value(), len.into_value(), fake_content.into_value()],
+                )?
+                .display();
+            // todo: Is it correct to expand here?
+            let inst =
+                inst.layout(vt, styles, Regions::one(frame.size(), Axes::splat(true)))?;
+            let mut inst_frame = inst.into_frame();
+
+            if let Some((i, pos)) =
+                inst_frame.items().enumerate().find_map(|(i, (pos, item))| {
+                    if let FrameItem::InstancePlaceholder = item {
+                        return Some((i, *pos));
+                    }
+                    None
+                })
+            {
+                inst_frame.insert(
+                    i,
+                    pos,
+                    FrameItem::Group(GroupItem::new(std::mem::take(frame))),
+                );
+            }
+
+            *frame = inst_frame;
+        }
+
+        // Apply metadata.
+        for frame in &mut frames {
+            frame.meta(styles, false);
+        }
+
+        Ok(Fragment::frames(frames))
+    }
+}
+
+/// Display: InstancePlaceholder
+/// Category: layout
+#[element(Layout)]
+struct InstancePlaceholderElem {
+    size: Axes<Rel<Length>>,
+}
+
+impl Layout for InstancePlaceholderElem {
+    fn layout(
+        &self,
+        _vt: &mut Vt,
+        styles: StyleChain,
+        _regions: Regions,
+    ) -> SourceResult<Fragment> {
+        let size = self.size(styles).map(|l| l.abs.abs);
+        let mut res = Frame::new(size);
+        res.push(Point::zero(), FrameItem::InstancePlaceholder);
+
+        Ok(Fragment::frame(res))
+    }
+}

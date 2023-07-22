@@ -399,6 +399,7 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
                 Meta::Hide => {}
                 Meta::PageNumbering(_) => {}
             },
+            FrameItem::InstancePlaceholder => (),
         }
     }
 }
