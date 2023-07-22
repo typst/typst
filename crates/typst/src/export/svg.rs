@@ -413,7 +413,7 @@ impl SVGRenderer {
         }
         if let Some(stroke) = &shape.stroke {
             let Solid(color) = stroke.paint;
-            self.xml.write_attribute("stoke", &color.to_rgba().to_hex());
+            self.xml.write_attribute("stroke", &color.to_rgba().to_hex());
             self.xml
                 .write_attribute("stroke-width", &stroke.thickness.to_pt().to_string());
             self.xml.write_attribute(
