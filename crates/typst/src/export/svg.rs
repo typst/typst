@@ -226,7 +226,7 @@ impl SVGRenderer {
         // rendering the following SVG document   <svg> <defs> <use #glyph{id}>
         // </svg>
 
-        let upem = typst::geom::Abs::raw(font.units_per_em());
+        let upem = Abs::raw(font.units_per_em());
         let (width, height) = (upem.to_pt(), upem.to_pt());
         let origin_ascender = font_metrics.ascender.at(upem).to_pt();
 
