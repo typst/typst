@@ -417,7 +417,7 @@ pub enum FrameItem {
     Image(Image, Size, Span),
     /// Meta information and the region it applies to.
     Meta(Meta, Size),
-    InstancePlaceholder
+    InstancePlaceholder,
 }
 
 impl Debug for FrameItem {
@@ -428,7 +428,7 @@ impl Debug for FrameItem {
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Meta(meta, _) => write!(f, "{meta:?}"),
-            Self::InstancePlaceholder => write!(f, "InstancePlaceholder")
+            Self::InstancePlaceholder => write!(f, "InstancePlaceholder"),
         }
     }
 }
