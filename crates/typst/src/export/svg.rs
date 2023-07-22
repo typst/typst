@@ -218,9 +218,10 @@ impl SVGRenderer {
         );
         let mut x_offset: f64 = 0.0;
         for glyph in &text.glyphs {
-            self.render_svg_glyph(text, glyph, x_offset, inv_scale)
-                .or_else(|| self.render_bitmap_glyph(text, glyph, x_offset, inv_scale))
-                .or_else(|| self.render_outline_glyph(text, glyph, x_offset, inv_scale));
+            let offset = x_offset + glyph.x_offset.at(text.size).to_pt();
+            self.render_svg_glyph(text, glyph, offset, inv_scale)
+                .or_else(|| self.render_bitmap_glyph(text, glyph, offset, inv_scale))
+                .or_else(|| self.render_outline_glyph(text, glyph, offset, inv_scale));
             x_offset += glyph.x_advance.at(text.size).to_pt();
         }
         self.xml.end_element();
