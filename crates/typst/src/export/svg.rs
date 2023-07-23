@@ -267,7 +267,6 @@ impl SVGRenderer {
         let inv_scale: f64 = text.font.units_per_em() / text.size.to_pt();
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-text");
-        self.xml.write_attribute("data-text", &text.text);
         self.xml.write_attribute_fmt(
             "transform",
             format_args!("scale({} {})", scale, -scale),
