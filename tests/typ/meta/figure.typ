@@ -116,3 +116,18 @@ We can clearly see that @fig-cylinder and
 
 #figure([Not a table], caption: "Not underlined")
 #figure(table[A table], caption: "Underlined")
+
+---
+// Test creating custom figure.caption
+#show figure.where(kind: "custom"): it => rect({
+  align(center, it.body)
+  line(length: 100%)
+  figure.caption(it.caption, "Custom figure", it.counter.display("I"))
+})
+
+#figure([A figure], caption: "Not italicized", kind: "custom", supplement: "Ignored")
+
+#show figure.caption: emph
+
+#figure([Another figure], caption: "Italicized", kind: "custom", supplement: "Ignored too")
+
