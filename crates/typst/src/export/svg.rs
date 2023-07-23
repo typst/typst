@@ -336,13 +336,14 @@ impl SVGRenderer {
                 _ => {}
             }
         }
-        
+
         if last_viewbox.is_none() {
             // correct the viewbox if it is not present
             // `-origin_ascender` is to make sure the glyph is rendered at the correct position
             svg_str.insert_str(
                 start_span.unwrap().range().end,
-                format!(r#" viewBox="0 {} {} {}""#, -origin_ascender, width, height).as_str(),
+                format!(r#" viewBox="0 {} {} {}""#, -origin_ascender, width, height)
+                    .as_str(),
             );
         }
 
