@@ -92,11 +92,20 @@ pub fn compile_once(
     Ok(())
 }
 
+enum ExportImageFormat {
+    Png,
+    Svg,
+}
+
 /// Export into the target format.
 fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
     match command.output().extension() {
-        Some(ext) if ext.eq_ignore_ascii_case("png") => export_png(document, command),
-        Some(ext) if ext.eq_ignore_ascii_case("svg") => export_svg(document, command),
+        Some(ext) if ext.eq_ignore_ascii_case("png") => {
+            export_image(document, command, ExportImageFormat::Png)
+        }
+        Some(ext) if ext.eq_ignore_ascii_case("svg") => {
+            export_image(document, command, ExportImageFormat::Svg)
+        }
         _ => export_pdf(document, command),
     }
 }
@@ -110,7 +119,11 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
 }
 
 /// Export to one or multiple PNGs.
-fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
+fn export_image(
+    document: &Document,
+    command: &CompileCommand,
+    fmt: ExportImageFormat,
+) -> StrResult<()> {
     // Determine whether we have a `{n}` numbering.
     let output = command.output();
     let string = output.to_str().unwrap_or_default();
@@ -126,25 +139,24 @@ fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let mut storage;
 
     for (i, frame) in document.pages.iter().enumerate() {
-        let pixmap = typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
         let path = if numbered {
             storage = string.replace("{n}", &format!("{:0width$}", i + 1));
             Path::new(&storage)
         } else {
             output.as_path()
         };
-        pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+        match fmt {
+            ExportImageFormat::Png => {
+                let pixmap =
+                    typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
+                pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+            }
+            ExportImageFormat::Svg => {
+                let svg = typst::export::svg_frame(frame);
+                fs::write(path, svg).map_err(|_| "failed to write SVG file")?;
+            }
+        }
     }
-
-    Ok(())
-}
-
-fn export_svg(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    // Determine whether we have a `{n}` numbering.
-    let output = command.output();
-    let path = output.to_str().unwrap_or_default();
-    let svg = typst::export::svg(document);
-    fs::write(path, svg).map_err(|_| "failed to write SVG file")?;
 
     Ok(())
 }
