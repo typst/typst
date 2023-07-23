@@ -397,13 +397,16 @@ impl SVGRenderer {
             "xlink:href",
             format_args!("#{}{}", self.glyphs.prefix(), id),
         );
-        self.xml.write_attribute("x", &(x_offset * inv_scale));
+        // The image is stored with the height of `image.height()`, but we want to render it with a
+        // height of `target_height`. So we need to scale it.
+        let scale_factor = target_height / image.height() as f64;
+        self.xml.write_attribute("x", &(x_offset / scale_factor));
         self.xml.write_attribute_fmt(
             "transform",
             format_args!(
                 "scale({} -{})",
-                inv_scale * (target_height / image.height() as f64),
-                inv_scale * (target_height / image.height() as f64),
+                inv_scale * scale_factor,
+                inv_scale * scale_factor,
             ),
         );
         self.xml.end_element();
