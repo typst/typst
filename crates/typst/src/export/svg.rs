@@ -122,6 +122,9 @@ impl<H, T, const PREFIX: char> IntoIterator for DedupVec<H, T, PREFIX> {
 struct SVGRenderer {
     xml: XmlWriter,
     glyphs: DedupVec<RenderHash, RenderedGlyph, 'g'>,
+    /// Clip paths are used to clip a group. A clip path is a path that defines the clipping
+    /// region. The clip path is referenced by the `clip-path` attribute of the group.
+    /// The clip path is in the format of `M x y L x y C x1 y1 x2 y2 x y Z`.
     clip_paths: DedupVec<RenderHash, String, 'c'>,
 }
 
