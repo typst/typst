@@ -41,7 +41,7 @@ fn stretch_glyph(
     let short_target = target - short_fall;
     let mut min_overlap = Abs::zero();
     let construction = ctx
-        .table
+        .table()
         .variants
         .and_then(|variants| {
             min_overlap = variants.min_connector_overlap.scaled(ctx);

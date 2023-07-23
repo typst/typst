@@ -100,7 +100,7 @@ impl LayoutMath for CancelElem {
         let length = self.length(styles).resolve(styles);
 
         let stroke = self.stroke(styles).unwrap_or(Stroke {
-            paint: TextElem::fill_in(styles),
+            paint: VarElem::fill_in(styles).unwrap_or(TextElem::fill_in(styles)),
             ..Default::default()
         });
 

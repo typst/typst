@@ -10,6 +10,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
+use ttf_parser::gsub::SubstitutionSubtable;
 use ttf_parser::GlyphId;
 
 use self::book::find_name;
@@ -39,6 +40,10 @@ struct Repr {
     ttf: ttf_parser::Face<'static>,
     /// The underlying rustybuzz face.
     rusty: rustybuzz::Face<'static>,
+    /// The math table
+    math: Option<ttf_parser::math::Table<'static>>,
+    /// The math optical size substitutions.
+    ssty: Option<ttf_parser::gsub::AlternateSubstitution<'static>>,
 }
 
 impl Font {
@@ -57,8 +62,23 @@ impl Font {
         let rusty = rustybuzz::Face::from_slice(slice, index)?;
         let metrics = FontMetrics::from_ttf(&ttf);
         let info = FontInfo::from_ttf(&ttf)?;
+        let math = ttf.tables().math;
 
-        Some(Self(Arc::new(Repr { data, index, info, metrics, ttf, rusty })))
+        let gsub_table = ttf.tables().gsub;
+        let ssty = gsub_table
+            .and_then(|gsub| {
+                gsub.features
+                    .find(ttf_parser::Tag::from_bytes(b"ssty"))
+                    .and_then(|feature| feature.lookup_indices.get(0))
+                    .and_then(|index| gsub.lookups.get(index))
+            })
+            .and_then(|ssty| ssty.subtables.get::<SubstitutionSubtable>(0))
+            .and_then(|ssty| match ssty {
+                SubstitutionSubtable::Alternate(alt_glyphs) => Some(alt_glyphs),
+                _ => None,
+            });
+
+        Some(Self(Arc::new(Repr { data, index, info, metrics, ttf, rusty, math, ssty })))
     }
 
     /// Parse all fonts in the given data.
@@ -122,6 +142,16 @@ impl Font {
         // We can't implement Deref because that would leak the
         // internal 'static lifetime.
         &self.0.rusty
+    }
+
+    /// The math table, if present.
+    pub fn math(&self) -> Option<ttf_parser::math::Table<'_>> {
+        self.0.math
+    }
+
+    /// The optical size substitution table, if present.
+    pub fn ssty(&self) -> Option<ttf_parser::gsub::AlternateSubstitution<'_>> {
+        self.0.ssty
     }
 }
 

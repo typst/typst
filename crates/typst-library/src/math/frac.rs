@@ -136,7 +136,7 @@ fn layout(
             line_pos,
             FrameItem::Shape(
                 Geometry::Line(Point::with_x(line_width)).stroked(Stroke {
-                    paint: TextElem::fill_in(ctx.styles()),
+                    paint: ctx.default_var_fill(),
                     thickness,
                     ..Stroke::default()
                 }),

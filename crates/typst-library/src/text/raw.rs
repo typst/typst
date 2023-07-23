@@ -13,6 +13,7 @@ use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
+use crate::math::OrdinaryContent;
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 
@@ -286,6 +287,9 @@ impl Show for RawElem {
             realized = realized.aligned(Axes::with_x(Some(self.align(styles).into())));
             realized = BlockElem::new().with_body(Some(realized)).pack();
         }
+
+        // FIXME: Hunt down the other places this is needed.
+        let realized = OrdinaryContent::new(realized).pack();
 
         Ok(realized)
     }

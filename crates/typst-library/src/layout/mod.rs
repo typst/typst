@@ -53,7 +53,7 @@ use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 use typst::model::{applicable, realize, StyleVecBuilder};
 
-use crate::math::{EquationElem, LayoutMath};
+use crate::math::{EquationElem, LayoutMath, OrdinaryContent};
 use crate::meta::DocumentElem;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
@@ -336,6 +336,11 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         if content.can::<dyn LayoutMath>() && !content.is::<EquationElem>() {
             content =
                 self.scratch.content.alloc(EquationElem::new(content.clone()).pack());
+        }
+
+        if let Some(ordinary) = content.to::<OrdinaryContent>() {
+            let body = self.scratch.content.alloc(ordinary.body());
+            return self.accept(body, styles);
         }
 
         if let Some(realized) = realize(self.vt, content, styles)? {

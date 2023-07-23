@@ -54,7 +54,7 @@ use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::symbols::SymbolElem;
 use crate::text::{
-    families, variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
+    variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
 };
 
 /// Create a module with all math definitions.
@@ -63,6 +63,7 @@ pub fn module() -> Module {
     math.define("equation", EquationElem::func());
     math.define("text", TextElem::func());
     math.define("var", VarElem::func());
+    math.define("ord", OrdinaryContent::func());
 
     // Grouping.
     math.define("lr", LrElem::func());
@@ -156,7 +157,7 @@ pub fn module() -> Module {
 /// Display: Equation
 /// Category: math
 #[element(
-    Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable,
+    Locatable, Synthesize, Show, Layout, LayoutMath, Count, LocalName, Refable,
     Outlinable
 )]
 pub struct EquationElem {
@@ -228,16 +229,6 @@ impl Show for EquationElem {
     }
 }
 
-impl Finalize for EquationElem {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
-        realized
-            .styled(TextElem::set_weight(FontWeight::from_number(450)))
-            .styled(TextElem::set_font(FontList(vec![FontFamily::new(
-                "New Computer Modern Math",
-            )])))
-    }
-}
-
 impl Layout for EquationElem {
     #[tracing::instrument(name = "EquationElem::layout", skip_all)]
     fn layout(
@@ -250,21 +241,8 @@ impl Layout for EquationElem {
 
         let block = self.block(styles);
 
-        // Find a math font.
-        let variant = variant(styles);
-        let world = vt.world;
-        let Some(font) = families(styles)
-            .find_map(|family| {
-                let id = world.book().select(family.as_str(), variant)?;
-                let font = world.font(id)?;
-                let _ = font.ttf().tables().math?.constants?;
-                Some(font)
-            })
-        else {
-            bail!(self.span(), "current font does not support math");
-        };
-
-        let mut ctx = MathContext::new(vt, styles, regions, &font, block);
+        let mut ctx = MathContext::new(vt, styles, regions, block, self.span())?;
+        let font = ctx.font();
         let mut frame = ctx.layout_frame(self)?;
 
         if block {
@@ -296,6 +274,8 @@ impl Layout for EquationElem {
             }
         } else {
             let slack = ParElem::leading_in(styles) * 0.7;
+            // FIXME? With this heuristic, shouldn't the font be the paragraph
+            // text font?
             let top_edge = TextElem::top_edge_in(styles).resolve(styles, &font, None);
             let bottom_edge =
                 -TextElem::bottom_edge_in(styles).resolve(styles, &font, None);
@@ -419,6 +399,12 @@ impl LayoutMath for Content {
             return elem.layout_math(ctx);
         }
 
+        if let Some(elem) = self.to::<OrdinaryContent>() {
+            let frame = ctx.layout_content(&elem.body())?;
+            ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
+            return Ok(());
+        }
+
         if let Some(realized) = ctx.realize(self)? {
             return realized.layout_math(ctx);
         }
@@ -435,21 +421,44 @@ impl LayoutMath for Content {
         }
 
         if let Some((elem, styles)) = self.to_styled() {
-            if TextElem::font_in(ctx.styles().chain(styles))
-                != TextElem::font_in(ctx.styles())
-            {
-                let frame = ctx.layout_content(self)?;
-                ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
-                return Ok(());
-            }
+            let s_prev = ctx.styles();
+            let s_next = s_prev.chain(styles);
 
-            let prev_map = std::mem::replace(&mut ctx.local, styles.clone());
-            let prev_size = ctx.size;
-            ctx.local.apply(prev_map.clone());
-            ctx.size = TextElem::size_in(ctx.styles());
-            elem.layout_math(ctx)?;
-            ctx.size = prev_size;
-            ctx.local = prev_map;
+            let size_prev = ctx.size;
+
+            // FIXME. interruption returns an Option<Option<Span>>.  What to do
+            // with the return value?
+            // FIXME. Code duplication in if/else clauses is here to satisfy
+            // the borrow checker.
+            if styles.interruption::<VarElem>().is_some()
+                && ((VarElem::font_in(s_prev) != VarElem::font_in(s_next))
+                    || (VarElem::weight_in(s_prev) != VarElem::weight_in(s_next))
+                    || (VarElem::fallback_in(s_prev) != VarElem::fallback_in(s_next)))
+            {
+                // Only var(font:,weight:,fallback:) affect the math font selection.
+                let font_prev = ctx.font.clone();
+                let space_width_prev = ctx.space_width;
+                let local_prev = std::mem::replace(&mut ctx.local, styles.clone());
+                ctx.local.apply(local_prev.clone());
+                ctx.update_font(self.span())?;
+                ctx.size = ctx.default_var_size();
+
+                elem.layout_math(ctx)?;
+
+                ctx.size = size_prev;
+                ctx.font = font_prev;
+                ctx.space_width = space_width_prev;
+                ctx.local = local_prev;
+            } else {
+                let local_prev = std::mem::replace(&mut ctx.local, styles.clone());
+                ctx.local.apply(local_prev.clone());
+                ctx.size = ctx.default_var_size();
+
+                elem.layout_math(ctx)?;
+
+                ctx.size = size_prev;
+                ctx.local = local_prev;
+            }
             return Ok(());
         }
 
@@ -501,4 +510,20 @@ impl LayoutMath for Content {
 
         Ok(())
     }
+}
+
+/// FIXME: These are dev comments.  Proper comments needed if
+/// this gets exposed.
+/// Enables a transition from math mode to ordinary mode if
+/// the style is encountered while laying out a formula.
+///
+/// Display: OrdinaryContent
+/// Category: special
+#[element]
+pub struct OrdinaryContent {
+    /// Metadata that should be attached to all elements affected by this style
+    /// property.
+    /// default: true
+    #[required]
+    pub body: Content,
 }

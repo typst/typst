@@ -1,6 +1,5 @@
-use ttf_parser::gsub::SubstitutionSubtable;
 use ttf_parser::math::MathValue;
-use typst::font::{FontStyle, FontWeight};
+use typst::font::{FontStretch, FontStyle, FontVariant, FontWeight};
 use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -15,13 +14,13 @@ macro_rules! scaled {
         }
     };
     ($ctx:expr, $name:ident) => {
-        $ctx.constants.$name().scaled($ctx)
+        $ctx.constants().$name().scaled($ctx)
     };
 }
 
 macro_rules! percent {
     ($ctx:expr, $name:ident) => {
-        $ctx.constants.$name() as f64 / 100.0
+        $ctx.constants().$name() as f64 / 100.0
     };
 }
 
@@ -29,12 +28,7 @@ macro_rules! percent {
 pub struct MathContext<'a, 'b, 'v> {
     pub vt: &'v mut Vt<'b>,
     pub regions: Regions<'static>,
-    pub font: &'a Font,
-    pub ttf: &'a ttf_parser::Face<'a>,
-    pub table: ttf_parser::math::Table<'a>,
-    pub constants: ttf_parser::math::Constants<'a>,
-    pub ssty_table: Option<ttf_parser::gsub::AlternateSubstitution<'a>>,
-    pub glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
+    pub font: Font,
     pub space_width: Em,
     pub fragments: Vec<MathFragment>,
     pub local: Styles,
@@ -49,35 +43,14 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         vt: &'v mut Vt<'b>,
         styles: StyleChain<'a>,
         regions: Regions,
-        font: &'a Font,
         block: bool,
-    ) -> Self {
-        let math_table = font.ttf().tables().math.unwrap();
-        let gsub_table = font.ttf().tables().gsub;
-        let constants = math_table.constants.unwrap();
+        span: Span,
+    ) -> SourceResult<Self> {
+        let Some(font) = find_math_font(vt, styles) else {
+            bail!(span,"current font does not support math");
+        };
 
-        let ssty_table = gsub_table
-            .and_then(|gsub| {
-                gsub.features
-                    .find(ttf_parser::Tag::from_bytes(b"ssty"))
-                    .and_then(|feature| feature.lookup_indices.get(0))
-                    .and_then(|index| gsub.lookups.get(index))
-            })
-            .and_then(|ssty| ssty.subtables.get::<SubstitutionSubtable>(0))
-            .and_then(|ssty| match ssty {
-                SubstitutionSubtable::Alternate(alt_glyphs) => Some(alt_glyphs),
-                _ => None,
-            });
-
-        let features = tags(styles);
-        let glyphwise_tables = gsub_table.map(|gsub| {
-            features
-                .into_iter()
-                .filter_map(|feature| GlyphwiseSubsts::new(gsub, feature))
-                .collect()
-        });
-
-        let size = TextElem::size_in(styles);
+        let size = var_size(styles);
         let ttf = font.ttf();
         let space_width = ttf
             .glyph_index(' ')
@@ -85,16 +58,16 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .map(|advance| font.to_em(advance))
             .unwrap_or(THICK);
 
+        // FIXME: There's a legacy attempt here to be smart about
+        // inheriting the document's italic/bold-ness into the math.
+        // But there is an inconsistency here if you set the `text`
+        // properties during the equation; then they have no effect.
         let variant = variant(styles);
-        Self {
+
+        Ok(Self {
             vt,
             regions: Regions::one(regions.base(), Axes::splat(false)),
             font,
-            ttf: font.ttf(),
-            table: math_table,
-            constants,
-            ssty_table,
-            glyphwise_tables,
             space_width,
             fragments: vec![],
             local: Styles::new(),
@@ -112,7 +85,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             size,
             outer: styles,
             style_stack: vec![],
-        }
+        })
     }
 
     pub fn push(&mut self, fragment: impl Into<MathFragment>) {
@@ -121,6 +94,58 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn extend(&mut self, fragments: Vec<MathFragment>) {
         self.fragments.extend(fragments);
+    }
+
+    pub fn font(&self) -> Font {
+        self.font.clone()
+    }
+
+    pub fn ttf(&self) -> &ttf_parser::Face {
+        self.font.ttf()
+    }
+
+    pub fn table(&self) -> ttf_parser::math::Table {
+        self.font.ttf().tables().math.unwrap()
+    }
+
+    pub fn constants(&self) -> ttf_parser::math::Constants {
+        self.font.ttf().tables().math.unwrap().constants.unwrap()
+    }
+
+    pub fn ssty(&'a self) -> Option<ttf_parser::gsub::AlternateSubstitution<'a>> {
+        self.font.ssty()
+    }
+
+    // FIXME: This is doing needless extended computation once per glyph
+    pub fn glyphwise_tables(&'a self) -> Option<Vec<GlyphwiseSubsts<'a>>> {
+        let gsub_table = self.font.ttf().tables().gsub;
+
+        // FIXME: These are TextElem features!
+        let features = tags(self.outer.chain(&self.local));
+
+        gsub_table.map(|gsub| {
+            features
+                .into_iter()
+                .filter_map(|feature| GlyphwiseSubsts::new(gsub, feature))
+                .collect()
+        })
+    }
+
+    pub fn update_font(&mut self, span: Span) -> SourceResult<()> {
+        let styles = self.outer.chain(&self.local);
+        let Some(font) = find_math_font(self.vt, styles) else {
+            bail!(span,"current font does not support math");
+        };
+        self.font = font.clone();
+
+        let ttf = self.ttf();
+        self.space_width = ttf
+            .glyph_index(' ')
+            .and_then(|id| ttf.glyph_hor_advance(id))
+            .map(|advance| font.to_em(advance))
+            .unwrap_or(THICK);
+
+        Ok(())
     }
 
     pub fn layout_fragment(
@@ -187,12 +212,26 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let span = elem.span();
         let text = elem.text();
 
+        // FIXME: Need to determine if this var has explicitly changed
+        // the font (via font, weight and fallback)
+
+        let size_prev = self.size;
+        self.size = self.var_size(elem);
+
         let mut chars = text.chars();
+        let styles = self.styles();
         if let Some(mut glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
             .map(|c| self.style.styled_char(c))
-            .and_then(|c| GlyphFragment::try_new(self, c, span))
+            .and_then(|c| {
+                GlyphFragment::try_new(
+                    self,
+                    c,
+                    elem.fill(styles).unwrap_or(TextElem::fill_in(styles)),
+                    span,
+                )
+            })
         {
             // A single glyph in the math font. A lot of the later
             // processing seems to depend on the GlyphFragment
@@ -225,6 +264,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                     glyph.into()
                 }
             };
+            self.size = size_prev;
             Ok(fragment)
         } else {
             let is_number = text.chars().all(|c| c.is_ascii_digit());
@@ -242,14 +282,32 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
             let text = TextElem::packed(styled_text).spanned(span);
 
+            let styles = self.styles();
+
             let mut mathstyle = Styles::new();
             let math_script = Smart::Custom(WritingScript::MATH);
             mathstyle.set(TextElem::set_script(math_script));
+            // FIXME Need to meditate on this.
+            mathstyle.set(TextElem::set_kerning(false));
 
             mathstyle.set(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)));
             mathstyle.set(TextElem::set_bottom_edge(BottomEdge::Metric(
                 BottomEdgeMetric::Bounds,
             )));
+
+            // Negotiable.
+            mathstyle.set(TextElem::set_weight(elem.weight(styles)));
+            mathstyle.set(TextElem::set_fallback(elem.fallback(styles)));
+
+            let textsize = TextSize(Length { abs: self.size, em: Em::zero() });
+            mathstyle.set(TextElem::set_size(textsize));
+
+            mathstyle.set(TextElem::set_font(elem.font(styles)));
+            let fill = elem.fill(styles).unwrap_or(TextElem::fill_in(styles));
+            mathstyle.set(TextElem::set_fill(fill));
+            // TODO:
+            // mathstyle.set(TextElem::set_features(elem.features(style)));
+            // mathstyle.set(TextElem::set_slashed_zero(elem))
 
             let ssty = ttf_parser::Tag::from_bytes(b"ssty");
             match self.style.size {
@@ -264,6 +322,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 _ => {}
             }
 
+            let styles = StyleChain::default();
+            let mathstyles = styles.chain(&mathstyle);
+
             let par = ParElem::new(vec![text]);
 
             // There isn't a natural width for a paragraph in a math environment;
@@ -271,15 +332,10 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             // it will overflow.  So emulate an `hbox` instead and allow the paragraph
             // to extend as far as needed.
             let frame = par
-                .layout(
-                    self.vt,
-                    self.outer.chain(&self.local).chain(&mathstyle),
-                    false,
-                    Size::splat(Abs::inf()),
-                    false,
-                )?
+                .layout(self.vt, mathstyles, false, Size::splat(Abs::inf()), false)?
                 .into_frame();
 
+            self.size = size_prev;
             Ok(FrameFragment::new(self, frame)
                 .with_class(MathClass::Alphabetic)
                 .with_spaced(spaced)
@@ -289,6 +345,26 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn styles(&self) -> StyleChain {
         self.outer.chain(&self.local)
+    }
+
+    // FIXME: unlovely code duplication
+    pub fn var_size(&self, elem: &VarElem) -> Abs {
+        let styles = self.styles();
+        // FIXME: What happens if set var(size: 2em) and nothing has
+        // previously been set?
+        match elem.size(styles) {
+            Smart::Custom(size) => size,
+            Smart::Auto => TextElem::size_in(styles),
+        }
+    }
+
+    pub fn default_var_size(&self) -> Abs {
+        var_size(self.styles())
+    }
+
+    pub fn default_var_fill(&self) -> Paint {
+        let styles = self.styles();
+        VarElem::fill_in(styles).unwrap_or(TextElem::fill_in(styles))
     }
 
     pub fn realize(&mut self, content: &Content) -> SourceResult<Option<Content>> {
@@ -349,5 +425,36 @@ impl Scaled for Em {
 impl Scaled for MathValue<'_> {
     fn scaled(self, ctx: &MathContext) -> Abs {
         self.value.scaled(ctx)
+    }
+}
+
+fn find_math_font(vt: &Vt, styles: StyleChain) -> Option<Font> {
+    let variant = FontVariant::new(
+        FontStyle::Normal,
+        VarElem::weight_in(styles),
+        FontStretch::NORMAL,
+    );
+
+    const FALLBACKS: &[&str] = &["New Computer Modern Math"];
+
+    let tail = if VarElem::fallback_in(styles) { FALLBACKS } else { &[] };
+    let mut families = VarElem::font_in(styles)
+        .into_iter()
+        .chain(tail.iter().copied().map(FontFamily::new));
+
+    let world = vt.world;
+    families.find_map(|family| {
+        let id = world.book().select(family.as_str(), variant)?;
+        let font = world.font(id)?;
+        let _ = font.math()?.constants?;
+        Some(font)
+    })
+}
+
+fn var_size(styles: StyleChain) -> Abs {
+    // FIXME: The `em` part of the length is broken
+    match VarElem::size_in(styles) {
+        Smart::Custom(size) => size,
+        Smart::Auto => TextElem::size_in(styles),
     }
 }

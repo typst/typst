@@ -201,19 +201,25 @@ pub struct GlyphFragment {
 
 impl GlyphFragment {
     pub fn new(ctx: &MathContext, c: char, span: Span) -> Self {
-        let id = ctx.ttf.glyph_index(c).unwrap_or_default();
+        let id = ctx.ttf().glyph_index(c).unwrap_or_default();
         let id = Self::adjust_glyph_index(ctx, id);
-        Self::with_id(ctx, c, id, span)
+        Self::with_id(ctx, c, id, ctx.default_var_fill(), span)
     }
 
-    pub fn try_new(ctx: &MathContext, c: char, span: Span) -> Option<Self> {
+    pub fn try_new(ctx: &MathContext, c: char, fill: Paint, span: Span) -> Option<Self> {
         let c = ctx.style.styled_char(c);
-        let id = ctx.ttf.glyph_index(c)?;
+        let id = ctx.ttf().glyph_index(c)?;
         let id = Self::adjust_glyph_index(ctx, id);
-        Some(Self::with_id(ctx, c, id, span))
+        Some(Self::with_id(ctx, c, id, fill, span))
     }
 
-    pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
+    pub fn with_id(
+        ctx: &MathContext,
+        c: char,
+        id: GlyphId,
+        fill: Paint,
+        span: Span,
+    ) -> Self {
         let class = match c {
             ':' => Some(MathClass::Relation),
             '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
@@ -222,9 +228,10 @@ impl GlyphFragment {
         let mut fragment = Self {
             id,
             c,
-            font: ctx.font.clone(),
+            font: ctx.font(),
+            // FIXME: What do do about this??
             lang: TextElem::lang_in(ctx.styles()),
-            fill: TextElem::fill_in(ctx.styles()),
+            fill,
             style: ctx.style,
             font_size: ctx.size,
             width: Abs::zero(),
@@ -242,7 +249,7 @@ impl GlyphFragment {
 
     /// Apply GSUB substitutions.
     fn adjust_glyph_index(ctx: &MathContext, id: GlyphId) -> GlyphId {
-        if let Some(glyphwise_tables) = &ctx.glyphwise_tables {
+        if let Some(glyphwise_tables) = &ctx.glyphwise_tables() {
             glyphwise_tables.iter().fold(id, |id, table| table.apply(id))
         } else {
             id
@@ -252,9 +259,9 @@ impl GlyphFragment {
     /// Sets element id and boxes in appropriate way without changing other
     /// styles. This is used to replace the glyph with a stretch variant.
     pub fn set_id(&mut self, ctx: &MathContext, id: GlyphId) {
-        let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
+        let advance = ctx.ttf().glyph_hor_advance(id).unwrap_or_default();
         let italics = italics_correction(ctx, id).unwrap_or_default();
-        let bbox = ctx.ttf.glyph_bounding_box(id).unwrap_or(Rect {
+        let bbox = ctx.ttf().glyph_bounding_box(id).unwrap_or(Rect {
             x_min: 0,
             y_min: 0,
             x_max: 0,
@@ -413,22 +420,22 @@ impl FrameFragment {
 
 /// Look up the italics correction for a glyph.
 fn italics_correction(ctx: &MathContext, id: GlyphId) -> Option<Abs> {
-    Some(ctx.table.glyph_info?.italic_corrections?.get(id)?.scaled(ctx))
+    Some(ctx.table().glyph_info?.italic_corrections?.get(id)?.scaled(ctx))
 }
 
 /// Look up the script/scriptscript alternates for a glyph
 fn script_alternatives<'a>(
-    ctx: &MathContext<'a, '_, '_>,
+    ctx: &'a MathContext<'a, '_, '_>,
     id: GlyphId,
 ) -> Option<AlternateSet<'a>> {
-    ctx.ssty_table.and_then(|ssty| {
+    ctx.ssty().and_then(|ssty| {
         ssty.coverage.get(id).and_then(|index| ssty.alternate_sets.get(index))
     })
 }
 
 /// Look up the italics correction for a glyph.
 fn is_extended_shape(ctx: &MathContext, id: GlyphId) -> bool {
-    ctx.table
+    ctx.table()
         .glyph_info
         .and_then(|info| info.extended_shapes)
         .and_then(|info| info.get(id))
@@ -446,7 +453,7 @@ fn kern_at_height(
     corner: Corner,
     height: Abs,
 ) -> Option<Abs> {
-    let kerns = ctx.table.glyph_info?.kern_infos?.get(id)?;
+    let kerns = ctx.table().glyph_info?.kern_infos?.get(id)?;
     let kern = match corner {
         Corner::TopLeft => kerns.top_left,
         Corner::TopRight => kerns.top_right,
@@ -468,6 +475,8 @@ pub enum GlyphwiseSubsts<'a> {
     Alternate(AlternateSubstitution<'a>, u32),
 }
 
+// FIXME: Looks like the ssty's below are cut paste errors.
+// Not a bug, just semantically confusing.
 impl<'a> GlyphwiseSubsts<'a> {
     pub fn new(gsub: LayoutTable<'a>, feature: Feature) -> Option<Self> {
         let table = gsub

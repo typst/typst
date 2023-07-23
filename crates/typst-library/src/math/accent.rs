@@ -107,13 +107,13 @@ impl LayoutMath for AccentElem {
 
 /// The horizontal attachment position for the given glyph.
 fn attachment(ctx: &MathContext, id: GlyphId, italics_correction: Abs) -> Abs {
-    ctx.table
+    ctx.table()
         .glyph_info
         .and_then(|info| info.top_accent_attachments)
         .and_then(|attachments| attachments.get(id))
         .map(|record| record.value.scaled(ctx))
         .unwrap_or_else(|| {
-            let advance = ctx.ttf.glyph_hor_advance(id).unwrap_or_default();
+            let advance = ctx.ttf().glyph_hor_advance(id).unwrap_or_default();
             (advance.scaled(ctx) + italics_correction) / 2.0
         })
 }
@@ -133,6 +133,8 @@ cast! {
     self => self.0.into_value(),
     v: char => Self::new(v),
     v: Content => {
+        // FIXME: Unsure of what this code does. Is the TextElem
+        // part still needed?
         if let Some(elem) = v.to::<TextElem>() {
             Value::Str(elem.text().into()).cast()?
         } else if let Some(elem) = v.to::<VarElem>() {

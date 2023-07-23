@@ -23,13 +23,15 @@ use walkdir::WalkDir;
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Tracer, Value};
-use typst::font::{Font, FontBook};
+use typst::font::{Font, FontBook, FontWeight};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
+use typst::model::{Element, Recipe, Selector, Style, Styles, Transform};
 use typst::syntax::{FileId, Source, Span, SyntaxNode};
 use typst::util::{Bytes, PathExt};
 use typst::World;
 use typst_library::layout::{Margin, PageElem};
-use typst_library::text::{TextElem, TextSize};
+use typst_library::math::EquationElem;
+use typst_library::text::{FontFamily, FontList, TextElem, TextSize};
 
 const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
@@ -181,6 +183,20 @@ fn library() -> Library {
         Abs::pt(10.0).into(),
     )))));
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
+
+    let mut eq_styles = Styles::new();
+    eq_styles.set(TextElem::set_font(FontList(vec![FontFamily::new(
+        "New Computer Modern Math",
+    )])));
+    eq_styles.set(TextElem::set_weight(FontWeight::from_number(450)));
+
+    let eq_show_rule = Recipe {
+        span: Span::detached(),
+        selector: Some(Selector::Elem(EquationElem::func(), None)),
+        transform: Transform::Style(eq_styles),
+    };
+
+    lib.styles.set(Style::Recipe(eq_show_rule));
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define("test", test_func());
