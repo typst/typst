@@ -290,8 +290,17 @@ impl Show for FigureElem {
         let mut realized = self.body();
 
         // Build the caption, if any.
-        if let Some(caption_content) = self.full_caption(vt)? {
-            let caption = FigureCaption::new(caption_content).pack();
+        if let Some(caption_body) = self.caption(StyleChain::default()) {
+            let supplement = self.supplement(StyleChain::default()).unwrap_or_default();
+            let loc = self.0.location().unwrap();
+            let numbers = if let (Some(counter), Some(numbering)) =
+                (self.counter(), self.numbering(StyleChain::default()))
+            {
+                Some(counter.at(vt, loc)?.display(vt, &numbering)?)
+            } else {
+                None
+            };
+            let caption = FigureCaption::new(caption_body, supplement, numbers).pack();
             let v = VElem::weak(self.gap(styles).into()).pack();
             realized = if matches!(
                 self.caption_pos(styles),
@@ -301,7 +310,7 @@ impl Show for FigureElem {
             } else {
                 caption + v + realized
             }
-        };
+        }
 
         // Wrap the contents in a block.
         realized = BlockElem::new()
@@ -364,13 +373,6 @@ impl Outlinable for FigureElem {
             return Ok(None);
         }
 
-        self.full_caption(vt)
-    }
-}
-
-impl FigureElem {
-    /// Builds the full caption for the figure (with supplement and numbering).
-    pub fn full_caption(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
         let Some(mut caption) = self.caption(StyleChain::default()) else {
             return Ok(None);
         };
@@ -422,17 +424,31 @@ pub struct FigureCaption {
     /// The caption's body.
     #[required]
     pub body: Content,
-}
-
-cast! {
-    FigureCaption,
-    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
+    /// The caption's supplement.
+    #[required]
+    pub supplement: Option<Supplement>,
+    /// The caption's numbers, evaluated from the corresponding figure's
+    /// counter.
+    #[required]
+    pub numbers: Option<Content>,
 }
 
 impl Show for FigureCaption {
     #[tracing::instrument(name = "FigureCaption::show", skip(self))]
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
-        Ok(self.body())
+        let mut caption = self.body();
+
+        if let (Some(Supplement::Content(mut supplement)), Some(numbers)) =
+            (self.supplement(), self.numbers())
+        {
+            if !supplement.is_empty() {
+                supplement += TextElem::packed("\u{a0}");
+            }
+
+            caption = supplement + numbers + TextElem::packed(": ") + caption;
+        }
+
+        Ok(caption)
     }
 }
 
