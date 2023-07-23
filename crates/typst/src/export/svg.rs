@@ -1,4 +1,9 @@
-use std::{collections::HashMap, fmt::Write, hash::Hash, io::Read};
+use std::{
+    collections::HashMap,
+    fmt::{Display, Write},
+    hash::Hash,
+    io::Read,
+};
 
 use base64::Engine;
 use ttf_parser::{GlyphId, OutlineBuilder};
@@ -54,6 +59,7 @@ pub fn svg_frame(frame: &Frame) -> String {
 /// [`RenderedGlyph`] represet glyph to be rendered.
 enum RenderedGlyph {
     /// A path is a sequence of drawing commands.
+    /// It is in the format of `M x y L x y C x1 y1 x2 y2 x y Z`.
     Path(String),
     /// An image is a URL to an image file, plus the size and transform. The url is in the
     /// format of `data:image/{format};base64,`.
@@ -168,7 +174,7 @@ impl SVGRenderer {
                     self.xml.write_attribute("width", &width);
                     self.xml.write_attribute("height", &height);
                     if !ts.is_identity() {
-                        self.xml.write_attribute("transform", &ts.to_svg());
+                        self.xml.write_attribute("transform", &ts);
                     }
                     self.xml.write_attribute("preserveAspectRatio", "none");
                     self.xml.end_element();
@@ -205,10 +211,10 @@ impl SVGRenderer {
     }
 
     /// Render a frame with the given transform.
-    fn render_frame(&mut self, frame: &Frame, trans: Transform) {
+    fn render_frame(&mut self, frame: &Frame, ts: Transform) {
         self.xml.start_element("g");
-        if !trans.is_identity() {
-            self.xml.write_attribute("transform", &trans.to_svg());
+        if !ts.is_identity() {
+            self.xml.write_attribute("transform", &ts);
         };
         for (pos, item) in frame.items() {
             let x = pos.x.to_pt();
@@ -297,23 +303,18 @@ impl SVGRenderer {
             data = &decoded;
         }
 
-        // todo: When a font engine renders glyph 14, the result shall be the same as
-        // rendering the following SVG document   <svg> <defs> <use #glyph{id}>
-        // </svg>
-
         let upem = Abs::raw(font.units_per_em());
         let (width, height) = (upem.to_pt(), upem.to_pt());
         let origin_ascender = font_metrics.ascender.at(upem).to_pt();
-
-        // let doc_string = String::from_utf8(data.to_owned()).unwrap();
-
-        // todo: verify SVG capability requirements and restrictions
 
         // Parse XML.
         let mut svg_str = std::str::from_utf8(data).ok()?.to_owned();
         let document = xmlparser::Tokenizer::from(svg_str.as_str());
         let mut start_span = None;
         let mut last_viewbox = None;
+        // Parse xml and find the viewBox of the svg element.
+        // <svg viewBox="0 0 1000 1000">...</svg>
+        // ~~~~~^~~~~~~
         for n in document {
             let tok = n.unwrap();
             match tok {
@@ -332,36 +333,16 @@ impl SVGRenderer {
                 _ => {}
             }
         }
-
-        // update view box
-        let view_box = last_viewbox
-            .as_ref()
-            .map(|s| {
-                // WARN_VIEW_BOX.get_or_init(|| {
-                //     println!(
-                //         "render_svg_glyph with viewBox, This should be helpful if you can help us verify the result: {:?} {:?}",
-                //         font.info().family,
-                //         doc_string
-                //     );
-                // });
-                s.1.as_str().to_owned()
-            })
-            .unwrap_or_else(|| format!("0 {} {} {}", -origin_ascender, width, height));
-
-        match last_viewbox {
-            Some((span, ..)) => {
-                svg_str.replace_range(
-                    span.range(),
-                    format!(r#"viewBox="{}""#, view_box).as_str(),
-                );
-            }
-            None => {
-                svg_str.insert_str(
-                    start_span.unwrap().range().end,
-                    format!(r#" viewBox="{}""#, view_box).as_str(),
-                );
-            }
+        
+        if last_viewbox.is_none() {
+            // correct the viewbox if it is not present
+            // `-origin_ascender` is to make sure the glyph is rendered at the correct position
+            svg_str.insert_str(
+                start_span.unwrap().range().end,
+                format!(r#" viewBox="0 {} {} {}""#, -origin_ascender, width, height).as_str(),
+            );
         }
+
         let id = self.glyphs.insert_with(glyph_hash, || {
             let mut url = "data:image/svg+xml;base64,".to_string();
             let b64_encoded =
@@ -562,16 +543,12 @@ fn encode_image_to_url(image: &Image) -> String {
     url
 }
 
-/// A trait for converting a [`Transform`] into a SVG transform string.
-trait TransformExt {
-    fn to_svg(self) -> String;
-}
-
-impl TransformExt for Transform {
-    /// Convert a [`Transform`] into a SVG transform string.
-    /// See https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
-    fn to_svg(self) -> String {
-        format!(
+impl Display for Transform {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Convert a [`Transform`] into a SVG transform string.
+        // See https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/transform
+        write!(
+            f,
             "matrix({} {} {} {} {} {})",
             self.sx.get(),
             self.ky.get(),
@@ -582,7 +559,6 @@ impl TransformExt for Transform {
         )
     }
 }
-
 /// A builder for SVG path.
 struct SVGPath2DBuilder(pub String);
 
