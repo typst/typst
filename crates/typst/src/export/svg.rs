@@ -1,8 +1,4 @@
-use std::{
-    collections::HashMap,
-    fmt::{Display, Write},
-    io::Read,
-};
+use std::{collections::HashMap, fmt::Write, hash::Hash, io::Read};
 
 use base64::Engine;
 use ttf_parser::{GlyphId, OutlineBuilder};
@@ -17,7 +13,6 @@ use crate::{
 use crate::{geom::Paint::Solid, image::Image};
 
 /// [`RenderHash`] is a hash value for a rendered glyph or clip path.
-/// The hash value is used as the id of the glyph or clip path in the SVG file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct RenderHash(u128);
 
@@ -25,15 +20,6 @@ struct RenderHash(u128);
 impl From<u128> for RenderHash {
     fn from(value: u128) -> Self {
         Self(value)
-    }
-}
-
-/// Convert a [`RenderHash`] into a [`String`].
-impl Display for RenderHash {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        base64::engine::general_purpose::STANDARD
-            .encode(self.0.to_le_bytes())
-            .fmt(f)
     }
 }
 
@@ -74,11 +60,63 @@ enum RenderedGlyph {
     Image { url: String, width: f64, height: f64, ts: Transform },
 }
 
+/// [`DedupVec`] is a vector that deduplicates its elements. It is used to deduplicate glyphs and
+/// clip paths.
+/// The `H` is the hash type, and `T` is the value type. The `PREFIX` is the prefix of the index.
+/// This is used to distinguish between glyphs and clip paths.
+#[derive(Debug, Clone)]
+struct DedupVec<H, T, const PREFIX: char> {
+    vec: Vec<T>,
+    present: HashMap<H, usize>,
+}
+
+impl<H, T, const PREFIX: char> DedupVec<H, T, PREFIX>
+where
+    H: Eq + Hash + Copy,
+{
+    fn new() -> Self {
+        Self { vec: Vec::new(), present: HashMap::new() }
+    }
+
+    /// Insert a value into the vector. If the value is already present, return the index of the
+    /// existing value. And the value_fn will not be called. Otherwise, insert the value and
+    /// return the index of the inserted value. The index is the position of the value in the
+    /// vector.
+    #[must_use = "This method returns the index of the inserted value"]
+    fn insert_with(&mut self, hash: H, value_fn: impl FnOnce() -> T) -> usize {
+        if let Some(index) = self.present.get(&hash) {
+            *index
+        } else {
+            let index = self.vec.len();
+            self.vec.push(value_fn());
+            self.present.insert(hash, index);
+            index
+        }
+    }
+
+    fn iter(&self) -> impl Iterator<Item = &T> {
+        self.vec.iter()
+    }
+
+    fn prefix(&self) -> char {
+        PREFIX
+    }
+}
+
+impl<H, T, const PREFIX: char> IntoIterator for DedupVec<H, T, PREFIX> {
+    type Item = T;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.vec.into_iter()
+    }
+}
+
 /// [`SVGRenderer`] is a renderer that renders a document or frame into a SVG file.
 struct SVGRenderer {
     xml: XmlWriter,
-    glyphs: HashMap<RenderHash, RenderedGlyph>,
-    clip_paths: HashMap<RenderHash, String>,
+    glyphs: DedupVec<RenderHash, RenderedGlyph, 'g'>,
+    clip_paths: DedupVec<RenderHash, String, 'c'>,
 }
 
 impl SVGRenderer {
@@ -86,8 +124,8 @@ impl SVGRenderer {
     fn new() -> Self {
         SVGRenderer {
             xml: XmlWriter::new(xmlwriter::Options::default()),
-            glyphs: HashMap::default(),
-            clip_paths: HashMap::default(),
+            glyphs: DedupVec::new(),
+            clip_paths: DedupVec::new(),
         }
     }
 
@@ -99,8 +137,8 @@ impl SVGRenderer {
             "viewBox",
             format_args!("0 0 {} {}", size.x.to_pt(), size.y.to_pt()),
         );
-        self.xml.write_attribute("width", &size.x.to_pt().to_string());
-        self.xml.write_attribute("height", &size.y.to_pt().to_string());
+        self.xml.write_attribute("width", &size.x.to_pt());
+        self.xml.write_attribute("height", &size.y.to_pt());
         self.xml.write_attribute("xmlns", "http://www.w3.org/2000/svg");
         self.xml
             .write_attribute("xmlns:xlink", "http://www.w3.org/1999/xlink");
@@ -111,9 +149,12 @@ impl SVGRenderer {
     fn build_glyph(&mut self) {
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "glyph");
-        for (id, glyph) in &self.glyphs {
+        for (id, glyph) in self.glyphs.iter().enumerate() {
             self.xml.start_element("symbol");
-            self.xml.write_attribute("id", &id.to_string());
+            self.xml.write_attribute_fmt(
+                "id",
+                format_args!("{}{}", self.glyphs.prefix(), id),
+            );
             self.xml.write_attribute("overflow", "visible");
             match glyph {
                 RenderedGlyph::Path(path) => {
@@ -124,8 +165,8 @@ impl SVGRenderer {
                 RenderedGlyph::Image { url, width, height, ts } => {
                     self.xml.start_element("image");
                     self.xml.write_attribute("xlink:href", &url);
-                    self.xml.write_attribute("width", &width.to_string());
-                    self.xml.write_attribute("height", &height.to_string());
+                    self.xml.write_attribute("width", &width);
+                    self.xml.write_attribute("height", &height);
                     if !ts.is_identity() {
                         self.xml.write_attribute("transform", &ts.to_svg());
                     }
@@ -142,9 +183,12 @@ impl SVGRenderer {
     fn build_clip_path(&mut self) {
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "clip-path");
-        for (id, path) in &self.clip_paths {
+        for (id, path) in self.clip_paths.iter().enumerate() {
             self.xml.start_element("clipPath");
-            self.xml.write_attribute("id", &id.to_string());
+            self.xml.write_attribute_fmt(
+                "id",
+                format_args!("{}{}", self.clip_paths.prefix(), id),
+            );
             self.xml.start_element("path");
             self.xml.write_attribute("d", &path);
             self.xml.end_element();
@@ -192,14 +236,14 @@ impl SVGRenderer {
             let clip_path_hash = hash128(&group).into();
             let x = group.frame.size().x.to_pt();
             let y = group.frame.size().y.to_pt();
-            self.clip_paths.entry(clip_path_hash).or_insert_with(|| {
+            let id = self.clip_paths.insert_with(clip_path_hash, || {
                 let mut builder = SVGPath2DBuilder(String::new());
                 builder.rect(x as f32, y as f32);
                 builder.0
             });
             self.xml.write_attribute_fmt(
                 "clip-path",
-                format_args!("url(#{})", clip_path_hash),
+                format_args!("url(#{}{})", self.clip_paths.prefix(), id),
             );
         }
         self.render_frame(&group.frame, group.transform);
@@ -214,6 +258,7 @@ impl SVGRenderer {
         let inv_scale: f64 = text.font.units_per_em() / text.size.to_pt();
         self.xml.start_element("g");
         self.xml.write_attribute("class", "typst-text");
+        self.xml.write_attribute("data-text", &text.text);
         self.xml.write_attribute_fmt(
             "transform",
             format_args!("scale({} {})", scale, -scale),
@@ -317,7 +362,7 @@ impl SVGRenderer {
                 );
             }
         }
-        self.glyphs.entry(glyph_hash).or_insert_with(|| {
+        let id = self.glyphs.insert_with(glyph_hash, || {
             let mut url = "data:image/svg+xml;base64,".to_string();
             let b64_encoded =
                 base64::engine::general_purpose::STANDARD.encode(svg_str.as_bytes());
@@ -332,8 +377,10 @@ impl SVGRenderer {
         });
 
         self.xml.start_element("use");
-        self.xml
-            .write_attribute_fmt("xlink:href", format_args!("#{}", glyph_hash));
+        self.xml.write_attribute_fmt(
+            "xlink:href",
+            format_args!("#{}{}", self.glyphs.prefix(), id),
+        );
         self.xml
             .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
         self.xml.end_element();
@@ -351,7 +398,7 @@ impl SVGRenderer {
             text.font.ttf().glyph_raster_image(GlyphId(glyph.id), std::u16::MAX)?;
         let glyph_hash: RenderHash = hash128(&(&text.font, glyph.id)).into();
         let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
-        self.glyphs.entry(glyph_hash).or_insert_with(|| {
+        let id = self.glyphs.insert_with(glyph_hash, || {
             let width = image.width() as f64;
             let height = image.height() as f64;
             let x_offset = bitmap.x as f64;
@@ -364,9 +411,9 @@ impl SVGRenderer {
         self.xml.start_element("use");
         self.xml.write_attribute_fmt(
             "xlink:href",
-            format_args!("#{}", &glyph_hash.to_string()),
+            format_args!("#{}{}", self.glyphs.prefix(), id),
         );
-        self.xml.write_attribute("x", &(x_offset * inv_scale).to_string());
+        self.xml.write_attribute("x", &(x_offset * inv_scale));
         self.xml.write_attribute_fmt(
             "transform",
             format_args!(
@@ -389,14 +436,16 @@ impl SVGRenderer {
         let mut builder = SVGPath2DBuilder(String::new());
         text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder)?;
         let glyph_hash = hash128(&(&text.font, glyph.id)).into();
-        self.glyphs.entry(glyph_hash).or_insert_with(|| {
+        let id = self.glyphs.insert_with(glyph_hash, || {
             let path = builder.0;
             RenderedGlyph::Path(path)
         });
         let Solid(text_color) = text.fill;
         self.xml.start_element("use");
-        self.xml
-            .write_attribute_fmt("xlink:href", format_args!("#{}", glyph_hash));
+        self.xml.write_attribute_fmt(
+            "xlink:href",
+            format_args!("#{}{}", self.glyphs.prefix(), id),
+        );
         self.xml
             .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
         self.xml.write_attribute("fill", &text_color.to_rgba().to_hex());
@@ -416,8 +465,7 @@ impl SVGRenderer {
         if let Some(stroke) = &shape.stroke {
             let Solid(color) = stroke.paint;
             self.xml.write_attribute("stroke", &color.to_rgba().to_hex());
-            self.xml
-                .write_attribute("stroke-width", &stroke.thickness.to_pt().to_string());
+            self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
             self.xml.write_attribute(
                 "stroke-linecap",
                 match stroke.line_cap {
@@ -434,13 +482,9 @@ impl SVGRenderer {
                     LineJoin::Bevel => "bevel",
                 },
             );
-            self.xml
-                .write_attribute("stoke-miterlimit", &stroke.miter_limit.0.to_string());
+            self.xml.write_attribute("stoke-miterlimit", &stroke.miter_limit.0);
             if let Some(pattern) = &stroke.dash_pattern {
-                self.xml.write_attribute(
-                    "stoken-dashoffset",
-                    &pattern.phase.to_pt().to_string(),
-                );
+                self.xml.write_attribute("stoken-dashoffset", &pattern.phase.to_pt());
                 self.xml.write_attribute(
                     "stoken-dasharray",
                     &pattern
@@ -493,8 +537,8 @@ impl SVGRenderer {
         let url = encode_image_to_url(image);
         self.xml.start_element("image");
         self.xml.write_attribute("xlink:href", &url);
-        self.xml.write_attribute("width", &size.x.to_pt().to_string());
-        self.xml.write_attribute("height", &size.y.to_pt().to_string());
+        self.xml.write_attribute("width", &size.x.to_pt());
+        self.xml.write_attribute("height", &size.y.to_pt());
         self.xml.write_attribute("preserveAspectRatio", "none");
         self.xml.end_element();
     }
