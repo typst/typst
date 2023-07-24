@@ -29,6 +29,7 @@ impl From<u128> for RenderHash {
 }
 
 /// Export a document into a SVG file.
+#[tracing::instrument(skip_all)]
 pub fn svg(doc: &Document) -> String {
     let mut renderer = SVGRenderer::new();
     let max_page_width = doc
@@ -49,6 +50,7 @@ pub fn svg(doc: &Document) -> String {
 }
 
 /// Export a frame into a SVG file.
+#[tracing::instrument(skip_all)]
 pub fn svg_frame(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.header(frame.size());
@@ -271,6 +273,7 @@ impl SVGRenderer {
             "transform",
             format_args!("scale({} {})", scale, -scale),
         );
+        self.xml.write_comment(&text.text);
         let mut x_offset: f64 = 0.0;
         for glyph in &text.glyphs {
             let offset = x_offset + glyph.x_offset.at(text.size).to_pt();
