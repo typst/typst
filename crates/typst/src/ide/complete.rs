@@ -849,7 +849,7 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
 
     ctx.snippet_completion(
         "for loop (with key)",
-        "for ${key}, ${value} in ${(a: 1, b: 2)} {\n\t${}\n}",
+        "for (${key}, ${value}) in ${(a: 1, b: 2)} {\n\t${}\n}",
         "Computes or inserts something for each key and value in a collection.",
     );
 
