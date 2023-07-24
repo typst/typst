@@ -34,7 +34,7 @@ once_cell = "1"
 pdf-writer = "0.7.1"
 pixglyph = "0.1"
 regex = "1"
-resvg = { version = "0.32", default-features = false }
+resvg = { version = "0.32", default-features = false, features = ["raster-images"] }
 roxmltree = "0.18"
 rustybuzz = "0.7"
 serde = { version = "1", features = ["derive"] }
