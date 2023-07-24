@@ -535,8 +535,8 @@ impl SVGRenderer {
 fn encode_image_to_url(image: &Image) -> String {
     let format = match image.format() {
         ImageFormat::Raster(f) => match f {
-            RasterFormat::Png => "jpeg",
-            RasterFormat::Jpg => "png",
+            RasterFormat::Png => "png",
+            RasterFormat::Jpg => "jpeg",
             RasterFormat::Gif => "gif",
         },
         ImageFormat::Vector(f) => match f {
