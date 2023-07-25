@@ -11,6 +11,7 @@ use xmlwriter::XmlWriter;
 
 use crate::{
     doc::{Document, Frame, FrameItem, Glyph, GroupItem, TextItem},
+    font::Font,
     geom::{Abs, Axes, Geometry, LineCap, LineJoin, PathItem, Ratio, Shape, Transform},
     image::{ImageFormat, RasterFormat, VectorFormat},
     util::hash128,
@@ -51,6 +52,7 @@ pub fn svg(doc: &Document) -> String {
 
 /// Export a frame into a SVG file.
 #[tracing::instrument(skip_all)]
+#[comemo::memoize]
 pub fn svg_frame(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.header(frame.size());
@@ -292,75 +294,76 @@ impl SVGRenderer {
         x_offset: f64,
         inv_scale: f64,
     ) -> Option<()> {
-        let mut data = text.font.ttf().glyph_svg_image(GlyphId(glyph.id))?;
-        let glyph_hash: RenderHash = hash128(&(&text.font, glyph.id)).into();
-        let font = &text.font;
-
-        let font_metrics = font.metrics();
-
-        // Decompress SVGZ.
-        let mut decoded = vec![];
-        // The first three bytes of the gzip-encoded document header must be 0x1F, 0x8B,
-        // 0x08.
-        if data.starts_with(&[0x1f, 0x8b]) {
-            let mut decoder = flate2::read::GzDecoder::new(data);
-            decoder.read_to_end(&mut decoded).ok()?;
-            data = &decoded;
-        }
-
-        let upem = Abs::raw(font.units_per_em());
-        let (width, height) = (upem.to_pt(), upem.to_pt());
-        let origin_ascender = font_metrics.ascender.at(upem).to_pt();
-
-        // Parse XML.
-        let mut svg_str = std::str::from_utf8(data).ok()?.to_owned();
-        let document = xmlparser::Tokenizer::from(svg_str.as_str());
-        let mut start_span = None;
-        let mut last_viewbox = None;
-        // Parse xml and find the viewBox of the svg element.
-        // <svg viewBox="0 0 1000 1000">...</svg>
-        // ~~~~~^~~~~~~
-        for n in document {
-            let tok = n.unwrap();
-            match tok {
-                xmlparser::Token::ElementStart { span, local, .. } => {
-                    if local.as_str() == "svg" {
-                        start_span = Some(span);
-                        break;
-                    }
-                }
-                xmlparser::Token::Attribute { span, local, value, .. } => {
-                    if local.as_str() == "viewBox" {
-                        last_viewbox = Some((span, value));
-                    }
-                }
-                xmlparser::Token::ElementEnd { .. } => break,
-                _ => {}
+        #[comemo::memoize]
+        fn build_svg_glyph(font: &Font, glyph_id: u16) -> Option<String> {
+            let mut data = font.ttf().glyph_svg_image(GlyphId(glyph_id))?;
+            // Decompress SVGZ.
+            let mut decoded = vec![];
+            // The first three bytes of the gzip-encoded document header must be 0x1F, 0x8B,
+            // 0x08.
+            if data.starts_with(&[0x1f, 0x8b]) {
+                let mut decoder = flate2::read::GzDecoder::new(data);
+                decoder.read_to_end(&mut decoded).ok()?;
+                data = &decoded;
             }
-        }
 
-        if last_viewbox.is_none() {
-            // correct the viewbox if it is not present
-            // `-origin_ascender` is to make sure the glyph is rendered at the correct position
-            svg_str.insert_str(
-                start_span.unwrap().range().end,
-                format!(r#" viewBox="0 {} {} {}""#, -origin_ascender, width, height)
-                    .as_str(),
-            );
-        }
+            let upem = Abs::raw(font.units_per_em());
+            let (width, height) = (upem.to_pt(), upem.to_pt());
+            let origin_ascender = font.metrics().ascender.at(upem).to_pt();
 
-        let id = self.glyphs.insert_with(glyph_hash, || {
+            // Parse XML.
+            let mut svg_str = std::str::from_utf8(data).ok()?.to_owned();
+            let document = xmlparser::Tokenizer::from(svg_str.as_str());
+            let mut start_span = None;
+            let mut last_viewbox = None;
+            // Parse xml and find the viewBox of the svg element.
+            // <svg viewBox="0 0 1000 1000">...</svg>
+            // ~~~~~^~~~~~~
+            for n in document {
+                let tok = n.unwrap();
+                match tok {
+                    xmlparser::Token::ElementStart { span, local, .. } => {
+                        if local.as_str() == "svg" {
+                            start_span = Some(span);
+                            break;
+                        }
+                    }
+                    xmlparser::Token::Attribute { span, local, value, .. } => {
+                        if local.as_str() == "viewBox" {
+                            last_viewbox = Some((span, value));
+                        }
+                    }
+                    xmlparser::Token::ElementEnd { .. } => break,
+                    _ => {}
+                }
+            }
+
+            if last_viewbox.is_none() {
+                // correct the viewbox if it is not present
+                // `-origin_ascender` is to make sure the glyph is rendered at the correct position
+                svg_str.insert_str(
+                    start_span.unwrap().range().end,
+                    format!(r#" viewBox="0 {} {} {}""#, -origin_ascender, width, height)
+                        .as_str(),
+                );
+            }
             let mut url = "data:image/svg+xml;base64,".to_string();
             let b64_encoded =
                 base64::engine::general_purpose::STANDARD.encode(svg_str.as_bytes());
             url.push_str(&b64_encoded);
-            RenderedGlyph::Image {
-                url,
-                width,
-                height,
-                ts: Transform::translate(Abs::zero(), Abs::pt(-origin_ascender))
-                    .post_concat(Transform::scale(Ratio::new(1.0), Ratio::new(-1.0))),
-            }
+            Some(url)
+        }
+
+        let data_url = build_svg_glyph(&text.font, glyph.id)?;
+        let upem = Abs::raw(text.font.units_per_em());
+        let origin_ascender = text.font.metrics().ascender.at(upem).to_pt();
+        let glyph_hash: RenderHash = hash128(&(&text.font, glyph.id)).into();
+        let id = self.glyphs.insert_with(glyph_hash, || RenderedGlyph::Image {
+            url: data_url,
+            width: upem.to_pt(),
+            height: upem.to_pt(),
+            ts: Transform::translate(Abs::zero(), Abs::pt(-origin_ascender))
+                .post_concat(Transform::scale(Ratio::new(1.0), Ratio::new(-1.0))),
         });
 
         self.xml.start_element("use");
@@ -381,17 +384,27 @@ impl SVGRenderer {
         x_offset: f64,
         inv_scale: f64,
     ) -> Option<()> {
-        let bitmap =
-            text.font.ttf().glyph_raster_image(GlyphId(glyph.id), std::u16::MAX)?;
+        #[comemo::memoize]
+        fn build_bitmap_glyph(font: &Font, glyph_id: u16) -> Option<(Image, i16, i16)> {
+            let bitmap =
+                font.ttf().glyph_raster_image(GlyphId(glyph_id), std::u16::MAX)?;
+            let image =
+                Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
+            Some((image, bitmap.x, bitmap.y))
+        }
         let glyph_hash: RenderHash = hash128(&(&text.font, glyph.id)).into();
-        let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
+        let (image, bitmap_x_offset, bitmap_y_offset) =
+            build_bitmap_glyph(&text.font, glyph.id)?;
+        let (bitmap_x_offset, bitmap_y_offset) =
+            (bitmap_x_offset as f64, bitmap_y_offset as f64);
         let id = self.glyphs.insert_with(glyph_hash, || {
             let width = image.width() as f64;
             let height = image.height() as f64;
-            let x_offset = bitmap.x as f64;
-            let y_offset = bitmap.y as f64;
             let url = encode_image_to_url(&image);
-            let ts = Transform::translate(Abs::pt(x_offset), Abs::pt(-height - y_offset));
+            let ts = Transform::translate(
+                Abs::pt(bitmap_x_offset),
+                Abs::pt(-height - bitmap_y_offset),
+            );
             RenderedGlyph::Image { url, width, height, ts }
         });
         let target_height = text.size.to_pt();
@@ -423,13 +436,15 @@ impl SVGRenderer {
         x_offset: f64,
         inv_scale: f64,
     ) -> Option<()> {
-        let mut builder = SVGPath2DBuilder(String::new());
-        text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder)?;
+        #[comemo::memoize]
+        fn build_outline_glyph(font: &Font, glyph_id: u16) -> Option<String> {
+            let mut builder = SVGPath2DBuilder(String::new());
+            font.ttf().outline_glyph(GlyphId(glyph_id), &mut builder)?;
+            Some(builder.0)
+        }
+        let path = build_outline_glyph(&text.font, glyph.id)?;
         let glyph_hash = hash128(&(&text.font, glyph.id)).into();
-        let id = self.glyphs.insert_with(glyph_hash, || {
-            let path = builder.0;
-            RenderedGlyph::Path(path)
-        });
+        let id = self.glyphs.insert_with(glyph_hash, || RenderedGlyph::Path(path));
         let Solid(text_color) = text.fill;
         self.xml.start_element("use");
         self.xml.write_attribute_fmt(
@@ -486,40 +501,43 @@ impl SVGRenderer {
                 );
             }
         }
-        let mut path_builder = SVGPath2DBuilder(String::new());
-        match &shape.geometry {
-            Geometry::Line(t) => {
-                path_builder.move_to(0.0, 0.0);
-                path_builder.line_to(t.x.to_pt() as f32, t.y.to_pt() as f32);
-            }
-            Geometry::Rect(rect) => {
-                let x = rect.x.to_pt() as f32;
-                let y = rect.y.to_pt() as f32;
-                path_builder.rect(x, y);
-            }
-            Geometry::Path(p) => {
-                for item in &p.0 {
-                    match item {
-                        PathItem::MoveTo(m) => {
-                            path_builder.move_to(m.x.to_pt() as f32, m.y.to_pt() as f32)
+        #[comemo::memoize]
+        fn build_shape(geometry: &Geometry) -> String {
+            let mut path_builder = SVGPath2DBuilder(String::new());
+            match geometry {
+                Geometry::Line(t) => {
+                    path_builder.move_to(0.0, 0.0);
+                    path_builder.line_to(t.x.to_pt() as f32, t.y.to_pt() as f32);
+                }
+                Geometry::Rect(rect) => {
+                    let x = rect.x.to_pt() as f32;
+                    let y = rect.y.to_pt() as f32;
+                    path_builder.rect(x, y);
+                }
+                Geometry::Path(p) => {
+                    for item in &p.0 {
+                        match item {
+                            PathItem::MoveTo(m) => path_builder
+                                .move_to(m.x.to_pt() as f32, m.y.to_pt() as f32),
+                            PathItem::LineTo(l) => path_builder
+                                .line_to(l.x.to_pt() as f32, l.y.to_pt() as f32),
+                            PathItem::CubicTo(c1, c2, t) => path_builder.curve_to(
+                                c1.x.to_pt() as f32,
+                                c1.y.to_pt() as f32,
+                                c2.x.to_pt() as f32,
+                                c2.y.to_pt() as f32,
+                                t.x.to_pt() as f32,
+                                t.y.to_pt() as f32,
+                            ),
+                            PathItem::ClosePath => path_builder.close(),
                         }
-                        PathItem::LineTo(l) => {
-                            path_builder.line_to(l.x.to_pt() as f32, l.y.to_pt() as f32)
-                        }
-                        PathItem::CubicTo(c1, c2, t) => path_builder.curve_to(
-                            c1.x.to_pt() as f32,
-                            c1.y.to_pt() as f32,
-                            c2.x.to_pt() as f32,
-                            c2.y.to_pt() as f32,
-                            t.x.to_pt() as f32,
-                            t.y.to_pt() as f32,
-                        ),
-                        PathItem::ClosePath => path_builder.close(),
                     }
                 }
-            }
-        };
-        self.xml.write_attribute("d", &path_builder.0);
+            };
+            path_builder.0
+        }
+        let shape_path = build_shape(&shape.geometry);
+        self.xml.write_attribute("d", &shape_path);
         self.xml.end_element();
     }
 
@@ -535,6 +553,7 @@ impl SVGRenderer {
 }
 
 /// Encode an image into a data URL. The format of the URL is `data:image/{format};base64,`.
+#[comemo::memoize]
 fn encode_image_to_url(image: &Image) -> String {
     let format = match image.format() {
         ImageFormat::Raster(f) => match f {
