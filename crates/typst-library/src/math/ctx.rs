@@ -4,7 +4,10 @@ use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
-use crate::text::{tags, BottomEdge, BottomEdgeMetric, TopEdge, TopEdgeMetric};
+use crate::layout::SpanMapper;
+use crate::text::{
+    math_tags, BottomEdge, BottomEdgeMetric, FontFeatures, TopEdge, TopEdgeMetric,
+};
 
 macro_rules! scaled {
     ($ctx:expr, text: $text:ident, display: $display:ident $(,)?) => {
@@ -36,6 +39,8 @@ pub struct MathContext<'a, 'b, 'v> {
     pub size: Abs,
     outer: StyleChain<'a>,
     style_stack: Vec<(MathStyle, Abs)>,
+    ssty1: Styles,
+    ssty2: Styles,
 }
 
 impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
@@ -50,7 +55,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             bail!(span,"current font does not support math");
         };
 
-        let size = var_size(styles);
+        let size = var_size(None, styles);
         let ttf = font.ttf();
         let space_width = ttf
             .glyph_index(' ')
@@ -63,6 +68,14 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // But there is an inconsistency here if you set the `text`
         // properties during the equation; then they have no effect.
         let variant = variant(styles);
+
+        let ssty_tag = ttf_parser::Tag::from_bytes(b"ssty");
+
+        let mut ssty1 = Styles::new();
+        ssty1.set(VarElem::set_features(FontFeatures(vec![(ssty_tag, 1)])));
+
+        let mut ssty2 = Styles::new();
+        ssty2.set(VarElem::set_features(FontFeatures(vec![(ssty_tag, 2)])));
 
         Ok(Self {
             vt,
@@ -85,6 +98,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             size,
             outer: styles,
             style_stack: vec![],
+            ssty1,
+            ssty2,
         })
     }
 
@@ -117,11 +132,13 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     // FIXME: This is doing needless extended computation once per glyph
-    pub fn glyphwise_tables(&'a self) -> Option<Vec<GlyphwiseSubsts<'a>>> {
+    pub fn glyphwise_tables(
+        &'a self,
+        elem: Option<&VarElem>,
+    ) -> Option<Vec<GlyphwiseSubsts<'a>>> {
         let gsub_table = self.font.ttf().tables().gsub;
 
-        // FIXME: These are TextElem features!
-        let features = tags(self.outer.chain(&self.local));
+        let features = math_tags(elem, self.outer.chain(&self.local));
 
         gsub_table.map(|gsub| {
             features
@@ -224,14 +241,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             .next()
             .filter(|_| chars.next().is_none())
             .map(|c| self.style.styled_char(c))
-            .and_then(|c| {
-                GlyphFragment::try_new(
-                    self,
-                    c,
-                    elem.fill(styles).unwrap_or(TextElem::fill_in(styles)),
-                    span,
-                )
-            })
+            .and_then(|c| GlyphFragment::try_new(self, c, Some(elem), span))
         {
             // A single glyph in the math font. A lot of the later
             // processing seems to depend on the GlyphFragment
@@ -280,66 +290,39 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 styled_text.push(style.styled_char(c));
             }
 
-            let text = TextElem::packed(styled_text).spanned(span);
+            // FIXME: Maybe 'dflt'?
+            let lang = TextElem::lang_in(styles);
+            let mut sm = SpanMapper::new();
+            sm.push(styled_text.as_bytes().len(), elem.span());
 
-            let styles = self.styles();
+            let shape = |styles| {
+                crate::text::shape(
+                    self.vt,
+                    0,
+                    styled_text.as_str(),
+                    &sm,
+                    styles,
+                    Dir::LTR,
+                    lang,
+                    None,
+                    Some(Some(elem)),
+                )
+            };
 
-            let mut mathstyle = Styles::new();
-            let math_script = Smart::Custom(WritingScript::MATH);
-            mathstyle.set(TextElem::set_script(math_script));
-            // FIXME Need to meditate on this.
-            mathstyle.set(TextElem::set_kerning(false));
-
-            mathstyle.set(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)));
-            mathstyle.set(TextElem::set_bottom_edge(BottomEdge::Metric(
-                BottomEdgeMetric::Bounds,
-            )));
-
-            // Negotiable.
-            mathstyle.set(TextElem::set_weight(elem.weight(styles)));
-            mathstyle.set(TextElem::set_fallback(elem.fallback(styles)));
-
-            let textsize = TextSize(Length { abs: self.size, em: Em::zero() });
-            mathstyle.set(TextElem::set_size(textsize));
-
-            mathstyle.set(TextElem::set_font(elem.font(styles)));
-            let fill = elem.fill(styles).unwrap_or(TextElem::fill_in(styles));
-            mathstyle.set(TextElem::set_fill(fill));
-            // TODO:
-            // mathstyle.set(TextElem::set_features(elem.features(style)));
-            // mathstyle.set(TextElem::set_slashed_zero(elem))
-
-            let ssty = ttf_parser::Tag::from_bytes(b"ssty");
-            match self.style.size {
+            let shaped_text = match style.size {
                 MathSize::Script => {
-                    let features = crate::text::FontFeatures(vec![(ssty, 1)]);
-                    mathstyle.set(TextElem::set_features(features));
+                    let styles = styles.chain(&self.ssty1);
+                    shape(styles)
                 }
                 MathSize::ScriptScript => {
-                    let features = crate::text::FontFeatures(vec![(ssty, 2)]);
-                    mathstyle.set(TextElem::set_features(features));
+                    let styles = styles.chain(&self.ssty2);
+                    shape(styles)
                 }
-                _ => {}
-            }
+                _ => shape(styles),
+            };
 
-            let styles = StyleChain::default();
-            let mathstyles = styles.chain(&mathstyle);
-
-            let par = ParElem::new(vec![text]);
-
-            // There isn't a natural width for a paragraph in a math environment;
-            // because it will be placed somewhere probably not at the left margin
-            // it will overflow.  So emulate an `hbox` instead and allow the paragraph
-            // to extend as far as needed.
-            let frame = par
-                .layout(self.vt, mathstyles, false, Size::splat(Abs::inf()), false)?
-                .into_frame();
-
-            self.size = size_prev;
-            Ok(FrameFragment::new(self, frame)
-                .with_class(MathClass::Alphabetic)
-                .with_spaced(spaced)
-                .into())
+            let frame = shaped_text.build(self.vt, 0.0, Abs::zero());
+            Ok(FrameFragment::new(self, frame).into())
         }
     }
 
@@ -349,17 +332,11 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     // FIXME: unlovely code duplication
     pub fn var_size(&self, elem: &VarElem) -> Abs {
-        let styles = self.styles();
-        // FIXME: What happens if set var(size: 2em) and nothing has
-        // previously been set?
-        match elem.size(styles) {
-            Smart::Custom(size) => size,
-            Smart::Auto => TextElem::size_in(styles),
-        }
+        var_size(Some(elem), self.styles())
     }
 
     pub fn default_var_size(&self) -> Abs {
-        var_size(self.styles())
+        var_size(None, self.styles())
     }
 
     pub fn default_var_fill(&self) -> Paint {
@@ -451,10 +428,15 @@ fn find_math_font(vt: &Vt, styles: StyleChain) -> Option<Font> {
     })
 }
 
-fn var_size(styles: StyleChain) -> Abs {
-    // FIXME: The `em` part of the length is broken
-    match VarElem::size_in(styles) {
+pub fn var_size(elem: Option<&VarElem>, styles: StyleChain) -> Abs {
+    let size = elem.map(|elem| elem.size(styles)).unwrap_or(VarElem::size_in(styles));
+    match size {
         Smart::Custom(size) => size,
         Smart::Auto => TextElem::size_in(styles),
     }
+}
+
+pub fn var_fill(elem: Option<&VarElem>, styles: StyleChain) -> Paint {
+    if let Some(elem) = elem { elem.fill(styles) } else { VarElem::fill_in(styles) }
+        .unwrap_or(TextElem::fill_in(styles))
 }

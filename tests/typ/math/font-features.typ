@@ -4,7 +4,8 @@
 $ nothing $
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $
-#show math.equation: set text(features: ("cv01",), fallback: false)
+#set math.var(features: ("cv01",), fallback: false)
 $ nothing $
+#show math.equation: set text(features: ("cv01",), fallback: false)
 $ "hi ∅ hey" $
 $ sum_(i in NN) 1 + i $

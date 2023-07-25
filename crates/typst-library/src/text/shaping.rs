@@ -4,13 +4,15 @@ use std::str::FromStr;
 
 use az::SaturatingAs;
 use rustybuzz::{Feature, Tag, UnicodeBuffer};
-use typst::font::{Font, FontStyle, FontVariant};
+use typst::font::{Font, FontStretch, FontStyle, FontVariant};
 use typst::util::SliceExt;
 use unicode_script::{Script, UnicodeScript};
 
 use super::{decorate, FontFamily, NumberType, NumberWidth, TextElem};
 use crate::layout::SpanMapper;
+use crate::math::VarElem;
 use crate::prelude::*;
+use crate::text::{BottomEdge, BottomEdgeMetric, TopEdge, TopEdgeMetric};
 
 /// The result of shaping text.
 ///
@@ -38,6 +40,8 @@ pub struct ShapedText<'a> {
     pub width: Abs,
     /// The shaped glyphs.
     pub glyphs: Cow<'a, [ShapedGlyph]>,
+    /// Source of style properties if this is math.
+    pub math: Option<Option<&'a VarElem>>,
 }
 
 /// A single glyph resulting from shaping.
@@ -231,10 +235,21 @@ impl<'a> ShapedText<'a> {
         let mut frame = Frame::new(size);
         frame.set_baseline(top);
 
-        let shift = TextElem::baseline_in(self.styles);
-        let lang = TextElem::lang_in(self.styles);
-        let decos = TextElem::deco_in(self.styles);
-        let fill = TextElem::fill_in(self.styles);
+        let (shift, lang, decos, fill) = if let Some(math) = self.math {
+            (
+                Abs::zero(),
+                TextElem::lang_in(self.styles), //FIXME: DFLT??
+                vec![],
+                crate::math::var_fill(math, self.styles),
+            )
+        } else {
+            (
+                TextElem::baseline_in(self.styles),
+                TextElem::lang_in(self.styles),
+                TextElem::deco_in(self.styles),
+                TextElem::fill_in(self.styles),
+            )
+        };
 
         for ((font, y_offset), group) in
             self.glyphs.as_ref().group_by_key(|g| (g.font.clone(), g.y_offset))
@@ -316,8 +331,14 @@ impl<'a> ShapedText<'a> {
         let mut top = Abs::zero();
         let mut bottom = Abs::zero();
 
-        let top_edge = TextElem::top_edge_in(self.styles);
-        let bottom_edge = TextElem::bottom_edge_in(self.styles);
+        let (top_edge, bottom_edge) = if self.math.is_some() {
+            (
+                TopEdge::Metric(TopEdgeMetric::Bounds),
+                BottomEdge::Metric(BottomEdgeMetric::Bounds),
+            )
+        } else {
+            (TextElem::top_edge_in(self.styles), TextElem::bottom_edge_in(self.styles))
+        };
 
         // Expand top and bottom by reading the font's vertical metrics.
         let mut expand = |font: &Font, bbox: Option<ttf_parser::Rect>| {
@@ -329,14 +350,31 @@ impl<'a> ShapedText<'a> {
             // When there are no glyphs, we just use the vertical metrics of the
             // first available font.
             let world = vt.world;
-            for family in families(self.styles) {
-                if let Some(font) = world
-                    .book()
-                    .select(family.as_str(), self.variant)
-                    .and_then(|id| world.font(id))
-                {
-                    expand(&font, None);
-                    break;
+
+            //FIXME: Ugh.
+            // The iterators from `families` and `math_families` are impl traits,
+            // so you can't bind them to a single variable. Hence code duplication.
+            if let Some(math) = self.math {
+                for family in math_families(math, self.styles) {
+                    if let Some(font) = world
+                        .book()
+                        .select(family.as_str(), self.variant)
+                        .and_then(|id| world.font(id))
+                    {
+                        expand(&font, None);
+                        break;
+                    }
+                }
+            } else {
+                for family in families(self.styles) {
+                    if let Some(font) = world
+                        .book()
+                        .select(family.as_str(), self.variant)
+                        .and_then(|id| world.font(id))
+                    {
+                        expand(&font, None);
+                        break;
+                    }
                 }
             }
         } else {
@@ -409,6 +447,7 @@ impl<'a> ShapedText<'a> {
                 styles: self.styles,
                 size: self.size,
                 variant: self.variant,
+                math: None,
                 width: glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(self.size),
                 glyphs: Cow::Borrowed(glyphs),
             }
@@ -422,6 +461,7 @@ impl<'a> ShapedText<'a> {
                 self.dir,
                 self.lang,
                 self.region,
+                None,
             )
         }
     }
@@ -527,6 +567,7 @@ impl Debug for ShapedText<'_> {
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a, 'v> {
     vt: &'a Vt<'v>,
+    math: Option<Option<&'a VarElem>>,
     spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
@@ -549,8 +590,23 @@ pub fn shape<'a>(
     dir: Dir,
     lang: Lang,
     region: Option<Region>,
+    math: Option<Option<&'a VarElem>>,
 ) -> ShapedText<'a> {
-    let size = TextElem::size_in(styles);
+    let (size, fallback, variant, tags) = if let Some(math) = math {
+        let size = crate::math::var_size(math, styles);
+        let fallback = math
+            .map(|elem| elem.fallback(styles))
+            .unwrap_or(VarElem::fallback_in(styles));
+        (size, fallback, math_variant(math, styles), math_tags(math, styles))
+    } else {
+        (
+            TextElem::size_in(styles),
+            TextElem::fallback_in(styles),
+            variant(styles),
+            tags(styles),
+        )
+    };
+
     let mut ctx = ShapingContext {
         vt,
         spans,
@@ -558,18 +614,25 @@ pub fn shape<'a>(
         glyphs: vec![],
         used: vec![],
         styles,
-        variant: variant(styles),
-        tags: tags(styles),
-        fallback: TextElem::fallback_in(styles),
+        variant,
+        tags,
+        fallback,
         dir,
+        math,
     };
 
     if !text.is_empty() {
-        shape_segment(&mut ctx, base, text, families(styles));
+        if let Some(math) = math {
+            shape_segment(&mut ctx, base, text, math_families(math, styles));
+        } else {
+            shape_segment(&mut ctx, base, text, families(styles));
+        }
     }
 
-    track_and_space(&mut ctx);
-    calculate_adjustability(&mut ctx, lang, region);
+    if math.is_none() {
+        track_and_space(&mut ctx);
+        calculate_adjustability(&mut ctx, lang, region);
+    }
 
     #[cfg(debug_assertions)]
     assert_all_glyphs_in_range(&ctx.glyphs, text, base..(base + text.len()));
@@ -587,6 +650,7 @@ pub fn shape<'a>(
         size,
         width: ctx.glyphs.iter().map(|g| g.x_advance).sum::<Em>().at(size),
         glyphs: Cow::Owned(ctx.glyphs),
+        math,
     }
 }
 
@@ -633,10 +697,21 @@ fn shape_segment(
     // Fill the buffer with our text.
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
+
+    // FIXME What to do for math???
     buffer.set_language(language(ctx.styles));
-    if let Some(script) = TextElem::script_in(ctx.styles).as_custom().and_then(|script| {
-        rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
-    }) {
+
+    if ctx.math.is_none() {
+        if let Some(script) =
+            TextElem::script_in(ctx.styles).as_custom().and_then(|script| {
+                rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(script.as_bytes()))
+            })
+        {
+            buffer.set_script(script)
+        }
+    } else if let Some(script) =
+        rustybuzz::Script::from_iso15924_tag(Tag::from_bytes(b"math"))
+    {
         buffer.set_script(script)
     }
     buffer.set_direction(match ctx.dir {
@@ -826,6 +901,14 @@ fn nbsp_delta(font: &Font) -> Option<Em> {
     Some(font.advance(nbsp)? - font.advance(space)?)
 }
 
+/// Resolve the font variant for a math font.
+pub fn math_variant(math: Option<&VarElem>, styles: StyleChain) -> FontVariant {
+    let weight = math
+        .map(|elem| elem.weight(styles))
+        .unwrap_or(VarElem::weight_in(styles));
+    FontVariant::new(FontStyle::Normal, weight, FontStretch::NORMAL)
+}
+
 /// Resolve the font variant.
 pub fn variant(styles: StyleChain) -> FontVariant {
     let mut variant = FontVariant::new(
@@ -864,6 +947,66 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
     TextElem::font_in(styles)
         .into_iter()
         .chain(tail.iter().copied().map(FontFamily::new))
+}
+
+// FIXME Old code in math::ctx should now use this!
+pub fn math_families(
+    elem: Option<&VarElem>,
+    styles: StyleChain,
+) -> impl Iterator<Item = FontFamily> + Clone {
+    const FALLBACKS: &[&str] = &[
+        "New Computer Modern Math",
+        "linux libertine",
+        "twitter color emoji",
+        "noto color emoji",
+        "apple color emoji",
+        "segoe ui emoji",
+    ];
+
+    let (fallback, font) = if let Some(elem) = elem {
+        (elem.fallback(styles), elem.font(styles))
+    } else {
+        (VarElem::fallback_in(styles), VarElem::font_in(styles))
+    };
+
+    let tail = if fallback { FALLBACKS } else { &[] };
+    font.into_iter().chain(tail.iter().copied().map(FontFamily::new))
+}
+
+/// Collect the tags of the OpenType features to apply.
+pub fn math_tags(elem: Option<&VarElem>, styles: StyleChain) -> Vec<Feature> {
+    let mut tags = vec![];
+    let mut feat = |tag, value| {
+        tags.push(Feature::new(Tag::from_bytes(tag), value, ..));
+    };
+
+    feat(b"kern", 0);
+
+    // FIXME: this needs a test.
+    if elem
+        .map(|e| e.slashed_zero(styles))
+        .unwrap_or(VarElem::slashed_zero_in(styles))
+    {
+        feat(b"zero", 1);
+    }
+
+    let storage;
+    let ss0x = elem
+        .map(|e| e.stylistic_set(styles))
+        .unwrap_or(VarElem::stylistic_set_in(styles));
+    if let Some(set) = ss0x {
+        storage = [b's', b's', b'0' + set.get() / 10, b'0' + set.get() % 10];
+        feat(&storage, 1);
+    }
+
+    let features = elem
+        .map(|e| e.features(styles))
+        .unwrap_or(VarElem::features_in(styles));
+    for (tag, value) in features.0 {
+        tags.push(Feature::new(tag, value, ..))
+    }
+
+    tags
 }
 
 /// Collect the tags of the OpenType features to apply.

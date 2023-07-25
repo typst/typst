@@ -62,10 +62,13 @@ $x^2$
 ---
 // Test font selection, mixing.
 #set math.var(font:"Fira Math")
-$sin theta eq.not #{set math.var(font:"Computer Modern Math"); $sin theta$}$
+$sin theta eq.not #{set math.var(font:"New Computer Modern Math"); $sin theta$}$
 #let cmbold(x) = {
-    set math.var(font:"Computer Modern Math")
+    set math.var(font:"New Computer Modern Math")
     $bold(#x)$
 }
 #h(1em)$bold(g) "vs" cmbold(g)$
 
+// FIXME: test that failure happens if a var(font:"badfont") is encountered.
+// FIXME: test that var(font:"newgoodfont") gets the right font; 
+// this is broken now.

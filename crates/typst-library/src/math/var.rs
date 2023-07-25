@@ -1,4 +1,5 @@
 use super::*;
+use crate::text::{FontFeatures, StylisticSet};
 
 /// Mathematical text.
 ///
@@ -82,6 +83,37 @@ pub struct VarElem {
     /// with a "tofu", a placeholder box.
     #[default(true)]
     pub fallback: bool,
+
+    /// Raw OpenType features to apply.
+    ///
+    /// - If given an array of strings, sets the features identified by the
+    ///   strings to `{1}`.
+    /// - If given a dictionary mapping to numbers, sets the features
+    ///   identified by the keys to the values.
+    ///
+    /// ```example
+    /// // Enable the `frac` feature manually.
+    /// #set text(features: ("frac",))
+    /// 1/2
+    /// ```
+    #[fold]
+    pub features: FontFeatures,
+
+    /// Which stylistic set to apply. Font designers can categorize alternative
+    /// glyphs forms into stylistic sets. As this value is highly font-specific,
+    /// you need to consult your font to know which sets are available. When set
+    /// to an integer between `{1}` and `{20}`, enables the corresponding
+    /// OpenType font feature from `ss01`, ..., `ss20`.
+    pub stylistic_set: Option<StylisticSet>,
+
+    /// Whether to have a slash through the zero glyph. Setting this to `{true}`
+    /// enables the OpenType `zero` font feature.
+    ///
+    /// ```example
+    /// 0, #text(slashed-zero: true)[0]
+    /// ```
+    #[default(false)]
+    pub slashed_zero: bool,
 }
 
 impl VarElem {

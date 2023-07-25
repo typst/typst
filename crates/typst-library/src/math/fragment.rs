@@ -202,14 +202,20 @@ pub struct GlyphFragment {
 impl GlyphFragment {
     pub fn new(ctx: &MathContext, c: char, span: Span) -> Self {
         let id = ctx.ttf().glyph_index(c).unwrap_or_default();
-        let id = Self::adjust_glyph_index(ctx, id);
+        let id = Self::adjust_glyph_index(ctx, id, None);
         Self::with_id(ctx, c, id, ctx.default_var_fill(), span)
     }
 
-    pub fn try_new(ctx: &MathContext, c: char, fill: Paint, span: Span) -> Option<Self> {
+    pub fn try_new(
+        ctx: &MathContext,
+        c: char,
+        elem: Option<&VarElem>,
+        span: Span,
+    ) -> Option<Self> {
         let c = ctx.style.styled_char(c);
         let id = ctx.ttf().glyph_index(c)?;
-        let id = Self::adjust_glyph_index(ctx, id);
+        let id = Self::adjust_glyph_index(ctx, id, elem);
+        let fill = var_fill(elem, ctx.styles());
         Some(Self::with_id(ctx, c, id, fill, span))
     }
 
@@ -248,8 +254,12 @@ impl GlyphFragment {
     }
 
     /// Apply GSUB substitutions.
-    fn adjust_glyph_index(ctx: &MathContext, id: GlyphId) -> GlyphId {
-        if let Some(glyphwise_tables) = &ctx.glyphwise_tables() {
+    fn adjust_glyph_index(
+        ctx: &MathContext,
+        id: GlyphId,
+        elem: Option<&VarElem>,
+    ) -> GlyphId {
+        if let Some(glyphwise_tables) = &ctx.glyphwise_tables(elem) {
             glyphwise_tables.iter().fold(id, |id, table| table.apply(id))
         } else {
             id

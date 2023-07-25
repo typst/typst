@@ -25,6 +25,7 @@ pub use self::align::*;
 pub use self::attach::*;
 pub use self::cancel::*;
 pub use self::class::*;
+pub use self::ctx::{var_fill, var_size};
 pub use self::delimited::*;
 pub use self::frac::*;
 pub use self::matrix::*;
@@ -242,6 +243,8 @@ impl Layout for EquationElem {
         let block = self.block(styles);
 
         let mut ctx = MathContext::new(vt, styles, regions, block, self.span())?;
+        // The beginning font gets used in the heuristic below for
+        // determining vertical padding for inline equations.
         let font = ctx.font();
         let mut frame = ctx.layout_frame(self)?;
 
