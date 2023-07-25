@@ -2,13 +2,16 @@ use super::{cast, Args, Value};
 use crate::diag::SourceResult;
 use crate::diag::StrResult;
 use crate::Bytes;
-use std::{
-    ops::{Deref, DerefMut},
-    sync::{Arc, Mutex, MutexGuard},
-};
+use std::sync::{Arc, Mutex, MutexGuard};
 use typst::diag::At;
-use wasmi::{Caller, Engine, Func as Function, Linker, Module, Value as WasiValue};
+use wasmi::{
+    AsContext, AsContextMut, Caller, Engine, Func as Function, Linker, Module,
+    Value as WasiValue,
+};
 
+/// Plugin loaded from WebAssembly code, cheap to clone and hash.
+///
+/// It can run external code compiled using [this protocol](../../../../docs/dev/plugins.md).
 #[derive(Debug, Clone)]
 pub struct Plugin(Arc<Repr>);
 
@@ -39,17 +42,15 @@ type Store = wasmi::Store<PersistentData>;
 
 #[derive(Debug, Clone)]
 struct PersistentData {
-    result_data: String,
-    arg_buffer: String,
+    result_data: Vec<u8>,
+    arg_buffer: Vec<u8>,
 }
 
 impl Plugin {
-    pub fn new_from_bytes(bytes: Bytes) -> StrResult<Self> {
+    /// creates a new plugin.
+    pub fn new_from_bytes(bytes: impl AsRef<[u8]>) -> StrResult<Self> {
         let engine = Engine::default();
-        let data = PersistentData {
-            result_data: String::default(),
-            arg_buffer: String::default(),
-        };
+        let data = PersistentData { result_data: Vec::new(), arg_buffer: Vec::new() };
         let mut store = Store::new(&engine, data);
 
         let module = Module::new(&engine, bytes.as_ref())
@@ -63,9 +64,10 @@ impl Plugin {
                 move |mut caller: Caller<PersistentData>, ptr: u32, len: u32| {
                     let memory =
                         caller.get_export("memory").unwrap().into_memory().unwrap();
-                    let mut buffer = vec![0u8; len as usize];
+                    let mut buffer = std::mem::take(&mut caller.data_mut().result_data);
+                    buffer.resize(len as usize, 0);
                     memory.read(&caller, ptr as _, &mut buffer).unwrap();
-                    caller.data_mut().result_data = String::from_utf8(buffer).unwrap();
+                    caller.data_mut().result_data = buffer;
                 },
             )
             .unwrap()
@@ -76,7 +78,7 @@ impl Plugin {
                     let memory =
                         caller.get_export("memory").unwrap().into_memory().unwrap();
                     let buffer = std::mem::take(&mut caller.data_mut().arg_buffer);
-                    memory.write(&mut caller, ptr as _, buffer.as_bytes()).unwrap();
+                    memory.write(&mut caller, ptr as _, &buffer).unwrap();
                     caller.data_mut().arg_buffer = buffer;
                 },
             )
@@ -93,53 +95,55 @@ impl Plugin {
                 e.into_func().map(|func| (name, func))
             })
             .collect::<Vec<_>>();
-        Ok(Plugin(Arc::new(Repr { bytes, functions, store: Mutex::new(store) })))
+        Ok(Plugin(Arc::new(Repr {
+            bytes: bytes.as_ref().into(),
+            functions,
+            store: Mutex::new(store),
+        })))
     }
 
     fn store(&self) -> MutexGuard<'_, wasmi::Store<PersistentData>> {
         self.0.store.lock().unwrap()
     }
 
-    fn write(&self, args: &[&str]) {
-        let mut all_args = String::new();
-        for arg in args {
-            all_args += arg;
-        }
-        self.store().data_mut().arg_buffer = all_args;
-    }
-
-    pub fn call(&self, function: &str, args: &mut Args) -> SourceResult<Value> {
+    /// Call a function defined in the plugin under `function_name`.
+    ///
+    /// This will eat the number of argument it needs of type Bytes.
+    ///
+    /// # Errors
+    /// - if the plugin doesn't contain the function
+    /// - if the number of argument isn't correct
+    pub fn call(&self, function_name: &str, args: &mut Args) -> SourceResult<Value> {
         let span = args.span;
         let ty = self
-            .get_function(function)
+            .get_function(function_name)
             .ok_or("plugin doesn't have the method: {function}")
             .at(span)?
-            .ty(self.store().deref());
+            .ty(self.store().as_context());
         let arg_count = ty.params().len();
-        let mut str_args = vec![];
+        let mut byte_args = vec![];
         for k in 0..arg_count {
             let arg = args
                 .eat::<Value>()?
                 .ok_or(format!("plugin methods takes {arg_count} args, {k} provided"))
                 .at(span)?
-                .cast::<String>()
+                .cast::<Bytes>()
                 .at(span)?;
-            str_args.push(arg);
+            byte_args.push(arg);
         }
-        let s = self
-            .call_inner(
-                function,
-                str_args.iter().map(|x| x.as_str()).collect::<Vec<_>>().as_slice(),
-            )
-            .at(span)?;
-        Ok(Value::Str(s.into()))
+        let byte_args = byte_args.iter().map(|b| b.as_slice()).collect::<Vec<_>>();
+        let s = self.call_inner(function_name, &byte_args).at(span)?;
+        Ok(Value::Bytes(s.into()))
     }
 
-    fn call_inner(&self, function: &str, args: &[&str]) -> Result<String, String> {
-        self.write(args);
+    fn call_inner(&self, function: &str, args: &[&[u8]]) -> Result<Vec<u8>, String> {
+        self.store().data_mut().arg_buffer = args.concat();
 
-        let function = self
-            .get_function(function)
+        let (_, function) = self
+            .0
+            .functions
+            .iter()
+            .find(|(s, _)| s == function)
             .ok_or(format!("Plugin doesn't have the method: {function}"))?;
 
         let result_args =
@@ -147,7 +151,7 @@ impl Plugin {
 
         let mut code = [WasiValue::I32(2)];
         let is_err = function
-            .call(self.store().deref_mut(), &result_args, &mut code)
+            .call(&mut self.store().as_context_mut(), &result_args, &mut code)
             .is_err();
         let code = if is_err {
             WasiValue::I32(2)
@@ -159,16 +163,16 @@ impl Plugin {
 
         match code {
             WasiValue::I32(0) => Ok(s),
-            WasiValue::I32(1) => Err(format!(
-                "plugin errored with: {:?} with code: {}",
-                s,
-                code.i32().unwrap()
-            )),
+            WasiValue::I32(1) => Err(match String::from_utf8(s) {
+                Ok(err) => format!("plugin errored with: '{}'", err,),
+                Err(_) => String::from("plugin errored and did not return valid UTF-8"),
+            }),
             WasiValue::I32(2) => Err("plugin panicked".to_string()),
             _ => Err("plugin did not respect the protocol".to_string()),
         }
     }
 
+    /// get the function register under `function_name` if it exists.
     pub fn get_function(&self, function_name: &str) -> Option<Function> {
         let Some((_, function)) = self.0.functions.iter().find(|(s, _)| s == function_name) else {
             return None
@@ -176,6 +180,7 @@ impl Plugin {
         Some(*function)
     }
 
+    /// return an iterator of all the function names contained by the plugin.
     pub fn iter_functions(&self) -> impl Iterator<Item = &String> {
         self.0.functions.as_slice().iter().map(|(func_name, _)| func_name)
     }
