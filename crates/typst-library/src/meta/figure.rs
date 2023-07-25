@@ -173,6 +173,18 @@ pub struct FigureElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
+    /// The separator which will appear between figure`s number and figure`s caption if provided
+    ///
+    /// ```example
+    /// #figure(
+    ///   [The contents of my figure!],
+    ///   caption: [My custom figure],
+    ///   supplement: [Bar],
+    ///   separator: [---],
+    /// )
+    #[default(TextElem::packed(": "))]
+    pub separator: Content,
+
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($func/numbering).
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
@@ -272,6 +284,7 @@ impl Synthesize for FigureElem {
         self.push_caption(self.caption(styles));
         self.push_kind(Smart::Custom(kind));
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        self.push_separator(self.separator(styles));
         self.push_numbering(numbering);
         self.push_outlined(self.outlined(styles));
         self.push_counter(Some(counter));
@@ -386,7 +399,9 @@ impl FigureElem {
                 supplement += TextElem::packed("\u{a0}");
             }
 
-            caption = supplement + numbers + TextElem::packed(": ") + caption;
+            let separator = self.separator(StyleChain::default());
+
+            caption = supplement + numbers + separator + caption;
         }
 
         Ok(Some(caption))
