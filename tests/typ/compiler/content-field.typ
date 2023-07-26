@@ -32,7 +32,7 @@
   [With ]
   vars
     .pairs()
-    .map(p => $var(#str(p.first())) = var(#str(p.last()))$)
+    .map(p => $var(#p.first()) = var(#p.last())$)
     .join(", ", last: " and ")
   [ we have:]
   $ equation = result $

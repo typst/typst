@@ -62,4 +62,4 @@ $ mat(1, 2; 3, 4, delim: "[") $,
 $ mat(B, A B) $
 $ mat(B, A B, dots) $
 $ mat(B, A B, dots;) $
-$ mat(var(#str(1)), #(foo: "bar")) $
+$ mat(var(#1), #(foo: "bar")) $

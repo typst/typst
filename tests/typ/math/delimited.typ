@@ -40,7 +40,6 @@ $floor(x/2), ceil(x/2), abs(x), norm(x)$
 ---
 // Test colored delimiters
 $ lr(
-    #{ set text(fill: green); $($ }
-    a/b
-    #{ set text(fill: blue); $)$ }
+    var("(", fill: #green) a/b
+    var(")", fill: #blue)
   ) $

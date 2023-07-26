@@ -133,12 +133,11 @@ cast! {
     self => self.0.into_value(),
     v: char => Self::new(v),
     v: Content => {
-        // FIXME: Unsure of what this code does. Is the TextElem
-        // part still needed?
+        // FIXME: Do we still want to cast a text character to an accent? Seems reasonable.
         if let Some(elem) = v.to::<TextElem>() {
             Value::Str(elem.text().into()).cast()?
         } else if let Some(elem) = v.to::<VarElem>() {
-            Value::Str(elem.text().into()).cast()?
+            Value::Str(elem.as_string().into()).cast()?
         } else {
             bail!("expected text or var")
         }

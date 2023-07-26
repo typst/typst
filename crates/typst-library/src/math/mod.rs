@@ -491,7 +491,7 @@ impl LayoutMath for Content {
         }
 
         if let Some(elem) = self.to::<SymbolElem>() {
-            let var = VarElem::new(elem.character().into()).spanned(elem.span()).pack();
+            let var = VarElem::from(elem.character()).spanned(elem.span()).pack();
             var.layout_math(ctx)?;
             return Ok(());
         }

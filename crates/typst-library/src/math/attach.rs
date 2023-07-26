@@ -118,13 +118,13 @@ impl LayoutMath for PrimesElem {
                     _ => unreachable!(),
                 };
 
-                let prime = VarElem::new(c.into()).spanned(self.span()).pack();
+                let prime = VarElem::from(c).spanned(self.span()).pack();
                 let fragment = ctx.layout_fragment(&prime)?;
                 ctx.push(fragment);
             }
             count => {
                 // Custom amount of primes
-                let primevar = VarElem::new('′'.into()).spanned(self.span()).pack();
+                let primevar = VarElem::from('′').spanned(self.span()).pack();
                 let prime = ctx.layout_fragment(&primevar)?.into_frame();
                 let width = prime.width() * (count + 1) as f64 / 2.0;
                 let mut frame = Frame::new(Size::new(width, prime.height()));

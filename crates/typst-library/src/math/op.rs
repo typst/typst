@@ -34,7 +34,7 @@ pub struct OpElem {
 impl LayoutMath for OpElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        let var = VarElem::new(self.text()).spanned(self.span()).pack();
+        let var = VarElem::from(self.text()).spanned(self.span()).pack();
         let frame = ctx.layout_fragment(&var)?.into_frame();
 
         ctx.push(

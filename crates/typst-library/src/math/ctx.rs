@@ -235,7 +235,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn layout_var(&mut self, elem: &VarElem) -> SourceResult<MathFragment> {
         let span = elem.span();
-        let text = elem.text();
+        let text = elem.as_string();
 
         let font_prev = self.font.clone();
         let space_width_prev = self.space_width;

@@ -36,7 +36,7 @@ use crate::text::{FontFeatures, StylisticSet};
 pub struct VarElem {
     /// The text.
     #[required]
-    pub text: EcoString,
+    pub text: Var,
 
     /// A prioritized sequence of font families.
     ///
@@ -119,7 +119,12 @@ pub struct VarElem {
 impl VarElem {
     /// Create a new packed symbols element.
     pub fn packed(text: impl Into<EcoString>) -> Content {
-        Self::new(text.into()).pack()
+        VarElem::from(text).pack()
+    }
+
+    /// A convenience accessor to the text content of the var.
+    pub fn as_string(&self) -> EcoString {
+        self.text().0
     }
 }
 
@@ -132,11 +137,28 @@ impl LayoutMath for VarElem {
     }
 }
 
+// Wrapper for values that can cast to a `var`.
+pub struct Var(EcoString);
+
+cast! {
+    Var,
+    self => self.0.as_str().into_value(),
+    string: EcoString => Self(string),
+    v: i32 => Self(eco_format!("{}",v))
+    // FIXME Floats?
+}
+
 impl<T> From<T> for VarElem
 where
     T: Into<EcoString>,
 {
     fn from(item: T) -> Self {
-        VarElem::new(item.into())
+        Self::new(Var(item.into()))
+    }
+}
+
+impl From<Var> for EcoString {
+    fn from(item: Var) -> Self {
+        item.0
     }
 }
