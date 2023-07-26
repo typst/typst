@@ -41,7 +41,7 @@ pub struct ShapedText<'a> {
     /// The shaped glyphs.
     pub glyphs: Cow<'a, [ShapedGlyph]>,
     /// Source of style properties if this is math.
-    pub math: Option<Option<&'a VarElem>>,
+    pub math: Option<&'a VarElem>,
 }
 
 /// A single glyph resulting from shaping.
@@ -235,12 +235,12 @@ impl<'a> ShapedText<'a> {
         let mut frame = Frame::new(size);
         frame.set_baseline(top);
 
-        let (shift, lang, decos, fill) = if let Some(math) = self.math {
+        let (shift, lang, decos, fill) = if self.math.is_some() {
             (
                 Abs::zero(),
                 TextElem::lang_in(self.styles), //FIXME: DFLT??
                 vec![],
-                crate::math::var_fill(math, self.styles),
+                crate::math::var_fill(self.math, self.styles),
             )
         } else {
             (
@@ -354,8 +354,8 @@ impl<'a> ShapedText<'a> {
             //FIXME: Ugh.
             // The iterators from `families` and `math_families` are impl traits,
             // so you can't bind them to a single variable. Hence code duplication.
-            if let Some(math) = self.math {
-                for family in math_families(math, self.styles) {
+            if self.math.is_some() {
+                for family in math_families(self.math, self.styles) {
                     if let Some(font) = world
                         .book()
                         .select(family.as_str(), self.variant)
@@ -567,7 +567,6 @@ impl Debug for ShapedText<'_> {
 /// Holds shaping results and metadata common to all shaped segments.
 struct ShapingContext<'a, 'v> {
     vt: &'a Vt<'v>,
-    math: Option<Option<&'a VarElem>>,
     spans: &'a SpanMapper,
     glyphs: Vec<ShapedGlyph>,
     used: Vec<Font>,
@@ -577,6 +576,7 @@ struct ShapingContext<'a, 'v> {
     tags: Vec<rustybuzz::Feature>,
     fallback: bool,
     dir: Dir,
+    math: Option<&'a VarElem>,
 }
 
 /// Shape text into [`ShapedText`].
@@ -590,14 +590,15 @@ pub fn shape<'a>(
     dir: Dir,
     lang: Lang,
     region: Option<Region>,
-    math: Option<Option<&'a VarElem>>,
+    math: Option<&'a VarElem>,
 ) -> ShapedText<'a> {
-    let (size, fallback, variant, tags) = if let Some(math) = math {
-        let size = crate::math::var_size(math, styles);
-        let fallback = math
-            .map(|elem| elem.fallback(styles))
-            .unwrap_or(VarElem::fallback_in(styles));
-        (size, fallback, math_variant(math, styles), math_tags(math, styles))
+    let (size, fallback, variant, tags) = if let Some(elem) = math {
+        (
+            crate::math::var_size(Some(elem), styles),
+            elem.fallback(styles),
+            math_variant(Some(elem), styles),
+            math_tags(Some(elem), styles),
+        )
     } else {
         (
             TextElem::size_in(styles),
@@ -622,7 +623,7 @@ pub fn shape<'a>(
     };
 
     if !text.is_empty() {
-        if let Some(math) = math {
+        if math.is_some() {
             shape_segment(&mut ctx, base, text, math_families(math, styles));
         } else {
             shape_segment(&mut ctx, base, text, families(styles));
@@ -902,10 +903,8 @@ fn nbsp_delta(font: &Font) -> Option<Em> {
 }
 
 /// Resolve the font variant for a math font.
-pub fn math_variant(math: Option<&VarElem>, styles: StyleChain) -> FontVariant {
-    let weight = math
-        .map(|elem| elem.weight(styles))
-        .unwrap_or(VarElem::weight_in(styles));
+pub fn math_variant(elem: Option<&VarElem>, styles: StyleChain) -> FontVariant {
+    let weight = elem.map(|e| e.weight(styles)).unwrap_or(VarElem::weight_in(styles));
     FontVariant::new(FontStyle::Normal, weight, FontStretch::NORMAL)
 }
 

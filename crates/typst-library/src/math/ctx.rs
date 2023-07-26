@@ -67,7 +67,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         // inheriting the document's italic/bold-ness into the math.
         // But there is an inconsistency here if you set the `text`
         // properties during the equation; then they have no effect.
-        let variant = variant(styles);
+        let variant = math_variant(None, styles);
 
         let ssty_tag = ttf_parser::Tag::from_bytes(b"ssty");
 
@@ -305,7 +305,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                     Dir::LTR,
                     lang,
                     None,
-                    Some(Some(elem)),
+                    Some(elem),
                 )
             };
 
@@ -437,6 +437,6 @@ pub fn var_size(elem: Option<&VarElem>, styles: StyleChain) -> Abs {
 }
 
 pub fn var_fill(elem: Option<&VarElem>, styles: StyleChain) -> Paint {
-    if let Some(elem) = elem { elem.fill(styles) } else { VarElem::fill_in(styles) }
-        .unwrap_or(TextElem::fill_in(styles))
+    let fill = elem.map(|e| e.fill(styles)).unwrap_or(VarElem::fill_in(styles));
+    fill.unwrap_or(TextElem::fill_in(styles))
 }

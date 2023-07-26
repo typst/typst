@@ -55,7 +55,7 @@ use crate::prelude::*;
 use crate::shared::BehavedBuilder;
 use crate::symbols::SymbolElem;
 use crate::text::{
-    variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
+    math_variant, FontFamily, FontList, LinebreakElem, SpaceElem, TextElem, TextSize,
 };
 
 /// Create a module with all math definitions.
