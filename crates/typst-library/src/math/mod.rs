@@ -443,7 +443,7 @@ impl LayoutMath for Content {
                 let space_width_prev = ctx.space_width;
                 let local_prev = std::mem::replace(&mut ctx.local, styles.clone());
                 ctx.local.apply(local_prev.clone());
-                ctx.update_font(self.span())?;
+                ctx.update_font(None, self.span())?;
                 ctx.size = ctx.default_var_size();
 
                 elem.layout_math(ctx)?;

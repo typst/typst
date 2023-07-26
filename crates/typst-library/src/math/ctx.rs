@@ -1,12 +1,13 @@
 use ttf_parser::math::MathValue;
-use typst::font::{FontStretch, FontStyle, FontVariant, FontWeight};
+use typst::font::{FontStyle, FontWeight};
 use typst::model::realize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
 use crate::layout::SpanMapper;
 use crate::text::{
-    math_tags, BottomEdge, BottomEdgeMetric, FontFeatures, TopEdge, TopEdgeMetric,
+    math_families, math_tags, BottomEdge, BottomEdgeMetric, FontFeatures, TopEdge,
+    TopEdgeMetric,
 };
 
 macro_rules! scaled {
@@ -51,7 +52,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         block: bool,
         span: Span,
     ) -> SourceResult<Self> {
-        let Some(font) = find_math_font(vt, styles) else {
+        let Some(font) = find_math_font(vt, None, styles) else {
             bail!(span,"current font does not support math");
         };
 
@@ -132,6 +133,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     // FIXME: This is doing needless extended computation once per glyph
+    // FIXME: There are two different paths for doing substitution.
+    //        One is here for singleton glyphs, and one is via the
+    //        shaper (rustybuzz).  Are these in sync?
     pub fn glyphwise_tables(
         &'a self,
         elem: Option<&VarElem>,
@@ -148,9 +152,13 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         })
     }
 
-    pub fn update_font(&mut self, span: Span) -> SourceResult<()> {
+    pub fn update_font(
+        &mut self,
+        elem: Option<&VarElem>,
+        span: Span,
+    ) -> SourceResult<()> {
         let styles = self.outer.chain(&self.local);
-        let Some(font) = find_math_font(self.vt, styles) else {
+        let Some(font) = find_math_font(self.vt, elem, styles) else {
             bail!(span,"current font does not support math");
         };
         self.font = font.clone();
@@ -229,14 +237,22 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let span = elem.span();
         let text = elem.text();
 
-        // FIXME: Need to determine if this var has explicitly changed
-        // the font (via font, weight and fallback)
+        let font_prev = self.font.clone();
+        let space_width_prev = self.space_width;
 
         let size_prev = self.size;
         self.size = self.var_size(elem);
 
-        let mut chars = text.chars();
         let styles = self.styles();
+
+        if elem.font(styles) != VarElem::font_in(styles)
+            || elem.weight(styles) != VarElem::weight_in(styles)
+            || elem.fallback(styles) != VarElem::fallback_in(styles)
+        {
+            self.update_font(Some(elem), span)?;
+        }
+
+        let mut chars = text.chars();
         if let Some(mut glyph) = chars
             .next()
             .filter(|_| chars.next().is_none())
@@ -275,8 +291,11 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 }
             };
             self.size = size_prev;
+            self.font = font_prev;
+            self.space_width = space_width_prev;
             Ok(fragment)
         } else {
+            let styles = self.styles();
             let is_number = text.chars().all(|c| c.is_ascii_digit());
             let spaced = !is_number && text.graphemes(true).nth(1).is_some();
 
@@ -322,6 +341,10 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             };
 
             let frame = shaped_text.build(self.vt, 0.0, Abs::zero());
+
+            self.size = size_prev;
+            self.font = font_prev;
+            self.space_width = space_width_prev;
             Ok(FrameFragment::new(self, frame).into())
         }
     }
@@ -405,19 +428,9 @@ impl Scaled for MathValue<'_> {
     }
 }
 
-fn find_math_font(vt: &Vt, styles: StyleChain) -> Option<Font> {
-    let variant = FontVariant::new(
-        FontStyle::Normal,
-        VarElem::weight_in(styles),
-        FontStretch::NORMAL,
-    );
-
-    const FALLBACKS: &[&str] = &["New Computer Modern Math"];
-
-    let tail = if VarElem::fallback_in(styles) { FALLBACKS } else { &[] };
-    let mut families = VarElem::font_in(styles)
-        .into_iter()
-        .chain(tail.iter().copied().map(FontFamily::new));
+fn find_math_font(vt: &Vt, elem: Option<&VarElem>, styles: StyleChain) -> Option<Font> {
+    let variant = math_variant(elem, styles);
+    let mut families = math_families(elem, styles);
 
     let world = vt.world;
     families.find_map(|family| {

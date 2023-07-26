@@ -69,6 +69,10 @@ $sin theta eq.not #{set math.var(font:"New Computer Modern Math"); $sin theta$}$
 }
 #h(1em)$bold(g) "vs" cmbold(g)$
 
-// FIXME: test that failure happens if a var(font:"badfont") is encountered.
-// FIXME: test that var(font:"newgoodfont") gets the right font; 
-// this is broken now.
+---
+// Test singltons can change the font.
+$ a + var(font:"Fira Math", "b") + b + a $
+
+// ---
+// Error: 7-45 current font does not support math
+$ a + var(font:"Blah", fallback:#false, "b")  $
