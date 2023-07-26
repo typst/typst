@@ -43,11 +43,12 @@ pub struct VarElem {
     #[default(FontList(vec![FontFamily::new("New Computer Modern Math")]))]
     pub font: FontList,
 
-    /// The weight of the base family
-    /// FIXME: I think this shoudl be base-weight so that
-    /// someone doesn't think that it makes the ordinary font bold
+    /// The weight of the base family.
+    ///
+    /// FIXME Explain this.
+    ///
     #[default(FontWeight::from_number(450))]
-    pub weight: FontWeight,
+    pub base_weight: FontWeight,
 
     /// The size of the glyphs. This value forms the basis of the `em` unit:
     /// `{1em}` is equivalent to the font size.
@@ -59,7 +60,6 @@ pub struct VarElem {
     /// #set text(size: 20pt)
     /// very #text(1.5em)[big] text
     /// ```
-    // FIXME: Does this parse really work in the presence of auto?
     // FIXME: Does fold work?
     #[parse(args.named_or_find("size")?)]
     #[fold]
@@ -72,7 +72,6 @@ pub struct VarElem {
     /// #set text(fill: red)
     /// This text is red.
     /// ```
-    /// FIXME: Does this parse still work?
     #[parse(args.named_or_find("fill")?)]
     #[default(Smart::Auto)]
     pub fill: Smart<Paint>,
@@ -92,9 +91,8 @@ pub struct VarElem {
     ///   identified by the keys to the values.
     ///
     /// ```example
-    /// // Enable the `frac` feature manually.
-    /// #set text(features: ("frac",))
-    /// 1/2
+    /// // Enable the `cv01` feature manually.
+    /// $ emptyset quad var(features: #("cv01",), emptyset)$
     /// ```
     #[fold]
     pub features: FontFeatures,
@@ -105,15 +103,6 @@ pub struct VarElem {
     /// to an integer between `{1}` and `{20}`, enables the corresponding
     /// OpenType font feature from `ss01`, ..., `ss20`.
     pub stylistic_set: Option<StylisticSet>,
-
-    /// Whether to have a slash through the zero glyph. Setting this to `{true}`
-    /// enables the OpenType `zero` font feature.
-    ///
-    /// ```example
-    /// 0, #text(slashed-zero: true)[0]
-    /// ```
-    #[default(false)]
-    pub slashed_zero: bool,
 }
 
 impl VarElem {
@@ -125,6 +114,12 @@ impl VarElem {
     /// A convenience accessor to the text content of the var.
     pub fn as_string(&self) -> EcoString {
         self.text().0
+    }
+
+    // The language to be used to tag glyphs typeset
+    // from math.  Falls back to the `TextElem` value.
+    pub fn lang_in(styles: StyleChain) -> typst::doc::Lang {
+        TextElem::lang_in(styles)
     }
 }
 
@@ -161,4 +156,25 @@ impl From<Var> for EcoString {
     fn from(item: Var) -> Self {
         item.0
     }
+}
+
+// FIXME: Is there a way to get VarElem to just do this
+// with its size accessor?
+// FIXME: This is broken. You get zero size if
+// the value is set to 1em and there is nothing prior in
+// the var's style list from size.  The fold should
+// take into account Text's as well.
+pub fn var_size(elem: Option<&VarElem>, styles: StyleChain) -> Abs {
+    let size = elem.map(|elem| elem.size(styles)).unwrap_or(VarElem::size_in(styles));
+    match size {
+        Smart::Custom(size) => size,
+        Smart::Auto => TextElem::size_in(styles),
+    }
+}
+
+// FIXME: Is there a way to get VarElem to just do this
+// with its size accessor?
+pub fn var_fill(elem: Option<&VarElem>, styles: StyleChain) -> Paint {
+    let fill = elem.map(|e| e.fill(styles)).unwrap_or(VarElem::fill_in(styles));
+    fill.unwrap_or(TextElem::fill_in(styles))
 }

@@ -203,7 +203,7 @@ impl GlyphFragment {
     pub fn new(ctx: &MathContext, c: char, span: Span) -> Self {
         let id = ctx.ttf().glyph_index(c).unwrap_or_default();
         let id = Self::adjust_glyph_index(ctx, id, None);
-        Self::with_id(ctx, c, id, ctx.default_var_fill(), span)
+        Self::with_id(ctx, c, id, var_fill(None, ctx.styles()), span)
     }
 
     pub fn try_new(
@@ -235,8 +235,7 @@ impl GlyphFragment {
             id,
             c,
             font: ctx.font(),
-            // FIXME: What do do about this??
-            lang: TextElem::lang_in(ctx.styles()),
+            lang: VarElem::lang_in(ctx.styles()),
             fill,
             style: ctx.style,
             font_size: ctx.size,
@@ -485,8 +484,6 @@ pub enum GlyphwiseSubsts<'a> {
     Alternate(AlternateSubstitution<'a>, u32),
 }
 
-// FIXME: Looks like the ssty's below are cut paste errors.
-// Not a bug, just semantically confusing.
 impl<'a> GlyphwiseSubsts<'a> {
     pub fn new(gsub: LayoutTable<'a>, feature: Feature) -> Option<Self> {
         let table = gsub

@@ -238,7 +238,7 @@ impl<'a> ShapedText<'a> {
         let (shift, lang, decos, fill) = if self.math.is_some() {
             (
                 Abs::zero(),
-                TextElem::lang_in(self.styles), //FIXME: DFLT??
+                VarElem::lang_in(self.styles),
                 vec![],
                 crate::math::var_fill(self.math, self.styles),
             )
@@ -699,7 +699,10 @@ fn shape_segment(
     let mut buffer = UnicodeBuffer::new();
     buffer.push_str(text);
 
-    // FIXME What to do for math???
+    // In math mode, the script is set to "MATH",
+    // in which case the standard seems to be to only
+    // offer "dflt" as the OpenScript tag for the language.
+    // So the setting here should have no impact.
     buffer.set_language(language(ctx.styles));
 
     if ctx.math.is_none() {
@@ -904,7 +907,9 @@ fn nbsp_delta(font: &Font) -> Option<Em> {
 
 /// Resolve the font variant for a math font.
 pub fn math_variant(elem: Option<&VarElem>, styles: StyleChain) -> FontVariant {
-    let weight = elem.map(|e| e.weight(styles)).unwrap_or(VarElem::weight_in(styles));
+    let weight = elem
+        .map(|e| e.base_weight(styles))
+        .unwrap_or(VarElem::base_weight_in(styles));
     FontVariant::new(FontStyle::Normal, weight, FontStretch::NORMAL)
 }
 
@@ -948,7 +953,6 @@ pub fn families(styles: StyleChain) -> impl Iterator<Item = FontFamily> + Clone 
         .chain(tail.iter().copied().map(FontFamily::new))
 }
 
-// FIXME Old code in math::ctx should now use this!
 pub fn math_families(
     elem: Option<&VarElem>,
     styles: StyleChain,
@@ -980,14 +984,6 @@ pub fn math_tags(elem: Option<&VarElem>, styles: StyleChain) -> Vec<Feature> {
     };
 
     feat(b"kern", 0);
-
-    // FIXME: this needs a test.
-    if elem
-        .map(|e| e.slashed_zero(styles))
-        .unwrap_or(VarElem::slashed_zero_in(styles))
-    {
-        feat(b"zero", 1);
-    }
 
     let storage;
     let ss0x = elem

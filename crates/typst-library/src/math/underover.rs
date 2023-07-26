@@ -104,7 +104,7 @@ fn layout_underoverline(
         line_pos,
         FrameItem::Shape(
             Geometry::Line(Point::with_x(width)).stroked(Stroke {
-                paint: ctx.default_var_fill(),
+                paint: var_fill(None, ctx.styles()),
                 thickness: bar_height,
                 ..Stroke::default()
             }),

@@ -133,7 +133,6 @@ cast! {
     self => self.0.into_value(),
     v: char => Self::new(v),
     v: Content => {
-        // FIXME: Do we still want to cast a text character to an accent? Seems reasonable.
         if let Some(elem) = v.to::<TextElem>() {
             Value::Str(elem.text().into()).cast()?
         } else if let Some(elem) = v.to::<VarElem>() {

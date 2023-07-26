@@ -241,12 +241,12 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         let space_width_prev = self.space_width;
 
         let size_prev = self.size;
-        self.size = self.var_size(elem);
+        self.size = var_size(Some(elem), self.styles());
 
         let styles = self.styles();
 
         if elem.font(styles) != VarElem::font_in(styles)
-            || elem.weight(styles) != VarElem::weight_in(styles)
+            || elem.base_weight(styles) != VarElem::base_weight_in(styles)
             || elem.fallback(styles) != VarElem::fallback_in(styles)
         {
             self.update_font(Some(elem), span)?;
@@ -309,8 +309,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 styled_text.push(style.styled_char(c));
             }
 
-            // FIXME: Maybe 'dflt'?
-            let lang = TextElem::lang_in(styles);
+            let lang = VarElem::lang_in(styles);
             let mut sm = SpanMapper::new();
             sm.push(styled_text.as_bytes().len(), elem.span());
 
@@ -351,20 +350,6 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
 
     pub fn styles(&self) -> StyleChain {
         self.outer.chain(&self.local)
-    }
-
-    // FIXME: unlovely code duplication
-    pub fn var_size(&self, elem: &VarElem) -> Abs {
-        var_size(Some(elem), self.styles())
-    }
-
-    pub fn default_var_size(&self) -> Abs {
-        var_size(None, self.styles())
-    }
-
-    pub fn default_var_fill(&self) -> Paint {
-        let styles = self.styles();
-        VarElem::fill_in(styles).unwrap_or(TextElem::fill_in(styles))
     }
 
     pub fn realize(&mut self, content: &Content) -> SourceResult<Option<Content>> {
@@ -439,17 +424,4 @@ fn find_math_font(vt: &Vt, elem: Option<&VarElem>, styles: StyleChain) -> Option
         let _ = font.math()?.constants?;
         Some(font)
     })
-}
-
-pub fn var_size(elem: Option<&VarElem>, styles: StyleChain) -> Abs {
-    let size = elem.map(|elem| elem.size(styles)).unwrap_or(VarElem::size_in(styles));
-    match size {
-        Smart::Custom(size) => size,
-        Smart::Auto => TextElem::size_in(styles),
-    }
-}
-
-pub fn var_fill(elem: Option<&VarElem>, styles: StyleChain) -> Paint {
-    let fill = elem.map(|e| e.fill(styles)).unwrap_or(VarElem::fill_in(styles));
-    fill.unwrap_or(TextElem::fill_in(styles))
 }

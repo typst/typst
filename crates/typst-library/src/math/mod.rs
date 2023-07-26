@@ -25,7 +25,6 @@ pub use self::align::*;
 pub use self::attach::*;
 pub use self::cancel::*;
 pub use self::class::*;
-pub use self::ctx::{var_fill, var_size};
 pub use self::delimited::*;
 pub use self::frac::*;
 pub use self::matrix::*;
@@ -435,7 +434,8 @@ impl LayoutMath for Content {
             // the borrow checker.
             if styles.interruption::<VarElem>().is_some()
                 && ((VarElem::font_in(s_prev) != VarElem::font_in(s_next))
-                    || (VarElem::weight_in(s_prev) != VarElem::weight_in(s_next))
+                    || (VarElem::base_weight_in(s_prev)
+                        != VarElem::base_weight_in(s_next))
                     || (VarElem::fallback_in(s_prev) != VarElem::fallback_in(s_next)))
             {
                 // Only var(font:,weight:,fallback:) affect the math font selection.
@@ -444,7 +444,7 @@ impl LayoutMath for Content {
                 let local_prev = std::mem::replace(&mut ctx.local, styles.clone());
                 ctx.local.apply(local_prev.clone());
                 ctx.update_font(None, self.span())?;
-                ctx.size = ctx.default_var_size();
+                ctx.size = var_size(None, ctx.styles());
 
                 elem.layout_math(ctx)?;
 
@@ -455,7 +455,7 @@ impl LayoutMath for Content {
             } else {
                 let local_prev = std::mem::replace(&mut ctx.local, styles.clone());
                 ctx.local.apply(local_prev.clone());
-                ctx.size = ctx.default_var_size();
+                ctx.size = var_size(None, ctx.styles());
 
                 elem.layout_math(ctx)?;
 
@@ -515,8 +515,7 @@ impl LayoutMath for Content {
     }
 }
 
-/// FIXME: These are dev comments.  Proper comments needed if
-/// this gets exposed.
+/// FIXME: Docs needed.
 /// Enables a transition from math mode to ordinary mode if
 /// the style is encountered while laying out a formula.
 ///
