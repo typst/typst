@@ -1,3 +1,4 @@
+use std::collections::{BTreeMap};
 use crate::layout::{LayoutRoot, PageElem};
 use crate::prelude::*;
 
@@ -70,6 +71,7 @@ impl LayoutRoot for DocumentElem {
             pages,
             title: self.title(styles),
             author: self.author(styles).0,
+            provided_metadata: BTreeMap::new()
         })
     }
 }
