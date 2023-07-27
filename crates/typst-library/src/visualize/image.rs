@@ -1,6 +1,6 @@
+use duplicate::duplicate_item;
 use std::ffi::OsStr;
 use std::path::Path;
-use duplicate::duplicate_item;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use typst::util::Bytes;

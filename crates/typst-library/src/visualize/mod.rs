@@ -6,12 +6,12 @@ mod path;
 mod polygon;
 mod shape;
 
-use typst::eval::Module;
 pub use self::image::*;
 pub use self::line::*;
 pub use self::path::*;
 pub use self::polygon::*;
 pub use self::shape::*;
+use typst::eval::Module;
 
 use crate::prelude::*;
 
