@@ -1,5 +1,6 @@
 use std::ffi::OsStr;
 use std::path::Path;
+use duplicate::duplicate_item;
 
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use typst::util::Bytes;
@@ -36,8 +37,7 @@ pub struct ImageElem {
     /// Path to an image file.
     #[required]
     #[parse(
-        let Spanned { v: path, span } =
-            args.expect::<Spanned<EcoString>>("path to image file")?;
+        let Spanned { v: path, span } = args.expect::<Spanned<EcoString>>("path to image file")?;
         let id = vm.location().join(&path).at(span)?;
         let data = vm.world().file(id).at(span)?;
         path
@@ -64,7 +64,67 @@ pub struct ImageElem {
     pub fit: ImageFit,
 }
 
-impl Layout for ImageElem {
+/// An svg graphic.
+///
+/// _Note:_ Work on SVG export is ongoing and there might be visual inaccuracies
+/// in the resulting PDF. Make sure to double-check embedded SVG images. If you
+/// have an issue, also feel free to report it on [GitHub][gh-svg].
+///
+/// ## Example { #example }
+/// ```example
+/// #figure(
+///   svg.parse("insert code here", width: 80%),
+///   caption: [
+///     A step in the molecular testing
+///     pipeline of our lab.
+///   ],
+/// )
+/// ```
+///
+/// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
+///
+/// Display: Image
+/// Category: visualize
+#[element(Layout, LocalName, Figurable)]
+pub struct SvgElem {
+    /// Path to an image file.
+    #[required]
+    #[parse(
+        let Spanned { v: content, span: _ } = args.expect::<Spanned<EcoString>>("image data")?;
+        let data = content.as_bytes().into();
+        let path = "x.svg";
+        content
+    )]
+    pub content: EcoString,
+
+    /// The raw file data.
+    #[internal]
+    #[required]
+    #[parse(data)]
+    pub data: Bytes,
+
+    /// Path
+    #[internal]
+    #[required]
+    #[parse(path.into())]
+    pub path: EcoString,
+
+    /// The width of the image.
+    pub width: Smart<Rel<Length>>,
+
+    /// The height of the image.
+    pub height: Smart<Rel<Length>>,
+
+    /// A text describing the image.
+    pub alt: Option<EcoString>,
+
+    /// How the image should adjust itself to a given area.
+    #[default(ImageFit::Cover)]
+    pub fit: ImageFit,
+}
+
+#[duplicate_item(elem; [ImageElem]; [SvgElem])]
+impl Layout for elem {
     #[tracing::instrument(name = "ImageElem::layout", skip_all)]
     fn layout(
         &self,
@@ -85,6 +145,8 @@ impl Layout for ImageElem {
             "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
             _ => bail!(self.span(), "unknown image format"),
         };
+
+        println!("Format: {:?}", format);
 
         let image = Image::with_fonts(
             self.data(),
@@ -153,7 +215,8 @@ impl Layout for ImageElem {
     }
 }
 
-impl LocalName for ImageElem {
+#[duplicate_item(elem; [ImageElem]; [SvgElem])]
+impl LocalName for elem {
     fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Figurë",
@@ -184,6 +247,7 @@ impl LocalName for ImageElem {
 }
 
 impl Figurable for ImageElem {}
+impl Figurable for SvgElem {}
 
 /// How an image should adjust itself to a given area.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]

@@ -17,6 +17,7 @@ use crate::prelude::*;
 /// Hook up all visualize definitions.
 pub(super) fn define(global: &mut Scope) {
     global.define("image", ImageElem::func());
+    global.define("svg", SvgElem::func());
     global.define("line", LineElem::func());
     global.define("rect", RectElem::func());
     global.define("square", SquareElem::func());
