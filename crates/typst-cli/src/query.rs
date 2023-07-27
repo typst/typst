@@ -20,7 +20,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
         output: None,
         flamegraph: None,
         open: None,
-        diagnostic_format: command.diagnostic_format.clone(),
+        diagnostic_format: command.diagnostic_format,
         ppi: 0.0,
     })?;
     tracing::info!("Starting querying");
