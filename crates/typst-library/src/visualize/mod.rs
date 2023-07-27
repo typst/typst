@@ -44,7 +44,8 @@ pub(super) fn define(global: &mut Scope) {
     global.define("green", Color::GREEN);
     global.define("lime", Color::LIME);
 
-    let mut svg = Scope::deduplicating();
-    svg.define("decode", ImageDecodeElem::func());
-    global.define("imagex", Module::new("svg").with_scope(svg));
+    let mut image_scope = Scope::deduplicating();
+    image_scope.define("decode", ImageDecodeElem::func());
+    image_scope.define("", ImageElem::func());
+    global.define("imagex", Module::new("image").with_scope(image_scope));
 }
