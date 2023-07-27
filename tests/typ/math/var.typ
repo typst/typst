@@ -20,9 +20,16 @@ $var("h") quad var("hello") quad italic(var("world"))$
 
 ---
 // Test regex
-#show "p": "ze"
-#show sym.sum: "S"
-$var("map") quad sum quad var("∑igma")$#h(1em)∑
+// FIXME I'm not sure it's a good idea that the 
+// selector "p" matches text and var both.  But then
+// you need a notation for matching, regex-style, just vars.
+#show "p": math.var("ze")
+// FIXME: This is subtle. sym.sum is replacing all characters,
+// everywhere that match the character that it represents.  
+// Is this desired? Dunno.
+#show sym.sum: math.var("S")
+$var("map") thick sum thick var("a∑b") thick var("∑igma")$#h(0.5em)∑
+
 
 ---
 // Test var/text color interactions and scoping

@@ -296,17 +296,19 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             Ok(fragment)
         } else {
             let styles = self.styles();
-            let is_number = text.chars().all(|c| c.is_ascii_digit());
-            let spaced = !is_number && text.graphemes(true).nth(1).is_some();
+            let mathstyle = self.style;
+            // let is_number = text.chars().all(|c| c.is_ascii_digit());
+            // let spaced = !is_number && text.graphemes(true).nth(1).is_some();
+            let spaced = false;
 
-            let mut style = self.style;
-            if self.style.italic == Smart::Auto && spaced {
-                style = style.with_italic(false);
-            }
+            // let style = self.style;
+            // if self.style.italic == Smart::Auto && spaced {
+            //     style = style.with_italic(false);
+            // }
 
             let mut styled_text = EcoString::new();
             for c in text.chars() {
-                styled_text.push(style.styled_char(c));
+                styled_text.push(mathstyle.styled_char(c));
             }
 
             let lang = VarElem::lang_in(styles);
@@ -327,7 +329,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 )
             };
 
-            let shaped_text = match style.size {
+            let shaped_text = match mathstyle.size {
                 MathSize::Script => {
                     let styles = styles.chain(&self.ssty1);
                     shape(styles)
