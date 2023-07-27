@@ -69,6 +69,7 @@ impl LayoutRoot for DocumentElem {
             }
         }
 
+        // Get all provided metadata elements, filter out null keys, build up Map.
         let provided_metadata = vt.introspector.query(&Selector::Elem(ProvideElem::func(), None))
             .iter()
             .filter_map(|c| c.field("key").map(|k| (k.cast().unwrap(), c.field("value").unwrap_or_default())))

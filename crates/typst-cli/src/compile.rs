@@ -58,8 +58,6 @@ pub fn compile_once(
         Ok(document) => {
             export(&document, command)?;
 
-            println!("Metadata provided: {:?}", document.provided_metadata);
-
             tracing::info!("Compilation succeeded in {duration:?}");
             if watching {
                 if warnings.is_empty() {

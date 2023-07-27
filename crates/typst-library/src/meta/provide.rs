@@ -14,7 +14,7 @@ pub struct ProvideElem
 
 impl Show for ProvideElem
 {
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _vt: &mut Vt, _styles: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }

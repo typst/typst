@@ -5,6 +5,8 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
+use serde::{ser, Serialize, Serializer};
+use serde::ser::{SerializeMap, SerializeSeq};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
@@ -67,6 +69,38 @@ pub enum Value {
     Module(Module),
     /// A dynamic value.
     Dyn(Dynamic),
+}
+
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        match self {
+            Value::None => serializer.serialize_none(),
+            Value::Bool(v) => serializer.serialize_bool(*v),
+            Value::Int(v) => serializer.serialize_i64(*v),
+            Value::Float(v) => serializer.serialize_f64(*v),
+            Value::Str(v) => serializer.serialize_str(v),
+            Value::Bytes(v) => serializer.serialize_bytes(v),
+            Value::Array(v) => {
+                let mut seq = serializer.serialize_seq(Some(v.len()))?;
+                for e in v {
+                    seq.serialize_element(e)?;
+                }
+                seq.end()
+            }
+            Value::Dict(v) => {
+                let mut map = serializer.serialize_map(Some(v.len()))?;
+                for (k, v) in v {
+                    map.serialize_entry(k.as_str(), v)?;
+                }
+                map.end()
+            },
+            Value::Content(v) => serializer.serialize_str(&v.plain_text()), // Could be rendered as list of elements??
+            _ => Err(ser::Error::custom(format!("Cannot serialize type \"{}\".", self.type_name())))
+        }
+    }
 }
 
 impl Value {

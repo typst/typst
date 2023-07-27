@@ -29,6 +29,10 @@ pub enum Command {
     #[command(visible_alias = "w")]
     Watch(CompileCommand),
 
+    /// Processes an input file to extract provided metadata
+    #[command(visible_alias = "q")]
+    Query(QueryCommand),
+
     /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
 }
@@ -83,6 +87,47 @@ impl CompileCommand {
             .clone()
             .unwrap_or_else(|| self.input.with_extension("pdf"))
     }
+}
+
+/// Processes an input file to extract provided metadata
+#[derive(Debug, Clone, Parser)]
+pub struct QueryCommand {
+    /// Path to input Typst file
+    pub input: PathBuf,
+
+    /// Key to extract
+    #[clap(long="key")]
+    pub key: String,
+
+    /// Output format: json, toml, yaml
+    #[clap(long="format", default_value="json")]
+    pub format: String,
+
+    /// Expect and retrieve exactly one piece of metadata
+    #[clap(long="one", default_value="false")]
+    pub one: bool,
+
+    /// Configures the project root
+    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
+    pub root: Option<PathBuf>,
+
+    /// Adds additional directories to search for fonts
+    #[clap(
+        long = "font-path",
+        env = "TYPST_FONT_PATHS",
+        value_name = "DIR",
+        action = ArgAction::Append,
+    )]
+    pub font_paths: Vec<PathBuf>,
+
+
+    /// In which format to emit diagnostics
+    #[clap(
+        long,
+        default_value_t = DiagnosticFormat::Human,
+        value_parser = clap::value_parser!(DiagnosticFormat)
+    )]
+    pub diagnostic_format: DiagnosticFormat,
 }
 
 /// Lists all discovered fonts in system and custom font paths
