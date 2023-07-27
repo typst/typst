@@ -6,6 +6,7 @@ use std::{
 };
 
 use base64::Engine;
+use ecow::{eco_format, EcoString};
 use ttf_parser::{GlyphId, OutlineBuilder};
 use xmlwriter::XmlWriter;
 
@@ -52,7 +53,6 @@ pub fn svg(doc: &Document) -> String {
 
 /// Export a frame into a SVG file.
 #[tracing::instrument(skip_all)]
-#[comemo::memoize]
 pub fn svg_frame(frame: &Frame) -> String {
     let mut renderer = SVGRenderer::new();
     renderer.header(frame.size());
@@ -64,10 +64,10 @@ pub fn svg_frame(frame: &Frame) -> String {
 enum RenderedGlyph {
     /// A path is a sequence of drawing commands.
     /// It is in the format of `M x y L x y C x1 y1 x2 y2 x y Z`.
-    Path(String),
+    Path(EcoString),
     /// An image is a URL to an image file, plus the size and transform. The url is in the
     /// format of `data:image/{format};base64,`.
-    Image { url: String, width: f64, height: f64, ts: Transform },
+    Image { url: EcoString, width: f64, height: f64, ts: Transform },
 }
 
 /// [`DedupVec`] is a vector that deduplicates its elements. It is used to deduplicate glyphs and
@@ -129,7 +129,7 @@ struct SVGRenderer {
     /// Clip paths are used to clip a group. A clip path is a path that defines the clipping
     /// region. The clip path is referenced by the `clip-path` attribute of the group.
     /// The clip path is in the format of `M x y L x y C x1 y1 x2 y2 x y Z`.
-    clip_paths: DedupVec<RenderHash, String, 'c'>,
+    clip_paths: DedupVec<RenderHash, EcoString, 'c'>,
 }
 
 impl SVGRenderer {
@@ -250,7 +250,7 @@ impl SVGRenderer {
             let x = group.frame.size().x.to_pt();
             let y = group.frame.size().y.to_pt();
             let id = self.clip_paths.insert_with(clip_path_hash, || {
-                let mut builder = SVGPath2DBuilder(String::new());
+                let mut builder = SVGPath2DBuilder(EcoString::new());
                 builder.rect(x as f32, y as f32);
                 builder.0
             });
@@ -295,7 +295,7 @@ impl SVGRenderer {
         inv_scale: f64,
     ) -> Option<()> {
         #[comemo::memoize]
-        fn build_svg_glyph(font: &Font, glyph_id: u16) -> Option<String> {
+        fn build_svg_glyph(font: &Font, glyph_id: u16) -> Option<EcoString> {
             let mut data = font.ttf().glyph_svg_image(GlyphId(glyph_id))?;
             // Decompress SVGZ.
             let mut decoded = vec![];
@@ -347,7 +347,7 @@ impl SVGRenderer {
                         .as_str(),
                 );
             }
-            let mut url = "data:image/svg+xml;base64,".to_string();
+            let mut url: EcoString = "data:image/svg+xml;base64,".into();
             let b64_encoded =
                 base64::engine::general_purpose::STANDARD.encode(svg_str.as_bytes());
             url.push_str(&b64_encoded);
@@ -437,8 +437,8 @@ impl SVGRenderer {
         inv_scale: f64,
     ) -> Option<()> {
         #[comemo::memoize]
-        fn build_outline_glyph(font: &Font, glyph_id: u16) -> Option<String> {
-            let mut builder = SVGPath2DBuilder(String::new());
+        fn build_outline_glyph(font: &Font, glyph_id: u16) -> Option<EcoString> {
+            let mut builder = SVGPath2DBuilder(EcoString::new());
             font.ttf().outline_glyph(GlyphId(glyph_id), &mut builder)?;
             Some(builder.0)
         }
@@ -502,8 +502,8 @@ impl SVGRenderer {
             }
         }
         #[comemo::memoize]
-        fn build_shape(geometry: &Geometry) -> String {
-            let mut path_builder = SVGPath2DBuilder(String::new());
+        fn build_shape(geometry: &Geometry) -> EcoString {
+            let mut path_builder = SVGPath2DBuilder(EcoString::new());
             match geometry {
                 Geometry::Line(t) => {
                     path_builder.move_to(0.0, 0.0);
@@ -554,7 +554,7 @@ impl SVGRenderer {
 
 /// Encode an image into a data URL. The format of the URL is `data:image/{format};base64,`.
 #[comemo::memoize]
-fn encode_image_to_url(image: &Image) -> String {
+fn encode_image_to_url(image: &Image) -> EcoString {
     let format = match image.format() {
         ImageFormat::Raster(f) => match f {
             RasterFormat::Png => "png",
@@ -565,7 +565,7 @@ fn encode_image_to_url(image: &Image) -> String {
             VectorFormat::Svg => "svg+xml",
         },
     };
-    let mut url = format!("data:image/{};base64,", format);
+    let mut url = eco_format!("data:image/{};base64,", format);
     let data = base64::engine::general_purpose::STANDARD.encode(image.data());
     url.push_str(&data);
     url
@@ -588,7 +588,7 @@ impl Display for Transform {
     }
 }
 /// A builder for SVG path.
-struct SVGPath2DBuilder(pub String);
+struct SVGPath2DBuilder(pub EcoString);
 
 impl SVGPath2DBuilder {
     /// Create a rectangle path. The rectangle is created with the top-left corner at (0, 0).
