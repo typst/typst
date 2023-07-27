@@ -44,8 +44,9 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
         Ok(document) => {
             let introspector = Introspector::new(&document.pages);
 
+
             let mut params = Dict::new();
-            params.insert("key".into(), Value::Str(command.key.clone().into()));
+            //params.insert("key".into(), Value::Str(command.key.clone().into()));
 
             let provided_metadata = introspector
                 .query(&Selector::Elem(ProvideElem::func(), Some(params)))

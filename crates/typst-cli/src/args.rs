@@ -93,11 +93,16 @@ impl CompileCommand {
 #[derive(Debug, Clone, Parser)]
 pub struct QueryCommand {
     /// Path to input Typst file
+    #[clap(requires = "selection")]
     pub input: PathBuf,
 
     /// Key to extract
-    #[clap(long = "key")]
-    pub key: String,
+    #[clap(long = "key", group = "selection")]
+    pub key: Option<String>,
+
+    /// Selector to extract
+    #[clap(long = "selector", group = "selection")]
+    pub selector: Option<String>,
 
     /// Output format: json, toml, yaml
     #[clap(long = "format", default_value = "json")]
