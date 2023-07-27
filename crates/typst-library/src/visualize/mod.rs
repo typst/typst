@@ -6,6 +6,7 @@ mod path;
 mod polygon;
 mod shape;
 
+use typst::eval::Module;
 pub use self::image::*;
 pub use self::line::*;
 pub use self::path::*;
@@ -44,6 +45,6 @@ pub(super) fn define(global: &mut Scope) {
     global.define("lime", Color::LIME);
 
     let mut svg = Scope::deduplicating();
-    svg.define("parse", SvgElem::func());
-    global.define("svg", svg);
+    svg.define("decode", ImageDecodeElem::func());
+    global.define("imagex", Module::new("svg").with_scope(svg));
 }

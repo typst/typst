@@ -64,7 +64,9 @@ pub struct ImageElem {
     pub fit: ImageFit,
 }
 
-/// An svg graphic.
+/// A raster or vector graphic loaded from string.
+///
+/// Supported formats are PNG, JPEG, GIF and SVG.
 ///
 /// _Note:_ Work on SVG export is ongoing and there might be visual inaccuracies
 /// in the resulting PDF. Make sure to double-check embedded SVG images. If you
@@ -73,7 +75,7 @@ pub struct ImageElem {
 /// ## Example { #example }
 /// ```example
 /// #figure(
-///   svg.parse("insert code here", width: 80%),
+///   image.decode(```<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>```.text, "svg", width: 80%),
 ///   caption: [
 ///     A step in the molecular testing
 ///     pipeline of our lab.
@@ -86,16 +88,24 @@ pub struct ImageElem {
 /// Display: Image
 /// Category: visualize
 #[element(Layout, LocalName, Figurable)]
-pub struct SvgElem {
+pub struct ImageDecodeElem {
     /// Path to an image file.
     #[required]
     #[parse(
         let Spanned { v: content, span: _ } = args.expect::<Spanned<EcoString>>("image data")?;
         let data = content.as_bytes().into();
-        let path = "x.svg";
         content
     )]
     pub content: EcoString,
+
+    /// Image format
+    #[required]
+    #[parse(
+        let Spanned { v: format, span: _ } = args.expect::<Spanned<EcoString>>("image format")?;
+        let path = format!("inline.{}", format);
+        format
+    )]
+    pub format: EcoString,
 
     /// The raw file data.
     #[internal]
@@ -123,7 +133,7 @@ pub struct SvgElem {
     pub fit: ImageFit,
 }
 
-#[duplicate_item(elem; [ImageElem]; [SvgElem])]
+#[duplicate_item(elem; [ImageElem]; [ImageDecodeElem])]
 impl Layout for elem {
     #[tracing::instrument(name = "ImageElem::layout", skip_all)]
     fn layout(
@@ -215,7 +225,7 @@ impl Layout for elem {
     }
 }
 
-#[duplicate_item(elem; [ImageElem]; [SvgElem])]
+#[duplicate_item(elem; [ImageElem]; [ImageDecodeElem])]
 impl LocalName for elem {
     fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
@@ -247,7 +257,7 @@ impl LocalName for elem {
 }
 
 impl Figurable for ImageElem {}
-impl Figurable for SvgElem {}
+impl Figurable for ImageDecodeElem {}
 
 /// How an image should adjust itself to a given area.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
