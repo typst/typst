@@ -7,7 +7,7 @@ use std::ops::Range;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{EcoString, EcoVec};
 
 use crate::eval::{cast, dict, Dict, Value};
 use crate::font::Font;
@@ -29,7 +29,7 @@ pub struct Document {
     /// The document's author.
     pub author: Vec<EcoString>,
     /// Metadata for the query system
-    pub provided_metadata: BTreeMap<EcoString, Vec<EcoString>>
+    pub provided_metadata: BTreeMap<EcoString, EcoVec<Value>>
 }
 
 /// A finished layout with items at fixed positions.
