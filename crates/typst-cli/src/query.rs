@@ -2,7 +2,7 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
-use typst::eval::{eco_format, Tracer, Value};
+use typst::eval::{eco_format, eval_string, Tracer, Value};
 use typst::model::{Introspector, Selector};
 use typst::World;
 use typst_library::meta::ProvideElem;
@@ -44,15 +44,26 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
         Ok(document) => {
             let introspector = Introspector::new(&document.pages);
 
+            let provided_metadata =
+            if let Some(key) = &command.key {
+                let mut params = Dict::new();
+                params.insert("key".into(), Value::Str(key.clone().into()));
+                let provided_metadata = introspector
+                    .query(&Selector::Elem(ProvideElem::func(), Some(params)))
+                    .iter()
+                    .filter_map(|c| c.field("value"))
+                    .collect();
+                provided_metadata
+            } else if let Some(selector) = &command.selector {
+                let provided_metadata = introspector
+                    .query(eval_string(selector))
+                    .iter()
+                    .filter_map(|c| c.field("value"))
+                    .collect();
+                provided_metadata
+            }
 
-            let mut params = Dict::new();
-            //params.insert("key".into(), Value::Str(command.key.clone().into()));
 
-            let provided_metadata = introspector
-                .query(&Selector::Elem(ProvideElem::func(), Some(params)))
-                .iter()
-                .filter_map(|c| c.field("value"))
-                .collect();
 
             export(&provided_metadata, &command)?;
 
