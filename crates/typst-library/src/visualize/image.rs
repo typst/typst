@@ -156,8 +156,6 @@ impl Layout for elem {
             _ => bail!(self.span(), "unknown image format"),
         };
 
-        println!("Format: {:?}", format);
-
         let image = Image::with_fonts(
             self.data(),
             format,
