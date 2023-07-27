@@ -39,7 +39,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     let warnings = tracer.warnings();
 
     match result {
-        // Export the PDF / PNG.
+        // Print metadata
         Ok(document) => {
             export(&document, &command)?;
 
