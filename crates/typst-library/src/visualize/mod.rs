@@ -11,7 +11,6 @@ pub use self::line::*;
 pub use self::path::*;
 pub use self::polygon::*;
 pub use self::shape::*;
-use typst::eval::Module;
 
 use crate::prelude::*;
 
@@ -43,9 +42,4 @@ pub(super) fn define(global: &mut Scope) {
     global.define("olive", Color::OLIVE);
     global.define("green", Color::GREEN);
     global.define("lime", Color::LIME);
-
-    let mut image_scope = Scope::deduplicating();
-    image_scope.define("decode", ImageDecodeElem::func());
-    image_scope.define("", ImageElem::func());
-    global.define("imagex", Module::new("image").with_scope(image_scope));
 }

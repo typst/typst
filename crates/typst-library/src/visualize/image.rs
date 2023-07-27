@@ -33,6 +33,10 @@ use crate::text::families;
 /// Display: Image
 /// Category: visualize
 #[element(Layout, LocalName, Figurable)]
+#[scope(
+    scope.define("decode", ImageDecodeElem::func());
+    scope
+)]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
