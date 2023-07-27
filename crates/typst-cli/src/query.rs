@@ -1,7 +1,7 @@
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
-use typst::diag::{Severity, SourceDiagnostic, StrResult};
+use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
 use typst::doc::Document;
 use typst::eval::{eco_format, Tracer};
 use typst::World;
@@ -65,6 +65,13 @@ fn export(document: &Document, command: &QueryCommand) -> StrResult<()>
 {
     let key: EcoString = command.key.clone().into();
     let metadata = document.provided_metadata.get(&key).ok_or("Key not found.")?;
+
+    let serializer = match command.format.as_str() {
+        "json" => serde_json::to_string,
+        "yaml" => serde_yaml::to_string,
+        "toml" => toml::to_string,
+        _ => bail!("Unknown format")
+    };
 
     if command.one {
         if metadata.len()>1{
