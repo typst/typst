@@ -90,6 +90,8 @@ pub fn call(
                 string.trim(pattern, at, repeat).into_value()
             }
             "split" => string.split(args.eat()?).into_value(),
+            "title" => string.title().into_value(),
+            "capitalize" => string.capitalize().into_value(),
             _ => return missing(),
         },
 
@@ -392,6 +394,8 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("split", true),
             ("starts-with", true),
             ("trim", true),
+            ("title", false),
+            ("capitalize", false),
         ],
         "content" => &[
             ("func", false),

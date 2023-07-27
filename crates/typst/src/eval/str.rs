@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
-use ecow::EcoString;
+use ecow::{vec, EcoString};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{cast, dict, Args, Array, Dict, Func, IntoValue, Value, Vm};
@@ -345,6 +345,27 @@ impl Str {
     fn locate(&self, index: i64) -> StrResult<usize> {
         self.locate_opt(index)?
             .ok_or_else(|| out_of_bounds(index, self.len()))
+    }
+
+    // Capitalize the first letter of every word.
+    pub fn title(&self) -> Self {
+        let words: vec::EcoVec<String> =
+            self.0.to_string().split(' ').map(uppercase_first_letter).collect();
+        words.join(" ").into()
+    }
+
+    // Capitalize the first letter.
+    pub fn capitalize(&self) -> Self {
+        uppercase_first_letter(self.0.as_str()).into()
+    }
+}
+
+// uppercase the first letter of an str
+fn uppercase_first_letter(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        None => String::new(),
+        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
     }
 }
 
