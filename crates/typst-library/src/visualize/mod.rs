@@ -17,7 +17,6 @@ use crate::prelude::*;
 /// Hook up all visualize definitions.
 pub(super) fn define(global: &mut Scope) {
     global.define("image", ImageElem::func());
-    global.define("svg", SvgElem::func());
     global.define("line", LineElem::func());
     global.define("rect", RectElem::func());
     global.define("square", SquareElem::func());
@@ -43,4 +42,8 @@ pub(super) fn define(global: &mut Scope) {
     global.define("olive", Color::OLIVE);
     global.define("green", Color::GREEN);
     global.define("lime", Color::LIME);
+
+    let mut svg = Scope::deduplicating();
+    svg.define("parse", SvgElem::func());
+    global.define("svg", svg);
 }
