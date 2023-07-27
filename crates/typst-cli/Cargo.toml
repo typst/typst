@@ -39,7 +39,7 @@ serde_yaml = "0.8"
 siphasher = "0.3"
 tar = "0.4"
 tempfile = "3.5.0"
-toml = { version = "0.7.3", default-features = false, features = ["parse"] }
+toml = { version = "0.7.3", default-features = false, features = ["parse", "display"] }
 tracing = "0.1.37"
 tracing-error = "0.2"
 tracing-flame = "0.2.0"

@@ -66,26 +66,29 @@ fn export(document: &Document, command: &QueryCommand) -> StrResult<()>
     let key: EcoString = command.key.clone().into();
     let metadata = document.provided_metadata.get(&key).ok_or("Key not found.")?;
 
-    let serializer = match command.format.as_str() {
-        "json" => serde_json::to_string,
-        "yaml" => serde_yaml::to_string,
-        "toml" => toml::to_string,
-        _ => bail!("Unknown format")
-    };
-
     if command.one {
-        if metadata.len()>1{
+        if metadata.len()!=1{
             Err(format!("One piece of metadata expected, but {} found.", metadata.len()).into())
         }
         else {
-            println!("ONE FOUND");
+            let result= match command.format.as_str() {
+                "json" => serde_json::to_string(&metadata[0]).map_err(|e|e.to_string())?,
+                "yaml" => serde_yaml::to_string(&metadata[0]).map_err(|e|e.to_string())?,
+                "toml" => toml::ser::to_string(&metadata[0]).map_err(|e|e.to_string())?,
+                _ => bail!("Unknown format")
+            };
+            println!("{result}");
             Ok(())
         }
     }
     else {
-        println!("Multiple found");
-        println!("{} ",serde_json::to_string(metadata).unwrap());
-        println!("{} ",serde_yaml::to_string(metadata).unwrap());
+        let result= match command.format.as_str() {
+            "json" => serde_json::to_string(&metadata).map_err(|e|e.to_string())?,
+            "yaml" => serde_yaml::to_string(&metadata).map_err(|e|e.to_string())?,
+            "toml" => toml::ser::to_string(&metadata).map_err(|e|e.to_string())?,
+            _ => bail!("Unknown format")
+        };
+        println!("{result}");
         Ok(())
     }
 }

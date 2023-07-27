@@ -2578,6 +2578,7 @@ dependencies = [
  "siphasher",
  "tar",
  "tempfile",
+ "toml",
  "tracing",
  "tracing-error",
  "tracing-flame",
