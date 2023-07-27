@@ -2,10 +2,11 @@ use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
 use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
-use typst::doc::Document;
-use typst::eval::{eco_format, Tracer};
+use typst::eval::{eco_format, Tracer, Value};
+use typst::model::{Introspector, Selector};
 use typst::World;
-use typst_library::prelude::EcoString;
+use typst_library::meta::ProvideElem;
+use typst_library::prelude::*;
 
 use crate::args::{CompileCommand, DiagnosticFormat, QueryCommand};
 use crate::world::SystemWorld;
@@ -41,7 +42,18 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     match result {
         // Print metadata
         Ok(document) => {
-            export(&document, &command)?;
+            let introspector = Introspector::new(&document.pages);
+
+            let mut params = Dict::new();
+            params.insert("key".into(), Value::Str(command.key.clone().into()));
+
+            let provided_metadata = introspector
+                .query(&Selector::Elem(ProvideElem::func(), Some(params)))
+                .iter()
+                .filter_map(|c| c.field("value"))
+                .collect();
+
+            export(&provided_metadata, &command)?;
 
             tracing::info!("Processing succeeded in {duration:?}");
 
@@ -62,10 +74,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     Ok(())
 }
 
-fn export(document: &Document, command: &QueryCommand) -> StrResult<()> {
-    let key: EcoString = command.key.clone().into();
-    let metadata = document.provided_metadata.get(&key).ok_or("Key not found.")?;
-
+fn export(metadata: &Vec<Value>, command: &QueryCommand) -> StrResult<()> {
     if command.one {
         if metadata.len() != 1 {
             Err(format!("One piece of metadata expected, but {} found.", metadata.len())

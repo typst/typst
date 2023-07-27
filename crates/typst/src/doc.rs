@@ -1,13 +1,12 @@
 //! Finished documents.
 
-use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::Range;
 use std::str::FromStr;
 use std::sync::Arc;
 
-use ecow::{EcoString, EcoVec};
+use ecow::EcoString;
 
 use crate::eval::{cast, dict, Dict, Value};
 use crate::font::Font;
@@ -28,8 +27,6 @@ pub struct Document {
     pub title: Option<EcoString>,
     /// The document's author.
     pub author: Vec<EcoString>,
-    /// Metadata for the query system
-    pub provided_metadata: BTreeMap<EcoString, EcoVec<Value>>,
 }
 
 /// A finished layout with items at fixed positions.
