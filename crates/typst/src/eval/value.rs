@@ -5,8 +5,8 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use serde::{ser, Serialize, Serializer};
-use serde::ser::{SerializeMap, SerializeSeq};
+use serde::ser::{Error, SerializeMap, SerializeSeq};
+use serde::{Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
@@ -73,8 +73,8 @@ pub enum Value {
 
 impl Serialize for Value {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
+    where
+        S: Serializer,
     {
         match self {
             Value::None => serializer.serialize_none(),
@@ -96,9 +96,12 @@ impl Serialize for Value {
                     map.serialize_entry(k.as_str(), v)?;
                 }
                 map.end()
-            },
+            }
             Value::Content(v) => serializer.serialize_str(&v.plain_text()), // Could be rendered as list of elements??
-            _ => Err(ser::Error::custom(format!("Cannot serialize type \"{}\".", self.type_name())))
+            _ => Err(Error::custom(format!(
+                "Cannot serialize type \"{}\".",
+                self.type_name()
+            ))),
         }
     }
 }

@@ -1,6 +1,6 @@
 //! Finished documents.
 
-use std::collections::{BTreeMap};
+use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::num::NonZeroUsize;
 use std::ops::Range;
@@ -29,7 +29,7 @@ pub struct Document {
     /// The document's author.
     pub author: Vec<EcoString>,
     /// Metadata for the query system
-    pub provided_metadata: BTreeMap<EcoString, EcoVec<Value>>
+    pub provided_metadata: BTreeMap<EcoString, EcoVec<Value>>,
 }
 
 /// A finished layout with items at fixed positions.

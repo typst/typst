@@ -13,7 +13,8 @@ use crate::{color_stream, set_failed};
 
 /// Execute a compilation command.
 pub fn query(command: QueryCommand) -> StrResult<()> {
-    let mut world = SystemWorld::new(&CompileCommand{ // Little hack, only 3 fields are used
+    let mut world = SystemWorld::new(&CompileCommand {
+        // Little hack, only 3 fields are used
         font_paths: command.font_paths.clone(),
         input: command.input.clone(),
         root: command.root.clone(),
@@ -61,32 +62,36 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     Ok(())
 }
 
-fn export(document: &Document, command: &QueryCommand) -> StrResult<()>
-{
+fn export(document: &Document, command: &QueryCommand) -> StrResult<()> {
     let key: EcoString = command.key.clone().into();
     let metadata = document.provided_metadata.get(&key).ok_or("Key not found.")?;
 
     if command.one {
-        if metadata.len()!=1{
-            Err(format!("One piece of metadata expected, but {} found.", metadata.len()).into())
-        }
-        else {
-            let result= match command.format.as_str() {
-                "json" => serde_json::to_string(&metadata[0]).map_err(|e|e.to_string())?,
-                "yaml" => serde_yaml::to_string(&metadata[0]).map_err(|e|e.to_string())?,
-                "toml" => toml::ser::to_string(&metadata[0]).map_err(|e|e.to_string())?,
-                _ => bail!("Unknown format")
+        if metadata.len() != 1 {
+            Err(format!("One piece of metadata expected, but {} found.", metadata.len())
+                .into())
+        } else {
+            let result = match command.format.as_str() {
+                "json" => {
+                    serde_json::to_string(&metadata[0]).map_err(|e| e.to_string())?
+                }
+                "yaml" => {
+                    serde_yaml::to_string(&metadata[0]).map_err(|e| e.to_string())?
+                }
+                "toml" => {
+                    toml::ser::to_string(&metadata[0]).map_err(|e| e.to_string())?
+                }
+                _ => bail!("Unknown format"),
             };
             println!("{result}");
             Ok(())
         }
-    }
-    else {
-        let result= match command.format.as_str() {
-            "json" => serde_json::to_string(&metadata).map_err(|e|e.to_string())?,
-            "yaml" => serde_yaml::to_string(&metadata).map_err(|e|e.to_string())?,
-            "toml" => toml::ser::to_string(&metadata).map_err(|e|e.to_string())?,
-            _ => bail!("Unknown format")
+    } else {
+        let result = match command.format.as_str() {
+            "json" => serde_json::to_string(&metadata).map_err(|e| e.to_string())?,
+            "yaml" => serde_yaml::to_string(&metadata).map_err(|e| e.to_string())?,
+            "toml" => toml::ser::to_string(&metadata).map_err(|e| e.to_string())?,
+            _ => bail!("Unknown format"),
         };
         println!("{result}");
         Ok(())

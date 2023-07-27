@@ -10,10 +10,10 @@ mod heading;
 mod link;
 mod numbering;
 mod outline;
+mod provide;
 mod query;
 mod reference;
 mod state;
-mod provide;
 
 pub use self::bibliography::*;
 pub use self::context::*;
@@ -25,10 +25,10 @@ pub use self::heading::*;
 pub use self::link::*;
 pub use self::numbering::*;
 pub use self::outline::*;
+pub use self::provide::*;
 pub use self::query::*;
 pub use self::reference::*;
 pub use self::state::*;
-pub use self::provide::*;
 
 use crate::prelude::*;
 use crate::text::TextElem;

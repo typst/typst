@@ -96,15 +96,15 @@ pub struct QueryCommand {
     pub input: PathBuf,
 
     /// Key to extract
-    #[clap(long="key")]
+    #[clap(long = "key")]
     pub key: String,
 
     /// Output format: json, toml, yaml
-    #[clap(long="format", default_value="json")]
+    #[clap(long = "format", default_value = "json")]
     pub format: String,
 
     /// Expect and retrieve exactly one piece of metadata
-    #[clap(long="one", default_value="false")]
+    #[clap(long = "one", default_value = "false")]
     pub one: bool,
 
     /// Configures the project root
@@ -119,7 +119,6 @@ pub struct QueryCommand {
         action = ArgAction::Append,
     )]
     pub font_paths: Vec<PathBuf>,
-
 
     /// In which format to emit diagnostics
     #[clap(

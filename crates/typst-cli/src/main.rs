@@ -2,9 +2,9 @@ mod args;
 mod compile;
 mod fonts;
 mod package;
+mod query;
 mod tracing;
 mod watch;
-mod query;
 mod world;
 
 use std::cell::Cell;

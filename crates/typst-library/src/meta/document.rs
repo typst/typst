@@ -1,8 +1,8 @@
-use std::collections::{BTreeMap};
-use ecow::EcoVec;
 use crate::layout::{LayoutRoot, PageElem};
 use crate::meta::ProvideElem;
 use crate::prelude::*;
+use ecow::EcoVec;
+use std::collections::BTreeMap;
 
 /// The root element of a document and its metadata.
 ///
@@ -70,9 +70,14 @@ impl LayoutRoot for DocumentElem {
         }
 
         // Get all provided metadata elements, filter out null keys, build up Map.
-        let provided_metadata = vt.introspector.query(&Selector::Elem(ProvideElem::func(), None))
+        let provided_metadata = vt
+            .introspector
+            .query(&Selector::Elem(ProvideElem::func(), None))
             .iter()
-            .filter_map(|c| c.field("key").map(|k| (k.cast().unwrap(), c.field("value").unwrap_or_default())))
+            .filter_map(|c| {
+                c.field("key")
+                    .map(|k| (k.cast().unwrap(), c.field("value").unwrap_or_default()))
+            })
             .fold(BTreeMap::<EcoString, EcoVec<Value>>::new(), |mut acc, elem| {
                 acc.entry(elem.0).or_default().push(elem.1);
                 acc
@@ -82,7 +87,7 @@ impl LayoutRoot for DocumentElem {
             pages,
             title: self.title(styles),
             author: self.author(styles).0,
-            provided_metadata
+            provided_metadata,
         })
     }
 }
