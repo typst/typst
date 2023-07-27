@@ -13,6 +13,7 @@ mod outline;
 mod query;
 mod reference;
 mod state;
+mod provide;
 
 pub use self::bibliography::*;
 pub use self::context::*;
@@ -27,6 +28,7 @@ pub use self::outline::*;
 pub use self::query::*;
 pub use self::reference::*;
 pub use self::state::*;
+pub use self::provide::*;
 
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -50,6 +52,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("state", state_func());
     global.define("query", query_func());
     global.define("selector", selector_func());
+    global.define("provide", ProvideElem::func());
 }
 
 /// The named with which an element is referenced.

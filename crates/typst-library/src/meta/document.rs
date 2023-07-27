@@ -1,5 +1,7 @@
 use std::collections::{BTreeMap};
+use ecow::EcoVec;
 use crate::layout::{LayoutRoot, PageElem};
+use crate::meta::ProvideElem;
 use crate::prelude::*;
 
 /// The root element of a document and its metadata.
@@ -66,6 +68,21 @@ impl LayoutRoot for DocumentElem {
                 bail!(child.span(), "unexpected document child");
             }
         }
+
+        let ps = vt.introspector.query(&Selector::Elem(ProvideElem::func(), None))
+            .iter()
+            .filter_map(|c| c.field("key").map(|k| (k.cast().unwrap(), c.field("value").unwrap_or_default())))
+            .fold(BTreeMap::<EcoString, EcoVec<Value>>::new(), |mut acc, elem| {
+                acc.entry(elem.0).or_default().push(elem.1);
+                acc
+            });
+        if ps.len()>0 {
+            println!("PS: {ps:?}");
+        }
+       // let x = &ps[0];
+       // println!("{x:?}");
+
+        // Find all ProvideElements and fill up their data.
 
         Ok(Document {
             pages,
