@@ -78,6 +78,7 @@ impl Serialize for Value {
     {
         match self {
             Value::None => serializer.serialize_none(),
+            Value::Auto => serializer.serialize_str("auto"),
             Value::Bool(v) => serializer.serialize_bool(*v),
             Value::Int(v) => serializer.serialize_i64(*v),
             Value::Float(v) => serializer.serialize_f64(*v),
@@ -98,6 +99,7 @@ impl Serialize for Value {
                 map.end()
             }
             Value::Content(v) => serializer.serialize_str(&v.plain_text()), // Could be rendered as list of elements??
+            Value::Label(l) => serializer.serialize_str(&format!("<{}>", l.0)),
             _ => Err(Error::custom(format!(
                 "Cannot serialize type \"{}\".",
                 self.type_name()

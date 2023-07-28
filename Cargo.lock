@@ -2573,6 +2573,7 @@ dependencies = [
  "once_cell",
  "open",
  "same-file",
+ "serde",
  "serde_json",
  "serde_yaml",
  "siphasher",

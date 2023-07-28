@@ -104,7 +104,7 @@ pub struct QueryCommand {
     #[clap(long = "selector", group = "selection")]
     pub selector: Option<String>,
 
-    /// Output format: json, toml, yaml
+    /// Output format: json, yaml
     #[clap(long = "format", default_value = "json")]
     pub format: String,
 
