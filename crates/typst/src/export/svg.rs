@@ -228,7 +228,7 @@ impl SVGRenderer {
             let y = pos.y.to_pt();
             self.xml.start_element("g");
             self.xml
-                .write_attribute("transform", format!("translate({} {})", x, y).as_str());
+                .write_attribute_fmt("transform", format_args!("translate({} {})", x, y));
             match item {
                 FrameItem::Group(group) => self.render_group(group),
                 FrameItem::Text(text) => self.render_text(text),
