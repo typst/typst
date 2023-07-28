@@ -297,14 +297,6 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         } else {
             let styles = self.styles();
             let mathstyle = self.style;
-            // let is_number = text.chars().all(|c| c.is_ascii_digit());
-            // let spaced = !is_number && text.graphemes(true).nth(1).is_some();
-            let spaced = false;
-
-            // let style = self.style;
-            // if self.style.italic == Smart::Auto && spaced {
-            //     style = style.with_italic(false);
-            // }
 
             let mut styled_text = EcoString::new();
             for c in text.chars() {
