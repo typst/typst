@@ -55,7 +55,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
 
             if let Some(selector) = &command.selector {
                 let selected_metadata = introspector
-                    .query(&make_selector(&selector, &world)?)
+                    .query(&make_selector(selector, &world)?)
                     .into_iter()
                     .map(|x| SelectedElement {
                         typename: x.func().name().into(),
