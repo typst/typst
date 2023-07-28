@@ -17,7 +17,7 @@ use crate::world::SystemWorld;
 /// Execute a watching compilation command.
 pub fn watch(mut command: CompileCommand) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
-    let mut world = SystemWorld::new(&command)?;
+    let mut world = SystemWorld::new(&command.common)?;
 
     // Perform initial compilation.
     compile_once(&mut world, &mut command, true)?;
@@ -159,7 +159,7 @@ impl Status {
         w.set_color(&color)?;
         write!(w, "watching")?;
         w.reset()?;
-        writeln!(w, " {}", command.input.display())?;
+        writeln!(w, " {}", command.common.input.display())?;
 
         w.set_color(&color)?;
         write!(w, "writing to")?;
