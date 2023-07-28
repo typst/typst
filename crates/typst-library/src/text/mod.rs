@@ -364,6 +364,17 @@ pub struct TextElem {
     #[resolve]
     pub hyphenate: Hyphenate,
 
+    /// The "cost" of hyphenation when laying out text.
+    /// A higher cost means the layout engine will hyphenate less often.
+    ///
+    /// When justifying text, a higher hyphenation cost can result in more variation
+    /// in justification spacing in order to avoid hyphenation.
+    ///
+    /// The default cost is an acceptable balance, but some may find that it hyphenates too eagerly.
+    /// A cost of `10.0` may work better for such contexts.
+    #[default(0.5)]
+    pub hyphenation_cost: f64,
+
     /// Whether to apply kerning.
     ///
     /// When enabled, specific letter pairings move closer together or further

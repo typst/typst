@@ -264,6 +264,8 @@ struct Preparation<'a> {
     styles: StyleChain<'a>,
     /// Whether to hyphenate if it's the same for all children.
     hyphenate: Option<bool>,
+    /// See `linebreak_optimized` for the meaning of this cost parameter.
+    hyphenation_cost: Option<f64>,
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
     /// The paragraph's resolved alignment.
@@ -733,6 +735,7 @@ fn prepare<'a>(
         spans,
         styles,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
+        hyphenation_cost: shared_get(styles, children, TextElem::hyphenation_cost_in),
         lang: shared_get(styles, children, TextElem::lang_in),
         align: AlignElem::alignment_in(styles).x.resolve(styles),
         justify: ParElem::justify_in(styles),
@@ -907,10 +910,12 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
     }
 
     // Cost parameters.
-    const HYPH_COST: Cost = 0.5;
+    const DEFAULT_HYPH_COST: Cost = 0.5;
     const CONSECUTIVE_DASH_COST: Cost = 300.0;
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
+
+    let hyph_cost = p.hyphenation_cost.unwrap_or(DEFAULT_HYPH_COST);
 
     // Dynamic programming table.
     let mut active = 0;
@@ -986,7 +991,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
 
             // Penalize hyphens.
             if hyphen {
-                cost += HYPH_COST;
+                cost += hyph_cost;
             }
 
             // In Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
