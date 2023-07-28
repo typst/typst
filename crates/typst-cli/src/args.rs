@@ -124,10 +124,10 @@ pub struct QueryCommand {
 pub struct FontsCommand {
     /// Adds additional directories to search for fonts
     #[clap(
-    long = "font-path",
-    env = "TYPST_FONT_PATHS",
-    value_name = "DIR",
-    action = ArgAction::Append,
+        long = "font-path",
+        env = "TYPST_FONT_PATHS",
+        value_name = "DIR",
+        action = ArgAction::Append,
     )]
     pub font_paths: Vec<PathBuf>,
 
