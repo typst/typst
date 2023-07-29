@@ -67,7 +67,7 @@ pub fn realize(
     for recipe in styles.recipes() {
         let guard = Guard::Nth(n);
         if recipe.applicable(target) && !target.is_guarded(guard) {
-            if let Some(content) = try_apply(vt, target, recipe, guard)? {
+            if let Some(content) = try_apply(vt, target, recipe)? {
                 realized = Some(content.deep_guarded(guard));
                 break;
             }
@@ -100,7 +100,6 @@ fn try_apply(
     vt: &mut Vt,
     target: &Content,
     recipe: &Recipe,
-    guard: Guard,
 ) -> SourceResult<Option<Content>> {
     match &recipe.selector {
         Some(Selector::Elem(element, _)) => {
