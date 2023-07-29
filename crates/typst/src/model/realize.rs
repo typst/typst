@@ -68,7 +68,7 @@ pub fn realize(
         let guard = Guard::Nth(n);
         if recipe.applicable(target) && !target.is_guarded(guard) {
             if let Some(content) = try_apply(vt, target, recipe, guard)? {
-                realized = Some(content);
+                realized = Some(content.deep_guarded(guard));
                 break;
             }
         }
@@ -79,7 +79,7 @@ pub fn realize(
     if let Some(showable) = target.with::<dyn Show>() {
         let guard = Guard::Base(target.func());
         if realized.is_none() && !target.is_guarded(guard) {
-            realized = Some(showable.show(vt, styles)?);
+            realized = Some(showable.show(vt, styles)?.deep_guarded(guard));
         }
     }
 
@@ -108,7 +108,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply_vt(vt, target.clone().guarded(guard)).map(Some)
+            recipe.apply_vt(vt, target.clone()).map(Some)
         }
 
         Some(Selector::Label(label)) => {
@@ -116,7 +116,7 @@ fn try_apply(
                 return Ok(None);
             }
 
-            recipe.apply_vt(vt, target.clone().guarded(guard)).map(Some)
+            recipe.apply_vt(vt, target.clone()).map(Some)
         }
 
         Some(Selector::Regex(regex)) => {
@@ -134,7 +134,7 @@ fn try_apply(
                     result.push(make(&text[cursor..start]));
                 }
 
-                let piece = make(m.as_str()).guarded(guard);
+                let piece = make(m.as_str());
                 let transformed = recipe.apply_vt(vt, piece)?;
                 result.push(transformed);
                 cursor = m.end();

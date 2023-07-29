@@ -323,6 +323,24 @@ impl Content {
         self
     }
 
+    /// Disable a show rule recipe for self and all children.
+    pub fn deep_guard(&mut self, guard: Guard) {
+        for attr in self.attrs.make_mut().iter_mut() {
+            if let Attr::Child(ch) = attr {
+                ch.update(|ch| {
+                    ch.deep_guard(guard);
+                })
+            }
+        }
+        self.attrs.push(Attr::Guard(guard));
+    }
+
+    /// Disable a show rule recipe for self and all children.
+    pub fn deep_guarded(mut self, guard: Guard) -> Self {
+        self.deep_guard(guard);
+        self
+    }
+
     /// Check whether a show rule recipe is disabled.
     pub fn is_guarded(&self, guard: Guard) -> bool {
         self.attrs.contains(&Attr::Guard(guard))
