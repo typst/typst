@@ -343,7 +343,13 @@ impl Content {
 
     /// Check whether a show rule recipe is disabled.
     pub fn is_guarded(&self, guard: Guard) -> bool {
-        self.attrs.contains(&Attr::Guard(guard))
+        match guard {
+            Guard::Base(_) => self.attrs.contains(&Attr::Guard(guard)),
+            Guard::Nth(n) => self.attrs.iter().any(|attr| match attr {
+                Attr::Guard(Guard::Nth(gn)) => *gn <= n,
+                _ => false,
+            }),
+        }
     }
 
     /// Whether no show rule was executed for this content so far.

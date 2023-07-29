@@ -220,7 +220,7 @@ pub enum Behaviour {
 /// Guards content against being affected by the same show rule multiple times.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Guard {
-    /// The nth recipe from the top of the chain.
+    /// The nth or a higher recipe from the top of the chain.
     Nth(usize),
     /// The [base recipe](Show) for a kind of element.
     Base(ElemFunc),
