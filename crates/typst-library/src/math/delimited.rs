@@ -50,7 +50,7 @@ impl LayoutMath for LrElem {
         let axis = scaled!(ctx, axis_height);
         let max_extent = fragments
             .iter()
-            .map(|fragment| (fragment.ascent() - axis).max(fragment.descent() + axis))
+            .map(|fragment| (fragment.0.ascent() - axis).max(fragment.0.descent() + axis))
             .max()
             .unwrap_or_default();
 
@@ -61,10 +61,12 @@ impl LayoutMath for LrElem {
             .relative_to(2.0 * max_extent);
 
         match fragments.as_mut_slice() {
-            [one] => scale(ctx, one, height, None),
+            [one] => scale(ctx, &mut one.0, height, None),
             [first, .., last] => {
-                scale(ctx, first, height, Some(MathClass::Opening));
-                scale(ctx, last, height, Some(MathClass::Closing));
+                scale(ctx, &mut first.0, height, Some(MathClass::Opening));
+                first.1 = GroupRole::Begin;
+                scale(ctx, &mut last.0, height, Some(MathClass::Closing));
+                last.1 = GroupRole::End;
             }
             _ => {}
         }

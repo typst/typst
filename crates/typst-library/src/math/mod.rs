@@ -234,6 +234,43 @@ impl Finalize for EquationElem {
     }
 }
 
+/// Layouted items suitable for placing in a paragraph.
+#[derive(Debug)]
+pub enum MathParItem {
+    Space(Abs),
+    Frame(Frame),
+}
+
+impl EquationElem {
+    pub fn layout_inline(
+        &self,
+        vt: &mut Vt,
+        styles: StyleChain,
+        regions: Regions,
+    ) -> SourceResult<Vec<MathParItem>> {
+        assert!(!self.block(styles));
+
+        let font = find_math_font(vt, styles, self.span())?;
+
+        let mut ctx = MathContext::new(vt, styles, regions, &font, false);
+        let rows = ctx.layout_root(self)?;
+
+        let mut par_items = if rows.row_count() == 1 {
+            rows.into_par_items()
+        } else {
+            vec![MathParItem::Frame(rows.into_fragment(&ctx).into_frame())]
+        };
+
+        for item in &mut par_items {
+            if let MathParItem::Frame(frame) = item {
+                adjust_for_leading(frame, &font, styles);
+                frame.meta(styles, false);
+            }
+        }
+        Ok(par_items)
+    }
+}
+
 impl Layout for EquationElem {
     #[tracing::instrument(name = "EquationElem::layout", skip_all)]
     fn layout(
@@ -246,19 +283,7 @@ impl Layout for EquationElem {
 
         let block = self.block(styles);
 
-        // Find a math font.
-        let variant = variant(styles);
-        let world = vt.world;
-        let Some(font) = families(styles)
-            .find_map(|family| {
-                let id = world.book().select(family.as_str(), variant)?;
-                let font = world.font(id)?;
-                let _ = font.ttf().tables().math?.constants?;
-                Some(font)
-            })
-        else {
-            bail!(self.span(), "current font does not support math");
-        };
+        let font = find_math_font(vt, styles, self.span())?;
 
         let mut ctx = MathContext::new(vt, styles, regions, &font, block);
         let mut frame = ctx.layout_frame(self)?;
@@ -291,15 +316,7 @@ impl Layout for EquationElem {
                 frame.push_frame(Point::new(x, y), counter)
             }
         } else {
-            let slack = ParElem::leading_in(styles) * 0.7;
-            let top_edge = TextElem::top_edge_in(styles).resolve(styles, &font, None);
-            let bottom_edge =
-                -TextElem::bottom_edge_in(styles).resolve(styles, &font, None);
-
-            let ascent = top_edge.max(frame.ascent() - slack);
-            let descent = bottom_edge.max(frame.descent() - slack);
-            frame.translate(Point::with_y(ascent - frame.baseline()));
-            frame.size_mut().y = ascent + descent;
+            adjust_for_leading(&mut frame, &font, styles)
         }
 
         // Apply metadata.
@@ -491,4 +508,32 @@ impl LayoutMath for Content {
 
         Ok(())
     }
+}
+
+fn find_math_font(vt: &Vt, styles: StyleChain, span: Span) -> SourceResult<Font> {
+    // Find a math font.
+    let variant = variant(styles);
+    let world = vt.world;
+    let Some(font) = families(styles)
+        .find_map(|family| {
+            let id = world.book().select(family.as_str(), variant)?;
+            let font = world.font(id)?;
+            let _ = font.ttf().tables().math?.constants?;
+            Some(font)
+        })
+    else {
+        bail!(span, "current font does not support math");
+    };
+    Ok(font)
+}
+
+fn adjust_for_leading(frame: &mut Frame, font: &Font, styles: StyleChain) {
+    let slack = ParElem::leading_in(styles) * 0.7;
+    let top_edge = TextElem::top_edge_in(styles).resolve(styles, font, None);
+    let bottom_edge = -TextElem::bottom_edge_in(styles).resolve(styles, font, None);
+
+    let ascent = top_edge.max(frame.ascent() - slack);
+    let descent = bottom_edge.max(frame.descent() - slack);
+    frame.translate(Point::with_y(ascent - frame.baseline()));
+    frame.size_mut().y = ascent + descent;
 }

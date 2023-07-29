@@ -11,7 +11,7 @@ use unicode_script::{Script, UnicodeScript};
 
 use super::{BoxElem, HElem, Sizing, Spacing};
 use crate::layout::AlignElem;
-use crate::math::EquationElem;
+use crate::math::{EquationElem, MathParItem};
 use crate::prelude::*;
 use crate::text::{
     is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartQuoteElem,
@@ -168,8 +168,9 @@ impl ParElem {
             };
             let children = par.children();
 
-            // Collect all text into one string for BiDi analysis.
-            let (text, segments, spans) = collect(&children, &styles, consecutive)?;
+            // Collect all text into one string for BiDi analysis and layout inline boxes/equations
+            let (text, segments, spans) =
+                collect(&children, &mut vt, &styles, region, consecutive)?;
 
             // Perform BiDi analysis and then prepare paragraph layout by building a
             // representation on which we can do line breaking without layouting
@@ -313,13 +314,12 @@ impl<'a> Preparation<'a> {
 
             cursor += len;
         }
-
         (expanded, &self.items[start..end])
     }
 }
 
 /// A segment of one or multiple collapsed children.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 enum Segment<'a> {
     /// One or multiple collapsed text or text-equivalent children. Stores how
     /// long the segment is (in bytes of the full text string).
@@ -327,9 +327,11 @@ enum Segment<'a> {
     /// Horizontal spacing between other segments.
     Spacing(Spacing),
     /// A mathematical equation.
-    Equation(&'a EquationElem),
-    /// A box with arbitrary content.
-    Box(&'a BoxElem, bool),
+    Equation(&'a EquationElem, Vec<MathParItem>),
+    /// A box with arbitrary content and fixed width.
+    Box(&'a BoxElem, Frame),
+    /// A box with fractional width.
+    FracBox(&'a BoxElem, Fr),
     /// Metadata.
     Meta,
 }
@@ -340,8 +342,19 @@ impl Segment<'_> {
         match *self {
             Self::Text(len) => len,
             Self::Spacing(_) => SPACING_REPLACE.len_utf8(),
-            Self::Box(_, true) => SPACING_REPLACE.len_utf8(),
-            Self::Equation(_) | Self::Box(_, _) => OBJ_REPLACE.len_utf8(),
+            Self::FracBox(_, _) => SPACING_REPLACE.len_utf8(),
+            Self::Box(_, _) => OBJ_REPLACE.len_utf8(),
+            Self::Equation(_, ref par_items) => {
+                let mut len = 0;
+                for item in par_items {
+                    let c = match item {
+                        MathParItem::Space(_) => SPACING_REPLACE,
+                        MathParItem::Frame(_) => OBJ_REPLACE,
+                    };
+                    len += c.len_utf8();
+                }
+                len
+            }
             Self::Meta => 0,
         }
     }
@@ -533,12 +546,14 @@ impl<'a> Line<'a> {
     }
 }
 
-/// Collect all text of the paragraph into one string. This also performs
-/// string-level preprocessing like case transformations.
+/// Collect all text of the paragraph into one string and layout any boxes
+/// or equations. This also performs string-level preprocessing like case transformations.
 #[allow(clippy::type_complexity)]
 fn collect<'a>(
     children: &'a [Content],
+    vt: &mut Vt,
     styles: &'a StyleChain<'a>,
+    region: Size,
     consecutive: bool,
 ) -> SourceResult<(String, Vec<(Segment<'a>, StyleChain<'a>)>, SpanMapper)> {
     let mut full = String::new();
@@ -629,12 +644,31 @@ fn collect<'a>(
             }
             Segment::Text(full.len() - prev)
         } else if let Some(elem) = child.to::<EquationElem>() {
-            full.push(OBJ_REPLACE);
-            Segment::Equation(elem)
+            let pod = Regions::one(region, Axes::splat(false));
+            let par_items = elem.layout_inline(vt, styles, pod)?;
+
+            for item in &par_items {
+                let c = match item {
+                    MathParItem::Space(_) => SPACING_REPLACE,
+                    MathParItem::Frame(_) => OBJ_REPLACE,
+                };
+                full.push(c);
+            }
+
+            Segment::Equation(elem, par_items)
         } else if let Some(elem) = child.to::<BoxElem>() {
-            let frac = elem.width(styles).is_fractional();
-            full.push(if frac { SPACING_REPLACE } else { OBJ_REPLACE });
-            Segment::Box(elem, frac)
+            match elem.width(styles) {
+                Sizing::Fr(v) => {
+                    full.push(SPACING_REPLACE);
+                    Segment::FracBox(elem, v)
+                }
+                _ => {
+                    full.push(OBJ_REPLACE);
+                    let pod = Regions::one(region, Axes::splat(false));
+                    let frame = elem.layout(vt, styles, pod)?.into_frame();
+                    Segment::Box(elem, frame)
+                }
+            }
         } else if child.is::<MetaElem>() {
             Segment::Meta
         } else {
@@ -648,7 +682,7 @@ fn collect<'a>(
         spans.push(segment.len(), child.span());
 
         if let (Some((Segment::Text(last_len), last_styles)), Segment::Text(len)) =
-            (segments.last_mut(), segment)
+            (segments.last_mut(), &segment)
         {
             if *last_styles == styles {
                 *last_len += len;
@@ -662,8 +696,7 @@ fn collect<'a>(
     Ok((full, segments, spans))
 }
 
-/// Prepare paragraph layout by shaping the whole paragraph and layouting all
-/// contained inline-level content.
+/// Prepare paragraph layout by shaping the whole paragraph.
 fn prepare<'a>(
     vt: &mut Vt,
     children: &'a [Content],
@@ -701,21 +734,23 @@ fn prepare<'a>(
                     items.push(Item::Fractional(v, None));
                 }
             },
-            Segment::Equation(equation) => {
-                let pod = Regions::one(region, Axes::splat(false));
-                let mut frame = equation.layout(vt, styles, pod)?.into_frame();
+            Segment::Equation(_, par_items) => {
+                for item in par_items {
+                    match item {
+                        MathParItem::Space(s) => items.push(Item::Absolute(s)),
+                        MathParItem::Frame(mut frame) => {
+                            frame.translate(Point::with_y(TextElem::baseline_in(styles)));
+                            items.push(Item::Frame(frame));
+                        }
+                    }
+                }
+            }
+            Segment::Box(_, mut frame) => {
                 frame.translate(Point::with_y(TextElem::baseline_in(styles)));
                 items.push(Item::Frame(frame));
             }
-            Segment::Box(elem, _) => {
-                if let Sizing::Fr(v) = elem.width(styles) {
-                    items.push(Item::Fractional(v, Some((elem, styles))));
-                } else {
-                    let pod = Regions::one(region, Axes::splat(false));
-                    let mut frame = elem.layout(vt, styles, pod)?.into_frame();
-                    frame.translate(Point::with_y(TextElem::baseline_in(styles)));
-                    items.push(Item::Frame(frame));
-                }
+            Segment::FracBox(elem, v) => {
+                items.push(Item::Fractional(v, Some((elem, styles))));
             }
             Segment::Meta => {
                 let mut frame = Frame::new(Size::zero());

@@ -25,6 +25,14 @@ macro_rules! percent {
     };
 }
 
+/// Tag to mark beginning/end of LR groups.
+#[derive(Debug, Copy, Clone)]
+pub enum GroupRole {
+    Begin,
+    Inner,
+    End,
+}
+
 /// The context for math layout.
 pub struct MathContext<'a, 'b, 'v> {
     pub vt: &'v mut Vt<'b>,
@@ -36,7 +44,7 @@ pub struct MathContext<'a, 'b, 'v> {
     pub ssty_table: Option<ttf_parser::gsub::AlternateSubstitution<'a>>,
     pub glyphwise_tables: Option<Vec<GlyphwiseSubsts<'a>>>,
     pub space_width: Em,
-    pub fragments: Vec<MathFragment>,
+    pub fragments: Vec<(MathFragment, GroupRole)>,
     pub local: Styles,
     pub style: MathStyle,
     pub size: Abs,
@@ -116,11 +124,16 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     }
 
     pub fn push(&mut self, fragment: impl Into<MathFragment>) {
-        self.fragments.push(fragment.into());
+        self.fragments.push((fragment.into(), GroupRole::Inner));
     }
 
-    pub fn extend(&mut self, fragments: Vec<MathFragment>) {
+    pub fn extend(&mut self, fragments: Vec<(MathFragment, GroupRole)>) {
         self.fragments.extend(fragments);
+    }
+
+    pub fn layout_root(&mut self, elem: &dyn LayoutMath) -> SourceResult<MathRow> {
+        let row = self.layout_fragments(elem)?;
+        Ok(MathRow::new(row))
     }
 
     pub fn layout_fragment(
@@ -134,7 +147,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
     pub fn layout_fragments(
         &mut self,
         elem: &dyn LayoutMath,
-    ) -> SourceResult<Vec<MathFragment>> {
+    ) -> SourceResult<Vec<(MathFragment, GroupRole)>> {
         let prev = std::mem::take(&mut self.fragments);
         elem.layout_math(self)?;
         Ok(std::mem::replace(&mut self.fragments, prev))
@@ -195,7 +208,8 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             let mut fragments = vec![];
             for c in text.chars() {
                 let c = self.style.styled_char(c);
-                fragments.push(GlyphFragment::new(self, c, span).into());
+                fragments
+                    .push((GlyphFragment::new(self, c, span).into(), GroupRole::Inner));
             }
             let frame = MathRow::new(fragments).into_frame(self);
             FrameFragment::new(self, frame).into()

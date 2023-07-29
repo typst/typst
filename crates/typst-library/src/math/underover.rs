@@ -274,7 +274,7 @@ fn layout_underoverspreader(
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
-    let mut rows = vec![MathRow::new(vec![body]), stretched.into()];
+    let mut rows = vec![MathRow::new(vec![(body, GroupRole::Inner)]), stretched.into()];
     ctx.style(if reverse {
         ctx.style.for_subscript()
     } else {

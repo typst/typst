@@ -29,7 +29,7 @@ pub(super) fn alignments(rows: &[MathRow]) -> AlignmentResult {
         let mut width = Abs::zero();
         let mut alignment_index = 0;
 
-        for fragment in row.iter() {
+        for fragment in row.iter().map(|pair| &pair.0) {
             if matches!(fragment, MathFragment::Align) {
                 if alignment_index < widths.len() {
                     widths[alignment_index].set_max(width);
