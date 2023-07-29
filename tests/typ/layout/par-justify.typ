@@ -31,3 +31,13 @@ D E F #linebreak(justify: true)
 #set page(width: 155pt)
 #set par(justify: true)
 This text can be fitted in one line.
+
+---
+// Test that justification cannot lead to a leading space
+#set par(justify: true)
+#set text(size: 12pt)
+#set page(width: 45mm, height: auto)
+
+lorem ipsum 1234, lorem ipsum dolor sit amet
+
+#"  leading whitespace should still be displayed"
