@@ -146,7 +146,9 @@ pub fn call(
             }
             "sorted" => array.sorted(vm, span, args.named("key")?)?.into_value(),
             "zip" => array.zip(args.expect("other")?).into_value(),
-            "enumerate" => array.enumerate().into_value(),
+            "enumerate" => {
+                array.enumerate(args.eat()?.unwrap_or(0)).at(span)?.into_value()
+            }
             "dedup" => array.dedup(vm, args.named("key")?)?.into_value(),
             _ => return missing(),
         },

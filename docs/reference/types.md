@@ -892,6 +892,9 @@ The returned array consists of `(index, value)` pairs in the form of length-2
 arrays. These can be [destructured]($scripting/#bindings) with a let binding or
 for loop.
 
+- start: integer (positional)
+  The index returned for the first pair of the returned list.
+  Defaults to `{0}`.
 - returns: array
 
 ### zip()
