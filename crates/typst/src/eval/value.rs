@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use ecow::{eco_format, EcoString};
+use ecow::eco_format;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
@@ -154,11 +154,9 @@ impl Value {
     pub fn display(self) -> Content {
         match self {
             Self::None => Content::empty(),
-            Self::Int(v) => {
-                item!(text)(EcoString::from(format!("{}", v).replace('-', "\u{2212}")))
-            }
+            Self::Int(v) => item!(text)(format!("{}", v).replace('-', "\u{2212}").into()),
             Self::Float(v) => {
-                item!(text)(EcoString::from(format!("{}", v).replace('-', "\u{2212}")))
+                item!(text)(format!("{}", v).replace('-', "\u{2212}").into())
             }
             Self::Str(v) => item!(text)(v.into()),
             Self::Symbol(v) => item!(text)(v.get().into()),
