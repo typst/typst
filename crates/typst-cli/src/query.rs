@@ -21,7 +21,7 @@ pub struct SelectedElement {
     attributes: HashMap<EcoString, Value>,
 }
 
-/// Execute a compilation command.
+/// Execute a query command.
 pub fn query(command: QueryCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
     tracing::info!("Starting querying");
@@ -43,19 +43,16 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
 
             if let Some(key) = &command.key {
                 let provided_metadata = introspector
-                    .query(&Selector::Elem(
-                        ProvideElem::func(),
-                        Some(Dict::from_iter([("key".into(), key.clone().into_value())])),
-                    ))
+                    .query(&keyvalue_selector(key))
                     .iter()
                     .filter_map(|c| c.field("value"))
                     .collect::<Vec<_>>();
-                export(&provided_metadata, &command)?;
+                format(&provided_metadata, &command)?;
             }
 
             if let Some(selector) = &command.selector {
                 let selected_metadata = introspector
-                    .query(&make_selector(selector, &world)?)
+                    .query(&generic_selector(selector, &world)?)
                     .into_iter()
                     .map(|x| SelectedElement {
                         typename: x.func().name().into(),
@@ -67,7 +64,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
                             .collect(),
                     })
                     .collect::<Vec<_>>();
-                export(&selected_metadata, &command)?;
+                format(&selected_metadata, &command)?;
             }
 
             tracing::info!("Processing succeeded in {duration:?}");
@@ -94,10 +91,10 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     Ok(())
 }
 
-fn make_selector(selector_description: &str, world: &dyn World) -> StrResult<Selector> {
+fn generic_selector(description: &str, world: &dyn World) -> StrResult<Selector> {
     let evaluated_selector = eval_string(
         world.track(),
-        &format!("selector({selector_description})"),
+        &format!("selector({description})"),
         Span::detached(),
         EvalMode::Code,
         Scope::default(),
@@ -105,13 +102,20 @@ fn make_selector(selector_description: &str, world: &dyn World) -> StrResult<Sel
     .map_err(|_| "Error evaluating the selector string.")?;
 
     let Dyn(selector) = evaluated_selector else {
-        bail!("Parsing of selector string not successfull.")
+        bail!("Parsing of selector string not successfully.")
     };
 
     Ok(selector.downcast::<Selector>().unwrap().to_owned())
 }
 
-fn export<T: Serialize>(data: &[T], command: &QueryCommand) -> StrResult<()> {
+fn keyvalue_selector(key: &str) -> Selector {
+    let mut bounds = Dict::new();
+    bounds.insert("key".into(), key.into_value());
+
+    Selector::Elem(ProvideElem::func(), Some(bounds))
+}
+
+fn format<T: Serialize>(data: &[T], command: &QueryCommand) -> StrResult<()> {
     if command.one && data.len() != 1 {
         bail!("One piece of metadata expected, but {} found.", data.len())
     }
