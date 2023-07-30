@@ -37,6 +37,34 @@ pub enum Command {
     Fonts(FontsCommand),
 }
 
+/// Common arguments of watch, compile and query.
+#[derive(Args, Debug, Clone)]
+pub struct CommonArgs {
+    /// Path to input Typst file
+    pub input: PathBuf,
+
+    /// Configures the project root
+    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
+    pub root: Option<PathBuf>,
+
+    /// Adds additional directories to search for fonts
+    #[clap(
+    long = "font-path",
+    env = "TYPST_FONT_PATHS",
+    value_name = "DIR",
+    action = ArgAction::Append,
+    )]
+    pub font_paths: Vec<PathBuf>,
+
+    /// In which format to emit diagnostics
+    #[clap(
+    long,
+    default_value_t = DiagnosticFormat::Human,
+    value_parser = clap::value_parser!(DiagnosticFormat)
+    )]
+    pub diagnostic_format: DiagnosticFormat,
+}
+
 /// Compiles the input file into a PDF file
 #[derive(Debug, Clone, Parser)]
 pub struct CompileCommand {
@@ -66,33 +94,6 @@ impl CompileCommand {
             .clone()
             .unwrap_or_else(|| self.common.input.with_extension("pdf"))
     }
-}
-
-#[derive(Args, Debug, Clone)]
-pub struct CommonArgs {
-    /// Path to input Typst file
-    pub input: PathBuf,
-
-    /// Configures the project root
-    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
-    pub root: Option<PathBuf>,
-
-    /// Adds additional directories to search for fonts
-    #[clap(
-        long = "font-path",
-        env = "TYPST_FONT_PATHS",
-        value_name = "DIR",
-        action = ArgAction::Append,
-    )]
-    pub font_paths: Vec<PathBuf>,
-
-    /// In which format to emit diagnostics
-    #[clap(
-        long,
-        default_value_t = DiagnosticFormat::Human,
-        value_parser = clap::value_parser ! (DiagnosticFormat)
-    )]
-    pub diagnostic_format: DiagnosticFormat,
 }
 
 /// Processes an input file to extract provided metadata
