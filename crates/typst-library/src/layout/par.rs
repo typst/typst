@@ -1344,7 +1344,9 @@ fn finalize(
     let width = if !region.x.is_finite()
         || (!expand && lines.iter().all(|line| line.fr().is_zero()))
     {
-        p.hang + lines.iter().map(|line| line.width).max().unwrap_or_default()
+        region
+            .x
+            .min(p.hang + lines.iter().map(|line| line.width).max().unwrap_or_default())
     } else {
         region.x
     };
