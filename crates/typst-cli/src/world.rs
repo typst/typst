@@ -4,7 +4,7 @@ use std::fs;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
-use chrono::Datelike;
+use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
@@ -37,9 +37,9 @@ pub struct SystemWorld {
     hashes: RefCell<HashMap<FileId, FileResult<PathHash>>>,
     /// Maps canonical path hashes to source files and buffers.
     paths: RefCell<HashMap<PathHash, PathSlot>>,
-    /// The current date if requested. This is stored here to ensure it is
+    /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
-    today: OnceCell<Option<Datetime>>,
+    now: OnceCell<DateTime<Local>>,
 }
 
 impl SystemWorld {
@@ -79,7 +79,7 @@ impl SystemWorld {
             fonts: searcher.fonts,
             hashes: RefCell::default(),
             paths: RefCell::default(),
-            today: OnceCell::new(),
+            now: OnceCell::new(),
         })
     }
 
@@ -97,7 +97,7 @@ impl SystemWorld {
     pub fn reset(&mut self) {
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();
-        self.today.take();
+        self.now.take();
     }
 
     /// Lookup a source file by id.
@@ -133,18 +133,18 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        *self.today.get_or_init(|| {
-            let naive = match offset {
-                None => chrono::Local::now().naive_local(),
-                Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
-            };
+        let now = self.now.get_or_init(chrono::Local::now);
 
-            Datetime::from_ymd(
-                naive.year(),
-                naive.month().try_into().ok()?,
-                naive.day().try_into().ok()?,
-            )
-        })
+        let naive = match offset {
+            None => now.naive_local(),
+            Some(o) => now.naive_utc() + chrono::Duration::hours(o),
+        };
+
+        Datetime::from_ymd(
+            naive.year(),
+            naive.month().try_into().ok()?,
+            naive.day().try_into().ok()?,
+        )
     }
 }
 
