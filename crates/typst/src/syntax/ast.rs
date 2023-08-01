@@ -441,13 +441,14 @@ impl Shorthand {
     pub const LIST: &[(&'static str, char)] = &[
         // Both.
         ("...", '…'),
+        // Math + when before a numeric character in text.
+        ("-", '\u{2212}'),
         // Text only.
         ("~", '\u{00A0}'),
         ("--", '\u{2013}'),
         ("---", '\u{2014}'),
         ("-?", '\u{00AD}'),
         // Math only.
-        ("-", '\u{2212}'),
         ("'", '′'),
         ("*", '∗'),
         ("!=", '≠'),

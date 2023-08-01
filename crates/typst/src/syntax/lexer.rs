@@ -171,6 +171,7 @@ impl Lexer<'_> {
             '-' if self.s.eat_if("--") => SyntaxKind::Shorthand,
             '-' if self.s.eat_if('-') => SyntaxKind::Shorthand,
             '-' if self.s.eat_if('?') => SyntaxKind::Shorthand,
+            '-' if self.s.peek().is_some_and(char::is_numeric) => SyntaxKind::Shorthand,
             '*' if !self.in_word() => SyntaxKind::Star,
             '_' if !self.in_word() => SyntaxKind::Underscore,
 
