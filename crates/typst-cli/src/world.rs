@@ -4,7 +4,7 @@ use std::fs;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
-use chrono::Datelike;
+use chrono::{Datelike, Timelike};
 use comemo::Prehashed;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
@@ -40,6 +40,9 @@ pub struct SystemWorld {
     /// The current date if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
     today: OnceCell<Option<Datetime>>,
+    /// The current datetime if requested. This is stored here to ensure it is
+    /// always the same within one compilation. Reset between compilations.
+    now: OnceCell<Option<Datetime>>,
 }
 
 impl SystemWorld {
@@ -80,6 +83,7 @@ impl SystemWorld {
             hashes: RefCell::default(),
             paths: RefCell::default(),
             today: OnceCell::new(),
+            now: OnceCell::new(),
         })
     }
 
@@ -143,6 +147,24 @@ impl World for SystemWorld {
                 naive.year(),
                 naive.month().try_into().ok()?,
                 naive.day().try_into().ok()?,
+            )
+        })
+    }
+
+    fn now(&self, offset: Option<i64>) -> Option<Datetime> {
+        *self.now.get_or_init(|| {
+            let naive = match offset {
+                None => chrono::Local::now().naive_local(),
+                Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
+            };
+
+            Datetime::from_ymd_hms(
+                naive.year(),
+                naive.month().try_into().ok()?,
+                naive.day().try_into().ok()?,
+                naive.hour().try_into().ok()?,
+                naive.minute().try_into().ok()?,
+                naive.second().try_into().ok()?,
             )
         })
     }
