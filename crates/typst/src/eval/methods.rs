@@ -52,13 +52,16 @@ pub fn call(
         },
 
         Value::Float(float) => match method {
-            "toFixed" => format!("{:.1$}", float, &args.expect::<usize>("digits")?).into_value(),
-            _ => return missing()
+            "toFixed" => {
+                format!("{:.1$}", float, &args.expect::<usize>("digits")?).into_value()
+            }
+            _ => return missing(),
         },
 
         Value::Int(int) => match method {
-            "toFixed" => format!("{:.1$}", int as f64, &args.expect::<usize>("digits")?).into_value(),
-            _ => return missing()
+            "toFixed" => format!("{:.1$}", int as f64, &args.expect::<usize>("digits")?)
+                .into_value(),
+            _ => return missing(),
         },
 
         Value::Str(string) => match method {
