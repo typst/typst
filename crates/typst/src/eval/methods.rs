@@ -259,6 +259,10 @@ pub fn call(
                         )
                         .at(span)?
                         .into_value(),
+                    "duration-to" => datetime
+                        .get_duration(&args.expect("other")?, &args.expect("unit")?)
+                        .at(span)?
+                        .into_value(),
                     _ => return missing(),
                 }
             } else if let Some(direction) = dynamic.downcast::<Dir>() {

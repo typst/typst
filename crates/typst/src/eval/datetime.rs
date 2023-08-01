@@ -146,6 +146,24 @@ impl Datetime {
         }
     }
 
+    pub fn get_duration(&self, other: &Self, unit: &EcoString) -> StrResult<f64> {
+        let diff = match (*self, *other) {
+            (Datetime::Datetime(a), Datetime::Datetime(b)) => b - a,
+            (Datetime::Date(a), Datetime::Date(b)) => b - a,
+            (Datetime::Time(a), Datetime::Time(b)) => b - a,
+            _ => bail!("Two datetime objects not compatible."),
+        };
+
+        Ok(match unit.to_lowercase().as_str() {
+            "weeks" => diff.as_seconds_f64() / 604_800.0,
+            "days" => diff.as_seconds_f64() / 86_400.0,
+            "hours" => diff.as_seconds_f64() / 3_600.0,
+            "minutes" => diff.as_seconds_f64() / 60.0,
+            "seconds" => diff.as_seconds_f64(),
+            _ => bail!("Invalid unit"),
+        })
+    }
+
     /// Create a datetime from year, month, and day.
     pub fn from_ymd(year: i32, month: u8, day: u8) -> Option<Self> {
         Some(Datetime::Date(

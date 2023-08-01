@@ -443,6 +443,13 @@ Return a new data that is advanced by the specified duration. Negative durations
 - seconds: integer (named) Amount of seconds to add.
 - returns: datetime
 
+### duration-to()
+Return the duration from this to another Datetime in a specified Unit.
+
+- other: datetime (positional, required) The other Datetime.
+- unit: string (positional, required) The output unit of the duration: Weeks, Days, Hours, Minutes, Seconds
+- returns: float
+
 # Symbol
 A Unicode symbol.
 
