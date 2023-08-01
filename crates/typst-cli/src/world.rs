@@ -133,7 +133,7 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        let now = *self.now.get_or_init(chrono::Local::now);
+        let now = self.now.get_or_init(chrono::Local::now);
 
         let naive = match offset {
             None => now.naive_local(),
