@@ -427,6 +427,22 @@ Returns the second of the datetime, if it exists. Otherwise, it returns
 
 - returns: integer or none
 
+### ordinal()
+Returns the ordinal (day of the year) of the datetime, if it exists. Otherwise, it returns
+`{none}`.
+
+- returns: integer or none
+
+### add()
+Return a new data that is advanced by the specified duration. Negative durations are possible.
+
+- weeks: integer (named) Amount of weeks to add.
+- days: integer (named) Amount of days to add.
+- hours: integer (named) Amount of hours to add.
+- minutes: integer (named) Amount of minutes to add.
+- seconds: integer (named) Amount of seconds to add.
+- returns: datetime
+
 # Symbol
 A Unicode symbol.
 

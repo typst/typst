@@ -2,9 +2,10 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
+use crate::diag::{bail, StrResult};
 use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
-use time::{format_description, PrimitiveDateTime};
+use time::{format_description, Duration, PrimitiveDateTime};
 
 use crate::eval::cast;
 use crate::util::pretty_array_like;
@@ -103,6 +104,45 @@ impl Datetime {
             Datetime::Date(_) => None,
             Datetime::Time(time) => Some(time.second()),
             Datetime::Datetime(datetime) => Some(datetime.second()),
+        }
+    }
+
+    /// Redurn the ordinal (day of the year), if existing
+    pub fn ordinal(&self) -> Option<u16> {
+        match self {
+            Datetime::Datetime(datetime) => Some(datetime.ordinal()),
+            Datetime::Date(date) => Some(date.ordinal()),
+            Datetime::Time(_) => None,
+        }
+    }
+
+    pub fn add(
+        &self,
+        weeks: Option<i64>,
+        days: Option<i64>,
+        hours: Option<i64>,
+        minutes: Option<i64>,
+        seconds: Option<i64>,
+    ) -> StrResult<Datetime> {
+        let dur_date =
+            Duration::weeks(weeks.unwrap_or(0)) + Duration::days(days.unwrap_or(0));
+        let dur_time = Duration::hours(hours.unwrap_or(0))
+            + Duration::minutes(minutes.unwrap_or(0))
+            + Duration::seconds(seconds.unwrap_or(0));
+
+        match (self, !dur_date.is_zero(), !dur_time.is_zero()) {
+            (_, false, false) => Ok(*self),
+            (Datetime::Datetime(datetime), _, _) => {
+                Ok(Self::Datetime(*datetime + dur_date + dur_time))
+            }
+            (Datetime::Date(date), true, false) => Ok(Self::Date(*date + dur_date)),
+            (Datetime::Time(time), false, true) => Ok(Self::Time(*time + dur_time)),
+            (Datetime::Date(_), _, true) => {
+                bail!("Cannot move a date by a time duration.")
+            }
+            (Datetime::Time(_), true, _) => {
+                bail!("Cannot move a time by a date duration.")
+            }
         }
     }
 
