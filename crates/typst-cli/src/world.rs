@@ -140,7 +140,11 @@ impl World for SystemWorld {
             Some(o) => now.naive_utc() + chrono::Duration::hours(o),
         };
 
-        Datetime::from_ymd(naive.year(), naive.month().into(), naive.day().into())
+        Datetime::from_ymd(
+            naive.year(),
+            naive.month().try_into().ok()?,
+            naive.day().try_into().ok()?,
+        )
     }
 }
 
