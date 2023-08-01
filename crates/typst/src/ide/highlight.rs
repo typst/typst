@@ -148,6 +148,8 @@ pub fn highlight(node: &LinkedNode) -> Option<Tag> {
         SyntaxKind::MathFrac => None,
         SyntaxKind::MathRoot => None,
         SyntaxKind::MathPrimes => None,
+        SyntaxKind::MathLabel => Some(Tag::Label),
+        SyntaxKind::MathNoNumber => Some(Tag::Label),
 
         SyntaxKind::Hashtag => highlight_hashtag(node),
         SyntaxKind::LeftBrace => Some(Tag::Punctuation),

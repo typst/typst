@@ -37,10 +37,10 @@ As seen in @intro, we proceed.
   supplement: "Tig",
 ) <fig2>
 
-$ A = 1 $ <eq1>
+$ A = 1 <eq1> $ 
 
 #set math.equation(supplement: none)
-$ A = 1 $ <eq2>
+$ A = 1 <eq2> $
 
 @fig1, @fig2, @eq1, (@eq2)
 

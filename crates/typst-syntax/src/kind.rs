@@ -71,6 +71,10 @@ pub enum SyntaxKind {
     MathFrac,
     /// A root in math: `√x`, `∛x` or `∜x`.
     MathRoot,
+    /// A label for a line in a formula
+    MathLabel,
+    /// A tag for un-numbered lines in a formula
+    MathNoNumber,
 
     /// A hashtag that switches into code mode: `#`.
     Hashtag,
@@ -383,6 +387,8 @@ impl SyntaxKind {
             Self::MathFrac => "math fraction",
             Self::MathRoot => "math root",
             Self::MathPrimes => "math primes",
+            Self::MathLabel => "math label",
+            Self::MathNoNumber => "math nonumber label",
             Self::Hashtag => "hashtag",
             Self::LeftBrace => "opening brace",
             Self::RightBrace => "closing brace",

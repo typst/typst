@@ -41,7 +41,7 @@ impl MathRow {
                 }
 
                 // New line, new things.
-                MathFragment::Linebreak => {
+                MathFragment::Linebreak(_) => {
                     resolved.push(fragment);
                     space = None;
                     last = None;
@@ -77,7 +77,6 @@ impl MathRow {
             last = Some(resolved.len());
             resolved.push(fragment);
         }
-
         Self(resolved)
     }
 
@@ -92,7 +91,7 @@ impl MathRow {
     /// rows. Hopefully this is only a temporary hack.
     pub fn rows(&self) -> Vec<Self> {
         self.0
-            .split(|frag| matches!(frag, MathFragment::Linebreak))
+            .split_inclusive(|frag| matches!(frag, MathFragment::Linebreak(_)))
             .map(|slice| Self(slice.to_vec()))
             .collect()
     }
@@ -102,6 +101,10 @@ impl MathRow {
     }
 
     pub fn descent(&self) -> Abs {
+        // FIXME: Because each line now keeps its linebreak, the
+        // descent of a line is at least 0.  Some glyphs have,
+        // for Typst, negative descents. Think of centered dot, e.g.
+        // Maybe make MathFragment descent/ascent > 0 to begin with.
         self.iter().map(MathFragment::descent).max().unwrap_or_default()
     }
 
@@ -119,61 +122,132 @@ impl MathRow {
         }
     }
 
-    pub fn into_frame(self, ctx: &MathContext) -> Frame {
+    pub fn into_frame(self, ctx: &mut MathContext) -> SourceResult<Frame> {
         let styles = ctx.styles();
         let align = AlignElem::alignment_in(styles).x.resolve(styles);
         self.into_aligned_frame(ctx, &[], align)
     }
 
-    pub fn into_fragment(self, ctx: &MathContext) -> MathFragment {
+    pub fn into_fragment(self, ctx: &mut MathContext) -> SourceResult<MathFragment> {
         if self.0.len() == 1 {
-            self.0.into_iter().next().unwrap()
+            Ok(self.0.into_iter().next().unwrap())
         } else {
-            FrameFragment::new(ctx, self.into_frame(ctx)).into()
+            let frame = self.into_frame(ctx)?;
+            Ok(FrameFragment::new(ctx, frame).into())
         }
     }
 
-    pub fn into_aligned_frame(
+    pub fn into_display_items(
         self,
         ctx: &MathContext,
         points: &[Abs],
         align: Align,
-    ) -> Frame {
-        if self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
+    ) -> MathDisplayItems {
+        if self.iter().any(|frag| matches!(frag, MathFragment::Linebreak(_))) {
             let leading = if ctx.style.size >= MathSize::Text {
                 ParElem::leading_in(ctx.styles())
             } else {
                 TIGHT_LEADING.scaled(ctx)
             };
 
-            let mut rows: Vec<_> = self.rows();
+            let mut rows = self.rows();
 
             if matches!(rows.last(), Some(row) if row.0.is_empty()) {
                 rows.pop();
             }
 
             let AlignmentResult { points, width } = alignments(&rows);
-            let mut frame = Frame::new(Size::zero());
 
+            let mut items = vec![];
             for (i, row) in rows.into_iter().enumerate() {
-                let sub = row.into_line_frame(&points, align);
-                let size = frame.size_mut();
+                let label = if let Some(elem) = row.0.last() {
+                    match elem {
+                        MathFragment::Linebreak(label) => label.clone(),
+                        _ => MathLabel::None,
+                    }
+                } else {
+                    MathLabel::None
+                };
+
                 if i > 0 {
-                    size.y += leading;
+                    items.push(MathDisplayItem::VSpace(leading));
                 }
 
-                let mut pos = Point::with_y(size.y);
+                let sub = row.into_line_frame(&points, align);
+
+                let mut x = Abs::zero();
                 if points.is_empty() {
-                    pos.x = align.position(width - sub.width());
+                    x = align.position(width - sub.width());
                 }
-                size.y += sub.height();
-                size.x.set_max(sub.width());
-                frame.push_frame(pos, sub);
+                // size.y += sub.height();
+                // size.x.set_max(sub.width());
+                let mut frame = Frame::new(Axes::new(width, sub.height()));
+                let baseline = sub.baseline();
+                frame.push_frame(Point::with_x(x), sub);
+                frame.set_baseline(baseline);
+
+                items.push(MathDisplayItem::Frame(frame, label));
             }
-            frame
+            MathDisplayItems { items, width }
         } else {
-            self.into_line_frame(points, align)
+            let frame = self.into_line_frame(points, align);
+            let width = frame.width();
+            // No linebreaks => no labels!
+            MathDisplayItems {
+                items: vec![MathDisplayItem::Frame(frame, MathLabel::None)],
+                width,
+            }
         }
+    }
+
+    pub fn into_aligned_frame(
+        self,
+        ctx: &mut MathContext,
+        points: &[Abs],
+        align: Align,
+    ) -> SourceResult<Frame> {
+        let MathDisplayItems { items, width } =
+            self.into_display_items(ctx, points, align);
+
+        let mut build_label = |label: MathLabel| {
+            if let MathLabel::Some(label) = label {
+                let line_tag = EqNumberElem::new().pack().labelled(label);
+                return Some(ctx.layout_frame(&line_tag));
+            }
+            None
+        };
+
+        // Special case needed so that baselines are preserved for single line frames.
+        if items.len() == 1 {
+            return match items.into_iter().last().unwrap() {
+                MathDisplayItem::Frame(mut frame, label) => {
+                    if let Some(label) = build_label(label).transpose()? {
+                        frame.push_frame(Point::zero(), label)
+                    };
+                    Ok(frame)
+                }
+                MathDisplayItem::VSpace(dy) => Ok(Frame::new(Axes::with_y(dy))),
+            };
+        }
+
+        let mut frame = Frame::new(Size::with_x(width));
+        for item in items {
+            match item {
+                MathDisplayItem::VSpace(dy) => frame.size_mut().y += dy,
+                MathDisplayItem::Frame(mut line, label) => {
+                    let size = frame.size_mut();
+                    let pos = Point::with_y(size.y);
+                    size.y += line.size().y;
+                    if let Some(label) = build_label(label).transpose()? {
+                        line.push_frame(Point::zero(), label);
+                    }
+
+                    frame.push_frame(pos, line);
+                }
+            }
+        }
+
+        Ok(frame)
     }
 
     fn into_line_frame(self, points: &[Abs], align: Align) -> Frame {

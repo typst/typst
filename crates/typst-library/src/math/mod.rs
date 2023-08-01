@@ -8,6 +8,7 @@ mod attach;
 mod cancel;
 mod class;
 mod delimited;
+mod eqnum;
 mod frac;
 mod fragment;
 mod matrix;
@@ -25,6 +26,7 @@ pub use self::attach::*;
 pub use self::cancel::*;
 pub use self::class::*;
 pub use self::delimited::*;
+pub use self::eqnum::*;
 pub use self::frac::*;
 pub use self::matrix::*;
 pub use self::op::*;
@@ -43,7 +45,7 @@ use self::ctx::*;
 use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
-use crate::layout::{BoxElem, HElem, ParElem, Spacing};
+use crate::layout::{AlignElem, BoxElem, HElem, ParElem, Spacing};
 use crate::meta::Supplement;
 use crate::meta::{
     Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
@@ -117,6 +119,11 @@ pub fn module() -> Module {
     // Spacings.
     spacing::define(&mut math);
 
+    // Labels and equation numbers.
+    math.define("label", MathLabelElem::func());
+    math.define("nonumber", NoNumberElem::func());
+    math.define("eqnumber", EqNumberElem::func());
+
     // Symbols.
     for (name, symbol) in crate::symbols::SYM {
         math.define(*name, symbol.clone());
@@ -172,6 +179,10 @@ pub struct EquationElem {
     /// $ F_n = floor(1 / sqrt(5) phi.alt^n) $
     /// ```
     pub numbering: Option<Numbering>,
+
+    // FIXME: Document
+    // Better yet: numberstyle block, lines, subequation
+    pub subnumbering: bool,
 
     /// A supplement for the equation.
     ///
@@ -242,10 +253,6 @@ impl Layout for EquationElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        const NUMBER_GUTTER: Em = Em::new(0.5);
-
-        let block = self.block(styles);
-
         // Find a math font.
         let variant = variant(styles);
         let world = vt.world;
@@ -260,37 +267,14 @@ impl Layout for EquationElem {
             bail!(self.span(), "current font does not support math");
         };
 
+        let block = self.block(styles);
         let mut ctx = MathContext::new(vt, styles, regions, &font, block);
-        let mut frame = ctx.layout_frame(self)?;
 
+        let mut frame;
         if block {
-            if let Some(numbering) = self.numbering(styles) {
-                let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = Counter::of(Self::func())
-                    .display(Some(numbering), false)
-                    .layout(vt, styles, pod)?
-                    .into_frame();
-
-                let width = if regions.size.x.is_finite() {
-                    regions.size.x
-                } else {
-                    frame.width()
-                        + 2.0 * (counter.width() + NUMBER_GUTTER.resolve(styles))
-                };
-
-                let height = frame.height().max(counter.height());
-                frame.resize(Size::new(width, height), Align::CENTER_HORIZON);
-
-                let x = if TextElem::dir_in(styles).is_positive() {
-                    frame.width() - counter.width()
-                } else {
-                    Abs::zero()
-                };
-                let y = (frame.height() - counter.height()) / 2.0;
-
-                frame.push_frame(Point::new(x, y), counter)
-            }
+            frame = ctx.layout_block(self)?;
         } else {
+            frame = ctx.layout_frame(self)?;
             let slack = ParElem::leading_in(styles) * 0.7;
             let top_edge = TextElem::top_edge_in(styles).resolve(styles, &font, None);
             let bottom_edge =
@@ -455,7 +439,7 @@ impl LayoutMath for Content {
         }
 
         if self.is::<LinebreakElem>() {
-            ctx.push(MathFragment::Linebreak);
+            ctx.push(MathFragment::Linebreak(MathLabel::None));
             return Ok(());
         }
 

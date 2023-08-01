@@ -228,7 +228,7 @@ fn layout_vec_body(
         flat.push(ctx.layout_row(child)?);
     }
     ctx.unstyle();
-    Ok(stack(ctx, flat, align, gap, 0))
+    stack(ctx, flat, align, gap, 0)
 }
 
 /// Layout the inner contents of a matrix.
@@ -265,7 +265,7 @@ fn layout_mat_body(ctx: &mut MathContext, rows: &[Vec<Content>]) -> SourceResult
         let AlignmentResult { points, width: rcol } = alignments(&col);
         let mut y = Abs::zero();
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_aligned_frame(ctx, &points, Align::Center);
+            let cell = cell.into_aligned_frame(ctx, &points, Align::Center)?;
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),

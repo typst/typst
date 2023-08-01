@@ -123,12 +123,141 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.fragments.extend(fragments);
     }
 
+    pub fn layout_block(&mut self, elem: &EquationElem) -> SourceResult<Frame> {
+        const NUMBER_GUTTER: Em = Em::new(0.5);
+
+        let row = MathRow::new(self.layout_fragments(elem)?);
+        let styles = self.outer;
+
+        let align = AlignElem::alignment_in(styles).x.resolve(styles);
+        let MathDisplayItems { items, width: intrinsicwidth } =
+            row.into_display_items(self, &[], align);
+
+        let displaywidth =
+            if self.regions.size.x.is_finite() && elem.numbering(styles).is_some() {
+                self.regions.size.x
+            } else {
+                intrinsicwidth
+            };
+
+        let mut frame = Frame::new(Axes::with_x(displaywidth));
+        let mut y = Abs::zero();
+        let mut counter_width = Abs::zero();
+        let mut first_number = true;
+        let subnumbering = elem.subnumbering(styles);
+
+        for item in items {
+            match item {
+                // TODO: the interline space should be baseline to baseline.
+                MathDisplayItem::VSpace(dy) => y += dy,
+                MathDisplayItem::Frame(sub, label) => {
+                    let mut line = Frame::new(Axes::new(displaywidth, sub.height()));
+                    line.set_baseline(sub.baseline());
+
+                    if label != MathLabel::NoNumber {
+                        if let Some(numbering) = elem.numbering(styles) {
+                            let pod =
+                                Regions::one(self.regions.base(), Axes::splat(false));
+
+                            let mut bump_count = |step| {
+                                let c = Counter::of(EqNumberElem::func());
+                                c.update(CounterUpdate::Step(step))
+                                    .layout(self.vt, self.outer, pod)
+                            };
+
+                            let level1 = NonZeroUsize::ONE;
+                            let level2 = NonZeroUsize::new(2).unwrap();
+
+                            // If we are subnumbering, we need to update the
+                            // main counter first, otherwise we inherit the
+                            // previous equation's main number.
+                            if subnumbering && first_number {
+                                let update = bump_count(level1)?.into_frame();
+                                line.push_frame(Point::zero(), update);
+                                first_number = false;
+                            }
+
+                            let update = if subnumbering {
+                                bump_count(level2)?
+                            } else {
+                                bump_count(level1)?
+                            };
+                            line.push_frame(Point::zero(), update.into_frame());
+
+                            let mut number_tag = EqNumberElem::new()
+                                .with_numbering(elem.numbering(styles));
+
+                            if let Smart::Custom(supplement) = elem.supplement(styles) {
+                                number_tag = number_tag.with_supplement(supplement);
+                            }
+                            let mut number_tag = number_tag.pack();
+                            if let MathLabel::Some(label) = label {
+                                number_tag = number_tag.labelled(label);
+                            }
+
+                            let number_tag =
+                                number_tag.layout(self.vt, styles, pod)?.into_frame();
+                            line.push_frame(Point::zero(), number_tag);
+
+                            let c = Counter::of(EqNumberElem::func());
+                            let counter = c
+                                .display(Some(numbering), false)
+                                .layout(self.vt, styles, pod)?
+                                .into_frame();
+
+                            if counter.ascent() > line.ascent() {
+                                let delta_ascent = counter.ascent() - line.ascent();
+                                line.size_mut().y += delta_ascent;
+                                line.set_baseline(counter.baseline());
+                            }
+
+                            if counter.descent() > line.descent() {
+                                let delta_descent = counter.descent() - line.descent();
+                                line.size_mut().y += delta_descent;
+                            }
+
+                            // FIXME: allow left vs right placement explicitly.
+                            let counter_x = if self.regions.size.x.is_finite() {
+                                displaywidth - counter.width()
+                            } else {
+                                let gutter = NUMBER_GUTTER.resolve(styles);
+                                counter_width.set_max(gutter + counter.width());
+                                displaywidth + gutter
+                            };
+                            let counter_y = line.ascent() - counter.ascent();
+
+                            line.push_frame(Point::new(counter_x, counter_y), counter);
+                        }
+                    }
+
+                    let sub_y = line.ascent() - sub.ascent();
+                    let sub_x = (displaywidth - intrinsicwidth) / 2.0;
+                    line.push_frame(Point::new(sub_x, sub_y), sub);
+
+                    // The line just constructed could be handed back via the fragment
+                    // for the Flow to space with leading.  For now, insert in the
+                    // ambient frame instead.
+                    let dy = line.height();
+                    frame.push_frame(Point::with_y(y), line);
+                    y += dy;
+                }
+            }
+        }
+        // counter_with is nonzero only if the region has infinite width
+        if counter_width > Abs::zero() {
+            frame.size_mut().x += 2.0 * counter_width;
+            frame.translate(Point::with_x(-counter_width));
+        }
+        frame.size_mut().y = y;
+        Ok(frame)
+    }
+
     pub fn layout_fragment(
         &mut self,
         elem: &dyn LayoutMath,
     ) -> SourceResult<MathFragment> {
         let row = self.layout_fragments(elem)?;
-        Ok(MathRow::new(row).into_fragment(self))
+        MathRow::new(row).into_fragment(self)
     }
 
     pub fn layout_fragments(
@@ -197,7 +326,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
                 let c = self.style.styled_char(c);
                 fragments.push(GlyphFragment::new(self, c, span).into());
             }
-            let frame = MathRow::new(fragments).into_frame(self);
+            let frame = MathRow::new(fragments).into_frame(self)?;
             FrameFragment::new(self, frame).into()
         } else {
             // Anything else is handled by Typst's standard text layout.
@@ -271,6 +400,19 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.local.unset();
         self.local.unset();
     }
+}
+
+/// A layed out object that can appear as part of a display.
+pub enum MathDisplayItem {
+    Frame(Frame, MathLabel),
+    VSpace(Abs),
+}
+
+pub struct MathDisplayItems {
+    // All items in the display
+    pub items: Vec<MathDisplayItem>,
+    // The natural width for the display
+    pub width: Abs,
 }
 
 pub(super) trait Scaled {

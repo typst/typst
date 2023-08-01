@@ -110,6 +110,10 @@ pub struct LangItems {
     pub math_frac: fn(num: Content, denom: Content) -> Content,
     /// A root in math: `√x`, `∛x` or `∜x`.
     pub math_root: fn(index: Option<Content>, radicand: Content) -> Content,
+    /// A label for a line in a formula
+    pub math_label: fn(label: EcoString) -> Content,
+    /// A tag for un-numbered lines in a formula
+    pub math_nonumber: fn() -> Content,
     /// Dispatch a method on a library value.
     pub library_method: fn(
         vm: &mut Vm,

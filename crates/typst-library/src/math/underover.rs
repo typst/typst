@@ -270,7 +270,7 @@ fn layout_underoverspreader(
     let gap = gap.scaled(ctx);
     let body = ctx.layout_row(body)?;
     let body_class = body.class();
-    let body = body.into_fragment(ctx);
+    let body = body.into_fragment(ctx)?;
     let glyph = GlyphFragment::new(ctx, c, span);
     let stretched = glyph.stretch_horizontal(ctx, body.width(), Abs::zero());
 
@@ -294,7 +294,7 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame = stack(ctx, rows, Align::Center, gap, baseline);
+    let frame = stack(ctx, rows, Align::Center, gap, baseline)?;
     ctx.push(FrameFragment::new(ctx, frame).with_class(body_class));
 
     Ok(())
@@ -305,18 +305,18 @@ fn layout_underoverspreader(
 /// Add a `gap` between each row and uses the baseline of the `baseline`th
 /// row for the whole frame.
 pub(super) fn stack(
-    ctx: &MathContext,
+    ctx: &mut MathContext,
     rows: Vec<MathRow>,
     align: Align,
     gap: Abs,
     baseline: usize,
-) -> Frame {
+) -> SourceResult<Frame> {
     let rows: Vec<_> = rows.into_iter().flat_map(|r| r.rows()).collect();
     let AlignmentResult { points, width } = alignments(&rows);
-    let rows: Vec<_> = rows
+    let rows = rows
         .into_iter()
         .map(|row| row.into_aligned_frame(ctx, &points, align))
-        .collect();
+        .collect::<Result<Vec<_>, _>>()?;
 
     let mut y = Abs::zero();
     let mut frame = Frame::new(Size::new(
@@ -335,5 +335,5 @@ pub(super) fn stack(
         frame.push_frame(pos, row);
     }
 
-    frame
+    Ok(frame)
 }

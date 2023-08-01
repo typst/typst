@@ -13,8 +13,15 @@ pub enum MathFragment {
     Frame(FrameFragment),
     Spacing(Abs),
     Space(Abs),
-    Linebreak,
+    Linebreak(MathLabel),
     Align,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MathLabel {
+    None,
+    Some(Label),
+    NoNumber,
 }
 
 impl MathFragment {

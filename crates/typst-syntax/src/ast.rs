@@ -128,6 +128,10 @@ pub enum Expr {
     MathFrac(MathFrac),
     /// A root in math: `√x`, `∛x` or `∜x`.
     MathRoot(MathRoot),
+    /// A label in a formula.
+    MathLabel(MathLabel),
+    /// A tag for un-numbered lines in a formula.
+    MathNoNumber(MathNoNumber),
     /// An identifier: `left`.
     Ident(Ident),
     /// The `none` literal.
@@ -227,6 +231,8 @@ impl AstNode for Expr {
             SyntaxKind::MathPrimes => node.cast().map(Self::MathPrimes),
             SyntaxKind::MathFrac => node.cast().map(Self::MathFrac),
             SyntaxKind::MathRoot => node.cast().map(Self::MathRoot),
+            SyntaxKind::MathLabel => node.cast().map(Self::MathLabel),
+            SyntaxKind::MathNoNumber => node.cast().map(Self::MathNoNumber),
             SyntaxKind::Ident => node.cast().map(Self::Ident),
             SyntaxKind::None => node.cast().map(Self::None),
             SyntaxKind::Auto => node.cast().map(Self::Auto),
@@ -289,6 +295,8 @@ impl AstNode for Expr {
             Self::MathPrimes(v) => v.as_untyped(),
             Self::MathFrac(v) => v.as_untyped(),
             Self::MathRoot(v) => v.as_untyped(),
+            Self::MathLabel(v) => v.as_untyped(),
+            Self::MathNoNumber(v) => v.as_untyped(),
             Self::Ident(v) => v.as_untyped(),
             Self::None(v) => v.as_untyped(),
             Self::Auto(v) => v.as_untyped(),
@@ -904,6 +912,23 @@ impl MathRoot {
     pub fn radicand(&self) -> Expr {
         self.0.cast_first_match().unwrap_or_default()
     }
+}
+
+node! {
+    /// A label in a formula.
+    MathLabel
+}
+
+impl MathLabel {
+    /// Get the label's text.
+    pub fn get(&self) -> &str {
+        self.0.text().trim_start_matches('<').trim_end_matches('>')
+    }
+}
+
+node! {
+    /// A tag for un-numbered lines in a formula.
+    MathNoNumber
 }
 
 node! {

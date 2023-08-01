@@ -131,6 +131,8 @@ fn items() -> LangItems {
         math_root: |index, radicand| {
             math::RootElem::new(radicand).with_index(index).pack()
         },
+        math_label: |label| math::MathLabelElem::new(label).pack(),
+        math_nonumber: || math::NoNumberElem::new().pack(),
         library_method: |vm, dynamic, method, args, span| {
             if let Some(counter) = dynamic.downcast::<meta::Counter>().cloned() {
                 counter.call_method(vm, method, args, span)

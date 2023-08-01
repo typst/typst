@@ -288,6 +288,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Linebreak | SyntaxKind::MathAlignPoint => p.eat(),
+        SyntaxKind::MathLabel | SyntaxKind::MathNoNumber => p.eat(),
         SyntaxKind::Escape | SyntaxKind::Str => {
             continuable = true;
             p.eat();

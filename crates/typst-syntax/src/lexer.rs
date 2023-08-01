@@ -164,7 +164,7 @@ impl Lexer<'_> {
             '`' => self.raw(),
             'h' if self.s.eat_if("ttp://") => self.link(),
             'h' if self.s.eat_if("ttps://") => self.link(),
-            '<' if self.s.at(is_id_continue) => self.label(),
+            '<' if self.s.at(is_id_continue) => self.label(false),
             '@' => self.ref_marker(),
 
             '.' if self.s.eat_if("..") => SyntaxKind::Shorthand,
@@ -314,7 +314,7 @@ impl Lexer<'_> {
         SyntaxKind::RefMarker
     }
 
-    fn label(&mut self) -> SyntaxKind {
+    fn label(&mut self, in_math: bool) -> SyntaxKind {
         let label = self.s.eat_while(|c| is_id_continue(c) || matches!(c, ':' | '.'));
         if label.is_empty() {
             return self.error("label cannot be empty");
@@ -324,7 +324,11 @@ impl Lexer<'_> {
             return self.error("unclosed label");
         }
 
-        SyntaxKind::Label
+        if in_math {
+            SyntaxKind::MathLabel
+        } else {
+            SyntaxKind::Label
+        }
     }
 
     fn text(&mut self) -> SyntaxKind {
@@ -433,6 +437,9 @@ impl Lexer<'_> {
             '&' => SyntaxKind::MathAlignPoint,
             '√' | '∛' | '∜' => SyntaxKind::Root,
 
+            '<' if self.s.eat_if("*>") => SyntaxKind::MathNoNumber,
+            '<' if self.s.at(is_id_continue) => self.label(true),
+
             // Identifiers.
             c if is_math_id_start(c) && self.s.at(is_math_id_continue) => {
                 self.s.eat_while(is_math_id_continue);
@@ -470,7 +477,7 @@ impl Lexer<'_> {
     fn code(&mut self, start: usize, c: char) -> SyntaxKind {
         match c {
             '`' => self.raw(),
-            '<' if self.s.at(is_id_continue) => self.label(),
+            '<' if self.s.at(is_id_continue) => self.label(false),
             '0'..='9' => self.number(start, c),
             '.' if self.s.at(char::is_ascii_digit) => self.number(start, c),
             '"' => self.string(),
