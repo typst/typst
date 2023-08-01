@@ -105,10 +105,6 @@ pub fn luma(
 ///
 /// The color is specified in the sRGB color space.
 ///
-/// _Note:_ While you can specify transparent colors and Typst's preview will
-/// render them correctly, the PDF export does not handle them properly at the
-/// moment. This will be fixed in the future.
-///
 /// ## Example { #example }
 /// ```example
 /// #square(fill: rgb("#b1f2eb"))

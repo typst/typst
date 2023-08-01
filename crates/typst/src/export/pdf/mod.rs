@@ -1,5 +1,6 @@
 //! Exporting into PDF documents.
 
+mod external_graphics_state;
 mod font;
 mod image;
 mod outline;
@@ -21,6 +22,8 @@ use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
 use crate::model::Introspector;
 
+use external_graphics_state::ExternalGraphicsState;
+
 /// Export a document into a PDF file.
 ///
 /// Returns the raw bytes making up the PDF file.
@@ -30,6 +33,7 @@ pub fn pdf(document: &Document) -> Vec<u8> {
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
+    external_graphics_state::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx);
     ctx.writer.finish()
@@ -50,9 +54,11 @@ pub struct PdfContext<'a> {
     page_tree_ref: Ref,
     font_refs: Vec<Ref>,
     image_refs: Vec<Ref>,
+    ext_gs_refs: Vec<Ref>,
     page_refs: Vec<Ref>,
     font_map: Remapper<Font>,
     image_map: Remapper<Image>,
+    ext_gs_map: Remapper<ExternalGraphicsState>,
     /// For each font a mapping from used glyphs to their text representation.
     /// May contain multiple chars in case of ligatures or similar things. The
     /// same glyph can have a different text representation within one document,
@@ -78,8 +84,10 @@ impl<'a> PdfContext<'a> {
             page_refs: vec![],
             font_refs: vec![],
             image_refs: vec![],
+            ext_gs_refs: vec![],
             font_map: Remapper::new(),
             image_map: Remapper::new(),
+            ext_gs_map: Remapper::new(),
             glyph_sets: HashMap::new(),
             languages: HashMap::new(),
         }
