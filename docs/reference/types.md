@@ -57,6 +57,17 @@ with a zero followed by either `x`, `o`, or `b`.
 #0b1001
 ```
 
+## Methods
+### toFixed()
+Formats the number with a fixed amount of decimal places.
+
+```example
+  #7.toFixed(2); // "7.00"
+```
+
+- digits: integer (positional, required) The number of decimal places to display.
+- returns: string
+
 # Float
 A floating-pointer number.
 
@@ -70,6 +81,22 @@ store floats. Wherever a float is expected, you can also pass an
 #1e4 \
 #(10 / 4)
 ```
+
+## Methods
+### toFixed()
+Formats the number with a fixed amount of decimal places.
+
+```example
+#{
+  let a = 8.1324;
+  let b = 1.4;
+  a.toFixed(2); // "8.13";
+  b.toFixed(2); // "1.40";
+}
+```
+
+- digits: integer (positional, required) The number of decimal places to display.
+- returns: string
 
 # Length
 A size or distance, possibly expressed with contextual units.

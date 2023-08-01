@@ -51,6 +51,16 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Float(float) => match method {
+            "toFixed" => format!("{:.1$}", float, &args.expect::<usize>("digits")?).into_value(),
+            _ => return missing()
+        },
+
+        Value::Int(int) => match method {
+            "toFixed" => format!("{:.1$}", int as f64, &args.expect::<usize>("digits")?).into_value(),
+            _ => return missing()
+        },
+
         Value::Str(string) => match method {
             "len" => string.len().into_value(),
             "first" => string.first().at(span)?.into_value(),

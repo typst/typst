@@ -198,3 +198,17 @@
 #test(2deg.deg(), 2.0)
 #test(2.94deg.deg(), 2.94)
 #test(0rad.deg(), 0.0)
+
+---
+// Test int methods
+#test(3.toFixed(0), "3")
+#test(3.toFixed(1), "3.0")
+
+---
+// Test float methods
+#test(1.138.toFixed(0), "1")
+#test(1.138.toFixed(1), "1.1")
+#test(1.138.toFixed(2), "1.14")
+#test(1.138.toFixed(3), "1.138")
+#test(1.138.toFixed(4), "1.1380")
+#test(1.9999.toFixed(2), "2.00")
