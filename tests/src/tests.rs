@@ -276,10 +276,6 @@ impl World for TestWorld {
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
     }
-
-    fn now(&self, _: Option<i64>) -> Option<Datetime> {
-        Some(Datetime::from_ymd_hms(1970, 1, 1, 12, 0, 0).unwrap())
-    }
 }
 
 impl TestWorld {

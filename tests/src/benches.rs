@@ -147,8 +147,4 @@ impl World for BenchWorld {
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         unimplemented!()
     }
-
-    fn now(&self, _: Option<i64>) -> Option<Datetime> {
-        unimplemented!()
-    }
 }

@@ -4,7 +4,7 @@ use std::fs;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
-use chrono::{DateTime, Datelike, Local, Timelike};
+use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
@@ -133,27 +133,14 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        let now = self.now(offset)?;
-
-        Datetime::from_ymd(now.year()?, now.month()?, now.day()?)
-    }
-
-    fn now(&self, offset: Option<i64>) -> Option<Datetime> {
-        let now_raw = *self.now.get_or_init(chrono::Local::now);
+        let now = *self.now.get_or_init(chrono::Local::now);
 
         let naive = match offset {
-            None => now_raw.naive_local(),
-            Some(o) => now_raw.naive_utc() + chrono::Duration::hours(o),
+            None => now.naive_local(),
+            Some(o) => now.naive_utc() + chrono::Duration::hours(o),
         };
 
-        Datetime::from_ymd_hms(
-            naive.year(),
-            naive.month().try_into().ok()?,
-            naive.day().try_into().ok()?,
-            naive.hour().try_into().ok()?,
-            naive.minute().try_into().ok()?,
-            0,
-        )
+        Datetime::from_ymd(naive.year(), naive.month().into(), naive.day().into())
     }
 }
 
