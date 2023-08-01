@@ -152,7 +152,7 @@ impl World for SystemWorld {
             naive.day().try_into().ok()?,
             naive.hour().try_into().ok()?,
             naive.minute().try_into().ok()?,
-            naive.second().try_into().ok()?,
+            0,
         )
     }
 }
