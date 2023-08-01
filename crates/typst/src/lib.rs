@@ -134,6 +134,15 @@ pub trait World {
     /// return an error.
     fn today(&self, offset: Option<i64>) -> Option<Datetime>;
 
+    /// Get the current date and time.
+    ///
+    /// If no offset is specified, the local datetime should be chosen. Otherwise,
+    /// the UTC datetime should be chosen with the corresponding offset in hours.
+    ///
+    /// If this function returns `None`, Typst's `datetime` function will
+    /// return an error.
+    fn now(&self, offset: Option<i64>) -> Option<Datetime>;
+
     /// A list of all available packages and optionally descriptions for them.
     ///
     /// This function is optional to implement. It enhances the user experience

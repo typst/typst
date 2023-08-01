@@ -216,6 +216,7 @@ cast! {
 #[func]
 #[scope(
     scope.define("today", datetime_today_func());
+    scope.define("now", datetime_now_func());
     scope
 )]
 pub fn datetime(
@@ -336,6 +337,35 @@ pub fn datetime_today(
         .world
         .today(offset.as_custom())
         .ok_or("unable to get the current date")?)
+}
+
+/// Returns the current date and time.
+///
+/// Refer to the documentation of the [`display`]($type/datetime.display) method
+/// for details on how to affect the formatting of the date.
+///
+/// ## Example
+/// ```example
+/// Current date and time is
+/// #datetime.now().display().
+/// ```
+///
+/// Display: Today
+/// Category: construct
+#[func]
+pub fn datetime_now(
+    /// An offset to apply to the current UTC date. If set to `{auto}`, the
+    /// offset will be the local offset.
+    #[named]
+    #[default]
+    offset: Smart<i64>,
+    /// The virtual machine.
+    vt: &mut Vt,
+) -> StrResult<Datetime> {
+    Ok(vt
+        .world
+        .now(offset.as_custom())
+        .ok_or("unable to get the current date and time")?)
 }
 
 /// Creates a CMYK color.
