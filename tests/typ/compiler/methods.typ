@@ -201,14 +201,14 @@
 
 ---
 // Test int methods
-#test(3.toFixed(0), "3")
-#test(3.toFixed(1), "3.0")
+#test(3.to-fixed(0), "3")
+#test(3.to-fixed(1), "3.0")
 
 ---
 // Test float methods
-#test(1.138.toFixed(0), "1")
-#test(1.138.toFixed(1), "1.1")
-#test(1.138.toFixed(2), "1.14")
-#test(1.138.toFixed(3), "1.138")
-#test(1.138.toFixed(4), "1.1380")
-#test(1.9999.toFixed(2), "2.00")
+#test(1.138.to-fixed(0), "1")
+#test(1.138.to-fixed(1), "1.1")
+#test(1.138.to-fixed(2), "1.14")
+#test(1.138.to-fixed(3), "1.138")
+#test(1.138.to-fixed(4), "1.1380")
+#test(1.9999.to-fixed(2), "2.00")

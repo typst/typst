@@ -58,11 +58,11 @@ with a zero followed by either `x`, `o`, or `b`.
 ```
 
 ## Methods
-### toFixed()
+### to-fixed()
 Formats the number with a fixed amount of decimal places.
 
 ```example
-  #7.toFixed(2); // "7.00"
+  #7.to-fixed(2); // "7.00"
 ```
 
 - digits: integer (positional, required) The number of decimal places to display.
@@ -83,15 +83,15 @@ store floats. Wherever a float is expected, you can also pass an
 ```
 
 ## Methods
-### toFixed()
+### to-fixed()
 Formats the number with a fixed amount of decimal places.
 
 ```example
 #{
   let a = 8.1324;
   let b = 1.4;
-  a.toFixed(2); // "8.13";
-  b.toFixed(2); // "1.40";
+  a.to-fixed(2); // "8.13";
+  b.to-fixed(2); // "1.40";
 }
 ```
 
