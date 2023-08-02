@@ -24,7 +24,7 @@ owners dropdown. Don't forget to save your changes!
 
 Now, your supervisor can also edit the project and you can both see the changes
 in real time. You can join our [Discord server](https://discord.gg/2uDybryKPe)
-to find others with preview access and try teams with them!
+to find other users and try teams with them!
 
 ## The conference guidelines { #guidelines }
 The layout guidelines are available on the conference website. Let's take a look

@@ -28,7 +28,7 @@ use std::mem::ManuallyDrop;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 
-use crate::diag::{SourceDiagnostic, SourceResult};
+use crate::diag::{warning, SourceDiagnostic, SourceResult};
 use crate::doc::Document;
 use crate::eval::Tracer;
 use crate::World;
@@ -82,7 +82,20 @@ pub fn typeset(
         introspector = ManuallyDrop::new(Introspector::new(&document.pages));
         iter += 1;
 
-        if iter >= 5 || introspector.validate(&constraint) {
+        if introspector.validate(&constraint) {
+            break;
+        }
+
+        if iter >= 5 {
+            tracer.warn(
+                warning!(
+                    world.main().root().span(),
+                    "layout did not converge within 5 attempts",
+                )
+                .with_hint(
+                    "check if any states or queries are updating themselves".into(),
+                ),
+            );
             break;
         }
     }

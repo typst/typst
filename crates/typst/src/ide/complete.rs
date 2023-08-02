@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::{BTreeSet, HashSet};
 
 use ecow::{eco_format, EcoString};
@@ -424,10 +425,12 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
             Some(SyntaxKind::ModuleImport | SyntaxKind::ModuleInclude)
         );
         if let Some(ast::Expr::Str(str)) = ctx.leaf.cast();
-        if str.get().starts_with('@');
+        let value = str.get();
+        if value.starts_with('@');
         then {
+            let all_versions = value.contains(':');
             ctx.from = ctx.leaf.offset();
-            ctx.package_completions();
+            ctx.package_completions(all_versions);
             return true;
         }
     }
@@ -846,7 +849,7 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
 
     ctx.snippet_completion(
         "for loop (with key)",
-        "for ${key}, ${value} in ${(a: 1, b: 2)} {\n\t${}\n}",
+        "for (${key}, ${value}) in ${(a: 1, b: 2)} {\n\t${}\n}",
         "Computes or inserts something for each key and value in a collection.",
     );
 
@@ -1003,8 +1006,13 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for all available packages.
-    fn package_completions(&mut self) {
-        for (package, description) in self.world.packages() {
+    fn package_completions(&mut self, all_versions: bool) {
+        let mut packages: Vec<_> = self.world.packages().iter().collect();
+        packages.sort_by_key(|(spec, _)| (&spec.name, Reverse(spec.version)));
+        if !all_versions {
+            packages.dedup_by_key(|(spec, _)| &spec.name);
+        }
+        for (package, description) in packages {
             self.value_completion(
                 None,
                 &Value::Str(format_str!("{package}")),

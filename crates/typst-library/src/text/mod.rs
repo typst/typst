@@ -141,7 +141,7 @@ pub struct TextElem {
     pub weight: FontWeight,
 
     /// The desired width of the glyphs. Accepts a ratio between `{50%}` and
-    /// `{200%}`. When the desired weight is not available, Typst selects the
+    /// `{200%}`. When the desired width is not available, Typst selects the
     /// font from the family that is closest in stretch. This will only stretch
     /// the text if a condensed or expanded version of the font is available.
     ///
