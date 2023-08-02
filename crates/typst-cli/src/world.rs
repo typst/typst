@@ -134,16 +134,15 @@ impl World for SystemWorld {
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
         let now = self.now(offset)?;
-
         Datetime::from_ymd(now.year()?, now.month()?, now.day()?)
     }
 
     fn now(&self, offset: Option<i64>) -> Option<Datetime> {
-        let now_raw = *self.now.get_or_init(chrono::Local::now);
+        let now = self.now.get_or_init(chrono::Local::now);
 
         let naive = match offset {
-            None => now_raw.naive_local(),
-            Some(o) => now_raw.naive_utc() + chrono::Duration::hours(o),
+            None => now.naive_local(),
+            Some(o) => now.naive_utc() + chrono::Duration::hours(o),
         };
 
         Datetime::from_ymd_hms(
