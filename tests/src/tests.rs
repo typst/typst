@@ -670,8 +670,14 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
         compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
         validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
 
-        fn num(s: &mut Scanner) -> usize {
-            s.eat_while(char::is_numeric).parse().unwrap()
+        fn num(s: &mut Scanner) -> isize {
+            let mut first = true;
+            let n = &s.eat_while(|c: char| {
+                let valid = first && c == '-' || c.is_numeric();
+                first = false;
+                valid
+            });
+            n.parse().unwrap_or_else(|e| panic!("{n} is not a number ({e})"))
         }
 
         let comments_until_code =
@@ -681,8 +687,15 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
             let first = num(s) - 1;
             let (delta, column) =
                 if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
-            let line = (i + comments_until_code) + delta;
-            source.line_column_to_byte(line, column).unwrap()
+            let line = (i + comments_until_code)
+                .checked_add_signed(delta)
+                .expect("line number overflowed limits");
+            source
+                .line_column_to_byte(
+                    line,
+                    usize::try_from(column).expect("column number overflowed limits"),
+                )
+                .unwrap()
         };
 
         let error_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::error;
