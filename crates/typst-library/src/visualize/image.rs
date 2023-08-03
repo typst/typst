@@ -40,10 +40,11 @@ pub struct ImageElem {
     /// Path to an image file.
     #[required]
     #[parse(
-        let Spanned { v: path, span } = args.expect::< Spanned < EcoString >> ("path to image file") ?;
-        let id = vm.location().join(& path).at(span) ?;
-        let data = vm.world().file(id).at(span) ?;
-    path
+        let Spanned { v: path, span } =
+            args.expect::<Spanned<EcoString>>("path to image file")?;
+        let id = vm.location().join(&path).at(span)?;
+        let data = vm.world().file(id).at(span)?;
+        path
     )]
     pub path: EcoString,
 
