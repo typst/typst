@@ -60,3 +60,11 @@ A #box(image("/files/tiger.jpg", height: 1cm, width: 80%)) B
 ---
 // Error: 2-25 failed to parse svg: found closing tag 'g' instead of 'style' in line 4
 #image("/files/bad.svg")
+
+---
+// Test parsing from svg data
+#image.decode(```<svg xmlns="http://www.w3.org/2000/svg" height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>```.text, "svg")
+
+---
+// Error: 2-164 failed to parse svg: missing root node
+#image.decode(```<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>```.text, "svg")
