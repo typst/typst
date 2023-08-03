@@ -214,6 +214,7 @@ pub struct CategoryModel {
     pub details: Html,
     pub kind: &'static str,
     pub items: Vec<CategoryItem>,
+    pub shorthands: Option<Vec<SymbolModel>>,
 }
 
 /// Details about a category item.
@@ -324,9 +325,15 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     items.sort_by_cached_key(|item| item.name.clone());
 
     // Add symbol pages. These are ordered manually.
+    let mut shorthands = vec![];
     if category == "symbols" {
         for module in ["sym", "emoji"] {
             let subpage = symbol_page(resolver, &route, module);
+            let BodyModel::Symbols(model) = &subpage.body else { continue };
+            shorthands.extend(
+                model.list.iter().filter(|symbol| symbol.shorthand.is_some()).cloned(),
+            );
+
             items.push(CategoryItem {
                 name: module.into(),
                 route: subpage.route.clone(),
@@ -354,6 +361,7 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
             details: Html::markdown(resolver, details(category)),
             kind,
             items,
+            shorthands: Some(shorthands),
         }),
         children,
     }
@@ -651,6 +659,7 @@ fn types_page(resolver: &dyn Resolver, parent: &str) -> PageModel {
             details: Html::markdown(resolver, details("types")),
             kind: "Types",
             items,
+            shorthands: None,
         }),
         children,
     }
@@ -823,7 +832,7 @@ pub struct SymbolsModel {
 }
 
 /// Details about a symbol.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolModel {
     pub name: String,
