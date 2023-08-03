@@ -1,4 +1,3 @@
-use duplicate::duplicate_item;
 use std::ffi::OsStr;
 use std::path::Path;
 
@@ -34,17 +33,17 @@ use crate::text::families;
 /// Category: visualize
 #[element(Layout, LocalName, Figurable)]
 #[scope(
-    scope.define("decode", ImageDecodeElem::func());
-    scope
+scope.define("decode", image_decode_func());
+scope
 )]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
     #[parse(
-        let Spanned { v: path, span } = args.expect::<Spanned<EcoString>>("path to image file")?;
-        let id = vm.location().join(&path).at(span)?;
-        let data = vm.world().file(id).at(span)?;
-        path
+    let Spanned { v: path, span } = args.expect::< Spanned < EcoString >> ("path to image file") ?;
+    let id = vm.location().join(& path).at(span) ?;
+    let data = vm.world().file(id).at(span) ?;
+    path
     )]
     pub path: EcoString,
 
@@ -91,26 +90,41 @@ pub struct ImageElem {
 ///
 /// Display: Image
 /// Category: visualize
+#[func]
+pub fn image_decode(
+    /// Image content
+    content: EcoString,
+    /// Image format
+    format: EcoString,
+    /// The width of the image.
+    #[named]
+    width: Option<Smart<Rel<Length>>>,
+    /// The height of the image.
+    #[named]
+    height: Option<Smart<Rel<Length>>>,
+    /// A text describing the image.
+    #[named]
+    alt: Option<EcoString>,
+    /// How the image should adjust itself to a given area.
+    #[named]
+    #[default(ImageFit::Cover)]
+    fit: ImageFit,
+) -> Content {
+    let mut img =
+        ImageElem::new(format!("inline.{}", format).into(), content.as_bytes().into());
+    if let Some(width) = width {
+        img.push_width(width);
+    }
+    if let Some(height) = height {
+        img.push_height(height);
+    };
+
+    img.with_alt(alt).with_fit(fit).pack()
+}
+
+/*
 #[element(Layout, LocalName, Figurable)]
 pub struct ImageDecodeElem {
-    /// Path to an image file.
-    #[required]
-    #[parse(
-        let Spanned { v: content, span: _ } = args.expect::<Spanned<EcoString>>("image data")?;
-        let data = content.as_bytes().into();
-        content
-    )]
-    pub content: EcoString,
-
-    /// Image format
-    #[required]
-    #[parse(
-        let Spanned { v: format, span: _ } = args.expect::<Spanned<EcoString>>("image format")?;
-        let path = format!("inline.{}", format);
-        format
-    )]
-    pub format: EcoString,
-
     /// The raw file data.
     #[internal]
     #[required]
@@ -135,10 +149,9 @@ pub struct ImageDecodeElem {
     /// How the image should adjust itself to a given area.
     #[default(ImageFit::Cover)]
     pub fit: ImageFit,
-}
+}*/
 
-#[duplicate_item(elem; [ImageElem]; [ImageDecodeElem])]
-impl Layout for elem {
+impl Layout for ImageElem {
     #[tracing::instrument(name = "ImageElem::layout", skip_all)]
     fn layout(
         &self,
@@ -227,8 +240,7 @@ impl Layout for elem {
     }
 }
 
-#[duplicate_item(elem; [ImageElem]; [ImageDecodeElem])]
-impl LocalName for elem {
+impl LocalName for ImageElem {
     fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Figurë",
@@ -259,7 +271,6 @@ impl LocalName for elem {
 }
 
 impl Figurable for ImageElem {}
-impl Figurable for ImageDecodeElem {}
 
 /// How an image should adjust itself to a given area.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
