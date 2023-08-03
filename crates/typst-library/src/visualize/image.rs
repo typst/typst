@@ -40,9 +40,9 @@ pub struct ImageElem {
     /// Path to an image file.
     #[required]
     #[parse(
-    let Spanned { v: path, span } = args.expect::< Spanned < EcoString >> ("path to image file") ?;
-    let id = vm.location().join(& path).at(span) ?;
-    let data = vm.world().file(id).at(span) ?;
+        let Spanned { v: path, span } = args.expect::< Spanned < EcoString >> ("path to image file") ?;
+        let id = vm.location().join(& path).at(span) ?;
+        let data = vm.world().file(id).at(span) ?;
     path
     )]
     pub path: EcoString,
@@ -78,10 +78,9 @@ pub struct ImageElem {
 /// ## Example { #example }
 /// ```example
 /// #figure(
-///   image.decode(read("pipeline.svg").replace("yellow", "green"), "svg", width: 80%),
+///   image.decode(read("diagram.svg").replace("yellow", "green"), "svg", width: 80%),
 ///   caption: [
-///     A step in the molecular testing
-///     pipeline of our lab.
+///     Results of the molecular testing pipeline.
 ///   ],
 /// )
 /// ```
