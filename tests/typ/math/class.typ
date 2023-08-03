@@ -31,3 +31,7 @@ $ a dotsq b \
 #let normal = math.class.with("normal")
 #let pluseq = $class("binary", normal(+) normal(=))$
 $ a pluseq 5 $
+
+---
+// Test exceptions.
+$ sqrt(3)\/2 quad d_0.d_1d_2 dots $
