@@ -6,6 +6,13 @@ use unicode_math_class::MathClass;
 
 use super::{ast, is_newline, LexMode, Lexer, SyntaxKind, SyntaxNode};
 
+/// Tag for tracking if an outermost inline code expression came from a math environment
+#[derive(Copy, Clone, Debug, PartialEq)]
+enum OuterEnv {
+    Math,
+    Other,
+}
+
 /// Parse a source file.
 #[tracing::instrument(skip_all)]
 pub fn parse(text: &str) -> SyntaxNode {
@@ -117,7 +124,7 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::Link
         | SyntaxKind::Label => p.eat(),
 
-        SyntaxKind::Hashtag => embedded_code_expr(p),
+        SyntaxKind::Hashtag => embedded_code_expr(p, OuterEnv::Other),
         SyntaxKind::Star => strong(p),
         SyntaxKind::Underscore => emph(p),
         SyntaxKind::HeadingMarker if *at_start => heading(p),
@@ -254,7 +261,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     let m = p.marker();
     let mut continuable = false;
     match p.current() {
-        SyntaxKind::Hashtag => embedded_code_expr(p),
+        SyntaxKind::Hashtag => embedded_code_expr(p, OuterEnv::Math),
         SyntaxKind::MathIdent => {
             continuable = true;
             p.eat();
@@ -594,14 +601,14 @@ fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
 }
 
 fn code_expr(p: &mut Parser) {
-    code_expr_prec(p, false, 0, false)
+    code_expr_prec(p, false, 0, false, OuterEnv::Other)
 }
 
 fn code_expr_or_pattern(p: &mut Parser) {
-    code_expr_prec(p, false, 0, true)
+    code_expr_prec(p, false, 0, true, OuterEnv::Other)
 }
 
-fn embedded_code_expr(p: &mut Parser) {
+fn embedded_code_expr(p: &mut Parser, outer: OuterEnv) {
     p.stop_at_newline(true);
     p.enter(LexMode::Code);
     p.assert(SyntaxKind::Hashtag);
@@ -617,7 +624,7 @@ fn embedded_code_expr(p: &mut Parser) {
     );
 
     let prev = p.prev_end();
-    code_expr_prec(p, true, 0, false);
+    code_expr_prec(p, true, 0, false, outer);
 
     // Consume error for things like `#12p` or `#"abc\"`.#
     if !p.progress(prev) {
@@ -631,7 +638,12 @@ fn embedded_code_expr(p: &mut Parser) {
     let semi =
         (stmt || p.directly_at(SyntaxKind::Semicolon)) && p.eat_if(SyntaxKind::Semicolon);
 
-    if stmt && !semi && !p.eof() && !p.at(SyntaxKind::RightBracket) {
+    if stmt
+        && !semi
+        && !p.eof()
+        && !p.at(SyntaxKind::RightBracket)
+        && ((outer != OuterEnv::Math) && !p.at(SyntaxKind::Dollar))
+    {
         p.expected("semicolon or line break");
     }
 
@@ -644,20 +656,29 @@ fn code_expr_prec(
     atomic: bool,
     min_prec: usize,
     allow_destructuring: bool,
+    outer: OuterEnv,
 ) {
     let m = p.marker();
     if let (false, Some(op)) = (atomic, ast::UnOp::from_kind(p.current())) {
         p.eat();
-        code_expr_prec(p, atomic, op.precedence(), false);
+        // We never get here if initially called from math (atomic=true on entry)
+        // So the value of `outer` is irrelevant.  Pass it along anyway.
+        code_expr_prec(p, atomic, op.precedence(), false, outer);
         p.wrap(m, SyntaxKind::Unary);
     } else {
-        code_primary(p, atomic, allow_destructuring);
+        code_primary(p, atomic, allow_destructuring, outer);
     }
 
+    let mut saw_followon = false;
     loop {
-        if p.directly_at(SyntaxKind::LeftParen) || p.directly_at(SyntaxKind::LeftBracket)
-        {
-            args(p);
+        let mut is_args = p.directly_at(SyntaxKind::LeftParen)
+            || p.directly_at(SyntaxKind::LeftBracket);
+        if (outer != OuterEnv::Math) && !saw_followon {
+            is_args = is_args || p.directly_at(SyntaxKind::Dollar);
+        }
+        if is_args {
+            saw_followon = !p.directly_at(SyntaxKind::LeftParen);
+            args(p, outer != OuterEnv::Math);
             p.wrap(m, SyntaxKind::FuncCall);
             continue;
         }
@@ -699,7 +720,9 @@ fn code_expr_prec(
             }
 
             p.eat();
-            code_expr_prec(p, false, prec, false);
+            // We never get here if initially called from math (atomic=true on entry)
+            // So the value of `outer` is irrelevant.  Pass it along anyway.
+            code_expr_prec(p, false, prec, false, outer);
             p.wrap(m, SyntaxKind::Binary);
             continue;
         }
@@ -708,7 +731,12 @@ fn code_expr_prec(
     }
 }
 
-fn code_primary(p: &mut Parser, atomic: bool, allow_destructuring: bool) {
+fn code_primary(
+    p: &mut Parser,
+    atomic: bool,
+    allow_destructuring: bool,
+    outer: OuterEnv,
+) {
     let m = p.marker();
     match p.current() {
         SyntaxKind::Ident => {
@@ -737,7 +765,7 @@ fn code_primary(p: &mut Parser, atomic: bool, allow_destructuring: bool) {
         SyntaxKind::LeftParen => with_paren(p, allow_destructuring),
         SyntaxKind::Dollar => equation(p),
         SyntaxKind::Let => let_binding(p),
-        SyntaxKind::Set => set_rule(p),
+        SyntaxKind::Set => set_rule(p, outer),
         SyntaxKind::Show => show_rule(p),
         SyntaxKind::If => conditional(p),
         SyntaxKind::While => while_loop(p),
@@ -979,8 +1007,11 @@ fn item(p: &mut Parser, keyed: bool) -> SyntaxKind {
     kind
 }
 
-fn args(p: &mut Parser) {
-    if !p.at(SyntaxKind::LeftParen) && !p.at(SyntaxKind::LeftBracket) {
+fn args(p: &mut Parser, allow_dollar: bool) {
+    if !p.at(SyntaxKind::LeftParen)
+        && !p.at(SyntaxKind::LeftBracket)
+        && (!allow_dollar || !p.at(SyntaxKind::Dollar))
+    {
         p.expected("argument list");
     }
 
@@ -990,8 +1021,12 @@ fn args(p: &mut Parser) {
         validate_args_at(p, m);
     }
 
-    while p.directly_at(SyntaxKind::LeftBracket) {
-        content_block(p);
+    if allow_dollar && p.directly_at(SyntaxKind::Dollar) {
+        equation(p);
+    } else {
+        while p.directly_at(SyntaxKind::LeftBracket) {
+            content_block(p);
+        }
     }
 
     p.wrap(m, SyntaxKind::Args);
@@ -1056,7 +1091,7 @@ fn let_binding(p: &mut Parser) {
     p.wrap(m, SyntaxKind::LetBinding);
 }
 
-fn set_rule(p: &mut Parser) {
+fn set_rule(p: &mut Parser, outer: OuterEnv) {
     let m = p.marker();
     p.assert(SyntaxKind::Set);
 
@@ -1067,7 +1102,7 @@ fn set_rule(p: &mut Parser) {
         p.wrap(m2, SyntaxKind::FieldAccess);
     }
 
-    args(p);
+    args(p, outer != OuterEnv::Math);
     if p.eat_if(SyntaxKind::If) {
         code_expr(p);
     }
