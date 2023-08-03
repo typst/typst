@@ -669,16 +669,13 @@ fn code_expr_prec(
         code_primary(p, atomic, allow_destructuring, outer);
     }
 
-    let mut saw_followon = false;
     loop {
-        let mut is_args = p.directly_at(SyntaxKind::LeftParen)
-            || p.directly_at(SyntaxKind::LeftBracket);
-        if (outer != OuterEnv::Math) && !saw_followon {
-            is_args = is_args || p.directly_at(SyntaxKind::Dollar);
-        }
-        if is_args {
-            saw_followon = !p.directly_at(SyntaxKind::LeftParen);
-            args(p, outer != OuterEnv::Math);
+        let allow_dollar = outer != OuterEnv::Math;
+        if p.directly_at(SyntaxKind::LeftParen)
+            || p.directly_at(SyntaxKind::LeftBracket)
+            || (allow_dollar && p.directly_at(SyntaxKind::Dollar))
+        {
+            args(p, allow_dollar);
             p.wrap(m, SyntaxKind::FuncCall);
             continue;
         }
@@ -1020,12 +1017,13 @@ fn args(p: &mut Parser, allow_dollar: bool) {
         collection(p, false);
         validate_args_at(p, m);
     }
-
-    if allow_dollar && p.directly_at(SyntaxKind::Dollar) {
-        equation(p);
-    } else {
-        while p.directly_at(SyntaxKind::LeftBracket) {
+    while p.directly_at(SyntaxKind::LeftBracket)
+        || (allow_dollar && p.directly_at(SyntaxKind::Dollar))
+    {
+        if p.directly_at(SyntaxKind::LeftBracket) {
             content_block(p);
+        } else {
+            equation(p);
         }
     }
 

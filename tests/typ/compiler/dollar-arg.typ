@@ -7,10 +7,17 @@
 #double$ a != b $
 
 ---
-// Doesn't work in math, and only works for one argument.
+// Doesn't work in math
 #let double(x) = {x; x}
 $#double("x")$text$y$
-#double$x$$y$
+
+---
+// Mixing and repeating followons is allowed.
+#let swap(a,b) = { b; a}
+#let swapbook(a,b,c) = { a; c; b; a}; #let b="b"
+#swap[x]$y$ #swap$y$[x] #swap$y$$z$ #swap[y][z]\
+#swapbook(b)[x]$y$ #swapbook(b)$y$[x] 
+#swapbook(b)$y$$z$ #swapbook(b)[y][z]
 
 ---
 // Works in code, and in markup in code
@@ -42,7 +49,6 @@ x#hspace$ w $(2em)y
 // It works ok with unary and binary operators.
 #let five(x) = {5}
 #{ -five()$ w $ } #{five$ w $ + five$ z $}
-//#-five()
 
 --- 
 // It is repeatable if interruped by a call.
