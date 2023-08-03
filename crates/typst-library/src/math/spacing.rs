@@ -47,8 +47,9 @@ pub(super) fn spacing(
         (Binary, _) if !script(l) => resolve(MEDIUM, l),
         (_, Binary) if !script(r) => resolve(MEDIUM, r),
 
-        // Thin spacing around large operators, unless next to a delimiter.
-        (Large, Opening | Fence) | (Closing | Fence, Large) => None,
+        // Thin spacing around large operators, unless to the left of
+        // an opening delimiter. TeXBook, p170
+        (Large, Opening | Fence) => None,
         (Large, _) => resolve(THIN, l),
         (_, Large) => resolve(THIN, r),
 
