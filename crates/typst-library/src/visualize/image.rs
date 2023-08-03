@@ -122,35 +122,6 @@ pub fn image_decode(
     img.with_alt(alt).with_fit(fit).pack()
 }
 
-/*
-#[element(Layout, LocalName, Figurable)]
-pub struct ImageDecodeElem {
-    /// The raw file data.
-    #[internal]
-    #[required]
-    #[parse(data)]
-    pub data: Bytes,
-
-    /// Path
-    #[internal]
-    #[required]
-    #[parse(path.into())]
-    pub path: EcoString,
-
-    /// The width of the image.
-    pub width: Smart<Rel<Length>>,
-
-    /// The height of the image.
-    pub height: Smart<Rel<Length>>,
-
-    /// A text describing the image.
-    pub alt: Option<EcoString>,
-
-    /// How the image should adjust itself to a given area.
-    #[default(ImageFit::Cover)]
-    pub fit: ImageFit,
-}*/
-
 impl Layout for ImageElem {
     #[tracing::instrument(name = "ImageElem::layout", skip_all)]
     fn layout(
