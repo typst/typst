@@ -68,14 +68,14 @@ impl FontSearcher {
 
     /// Search everything that is available.
     pub fn search(&mut self, font_paths: &[PathBuf]) {
+        for path in font_paths {
+            self.search_dir(path)
+        }
+
         self.search_system();
 
         #[cfg(feature = "embed-fonts")]
         self.add_embedded();
-
-        for path in font_paths {
-            self.search_dir(path)
-        }
     }
 
     /// Add fonts that are embedded in the binary.
