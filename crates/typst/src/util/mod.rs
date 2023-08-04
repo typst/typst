@@ -2,10 +2,6 @@
 
 pub mod fat;
 
-mod bytes;
-
-pub use bytes::Bytes;
-
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;

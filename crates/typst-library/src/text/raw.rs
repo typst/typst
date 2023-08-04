@@ -6,8 +6,8 @@ use once_cell::unsync::Lazy as UnsyncLazy;
 use syntect::highlighting as synt;
 use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst::diag::FileError;
+use typst::eval::Bytes;
 use typst::syntax::{self, LinkedNode};
-use typst::util::Bytes;
 
 use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,

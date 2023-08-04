@@ -16,9 +16,9 @@ use image::{ImageDecoder, ImageResult};
 use usvg::{TreeParsing, TreeTextToPath};
 
 use crate::diag::{format_xml_like_error, StrResult};
+use crate::eval::Bytes;
 use crate::font::Font;
 use crate::geom::Axes;
-use crate::util::Bytes;
 use crate::World;
 
 /// A raster or vector image.

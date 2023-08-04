@@ -1,8 +1,8 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
+use typst::eval::Bytes;
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
-use typst::util::Bytes;
 
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;

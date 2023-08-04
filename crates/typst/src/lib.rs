@@ -60,10 +60,9 @@ use ecow::EcoString;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
-use crate::eval::{Datetime, Library, Route, Tracer};
+use crate::eval::{Bytes, Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
 use crate::syntax::{FileId, PackageSpec, Source, Span};
-use crate::util::Bytes;
 
 /// Compile a source file into a fully layouted document.
 #[tracing::instrument(skip_all)]

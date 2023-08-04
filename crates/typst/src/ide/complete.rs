@@ -896,13 +896,13 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
     );
 
     ctx.snippet_completion(
-        "array",
+        "array literal",
         "(${1, 2, 3})",
         "Creates a sequence of values.",
     );
 
     ctx.snippet_completion(
-        "dictionary",
+        "dictionary literal",
         "(${a: 1, b: 2})",
         "Creates a mapping from names to value.",
     );

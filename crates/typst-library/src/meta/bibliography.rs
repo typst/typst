@@ -8,7 +8,8 @@ use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
 use typst::diag::FileError;
-use typst::util::{option_eq, Bytes};
+use typst::eval::Bytes;
+use typst::util::option_eq;
 
 use super::{LinkElem, LocalName, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};

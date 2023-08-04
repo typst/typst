@@ -9,10 +9,10 @@ use comemo::Prehashed;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::eval::{eco_format, Datetime, Library};
+use typst::eval::{eco_format, Bytes, Datetime, Library};
 use typst::font::{Font, FontBook};
 use typst::syntax::{FileId, Source};
-use typst::util::{Bytes, PathExt};
+use typst::util::PathExt;
 use typst::World;
 
 use crate::args::CompileCommand;

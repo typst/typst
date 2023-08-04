@@ -49,12 +49,12 @@ impl Dict {
     }
 
     /// Borrow the value the given `key` maps to,
-    pub fn at<'a>(
-        &'a self,
-        key: &str,
-        default: Option<&'a Value>,
-    ) -> StrResult<&'a Value> {
-        self.0.get(key).or(default).ok_or_else(|| missing_key_no_default(key))
+    pub fn at(&self, key: &str, default: Option<Value>) -> StrResult<Value> {
+        self.0
+            .get(key)
+            .cloned()
+            .or(default)
+            .ok_or_else(|| missing_key_no_default(key))
     }
 
     /// Mutably borrow the value the given `key` maps to.
@@ -140,8 +140,10 @@ impl Debug for Dict {
             return f.write_str("(:)");
         }
 
-        let pieces: Vec<_> = self
+        let max = 40;
+        let mut pieces: Vec<_> = self
             .iter()
+            .take(max)
             .map(|(key, value)| {
                 if is_ident(key) {
                     eco_format!("{key}: {value:?}")
@@ -150,6 +152,10 @@ impl Debug for Dict {
                 }
             })
             .collect();
+
+        if self.len() > max {
+            pieces.push(eco_format!(".. ({} pairs omitted)", self.len() - max));
+        }
 
         f.write_str(&pretty_array_like(&pieces, false))
     }
