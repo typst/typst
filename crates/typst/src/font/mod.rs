@@ -13,9 +13,8 @@ use std::sync::Arc;
 use ttf_parser::GlyphId;
 
 use self::book::find_name;
-use crate::eval::Cast;
+use crate::eval::{Bytes, Cast};
 use crate::geom::Em;
-use crate::util::Bytes;
 
 /// An OpenType font.
 ///

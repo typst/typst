@@ -8,14 +8,13 @@ use ecow::eco_format;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
-    cast, fields, format_str, ops, Args, Array, CastInfo, Content, Dict, FromValue, Func,
-    IntoValue, Module, Reflect, Str, Symbol,
+    cast, fields, format_str, ops, Args, Array, Bytes, CastInfo, Content, Dict,
+    FromValue, Func, IntoValue, Module, Reflect, Str, Symbol,
 };
 use crate::diag::StrResult;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
-use crate::util::Bytes;
 
 /// A computational value.
 #[derive(Default, Clone)]
@@ -132,7 +131,7 @@ impl Value {
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
             Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
-            Self::Dict(dict) => dict.at(field, None).cloned(),
+            Self::Dict(dict) => dict.at(field, None),
             Self::Content(content) => content.at(field, None),
             Self::Module(module) => module.get(field).cloned(),
             Self::Func(func) => func.get(field).cloned(),

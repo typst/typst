@@ -46,6 +46,8 @@ integers, integers cannot be smaller than `{-9223372036854775808}` or larger tha
 The number can also be specified as hexadecimal, octal, or binary by starting it
 with a zero followed by either `x`, `o`, or `b`.
 
+You can convert a value to an integer with the [`float`]($func/float) function.
+
 ## Example
 ```example
 #(1 + 2) \
@@ -63,6 +65,8 @@ A floating-pointer number.
 A limited-precision representation of a real number. Typst uses 64 bits to
 store floats. Wherever a float is expected, you can also pass an
 [integer]($type/integer).
+
+You can convert a value to a float with the [`float`]($func/float) function.
 
 ## Example
 ```example
@@ -86,6 +90,8 @@ A length has the following fields:
 - `em`: The amount of `em` units in this length, as a [float]($type/float).
 - `abs`: A length with just the absolute component of the current length
 (that is, excluding the `em` component).
+
+You can multiply lengths with and divide them by integers and floats.
 
 ## Example
 ```example
@@ -458,6 +464,65 @@ $arrow.r$ \
 $arrow.t.quad$
 ```
 
+# Bytes
+A sequence of bytes.
+
+This is conceptually similar to an array of [integers]($type/integer) between
+`{0}` and `{255}`, but represented much more efficiently.
+
+You can convert
+- a [string]($type/string) or an [array]($type/array) of integers to bytes with
+  the [`bytes`]($func/bytes) function
+- bytes to a string with the [`str`]($func/str) function
+- bytes to an array of integers with the [`array`]($func/array) function
+
+When [reading]($func/read) data from a file, you can decide whether to load it
+as a string or as raw bytes.
+
+```example
+#bytes((123, 160, 22, 0)) \
+#bytes("Hello 😃")
+
+#let data = read(
+  "rhino.png",
+  encoding: none,
+)
+
+// Magic bytes.
+#array(data.slice(0, 4)) \
+#str(data.slice(1, 4))
+```
+
+## Methods
+### len()
+The length in bytes.
+
+- returns: integer
+
+### at()
+Returns the byte at the specified index. Returns the default value if the index
+is out of bounds or fails with an error if no default value was specified.
+
+- index: integer (positional, required)
+  The index at which to retrieve the byte.
+- default: any (named)
+  A default value to return if the index is out of bounds.
+- returns: integer or any
+
+### slice()
+Extract a subslice of the bytes.
+Fails with an error if the start or index is out of bounds.
+
+- start: integer (positional, required)
+  The start index (inclusive).
+- end: integer (positional)
+  The end index (exclusive). If omitted, the whole slice until the end is
+  extracted.
+- count: integer (named)
+  The number of bytes to extract. This is equivalent to passing
+  `start + count` as the `end` position. Mutually exclusive with `end`.
+- returns: bytes
+
 # String
 A sequence of Unicode codepoints.
 
@@ -474,6 +539,8 @@ quite versatile.
 
 All lengths and indices are expressed in terms of UTF-8 characters. Indices are
 zero-based and negative indices wrap around to the end of the string.
+
+You can convert a value to a string with the [`str`]($func/str) function.
 
 ### Example
 ```example
@@ -521,7 +588,7 @@ value was specified.
   The byte index.
 - default: any (named)
   A default value to return if the index is out of bounds.
-- returns: string
+- returns: string or any
 
 ### slice()
 Extract a substring of the string.
@@ -839,8 +906,8 @@ Fails with an error if the start or index is out of bounds.
   The end index (exclusive). If omitted, the whole slice until the end of the
   array is extracted.
 - count: integer (named)
-  The number of items to extract. This is equivalent to passing `start +
-  count` as the `end` position. Mutually exclusive with `end`.
+  The number of items to extract. This is equivalent to passing
+  `start + count` as the `end` position. Mutually exclusive with `end`.
 - returns: array
 
 ### contains()
