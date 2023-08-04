@@ -908,6 +908,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
 
     // Cost parameters.
     const HYPH_COST: Cost = 0.5;
+    const RUNT_COST: Cost = 0.5;
     const CONSECUTIVE_DASH_COST: Cost = 300.0;
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
@@ -983,6 +984,25 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // Normal line with cost of |ratio^3|.
                 ratio.powi(3).abs()
             };
+
+            // Penalize runts.
+            if end == p.bidi.text.len() {
+                let text = &p.bidi.text[start..end];
+
+                let mut linebreaks =
+                    if matches!(p.lang, Some(Lang::CHINESE | Lang::JAPANESE)) {
+                        &CJ_SEGMENTER
+                    } else {
+                        &SEGMENTER
+                    }
+                    .segment_str(text);
+
+                // There's always one at the start and one at the end,
+                // so two is our actual cut-off for having an inner breakpoint.
+                if linebreaks.nth(2).is_none() {
+                    cost += RUNT_COST;
+                }
+            }
 
             // Penalize hyphens.
             if hyphen {
