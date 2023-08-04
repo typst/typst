@@ -392,10 +392,18 @@ impl Array {
     }
 
     /// Enumerate all items in the array.
-    pub fn enumerate(&self) -> Self {
+    pub fn enumerate(&self, start: i64) -> StrResult<Self> {
         self.iter()
             .enumerate()
-            .map(|(i, value)| array![i, value.clone()].into_value())
+            .map(|(i, value)| {
+                Ok(array![
+                    start
+                        .checked_add_unsigned(i as u64)
+                        .ok_or_else(|| "array index is too large".to_string())?,
+                    value.clone()
+                ]
+                .into_value())
+            })
             .collect()
     }
 

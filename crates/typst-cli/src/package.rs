@@ -12,7 +12,7 @@ use super::color_stream;
 /// Make a package available in the on-disk cache.
 pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
     let subdir =
-        format!("typst/packages/{}/{}-{}", spec.namespace, spec.name, spec.version);
+        format!("typst/packages/{}/{}/{}", spec.namespace, spec.name, spec.version);
 
     if let Some(data_dir) = dirs::data_dir() {
         let dir = data_dir.join(&subdir);
