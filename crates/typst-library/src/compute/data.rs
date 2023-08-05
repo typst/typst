@@ -1,18 +1,24 @@
 use typst::diag::{format_xml_like_error, FileError};
-use typst::eval::Datetime;
+use typst::eval::{Bytes, Datetime};
 
 use crate::prelude::*;
 
-/// Reads plain text from a file.
+/// Reads plain text or data from a file.
 ///
-/// The file will be read and returned as a string.
+/// By default, the file will be read as UTF-8 and returned as a
+/// [string]($type/string).
+///
+/// If you specify `{encoding: none}`, this returns raw [bytes]($type/bytes)
+/// instead.
 ///
 /// ## Example { #example }
 /// ```example
+/// An example for a HTML file: \
 /// #let text = read("data.html")
-///
-/// An example for a HTML file:\
 /// #raw(text, lang: "html")
+///
+/// Raw bytes:
+/// #read("tiger.jpg", encoding: none)
 /// ```
 ///
 /// Display: Read
@@ -21,16 +27,52 @@ use crate::prelude::*;
 pub fn read(
     /// Path to a file.
     path: Spanned<EcoString>,
+    /// The encoding to read the file with.
+    ///
+    /// If set to `{none}`, this function returns raw bytes.
+    #[named]
+    #[default(Some(Encoding::Utf8))]
+    encoding: Option<Encoding>,
     /// The virtual machine.
     vm: &mut Vm,
-) -> SourceResult<Str> {
+) -> SourceResult<Readable> {
     let Spanned { v: path, span } = path;
     let id = vm.location().join(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    let text = std::str::from_utf8(&data)
-        .map_err(|_| "file is not valid utf-8")
-        .at(span)?;
-    Ok(text.into())
+    Ok(match encoding {
+        None => Readable::Bytes(data),
+        Some(Encoding::Utf8) => Readable::Str(
+            std::str::from_utf8(&data)
+                .map_err(|_| "file is not valid utf-8")
+                .at(span)?
+                .into(),
+        ),
+    })
+}
+
+/// An encoding of a file.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum Encoding {
+    /// The Unicode UTF-8 encoding.
+    Utf8,
+}
+
+/// A value that can be read from a value.
+pub enum Readable {
+    /// A decoded string.
+    Str(Str),
+    /// Raw bytes.
+    Bytes(Bytes),
+}
+
+cast! {
+    Readable,
+    self => match self {
+        Self::Str(v) => v.into_value(),
+        Self::Bytes(v) => v.into_value(),
+    },
+    v: Str => Self::Str(v),
+    v: Bytes => Self::Bytes(v),
 }
 
 /// Reads structured data from a CSV file.

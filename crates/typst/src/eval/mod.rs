@@ -14,6 +14,7 @@ mod str;
 mod value;
 mod args;
 mod auto;
+mod bytes;
 mod datetime;
 mod fields;
 mod func;
@@ -40,6 +41,7 @@ pub use typst_macros::{func, symbols};
 pub use self::args::{Arg, Args};
 pub use self::array::{array, Array};
 pub use self::auto::AutoValue;
+pub use self::bytes::Bytes;
 pub use self::cast::{
     cast, Cast, CastInfo, FromValue, IntoResult, IntoValue, Never, Reflect, Variadics,
 };
@@ -1371,7 +1373,7 @@ where
                 let Ok(v) = value.at(i as i64, None) else {
                         bail!(expr.span(), "not enough elements to destructure");
                     };
-                f(vm, expr, v.clone())?;
+                f(vm, expr, v)?;
                 i += 1;
             }
             ast::DestructuringKind::Sink(spread) => {
@@ -1423,7 +1425,7 @@ where
                     .at(&ident, None)
                     .map_err(|_| "destructuring key not found in dictionary")
                     .at(ident.span())?;
-                f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
+                f(vm, ast::Expr::Ident(ident.clone()), v)?;
                 used.insert(ident.take());
             }
             ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
@@ -1433,7 +1435,7 @@ where
                     .at(&name, None)
                     .map_err(|_| "destructuring key not found in dictionary")
                     .at(name.span())?;
-                f(vm, named.expr(), v.clone())?;
+                f(vm, named.expr(), v)?;
                 used.insert(name.take());
             }
             ast::DestructuringKind::Placeholder(_) => {}

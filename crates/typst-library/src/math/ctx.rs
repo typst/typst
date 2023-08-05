@@ -258,7 +258,9 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         self.local.set(TextElem::set_weight(if style.bold {
             FontWeight::BOLD
         } else {
-            FontWeight::REGULAR
+            // The normal weight is what we started with.
+            // It's 400 for CM Regular, 450 for CM Book.
+            self.font.info().variant.weight
         }));
         self.style = style;
     }

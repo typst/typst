@@ -49,7 +49,6 @@ pub fn compile_once(
     let mut tracer = Tracer::default();
 
     let result = typst::compile(world, &mut tracer);
-    let duration = start.elapsed();
 
     let warnings = tracer.warnings();
 
@@ -57,6 +56,7 @@ pub fn compile_once(
         // Export the PDF / PNG.
         Ok(document) => {
             export(&document, command)?;
+            let duration = start.elapsed();
 
             tracing::info!("Compilation succeeded in {duration:?}");
             if watching {
