@@ -49,18 +49,18 @@ pub struct CommonArgs {
 
     /// Adds additional directories to search for fonts
     #[clap(
-    long = "font-path",
-    env = "TYPST_FONT_PATHS",
-    value_name = "DIR",
-    action = ArgAction::Append,
+        long = "font-path",
+        env = "TYPST_FONT_PATHS",
+        value_name = "DIR",
+        action = ArgAction::Append,
     )]
     pub font_paths: Vec<PathBuf>,
 
     /// In which format to emit diagnostics
     #[clap(
-    long,
-    default_value_t = DiagnosticFormat::Human,
-    value_parser = clap::value_parser!(DiagnosticFormat)
+        long,
+        default_value_t = DiagnosticFormat::Human,
+        value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
 }
