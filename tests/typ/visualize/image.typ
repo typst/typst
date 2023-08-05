@@ -69,3 +69,14 @@ A #box(image("/files/tiger.jpg", height: 1cm, width: 80%)) B
 // Error: 2-168 failed to parse svg: missing root node
 #image.decode(`<svg height="140" width="500"><ellipse cx="200" cy="80" rx="100" ry="50" style="fill:yellow;stroke:purple;stroke-width:2" /></svg>`.text, format: "svg")
 
+---
+// Test format auto detect
+#image.decode(read("/files/tiger.jpg", encoding: none), width: 80%)
+
+---
+// Test format manual
+#image.decode(read("/files/tiger.jpg", encoding: none), format: "jpg", width: 80%)
+
+---
+// Error: 2-83 failed to decode image
+#image.decode(read("/files/tiger.jpg", encoding: none), format: "png", width: 80%)
