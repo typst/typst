@@ -99,7 +99,8 @@ impl CompileCommand {
 // Output file format for query command
 #[derive(Debug, Clone, ValueEnum)]
 pub enum OutputFormat {
-    YAML, JSON
+    Yaml,
+    Json,
 }
 
 /// Processes an input file to extract provided metadata
@@ -118,7 +119,7 @@ pub struct QueryCommand {
     pub selector: Option<String>,
 
     /// Output format: json, yaml
-    #[clap(long = "format", default_value="json")]
+    #[clap(long = "format", default_value = "json")]
     pub format: OutputFormat,
 
     /// Expect and retrieve exactly one piece of metadata

@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+use std::time::Instant;
+
 use comemo::Track;
 use serde::Serialize;
-use std::collections::HashMap;
 use typst::diag::{bail, StrResult};
 use typst::eval::Value::Dyn;
 use typst::eval::{eval_string, EvalMode, Tracer, Value};
@@ -26,7 +28,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
     tracing::info!("Starting querying");
 
-    let start = std::time::Instant::now();
+    let start = Instant::now();
     // Reset everything and ensure that the main file is still present.
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
@@ -121,10 +123,18 @@ fn format<T: Serialize>(data: &[T], command: &QueryCommand) -> StrResult<()> {
     }
 
     let result = match (&command.format, command.one) {
-        (OutputFormat::JSON, true) => serde_json::to_string(&data[0]).map_err(|e| e.to_string())?,
-        (OutputFormat::YAML, true) => serde_yaml::to_string(&data[0]).map_err(|e| e.to_string())?,
-        (OutputFormat::JSON, false) => serde_json::to_string(&data).map_err(|e| e.to_string())?,
-        (OutputFormat::YAML, false) => serde_yaml::to_string(&data).map_err(|e| e.to_string())?,
+        (OutputFormat::Json, true) => {
+            serde_json::to_string(&data[0]).map_err(|e| e.to_string())?
+        }
+        (OutputFormat::Yaml, true) => {
+            serde_yaml::to_string(&data[0]).map_err(|e| e.to_string())?
+        }
+        (OutputFormat::Json, false) => {
+            serde_json::to_string(&data).map_err(|e| e.to_string())?
+        }
+        (OutputFormat::Yaml, false) => {
+            serde_yaml::to_string(&data).map_err(|e| e.to_string())?
+        }
     };
 
     println!("{result}");
