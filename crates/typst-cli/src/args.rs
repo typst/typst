@@ -30,7 +30,7 @@ pub enum Command {
     Watch(CompileCommand),
 
     /// Processes an input file to extract provided metadata
-    #[command(visible_alias = "q")]
+    #[command()]
     Query(QueryCommand),
 
     /// Lists all discovered fonts in system and custom font paths
