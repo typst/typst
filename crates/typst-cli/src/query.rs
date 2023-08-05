@@ -83,7 +83,7 @@ fn query_and_format(
                     EvalMode::Code,
                     Scope::default(),
                 )
-                .map_err(|_| "Error evaluating the selector string.")?
+                .map_err(|_| "error evaluating the selector string")?
                 .cast::<Selector>()?,
             )
             .into_iter()
@@ -97,7 +97,7 @@ fn query_and_format(
 
 fn format<T: Serialize>(data: &[T], command: &QueryCommand) -> StrResult<()> {
     if command.one && data.len() != 1 {
-        bail!("One piece of metadata expected, but {} found.", data.len())
+        bail!("one piece of metadata expected, but {} found", data.len())
     }
 
     let result = match (&command.format, command.one) {
