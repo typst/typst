@@ -1,19 +1,19 @@
 ---
 description: |
   You need to use external code for performance 
-  reason or to avoid re inventing the wheel? This guide
+  reason or to avoid reinventing the wheel? This guide
   explains how to integrate your code as a plugin.
 ---
 
-# Guide for plugin development
+# Guide for plugin development (Advanced users)
 
-This page helps you get started building plugins for typst.
+This page helps you get started building plugins for typst. This is an advanced functionality and beginners might have diffculties following this guide.
 
-Typst is capable of interfacing with plugins compiled to WebAssembly via it's `plugin` function.
+Typst is capable of interfacing with plugins compiled to WebAssembly via its `plugin` function.
 
-Once your program has been compiled to WebAssembly, it also need to respect [the protocol](#protocol). 
+Once your program has been compiled to WebAssembly, it also needs to respect [the protocol](#protocol). 
 
-Typst will run this code in isolation from your system which means printing and reading file will not be supported for security reasons.
+Typst will run this code in isolation from your system, which means printing and reading files will not be supported for security reasons.
 
 Many compilers will use the [wasi ABI](https://wasi.dev/) by default or as their only option (e.g. emscripten), which allows printing, reading file etc. This will not work with typst, you will need to either compile to a different target if possible or stub your library using a tool (see below).
 
@@ -21,15 +21,15 @@ Typst will be able to run your code compiled targeting wasi if all the functions
 
 
 You should check out this [link](https://github.com/astrale-sharp/wasm-minimal-protocol). The repo contains:
-- A list of examples of plugins implementation.
-- A test runner for these examples
+- A list of examples of plugin implementations.
+- A test runner for these examples.
 - Wrappers to help you write your plugin in Rust. (Zig wrappers in development)
-- A stubber for wasi ()
+- A stubber for wasi [here](https://github.com/astrale-sharp/wasm-minimal-protocol#you-need-to-stub-a-webassembly-plugin)
 
 
 # Protocol
 
-This section describes the protocol typst expects plugins to implement. This protocol sends and receive byte slices with typst as the host.
+This section describes the protocol Typst expects plugins to implement. This protocol sends and receive byte slices with Typst as the host.
 
 Types and functions are described using WAT syntax.
 
@@ -53,7 +53,7 @@ Valid plugins need to import two functions (that will be provided by the runtime
 
 - `(import "typst_env" "wasm_minimal_protocol_send_result_to_host" (func (param i32 i32)))`
 
-  The first parameter is a pointer to a buffer (`ptr`), the second is the length of the buffer (`len`).
+  The first parameter is a pointer to a buffer (`ptr`), while the second is the length of the buffer (`len`).
 
   Reads `len` bytes pointed at by `ptr` into host memory. The memory pointed at by `ptr` can be freed immediately after this function returns.
 
