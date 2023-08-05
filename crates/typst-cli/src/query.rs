@@ -102,13 +102,13 @@ fn format<T: Serialize>(data: &[T], command: &QueryCommand) -> StrResult<()> {
 
     let result = match (&command.format, command.one) {
         (OutputFormat::Json, true) => {
-            serde_json::to_string(&data[0]).map_err(|e| e.to_string())?
+            serde_json::to_string_pretty(&data[0]).map_err(|e| e.to_string())?
         }
         (OutputFormat::Yaml, true) => {
             serde_yaml::to_string(&data[0]).map_err(|e| e.to_string())?
         }
         (OutputFormat::Json, false) => {
-            serde_json::to_string(&data).map_err(|e| e.to_string())?
+            serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?
         }
         (OutputFormat::Yaml, false) => {
             serde_yaml::to_string(&data).map_err(|e| e.to_string())?
