@@ -1,13 +1,13 @@
 use std::any::TypeId;
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter, Write};
-use std::iter::{Sum};
+use std::iter::Sum;
 use std::ops::{Add, AddAssign};
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
-use serde::{Serialize, Serializer};
 use serde::ser::SerializeStruct;
+use serde::{Serialize, Serializer};
 
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Guard, Label, Locatable, Location,
@@ -28,10 +28,13 @@ pub struct Content {
 }
 
 impl Serialize for Content {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        let mut main = serializer.serialize_struct("mystruct",2)?;
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut main = serializer.serialize_struct("content", 2)?;
         main.serialize_field("type", self.func().name())?;
-        main.serialize_field("attributes", &self.fields().collect::<HashMap<_,_>>())?;
+        main.serialize_field("attributes", &self.fields().collect::<HashMap<_, _>>())?;
         main.end()
     }
 }
