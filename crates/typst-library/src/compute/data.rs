@@ -57,7 +57,7 @@ pub enum Encoding {
     Utf8,
 }
 
-/// A value that can be read from a value.
+/// A value that can be read from a file.
 pub enum Readable {
     /// A decoded string.
     Str(Str),
@@ -78,8 +78,8 @@ cast! {
 impl From<Readable> for Bytes {
     fn from(value: Readable) -> Self {
         match value {
-            Readable::Bytes(b) => b,
-            Readable::Str(s) => s.as_bytes().into(),
+            Readable::Bytes(v) => v,
+            Readable::Str(v) => v.as_bytes().into(),
         }
     }
 }

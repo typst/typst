@@ -148,10 +148,6 @@ impl Debug for Image {
     }
 }
 
-pub fn detect(data: &Bytes) -> Option<RasterFormat> {
-    guess_format(data.as_slice()).ok().and_then(|x| x.try_into().ok())
-}
-
 /// A raster or vector image format.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ImageFormat {
@@ -187,6 +183,13 @@ pub enum RasterFormat {
 pub enum VectorFormat {
     /// The vector graphics format of the web.
     Svg,
+}
+
+impl RasterFormat {
+    /// Try to detect the format of data in a buffer.
+    pub fn detect(data: &[u8]) -> Option<Self> {
+        guess_format(data).ok().and_then(|format| format.try_into().ok())
+    }
 }
 
 impl From<RasterFormat> for image::ImageFormat {
