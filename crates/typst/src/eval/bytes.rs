@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
+use serde::{Serialize, Serializer};
 
 use crate::diag::StrResult;
 
@@ -13,6 +14,15 @@ use super::Value;
 /// A shared byte buffer that is cheap to clone and hash.
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
+
+impl Serialize for Bytes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
 
 impl Bytes {
     /// Create a buffer from a static byte slice.

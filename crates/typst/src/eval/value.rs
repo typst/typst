@@ -5,8 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use serde::ser::Error;
-use serde::{Serialize, Serializer};
+use serde::Serialize;
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
@@ -19,7 +18,8 @@ use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
 
 /// A computational value.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Serialize)]
+#[serde(untagged)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     #[default]
@@ -33,18 +33,25 @@ pub enum Value {
     /// A floating-point number: `1.2`, `10e-4`.
     Float(f64),
     /// A length: `12pt`, `3cm`, `1.5em`, `1em - 2pt`.
+    #[serde(skip_serializing)]
     Length(Length),
     /// An angle: `1.5rad`, `90deg`.
+    #[serde(skip_serializing)]
     Angle(Angle),
     /// A ratio: `50%`.
+    #[serde(skip_serializing)]
     Ratio(Ratio),
     /// A relative length, combination of a ratio and a length: `20% + 5cm`.
+    #[serde(skip_serializing)]
     Relative(Rel<Length>),
     /// A fraction: `1fr`.
+    #[serde(skip_serializing)]
     Fraction(Fr),
     /// A color value: `#f79143ff`.
+    #[serde(skip_serializing)]
     Color(Color),
     /// A symbol: `arrow.l`.
+    #[serde(skip_serializing)]
     Symbol(Symbol),
     /// A string: `"string"`.
     Str(Str),
@@ -55,48 +62,24 @@ pub enum Value {
     /// A content value: `[*Hi* there]`.
     Content(Content),
     // Content styles.
+    #[serde(skip_serializing)]
     Styles(Styles),
     /// An array of values: `(1, "hi", 12cm)`.
     Array(Array),
     /// A dictionary value: `(a: 1, b: "hi")`.
     Dict(Dict),
     /// An executable function.
+    #[serde(skip_serializing)]
     Func(Func),
     /// Captured arguments to a function.
+    #[serde(skip_serializing)]
     Args(Args),
     /// A module.
+    #[serde(skip_serializing)]
     Module(Module),
     /// A dynamic value.
+    #[serde(skip_serializing)]
     Dyn(Dynamic),
-}
-
-impl Serialize for Value {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        match self {
-            Value::None => serializer.serialize_none(),
-            Value::Auto => serializer.serialize_str("auto"),
-            Value::Bool(v) => serializer.serialize_bool(*v),
-            Value::Int(v) => serializer.serialize_i64(*v),
-            Value::Float(v) => serializer.serialize_f64(*v),
-            Value::Str(v) => serializer.serialize_str(v),
-            Value::Bytes(v) => serializer.serialize_bytes(v),
-            Value::Array(v) => {
-                serializer.collect_seq(v)
-            }
-            Value::Dict(v) => {
-                serializer.collect_map(v.iter().map(|(k, v)| (k.as_str(), v)))
-            }
-            Value::Content(v) => v.serialize(serializer),
-            Value::Label(l) => serializer.serialize_str(&format!("<{}>", l.0)),
-            _ => Err(Error::custom(format!(
-                "cannot serialize type \"{}\"",
-                self.type_name()
-            ))),
-        }
-    }
 }
 
 impl Value {

@@ -27,10 +27,20 @@ pub use crate::__dict as dict;
 
 #[doc(inline)]
 pub use indexmap::IndexMap;
+use serde::{Serialize, Serializer};
 
 /// A reference-counted dictionary with value semantics.
 #[derive(Default, Clone, PartialEq)]
 pub struct Dict(Arc<IndexMap<Str, Value>>);
+
+impl Serialize for Dict {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
+    }
+}
 
 impl Dict {
     /// Create a new, empty dictionary.

@@ -32,9 +32,10 @@ pub use crate::__array as array;
 use crate::eval::ops::{add, mul};
 #[doc(hidden)]
 pub use ecow::eco_vec;
+use serde::Serialize;
 
 /// A reference counted array with value semantics.
-#[derive(Default, Clone, PartialEq, Hash)]
+#[derive(Default, Clone, PartialEq, Hash, Serialize)]
 pub struct Array(EcoVec<Value>);
 
 impl Array {

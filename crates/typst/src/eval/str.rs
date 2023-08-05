@@ -23,9 +23,10 @@ macro_rules! __format_str {
 pub use crate::__format_str as format_str;
 #[doc(hidden)]
 pub use ecow::eco_format;
+use serde::Serialize;
 
 /// An immutable reference counted string.
-#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
 pub struct Str(EcoString);
 
 impl Str {

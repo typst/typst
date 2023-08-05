@@ -1001,6 +1001,7 @@ dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
  "rayon",
+ "serde",
 ]
 
 [[package]]
