@@ -338,12 +338,12 @@ fn load_svg_fonts(
 
     // Find out which font families are referenced by the SVG.
     traverse_svg(&tree.root, &mut |node| {
-        let usvg::NodeKind::Text(text) = &mut *node.borrow_mut() else { return; };
+        let usvg::NodeKind::Text(text) = &mut *node.borrow_mut() else { return };
         for chunk in &mut text.chunks {
             for span in &mut chunk.spans {
                 for family_cased in &mut span.font.families {
                     if family_cased.is_empty() || !load(family_cased) {
-                        let Some(fallback) = fallback_cased else { continue; };
+                        let Some(fallback) = fallback_cased else { continue };
                         *family_cased = fallback.into();
                     }
                 }

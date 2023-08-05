@@ -1,8 +1,8 @@
 use std::ffi::OsStr;
 use std::path::Path;
-use typst::eval::Bytes;
 
 use crate::compute::Readable;
+use typst::eval::Bytes;
 use typst::geom::Smart;
 use typst::image::{detect, Image, ImageFormat, RasterFormat, VectorFormat};
 
@@ -35,18 +35,18 @@ use crate::text::families;
 /// Category: visualize
 #[element(Layout, LocalName, Figurable)]
 #[scope(
-scope.define("decode", image_decode_func());
-scope
+    scope.define("decode", image_decode_func());
+    scope
 )]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
     #[parse(
-    let Spanned { v: path, span } =
-    args.expect::< Spanned < EcoString >> ("path to image file") ?;
-    let id = vm.location().join(& path).at(span) ?;
-    let data = vm.world().file(id).at(span) ?;
-    path
+        let Spanned { v: path, span } =
+            args.expect::< Spanned < EcoString >> ("path to image file") ?;
+        let id = vm.location().join(& path).at(span) ?;
+        let data = vm.world().file(id).at(span) ?;
+        path
     )]
     pub path: EcoString,
 
