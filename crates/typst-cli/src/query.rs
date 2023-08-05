@@ -3,7 +3,6 @@ use std::time::Instant;
 use comemo::Track;
 use serde::Serialize;
 use typst::diag::{bail, StrResult};
-use typst::eval::Value::Dyn;
 use typst::eval::{eval_string, EvalMode, Tracer};
 use typst::model::{Introspector, Selector};
 use typst::World;
@@ -83,20 +82,15 @@ fn query_and_format(document: &Document, command: &QueryCommand, world: &dyn Wor
 }
 
 fn generic_selector(description: &str, world: &dyn World) -> StrResult<Selector> {
-    let evaluated_selector = eval_string(
+    Ok(eval_string(
         world.track(),
-        &format!("selector({description})"),
+        description,
         Span::detached(),
         EvalMode::Code,
         Scope::default(),
     )
-    .map_err(|_| "Error evaluating the selector string.")?;
-
-    let Dyn(selector) = evaluated_selector else {
-        bail!("Parsing of selector string not successfully.")
-    };
-
-    Ok(selector.downcast::<Selector>().unwrap().to_owned())
+    .map_err(|_| "Error evaluating the selector string.")?
+    .cast::<Selector>()?)
 }
 
 fn keyvalue_selector(key: &str) -> Selector {
