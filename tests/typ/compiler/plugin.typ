@@ -3,18 +3,18 @@
 
 ---
 #let p = plugin("/files/hello.wasm")
-#test(p.hello(), "Hello from wasm!!!")
-#test(p.double_it("hey!"), "hey!.hey!")
-#test(p.shuffle("value1","value2","value3"), "value3-value1-value2")
+#test(p.hello(), bytes("Hello from wasm!!!"))
+#test(p.double_it(bytes("hey!")), bytes("hey!.hey!"))
+#test(p.shuffle(bytes("value1"),bytes("value2"),bytes("value3")), bytes("value3-value1-value2"))
 
 ---
 #let p = plugin("/files/hello.wasm")
-// Error: 1:15-1:17 unexpected argument
-#test(p.hello(""), "Hello from wasm!!!")
+// Error: 1:15-1:24 unexpected argument
+#test(p.hello(bytes("")), bytes("Hello from wasm!!!"))
 
 ---
 #let p = plugin("/files/hello.wasm")
-// Error: 1:20-1:22 plugin errored with: "This is an `Err`" with code: 1
+// Error: 1:20-1:22 plugin errored with: 'This is an `Err`'
 #test(p.returns_err(),"")
 
 ---
