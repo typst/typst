@@ -66,7 +66,7 @@ fn query_and_format(
 
     if let Some(key) = &command.key {
         let provided_metadata = introspector
-            .query(&keyvalue_selector(key))
+            .query(&ProvideElem::func().where_(dict! { "key" => key.as_str() }))
             .iter()
             .filter_map(|c| c.field("value"))
             .collect::<Vec<_>>();
@@ -75,7 +75,17 @@ fn query_and_format(
 
     if let Some(selector) = &command.selector {
         let selected_metadata = introspector
-            .query(&generic_selector(selector, world)?)
+            .query(
+                &eval_string(
+                    world.track(),
+                    selector,
+                    Span::detached(),
+                    EvalMode::Code,
+                    Scope::default(),
+                )
+                .map_err(|_| "Error evaluating the selector string.")?
+                .cast::<Selector>()?,
+            )
             .into_iter()
             .map(|x| x.into_inner())
             .collect::<Vec<_>>();
@@ -83,25 +93,6 @@ fn query_and_format(
     };
 
     Ok(())
-}
-
-fn generic_selector(description: &str, world: &dyn World) -> StrResult<Selector> {
-    eval_string(
-        world.track(),
-        description,
-        Span::detached(),
-        EvalMode::Code,
-        Scope::default(),
-    )
-    .map_err(|_| "Error evaluating the selector string.")?
-    .cast::<Selector>()
-}
-
-fn keyvalue_selector(key: &str) -> Selector {
-    let mut bounds = Dict::new();
-    bounds.insert("key".into(), key.into_value());
-
-    Selector::Elem(ProvideElem::func(), Some(bounds))
 }
 
 fn format<T: Serialize>(data: &[T], command: &QueryCommand) -> StrResult<()> {
