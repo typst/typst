@@ -5,7 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use serde::ser::{Error, SerializeMap, SerializeSeq};
+use serde::ser::Error;
 use serde::{Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
@@ -84,23 +84,15 @@ impl Serialize for Value {
             Value::Str(v) => serializer.serialize_str(v),
             Value::Bytes(v) => serializer.serialize_bytes(v),
             Value::Array(v) => {
-                let mut seq = serializer.serialize_seq(Some(v.len()))?;
-                for e in v {
-                    seq.serialize_element(e)?;
-                }
-                seq.end()
+                serializer.collect_seq(v)
             }
             Value::Dict(v) => {
-                let mut map = serializer.serialize_map(Some(v.len()))?;
-                for (k, v) in v {
-                    map.serialize_entry(k.as_str(), v)?;
-                }
-                map.end()
+                serializer.collect_map(v.iter().map(|(k, v)| (k.as_str(), v)))
             }
-            Value::Content(v) => serializer.serialize_str(&v.plain_text()), // Could be rendered as list of elements??
+            Value::Content(v) => v.serialize(serializer),
             Value::Label(l) => serializer.serialize_str(&format!("<{}>", l.0)),
             _ => Err(Error::custom(format!(
-                "Cannot serialize type \"{}\".",
+                "cannot serialize type \"{}\"",
                 self.type_name()
             ))),
         }
