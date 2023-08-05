@@ -75,6 +75,15 @@ cast! {
     v: Bytes => Self::Bytes(v),
 }
 
+impl From<Readable> for Bytes {
+    fn from(value: Readable) -> Self {
+        match value {
+            Readable::Bytes(b) => b,
+            Readable::Str(s) => s.as_bytes().into(),
+        }
+    }
+}
+
 /// Reads structured data from a CSV file.
 ///
 /// The CSV file will be read and parsed into a 2-dimensional array of strings:

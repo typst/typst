@@ -4,6 +4,8 @@ use std::path::Path;
 use crate::compute::Readable;
 use typst::eval::Bytes;
 use typst::geom::Smart;
+use typst::image::ImageFormat::Vector;
+use typst::image::VectorFormat::Svg;
 use typst::image::{detect, Image, ImageFormat, RasterFormat, VectorFormat};
 
 use crate::meta::{Figurable, LocalName};
@@ -57,7 +59,8 @@ pub struct ImageElem {
     pub data: Bytes,
 
     /// Image format like svg, jpg or png.
-    pub format: Option<Smart<ImageFormat>>,
+    #[default(Smart::Auto)]
+    pub format: Smart<ImageFormat>,
 
     /// The width of the image.
     pub width: Smart<Rel<Length>>,
@@ -93,7 +96,8 @@ pub fn image_decode(
     data: Readable,
     /// Image format like svg, jpg or png.
     #[named]
-    format: Option<Smart<ImageFormat>>,
+    #[default(Smart::Auto)]
+    format: Smart<ImageFormat>,
     /// The width of the image.
     #[named]
     width: Option<Smart<Rel<Length>>>,
@@ -108,17 +112,13 @@ pub fn image_decode(
     #[default(ImageFit::Cover)]
     fit: ImageFit,
 ) -> StrResult<Content> {
-    let mut format = format.unwrap_or(Smart::Auto);
-    if format.auto() && matches!(data, Readable::Str) {
-        format = Smart::Custom(ImageFormat::Vector(VectorFormat::Svg));
-    }
-
-    let data = match data {
-        Readable::Bytes(b) => b,
-        Readable::Str(s) => s.as_bytes().into(),
+    let format = match (format, &data) {
+        (Smart::Auto, Readable::Str(_)) => Smart::Custom(Vector(Svg)),
+        (other, _) => other,
     };
 
-    let mut img = ImageElem::new("".into(), data);
+    let mut img = ImageElem::new("".into(), data.into());
+
     if let Some(width) = width {
         img.push_width(width);
     }
@@ -126,7 +126,7 @@ pub fn image_decode(
         img.push_height(height);
     };
 
-    Ok(img.with_format(Some(format)).with_alt(alt).with_fit(fit).pack())
+    Ok(img.with_format(format).with_alt(alt).with_fit(fit).pack())
 }
 
 impl Layout for ImageElem {
@@ -146,7 +146,7 @@ impl Layout for ImageElem {
         // Take the format that was explicitly defined,
         // or sparse the extention,
         // or try to detect the format.
-        let format = match self.format(styles).unwrap_or(Smart::Auto) {
+        let format = match self.format(styles) {
             Smart::Custom(v) => v,
             Smart::Auto => match ext.as_str() {
                 "png" => ImageFormat::Raster(RasterFormat::Png),
