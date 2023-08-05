@@ -57,7 +57,11 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     Ok(())
 }
 
-fn query_and_format(document: &Document, command: &QueryCommand, world: &dyn World) -> StrResult<()> {
+fn query_and_format(
+    document: &Document,
+    command: &QueryCommand,
+    world: &dyn World,
+) -> StrResult<()> {
     let introspector = Introspector::new(&document.pages);
 
     if let Some(key) = &command.key {
@@ -66,7 +70,7 @@ fn query_and_format(document: &Document, command: &QueryCommand, world: &dyn Wor
             .iter()
             .filter_map(|c| c.field("value"))
             .collect::<Vec<_>>();
-        format(&provided_metadata, &command)?;
+        format(&provided_metadata, command)?;
     };
 
     if let Some(selector) = &command.selector {
@@ -75,14 +79,14 @@ fn query_and_format(document: &Document, command: &QueryCommand, world: &dyn Wor
             .into_iter()
             .map(|x| x.into_inner())
             .collect::<Vec<_>>();
-        format(&selected_metadata, &command)?;
+        format(&selected_metadata, command)?;
     };
 
     Ok(())
 }
 
 fn generic_selector(description: &str, world: &dyn World) -> StrResult<Selector> {
-    Ok(eval_string(
+    eval_string(
         world.track(),
         description,
         Span::detached(),
@@ -90,7 +94,7 @@ fn generic_selector(description: &str, world: &dyn World) -> StrResult<Selector>
         Scope::default(),
     )
     .map_err(|_| "Error evaluating the selector string.")?
-    .cast::<Selector>()?)
+    .cast::<Selector>()
 }
 
 fn keyvalue_selector(key: &str) -> Selector {
