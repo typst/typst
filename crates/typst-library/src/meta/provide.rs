@@ -4,22 +4,30 @@ use crate::prelude::*;
 ///
 /// The Typst query system allows users to extract metadata from the document,
 /// offering both a generic selector and a specific key-value mechanism. The
-/// 'provide' command is an essential part of this mechanism, associating a
+/// 'provide()' function is an essential part of this mechanism, associating a
 /// single piece of metadata with the specified key. Subsequent invocations
 /// will append to a list of values for the same key.
 ///
+/// While this note has no visible output in the document, it embeds metadata
+/// into the document! This metadata can be retrieved using the 'query' command
+/// via CLI and the 'query()' function from within the document:
 /// Example:
 /// ```example
-/// #provide("note", "This is a note")
+/// #provide("note", (
+///     page: 2,
+///     description: "This is a note"
+/// ));
 ///
-/// While this note has no visible output in the document, it embeds metadata
-/// into the document! This metadata can be retrieved using the 'query' command.
+
 /// ```
 ///
 /// How to retrieve the metadata:
 /// ```sh
 /// $ typst query example.typ --key note
-/// ["This is a note"]
+/// [{
+///     "page": 2,
+///     "description": "This is a note"
+/// }]
 /// ```
 ///
 /// Display: Provide
