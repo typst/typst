@@ -1,11 +1,10 @@
-use std::collections::HashMap;
 use std::time::Instant;
 
 use comemo::Track;
 use serde::Serialize;
 use typst::diag::{bail, StrResult};
 use typst::eval::Value::Dyn;
-use typst::eval::{eval_string, EvalMode, Tracer, Value};
+use typst::eval::{eval_string, EvalMode, Tracer};
 use typst::model::{Introspector, Selector};
 use typst::World;
 use typst_library::meta::ProvideElem;
@@ -15,13 +14,6 @@ use crate::args::{OutputFormat, QueryCommand};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
-
-#[derive(Serialize)]
-pub struct SelectedElement {
-    #[serde(rename = "type")]
-    typename: String,
-    attributes: HashMap<EcoString, Value>,
-}
 
 /// Execute a query command.
 pub fn query(command: QueryCommand) -> StrResult<()> {
@@ -56,15 +48,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
                 let selected_metadata = introspector
                     .query(&generic_selector(selector, &world)?)
                     .into_iter()
-                    .map(|x| SelectedElement {
-                        typename: x.func().name().into(),
-                        attributes: x
-                            .clone()
-                            .into_inner()
-                            .fields()
-                            .map(|(k, v)| (k.clone(), v))
-                            .collect(),
-                    })
+                    .map(|x| x.into_inner())
                     .collect::<Vec<_>>();
                 format(&selected_metadata, &command)?;
             }
