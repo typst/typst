@@ -34,8 +34,11 @@ use crate::prelude::*;
 /// Category: meta
 #[element(Behave, Show, Locatable)]
 pub struct ProvideElem {
+    /// This key can be used to retrieve the corresponding value via 'query' command utilizing
+    /// the '--key' argument.
     #[required]
     pub key: EcoString,
+    /// This value will be associated with the given key.
     #[required]
     pub value: Value,
 }
