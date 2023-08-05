@@ -9,7 +9,7 @@ use typst::World;
 use typst_library::meta::ProvideElem;
 use typst_library::prelude::*;
 
-use crate::args::QueryCommand;
+use crate::args::{OutputFormat, QueryCommand};
 use crate::compile::print_diagnostics;
 use crate::set_failed;
 use crate::world::SystemWorld;
@@ -120,12 +120,11 @@ fn format<T: Serialize>(data: &[T], command: &QueryCommand) -> StrResult<()> {
         bail!("One piece of metadata expected, but {} found.", data.len())
     }
 
-    let result = match (command.format.as_str(), command.one) {
-        ("json", true) => serde_json::to_string(&data[0]).map_err(|e| e.to_string())?,
-        ("yaml", true) => serde_yaml::to_string(&data[0]).map_err(|e| e.to_string())?,
-        ("json", false) => serde_json::to_string(&data).map_err(|e| e.to_string())?,
-        ("yaml", false) => serde_yaml::to_string(&data).map_err(|e| e.to_string())?,
-        _ => bail!("Unknown format"),
+    let result = match (&command.format, command.one) {
+        (OutputFormat::JSON, true) => serde_json::to_string(&data[0]).map_err(|e| e.to_string())?,
+        (OutputFormat::YAML, true) => serde_yaml::to_string(&data[0]).map_err(|e| e.to_string())?,
+        (OutputFormat::JSON, false) => serde_json::to_string(&data).map_err(|e| e.to_string())?,
+        (OutputFormat::YAML, false) => serde_yaml::to_string(&data).map_err(|e| e.to_string())?,
     };
 
     println!("{result}");
