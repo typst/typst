@@ -57,7 +57,7 @@ pub enum Encoding {
     Utf8,
 }
 
-/// A value that can be read from a value.
+/// A value that can be read from a file.
 pub enum Readable {
     /// A decoded string.
     Str(Str),
@@ -73,6 +73,15 @@ cast! {
     },
     v: Str => Self::Str(v),
     v: Bytes => Self::Bytes(v),
+}
+
+impl From<Readable> for Bytes {
+    fn from(value: Readable) -> Self {
+        match value {
+            Readable::Bytes(v) => v,
+            Readable::Str(v) => v.as_bytes().into(),
+        }
+    }
 }
 
 /// Reads structured data from a CSV file.
