@@ -21,7 +21,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     tracing::info!("Starting querying");
 
     let start = Instant::now();
-    // Reset everything and ensure that the main file is still present.
+    // Reset everything and ensure that the main file is present.
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
@@ -33,26 +33,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     match result {
         // Print metadata
         Ok(document) => {
-            let introspector = Introspector::new(&document.pages);
-
-            if let Some(key) = &command.key {
-                let provided_metadata = introspector
-                    .query(&keyvalue_selector(key))
-                    .iter()
-                    .filter_map(|c| c.field("value"))
-                    .collect::<Vec<_>>();
-                format(&provided_metadata, &command)?;
-            }
-
-            if let Some(selector) = &command.selector {
-                let selected_metadata = introspector
-                    .query(&generic_selector(selector, &world)?)
-                    .into_iter()
-                    .map(|x| x.into_inner())
-                    .collect::<Vec<_>>();
-                format(&selected_metadata, &command)?;
-            }
-
+            query_and_format(&document, &command, &world)?;
             tracing::info!("Processing succeeded in {duration:?}");
 
             print_diagnostics(&world, &[], &warnings, command.common.diagnostic_format)
@@ -73,6 +54,30 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
             .map_err(|_| "failed to print diagnostics")?;
         }
     }
+
+    Ok(())
+}
+
+fn query_and_format(document: &Document, command: &QueryCommand, world: &dyn World) -> StrResult<()> {
+    let introspector = Introspector::new(&document.pages);
+
+    if let Some(key) = &command.key {
+        let provided_metadata = introspector
+            .query(&keyvalue_selector(key))
+            .iter()
+            .filter_map(|c| c.field("value"))
+            .collect::<Vec<_>>();
+        format(&provided_metadata, &command)?;
+    };
+
+    if let Some(selector) = &command.selector {
+        let selected_metadata = introspector
+            .query(&generic_selector(selector, world)?)
+            .into_iter()
+            .map(|x| x.into_inner())
+            .collect::<Vec<_>>();
+        format(&selected_metadata, &command)?;
+    };
 
     Ok(())
 }
