@@ -986,22 +986,8 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             };
 
             // Penalize runts.
-            if end == p.bidi.text.len() {
-                let text = &p.bidi.text[start..end];
-
-                let mut linebreaks =
-                    if matches!(p.lang, Some(Lang::CHINESE | Lang::JAPANESE)) {
-                        &CJ_SEGMENTER
-                    } else {
-                        &SEGMENTER
-                    }
-                    .segment_str(text);
-
-                // There's always one at the start and one at the end,
-                // so two is our actual cut-off for having an inner breakpoint.
-                if linebreaks.nth(2).is_none() {
-                    cost += RUNT_COST;
-                }
+            if k == i + 1 && eof {
+                cost += RUNT_COST;
             }
 
             // Penalize hyphens.
