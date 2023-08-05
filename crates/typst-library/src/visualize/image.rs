@@ -149,9 +149,9 @@ impl Layout for ImageElem {
         // Take the format that was explicitly defined,
         // or sparse the extention,
         // or try to detect the format.
-        let format = match self.format(styles) {
-            Some(Smart::Custom(v)) => v,
-            None | Some(Smart::Auto) => match ext.as_str() {
+        let format = match self.format(styles).unwrap_or(Smart::Auto) {
+            Smart::Custom(v) => v,
+            Smart::Auto => match ext.as_str() {
                 "png" => ImageFormat::Raster(RasterFormat::Png),
                 "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
                 "gif" => ImageFormat::Raster(RasterFormat::Gif),
