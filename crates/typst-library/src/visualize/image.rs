@@ -108,13 +108,10 @@ pub fn image_decode(
     #[default(ImageFit::Cover)]
     fit: ImageFit,
 ) -> StrResult<Content> {
-    // Make none to auto, account for special case with no format but string input, leave rest
-    let format = match (format.unwrap_or(Smart::Auto), &data) {
-        (Smart::Auto, Readable::Str(_)) => {
-            Smart::Custom(ImageFormat::Vector(VectorFormat::Svg))
-        }
-        (v, _) => v,
-    };
+    let mut format = format.unwrap_or(Smart::Auto);
+    if format.auto() && matches!(data, Readable::Str) {
+        format = Smart::Custom(ImageFormat::Vector(VectorFormat::Svg));
+    }
 
     let data = match data {
         Readable::Bytes(b) => b,
