@@ -1,12 +1,10 @@
 use std::any::TypeId;
-use std::collections::HashMap;
 use std::fmt::{self, Debug, Formatter, Write};
-use std::iter::Sum;
+use std::iter::{once, Sum};
 use std::ops::{Add, AddAssign};
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
-use serde::ser::SerializeStruct;
 use serde::{Serialize, Serializer};
 
 use super::{
@@ -32,10 +30,9 @@ impl Serialize for Content {
     where
         S: Serializer,
     {
-        let mut main = serializer.serialize_struct("content", 2)?;
-        main.serialize_field("type", self.func().name())?;
-        main.serialize_field("attributes", &self.fields().collect::<HashMap<_, _>>())?;
-        main.end()
+        serializer.collect_map(
+            once((&"type".into(), self.func().name().into_value())).chain(self.fields()),
+        )
     }
 }
 
