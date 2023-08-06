@@ -18,7 +18,7 @@
 #myref(<test>)
 
 ---
-// This test verifies warn calls are no-operations if the user defined function calling it is not invoked 
+// This test verifies warn calls are not invoked if the user defined function calling it is not invoked 
 #set heading(numbering: "1.")
 
 #let myref(label) = locate(loc => {
@@ -32,7 +32,7 @@
 = Second <test>
 
 ---
-// This test verifies warn calls are no-operations if the user defined function is called, but the branch of the warn is not hit
+// This test verifies warn calls are not invoked if the user defined function is called, but the branch of the warn is not hit
 #set heading(numbering: "1.")
 
 #let myref(label) = locate(loc => {
