@@ -377,7 +377,6 @@ pub fn datetime_now(
 /// Display: Duration
 /// Category: construct
 #[func]
-#[scope(scope)]
 pub fn duration(
     /// The year of the datetime.
     #[named]
@@ -400,11 +399,12 @@ pub fn duration(
     #[default(0)]
     weeks: i64,
 ) -> Duration {
-    Duration(time::Duration::seconds(seconds)
+    (time::Duration::seconds(seconds)
         + time::Duration::minutes(minutes)
         + time::Duration::hours(hours)
         + time::Duration::days(days)
         + time::Duration::weeks(weeks))
+    .into()
 }
 
 /// Creates a CMYK color.
