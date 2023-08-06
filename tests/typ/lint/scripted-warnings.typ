@@ -55,8 +55,8 @@
         ref(label)
     } else {
 // Warning: 14-61 could not find reference <test>
-// Hint: 14-61 did you mean add a heading, along the lines of "= Title <test>"?
-        warn("could not find reference <" + str(label) + ">", hint: "did you mean add a heading, along the lines of \"= Title <" + str(label) + ">\"?")
+// Hint: 14-61 did you mean to add a heading, along the lines of "= Title <test>"?
+        warn("could not find reference <" + str(label) + ">", hint: "did you mean to add a heading, along the lines of \"= Title <" + str(label) + ">\"?")
     }
 })
 
