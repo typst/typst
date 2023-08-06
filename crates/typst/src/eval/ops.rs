@@ -29,7 +29,6 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Content(a), Content(b)) => Content(a + b),
         (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
         (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
-        (Content(a), Label(b)) => Content(a.labelled(b)),
         (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
         (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
         (Array(a), Array(b)) => Array(a + b),
