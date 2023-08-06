@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Datetime, Module, Regex};
+use typst::eval::{Datetime, Duration, Module, Regex};
 
 use crate::prelude::*;
 
@@ -215,9 +215,9 @@ cast! {
 /// Category: construct
 #[func]
 #[scope(
-    scope.define("today", datetime_today_func());
-    scope.define("now", datetime_now_func());
-    scope
+scope.define("today", datetime_today_func());
+scope.define("now", datetime_now_func());
+scope
 )]
 pub fn datetime(
     /// The year of the datetime.
@@ -274,10 +274,15 @@ pub fn datetime(
 }
 
 pub struct YearComponent(i32);
+
 pub struct MonthComponent(Month);
+
 pub struct DayComponent(u8);
+
 pub struct HourComponent(u8);
+
 pub struct MinuteComponent(u8);
+
 pub struct SecondComponent(u8);
 
 cast! {
@@ -350,7 +355,7 @@ pub fn datetime_today(
 /// #datetime.now().display().
 /// ```
 ///
-/// Display: Today
+/// Display: Now
 /// Category: construct
 #[func]
 pub fn datetime_now(
@@ -366,6 +371,40 @@ pub fn datetime_now(
         .world
         .now(offset.as_custom())
         .ok_or("unable to get the current date and time")?)
+}
+
+/// COMMENT LATER!!!
+/// Display: Duration
+/// Category: construct
+#[func]
+#[scope(scope)]
+pub fn duration(
+    /// The year of the datetime.
+    #[named]
+    #[default(0)]
+    seconds: i64,
+    /// The month of the datetime.
+    #[named]
+    #[default(0)]
+    minutes: i64,
+    /// The day of the datetime.
+    #[named]
+    #[default(0)]
+    hours: i64,
+    /// The hour of the datetime.
+    #[named]
+    #[default(0)]
+    days: i64,
+    /// The minute of the datetime.
+    #[named]
+    #[default(0)]
+    weeks: i64,
+) -> Duration {
+    Duration(time::Duration::seconds(seconds)
+        + time::Duration::minutes(minutes)
+        + time::Duration::hours(hours)
+        + time::Duration::days(days)
+        + time::Duration::weeks(weeks))
 }
 
 /// Creates a CMYK color.
@@ -534,9 +573,9 @@ cast! {
 /// Category: construct
 #[func]
 #[scope(
-    scope.define("to-unicode", str_to_unicode_func());
-    scope.define("from-unicode", str_from_unicode_func());
-    scope
+scope.define("to-unicode", str_to_unicode_func());
+scope.define("from-unicode", str_from_unicode_func());
+scope
 )]
 pub fn str(
     /// The value that should be converted to a string.
