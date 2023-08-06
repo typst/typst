@@ -35,7 +35,7 @@ use crate::prelude::*;
 /// Display: Provide
 /// Category: meta
 #[element(Behave, Show, Locatable)]
-pub struct TagElem {
+pub struct MetadataElem {
     /// This key can be used to retrieve the corresponding value via 'query' command utilizing
     /// the '--key' argument.
     #[required]
@@ -45,13 +45,13 @@ pub struct TagElem {
     pub value: Value,
 }
 
-impl Show for TagElem {
+impl Show for MetadataElem {
     fn show(&self, _vt: &mut Vt, _styles: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
     }
 }
 
-impl Behave for TagElem {
+impl Behave for MetadataElem {
     fn behaviour(&self) -> Behaviour {
         Behaviour::Ignorant
     }
