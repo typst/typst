@@ -30,46 +30,18 @@ pub enum Command {
     Watch(CompileCommand),
 
     /// Processes an input file to extract provided metadata
-    #[command()]
     Query(QueryCommand),
 
     /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
 }
 
-/// Common arguments of watch, compile and query.
-#[derive(Args, Debug, Clone)]
-pub struct CommonArgs {
-    /// Path to input Typst file
-    pub input: PathBuf,
-
-    /// Configures the project root
-    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
-    pub root: Option<PathBuf>,
-
-    /// Adds additional directories to search for fonts
-    #[clap(
-        long = "font-path",
-        env = "TYPST_FONT_PATHS",
-        value_name = "DIR",
-        action = ArgAction::Append,
-    )]
-    pub font_paths: Vec<PathBuf>,
-
-    /// In which format to emit diagnostics
-    #[clap(
-        long,
-        default_value_t = DiagnosticFormat::Human,
-        value_parser = clap::value_parser!(DiagnosticFormat)
-    )]
-    pub diagnostic_format: DiagnosticFormat,
-}
-
 /// Compiles the input file into a PDF file
 #[derive(Debug, Clone, Parser)]
 pub struct CompileCommand {
+    /// Shared arguments.
     #[clap(flatten)]
-    pub common: CommonArgs,
+    pub common: SharedArgs,
 
     /// Path to output PDF file or PNG file(s)
     pub output: Option<PathBuf>,
@@ -96,33 +68,62 @@ impl CompileCommand {
     }
 }
 
-// Output file format for query command
-#[derive(Debug, Clone, ValueEnum)]
-pub enum OutputFormat {
-    Yaml,
-    Json,
-}
-
 /// Processes an input file to extract provided metadata
 #[derive(Debug, Clone, Parser)]
 pub struct QueryCommand {
+    /// Shared arguments.
     #[clap(flatten)]
-    pub common: CommonArgs,
+    pub common: SharedArgs,
 
     /// Define what elements to retrieve
     pub selector: String,
 
-    /// Just extract this one field from all retrieved elements.
+    /// Extract just one field from all retrieved elements
     #[clap(long = "field")]
     pub field: Option<String>,
 
-    /// Output format: json, yaml
-    #[clap(long = "format", default_value = "json")]
-    pub format: OutputFormat,
-
-    /// Expect and retrieve exactly one piece of metadata
+    /// Expect and retrieve exactly one element
     #[clap(long = "one", default_value = "false")]
     pub one: bool,
+
+    /// The format to serialization in
+    #[clap(long = "format", default_value = "json")]
+    pub format: SerializationFormat,
+}
+
+// Output file format for query command
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum SerializationFormat {
+    Json,
+    Yaml,
+}
+
+/// Common arguments of compile, watch, and query.
+#[derive(Debug, Clone, Args)]
+pub struct SharedArgs {
+    /// Path to input Typst file
+    pub input: PathBuf,
+
+    /// Configures the project root
+    #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
+    pub root: Option<PathBuf>,
+
+    /// Adds additional directories to search for fonts
+    #[clap(
+        long = "font-path",
+        env = "TYPST_FONT_PATHS",
+        value_name = "DIR",
+        action = ArgAction::Append,
+    )]
+    pub font_paths: Vec<PathBuf>,
+
+    /// In which format to emit diagnostics
+    #[clap(
+        long,
+        default_value_t = DiagnosticFormat::Human,
+        value_parser = clap::value_parser!(DiagnosticFormat)
+    )]
+    pub diagnostic_format: DiagnosticFormat,
 }
 
 /// Lists all discovered fonts in system and custom font paths

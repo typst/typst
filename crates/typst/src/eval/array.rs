@@ -3,9 +3,11 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
+use serde::Serialize;
 
 use super::{ops, Args, CastInfo, FromValue, Func, IntoValue, Reflect, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
+use crate::eval::ops::{add, mul};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -29,10 +31,8 @@ macro_rules! __array {
 
 #[doc(inline)]
 pub use crate::__array as array;
-use crate::eval::ops::{add, mul};
 #[doc(hidden)]
 pub use ecow::eco_vec;
-use serde::Serialize;
 
 /// A reference counted array with value semantics.
 #[derive(Default, Clone, PartialEq, Hash, Serialize)]

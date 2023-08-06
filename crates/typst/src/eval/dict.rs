@@ -4,6 +4,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
+use serde::{Serialize, Serializer};
 
 use super::{array, Array, Str, Value};
 use crate::diag::StrResult;
@@ -27,20 +28,10 @@ pub use crate::__dict as dict;
 
 #[doc(inline)]
 pub use indexmap::IndexMap;
-use serde::{Serialize, Serializer};
 
 /// A reference-counted dictionary with value semantics.
 #[derive(Default, Clone, PartialEq)]
 pub struct Dict(Arc<IndexMap<Str, Value>>);
-
-impl Serialize for Dict {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
 
 impl Dict {
     /// Create a new, empty dictionary.
@@ -195,6 +186,15 @@ impl Hash for Dict {
         for item in self {
             item.hash(state);
         }
+    }
+}
+
+impl Serialize for Dict {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
     }
 }
 

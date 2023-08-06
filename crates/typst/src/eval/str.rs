@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
 use ecow::EcoString;
+use serde::Serialize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{cast, dict, Args, Array, Dict, Func, IntoValue, Value, Vm};
@@ -23,7 +24,6 @@ macro_rules! __format_str {
 pub use crate::__format_str as format_str;
 #[doc(hidden)]
 pub use ecow::eco_format;
-use serde::Serialize;
 
 /// An immutable reference counted string.
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]

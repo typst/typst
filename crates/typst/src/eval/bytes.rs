@@ -15,15 +15,6 @@ use super::Value;
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
 
-impl Serialize for Bytes {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
 impl Bytes {
     /// Create a buffer from a static byte slice.
     pub fn from_static(slice: &'static [u8]) -> Self {
@@ -102,6 +93,19 @@ impl AsRef<[u8]> for Bytes {
 impl Debug for Bytes {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "bytes({})", self.len())
+    }
+}
+
+impl Serialize for Bytes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            serializer.serialize_str(&eco_format!("{self:?}"))
+        } else {
+            serializer.serialize_bytes(self)
+        }
     }
 }
 

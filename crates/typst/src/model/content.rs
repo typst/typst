@@ -1,6 +1,6 @@
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
-use std::iter::{once, Sum};
+use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
 
 use comemo::Prehashed;
@@ -23,17 +23,6 @@ use crate::util::pretty_array_like;
 pub struct Content {
     func: ElemFunc,
     attrs: EcoVec<Attr>,
-}
-
-impl Serialize for Content {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        serializer.collect_map(
-            once((&"type".into(), self.func().name().into_value())).chain(self.fields()),
-        )
-    }
 }
 
 /// Attributes that can be attached to content.
@@ -525,6 +514,18 @@ impl AddAssign for Content {
 impl Sum for Content {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self::sequence(iter)
+    }
+}
+
+impl Serialize for Content {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_map(
+            iter::once((&"func".into(), self.func().name().into_value()))
+                .chain(self.fields()),
+        )
     }
 }
 
