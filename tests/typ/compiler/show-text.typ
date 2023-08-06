@@ -26,6 +26,15 @@ AA (8)
 Treeworld, the World of worlds, is a world.
 
 ---
+// Test there is no crashing on empty strings
+// Error: 1:7-1:9 text selector is empty
+#show "": []
+
+---
+// Error: 1:7-1:16 regex selector is empty
+#show regex(""): [AA]
+
+---
 // This is a fun one.
 #set par(justify: true)
 #show regex("\S"): letter => box(stroke: 1pt, inset: 2pt, upper(letter))

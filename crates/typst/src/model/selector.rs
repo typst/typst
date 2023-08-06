@@ -40,8 +40,11 @@ pub enum Selector {
 
 impl Selector {
     /// Define a simple text selector.
-    pub fn text(text: &str) -> Self {
-        Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+    pub fn text(text: &str) -> StrResult<Self> {
+        if text.is_empty() {
+            bail!("text selector is empty");
+        }
+        Ok(Self::Regex(Regex::new(&regex::escape(text)).unwrap()))
     }
 
     /// Define a simple [`Selector::Can`] selector.
@@ -158,8 +161,13 @@ cast! {
         .ok_or("only element functions can be used as selectors")?
         .select(),
     label: Label => Self::Label(label),
-    text: EcoString => Self::text(&text),
-    regex: Regex => Self::Regex(regex),
+    text: EcoString => Self::text(&text)?,
+    regex: Regex => {
+        if regex.as_str().is_empty() {
+            bail!("regex selector is empty");
+        }
+        Self::Regex(regex)
+    },
     location: Location => Self::Location(location),
 }
 
