@@ -87,7 +87,7 @@ pub fn panic(
 }
 
 /// Display: Warning
-/// Category: diagnostics
+/// Category: foundations
 #[func]
 pub fn warn(
     message: Spanned<EcoString>,
