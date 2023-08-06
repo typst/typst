@@ -63,3 +63,7 @@
 = Second <test2>
 
 #myref(<test>)
+
+---
+// Warning: 7-40 did you misconfigure something?
+#warn("did you misconfigure something?")
