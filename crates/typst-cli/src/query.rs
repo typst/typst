@@ -61,20 +61,18 @@ fn retrieve(
     command: &QueryCommand,
     world: &dyn World,
 ) -> StrResult<Vec<Content>> {
-    let introspector = Introspector::new(&document.pages);
+    let selector = eval_string(
+        world.track(),
+        &command.selector,
+        Span::detached(),
+        EvalMode::Code,
+        Scope::default(),
+    )
+    .map_err(|_| "error evaluating the selector string")?
+    .cast::<Selector>()?;
 
-    Ok(introspector
-        .query(
-            &eval_string(
-                world.track(),
-                &command.selector,
-                Span::detached(),
-                EvalMode::Code,
-                Scope::default(),
-            )
-            .map_err(|_| "error evaluating the selector string")?
-            .cast::<Selector>()?,
-        )
+    Ok(Introspector::new(&document.pages)
+        .query(&selector)
         .into_iter()
         .map(|x| x.into_inner())
         .collect::<Vec<_>>())

@@ -30,15 +30,14 @@ impl Serialize for Content {
     where
         S: Serializer,
     {
-        if self.func().name()=="provide" {
+        if self.func().name() == "provide" {
             self.field("value").serialize(serializer)
-        }
-        else {
+        } else {
             serializer.collect_map(
-                once((&"type".into(), self.func().name().into_value())).chain(self.fields()),
+                once((&"type".into(), self.func().name().into_value()))
+                    .chain(self.fields()),
             )
         }
-
     }
 }
 
