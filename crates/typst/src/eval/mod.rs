@@ -517,7 +517,7 @@ impl Eval for ast::Text {
 
     #[tracing::instrument(name = "Text::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.text)(self.get().clone()))
+        Ok((vm.items.text)(self.get()))
     }
 }
 

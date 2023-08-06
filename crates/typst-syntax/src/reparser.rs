@@ -215,6 +215,8 @@ fn expand(node: &SyntaxNode) -> bool {
         || kind == SyntaxKind::Semicolon
         || node.text() == "/"
         || node.text() == ":"
+        // Text nodes need to be united for show replaces to work
+        || kind == SyntaxKind::Text
 }
 
 /// Whether `at_start` would still be true after this node given the
@@ -275,9 +277,9 @@ mod tests {
 
     #[test]
     fn test_reparse_markup() {
-        test("abc~def~gh~", 5..6, "+", true);
-        test("~~~~~~~", 3..4, "A", true);
-        test("abc~~", 1..2, "", true);
+        test("abc~def~gh~", 5..6, "+", false);
+        test("~~~~~~~", 3..4, "A", false);
+        test("abc~~", 1..2, "", false);
         test("#var. hello", 5..6, " ", false);
         test("#var;hello", 9..10, "a", false);
         test("https:/world", 7..7, "/", false);
@@ -286,14 +288,14 @@ mod tests {
         test("", 0..0, "do it", false);
         test("a d e", 1..3, " b c d", false);
         test("~*~*~", 2..2, "*", false);
-        test("::1\n2. a\n3", 7..7, "4", true);
+        test("::1\n2. a\n3", 7..7, "4", false);
         test("* #{1+2} *", 6..7, "3", true);
         test("#{(0, 1, 2)}", 6..7, "11pt", true);
         test("\n= A heading", 4..4, "n evocative", false);
-        test("#call() abc~d", 7..7, "[]", true);
+        test("#call() abc~d", 7..7, "[]", false);
         test("a your thing a", 6..7, "a", false);
         test("#grid(columns: (auto, 1fr, 40%))", 16..20, "4pt", false);
-        test("abc\n= a heading\njoke", 3..4, "\nmore\n\n", true);
+        test("abc\n= a heading\njoke", 3..4, "\nmore\n\n", false);
         test("#show f: a => b..", 16..16, "c", false);
         test("#for", 4..4, "//", false);
         test("a\n#let \nb", 7..7, "i", true);

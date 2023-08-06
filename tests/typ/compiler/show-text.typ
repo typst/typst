@@ -57,3 +57,9 @@ World
 #show "GRAPH": image("/files/graph.png")
 
 The GRAPH has nodes.
+
+---
+// Test special symbols
+#show "A = B ( c ) [ d ] e ‣ —": "Replaced"
+
+A = B ( c ) \[ d \] e \u{2023} ---

@@ -33,6 +33,17 @@ pub fn parse_math(text: &str) -> SyntaxNode {
     p.finish().into_iter().next().unwrap()
 }
 
+fn wrap_plain_text(p: &mut Parser, m: Marker) {
+    let mut trivia_nodes = vec![];
+    // Unwrap works because there is certainly a text node somewhere
+    while p.nodes.last().unwrap().kind().is_trivia() {
+        trivia_nodes.push(p.nodes.pop().unwrap())
+    }
+
+    p.wrap(m, SyntaxKind::Text);
+    p.nodes.extend(trivia_nodes.into_iter())
+}
+
 fn markup(
     p: &mut Parser,
     mut at_start: bool,
@@ -41,6 +52,7 @@ fn markup(
 ) {
     let m = p.marker();
     let mut nesting: usize = 0;
+    let mut last_text = None;
     while !p.eof() {
         match p.current() {
             SyntaxKind::LeftBracket => nesting += 1,
@@ -51,6 +63,15 @@ fn markup(
 
         if p.newline() {
             at_start = true;
+
+            // No show rules for text replacements work between paragraphs
+            if p.current() == SyntaxKind::Parbreak {
+                if let Some(last) = last_text {
+                    wrap_plain_text(p, last);
+                    last_text = None;
+                }
+            }
+
             if min_indent > 0 && p.column(p.current_end()) < min_indent {
                 break;
             }
@@ -59,11 +80,17 @@ fn markup(
         }
 
         let prev = p.prev_end();
-        markup_expr(p, &mut at_start);
+        markup_expr(p, &mut at_start, &mut last_text);
+
         if !p.progress(prev) {
             p.unexpected();
         }
     }
+
+    if let Some(last) = last_text {
+        wrap_plain_text(p, last)
+    }
+
     p.wrap(m, SyntaxKind::Markup);
 }
 
@@ -75,6 +102,7 @@ pub(super) fn reparse_markup(
     mut stop: impl FnMut(SyntaxKind) -> bool,
 ) -> Option<Vec<SyntaxNode>> {
     let mut p = Parser::new(text, range.start, LexMode::Markup);
+    let mut last_text = None;
     while !p.eof() && p.current_start() < range.end {
         match p.current() {
             SyntaxKind::LeftBracket => *nesting += 1,
@@ -85,20 +113,57 @@ pub(super) fn reparse_markup(
 
         if p.newline() {
             *at_start = true;
+
+            // No show rules for text replacements work between paragraphs
+            if p.current() == SyntaxKind::Parbreak {
+                if let Some(last) = last_text {
+                    wrap_plain_text(&mut p, last);
+                    last_text = None;
+                }
+            }
+
             p.eat();
             continue;
         }
 
         let prev = p.prev_end();
-        markup_expr(&mut p, at_start);
+        markup_expr(&mut p, at_start, &mut last_text);
+
         if !p.progress(prev) {
             p.unexpected();
         }
     }
+
+    if let Some(last) = last_text {
+        wrap_plain_text(&mut p, last)
+    }
+
     (p.balanced && p.current_start() == range.end).then(|| p.finish())
 }
 
-fn markup_expr(p: &mut Parser, at_start: &mut bool) {
+/// `last_text` stays for last grouped text node
+/// (that is Text, Escape and Shorthand).
+fn markup_expr(p: &mut Parser, at_start: &mut bool, last_text: &mut Option<Marker>) {
+    // Nodes that can be converted to Text end there, so need to wrap
+    if !matches!(
+        (p.current(), *at_start),
+        (SyntaxKind::Text, _)
+            | (SyntaxKind::Escape, _)
+            | (SyntaxKind::Shorthand, _)
+            | (SyntaxKind::Space, _)
+            | (SyntaxKind::LineComment, _)
+            | (SyntaxKind::BlockComment, _)
+            | (SyntaxKind::HeadingMarker, false)
+            | (SyntaxKind::ListMarker, false)
+            | (SyntaxKind::EnumMarker, false)
+            | (SyntaxKind::TermMarker, false)
+    ) {
+        if let Some(last) = last_text {
+            wrap_plain_text(p, *last);
+            *last_text = None;
+        }
+    }
+
     match p.current() {
         SyntaxKind::Space
         | SyntaxKind::Parbreak
@@ -108,13 +173,19 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
             return;
         }
 
-        SyntaxKind::Text
-        | SyntaxKind::Linebreak
-        | SyntaxKind::Escape
-        | SyntaxKind::Shorthand
-        | SyntaxKind::SmartQuote
+        SyntaxKind::Text | SyntaxKind::Escape | SyntaxKind::Shorthand => {
+            // Start new grouped text if no present, else ignore
+            if last_text.is_none() {
+                *last_text = Some(p.marker());
+            }
+
+            p.eat();
+        }
+
+        SyntaxKind::SmartQuote
         | SyntaxKind::Raw
         | SyntaxKind::Link
+        | SyntaxKind::Linebreak
         | SyntaxKind::Label => p.eat(),
 
         SyntaxKind::Hashtag => embedded_code_expr(p),
@@ -133,7 +204,12 @@ fn markup_expr(p: &mut Parser, at_start: &mut bool) {
         | SyntaxKind::ListMarker
         | SyntaxKind::EnumMarker
         | SyntaxKind::TermMarker
-        | SyntaxKind::Colon => p.convert(SyntaxKind::Text),
+        | SyntaxKind::Colon => {
+            p.current = SyntaxKind::Text;
+            *at_start = false;
+            markup_expr(p, at_start, last_text);
+            return;
+        }
 
         _ => {}
     }

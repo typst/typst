@@ -385,8 +385,43 @@ node! {
 
 impl Text {
     /// Get the text.
-    pub fn get(&self) -> &EcoString {
-        self.0.text()
+    pub fn get(&self) -> EcoString {
+        if self.0.children().len() == 0 {
+            self.0.text().clone()
+        } else {
+            let mut text = EcoString::new();
+
+            // `spaced` is whether there were any spaces just before.
+            // If there were and _it is inside text_, we can skip next space.
+            let mut spaced = false;
+            let iter = self.0.children();
+
+            iter.map(|c| match c.kind() {
+                SyntaxKind::Text => {
+                    text.push_str(&Text(c.clone()).get());
+                    spaced = false
+                }
+                SyntaxKind::Escape => {
+                    text.push(Escape(c.clone()).get());
+                    spaced = false
+                }
+                SyntaxKind::Shorthand => {
+                    text.push(Shorthand(c.clone()).get());
+                    spaced = false
+                }
+                SyntaxKind::Space => {
+                    if !spaced {
+                        text.push(' ');
+                        spaced = true;
+                    }
+                }
+                SyntaxKind::LineComment | SyntaxKind::BlockComment => {}
+                _ => unreachable!("Bad text syntax node encountered: {:?}", c.kind()),
+            })
+            .for_each(drop);
+
+            text
+        }
     }
 }
 
