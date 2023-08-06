@@ -112,6 +112,10 @@ pub struct QueryCommand {
     /// Define what elements to retrieve
     pub selector: String,
 
+    /// Just extract this one field from all retrieved elements.
+    #[clap(long = "field")]
+    pub field: Option<String>,
+
     /// Output format: json, yaml
     #[clap(long = "format", default_value = "json")]
     pub format: OutputFormat,
