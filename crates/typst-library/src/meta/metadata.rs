@@ -5,8 +5,8 @@ use crate::prelude::*;
 /// The Typst query system allows users to extract metadata from the document
 /// using a generic Typst selector string. The 'metadata' element is an essential
 /// part of this mechanism, associating a single piece of metadata with the
-/// specified key without any visible representation in the compiled document.
-/// Subsequent invocations will append to a list of values for the same key.
+/// specified label without any visible representation in the compiled document.
+/// Subsequent invocations will append to a list of values for the same label.
 ///
 /// While this note has no visible output in the document, it embeds metadata
 /// into the document! This metadata can be retrieved using the 'query' command
@@ -23,14 +23,6 @@ use crate::prelude::*;
 ///
 /// How to retrieve the metadata:
 /// ```sh
-/// $ typst query example.typ '<note>' --field value
-/// [
-///     {
-///         "page": 2,
-///         "description": "This is a note"
-///     }
-/// ]
-///
 /// $ typst query example.typ '<note>'
 /// [
 ///   {
@@ -42,9 +34,17 @@ use crate::prelude::*;
 ///     "label": "<note>"
 ///   }
 /// ]
+///
+/// $ typst query example.typ '<note>' --field value
+/// [
+///     {
+///         "page": 2,
+///         "description": "This is a note"
+///     }
+/// ]
 /// ```
 ///
-/// Display: Provide
+/// Display: Metadata
 /// Category: meta
 #[element(Behave, Show, Locatable)]
 pub struct MetadataElem {
