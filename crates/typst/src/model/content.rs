@@ -31,8 +31,7 @@ impl Serialize for Content {
         S: Serializer,
     {
         serializer.collect_map(
-            once((&"type".into(), self.func().name().into_value()))
-                .chain(self.fields()),
+            once((&"type".into(), self.func().name().into_value())).chain(self.fields()),
         )
     }
 }

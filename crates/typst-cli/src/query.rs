@@ -31,7 +31,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
         // Print metadata
         Ok(document) => {
             let data = retrieve(&document, &command, &world)?;
-            format(&data, &command)?;
+            format(data, &command)?;
             tracing::info!("Processing succeeded in {duration:?}");
 
             print_diagnostics(&world, &[], &warnings, command.common.diagnostic_format)
@@ -78,7 +78,18 @@ fn retrieve(
         .collect::<Vec<_>>())
 }
 
-fn format(data: &[Content], command: &QueryCommand) -> StrResult<()> {
+fn format(data: Vec<Content>, command: &QueryCommand) -> StrResult<()> {
+    let data: Vec<_> = data
+        .into_iter()
+        .filter_map(|c| {
+            if let Some(field) = &command.field {
+                c.field(field)
+            } else {
+                Some(c.into_value())
+            }
+        })
+        .collect();
+
     if command.one && data.len() != 1 {
         bail!("one piece of metadata expected, but {} found", data.len())
     }
