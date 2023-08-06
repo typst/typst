@@ -5,6 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
+use serde::{Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
@@ -246,6 +247,29 @@ impl Hash for Value {
             Self::Args(v) => v.hash(state),
             Self::Module(v) => v.hash(state),
             Self::Dyn(v) => v.hash(state),
+        }
+    }
+}
+
+impl Serialize for Value {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::None => serializer.serialize_none(),
+            Self::Bool(v) => serializer.serialize_bool(*v),
+            Self::Int(v) => serializer.serialize_i64(*v),
+            Self::Float(v) => serializer.serialize_f64(*v),
+            Self::Str(v) => v.serialize(serializer),
+            Self::Bytes(v) => v.serialize(serializer),
+            Self::Symbol(v) => v.serialize(serializer),
+            Self::Content(v) => v.serialize(serializer),
+            Self::Array(v) => v.serialize(serializer),
+            Self::Dict(v) => v.serialize(serializer),
+
+            // Fall back to repr() for other things.
+            other => serializer.serialize_str(&other.repr()),
         }
     }
 }

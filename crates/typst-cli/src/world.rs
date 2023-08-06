@@ -15,7 +15,7 @@ use typst::syntax::{FileId, Source};
 use typst::util::PathExt;
 use typst::World;
 
-use crate::args::CompileCommand;
+use crate::args::SharedArgs;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
 
@@ -44,7 +44,7 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &CompileCommand) -> StrResult<Self> {
+    pub fn new(command: &SharedArgs) -> StrResult<Self> {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
 

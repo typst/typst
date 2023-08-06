@@ -26,7 +26,7 @@ flate2 = "1"
 fontdb = "0.13"
 if_chain = "1"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
-indexmap = "1.9.3"
+indexmap = { version = "1.9.3", features = ["serde"] }
 log = "0.4"
 miniz_oxide = "0.7"
 oklab = "1"

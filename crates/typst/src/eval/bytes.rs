@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
+use serde::{Serialize, Serializer};
 
 use crate::diag::StrResult;
 
@@ -92,6 +93,19 @@ impl AsRef<[u8]> for Bytes {
 impl Debug for Bytes {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "bytes({})", self.len())
+    }
+}
+
+impl Serialize for Bytes {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        if serializer.is_human_readable() {
+            serializer.serialize_str(&eco_format!("{self:?}"))
+        } else {
+            serializer.serialize_bytes(self)
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
-use clap::{ArgAction, Parser, Subcommand, ValueEnum};
+use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 
 /// The Typst compiler.
 #[derive(Debug, Clone, Parser)]
@@ -29,6 +29,9 @@ pub enum Command {
     #[command(visible_alias = "w")]
     Watch(CompileCommand),
 
+    /// Processes an input file to extract provided metadata
+    Query(QueryCommand),
+
     /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
 }
@@ -36,11 +39,70 @@ pub enum Command {
 /// Compiles the input file into a PDF file
 #[derive(Debug, Clone, Parser)]
 pub struct CompileCommand {
-    /// Path to input Typst file
-    pub input: PathBuf,
+    /// Shared arguments.
+    #[clap(flatten)]
+    pub common: SharedArgs,
 
     /// Path to output PDF file or PNG file(s)
     pub output: Option<PathBuf>,
+
+    /// Opens the output file using the default viewer after compilation
+    #[arg(long = "open")]
+    pub open: Option<Option<String>>,
+
+    /// The PPI (pixels per inch) to use for PNG export
+    #[arg(long = "ppi", default_value_t = 144.0)]
+    pub ppi: f32,
+
+    /// Produces a flamegraph of the compilation process
+    #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
+    pub flamegraph: Option<Option<PathBuf>>,
+}
+
+impl CompileCommand {
+    /// The output path.
+    pub fn output(&self) -> PathBuf {
+        self.output
+            .clone()
+            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
+    }
+}
+
+/// Processes an input file to extract provided metadata
+#[derive(Debug, Clone, Parser)]
+pub struct QueryCommand {
+    /// Shared arguments.
+    #[clap(flatten)]
+    pub common: SharedArgs,
+
+    /// Define what elements to retrieve
+    pub selector: String,
+
+    /// Extract just one field from all retrieved elements
+    #[clap(long = "field")]
+    pub field: Option<String>,
+
+    /// Expect and retrieve exactly one element
+    #[clap(long = "one", default_value = "false")]
+    pub one: bool,
+
+    /// The format to serialization in
+    #[clap(long = "format", default_value = "json")]
+    pub format: SerializationFormat,
+}
+
+// Output file format for query command
+#[derive(Debug, Copy, Clone, Eq, PartialEq, ValueEnum)]
+pub enum SerializationFormat {
+    Json,
+    Yaml,
+}
+
+/// Common arguments of compile, watch, and query.
+#[derive(Debug, Clone, Args)]
+pub struct SharedArgs {
+    /// Path to input Typst file
+    pub input: PathBuf,
 
     /// Configures the project root
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
@@ -55,14 +117,6 @@ pub struct CompileCommand {
     )]
     pub font_paths: Vec<PathBuf>,
 
-    /// Opens the output file using the default viewer after compilation
-    #[arg(long = "open")]
-    pub open: Option<Option<String>>,
-
-    /// The PPI (pixels per inch) to use for PNG export
-    #[arg(long = "ppi", default_value_t = 144.0)]
-    pub ppi: f32,
-
     /// In which format to emit diagnostics
     #[clap(
         long,
@@ -70,19 +124,6 @@ pub struct CompileCommand {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
-
-    /// Produces a flamegraph of the compilation process
-    #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
-    pub flamegraph: Option<Option<PathBuf>>,
-}
-
-impl CompileCommand {
-    /// The output path.
-    pub fn output(&self) -> PathBuf {
-        self.output
-            .clone()
-            .unwrap_or_else(|| self.input.with_extension("pdf"))
-    }
 }
 
 /// Lists all discovered fonts in system and custom font paths

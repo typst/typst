@@ -21,7 +21,7 @@ type CodespanError = codespan_reporting::files::Error;
 
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
-    let mut world = SystemWorld::new(&command)?;
+    let mut world = SystemWorld::new(&command.common)?;
     compile_once(&mut world, &mut command, false)?;
     Ok(())
 }
@@ -42,14 +42,12 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Reset everything and ensure that the main file is still present.
+    // Reset everything and ensure that the main file is present.
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
     let mut tracer = Tracer::default();
-
     let result = typst::compile(world, &mut tracer);
-
     let warnings = tracer.warnings();
 
     match result {
@@ -67,7 +65,7 @@ pub fn compile_once(
                 }
             }
 
-            print_diagnostics(world, &[], &warnings, command.diagnostic_format)
+            print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
 
             if let Some(open) = command.open.take() {
@@ -84,8 +82,13 @@ pub fn compile_once(
                 Status::Error.print(command).unwrap();
             }
 
-            print_diagnostics(world, &errors, &warnings, command.diagnostic_format)
-                .map_err(|_| "failed to print diagnostics")?;
+            print_diagnostics(
+                world,
+                &errors,
+                &warnings,
+                command.common.diagnostic_format,
+            )
+            .map_err(|_| "failed to print diagnostics")?;
         }
     }
 
@@ -152,7 +155,7 @@ fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
 }
 
 /// Print diagnostic messages to the terminal.
-fn print_diagnostics(
+pub fn print_diagnostics(
     world: &SystemWorld,
     errors: &[SourceDiagnostic],
     warnings: &[SourceDiagnostic],
