@@ -1,6 +1,8 @@
+use ecow::eco_vec;
 use typst::eval::{
     Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex, Repr, Version,
 };
+use typst::diag::SourceDiagnostic;
 
 use crate::prelude::*;
 
@@ -28,6 +30,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define_func::<panic>();
     global.define_func::<assert>();
     global.define_func::<eval>();
+    global.define_func::<warn>();
 }
 
 /// Returns the string representation of a value.
@@ -81,6 +84,21 @@ pub fn panic(
         }
     }
     Err(msg)
+}
+
+/// Display: Warning
+/// Category: diagnostics
+#[func]
+pub fn warn(
+    message: Spanned<EcoString>,
+    /// An optional hint to display for the warning
+    #[named]
+    hint: Option<EcoString>,
+) -> SourceResult<Never> {
+    let Spanned { v: message, span } = message;
+    Err(eco_vec![
+        SourceDiagnostic::warning(span, message).with_hints(hint.into_iter())
+    ])
 }
 
 /// Ensures that a condition is fulfilled.

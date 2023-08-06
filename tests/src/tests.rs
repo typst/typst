@@ -607,9 +607,8 @@ fn test_part(
     missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
 
     // This prints all unexpected emits first, then all missing emits.
-    // Is this reasonable or subject to change?
     if !(unexpected_outputs.is_empty() && missing_outputs.is_empty()) {
-        writeln!(output, "  Subtest {i} does not match expected errors.").unwrap();
+        writeln!(output, "  Subtest {i} does not match expected diagnostics.").unwrap();
         ok = false;
 
         for unexpected in unexpected_outputs {
