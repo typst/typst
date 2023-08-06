@@ -214,7 +214,7 @@ impl Plugin {
             .ok_or(format!("plugin doesn't have the method: {function}"))?;
 
         let mut code = WasiValue::I32(2);
-        let ty = function.ty(&self.store().as_context());
+        let ty = function.ty(self.store().as_context());
         if ty.params().len() != result_args.len() {
             return Err("incorrect number of arguments".into());
         }
