@@ -105,18 +105,12 @@ pub enum OutputFormat {
 
 /// Processes an input file to extract provided metadata
 #[derive(Debug, Clone, Parser)]
-#[group(id = "selection", required = true, multiple = false)]
 pub struct QueryCommand {
     #[clap(flatten)]
     pub common: CommonArgs,
 
-    /// Key to extract
-    #[clap(long = "key", group = "selection")]
-    pub key: Option<String>,
-
-    /// Selector to extract
-    #[clap(long = "selector", group = "selection")]
-    pub selector: Option<String>,
+    /// Define what elements to retrieve
+    pub selector: String,
 
     /// Output format: json, yaml
     #[clap(long = "format", default_value = "json")]

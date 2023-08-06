@@ -1,12 +1,10 @@
 use std::time::Instant;
 
 use comemo::Track;
-use serde::Serialize;
 use typst::diag::{bail, StrResult};
 use typst::eval::{eval_string, EvalMode, Tracer};
 use typst::model::{Introspector, Selector};
 use typst::World;
-use typst_library::meta::ProvideElem;
 use typst_library::prelude::*;
 
 use crate::args::{OutputFormat, QueryCommand};
@@ -32,7 +30,8 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     match result {
         // Print metadata
         Ok(document) => {
-            query_and_format(&document, &command, &world)?;
+            let data = retrieve(&document, &command, &world)?;
+            format(&data, &command)?;
             tracing::info!("Processing succeeded in {duration:?}");
 
             print_diagnostics(&world, &[], &warnings, command.common.diagnostic_format)
@@ -57,45 +56,31 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     Ok(())
 }
 
-fn query_and_format(
+fn retrieve(
     document: &Document,
     command: &QueryCommand,
     world: &dyn World,
-) -> StrResult<()> {
+) -> StrResult<Vec<Content>> {
     let introspector = Introspector::new(&document.pages);
 
-    if let Some(key) = &command.key {
-        let provided_metadata = introspector
-            .query(&ProvideElem::func().where_(dict! { "key" => key.as_str() }))
-            .iter()
-            .filter_map(|c| c.field("value"))
-            .collect::<Vec<_>>();
-        format(&provided_metadata, command)?;
-    };
-
-    if let Some(selector) = &command.selector {
-        let selected_metadata = introspector
-            .query(
-                &eval_string(
-                    world.track(),
-                    selector,
-                    Span::detached(),
-                    EvalMode::Code,
-                    Scope::default(),
-                )
-                .map_err(|_| "error evaluating the selector string")?
-                .cast::<Selector>()?,
+    Ok(introspector
+        .query(
+            &eval_string(
+                world.track(),
+                &command.selector,
+                Span::detached(),
+                EvalMode::Code,
+                Scope::default(),
             )
-            .into_iter()
-            .map(|x| x.into_inner())
-            .collect::<Vec<_>>();
-        format(&selected_metadata, command)?;
-    };
-
-    Ok(())
+            .map_err(|_| "error evaluating the selector string")?
+            .cast::<Selector>()?,
+        )
+        .into_iter()
+        .map(|x| x.into_inner())
+        .collect::<Vec<_>>())
 }
 
-fn format<T: Serialize>(data: &[T], command: &QueryCommand) -> StrResult<()> {
+fn format(data: &[Content], command: &QueryCommand) -> StrResult<()> {
     if command.one && data.len() != 1 {
         bail!("one piece of metadata expected, but {} found", data.len())
     }
