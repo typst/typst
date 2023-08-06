@@ -157,7 +157,7 @@ impl Plugin {
         })))
     }
 
-    fn store(&self) -> MutexGuard<'_, wasmi::Store<PersistentData>> {
+    fn store(&self) -> MutexGuard<'_, Store> {
         self.0.store.lock().unwrap()
     }
 
