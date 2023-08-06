@@ -30,7 +30,7 @@ impl Serialize for Content {
     where
         S: Serializer,
     {
-        if self.func().name() == "provide" {
+        if self.func().name() == "tag" {
             self.field("value").serialize(serializer)
         } else {
             serializer.collect_map(
