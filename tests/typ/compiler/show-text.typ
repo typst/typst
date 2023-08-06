@@ -35,6 +35,10 @@ Treeworld, the World of worlds, is a world.
 #show regex(""): [AA]
 
 ---
+// Error: 1:7-1:42 regex matches empty text
+#show regex("(VAR_GLOBAL|END_VAR||BOOL)") : []
+
+---
 // This is a fun one.
 #set par(justify: true)
 #show regex("\S"): letter => box(stroke: 1pt, inset: 2pt, upper(letter))

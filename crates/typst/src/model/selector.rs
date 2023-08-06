@@ -166,6 +166,9 @@ cast! {
         if regex.as_str().is_empty() {
             bail!("regex selector is empty");
         }
+        if regex.is_match("") {
+            bail!("regex matches empty text");
+        }
         Self::Regex(regex)
     },
     location: Location => Self::Location(location),
