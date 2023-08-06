@@ -23,12 +23,24 @@ use crate::prelude::*;
 ///
 /// How to retrieve the metadata:
 /// ```sh
-/// $ typst query example.typ '<note>'
+/// $ typst query example.typ '<note>' --field value
 /// [
 ///     {
 ///         "page": 2,
 ///         "description": "This is a note"
 ///     }
+/// ]
+///
+/// $ typst query example.typ '<note>'
+/// [
+///   {
+///     "type": "metadata",
+///     "value": {
+///       "page": 2,
+///       "description": "This is a note"
+///     },
+///     "label": "<note>"
+///   }
 /// ]
 /// ```
 ///
