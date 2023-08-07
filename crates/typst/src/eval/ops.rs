@@ -24,7 +24,7 @@ macro_rules! match_dyn {
             // Next index, match argument, remaining match results
             @( $e; $($rest)*)
             $($arms)*
-            ($Dyn($an), Dyn($bn)) if $an.is::<$at>() && $bn.is::<$bt>() => {
+            (Dyn($an), Dyn($bn)) if $an.is::<$at>() && $bn.is::<$bt>() => {
                 let $an = *$an.downcast::<$at>().unwrap();
                 let $bn = *$bn.downcast::<$bt>().unwrap();
                 Dyn(Dynamic::new($cmd))
@@ -38,7 +38,7 @@ macro_rules! match_dyn {
             // Next index, match argument, remaining match results
             @( $e; $($rest)*)
             $($arms)*
-            ($Dyn($an), Dyn($bn)) if $an.is::<$at>() && $bn.is::<$bt>() => {
+            (Dyn($an), Dyn($bn)) if $an.is::<$at>() && $bn.is::<$bt>() => {
                 let $an = *$an.downcast::<$at>().unwrap();
                 let $bn = *$bn.downcast::<$bt>().unwrap();
                 $cmd
@@ -98,25 +98,37 @@ macro_rules! match_dyn {
         }
     };
 
-    // Interpret one match arm: (Regular, Regular) => Dyn
-    (@($e:expr; ($a:pat, $b:pat) => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
+    // Interpret one match arm: Regular => Dyn
+    (@($e:expr; $p:pat => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
         match_dyn!{
             // Next index, match argument, remaining match results
             @( $e; $($rest)*)
             $($arms)*
-            ($a, $b) => {
+            $p => {
                 Dyn(Dynamic::new($cmd))
             },
         }
     };
 
-    // Interpret one match arm: (Regular, Regular) => Regular
-    (@($e:expr; ($a:pat, $b:pat) => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
+    // Interpret one match arm: Regular => Block
+    (@($e:expr; $p:pat => $cmd:block $($rest:tt)*) $($arms:tt)*) => {
         match_dyn!{
             // Next index, match argument, remaining match results
             @( $e; $($rest)*)
             $($arms)*
-            ($a, $b) => {
+            $p => {
+                $cmd
+            },
+        }
+    };
+
+    // Interpret one match arm: Regular => Regular
+    (@($e:expr; $p:pat => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            $p => {
                 $cmd
             },
         }
@@ -258,7 +270,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 ..PartialStroke::default()
             })
         }
-        (Dyn(a:GenAlign), Dyn(b:GenAlign)) => {
+        (Dyn(a: GenAlign), Dyn(b: GenAlign)) => Dyn({
             if a.axis() == b.axis() {
                 return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
             }
@@ -266,8 +278,9 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
             match a.axis() {
                 Axis::X => Axes { x: a, y: b },
                 Axis::Y => Axes { x: b, y: a },
-        },
-        (Dyn(a:Duration), Dyn(b:Duration)) => Dyn(a+b),
+            }
+        }),
+        (Dyn(a: Duration), Dyn(b: Duration)) => Dyn(a+b),
         (a, b) => mismatch!("cannot add {} and {}", a, b),
     ))
 }
