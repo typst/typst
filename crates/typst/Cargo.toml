@@ -31,7 +31,7 @@ log = "0.4"
 miniz_oxide = "0.7"
 oklab = "1"
 once_cell = "1"
-pdf-writer = "0.7.1"
+pdf-writer = "0.8"
 pixglyph = "0.1"
 regex = "1"
 resvg = { version = "0.32", default-features = false, features = ["raster-images"] }
@@ -40,7 +40,7 @@ rustybuzz = "0.7"
 serde = { version = "1", features = ["derive"] }
 siphasher = "0.3"
 subsetter = "0.1.1"
-svg2pdf = { git = "https://github.com/typst/svg2pdf", rev = "14eb3eb5" }
+svg2pdf = "0.6"
 tiny-skia = "0.9.0"
 toml = { version = "0.7.3", default-features = false, features = ["parse"] }
 tracing = "0.1.37"
