@@ -10,6 +10,7 @@ use super::{format_str, Regex, Value};
 use crate::diag::{bail, StrResult};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use Value::*;
+use crate::eval::Dynamic;
 
 
 #[macro_export]
@@ -192,9 +193,127 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
     })
 }
 
+macro_rules! match_dyn {
+    // Wrap the user-provided arguments in `@(...)`
+    ($e:expr; $($rest:tt)*) => {
+        match_dyn!{@($e; $($rest)*,)}
+    };
+
+   // Interpret one match arm: (Dyn, Dyn) => Dyn
+   (@($e:expr; (Dyn($an:ident: $at:ty), Dyn($bn:ident: $bt:ty)) => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            ($Dyn($an), Dyn($bn)) if $an.is::<$at>() && $bn.is::<$bt>() => {
+                let $an = *$an.downcast::<$at>().unwrap();
+                let $bn = *$bn.downcast::<$bt>().unwrap();
+                Dyn(Dynamic::new($cmd))
+            },
+        }
+    };
+
+   // Interpret one match arm: (Dyn, Dyn) => Regular
+   (@($e:expr; (Dyn($an:ident: $at:ty), Dyn($bn:ident: $bt:ty)) => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            ($Dyn($an), Dyn($bn)) if $an.is::<$at>() && $bn.is::<$bt>() => {
+                let $an = *$an.downcast::<$at>().unwrap();
+                let $bn = *$bn.downcast::<$bt>().unwrap();
+                $cmd
+            },
+        }
+    };
+
+    // Interpret one match arm: (Dyn, Regular) => Dyn
+    (@($e:expr; (Dyn($an:ident: $at:ty), $b:pat) => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            (Dyn($an), $b) if $an.is::<$at>() => {
+                let $an = *$an.downcast::<$at>().unwrap();
+                Dyn(Dynamic::new($cmd))
+            },
+        }
+    };
+
+    // Interpret one match arm: (Dyn, Regular) => Regular
+    (@($e:expr; (Dyn($an:ident: $at:ty), $b:pat) => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            (Dyn($an), $b) if $an.is::<$at>() => {
+                let $an = *$an.downcast::<$at>().unwrap();
+                $cmd
+            },
+        }
+    };
+
+    // Interpret one match arm: (Regular, Dyn) => Dyn
+    (@($e:expr; ($a:pat, Dyn($bn:ident: $bt:ty)) => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            ($a, Dyn($bn)) if $bn.is::<$bt>() => {
+                let $bn = *$bn.downcast::<$bt>().unwrap();
+                Dyn(Dynamic::new($cmd))
+            },
+        }
+    };
+
+    // Interpret one match arm: (Regular, Dyn) => Regular
+    (@($e:expr; ($a:pat, Dyn($bn:ident: $bt:ty)) => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            ($a, Dyn($bn)) if $bn.is::<$bt>() => {
+                let $bn = *$bn.downcast::<$bt>().unwrap();
+                $cmd
+            },
+        }
+    };
+
+    // Interpret one match arm: (Regular, Regular) => Dyn
+    (@($e:expr; ($a:pat, $b:pat) => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            ($a, $b) => {
+                Dyn(Dynamic::new($cmd))
+            },
+        }
+    };
+
+    // Interpret one match arm: (Regular, Regular) => Regular
+    (@($e:expr; ($a:pat, $b:pat) => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            ($a, $b) => {
+                $cmd
+            },
+        }
+    };
+
+    // No more match arms, produce final output
+    (@($e:expr; $(,)?) $($arms:tt)* ) => {
+        match $e {
+            $($arms)*
+        }
+    };
+}
+
 /// Compute the product of two values.
 pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(match (lhs, rhs) {
+    Ok(match_dyn!((lhs, rhs);
         (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
@@ -241,26 +360,13 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
         (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 
-        (Int(a), Dyn(b)) if b.is::<Duration>() => a as f64 * b.downcast().unwrap(),
+        (Int(a), Dyn(b: Duration)) => Dyn(b*(a as f64)),
+        (Float(a), Dyn(b: Duration)) => Dyn(b*a),
+        (Dyn(b: Duration), Int(a)) => Dyn(b*(a as f64)),
+        (Dyn(b: Duration), Float(a)) => Dyn(b*a),
 
-        (Int(a), Dyn(b)) => downcast_match!(b {
-            Duration => b*(a as f64),
-            _ => mismatch!("cannot multiply int with {}",  b)
-        }),
-        (Float(a), Dyn(b)) => downcast_match!(b {
-            Duration => b*a,
-            _ => mismatch!("cannot multiply float with {}",  b)
-        }),
-        (Dyn(b), Int(a)) => downcast_match!(b {
-            Duration => b*(a as f64),
-            _ => mismatch!("cannot multiply int with {}",  b)
-        }),
-        (Dyn(b), Float(a)) => downcast_match!(b {
-            Duration => b*a,
-            _ => mismatch!("cannot multiply float with {}",  b)
-        }),
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
-    })
+    ))
 }
 
 /// Compute the quotient of two values.
