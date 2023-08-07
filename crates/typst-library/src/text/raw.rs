@@ -440,7 +440,7 @@ fn load_syntaxes(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSe
 
     // We might have multiple sublime-syntax/yaml files
     for (path, bytes) in paths.0.iter().zip(bytes.iter()) {
-        let src = std::str::from_utf8(bytes).map_err(|_| FileError::InvalidUtf8)?;
+        let src = std::str::from_utf8(bytes).map_err(FileError::from)?;
         out.add(
             SyntaxDefinition::load_from_str(src, false, None)
                 .map_err(|e| eco_format!("failed to parse syntax file `{path}`: {e}"))?,

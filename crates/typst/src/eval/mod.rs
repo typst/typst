@@ -585,10 +585,8 @@ impl Eval for ast::Strong {
             vm.vt
                 .tracer
                 .warn(warning!(self.span(), "no text within stars").with_hint(
-                EcoString::from(
                     "using multiple consecutive stars (e.g. **) has no additional effect",
-                ),
-            ));
+                ));
         }
 
         Ok((vm.items.strong)(body.eval(vm)?))
@@ -605,9 +603,7 @@ impl Eval for ast::Emph {
             vm.vt
                 .tracer
                 .warn(warning!(self.span(), "no text within underscores").with_hint(
-                EcoString::from(
-                    "using multiple consecutive underscores (e.g. __) has no additional effect",
-                ),
+                    "using multiple consecutive underscores (e.g. __) has no additional effect"
             ));
         }
 
