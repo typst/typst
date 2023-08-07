@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 
 use ecow::eco_format;
+use typst::eval::Duration;
 
 use super::{format_str, Regex, Value};
 use crate::diag::{bail, StrResult};
@@ -128,6 +129,10 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 }));
             };
 
+            if let (Some(a), Some(b)) = (a.downcast::<Duration>(), b.downcast::<Duration>()) {
+                return Ok(Value::dynamic(*a+*b));
+            }
+
             mismatch!("cannot add {} and {}", a, b);
         }
 
@@ -158,6 +163,15 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Relative(a), Relative(b)) => Relative(a - b),
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),
+
+
+        (Dyn(a), Dyn(b)) => {
+            if let (Some(a), Some(b)) = (a.downcast::<Duration>(), b.downcast::<Duration>()) {
+                return Ok(Value::dynamic(*a-*b));
+            }
+
+            mismatch!("cannot add {} and {}", a, b);
+        }
 
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
     })

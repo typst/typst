@@ -1,5 +1,6 @@
 use std::fmt;
 use std::fmt::{Debug, Formatter};
+use std::ops::{Add, AddAssign, Neg, Sub, SubAssign};
 use ecow::{eco_format, EcoVec};
 use time::ext::NumericalDuration;
 use typst_macros::cast;
@@ -71,6 +72,42 @@ impl Debug for Duration {
         }
 
         write!(f, "duration{}", &pretty_array_like(&vec, false))
+    }
+}
+
+impl Add for Duration {
+    type Output = Duration;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Duration(self.0+rhs.0)
+    }
+}
+
+impl AddAssign for Duration {
+    fn add_assign(&mut self, rhs: Self) {
+        self.0+=rhs.0;
+    }
+}
+
+impl Sub for Duration {
+    type Output = Duration;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Duration(self.0-rhs.0)
+    }
+}
+
+impl SubAssign for Duration {
+    fn sub_assign(&mut self, rhs: Self)  {
+        self.0-=rhs.0;
+    }
+}
+
+impl Neg for Duration {
+    type Output = Duration;
+
+    fn neg(self) -> Self::Output {
+        Duration(-self.0)
     }
 }
 
