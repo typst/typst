@@ -266,10 +266,9 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 ///
 /// The file must contain a valid TOML table. TOML tables will be
 /// converted into Typst dictionaries, and TOML arrays will be converted into
-/// Typst arrays. Strings and booleans will be converted into the Typst
+/// Typst arrays. Strings, booleans and datetimes will be converted into the Typst
 /// equivalents and numbers will be converted to floats or integers depending on
-/// whether they are whole numbers. For the time being, datetimes will be
-/// converted to strings as Typst does not have a built-in datetime yet.
+/// whether they are whole numbers.
 ///
 /// The TOML file in the example consists of a table with the keys `title`,
 /// `version`, and `authors`.
