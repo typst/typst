@@ -1,5 +1,6 @@
 use super::{cast, Args, Bytes, Value};
 use crate::diag::{SourceResult, StrResult};
+use ecow::EcoString;
 use std::sync::{Arc, Mutex, MutexGuard};
 use typst::diag::At;
 use wasmi::{
@@ -45,7 +46,7 @@ struct PersistentData {
 }
 
 impl Plugin {
-    /// creates a new plugin.
+    /// creates a new [Plugin] instance.
     pub fn new_from_bytes(bytes: impl AsRef<[u8]>) -> StrResult<Self> {
         let engine = Engine::default();
         let data = PersistentData { result_data: Vec::new(), arg_buffer: Vec::new() };
@@ -106,8 +107,6 @@ impl Plugin {
 
     /// Call a function defined in the plugin under `function_name`.
     ///
-    /// This will eat the number of argument it needs of type Bytes.
-    ///
     /// # Errors
     /// - if the plugin doesn't contain the function
     /// - if the number of argument isn't correct
@@ -115,9 +114,10 @@ impl Plugin {
         let span = args.span;
         let ty = self
             .get_function(function_name)
-            .ok_or("plugin doesn't have the method: {function}")
+            .ok_or(format!("Plugin doesn't have the method: {function_name}"))
             .at(span)?
             .ty(self.store().as_context());
+
         let arg_count = ty.params().len();
         let mut byte_args = vec![];
         for k in 0..arg_count {
@@ -134,15 +134,10 @@ impl Plugin {
         Ok(Value::Bytes(s.into()))
     }
 
-    fn call_inner(&self, function: &str, args: &[&[u8]]) -> Result<Vec<u8>, String> {
+    fn call_inner(&self, function_name: &str, args: &[&[u8]]) -> StrResult<Vec<u8>> {
         self.store().data_mut().arg_buffer = args.concat();
 
-        let (_, function) = self
-            .0
-            .functions
-            .iter()
-            .find(|(s, _)| s == function)
-            .ok_or(format!("Plugin doesn't have the method: {function}"))?;
+        let function = self.get_function(function_name).unwrap(); // checked in call
 
         let result_args =
             args.iter().map(|a| WasiValue::I32(a.len() as _)).collect::<Vec<_>>();
@@ -162,15 +157,17 @@ impl Plugin {
         match code {
             WasiValue::I32(0) => Ok(s),
             WasiValue::I32(1) => Err(match String::from_utf8(s) {
-                Ok(err) => format!("plugin errored with: '{}'", err,),
-                Err(_) => String::from("plugin errored and did not return valid UTF-8"),
+                Ok(err) => format!("plugin errored with: '{}'", err,).into(),
+                Err(_) => {
+                    EcoString::from("plugin errored and did not return valid UTF-8")
+                }
             }),
-            WasiValue::I32(2) => Err("plugin panicked".to_string()),
-            _ => Err("plugin did not respect the protocol".to_string()),
+            WasiValue::I32(2) => Err("plugin panicked".into()),
+            _ => Err("plugin did not respect the protocol".into()),
         }
     }
 
-    /// get the function register under `function_name` if it exists.
+    /// gets the function register under `function_name` if it exists.
     pub fn get_function(&self, function_name: &str) -> Option<Function> {
         let Some((_, function)) = self.0.functions.iter().find(|(s, _)| s == function_name) else {
             return None
