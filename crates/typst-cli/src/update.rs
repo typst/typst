@@ -42,8 +42,8 @@ struct Archive {
 }
 
 /// The extension for the downloaded archive.
-/// 
-/// Possible variations are `zip` and `xz`, other variations are mapped to 
+///
+/// Possible variations are `zip` and `xz`, other variations are mapped to
 /// `Unsupported` and will throw an error.
 #[derive(Debug)]
 enum Extension {
@@ -63,9 +63,9 @@ impl From<&str> for Extension {
 }
 
 /// Self update the typst CLI binary.
-/// 
+///
 /// Fetches a target release or the latest release (if no version was specified)
-/// from GitHub, unpacks it and self replaces the current binary with the 
+/// from GitHub, unpacks it and self replaces the current binary with the
 /// pre-compiled asset from the downloaded release.
 pub fn update(command: UpdateCommand) -> StrResult<()> {
     // first we check if a downgrade is happening
@@ -80,8 +80,12 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
         }
     }
 
-    let executable = env::current_exe().unwrap();
-    let backup = executable.parent().unwrap().join("typst_backup.part");
+    let executable = env::current_exe()
+        .map_err(|err| eco_format!("failed to grab current exe path: {}", err))?;
+    let backup = executable
+        .parent()
+        .unwrap_or(Path::new("./"))
+        .join("typst_backup.part");
 
     // revert to the backed up binary if there is one form a previous update
     if command.revert {
@@ -123,7 +127,10 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
     let buffer = unpack_archive(archive)?;
 
     // take the unpacked binary data and copy it into typst_update.part
-    let temp_exe = executable.parent().unwrap().join("typst_update.part");
+    let temp_exe = executable
+        .parent()
+        .unwrap_or(Path::new("./"))
+        .join("typst_update.part");
     let mut binary_part = fs::File::create(&temp_exe)
         .map_err(|err| eco_format!("failed to create typst_update.part: {}", err))?;
     std::io::copy(&mut buffer.as_slice(), &mut binary_part).map_err(|err| {
@@ -183,7 +190,7 @@ fn download_release(url: &str) -> StrResult<Release> {
 
 /// Sorts through the assets from a given `Release` and picks the right one
 /// for this target platform.
-/// 
+///
 /// Returns a compressed archive that contains the Typst pre-compiled binary.
 fn download_asset_archive(release: &Release) -> StrResult<Archive> {
     let asset_needed = asset_needed()?;
@@ -220,9 +227,9 @@ fn download_asset_archive(release: &Release) -> StrResult<Archive> {
     })
 }
 
-/// Unpacks the asset archive in-memory and writes the uncompressed contents 
+/// Unpacks the asset archive in-memory and writes the uncompressed contents
 /// into a buffer.
-/// 
+///
 /// In-memory refers to that the physical archive is never written to disk, only
 /// the Typst CLI binary will be plucked from the archive and written to disk at
 /// a later stage, the rest of the archive is discarded.
@@ -246,6 +253,9 @@ fn unpack_archive(archive: Archive) -> StrResult<Vec<u8>> {
             let decompressed = xz2::read::XzDecoder::new(archive.buffer);
             let mut archive = tar::Archive::new(decompressed);
 
+            // FIXME: this is a bit of a mess
+            // still trying to figure out how to get the binary out of the archive
+            // a bit more gracefully :)
             let mut binary = archive
                 .entries()
                 .map_err(|err| eco_format!("xz archive is empty: {}", err))?
@@ -264,7 +274,7 @@ fn unpack_archive(archive: Archive) -> StrResult<Vec<u8>> {
     }
 }
 
-/// Determines what asset to download according to the target platform the CLI 
+/// Determines what asset to download according to the target platform the CLI
 /// is running on.
 fn asset_needed() -> StrResult<&'static str> {
     Ok(match env!("TARGET") {
