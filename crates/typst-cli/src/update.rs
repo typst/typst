@@ -1,6 +1,9 @@
 use std::{
-    env, fs,
+    env,
+    ffi::OsStr,
+    fs,
     io::{BufReader, Cursor, Read},
+    path::Path,
 };
 
 use semver::Version;
@@ -14,6 +17,7 @@ use crate::args::UpdateCommand;
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
 
+/// A GitHub release.
 #[derive(Debug, Deserialize)]
 struct Release {
     name: String,
@@ -21,18 +25,48 @@ struct Release {
     assets: Vec<Asset>,
 }
 
+/// Assets that were uploaded to a GitHub release.
+///
+/// Primarly used to download pre-compiled typst CLI binaries.
 #[derive(Debug, Deserialize)]
 struct Asset {
     pub name: String,
     pub browser_download_url: String,
 }
 
+/// GitHub asset archive with the typst CLI executable as unpacked data.
 #[derive(Debug)]
 struct Archive {
-    pub name: String,
+    pub extension: Extension,
     pub buffer: BufReader<Cursor<Vec<u8>>>,
 }
 
+/// The extension for the downloaded archive.
+/// 
+/// Possible variations are `zip` and `xz`, other variations are mapped to 
+/// `Unsupported` and will throw an error.
+#[derive(Debug)]
+enum Extension {
+    Zip,
+    Xz,
+    Unsupported,
+}
+
+impl From<&str> for Extension {
+    fn from(value: &str) -> Self {
+        match value {
+            "zip" => Extension::Zip,
+            "xz" => Extension::Xz,
+            _ => Extension::Unsupported,
+        }
+    }
+}
+
+/// Self update the typst CLI binary.
+/// 
+/// Fetches a target release or the latest release (if no version was specified)
+/// from GitHub, unpacks it and self replaces the current binary with the 
+/// pre-compiled asset from the downloaded release.
 pub fn update(command: UpdateCommand) -> StrResult<()> {
     // first we check if a downgrade is happening
     if let Some(ref version) = command.version {
@@ -106,12 +140,13 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
     fs::remove_file(&temp_exe)
         .map_err(|err| eco_format!("failed to delete typst_update.part: {}", err))?;
 
-    // done, typst updated itself.
+    // done, typst updated itself
     println!("typst updated successfully: {}", release.name);
 
     Ok(())
 }
 
+/// Specifies the url for the target release.
 fn target_release(version: Version) -> StrResult<Release> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/releases/tags/v{}",
@@ -121,6 +156,7 @@ fn target_release(version: Version) -> StrResult<Release> {
     download_release(&url)
 }
 
+/// Specifies the url for the latest release.
 fn latest_release() -> StrResult<Release> {
     let url = format!(
         "https://api.github.com/repos/{}/{}/releases/latest",
@@ -130,18 +166,25 @@ fn latest_release() -> StrResult<Release> {
     download_release(&url)
 }
 
+/// Downloads and parses a GitHub release from the Typst repository.
 fn download_release(url: &str) -> StrResult<Release> {
     match ureq::get(url).call() {
         Ok(response) => {
             Ok(response.into_json().map_err(|_| "unable to get json from response")?)
         }
         Err(ureq::Error::Status(404, _)) => {
+            // TODO: maybe make enum error type in typst::diag for this?
             bail!("release not found")
         }
+        // TODO: same as above
         Err(_) => bail!("network failed"),
     }
 }
 
+/// Sorts through the assets from a given `Release` and picks the right one
+/// for this target platform.
+/// 
+/// Returns a compressed archive that contains the Typst pre-compiled binary.
 fn download_asset_archive(release: &Release) -> StrResult<Archive> {
     let asset_needed = asset_needed()?;
 
@@ -154,24 +197,38 @@ fn download_asset_archive(release: &Release) -> StrResult<Archive> {
     let response = match ureq::get(&asset.browser_download_url).call() {
         Ok(response) => response,
         Err(ureq::Error::Status(404, _)) => {
-            panic!("asset not found");
+            // TODO: maybe make enum error type in typst::diag for this?
+            bail!("asset not found");
         }
-        Err(_) => panic!("network failed"),
+        // TODO: same as above
+        Err(_) => bail!("network failed"),
     };
 
     let len = response.header("Content-Length").unwrap().parse().unwrap();
     let mut buffer = Vec::with_capacity(len);
     response.into_reader().read_to_end(&mut buffer).unwrap();
 
+    let extension = Path::new(&asset.name)
+        .extension()
+        .and_then(OsStr::to_str)
+        .ok_or("failed to get extension from archive")?
+        .into();
+
     Ok(Archive {
-        name: asset.name.clone(),
+        extension,
         buffer: BufReader::new(Cursor::new(buffer)),
     })
 }
 
+/// Unpacks the asset archive in-memory and writes the uncompressed contents 
+/// into a buffer.
+/// 
+/// In-memory refers to that the physical archive is never written to disk, only
+/// the Typst CLI binary will be plucked from the archive and written to disk at
+/// a later stage, the rest of the archive is discarded.
 fn unpack_archive(archive: Archive) -> StrResult<Vec<u8>> {
-    match &archive.name {
-        name if name.ends_with("zip") => {
+    match archive.extension {
+        Extension::Zip => {
             let mut zip = zip::ZipArchive::new(archive.buffer)
                 .map_err(|err| eco_format!("Error opening zip archive: {}", err))?;
             let mut binary = zip
@@ -185,7 +242,7 @@ fn unpack_archive(archive: Archive) -> StrResult<Vec<u8>> {
 
             Ok(buffer)
         }
-        name if name.ends_with("xz") => {
+        Extension::Xz => {
             let decompressed = xz2::read::XzDecoder::new(archive.buffer);
             let mut archive = tar::Archive::new(decompressed);
 
@@ -207,6 +264,8 @@ fn unpack_archive(archive: Archive) -> StrResult<Vec<u8>> {
     }
 }
 
+/// Determines what asset to download according to the target platform the CLI 
+/// is running on.
 fn asset_needed() -> StrResult<&'static str> {
     Ok(match env!("TARGET") {
         "x86_64-unknown-linux-gnu" => "typst-x86_64-unknown-linux-musl",
@@ -221,6 +280,7 @@ fn asset_needed() -> StrResult<&'static str> {
     })
 }
 
+/// Early return check to see if the CLI even needs updating.
 fn update_needed(release: &Release) -> bool {
     let current_tag: Version = env!("CARGO_PKG_VERSION").parse().unwrap();
     let new_tag: Version = release

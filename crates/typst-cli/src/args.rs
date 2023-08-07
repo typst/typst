@@ -37,6 +37,7 @@ pub enum Command {
     /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
 
+    /// Download a release and self update the typst CLI
     Update(UpdateCommand),
 }
 
@@ -165,11 +166,17 @@ impl Display for DiagnosticFormat {
 
 #[derive(Debug, Clone, Parser)]
 pub struct UpdateCommand {
+    /// Target release to update to, latest will be downloaded if `None`
     pub version: Option<Version>,
 
+    /// Forces a downgrade to an older version, it is not possible to downgrade
+    /// without the `--force` flag
     #[clap(long, default_value_t = false)]
     pub force: bool,
 
+    /// Reverts to the locally kept previous version. A revert is only possible
+    /// if `typst update` has previously ran once, this will _only_ revert a 
+    /// recently applied update.
     #[clap(long, default_value_t = false, exclusive = true)]
     pub revert: bool,
 }
