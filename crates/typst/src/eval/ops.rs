@@ -18,6 +18,32 @@ macro_rules! match_dyn {
         match_dyn!{@($e; $($rest)*,)}
     };
 
+   // Interpret one match arm: (Dyn) => Dyn
+   (@($e:expr; Dyn($pn:ident: $pt:ty) => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            Dyn($pn) if $pn.is::<$pt>() => {
+                let $pn = *$pn.downcast::<$pt>().unwrap();
+                Dyn(Dynamic::new($cmd))
+            },
+        }
+    };
+
+   // Interpret one match arm: (Dyn) => Regular
+   (@($e:expr; Dyn($pn:ident: $pt:ty) => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @( $e; $($rest)*)
+            $($arms)*
+            Dyn($pn) if $pn.is::<$pt>() => {
+                let $pn = *$pn.downcast::<$pt>().unwrap();
+                $cmd
+            },
+        }
+    };
+
    // Interpret one match arm: (Dyn, Dyn) => Dyn
    (@($e:expr; (Dyn($an:ident: $at:ty), Dyn($bn:ident: $bt:ty)) => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
         match_dyn!{
@@ -123,12 +149,12 @@ macro_rules! match_dyn {
     };
 
     // Interpret one match arm: Regular => Regular
-    (@($e:expr; $p:pat => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
+    (@($e:expr; $p:pat $(if $cond:expr)? => $cmd:expr, $($rest:tt)*) $($arms:tt)*) => {
         match_dyn!{
             // Next index, match argument, remaining match results
             @( $e; $($rest)*)
             $($arms)*
-            $p => {
+            $p $(if $cond)?=> {
                 $cmd
             },
         }
@@ -140,28 +166,6 @@ macro_rules! match_dyn {
             $($arms)*
         }
     };
-}
-
-#[macro_export]
-macro_rules! downcast_match {
-    ( ($a:ident, $b:ident) {$(($ta:ident, $tb:ident) => $cmd:expr),+, (_,_) => $err:expr} ) => {
-       $(
-        if let (Some(&$a), Some(&$b)) = ($a.downcast::<$ta>(), $b.downcast::<$tb>()) {
-            Value::dynamic($cmd)
-        }
-       ) else * else {
-           $err
-       }
-    };
-    ( $a:ident {$($ta:ident => $cmd:expr),+, _ => $err:expr} ) => {
-       $(
-        if let Some(&$a) = $a.downcast::<$ta>() {
-            Value::dynamic($cmd)
-        }
-       ) else * else {
-           $err
-       }
-    }
 }
 
 /// Bail with a type mismatch error.
@@ -207,7 +211,7 @@ pub fn pos(value: Value) -> StrResult<Value> {
 
 /// Compute the negation of a value.
 pub fn neg(value: Value) -> StrResult<Value> {
-    Ok(match value {
+    Ok(match_dyn!(value;
         Int(v) => Int(v.checked_neg().ok_or("value is too large")?),
         Float(v) => Float(-v),
         Length(v) => Length(-v),
@@ -215,12 +219,9 @@ pub fn neg(value: Value) -> StrResult<Value> {
         Ratio(v) => Ratio(-v),
         Relative(v) => Relative(-v),
         Fraction(v) => Fraction(-v),
-        Dyn(v) => downcast_match!(v {
-            Duration => -v,
-            _ =>mismatch!("cannot apply '-' to {}", v)
-        }),
+        Dyn(v: Duration) => Dyn(-v),
         v => mismatch!("cannot apply '-' to {}", v),
-    })
+    ))
 }
 
 /// Compute the sum of two values.
@@ -287,7 +288,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
 /// Compute the difference of two values.
 pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(match (lhs, rhs) {
+    Ok(match_dyn!((lhs, rhs);
         (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 - b),
         (Float(a), Int(b)) => Float(a - b as f64),
@@ -309,13 +310,10 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),
 
-        (Dyn(a), Dyn(b)) => downcast_match!((a,b) {
-            (Duration, Duration) => a-b,
-            (_,_) => mismatch!("cannot subtract {1} from {0}", a, b)
-        }),
+        (Dyn(a:Duration), Dyn(b:Duration)) => Dyn(a-b),
 
-       (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
-    })
+        (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
+    ))
 }
 
 /// Compute the product of two values.
@@ -369,8 +367,8 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Int(a), Dyn(b: Duration)) => Dyn(b*(a as f64)),
         (Float(a), Dyn(b: Duration)) => Dyn(b*a),
-        (Dyn(b: Duration), Int(a)) => Dyn(b*(a as f64)),
-        (Dyn(b: Duration), Float(a)) => Dyn(b*a),
+        (Dyn(a: Duration), Int(b)) => Dyn(a*(b as f64)),
+        (Dyn(a: Duration), Float(b)) => Dyn(a*b),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     ))
@@ -382,7 +380,7 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         bail!("cannot divide by zero");
     }
 
-    Ok(match (lhs, rhs) {
+    Ok(match_dyn!((lhs, rhs);
         (Int(a), Int(b)) => Float(a as f64 / b as f64),
         (Int(a), Float(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),
@@ -412,8 +410,12 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fraction(a), Float(b)) => Fraction(a / b),
         (Fraction(a), Fraction(b)) => Float(a / b),
 
+        (Dyn(a: Duration), Int(b)) => Dyn(a/(b as f64)),
+        (Dyn(a: Duration), Float(b)) => Dyn(a/b),
+        (Dyn(a: Duration), Dyn(b: Duration)) => Float(a/b),
+
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
-    })
+    ))
 }
 
 /// Whether a value is a numeric zero.
