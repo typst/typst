@@ -345,7 +345,7 @@ pub fn datetime_today(
 /// #square(
 ///   fill: cmyk(27%, 0%, 3%, 5%)
 /// )
-/// ````
+/// ```
 ///
 /// Display: CMYK
 /// Category: construct
@@ -384,13 +384,14 @@ pub fn color_module() -> Module {
 
 /// Create a color by mixing two or more colors.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
-/// #color.mix(red, green)
-/// #color.mix(red, green, white)
-/// #color.mix(red, green, space: "srgb")
-/// #color.mix((red, 30%), (green, 70%))
-/// ````
+/// #set block(height: 20pt, width: 100%)
+/// #block(fill: color.mix(red, blue))
+/// #block(fill: color.mix(red, blue, space: "srgb"))
+/// #block(fill: color.mix((red, 70%), (blue, 30%)))
+/// #block(fill: color.mix(red, blue, white))
+/// ```
 ///
 /// _Note:_ This function must be specified as `color.mix`, not just `mix`.
 /// Currently, `color` is a module, but it is designed to be forward compatible
@@ -402,6 +403,9 @@ pub fn color_module() -> Module {
 pub fn mix(
     /// The colors, optionally with weights, specified as a pair (array of
     /// length two) of color and weight (float or ratio).
+    ///
+    /// The weights do not need to add to `{100%}`, they are relative to the
+    /// sum of all weights.
     #[variadic]
     colors: Vec<WeightedColor>,
     /// The color space to mix in. By default, this happens in a perceptual

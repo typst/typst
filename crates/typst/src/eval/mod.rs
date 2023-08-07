@@ -43,7 +43,7 @@ pub use self::array::{array, Array};
 pub use self::auto::AutoValue;
 pub use self::bytes::Bytes;
 pub use self::cast::{
-    cast, Cast, CastInfo, FromValue, IntoResult, IntoValue, Never, Reflect, Variadics,
+    cast, Cast, CastInfo, Container, FromValue, IntoResult, IntoValue, Never, Reflect,
 };
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};

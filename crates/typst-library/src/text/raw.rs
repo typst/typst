@@ -135,7 +135,8 @@ pub struct RawElem {
     pub align: HorizontalAlign,
 
     /// One or multiple additional syntax definitions to load. The syntax
-    /// definitions should be in the `sublime-syntax` file format.
+    /// definitions should be in the
+    /// [`sublime-syntax` file format](https://www.sublimetext.com/docs/syntax.html).
     ///
     /// ````example
     /// #set raw(syntaxes: "SExpressions.sublime-syntax")
@@ -161,11 +162,25 @@ pub struct RawElem {
     #[fold]
     pub syntaxes_data: Vec<Bytes>,
 
-    /// The theme to use for syntax highlighting. Theme files should be in the in the
-    /// `tmTheme` file format.
+    /// The theme to use for syntax highlighting. Theme files should be in the
+    /// in the [`tmTheme` file format](https://www.sublimetext.com/docs/color_schemes_tmtheme.html).
+    ///
+    /// Applying a theme only affects the color of specifically highlighted
+    /// text. It does not consider the theme's foreground and background
+    /// properties, so that you retain control over the color of raw text. You
+    /// can apply the foreground color yourself with the [`text`]($func/text)
+    /// function and the background with a [filled block]($func/block.fill). You
+    /// could also use the [`xml`]($func/xml) function to extract these
+    /// properties from the theme.
     ///
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")
+    /// #show raw: it => block(
+    ///   fill: rgb("#1d2433"),
+    ///   inset: 8pt,
+    ///   radius: 5pt,
+    ///   text(fill: rgb("#a2aabc"), it)
+    /// )
     ///
     /// ```typ
     /// = Chapter 1
