@@ -1,6 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
+use semver::Version;
+
 use clap::{ArgAction, Parser, Subcommand, ValueEnum};
 
 /// The Typst compiler.
@@ -31,6 +33,8 @@ pub enum Command {
 
     /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
+
+    Update(UpdateCommand),
 }
 
 /// Compiles the input file into a PDF file
@@ -116,4 +120,15 @@ impl Display for DiagnosticFormat {
             .get_name()
             .fmt(f)
     }
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct UpdateCommand {
+    pub version: Option<Version>,
+
+    #[clap(long, default_value_t = false)]
+    pub force: bool,
+
+    #[clap(long, default_value_t = false, exclusive = true)]
+    pub revert: bool,
 }

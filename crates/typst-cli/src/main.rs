@@ -3,6 +3,7 @@ mod compile;
 mod fonts;
 mod package;
 mod tracing;
+mod update;
 mod watch;
 mod world;
 
@@ -37,6 +38,7 @@ fn main() -> ExitCode {
         Command::Compile(command) => crate::compile::compile(command),
         Command::Watch(command) => crate::watch::watch(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
+        Command::Update(command) => crate::update::update(command),
     };
 
     if let Err(msg) = res {
