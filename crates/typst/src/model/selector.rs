@@ -50,13 +50,13 @@ impl Selector {
     }
 
     /// Transforms this selector and an iterator of other selectors into a
-    /// [`Selector::Or`] selector.
+    /// [`Selector::And`] selector.
     pub fn and(self, others: impl IntoIterator<Item = Self>) -> Self {
         Self::And(others.into_iter().chain(Some(self)).collect())
     }
 
     /// Transforms this selector and an iterator of other selectors into a
-    /// [`Selector::And`] selector.
+    /// [`Selector::Or`] selector.
     pub fn or(self, others: impl IntoIterator<Item = Self>) -> Self {
         Self::Or(others.into_iter().chain(Some(self)).collect())
     }

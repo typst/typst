@@ -252,12 +252,9 @@ impl Introspector {
             Selector::Elem(..)
             | Selector::Label(_)
             | Selector::Regex(_)
-            | Selector::Can(_)
-            | Selector::Or(_)
-            | Selector::And(_) => {
+            | Selector::Can(_) => {
                 self.all().filter(|elem| selector.matches(elem)).cloned().collect()
             }
-
             Selector::Location(location) => {
                 self.get(location).cloned().into_iter().collect()
             }
@@ -293,6 +290,68 @@ impl Introspector {
                     list = list[split..].into();
                 }
                 list
+            }
+            Selector::And(selectors) => {
+                let all_matches: Vec<_> =
+                    selectors.iter().map(|sel| self.query(sel)).collect();
+
+                let mut result = EcoVec::new();
+
+                if let Some(first) = all_matches.first() {
+                    let other_lists = &all_matches[1..];
+
+                    let is_element =
+                        |candidate, other_list: &EcoVec<Prehashed<Content>>| {
+                            matches!(
+                                other_list.binary_search_by_key(
+                                    &self.index(candidate),
+                                    |elem| { self.index(elem) }
+                                ),
+                                Ok(_)
+                            )
+                        };
+
+                    for candidate in first.iter() {
+                        if other_lists
+                            .iter()
+                            .all(|other_list| is_element(candidate, other_list))
+                        {
+                            result.push(candidate.clone());
+                        }
+                    }
+                }
+                result
+            }
+            Selector::Or(selectors) => {
+                let all_matches: Vec<_> = selectors
+                    .iter()
+                    .map(|sel| self.query(sel))
+                    .filter(|m| !m.is_empty())
+                    .collect();
+
+                let mut result = EcoVec::new();
+
+                // Priority queue (min-heap due to ordering for `Match`)
+                let mut heap = std::collections::BinaryHeap::with_capacity(result.len());
+                for matches in &all_matches {
+                    heap.push(UnionMatch::new(matches, self));
+                }
+
+                // Take first list from the queue
+                while let Some(mut m) = heap.pop() {
+                    let next = m.source[m.index].clone();
+                    // Don't insert duplicates.
+                    if result.last().and_then(|elem: &Prehashed<Content>| elem.location())
+                        != next.location()
+                    {
+                        result.push(next);
+                        // If not yet done, put this list back in the queue
+                        if m.update(self) {
+                            heap.push(m)
+                        }
+                    }
+                }
+                result
             }
         };
 
@@ -348,5 +407,56 @@ impl Introspector {
 impl Default for Introspector {
     fn default() -> Self {
         Self::new(&[])
+    }
+}
+
+/// Helper structure for forming unions of queries.
+#[derive(Eq)]
+struct UnionMatch<'a> {
+    /// Query results
+    source: &'a EcoVec<Prehashed<Content>>,
+    /// Cursor into the results
+    index: usize,
+    /// Document-level index at the cursor
+    doc_index: usize,
+}
+
+impl<'a> UnionMatch<'a> {
+    fn new(source: &'a EcoVec<Prehashed<Content>>, introspector: &Introspector) -> Self {
+        let doc_index = source.first().map(|elem| introspector.index(elem)).unwrap_or(0);
+        UnionMatch { source, index: 0, doc_index }
+    }
+
+    /// Advances the cursor and returns true if the cursor is not
+    /// yet at the end.
+    fn update(&mut self, introspector: &Introspector) -> bool {
+        self.index += 1;
+        if let Some(elem) = self.source.get(self.index) {
+            self.doc_index = introspector.index(elem);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl<'a> PartialEq for UnionMatch<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.doc_index == other.doc_index
+    }
+}
+
+/// Reverse ordering by document index (so earlier comes first)
+impl<'a> Ord for UnionMatch<'a> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        other.doc_index.cmp(&self.doc_index)
+    }
+}
+
+/// Reverse ordering by document index (so earlier comes first)
+impl<'a> PartialOrd for UnionMatch<'a> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        // Reverse ordering so that min elements come first.
+        Some(other.doc_index.cmp(&self.doc_index))
     }
 }
