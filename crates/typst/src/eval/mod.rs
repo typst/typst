@@ -600,7 +600,18 @@ impl Eval for ast::Emph {
 
     #[tracing::instrument(name = "Emph::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.emph)(self.body().eval(vm)?))
+        let body = self.body();
+        if body.exprs().next().is_none() {
+            vm.vt
+                .tracer
+                .warn(warning!(self.span(), "no text within underscores").with_hint(
+                EcoString::from(
+                    "using multiple consecutive underscores (e.g. __) has no additional effect",
+                ),
+            ));
+        }
+
+        Ok((vm.items.emph)(body.eval(vm)?))
     }
 }
 
