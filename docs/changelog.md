@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.7.0 (August 7, 2023) { #v0.7.0 }
 - Text and Layout
   - Added support for floating figures through the
     [`placement`]($func/figure.placement) argument on the figure function
@@ -146,6 +146,8 @@ description: |
   - The `World::today` implementation of Typst dependants may need fixing if
     they have the same [bug](https://github.com/typst/typst/issues/1842) that
     the CLI world had
+
+<contributors from="v0.6.0" to="v0.7.0" />
 
 ## Version 0.6.0 (June 30, 2023) { #v0.6.0 }
 - Package Management

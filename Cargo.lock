@@ -2550,7 +2550,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 
 [[package]]
 name = "typst"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "bitflags 2.3.1",
  "bytemuck",
@@ -2594,7 +2594,7 @@ dependencies = [
 
 [[package]]
 name = "typst-cli"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2628,7 +2628,7 @@ dependencies = [
 
 [[package]]
 name = "typst-docs"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "comemo",
  "heck",
@@ -2648,7 +2648,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "az",
  "chinese-number",
@@ -2686,7 +2686,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2696,7 +2696,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2711,7 +2711,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.6.0"
+version = "0.7.0"
 dependencies = [
  "clap",
  "comemo",
