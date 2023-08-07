@@ -12,187 +12,6 @@ use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Sma
 use Value::*;
 use crate::eval::Dynamic;
 
-
-#[macro_export]
-macro_rules! downcast_match {
-    ( ($a:ident, $b:ident) {$(($ta:ident, $tb:ident) => $cmd:expr),+, (_,_) => $err:expr} ) => {
-       $(
-        if let (Some(&$a), Some(&$b)) = ($a.downcast::<$ta>(), $b.downcast::<$tb>()) {
-            Value::dynamic($cmd)
-        }
-       ) else * else {
-           $err
-       }
-    };
-    ( $a:ident {$($ta:ident => $cmd:expr),+, _ => $err:expr} ) => {
-       $(
-        if let Some(&$a) = $a.downcast::<$ta>() {
-            Value::dynamic($cmd)
-        }
-       ) else * else {
-           $err
-       }
-    }
-}
-
-/// Bail with a type mismatch error.
-macro_rules! mismatch {
-    ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(eco_format!($fmt, $($value.type_name()),*))
-    };
-}
-
-/// Join a value with another value.
-pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(match (lhs, rhs) {
-        (a, None) => a,
-        (None, b) => b,
-        (Symbol(a), Symbol(b)) => Str(format_str!("{a}{b}")),
-        (Str(a), Str(b)) => Str(a + b),
-        (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
-        (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
-        (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
-        (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
-        (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
-        (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
-        (Array(a), Array(b)) => Array(a + b),
-        (Dict(a), Dict(b)) => Dict(a + b),
-        (a, b) => mismatch!("cannot join {} with {}", a, b),
-    })
-}
-
-/// Apply the unary plus operator to a value.
-pub fn pos(value: Value) -> StrResult<Value> {
-    Ok(match value {
-        Int(v) => Int(v),
-        Float(v) => Float(v),
-        Length(v) => Length(v),
-        Angle(v) => Angle(v),
-        Ratio(v) => Ratio(v),
-        Relative(v) => Relative(v),
-        Fraction(v) => Fraction(v),
-        v => mismatch!("cannot apply '+' to {}", v),
-    })
-}
-
-/// Compute the negation of a value.
-pub fn neg(value: Value) -> StrResult<Value> {
-    Ok(match value {
-        Int(v) => Int(v.checked_neg().ok_or("value is too large")?),
-        Float(v) => Float(-v),
-        Length(v) => Length(-v),
-        Angle(v) => Angle(-v),
-        Ratio(v) => Ratio(-v),
-        Relative(v) => Relative(-v),
-        Fraction(v) => Fraction(-v),
-        Dyn(v) => downcast_match!(v {
-            Duration => -v,
-            _ =>mismatch!("cannot apply '-' to {}", v)
-        }),
-        v => mismatch!("cannot apply '-' to {}", v),
-    })
-}
-
-/// Compute the sum of two values.
-pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(match (lhs, rhs) {
-        (a, None) => a,
-        (None, b) => b,
-
-        (Int(a), Int(b)) => Int(a.checked_add(b).ok_or("value is too large")?),
-        (Int(a), Float(b)) => Float(a as f64 + b),
-        (Float(a), Int(b)) => Float(a + b as f64),
-        (Float(a), Float(b)) => Float(a + b),
-
-        (Angle(a), Angle(b)) => Angle(a + b),
-
-        (Length(a), Length(b)) => Length(a + b),
-        (Length(a), Ratio(b)) => Relative(b + a),
-        (Length(a), Relative(b)) => Relative(b + a),
-
-        (Ratio(a), Length(b)) => Relative(a + b),
-        (Ratio(a), Ratio(b)) => Ratio(a + b),
-        (Ratio(a), Relative(b)) => Relative(b + a),
-
-        (Relative(a), Length(b)) => Relative(a + b),
-        (Relative(a), Ratio(b)) => Relative(a + b),
-        (Relative(a), Relative(b)) => Relative(a + b),
-
-        (Fraction(a), Fraction(b)) => Fraction(a + b),
-
-        (Symbol(a), Symbol(b)) => Str(format_str!("{a}{b}")),
-        (Str(a), Str(b)) => Str(a + b),
-        (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
-        (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
-        (Content(a), Content(b)) => Content(a + b),
-        (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
-        (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
-        (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
-        (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
-
-        (Array(a), Array(b)) => Array(a + b),
-        (Dict(a), Dict(b)) => Dict(a + b),
-
-        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
-            Value::dynamic(PartialStroke {
-                paint: Smart::Custom(color.into()),
-                thickness: Smart::Custom(thickness),
-                ..PartialStroke::default()
-            })
-        }
-
-        (Dyn(a), Dyn(b)) => downcast_match!((a,b) {
-            (GenAlign, GenAlign) => {
-                if a.axis() == b.axis() {
-                    return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
-                }
-
-                match a.axis() {
-                    Axis::X => Axes { x: a, y: b },
-                    Axis::Y => Axes { x: b, y: a },
-                }
-            },
-            (Duration, Duration) => a+b,
-            (_,_) => mismatch!("cannot add {} and {}", a, b)
-        }),
-        (a, b) => mismatch!("cannot add {} and {}", a, b),
-    })
-}
-
-/// Compute the difference of two values.
-pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or("value is too large")?),
-        (Int(a), Float(b)) => Float(a as f64 - b),
-        (Float(a), Int(b)) => Float(a - b as f64),
-        (Float(a), Float(b)) => Float(a - b),
-
-        (Angle(a), Angle(b)) => Angle(a - b),
-
-        (Length(a), Length(b)) => Length(a - b),
-        (Length(a), Ratio(b)) => Relative(-b + a),
-        (Length(a), Relative(b)) => Relative(-b + a),
-
-        (Ratio(a), Length(b)) => Relative(a + -b),
-        (Ratio(a), Ratio(b)) => Ratio(a - b),
-        (Ratio(a), Relative(b)) => Relative(-b + a),
-
-        (Relative(a), Length(b)) => Relative(a + -b),
-        (Relative(a), Ratio(b)) => Relative(a + -b),
-        (Relative(a), Relative(b)) => Relative(a - b),
-
-        (Fraction(a), Fraction(b)) => Fraction(a - b),
-
-        (Dyn(a), Dyn(b)) => downcast_match!((a,b) {
-            (Duration, Duration) => a-b,
-            (_,_) => mismatch!("cannot subtract {1} from {0}", a, b)
-        }),
-
-       (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
-    })
-}
-
 macro_rules! match_dyn {
     // Wrap the user-provided arguments in `@(...)`
     ($e:expr; $($rest:tt)*) => {
@@ -309,6 +128,181 @@ macro_rules! match_dyn {
             $($arms)*
         }
     };
+}
+
+#[macro_export]
+macro_rules! downcast_match {
+    ( ($a:ident, $b:ident) {$(($ta:ident, $tb:ident) => $cmd:expr),+, (_,_) => $err:expr} ) => {
+       $(
+        if let (Some(&$a), Some(&$b)) = ($a.downcast::<$ta>(), $b.downcast::<$tb>()) {
+            Value::dynamic($cmd)
+        }
+       ) else * else {
+           $err
+       }
+    };
+    ( $a:ident {$($ta:ident => $cmd:expr),+, _ => $err:expr} ) => {
+       $(
+        if let Some(&$a) = $a.downcast::<$ta>() {
+            Value::dynamic($cmd)
+        }
+       ) else * else {
+           $err
+       }
+    }
+}
+
+/// Bail with a type mismatch error.
+macro_rules! mismatch {
+    ($fmt:expr, $($value:expr),* $(,)?) => {
+        return Err(eco_format!($fmt, $($value.type_name()),*))
+    };
+}
+
+/// Join a value with another value.
+pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(match (lhs, rhs) {
+        (a, None) => a,
+        (None, b) => b,
+        (Symbol(a), Symbol(b)) => Str(format_str!("{a}{b}")),
+        (Str(a), Str(b)) => Str(a + b),
+        (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
+        (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
+        (Content(a), Content(b)) => Content(a + b),
+        (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
+        (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
+        (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
+        (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
+        (Array(a), Array(b)) => Array(a + b),
+        (Dict(a), Dict(b)) => Dict(a + b),
+        (a, b) => mismatch!("cannot join {} with {}", a, b),
+    })
+}
+
+/// Apply the unary plus operator to a value.
+pub fn pos(value: Value) -> StrResult<Value> {
+    Ok(match value {
+        Int(v) => Int(v),
+        Float(v) => Float(v),
+        Length(v) => Length(v),
+        Angle(v) => Angle(v),
+        Ratio(v) => Ratio(v),
+        Relative(v) => Relative(v),
+        Fraction(v) => Fraction(v),
+        v => mismatch!("cannot apply '+' to {}", v),
+    })
+}
+
+/// Compute the negation of a value.
+pub fn neg(value: Value) -> StrResult<Value> {
+    Ok(match value {
+        Int(v) => Int(v.checked_neg().ok_or("value is too large")?),
+        Float(v) => Float(-v),
+        Length(v) => Length(-v),
+        Angle(v) => Angle(-v),
+        Ratio(v) => Ratio(-v),
+        Relative(v) => Relative(-v),
+        Fraction(v) => Fraction(-v),
+        Dyn(v) => downcast_match!(v {
+            Duration => -v,
+            _ =>mismatch!("cannot apply '-' to {}", v)
+        }),
+        v => mismatch!("cannot apply '-' to {}", v),
+    })
+}
+
+/// Compute the sum of two values.
+pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(match_dyn!((lhs, rhs);
+        (a, None) => a,
+        (None, b) => b,
+
+        (Int(a), Int(b)) => Int(a.checked_add(b).ok_or("value is too large")?),
+        (Int(a), Float(b)) => Float(a as f64 + b),
+        (Float(a), Int(b)) => Float(a + b as f64),
+        (Float(a), Float(b)) => Float(a + b),
+
+        (Angle(a), Angle(b)) => Angle(a + b),
+
+        (Length(a), Length(b)) => Length(a + b),
+        (Length(a), Ratio(b)) => Relative(b + a),
+        (Length(a), Relative(b)) => Relative(b + a),
+
+        (Ratio(a), Length(b)) => Relative(a + b),
+        (Ratio(a), Ratio(b)) => Ratio(a + b),
+        (Ratio(a), Relative(b)) => Relative(b + a),
+
+        (Relative(a), Length(b)) => Relative(a + b),
+        (Relative(a), Ratio(b)) => Relative(a + b),
+        (Relative(a), Relative(b)) => Relative(a + b),
+
+        (Fraction(a), Fraction(b)) => Fraction(a + b),
+
+        (Symbol(a), Symbol(b)) => Str(format_str!("{a}{b}")),
+        (Str(a), Str(b)) => Str(a + b),
+        (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
+        (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
+        (Content(a), Content(b)) => Content(a + b),
+        (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
+        (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
+        (Str(a), Content(b)) => Content(item!(text)(a.into()) + b),
+        (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
+
+        (Array(a), Array(b)) => Array(a + b),
+        (Dict(a), Dict(b)) => Dict(a + b),
+
+        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
+            Value::dynamic(PartialStroke {
+                paint: Smart::Custom(color.into()),
+                thickness: Smart::Custom(thickness),
+                ..PartialStroke::default()
+            })
+        }
+        (Dyn(a:GenAlign), Dyn(b:GenAlign)) => {
+            if a.axis() == b.axis() {
+                return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
+            }
+
+            match a.axis() {
+                Axis::X => Axes { x: a, y: b },
+                Axis::Y => Axes { x: b, y: a },
+        },
+        (Dyn(a:Duration), Dyn(b:Duration)) => Dyn(a+b),
+        (a, b) => mismatch!("cannot add {} and {}", a, b),
+    ))
+}
+
+/// Compute the difference of two values.
+pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
+    Ok(match (lhs, rhs) {
+        (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or("value is too large")?),
+        (Int(a), Float(b)) => Float(a as f64 - b),
+        (Float(a), Int(b)) => Float(a - b as f64),
+        (Float(a), Float(b)) => Float(a - b),
+
+        (Angle(a), Angle(b)) => Angle(a - b),
+
+        (Length(a), Length(b)) => Length(a - b),
+        (Length(a), Ratio(b)) => Relative(-b + a),
+        (Length(a), Relative(b)) => Relative(-b + a),
+
+        (Ratio(a), Length(b)) => Relative(a + -b),
+        (Ratio(a), Ratio(b)) => Ratio(a - b),
+        (Ratio(a), Relative(b)) => Relative(-b + a),
+
+        (Relative(a), Length(b)) => Relative(a + -b),
+        (Relative(a), Ratio(b)) => Relative(a + -b),
+        (Relative(a), Relative(b)) => Relative(a - b),
+
+        (Fraction(a), Fraction(b)) => Fraction(a - b),
+
+        (Dyn(a), Dyn(b)) => downcast_match!((a,b) {
+            (Duration, Duration) => a-b,
+            (_,_) => mismatch!("cannot subtract {1} from {0}", a, b)
+        }),
+
+       (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
+    })
 }
 
 /// Compute the product of two values.
