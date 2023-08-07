@@ -2,7 +2,7 @@
 description: |
   You need to use external code for performance 
   reason or to avoid reinventing the wheel? This guide
-  explains how to integrate your code as a plugin.
+  explains how to integrate external code as a plugin.
 ---
 
 # Guide for plugin development (Advanced users)
@@ -11,7 +11,7 @@ This page helps you get started building plugins for typst. This is an advanced 
 
 Typst is capable of interfacing with plugins compiled to WebAssembly via its `plugin` function.
 
-Once your program has been compiled to WebAssembly, it also needs to respect [the protocol](#protocol). 
+Once your program has been compiled to WebAssembly, it also needs to respect [this protocol](#protocol). 
 
 Typst will run this code in isolation from your system, which means printing and reading files will not be supported for security reasons.
 
