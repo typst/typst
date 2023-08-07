@@ -11,6 +11,29 @@ use crate::diag::{bail, StrResult};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use Value::*;
 
+
+#[macro_export]
+macro_rules! downcast_match {
+    ( ($a:ident, $b:ident) {$(($ta:ident, $tb:ident) => $cmd:expr),+, (_,_) => $err:expr} ) => {
+       $(
+        if let (Some(&$a), Some(&$b)) = ($a.downcast::<$ta>(), $b.downcast::<$tb>()) {
+            Value::dynamic($cmd)
+        }
+       ) else * else {
+           $err
+       }
+    };
+    ( $a:ident {$($ta:ident => $cmd:expr),+, _ => $err:expr} ) => {
+       $(
+        if let Some(&$a) = $a.downcast::<$ta>() {
+            Value::dynamic($cmd)
+        }
+       ) else * else {
+           $err
+       }
+    }
+}
+
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
@@ -62,6 +85,10 @@ pub fn neg(value: Value) -> StrResult<Value> {
         Ratio(v) => Ratio(-v),
         Relative(v) => Relative(-v),
         Fraction(v) => Fraction(-v),
+        Dyn(v) => downcast_match!(v {
+            Duration => -v,
+            _ =>mismatch!("cannot apply '-' to {}", v)
+        }),
         v => mismatch!("cannot apply '-' to {}", v),
     })
 }
@@ -114,28 +141,20 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
             })
         }
 
-        (Dyn(a), Dyn(b)) => {
-            // 1D alignments can be summed into 2D alignments.
-            if let (Some(&a), Some(&b)) =
-                (a.downcast::<GenAlign>(), b.downcast::<GenAlign>())
-            {
+        (Dyn(a), Dyn(b)) => downcast_match!((a,b) {
+            (GenAlign, GenAlign) => {
                 if a.axis() == b.axis() {
                     return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
                 }
 
-                return Ok(Value::dynamic(match a.axis() {
+                match a.axis() {
                     Axis::X => Axes { x: a, y: b },
                     Axis::Y => Axes { x: b, y: a },
-                }));
-            };
-
-            if let (Some(a), Some(b)) = (a.downcast::<Duration>(), b.downcast::<Duration>()) {
-                return Ok(Value::dynamic(*a+*b));
-            }
-
-            mismatch!("cannot add {} and {}", a, b);
-        }
-
+                }
+            },
+            (Duration, Duration) => a+b,
+            (_,_) => mismatch!("cannot add {} and {}", a, b)
+        }),
         (a, b) => mismatch!("cannot add {} and {}", a, b),
     })
 }
@@ -164,16 +183,12 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),
 
+        (Dyn(a), Dyn(b)) => downcast_match!((a,b) {
+            (Duration, Duration) => a-b,
+            (_,_) => mismatch!("cannot subtract {1} from {0}", a, b)
+        }),
 
-        (Dyn(a), Dyn(b)) => {
-            if let (Some(a), Some(b)) = (a.downcast::<Duration>(), b.downcast::<Duration>()) {
-                return Ok(Value::dynamic(*a-*b));
-            }
-
-            mismatch!("cannot add {} and {}", a, b);
-        }
-
-        (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
+       (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
     })
 }
 
@@ -226,6 +241,24 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
         (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 
+        (Int(a), Dyn(b)) if b.is::<Duration>() => a as f64 * b.downcast().unwrap(),
+
+        (Int(a), Dyn(b)) => downcast_match!(b {
+            Duration => b*(a as f64),
+            _ => mismatch!("cannot multiply int with {}",  b)
+        }),
+        (Float(a), Dyn(b)) => downcast_match!(b {
+            Duration => b*a,
+            _ => mismatch!("cannot multiply float with {}",  b)
+        }),
+        (Dyn(b), Int(a)) => downcast_match!(b {
+            Duration => b*(a as f64),
+            _ => mismatch!("cannot multiply int with {}",  b)
+        }),
+        (Dyn(b), Float(a)) => downcast_match!(b {
+            Duration => b*a,
+            _ => mismatch!("cannot multiply float with {}",  b)
+        }),
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
 }
