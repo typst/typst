@@ -8,7 +8,9 @@ use unscanny::Scanner;
 use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
-use crate::eval::{fields_on, format_str, methods_on, CastInfo, Library, Scope, Value};
+use crate::eval::{
+    fields_on, format_str, methods_on, CastInfo, Func, Library, Scope, Value,
+};
 use crate::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
@@ -606,7 +608,7 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
         if let Some(grand) = parent.parent();
         if let Some(expr) = grand.cast::<ast::Expr>();
         let set = matches!(expr, ast::Expr::Set(_));
-        if let Some(ast::Expr::Ident(callee)) = match expr {
+        if let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::Set(set) => Some(set.target()),
             _ => None,
@@ -669,16 +671,12 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
 /// Add completions for the parameters of a function.
 fn param_completions(
     ctx: &mut CompletionContext,
-    callee: &ast::Ident,
+    callee: &ast::Expr,
     set: bool,
     exclude: &[ast::Ident],
 ) {
-    let info = if_chain! {
-        if let Some(Value::Func(func)) = ctx.global.get(callee);
-        if let Some(info) = func.info();
-        then { info }
-        else { return; }
-    };
+    let Some(func) = resolve_global_callee(ctx, callee) else { return };
+    let Some(info) = func.info() else { return };
 
     for param in &info.params {
         if exclude.iter().any(|ident| ident.as_str() == param.name) {
@@ -711,26 +709,47 @@ fn param_completions(
 /// Add completions for the values of a named function parameter.
 fn named_param_value_completions(
     ctx: &mut CompletionContext,
-    callee: &ast::Ident,
+    callee: &ast::Expr,
     name: &str,
 ) {
-    let param = if_chain! {
-        if let Some(Value::Func(func)) = ctx.global.get(callee);
-        if let Some(info) = func.info();
-        if let Some(param) = info.param(name);
-        if param.named;
-        then { param }
-        else { return; }
-    };
+    let Some(func) = resolve_global_callee(ctx, callee) else { return };
+    let Some(info) = func.info() else { return };
+    let Some(param) = info.param(name) else { return };
+    if !param.named {
+        return;
+    }
 
     ctx.cast_completions(&param.cast);
-
-    if callee.as_str() == "text" && name == "font" {
+    if name == "font" {
         ctx.font_completions();
     }
 
     if ctx.before.ends_with(':') {
         ctx.enrich(" ", "");
+    }
+}
+
+/// Resolve a callee expression to a global function.
+fn resolve_global_callee<'a>(
+    ctx: &CompletionContext<'a>,
+    callee: &ast::Expr,
+) -> Option<&'a Func> {
+    let value = match callee {
+        ast::Expr::Ident(ident) => ctx.global.get(ident)?,
+        ast::Expr::FieldAccess(access) => match access.target() {
+            ast::Expr::Ident(target) => match ctx.global.get(&target)? {
+                Value::Module(module) => module.get(&access.field()).ok()?,
+                Value::Func(func) => func.get(&access.field()).ok()?,
+                _ => return None,
+            },
+            _ => return None,
+        },
+        _ => return None,
+    };
+
+    match value {
+        Value::Func(func) => Some(func),
+        _ => None,
     }
 }
 
