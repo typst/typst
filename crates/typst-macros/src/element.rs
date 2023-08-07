@@ -433,7 +433,7 @@ fn create_param_info(field: &Field) -> TokenStream {
         }
     }));
     let ty = if *variadic {
-        quote! { <#ty as ::typst::eval::Variadics>::Inner }
+        quote! { <#ty as ::typst::eval::Container>::Inner }
     } else {
         quote! { #ty }
     };

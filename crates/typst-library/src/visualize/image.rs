@@ -1,9 +1,10 @@
 use std::ffi::OsStr;
 use std::path::Path;
 
+use typst::geom::Smart;
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
-use typst::util::Bytes;
 
+use crate::compute::Readable;
 use crate::meta::{Figurable, LocalName};
 use crate::prelude::*;
 use crate::text::families;
@@ -32,6 +33,10 @@ use crate::text::families;
 /// Display: Image
 /// Category: visualize
 #[element(Layout, LocalName, Figurable)]
+#[scope(
+    scope.define("decode", image_decode_func());
+    scope
+)]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
@@ -47,8 +52,11 @@ pub struct ImageElem {
     /// The raw file data.
     #[internal]
     #[required]
-    #[parse(data)]
-    pub data: Bytes,
+    #[parse(Readable::Bytes(data))]
+    pub data: Readable,
+
+    /// The image's format. Detected automatically by default.
+    pub format: Smart<ImageFormat>,
 
     /// The width of the image.
     pub width: Smart<Rel<Length>>,
@@ -64,6 +72,61 @@ pub struct ImageElem {
     pub fit: ImageFit,
 }
 
+/// Decode a raster of vector graphic from bytes or a string.
+///
+/// ## Example { #example }
+/// ```example
+/// #let original = read("diagram.svg")
+/// #let changed = original.replace(
+///   "#2B80FF", // blue
+///   green.hex(),
+/// )
+///
+/// #image.decode(original)
+/// #image.decode(changed)
+/// ```
+///
+/// Display: Decode Image
+/// Category: visualize
+#[func]
+pub fn image_decode(
+    /// The data to decode as an image. Can be a string for SVGs.
+    data: Readable,
+    /// The image's format. Detected automatically by default.
+    #[named]
+    format: Option<Smart<ImageFormat>>,
+    /// The width of the image.
+    #[named]
+    width: Option<Smart<Rel<Length>>>,
+    /// The height of the image.
+    #[named]
+    height: Option<Smart<Rel<Length>>>,
+    /// A text describing the image.
+    #[named]
+    alt: Option<Option<EcoString>>,
+    /// How the image should adjust itself to a given area.
+    #[named]
+    fit: Option<ImageFit>,
+) -> StrResult<Content> {
+    let mut elem = ImageElem::new(EcoString::new(), data);
+    if let Some(format) = format {
+        elem.push_format(format);
+    }
+    if let Some(width) = width {
+        elem.push_width(width);
+    }
+    if let Some(height) = height {
+        elem.push_height(height);
+    }
+    if let Some(alt) = alt {
+        elem.push_alt(alt);
+    }
+    if let Some(fit) = fit {
+        elem.push_fit(fit);
+    }
+    Ok(elem.pack())
+}
+
 impl Layout for ImageElem {
     #[tracing::instrument(name = "ImageElem::layout", skip_all)]
     fn layout(
@@ -72,22 +135,36 @@ impl Layout for ImageElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let ext = Path::new(self.path().as_str())
-            .extension()
-            .and_then(OsStr::to_str)
-            .unwrap_or_default()
-            .to_lowercase();
+        // Take the format that was explicitly defined, or parse the extention,
+        // or try to detect the format.
+        let data = self.data();
+        let format = match self.format(styles) {
+            Smart::Custom(v) => v,
+            Smart::Auto => {
+                let ext = Path::new(self.path().as_str())
+                    .extension()
+                    .and_then(OsStr::to_str)
+                    .unwrap_or_default()
+                    .to_lowercase();
 
-        let format = match ext.as_str() {
-            "png" => ImageFormat::Raster(RasterFormat::Png),
-            "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
-            "gif" => ImageFormat::Raster(RasterFormat::Gif),
-            "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
-            _ => bail!(self.span(), "unknown image format"),
+                match ext.as_str() {
+                    "png" => ImageFormat::Raster(RasterFormat::Png),
+                    "jpg" | "jpeg" => ImageFormat::Raster(RasterFormat::Jpg),
+                    "gif" => ImageFormat::Raster(RasterFormat::Gif),
+                    "svg" | "svgz" => ImageFormat::Vector(VectorFormat::Svg),
+                    _ => match &data {
+                        Readable::Str(_) => ImageFormat::Vector(VectorFormat::Svg),
+                        Readable::Bytes(bytes) => match RasterFormat::detect(bytes) {
+                            Some(f) => ImageFormat::Raster(f),
+                            None => bail!(self.span(), "unknown image format"),
+                        },
+                    },
+                }
+            }
         };
 
         let image = Image::with_fonts(
-            self.data(),
+            data.into(),
             format,
             vt.world,
             families(styles).next().as_ref().map(|f| f.as_str()),

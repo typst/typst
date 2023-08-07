@@ -14,6 +14,7 @@ mod str;
 mod value;
 mod args;
 mod auto;
+mod bytes;
 mod datetime;
 mod fields;
 mod func;
@@ -40,8 +41,9 @@ pub use typst_macros::{func, symbols};
 pub use self::args::{Arg, Args};
 pub use self::array::{array, Array};
 pub use self::auto::AutoValue;
+pub use self::bytes::Bytes;
 pub use self::cast::{
-    cast, Cast, CastInfo, FromValue, IntoResult, IntoValue, Never, Reflect, Variadics,
+    cast, Cast, CastInfo, Container, FromValue, IntoResult, IntoValue, Never, Reflect,
 };
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
@@ -583,10 +585,8 @@ impl Eval for ast::Strong {
             vm.vt
                 .tracer
                 .warn(warning!(self.span(), "no text within stars").with_hint(
-                EcoString::from(
                     "using multiple consecutive stars (e.g. **) has no additional effect",
-                ),
-            ));
+                ));
         }
 
         Ok((vm.items.strong)(body.eval(vm)?))
@@ -598,7 +598,16 @@ impl Eval for ast::Emph {
 
     #[tracing::instrument(name = "Emph::eval", skip_all)]
     fn eval(&self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        Ok((vm.items.emph)(self.body().eval(vm)?))
+        let body = self.body();
+        if body.exprs().next().is_none() {
+            vm.vt
+                .tracer
+                .warn(warning!(self.span(), "no text within underscores").with_hint(
+                    "using multiple consecutive underscores (e.g. __) has no additional effect"
+            ));
+        }
+
+        Ok((vm.items.emph)(body.eval(vm)?))
     }
 }
 
@@ -1371,7 +1380,7 @@ where
                 let Ok(v) = value.at(i as i64, None) else {
                         bail!(expr.span(), "not enough elements to destructure");
                     };
-                f(vm, expr, v.clone())?;
+                f(vm, expr, v)?;
                 i += 1;
             }
             ast::DestructuringKind::Sink(spread) => {
@@ -1423,7 +1432,7 @@ where
                     .at(&ident, None)
                     .map_err(|_| "destructuring key not found in dictionary")
                     .at(ident.span())?;
-                f(vm, ast::Expr::Ident(ident.clone()), v.clone())?;
+                f(vm, ast::Expr::Ident(ident.clone()), v)?;
                 used.insert(ident.take());
             }
             ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
@@ -1433,7 +1442,7 @@ where
                     .at(&name, None)
                     .map_err(|_| "destructuring key not found in dictionary")
                     .at(name.span())?;
-                f(vm, named.expr(), v.clone())?;
+                f(vm, named.expr(), v)?;
                 used.insert(name.take());
             }
             ast::DestructuringKind::Placeholder(_) => {}

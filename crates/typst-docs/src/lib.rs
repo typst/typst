@@ -983,6 +983,7 @@ const TYPE_ORDER: &[&str] = &[
     "color",
     "datetime",
     "string",
+    "bytes",
     "regex",
     "label",
     "content",

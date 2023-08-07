@@ -281,13 +281,17 @@ impl Add for CastInfo {
     }
 }
 
-/// A container for a variadic argument.
-pub trait Variadics {
+/// A container for an argument.
+pub trait Container {
     /// The contained type.
     type Inner;
 }
 
-impl<T> Variadics for Vec<T> {
+impl<T> Container for Option<T> {
+    type Inner = T;
+}
+
+impl<T> Container for Vec<T> {
     type Inner = T;
 }
 
@@ -335,14 +339,24 @@ cast! {
         MathClass::Vary => "vary",
         MathClass::Special => "special",
     }),
+    /// The default class for non-special things.
     "normal" => MathClass::Normal,
-    "binary" => MathClass::Binary,
-    "closing" => MathClass::Closing,
-    "fence" => MathClass::Fence,
-    "large" => MathClass::Large,
-    "opening" => MathClass::Opening,
+    /// Punctuation, e.g. a comma.
     "punctuation" => MathClass::Punctuation,
+    /// An opening delimiter, e.g. `(`.
+    "opening" => MathClass::Opening,
+    /// A closing delimiter, e.g. `)`.
+    "closing" => MathClass::Closing,
+    /// A delimiter that is the same on both sides, e.g. `|`.
+    "fence" => MathClass::Fence,
+    /// A large operator like `sum`.
+    "large" => MathClass::Large,
+    /// A relation like `=` or `prec`.
     "relation" => MathClass::Relation,
+    /// A unary operator like `not`.
     "unary" => MathClass::Unary,
+    /// A binary operator like `times`.
+    "binary" => MathClass::Binary,
+    /// An operator that can be both unary or binary like `+`.
     "vary" => MathClass::Vary,
 }

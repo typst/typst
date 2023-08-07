@@ -38,6 +38,8 @@ same-file = "1"
 self-replace = { git = "https://github.com/Gui-Yom/self-replace" }
 semver = "1"
 serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yaml = "0.9"
 siphasher = "0.3"
 tar = "0.4"
 tempfile = "3.7.0"

@@ -4,7 +4,7 @@
 ---
 // Test reading plain text files
 #let data = read("/files/hello.txt")
-#test(data, "Hello, world!")
+#test(data, "Hello, world!\n")
 
 ---
 // Error: 18-38 file not found (searched at files/missing.txt)
@@ -62,7 +62,7 @@
 ))
 
 ---
-// Error: 7-24 failed to parse toml file: expected `.`, `=`, index 15-15
+// Error: 7-24 failed to parse toml file: expected `.`, `=`, index 15-16
 #toml("/files/bad.toml")
 
 ---

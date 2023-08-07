@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use memmap2::Mmap;
 use typst::diag::StrResult;
+use typst::eval::Bytes;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
-use typst::util::Bytes;
 use walkdir::WalkDir;
 
 use crate::args::FontsCommand;

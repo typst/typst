@@ -22,11 +22,11 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Tracer, Value};
+use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{FileId, Source, Span, SyntaxNode};
-use typst::util::{Bytes, PathExt};
+use typst::util::PathExt;
 use typst::World;
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};

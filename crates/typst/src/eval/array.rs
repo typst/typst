@@ -3,9 +3,11 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
+use serde::Serialize;
 
 use super::{ops, Args, CastInfo, FromValue, Func, IntoValue, Reflect, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
+use crate::eval::ops::{add, mul};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -29,12 +31,11 @@ macro_rules! __array {
 
 #[doc(inline)]
 pub use crate::__array as array;
-use crate::eval::ops::{add, mul};
 #[doc(hidden)]
 pub use ecow::eco_vec;
 
 /// A reference counted array with value semantics.
-#[derive(Default, Clone, PartialEq, Hash)]
+#[derive(Default, Clone, PartialEq, Hash, Serialize)]
 pub struct Array(EcoVec<Value>);
 
 impl Array {
@@ -74,13 +75,9 @@ impl Array {
     }
 
     /// Borrow the value at the given index.
-    pub fn at<'a>(
-        &'a self,
-        index: i64,
-        default: Option<&'a Value>,
-    ) -> StrResult<&'a Value> {
-        self.locate(index)
-            .and_then(|i| self.0.get(i))
+    pub fn at(&self, index: i64, default: Option<Value>) -> StrResult<Value> {
+        self.locate_opt(index, false)
+            .and_then(|i| self.0.get(i).cloned())
             .or(default)
             .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
@@ -88,7 +85,7 @@ impl Array {
     /// Mutably borrow the value at the given index.
     pub fn at_mut(&mut self, index: i64) -> StrResult<&mut Value> {
         let len = self.len();
-        self.locate(index)
+        self.locate_opt(index, false)
             .and_then(move |i| self.0.make_mut().get_mut(i))
             .ok_or_else(|| out_of_bounds_no_default(index, len))
     }
@@ -105,42 +102,21 @@ impl Array {
 
     /// Insert a value at the specified index.
     pub fn insert(&mut self, index: i64, value: Value) -> StrResult<()> {
-        let len = self.len();
-        let i = self
-            .locate(index)
-            .filter(|&i| i <= self.0.len())
-            .ok_or_else(|| out_of_bounds(index, len))?;
-
+        let i = self.locate(index, true)?;
         self.0.insert(i, value);
         Ok(())
     }
 
     /// Remove and return the value at the specified index.
     pub fn remove(&mut self, index: i64) -> StrResult<Value> {
-        let len = self.len();
-        let i = self
-            .locate(index)
-            .filter(|&i| i < self.0.len())
-            .ok_or_else(|| out_of_bounds(index, len))?;
-
+        let i = self.locate(index, false)?;
         Ok(self.0.remove(i))
     }
 
     /// Extract a contiguous subregion of the array.
     pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
-        let len = self.len();
-        let start = self
-            .locate(start)
-            .filter(|&start| start <= self.0.len())
-            .ok_or_else(|| out_of_bounds(start, len))?;
-
-        let end = end.unwrap_or(self.len() as i64);
-        let end = self
-            .locate(end)
-            .filter(|&end| end <= self.0.len())
-            .ok_or_else(|| out_of_bounds(end, len))?
-            .max(start);
-
+        let start = self.locate(start, true)?;
+        let end = self.locate(end.unwrap_or(self.len() as i64), true)?.max(start);
         Ok(self.0[start..end].into())
     }
 
@@ -371,26 +347,6 @@ impl Array {
         Ok(self.iter().cloned().cycle().take(count).collect())
     }
 
-    /// Extract a slice of the whole array.
-    pub fn as_slice(&self) -> &[Value] {
-        self.0.as_slice()
-    }
-
-    /// Iterate over references to the contained values.
-    pub fn iter(&self) -> std::slice::Iter<Value> {
-        self.0.iter()
-    }
-
-    /// Resolve an index.
-    fn locate(&self, index: i64) -> Option<usize> {
-        usize::try_from(if index >= 0 {
-            index
-        } else {
-            (self.len() as i64).checked_add(index)?
-        })
-        .ok()
-    }
-
     /// Enumerate all items in the array.
     pub fn enumerate(&self, start: i64) -> StrResult<Self> {
         self.iter()
@@ -438,11 +394,44 @@ impl Array {
 
         Ok(Self(out))
     }
+
+    /// Extract a slice of the whole array.
+    pub fn as_slice(&self) -> &[Value] {
+        self.0.as_slice()
+    }
+
+    /// Iterate over references to the contained values.
+    pub fn iter(&self) -> std::slice::Iter<Value> {
+        self.0.iter()
+    }
+
+    /// Resolve an index or throw an out of bounds error.
+    fn locate(&self, index: i64, end_ok: bool) -> StrResult<usize> {
+        self.locate_opt(index, end_ok)
+            .ok_or_else(|| out_of_bounds(index, self.len()))
+    }
+
+    /// Resolve an index, if it is within bounds.
+    ///
+    /// `index == len` is considered in bounds if and only if `end_ok` is true.
+    fn locate_opt(&self, index: i64, end_ok: bool) -> Option<usize> {
+        let wrapped =
+            if index >= 0 { Some(index) } else { (self.len() as i64).checked_add(index) };
+
+        wrapped
+            .and_then(|v| usize::try_from(v).ok())
+            .filter(|&v| v < self.0.len() + end_ok as usize)
+    }
 }
 
 impl Debug for Array {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let pieces: Vec<_> = self.iter().map(|value| eco_format!("{value:?}")).collect();
+        let max = 40;
+        let mut pieces: Vec<_> =
+            self.iter().take(max).map(|value| eco_format!("{value:?}")).collect();
+        if self.len() > max {
+            pieces.push(eco_format!(".. ({} items omitted)", self.len() - max));
+        }
         f.write_str(&pretty_array_like(&pieces, self.len() == 1))
     }
 }

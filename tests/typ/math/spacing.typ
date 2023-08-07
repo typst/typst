@@ -13,7 +13,7 @@ $sum x, sum(x)$ \
 $sum product x$ \
 $f(x), zeta(x), "frac"(x)$ \
 $a+dots.c+b$
-
+$f(x) sin(y)$
 ---
 // Test ignored vs non-ignored spaces.
 $f (x), f(x)$ \

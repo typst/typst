@@ -9,13 +9,13 @@ use comemo::Prehashed;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::eval::{eco_format, Datetime, Library};
+use typst::eval::{eco_format, Bytes, Datetime, Library};
 use typst::font::{Font, FontBook};
 use typst::syntax::{FileId, Source};
-use typst::util::{Bytes, PathExt};
+use typst::util::PathExt;
 use typst::World;
 
-use crate::args::CompileCommand;
+use crate::args::SharedArgs;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
 
@@ -44,7 +44,7 @@ pub struct SystemWorld {
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &CompileCommand) -> StrResult<Self> {
+    pub fn new(command: &SharedArgs) -> StrResult<Self> {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
 

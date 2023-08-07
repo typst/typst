@@ -4,8 +4,8 @@ use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Filter, Finish};
 
 use super::{deflate, PdfContext, RefExt};
+use crate::eval::Bytes;
 use crate::image::{DecodedImage, Image, RasterFormat};
-use crate::util::Bytes;
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
