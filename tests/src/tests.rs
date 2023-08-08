@@ -116,8 +116,9 @@ fn main() {
         .map_with(world, |world, src_path| {
             let path = src_path.strip_prefix(TYP_DIR).unwrap();
             let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
-            let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
+            let png_ref_path = Path::new(REF_DIR).join(path).with_extension("png");
             let svg_path = Path::new(SVG_DIR).join(path).with_extension("svg");
+            let svg_ref_path = Path::new(REF_DIR).join(path).with_extension("svg");
             let pdf_path =
                 args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
@@ -125,9 +126,10 @@ fn main() {
                 world,
                 &src_path,
                 &png_path,
-                &ref_path,
+                &png_ref_path,
                 pdf_path.as_deref(),
                 &svg_path,
+                &svg_ref_path,
                 &args,
             ) as usize
         })
@@ -335,9 +337,10 @@ fn test(
     world: &mut TestWorld,
     src_path: &Path,
     png_path: &Path,
-    ref_path: &Path,
+    png_ref_path: &Path,
     pdf_path: Option<&Path>,
     svg_path: &Path,
+    svg_ref_path: &Path,
     args: &Args,
 ) -> bool {
     struct PanicGuard<'a>(&'a Path);
@@ -431,9 +434,9 @@ fn test(
 
         let svg = typst::export::svg_merged(&document.pages, Abs::pt(5.0));
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
-        std::fs::write(svg_path, svg).unwrap();
+        std::fs::write(svg_path, &svg).unwrap();
 
-        if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
+        if let Ok(ref_pixmap) = sk::Pixmap::load_png(png_ref_path) {
             if canvas.width() != ref_pixmap.width()
                 || canvas.height() != ref_pixmap.height()
                 || canvas
@@ -443,7 +446,7 @@ fn test(
                     .any(|(&a, &b)| a.abs_diff(b) > 2)
             {
                 if args.update {
-                    update_image(png_path, ref_path);
+                    update_image(png_path, png_ref_path);
                     updated = true;
                 } else {
                     writeln!(output, "  Does not match reference image.").unwrap();
@@ -452,10 +455,30 @@ fn test(
             }
         } else if !document.pages.is_empty() {
             if args.update {
-                update_image(png_path, ref_path);
+                update_image(png_path, png_ref_path);
                 updated = true;
             } else {
                 writeln!(output, "  Failed to open reference image.").unwrap();
+                ok = false;
+            }
+        }
+
+        if let Ok(ref_svg) = std::fs::read_to_string(svg_ref_path) {
+            if svg != ref_svg {
+                if args.update {
+                    update_image(svg_path, svg_ref_path);
+                    updated = true;
+                } else {
+                    writeln!(output, "  Does not match reference SVG.").unwrap();
+                    ok = false;
+                }
+            }
+        } else if !document.pages.is_empty() {
+            if args.update {
+                std::fs::write(svg_ref_path, svg).unwrap();
+                updated = true;
+            } else {
+                writeln!(output, "  Failed to open reference SVG.").unwrap();
                 ok = false;
             }
         }
