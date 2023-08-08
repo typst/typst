@@ -120,6 +120,11 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub bookmarked: Smart<bool>,
 
+    /// The heading's title appearing in the outline and bookmarks.
+    /// The default value of `{auto}` indicates that the title is the same as
+    /// `body` property.
+    pub outline_title: Smart<Content>,
+
     /// The heading's title.
     #[required]
     pub body: Content,
@@ -139,6 +144,7 @@ impl Synthesize for HeadingElem {
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
         self.push_outlined(self.outlined(styles));
         self.push_bookmarked(self.bookmarked(styles));
+        self.push_outline_title(self.outline_title(styles));
 
         Ok(())
     }
@@ -219,7 +225,9 @@ impl Outlinable for HeadingElem {
             return Ok(None);
         }
 
-        let mut content = self.body();
+        let mut content = self
+            .outline_title(StyleChain::default())
+            .unwrap_or_else(|| self.body());
         if let Some(numbering) = self.numbering(StyleChain::default()) {
             let numbers = Counter::of(Self::func())
                 .at(vt, self.0.location().unwrap())?
