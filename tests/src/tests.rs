@@ -429,7 +429,7 @@ fn test(
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
-        let svg = typst::export::svg(&document);
+        let svg = typst::export::svg_merged(&document.pages, Abs::pt(5.0));
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
         std::fs::write(svg_path, svg).unwrap();
 
@@ -898,42 +898,33 @@ fn test_spans_impl(output: &mut String, node: &SyntaxNode, within: Range<u64>) -
 /// Draw all frames into one image with padding in between.
 fn render(frames: &[Frame]) -> sk::Pixmap {
     let pixel_per_pt = 2.0;
-    let pixmaps: Vec<_> = frames
-        .iter()
-        .map(|frame| {
-            let limit = Abs::cm(100.0);
-            if frame.width() > limit || frame.height() > limit {
-                panic!("overlarge frame: {:?}", frame.size());
-            }
-            typst::export::render(frame, pixel_per_pt, Color::WHITE)
-        })
-        .collect();
+    let padding = Abs::pt(5.0);
 
-    let pad = (5.0 * pixel_per_pt).round() as u32;
-    let pxw = 2 * pad + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
-    let pxh = pad + pixmaps.iter().map(|pixmap| pixmap.height() + pad).sum::<u32>();
-
-    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(sk::Color::BLACK);
-
-    let [x, mut y] = [pad; 2];
-    for (frame, mut pixmap) in frames.iter().zip(pixmaps) {
-        let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
-        render_links(&mut pixmap, ts, frame);
-
-        canvas.draw_pixmap(
-            x as i32,
-            y as i32,
-            pixmap.as_ref(),
-            &sk::PixmapPaint::default(),
-            sk::Transform::identity(),
-            None,
-        );
-
-        y += pixmap.height() + pad;
+    for frame in frames {
+        let limit = Abs::cm(100.0);
+        if frame.width() > limit || frame.height() > limit {
+            panic!("overlarge frame: {:?}", frame.size());
+        }
     }
 
-    canvas
+    let mut pixmap = typst::export::render_merged(
+        frames,
+        pixel_per_pt,
+        Color::WHITE,
+        padding,
+        Color::BLACK,
+    );
+
+    let padding = (pixel_per_pt * padding.to_pt() as f32).round();
+    let [x, mut y] = [padding; 2];
+    for frame in frames {
+        let ts =
+            sk::Transform::from_scale(pixel_per_pt, pixel_per_pt).post_translate(x, y);
+        render_links(&mut pixmap, ts, frame);
+        y += (pixel_per_pt * frame.height().to_pt() as f32).round().max(1.0) + padding;
+    }
+
+    pixmap
 }
 
 /// Draw extra boxes for links so we can see whether they are there.
