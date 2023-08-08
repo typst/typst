@@ -1,0 +1,85 @@
+<svg class="typst-doc" viewBox="0 0 130 115" width="130" height="115" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(10 16.58203125)">
+            <g class="typst-text" transform="scale(0.0048828125 -0.0048828125)">
+                <use xlink:href="#g0" x="0" fill="#000000"/>
+                <use xlink:href="#g1" x="1495" fill="#000000"/>
+                <use xlink:href="#g2" x="2410" fill="#000000"/>
+                <use xlink:href="#g2" x="2950" fill="#000000"/>
+                <use xlink:href="#g3" x="3490" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <g transform="matrix(1 0 0 1 5 60)">
+        <g transform="translate(68.59375 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(53.9453125 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(39.296875 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(24.6484375 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(10 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 0 17.582031 "/>
+        </g>
+        <g transform="translate(9.5 26.58203125)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 59.59375 0 "/>
+        </g>
+        <g transform="translate(9.5 10)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 59.59375 0 "/>
+        </g>
+        <g transform="translate(15 21.58203125)">
+            <g class="typst-text" transform="scale(0.0048828125 -0.0048828125)">
+                <use xlink:href="#g4" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(29.6484375 21.58203125)">
+            <g class="typst-text" transform="scale(0.0048828125 -0.0048828125)">
+                <use xlink:href="#g5" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(44.296875 21.58203125)">
+            <g class="typst-text" transform="scale(0.0048828125 -0.0048828125)">
+                <use xlink:href="#g6" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(58.9453125 21.58203125)">
+            <g class="typst-text" transform="scale(0.0048828125 -0.0048828125)">
+                <use xlink:href="#g7" x="0" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <defs id="glyph">
+        <symbol id="g0" overflow="visible">
+            <path d="M 1266 250 Q 1266 127 1297.5 97.5 Q 1329 68 1444 63 Q 1454 53 1454 28.5 Q 1454 4 1444 -4 Q 1264 0 1180 0 Q 1098 0 913 -4 Q 905 4 905 28.5 Q 905 53 913 63 Q 1028 67 1060 97 Q 1092 127 1092 250 L 1092 657 L 391 657 L 391 250 Q 391 127 423 97.5 Q 455 68 569 63 Q 577 53 577.5 28.5 Q 578 4 569 -4 Q 389 0 305 0 Q 219 0 39 -4 Q 29 4 29 28.5 Q 29 53 39 63 Q 154 67 185.5 97 Q 217 127 217 250 L 217 1071 Q 217 1194 185.5 1223.5 Q 154 1253 39 1257 Q 29 1265 29 1290 Q 29 1315 39 1325 Q 195 1321 303 1321 Q 414 1321 569 1325 Q 577 1315 577.5 1290.5 Q 578 1266 569 1257 Q 454 1253 422.5 1223.5 Q 391 1194 391 1071 L 391 743 L 1092 743 L 1092 1071 Q 1092 1194 1060 1223.5 Q 1028 1253 913 1257 Q 905 1265 905 1290 Q 905 1315 913 1325 Q 1093 1321 1178 1321 Q 1276 1321 1444 1325 Q 1454 1315 1454 1290.5 Q 1454 1266 1444 1257 Q 1329 1253 1297.5 1223.5 Q 1266 1194 1266 1071 L 1266 250 Z "/>
+        </symbol>
+        <symbol id="g1" overflow="visible">
+            <path d="M 254 578 L 625 584 Q 656 584 655 612 Q 655 729 605 778 Q 555 827 485 827 Q 458 827 432 820 Q 406 813 368 790.5 Q 330 768 299 713 Q 268 658 254 578 Z M 791 190 Q 826 188 834 158 Q 697 -20 485 -20 Q 282 -20 172 111 Q 76 222 76 414 Q 76 631 206 763 Q 336 895 485 895 Q 831 895 831 539 Q 831 504 793 504 L 248 508 Q 248 336 313 227 Q 403 80 537 80 Q 623 80 677.5 104.5 Q 732 129 791 190 Z "/>
+        </symbol>
+        <symbol id="g2" overflow="visible">
+            <path d="M 195 250 L 195 1145 Q 195 1258 174.5 1282.5 Q 154 1307 63 1313 Q 40 1336 51 1374 Q 233 1388 338 1430 Q 365 1430 365 1409 Q 357 1327 356 1194 L 356 250 Q 356 127 382 97.5 Q 408 68 504 63 Q 512 53 512 28.5 Q 512 4 504 -4 Q 369 0 276 0 Q 190 0 47 -4 Q 37 4 37 28.5 Q 37 53 47 63 Q 143 67 169 97 Q 195 127 195 250 Z "/>
+        </symbol>
+        <symbol id="g3" overflow="visible">
+            <path d="M 84 420 Q 84 623 197 756 Q 319 899 518 899 Q 665 899 766.5 826.5 Q 868 754 908 653.5 Q 948 553 948 438 Q 948 224 815 94 Q 698 -21 514 -20 Q 309 -20 196.5 113 Q 84 246 84 420 Z M 487 827 Q 260 827 260 467 Q 260 401 275.5 333.5 Q 291 266 321.5 200.5 Q 352 135 409.5 93 Q 467 51 543 51 Q 633 51 702.5 125 Q 772 199 772 373 Q 772 592 696 709.5 Q 620 827 487 827 Z "/>
+        </symbol>
+        <symbol id="g4" overflow="visible">
+            <path d="M 590 250 Q 590 127 621.5 97.5 Q 653 68 768 63 Q 778 53 778 28.5 Q 778 4 768 -4 Q 563 0 518 0 Q 434 0 233 -4 Q 225 4 225 28.5 Q 225 53 233 63 Q 352 67 392 99 Q 432 131 432 250 L 432 918 Q 432 1037 391 1036 Q 336 1036 213 985 Q 188 1001 182 1040 Q 469 1173 584 1245 Q 596 1245 596 1235 Q 590 1188 590 961 L 590 250 Z "/>
+        </symbol>
+        <symbol id="g5" overflow="visible">
+            <path d="M 125 958 Q 125 1060 229.5 1154.5 Q 334 1249 494 1249 Q 633 1249 736.5 1170.5 Q 840 1092 840 938 Q 840 864 809 798.5 Q 778 733 742.5 691 Q 707 649 635 580 L 428 381 Q 276 229 276 133 L 641 133 Q 696 133 727 176 Q 758 219 784 330 Q 823 338 844 319 Q 840 176 795 -4 Q 701 0 635 0 L 276 0 L 106 -4 Q 106 94 152.5 185 Q 199 276 340 420 L 492 569 Q 660 739 659 930 Q 659 1063 605 1120.5 Q 551 1178 481 1178 Q 379 1178 329 1139 Q 279 1100 279 1053 Q 279 1043 287 1024.5 Q 295 1006 295 1004 Q 303 975 303 961 Q 303 930 269.5 904.5 Q 236 879 207 879 Q 174 879 149.5 902 Q 125 925 125 958 Z "/>
+        </symbol>
+        <symbol id="g6" overflow="visible">
+            <path d="M 440 1178 Q 403 1178 364.5 1167.5 Q 326 1157 286 1119 Q 246 1081 246 1022 Q 246 916 166 915 Q 133 915 114.5 938 Q 96 961 96 985 Q 96 1016 115.5 1056 Q 135 1096 176 1142 Q 217 1188 298 1218.5 Q 379 1249 483 1249 Q 628 1249 707 1169 Q 771 1104 771 1007 Q 771 921 723 856.5 Q 675 792 555 735 L 557 731 Q 672 713 759 635 Q 846 557 846 408 Q 846 213 710.5 96.5 Q 575 -20 385 -20 Q 283 -20 186.5 19.5 Q 90 59 90 117 Q 90 142 117.5 165 Q 145 188 176 188 Q 225 188 264 135 Q 266 133 273.5 122 Q 281 111 284 106.5 Q 287 102 294 93 Q 301 84 307 80 Q 313 76 324.5 68.5 Q 336 61 348 58 Q 360 55 376.5 53 Q 393 51 412 51 Q 445 51 482.5 65.5 Q 520 80 564 111.5 Q 608 143 637 213 Q 666 283 666 379 Q 666 643 397 643 Q 334 643 299 639 L 289 705 Q 431 725 521 815.5 Q 611 906 611 993 Q 611 1086 562 1132 Q 513 1178 440 1178 Z "/>
+        </symbol>
+        <symbol id="g7" overflow="visible">
+            <path d="M 555 1038 Q 399 825 164 449 L 555 449 L 555 1038 Z M 881 449 Q 912 449 911 416 Q 911 398 891.5 375 Q 872 352 852 352 L 711 352 L 711 164 Q 711 131 716 111.5 Q 721 92 742.5 83 Q 764 74 776 72 Q 788 70 833 65 Q 847 63 854 63 Q 864 53 864 28.5 Q 864 4 854 -4 Q 723 0 631 0 Q 520 0 389 -4 Q 381 4 381 28.5 Q 381 53 389 63 Q 499 71 526 93 Q 555 116 555 164 L 555 352 L 137 352 Q 74 352 57 438 Q 374 936 612 1227 Q 630 1250 645 1249 L 711 1249 L 715 1245 Q 711 1227 711 1047 L 711 449 L 881 449 Z "/>
+        </symbol>
+    </defs>
+    <defs id="clip-path"/>
+</svg>

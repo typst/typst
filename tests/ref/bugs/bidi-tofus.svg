@@ -1,0 +1,27 @@
+<svg class="typst-doc" viewBox="0 0 130 55.1640625" width="130" height="55.1640625" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(10 16.58203125)">
+            <g class="typst-text" transform="scale(0.0048828125 -0.0048828125)">
+                <use xlink:href="#g0" x="0" fill="#000000"/>
+                <use xlink:href="#g0" x="1024" fill="#000000"/>
+                <use xlink:href="#g0" x="2048" fill="#000000"/>
+                <use xlink:href="#g0" x="3072" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(10 35.1640625)">
+            <g class="typst-text" transform="scale(0.0048828125 -0.0048828125)">
+                <use xlink:href="#g0" x="0" fill="#000000"/>
+                <use xlink:href="#g0" x="1024" fill="#000000"/>
+                <use xlink:href="#g0" x="2048" fill="#000000"/>
+                <use xlink:href="#g0" x="3072" fill="#000000"/>
+            </g>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <defs id="glyph">
+        <symbol id="g0" overflow="visible">
+            <path d="M 102 1235 L 102 195 L 451 715 L 102 1235 Z M 164 102 L 860 102 L 512 623 L 164 102 Z M 573 715 L 922 195 L 922 1235 L 573 715 Z M 512 807 L 860 1325 L 164 1325 L 512 807 Z M 0 0 L 0 1430 L 1024 1430 L 1024 0 L 0 0 Z "/>
+        </symbol>
+    </defs>
+    <defs id="clip-path"/>
+</svg>

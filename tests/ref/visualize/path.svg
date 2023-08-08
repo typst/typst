@@ -1,0 +1,37 @@
+<svg class="typst-doc" viewBox="0 0 210 210" width="210" height="210" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(190 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 0 181 "/>
+        </g>
+        <g transform="translate(100 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 0 181 "/>
+        </g>
+        <g transform="translate(10 9.5)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 0 181 "/>
+        </g>
+        <g transform="translate(9.5 190)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 181 0 "/>
+        </g>
+        <g transform="translate(9.5 100)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 181 0 "/>
+        </g>
+        <g transform="translate(9.5 10)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 L 181 0 "/>
+        </g>
+        <g transform="translate(34.92082952722026 33.8)">
+            <path class="typst-shape" fill="#ff4136" d="M 0 0 C -3.2 3.2 43.2 36.8 40 40 C 36.8 43.2 3.2 43.2 0 40 C -3.2 36.8 43.2 3.2 40 0 C 36.8 -3.2 3.2 -3.2 0 0 Z "/>
+        </g>
+        <g transform="translate(130 40)">
+            <path class="typst-shape" fill="#b10dc9" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 0 C 0 0 30 30 30 30 C 30 30 0 30 0 30 C 0 30 30 0 30 0 "/>
+        </g>
+        <g transform="translate(23.261146499207968 121)">
+            <path class="typst-shape" fill="#0074d9" stroke="#000000" stroke-width="1" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 24 0 C 8 0 8 48 24 48 C 24 48 88 0 40 24 C 88 24 52 24 24 0 Z "/>
+        </g>
+        <g transform="translate(130 130)">
+            <path class="typst-shape" fill="none" stroke="#000000" stroke-width="5" stroke-linecap="butt" stoke-linejoin="miter" stoke-miterlimit="4" d="M 0 30 C 0 30 30 30 30 30 C 30 30 15 0 15 0 C 15 0 0 30 0 30 Z "/>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <defs id="glyph"/>
+    <defs id="clip-path"/>
+</svg>

@@ -1,0 +1,13 @@
+<svg class="typst-doc" viewBox="0 0 130 55" width="130" height="55" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(0 0)"/>
+    </g>
+    <g transform="matrix(1 0 0 1 5 30)">
+        <g transform="translate(-0 -0)">
+            <path class="typst-shape" fill="#ff4136" d="M 1.1715729 1.1715729 C 1.9217184 0.42142737 2.9391341 0 4 0 L 116 0 C 118.20914 0.00000000000000035492232 120 1.790861 120 4 L 120 6 C 120 8.209139 118.20914 10 116 10 L 4 10 C 1.790861 10 0.00000000000000010965861 8.209139 0.00000000000000024492937 6 L 0.00000000000000036739403 4 C 0.00000000000000043235336 2.9391341 0.42142737 1.9217184 1.1715729 1.1715729 Z "/>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <defs id="glyph"/>
+    <defs id="clip-path"/>
+</svg>

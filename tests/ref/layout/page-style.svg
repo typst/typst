@@ -1,0 +1,56 @@
+<svg class="typst-doc" viewBox="0 0 130 200.39389999999997" width="130" height="200.39389999999997" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(0 0)">
+            <path class="typst-shape" fill="#9feb52" d="M 0 0 L 0 51.0237 L 73.7009 51.0237 L 73.7009 0 Z "/>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <g transform="matrix(1 0 0 1 5 61.0237)">
+        <g transform="translate(0 0)">
+            <path class="typst-shape" fill="#43a127" d="M 0 0 L 0 20 L 120 20 L 120 0 Z "/>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <g transform="matrix(1 0 0 1 5 86.02369999999999)">
+        <g transform="translate(0 0)">
+            <path class="typst-shape" fill="#43a127" d="M 0 0 L 0 20 L 120 20 L 120 0 Z "/>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <g transform="matrix(1 0 0 1 5 111.02369999999999)">
+        <g transform="translate(0 0)"/>
+    </g>
+    <g transform="matrix(1 0 0 1 5 144.37019999999998)">
+        <g transform="translate(0 0)">
+            <path class="typst-shape" fill="#239dad" d="M 0 0 L 0 51.0237 L 73.7009 51.0237 L 73.7009 0 Z "/>
+        </g>
+        <g transform="translate(10 17.109375)">
+            <g class="typst-text" transform="scale(0.0048828125 -0.0048828125)">
+                <use xlink:href="#g0" x="0" fill="#ffffff"/>
+                <use xlink:href="#g1" x="1222" fill="#ffffff"/>
+                <use xlink:href="#g2" x="2289" fill="#ffffff"/>
+                <use xlink:href="#g3" x="3406" fill="#ffffff"/>
+                <use xlink:href="#g4" x="4462" fill="#ffffff"/>
+            </g>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <defs id="glyph">
+        <symbol id="g0" overflow="visible">
+            <path d="M 50 1298 L 50 1456 L 1175 1456 L 1175 1298 L 707 1298 L 707 0 L 517 0 L 517 1298 L 50 1298 Z "/>
+        </symbol>
+        <symbol id="g1" overflow="visible">
+            <path d="M 1052 1165 L 622 406 L 622 0 L 438 0 L 438 418 L 14 1165 L 222 1165 L 533 588 L 844 1165 L 1052 1165 Z "/>
+        </symbol>
+        <symbol id="g2" overflow="visible">
+            <path d="M 324 438 L 324 0 L 139 0 L 139 1165 L 606 1165 Q 820 1165 935.5 1061.5 Q 1051 958 1051 798 Q 1051 630 935.5 534 Q 820 438 606 438 L 324 438 Z M 324 1012 L 324 591 L 606 591 Q 743 591 804.5 648.5 Q 866 706 866 796 Q 866 881 804.5 946.5 Q 743 1012 606 1012 L 324 1012 Z "/>
+        </symbol>
+        <symbol id="g3" overflow="visible">
+            <path d="M 803 298 Q 803 371 750 417.5 Q 697 464 531 504 Q 338 551 223 633.5 Q 108 716 108 861 Q 108 1001 227 1091 Q 346 1181 542 1181 Q 752 1181 869.5 1076.5 Q 987 972 987 826 L 801 826 Q 801 914 737 972 Q 673 1030 540 1030 Q 415 1030 354 981.5 Q 293 933 293 862 Q 293 798 352 754 Q 411 710 601.5 660 Q 792 610 891 525 Q 990 440 990 300 Q 990 154 868.5 69 Q 747 -16 548 -16 Q 430 -16 320 24 Q 210 64 139 145 Q 68 226 68 349 L 254 349 Q 254 234 341 184 Q 428 134 548 134 Q 672 134 737.5 179 Q 803 224 803 298 Z "/>
+        </symbol>
+        <symbol id="g4" overflow="visible">
+            <path d="M 41 1012 L 41 1165 L 1021 1165 L 1021 1012 L 622 1012 L 622 0 L 438 0 L 438 1012 L 41 1012 Z "/>
+        </symbol>
+    </defs>
+    <defs id="clip-path"/>
+</svg>

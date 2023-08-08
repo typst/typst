@@ -1,0 +1,46 @@
+<svg class="typst-doc" viewBox="0 0 130 230.079" width="130" height="230.079" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="#9feb52" d="M 0 0 L 0 14.17325 L 10 14.17325 L 10 0 Z "/>
+        </g>
+        <g transform="translate(30 10)">
+            <path class="typst-shape" fill="#239dad" d="M 0 0 L 0 14.17325 L 60 14.17325 L 60 0 Z "/>
+        </g>
+        <g transform="translate(10 24.17325)">
+            <path class="typst-shape" fill="#43a127" d="M 0 0 L 0 14.17325 L 10 14.17325 L 10 0 Z "/>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <g transform="matrix(1 0 0 1 5 58.3465)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="#9feb52" d="M 0 0 L 0 28.3465 L 12.5 28.3465 L 12.5 0 Z "/>
+        </g>
+        <g transform="translate(35 10)">
+            <path class="typst-shape" fill="#43a127" d="M 0 0 L 0 28.3465 L 12.5 28.3465 L 12.5 0 Z "/>
+        </g>
+        <g transform="translate(60 10)">
+            <path class="typst-shape" fill="#9feb52" d="M 0 0 L 0 28.3465 L 12.5 28.3465 L 12.5 0 Z "/>
+        </g>
+        <g transform="translate(85 10)">
+            <path class="typst-shape" fill="#43a127" d="M 0 0 L 0 28.3465 L 12.5 28.3465 L 12.5 0 Z "/>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <g transform="matrix(1 0 0 1 5 111.693)">
+        <g transform="translate(-0 -0)">
+            <path class="typst-shape" fill="#9feb52" d="M 0 0 L 0 14.17325 L 120 14.17325 L 120 0 Z "/>
+        </g>
+        <g transform="translate(0 28.3465)">
+            <path class="typst-shape" fill="#43a127" d="M 0 0 L 0 14.17325 L 120 14.17325 L 120 0 Z "/>
+        </g>
+        <g transform="translate(0 56.693)">
+            <path class="typst-shape" fill="#9feb52" d="M 0 0 L 0 14.17325 L 120 14.17325 L 120 0 Z "/>
+        </g>
+        <g transform="translate(0 85.0395)">
+            <path class="typst-shape" fill="#43a127" d="M 0 0 L 0 28.3465 L 120 28.3465 L 120 0 Z "/>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <defs id="glyph"/>
+    <defs id="clip-path"/>
+</svg>

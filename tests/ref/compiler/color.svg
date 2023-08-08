@@ -1,0 +1,94 @@
+<svg class="typst-doc" viewBox="0 0 130 96.5" width="130" height="96.5" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:h5="http://www.w3.org/1999/xhtml">
+    <g transform="matrix(1 0 0 1 5 5)">
+        <g transform="translate(10 10)">
+            <path class="typst-shape" fill="#2e862e" d="M 0 0 L 0 30 L 28.3465 30 L 28.3465 0 Z "/>
+        </g>
+        <g transform="translate(45.82675 10)">
+            <path class="typst-shape" fill="#6a4cb2" d="M 0 0 L 0 30 L 28.3465 30 L 28.3465 0 Z "/>
+        </g>
+        <g transform="translate(81.6535 10)">
+            <path class="typst-shape" fill="#6a8822" d="M 0 0 L 0 30 L 28.3465 30 L 28.3465 0 Z "/>
+        </g>
+        <g transform="translate(10 52)">
+            <g class="typst-group">
+                <g>
+                    <g transform="translate(-0 -0)">
+                        <path class="typst-shape" fill="#6a4cb2" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(9 0)">
+                        <path class="typst-shape" fill="#775bb9" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(18 0)">
+                        <path class="typst-shape" fill="#856cc0" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(27 0)">
+                        <path class="typst-shape" fill="#927cc7" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(36 0)">
+                        <path class="typst-shape" fill="#a08dcf" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(45 0)">
+                        <path class="typst-shape" fill="#afa0d8" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(54 0)">
+                        <path class="typst-shape" fill="#beb1df" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(63 0)">
+                        <path class="typst-shape" fill="#cec3e7" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(72 0)">
+                        <path class="typst-shape" fill="#ddd6ee" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(81 0)">
+                        <path class="typst-shape" fill="#eeebf7" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(90 0)">
+                        <path class="typst-shape" fill="#ffffff" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                    </g>
+                    <g transform="translate(0 15.5)">
+                        <g class="typst-group">
+                            <g>
+                                <g transform="translate(-0 -0)">
+                                    <path class="typst-shape" fill="#6a4cb2" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(9 0)">
+                                    <path class="typst-shape" fill="#553e91" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(18 0)">
+                                    <path class="typst-shape" fill="#443172" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(27 0)">
+                                    <path class="typst-shape" fill="#342557" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(36 0)">
+                                    <path class="typst-shape" fill="#261b40" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(45 0)">
+                                    <path class="typst-shape" fill="#1a132c" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(54 0)">
+                                    <path class="typst-shape" fill="#110c1d" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(63 0)">
+                                    <path class="typst-shape" fill="#0a0710" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(72 0)">
+                                    <path class="typst-shape" fill="#040307" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(81 0)">
+                                    <path class="typst-shape" fill="#010102" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                                <g transform="translate(90 0)">
+                                    <path class="typst-shape" fill="#000000" d="M 0 0 L 0 9 L 9 9 L 9 0 Z "/>
+                                </g>
+                            </g>
+                        </g>
+                    </g>
+                </g>
+            </g>
+        </g>
+        <g transform="translate(0 0)"/>
+    </g>
+    <defs id="glyph"/>
+    <defs id="clip-path"/>
+</svg>
