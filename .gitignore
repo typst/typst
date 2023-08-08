@@ -8,6 +8,7 @@ desktop.ini
 # Tests and benchmarks
 tests/png
 tests/pdf
+tests/svg
 tests/target
 tarpaulin-report.html
 
