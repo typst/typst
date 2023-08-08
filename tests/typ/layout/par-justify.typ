@@ -31,3 +31,12 @@ D E F #linebreak(justify: true)
 #set page(width: 155pt)
 #set par(justify: true)
 This text can be fitted in one line.
+
+---
+// Test that runts are avoided when it's not too costly to do so.
+#set page(width: 124pt)
+#set par(justify: true)
+#for i in range(0, 20) {
+	"a b c "
+}
+#"d"
