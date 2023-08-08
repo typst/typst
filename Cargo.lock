@@ -113,9 +113,9 @@ checksum = "7b7e4c2464d97fe331d41de9d5db0def0a96f4d823b8b32a2efd503578988973"
 
 [[package]]
 name = "base64"
-version = "0.21.0"
+version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4a4ddaa51a5bc52a6948f74c06d20aaaddb71924eab79b8c97a8c556e942d6a"
+checksum = "604178f6c5c21f02dc555784810edfb88d34ac2c73b2eae109655649ee73ce3d"
 
 [[package]]
 name = "biblatex"
@@ -2552,6 +2552,7 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 name = "typst"
 version = "0.7.0"
 dependencies = [
+ "base64",
  "bitflags 2.3.1",
  "bytemuck",
  "comemo",
@@ -2589,6 +2590,8 @@ dependencies = [
  "unicode-segmentation",
  "unscanny",
  "usvg",
+ "xmlparser",
+ "xmlwriter",
  "xmp-writer",
 ]
 
