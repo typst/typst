@@ -141,7 +141,7 @@ pub struct TextElem {
     pub weight: FontWeight,
 
     /// The desired width of the glyphs. Accepts a ratio between `{50%}` and
-    /// `{200%}`. When the desired weight is not available, Typst selects the
+    /// `{200%}`. When the desired width is not available, Typst selects the
     /// font from the family that is closest in stretch. This will only stretch
     /// the text if a condensed or expanded version of the font is available.
     ///
@@ -265,31 +265,6 @@ pub struct TextElem {
     #[default(BottomEdge::Metric(BottomEdgeMetric::Baseline))]
     pub bottom_edge: BottomEdge,
 
-    /// The OpenType writing script setting.
-    ///
-    /// The combination of `{script}` and `{lang}` determine how
-    /// font features, such as glyph substitution, are implemented.
-    /// Frequently the value is a modified (all-lowercase) ISO 15924 script identifier, and
-    /// the `math` writing script is used for features appropriate
-    /// for mathematical symbols.
-    ///
-    /// When set to `{auto}`, the default and recommended setting,
-    /// an appropriate script is chosen for each block of characters
-    /// sharing a common Unicode script property.
-    ///
-    /// ```example
-    /// #let scedilla = [Ş]
-    /// #set text(font: "Linux Libertine", size: 20pt)
-    /// #scedilla // S with a cedilla
-    ///
-    /// #set text(script: "latn", lang: "ro")
-    /// #scedilla // S with a subscript comma
-    ///
-    /// #set text(script: "grek", lang: "ro")
-    /// #scedilla // S with a cedilla
-    /// ```
-    pub script: Smart<WritingScript>,
-
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
     /// Setting the correct language affects various parts of Typst:
@@ -314,6 +289,35 @@ pub struct TextElem {
     ///
     /// This lets the text processing pipeline make more informed choices.
     pub region: Option<Region>,
+
+    /// The OpenType writing script.
+    ///
+    /// The combination of `{lang}` and `{script}` determine how font features,
+    /// such as glyph substitution, are implemented. Frequently the value is a
+    /// modified (all-lowercase) ISO 15924 script identifier, and the `math`
+    /// writing script is used for features appropriate for mathematical
+    /// symbols.
+    ///
+    /// When set to `{auto}`, the default and recommended setting, an
+    /// appropriate script is chosen for each block of characters sharing a
+    /// common Unicode script property.
+    ///
+    /// ```example
+    /// #set text(
+    ///   font: "Linux Libertine",
+    ///   size: 20pt,
+    /// )
+    ///
+    /// #let scedilla = [Ş]
+    /// #scedilla // S with a cedilla
+    ///
+    /// #set text(lang: "ro", script: "latn")
+    /// #scedilla // S with a subscript comma
+    ///
+    /// #set text(lang: "ro", script: "grek")
+    /// #scedilla // S with a cedilla
+    /// ```
+    pub script: Smart<WritingScript>,
 
     /// The dominant direction for text and inline objects. Possible values are:
     ///

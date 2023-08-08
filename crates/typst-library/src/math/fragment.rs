@@ -216,7 +216,7 @@ impl GlyphFragment {
     pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
         let class = match c {
             ':' => Some(MathClass::Relation),
-            '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
+            '.' | '/' | '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
             _ => unicode_math_class::class(c),
         };
         let mut fragment = Self {
@@ -470,13 +470,13 @@ pub enum GlyphwiseSubsts<'a> {
 
 impl<'a> GlyphwiseSubsts<'a> {
     pub fn new(gsub: LayoutTable<'a>, feature: Feature) -> Option<Self> {
-        let ssty = gsub
+        let table = gsub
             .features
             .find(feature.tag)
             .and_then(|feature| feature.lookup_indices.get(0))
             .and_then(|index| gsub.lookups.get(index))?;
-        let ssty = ssty.subtables.get::<SubstitutionSubtable>(0)?;
-        match ssty {
+        let table = table.subtables.get::<SubstitutionSubtable>(0)?;
+        match table {
             SubstitutionSubtable::Single(single_glyphs) => {
                 Some(Self::Single(single_glyphs))
             }

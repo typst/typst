@@ -8,6 +8,7 @@ mod figure;
 mod footnote;
 mod heading;
 mod link;
+mod metadata;
 mod numbering;
 mod outline;
 mod query;
@@ -22,6 +23,7 @@ pub use self::figure::*;
 pub use self::footnote::*;
 pub use self::heading::*;
 pub use self::link::*;
+pub use self::metadata::*;
 pub use self::numbering::*;
 pub use self::outline::*;
 pub use self::query::*;
@@ -50,6 +52,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("state", state_func());
     global.define("query", query_func());
     global.define("selector", selector_func());
+    global.define("metadata", MetadataElem::func());
 }
 
 /// The named with which an element is referenced.

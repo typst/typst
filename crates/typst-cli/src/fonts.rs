@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use memmap2::Mmap;
 use typst::diag::StrResult;
+use typst::eval::Bytes;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
-use typst::util::Bytes;
 use walkdir::WalkDir;
 
 use crate::args::FontsCommand;
@@ -68,14 +68,14 @@ impl FontSearcher {
 
     /// Search everything that is available.
     pub fn search(&mut self, font_paths: &[PathBuf]) {
+        for path in font_paths {
+            self.search_dir(path)
+        }
+
         self.search_system();
 
         #[cfg(feature = "embed-fonts")]
         self.add_embedded();
-
-        for path in font_paths {
-            self.search_dir(path)
-        }
     }
 
     /// Add fonts that are embedded in the binary.

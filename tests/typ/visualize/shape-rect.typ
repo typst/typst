@@ -53,3 +53,11 @@
 ---
 // Error: 15-21 expected length, color, dictionary, stroke, none, or auto, found array
 #rect(stroke: (1, 2))
+
+---
+#set page(width: 17.8cm)
+#lorem(100)
+#rect(lorem(100))
+#set par(justify: true)
+#lorem(100)
+#rect(lorem(100))

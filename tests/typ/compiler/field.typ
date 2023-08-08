@@ -148,3 +148,53 @@
 #test((top + start).y, top)
 #test((bottom + end).y, bottom)
 #test((horizon + center).y, horizon)
+
+---
+#{
+  let object = sym.eq.not
+  // Error: 3-9 cannot mutate fields on symbol
+  object.property = "value"
+}
+
+---
+#{
+  let object = [hi]
+  // Error: 3-9 cannot mutate fields on content
+  object.property = "value"
+}
+
+---
+#{
+  let object = calc
+  // Error: 3-9 cannot mutate fields on module
+  object.property = "value"
+}
+
+---
+#{
+  let object = calc.sin
+  // Error: 3-9 cannot mutate fields on function
+  object.property = "value"
+}
+
+---
+#{
+  let object = none
+  // Error: 3-9 none does not have accessible fields
+  object.property = "value"
+}
+
+---
+#{
+  let object = 10
+  // Error: 3-9 integer does not have accessible fields
+  object.property = "value"
+}
+
+---
+#{
+  let s = 1pt + red
+  // Error: 3-4 fields on stroke are not yet mutable
+  // Hint: 3-4 try creating a new stroke with the updated field value instead
+  s.thickness = 5pt
+}
