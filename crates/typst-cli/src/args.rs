@@ -175,7 +175,7 @@ pub struct UpdateCommand {
     pub force: bool,
 
     /// Reverts to the locally kept previous version. A revert is only possible
-    /// if `typst update` has previously ran once, this will _only_ revert a 
+    /// if `typst update` has previously ran once, this will _only_ revert a
     /// recently applied update.
     #[clap(long, default_value_t = false, exclusive = true)]
     pub revert: bool,
