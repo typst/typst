@@ -275,7 +275,6 @@ impl SVGRenderer {
             "transform",
             format_args!("scale({} {})", scale, -scale),
         );
-        self.xml.write_comment(&text.text);
         let mut x_offset: f64 = 0.0;
         for glyph in &text.glyphs {
             let offset = x_offset + glyph.x_offset.at(text.size).to_pt();
