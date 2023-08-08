@@ -24,7 +24,7 @@ comemo = "0.3"
 csv = "1"
 ecow = "0.1"
 hayagriva = "0.3"
-hypher = "0.1"
+hypher = "0.1.2"
 icu_properties = { version = "1.2.0", features = ["serde"] }
 icu_provider = { version = "1.2.0", features = ["sync"] }
 icu_provider_adapters = "1.2.0"

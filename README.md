@@ -112,6 +112,7 @@ Typst's CLI is available from different sources:
   - macOS/Linux: `brew install typst`
   - Arch Linux: `pacman -S typst`
   - Void Linux: `xbps-install typst`
+  - Windows Package Manager: `winget install --id Typst.Typst`
 
 - If you have a [Rust][rust] toolchain installed, you can also install the
   latest development version with

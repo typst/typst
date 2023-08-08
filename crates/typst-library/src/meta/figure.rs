@@ -217,7 +217,7 @@ impl Synthesize for FigureElem {
             VerticalAlign(GenAlign::Specific(match self.caption_pos(styles) {
                 VerticalAlign(GenAlign::Specific(Align::Top)) => Align::Top,
                 VerticalAlign(GenAlign::Specific(Align::Bottom)) => Align::Bottom,
-                _ => bail!(self.span(), "caption-position can only be top or bottom"),
+                _ => bail!(self.span(), "caption-pos can only be top or bottom"),
             }));
 
         // Resolve the supplement.
