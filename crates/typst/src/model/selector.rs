@@ -47,6 +47,17 @@ impl Selector {
         Ok(Self::Regex(Regex::new(&regex::escape(text)).unwrap()))
     }
 
+    /// Define a regex selector.
+    pub fn regex(regex: Regex) -> StrResult<Self> {
+        if regex.as_str().is_empty() {
+            bail!("regex selector is empty");
+        }
+        if regex.is_match("") {
+            bail!("regex matches empty text");
+        }
+        Ok(Self::Regex(regex))
+    }
+
     /// Define a simple [`Selector::Can`] selector.
     pub fn can<T: ?Sized + Any>() -> Self {
         Self::Can(TypeId::of::<T>())
@@ -162,15 +173,7 @@ cast! {
         .select(),
     label: Label => Self::Label(label),
     text: EcoString => Self::text(&text)?,
-    regex: Regex => {
-        if regex.as_str().is_empty() {
-            bail!("regex selector is empty");
-        }
-        if regex.is_match("") {
-            bail!("regex matches empty text");
-        }
-        Self::Regex(regex)
-    },
+    regex: Regex => Self::regex(regex)?,
     location: Location => Self::Location(location),
 }
 
