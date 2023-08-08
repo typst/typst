@@ -1,10 +1,10 @@
+use crate::util::pretty_array_like;
+use ecow::{eco_format, EcoVec};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
-use ecow::{eco_format, EcoVec};
 use time::ext::NumericalDuration;
 use typst_macros::cast;
-use crate::util::pretty_array_like;
 
 /// A duration object that represents either a positive or negative span of time.
 #[derive(Clone, Copy, PartialEq, Hash)]
@@ -43,31 +43,31 @@ impl Debug for Duration {
         let mut vec = EcoVec::new();
 
         let weeks = tmp.whole_seconds() / 604_800.0 as i64;
-        if weeks!=0 {
+        if weeks != 0 {
             vec.push(eco_format!("weeks: {weeks}"));
         }
-        tmp-=weeks.weeks();
+        tmp -= weeks.weeks();
 
         let days = tmp.whole_days();
-        if days!=0 {
+        if days != 0 {
             vec.push(eco_format!("days: {days}"));
         }
-        tmp-=days.days();
+        tmp -= days.days();
 
         let hours = tmp.whole_hours();
-        if hours!=0 {
+        if hours != 0 {
             vec.push(eco_format!("hours: {hours}"));
         }
-        tmp-=hours.hours();
+        tmp -= hours.hours();
 
         let minutes = tmp.whole_minutes();
-        if minutes!=0 {
+        if minutes != 0 {
             vec.push(eco_format!("minutes: {minutes}"));
         }
-        tmp-=minutes.minutes();
+        tmp -= minutes.minutes();
 
         let seconds = tmp.whole_seconds();
-        if seconds!=0 {
+        if seconds != 0 {
             vec.push(eco_format!("seconds: {seconds}"));
         }
 
@@ -79,13 +79,13 @@ impl Add for Duration {
     type Output = Duration;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Duration(self.0+rhs.0)
+        Duration(self.0 + rhs.0)
     }
 }
 
 impl AddAssign for Duration {
     fn add_assign(&mut self, rhs: Self) {
-        self.0+=rhs.0;
+        self.0 += rhs.0;
     }
 }
 
@@ -93,13 +93,13 @@ impl Sub for Duration {
     type Output = Duration;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Duration(self.0-rhs.0)
+        Duration(self.0 - rhs.0)
     }
 }
 
 impl SubAssign for Duration {
-    fn sub_assign(&mut self, rhs: Self)  {
-        self.0-=rhs.0;
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 -= rhs.0;
     }
 }
 
@@ -115,7 +115,7 @@ impl Mul<f64> for Duration {
     type Output = Duration;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Duration(self.0*rhs)
+        Duration(self.0 * rhs)
     }
 }
 
@@ -123,7 +123,7 @@ impl Div<f64> for Duration {
     type Output = Duration;
 
     fn div(self, rhs: f64) -> Self::Output {
-        Duration(self.0/rhs)
+        Duration(self.0 / rhs)
     }
 }
 
