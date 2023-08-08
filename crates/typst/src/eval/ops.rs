@@ -30,50 +30,72 @@ macro_rules! match_dyn {
         match_dyn!{@($e; $($rest)*,)}
     };
     (;$e:expr; $($rest:tt)*) => {
-        match_dyn!{@pat($e; $($rest)*,)}
+        match_dyn!{@pat($e; $($rest)*,) @arms() @pats() @ifs() @casts()}
     };
 
     /* Match the pattern*/
 
+    
+
    // Interpret one match pattern: (Dyn)
-    (@pat($e:expr; Dyn($pn:ident: $pt:ty) => $($rest:tt)*) $($arms:tt)*) => {
+    (@pat($e:expr; Dyn($pn:ident: $pt:ty) => $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:pat),*) @ifs($($ifs:expr),*) @casts($($casts:stmt)*)) => {
         match_dyn!{
             // Next index, match argument, remaining match results
-            @exec($e; $($rest)*) @arms($($arms)*) @pats(Dyn($pn)) @ifs($pn.is::<$pt>()) @casts(let $pn = *$pn.downcast::<$pt>().unwrap())
+            @exec($e; $($rest)*)
+            @arms($($arms)*)
+            @pats(Dyn($pn))
+            @ifs($pn.is::<$pt>())
+            @casts(let $pn = *$pn.downcast::<$pt>().unwrap())
         }
     };
 
    // Interpret one match pattern: (Dyn, Dyn)
-   (@pat($e:expr; (Dyn($an:ident: $at:ty), Dyn($bn:ident: $bt:ty)) => $($rest:tt)*) $($arms:tt)*) => {
+   (@pat($e:expr; (Dyn($an:ident: $at:ty), Dyn($bn:ident: $bt:ty)) => $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:pat),*) @ifs($($ifs:expr),*) @casts($($casts:stmt)*)) => {
         match_dyn!{
             // Next index, match argument, remaining match results
-            @exec($e; $($rest)*) @arms($($arms)*) @pats(Dyn($an), Dyn($bn)) @ifs($an.is::<$at>(), $bn.is::<$bt>()) @casts(let $an = *$an.downcast::<$at>().unwrap() let $bn = *$bn.downcast::<$bt>().unwrap())
+            @exec($e; $($rest)*)
+            @arms($($arms)*)
+            @pats(Dyn($an), Dyn($bn))
+            @ifs($an.is::<$at>(), $bn.is::<$bt>())
+            @casts(let $an = *$an.downcast::<$at>().unwrap() let $bn = *$bn.downcast::<$bt>().unwrap())
         }
     };
 
 
     // Interpret one match pattern: (Dyn, Regular)
-    (@pat($e:expr; (Dyn($an:ident: $at:ty), $b:pat) => $($rest:tt)*) $($arms:tt)*) => {
+    (@pat($e:expr; (Dyn($an:ident: $at:ty), $b:pat) => $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:pat),*) @ifs($($ifs:expr),*) @casts($($casts:stmt)*)) => {
         match_dyn!{
             // Next index, match argument, remaining match results
-            @exec($e; $($rest)*) @arms($($arms)*)  @pats(Dyn($an), $b) @ifs($an.is::<$at>()) @casts(let $an = *$an.downcast::<$at>().unwrap())
+            @exec($e; $($rest)*)
+            @arms($($arms)*)
+            @pats(Dyn($an), $b)
+            @ifs($an.is::<$at>())
+            @casts(let $an = *$an.downcast::<$at>().unwrap())
         }
     };
 
 
     // Interpret one match pattern: (Regular, Dyn)
-    (@pat($e:expr; ($a:pat, Dyn($bn:ident: $bt:ty)) => $($rest:tt)*) $($arms:tt)*) => {
+    (@pat($e:expr; ($a:pat, Dyn($bn:ident: $bt:ty)) => $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:pat),*) @ifs($($ifs:expr),*) @casts($($casts:stmt)*)) => {
         match_dyn!{
             // Next index, match argument, remaining match results
-            @exec($e; $($rest)*) @arms($($arms)*) @pats($a, Dyn($bn)) @ifs($bn.is::<$bt>()) @casts(let $bn = *$bn.downcast::<$bt>().unwrap())
+            @exec($e; $($rest)*)
+            @arms($($arms)*)
+            @pats($a, Dyn($bn))
+            @ifs($bn.is::<$bt>())
+            @casts(let $bn = *$bn.downcast::<$bt>().unwrap())
         }
     };
 
     // Interpret one match pattern: Regular
-    (@pat($e:expr; $p:pat => $($rest:tt)*) $($arms:tt)*) => {
+    (@pat($e:expr; $p:pat => $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:pat),*) @ifs($($ifs:expr),*) @casts($($casts:stmt)*)) => {
         match_dyn!{
             // Next index, match argument, remaining match results
-            @exec($e; $($rest)*) @arms($($arms)*) @pats($p) @ifs() @casts()
+            @exec($e; $($rest)*)
+            @arms($($arms)*)
+            @pats($p)
+            @ifs()
+            @casts()
         }
     };
 
@@ -81,30 +103,33 @@ macro_rules! match_dyn {
    (@exec($e:expr; Dyn($cmd:expr), $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:pat),+) @ifs($($($ifs:expr),+)?) @casts($($casts:stmt)*))  => {
         match_dyn!{
             // Next index, match argument, remaining match results
-            @pat($e; $($rest)*) $($arms)*
-
-            ($($pats),*) $(if $($ifs)&&+)? => {
-                $($casts)*
-                Dyn(Dynamic::new($cmd))
-            }
+            @pat($e; $($rest)*)
+            @arms(
+                $($arms)*
+                ($($pats),*) $(if $($ifs)&&+)? => {
+                    $($casts)*
+                    Dyn(Dynamic::new($cmd))
+                }
+            )
+            @pats()
+            @ifs()
+            @casts()
         }
     };
 
     // Interpret one match thing => cmd
-   (@exec($e:expr; $cmd:expr, $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:tt)*) @ifs($($ifs:tt)*) @casts($($casts:tt)*))  => {
+   (@exec($e:expr; $cmd:expr, $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:pat),+) @ifs($($($ifs:expr),+)?) @casts($($casts:stmt)*))  => {
         match_dyn!{
             // Next index, match argument, remaining match results
-            @pat( $e; $($rest)*) $($arms)*
-			
-       /*     $($pats),* $(if $($ifs),*)? => {
-                $($casts);*
-                Dyn(Dynamic::new($cmd))
-            }*/
-
-           /* Dyn($pn) if $pn.is::<$pt>() => {
-                let $pn = *$pn.downcast::<$pt>().unwrap();
-                Dyn(Dynamic::new($cmd))
-            },*/
+            @pat($e; $($rest)*)
+            @arms(
+                $($arms)*
+                ($($pats),*) $(if $($ifs)&&+)? => {
+                    $($casts)*
+                    $cmd
+                }
+            )
+            @pats() @ifs() @casts()
         }
     };
 
@@ -116,7 +141,7 @@ macro_rules! match_dyn {
 
 
  // No more match arms, produce final output
-    (@pat($e:expr; $(,)?) $($arms:tt)* ) => {
+    (@pat($e:expr; $(,)?) @arms($($arms:tt)*) @pats($($pats:tt)*) @ifs($($ifs:tt)*) @casts($($casts:tt)*)) => {
         match $e {
             $($arms)*
         }
