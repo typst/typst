@@ -12,11 +12,117 @@ use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Sma
 use Value::*;
 use crate::eval::Dynamic;
 
+macro_rules!expand {
+	(pat($p:pat))=>{
+		$p
+	};
+
+	(pat($($p:pat),+))=>{
+		($($p),+)
+	};
+
+    ($x:tt) => {$x}
+}
+
 macro_rules! match_dyn {
     // Wrap the user-provided arguments in `@(...)`
     ($e:expr; $($rest:tt)*) => {
         match_dyn!{@($e; $($rest)*,)}
     };
+    (;$e:expr; $($rest:tt)*) => {
+        match_dyn!{@pat($e; $($rest)*,)}
+    };
+
+    /* Match the pattern*/
+
+   // Interpret one match pattern: (Dyn)
+    (@pat($e:expr; Dyn($pn:ident: $pt:ty) => $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @exec($e; $($rest)*) @arms($($arms)*) @pats(Dyn($pn)) @ifs($pn.is::<$pt>()) @casts(let $pn = *$pn.downcast::<$pt>().unwrap())
+        }
+    };
+
+   // Interpret one match pattern: (Dyn, Dyn)
+   (@pat($e:expr; (Dyn($an:ident: $at:ty), Dyn($bn:ident: $bt:ty)) => $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @exec($e; $($rest)*) @arms($($arms)*) @pats(Dyn($an), Dyn($bn)) @ifs($an.is::<$at>(), $bn.is::<$bt>()) @casts(let $an = *$an.downcast::<$at>().unwrap() let $bn = *$bn.downcast::<$bt>().unwrap())
+        }
+    };
+
+
+    // Interpret one match pattern: (Dyn, Regular)
+    (@pat($e:expr; (Dyn($an:ident: $at:ty), $b:pat) => $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @exec($e; $($rest)*) @arms($($arms)*)  @pats(Dyn($an), $b) @ifs($an.is::<$at>()) @casts(let $an = *$an.downcast::<$at>().unwrap())
+        }
+    };
+
+
+    // Interpret one match pattern: (Regular, Dyn)
+    (@pat($e:expr; ($a:pat, Dyn($bn:ident: $bt:ty)) => $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @exec($e; $($rest)*) @arms($($arms)*) @pats($a, Dyn($bn)) @ifs($bn.is::<$bt>()) @casts(let $bn = *$bn.downcast::<$bt>().unwrap())
+        }
+    };
+
+    // Interpret one match pattern: Regular
+    (@pat($e:expr; $p:pat => $($rest:tt)*) $($arms:tt)*) => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @exec($e; $($rest)*) @arms($($arms)*) @pats($p) @ifs() @casts()
+        }
+    };
+
+    // Interpret one match thing => Dyn
+   (@exec($e:expr; Dyn($cmd:expr), $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:pat),+) @ifs($($($ifs:expr),+)?) @casts($($casts:stmt)*))  => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @pat($e; $($rest)*) $($arms)*
+
+            ($($pats),*) $(if $($ifs)&&+)? => {
+                $($casts)*
+                Dyn(Dynamic::new($cmd))
+            }
+        }
+    };
+
+    // Interpret one match thing => cmd
+   (@exec($e:expr; $cmd:expr, $($rest:tt)*) @arms($($arms:tt)*) @pats($($pats:tt)*) @ifs($($ifs:tt)*) @casts($($casts:tt)*))  => {
+        match_dyn!{
+            // Next index, match argument, remaining match results
+            @pat( $e; $($rest)*) $($arms)*
+			
+       /*     $($pats),* $(if $($ifs),*)? => {
+                $($casts);*
+                Dyn(Dynamic::new($cmd))
+            }*/
+
+           /* Dyn($pn) if $pn.is::<$pt>() => {
+                let $pn = *$pn.downcast::<$pt>().unwrap();
+                Dyn(Dynamic::new($cmd))
+            },*/
+        }
+    };
+
+
+
+
+
+
+
+
+ // No more match arms, produce final output
+    (@pat($e:expr; $(,)?) $($arms:tt)* ) => {
+        match $e {
+            $($arms)*
+        }
+    };
+
+
 
    // Interpret one match arm: (Dyn) => Dyn
    (@($e:expr; Dyn($pn:ident: $pt:ty) => Dyn($cmd:expr), $($rest:tt)*) $($arms:tt)*) => {
@@ -166,6 +272,15 @@ macro_rules! match_dyn {
             $($arms)*
         }
     };
+}
+
+fn test() -> Value {
+    let x = (Int(1), Int(2));
+    match_dyn!(;x;
+        (Dyn(a: Duration), Dyn(b:Duration)) => Dyn(a+b),
+        (Int(a), Dyn(b:Duration)) => Dyn(a+b),
+       // (Int(a), Int(b)) => Dyn(a+b)
+    )
 }
 
 /// Bail with a type mismatch error.
