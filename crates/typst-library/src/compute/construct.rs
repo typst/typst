@@ -543,7 +543,7 @@ pub enum ToStr {
 cast! {
     ToStr,
     v: i64 => Self::Int(v),
-    v: f64 => Self::Str(format_str!("{}", v)),
+    v: f64 => Self::Str(format!("{}", v).replace('-', "\u{2212}").into()),
     v: Label => Self::Str(v.0.into()),
     v: Str => Self::Str(v),
 }
@@ -557,11 +557,13 @@ fn int_to_base(mut n: i64, base: i64) -> EcoString {
     // In Rust, `format!("{:x}", -14i64)` is not `-e` but `fffffffffffffff2`.
     // So we can only use the built-in for decimal, not bin/oct/hex.
     if base == 10 {
-        return eco_format!("{n}");
+        return format!("{n}").replace('-', "\u{2212}").into();
     }
 
-    // The largest output is `to_base(i64::MIN, 2)`, which is 65 chars long.
-    const SIZE: usize = 65;
+    // The largest output is `to_base(i64::MIN, 2)`, which is 64 bytes long,
+    // plus the length of the minus sign.
+    const MINUS_SIGN: char = '\u{2212}';
+    const SIZE: usize = 64 + MINUS_SIGN.len_utf8();
     let mut digits = [b'\0'; SIZE];
     let mut i = SIZE;
 
@@ -580,8 +582,8 @@ fn int_to_base(mut n: i64, base: i64) -> EcoString {
     }
 
     if negative {
-        i -= 1;
-        digits[i] = b'-';
+        i -= MINUS_SIGN.len_utf8();
+        MINUS_SIGN.encode_utf8(&mut digits[i..]);
     }
 
     std::str::from_utf8(&digits[i..]).unwrap_or_default().into()
@@ -769,13 +771,13 @@ mod tests {
         );
         assert_eq!(
             &int_to_base(i64::MIN, 2),
-            "-1000000000000000000000000000000000000000000000000000000000000000"
+            "−1000000000000000000000000000000000000000000000000000000000000000"
         );
         assert_eq!(&int_to_base(i64::MAX, 10), "9223372036854775807");
-        assert_eq!(&int_to_base(i64::MIN, 10), "-9223372036854775808");
+        assert_eq!(&int_to_base(i64::MIN, 10), "−9223372036854775808");
         assert_eq!(&int_to_base(i64::MAX, 16), "7fffffffffffffff");
-        assert_eq!(&int_to_base(i64::MIN, 16), "-8000000000000000");
+        assert_eq!(&int_to_base(i64::MIN, 16), "−8000000000000000");
         assert_eq!(&int_to_base(i64::MAX, 36), "1y2p0ij32e8e7");
-        assert_eq!(&int_to_base(i64::MIN, 36), "-1y2p0ij32e8e8");
+        assert_eq!(&int_to_base(i64::MIN, 36), "−1y2p0ij32e8e8");
     }
 }
