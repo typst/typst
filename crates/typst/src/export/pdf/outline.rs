@@ -158,7 +158,8 @@ fn write_outline_item(
         outline.count(-(node.children.len() as i32));
     }
 
-    let body = node.element
+    let body = node
+        .element
         .expect_field::<Smart<Content>>("outline-title")
         .unwrap_or_else(|| node.element.expect_field::<Content>("body"));
     outline.title(TextStr(body.plain_text().trim()));
