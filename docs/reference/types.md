@@ -449,7 +449,7 @@ by subtracting two dates.
   minutes: 10,
 )
 
-#duration.as_hours()
+#duration.hours()
 ```
 
 ## Methods

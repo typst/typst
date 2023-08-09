@@ -261,15 +261,15 @@ pub fn call(
                     _ => return missing(),
                 }
             } else if let Some(&duration) = dynamic.downcast::<Duration>() {
-            match method {
-                "seconds" => duration.as_seconds(),
-                "minutes" => duration.as_minutes(),
-                "hours" => duration.as_hours(),
-                "days" => duration.as_days(),
-                "weeks" => duration.as_weeks(),
-                _ => return missing(),
-            }
-        } else if let Some(direction) = dynamic.downcast::<Dir>() {
+                match method {
+                    "seconds" => duration.as_seconds().into_value(),
+                    "minutes" => duration.as_minutes().into_value(),
+                    "hours" => duration.as_hours().into_value(),
+                    "days" => duration.as_days().into_value(),
+                    "weeks" => duration.as_weeks().into_value(),
+                    _ => return missing(),
+                }
+            } else if let Some(direction) = dynamic.downcast::<Dir>() {
                 match method {
                     "axis" => direction.axis().description().into_value(),
                     "start" => {
