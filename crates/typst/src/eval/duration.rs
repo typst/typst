@@ -2,12 +2,12 @@ use crate::util::pretty_array_like;
 use ecow::{eco_format, EcoVec};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
-use std::ops::{Add, AddAssign, Div, Mul, Neg, Sub, SubAssign};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 use typst_macros::cast;
 
 /// A duration object that represents either a positive or negative span of time.
-#[derive(Clone, Copy, PartialEq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Duration(time::Duration);
 impl Duration {
     pub fn as_seconds(&self) -> f64 {
@@ -29,6 +29,10 @@ impl Duration {
     pub fn as_weeks(&self) -> f64 {
         self.0.as_seconds_f64() / 604_800.0
     }
+
+    pub fn is_zero(&self) -> bool {
+        self.0.is_zero()
+    }
 }
 
 impl From<time::Duration> for Duration {
@@ -39,7 +43,7 @@ impl From<time::Duration> for Duration {
 
 impl Debug for Duration {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut tmp = self.0.clone();
+        let mut tmp = self.0;
         let mut vec = EcoVec::new();
 
         let weeks = tmp.whole_seconds() / 604_800.0 as i64;
@@ -75,6 +79,12 @@ impl Debug for Duration {
     }
 }
 
+impl From<Duration> for time::Duration {
+    fn from(value: Duration) -> Self {
+        value.0
+    }
+}
+
 impl Add for Duration {
     type Output = Duration;
 
@@ -83,23 +93,11 @@ impl Add for Duration {
     }
 }
 
-impl AddAssign for Duration {
-    fn add_assign(&mut self, rhs: Self) {
-        self.0 += rhs.0;
-    }
-}
-
 impl Sub for Duration {
     type Output = Duration;
 
     fn sub(self, rhs: Self) -> Self::Output {
         Duration(self.0 - rhs.0)
-    }
-}
-
-impl SubAssign for Duration {
-    fn sub_assign(&mut self, rhs: Self) {
-        self.0 -= rhs.0;
     }
 }
 

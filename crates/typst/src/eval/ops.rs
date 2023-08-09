@@ -4,6 +4,7 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 
 use ecow::eco_format;
+use typst::eval::Datetime;
 use typst::eval::Duration;
 
 use super::{format_str, Regex, Value};
@@ -24,7 +25,7 @@ macro_rules! match_dyn {
             // Next index, match argument, remaining match results
             @exec($e; $($rest)*)
             @arms($($arms)*)
-            @pats(Dyn($pn))
+            @pats(Dyn(ref $pn))
             @ifs($pn.is::<$pt>() $($cond)?)
             @casts(let $pn = *$pn.downcast::<$pt>().unwrap())
         }
@@ -36,7 +37,7 @@ macro_rules! match_dyn {
             // Next index, match argument, remaining match results
             @exec($e; $($rest)*)
             @arms($($arms)*)
-            @pats((Dyn($an), Dyn($bn)))
+            @pats((Dyn(ref $an), Dyn(ref $bn)))
             @ifs($an.is::<$at>(), $bn.is::<$bt>() $($cond)?)
             @casts(let $an = *$an.downcast::<$at>().unwrap() let $bn = *$bn.downcast::<$bt>().unwrap())
         }
@@ -49,7 +50,7 @@ macro_rules! match_dyn {
             // Next index, match argument, remaining match results
             @exec($e; $($rest)*)
             @arms($($arms)*)
-            @pats((Dyn($an), $b))
+            @pats((Dyn(ref $an), $b))
             @ifs($an.is::<$at>() $($cond)?)
             @casts(let $an = *$an.downcast::<$at>().unwrap())
         }
@@ -62,7 +63,7 @@ macro_rules! match_dyn {
             // Next index, match argument, remaining match results
             @exec($e; $($rest)*)
             @arms($($arms)*)
-            @pats(($a, Dyn($bn)))
+            @pats(($a, Dyn(ref $bn)))
             @ifs($bn.is::<$bt>() $($cond)?)
             @casts(let $bn = *$bn.downcast::<$bt>().unwrap())
         }
@@ -162,7 +163,7 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
 
 /// Apply the unary plus operator to a value.
 pub fn pos(value: Value) -> StrResult<Value> {
-    Ok(match value {
+    Ok(match_dyn!(value;
         Int(v) => Int(v),
         Float(v) => Float(v),
         Length(v) => Length(v),
@@ -171,7 +172,7 @@ pub fn pos(value: Value) -> StrResult<Value> {
         Relative(v) => Relative(v),
         Fraction(v) => Fraction(v),
         v => mismatch!("cannot apply '+' to {}", v),
-    })
+    ))
 }
 
 /// Compute the negation of a value.
@@ -233,7 +234,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 paint: Smart::Custom(color.into()),
                 thickness: Smart::Custom(thickness),
                 ..PartialStroke::default()
-            }),
+        }),
         (Dyn(a: GenAlign), Dyn(b: GenAlign)) => Dyn({
             if a.axis() == b.axis() {
                 return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
@@ -245,6 +246,8 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
             }
         }),
         (Dyn(a: Duration), Dyn(b: Duration)) => Dyn(a+b),
+        (Dyn(a: Datetime), Dyn(b: Duration)) => Dyn(a+b),
+        (Dyn(a: Duration), Dyn(b: Datetime)) => Dyn(b+a),
         (a, b) => mismatch!("cannot add {} and {}", a, b),
     ))
 }
@@ -274,6 +277,8 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fraction(a), Fraction(b)) => Fraction(a - b),
 
         (Dyn(a:Duration), Dyn(b:Duration)) => Dyn(a-b),
+        (Dyn(a:Datetime), Dyn(b:Duration)) => Dyn(a-b),
+        (Dyn(a:Datetime), Dyn(b:Datetime)) => Dyn((a-b)?),
 
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
     ))
@@ -383,7 +388,7 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
 
 /// Whether a value is a numeric zero.
 fn is_zero(v: &Value) -> bool {
-    match *v {
+    match_dyn!(*v;
         Int(v) => v == 0,
         Float(v) => v == 0.0,
         Length(v) => v.is_zero(),
@@ -391,8 +396,9 @@ fn is_zero(v: &Value) -> bool {
         Ratio(v) => v.is_zero(),
         Relative(v) => v.is_zero(),
         Fraction(v) => v.is_zero(),
+        Dyn(v: Duration) => v.is_zero(),
         _ => false,
-    }
+    )
 }
 
 /// Try to divide two lengths.
@@ -457,7 +463,7 @@ comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
 
 /// Determine whether two values are equal.
 pub fn equal(lhs: &Value, rhs: &Value) -> bool {
-    match (lhs, rhs) {
+    match_dyn!((lhs, rhs);
         // Compare reflexively.
         (None, None) => true,
         (Auto, Auto) => true,
@@ -488,14 +494,13 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (&Ratio(a), &Relative(b)) => a == b.rel && b.abs.is_zero(),
         (&Relative(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
         (&Relative(a), &Ratio(b)) => a.rel == b && a.abs.is_zero(),
-
         _ => false,
-    }
+    )
 }
 
 /// Compare two values.
 pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
-    Ok(match (lhs, rhs) {
+    Ok(match_dyn!((lhs, rhs);
         (Bool(a), Bool(b)) => a.cmp(b),
         (Int(a), Int(b)) => a.cmp(b),
         (Float(a), Float(b)) => try_cmp_values(a, b)?,
@@ -514,8 +519,11 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Relative(a), Length(b)) if a.rel.is_zero() => try_cmp_values(&a.abs, b)?,
         (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
+        (Dyn(a:Duration), Dyn(b:Duration)) => a.cmp(&b),
+        (Dyn(a:Datetime), Dyn(b:Datetime)) => a.cmp(&b),
+
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
-    })
+    ))
 }
 
 /// Try to compare two values.

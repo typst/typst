@@ -249,20 +249,6 @@ pub fn call(
                     "minute" => datetime.minute().into_value(),
                     "second" => datetime.second().into_value(),
                     "ordinal" => datetime.ordinal().into_value(),
-                    "add" => datetime
-                        .add(
-                            args.named("weeks")?,
-                            args.named("days")?,
-                            args.named("hours")?,
-                            args.named("minutes")?,
-                            args.named("seconds")?,
-                        )
-                        .at(span)?
-                        .into_value(),
-                    "duration-to" => datetime
-                        .get_duration(&args.expect("other")?, &args.expect("unit")?)
-                        .at(span)?
-                        .into_value(),
                     _ => return missing(),
                 }
             } else if let Some(direction) = dynamic.downcast::<Dir>() {
