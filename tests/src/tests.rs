@@ -23,6 +23,7 @@ use walkdir::WalkDir;
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
+use typst::export::Target;
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{FileId, Source, Span, SyntaxNode};
@@ -284,6 +285,10 @@ impl World for TestWorld {
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
+    }
+
+    fn target(&self) -> Target {
+        Target::Pdf
     }
 }
 
