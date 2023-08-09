@@ -1,4 +1,3 @@
----
 // negate Duration
 #test(-duration(hours: 2), duration(hours: -2))
 
