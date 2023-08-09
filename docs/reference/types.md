@@ -437,21 +437,46 @@ Returns the ordinal (day of the year) of the datetime, if it exists. Otherwise, 
 
 - returns: integer or none
 
-### add()
-Return a new data that is advanced by the specified duration. Negative durations are possible.
+# Duration
+Represents a span of time. Can be created by either specifying a custom duration using the [`duration`]($func/datetime) function or
+by subtracting two dates.
 
-- weeks: integer (named) Amount of weeks to add.
-- days: integer (named) Amount of days to add.
-- hours: integer (named) Amount of hours to add.
-- minutes: integer (named) Amount of minutes to add.
-- seconds: integer (named) Amount of seconds to add.
-- returns: datetime
+## Example
+```example
+#let duration = duration(
+  days: 4,
+  hours: 2,
+  minutes: 10,
+)
 
-### duration-to()
-Return the duration from this to another Datetime in a specified Unit.
+#duration.as_hours()
+```
 
-- other: datetime (positional, required) The other Datetime.
-- unit: string (positional, required) The output unit of the duration: Weeks, Days, Hours, Minutes, Seconds
+## Methods
+
+### as_seconds()
+Returns the amount of seconds that equals the duration.
+
+- returns: float
+
+### as_minutes()
+Returns the amount of minutes that equals the duration.
+
+- returns: float
+
+### as_hours()
+Returns the amount of hours that equals the duration.
+
+- returns: float
+- 
+### as_days()
+Returns the amount of days that equals the duration.
+
+- returns: float
+
+### as_weeks()
+Returns the amount of weeks that equals the duration.
+
 - returns: float
 
 # Symbol
