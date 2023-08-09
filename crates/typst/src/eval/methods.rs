@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use super::{Args, IntoValue, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
-use crate::eval::{bail, Datetime};
+use crate::eval::{bail, Datetime, Duration};
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
@@ -260,7 +260,16 @@ pub fn call(
                     "ordinal" => datetime.ordinal().into_value(),
                     _ => return missing(),
                 }
-            } else if let Some(direction) = dynamic.downcast::<Dir>() {
+            } else if let Some(&duration) = dynamic.downcast::<Duration>() {
+            match method {
+                "seconds" => duration.as_seconds(),
+                "minutes" => duration.as_minutes(),
+                "hours" => duration.as_hours(),
+                "days" => duration.as_days(),
+                "weeks" => duration.as_weeks(),
+                _ => return missing(),
+            }
+        } else if let Some(direction) = dynamic.downcast::<Dir>() {
                 match method {
                     "axis" => direction.axis().description().into_value(),
                     "start" => {

@@ -454,27 +454,27 @@ by subtracting two dates.
 
 ## Methods
 
-### as_seconds()
+### seconds()
 Returns the amount of seconds that equals the duration.
 
 - returns: float
 
-### as_minutes()
+### minutes()
 Returns the amount of minutes that equals the duration.
 
 - returns: float
 
-### as_hours()
+### hours()
 Returns the amount of hours that equals the duration.
 
 - returns: float
-- 
-### as_days()
+
+### days()
 Returns the amount of days that equals the duration.
 
 - returns: float
 
-### as_weeks()
+### weeks()
 Returns the amount of weeks that equals the duration.
 
 - returns: float
