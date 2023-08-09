@@ -211,9 +211,9 @@ cast! {
 /// Category: construct
 #[func]
 #[scope(
-scope.define("today", datetime_today_func());
-scope.define("now", datetime_now_func());
-scope
+    scope.define("today", datetime_today_func());
+    scope.define("now", datetime_now_func());
+    scope
 )]
 pub fn datetime(
     /// The year of the datetime.
@@ -270,15 +270,10 @@ pub fn datetime(
 }
 
 pub struct YearComponent(i32);
-
 pub struct MonthComponent(Month);
-
 pub struct DayComponent(u8);
-
 pub struct HourComponent(u8);
-
 pub struct MinuteComponent(u8);
-
 pub struct SecondComponent(u8);
 
 cast! {
@@ -574,9 +569,9 @@ cast! {
 /// Category: construct
 #[func]
 #[scope(
-scope.define("to-unicode", str_to_unicode_func());
-scope.define("from-unicode", str_from_unicode_func());
-scope
+    scope.define("to-unicode", str_to_unicode_func());
+    scope.define("from-unicode", str_from_unicode_func());
+    scope
 )]
 pub fn str(
     /// The value that should be converted to a string.
