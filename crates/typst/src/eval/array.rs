@@ -287,6 +287,30 @@ impl Array {
         Ok(result)
     }
 
+    /// Returns an array with a copy of the separator value placed between
+    /// adjacent elements.
+    pub fn intersperse(&self, sep: Value) -> Array {
+        // TODO: Use https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.intersperse
+        // once it is stabilized.
+        let size = match self.len() {
+            0 => return Array::new(),
+            n => (2 * n) - 1,
+        };
+        let mut vec = EcoVec::with_capacity(size);
+        let mut iter = self.iter().cloned();
+
+        if let Some(first) = iter.next() {
+            vec.push(first);
+        }
+
+        for value in iter {
+            vec.push(sep.clone());
+            vec.push(value);
+        }
+
+        Array(vec)
+    }
+
     /// Zips the array with another array. If the two arrays are of unequal length, it will only
     /// zip up until the last element of the smaller array and the remaining elements will be
     /// ignored. The return value is an array where each element is yet another array of size 2.
