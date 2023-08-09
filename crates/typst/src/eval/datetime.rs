@@ -108,7 +108,7 @@ impl Datetime {
         }
     }
 
-    /// Redurn the ordinal (day of the year), if existing
+    /// Return the ordinal (day of the year), if existing
     pub fn ordinal(&self) -> Option<u16> {
         match self {
             Datetime::Datetime(datetime) => Some(datetime.ordinal()),
