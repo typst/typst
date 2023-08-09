@@ -3,11 +3,16 @@ use super::*;
 /// Forced use of a certain math class.
 ///
 /// This is useful to treat certain symbols as if they were of a different
-/// class, e.g. to make text behave like a binary operator.
+/// class, e.g. to make a symbol behave like a relation.
 ///
-/// # Example
+/// ## Example { #example }
 /// ```example
-/// $x class("relation", "<=") 5$
+/// #let loves = math.class(
+///   "relation",
+///   sym.suit.heart,
+/// )
+///
+/// $x loves y and y loves 5$
 /// ```
 ///
 /// Display: Class

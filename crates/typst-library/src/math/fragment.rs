@@ -216,7 +216,7 @@ impl GlyphFragment {
     pub fn with_id(ctx: &MathContext, c: char, id: GlyphId, span: Span) -> Self {
         let class = match c {
             ':' => Some(MathClass::Relation),
-            '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
+            '.' | '/' | '⋯' | '⋱' | '⋰' | '⋮' => Some(MathClass::Normal),
             _ => unicode_math_class::class(c),
         };
         let mut fragment = Self {

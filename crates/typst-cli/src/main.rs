@@ -2,6 +2,7 @@ mod args;
 mod compile;
 mod fonts;
 mod package;
+mod query;
 mod tracing;
 mod watch;
 mod world;
@@ -36,6 +37,7 @@ fn main() -> ExitCode {
     let res = match arguments.command {
         Command::Compile(command) => crate::compile::compile(command),
         Command::Watch(command) => crate::watch::watch(command),
+        Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
     };
 

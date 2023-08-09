@@ -908,6 +908,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
 
     // Cost parameters.
     const HYPH_COST: Cost = 0.5;
+    const RUNT_COST: Cost = 0.5;
     const CONSECUTIVE_DASH_COST: Cost = 300.0;
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
@@ -983,6 +984,11 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 // Normal line with cost of |ratio^3|.
                 ratio.powi(3).abs()
             };
+
+            // Penalize runts.
+            if k == i + 1 && eof {
+                cost += RUNT_COST;
+            }
 
             // Penalize hyphens.
             if hyphen {
@@ -1344,7 +1350,9 @@ fn finalize(
     let width = if !region.x.is_finite()
         || (!expand && lines.iter().all(|line| line.fr().is_zero()))
     {
-        p.hang + lines.iter().map(|line| line.width).max().unwrap_or_default()
+        region
+            .x
+            .min(p.hang + lines.iter().map(|line| line.width).max().unwrap_or_default())
     } else {
         region.x
     };

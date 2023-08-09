@@ -1,11 +1,10 @@
 use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::FileResult;
-use typst::eval::{Datetime, Library, Tracer};
+use typst::eval::{Bytes, Datetime, Library, Tracer};
 use typst::font::{Font, FontBook};
 use typst::geom::Color;
 use typst::syntax::{FileId, Source};
-use typst::util::Bytes;
 use typst::World;
 use unscanny::Scanner;
 

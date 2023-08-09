@@ -28,8 +28,10 @@ pub(super) fn define(global: &mut Scope) {
     global.define("duration", duration_func());
     global.define("symbol", symbol_func());
     global.define("str", str_func());
+    global.define("bytes", bytes_func());
     global.define("label", label_func());
     global.define("regex", regex_func());
+    global.define("array", array_func());
     global.define("range", range_func());
     global.define("read", read_func());
     global.define("csv", csv_func());

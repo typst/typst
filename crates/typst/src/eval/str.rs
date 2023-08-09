@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
 use ecow::EcoString;
+use serde::Serialize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{cast, dict, Args, Array, Dict, Func, IntoValue, Value, Vm};
@@ -25,7 +26,7 @@ pub use crate::__format_str as format_str;
 pub use ecow::eco_format;
 
 /// An immutable reference counted string.
-#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
 pub struct Str(EcoString);
 
 impl Str {
@@ -68,14 +69,12 @@ impl Str {
     }
 
     /// Extract the grapheme cluster at the given index.
-    pub fn at<'a>(&'a self, index: i64, default: Option<&'a str>) -> StrResult<Self> {
+    pub fn at(&self, index: i64, default: Option<Value>) -> StrResult<Value> {
         let len = self.len();
-        let grapheme = self
-            .locate_opt(index)?
-            .and_then(|i| self.0[i..].graphemes(true).next())
+        self.locate_opt(index)?
+            .and_then(|i| self.0[i..].graphemes(true).next().map(|s| s.into_value()))
             .or(default)
-            .ok_or_else(|| no_default_and_out_of_bounds(index, len))?;
-        Ok(grapheme.into())
+            .ok_or_else(|| no_default_and_out_of_bounds(index, len))
     }
 
     /// Extract a contiguous substring.
@@ -324,8 +323,15 @@ impl Str {
         Ok(Self(self.0.repeat(n)))
     }
 
-    /// Resolve an index, if it is within bounds.
-    /// Errors on invalid char boundaries.
+    /// Resolve an index or throw an out of bounds error.
+    fn locate(&self, index: i64) -> StrResult<usize> {
+        self.locate_opt(index)?
+            .ok_or_else(|| out_of_bounds(index, self.len()))
+    }
+
+    /// Resolve an index, if it is within bounds and on a valid char boundary.
+    ///
+    /// `index == len` is considered in bounds.
     fn locate_opt(&self, index: i64) -> StrResult<Option<usize>> {
         let wrapped =
             if index >= 0 { Some(index) } else { (self.len() as i64).checked_add(index) };
@@ -339,12 +345,6 @@ impl Str {
         }
 
         Ok(resolved)
-    }
-
-    /// Resolve an index or throw an out of bounds error.
-    fn locate(&self, index: i64) -> StrResult<usize> {
-        self.locate_opt(index)?
-            .ok_or_else(|| out_of_bounds(index, self.len()))
     }
 }
 

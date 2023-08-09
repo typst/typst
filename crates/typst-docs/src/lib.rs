@@ -214,6 +214,8 @@ pub struct CategoryModel {
     pub details: Html,
     pub kind: &'static str,
     pub items: Vec<CategoryItem>,
+    pub markup_shorthands: Option<Vec<SymbolModel>>,
+    pub math_shorthands: Option<Vec<SymbolModel>>,
 }
 
 /// Details about a category item.
@@ -324,9 +326,22 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
     items.sort_by_cached_key(|item| item.name.clone());
 
     // Add symbol pages. These are ordered manually.
+    let mut markup_shorthands = vec![];
+    let mut math_shorthands = vec![];
     if category == "symbols" {
         for module in ["sym", "emoji"] {
             let subpage = symbol_page(resolver, &route, module);
+            let BodyModel::Symbols(model) = &subpage.body else { continue };
+            let list = &model.list;
+            markup_shorthands.extend(
+                list.iter()
+                    .filter(|symbol| symbol.markup_shorthand.is_some())
+                    .cloned(),
+            );
+            math_shorthands.extend(
+                list.iter().filter(|symbol| symbol.math_shorthand.is_some()).cloned(),
+            );
+
             items.push(CategoryItem {
                 name: module.into(),
                 route: subpage.route.clone(),
@@ -354,6 +369,8 @@ fn category_page(resolver: &dyn Resolver, category: &str) -> PageModel {
             details: Html::markdown(resolver, details(category)),
             kind,
             items,
+            markup_shorthands: Some(markup_shorthands),
+            math_shorthands: Some(math_shorthands),
         }),
         children,
     }
@@ -651,6 +668,8 @@ fn types_page(resolver: &dyn Resolver, parent: &str) -> PageModel {
             details: Html::markdown(resolver, details("types")),
             kind: "Types",
             items,
+            markup_shorthands: None,
+            math_shorthands: None,
         }),
         children,
     }
@@ -823,11 +842,12 @@ pub struct SymbolsModel {
 }
 
 /// Details about a symbol.
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SymbolModel {
     pub name: String,
-    pub shorthand: Option<&'static str>,
+    pub markup_shorthand: Option<&'static str>,
+    pub math_shorthand: Option<&'static str>,
     pub codepoint: u32,
     pub accent: bool,
     pub unicode_name: Option<String>,
@@ -850,13 +870,14 @@ fn symbol_page(resolver: &dyn Resolver, parent: &str, name: &str) -> PageModel {
         };
 
         for (variant, c) in symbol.variants() {
+            let shorthand = |list: &[(&'static str, char)]| {
+                list.iter().copied().find(|&(_, x)| x == c).map(|(s, _)| s)
+            };
+
             list.push(SymbolModel {
                 name: complete(variant),
-                shorthand: typst::syntax::ast::Shorthand::LIST
-                    .iter()
-                    .copied()
-                    .find(|&(_, x)| x == c)
-                    .map(|(s, _)| s),
+                markup_shorthand: shorthand(typst::syntax::ast::Shorthand::MARKUP_LIST),
+                math_shorthand: shorthand(typst::syntax::ast::Shorthand::MATH_LIST),
                 codepoint: c as u32,
                 accent: typst::eval::Symbol::combining_accent(c).is_some(),
                 unicode_name: unicode_names2::name(c)
@@ -962,6 +983,7 @@ const TYPE_ORDER: &[&str] = &[
     "color",
     "datetime",
     "string",
+    "bytes",
     "regex",
     "label",
     "content",

@@ -179,8 +179,8 @@ fn heading(p: &mut Parser) {
 
 fn list_item(p: &mut Parser) {
     let m = p.marker();
+    let min_indent = p.column(p.current_start()) + 1;
     p.assert(SyntaxKind::ListMarker);
-    let min_indent = p.column(p.prev_end());
     whitespace_line(p);
     markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
     p.wrap(m, SyntaxKind::ListItem);
@@ -188,8 +188,8 @@ fn list_item(p: &mut Parser) {
 
 fn enum_item(p: &mut Parser) {
     let m = p.marker();
+    let min_indent = p.column(p.current_start()) + 1;
     p.assert(SyntaxKind::EnumMarker);
-    let min_indent = p.column(p.prev_end());
     whitespace_line(p);
     markup(p, false, min_indent, |p| p.at(SyntaxKind::RightBracket));
     p.wrap(m, SyntaxKind::EnumItem);

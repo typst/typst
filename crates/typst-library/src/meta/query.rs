@@ -3,12 +3,9 @@ use crate::prelude::*;
 /// Finds elements in the document.
 ///
 /// The `query` functions lets you search your document for elements of a
-/// particular type or with a particular label.
-///
-/// To use it, you first need to retrieve the current document location with the
-/// [`locate`]($func/locate) function. You can then decide whether you want to
-/// find all elements, just the ones before that location, or just the ones
-/// after it.
+/// particular type or with a particular label. To use it, you first need to
+/// retrieve the current document location with the [`locate`]($func/locate)
+/// function.
 ///
 /// ## Finding elements { #finding-elements }
 /// In the example below, we create a custom page header that displays the text
@@ -89,12 +86,45 @@ use crate::prelude::*;
 /// })
 /// ```
 ///
-/// ## Migration Hints { #migration-hints }
-/// The `before` and `after` arguments have been removed in version 0.3.0. You
-/// can now use flexible selector combinator methods instead. For example,
-/// `query(heading, before: loc)` becomes `query(heading.before(loc), loc)`.
-/// Please refer to the [selector documentation]($type/selector) for more
-/// details.
+/// ## Command line queries { #command-line-queries }
+/// You can also perform queries from the command line with the `typst query`
+/// command. This command executes an arbitrary query on the document and
+/// returns the resulting elements in serialized form. Consider the following
+/// `example.typ` file which contains some invisible [metadata]($func/metadata):
+///
+/// ```typ
+/// #metadata("This is a note") <note>
+/// ```
+///
+/// You can execute a query on it as follows using Typst's CLI:
+/// ```sh
+/// $ typst query example.typ "<note>"
+/// [
+///   {
+///     "func": "metadata",
+///     "value": "This is a note",
+///     "label": "<note>"
+///   }
+/// ]
+/// ```
+///
+/// Frequently, you're interested in only one specific field of the resulting
+/// elements. In the case of the `metadata` element, the `value` field is the
+/// interesting one. You can extract just this field with the `--field`
+/// argument.
+///
+/// ```sh
+/// $ typst query example.typ "<note>" --field value
+/// ["This is a note"]
+/// ```
+///
+/// If you are interested in just a single element, you can use the `--one`
+/// flag to extract just it.
+///
+/// ```sh
+/// $ typst query example.typ "<note>" --field value --one
+/// "This is a note"
+/// ```
 ///
 /// Display: Query
 /// Category: meta

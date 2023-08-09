@@ -56,8 +56,8 @@ use super::GridLayouter;
 ///   numbered enumeration item.
 ///
 /// Enumeration items can contain multiple paragraphs and other block-level
-/// content. All content that is indented more than an item's plus sign or dot
-/// becomes part of that item.
+/// content. All content that is indented more than an item's marker becomes
+/// part of that item.
 ///
 /// Display: Numbered List
 /// Category: layout

@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Datetime, Duration, Module, Regex};
+use typst::eval::{Bytes, Datetime, Duration, Module, Reflect, Regex};
 
 use crate::prelude::*;
 
@@ -37,9 +37,9 @@ pub struct ToInt(i64);
 cast! {
     ToInt,
     v: bool => Self(v as i64),
-    v: i64 => Self(v),
     v: f64 => Self(v as i64),
     v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid integer: {}", v))?),
+    v: i64 => Self(v),
 }
 
 /// Converts a value to a float.
@@ -77,9 +77,9 @@ cast! {
     ToFloat,
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
-    v: f64 => Self(v),
     v: Ratio => Self(v.get()),
     v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid float: {}", v))?),
+    v: f64 => Self(v),
 }
 
 /// Creates a grayscale color.
@@ -104,10 +104,6 @@ pub fn luma(
 /// Creates an RGB(A) color.
 ///
 /// The color is specified in the sRGB color space.
-///
-/// _Note:_ While you can specify transparent colors and Typst's preview will
-/// render them correctly, the PDF export does not handle them properly at the
-/// moment. This will be fixed in the future.
 ///
 /// ## Example { #example }
 /// ```example
@@ -418,7 +414,7 @@ pub fn duration(
 /// #square(
 ///   fill: cmyk(27%, 0%, 3%, 5%)
 /// )
-/// ````
+/// ```
 ///
 /// Display: CMYK
 /// Category: construct
@@ -457,13 +453,14 @@ pub fn color_module() -> Module {
 
 /// Create a color by mixing two or more colors.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
-/// #color.mix(red, green)
-/// #color.mix(red, green, white)
-/// #color.mix(red, green, space: "srgb")
-/// #color.mix((red, 30%), (green, 70%))
-/// ````
+/// #set block(height: 20pt, width: 100%)
+/// #block(fill: color.mix(red, blue))
+/// #block(fill: color.mix(red, blue, space: "srgb"))
+/// #block(fill: color.mix((red, 70%), (blue, 30%)))
+/// #block(fill: color.mix(red, blue, white))
+/// ```
 ///
 /// _Note:_ This function must be specified as `color.mix`, not just `mix`.
 /// Currently, `color` is a module, but it is designed to be forward compatible
@@ -475,6 +472,9 @@ pub fn color_module() -> Module {
 pub fn mix(
     /// The colors, optionally with weights, specified as a pair (array of
     /// length two) of color and weight (float or ratio).
+    ///
+    /// The weights do not need to add to `{100%}`, they are relative to the
+    /// sum of all weights.
     #[variadic]
     colors: Vec<WeightedColor>,
     /// The color space to mix in. By default, this happens in a perceptual
@@ -555,6 +555,7 @@ cast! {
 ///   optional `base` parameter.
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
+/// - Bytes are decoded as UTF-8.
 ///
 /// If you wish to convert from and to Unicode code points, see
 /// [`str.to-unicode`]($func/str.to-unicode) and
@@ -614,6 +615,11 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Str(format_str!("{}", v)),
     v: Label => Self::Str(v.0.into()),
+    v: Bytes => Self::Str(
+        std::str::from_utf8(&v)
+            .map_err(|_| "bytes are not valid utf-8")?
+            .into()
+    ),
     v: Str => Self::Str(v),
 }
 
@@ -702,35 +708,6 @@ cast! {
     },
 }
 
-/// Creates a label from a string.
-///
-/// Inserting a label into content attaches it to the closest previous element
-/// that is not a space. Then, the element can be [referenced]($func/ref) and
-/// styled through the label.
-///
-/// ## Example { #example }
-/// ```example
-/// #show <a>: set text(blue)
-/// #show label("b"): set text(red)
-///
-/// = Heading <a>
-/// *Strong* #label("b")
-/// ```
-///
-/// ## Syntax { #syntax }
-/// This function also has dedicated syntax: You can create a label by enclosing
-/// its name in angle brackets. This works both in markup and code.
-///
-/// Display: Label
-/// Category: construct
-#[func]
-pub fn label(
-    /// The name of the label.
-    name: EcoString,
-) -> Label {
-    Label(name)
-}
-
 /// Creates a regular expression from a string.
 ///
 /// The result can be used as a
@@ -768,6 +745,106 @@ pub fn regex(
     regex: Spanned<EcoString>,
 ) -> SourceResult<Regex> {
     Regex::new(&regex.v).at(regex.span)
+}
+
+/// Converts a value to bytes.
+///
+/// - Strings are encoded in UTF-8.
+/// - Arrays of integers between `{0}` and `{255}` are converted directly. The
+///   dedicated byte representation is much more efficient than the array
+///   representation and thus typically used for large byte buffers (e.g. image
+///   data).
+///
+/// ```example
+/// #bytes("Hello 😃") \
+/// #bytes((123, 160, 22, 0))
+/// ```
+///
+/// Display: Bytes
+/// Category: construct
+#[func]
+pub fn bytes(
+    /// The value that should be converted to a string.
+    value: ToBytes,
+) -> Bytes {
+    value.0
+}
+
+/// A value that can be cast to bytes.
+pub struct ToBytes(Bytes);
+
+cast! {
+    ToBytes,
+    v: Str => Self(v.as_bytes().into()),
+    v: Array => Self(v.iter()
+        .map(|v| match v {
+            Value::Int(byte @ 0..=255) => Ok(*byte as u8),
+            Value::Int(_) => bail!("number must be between 0 and 255"),
+            value => Err(<u8 as Reflect>::error(value)),
+        })
+        .collect::<Result<Vec<u8>, _>>()?
+        .into()
+    ),
+    v: Bytes => Self(v),
+}
+
+/// Creates a label from a string.
+///
+/// Inserting a label into content attaches it to the closest previous element
+/// that is not a space. Then, the element can be [referenced]($func/ref) and
+/// styled through the label.
+///
+/// ## Example { #example }
+/// ```example
+/// #show <a>: set text(blue)
+/// #show label("b"): set text(red)
+///
+/// = Heading <a>
+/// *Strong* #label("b")
+/// ```
+///
+/// ## Syntax { #syntax }
+/// This function also has dedicated syntax: You can create a label by enclosing
+/// its name in angle brackets. This works both in markup and code.
+///
+/// Display: Label
+/// Category: construct
+#[func]
+pub fn label(
+    /// The name of the label.
+    name: EcoString,
+) -> Label {
+    Label(name)
+}
+
+/// Converts a value to an array.
+///
+/// Note that this function is only intended for conversion of a collection-like
+/// value to an array, not for creation of an array from individual items. Use
+/// the array syntax `(1, 2, 3)` (or `(1,)` for a single-element array) instead.
+///
+/// ```example
+/// #let hi = "Hello 😃"
+/// #array(bytes(hi))
+/// ```
+///
+/// Display: Array
+/// Category: construct
+#[func]
+pub fn array(
+    /// The value that should be converted to an array.
+    value: ToArray,
+) -> Array {
+    value.0
+}
+
+/// A value that can be cast to bytes.
+pub struct ToArray(Array);
+
+cast! {
+    ToArray,
+    v: Bytes => Self(v.iter().map(|&b| Value::Int(b as i64)).collect()),
+    v: Array => Self(v),
 }
 
 /// Creates an array consisting of consecutive integers.

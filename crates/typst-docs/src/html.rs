@@ -4,11 +4,10 @@ use comemo::Prehashed;
 use pulldown_cmark as md;
 use typed_arena::Arena;
 use typst::diag::FileResult;
-use typst::eval::{Datetime, Tracer};
+use typst::eval::{Bytes, Datetime, Tracer};
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
 use typst::syntax::{FileId, Source};
-use typst::util::Bytes;
 use typst::World;
 use yaml_front_matter::YamlFrontMatter;
 
