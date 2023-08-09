@@ -80,7 +80,7 @@ impl SystemWorld {
                 ArgTarget::Pdf => Target::Pdf,
                 ArgTarget::Png => Target::Png,
                 ArgTarget::Svg => Target::Svg,
-            }
+            },
         );
 
         Ok(Self {

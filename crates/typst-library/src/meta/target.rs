@@ -1,5 +1,5 @@
-use typst::export;
 use crate::prelude::*;
+use typst::export;
 
 /// Provides access to the target format, and associated information.
 ///
@@ -61,7 +61,6 @@ impl Target {
         Self(target)
     }
 
-
     /// Call a method on a target.
     pub fn call_method(
         self,
@@ -76,7 +75,10 @@ impl Target {
             "is-png" => self.0 == export::Target::Png,
             "is-query" => self.0 == export::Target::Query,
             "is-pageless" => false, // When HTML gets added, this will be true for it.
-            "is-layouted" => matches!(self.0, export::Target::Pdf | export::Target::Svg | export::Target::Png),
+            "is-layouted" => matches!(
+                self.0,
+                export::Target::Pdf | export::Target::Svg | export::Target::Png
+            ),
             _ => bail!(span, "type target has no method `{}`", method),
         };
 

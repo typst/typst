@@ -19,7 +19,6 @@ mod target;
 pub use self::bibliography::*;
 pub use self::context::*;
 pub use self::counter::*;
-pub use self::target::*;
 pub use self::document::*;
 pub use self::figure::*;
 pub use self::footnote::*;
@@ -31,6 +30,7 @@ pub use self::outline::*;
 pub use self::query::*;
 pub use self::reference::*;
 pub use self::state::*;
+pub use self::target::*;
 
 use crate::prelude::*;
 use crate::text::TextElem;

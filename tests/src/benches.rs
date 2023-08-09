@@ -2,12 +2,12 @@ use comemo::{Prehashed, Track, Tracked};
 use iai::{black_box, main, Iai};
 use typst::diag::FileResult;
 use typst::eval::{Bytes, Datetime, Library, Tracer};
+use typst::export::Target;
 use typst::font::{Font, FontBook};
 use typst::geom::Color;
 use typst::syntax::{FileId, Source};
 use typst::World;
 use unscanny::Scanner;
-use typst::export::Target;
 
 const TEXT: &str = include_str!("../typ/compiler/bench.typ");
 const FONT: &[u8] = include_bytes!("../../assets/fonts/LinLibertine_R.ttf");

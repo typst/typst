@@ -11,7 +11,7 @@ use typst::geom::Color;
 use typst::syntax::{FileId, Source};
 use typst::World;
 
-use crate::args::{CompileCommand, DiagnosticFormat, ArgTarget};
+use crate::args::{ArgTarget, CompileCommand, DiagnosticFormat};
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};

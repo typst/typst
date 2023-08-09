@@ -5,12 +5,12 @@ use pulldown_cmark as md;
 use typed_arena::Arena;
 use typst::diag::FileResult;
 use typst::eval::{Bytes, Datetime, Tracer};
+use typst::export::Target;
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
 use typst::syntax::{FileId, Source};
 use typst::World;
 use yaml_front_matter::YamlFrontMatter;
-use typst::export::Target;
 
 use super::*;
 
