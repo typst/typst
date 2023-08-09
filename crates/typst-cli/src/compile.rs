@@ -11,7 +11,7 @@ use typst::geom::Color;
 use typst::syntax::{FileId, Source};
 use typst::World;
 
-use crate::args::{CompileCommand, DiagnosticFormat};
+use crate::args::{CompileCommand, DiagnosticFormat, ArgTarget};
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
@@ -97,14 +97,14 @@ pub fn compile_once(
 
 /// Export into the target format.
 fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    match command.output().extension() {
-        Some(ext) if ext.eq_ignore_ascii_case("png") => {
-            export_image(document, command, ImageExportFormat::Png)
+    if let Some(x) = command.common.target {
+        match x {
+            ArgTarget::Pdf => export_pdf(document, command),
+            ArgTarget::Png => export_image(document, command, ImageExportFormat::Png),
+            ArgTarget::Svg => export_image(document, command, ImageExportFormat::Svg),
         }
-        Some(ext) if ext.eq_ignore_ascii_case("svg") => {
-            export_image(document, command, ImageExportFormat::Svg)
-        }
-        _ => export_pdf(document, command),
+    } else {
+        export_pdf(document, command)
     }
 }
 

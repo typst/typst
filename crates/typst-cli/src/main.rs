@@ -25,7 +25,7 @@ thread_local! {
 
 /// Entry point.
 fn main() -> ExitCode {
-    let arguments = CliArguments::parse();
+    let mut arguments = CliArguments::parse();
     let _guard = match crate::tracing::setup_tracing(&arguments) {
         Ok(guard) => guard,
         Err(err) => {
@@ -33,6 +33,10 @@ fn main() -> ExitCode {
             None
         }
     };
+
+    if let Command::Compile(command) | Command::Watch(command) = &mut arguments.command {
+        command.guess_target_if_needed(); // :/
+    }
 
     let res = match arguments.command {
         Command::Compile(command) => crate::compile::compile(command),

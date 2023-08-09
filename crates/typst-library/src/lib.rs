@@ -136,6 +136,8 @@ fn items() -> LangItems {
                 counter.call_method(vm, method, args, span)
             } else if let Some(state) = dynamic.downcast::<meta::State>().cloned() {
                 state.call_method(vm, method, args, span)
+            } else if let Some(target) = dynamic.downcast::<meta::Target>().cloned() {
+                target.call_method(method, args, span)
             } else {
                 Err(format!("type {} has no method `{method}`", dynamic.type_name()))
                     .at(span)

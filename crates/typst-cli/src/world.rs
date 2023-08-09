@@ -10,12 +10,13 @@ use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
 use typst::eval::{eco_format, Bytes, Datetime, Library};
+use typst::export::Target;
 use typst::font::{Font, FontBook};
 use typst::syntax::{FileId, Source};
 use typst::util::PathExt;
 use typst::World;
 
-use crate::args::SharedArgs;
+use crate::args::{ArgTarget, SharedArgs};
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
 
@@ -25,6 +26,8 @@ pub struct SystemWorld {
     root: PathBuf,
     /// The input path.
     main: FileId,
+    /// The target format.
+    format: Target,
     /// Typst's standard library.
     library: Prehashed<Library>,
     /// Metadata about discovered fonts.
@@ -71,8 +74,18 @@ impl SystemWorld {
             .map(|path| Path::new("/").join(path))
             .map_err(|_| "input file must be contained in project root")?;
 
+        let format = command.target.map_or_else(
+            || Target::Query, // Queries without a specified target are the only time we haven't already guessed it.
+            |x| match x {
+                ArgTarget::Pdf => Target::Pdf,
+                ArgTarget::Png => Target::Png,
+                ArgTarget::Svg => Target::Svg,
+            }
+        );
+
         Ok(Self {
             root,
+            format,
             main: FileId::new(None, &project_input),
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
@@ -145,6 +158,10 @@ impl World for SystemWorld {
             naive.month().try_into().ok()?,
             naive.day().try_into().ok()?,
         )
+    }
+
+    fn target(&self) -> Target {
+        self.format
     }
 }
 

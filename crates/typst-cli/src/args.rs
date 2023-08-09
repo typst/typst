@@ -66,6 +66,18 @@ impl CompileCommand {
             .clone()
             .unwrap_or_else(|| self.common.input.with_extension("pdf"))
     }
+
+    /// If the target isn't specified, makes a guess off of the extension and defaults to PDF
+    pub fn guess_target_if_needed(&mut self) {
+        if self.common.target.is_none() {
+            self.common.target = Some(match self.output().extension() {
+                Some(ext) if ext.eq_ignore_ascii_case("pdf") => ArgTarget::Pdf,
+                Some(ext) if ext.eq_ignore_ascii_case("png") => ArgTarget::Png,
+                Some(ext) if ext.eq_ignore_ascii_case("svg") => ArgTarget::Svg,
+                _ => ArgTarget::Pdf,
+            });
+        }
+    }
 }
 
 /// Processes an input file to extract provided metadata
@@ -124,6 +136,17 @@ pub struct SharedArgs {
         value_parser = clap::value_parser!(DiagnosticFormat)
     )]
     pub diagnostic_format: DiagnosticFormat,
+
+    /// In which format to output
+    #[arg(long = "target")]
+    pub target: Option<ArgTarget>,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, ValueEnum)]
+pub enum ArgTarget {
+    Pdf,
+    Png,
+    Svg,
 }
 
 /// Lists all discovered fonts in system and custom font paths

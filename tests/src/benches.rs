@@ -7,6 +7,7 @@ use typst::geom::Color;
 use typst::syntax::{FileId, Source};
 use typst::World;
 use unscanny::Scanner;
+use typst::export::Target;
 
 const TEXT: &str = include_str!("../typ/compiler/bench.typ");
 const FONT: &[u8] = include_bytes!("../../assets/fonts/LinLibertine_R.ttf");
@@ -145,5 +146,9 @@ impl World for BenchWorld {
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         unimplemented!()
+    }
+
+    fn target(&self) -> Target {
+        Target::Pdf
     }
 }

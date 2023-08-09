@@ -14,10 +14,12 @@ mod outline;
 mod query;
 mod reference;
 mod state;
+mod target;
 
 pub use self::bibliography::*;
 pub use self::context::*;
 pub use self::counter::*;
+pub use self::target::*;
 pub use self::document::*;
 pub use self::figure::*;
 pub use self::footnote::*;
@@ -48,6 +50,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("style", style_func());
     global.define("layout", layout_func());
     global.define("counter", counter_func());
+    global.define("target", target_func());
     global.define("numbering", numbering_func());
     global.define("state", state_func());
     global.define("query", query_func());

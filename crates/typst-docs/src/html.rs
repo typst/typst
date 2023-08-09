@@ -10,6 +10,7 @@ use typst::geom::{Point, Size};
 use typst::syntax::{FileId, Source};
 use typst::World;
 use yaml_front_matter::YamlFrontMatter;
+use typst::export::Target;
 
 use super::*;
 
@@ -510,5 +511,9 @@ impl World for DocWorld {
 
     fn today(&self, _: Option<i64>) -> Option<Datetime> {
         Some(Datetime::from_ymd(1970, 1, 1).unwrap())
+    }
+
+    fn target(&self) -> Target {
+        Target::Pdf
     }
 }

@@ -61,6 +61,7 @@ use ecow::EcoString;
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
 use crate::eval::{Bytes, Datetime, Library, Route, Tracer};
+use crate::export::Target;
 use crate::font::{Font, FontBook};
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 
@@ -150,4 +151,7 @@ pub trait World {
             .expect("span does not point into any source file")
             .range(span)
     }
+
+    /// Get the target format for this compilation
+    fn target(&self) -> Target;
 }

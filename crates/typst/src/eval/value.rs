@@ -53,7 +53,7 @@ pub enum Value {
     Label(Label),
     /// A content value: `[*Hi* there]`.
     Content(Content),
-    // Content styles.
+    /// Content styles.
     Styles(Styles),
     /// An array of values: `(1, "hi", 12cm)`.
     Array(Array),
