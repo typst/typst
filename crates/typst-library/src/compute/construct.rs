@@ -334,7 +334,19 @@ pub fn datetime_today(
         .ok_or("unable to get the current date")?)
 }
 
-/// COMMENT LATER!!!
+/// Creates a new duration.
+///
+/// You can specify the [datetime]($type/duration) using weeks, days, hours, minutes and seconds.
+/// You can also get a duration when subtracting two [datetimes]($type/datetime).
+///
+/// ## Example
+/// ```example
+/// #let duration = duration(days: 3, hours: 12)
+///
+/// #duration.hours() == 84
+/// ```
+///
+
 /// Display: Duration
 /// Category: construct
 #[func]
