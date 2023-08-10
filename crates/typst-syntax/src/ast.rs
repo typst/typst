@@ -850,7 +850,7 @@ impl MathAttach {
 
     /// Extract attached primes if present.
     pub fn primes(&self) -> Option<MathPrimes> {
-        self.0.children().skip(1).next().and_then(|n| n.cast())
+        self.0.children().nth(1).and_then(|n| n.cast())
     }
 }
 
