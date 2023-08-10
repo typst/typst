@@ -78,8 +78,8 @@ impl SystemWorld {
             || Target::Query, // Queries without a specified target are the only time we haven't already guessed it.
             |x| match x {
                 ArgTarget::Pdf => Target::Pdf,
-                ArgTarget::Png => Target::Png,
-                ArgTarget::Svg => Target::Svg,
+                ArgTarget::Png => Target::Raster,
+                ArgTarget::Svg => Target::Vector,
             },
         );
 

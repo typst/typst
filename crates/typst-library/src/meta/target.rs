@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use std::fmt::Write;
 use typst::export;
 
 /// Provides access to the target format, and associated information.
@@ -13,13 +14,13 @@ use typst::export;
 ///
 /// - returns: bool
 ///
-/// ### is-svg()
-/// True when the target is a svg.
+/// ### is-vector()
+/// True when the target is vectorized (SVG).
 ///
 /// - returns: bool
 ///
-/// ### is-png()
-/// True when the target is a png.
+/// ### is-raster()
+/// True when the target is rasterized (PNG, JPG, etc).
 ///
 /// - returns: bool
 ///
@@ -48,11 +49,19 @@ pub fn target(
     Target::new(vm.vt.world.target())
 }
 
-#[derive(Clone, PartialEq, Hash, Debug)]
+#[derive(Clone, PartialEq, Hash)]
 pub struct Target(export::Target);
 
 cast! {
     type Target: "target",
+}
+
+impl Debug for Target {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("target(")?;
+        self.0.fmt(f)?;
+        f.write_char(')')
+    }
 }
 
 impl Target {
@@ -71,13 +80,13 @@ impl Target {
         args.finish()?;
         let output = match method {
             "is-pdf" => self.0 == export::Target::Pdf,
-            "is-svg" => self.0 == export::Target::Svg,
-            "is-png" => self.0 == export::Target::Png,
+            "is-vector" => self.0 == export::Target::Vector,
+            "is-raster" => self.0 == export::Target::Raster,
             "is-query" => self.0 == export::Target::Query,
             "is-pageless" => false, // When HTML gets added, this will be true for it.
             "is-layouted" => matches!(
                 self.0,
-                export::Target::Pdf | export::Target::Svg | export::Target::Png
+                export::Target::Pdf | export::Target::Vector | export::Target::Raster
             ),
             _ => bail!(span, "type target has no method `{}`", method),
         };
