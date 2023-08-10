@@ -1,14 +1,17 @@
 // negate Duration
+// Ref: false
 #test(-duration(hours: 2), duration(hours: -2))
 
 ---
 // add and subtract Durations
+// Ref: false
 #test(duration(weeks:1, hours:1), duration(weeks:1) + duration(hours:1))
 #test(duration(weeks:1, hours:-1), duration(weeks:1) - duration(hours:1))
 #test(duration(days:6, hours:23), duration(weeks:1) - duration(hours:1))
 
 ---
 // add / subtract Duration and Date
+// Ref: false
 #let d = datetime(day:1, month:1, year: 2000)
 #let d2 = datetime(day:1, month:2, year: 2000)
 #test(d+duration(weeks: 2), datetime(day:15, month:1, year: 2000))
@@ -28,6 +31,7 @@
 
 ---
 // add / subtract Duration and Time
+// Ref: false
 #let a = datetime(hour:12, minute: 0, second: 0)
 #test(a+duration(hours:1, minutes: -60), datetime(hour:12, minute: 0, second: 0))
 #test(a+duration(hours: 2), datetime(hour:14, minute: 0, second: 0))
@@ -43,11 +47,13 @@
 
 ---
 // add / subtract Duration and Datetime
+// Ref: false
 #test(datetime(day:1, month:1, year: 2000, hour:12, minute: 0, second: 0)+duration(weeks:1, days: 3, hours: -13, minutes: 10, seconds: -10 ), datetime(day:10, month:1, year: 2000, hour:23, minute: 9, second: 50))
 #test(datetime(day:1, month:1, year: 2000, hour:12, minute: 0, second: 0)+duration(weeks:1, days: 3, minutes: 10) - duration(hours: 13, seconds: 10 ), datetime(day:10, month:1, year: 2000, hour:23, minute: 9, second: 50))
 
 ---
 // Subtract Dates
+// Ref: false
 #let a = datetime(hour:12, minute: 0, second: 0)
 #test(datetime(hour:14, minute: 0, second: 0) - a, duration(hours: 2))
 #test(datetime(hour:14, minute: 0, second: 0) - a, duration(minutes: 120))
@@ -58,6 +64,7 @@
 
 ---
 // multiply and divide duration with numbers
+// Ref: false
 #test(duration(minutes: 10) * 6, duration(hours:1))
 #test(duration(minutes: 10) * 2, duration(minutes:20))
 #test(duration(minutes: 10) * 2.5, duration(minutes:25))
@@ -66,12 +73,14 @@
 
 ---
 // divide Duration with Duration
+// Ref: false
 #test(duration(minutes: 20)/duration(hours:1), 1/3)
 #test(duration(minutes: 20)/duration(minutes: 10), 2)
 #test(duration(minutes: 20)/duration(minutes: 8), 2.5)
 
 ---
 // Compare durations
+// Ref: false
 #test(duration(minutes: 20) > duration(minutes:10), true)
 #test(duration(minutes: 20) >= duration(minutes:10), true)
 #test(duration(minutes: 10) < duration(minutes:20), true)
