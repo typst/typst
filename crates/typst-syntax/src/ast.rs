@@ -848,9 +848,9 @@ impl MathAttach {
             .find_map(SyntaxNode::cast)
     }
 
-    /// Extract primes if present.
+    /// Extract attached primes if present.
     pub fn primes(&self) -> Option<MathPrimes> {
-        self.0.cast_first_match()
+        self.0.children().nth(1).and_then(|n| n.cast())
     }
 }
 
