@@ -62,6 +62,18 @@ impl<T> Smart<T> {
         }
     }
 
+    /// Keeps `self` if it contains a custom value, otherwise computes a
+    /// default value.
+    pub fn or_else<F>(self, f: F) -> Self
+    where
+        F: FnOnce() -> Smart<T>,
+    {
+        match self {
+            Self::Auto => f(),
+            Self::Custom(x) => Self::Custom(x),
+        }
+    }
+
     /// Returns the contained custom value or a provided default value.
     pub fn unwrap_or(self, default: T) -> T {
         match self {

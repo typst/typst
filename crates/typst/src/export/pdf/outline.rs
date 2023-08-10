@@ -160,8 +160,9 @@ fn write_outline_item(
 
     let body = node
         .element
-        .expect_field::<Smart<Content>>("outline-title")
-        .unwrap_or_else(|| node.element.expect_field::<Content>("body"));
+        .expect_field::<Smart<Content>>("bookmark-title")
+        .or_else(|| node.element.expect_field("outline-title"))
+        .unwrap_or_else(|| node.element.expect_field("body"));
     outline.title(TextStr(body.plain_text().trim()));
 
     let loc = node.element.location().unwrap();

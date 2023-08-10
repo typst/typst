@@ -120,10 +120,21 @@ pub struct HeadingElem {
     #[default(Smart::Auto)]
     pub bookmarked: Smart<bool>,
 
-    /// The heading's title appearing in the outline and bookmarks.
-    /// The default value of `{auto}` indicates that the title is the same as
-    /// `body` property.
+    /// The heading's title appearing in the outline, and maybe in the
+    /// bookmarks.
+    ///
+    /// The default value of `{auto}` indicates that the title will be the same
+    /// as `body`.
+    #[default(Smart::Auto)]
     pub outline_title: Smart<Content>,
+
+    /// The heading's title appearing in the bookmarks.
+    ///
+    /// The default value of `{auto}` indicates that the title will be the same
+    /// as `outline-title`. If `outline-title` is also `{auto}`, the title will
+    /// be the same as `body`.
+    #[default(Smart::Auto)]
+    pub bookmark_title: Smart<Content>,
 
     /// The heading's title.
     #[required]
@@ -145,6 +156,7 @@ impl Synthesize for HeadingElem {
         self.push_outlined(self.outlined(styles));
         self.push_bookmarked(self.bookmarked(styles));
         self.push_outline_title(self.outline_title(styles));
+        self.push_bookmark_title(self.bookmark_title(styles));
 
         Ok(())
     }
