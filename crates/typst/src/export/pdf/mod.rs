@@ -9,6 +9,7 @@ mod page;
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
+use std::num::NonZeroUsize;
 
 use ecow::EcoString;
 use pdf_writer::types::Direction;
@@ -52,6 +53,7 @@ pub struct PdfContext<'a> {
     page_heights: Vec<f32>,
     alloc: Ref,
     page_tree_ref: Ref,
+    logical_pages: Vec<(NonZeroUsize, Ref)>,
     font_refs: Vec<Ref>,
     image_refs: Vec<Ref>,
     ext_gs_refs: Vec<Ref>,
@@ -82,6 +84,7 @@ impl<'a> PdfContext<'a> {
             alloc,
             page_tree_ref,
             page_refs: vec![],
+            logical_pages: vec![],
             font_refs: vec![],
             image_refs: vec![],
             ext_gs_refs: vec![],
@@ -146,6 +149,16 @@ fn write_catalog(ctx: &mut PdfContext) {
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
     catalog.pair(Name(b"Metadata"), meta_ref);
+
+    // Insert the page labels (either chain the insert or keep the `entries` reference around).
+    {
+        let mut num_tree = catalog.page_labels();
+        let mut entries = num_tree.nums();
+
+        for (n, r) in &ctx.logical_pages {
+            entries.insert(n.get() as i32 - 1, *r);
+        }
+    }
 
     if let Some(outline_root_id) = outline_root_id {
         catalog.outlines(outline_root_id);

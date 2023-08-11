@@ -1,13 +1,17 @@
+use std::num::NonZeroUsize;
+
 use ecow::eco_format;
 use pdf_writer::types::{
     ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
+    NumberingStyle,
 };
-use pdf_writer::writers::ColorSpace;
-use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
+use pdf_writer::writers::{ColorSpace, PageLabel};
+use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
 
 use super::external_graphics_state::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
+use crate::eval::{Dict, Str as TypstStr, Value};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, LineCap, LineJoin, Numeric, Paint, Point, Ratio,
@@ -398,6 +402,7 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
                 Meta::Elem(_) => {}
                 Meta::Hide => {}
                 Meta::PageNumbering(_) => {}
+                Meta::PageLabel(n, v) => write_page_label(ctx, v, *n),
             },
         }
     }
@@ -610,6 +615,33 @@ fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size)
     let rect = Rect::new(x1, y1, x2, y2);
 
     ctx.links.push((dest.clone(), rect));
+}
+
+fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
+    let label_ref = ctx.parent.alloc.bump();
+    let logical_numbering = v.clone().cast::<Dict>().unwrap();
+
+    let prefix = logical_numbering.at("prefix", None).unwrap();
+    let style = logical_numbering.at("style", None).unwrap();
+
+    let prefix_str = prefix.cast::<TypstStr>().unwrap();
+    let num_style = match style.cast::<TypstStr>().unwrap().as_str() {
+        "arabic" => NumberingStyle::Arabic,
+        "upper-roman" => NumberingStyle::UpperRoman,
+        "lower-roman" => NumberingStyle::LowerRoman,
+        "upper-alpha" => NumberingStyle::UpperAlpha,
+        "lower-alpha" => NumberingStyle::LowerAlpha,
+        _ => todo!(),
+    };
+
+    ctx.parent.logical_pages.push((n, label_ref));
+    ctx.parent
+        .writer
+        .indirect(label_ref)
+        .start::<PageLabel>()
+        .style(num_style)
+        .prefix(TextStr(prefix_str.as_str()))
+        .finish();
 }
 
 impl From<&LineCap> for LineCapStyle {

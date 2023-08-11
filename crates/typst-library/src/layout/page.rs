@@ -184,6 +184,19 @@ pub struct PageElem {
     /// ```
     pub numbering: Option<Numbering>,
 
+    /// How to number the pages logically in the PDF.
+    ///
+    /// ```example
+    /// #set page(
+    ///   height: 100pt,
+    ///   margin: (top: 16pt, bottom: 24pt),
+    ///   logical-numbering: "lower-roman",
+    /// )
+    ///
+    /// #lorem(48)
+    /// ```
+    pub logical_numbering: Option<LogicalNumbering>,
+
     /// The alignment of the page numbering.
     ///
     /// ```example
@@ -308,6 +321,7 @@ impl PageElem {
         vt: &mut Vt,
         styles: StyleChain,
         mut number: NonZeroUsize,
+        need_page_label: &mut Option<LogicalNumbering>,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -386,6 +400,11 @@ impl PageElem {
             Size::zero(),
         );
 
+        let page_label_meta = FrameItem::Meta(
+            Meta::PageLabel(number, self.logical_numbering(styles).into_value()),
+            Size::zero(),
+        );
+
         // Post-process pages.
         for frame in frames.iter_mut() {
             tracing::info!("Layouting page #{number}");
@@ -405,6 +424,11 @@ impl PageElem {
             frame.set_size(frame.size() + margin.sum_by_axis());
             frame.translate(Point::new(margin.left, margin.top));
             frame.push(Point::zero(), numbering_meta.clone());
+
+            if *need_page_label != self.logical_numbering(styles) {
+                frame.push(Point::zero(), page_label_meta.clone());
+            }
+            *need_page_label = self.logical_numbering(styles);
 
             // The page size with margins.
             let size = frame.size();
@@ -682,6 +706,33 @@ impl Parity {
             Self::Odd => number % 2 == 1,
         }
     }
+}
+
+/// Specification for logical page numbers.
+#[derive(Debug, Clone, PartialEq, Hash)]
+pub struct LogicalNumbering {
+    prefix: Option<String>,
+    style: Option<String>,
+}
+
+cast! {
+    LogicalNumbering,
+    self => {
+        let mut dict = Dict::new();
+        dict.insert("prefix".into(), Value::Str(Str::from(self.prefix.unwrap_or("".into()))));
+        dict.insert("style".into(), Value::Str(Str::from(self.style.unwrap_or("".into()))));
+
+        Value::Dict(dict)
+    },
+    dict: Dict => {
+        let prefix = dict.at("prefix", None).unwrap();
+        let style = dict.at("style", None).unwrap();
+
+        let prefix_str = prefix.cast::<Str>().ok().map(|p| String::from(p.as_str()));
+        let style_str = style.cast::<Str>().ok().map(|s| String::from(s.as_str()));
+
+        LogicalNumbering { prefix: prefix_str, style: style_str }
+    },
 }
 
 /// Specification of a paper.

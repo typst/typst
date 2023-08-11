@@ -668,6 +668,8 @@ pub enum Meta {
     Elem(Content),
     /// The numbering of the current page.
     PageNumbering(Value),
+    /// The page label of the current page.
+    PageLabel(NonZeroUsize, Value),
     /// Indicates that content should be hidden. This variant doesn't appear
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
@@ -684,6 +686,7 @@ impl Debug for Meta {
             Self::Link(dest) => write!(f, "Link({dest:?})"),
             Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
             Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
+            Self::PageLabel(page, value) => write!(f, "PageLabel({page},{value:?})"),
             Self::Hide => f.pad("Hide"),
         }
     }
