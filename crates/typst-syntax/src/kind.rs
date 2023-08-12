@@ -240,6 +240,8 @@ pub enum SyntaxKind {
     ForLoop,
     /// A module import: `import "utils.typ": a, b, c`.
     ModuleImport,
+    /// A renamed module import (without items): `import "file.typ" as utils`
+    RenamedModuleImport,
     /// Items to import from a module: `a, b, c`.
     ImportItems,
     /// A renamed import item: `a as d`.
@@ -466,6 +468,7 @@ impl SyntaxKind {
             Self::WhileLoop => "while-loop expression",
             Self::ForLoop => "for-loop expression",
             Self::ModuleImport => "`import` expression",
+            Self::RenamedModuleImport => "`import` expression with rename",
             Self::ImportItems => "import items",
             Self::RenamedImportItem => "renamed import item",
             Self::ModuleInclude => "`include` expression",

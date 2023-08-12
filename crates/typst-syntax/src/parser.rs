@@ -1138,10 +1138,16 @@ fn module_import(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Import);
     code_expr(p);
-    if p.eat_if(SyntaxKind::Colon) && !p.eat_if(SyntaxKind::Star) {
-        import_items(p);
+    if p.eat_if(SyntaxKind::As) {
+        // allow renaming a full module import
+        p.expect(SyntaxKind::Ident);
+        p.wrap(m, SyntaxKind::RenamedModuleImport);
+    } else {
+        if p.eat_if(SyntaxKind::Colon) && !p.eat_if(SyntaxKind::Star) {
+            import_items(p);
+        }
+        p.wrap(m, SyntaxKind::ModuleImport);
     }
-    p.wrap(m, SyntaxKind::ModuleImport);
 }
 
 fn import_items(p: &mut Parser) {
