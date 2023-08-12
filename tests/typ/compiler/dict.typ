@@ -92,3 +92,23 @@
 ---
 // Error: 3-15 cannot mutate a temporary value
 #((key: "val").other = "some")
+
+---
+#{
+  let dict = (
+    func: () => 1,
+  )
+  // Error: 3-14 type dictionary has no method `func`
+  // Hint: 3-14 to call the function stored in the dictionary, surround the field access with parentheses
+  dict.func()
+}
+
+---
+#{
+  let dict = (
+    nonfunc: 1
+  )
+
+  // Error: 3-17 type dictionary has no method `nonfunc`
+  dict.nonfunc()
+}
