@@ -100,6 +100,7 @@
 #import enum
 #let d = (e: enum)
 #import d.e
+#import d.e as renamed
 #import d.e: item
 
 #item(2)[a]
@@ -109,6 +110,12 @@
 #let f(x) = x
 // Error: 9-10 cannot import from user-defined functions
 #import f: x
+
+---
+// Can't import from closures, despite renaming.
+#let f(x) = x
+// Error: 9-10 cannot import from user-defined functions
+#import f as g
 
 ---
 // Can't import from closures, despite modifiers.
@@ -125,12 +132,24 @@
 #import 5: something
 
 ---
+// Error: 9-10 expected path, module or function, found integer
+#import 5 as x
+
+---
 // Error: 9-11 failed to load file (is a directory)
 #import "": name
 
 ---
+// Error: 9-11 failed to load file (is a directory)
+#import "" as x
+
+---
 // Error: 9-20 file not found (searched at typ/compiler/lib/0.2.1)
 #import "lib/0.2.1"
+
+---
+// Error: 9-20 file not found (searched at typ/compiler/lib/0.2.1)
+#import "lib/0.2.1" as x
 
 ---
 // Some non-text stuff.
