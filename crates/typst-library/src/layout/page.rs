@@ -718,20 +718,40 @@ pub struct LogicalNumbering {
     /// Has to be one of: "arabic", "lower-roman", "upper-roman", "lower-alpha", "upper-alpha".
     ///
     /// If `none`, field will be empty.
-    style: Option<String>,
+    style: Option<LabelStyle>,
 }
 
-impl LogicalNumbering {
-    pub const VALID_STYLES: [&'static str; 5] =
-        ["arabic", "lower-roman", "upper-roman", "lower-alpha", "upper-alpha"];
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum LabelStyle {
+    Arabic,
+    LowerRoman,
+    UpperRoman,
+    LowerAlpha,
+    UpperAlpha,
 }
 
+impl TryFrom<&Str> for LabelStyle {
+    type Error = EcoString;
+
+    fn try_from(value: &Str) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "1" => Ok(LabelStyle::Arabic),
+            "i" => Ok(LabelStyle::LowerRoman),
+            "I" => Ok(LabelStyle::UpperRoman),
+            "a" => Ok(LabelStyle::LowerAlpha),
+            "A" => Ok(LabelStyle::UpperAlpha),
+            _ => bail!("expected \"1\", \"i\", \"I\", \"a\", \"A\" or the full name"),
+        }
+    }
+}
+
+// TODO: unify the logic for shorthands and full names (Cast)?
 cast! {
     LogicalNumbering,
     self => {
         let mut dict = Dict::new();
         dict.insert("prefix".into(), self.prefix.map_or(Value::None, |p| Value::Str(p.into())));
-        dict.insert("style".into(), self.style.map_or(Value::None, |s| Value::Str(s.into())));
+        dict.insert("style".into(), self.style.map_or(Value::None, |s| s.into_value()));
 
         Value::Dict(dict)
     },
@@ -740,22 +760,22 @@ cast! {
         let style = dict.at("style", Some(Value::None))?;
 
         let prefix_str = prefix.cast::<Str>().ok().map(|p| String::from(p.as_str()));
-        let style_str = style.cast::<Str>().ok().map(|s| String::from(s.as_str()));
-
-        // Check for correct style argument and return early if not given.
-        if style_str.clone().is_some_and(|s| !LogicalNumbering::VALID_STYLES.contains(&s.as_str())) {
-            bail!("style must be one of {:?}", LogicalNumbering::VALID_STYLES)
-        }
+        let style_str = match style {
+            Value::Str(s) if s.len() == 1 => Some(LabelStyle::try_from(&s)?),
+            Value::Str(_) => Some(style.cast::<LabelStyle>()?),
+            _ => None,
+        };
 
         LogicalNumbering { prefix: prefix_str, style: style_str }
     },
-    v: EcoString => {
-        // Check for correct style argument and return early if not given.
-        if !LogicalNumbering::VALID_STYLES.contains(&v.as_str()) {
-            bail!("must be one of {:?}", LogicalNumbering::VALID_STYLES)
-        }
+    v: Str => {
+        let style = if v.len() == 1 {
+            Some(LabelStyle::try_from(&v)?)
+        } else {
+            Some(LabelStyle::from_value(Value::Str(v))?)
+        };
 
-        LogicalNumbering { prefix: None, style: Some(String::from(v.as_str())) }
+        LogicalNumbering { prefix: None, style }
     }
 }
 
