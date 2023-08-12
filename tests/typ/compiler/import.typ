@@ -128,6 +128,12 @@
 #import () => {5}: x
 
 ---
+// Error: 32-33 unexpected colon
+// Hint: 32-33 cannot import the renamed module and its items at the same time
+// Hint: 32-33 try importing the module's items in a separate `import` expression
+#import "module.typ" as renamed: a, b, c
+
+---
 // Error: 9-10 expected path, module or function, found integer
 #import 5: something
 

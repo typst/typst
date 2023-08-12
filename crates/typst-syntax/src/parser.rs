@@ -1142,6 +1142,14 @@ fn module_import(p: &mut Parser) {
         // allow renaming a full module import
         p.expect(SyntaxKind::Ident);
         p.wrap(m, SyntaxKind::RenamedModuleImport);
+
+        // friendlier error if the user tries to rename and import items at the
+        // same time
+        if p.at(SyntaxKind::Colon) {
+            p.unexpected();
+            p.hint("cannot import the renamed module and its items at the same time");
+            p.hint("try importing the module's items in a separate `import` expression");
+        }
     } else {
         if p.eat_if(SyntaxKind::Colon) && !p.eat_if(SyntaxKind::Star) {
             import_items(p);
