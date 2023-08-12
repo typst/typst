@@ -195,6 +195,8 @@ pub enum Expr<'a> {
     For(ForLoop<'a>),
     /// A module import: `import "utils.typ": a, b, c`.
     Import(ModuleImport<'a>),
+    /// A renamed module import (without items): `import "file.typ" as utils`
+    RenamedImport(RenamedModuleImport<'a>),
     /// A module include: `include "chapter1.typ"`.
     Include(ModuleInclude<'a>),
     /// A break from a loop: `break`.
@@ -268,6 +270,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             SyntaxKind::WhileLoop => node.cast().map(Self::While),
             SyntaxKind::ForLoop => node.cast().map(Self::For),
             SyntaxKind::ModuleImport => node.cast().map(Self::Import),
+            SyntaxKind::RenamedModuleImport => node.cast().map(Self::RenamedImport),
             SyntaxKind::ModuleInclude => node.cast().map(Self::Include),
             SyntaxKind::LoopBreak => node.cast().map(Self::Break),
             SyntaxKind::LoopContinue => node.cast().map(Self::Continue),
@@ -330,6 +333,7 @@ impl<'a> AstNode<'a> for Expr<'a> {
             Self::While(v) => v.to_untyped(),
             Self::For(v) => v.to_untyped(),
             Self::Import(v) => v.to_untyped(),
+            Self::RenamedImport(v) => v.to_untyped(),
             Self::Include(v) => v.to_untyped(),
             Self::Break(v) => v.to_untyped(),
             Self::Continue(v) => v.to_untyped(),
@@ -1987,6 +1991,24 @@ impl<'a> ModuleImport<'a> {
             SyntaxKind::ImportItems => node.cast().map(Imports::Items),
             _ => Option::None,
         })
+    }
+}
+
+node! {
+    /// A renamed module import (without items): `import "file.typ" as utils`
+    RenamedModuleImport
+}
+
+impl<'a> RenamedModuleImport<'a> {
+    /// The module or path from which the items should be imported under the
+    /// desired name.
+    pub fn source(self) -> Expr<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The name to save the module's items under.
+    pub fn new_name(self) -> Ident<'a> {
+        self.0.cast_last_match().unwrap_or_default()
     }
 }
 

@@ -487,6 +487,7 @@ impl Eval for ast::Expr<'_> {
             Self::While(v) => v.eval(vm),
             Self::For(v) => v.eval(vm),
             Self::Import(v) => v.eval(vm),
+            Self::RenamedImport(v) => v.eval(vm),
             Self::Include(v) => v.eval(vm).map(Value::Content),
             Self::Break(v) => v.eval(vm),
             Self::Continue(v) => v.eval(vm),
@@ -1751,6 +1752,28 @@ impl Eval for ast::ModuleImport<'_> {
                 |module| module.name().clone(),
                 |module| module.scope(),
             )?;
+        }
+
+        Ok(Value::None)
+    }
+}
+
+impl Eval for ast::RenamedModuleImport<'_> {
+    type Output = Value;
+
+    #[tracing::instrument(name = "RenamedModuleImport::eval", skip_all)]
+    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
+        let span = self.source().span();
+        let source = self.source().eval(vm)?;
+        let name: EcoString = self.new_name().as_str().into();
+        if let Value::Func(func) = source {
+            if func.info().is_none() {
+                bail!(span, "cannot import from user-defined functions");
+            }
+            vm.scopes.top.define(name, func);
+        } else {
+            let module = import(vm, source, span, true)?;
+            vm.scopes.top.define(name, module);
         }
 
         Ok(Value::None)
