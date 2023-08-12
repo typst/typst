@@ -639,17 +639,22 @@ fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
                 _ => unreachable!(),
             });
 
-    if let Some(num_style) = num_style {
-        ctx.parent.logical_pages.push((n, label_ref));
-
-        let mut entry = ctx.parent.writer.indirect(label_ref).start::<PageLabel>();
-        entry.style(num_style);
-
-        if let Some(prefix_str) = prefix_str {
-            entry.prefix(TextStr(&prefix_str));
+    // Only add what is actually provided. Don't add empty prefix if it wasn't given.
+    let mut entry = ctx.parent.writer.indirect(label_ref).start::<PageLabel>();
+    match (prefix_str, num_style) {
+        (Some(p), Some(s)) => {
+            ctx.parent.logical_pages.push((n, label_ref));
+            entry.style(s).prefix(TextStr(&p)).finish();
         }
-
-        entry.finish();
+        (Some(p), None) => {
+            ctx.parent.logical_pages.push((n, label_ref));
+            entry.prefix(TextStr(&p)).finish();
+        }
+        (None, Some(s)) => {
+            ctx.parent.logical_pages.push((n, label_ref));
+            entry.style(s).finish();
+        }
+        (None, None) => entry.finish(),
     }
 }
 

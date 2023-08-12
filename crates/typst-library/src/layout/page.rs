@@ -186,6 +186,8 @@ pub struct PageElem {
 
     /// How to number the pages logically in the PDF.
     ///
+    /// Only applies to the PDF export and does not modify the document visually!
+    ///
     /// ```example
     /// #set page(
     ///   height: 100pt,
@@ -711,7 +713,11 @@ impl Parity {
 /// Specification for logical page numbers.
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct LogicalNumbering {
+    /// Can be any string. Will always be prepended to the numbering style.
     prefix: Option<String>,
+    /// Has to be one of: "arabic", "lower-roman", "upper-roman", "lower-alpha", "upper-alpha".
+    ///
+    /// If `none`, field will be empty.
     style: Option<String>,
 }
 
