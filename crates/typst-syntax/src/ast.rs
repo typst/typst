@@ -2006,8 +2006,67 @@ node! {
 
 impl<'a> ImportItems<'a> {
     /// The items to import from the module.
-    pub fn idents(self) -> impl DoubleEndedIterator<Item = Ident<'a>> {
-        self.0.children().filter_map(SyntaxNode::cast)
+    pub fn items(self) -> impl DoubleEndedIterator<Item = ImportItem<'a>> {
+        self.0.children().filter_map(|child| {
+            child
+                .cast::<RenamedImportItem>()
+                .map(ImportItem::Renamed)
+                .or_else(|| child.cast::<Ident<'_>>().map(ImportItem::Simple))
+        })
+    }
+}
+
+/// An imported item, potentially renamed to another identifier.
+#[derive(Debug, Copy, Clone, Hash)]
+pub enum ImportItem<'a> {
+    /// A non-renamed import (the item's name in the scope is the same as its
+    /// name).
+    Simple(Ident<'a>),
+    /// A renamed import (the item was bound to a different name in the scope
+    /// than the one it was defined as).
+    Renamed(RenamedImportItem<'a>),
+}
+
+impl<'a> ImportItem<'a> {
+    /// The original name of the imported item,
+    /// at its source. This will be the equal to the
+    /// bound name if the item wasn't renamed with 'as'.
+    pub fn original_name(self) -> Ident<'a> {
+        match self {
+            Self::Simple(name) => name.clone(),
+            Self::Renamed(renamed_item) => renamed_item.original_name(),
+        }
+    }
+
+    /// The name which this import item was bound to.
+    /// Corresponds to the new name, if it was renamed;
+    /// otherwise, it's just its original name.
+    pub fn bound_name(self) -> Ident<'a> {
+        match self {
+            Self::Simple(name) => name.clone(),
+            Self::Renamed(renamed_item) => renamed_item.new_name(),
+        }
+    }
+}
+
+node! {
+    /// A renamed import item: `a as d`
+    RenamedImportItem
+}
+
+impl<'a> RenamedImportItem<'a> {
+    /// The original name of the imported item (`a` in `a as d`).
+    pub fn original_name(self) -> Ident<'a> {
+        self.0.cast_first_match().unwrap_or_default()
+    }
+
+    /// The new name of the imported item (`d` in `a as d`).
+    pub fn new_name(self) -> Ident<'a> {
+        self.0
+            .children()
+            .filter_map(SyntaxNode::cast)
+            .nth(1)
+            .unwrap_or_default()
     }
 }
 
