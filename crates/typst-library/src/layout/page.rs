@@ -715,6 +715,11 @@ pub struct LogicalNumbering {
     style: Option<String>,
 }
 
+impl LogicalNumbering {
+    pub const VALID_STYLES: [&'static str; 5] =
+        ["arabic", "lower-roman", "upper-roman", "lower-alpha", "upper-alpha"];
+}
+
 cast! {
     LogicalNumbering,
     self => {
@@ -725,15 +730,25 @@ cast! {
         Value::Dict(dict)
     },
     dict: Dict => {
-        let prefix = dict.at("prefix", Some(Value::None)).unwrap();
-        let style = dict.at("style", Some(Value::None)).unwrap();
+        let prefix = dict.at("prefix", Some(Value::None))?;
+        let style = dict.at("style", Some(Value::None))?;
 
         let prefix_str = prefix.cast::<Str>().ok().map(|p| String::from(p.as_str()));
         let style_str = style.cast::<Str>().ok().map(|s| String::from(s.as_str()));
 
+        // Check for correct style argument and return early if not given.
+        if style_str.clone().is_some_and(|s| !LogicalNumbering::VALID_STYLES.contains(&s.as_str())) {
+            bail!("style must be one of {:?}", LogicalNumbering::VALID_STYLES)
+        }
+
         LogicalNumbering { prefix: prefix_str, style: style_str }
     },
     v: EcoString => {
+        // Check for correct style argument and return early if not given.
+        if !LogicalNumbering::VALID_STYLES.contains(&v.as_str()) {
+            bail!("must be one of {:?}", LogicalNumbering::VALID_STYLES)
+        }
+
         LogicalNumbering { prefix: None, style: Some(String::from(v.as_str())) }
     }
 }

@@ -617,6 +617,7 @@ fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size)
     ctx.links.push((dest.clone(), rect));
 }
 
+/// Encode a page label into the [`PdfContext`].
 fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
     let label_ref = ctx.parent.alloc.bump();
     let logical_numbering = v.clone().cast::<Dict>().unwrap();
@@ -635,7 +636,7 @@ fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
                 "lower-roman" => NumberingStyle::LowerRoman,
                 "upper-alpha" => NumberingStyle::UpperAlpha,
                 "lower-alpha" => NumberingStyle::LowerAlpha,
-                _ => todo!("report error"), // TODO
+                _ => unreachable!(),
             });
 
     if let Some(num_style) = num_style {
