@@ -1154,9 +1154,7 @@ fn import_items(p: &mut Parser) {
 
         // rename imported item
         if p.eat_if(SyntaxKind::As) {
-            if !p.eat_if(SyntaxKind::Ident) {
-                p.unexpected();
-            }
+            p.expect(SyntaxKind::Ident);
             p.wrap(item_marker, SyntaxKind::RenamedImportItem);
         }
 
