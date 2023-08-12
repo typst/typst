@@ -1147,9 +1147,19 @@ fn module_import(p: &mut Parser) {
 fn import_items(p: &mut Parser) {
     let m = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Semicolon) {
+        let item_marker = p.marker();
         if !p.eat_if(SyntaxKind::Ident) {
             p.unexpected();
         }
+
+        // rename imported item
+        if p.eat_if(SyntaxKind::As) {
+            if !p.eat_if(SyntaxKind::Ident) {
+                p.unexpected();
+            }
+            p.wrap(item_marker, SyntaxKind::RenamedImportItem);
+        }
+
         if p.current().is_terminator() {
             break;
         }
