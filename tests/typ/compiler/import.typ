@@ -35,6 +35,16 @@
 #test(d, 3)
 
 ---
+// A renamed item import.
+#import "module.typ": item as something
+#test(something(1, 2), 3)
+
+// Mixing up renamed and not renamed items.
+#import "module.typ": fn, b as val, item as other
+#test(val, 1)
+#test(other(1, 2), 3)
+
+---
 // Test importing from function scopes.
 // Ref: true
 
@@ -54,6 +64,18 @@
 #test(module.b, 1)
 #test(module.item(1, 2), 3)
 #test(module.push(2), 3)
+
+---
+// A renamed module import without items.
+#import "module.typ" as other
+#test(other.b, 1)
+#test(other.item(1, 2), 3)
+#test(other.push(2), 3)
+
+---
+// Renamed module import with function scopes.
+#import enum as othernum
+#test(enum, othernum)
 
 ---
 // Edge case for module access that isn't fixed.
