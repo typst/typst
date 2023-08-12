@@ -321,7 +321,7 @@ impl PageElem {
         vt: &mut Vt,
         styles: StyleChain,
         mut number: NonZeroUsize,
-        need_page_label: &mut Option<LogicalNumbering>,
+        prev_page_label: &mut Option<LogicalNumbering>,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -425,10 +425,10 @@ impl PageElem {
             frame.translate(Point::new(margin.left, margin.top));
             frame.push(Point::zero(), numbering_meta.clone());
 
-            if *need_page_label != self.logical_numbering(styles) {
+            if *prev_page_label != self.logical_numbering(styles) {
                 frame.push(Point::zero(), page_label_meta.clone());
             }
-            *need_page_label = self.logical_numbering(styles);
+            *prev_page_label = self.logical_numbering(styles);
 
             // The page size with margins.
             let size = frame.size();
@@ -719,20 +719,23 @@ cast! {
     LogicalNumbering,
     self => {
         let mut dict = Dict::new();
-        dict.insert("prefix".into(), Value::Str(Str::from(self.prefix.unwrap_or("".into()))));
-        dict.insert("style".into(), Value::Str(Str::from(self.style.unwrap_or("".into()))));
+        dict.insert("prefix".into(), self.prefix.map_or(Value::None, |p| Value::Str(p.into())));
+        dict.insert("style".into(), self.style.map_or(Value::None, |s| Value::Str(s.into())));
 
         Value::Dict(dict)
     },
     dict: Dict => {
-        let prefix = dict.at("prefix", None).unwrap();
-        let style = dict.at("style", None).unwrap();
+        let prefix = dict.at("prefix", Some(Value::None)).unwrap();
+        let style = dict.at("style", Some(Value::None)).unwrap();
 
         let prefix_str = prefix.cast::<Str>().ok().map(|p| String::from(p.as_str()));
         let style_str = style.cast::<Str>().ok().map(|s| String::from(s.as_str()));
 
         LogicalNumbering { prefix: prefix_str, style: style_str }
     },
+    v: EcoString => {
+        LogicalNumbering { prefix: None, style: Some(String::from(v.as_str())) }
+    }
 }
 
 /// Specification of a paper.

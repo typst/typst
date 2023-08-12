@@ -621,27 +621,35 @@ fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
     let label_ref = ctx.parent.alloc.bump();
     let logical_numbering = v.clone().cast::<Dict>().unwrap();
 
-    let prefix = logical_numbering.at("prefix", None).unwrap();
-    let style = logical_numbering.at("style", None).unwrap();
+    let prefix = logical_numbering.at("prefix", Some(Value::None)).unwrap();
+    let style = logical_numbering.at("style", Some(Value::None)).unwrap();
 
-    let prefix_str = prefix.cast::<TypstStr>().unwrap();
-    let num_style = match style.cast::<TypstStr>().unwrap().as_str() {
-        "arabic" => NumberingStyle::Arabic,
-        "upper-roman" => NumberingStyle::UpperRoman,
-        "lower-roman" => NumberingStyle::LowerRoman,
-        "upper-alpha" => NumberingStyle::UpperAlpha,
-        "lower-alpha" => NumberingStyle::LowerAlpha,
-        _ => todo!(),
-    };
+    let prefix_str = prefix.cast::<TypstStr>().ok();
+    let num_style =
+        style
+            .cast::<TypstStr>()
+            .ok()
+            .map(|style_name| match style_name.as_str() {
+                "arabic" => NumberingStyle::Arabic,
+                "upper-roman" => NumberingStyle::UpperRoman,
+                "lower-roman" => NumberingStyle::LowerRoman,
+                "upper-alpha" => NumberingStyle::UpperAlpha,
+                "lower-alpha" => NumberingStyle::LowerAlpha,
+                _ => todo!("report error"), // TODO
+            });
 
-    ctx.parent.logical_pages.push((n, label_ref));
-    ctx.parent
-        .writer
-        .indirect(label_ref)
-        .start::<PageLabel>()
-        .style(num_style)
-        .prefix(TextStr(prefix_str.as_str()))
-        .finish();
+    if let Some(num_style) = num_style {
+        ctx.parent.logical_pages.push((n, label_ref));
+
+        let mut entry = ctx.parent.writer.indirect(label_ref).start::<PageLabel>();
+        entry.style(num_style);
+
+        if let Some(prefix_str) = prefix_str {
+            entry.prefix(TextStr(&prefix_str));
+        }
+
+        entry.finish();
+    }
 }
 
 impl From<&LineCap> for LineCapStyle {

@@ -48,7 +48,7 @@ impl LayoutRoot for DocumentElem {
         tracing::info!("Document layout");
 
         let mut pages = vec![];
-        let mut need_page_label = None;
+        let mut prev_page_label = None;
 
         for mut child in &self.children() {
             let outer = styles;
@@ -60,7 +60,7 @@ impl LayoutRoot for DocumentElem {
 
             if let Some(page) = child.to::<PageElem>() {
                 let number = NonZeroUsize::ONE.saturating_add(pages.len());
-                let fragment = page.layout(vt, styles, number, &mut need_page_label)?;
+                let fragment = page.layout(vt, styles, number, &mut prev_page_label)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");
