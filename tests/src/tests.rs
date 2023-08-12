@@ -12,8 +12,8 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
+use dssim::load_image;
 use ecow::EcoString;
-use image::{ImageBuffer, RgbaImage};
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
@@ -27,8 +27,7 @@ use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
-use typst::syntax::{FileId, Source, Span, SyntaxNode};
-use typst::util::PathExt;
+use typst::syntax::{FileId, PackageVersion, Source, Span, SyntaxNode, VirtualPath};
 use typst::{export, World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
@@ -433,7 +432,8 @@ fn test(
 
         let svg_canvas = render_svg(&document.pages);
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
-        svg_canvas.save_png(format!("{}.png", svg_path.display())).unwrap();
+        let rasterize_svg_path = format!("{}.png", svg_path.display());
+        svg_canvas.save_png(&rasterize_svg_path).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
             if canvas.width() != ref_pixmap.width()
@@ -452,26 +452,19 @@ fn test(
                     ok = false;
                 }
             }
-            let ref_img: RgbaImage = ImageBuffer::from_raw(
-                ref_pixmap.width(),
-                ref_pixmap.height(),
-                ref_pixmap.data().to_vec(),
-            )
-            .expect("Invalid reference image");
-            let svg_img: RgbaImage = ImageBuffer::from_raw(
-                svg_canvas.width(),
-                svg_canvas.height(),
-                svg_canvas.data().to_vec(),
-            )
-            .expect("Invalid svg image");
-            let result = image_compare::rgba_hybrid_compare(&ref_img, &svg_img)
-                .expect("Images had different dimensions");
-            if result.score < 0.95 {
-                let diff_img = result.image.to_color_map();
-                diff_img
-                    .save(format!("{}.diff.png", svg_path.display()))
-                    .expect("Could not save diff image");
-                writeln!(output, "  Svg image difference: {}", result.score).unwrap();
+            let dssim = dssim::Dssim::new();
+            let ref_img = load_image(&dssim, ref_path);
+            let test_img = load_image(&dssim, rasterize_svg_path);
+            if let (Ok(ref_img), Ok(test_img)) = (ref_img, test_img) {
+                let (score, diff_map) = dssim.compare(&ref_img, &test_img);
+                println!("score: {}", score);
+                if score > 0.01 {
+                    writeln!(output, "  Does not match reference image. score: {score}")
+                        .unwrap();
+                    ok = false;
+                }
+            } else {
+                writeln!(output, "  Failed to open reference image.").unwrap();
                 ok = false;
             }
         } else if !document.pages.is_empty() {
