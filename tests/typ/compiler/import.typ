@@ -59,6 +59,11 @@
 #ne(5, 6)
 
 ---
+// Test renaming items imported from function scopes.
+#import assert: eq as aseq
+#aseq(10, 10)
+
+---
 // A module import without items.
 #import "module.typ"
 #test(module.b, 1)
@@ -76,6 +81,12 @@
 // Renamed module import with function scopes.
 #import enum as othernum
 #test(enum, othernum)
+
+---
+// Mixing renamed module import from function with renamed item import.
+#import assert as asrt
+#import asrt: ne as asne
+#asne(1, 2)
 
 ---
 // Edge case for module access that isn't fixed.
