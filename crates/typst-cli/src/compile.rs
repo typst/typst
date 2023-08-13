@@ -261,12 +261,23 @@ pub fn print_diagnostics(
         DiagnosticFormat::Short => StandardStream::stderr(ColorChoice::Never),
     };
 
+    let warning_suppressed_packages = vec![format!("{}", "lib")];
+    let _warning_suppressed_files = vec![eco_format!("{}", "\\mafi-test.typ")];
+
     let mut config = term::Config { tab_width: 2, ..Default::default() };
     if diagnostic_format == DiagnosticFormat::Short {
         config.display_style = term::DisplayStyle::Short;
     }
 
     for diagnostic in warnings.iter().chain(errors) {
+        if let Severity::Warning = diagnostic.severity {
+            if let Some(package) = diagnostic.span.id().and_then(|id| id.package()) {
+                if warning_suppressed_packages.contains(&package.name.to_string()) {
+                    continue;
+                }
+            }
+        }
+
         let diag = match diagnostic.severity {
             Severity::Error => Diagnostic::error(),
             Severity::Warning => Diagnostic::warning(),
