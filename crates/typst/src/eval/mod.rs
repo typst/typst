@@ -1711,6 +1711,16 @@ fn apply_imports<V: IntoValue>(
             for item in items.items() {
                 let original_ident = item.original_name();
                 if let Some(value) = scope.get(&original_ident) {
+                    if let ast::ImportItem::Renamed(renamed_item) = &item {
+                        if renamed_item.original_name().as_str()
+                            == renamed_item.new_name().as_str()
+                        {
+                            vm.vt.tracer.warn(SourceDiagnostic::warning(
+                                renamed_item.span(),
+                                "renaming imported name to its own name",
+                            ));
+                        }
+                    }
                     vm.define(item.bound_name(), value.clone());
                 } else {
                     errors.push(error!(original_ident.span(), "unresolved import"));

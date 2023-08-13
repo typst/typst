@@ -117,6 +117,10 @@
 #item(2)[a]
 
 ---
+// Warning: 15-27 renaming imported name to its own name
+#import enum: item as item
+
+---
 // Can't import from closures.
 #let f(x) = x
 // Error: 9-10 cannot import from user-defined functions
