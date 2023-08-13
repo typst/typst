@@ -14,13 +14,17 @@ pub fn derive_cast(item: &DeriveInput) -> Result<TokenStream> {
             bail!(expr, "explicit discriminant is not allowed");
         }
 
-        let string = if let Some(attr) =
-            variant.attrs.iter().find(|attr| attr.path().is_ident("string"))
-        {
-            attr.parse_args::<syn::LitStr>()?.value()
-        } else {
-            kebab_case(&variant.ident)
-        };
+        // Get both the strings in the helper attribute as well as the ident.
+        let string = variant
+            .attrs
+            .iter()
+            .filter_map(|attr| {
+                attr.path()
+                    .is_ident("string")
+                    .then(|| attr.parse_args::<syn::LitStr>().map(|lit| lit.value()))
+            })
+            .chain(vec![Ok(kebab_case(&variant.ident))])
+            .collect::<Result<Vec<_>>>()?;
 
         variants.push(Variant {
             ident: variant.ident.clone(),
@@ -32,11 +36,12 @@ pub fn derive_cast(item: &DeriveInput) -> Result<TokenStream> {
     let strs_to_variants = variants.iter().map(|Variant { ident, string, docs }| {
         quote! {
             #[doc = #docs]
-            #string => Self::#ident
+            #(#string => Self::#ident),*
         }
     });
 
-    let variants_to_strs = variants.iter().map(|Variant { ident, string, .. }| {
+    let variants_to_strs = variants.iter().map(|Variant { ident, .. }| {
+        let string = kebab_case(ident);
         quote! {
             #ty::#ident => #string
         }
@@ -56,7 +61,7 @@ pub fn derive_cast(item: &DeriveInput) -> Result<TokenStream> {
 /// An enum variant in a `derive(Cast)`.
 struct Variant {
     ident: Ident,
-    string: String,
+    string: Vec<String>,
     docs: String,
 }
 

@@ -710,7 +710,7 @@ impl Parity {
     }
 }
 
-/// Specification for logical page numbers.
+/// Specification for logical page numbers (PDF only).
 #[derive(Debug, Clone, PartialEq, Hash)]
 pub struct LogicalNumbering {
     /// Can be any string. Will always be prepended to the numbering style.
@@ -719,33 +719,23 @@ pub struct LogicalNumbering {
     ///
     /// If `none`, field will be empty.
     style: Option<LabelStyle>,
+    // TODO: add offset parameter
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LabelStyle {
+    #[string("1")]
     Arabic,
+    #[string("i")]
     LowerRoman,
+    #[string("I")]
     UpperRoman,
+    #[string("a")]
     LowerAlpha,
+    #[string("A")]
     UpperAlpha,
 }
 
-impl TryFrom<&Str> for LabelStyle {
-    type Error = EcoString;
-
-    fn try_from(value: &Str) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "1" => Ok(LabelStyle::Arabic),
-            "i" => Ok(LabelStyle::LowerRoman),
-            "I" => Ok(LabelStyle::UpperRoman),
-            "a" => Ok(LabelStyle::LowerAlpha),
-            "A" => Ok(LabelStyle::UpperAlpha),
-            _ => bail!("expected \"1\", \"i\", \"I\", \"a\", \"A\" or the full name"),
-        }
-    }
-}
-
-// TODO: unify the logic for shorthands and full names (Cast)?
 cast! {
     LogicalNumbering,
     self => {
@@ -761,7 +751,6 @@ cast! {
 
         let prefix_str = prefix.cast::<Str>().ok().map(|p| String::from(p.as_str()));
         let style_str = match style {
-            Value::Str(s) if s.len() == 1 => Some(LabelStyle::try_from(&s)?),
             Value::Str(_) => Some(style.cast::<LabelStyle>()?),
             _ => None,
         };
@@ -769,13 +758,7 @@ cast! {
         LogicalNumbering { prefix: prefix_str, style: style_str }
     },
     v: Str => {
-        let style = if v.len() == 1 {
-            Some(LabelStyle::try_from(&v)?)
-        } else {
-            Some(LabelStyle::from_value(Value::Str(v))?)
-        };
-
-        LogicalNumbering { prefix: None, style }
+        LogicalNumbering { prefix: None, style: Some(LabelStyle::from_value(Value::Str(v))?) }
     }
 }
 
