@@ -22,7 +22,7 @@ pub(crate) const NEVER_SELF_UPDATE: bool = true;
 #[cfg(not(feature = "no-self-update"))]
 pub(crate) const NEVER_SELF_UPDATE: bool = false;
 
-/// Figure out if there are sufficient permissions to carry out an update -- 
+/// Figure out if there are sufficient permissions to carry out an update --
 /// hard failing if the cli is installed through a package manager.
 #[derive(Clone, Copy, Debug)]
 enum SelfUpdatePermission {
@@ -90,7 +90,9 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
     match update_permitted {
         SelfUpdatePermission::HardFail => {
             println!("self-update is disabled for this build of the typst cli");
-            println!("you should probably use your system package manager to update typst");
+            println!(
+                "you should probably use your system package manager to update typst"
+            );
             // not really an ok scenario but not really an error either?
             return Ok(());
         }
@@ -339,7 +341,8 @@ fn self_update_permitted() -> StrResult<SelfUpdatePermission> {
     } else {
         let current_exe = env::current_exe()
             .map_err(|err| eco_format!("failed to grab current exe path: {}", err))?;
-        let current_exe_dir = current_exe.parent().expect("typst cli isn't in a directory‽");
+        let current_exe_dir =
+            current_exe.parent().expect("typst cli isn't in a directory‽");
         if let Err(e) =
             tempfile::Builder::new().prefix("updtest").tempdir_in(current_exe_dir)
         {
@@ -350,7 +353,7 @@ fn self_update_permitted() -> StrResult<SelfUpdatePermission> {
                 _ => return Err(e.to_string().into()),
             }
         }
-        
+
         Ok(SelfUpdatePermission::Permit)
     }
 }
