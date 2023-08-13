@@ -2,7 +2,7 @@ use std::{
     env,
     ffi::OsStr,
     fs,
-    io::{BufReader, Cursor, Read},
+    io::{BufReader, Cursor, ErrorKind, Read},
     path::Path,
 };
 
@@ -16,6 +16,19 @@ use crate::args::UpdateCommand;
 // if the organization/repo moves or changes (only used in release fetching)
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
+
+#[cfg(feature = "no-self-update")]
+pub(crate) const NEVER_SELF_UPDATE: bool = true;
+#[cfg(not(feature = "no-self-update"))]
+pub(crate) const NEVER_SELF_UPDATE: bool = false;
+
+/// Figure out if there are sufficient permissions to carry out an update -- 
+/// hard failing if the cli is installed through a package manager.
+#[derive(Clone, Copy, Debug)]
+enum SelfUpdatePermission {
+    HardFail,
+    Permit,
+}
 
 /// A GitHub release.
 #[derive(Debug, Deserialize)]
@@ -68,6 +81,22 @@ impl From<&str> for Extension {
 /// from GitHub, unpacks it and self replaces the current binary with the
 /// pre-compiled asset from the downloaded release.
 pub fn update(command: UpdateCommand) -> StrResult<()> {
+    let update_permitted = if NEVER_SELF_UPDATE {
+        SelfUpdatePermission::HardFail
+    } else {
+        self_update_permitted()?
+    };
+
+    match update_permitted {
+        SelfUpdatePermission::HardFail => {
+            println!("self-update is disabled for this build of the typst cli");
+            println!("you should probably use your system package manager to update typst");
+            // not really an ok scenario but not really an error either?
+            return Ok(());
+        }
+        SelfUpdatePermission::Permit => {}
+    }
+
     // first we check if a downgrade is happening
     if let Some(ref version) = command.version {
         let current_tag = env!("CARGO_PKG_VERSION").parse().unwrap();
@@ -293,6 +322,7 @@ fn asset_needed() -> StrResult<&'static str> {
 /// Early return check to see if the CLI even needs updating.
 fn update_needed(release: &Release) -> bool {
     let current_tag: Version = env!("CARGO_PKG_VERSION").parse().unwrap();
+    // TODO: https://github.com/typst/typst/blob/2f81089995c87efdbce6c94bb29647cd1f213cfd/crates/typst-cli/src/world.rs#L69
     let new_tag: Version = release
         .tag_name
         .strip_prefix('v')
@@ -301,4 +331,26 @@ fn update_needed(release: &Release) -> bool {
         .unwrap();
 
     new_tag > current_tag
+}
+
+fn self_update_permitted() -> StrResult<SelfUpdatePermission> {
+    if cfg!(windows) {
+        Ok(SelfUpdatePermission::Permit)
+    } else {
+        let current_exe = env::current_exe()
+            .map_err(|err| eco_format!("failed to grab current exe path: {}", err))?;
+        let current_exe_dir = current_exe.parent().expect("typst cli isn't in a directory‽");
+        if let Err(e) =
+            tempfile::Builder::new().prefix("updtest").tempdir_in(current_exe_dir)
+        {
+            match e.kind() {
+                ErrorKind::PermissionDenied => {
+                    return Ok(SelfUpdatePermission::HardFail);
+                }
+                _ => return Err(e.to_string().into()),
+            }
+        }
+        
+        Ok(SelfUpdatePermission::Permit)
+    }
 }

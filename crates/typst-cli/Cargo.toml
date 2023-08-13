@@ -66,3 +66,6 @@ default = ["embed-fonts"]
 # - For math: New Computer Modern Math
 # - For code: Deja Vu Sans Mono
 embed-fonts = []
+
+# Prevent self updates in scenarios where not applicable or unsafe
+no-self-update = []
