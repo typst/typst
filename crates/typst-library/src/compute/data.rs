@@ -260,6 +260,7 @@ fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
 #[func]
 #[scope(
     scope.define("decode", json_decode_func());
+    scope.define("encode", json_encode_func());
     scope
 )]
 pub fn json(
@@ -288,7 +289,7 @@ pub fn json(
 /// Category: data-loading
 #[func]
 pub fn json_decode(
-    /// Path to a JSON file.
+    /// JSON data.
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
@@ -300,28 +301,26 @@ pub fn json_decode(
 
 /// Encode structured data into a JSON string.
 ///
-/// The string/bytes must contain a valid JSON object or array. JSON objects will be
-/// converted into Typst dictionaries, and JSON arrays will be converted into
-/// Typst arrays. Strings and booleans will be converted into the Typst
-/// equivalents, `null` will be converted into `{none}`, and numbers will be
-/// converted to floats or integers depending on whether they are whole numbers.
-///
-/// ```
-///
 /// Display: JSON
 /// Category: data-loading
 #[func]
 pub fn json_encode(
     /// Path to a JSON file.
     value: Spanned<Value>,
+    /// Pretty print
+    pretty: bool,
 ) -> SourceResult<Str> {
     let Spanned { v: value, span } = value;
 
-    let value: serde_json::Value =
-        serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
-    Ok(convert_json(value))
+    if pretty {
+        serde_json::to_string_pretty(&value)
+    } else {
+        serde_json::to_string(&value)
+    }
+    .map(|v| v.into())
+    .map_err(|e| eco_format!("failed to create json: {}", e.to_string()))
+    .at(span)
 }
-
 
 /// Convert a JSON value to a Typst value.
 fn convert_json(value: serde_json::Value) -> Value {
@@ -376,6 +375,7 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 #[func]
 #[scope(
     scope.define("decode", toml_decode_func());
+    scope.define("encode", toml_encode_func());
     scope
 )]
 pub fn toml(
@@ -403,7 +403,7 @@ pub fn toml(
 /// Category: data-loading
 #[func]
 pub fn toml_decode(
-    /// Path to a TOML file.
+    /// TOML data.
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
@@ -414,6 +414,25 @@ pub fn toml_decode(
 
     let value: toml::Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
     Ok(convert_toml(value))
+}
+
+/// Encode structured data into a toml string.
+///
+/// Display: TOML
+/// Category: data-loading
+#[func]
+pub fn toml_encode(
+    /// Path to a JSON file.
+    value: Spanned<Value>,
+    /// Pretty print
+    pretty: bool,
+) -> SourceResult<Str> {
+    let Spanned { v: value, span } = value;
+
+    if pretty { toml::to_string_pretty(&value) } else { toml::to_string(&value) }
+        .map(|v| v.into())
+        .map_err(|e| eco_format!("failed to create json: {}", e.to_string()))
+        .at(span)
 }
 
 /// Convert a TOML value to a Typst value.
@@ -509,6 +528,7 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 #[func]
 #[scope(
     scope.define("decode", yaml_decode_func());
+    scope.define("encode", yaml_encode_func());
     scope
 )]
 pub fn yaml(
@@ -536,7 +556,7 @@ pub fn yaml(
 /// Category: data-loading
 #[func]
 pub fn yaml_decode(
-    /// Path to a YAML file.
+    /// YAML data.
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
@@ -544,6 +564,23 @@ pub fn yaml_decode(
     let value: serde_yaml::Value =
         serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
     Ok(convert_yaml(value))
+}
+
+/// Encode structured data into a yaml string.
+///
+/// Display: YAML
+/// Category: data-loading
+#[func]
+pub fn yaml_encode(
+    /// Path to a JSON file.
+    value: Spanned<Value>,
+) -> SourceResult<Str> {
+    let Spanned { v: value, span } = value;
+
+    serde_yaml::to_string(&value)
+        .map(|v| v.into())
+        .map_err(|e| eco_format!("failed to create json: {}", e.to_string()))
+        .at(span)
 }
 
 /// Convert a YAML value to a Typst value.
@@ -665,7 +702,7 @@ pub fn xml(
 /// Category: data-loading
 #[func]
 pub fn xml_decode(
-    /// Path to an XML file.
+    /// XML data.
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;

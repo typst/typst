@@ -41,7 +41,7 @@ serde_yaml = "0.8"
 smallvec = "1.10"
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 time = { version = "0.3.20", features = ["formatting"] }
-toml = { version = "0.7.3", default-features = false, features = ["parse"] }
+toml = { version = "0.7.3"}
 tracing = "0.1.37"
 ttf-parser = "0.18.1"
 typed-arena = "2"
