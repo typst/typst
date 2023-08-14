@@ -157,9 +157,8 @@ pub fn csv_decode(
     delimiter: Delimiter,
 ) -> SourceResult<Array> {
     let Spanned { v: data, span } = data;
-    let mut builder = csv::ReaderBuilder::new();
     let data: Bytes = data.into();
-
+    let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
     builder.delimiter(delimiter.0 as u8);
     let mut reader = builder.from_reader(data.as_slice());
