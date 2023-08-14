@@ -308,6 +308,8 @@ pub fn json_encode(
     /// Path to a JSON file.
     value: Spanned<Value>,
     /// Pretty print
+    #[named]
+    #[default(true)]
     pretty: bool,
 ) -> SourceResult<Str> {
     let Spanned { v: value, span } = value;
@@ -425,6 +427,8 @@ pub fn toml_encode(
     /// Path to a JSON file.
     value: Spanned<Value>,
     /// Pretty print
+    #[named]
+    #[default(true)]
     pretty: bool,
 ) -> SourceResult<Str> {
     let Spanned { v: value, span } = value;
