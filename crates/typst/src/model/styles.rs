@@ -6,13 +6,10 @@ use std::ptr;
 use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::diag::StrResult;
-use typst::eval::EvalMode;
 
 use super::{Content, ElemFunc, Element, Selector, Vt};
 use crate::diag::{bail, SourceResult, Trace, Tracepoint};
-use crate::eval::{
-    cast, eval_string, Args, FromValue, Func, IntoValue, Scope, Str, Value, Vm,
-};
+use crate::eval::{cast, Args, FromValue, Func, IntoValue, Str, Value, Vm};
 use crate::syntax::Span;
 
 /// A list of style properties.
@@ -85,14 +82,12 @@ impl Styles {
     // Return styles of set rules
     pub fn get_style(
         &self,
-        vm: &Vm,
         element: &ElemFunc,
         field: &EcoString,
         path: &[Str],
     ) -> StrResult<Value> {
         let result = element.get(StyleChain::new(self), field)?;
 
-        // Warum kommen hier keine margins? complex default during layout!
         path.iter().try_fold(result, |acc, item| match acc {
             Value::Dict(d) => d.at(item, None),
             _ => bail!("attribute \"{item}\" not found"),
