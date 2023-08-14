@@ -6,7 +6,7 @@ use std::ptr;
 use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
 use typst::diag::StrResult;
-use typst::eval::{Dict, EvalMode};
+use typst::eval::EvalMode;
 
 use super::{Content, ElemFunc, Element, Selector, Vt};
 use crate::diag::{bail, SourceResult, Trace, Tracepoint};

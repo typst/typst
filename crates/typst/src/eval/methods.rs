@@ -17,7 +17,6 @@ pub fn call(
     mut args: Args,
     span: Span,
 ) -> SourceResult<Value> {
-
     let name = value.type_name();
     let missing = || Err(missing_method(name, method)).at(span);
 

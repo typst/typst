@@ -1,4 +1,3 @@
-use std::any::{Any, TypeId};
 use crate::prelude::*;
 
 /// A line from one point to another.
