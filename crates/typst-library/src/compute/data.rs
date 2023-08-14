@@ -298,6 +298,31 @@ pub fn json_decode(
     Ok(convert_json(value))
 }
 
+/// Encode structured data into a JSON string.
+///
+/// The string/bytes must contain a valid JSON object or array. JSON objects will be
+/// converted into Typst dictionaries, and JSON arrays will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents, `null` will be converted into `{none}`, and numbers will be
+/// converted to floats or integers depending on whether they are whole numbers.
+///
+/// ```
+///
+/// Display: JSON
+/// Category: data-loading
+#[func]
+pub fn json_encode(
+    /// Path to a JSON file.
+    value: Spanned<Value>,
+) -> SourceResult<Str> {
+    let Spanned { v: value, span } = value;
+
+    let value: serde_json::Value =
+        serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
+    Ok(convert_json(value))
+}
+
+
 /// Convert a JSON value to a Typst value.
 fn convert_json(value: serde_json::Value) -> Value {
     match value {
