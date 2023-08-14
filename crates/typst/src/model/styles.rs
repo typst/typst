@@ -188,19 +188,9 @@ impl Property {
         self.element == element && self.name == name
     }
 
-    /// Whether this property is the given one.
-    pub fn is_name(&self, element: &str, name: &str) -> bool {
-        self.element.name() == element && self.name == name
-    }
-
     /// Whether this property belongs to the given element.
     pub fn is_of(&self, element: ElemFunc) -> bool {
         self.element == element
-    }
-
-    /// Whether this property belongs to the given element, by name only.
-    pub fn is_of_name(&self, element: &str) -> bool {
-        self.element.name() == element
     }
 }
 
