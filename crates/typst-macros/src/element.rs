@@ -549,25 +549,40 @@ fn create_get_impl(element: &Elem) -> TokenStream {
                 && field.settable()
                 && (!field.internal || field.parse.is_some())
         })
-        .filter(|field| true)
         .map(|field| {
             let ident_in = &field.ident_in;
             let ident = &field.ident;
             quote! {
                stringify!(#ident) => Self::#ident_in(styles).into_value(),
             }
-        });
+        })
+        .collect::<Vec<_>>();
 
-    quote! {
-        impl ::typst::model::Get for #ident {
-            fn get(
-                styles: ::typst::model::StyleChain,
-                name: &str
-            ) -> ::typst::diag::StrResult<::typst::eval::Value> {
-                Ok(match name {
-                    #(#handlers)*
-                    _ => ::typst::diag::bail!("attribute not found")
-                })
+    if handlers.is_empty() {
+        quote! {
+            impl ::typst::model::Get for #ident {
+                fn get(
+                    styles: ::typst::model::StyleChain,
+                    name: &str
+                ) -> ::typst::diag::StrResult<::typst::eval::Value> {
+                    ::typst::diag::bail!("attribute not found")
+                }
+            }
+        }
+    }
+    else
+    {
+        quote! {
+            impl ::typst::model::Get for #ident {
+                fn get(
+                    styles: ::typst::model::StyleChain,
+                    name: &str
+                ) -> ::typst::diag::StrResult<::typst::eval::Value> {
+                    Ok(match name {
+                        #(#handlers)*
+                        &_ => ::typst::diag::bail!("attribute not found")
+                    })
+                }
             }
         }
     }
