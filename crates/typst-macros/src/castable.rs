@@ -51,10 +51,10 @@ pub fn derive_cast(item: &DeriveInput) -> Result<TokenStream> {
     });
 
     let variants_to_strs = variants.iter().map(|Variant { ident, strings, .. }| {
-        let strings =
-            if strings.len() > 1 { vec![kebab_case(ident)] } else { strings.clone() };
+        let string =
+            if strings.len() > 1 { kebab_case(ident) } else { strings[0].clone() };
         quote! {
-            #(#ty::#ident => #strings),*
+            #ty::#ident => #string
         }
     });
 
