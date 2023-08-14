@@ -86,20 +86,11 @@ impl Styles {
     pub fn get_style(
         &self,
         vm: &Vm,
-        element: &EcoString,
+        element: &ElemFunc,
         field: &EcoString,
         path: &[Str],
     ) -> StrResult<Value> {
-        let x = eval_string(
-            vm.world(),
-            element,
-            Span::detached(),
-            EvalMode::Code,
-            Scope::default(),
-        )
-        .unwrap();
-        let y = x.cast::<ElemFunc>().unwrap();
-        let result = y.get(StyleChain::new(self), field)?;
+        let result = element.get(StyleChain::new(self), field)?;
 
         // Warum kommen hier keine margins? complex default during layout!
         path.iter().try_fold(result, |acc, item| match acc {
