@@ -80,7 +80,7 @@ pub struct PlaceElem {
     pub dy: Rel<Length>,
 
     /// A weak placement will not trigger a pagebreak on empty pages.
-    #[default(true)]
+    #[default(false)]
     pub weak: bool,
 
     /// The content to place.
