@@ -569,9 +569,7 @@ fn create_get_impl(element: &Elem) -> TokenStream {
                 }
             }
         }
-    }
-    else
-    {
+    } else {
         quote! {
             impl ::typst::model::Get for #ident {
                 fn get(
