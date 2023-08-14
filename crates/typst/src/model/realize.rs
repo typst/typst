@@ -191,7 +191,7 @@ pub trait Finalize {
 /// How the element interacts with other elements.
 pub trait Behave {
     /// The element's interaction behaviour.
-    fn behaviour(&self) -> Behaviour;
+    fn behaviour(&self, styles: StyleChain) -> Behaviour;
 
     /// Whether this weak element is larger than a previous one and thus picked
     /// as the maximum when the levels are the same.
@@ -214,8 +214,9 @@ pub enum Behaviour {
     /// An element that destroys adjacent weak elements.
     Destructive,
     /// An element that does not interact at all with other elements, having the
-    /// same effect as if it didn't exist.
-    Ignorant,
+    /// same effect as if it didn't exist. The bool attribute tells if the element
+    /// has a visual representation.
+    Ignorant(bool),
 }
 
 /// Guards content against being affected by the same show rule multiple times.

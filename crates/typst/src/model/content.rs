@@ -6,6 +6,7 @@ use std::ops::{Add, AddAssign};
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Serialize, Serializer};
+use typst::model::StyleChain;
 
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Guard, Label, Locatable, Location,
@@ -596,8 +597,8 @@ pub struct MetaElem {
 }
 
 impl Behave for MetaElem {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
+    fn behaviour(&self, _: StyleChain) -> Behaviour {
+        Behaviour::Ignorant(false)
     }
 }
 

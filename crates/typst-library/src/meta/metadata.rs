@@ -37,7 +37,7 @@ impl Show for MetadataElem {
 }
 
 impl Behave for MetadataElem {
-    fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
+    fn behaviour(&self, _: StyleChain) -> Behaviour {
+        Behaviour::Ignorant(false)
     }
 }

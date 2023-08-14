@@ -162,7 +162,7 @@ pub struct ColbreakElem {
 }
 
 impl Behave for ColbreakElem {
-    fn behaviour(&self) -> Behaviour {
+    fn behaviour(&self, _: StyleChain) -> Behaviour {
         if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)
         } else {
