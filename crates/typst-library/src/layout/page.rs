@@ -711,15 +711,21 @@ impl Parity {
 }
 
 /// Specification for logical page numbers (PDF only).
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash, Default)]
 pub struct LogicalNumbering {
     /// Can be any string. Will always be prepended to the numbering style.
     prefix: Option<String>,
+
     /// Has to be one of: "arabic", "lower-roman", "upper-roman", "lower-alpha", "upper-alpha".
     ///
     /// If `none`, field will be empty.
     style: Option<LabelStyle>,
-    // TODO: add offset parameter
+
+    /// Offset for the page label start.
+    ///
+    /// Describes where to start counting from when setting a style.
+    /// (Has to be greater or equal than 1)
+    offset: Option<NonZeroUsize>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
@@ -742,23 +748,25 @@ cast! {
         let mut dict = Dict::new();
         dict.insert("prefix".into(), self.prefix.map_or(Value::None, |p| Value::Str(p.into())));
         dict.insert("style".into(), self.style.map_or(Value::None, |s| s.into_value()));
+        dict.insert("offset".into(), self.offset.map_or(Value::None, |o| Value::Int(o.get() as i64)));
 
         Value::Dict(dict)
     },
     dict: Dict => {
         let prefix = dict.at("prefix", Some(Value::None))?;
         let style = dict.at("style", Some(Value::None))?;
+        let offset = dict.at("offset", Some(Value::None))?;
 
-        let prefix_str = prefix.cast::<Str>().ok().map(|p| String::from(p.as_str()));
-        let style_str = match style {
-            Value::Str(_) => Some(style.cast::<LabelStyle>()?),
-            _ => None,
-        };
+        // Transform `Value::None` into None, invalid values into errors and valid values into the correct type.
+        // This allows optional arguments and error messages like "expected string or none, ...".
+        let prefix_str = prefix.cast::<Option<Str>>()?.map(|p| p.to_string());
+        let style_str = style.cast::<Option<LabelStyle>>()?;
+        let offset_val = offset.cast::<Option<usize>>()?.map(|o| NonZeroUsize::new(o).unwrap());
 
-        LogicalNumbering { prefix: prefix_str, style: style_str }
+        LogicalNumbering { prefix: prefix_str, style: style_str, offset: offset_val }
     },
     v: Str => {
-        LogicalNumbering { prefix: None, style: Some(LabelStyle::from_value(Value::Str(v))?) }
+        LogicalNumbering { style: Some(LabelStyle::from_value(Value::Str(v))?), ..Default::default() }
     }
 }
 

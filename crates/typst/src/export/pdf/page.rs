@@ -624,6 +624,7 @@ fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
 
     let prefix = logical_numbering.at("prefix", Some(Value::None)).unwrap();
     let style = logical_numbering.at("style", Some(Value::None)).unwrap();
+    let offset = logical_numbering.at("offset", Some(Value::None)).unwrap();
 
     let prefix_str = prefix.cast::<TypstStr>().ok();
     let num_style =
@@ -638,20 +639,27 @@ fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
                 "lower-alpha" => NumberingStyle::LowerAlpha,
                 _ => unreachable!(),
             });
+    let offset_opt = offset.cast::<usize>().ok();
 
     // Don't create a PageLabel if neither style nor prefix are specified.
-    if prefix_str.is_some() && num_style.is_some() {
+    if prefix_str.is_some() || num_style.is_some() {
         ctx.parent.logical_pages.push((n, label_ref));
     }
 
-    // Only add what is actually provided. Don't add empty prefix if it wasn't given.
+    // Only add what is actually provided. Don't add empty prefix string if it wasn't given for example.
     let mut entry = ctx.parent.writer.indirect(label_ref).start::<PageLabel>();
-    match (prefix_str, num_style) {
-        (Some(p), Some(s)) => entry.style(s).prefix(TextStr(&p)).finish(),
-        (Some(p), None) => entry.prefix(TextStr(&p)).finish(),
-        (None, Some(s)) => entry.style(s).finish(),
-        (None, None) => entry.finish(),
+
+    if let Some(p) = prefix_str {
+        entry.prefix(TextStr(&p));
     }
+    if let Some(s) = num_style {
+        entry.style(s);
+    }
+    if let Some(o) = offset_opt {
+        entry.offset(o as i32);
+    }
+
+    entry.finish();
 }
 
 impl From<&LineCap> for LineCapStyle {
