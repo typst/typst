@@ -742,12 +742,12 @@ pub enum LabelStyle {
     #[string("I")]
     UpperRoman,
 
-    /// Lowercase letters (`a` to `z` for the first 26 pages, 
+    /// Lowercase letters (`a` to `z` for the first 26 pages,
     /// `aa` to `zz` and so on for the next).
     #[string("a")]
     LowerAlpha,
-    
-    /// Uppercase letters (`A` to `Z` for the first 26 pages, 
+
+    /// Uppercase letters (`A` to `Z` for the first 26 pages,
     /// `AA` to `ZZ` and so on for the next).
     #[string("A")]
     UpperAlpha,
