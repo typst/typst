@@ -105,6 +105,10 @@ impl From<Readable> for Bytes {
 /// Display: CSV
 /// Category: data-loading
 #[func]
+#[scope(
+    scope.define("decode", csv_decode_func());
+    scope
+)]
 pub fn csv(
     /// Path to a CSV file.
     path: Spanned<EcoString>,
@@ -120,11 +124,46 @@ pub fn csv(
     let id = vm.location().join(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
 
+    csv_decode(Spanned::new(Readable::Bytes(data), span), delimiter)
+}
+
+/// Reads structured data from a CSV string/bytes.
+///
+/// The CSV string/bytes will be read and parsed into a 2-dimensional array of strings:
+/// Each row in the CSV file will be represented as an array of strings, and all
+/// rows will be collected into a single array. Header rows will not be
+/// stripped.
+///
+/// ## Example { #example }
+/// ```example
+/// #let results = csv.decode(read("data.csv"))
+///
+/// #table(
+///   columns: 2,
+///   [*Condition*], [*Result*],
+///   ..results.flatten(),
+/// )
+/// ```
+///
+/// Display: CSV
+/// Category: data-loading
+#[func]
+pub fn csv_decode(
+    /// CSV data.
+    data: Spanned<Readable>,
+    /// The delimiter that separates columns in the CSV file.
+    /// Must be a single ASCII character.
+    #[named]
+    #[default]
+    delimiter: Delimiter,
+) -> SourceResult<Array> {
+    let Spanned { v: data, span } = data;
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
     builder.delimiter(delimiter.0 as u8);
 
-    let mut reader = builder.from_reader(data.as_slice());
+    let bytes: Bytes = data.into();
+    let mut reader = builder.from_reader(bytes.as_slice());
     let mut array = Array::new();
 
     for (line, result) in reader.records().enumerate() {
@@ -221,6 +260,10 @@ fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
 /// Display: JSON
 /// Category: data-loading
 #[func]
+#[scope(
+    scope.define("decode", json_decode_func());
+    scope
+)]
 pub fn json(
     /// Path to a JSON file.
     path: Spanned<EcoString>,
@@ -230,8 +273,35 @@ pub fn json(
     let Spanned { v: path, span } = path;
     let id = vm.location().join(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
+    json_decode(Spanned::new(Readable::Bytes(data), span))
+}
+
+/// Reads structured data from a JSON string/bytes.
+///
+/// The string/bytes must contain a valid JSON object or array. JSON objects will be
+/// converted into Typst dictionaries, and JSON arrays will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents, `null` will be converted into `{none}`, and numbers will be
+/// converted to floats or integers depending on whether they are whole numbers.
+///
+/// The function returns a dictionary or an array, depending on the JSON file.
+///
+/// The JSON files in the example contain objects with the keys `temperature`,
+/// `unit`, and `weather`.
+///
+/// ```
+///
+/// Display: JSON
+/// Category: data-loading
+#[func]
+pub fn json_decode(
+    /// Path to a JSON file.
+    data: Spanned<Readable>,
+) -> SourceResult<Value> {
+    let Spanned { v: data, span } = data;
+    let bytes: Bytes = data.into();
     let value: serde_json::Value =
-        serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
+        serde_json::from_slice(&bytes).map_err(format_json_error).at(span)?;
     Ok(convert_json(value))
 }
 
