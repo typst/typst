@@ -1,3 +1,5 @@
+use std::any::{Any, TypeId};
+use syn::Type;
 use super::*;
 
 /// Expand the `#[element]` macro.
@@ -171,6 +173,7 @@ fn create(element: &Elem) -> TokenStream {
         .all(|capability| capability != "Construct")
         .then(|| create_construct_impl(element));
     let set_impl = create_set_impl(element);
+    let get_impl = create_get_impl(element);
     let locatable_impl = element
         .capable
         .iter()
@@ -205,6 +208,7 @@ fn create(element: &Elem) -> TokenStream {
         #element_impl
         #construct_impl
         #set_impl
+        #get_impl
         #locatable_impl
 
         impl ::typst::eval::IntoValue for #ident {
@@ -363,6 +367,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
                     vtable: #vtable_func,
                     construct: <#ident as ::typst::model::Construct>::construct,
                     set: <#ident as ::typst::model::Set>::set,
+                    get: <#ident as ::typst::model::Get>::get,
                     info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
                         name: #name,
                         display: #display,
@@ -529,6 +534,42 @@ fn create_set_impl(element: &Elem) -> TokenStream {
                 let mut styles = ::typst::model::Styles::new();
                 #(#handlers)*
                 Ok(styles)
+            }
+        }
+    }
+}
+
+/// Create the element's `Get` implementation.
+fn create_get_impl(element: &Elem) -> TokenStream {
+    let ident = &element.ident;
+    let handlers = element
+        .fields
+        .iter()
+        .filter(|field| {
+            !field.external
+                && !field.synthesized
+                && field.settable()
+                && (!field.internal || field.parse.is_some())
+        })
+        .filter(|field| true)
+        .map(|field| {
+            let ident_in = &field.ident_in;
+            let ident = &field.ident;
+            quote! {
+               stringify!(#ident) => Self::#ident_in(styles).into_value(),
+            }
+        });
+
+    quote! {
+        impl ::typst::model::Get for #ident {
+            fn get(
+                styles: ::typst::model::StyleChain,
+                name: &str
+            ) -> ::typst::diag::StrResult<::typst::eval::Value> {
+                Ok(match name {
+                    #(#handlers)*
+                    _ => ::typst::diag::bail!("attribute not found")
+                })
             }
         }
     }

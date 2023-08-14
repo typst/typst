@@ -5,10 +5,12 @@ use std::ptr;
 
 use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
+use typst::diag::StrResult;
+use typst::eval::{Dict, EvalMode};
 
 use super::{Content, ElemFunc, Element, Selector, Vt};
-use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast, Args, FromValue, Func, IntoValue, Value, Vm};
+use crate::diag::{bail, SourceResult, Trace, Tracepoint};
+use crate::eval::{cast, Args, FromValue, Func, IntoValue, Value, Vm, Str, eval_string, Scope};
 use crate::syntax::Span;
 
 /// A list of style properties.
@@ -75,6 +77,19 @@ impl Styles {
         self.0.iter().find_map(|entry| match &**entry {
             Style::Property(property) => property.is_of(func).then_some(property.span),
             Style::Recipe(recipe) => recipe.is_of(func).then_some(Some(recipe.span)),
+        })
+    }
+
+    // Return styles of set rules
+    pub fn get_style(&self, vm: &Vm, element: &EcoString, field: &EcoString, path: &[Str]) -> StrResult<Value>{
+        let x = eval_string(vm.world(), element, Span::detached(), EvalMode::Code, Scope::default()).unwrap();
+        let y = x.cast::<ElemFunc>().unwrap();
+        let result = y.get(StyleChain::new(self), field)?;
+
+        // Warum kommen hier keine margins? complex default during layout!
+        path.iter().try_fold(result, |acc,item| match acc{
+            Value::Dict(d) => d.at(item, None),
+            _ => bail!("attribute \"{item}\" not found")
         })
     }
 }
@@ -172,9 +187,19 @@ impl Property {
         self.element == element && self.name == name
     }
 
+    /// Whether this property is the given one.
+    pub fn is_name (&self, element: &str, name: &str) -> bool {
+        self.element.name() == element && self.name == name
+    }
+
     /// Whether this property belongs to the given element.
     pub fn is_of(&self, element: ElemFunc) -> bool {
         self.element == element
+    }
+
+    /// Whether this property belongs to the given element, by name only.
+    pub fn is_of_name(&self, element: &str) -> bool {
+        self.element.name() == element
     }
 }
 

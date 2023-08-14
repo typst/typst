@@ -5,11 +5,12 @@ use std::hash::{Hash, Hasher};
 use once_cell::sync::Lazy;
 
 use super::{Content, Selector, Styles};
-use crate::diag::SourceResult;
+use crate::diag::{SourceResult, StrResult};
 use crate::eval::{cast, Args, Dict, Func, FuncInfo, Value, Vm};
+use crate::model::StyleChain;
 
 /// A document element.
-pub trait Element: Construct + Set + Sized + 'static {
+pub trait Element: Construct + Set + Get + Sized + 'static {
     /// Pack the element into type-erased content.
     fn pack(self) -> Content;
 
@@ -33,6 +34,11 @@ pub trait Construct {
 pub trait Set {
     /// Parse relevant arguments into style properties for this element.
     fn set(vm: &mut Vm, args: &mut Args) -> SourceResult<Styles>;
+}
+
+pub trait Get {
+    /// Parse relevant arguments into style properties for this element.
+    fn get(styles: StyleChain, name: &str) -> StrResult<Value>;
 }
 
 /// An element's function.
@@ -85,6 +91,11 @@ impl ElemFunc {
         args.finish()?;
         Ok(styles)
     }
+
+    /// Execute the set rule for the element and return the resulting style map.
+    pub fn get(self, s:StyleChain, name: &str) -> StrResult<Value> {
+        (self.0.get)(s, name)
+    }
 }
 
 impl Debug for ElemFunc {
@@ -129,6 +140,7 @@ pub struct NativeElemFunc {
     pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
     /// The element's set rule.
     pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
+    pub get: fn(StyleChain, &str) -> StrResult<Value>,
     /// Details about the function.
     pub info: Lazy<FuncInfo>,
 }

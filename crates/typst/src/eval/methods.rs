@@ -17,6 +17,7 @@ pub fn call(
     mut args: Args,
     span: Span,
 ) -> SourceResult<Value> {
+
     let name = value.type_name();
     let missing = || Err(missing_method(name, method)).at(span);
 
@@ -216,6 +217,11 @@ pub fn call(
         Value::Args(args) => match method {
             "pos" => args.to_pos().into_value(),
             "named" => args.to_named().into_value(),
+            _ => return missing(),
+        },
+
+        Value::Styles(style) => match method {
+            "get" => style.get_style(vm, &args.expect("element")?, &args.expect("field")?,&args.all::<Str>()?).at(span)?,
             _ => return missing(),
         },
 

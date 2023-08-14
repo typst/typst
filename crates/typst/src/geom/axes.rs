@@ -290,6 +290,11 @@ cast! {
     },
 }
 
+cast! {
+    Axes<Rel<Abs>>,
+    self => array![self.x, self.y].into_value(),
+}
+
 impl<T: Resolve> Resolve for Axes<T> {
     type Output = Axes<T::Output>;
 
