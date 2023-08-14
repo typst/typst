@@ -12,7 +12,7 @@ mod styles;
 pub use typst_macros::element;
 
 pub use self::content::{Content, MetaElem, PlainText};
-pub use self::element::{Construct, ElemFunc, Element, NativeElemFunc, Set, Get};
+pub use self::element::{Construct, ElemFunc, Element, Get, NativeElemFunc, Set};
 pub use self::introspect::{Introspector, Location, Locator};
 pub use self::label::{Label, Unlabellable};
 pub use self::realize::{

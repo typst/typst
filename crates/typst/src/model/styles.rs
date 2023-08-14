@@ -10,7 +10,9 @@ use typst::eval::EvalMode;
 
 use super::{Content, ElemFunc, Element, Selector, Vt};
 use crate::diag::{bail, SourceResult, Trace, Tracepoint};
-use crate::eval::{cast, Args, FromValue, Func, IntoValue, Value, Vm, Str, eval_string, Scope};
+use crate::eval::{
+    cast, eval_string, Args, FromValue, Func, IntoValue, Scope, Str, Value, Vm,
+};
 use crate::syntax::Span;
 
 /// A list of style properties.
@@ -81,15 +83,28 @@ impl Styles {
     }
 
     // Return styles of set rules
-    pub fn get_style(&self, vm: &Vm, element: &EcoString, field: &EcoString, path: &[Str]) -> StrResult<Value>{
-        let x = eval_string(vm.world(), element, Span::detached(), EvalMode::Code, Scope::default()).unwrap();
+    pub fn get_style(
+        &self,
+        vm: &Vm,
+        element: &EcoString,
+        field: &EcoString,
+        path: &[Str],
+    ) -> StrResult<Value> {
+        let x = eval_string(
+            vm.world(),
+            element,
+            Span::detached(),
+            EvalMode::Code,
+            Scope::default(),
+        )
+        .unwrap();
         let y = x.cast::<ElemFunc>().unwrap();
         let result = y.get(StyleChain::new(self), field)?;
 
         // Warum kommen hier keine margins? complex default during layout!
-        path.iter().try_fold(result, |acc,item| match acc{
+        path.iter().try_fold(result, |acc, item| match acc {
             Value::Dict(d) => d.at(item, None),
-            _ => bail!("attribute \"{item}\" not found")
+            _ => bail!("attribute \"{item}\" not found"),
         })
     }
 }
@@ -188,7 +203,7 @@ impl Property {
     }
 
     /// Whether this property is the given one.
-    pub fn is_name (&self, element: &str, name: &str) -> bool {
+    pub fn is_name(&self, element: &str, name: &str) -> bool {
         self.element.name() == element && self.name == name
     }
 

@@ -220,7 +220,14 @@ pub fn call(
         },
 
         Value::Styles(style) => match method {
-            "get" => style.get_style(vm, &args.expect("element")?, &args.expect("field")?,&args.all::<Str>()?).at(span)?,
+            "get" => style
+                .get_style(
+                    vm,
+                    &args.expect("element")?,
+                    &args.expect("field")?,
+                    &args.all::<Str>()?,
+                )
+                .at(span)?,
             _ => return missing(),
         },
 

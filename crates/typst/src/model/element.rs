@@ -93,7 +93,7 @@ impl ElemFunc {
     }
 
     /// Execute the set rule for the element and return the resulting style map.
-    pub fn get(self, s:StyleChain, name: &str) -> StrResult<Value> {
+    pub fn get(self, s: StyleChain, name: &str) -> StrResult<Value> {
         (self.0.get)(s, name)
     }
 }

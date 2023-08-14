@@ -1,5 +1,3 @@
-use std::any::{Any, TypeId};
-use syn::Type;
 use super::*;
 
 /// Expand the `#[element]` macro.
