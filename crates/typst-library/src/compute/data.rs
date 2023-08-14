@@ -123,7 +123,6 @@ pub fn csv(
     let Spanned { v: path, span } = path;
     let id = vm.location().join(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-
     csv_decode(Spanned::new(Readable::Bytes(data), span), delimiter)
 }
 
@@ -162,8 +161,8 @@ pub fn csv_decode(
     builder.has_headers(false);
     builder.delimiter(delimiter.0 as u8);
 
-    let bytes: Bytes = data.into();
-    let mut reader = builder.from_reader(bytes.as_slice());
+    let data: Bytes = data.into();
+    let mut reader = builder.from_reader(data.as_slice());
     let mut array = Array::new();
 
     for (line, result) in reader.records().enumerate() {
@@ -284,11 +283,6 @@ pub fn json(
 /// equivalents, `null` will be converted into `{none}`, and numbers will be
 /// converted to floats or integers depending on whether they are whole numbers.
 ///
-/// The function returns a dictionary or an array, depending on the JSON file.
-///
-/// The JSON files in the example contain objects with the keys `temperature`,
-/// `unit`, and `weather`.
-///
 /// ```
 ///
 /// Display: JSON
@@ -299,9 +293,9 @@ pub fn json_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let bytes: Bytes = data.into();
+    let data: Bytes = data.into();
     let value: serde_json::Value =
-        serde_json::from_slice(&bytes).map_err(format_json_error).at(span)?;
+        serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
     Ok(convert_json(value))
 }
 
@@ -356,6 +350,10 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 /// Display: TOML
 /// Category: data-loading
 #[func]
+#[scope(
+    scope.define("decode", toml_decode_func());
+    scope
+)]
 pub fn toml(
     /// Path to a TOML file.
     path: Spanned<EcoString>,
@@ -366,6 +364,26 @@ pub fn toml(
     let id = vm.location().join(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
 
+    toml_decode(Spanned::new(Readable::Bytes(data), span))
+}
+
+/// Reads structured data from a TOML string/bytes.
+///
+/// The string/bytes must contain a valid TOML table. TOML tables will be
+/// converted into Typst dictionaries, and TOML arrays will be converted into
+/// Typst arrays. Strings, booleans and datetimes will be converted into the Typst
+/// equivalents and numbers will be converted to floats or integers depending on
+/// whether they are whole numbers.
+///
+/// Display: TOML
+/// Category: data-loading
+#[func]
+pub fn toml_decode(
+    /// Path to a TOML file.
+    data: Spanned<Readable>,
+) -> SourceResult<Value> {
+    let Spanned { v: data, span } = data;
+    let data: Bytes = data.into();
     let raw = std::str::from_utf8(&data)
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
@@ -465,6 +483,10 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 /// Display: YAML
 /// Category: data-loading
 #[func]
+#[scope(
+    scope.define("decode", yaml_decode_func());
+    scope
+)]
 pub fn yaml(
     /// Path to a YAML file.
     path: Spanned<EcoString>,
@@ -474,6 +496,27 @@ pub fn yaml(
     let Spanned { v: path, span } = path;
     let id = vm.location().join(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
+    yaml_decode(Spanned::new(Readable::Bytes(data), span))
+}
+
+/// Reads structured data from a YAML string/bytes.
+///
+/// The string/bytes must contain a valid YAML object or array. YAML mappings will be
+/// converted into Typst dictionaries, and YAML sequences will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents, null-values (`null`, `~` or empty ``) will be converted into
+/// `{none}`, and numbers will be converted to floats or integers depending on
+/// whether they are whole numbers.
+///
+/// Display: YAML
+/// Category: data-loading
+#[func]
+pub fn yaml_decode(
+    /// Path to a YAML file.
+    data: Spanned<Readable>,
+) -> SourceResult<Value> {
+    let Spanned { v: data, span } = data;
+    let data: Bytes = data.into();
     let value: serde_yaml::Value =
         serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
     Ok(convert_yaml(value))
@@ -568,6 +611,10 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 /// Display: XML
 /// Category: data-loading
 #[func]
+#[scope(
+    scope.define("decode", xml_decode_func());
+    scope
+)]
 pub fn xml(
     /// Path to an XML file.
     path: Spanned<EcoString>,
@@ -577,6 +624,28 @@ pub fn xml(
     let Spanned { v: path, span } = path;
     let id = vm.location().join(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
+    xml_decode(Spanned::new(Readable::Bytes(data), span))
+}
+
+/// Reads structured data from an XML string/bytes.
+///
+/// The XML string/bytes is parsed into an array of dictionaries and strings. XML nodes
+/// can be elements or strings. Elements are represented as dictionaries with
+/// the the following keys:
+///
+/// - `tag`: The name of the element as a string.
+/// - `attrs`: A dictionary of the element's attributes as strings.
+/// - `children`: An array of the element's child nodes.
+///
+/// Display: XML
+/// Category: data-loading
+#[func]
+pub fn xml_decode(
+    /// Path to an XML file.
+    data: Spanned<Readable>,
+) -> SourceResult<Value> {
+    let Spanned { v: data, span } = data;
+    let data: Bytes = data.into();
     let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
     Ok(convert_xml(document.root()))
