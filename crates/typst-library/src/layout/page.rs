@@ -731,25 +731,25 @@ pub struct LogicalNumbering {
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LabelStyle {
     /// Decimal arabic numerals (1, 2, 3).
-    #[string("1")]
+    #[string(_, "1")]
     Arabic,
 
     /// Lowercase roman numerals (i, ii, iii).
-    #[string("i")]
+    #[string(_, "i")]
     LowerRoman,
 
     /// Uppercase roman numerals (I, II, III).
-    #[string("I")]
+    #[string(_, "I")]
     UpperRoman,
 
     /// Lowercase letters (`a` to `z` for the first 26 pages,
     /// `aa` to `zz` and so on for the next).
-    #[string("a")]
+    #[string(_, "a")]
     LowerAlpha,
 
     /// Uppercase letters (`A` to `Z` for the first 26 pages,
     /// `AA` to `ZZ` and so on for the next).
-    #[string("A")]
+    #[string(_, "A")]
     UpperAlpha,
 }
 

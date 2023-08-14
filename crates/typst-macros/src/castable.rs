@@ -15,35 +15,46 @@ pub fn derive_cast(item: &DeriveInput) -> Result<TokenStream> {
         }
 
         // Get both the strings in the helper attribute as well as the ident.
-        let string = variant
-            .attrs
-            .iter()
-            .filter_map(|attr| {
-                attr.path()
-                    .is_ident("string")
-                    .then(|| attr.parse_args::<syn::LitStr>().map(|lit| lit.value()))
-            })
-            .chain(vec![Ok(kebab_case(&variant.ident))])
-            .collect::<Result<Vec<_>>>()?;
+        let mut strings = vec![];
+        if let Some(attr) =
+            variant.attrs.iter().find(|attr| attr.path().is_ident("string"))
+        {
+            for expr in attr
+                .parse_args_with(Punctuated::<syn::Expr, Token!(,)>::parse_terminated)?
+            {
+                match expr {
+                    syn::Expr::Infer(_) => strings.push(kebab_case(&variant.ident)),
+                    syn::Expr::Lit(s) => {
+                        if let syn::Lit::Str(str) = s.lit {
+                            strings.push(str.value());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        } else {
+            strings = vec![kebab_case(&variant.ident)];
+        }
 
         variants.push(Variant {
             ident: variant.ident.clone(),
-            string,
+            strings,
             docs: documentation(&variant.attrs),
         });
     }
 
-    let strs_to_variants = variants.iter().map(|Variant { ident, string, docs }| {
+    let strs_to_variants = variants.iter().map(|Variant { ident, strings, docs }| {
         quote! {
             #[doc = #docs]
-            #(#string => Self::#ident),*
+            #(#strings => Self::#ident),*
         }
     });
 
-    let variants_to_strs = variants.iter().map(|Variant { ident, .. }| {
-        let string = kebab_case(ident);
+    let variants_to_strs = variants.iter().map(|Variant { ident, strings, .. }| {
+        let strings =
+            if strings.len() > 1 { vec![kebab_case(ident)] } else { strings.clone() };
         quote! {
-            #ty::#ident => #string
+            #(#ty::#ident => #strings),*
         }
     });
 
@@ -61,7 +72,7 @@ pub fn derive_cast(item: &DeriveInput) -> Result<TokenStream> {
 /// An enum variant in a `derive(Cast)`.
 struct Variant {
     ident: Ident,
-    string: Vec<String>,
+    strings: Vec<String>,
     docs: String,
 }
 
