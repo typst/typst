@@ -1,10 +1,7 @@
 use super::{cast, Args, Bytes, Value};
 use crate::diag::{SourceResult, StrResult};
 use ecow::EcoString;
-use std::{
-    io::Write,
-    sync::{Arc, Mutex, MutexGuard},
-};
+use std::sync::{Arc, Mutex, MutexGuard};
 use typst::diag::At;
 use wasmi::{
     AsContext, AsContextMut, Caller, Engine, Func as Function, Linker, Module,
@@ -138,14 +135,7 @@ impl Plugin {
     }
 
     fn call_inner(&self, function_name: &str, args: &[&[u8]]) -> StrResult<Vec<u8>> {
-        self.store().data_mut().arg_buffer.clear();
-        for arg in args {
-            self.store()
-                .data_mut()
-                .arg_buffer
-                .write_all(arg)
-                .map_err(|_| EcoString::from("Coudn't write in the plugin arg buffer"))?;
-        }
+        self.store().data_mut().arg_buffer = args.concat();
 
         let function = self.get_function(function_name).unwrap(); // checked in call
 
