@@ -100,15 +100,14 @@ pub(super) fn reparse_markup(
 
 fn markup_expr(p: &mut Parser, at_start: &mut bool) {
     match p.current() {
-        SyntaxKind::Space
-        | SyntaxKind::Parbreak
-        | SyntaxKind::LineComment
-        | SyntaxKind::BlockComment => {
+        SyntaxKind::Space | SyntaxKind::Parbreak => {
             p.eat();
             return;
         }
 
-        SyntaxKind::Text
+        SyntaxKind::LineComment
+        | SyntaxKind::BlockComment
+        | SyntaxKind::Text
         | SyntaxKind::Linebreak
         | SyntaxKind::Escape
         | SyntaxKind::Shorthand

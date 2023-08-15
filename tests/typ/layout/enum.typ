@@ -34,6 +34,7 @@ See 0.3. \
 Empty \
 +Nope \
 a + 0.
+/**/ + not a enum item
 
 ---
 // Test item number overriding.

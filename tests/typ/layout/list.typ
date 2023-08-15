@@ -49,6 +49,7 @@ _Shopping list_
 -
 Not in list
 -Nope
+/**/- not a list item
 
 ---
 // Alignment shouldn't affect marker

@@ -46,6 +46,7 @@
 / Term:
 Not in list
 /Nope
+/**/ / Not: a term item
 
 ---
 // Error: 8 expected colon
