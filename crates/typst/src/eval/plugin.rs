@@ -42,14 +42,14 @@ type Store = wasmi::Store<PersistentData>;
 #[derive(Debug, Clone)]
 struct PersistentData {
     result_data: Vec<u8>,
-    arg_buffer: Vec<u8>,
+    arguments: Vec<Bytes>,
 }
 
 impl Plugin {
     /// creates a new [Plugin] instance.
     pub fn new_from_bytes(bytes: impl AsRef<[u8]>) -> StrResult<Self> {
         let engine = Engine::default();
-        let data = PersistentData { result_data: Vec::new(), arg_buffer: Vec::new() };
+        let data = PersistentData { result_data: Vec::new(), arguments: Vec::new() };
         let mut store = Store::new(&engine, data);
 
         let module = Module::new(&engine, bytes.as_ref())
@@ -76,9 +76,12 @@ impl Plugin {
                 move |mut caller: Caller<PersistentData>, ptr: u32| {
                     let memory =
                         caller.get_export("memory").unwrap().into_memory().unwrap();
-                    let buffer = std::mem::take(&mut caller.data_mut().arg_buffer);
-                    memory.write(&mut caller, ptr as _, &buffer).unwrap();
-                    caller.data_mut().arg_buffer = buffer;
+                    let arguments = std::mem::take(&mut caller.data_mut().arguments);
+                    let mut offset = ptr as usize;
+                    for arg in arguments {
+                        memory.write(&mut caller, offset, arg.as_slice()).unwrap();
+                        offset += arg.as_slice().len();
+                    }
                 },
             )
             .unwrap()
@@ -129,18 +132,21 @@ impl Plugin {
                 .at(span)?;
             byte_args.push(arg);
         }
-        let byte_args = byte_args.iter().map(|b| b.as_slice()).collect::<Vec<_>>();
-        let s = self.call_inner(function_name, &byte_args).at(span)?;
+        let s = self.call_inner(function_name, byte_args).at(span)?;
         Ok(Value::Bytes(s.into()))
     }
 
-    fn call_inner(&self, function_name: &str, args: &[&[u8]]) -> StrResult<Vec<u8>> {
-        self.store().data_mut().arg_buffer = args.concat();
-
+    fn call_inner(&self, function_name: &str, args: Vec<Bytes>) -> StrResult<Vec<u8>> {
+        self.store().data_mut().arguments = args;
         let function = self.get_function(function_name).unwrap(); // checked in call
 
-        let result_args =
-            args.iter().map(|a| WasiValue::I32(a.len() as _)).collect::<Vec<_>>();
+        let result_args = self
+            .store()
+            .data_mut()
+            .arguments
+            .iter()
+            .map(|a| WasiValue::I32(a.len() as _))
+            .collect::<Vec<_>>();
 
         let mut code = [WasiValue::I32(2)];
         let is_err = function
