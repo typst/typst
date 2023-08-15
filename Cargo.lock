@@ -2573,7 +2573,7 @@ name = "typst"
 version = "0.7.0"
 dependencies = [
  "base64",
- "bitflags 2.3.1",
+ "bitflags 2.3.3",
  "bytemuck",
  "comemo",
  "ecow",
@@ -2610,6 +2610,7 @@ dependencies = [
  "unicode-segmentation",
  "unscanny",
  "usvg",
+ "wasmi",
  "xmlparser",
  "xmlwriter",
  "xmp-writer",
