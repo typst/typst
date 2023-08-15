@@ -18,6 +18,7 @@ bench = false
 [dependencies]
 typst-macros = { path = "../typst-macros" }
 typst-syntax = { path = "../typst-syntax" }
+base64 = "0.21.2"
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
 comemo = "0.3"
@@ -51,9 +52,11 @@ unicode-math-class = "0.1"
 unicode-segmentation = "1"
 unscanny = "0.1"
 usvg = { version = "0.32", default-features = false, features = ["text"] }
+xmlwriter = "0.1.0"
 xmp-writer = "0.1"
 time = { version = "0.3.20", features = ["std", "formatting"] }
 wasmi = "0.30.0"
+xmlparser = "0.13.5"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 stacker = "0.1.15"

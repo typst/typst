@@ -98,7 +98,12 @@ pub fn compile_once(
 /// Export into the target format.
 fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
     match command.output().extension() {
-        Some(ext) if ext.eq_ignore_ascii_case("png") => export_png(document, command),
+        Some(ext) if ext.eq_ignore_ascii_case("png") => {
+            export_image(document, command, ImageExportFormat::Png)
+        }
+        Some(ext) if ext.eq_ignore_ascii_case("svg") => {
+            export_image(document, command, ImageExportFormat::Svg)
+        }
         _ => export_pdf(document, command),
     }
 }
@@ -111,14 +116,24 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     Ok(())
 }
 
+/// An image format to export in.
+enum ImageExportFormat {
+    Png,
+    Svg,
+}
+
 /// Export to one or multiple PNGs.
-fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
+fn export_image(
+    document: &Document,
+    command: &CompileCommand,
+    fmt: ImageExportFormat,
+) -> StrResult<()> {
     // Determine whether we have a `{n}` numbering.
     let output = command.output();
     let string = output.to_str().unwrap_or_default();
     let numbered = string.contains("{n}");
     if !numbered && document.pages.len() > 1 {
-        bail!("cannot export multiple PNGs without `{{n}}` in output path");
+        bail!("cannot export multiple images without `{{n}}` in output path");
     }
 
     // Find a number width that accommodates all pages. For instance, the
@@ -128,14 +143,23 @@ fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let mut storage;
 
     for (i, frame) in document.pages.iter().enumerate() {
-        let pixmap = typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
         let path = if numbered {
             storage = string.replace("{n}", &format!("{:0width$}", i + 1));
             Path::new(&storage)
         } else {
             output.as_path()
         };
-        pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+        match fmt {
+            ImageExportFormat::Png => {
+                let pixmap =
+                    typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
+                pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+            }
+            ImageExportFormat::Svg => {
+                let svg = typst::export::svg(frame);
+                fs::write(path, svg).map_err(|_| "failed to write SVG file")?;
+            }
+        }
     }
 
     Ok(())

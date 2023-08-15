@@ -2572,7 +2572,8 @@ checksum = "6af6ae20167a9ece4bcb41af5b80f8a1f1df981f6391189ce00fd257af04126a"
 name = "typst"
 version = "0.7.0"
 dependencies = [
- "bitflags 2.3.3",
+ "base64",
+ "bitflags 2.3.1",
  "bytemuck",
  "comemo",
  "ecow",
@@ -2609,7 +2610,8 @@ dependencies = [
  "unicode-segmentation",
  "unscanny",
  "usvg",
- "wasmi",
+ "xmlparser",
+ "xmlwriter",
  "xmp-writer",
 ]
 
