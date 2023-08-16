@@ -332,6 +332,22 @@ impl Frame {
         wrapper.push(Point::zero(), FrameItem::Group(group));
         *self = wrapper;
     }
+
+    pub fn deep_replace_placeholders(&mut self, source: &[Self]) {
+        for (_, item) in Arc::make_mut(&mut self.items) {
+            match item {
+                &mut FrameItem::Placeholder(i) => {
+                    // todo: better error handling
+                    let inner_frame = source.get(i).unwrap().clone();
+                    *item = FrameItem::Group(GroupItem::new(inner_frame));
+                }
+                FrameItem::Group(gr) => {
+                    gr.frame.deep_replace_placeholders(source);
+                }
+                _ => {}
+            }
+        }
+    }
 }
 
 /// Tools for debugging.
@@ -417,6 +433,8 @@ pub enum FrameItem {
     Image(Image, Size, Span),
     /// Meta information and the region it applies to.
     Meta(Meta, Size),
+    /// A placeholder for a different frame to be inserted into
+    Placeholder(usize),
 }
 
 impl Debug for FrameItem {
@@ -427,6 +445,7 @@ impl Debug for FrameItem {
             Self::Shape(shape, _) => write!(f, "{shape:?}"),
             Self::Image(image, _, _) => write!(f, "{image:?}"),
             Self::Meta(meta, _) => write!(f, "{meta:?}"),
+            Self::Placeholder(i) => write!(f, "<placeholder #{i}>"),
         }
     }
 }
