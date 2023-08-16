@@ -118,7 +118,7 @@ impl SVGRenderer {
                 FrameItem::Text(text) => self.render_text(text),
                 FrameItem::Shape(shape, _) => self.render_shape(shape),
                 FrameItem::Image(image, size, _) => self.render_image(image, size),
-                FrameItem::Meta(_, _) => {}
+                FrameItem::Meta(_, _) | FrameItem::InstancePlaceholder => {}
             };
 
             self.xml.end_element();
