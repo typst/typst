@@ -1,5 +1,25 @@
 use crate::prelude::*;
 
+/// Allows you to separate content into its different parts (according to the usual layouting)
+/// and work with them as separate elements.
+///
+/// # Example
+///
+/// ```example
+/// #show split.item: it => {
+///     let color = if it.index == 0 {
+///         red
+///     } else if it.index == it.count - 1 {
+///         blue
+/// 	} else {
+///         green
+///     }
+///     rect(stroke: 1pt + color, it.body)
+/// }
+///
+/// #columns(3, split(lorem(100)))
+/// ```
+///
 /// Display: Split
 /// Category: layout
 #[element(Layout)]
@@ -8,7 +28,7 @@ use crate::prelude::*;
     scope
 )]
 pub struct SplitElem {
-    /// The contents to be broken.
+    /// The content to be split.
     #[positional]
     pub body: Content,
 }
@@ -40,12 +60,19 @@ impl Layout for SplitElem {
     }
 }
 
+/// A single part of split content.
+///
+/// On its own, this does nothing; It is intended to be used in a `show` rule.
+///
 /// Display: Split Item
 /// Category: layout
 #[element(Layout)]
 pub struct SplitItem {
+    /// The index of this part
     pub index: usize,
+    /// The number of total parts
     pub count: usize,
+    /// (A stand-in for) the content for this part
     pub body: Content,
 }
 
@@ -60,10 +87,16 @@ impl Layout for SplitItem {
     }
 }
 
+/// A stand-in for content that has already been fully layouted.
+///
+/// This is conceptually an opaque rectangle with already layouted content inside
+/// (which can't be accessed anymore). It is only used in conjunction with `split`.
+///
 /// Display: Pre-Layouted content
 /// Category: layout
 #[element(Layout)]
 pub struct LayoutedContent {
+    /// The index of the part this is a stand-in for.
     index: usize,
     #[internal]
     size: Axes<Rel<Length>>,

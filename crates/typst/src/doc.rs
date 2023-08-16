@@ -333,6 +333,7 @@ impl Frame {
         *self = wrapper;
     }
 
+    /// Replace any placeholders (including inside groups) using the respective frames from `source`
     pub fn deep_replace_placeholders(&mut self, source: &[Self]) {
         for (_, item) in Arc::make_mut(&mut self.items) {
             match item {
