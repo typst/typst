@@ -173,8 +173,7 @@ pub fn call(
             "values" => dict.values().into_value(),
             "pairs" => dict.pairs().into_value(),
             _ => {
-                return if dict.contains(method)
-                    && matches!(dict.at(method, None).unwrap(), Value::Func(_))
+                return if matches!(dict.at(method, None), Ok(Value::Func(_)))
                 {
                     Err(missing_method(name, method)).hint(eco_format!("to call the function stored in the dictionary, surround the field access with parentheses")).at(span)
                 } else {
