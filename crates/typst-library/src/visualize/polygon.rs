@@ -4,34 +4,6 @@ use typst::eval::{CastInfo, Reflect};
 
 use crate::prelude::*;
 
-/// Display: Regular Polygon
-/// Category: visualize
-#[func]
-pub fn regular_polygon(
-    #[named] fill: Option<Paint>,
-    #[default(Smart::Auto)]
-    #[named]
-    stroke: Smart<Option<PartialStroke>>,
-    #[default(Smart::Auto)]
-    #[named]
-    size: Smart<Rel<Length>>,
-    #[default(3)]
-    #[named]
-    vertices: u64,
-) -> PolygonElem {
-    let origin = size.unwrap_or_default() / 2.0;
-    let angle = |i: f64| (2.0 * PI * i / (vertices as f64) + (1.5 * PI));
-
-    let mut v = vec![];
-    for i in 0..vertices + 1 {
-        let x = origin * angle(i as f64).cos();
-        let y = origin * angle(i as f64).sin();
-        v.push(Axes::new(x, y));
-    }
-
-    PolygonElem::new(v).with_fill(fill).with_stroke(stroke)
-}
-
 /// A closed polygon.
 ///
 /// The polygon is defined by its corner points and is closed automatically.
@@ -134,4 +106,46 @@ impl Reflect for PolygonElem {
     fn castable(_: &Value) -> bool {
         false
     }
+}
+
+/// A regular polygon (https://en.wikipedia.org/wiki/Regular_polygon).
+///
+/// The regular polygon is defined by its size and quantity of vertices.
+///
+/// ## Example { #example }
+/// ```example
+/// #polygon.regular(
+///   fill: blue.lighten(80%),
+///   stroke: blue,
+///   size: 30pt,
+///   vertices: 3,
+/// )
+/// ```
+///
+/// Display: Regular Polygon
+/// Category: visualize
+#[func]
+pub fn regular_polygon(
+    #[named] fill: Option<Paint>,
+    #[default(Smart::Auto)]
+    #[named]
+    stroke: Smart<Option<PartialStroke>>,
+    #[default(Length::from(Em::new(1.0)))]
+    #[named]
+    size: Length,
+    #[default(3)]
+    #[named]
+    vertices: u64,
+) -> PolygonElem {
+    let origin = Rel::new(Ratio::zero(), size) / 2.0;
+    let angle = |i: f64| (2.0 * PI * i / (vertices as f64) + (1.5 * PI));
+
+    let mut v = vec![];
+    for i in 0..vertices + 1 {
+        let x = origin * angle(i as f64).cos();
+        let y = origin * angle(i as f64).sin();
+        v.push(Axes::new(x, y));
+    }
+
+    PolygonElem::new(v).with_fill(fill).with_stroke(stroke)
 }
