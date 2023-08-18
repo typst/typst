@@ -133,9 +133,11 @@ pub fn regular_polygon(
     #[default(Smart::Auto)]
     #[named]
     stroke: Smart<Option<PartialStroke>>,
+
     #[default(Length::from(Em::new(1.0)))]
     #[named]
     size: Length,
+
     #[default(3)]
     #[named]
     vertices: u64,
