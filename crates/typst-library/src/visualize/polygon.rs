@@ -23,7 +23,10 @@ use crate::prelude::*;
 /// Display: Polygon
 /// Category: visualize
 #[element(Layout)]
-#[scope(scope.define("regular", regular_polygon_func()); scope)]
+#[scope(
+    scope.define("regular", regular_polygon_func());
+    scope
+)]
 pub struct PolygonElem {
     /// How to fill the polygon. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
