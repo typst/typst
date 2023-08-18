@@ -34,7 +34,6 @@ pub struct PolygonElem {
     /// Currently all polygons are filled according to the
     /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
-    pub test: Option<Paint>,
 
     /// How to stroke the polygon. This can be:
     ///
