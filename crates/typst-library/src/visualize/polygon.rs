@@ -19,7 +19,7 @@ pub fn regular_polygon(
     #[named]
     vertices: u64,
 ) -> PolygonElem {
-    let origin = size.unwrap_or_default().abs / 2.0;
+    let origin = size.unwrap_or_default() / 2.0;
     let angle = |i: f64| (2.0 * PI * i / (vertices as f64) + (1.5 * PI));
 
     let mut v = vec![];
