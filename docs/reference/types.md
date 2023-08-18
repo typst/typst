@@ -46,6 +46,8 @@ integers, integers cannot be smaller than `{-9223372036854775808}` or larger tha
 The number can also be specified as hexadecimal, octal, or binary by starting it
 with a zero followed by either `x`, `o`, or `b`.
 
+You can convert a value to an integer with the [`int`]($func/int) function.
+
 ## Example
 ```example
 #(1 + 2) \
@@ -63,6 +65,8 @@ A floating-pointer number.
 A limited-precision representation of a real number. Typst uses 64 bits to
 store floats. Wherever a float is expected, you can also pass an
 [integer]($type/integer).
+
+You can convert a value to a float with the [`float`]($func/float) function.
 
 ## Example
 ```example
@@ -83,9 +87,11 @@ Typst supports the following length units:
 
 A length has the following fields:
 
-- `em`: The amount of `em` units in this length, as a [float]($type/float).
 - `abs`: A length with just the absolute component of the current length
 (that is, excluding the `em` component).
+- `em`: The amount of `em` units in this length, as a [float]($type/float).
+
+You can multiply lengths with and divide them by integers and floats.
 
 ## Example
 ```example
@@ -104,38 +110,34 @@ A length has the following fields:
 ### pt()
 Converts this length to points.
 
-Fails with an error if this length has non-zero `em` units
-(such as `5em + 2pt` instead of just `2pt`). Use the `abs`
-field (such as in `(5em + 2pt).abs.pt()`) to ignore the
-`em` component of the length (thus converting only its
-absolute component).
+Fails with an error if this length has non-zero `em` units (such as `5em + 2pt`
+instead of just `2pt`). Use the `abs` field (such as in `(5em + 2pt).abs.pt()`)
+to ignore the `em` component of the length (thus converting only its absolute
+component).
 
 - returns: float
 
 ### mm()
 Converts this length to millimeters.
 
-Fails with an error if this length has non-zero `em` units
-(such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($type/float.pt) method for more info.
+Fails with an error if this length has non-zero `em` units (such as `5em + 2pt`
+instead of just `2pt`). See the [`pt`]($type/float.pt) method for more info.
 
 - returns: float
 
 ### cm()
 Converts this length to centimeters.
 
-Fails with an error if this length has non-zero `em` units
-(such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($type/float.pt) method for more info.
+Fails with an error if this length has non-zero `em` units (such as `5em + 2pt`
+instead of just `2pt`). See the [`pt`]($type/float.pt) method for more info.
 
 - returns: float
 
 ### inches()
 Converts this length to inches.
 
-Fails with an error if this length has non-zero `em` units
-(such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($type/float.pt) method for more info.
+Fails with an error if this length has non-zero `em` units (such as `5em + 2pt`
+instead of just `2pt`). See the [`pt`]($type/float.pt) method for more info.
 
 - returns: float
 
@@ -229,7 +231,8 @@ Returns the constructor function for this color's kind
 ([`rgb`]($func/rgb), [`cmyk`]($func/cmyk) or [`luma`]($func/luma)).
 
 ```example
-#{cmyk(1%, 2%, 3%, 4%).kind() == cmyk}
+#let color = cmyk(1%, 2%, 3%, 4%)
+#(color.kind() == cmyk)
 ```
 
 - returns: function
@@ -267,9 +270,10 @@ of [integers]($type/integer).
 - returns: array
 
 ### cmyk()
-Converts this color to Digital CMYK and returns its components (C, M, Y, K) as an
-array of [ratio]($type/ratio). Note that this function will throw an error when
-applied to an [rgb]($func/rgb) color, since its conversion to CMYK is not available.
+Converts this color to Digital CMYK and returns its components (C, M, Y, K) as
+an array of [ratios]($type/ratio). Note that this function will throw an error
+when applied to an [rgb]($func/rgb) color, since its conversion to CMYK is not
+available.
 
 - returns: array
 
@@ -458,6 +462,65 @@ $arrow.r$ \
 $arrow.t.quad$
 ```
 
+# Bytes
+A sequence of bytes.
+
+This is conceptually similar to an array of [integers]($type/integer) between
+`{0}` and `{255}`, but represented much more efficiently.
+
+You can convert
+- a [string]($type/string) or an [array]($type/array) of integers to bytes with
+  the [`bytes`]($func/bytes) function
+- bytes to a string with the [`str`]($func/str) function
+- bytes to an array of integers with the [`array`]($func/array) function
+
+When [reading]($func/read) data from a file, you can decide whether to load it
+as a string or as raw bytes.
+
+```example
+#bytes((123, 160, 22, 0)) \
+#bytes("Hello 😃")
+
+#let data = read(
+  "rhino.png",
+  encoding: none,
+)
+
+// Magic bytes.
+#array(data.slice(0, 4)) \
+#str(data.slice(1, 4))
+```
+
+## Methods
+### len()
+The length in bytes.
+
+- returns: integer
+
+### at()
+Returns the byte at the specified index. Returns the default value if the index
+is out of bounds or fails with an error if no default value was specified.
+
+- index: integer (positional, required)
+  The index at which to retrieve the byte.
+- default: any (named)
+  A default value to return if the index is out of bounds.
+- returns: integer or any
+
+### slice()
+Extract a subslice of the bytes.
+Fails with an error if the start or index is out of bounds.
+
+- start: integer (positional, required)
+  The start index (inclusive).
+- end: integer (positional)
+  The end index (exclusive). If omitted, the whole slice until the end is
+  extracted.
+- count: integer (named)
+  The number of bytes to extract. This is equivalent to passing
+  `start + count` as the `end` position. Mutually exclusive with `end`.
+- returns: bytes
+
 # String
 A sequence of Unicode codepoints.
 
@@ -474,6 +537,8 @@ quite versatile.
 
 All lengths and indices are expressed in terms of UTF-8 characters. Indices are
 zero-based and negative indices wrap around to the end of the string.
+
+You can convert a value to a string with the [`str`]($func/str) function.
 
 ### Example
 ```example
@@ -521,7 +586,7 @@ value was specified.
   The byte index.
 - default: any (named)
   A default value to return if the index is out of bounds.
-- returns: string
+- returns: string or any
 
 ### slice()
 Extract a substring of the string.
@@ -726,6 +791,8 @@ Return the fields of this content.
 ).fields()
 ```
 
+- returns: dictionary
+
 ### location()
 The location of the content. This is only available on content returned by
 [query]($func/query), for other content it will fail with an error. The
@@ -837,8 +904,8 @@ Fails with an error if the start or index is out of bounds.
   The end index (exclusive). If omitted, the whole slice until the end of the
   array is extracted.
 - count: integer (named)
-  The number of items to extract. This is equivalent to passing `start +
-  count` as the `end` position. Mutually exclusive with `end`.
+  The number of items to extract. This is equivalent to passing
+  `start + count` as the `end` position. Mutually exclusive with `end`.
 - returns: array
 
 ### contains()
@@ -890,6 +957,9 @@ The returned array consists of `(index, value)` pairs in the form of length-2
 arrays. These can be [destructured]($scripting/#bindings) with a let binding or
 for loop.
 
+- start: integer (named)
+  The index returned for the first pair of the returned list.
+  Defaults to `{0}`.
 - returns: array
 
 ### zip()

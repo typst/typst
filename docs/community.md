@@ -14,9 +14,8 @@ discuss any topic around Typst, typesetting, writing, the sciences, and
 typography with other likeminded people.
 
 For the time being, **we would like to invite you to our [Discord
-server](https://discord.gg/2uDybryKPe).** The server is open for everyone, even
-if you do not have preview access to Typst yet. Of course, you are also very
-welcome to connect with us on social media
+server](https://discord.gg/2uDybryKPe).** The server is open for everyone.
+Of course, you are also very welcome to connect with us on social media
 ([Twitter](https://twitter.com/typstapp/),
 [Instagram](https://instagram.com/typstapp/),
 [LinkedIn](https://linkedin.com/company/typst), and
@@ -41,7 +40,7 @@ occur at any point. The compiler is developed in the open on
 [GitHub](https://github.com/typst/typst).
 
 We will update the members of our Discord server and our social media followers
-when new features become available in the preview. We'll also update you on the
+when new features become available. We'll also update you on the
 development progress of large features. A development tracker will become
 available on the documentation pages soon.
 

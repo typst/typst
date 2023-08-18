@@ -435,16 +435,18 @@ node! {
 }
 
 impl Shorthand {
-    /// A list of all shorthands.
-    pub const LIST: &[(&'static str, char)] = &[
-        // Both.
+    /// A list of all shorthands in markup mode.
+    pub const MARKUP_LIST: &[(&'static str, char)] = &[
         ("...", '…'),
-        // Text only.
         ("~", '\u{00A0}'),
         ("--", '\u{2013}'),
         ("---", '\u{2014}'),
         ("-?", '\u{00AD}'),
-        // Math only.
+    ];
+
+    /// A list of all shorthands in math mode.
+    pub const MATH_LIST: &[(&'static str, char)] = &[
+        ("...", '…'),
         ("-", '\u{2212}'),
         ("'", '′'),
         ("*", '∗'),
@@ -487,8 +489,7 @@ impl Shorthand {
     /// Get the shorthanded character.
     pub fn get(&self) -> char {
         let text = self.0.text();
-        Self::LIST
-            .iter()
+        (Self::MARKUP_LIST.iter().chain(Self::MATH_LIST))
             .find(|&&(s, _)| s == text)
             .map_or_else(char::default, |&(_, c)| c)
     }
@@ -847,9 +848,9 @@ impl MathAttach {
             .find_map(SyntaxNode::cast)
     }
 
-    /// Extract primes if present.
+    /// Extract attached primes if present.
     pub fn primes(&self) -> Option<MathPrimes> {
-        self.0.cast_first_match()
+        self.0.children().nth(1).and_then(|n| n.cast())
     }
 }
 

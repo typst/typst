@@ -216,10 +216,16 @@ pub enum Limits {
 impl Limits {
     /// The default limit configuration if the given character is the base.
     pub fn for_char(c: char) -> Self {
-        if Self::DEFAULT_TO_LIMITS.contains(&c) {
-            Limits::Display
-        } else {
-            Limits::Never
+        match unicode_math_class::class(c) {
+            Some(MathClass::Large) => {
+                if is_integral_char(c) {
+                    Limits::Never
+                } else {
+                    Limits::Display
+                }
+            }
+            Some(MathClass::Relation) => Limits::Always,
+            _ => Limits::Never,
         }
     }
 
@@ -231,18 +237,6 @@ impl Limits {
             Self::Never => false,
         }
     }
-
-    /// Unicode codepoints that should show attachments as limits in display
-    /// mode.
-    #[rustfmt::skip]
-    const DEFAULT_TO_LIMITS: &[char] = &[
-        /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
-        /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
-        /* ⋂ */ '\u{22C2}', /* ⋃ */ '\u{22C3}',
-        /* ⨀ */ '\u{2A00}', /* ⨁ */ '\u{2A01}', /* ⨂ */ '\u{2A02}',
-        /* ⨃ */ '\u{2A03}', /* ⨄ */ '\u{2A04}',
-        /* ⨅ */ '\u{2A05}', /* ⨆ */ '\u{2A06}',
-    ];
 }
 
 macro_rules! measure {
@@ -442,6 +436,11 @@ fn compute_shifts_up_and_down(
     }
 
     (shift_up, shift_down)
+}
+
+/// Determines if the character is one of a variety of integral signs
+fn is_integral_char(c: char) -> bool {
+    ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
 }
 
 /// Whether the fragment consists of a single character or atomic piece of text.

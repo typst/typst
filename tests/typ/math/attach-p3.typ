@@ -22,3 +22,21 @@ $ attach(A, t: #locate(it => oops)) $
 #show math.iota: math.limits.with(inline: false)
 #eq
 $iota_a^b$
+
+---
+// Test default of limit attachments on relations at all sizes
+#set page(width: auto)
+$ a =^"def" b quad a lt.eq_"really" b quad  a arrow.r.long.squiggly^"slowly" b $
+$a =^"def" b quad a lt.eq_"really" b quad a arrow.r.long.squiggly^"slowly" b$
+
+$a scripts(=)^"def" b quad a scripts(lt.eq)_"really" b quad a scripts(arrow.r.long.squiggly)^"slowly" b$
+
+---
+// Test default of scripts attachments on integrals at display size
+$ integral.sect_a^b  quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b $
+$integral.sect_a^b quad \u{2a1b}_a^b quad limits(\u{2a1b})_a^b$
+
+---
+// Test default of limit attachments on large operators at display size only
+$ tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1 $
+$tack.t.big_0^1 quad \u{02A0A}_0^1 quad join_0^1$

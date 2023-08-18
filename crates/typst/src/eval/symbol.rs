@@ -4,6 +4,7 @@ use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
 use ecow::EcoString;
+use serde::{Serialize, Serializer};
 
 use crate::diag::{bail, StrResult};
 
@@ -132,6 +133,15 @@ impl Debug for Symbol {
 impl Display for Symbol {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_char(self.get())
+    }
+}
+
+impl Serialize for Symbol {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_char(self.get())
     }
 }
 

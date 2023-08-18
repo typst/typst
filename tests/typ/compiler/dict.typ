@@ -92,10 +92,3 @@
 ---
 // Error: 3-15 cannot mutate a temporary value
 #((key: "val").other = "some")
-
----
-#{
-  let object = none
-  // Error: 3-9 expected dictionary, found none
-  object.property = "value"
-}
