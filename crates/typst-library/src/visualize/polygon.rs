@@ -1,4 +1,36 @@
+use std::f64::consts::PI;
+
+use typst::eval::{CastInfo, Reflect};
+
 use crate::prelude::*;
+
+/// Display: Regular Polygon
+/// Category: visualize
+#[func]
+pub fn regular_polygon(
+    #[named] fill: Option<Paint>,
+    #[default(Smart::Auto)]
+    #[named]
+    stroke: Smart<Option<PartialStroke>>,
+    #[default(Smart::Auto)]
+    #[named]
+    size: Smart<Rel<Length>>,
+    #[default(3)]
+    #[named]
+    vertices: u64,
+) -> PolygonElem {
+    let origin = size.unwrap_or_default().abs / 2.0;
+    let angle = |i: f64| (2.0 * PI * i / (vertices as f64) + (1.5 * PI));
+
+    let mut v = vec![];
+    for i in 0..vertices + 1 {
+        let x = origin * angle(i as f64).cos();
+        let y = origin * angle(i as f64).sin();
+        v.push(Axes::new(x, y));
+    }
+
+    PolygonElem::new(v).with_fill(fill).with_stroke(stroke)
+}
 
 /// A closed polygon.
 ///
@@ -19,6 +51,7 @@ use crate::prelude::*;
 /// Display: Polygon
 /// Category: visualize
 #[element(Layout)]
+#[scope(scope.define("regular", regular_polygon_func()); scope)]
 pub struct PolygonElem {
     /// How to fill the polygon. See the
     /// [rectangle's documentation]($func/rect.fill) for more details.
@@ -26,6 +59,7 @@ pub struct PolygonElem {
     /// Currently all polygons are filled according to the
     /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
+    pub test: Option<Paint>,
 
     /// How to stroke the polygon. This can be:
     ///
@@ -89,5 +123,15 @@ impl Layout for PolygonElem {
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
 
         Ok(Fragment::frame(frame))
+    }
+}
+
+impl Reflect for PolygonElem {
+    fn describe() -> CastInfo {
+        CastInfo::Any
+    }
+
+    fn castable(_: &Value) -> bool {
+        false
     }
 }
