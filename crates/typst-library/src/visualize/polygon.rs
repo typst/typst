@@ -100,6 +100,7 @@ impl Layout for PolygonElem {
     }
 }
 
+/// Required for alternate constructor function scope
 impl Reflect for PolygonElem {
     fn describe() -> CastInfo {
         CastInfo::Any
