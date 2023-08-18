@@ -12,7 +12,7 @@ use typst::{diag::bail, diag::StrResult, eval::eco_format};
 
 use crate::args::UpdateCommand;
 
-// these might not be very usefull but does make it easier to maintain
+// these might not be very useful but do make it easier to maintain
 // if the organization/repo moves or changes (only used in release fetching)
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -40,14 +40,14 @@ struct Release {
 
 /// Assets that were uploaded to a GitHub release.
 ///
-/// Primarly used to download pre-compiled typst CLI binaries.
+/// Primarily used to download pre-compiled Typst CLI binaries.
 #[derive(Debug, Deserialize)]
 struct Asset {
     pub name: String,
     pub browser_download_url: String,
 }
 
-/// GitHub asset archive with the typst CLI executable as unpacked data.
+/// GitHub asset archive with the Typst CLI executable as unpacked data.
 #[derive(Debug)]
 struct Archive {
     pub extension: Extension,
@@ -118,7 +118,7 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
         .unwrap_or(Path::new("./"))
         .join("typst_backup.part");
 
-    // revert to the backed up binary if there is one form a previous update
+    // revert to the backed up binary if there is one from a previous update
     if command.revert {
         if !backup.exists() {
             bail!("there is no backup to revert to");
@@ -342,7 +342,7 @@ fn self_update_permitted() -> StrResult<SelfUpdatePermission> {
         let current_exe = env::current_exe()
             .map_err(|err| eco_format!("failed to grab current exe path: {}", err))?;
         let current_exe_dir =
-            current_exe.parent().expect("typst cli isn't in a directory‽");
+            current_exe.parent().expect("typst cli isn't in a directory");
         if let Err(e) =
             tempfile::Builder::new().prefix("updtest").tempdir_in(current_exe_dir)
         {
