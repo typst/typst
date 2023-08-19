@@ -12,7 +12,7 @@ use super::{
 };
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::model::{DelayedErrors, ElemFunc, Introspector, Locator, Vt};
-use crate::syntax::ast::{self, AstNode, Expr, Ident};
+use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{FileId, Span, SyntaxNode};
 use crate::World;
 
@@ -45,7 +45,7 @@ impl Func {
         match &self.repr {
             Repr::Native(native) => Some(native.info.name),
             Repr::Elem(func) => Some(func.info().name),
-            Repr::Closure(closure) => closure.name.as_deref(),
+            Repr::Closure(closure) => closure.name(),
             Repr::With(arc) => arc.0.name(),
         }
     }
@@ -295,36 +295,32 @@ pub struct ParamInfo {
 /// A user-defined closure.
 #[derive(Hash)]
 pub(super) struct Closure {
+    /// The closure's syntax node. Must be castable to `ast::Closure`.
+    pub node: SyntaxNode,
     /// The source file where the closure was defined.
     pub location: FileId,
-    /// The name of the closure.
-    pub name: Option<Ident>,
+    /// Default values of named parameters.
+    pub defaults: Vec<Value>,
     /// Captured values from outer scopes.
     pub captured: Scope,
-    /// The list of parameters.
-    pub params: Vec<Param>,
-    /// The expression the closure should evaluate to.
-    pub body: Expr,
-}
-
-/// A closure parameter.
-#[derive(Hash)]
-pub enum Param {
-    /// A positional parameter: `x`.
-    Pos(ast::Pattern),
-    /// A named parameter with a default value: `draw: false`.
-    Named(Ident, Value),
-    /// An argument sink: `..args`.
-    Sink(Option<Ident>),
 }
 
 impl Closure {
+    /// The name of the closure.
+    pub fn name(&self) -> Option<&str> {
+        self.node
+            .cast::<ast::Closure>()
+            .unwrap()
+            .name()
+            .map(|ident| ident.as_str())
+    }
+
     /// Call the function in the context with the arguments.
     #[comemo::memoize]
     #[tracing::instrument(skip_all)]
     #[allow(clippy::too_many_arguments)]
     fn call(
-        this: &Func,
+        func: &Func,
         world: Tracked<dyn World + '_>,
         route: Tracked<Route>,
         introspector: Tracked<Introspector>,
@@ -334,15 +330,15 @@ impl Closure {
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
-        let closure = match &this.repr {
-            Repr::Closure(closure) => closure,
-            _ => panic!("`this` must be a closure"),
+        let Repr::Closure(this) = &func.repr else {
+            panic!("`this` must be a closure");
         };
+        let closure = this.node.cast::<ast::Closure>().unwrap();
 
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
-        scopes.top = closure.captured.clone();
+        scopes.top = this.captured.clone();
 
         // Prepare VT.
         let mut locator = Locator::chained(locator);
@@ -355,30 +351,34 @@ impl Closure {
         };
 
         // Prepare VM.
-        let mut vm = Vm::new(vt, route, closure.location, scopes);
+        let mut vm = Vm::new(vt, route, this.location, scopes);
         vm.depth = depth;
 
         // Provide the closure itself for recursive calls.
-        if let Some(name) = &closure.name {
-            vm.define(name.clone(), Value::Func(this.clone()));
+        if let Some(name) = closure.name() {
+            vm.define(name, Value::Func(func.clone()));
         }
 
         // Parse the arguments according to the parameter list.
-        let num_pos_params =
-            closure.params.iter().filter(|p| matches!(p, Param::Pos(_))).count();
+        let num_pos_params = closure
+            .params()
+            .children()
+            .filter(|p| matches!(p, ast::Param::Pos(_)))
+            .count();
         let num_pos_args = args.to_pos().len();
         let sink_size = num_pos_args.checked_sub(num_pos_params);
 
         let mut sink = None;
         let mut sink_pos_values = None;
-        for p in &closure.params {
+        let mut defaults = this.defaults.iter();
+        for p in closure.params().children() {
             match p {
-                Param::Pos(pattern) => match pattern {
+                ast::Param::Pos(pattern) => match pattern {
                     ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
-                        vm.define(ident.clone(), args.expect::<Value>(ident)?)
+                        vm.define(ident, args.expect::<Value>(&ident)?)
                     }
                     ast::Pattern::Normal(_) => unreachable!(),
-                    _ => {
+                    pattern => {
                         super::define_pattern(
                             &mut vm,
                             pattern,
@@ -386,16 +386,18 @@ impl Closure {
                         )?;
                     }
                 },
-                Param::Sink(ident) => {
-                    sink = ident.clone();
+                ast::Param::Sink(ident) => {
+                    sink = ident.name();
                     if let Some(sink_size) = sink_size {
                         sink_pos_values = Some(args.consume(sink_size)?);
                     }
                 }
-                Param::Named(ident, default) => {
+                ast::Param::Named(named) => {
+                    let name = named.name();
+                    let default = defaults.next().unwrap();
                     let value =
-                        args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
-                    vm.define(ident.clone(), value);
+                        args.named::<Value>(&name)?.unwrap_or_else(|| default.clone());
+                    vm.define(name, value);
                 }
             }
         }
@@ -412,7 +414,7 @@ impl Closure {
         args.finish()?;
 
         // Handle control flow.
-        let result = closure.body.eval(&mut vm);
+        let result = closure.body().eval(&mut vm);
         match vm.flow {
             Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
             Some(FlowEvent::Return(_, None)) => {}
@@ -483,7 +485,7 @@ impl<'a> CapturesVisitor<'a> {
             Some(ast::Expr::Closure(expr)) => {
                 for param in expr.params().children() {
                     if let ast::Param::Named(named) = param {
-                        self.visit(named.expr().as_untyped());
+                        self.visit(named.expr().to_untyped());
                     }
                 }
 
@@ -506,7 +508,7 @@ impl<'a> CapturesVisitor<'a> {
                     }
                 }
 
-                self.visit(expr.body().as_untyped());
+                self.visit(expr.body().to_untyped());
                 self.internal.exit();
             }
 
@@ -514,7 +516,7 @@ impl<'a> CapturesVisitor<'a> {
             // active after the body is evaluated.
             Some(ast::Expr::Let(expr)) => {
                 if let Some(init) = expr.init() {
-                    self.visit(init.as_untyped());
+                    self.visit(init.to_untyped());
                 }
 
                 for ident in expr.kind().idents() {
@@ -526,7 +528,7 @@ impl<'a> CapturesVisitor<'a> {
             // active after the iterable is evaluated but before the body is
             // evaluated.
             Some(ast::Expr::For(expr)) => {
-                self.visit(expr.iter().as_untyped());
+                self.visit(expr.iter().to_untyped());
                 self.internal.enter();
 
                 let pattern = expr.pattern();
@@ -534,16 +536,16 @@ impl<'a> CapturesVisitor<'a> {
                     self.bind(ident);
                 }
 
-                self.visit(expr.body().as_untyped());
+                self.visit(expr.body().to_untyped());
                 self.internal.exit();
             }
 
             // An import contains items, but these are active only after the
             // path is evaluated.
             Some(ast::Expr::Import(expr)) => {
-                self.visit(expr.source().as_untyped());
+                self.visit(expr.source().to_untyped());
                 if let Some(ast::Imports::Items(items)) = expr.imports() {
-                    for item in items {
+                    for item in items.idents() {
                         self.bind(item);
                     }
                 }
@@ -560,14 +562,14 @@ impl<'a> CapturesVisitor<'a> {
 
     /// Bind a new internal variable.
     fn bind(&mut self, ident: ast::Ident) {
-        self.internal.top.define(ident.take(), Value::None);
+        self.internal.top.define(ident.get().clone(), Value::None);
     }
 
     /// Capture a variable if it isn't internal.
     fn capture(&mut self, ident: ast::Ident) {
         if self.internal.get(&ident).is_err() {
             if let Ok(value) = self.external.get(&ident) {
-                self.captures.define_captured(ident.take(), value.clone());
+                self.captures.define_captured(ident.get().clone(), value.clone());
             }
         }
     }
@@ -576,7 +578,7 @@ impl<'a> CapturesVisitor<'a> {
     fn capture_in_math(&mut self, ident: ast::MathIdent) {
         if self.internal.get(&ident).is_err() {
             if let Ok(value) = self.external.get_in_math(&ident) {
-                self.captures.define_captured(ident.take(), value.clone());
+                self.captures.define_captured(ident.get().clone(), value.clone());
             }
         }
     }
