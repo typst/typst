@@ -1693,7 +1693,7 @@ fn apply_imports<V: IntoValue>(
     imports: Option<ast::Imports>,
     vm: &mut Vm,
     source_value: V,
-    name: impl Fn(&V) -> EcoString,
+    name: impl FnOnce(&V) -> EcoString,
     scope: impl Fn(&V) -> &Scope,
 ) -> SourceResult<()> {
     match imports {
@@ -1735,6 +1735,43 @@ fn apply_imports<V: IntoValue>(
     Ok(())
 }
 
+/// Common code for ModuleImport and RenamedModuleImport.
+/// Responsible for evaluating an expression which imports from a module
+/// (`import x`, `import y as z`, `import w: a, b as c, d`).
+/// Calls 'apply_imports' differently based on whether the "module" is actually
+/// a function scope, or an actual module (or path to one).
+fn module_import(
+    vm: &mut Vm,
+    span: Span,
+    source: Value,
+    imports: Option<ast::Imports>,
+    new_name: Option<EcoString>,
+) -> SourceResult<Value> {
+    if let Value::Func(func) = source {
+        if func.info().is_none() {
+            bail!(span, "cannot import from user-defined functions");
+        }
+        apply_imports(
+            imports,
+            vm,
+            func,
+            |func| new_name.unwrap_or_else(|| func.info().unwrap().name.into()),
+            |func| &func.info().unwrap().scope,
+        )?;
+    } else {
+        let module = import(vm, source, span, true)?;
+        apply_imports(
+            imports,
+            vm,
+            module,
+            |module| new_name.unwrap_or_else(|| module.name().clone()),
+            |module| module.scope(),
+        )?;
+    }
+
+    Ok(Value::None)
+}
+
 impl Eval for ast::ModuleImport<'_> {
     type Output = Value;
 
@@ -1742,29 +1779,7 @@ impl Eval for ast::ModuleImport<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
-        if let Value::Func(func) = source {
-            if func.info().is_none() {
-                bail!(span, "cannot import from user-defined functions");
-            }
-            apply_imports(
-                self.imports(),
-                vm,
-                func,
-                |func| func.info().unwrap().name.into(),
-                |func| &func.info().unwrap().scope,
-            )?;
-        } else {
-            let module = import(vm, source, span, true)?;
-            apply_imports(
-                self.imports(),
-                vm,
-                module,
-                |module| module.name().clone(),
-                |module| module.scope(),
-            )?;
-        }
-
-        Ok(Value::None)
+        module_import(vm, span, source, self.imports(), None)
     }
 }
 
@@ -1776,17 +1791,7 @@ impl Eval for ast::RenamedModuleImport<'_> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
         let name: EcoString = self.new_name().as_str().into();
-        if let Value::Func(func) = source {
-            if func.info().is_none() {
-                bail!(span, "cannot import from user-defined functions");
-            }
-            vm.scopes.top.define(name, func);
-        } else {
-            let module = import(vm, source, span, true)?;
-            vm.scopes.top.define(name, module);
-        }
-
-        Ok(Value::None)
+        module_import(vm, span, source, None, Some(name))
     }
 }
 
