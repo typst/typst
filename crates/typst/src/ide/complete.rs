@@ -442,13 +442,13 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // "#import "path.typ": a, b, |".
     if_chain! {
         if let Some(prev) = ctx.leaf.prev_sibling();
-        if let Some(ast::Expr::Import(import)) = prev.cast();
+        if let Some(ast::Expr::Import(import)) = prev.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
         if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.cursor;
-            import_item_completions(ctx, &items, &value);
+            import_item_completions(ctx, items, &value);
             return true;
         }
     }
@@ -460,13 +460,13 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(parent) = ctx.leaf.parent();
         if parent.kind() == SyntaxKind::ImportItems;
         if let Some(grand) = parent.parent();
-        if let Some(ast::Expr::Import(import)) = grand.cast();
+        if let Some(ast::Expr::Import(import)) = grand.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = grand.children().find(|child| child.is::<ast::Expr>());
         if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.leaf.offset();
-            import_item_completions(ctx, &items, &value);
+            import_item_completions(ctx, items, &value);
             return true;
         }
     }
@@ -475,9 +475,9 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for all exports of a module.
-fn import_item_completions(
-    ctx: &mut CompletionContext,
-    existing: &[ast::Ident],
+fn import_item_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    existing: ast::ImportItems<'a>,
     value: &Value,
 ) {
     let module = match value {
@@ -489,12 +489,12 @@ fn import_item_completions(
         _ => return,
     };
 
-    if existing.is_empty() {
+    if existing.idents().next().is_none() {
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
     for (name, value) in module.scope().iter() {
-        if existing.iter().all(|ident| ident.as_str() != name) {
+        if existing.idents().all(|ident| ident.as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, false, None);
         }
     }
@@ -604,9 +604,9 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             SyntaxKind::Named => parent.parent(),
             _ => Some(parent),
         };
-        if let Some(args) = parent.cast::<ast::Args>();
+        if let Some(args) = parent.get().cast::<ast::Args>();
         if let Some(grand) = parent.parent();
-        if let Some(expr) = grand.cast::<ast::Expr>();
+        if let Some(expr) = grand.get().cast::<ast::Expr>();
         let set = matches!(expr, ast::Expr::Set(_));
         if let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
@@ -634,13 +634,13 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     if_chain! {
         if deciding.kind() == SyntaxKind::Colon;
         if let Some(prev) = deciding.prev_leaf();
-        if let Some(param) = prev.cast::<ast::Ident>();
+        if let Some(param) = prev.get().cast::<ast::Ident>();
         then {
             if let Some(next) = deciding.next_leaf() {
                 ctx.from = ctx.cursor.min(next.offset());
             }
 
-            named_param_value_completions(ctx, &callee, &param);
+            named_param_value_completions(ctx, callee, &param);
             return true;
         }
     }
@@ -655,12 +655,15 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             }
 
             // Exclude arguments which are already present.
-            let exclude: Vec<_> = args.items().filter_map(|arg| match arg {
-                ast::Arg::Named(named) => Some(named.name()),
-                _ => None,
-            }).collect();
+            let exclude: Vec<_> = args
+                .items()
+                .filter_map(|arg| match arg {
+                    ast::Arg::Named(named) => Some(named.name()),
+                    _ => None,
+                })
+                .collect();
 
-            param_completions(ctx, &callee, set, &exclude);
+            param_completions(ctx, callee, set, &exclude);
             return true;
         }
     }
@@ -669,11 +672,11 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for the parameters of a function.
-fn param_completions(
-    ctx: &mut CompletionContext,
-    callee: &ast::Expr,
+fn param_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    callee: ast::Expr<'a>,
     set: bool,
-    exclude: &[ast::Ident],
+    exclude: &[ast::Ident<'a>],
 ) {
     let Some(func) = resolve_global_callee(ctx, callee) else { return };
     let Some(info) = func.info() else { return };
@@ -707,9 +710,9 @@ fn param_completions(
 }
 
 /// Add completions for the values of a named function parameter.
-fn named_param_value_completions(
-    ctx: &mut CompletionContext,
-    callee: &ast::Expr,
+fn named_param_value_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    callee: ast::Expr<'a>,
     name: &str,
 ) {
     let Some(func) = resolve_global_callee(ctx, callee) else { return };
@@ -732,10 +735,10 @@ fn named_param_value_completions(
 /// Resolve a callee expression to a global function.
 fn resolve_global_callee<'a>(
     ctx: &CompletionContext<'a>,
-    callee: &ast::Expr,
+    callee: ast::Expr<'a>,
 ) -> Option<&'a Func> {
     let value = match callee {
-        ast::Expr::Ident(ident) => ctx.global.get(ident)?,
+        ast::Expr::Ident(ident) => ctx.global.get(&ident)?,
         ast::Expr::FieldAccess(access) => match access.target() {
             ast::Expr::Ident(target) => match ctx.global.get(&target)? {
                 Value::Module(module) => module.get(&access.field()).ok()?,
@@ -1189,20 +1192,20 @@ impl<'a> CompletionContext<'a> {
         while let Some(node) = &ancestor {
             let mut sibling = Some(node.clone());
             while let Some(node) = &sibling {
-                if let Some(v) = node.cast::<ast::LetBinding>() {
+                if let Some(v) = node.get().cast::<ast::LetBinding>() {
                     for ident in v.kind().idents() {
-                        defined.insert(ident.take());
+                        defined.insert(ident.get());
                     }
                 }
                 sibling = node.prev_sibling();
             }
 
             if let Some(parent) = node.parent() {
-                if let Some(v) = parent.cast::<ast::ForLoop>() {
+                if let Some(v) = parent.get().cast::<ast::ForLoop>() {
                     if node.prev_sibling_kind() != Some(SyntaxKind::In) {
                         let pattern = v.pattern();
                         for ident in pattern.idents() {
-                            defined.insert(ident.take());
+                            defined.insert(ident.get());
                         }
                     }
                 }
@@ -1233,7 +1236,7 @@ impl<'a> CompletionContext<'a> {
             if !name.is_empty() {
                 self.completions.push(Completion {
                     kind: CompletionKind::Constant,
-                    label: name,
+                    label: name.clone(),
                     apply: None,
                     detail: None,
                 });
