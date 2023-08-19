@@ -192,7 +192,7 @@ pub struct PageElem {
     /// #set page(
     ///   height: 100pt,
     ///   margin: (top: 16pt, bottom: 24pt),
-    ///   logical-numbering: "lower-roman",
+    ///   logical-numbering: "i",
     /// )
     ///
     /// #lorem(48)
@@ -713,10 +713,10 @@ impl Parity {
 /// Specification for logical page numbers (PDF only).
 #[derive(Debug, Clone, PartialEq, Hash, Default)]
 pub struct LogicalNumbering {
-    /// Can be any string. Will always be prepended to the numbering style.
+    /// Can be any string or none. Will always be prepended to the numbering style.
     prefix: Option<String>,
 
-    /// Has to be one of: "arabic", "lower-roman", "upper-roman", "lower-alpha", "upper-alpha".
+    /// Has to be one of: "1", "i", "I", "a", "A".
     ///
     /// If `none`, field will be empty.
     style: Option<LabelStyle>,
