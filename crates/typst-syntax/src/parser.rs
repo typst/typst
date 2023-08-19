@@ -1141,7 +1141,7 @@ fn module_import(p: &mut Parser) {
     if p.eat_if(SyntaxKind::As) {
         // allow renaming a full module import
         p.expect(SyntaxKind::Ident);
-        p.wrap(m, SyntaxKind::RenamedModuleImport);
+        p.wrap(m, SyntaxKind::ModuleImport);
 
         // friendlier error if the user tries to rename and import items at the
         // same time

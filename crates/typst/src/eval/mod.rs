@@ -487,7 +487,6 @@ impl Eval for ast::Expr<'_> {
             Self::While(v) => v.eval(vm),
             Self::For(v) => v.eval(vm),
             Self::Import(v) => v.eval(vm),
-            Self::RenamedImport(v) => v.eval(vm),
             Self::Include(v) => v.eval(vm).map(Value::Content),
             Self::Break(v) => v.eval(vm),
             Self::Continue(v) => v.eval(vm),
@@ -1693,83 +1692,52 @@ fn apply_imports<V: IntoValue>(
     imports: Option<ast::Imports>,
     vm: &mut Vm,
     source_value: V,
+    new_name: Option<&str>,
     name: impl FnOnce(&V) -> EcoString,
     scope: impl Fn(&V) -> &Scope,
 ) -> SourceResult<()> {
-    match imports {
-        None => {
-            vm.scopes.top.define(name(&source_value), source_value);
-        }
-        Some(ast::Imports::Wildcard) => {
-            for (var, value) in scope(&source_value).iter() {
-                vm.scopes.top.define(var.clone(), value.clone());
+    if let Some(new_name) = new_name {
+        // Renamed module => just define it on the scope (no items)
+        vm.scopes.top.define(new_name, source_value);
+    } else {
+        match imports {
+            None => {
+                vm.scopes.top.define(name(&source_value), source_value);
             }
-        }
-        Some(ast::Imports::Items(items)) => {
-            let mut errors = vec![];
-            let scope = scope(&source_value);
-            for item in items.items() {
-                let original_ident = item.original_name();
-                if let Some(value) = scope.get(&original_ident) {
-                    if let ast::ImportItem::Renamed(renamed_item) = &item {
-                        if renamed_item.original_name().as_str()
-                            == renamed_item.new_name().as_str()
-                        {
-                            vm.vt.tracer.warn(SourceDiagnostic::warning(
-                                renamed_item.span(),
-                                "renaming imported name to its own name",
-                            ));
-                        }
-                    }
-                    vm.define(item.bound_name(), value.clone());
-                } else {
-                    errors.push(error!(original_ident.span(), "unresolved import"));
+            Some(ast::Imports::Wildcard) => {
+                for (var, value) in scope(&source_value).iter() {
+                    vm.scopes.top.define(var.clone(), value.clone());
                 }
             }
-            if !errors.is_empty() {
-                return Err(Box::new(errors));
+            Some(ast::Imports::Items(items)) => {
+                let mut errors = vec![];
+                let scope = scope(&source_value);
+                for item in items.items() {
+                    let original_ident = item.original_name();
+                    if let Some(value) = scope.get(&original_ident) {
+                        if let ast::ImportItem::Renamed(renamed_item) = &item {
+                            if renamed_item.original_name().as_str()
+                                == renamed_item.new_name().as_str()
+                            {
+                                vm.vt.tracer.warn(SourceDiagnostic::warning(
+                                    renamed_item.span(),
+                                    "renaming imported name to its own name",
+                                ));
+                            }
+                        }
+                        vm.define(item.bound_name(), value.clone());
+                    } else {
+                        errors.push(error!(original_ident.span(), "unresolved import"));
+                    }
+                }
+                if !errors.is_empty() {
+                    return Err(Box::new(errors));
+                }
             }
         }
     }
 
     Ok(())
-}
-
-/// Common code for ModuleImport and RenamedModuleImport.
-/// Responsible for evaluating an expression which imports from a module
-/// (`import x`, `import y as z`, `import w: a, b as c, d`).
-/// Calls 'apply_imports' differently based on whether the "module" is actually
-/// a function scope, or an actual module (or path to one).
-fn module_import(
-    vm: &mut Vm,
-    span: Span,
-    source: Value,
-    imports: Option<ast::Imports>,
-    new_name: Option<EcoString>,
-) -> SourceResult<Value> {
-    if let Value::Func(func) = source {
-        if func.info().is_none() {
-            bail!(span, "cannot import from user-defined functions");
-        }
-        apply_imports(
-            imports,
-            vm,
-            func,
-            |func| new_name.unwrap_or_else(|| func.info().unwrap().name.into()),
-            |func| &func.info().unwrap().scope,
-        )?;
-    } else {
-        let module = import(vm, source, span, true)?;
-        apply_imports(
-            imports,
-            vm,
-            module,
-            |module| new_name.unwrap_or_else(|| module.name().clone()),
-            |module| module.scope(),
-        )?;
-    }
-
-    Ok(Value::None)
 }
 
 impl Eval for ast::ModuleImport<'_> {
@@ -1779,19 +1747,32 @@ impl Eval for ast::ModuleImport<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
-        module_import(vm, span, source, self.imports(), None)
-    }
-}
+        let new_name = self.new_name().map(ast::Ident::as_str);
+        if let Value::Func(func) = source {
+            if func.info().is_none() {
+                bail!(span, "cannot import from user-defined functions");
+            }
+            apply_imports(
+                self.imports(),
+                vm,
+                func,
+                new_name,
+                |func| func.info().unwrap().name.into(),
+                |func| &func.info().unwrap().scope,
+            )?;
+        } else {
+            let module = import(vm, source, span, true)?;
+            apply_imports(
+                self.imports(),
+                vm,
+                module,
+                new_name,
+                |module| module.name().clone(),
+                |module| module.scope(),
+            )?;
+        }
 
-impl Eval for ast::RenamedModuleImport<'_> {
-    type Output = Value;
-
-    #[tracing::instrument(name = "RenamedModuleImport::eval", skip_all)]
-    fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
-        let span = self.source().span();
-        let source = self.source().eval(vm)?;
-        let name: EcoString = self.new_name().as_str().into();
-        module_import(vm, span, source, None, Some(name))
+        Ok(Value::None)
     }
 }
 
