@@ -2033,7 +2033,7 @@ impl<'a> ImportItems<'a> {
             child
                 .cast::<RenamedImportItem>()
                 .map(ImportItem::Renamed)
-                .or_else(|| child.cast::<Ident<'_>>().map(ImportItem::Simple))
+                .or_else(|| child.cast::<Ident>().map(ImportItem::Simple))
         })
     }
 }
