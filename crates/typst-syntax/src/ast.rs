@@ -2055,7 +2055,7 @@ impl<'a> ImportItem<'a> {
     /// bound name if the item wasn't renamed with 'as'.
     pub fn original_name(self) -> Ident<'a> {
         match self {
-            Self::Simple(name) => name.clone(),
+            Self::Simple(name) => name,
             Self::Renamed(renamed_item) => renamed_item.original_name(),
         }
     }
@@ -2065,7 +2065,7 @@ impl<'a> ImportItem<'a> {
     /// otherwise, it's just its original name.
     pub fn bound_name(self) -> Ident<'a> {
         match self {
-            Self::Simple(name) => name.clone(),
+            Self::Simple(name) => name,
             Self::Renamed(renamed_item) => renamed_item.new_name(),
         }
     }
