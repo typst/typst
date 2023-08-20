@@ -37,7 +37,7 @@ same-file = "1"
 # https://github.com/mitsuhiko/self-replace/pull/16
 self-replace = { git = "https://github.com/Gui-Yom/self-replace" }
 semver = "1"
-serde = { version = "1", features = ["derive"] }
+serde = ">= 1.0.126, <= 1.0.171"
 serde_json = "1"
 serde_yaml = "0.9"
 siphasher = "0.3"

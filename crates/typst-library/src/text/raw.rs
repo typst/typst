@@ -8,6 +8,7 @@ use syntect::parsing::{SyntaxDefinition, SyntaxSet, SyntaxSetBuilder};
 use typst::diag::FileError;
 use typst::eval::Bytes;
 use typst::syntax::{self, LinkedNode};
+use typst::util::option_eq;
 
 use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
@@ -320,11 +321,12 @@ impl Finalize for RawElem {
 }
 
 impl LocalName for RawElem {
-    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "List",
             Lang::ARABIC => "قائمة",
             Lang::BOKMÅL => "Utskrift",
+            Lang::CHINESE if option_eq(region, "TW") => "程式",
             Lang::CHINESE => "代码",
             Lang::CZECH => "Seznam",
             Lang::DANISH => "Liste",
