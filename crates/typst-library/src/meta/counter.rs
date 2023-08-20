@@ -267,7 +267,8 @@ use crate::prelude::*;
 /// array of integers, even if the counter has just one number.
 ///
 /// - location: location (positional, required)
-///   Can be any location. Why is it required then? Typst has to evaluate parts
+///   Can be an arbitrary location, as its value is irrelevant
+///   for the methods return value. Why is it required then? Typst has to evaluate parts
 ///   of your code multiple times to determine all counter values. By only
 ///   allowing this method within [`locate`]($func/locate) calls, the amount of
 ///   code that can depend on the method's result is reduced. If you could call
