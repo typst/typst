@@ -400,14 +400,15 @@ impl Counter {
         let offset = vt.introspector.query_up_to(num).len();
 
         // Get the counter state (and therefore page) closest to the current physical page.
-        let (_, page) = sequence
+        let (cs, page) = sequence
             .iter()
+            .filter(|(_, p)| *p <= num)
             .min_by(|(_, p1), (_, p2)| {
                 offset.abs_diff(p1.get()).cmp(&offset.abs_diff(p2.get()))
             })
             .unwrap();
 
-        Ok(num.get().saturating_sub(page.get()) + 1)
+        Ok(num.get().saturating_sub(page.get()) + cs.first())
     }
 
     /// Produce the whole sequence of counter states.
