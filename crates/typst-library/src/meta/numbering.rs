@@ -135,7 +135,7 @@ cast! {
 /// - `(I)`
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct NumberingPattern {
-    pieces: EcoVec<(EcoString, NumberingKind, Case)>,
+    pub pieces: EcoVec<(EcoString, NumberingKind, Case)>,
     suffix: EcoString,
     trimmed: bool,
 }
@@ -245,7 +245,7 @@ cast! {
 
 /// Different kinds of numberings.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum NumberingKind {
+pub enum NumberingKind {
     Arabic,
     Letter,
     Roman,

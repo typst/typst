@@ -632,11 +632,11 @@ fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
             .cast::<TypstStr>()
             .ok()
             .map(|style_name| match style_name.as_str() {
-                "1" => NumberingStyle::Arabic,
-                "I" => NumberingStyle::UpperRoman,
-                "i" => NumberingStyle::LowerRoman,
-                "A" => NumberingStyle::UpperAlpha,
-                "a" => NumberingStyle::LowerAlpha,
+                "arabic" => NumberingStyle::Arabic,
+                "upper-roman" => NumberingStyle::UpperRoman,
+                "lower-roman" => NumberingStyle::LowerRoman,
+                "upper-alpha" => NumberingStyle::UpperAlpha,
+                "lower-alpha" => NumberingStyle::LowerAlpha,
                 _ => unreachable!(),
             });
     let offset_opt = offset.cast::<usize>().ok();

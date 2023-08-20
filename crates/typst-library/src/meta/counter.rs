@@ -388,6 +388,28 @@ impl Counter {
         UpdateElem::new(self.0, update).pack()
     }
 
+    /// Calculate the difference between the real page number and the logical one.
+    ///
+    /// Difference between last counter change.
+    pub fn page_delta(&self, vt: &mut Vt, num: NonZeroUsize) -> SourceResult<usize> {
+        if !self.is_page() {
+            bail!(Span::detached(), "Only works for the page counter!");
+        }
+
+        let sequence = self.sequence(vt)?;
+        let offset = vt.introspector.query_up_to(num).len();
+
+        // Get the counter state (and therefore page) closest to the current physical page.
+        let (_, page) = sequence
+            .iter()
+            .min_by(|(_, p1), (_, p2)| {
+                offset.abs_diff(p1.get()).cmp(&offset.abs_diff(p2.get()))
+            })
+            .unwrap();
+
+        Ok(num.get().saturating_sub(page.get()) + 1)
+    }
+
     /// Produce the whole sequence of counter states.
     ///
     /// This has to happen just once for all counters, cutting down the number

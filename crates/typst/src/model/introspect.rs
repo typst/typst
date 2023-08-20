@@ -320,6 +320,14 @@ impl Introspector {
         found.ok_or_else(|| "label does not exist in the document".into())
     }
 
+    /// Yields all elements up until (but not including) `page`.
+    pub fn query_up_to(&self, page: NonZeroUsize) -> EcoVec<Prehashed<Content>> {
+        self.all()
+            .filter(|elem| self.page(elem.location().unwrap()) < page)
+            .cloned()
+            .collect::<EcoVec<_>>()
+    }
+
     /// The total number pages.
     pub fn pages(&self) -> NonZeroUsize {
         NonZeroUsize::new(self.pages).unwrap_or(NonZeroUsize::ONE)

@@ -2,9 +2,9 @@ use std::ptr;
 use std::str::FromStr;
 
 use super::{AlignElem, ColumnsElem};
-use crate::meta::{Counter, CounterKey, Numbering};
+use crate::meta::{Counter, CounterKey, Numbering, NumberingKind};
 use crate::prelude::*;
-use crate::text::TextElem;
+use crate::text::{Case, TextElem};
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -184,21 +184,6 @@ pub struct PageElem {
     /// ```
     pub numbering: Option<Numbering>,
 
-    /// How to number the pages logically in the PDF.
-    ///
-    /// Only applies to the PDF export and does not modify the document visually!
-    ///
-    /// ```example
-    /// #set page(
-    ///   height: 100pt,
-    ///   margin: (top: 16pt, bottom: 24pt),
-    ///   logical-numbering: "i",
-    /// )
-    ///
-    /// #lorem(48)
-    /// ```
-    pub logical_numbering: Option<LogicalNumbering>,
-
     /// The alignment of the page numbering.
     ///
     /// ```example
@@ -323,7 +308,7 @@ impl PageElem {
         vt: &mut Vt,
         styles: StyleChain,
         mut number: NonZeroUsize,
-        prev_page_label: &mut Option<LogicalNumbering>,
+        prev_page_label: &mut Option<Numbering>,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -402,8 +387,12 @@ impl PageElem {
             Size::zero(),
         );
 
+        let cs = Counter::new(CounterKey::Page).page_delta(vt, number)?;
         let page_label_meta = FrameItem::Meta(
-            Meta::PageLabel(number, self.logical_numbering(styles).into_value()),
+            Meta::PageLabel(
+                number,
+                LogicalNumbering::apply(self.numbering(styles), cs).into_value(),
+            ),
             Size::zero(),
         );
 
@@ -427,10 +416,27 @@ impl PageElem {
             frame.translate(Point::new(margin.left, margin.top));
             frame.push(Point::zero(), numbering_meta.clone());
 
-            if *prev_page_label != self.logical_numbering(styles) {
+            // TODO: simplify
+            if self.numbering(styles).is_some_and(|n| {
+                if let Numbering::Pattern(p) = n {
+                    let (_, kind, _) = p.pieces.first().unwrap();
+                    matches!(
+                        kind,
+                        NumberingKind::Arabic
+                            | NumberingKind::Letter
+                            | NumberingKind::Roman
+                    )
+                } else {
+                    false
+                }
+            }) {
+                if *prev_page_label != self.numbering(styles) {
+                    frame.push(Point::zero(), page_label_meta.clone());
+                }
+            } else {
                 frame.push(Point::zero(), page_label_meta.clone());
             }
-            *prev_page_label = self.logical_numbering(styles);
+            *prev_page_label = self.numbering(styles);
 
             // The page size with margins.
             let size = frame.size();
@@ -720,36 +726,70 @@ pub struct LogicalNumbering {
     ///
     /// If `none`, field will be empty.
     style: Option<LabelStyle>,
-
-    /// Offset for the page label start.
-    ///
-    /// Describes where to start counting from when setting a style.
-    /// (Has to be greater or equal than 1)
     offset: Option<NonZeroUsize>,
+}
+
+impl LogicalNumbering {
+    pub fn apply(numbering: Option<Numbering>, page: usize) -> LogicalNumbering {
+        if let Some(value) = numbering {
+            match value {
+                Numbering::Pattern(p) => {
+                    if let Some((prefix, kind, case)) = p.pieces.first() {
+                        let style = match kind {
+                            NumberingKind::Arabic => Some(LabelStyle::Arabic),
+                            NumberingKind::Roman if *case == Case::Lower => {
+                                Some(LabelStyle::LowerRoman)
+                            }
+                            NumberingKind::Roman if *case == Case::Upper => {
+                                Some(LabelStyle::UpperRoman)
+                            }
+                            NumberingKind::Letter if *case == Case::Lower => {
+                                Some(LabelStyle::LowerAlpha)
+                            }
+                            NumberingKind::Letter if *case == Case::Upper => {
+                                Some(LabelStyle::UpperAlpha)
+                            }
+                            _ => None,
+                        };
+
+                        let prefix = if style.is_none() {
+                            Some(p.apply(&[page]).to_string())
+                        } else {
+                            (!prefix.is_empty()).then_some(prefix.to_string())
+                        };
+
+                        let offset = style.map(|_| NonZeroUsize::new(page).unwrap());
+
+                        LogicalNumbering { prefix, style, offset }
+                    } else {
+                        LogicalNumbering::default()
+                    }
+                }
+                _ => LogicalNumbering::default(),
+            }
+        } else {
+            LogicalNumbering::default()
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LabelStyle {
     /// Decimal arabic numerals (1, 2, 3).
-    #[string("1")]
     Arabic,
 
     /// Lowercase roman numerals (i, ii, iii).
-    #[string("i")]
     LowerRoman,
 
     /// Uppercase roman numerals (I, II, III).
-    #[string("I")]
     UpperRoman,
 
     /// Lowercase letters (`a` to `z` for the first 26 pages,
     /// `aa` to `zz` and so on for the next).
-    #[string("a")]
     LowerAlpha,
 
     /// Uppercase letters (`A` to `Z` for the first 26 pages,
     /// `AA` to `ZZ` and so on for the next).
-    #[string("A")]
     UpperAlpha,
 }
 
@@ -763,22 +803,6 @@ cast! {
 
         Value::Dict(dict)
     },
-    dict: Dict => {
-        let prefix = dict.at("prefix", Some(Value::None))?;
-        let style = dict.at("style", Some(Value::None))?;
-        let offset = dict.at("offset", Some(Value::None))?;
-
-        // Transform `Value::None` into None, invalid values into errors and valid values into the correct type.
-        // This allows optional arguments and error messages like "expected string or none, ...".
-        let prefix_str = prefix.cast::<Option<Str>>()?.map(|p| p.to_string());
-        let style_str = style.cast::<Option<LabelStyle>>()?;
-        let offset_val = offset.cast::<Option<usize>>()?.map(|o| NonZeroUsize::new(o).unwrap());
-
-        LogicalNumbering { prefix: prefix_str, style: style_str, offset: offset_val }
-    },
-    v: Str => {
-        LogicalNumbering { style: Some(LabelStyle::from_value(Value::Str(v))?), ..Default::default() }
-    }
 }
 
 /// Specification of a paper.
