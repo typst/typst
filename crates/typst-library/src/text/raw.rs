@@ -26,6 +26,11 @@ use crate::prelude::*;
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
 ///
+/// What is ```rust fn main()```
+/// in Rust would be
+/// ```java public static void main(String[] args)```
+/// in Java.
+///
 /// ```rust
 /// fn main() {
 ///     println!("Hello World!");
@@ -38,8 +43,13 @@ use crate::prelude::*;
 /// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
 /// When you use three or more backticks, you can additionally specify a
 /// language tag for syntax highlighting directly after the opening backticks.
-/// Within raw blocks, everything is rendered as is, in particular, there are no
-/// escape sequences.
+/// Within raw blocks, everything (except for the language tag, if applicable)
+/// is rendered as is, in particular, there are no escape sequences.
+///
+/// The language tag is an identifier that directly follows the three or more
+/// backticks starting the raw text. If your content starts with something that
+/// looks like an identifier, but no syntax highlighting is needed, start the
+/// content with a single space or use the single backtick syntax.
 ///
 /// Display: Raw Text / Code
 /// Category: text
