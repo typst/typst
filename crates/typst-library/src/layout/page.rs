@@ -722,10 +722,15 @@ pub struct LogicalNumbering {
     /// Can be any string or none. Will always be prepended to the numbering style.
     prefix: Option<String>,
 
-    /// Has to be one of: "1", "i", "I", "a", "A".
+    /// Based on the numbering pattern.
     ///
-    /// If `none`, field will be empty.
+    /// If `none` or numbering is a function, field will be empty.
     style: Option<LabelStyle>,
+
+    /// Offset for the page label start.
+    ///
+    /// Describes where to start counting from when setting a style.
+    /// (Has to be greater or equal than 1)
     offset: Option<NonZeroUsize>,
 }
 
