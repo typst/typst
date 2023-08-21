@@ -446,7 +446,7 @@ impl Add for Array {
 }
 
 impl AddAssign for Array {
-    fn add_assign(&mut self, rhs: Array) {
+    fn add_assign(&mut self, rhs: Self) {
         self.0.extend(rhs.0);
     }
 }
