@@ -283,7 +283,7 @@ ways:
 - **Import items:** `{import "bar.typ": a, b}` \
   Evaluates the file at the path `bar.typ`, extracts the values of the variables
   `a` and `b` (that need to be defined in `bar.typ`, e.g. through `{let}`
-  bindings) and defines them in the current file.Replacing `a, b` with `*` loads
+  bindings) and defines them in the current file. Replacing `a, b` with `*` loads
   all variables defined in a module.
 
 Instead of a path, you can also use a [module value]($type/module), as shown in
