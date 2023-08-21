@@ -91,6 +91,18 @@ impl Content {
         Some(self.attrs.iter().filter_map(Attr::child))
     }
 
+    /// Also auto expands sequence of sequences into flat sequence
+    pub fn to_sequence_recursive(&self) -> Option<Box<dyn Iterator<Item = &Self> + '_>> {
+        if !self.is::<SequenceElem>() {
+            return None;
+        }
+        Some(Box::new(
+            self.attrs.iter().filter_map(Attr::child).flat_map(|e| {
+                e.to_sequence_recursive().unwrap_or(Box::new(iter::once(e)))
+            }),
+        ))
+    }
+
     /// Access the child and styles.
     pub fn to_styled(&self) -> Option<(&Content, &Styles)> {
         if !self.is::<StyledElem>() {

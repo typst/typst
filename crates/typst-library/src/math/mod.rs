@@ -419,7 +419,7 @@ impl LayoutMath for Content {
             return realized.layout_math(ctx);
         }
 
-        if let Some(children) = self.to_sequence() {
+        if let Some(children) = self.to_sequence_recursive() {
             let mut bb = BehavedBuilder::new();
             for child in children {
                 bb.push(child.clone(), StyleChain::default());
