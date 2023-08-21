@@ -267,13 +267,13 @@ use crate::prelude::*;
 /// array of integers, even if the counter has just one number.
 ///
 /// - location: location (positional, required)
-///   Can be an arbitrary location, as its value is irrelevant
-///   for the methods return value. Why is it required then? Typst has to evaluate parts
-///   of your code multiple times to determine all counter values. By only
-///   allowing this method within [`locate`]($func/locate) calls, the amount of
-///   code that can depend on the method's result is reduced. If you could call
-///   `final` directly at the top level of a module, the evaluation of the whole
-///   module and its exports could depend on the counter's value.
+///   Can be an arbitrary location, as its value is irrelevant for the method's
+///   return value. Why is it required then? Typst has to evaluate parts of your
+///   code multiple times to determine all counter values. By only allowing this
+///   method within [`locate`]($func/locate) calls, the amount of code that can
+///   depend on the method's result is reduced. If you could call `final`
+///   directly at the top level of a module, the evaluation of the whole module
+///   and its exports could depend on the counter's value.
 ///
 /// - returns: array
 ///
