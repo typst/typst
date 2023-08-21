@@ -154,6 +154,7 @@ pub fn call(
                 let last = args.named("last")?;
                 array.join(sep, last).at(span)?
             }
+            "intersperse" => array.intersperse(args.expect("separator")?).into_value(),
             "sorted" => array.sorted(vm, span, args.named("key")?)?.into_value(),
             "zip" => array.zip(args.expect("other")?).into_value(),
             "enumerate" => array
