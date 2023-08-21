@@ -26,16 +26,19 @@ use crate::prelude::*;
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
 ///
-/// What is ```rust fn main()```
-/// in Rust would be
-/// ```java public static void main(String[] args)```
-/// in Java.
+/// What is ```rust fn main()``` in Rust
+/// would be ```c int main()``` in C.
 ///
 /// ```rust
 /// fn main() {
 ///     println!("Hello World!");
 /// }
 /// ```
+///
+/// This has ``` `backticks` ``` in it
+/// (but the spaces are trimmed). And
+/// ``` here``` the leading space is
+/// also trimmed.
 /// ````
 ///
 /// ## Syntax { #syntax }
@@ -46,10 +49,12 @@ use crate::prelude::*;
 /// Within raw blocks, everything (except for the language tag, if applicable)
 /// is rendered as is, in particular, there are no escape sequences.
 ///
-/// The language tag is an identifier that directly follows the three or more
-/// backticks starting the raw text. If your content starts with something that
-/// looks like an identifier, but no syntax highlighting is needed, start the
-/// content with a single space or use the single backtick syntax.
+/// The language tag is an identifier that directly follows the opening
+/// backticks only if there are three or more backticks. If your text starts
+/// with something that looks like an identifier, but no syntax highlighting is
+/// needed, start the text with a single space (which will be trimmed) or use
+/// the single backtick syntax. If your text should start or end with a
+/// backtick, put a space before or after it (it will be trimmed).
 ///
 /// Display: Raw Text / Code
 /// Category: text
@@ -104,7 +109,7 @@ pub struct RawElem {
     ///
     /// With `rg`, you can search through your files quickly.
     /// This example searches the current directory recursively
-    /// for the text ``` Hello World```:
+    /// for the text `Hello World`:
     ///
     /// ```bash
     /// rg "Hello World"
