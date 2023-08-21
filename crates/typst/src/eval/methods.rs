@@ -174,7 +174,11 @@ pub fn call(
             "pairs" => dict.pairs().into_value(),
             _ => {
                 return if matches!(dict.at(method, None), Ok(Value::Func(_))) {
-                    Err(missing_method(name, method)).hint(eco_format!("to call the function stored in the dictionary, surround the field access with parentheses")).at(span)
+                    Err(missing_method(name, method))
+                        .hint(eco_format!(
+                            "to call the function stored in the dictionary, surround the field access with parentheses"
+                        ))
+                        .at(span)
                 } else {
                     missing()
                 }
