@@ -2,7 +2,7 @@
 
 use ecow::{eco_format, EcoString};
 
-use super::{Args, IntoValue, Plugin, Str, Value, Vm};
+use super::{Args, Bytes, IntoValue, Plugin, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
 use crate::eval::{bail, Datetime};
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
@@ -281,8 +281,10 @@ pub fn call(
                     _ => return missing(),
                 }
             } else if let Some(plugin) = dynamic.downcast::<Plugin>() {
-                if plugin.iter_functions().any(|func_name| func_name == method) {
-                    plugin.call(method, &mut args)?.into_value()
+                if plugin.iter().any(|func_name| func_name == method) {
+                    let bytes = args.all::<Bytes>()?;
+                    args.take().finish()?;
+                    plugin.call(method, bytes).at(span)?.into_value()
                 } else {
                     return missing();
                 }
