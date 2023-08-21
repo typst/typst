@@ -1470,6 +1470,9 @@ impl Eval for ast::LetBinding<'_> {
             Some(expr) => expr.eval(vm)?,
             None => Value::None,
         };
+        if vm.flow.is_some() {
+            return Ok(Value::None);
+        }
 
         match self.kind() {
             ast::LetBindingKind::Normal(pattern) => define_pattern(vm, pattern, value),
