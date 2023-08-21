@@ -2,7 +2,7 @@
 
 use ecow::{eco_format, EcoString};
 
-use super::{Args, IntoValue, Str, Value, Vm};
+use super::{Args, Bytes, IntoValue, Plugin, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
 use crate::eval::{bail, Datetime, Duration};
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
@@ -154,6 +154,7 @@ pub fn call(
                 let last = args.named("last")?;
                 array.join(sep, last).at(span)?
             }
+            "intersperse" => array.intersperse(args.expect("separator")?).into_value(),
             "sorted" => array.sorted(vm, span, args.named("key")?)?.into_value(),
             "zip" => array.zip(args.expect("other")?).into_value(),
             "enumerate" => array
@@ -172,7 +173,17 @@ pub fn call(
             "keys" => dict.keys().into_value(),
             "values" => dict.values().into_value(),
             "pairs" => dict.pairs().into_value(),
-            _ => return missing(),
+            _ => {
+                return if matches!(dict.at(method, None), Ok(Value::Func(_))) {
+                    Err(missing_method(name, method))
+                        .hint(eco_format!(
+                            "to call the function stored in the dictionary, surround the field access with parentheses"
+                        ))
+                        .at(span)
+                } else {
+                    missing()
+                }
+            }
         },
 
         Value::Func(func) => match method {
@@ -289,6 +300,14 @@ pub fn call(
                 match method {
                     "inv" => align2d.map(GenAlign::inv).into_value(),
                     _ => return missing(),
+                }
+            } else if let Some(plugin) = dynamic.downcast::<Plugin>() {
+                if plugin.iter().any(|func_name| func_name == method) {
+                    let bytes = args.all::<Bytes>()?;
+                    args.take().finish()?;
+                    plugin.call(method, bytes).at(span)?.into_value()
+                } else {
+                    return missing();
                 }
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);

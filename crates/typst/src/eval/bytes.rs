@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Deref;
+use std::ops::{Add, AddAssign, Deref};
 use std::sync::Arc;
 
 use comemo::Prehashed;
@@ -93,6 +93,31 @@ impl AsRef<[u8]> for Bytes {
 impl Debug for Bytes {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "bytes({})", self.len())
+    }
+}
+
+impl Add for Bytes {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+impl AddAssign for Bytes {
+    fn add_assign(&mut self, rhs: Self) {
+        if rhs.is_empty() {
+            // Nothing to do
+        } else if self.is_empty() {
+            *self = rhs;
+        } else if Arc::strong_count(&self.0) == 1 && matches!(**self.0, Cow::Owned(_)) {
+            Arc::make_mut(&mut self.0).update(|cow| {
+                cow.to_mut().extend_from_slice(&rhs);
+            })
+        } else {
+            *self = Self::from([self.as_slice(), rhs.as_slice()].concat());
+        }
     }
 }
 

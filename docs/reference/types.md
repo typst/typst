@@ -1077,6 +1077,12 @@ Combine all items in the array into one.
   An alternative separator between the last two items
 - returns: any
 
+### intersperse()
+Returns a new array with a separator placed between adjacent items.
+
+- separator: any (positional)
+  The value to insert between each item of the array.
+
 ### sorted()
 Return a new array with the same items, but sorted.
 
