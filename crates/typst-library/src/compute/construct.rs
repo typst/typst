@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Bytes, Datetime, Duration, Plugin, Module, Reflect, Regex};
+use typst::eval::{Bytes, Datetime, Duration, Module, Plugin, Reflect, Regex};
 
 use crate::prelude::*;
 
