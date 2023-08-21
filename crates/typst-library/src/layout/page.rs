@@ -417,19 +417,16 @@ impl PageElem {
             frame.push(Point::zero(), numbering_meta.clone());
 
             // TODO: simplify
-            if self.numbering(styles).is_some_and(|n| {
-                if let Numbering::Pattern(p) = n {
-                    let (_, kind, _) = p.pieces.first().unwrap();
-                    matches!(
-                        kind,
-                        NumberingKind::Arabic
-                            | NumberingKind::Letter
-                            | NumberingKind::Roman
-                    )
-                } else {
-                    false
-                }
-            }) {
+            let matches_spec = |n: Numbering| {
+                let Numbering::Pattern(p) = n else { return false; };
+                let (_, kind, _) = p.pieces.first().unwrap();
+                matches!(
+                    kind,
+                    NumberingKind::Arabic | NumberingKind::Letter | NumberingKind::Roman
+                )
+            };
+
+            if self.numbering(styles).is_some_and(matches_spec) {
                 if *prev_page_label != self.numbering(styles) {
                     frame.push(Point::zero(), page_label_meta.clone());
                 }
@@ -736,34 +733,35 @@ pub struct LogicalNumbering {
 
 impl LogicalNumbering {
     pub fn apply(numbering: Option<Numbering>, page: usize) -> LogicalNumbering {
-        if let Some(value) = numbering {
-            match value {
-                Numbering::Pattern(p) => {
-                    if let Some((prefix, kind, case)) = p.pieces.first() {
-                        let style = match kind {
-                            NumberingKind::Arabic => Some(LabelStyle::Arabic),
-                            NumberingKind::Roman if *case == Case::Lower => {
+        numbering
+            .map(|num| match num {
+                Numbering::Pattern(pat) => {
+                    if let Some((prefix, kind, case)) = pat.pieces.first() {
+                        let style = match (kind, case) {
+                            (NumberingKind::Arabic, _) => Some(LabelStyle::Arabic),
+                            (NumberingKind::Roman, Case::Lower) => {
                                 Some(LabelStyle::LowerRoman)
                             }
-                            NumberingKind::Roman if *case == Case::Upper => {
+                            (NumberingKind::Roman, Case::Upper) => {
                                 Some(LabelStyle::UpperRoman)
                             }
-                            NumberingKind::Letter if *case == Case::Lower => {
+                            (NumberingKind::Letter, Case::Lower) => {
                                 Some(LabelStyle::LowerAlpha)
                             }
-                            NumberingKind::Letter if *case == Case::Upper => {
+                            (NumberingKind::Letter, Case::Upper) => {
                                 Some(LabelStyle::UpperAlpha)
                             }
                             _ => None,
                         };
 
+                        // Prefix and offset depend on the style: If it is supported by the pdf spec,
+                        // we use the given prefix and an offset. Otherwise, everything goes into prefix.
                         let prefix = if style.is_none() {
-                            Some(p.apply(&[page]).to_string())
+                            Some(pat.apply(&[page]).to_string())
                         } else {
                             (!prefix.is_empty()).then_some(prefix.to_string())
                         };
-
-                        let offset = style.map(|_| NonZeroUsize::new(page).unwrap());
+                        let offset = style.and(NonZeroUsize::new(page));
 
                         LogicalNumbering { prefix, style, offset }
                     } else {
@@ -771,10 +769,8 @@ impl LogicalNumbering {
                     }
                 }
                 _ => LogicalNumbering::default(),
-            }
-        } else {
-            LogicalNumbering::default()
-        }
+            })
+            .unwrap_or_default()
     }
 }
 
