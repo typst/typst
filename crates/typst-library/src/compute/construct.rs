@@ -833,7 +833,7 @@ pub fn range(
 
 /// Loads a WebAssembly plugin.
 ///
-/// This is **advanced functionality** and not be confused with
+/// This is **advanced functionality** and not to be confused with
 /// [Typst packages]($scripting/#packages).
 ///
 /// Typst is capable of interfacing with plugins compiled to WebAssembly. Plugin
@@ -866,7 +866,7 @@ pub fn range(
 ///
 /// ## Protocol { #protocol }
 /// To be used as a plugin, a WebAssembly module must conform to the following
-/// protocol
+/// protocol:
 ///
 /// ### Exports { #exports }
 /// A plugin module can export functions to make them callable from Typst. To
@@ -883,7 +883,7 @@ pub fn range(
 /// - The `a_1` first bytes of the buffer now constitute the first argument, the
 ///   `a_2` next bytes the second argument, and so on.
 ///
-/// - The function can now do its job with the argument and produce an output
+/// - The function can now do its job with the arguments and produce an output
 ///   buffer. Before returning, it should call
 ///   `wasm_minimal_protocol_send_result_to_host` to send its result back to the
 ///   host.
