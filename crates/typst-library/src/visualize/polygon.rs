@@ -1,7 +1,5 @@
 use std::f64::consts::PI;
 
-use typst::eval::{CastInfo, Reflect};
-
 use crate::prelude::*;
 
 /// A closed polygon.
@@ -24,7 +22,7 @@ use crate::prelude::*;
 /// Category: visualize
 #[element(Layout)]
 #[scope(
-    scope.define("regular", regular_polygon_func());
+    scope.define("regular", polygon_regular_func());
     scope
 )]
 pub struct PolygonElem {
@@ -100,20 +98,7 @@ impl Layout for PolygonElem {
     }
 }
 
-/// Required for alternate constructor function scope
-impl Reflect for PolygonElem {
-    fn describe() -> CastInfo {
-        CastInfo::Any
-    }
-
-    fn castable(_: &Value) -> bool {
-        false
-    }
-}
-
-/// A regular polygon (https://en.wikipedia.org/wiki/Regular_polygon).
-///
-/// The regular polygon is defined by its size and quantity of vertices.
+/// A regular polygon, defined by its size and number of vertices.
 ///
 /// ## Example { #example }
 /// ```example
@@ -128,29 +113,43 @@ impl Reflect for PolygonElem {
 /// Display: Regular Polygon
 /// Category: visualize
 #[func]
-pub fn regular_polygon(
-    #[named] fill: Option<Paint>,
-    #[default(Smart::Auto)]
+pub fn polygon_regular(
+    /// How to fill the polygon. See the general
+    /// [polygon's documentation]($func/polygon.fill) for more details.
     #[named]
-    stroke: Smart<Option<PartialStroke>>,
+    fill: Option<Option<Paint>>,
 
-    #[default(Length::from(Em::new(1.0)))]
+    /// How to stroke the polygon. See the general
+    /// [polygon's documentation]($func/polygon.stroke) for more details.
     #[named]
+    stroke: Option<Smart<Option<PartialStroke>>>,
+
+    /// The size of the polygon.
+    #[named]
+    #[default(Abs::pt(30.0).into())]
     size: Length,
 
-    #[default(3)]
+    /// The number of vertices in the polygon.
     #[named]
+    #[default(3)]
     vertices: u64,
-) -> PolygonElem {
-    let origin = Rel::new(Ratio::zero(), size) / 2.0;
+) -> Content {
+    let origin = size / 2.0;
     let angle = |i: f64| (2.0 * PI * i / (vertices as f64) + (1.5 * PI));
+    let vertices = (0..=vertices)
+        .map(|i| {
+            let x = origin * angle(i as f64).cos();
+            let y = origin * angle(i as f64).sin();
+            Axes::new(x, y).map(Rel::from)
+        })
+        .collect();
 
-    let mut v = vec![];
-    for i in 0..vertices + 1 {
-        let x = origin * angle(i as f64).cos();
-        let y = origin * angle(i as f64).sin();
-        v.push(Axes::new(x, y));
+    let mut elem = PolygonElem::new(vertices);
+    if let Some(fill) = fill {
+        elem.push_fill(fill);
     }
-
-    PolygonElem::new(v).with_fill(fill).with_stroke(stroke)
+    if let Some(stroke) = stroke {
+        elem.push_stroke(stroke);
+    }
+    elem.pack()
 }
