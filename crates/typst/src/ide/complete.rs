@@ -3,6 +3,7 @@ use std::collections::{BTreeSet, HashSet};
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
+use serde::{Deserialize, Serialize};
 use unscanny::Scanner;
 
 use super::analyze::analyze_labels;
@@ -46,7 +47,7 @@ pub fn autocomplete(
 }
 
 /// An autocompletion option.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Completion {
     /// The kind of item this completes to.
     pub kind: CompletionKind,
@@ -62,7 +63,8 @@ pub struct Completion {
 }
 
 /// A kind of item that can be completed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum CompletionKind {
     /// A syntactical structure.
     Syntax,
