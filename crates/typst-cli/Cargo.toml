@@ -33,6 +33,7 @@ memmap2 = "0.5"
 notify = "5"
 once_cell = "1"
 open = "4.0.2"
+pathdiff = "0.1"
 same-file = "1"
 # https://github.com/mitsuhiko/self-replace/pull/16
 self-replace = { git = "https://github.com/Gui-Yom/self-replace" }

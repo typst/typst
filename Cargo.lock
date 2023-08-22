@@ -1616,7 +1616,7 @@ checksum = "3a083c0c7e5e4a8ec4176346cf61f67ac674e8bfb059d9226e1c54a96b377c12"
 dependencies = [
  "is-wsl",
  "libc",
- "pathdiff",
+ "pathdiff 0.2.1",
 ]
 
 [[package]]
@@ -1681,6 +1681,12 @@ name = "paste"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
+
+[[package]]
+name = "pathdiff"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3bf70094d203e07844da868b634207e71bfab254fe713171fae9a6e751ccf31"
 
 [[package]]
 name = "pathdiff"
@@ -2866,6 +2872,7 @@ dependencies = [
  "notify",
  "once_cell",
  "open",
+ "pathdiff 0.1.0",
  "same-file",
  "self-replace",
  "semver",
