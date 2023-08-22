@@ -393,8 +393,8 @@ pub fn toml_decode(
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
 
-    let value: toml::Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
-    Ok(convert_toml(value))
+    let value: Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
+    Ok(value)
 }
 
 /// Encode structured data into a toml string.
@@ -414,44 +414,8 @@ pub fn toml_encode(
 
     if pretty { toml::to_string_pretty(&value) } else { toml::to_string(&value) }
         .map(|v| v.into())
-        .map_err(|e| eco_format!("failed to create json: {}", e.to_string()))
+        .map_err(|e| eco_format!("failed to create toml: {}", e.to_string()))
         .at(span)
-}
-
-/// Convert a TOML value to a Typst value.
-fn convert_toml(value: toml::Value) -> Value {
-    match value {
-        toml::Value::String(v) => v.into_value(),
-        toml::Value::Integer(v) => v.into_value(),
-        toml::Value::Float(v) => v.into_value(),
-        toml::Value::Boolean(v) => v.into_value(),
-        toml::Value::Array(v) => {
-            v.into_iter().map(convert_toml).collect::<Array>().into_value()
-        }
-        toml::Value::Table(v) => v
-            .into_iter()
-            .map(|(key, value)| (key.into(), convert_toml(value)))
-            .collect::<Dict>()
-            .into_value(),
-        toml::Value::Datetime(v) => match (v.date, v.time) {
-            (None, None) => Value::None,
-            (Some(date), None) => {
-                Datetime::from_ymd(date.year as i32, date.month, date.day).into_value()
-            }
-            (None, Some(time)) => {
-                Datetime::from_hms(time.hour, time.minute, time.second).into_value()
-            }
-            (Some(date), Some(time)) => Datetime::from_ymd_hms(
-                date.year as i32,
-                date.month,
-                date.day,
-                time.hour,
-                time.minute,
-                time.second,
-            )
-            .into_value(),
-        },
-    }
 }
 
 /// Format the user-facing TOML error message.
@@ -544,9 +508,9 @@ pub fn yaml_decode(
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
     let data: Bytes = data.into();
-    let value: serde_yaml::Value =
+    let value: Value =
         serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
-    Ok(convert_yaml(value))
+    Ok(value)
 }
 
 /// Encode structured data into a yaml string.
@@ -564,38 +528,6 @@ pub fn yaml_encode(
         .map(|v| v.into())
         .map_err(|e| eco_format!("failed to create json: {}", e.to_string()))
         .at(span)
-}
-
-/// Convert a YAML value to a Typst value.
-fn convert_yaml(value: serde_yaml::Value) -> Value {
-    match value {
-        serde_yaml::Value::Null => Value::None,
-        serde_yaml::Value::Bool(v) => v.into_value(),
-        serde_yaml::Value::Number(v) => match v.as_i64() {
-            Some(int) => int.into_value(),
-            None => v.as_f64().unwrap_or(f64::NAN).into_value(),
-        },
-        serde_yaml::Value::String(v) => v.into_value(),
-        serde_yaml::Value::Sequence(v) => {
-            v.into_iter().map(convert_yaml).collect::<Array>().into_value()
-        }
-        serde_yaml::Value::Mapping(v) => v
-            .into_iter()
-            .map(|(key, value)| (convert_yaml_key(key), convert_yaml(value)))
-            .filter_map(|(key, value)| key.map(|key| (key, value)))
-            .collect::<Dict>()
-            .into_value(),
-    }
-}
-
-/// Converts an arbitrary YAML mapping key into a Typst Dict Key.
-/// Currently it only does so for strings, everything else
-/// returns None
-fn convert_yaml_key(key: serde_yaml::Value) -> Option<Str> {
-    match key {
-        serde_yaml::Value::String(v) => Some(Str::from(v)),
-        _ => None,
-    }
 }
 
 /// Format the user-facing YAML error message.

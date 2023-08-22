@@ -43,7 +43,7 @@ siphasher = "0.3"
 subsetter = "0.1.1"
 svg2pdf = "0.6"
 tiny-skia = "0.9.0"
-toml = { version = "0.7.3", default-features = false, features = ["parse"] }
+toml = { version = "0.7.4", default-features = false, features = ["parse"] }
 tracing = "0.1.37"
 ttf-parser = "0.18.1"
 unicode-general-category = "0.6"

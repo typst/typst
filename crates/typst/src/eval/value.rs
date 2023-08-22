@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use ecow::eco_format;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::de::{Error, MapAccess, SeqAccess, Visitor};
+use serde::de::{EnumAccess, Error, MapAccess, SeqAccess, Visitor};
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
@@ -369,12 +369,20 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Value::None)
     }
 
-    fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+    fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
         Ok(Array::deserialize(SeqAccessDeserializer::new(seq))?.into_value())
     }
 
     fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
         Ok(Dict::deserialize(MapAccessDeserializer::new(map))?.into_value())
+    }
+
+    fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error> where A: EnumAccess<'de> {
+        todo!()
+    }
+
+    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error> where D: Deserializer<'de> {
+        todo!()
     }
 }
 
