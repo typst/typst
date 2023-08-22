@@ -45,11 +45,11 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
     let current_exe = env::current_exe()
         .map_err(|err| eco_format!("failed to grab current exe path: {}", err))?;
 
-    #[cfg(linux)]
+    #[cfg(target_os = "linux")]
     let root_backup_dir = dirs::state_dir()
         .or_else(|| dirs::data_dir())
         .expect("unable to locate local data or state directories");
-    #[cfg(not(linux))]
+    #[cfg(not(target_os = "linux"))]
     let root_backup_dir =
         dirs::data_dir().expect("unable to locate local data directory");
     let backup_dir = root_backup_dir.join("typst");
