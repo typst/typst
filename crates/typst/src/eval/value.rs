@@ -5,9 +5,9 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde::de::{EnumAccess, Error, MapAccess, SeqAccess, Visitor};
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
+use serde::de::{EnumAccess, Error, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 
 use super::{
@@ -285,101 +285,173 @@ impl<'de> Visitor<'de> for ValueVisitor {
         formatter.write_str("Typst Value")
     }
 
-    fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E> where E: Error {
+    fn visit_bool<E>(self, v: bool) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E> where E: Error {
+    fn visit_i8<E>(self, v: i8) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E> where E: Error {
+    fn visit_i16<E>(self, v: i16) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E> where E: Error {
+    fn visit_i32<E>(self, v: i32) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E> where E: Error {
+    fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E> where E: Error {
+    fn visit_u8<E>(self, v: u8) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E> where E: Error {
+    fn visit_u16<E>(self, v: u16) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E> where E: Error {
+    fn visit_u32<E>(self, v: u32) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> where E: Error {
+    fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E> where E: Error {
+    fn visit_f32<E>(self, v: f32) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok((v as f64).into_value())
     }
 
-    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E> where E: Error {
+    fn visit_f64<E>(self, v: f64) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_char<E>(self, v: char) -> Result<Self::Value, E> where E: Error {
+    fn visit_char<E>(self, v: char) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> where E: Error {
+    fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E> where E: Error {
+    fn visit_borrowed_str<E>(self, v: &'de str) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_string<E>(self, v: String) -> Result<Self::Value, E> where E: Error {
+    fn visit_string<E>(self, v: String) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E> where E: Error {
+    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E> where E: Error {
+    fn visit_borrowed_bytes<E>(self, v: &'de [u8]) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E> where E: Error {
+    fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(v.into_value())
     }
 
-    fn visit_none<E>(self) -> Result<Self::Value, E> where E: Error {
+    fn visit_none<E>(self) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(Value::None)
     }
 
-    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error> where D: Deserializer<'de> {
+    fn visit_some<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         Value::deserialize(deserializer)
     }
 
-    fn visit_unit<E>(self) -> Result<Self::Value, E> where E: Error {
+    fn visit_unit<E>(self) -> Result<Self::Value, E>
+    where
+        E: Error,
+    {
         Ok(Value::None)
     }
 
-    fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
+    fn visit_seq<A>(self, seq: A) -> Result<Self::Value, A::Error>
+    where
+        A: SeqAccess<'de>,
+    {
         Ok(Array::deserialize(SeqAccessDeserializer::new(seq))?.into_value())
     }
 
-    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
         Ok(Dict::deserialize(MapAccessDeserializer::new(map))?.into_value())
     }
 }
 
 impl<'de> Deserialize<'de> for Value {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         deserializer.deserialize_any(ValueVisitor)
     }
 }

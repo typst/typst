@@ -127,11 +127,7 @@ impl Serialize for Bytes {
     where
         S: Serializer,
     {
-        if serializer.is_human_readable() {
-            serializer.serialize_str(&eco_format!("{self:?}"))
-        } else {
-            serializer.serialize_bytes(self)
-        }
+        serializer.serialize_bytes(self)
     }
 }
 

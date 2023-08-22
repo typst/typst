@@ -199,7 +199,10 @@ impl Serialize for Dict {
 }
 
 impl<'de> Deserialize<'de> for Dict {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         Ok(IndexMap::<Str, Value>::deserialize(deserializer)?.into())
     }
 }
