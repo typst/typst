@@ -13,7 +13,6 @@
 #figure([Iguana], kind: "iguana", supplement: none)
 == I
 
-#let test(a, b) = assert.eq(a, b)
 #let test-selector(selector, ref) = locate(loc => {
   let elems = query(selector, loc)
   test(elems.map(e => e.body), ref)
