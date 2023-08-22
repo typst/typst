@@ -23,7 +23,7 @@ pub struct CliArguments {
 #[derive(Debug, Clone, Subcommand)]
 #[command()]
 pub enum Command {
-    /// Compiles an input file into a PDF or PNG file
+    /// Compiles an input file into a supported output format
     #[command(visible_alias = "c")]
     Compile(CompileCommand),
 
@@ -41,14 +41,14 @@ pub enum Command {
     Update(UpdateCommand),
 }
 
-/// Compiles the input file into a PDF file
+/// Compiles an input file into a supported output format
 #[derive(Debug, Clone, Parser)]
 pub struct CompileCommand {
-    /// Shared arguments.
+    /// Shared arguments
     #[clap(flatten)]
     pub common: SharedArgs,
 
-    /// Path to output PDF file or PNG file(s)
+    /// Path to output file (PDF, PNG, or SVG)
     pub output: Option<PathBuf>,
 
     /// Opens the output file using the default viewer after compilation
@@ -76,22 +76,22 @@ impl CompileCommand {
 /// Processes an input file to extract provided metadata
 #[derive(Debug, Clone, Parser)]
 pub struct QueryCommand {
-    /// Shared arguments.
+    /// Shared arguments
     #[clap(flatten)]
     pub common: SharedArgs,
 
-    /// Define what elements to retrieve
+    /// Defines which elements to retrieve
     pub selector: String,
 
-    /// Extract just one field from all retrieved elements
+    /// Extracts just one field from all retrieved elements
     #[clap(long = "field")]
     pub field: Option<String>,
 
-    /// Expect and retrieve exactly one element
+    /// Expects and retrieves exactly one element
     #[clap(long = "one", default_value = "false")]
     pub one: bool,
 
-    /// The format to serialization in
+    /// The format to serialize in
     #[clap(long = "format", default_value = "json")]
     pub format: SerializationFormat,
 }
@@ -109,7 +109,7 @@ pub struct SharedArgs {
     /// Path to input Typst file
     pub input: PathBuf,
 
-    /// Configures the project root
+    /// Configures the project root (for absolute paths)
     #[clap(long = "root", env = "TYPST_ROOT", value_name = "DIR")]
     pub root: Option<PathBuf>,
 
@@ -122,7 +122,7 @@ pub struct SharedArgs {
     )]
     pub font_paths: Vec<PathBuf>,
 
-    /// In which format to emit diagnostics
+    /// The format to emit diagnostics in
     #[clap(
         long,
         default_value_t = DiagnosticFormat::Human,

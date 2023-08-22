@@ -140,9 +140,10 @@ pub fn query(
     /// have an explicit label attached to them. This limitation will be
     /// resolved in the future.
     target: LocatableSelector,
-    /// Can be any location. Why is it required then? As noted before, Typst has
-    /// to evaluate parts of your code multiple times to determine the values of
-    /// all state. By only allowing this function within
+    /// Can be an arbitrary location, as its value is irrelevant for the
+    /// function's return value. Why is it required then? As noted before, Typst
+    /// has to evaluate parts of your code multiple times to determine the
+    /// values of all state. By only allowing this function within
     /// [`locate`]($func/locate) calls, the amount of code that can depend on
     /// the query's result is reduced. If you could call it directly at the top
     /// level of a module, the evaluation of the whole module and its exports

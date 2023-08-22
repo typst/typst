@@ -23,6 +23,7 @@ mod methods;
 mod module;
 mod none;
 pub mod ops;
+mod plugin;
 mod scope;
 mod symbol;
 mod tracer;
@@ -53,6 +54,7 @@ pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::methods::methods_on;
 pub use self::module::Module;
 pub use self::none::NoneValue;
+pub use self::plugin::Plugin;
 pub use self::scope::{Scope, Scopes};
 pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::Symbol;
@@ -131,7 +133,7 @@ pub fn eval(
 
     // Evaluate the module.
     let markup = root.cast::<ast::Markup>().unwrap();
-    let result = markup.eval(&mut vm);
+    let output = markup.eval(&mut vm)?;
 
     // Handle control flow.
     if let Some(flow) = vm.flow {
@@ -140,7 +142,7 @@ pub fn eval(
 
     // Assemble the module.
     let name = id.path().file_stem().unwrap_or_default().to_string_lossy();
-    Ok(Module::new(name).with_scope(vm.scopes.top).with_content(result?))
+    Ok(Module::new(name).with_scope(vm.scopes.top).with_content(output))
 }
 
 /// Evaluate a string as code and return the resulting value.
@@ -188,13 +190,13 @@ pub fn eval_string(
     vm.scopes.scopes.push(scope);
 
     // Evaluate the code.
-    let result = match mode {
-        EvalMode::Code => root.cast::<ast::Code>().unwrap().eval(&mut vm),
+    let output = match mode {
+        EvalMode::Code => root.cast::<ast::Code>().unwrap().eval(&mut vm)?,
         EvalMode::Markup => {
-            root.cast::<ast::Markup>().unwrap().eval(&mut vm).map(Value::Content)
+            Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
         EvalMode::Math => {
-            root.cast::<ast::Math>().unwrap().eval(&mut vm).map(Value::Content)
+            Value::Content(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
         }
     };
 
@@ -203,7 +205,7 @@ pub fn eval_string(
         bail!(flow.forbidden());
     }
 
-    result
+    Ok(output)
 }
 
 /// In which mode to evaluate a string.
@@ -1304,30 +1306,22 @@ impl Eval for ast::Closure<'_> {
 }
 
 /// Destruct the value into the pattern by binding.
-fn define_pattern(
-    vm: &mut Vm,
-    pattern: ast::Pattern,
-    value: Value,
-) -> SourceResult<Value> {
+fn define_pattern(vm: &mut Vm, pattern: ast::Pattern, value: Value) -> SourceResult<()> {
     destructure(vm, pattern, value, |vm, expr, value| match expr {
         ast::Expr::Ident(ident) => {
             vm.define(ident, value);
-            Ok(Value::None)
+            Ok(())
         }
         _ => bail!(expr.span(), "nested patterns are currently not supported"),
     })
 }
 
 /// Destruct the value into the pattern by assignment.
-fn assign_pattern(
-    vm: &mut Vm,
-    pattern: ast::Pattern,
-    value: Value,
-) -> SourceResult<Value> {
+fn assign_pattern(vm: &mut Vm, pattern: ast::Pattern, value: Value) -> SourceResult<()> {
     destructure(vm, pattern, value, |vm, expr, value| {
         let location = expr.access(vm)?;
         *location = value;
-        Ok(Value::None)
+        Ok(())
     })
 }
 
@@ -1338,22 +1332,22 @@ fn destructure<T>(
     pattern: ast::Pattern,
     value: Value,
     f: T,
-) -> SourceResult<Value>
+) -> SourceResult<()>
 where
-    T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+    T: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
     match pattern {
         ast::Pattern::Normal(expr) => {
             f(vm, expr, value)?;
-            Ok(Value::None)
         }
-        ast::Pattern::Placeholder(_) => Ok(Value::None),
+        ast::Pattern::Placeholder(_) => {}
         ast::Pattern::Destructuring(destruct) => match value {
-            Value::Array(value) => destructure_array(vm, pattern, value, f, destruct),
-            Value::Dict(value) => destructure_dict(vm, value, f, destruct),
+            Value::Array(value) => destructure_array(vm, pattern, value, f, destruct)?,
+            Value::Dict(value) => destructure_dict(vm, value, f, destruct)?,
             _ => bail!(pattern.span(), "cannot destructure {}", value.type_name()),
         },
     }
+    Ok(())
 }
 
 fn destructure_array<F>(
@@ -1362,9 +1356,9 @@ fn destructure_array<F>(
     value: Array,
     f: F,
     destruct: ast::Destructuring,
-) -> SourceResult<Value>
+) -> SourceResult<()>
 where
-    F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+    F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
     let mut i = 0;
     let len = value.as_slice().len();
@@ -1405,7 +1399,7 @@ where
         bail!(pattern.span(), "too many elements to destructure");
     }
 
-    Ok(Value::None)
+    Ok(())
 }
 
 fn destructure_dict<F>(
@@ -1413,9 +1407,9 @@ fn destructure_dict<F>(
     dict: Dict,
     f: F,
     destruct: ast::Destructuring,
-) -> SourceResult<Value>
+) -> SourceResult<()>
 where
-    F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<Value>,
+    F: Fn(&mut Vm, ast::Expr, Value) -> SourceResult<()>,
 {
     let mut sink = None;
     let mut used = HashSet::new();
@@ -1456,7 +1450,7 @@ where
         f(vm, expr, Value::Dict(sink))?;
     }
 
-    Ok(Value::None)
+    Ok(())
 }
 
 impl Eval for ast::LetBinding<'_> {
@@ -1468,14 +1462,18 @@ impl Eval for ast::LetBinding<'_> {
             Some(expr) => expr.eval(vm)?,
             None => Value::None,
         };
+        if vm.flow.is_some() {
+            return Ok(Value::None);
+        }
 
         match self.kind() {
-            ast::LetBindingKind::Normal(pattern) => define_pattern(vm, pattern, value),
+            ast::LetBindingKind::Normal(pattern) => define_pattern(vm, pattern, value)?,
             ast::LetBindingKind::Closure(ident) => {
                 vm.define(ident, value);
-                Ok(Value::None)
             }
         }
+
+        Ok(Value::None)
     }
 }
 
