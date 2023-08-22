@@ -413,15 +413,15 @@ impl<'a> Text<'a> {
 
             iter.map(|c| match c.kind() {
                 SyntaxKind::Text => {
-                    text.push_str(&Text(c.clone()).get());
+                    text.push_str(&Text(c).get());
                     spaced = false
                 }
                 SyntaxKind::Escape => {
-                    text.push(Escape(c.clone()).get());
+                    text.push(Escape(c).get());
                     spaced = false
                 }
                 SyntaxKind::Shorthand => {
-                    text.push(Shorthand(c.clone()).get());
+                    text.push(Shorthand(c).get());
                     spaced = false
                 }
                 SyntaxKind::Space => {
