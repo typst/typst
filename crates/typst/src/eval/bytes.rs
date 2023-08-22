@@ -6,6 +6,7 @@ use std::sync::Arc;
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
+use typst_macros::cast;
 
 use crate::diag::StrResult;
 
@@ -107,6 +108,11 @@ impl Serialize for Bytes {
             serializer.serialize_bytes(self)
         }
     }
+}
+
+cast! {
+    &[u8],
+    self => Value::Bytes(self.into()),
 }
 
 /// The out of bounds access error message.

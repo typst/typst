@@ -294,9 +294,9 @@ pub fn json_decode(
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
     let data: Bytes = data.into();
-    let value: serde_json::Value =
+    let value: Value =
         serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
-    Ok(convert_json(value))
+    Ok(value)
 }
 
 /// Encode structured data into a JSON string.
@@ -347,6 +347,7 @@ fn convert_json(value: serde_json::Value) -> Value {
 
 /// Format the user-facing JSON error message.
 fn format_json_error(error: serde_json::Error) -> EcoString {
+    println!("{error:?}");
     assert!(error.is_syntax() || error.is_eof());
     eco_format!("failed to parse json file: syntax error in line {}", error.line())
 }
