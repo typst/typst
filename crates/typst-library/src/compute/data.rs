@@ -305,7 +305,7 @@ pub fn json_decode(
 /// Category: data-loading
 #[func]
 pub fn json_encode(
-    /// Path to a JSON file.
+    /// Value to be encoded
     value: Spanned<Value>,
     /// Pretty print
     #[named]
@@ -424,7 +424,7 @@ pub fn toml_decode(
 /// Category: data-loading
 #[func]
 pub fn toml_encode(
-    /// Path to a JSON file.
+    /// Value to be encoded
     value: Spanned<Value>,
     /// Pretty print
     #[named]
@@ -576,7 +576,7 @@ pub fn yaml_decode(
 /// Category: data-loading
 #[func]
 pub fn yaml_encode(
-    /// Path to a JSON file.
+    /// Value to be encoded
     value: Spanned<Value>,
 ) -> SourceResult<Str> {
     let Spanned { v: value, span } = value;
