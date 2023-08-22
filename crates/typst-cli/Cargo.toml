@@ -36,7 +36,7 @@ open = "4.0.2"
 pathdiff = "0.1"
 same-file = "1"
 # https://github.com/mitsuhiko/self-replace/pull/16
-self-replace = { git = "https://github.com/Gui-Yom/self-replace" }
+self-replace = { git = "https://github.com/Gui-Yom/self-replace", optional = true }
 semver = "1"
 serde = "1.0.184"
 serde_json = "1"
@@ -48,10 +48,10 @@ tracing = "0.1.37"
 tracing-error = "0.2"
 tracing-flame = "0.2.0"
 tracing-subscriber = "0.3.17"
-ureq = { version = "2", features = ["json"] }
+ureq = "2"
 walkdir = "2"
-xz2 = "0.1.7"
-zip = "0.6.6"
+xz2 = { version = "0.1", optional = true }
+zip = { version = "0.6", optional = true }
 
 [build-dependencies]
 semver = "1"
@@ -69,4 +69,4 @@ default = ["embed-fonts"]
 embed-fonts = []
 
 # Permits the CLI to update itself without a package manager
-self-update = []
+self-update = ["dep:self-replace", "dep:xz2", "dep:zip", "ureq/json"]
