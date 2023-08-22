@@ -27,6 +27,7 @@ pub use ecow::eco_format;
 
 /// An immutable reference counted string.
 #[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Str(EcoString);
 
 impl Str {

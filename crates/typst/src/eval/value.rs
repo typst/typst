@@ -373,16 +373,8 @@ impl<'de> Visitor<'de> for ValueVisitor {
         Ok(Array::deserialize(SeqAccessDeserializer::new(seq))?.into_value())
     }
 
-    fn visit_map<A>(self, map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
+    fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
         Ok(Dict::deserialize(MapAccessDeserializer::new(map))?.into_value())
-    }
-
-    fn visit_enum<A>(self, data: A) -> Result<Self::Value, A::Error> where A: EnumAccess<'de> {
-        todo!()
-    }
-
-    fn visit_newtype_struct<D>(self, deserializer: D) -> Result<Self::Value, D::Error> where D: Deserializer<'de> {
-        todo!()
     }
 }
 
