@@ -324,30 +324,8 @@ pub fn json_encode(
     .at(span)
 }
 
-/// Convert a JSON value to a Typst value.
-fn convert_json(value: serde_json::Value) -> Value {
-    match value {
-        serde_json::Value::Null => Value::None,
-        serde_json::Value::Bool(v) => v.into_value(),
-        serde_json::Value::Number(v) => match v.as_i64() {
-            Some(int) => int.into_value(),
-            None => v.as_f64().unwrap_or(f64::NAN).into_value(),
-        },
-        serde_json::Value::String(v) => v.into_value(),
-        serde_json::Value::Array(v) => {
-            v.into_iter().map(convert_json).collect::<Array>().into_value()
-        }
-        serde_json::Value::Object(v) => v
-            .into_iter()
-            .map(|(key, value)| (key.into(), convert_json(value)))
-            .collect::<Dict>()
-            .into_value(),
-    }
-}
-
 /// Format the user-facing JSON error message.
 fn format_json_error(error: serde_json::Error) -> EcoString {
-    println!("{error:?}");
     assert!(error.is_syntax() || error.is_eof());
     eco_format!("failed to parse json file: syntax error in line {}", error.line())
 }
