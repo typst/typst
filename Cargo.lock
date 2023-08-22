@@ -1468,7 +1468,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d16814a067484415fda653868c9be0ac5f2abd2ef5d951082a5f2fe1b3662944"
 dependencies = [
  "is-wsl",
- "pathdiff",
+ "pathdiff 0.2.1",
 ]
 
 [[package]]
@@ -1522,6 +1522,12 @@ name = "paste"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f746c4065a8fa3fe23974dd82f15431cc8d40779821001404d10d2e79ca7d79"
+
+[[package]]
+name = "pathdiff"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a3bf70094d203e07844da868b634207e71bfab254fe713171fae9a6e751ccf31"
 
 [[package]]
 name = "pathdiff"
@@ -2631,6 +2637,7 @@ dependencies = [
  "notify",
  "once_cell",
  "open",
+ "pathdiff 0.1.0",
  "same-file",
  "serde",
  "serde_json",
