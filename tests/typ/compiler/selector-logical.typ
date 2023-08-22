@@ -26,17 +26,19 @@
 )
 
 #test-selector(
-  heading.where(level: 1)
-    .or(heading.where(level: 3))
-    .or(figure.where(kind: "frog")),
+  heading.where(level: 1).or(
+    heading.where(level: 3),
+    figure.where(kind: "frog"),
+  ),
   ([A], [D], [E], [Frog], [H]),
 )
 
 #test-selector(
-  heading.where(level: 1)
-    .or(heading.where(level: 2))
-    .or(figure.where(kind: "frog"))
-    .or(figure.where(kind: "cat")),
+  heading.where(level: 1).or(
+    heading.where(level: 2),
+    figure.where(kind: "frog"),
+    figure.where(kind: "cat"),
+  ),
   ([A], [B], [Cat], [E], [Frog], [GiraffeCat], [H], [I]),
 )
 
@@ -95,10 +97,11 @@
 
 #test-selector(
   heading.where(level: 2)
-    .or(heading.where(level: 3))
-    .or(heading.where(level:1))
-    .and(heading.where(level: 2).or(heading.where(level: 1)))
-    .and(heading.where(level: 3).or(heading.where(level: 1))),
+    .or(heading.where(level: 3), heading.where(level:1))
+    .and(
+      heading.where(level: 2).or(heading.where(level: 1)),
+      heading.where(level: 3).or(heading.where(level: 1)),
+    ),
   ([A], [E], [H]),
 )
 
@@ -116,11 +119,10 @@
 #test-selector(
   heading.where(level: 1).before(<first>, inclusive: false)
     .or(selector(figure).after(<first>))
-    .and(
-      figure.where(kind: "iguana")
-        .or(figure.where(kind: "frog"))
-        .or(figure.where(kind: "cat"))
-        .or(heading.where(level: 1).after(<first>))
-    ),
+    .and(figure.where(kind: "iguana").or(
+      figure.where(kind: "frog"),
+      figure.where(kind: "cat"),
+      heading.where(level: 1).after(<first>),
+    )),
   ([Frog], [GiraffeCat], [Iguana])
 )

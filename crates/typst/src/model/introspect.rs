@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
@@ -237,6 +237,15 @@ impl Introspector {
             .get_index_of(&elem.location().unwrap())
             .unwrap_or(usize::MAX)
     }
+
+    /// Perform a binary search for `elem` among the `list`.
+    fn binary_search(
+        &self,
+        list: &[Prehashed<Content>],
+        elem: &Content,
+    ) -> Result<usize, usize> {
+        list.binary_search_by_key(&self.index(elem), |elem| self.index(elem))
+    }
 }
 
 #[comemo::track]
@@ -262,9 +271,7 @@ impl Introspector {
                 let mut list = self.query(selector);
                 if let Some(end) = self.query_first(end) {
                     // Determine which elements are before `end`.
-                    let split = match list
-                        .binary_search_by_key(&self.index(&end), |elem| self.index(elem))
-                    {
+                    let split = match self.binary_search(&list, &end) {
                         // Element itself is contained.
                         Ok(i) => i + *inclusive as usize,
                         // Element itself is not contained.
@@ -278,10 +285,7 @@ impl Introspector {
                 let mut list = self.query(selector);
                 if let Some(start) = self.query_first(start) {
                     // Determine which elements are after `start`.
-                    let split = match list
-                        .binary_search_by_key(&self.index(&start), |elem| {
-                            self.index(elem)
-                        }) {
+                    let split = match self.binary_search(&list, &start) {
                         // Element itself is contained.
                         Ok(i) => i + !*inclusive as usize,
                         // Element itself is not contained.
@@ -292,67 +296,36 @@ impl Introspector {
                 list
             }
             Selector::And(selectors) => {
-                let all_matches: Vec<_> =
+                let mut results: Vec<_> =
                     selectors.iter().map(|sel| self.query(sel)).collect();
 
-                let mut result = EcoVec::new();
-
-                if let Some(first) = all_matches.first() {
-                    let other_lists = &all_matches[1..];
-
-                    let is_element =
-                        |candidate, other_list: &EcoVec<Prehashed<Content>>| {
-                            matches!(
-                                other_list.binary_search_by_key(
-                                    &self.index(candidate),
-                                    |elem| { self.index(elem) }
-                                ),
-                                Ok(_)
-                            )
-                        };
-
-                    for candidate in first.iter() {
-                        if other_lists
-                            .iter()
-                            .all(|other_list| is_element(candidate, other_list))
-                        {
-                            result.push(candidate.clone());
-                        }
-                    }
-                }
-                result
-            }
-            Selector::Or(selectors) => {
-                let all_matches: Vec<_> = selectors
+                // Extract the smallest result list and then keep only those
+                // elements in the smallest list that are also in all other
+                // lists.
+                results
                     .iter()
-                    .map(|sel| self.query(sel))
-                    .filter(|m| !m.is_empty())
-                    .collect();
-
-                let mut result = EcoVec::new();
-
-                // Priority queue (min-heap due to ordering for `Match`)
-                let mut heap = std::collections::BinaryHeap::with_capacity(result.len());
-                for matches in &all_matches {
-                    heap.push(UnionMatch::new(matches, self));
-                }
-
-                // Take first list from the queue
-                while let Some(mut m) = heap.pop() {
-                    let next = m.source[m.index].clone();
-                    // Don't insert duplicates.
-                    if result.last().and_then(|elem: &Prehashed<Content>| elem.location())
-                        != next.location()
-                    {
-                        result.push(next);
-                        // If not yet done, put this list back in the queue
-                        if m.update(self) {
-                            heap.push(m)
-                        }
-                    }
-                }
-                result
+                    .enumerate()
+                    .min_by_key(|(_, vec)| vec.len())
+                    .map(|(i, _)| i)
+                    .map(|i| results.swap_remove(i))
+                    .iter()
+                    .flatten()
+                    .filter(|candidate| {
+                        results
+                            .iter()
+                            .all(|other| self.binary_search(other, candidate).is_ok())
+                    })
+                    .cloned()
+                    .collect()
             }
+            Selector::Or(selectors) => selectors
+                .iter()
+                .flat_map(|sel| self.query(sel))
+                .map(|elem| self.index(&elem))
+                .collect::<BTreeSet<usize>>()
+                .into_iter()
+                .map(|index| self.elems[index].0.clone())
+                .collect(),
         };
 
         self.queries.borrow_mut().insert(hash, output.clone());
@@ -407,56 +380,5 @@ impl Introspector {
 impl Default for Introspector {
     fn default() -> Self {
         Self::new(&[])
-    }
-}
-
-/// Helper structure for forming unions of queries.
-#[derive(Eq)]
-struct UnionMatch<'a> {
-    /// Query results
-    source: &'a EcoVec<Prehashed<Content>>,
-    /// Cursor into the results
-    index: usize,
-    /// Document-level index at the cursor
-    doc_index: usize,
-}
-
-impl<'a> UnionMatch<'a> {
-    fn new(source: &'a EcoVec<Prehashed<Content>>, introspector: &Introspector) -> Self {
-        let doc_index = source.first().map(|elem| introspector.index(elem)).unwrap_or(0);
-        UnionMatch { source, index: 0, doc_index }
-    }
-
-    /// Advances the cursor and returns true if the cursor is not
-    /// yet at the end.
-    fn update(&mut self, introspector: &Introspector) -> bool {
-        self.index += 1;
-        if let Some(elem) = self.source.get(self.index) {
-            self.doc_index = introspector.index(elem);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-impl<'a> PartialEq for UnionMatch<'a> {
-    fn eq(&self, other: &Self) -> bool {
-        self.doc_index == other.doc_index
-    }
-}
-
-/// Reverse ordering by document index (so earlier comes first)
-impl<'a> Ord for UnionMatch<'a> {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.doc_index.cmp(&self.doc_index)
-    }
-}
-
-/// Reverse ordering by document index (so earlier comes first)
-impl<'a> PartialOrd for UnionMatch<'a> {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        // Reverse ordering so that min elements come first.
-        Some(other.doc_index.cmp(&self.doc_index))
     }
 }
