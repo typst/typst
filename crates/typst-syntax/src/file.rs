@@ -16,6 +16,9 @@ use super::is_ident;
 static INTERNER: Lazy<RwLock<Interner>> =
     Lazy::new(|| RwLock::new(Interner { to_id: HashMap::new(), from_id: Vec::new() }));
 
+/// The path that we use for detached file ids.
+static DETACHED_PATH: Lazy<VirtualPath> = Lazy::new(|| VirtualPath::new("/unknown"));
+
 /// A package-path interner.
 struct Interner {
     to_id: HashMap<Pair, FileId>,
@@ -23,7 +26,7 @@ struct Interner {
 }
 
 /// An interned pair of a package specification and a path.
-type Pair = &'static (Option<PackageSpec>, PathBuf);
+type Pair = &'static (Option<PackageSpec>, VirtualPath);
 
 /// Identifies a file in a project or package.
 ///
@@ -37,16 +40,9 @@ impl FileId {
     /// The path must start with a `/` or this function will panic.
     /// Note that the path is normalized before interning.
     #[track_caller]
-    pub fn new(package: Option<PackageSpec>, path: &Path) -> Self {
-        assert_eq!(
-            path.components().next(),
-            Some(std::path::Component::RootDir),
-            "file path must be absolute within project or package: {}",
-            path.display(),
-        );
-
+    pub fn new(package: Option<PackageSpec>, path: VirtualPath) -> Self {
         // Try to find an existing entry that we can reuse.
-        let pair = (package, normalize_path(path));
+        let pair = (package, path);
         if let Some(&id) = INTERNER.read().unwrap().to_id.get(&pair) {
             return id;
         }
@@ -88,9 +84,9 @@ impl FileId {
 
     /// The absolute and normalized path to the file _within_ the project or
     /// package.
-    pub fn path(&self) -> &'static Path {
+    pub fn vpath(&self) -> &'static VirtualPath {
         if self.is_detached() {
-            Path::new("/detached.typ")
+            &DETACHED_PATH
         } else {
             &self.pair().1
         }
@@ -102,13 +98,7 @@ impl FileId {
             Err("cannot access file system from here")?;
         }
 
-        let package = self.package().cloned();
-        let base = self.path();
-        Ok(if let Some(parent) = base.parent() {
-            Self::new(package, &parent.join(path))
-        } else {
-            Self::new(package, Path::new(path))
-        })
+        Ok(Self::new(self.package().cloned(), self.vpath().join(path)))
     }
 
     /// Construct from a raw number.
@@ -127,47 +117,110 @@ impl FileId {
     }
 }
 
-impl Display for FileId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let path = self.path().display();
+impl Debug for FileId {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let vpath = self.vpath();
         match self.package() {
-            Some(package) => write!(f, "{package}{path}"),
-            None => write!(f, "{path}"),
+            Some(package) => write!(f, "{package:?}{vpath:?}"),
+            None => write!(f, "{vpath:?}"),
         }
     }
 }
 
-impl Debug for FileId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Display::fmt(self, f)
-    }
-}
+/// An absolute path in the virtual file system of a project or package.
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct VirtualPath(PathBuf);
 
-/// Lexically normalize a path.
-fn normalize_path(path: &Path) -> PathBuf {
-    let mut out = PathBuf::new();
-    for component in path.components() {
-        match component {
-            Component::CurDir => {}
-            Component::ParentDir => match out.components().next_back() {
-                Some(Component::Normal(_)) => {
-                    out.pop();
-                }
-                _ => out.push(component),
-            },
-            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
-                out.push(component)
+impl VirtualPath {
+    /// Create a new virtual path.
+    ///
+    /// Even if it doesn't start with `/` or `\`, it is still interpreted as
+    /// starting from the root.
+    pub fn new(path: impl AsRef<Path>) -> Self {
+        Self::new_impl(path.as_ref())
+    }
+
+    /// Non generic new implementation.
+    fn new_impl(path: &Path) -> Self {
+        let mut out = Path::new(&Component::RootDir).to_path_buf();
+        for component in path.components() {
+            match component {
+                Component::Prefix(_) | Component::RootDir => {}
+                Component::CurDir => {}
+                Component::ParentDir => match out.components().next_back() {
+                    Some(Component::Normal(_)) => {
+                        out.pop();
+                    }
+                    _ => out.push(component),
+                },
+                Component::Normal(_) => out.push(component),
             }
         }
+        Self(out)
     }
-    if out.as_os_str().is_empty() {
-        out.push(Component::CurDir);
+
+    /// Create a virtual path from a real path and a real root.
+    ///
+    /// Returns `None` if the file path is not contained in the root (i.e. if
+    /// `root` is not a lexical prefix of `path`). No file system operations are
+    /// performed.
+    pub fn within_root(path: &Path, root: &Path) -> Option<Self> {
+        path.strip_prefix(root).ok().map(Self::new)
     }
-    out
+
+    /// Get the underlying path with a leading `/` or `\`.
+    pub fn as_rooted_path(&self) -> &Path {
+        &self.0
+    }
+
+    /// Get the underlying path without a leading `/` or `\`.
+    pub fn as_rootless_path(&self) -> &Path {
+        self.0.strip_prefix(Component::RootDir).unwrap_or(&self.0)
+    }
+
+    /// Resolve the virtual path relative to an actual file system root
+    /// (where the project or package resides).
+    ///
+    /// Returns `None` if the path lexically escapes the root. The path might
+    /// still escape through symlinks.
+    pub fn resolve(&self, root: &Path) -> Option<PathBuf> {
+        let root_len = root.as_os_str().len();
+        let mut out = root.to_path_buf();
+        for component in self.0.components() {
+            match component {
+                Component::Prefix(_) => {}
+                Component::RootDir => {}
+                Component::CurDir => {}
+                Component::ParentDir => {
+                    out.pop();
+                    if out.as_os_str().len() < root_len {
+                        return None;
+                    }
+                }
+                Component::Normal(_) => out.push(component),
+            }
+        }
+        Some(out)
+    }
+
+    /// Resolve a path relative to this virtual path.
+    pub fn join(&self, path: impl AsRef<Path>) -> Self {
+        if let Some(parent) = self.0.parent() {
+            Self::new(parent.join(path))
+        } else {
+            Self::new(path)
+        }
+    }
+}
+
+impl Debug for VirtualPath {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.0.display(), f)
+    }
 }
 
 /// Identifies a package.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct PackageSpec {
     /// The namespace the package lives in.
     pub namespace: EcoString,
@@ -217,6 +270,12 @@ impl FromStr for PackageSpec {
     }
 }
 
+impl Debug for PackageSpec {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
+    }
+}
+
 impl Display for PackageSpec {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "@{}/{}:{}", self.namespace, self.name, self.version)
@@ -224,7 +283,7 @@ impl Display for PackageSpec {
 }
 
 /// A package's version.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct PackageVersion {
     /// The package's major version.
     pub major: u32,
@@ -256,6 +315,12 @@ impl FromStr for PackageVersion {
         }
 
         Ok(Self { major, minor, patch })
+    }
+}
+
+impl Debug for PackageVersion {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(self, f)
     }
 }
 
