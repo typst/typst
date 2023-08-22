@@ -1,5 +1,5 @@
 use typst::diag::{format_xml_like_error, FileError};
-use typst::eval::{Bytes, Datetime};
+use typst::eval::Bytes;
 
 use crate::prelude::*;
 
