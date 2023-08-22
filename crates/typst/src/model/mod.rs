@@ -21,7 +21,7 @@ pub use self::realize::{
 pub use self::selector::{LocatableSelector, Selector, ShowableSelector};
 pub use self::styles::{
     Fold, Property, Recipe, Resolve, Style, StyleChain, StyleVec, StyleVecBuilder,
-    Styles, Transform,
+    Styles, Transform, StyleProxy
 };
 
 use std::mem::ManuallyDrop;

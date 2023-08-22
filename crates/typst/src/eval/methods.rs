@@ -6,7 +6,7 @@ use super::{Args, IntoValue, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
 use crate::eval::{bail, Datetime};
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
-use crate::model::{Location, Selector};
+use crate::model::{Location, Selector, StyleProxy};
 use crate::syntax::Span;
 
 /// Call a method on a value.
@@ -291,6 +291,8 @@ pub fn call(
                     "inv" => align2d.map(GenAlign::inv).into_value(),
                     _ => return missing(),
                 }
+            } else if let Some(styleproxy) = dynamic.downcast::<StyleProxy>() {
+                styleproxy.get(method).at(span)?
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);
             }

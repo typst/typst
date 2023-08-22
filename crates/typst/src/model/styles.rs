@@ -25,9 +25,9 @@ impl Type for StyleProxy{
 impl StyleProxy {
     pub fn get(
         &self,
-        field: EcoString
+        field: &str
     ) -> StrResult<Value> {
-        self.elem.get(StyleChain::new(&self.styles), field.as_str())
+        self.elem.get(StyleChain::new(&self.styles), field)
     }
 }
 
