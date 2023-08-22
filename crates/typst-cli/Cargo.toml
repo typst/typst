@@ -67,5 +67,5 @@ default = ["embed-fonts"]
 # - For code: Deja Vu Sans Mono
 embed-fonts = []
 
-# Prevent self updates in scenarios where not applicable or unsafe
-no-self-update = []
+# Permits the CLI to update itself without a package manager
+self-update = []

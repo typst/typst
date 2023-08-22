@@ -37,7 +37,7 @@ pub enum Command {
     /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
 
-    /// Download a release and self update the typst CLI
+    /// Self update the Typst CLI
     Update(UpdateCommand),
 }
 

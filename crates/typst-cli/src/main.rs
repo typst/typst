@@ -4,6 +4,7 @@ mod fonts;
 mod package;
 mod query;
 mod tracing;
+#[cfg(feature = "self-update")]
 mod update;
 mod watch;
 mod world;
@@ -40,6 +41,11 @@ fn main() -> ExitCode {
         Command::Watch(command) => crate::watch::watch(command),
         Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
+        #[cfg(not(feature = "self-update"))]
+        Command::Update(_command) => {
+            Err("updating is disabled for this distributable".into())
+        }
+        #[cfg(feature = "self-update")]
         Command::Update(command) => crate::update::update(command),
     };
 
