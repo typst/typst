@@ -606,7 +606,7 @@ fn load(paths: &BibPaths, data: &[Bytes]) -> StrResult<EcoVec<hayagriva::Entry>>
 
     // We might have multiple bib/yaml files
     for (path, bytes) in paths.0.iter().zip(data) {
-        let src = std::str::from_utf8(bytes).map_err(|_| FileError::InvalidUtf8)?;
+        let src = std::str::from_utf8(bytes).map_err(FileError::from)?;
         let entries = parse_bib(path, src)?;
         result.extend(entries);
     }

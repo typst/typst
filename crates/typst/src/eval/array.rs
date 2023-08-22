@@ -3,9 +3,11 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
+use serde::Serialize;
 
 use super::{ops, Args, CastInfo, FromValue, Func, IntoValue, Reflect, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
+use crate::eval::ops::{add, mul};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -29,12 +31,11 @@ macro_rules! __array {
 
 #[doc(inline)]
 pub use crate::__array as array;
-use crate::eval::ops::{add, mul};
 #[doc(hidden)]
 pub use ecow::eco_vec;
 
 /// A reference counted array with value semantics.
-#[derive(Default, Clone, PartialEq, Hash)]
+#[derive(Default, Clone, PartialEq, Hash, Serialize)]
 pub struct Array(EcoVec<Value>);
 
 impl Array {
@@ -286,6 +287,30 @@ impl Array {
         Ok(result)
     }
 
+    /// Returns an array with a copy of the separator value placed between
+    /// adjacent elements.
+    pub fn intersperse(&self, sep: Value) -> Array {
+        // TODO: Use https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.intersperse
+        // once it is stabilized.
+        let size = match self.len() {
+            0 => return Array::new(),
+            n => (2 * n) - 1,
+        };
+        let mut vec = EcoVec::with_capacity(size);
+        let mut iter = self.iter().cloned();
+
+        if let Some(first) = iter.next() {
+            vec.push(first);
+        }
+
+        for value in iter {
+            vec.push(sep.clone());
+            vec.push(value);
+        }
+
+        Array(vec)
+    }
+
     /// Zips the array with another array. If the two arrays are of unequal length, it will only
     /// zip up until the last element of the smaller array and the remaining elements will be
     /// ignored. The return value is an array where each element is yet another array of size 2.
@@ -445,7 +470,7 @@ impl Add for Array {
 }
 
 impl AddAssign for Array {
-    fn add_assign(&mut self, rhs: Array) {
+    fn add_assign(&mut self, rhs: Self) {
         self.0.extend(rhs.0);
     }
 }

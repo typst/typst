@@ -4,6 +4,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
+use serde::{Serialize, Serializer};
 
 use super::{array, Array, Str, Value};
 use crate::diag::StrResult;
@@ -185,6 +186,15 @@ impl Hash for Dict {
         for item in self {
             item.hash(state);
         }
+    }
+}
+
+impl Serialize for Dict {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.0.serialize(serializer)
     }
 }
 

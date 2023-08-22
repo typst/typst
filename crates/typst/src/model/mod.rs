@@ -92,9 +92,7 @@ pub fn typeset(
                     world.main().root().span(),
                     "layout did not converge within 5 attempts",
                 )
-                .with_hint(
-                    "check if any states or queries are updating themselves".into(),
-                ),
+                .with_hint("check if any states or queries are updating themselves"),
             );
             break;
         }

@@ -46,7 +46,7 @@ integers, integers cannot be smaller than `{-9223372036854775808}` or larger tha
 The number can also be specified as hexadecimal, octal, or binary by starting it
 with a zero followed by either `x`, `o`, or `b`.
 
-You can convert a value to an integer with the [`float`]($func/float) function.
+You can convert a value to an integer with the [`int`]($func/int) function.
 
 ## Example
 ```example
@@ -87,9 +87,9 @@ Typst supports the following length units:
 
 A length has the following fields:
 
-- `em`: The amount of `em` units in this length, as a [float]($type/float).
 - `abs`: A length with just the absolute component of the current length
 (that is, excluding the `em` component).
+- `em`: The amount of `em` units in this length, as a [float]($type/float).
 
 You can multiply lengths with and divide them by integers and floats.
 
@@ -110,38 +110,34 @@ You can multiply lengths with and divide them by integers and floats.
 ### pt()
 Converts this length to points.
 
-Fails with an error if this length has non-zero `em` units
-(such as `5em + 2pt` instead of just `2pt`). Use the `abs`
-field (such as in `(5em + 2pt).abs.pt()`) to ignore the
-`em` component of the length (thus converting only its
-absolute component).
+Fails with an error if this length has non-zero `em` units (such as `5em + 2pt`
+instead of just `2pt`). Use the `abs` field (such as in `(5em + 2pt).abs.pt()`)
+to ignore the `em` component of the length (thus converting only its absolute
+component).
 
 - returns: float
 
 ### mm()
 Converts this length to millimeters.
 
-Fails with an error if this length has non-zero `em` units
-(such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($type/float.pt) method for more info.
+Fails with an error if this length has non-zero `em` units (such as `5em + 2pt`
+instead of just `2pt`). See the [`pt`]($type/float.pt) method for more info.
 
 - returns: float
 
 ### cm()
 Converts this length to centimeters.
 
-Fails with an error if this length has non-zero `em` units
-(such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($type/float.pt) method for more info.
+Fails with an error if this length has non-zero `em` units (such as `5em + 2pt`
+instead of just `2pt`). See the [`pt`]($type/float.pt) method for more info.
 
 - returns: float
 
 ### inches()
 Converts this length to inches.
 
-Fails with an error if this length has non-zero `em` units
-(such as `5em + 2pt` instead of just `2pt`). See the
-[`pt()`]($type/float.pt) method for more info.
+Fails with an error if this length has non-zero `em` units (such as `5em + 2pt`
+instead of just `2pt`). See the [`pt`]($type/float.pt) method for more info.
 
 - returns: float
 
@@ -235,7 +231,8 @@ Returns the constructor function for this color's kind
 ([`rgb`]($func/rgb), [`cmyk`]($func/cmyk) or [`luma`]($func/luma)).
 
 ```example
-#{cmyk(1%, 2%, 3%, 4%).kind() == cmyk}
+#let color = cmyk(1%, 2%, 3%, 4%)
+#(color.kind() == cmyk)
 ```
 
 - returns: function
@@ -273,9 +270,10 @@ of [integers]($type/integer).
 - returns: array
 
 ### cmyk()
-Converts this color to Digital CMYK and returns its components (C, M, Y, K) as an
-array of [ratio]($type/ratio). Note that this function will throw an error when
-applied to an [rgb]($func/rgb) color, since its conversion to CMYK is not available.
+Converts this color to Digital CMYK and returns its components (C, M, Y, K) as
+an array of [ratios]($type/ratio). Note that this function will throw an error
+when applied to an [rgb]($func/rgb) color, since its conversion to CMYK is not
+available.
 
 - returns: array
 
@@ -1030,6 +1028,12 @@ Combine all items in the array into one.
 - last: any (named)
   An alternative separator between the last two items
 - returns: any
+
+### intersperse()
+Returns a new array with a separator placed between adjacent items.
+
+- separator: any (positional)
+  The value to insert between each item of the array.
 
 ### sorted()
 Return a new array with the same items, but sorted.

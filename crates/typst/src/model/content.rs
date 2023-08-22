@@ -1,10 +1,11 @@
 use std::any::TypeId;
 use std::fmt::{self, Debug, Formatter, Write};
-use std::iter::Sum;
+use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString, EcoVec};
+use serde::{Serialize, Serializer};
 
 use super::{
     element, Behave, Behaviour, ElemFunc, Element, Guard, Label, Locatable, Location,
@@ -513,6 +514,18 @@ impl AddAssign for Content {
 impl Sum for Content {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         Self::sequence(iter)
+    }
+}
+
+impl Serialize for Content {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_map(
+            iter::once((&"func".into(), self.func().name().into_value()))
+                .chain(self.fields()),
+        )
     }
 }
 

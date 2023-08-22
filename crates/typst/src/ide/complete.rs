@@ -3,12 +3,15 @@ use std::collections::{BTreeSet, HashSet};
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
+use serde::{Deserialize, Serialize};
 use unscanny::Scanner;
 
 use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
-use crate::eval::{fields_on, format_str, methods_on, CastInfo, Library, Scope, Value};
+use crate::eval::{
+    fields_on, format_str, methods_on, CastInfo, Func, Library, Plugin, Scope, Value,
+};
 use crate::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
@@ -44,7 +47,7 @@ pub fn autocomplete(
 }
 
 /// An autocompletion option.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Completion {
     /// The kind of item this completes to.
     pub kind: CompletionKind,
@@ -60,7 +63,8 @@ pub struct Completion {
 }
 
 /// A kind of item that can be completed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum CompletionKind {
     /// A syntactical structure.
     Syntax,
@@ -411,6 +415,18 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 }
             }
         }
+        Value::Dyn(val) => {
+            if let Some(plugin) = val.downcast::<Plugin>() {
+                for name in plugin.iter() {
+                    ctx.completions.push(Completion {
+                        kind: CompletionKind::Func,
+                        label: name.clone(),
+                        apply: None,
+                        detail: None,
+                    })
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -440,13 +456,13 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // "#import "path.typ": a, b, |".
     if_chain! {
         if let Some(prev) = ctx.leaf.prev_sibling();
-        if let Some(ast::Expr::Import(import)) = prev.cast();
+        if let Some(ast::Expr::Import(import)) = prev.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
         if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.cursor;
-            import_item_completions(ctx, &items, &value);
+            import_item_completions(ctx, items, &value);
             return true;
         }
     }
@@ -458,13 +474,13 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(parent) = ctx.leaf.parent();
         if parent.kind() == SyntaxKind::ImportItems;
         if let Some(grand) = parent.parent();
-        if let Some(ast::Expr::Import(import)) = grand.cast();
+        if let Some(ast::Expr::Import(import)) = grand.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = grand.children().find(|child| child.is::<ast::Expr>());
         if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.leaf.offset();
-            import_item_completions(ctx, &items, &value);
+            import_item_completions(ctx, items, &value);
             return true;
         }
     }
@@ -473,9 +489,9 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for all exports of a module.
-fn import_item_completions(
-    ctx: &mut CompletionContext,
-    existing: &[ast::Ident],
+fn import_item_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    existing: ast::ImportItems<'a>,
     value: &Value,
 ) {
     let module = match value {
@@ -487,12 +503,12 @@ fn import_item_completions(
         _ => return,
     };
 
-    if existing.is_empty() {
+    if existing.idents().next().is_none() {
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
     for (name, value) in module.scope().iter() {
-        if existing.iter().all(|ident| ident.as_str() != name) {
+        if existing.idents().all(|ident| ident.as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, false, None);
         }
     }
@@ -602,11 +618,11 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             SyntaxKind::Named => parent.parent(),
             _ => Some(parent),
         };
-        if let Some(args) = parent.cast::<ast::Args>();
+        if let Some(args) = parent.get().cast::<ast::Args>();
         if let Some(grand) = parent.parent();
-        if let Some(expr) = grand.cast::<ast::Expr>();
+        if let Some(expr) = grand.get().cast::<ast::Expr>();
         let set = matches!(expr, ast::Expr::Set(_));
-        if let Some(ast::Expr::Ident(callee)) = match expr {
+        if let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
             ast::Expr::Set(set) => Some(set.target()),
             _ => None,
@@ -632,13 +648,13 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     if_chain! {
         if deciding.kind() == SyntaxKind::Colon;
         if let Some(prev) = deciding.prev_leaf();
-        if let Some(param) = prev.cast::<ast::Ident>();
+        if let Some(param) = prev.get().cast::<ast::Ident>();
         then {
             if let Some(next) = deciding.next_leaf() {
                 ctx.from = ctx.cursor.min(next.offset());
             }
 
-            named_param_value_completions(ctx, &callee, &param);
+            named_param_value_completions(ctx, callee, &param);
             return true;
         }
     }
@@ -653,12 +669,15 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             }
 
             // Exclude arguments which are already present.
-            let exclude: Vec<_> = args.items().filter_map(|arg| match arg {
-                ast::Arg::Named(named) => Some(named.name()),
-                _ => None,
-            }).collect();
+            let exclude: Vec<_> = args
+                .items()
+                .filter_map(|arg| match arg {
+                    ast::Arg::Named(named) => Some(named.name()),
+                    _ => None,
+                })
+                .collect();
 
-            param_completions(ctx, &callee, set, &exclude);
+            param_completions(ctx, callee, set, &exclude);
             return true;
         }
     }
@@ -667,18 +686,14 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for the parameters of a function.
-fn param_completions(
-    ctx: &mut CompletionContext,
-    callee: &ast::Ident,
+fn param_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    callee: ast::Expr<'a>,
     set: bool,
-    exclude: &[ast::Ident],
+    exclude: &[ast::Ident<'a>],
 ) {
-    let info = if_chain! {
-        if let Some(Value::Func(func)) = ctx.global.get(callee);
-        if let Some(info) = func.info();
-        then { info }
-        else { return; }
-    };
+    let Some(func) = resolve_global_callee(ctx, callee) else { return };
+    let Some(info) = func.info() else { return };
 
     for param in &info.params {
         if exclude.iter().any(|ident| ident.as_str() == param.name) {
@@ -709,28 +724,49 @@ fn param_completions(
 }
 
 /// Add completions for the values of a named function parameter.
-fn named_param_value_completions(
-    ctx: &mut CompletionContext,
-    callee: &ast::Ident,
+fn named_param_value_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    callee: ast::Expr<'a>,
     name: &str,
 ) {
-    let param = if_chain! {
-        if let Some(Value::Func(func)) = ctx.global.get(callee);
-        if let Some(info) = func.info();
-        if let Some(param) = info.param(name);
-        if param.named;
-        then { param }
-        else { return; }
-    };
+    let Some(func) = resolve_global_callee(ctx, callee) else { return };
+    let Some(info) = func.info() else { return };
+    let Some(param) = info.param(name) else { return };
+    if !param.named {
+        return;
+    }
 
     ctx.cast_completions(&param.cast);
-
-    if callee.as_str() == "text" && name == "font" {
+    if name == "font" {
         ctx.font_completions();
     }
 
     if ctx.before.ends_with(':') {
         ctx.enrich(" ", "");
+    }
+}
+
+/// Resolve a callee expression to a global function.
+fn resolve_global_callee<'a>(
+    ctx: &CompletionContext<'a>,
+    callee: ast::Expr<'a>,
+) -> Option<&'a Func> {
+    let value = match callee {
+        ast::Expr::Ident(ident) => ctx.global.get(&ident)?,
+        ast::Expr::FieldAccess(access) => match access.target() {
+            ast::Expr::Ident(target) => match ctx.global.get(&target)? {
+                Value::Module(module) => module.get(&access.field()).ok()?,
+                Value::Func(func) => func.get(&access.field()).ok()?,
+                _ => return None,
+            },
+            _ => return None,
+        },
+        _ => return None,
+    };
+
+    match value {
+        Value::Func(func) => Some(func),
+        _ => None,
     }
 }
 
@@ -1170,20 +1206,20 @@ impl<'a> CompletionContext<'a> {
         while let Some(node) = &ancestor {
             let mut sibling = Some(node.clone());
             while let Some(node) = &sibling {
-                if let Some(v) = node.cast::<ast::LetBinding>() {
+                if let Some(v) = node.get().cast::<ast::LetBinding>() {
                     for ident in v.kind().idents() {
-                        defined.insert(ident.take());
+                        defined.insert(ident.get());
                     }
                 }
                 sibling = node.prev_sibling();
             }
 
             if let Some(parent) = node.parent() {
-                if let Some(v) = parent.cast::<ast::ForLoop>() {
+                if let Some(v) = parent.get().cast::<ast::ForLoop>() {
                     if node.prev_sibling_kind() != Some(SyntaxKind::In) {
                         let pattern = v.pattern();
                         for ident in pattern.idents() {
-                            defined.insert(ident.take());
+                            defined.insert(ident.get());
                         }
                     }
                 }
@@ -1214,7 +1250,7 @@ impl<'a> CompletionContext<'a> {
             if !name.is_empty() {
                 self.completions.push(Completion {
                     kind: CompletionKind::Constant,
-                    label: name,
+                    label: name.clone(),
                     apply: None,
                     detail: None,
                 });

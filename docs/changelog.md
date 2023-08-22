@@ -5,6 +5,150 @@ description: |
 ---
 
 # Changelog
+## Version 0.7.0 (August 7, 2023) { #v0.7.0 }
+- Text and Layout
+  - Added support for floating figures through the
+    [`placement`]($func/figure.placement) argument on the figure function
+  - Added support for arbitrary floating content through the
+    [`float`]($func/place.float) argument on the place function
+  - Added support for loading `.sublime-syntax` files as highlighting
+    [syntaxes]($func/raw.syntaxes) for raw blocks
+  - Added support for loading `.tmTheme` files as highlighting
+    [themes]($func/raw.theme) for raw blocks
+  - Added _bounds_ option to [`top-edge`]($func/text.top-edge) and
+    [`bottom-edge`]($func/text.bottom-edge) arguments of text function for tight
+    bounding boxes
+  - Removed nonsensical top- and bottom-edge options, e.g. _ascender_ for the
+    bottom edge (**Breaking change**)
+  - Added [`script`]($func/text.script) argument to text function
+  - Added [`alternative`]($func/smartquote.alternative) argument to smart quote
+    function
+  - Added basic i18n for Japanese
+  - Added hyphenation support for `nb` and `nn` language codes in addition to
+    `no`
+  - Fixed positioning of [placed elements]($func/place) in containers
+  - Fixed overflowing containers due to optimized line breaks
+
+- Export
+  - Greatly improved export of SVG images to PDF. Many thanks to
+    [@LaurenzV](https://github.com/LaurenzV) for their work on this.
+  - Added support for the alpha channel of RGBA colors in PDF export
+  - Fixed a bug with PPI (pixels per inch) for PNG export
+
+- Math
+  - Improved layout of primes (e.g. in `[$a'_1$]`)
+  - Improved display of multi-primes (e.g. in `[$a''$]`)
+  - Improved layout of [roots]($func/math.root)
+  - Changed relations to show attachments as [limits]($func/math.limits) by
+    default (e.g. in `[$a ->^x b$]`)
+  - Large operators and delimiters are now always vertically centered
+  - [Boxes]($func/box) in equations now sit on the baseline instead of being
+    vertically centered by default. Notably, this does not affect
+    [blocks]($func/block) because they are not inline elements.
+  - Added support for [weak spacing]($func/h.weak)
+  - Added support for OpenType character variants
+  - Added support for customizing the [math class]($func/math.class) of content
+  - Fixed spacing around `.`, `\/`, and `...`
+  - Fixed spacing between closing delimiters and large operators
+  - Fixed a bug with math font weight selection
+  - Symbols and Operators (**Breaking changes**)
+    - Added `id`, `im`, and `tr` text [operators]($func/math.op)
+    - Renamed `ident` to `equiv` with alias `eq.triple` and removed
+      `ident.strict` in favor of `eq.quad`
+    - Renamed `ast.sq` to `ast.square` and `integral.sq` to `integral.square`
+    - Renamed `.eqq` modifier to `.equiv` (and `.neqq` to `.nequiv`) for
+      `tilde`, `gt`, `lt`, `prec`, and `succ`
+    - Added `emptyset` as alias for `nothing`
+    - Added `lt.curly` and `gt.curly` as aliases for `prec` and `succ`
+    - Added `aleph`, `beth`, and `gimmel` as alias for `alef`, `bet`, and
+      `gimel`
+
+- Scripting
+  - Fields
+    - Added `abs` and `em` field to [lengths]($type/length)
+    - Added `ratio` and `length` field to
+      [relative lengths]($type/relative-length)
+    - Added `x` and `y` field to [2d alignments]($func/align.alignment)
+    - Added `paint`, `thickness`, `cap`, `join`, `dash`, and `miter-limit` field
+      to [strokes]($func/line.stroke)
+  - Accessor and utility methods
+    - Added [`dedup`]($type/array.dedup) method to arrays
+    - Added `pt`, `mm`, `cm`, and `inches` method to [lengths]($type/length)
+    - Added `deg` and `rad` method to [angles]($type/angle)
+    - Added `kind`, `hex`, `rgba`, `cmyk`, and `luma` method to
+      [colors]($type/color)
+    - Added `axis`, `start`, `end`, and `inv` method to
+      [directions]($func/stack.dir)
+    - Added `axis` and `inv` method to [alignments]($func/align.alignment)
+    - Added `inv` method to [2d alignments]($func/align.alignment)
+    - Added `start` argument to [`enumerate`]($type/array.enumerate) method on
+      arrays
+  - Added [`color.mix`]($func/color.mix) function
+  - Added `mode` and `scope` arguments to [`eval`]($func/eval) function
+  - Added [`bytes`]($type/bytes) type for holding large byte buffers
+    - Added [`encoding`]($func/read.encoding) argument to read function to read
+      a file as bytes instead of a string
+    - Added [`image.decode`]($func/image.decode) function for decoding an image
+      directly from a string or bytes
+    - Added [`bytes`]($func/bytes) function for converting a string or an array
+      of integers to bytes
+    - Added [`array`]($func/array) function for converting bytes to an array of
+      integers
+    - Added support for converting bytes to a string with the [`str`]($func/str)
+      function
+
+- Tooling and Diagnostics
+  - Added support for compiler warnings
+  - Added warning when compilation does not converge within five attempts due to
+    intense use of introspection features
+  - Added warnings for empty emphasis (`__` and `**`)
+  - Improved error message for invalid field assignments
+  - Improved error message after single `#`
+  - Improved error message when a keyword is used where an identifier is
+    expected
+  - Fixed parameter autocompletion for functions that are in modules
+  - Import autocompletion now only shows the latest package version until a
+    colon is typed
+  - Fixed autocompletion for dictionary key containing a space
+  - Fixed autocompletion for for loops
+
+- Command line interface
+  - Added `typst query` subcommand to execute a
+    [query]($reference/meta/query/#command-line-queries) on the command line
+  - The `--root` and `--font-paths` arguments cannot appear in front of the
+    command anymore (**Breaking change**)
+  - Local and cached packages are now stored in directories of the form
+    `[{namespace}/{name}/{version}]` instead of `[{namespace}/{name}-{version}]`
+    (**Breaking change**)
+  - Now prioritizes explicitly given fonts (via `--font-paths`) over system and
+    embedded fonts when both exist
+  - Fixed `typst watch` not working with some text editors
+  - Fixed displayed compilation time (now includes export)
+
+- Miscellaneous Improvements
+  - Added [`bookmarked`]($func/heading.bookmarked) argument to heading to
+    control whether a heading becomes part of the PDF outline
+  - Added [`caption-pos`]($func/figure.caption-pos) argument to control the
+    position of a figure's caption
+  - Added [`metadata`]($func/metadata) function for exposing an arbitrary value
+    to the introspection system
+  - Fixed that a [`state`]($func/state) was identified by the pair `(key, init)`
+    instead of just its `key`
+  - Improved indent logic of [enumerations]($func/enum). Instead of requiring at
+    least as much indent as the end of the marker, they now require only one
+    more space indent than the start of the marker. As a result, even long
+    markers like `12.` work with just 2 spaces of indent.
+  - Fixed bug with indent logic of [`raw`]($func/raw) blocks
+  - Fixed a parsing bug with dictionaries
+
+- Development
+  - Extracted parser and syntax tree into `typst-syntax` crate
+  - The `World::today` implementation of Typst dependants may need fixing if
+    they have the same [bug](https://github.com/typst/typst/issues/1842) that
+    the CLI world had
+
+<contributors from="v0.6.0" to="v0.7.0" />
+
 ## Version 0.6.0 (June 30, 2023) { #v0.6.0 }
 - Package Management
   - Typst now has built-in [package management]($scripting/#packages)
@@ -70,7 +214,7 @@ description: |
   - Added [`raw`]($func/raw) syntax highlighting for many more languages
   - Added support for Korean [numbering]($func/numbering)
   - Added basic i18n for a few more languages (NL, SV, DA)
-  - Improved linebreaking for East Asian languages
+  - Improved line breaking for East Asian languages
   - Expanded functionality of outline [`indent`]($func/outline.indent) property
   - Fixed footnotes in columns
   - Fixed page breaking bugs with [footnotes]($func/footnote)
@@ -95,7 +239,7 @@ description: |
 
 - Scripting
   - Added new [`datetime`]($type/datetime) type and
-    [`datetime.today()`]($func/datetime.today) to retrieve the current date
+    [`datetime.today`]($func/datetime.today) to retrieve the current date
   - Added [`str.from-unicode`]($func/str.from-unicode) and
     [`str.to-unicode`]($func/str.to-unicode) functions
   - Added [`fields`]($type/content.fields) method on content
@@ -309,18 +453,18 @@ description: |
 - **Breaking changes:**
   - Removed support for iterating over index and value in
     [for loops]($scripting/#loops). This is now handled via unpacking and
-    enumerating. Same goes for the [`map()`]($type/array.map) method.
+    enumerating. Same goes for the [`map`]($type/array.map) method.
   - [Dictionaries]($type/dictionary) now iterate in insertion order instead of
     alphabetical order.
 
 - New features
   - Added [unpacking syntax]($scripting/#bindings) for let bindings, which
     allows things like `{let (1, 2) = array}`
-  - Added [`enumerate()`]($type/array.enumerate) method
+  - Added [`enumerate`]($type/array.enumerate) method
   - Added [`path`]($func/path) function for drawing Bézier paths
   - Added [`layout`]($func/layout) function to access the size of the
     surrounding page or container
-  - Added `key` parameter to [`sorted()`]($type/array.sorted) method
+  - Added `key` parameter to [`sorted`]($type/array.sorted) method
 
 - Command line interface
   - Fixed `--open` flag blocking the program

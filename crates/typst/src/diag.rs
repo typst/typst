@@ -133,8 +133,13 @@ impl SourceDiagnostic {
     }
 
     /// Adds a single hint to the diagnostic.
-    pub fn with_hint(mut self, hint: EcoString) -> Self {
-        self.hints.push(hint);
+    pub fn hint(&mut self, hint: impl Into<EcoString>) {
+        self.hints.push(hint.into());
+    }
+
+    /// Adds a single hint to the diagnostic.
+    pub fn with_hint(mut self, hint: impl Into<EcoString>) -> Self {
+        self.hint(hint);
         self
     }
 
@@ -238,7 +243,15 @@ where
     S: Into<EcoString>,
 {
     fn at(self, span: Span) -> SourceResult<T> {
-        self.map_err(|message| Box::new(vec![SourceDiagnostic::error(span, message)]))
+        self.map_err(|message| {
+            let mut diagnostic = SourceDiagnostic::error(span, message);
+            if diagnostic.message.contains("(access denied)") {
+                diagnostic.hint("cannot read file outside of project root");
+                diagnostic
+                    .hint("you can adjust the project root with the --root argument");
+            }
+            Box::new(vec![diagnostic])
+        })
     }
 }
 
@@ -408,6 +421,7 @@ impl From<PackageError> for EcoString {
         eco_format!("{error}")
     }
 }
+
 /// Format a user-facing error message for an XML-like file format.
 pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString {
     match error {

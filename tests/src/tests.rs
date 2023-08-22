@@ -35,6 +35,7 @@ const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
+const SVG_DIR: &str = "svg";
 const FONT_DIR: &str = "../assets/fonts";
 const ASSET_DIR: &str = "../assets";
 
@@ -116,11 +117,19 @@ fn main() {
             let path = src_path.strip_prefix(TYP_DIR).unwrap();
             let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
             let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
+            let svg_path = Path::new(SVG_DIR).join(path).with_extension("svg");
             let pdf_path =
                 args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-            test(world, &src_path, &png_path, &ref_path, pdf_path.as_deref(), &args)
-                as usize
+            test(
+                world,
+                &src_path,
+                &png_path,
+                &ref_path,
+                pdf_path.as_deref(),
+                &svg_path,
+                &args,
+            ) as usize
         })
         .collect::<Vec<_>>();
 
@@ -328,6 +337,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
+    svg_path: &Path,
     args: &Args,
 ) -> bool {
     struct PanicGuard<'a>(&'a Path);
@@ -418,6 +428,10 @@ fn test(
         let canvas = render(&document.pages);
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
+
+        let svg = typst::export::svg_merged(&document.pages, Abs::pt(5.0));
+        fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
+        std::fs::write(svg_path, svg).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
             if canvas.width() != ref_pixmap.width()
@@ -884,42 +898,33 @@ fn test_spans_impl(output: &mut String, node: &SyntaxNode, within: Range<u64>) -
 /// Draw all frames into one image with padding in between.
 fn render(frames: &[Frame]) -> sk::Pixmap {
     let pixel_per_pt = 2.0;
-    let pixmaps: Vec<_> = frames
-        .iter()
-        .map(|frame| {
-            let limit = Abs::cm(100.0);
-            if frame.width() > limit || frame.height() > limit {
-                panic!("overlarge frame: {:?}", frame.size());
-            }
-            typst::export::render(frame, pixel_per_pt, Color::WHITE)
-        })
-        .collect();
+    let padding = Abs::pt(5.0);
 
-    let pad = (5.0 * pixel_per_pt).round() as u32;
-    let pxw = 2 * pad + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
-    let pxh = pad + pixmaps.iter().map(|pixmap| pixmap.height() + pad).sum::<u32>();
-
-    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(sk::Color::BLACK);
-
-    let [x, mut y] = [pad; 2];
-    for (frame, mut pixmap) in frames.iter().zip(pixmaps) {
-        let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
-        render_links(&mut pixmap, ts, frame);
-
-        canvas.draw_pixmap(
-            x as i32,
-            y as i32,
-            pixmap.as_ref(),
-            &sk::PixmapPaint::default(),
-            sk::Transform::identity(),
-            None,
-        );
-
-        y += pixmap.height() + pad;
+    for frame in frames {
+        let limit = Abs::cm(100.0);
+        if frame.width() > limit || frame.height() > limit {
+            panic!("overlarge frame: {:?}", frame.size());
+        }
     }
 
-    canvas
+    let mut pixmap = typst::export::render_merged(
+        frames,
+        pixel_per_pt,
+        Color::WHITE,
+        padding,
+        Color::BLACK,
+    );
+
+    let padding = (pixel_per_pt * padding.to_pt() as f32).round();
+    let [x, mut y] = [padding; 2];
+    for frame in frames {
+        let ts =
+            sk::Transform::from_scale(pixel_per_pt, pixel_per_pt).post_translate(x, y);
+        render_links(&mut pixmap, ts, frame);
+        y += (pixel_per_pt * frame.height().to_pt() as f32).round().max(1.0) + padding;
+    }
+
+    pixmap
 }
 
 /// Draw extra boxes for links so we can see whether they are there.

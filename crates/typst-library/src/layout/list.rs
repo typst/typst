@@ -32,7 +32,7 @@ use super::GridLayouter;
 /// This functions also has dedicated syntax: Start a line with a hyphen,
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
-/// more than an item's hyphen becomes part of that item.
+/// more than an item's marker becomes part of that item.
 ///
 /// Display: Bullet List
 /// Category: layout

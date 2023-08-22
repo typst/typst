@@ -4,6 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
 use ecow::EcoString;
+use serde::Serialize;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{cast, dict, Args, Array, Dict, Func, IntoValue, Value, Vm};
@@ -25,7 +26,7 @@ pub use crate::__format_str as format_str;
 pub use ecow::eco_format;
 
 /// An immutable reference counted string.
-#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
 pub struct Str(EcoString);
 
 impl Str {
