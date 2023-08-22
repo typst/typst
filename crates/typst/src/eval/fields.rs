@@ -2,6 +2,7 @@ use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
 use crate::geom::{Axes, GenAlign, PartialStroke, Stroke};
+use crate::model::StyleProxy;
 
 use super::{IntoValue, Value};
 
@@ -59,6 +60,8 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                     "y" => align2d.y.into_value(),
                     _ => return missing(),
                 }
+            } else if let Some(styleproxy) = dynamic.downcast::<StyleProxy>() {
+                styleproxy.get(field)
             } else {
                 return not_supported();
             }
