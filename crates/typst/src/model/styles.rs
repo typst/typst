@@ -9,8 +9,27 @@ use typst::diag::StrResult;
 
 use super::{Content, ElemFunc, Element, Selector, Vt};
 use crate::diag::{bail, SourceResult, Trace, Tracepoint};
-use crate::eval::{cast, Args, FromValue, Func, IntoValue, Str, Value, Vm};
+use crate::eval::{cast, Args, FromValue, Func, IntoValue, Str, Value, Vm, Type};
 use crate::syntax::Span;
+
+#[derive(Hash, PartialEq, Debug)]
+pub struct StyleProxy{
+    elem: ElemFunc,
+    styles: Styles,
+}
+
+impl Type for StyleProxy{
+    const TYPE_NAME: &'static str = "StyleProxy";
+}
+
+impl StyleProxy {
+    pub fn get(
+        &self,
+        field: EcoString
+    ) -> StrResult<Value> {
+        self.elem.get(StyleChain::new(&self.styles), field.as_str())
+    }
+}
 
 /// A list of style properties.
 #[derive(Default, PartialEq, Clone, Hash)]
@@ -83,15 +102,22 @@ impl Styles {
     pub fn get_style(
         &self,
         element: &ElemFunc,
-        field: &EcoString,
+        field: Option<EcoString>,
         path: &[Str],
     ) -> StrResult<Value> {
-        let result = element.get(StyleChain::new(self), field)?;
+        if let Some(field) = field {
+            let result = element.get(StyleChain::new(self), field.as_str())?;
 
-        path.iter().try_fold(result, |acc, item| match acc {
-            Value::Dict(d) => d.at(item, None),
-            _ => bail!("attribute \"{item}\" not found"),
-        })
+            path.iter().try_fold(result, |acc, item| match acc {
+                Value::Dict(d) => d.at(item, None),
+                _ => bail!("attribute \"{item}\" not found"),
+            })
+        } else {
+            Ok(Value::dynamic(StyleProxy{
+                elem: *element,
+                styles: self.clone(),
+            }))
+        }
     }
 }
 

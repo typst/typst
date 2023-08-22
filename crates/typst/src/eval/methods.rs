@@ -223,7 +223,7 @@ pub fn call(
             "get" => style
                 .get_style(
                     &args.expect("element")?,
-                    &args.expect("field")?,
+                    args.eat()?,
                     &args.all::<Str>()?,
                 )
                 .at(span)?,
