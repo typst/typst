@@ -220,10 +220,7 @@ pub fn call(
         },
 
         Value::Styles(style) => match method {
-            "get" => style
-                .get_styleproxy(
-                    &args.expect("element")?
-                ),
+            "get" => style.get_styleproxy(&args.expect("element")?),
             _ => return missing(),
         },
 

@@ -20,8 +20,8 @@ pub use self::realize::{
 };
 pub use self::selector::{LocatableSelector, Selector, ShowableSelector};
 pub use self::styles::{
-    Fold, Property, Recipe, Resolve, Style, StyleChain, StyleVec, StyleVecBuilder,
-    Styles, Transform, StyleProxy
+    Fold, Property, Recipe, Resolve, Style, StyleChain, StyleProxy, StyleVec,
+    StyleVecBuilder, Styles, Transform,
 };
 
 use std::mem::ManuallyDrop;

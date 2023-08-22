@@ -9,24 +9,21 @@ use typst::diag::StrResult;
 
 use super::{Content, ElemFunc, Element, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast, Args, FromValue, Func, IntoValue, Value, Vm, Type};
+use crate::eval::{cast, Args, FromValue, Func, IntoValue, Type, Value, Vm};
 use crate::syntax::Span;
 
 #[derive(Hash, PartialEq, Debug)]
-pub struct StyleProxy{
+pub struct StyleProxy {
     elem: ElemFunc,
     styles: Styles,
 }
 
-impl Type for StyleProxy{
+impl Type for StyleProxy {
     const TYPE_NAME: &'static str = "StyleProxy";
 }
 
 impl StyleProxy {
-    pub fn get(
-        &self,
-        field: &str
-    ) -> StrResult<Value> {
+    pub fn get(&self, field: &str) -> StrResult<Value> {
         self.elem.get(StyleChain::new(&self.styles), field)
     }
 }
@@ -99,14 +96,8 @@ impl Styles {
     }
 
     // Return styles of set rules
-    pub fn get_styleproxy(
-        &self,
-        element: &ElemFunc
-    ) -> Value {
-        Value::dynamic(StyleProxy{
-            elem: *element,
-            styles: self.clone(),
-        })
+    pub fn get_styleproxy(&self, element: &ElemFunc) -> Value {
+        Value::dynamic(StyleProxy { elem: *element, styles: self.clone() })
     }
 }
 
