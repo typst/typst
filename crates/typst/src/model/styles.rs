@@ -8,8 +8,8 @@ use ecow::{eco_vec, EcoString, EcoVec};
 use typst::diag::StrResult;
 
 use super::{Content, ElemFunc, Element, Selector, Vt};
-use crate::diag::{bail, SourceResult, Trace, Tracepoint};
-use crate::eval::{cast, Args, FromValue, Func, IntoValue, Str, Value, Vm, Type};
+use crate::diag::{SourceResult, Trace, Tracepoint};
+use crate::eval::{cast, Args, FromValue, Func, IntoValue, Value, Vm, Type};
 use crate::syntax::Span;
 
 #[derive(Hash, PartialEq, Debug)]
@@ -99,25 +99,14 @@ impl Styles {
     }
 
     // Return styles of set rules
-    pub fn get_style(
+    pub fn get_styleproxy(
         &self,
-        element: &ElemFunc,
-        field: Option<EcoString>,
-        path: &[Str],
-    ) -> StrResult<Value> {
-        if let Some(field) = field {
-            let result = element.get(StyleChain::new(self), field.as_str())?;
-
-            path.iter().try_fold(result, |acc, item| match acc {
-                Value::Dict(d) => d.at(item, None),
-                _ => bail!("attribute \"{item}\" not found"),
-            })
-        } else {
-            Ok(Value::dynamic(StyleProxy{
-                elem: *element,
-                styles: self.clone(),
-            }))
-        }
+        element: &ElemFunc
+    ) -> Value {
+        Value::dynamic(StyleProxy{
+            elem: *element,
+            styles: self.clone(),
+        })
     }
 }
 

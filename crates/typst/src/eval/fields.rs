@@ -61,7 +61,7 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                     _ => return missing(),
                 }
             } else if let Some(styleproxy) = dynamic.downcast::<StyleProxy>() {
-                styleproxy.get(field)
+                styleproxy.get(field)?
             } else {
                 return not_supported();
             }
