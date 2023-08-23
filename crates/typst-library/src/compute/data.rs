@@ -1,3 +1,4 @@
+use std::io::Read;
 use typst::diag::{format_xml_like_error, FileError};
 use typst::eval::Bytes;
 
@@ -65,6 +66,16 @@ pub enum Readable {
     Bytes(Bytes),
 }
 
+impl Readable{
+    fn as_slice(&self) -> &[u8]
+    {
+        match self {
+            Readable::Bytes(v) => &v,
+            Readable::Str(v) => v.as_bytes(),
+        }
+    }
+}
+
 cast! {
     Readable,
     self => match self {
@@ -128,11 +139,6 @@ pub fn csv(
 
 /// Reads structured data from a CSV string/bytes.
 ///
-/// The CSV string/bytes will be read and parsed into a 2-dimensional array of strings:
-/// Each row in the CSV file will be represented as an array of strings, and all
-/// rows will be collected into a single array. Header rows will not be
-/// stripped.
-///
 /// ## Example { #example }
 /// ```example
 /// #let results = csv.decode(read("data.csv"))
@@ -157,7 +163,6 @@ pub fn csv_decode(
     delimiter: Delimiter,
 ) -> SourceResult<Array> {
     let Spanned { v: data, span } = data;
-    let data: Bytes = data.into();
     let mut builder = csv::ReaderBuilder::new();
     builder.has_headers(false);
     builder.delimiter(delimiter.0 as u8);
@@ -277,14 +282,6 @@ pub fn json(
 
 /// Reads structured data from a JSON string/bytes.
 ///
-/// The string/bytes must contain a valid JSON object or array. JSON objects will be
-/// converted into Typst dictionaries, and JSON arrays will be converted into
-/// Typst arrays. Strings and booleans will be converted into the Typst
-/// equivalents, `null` will be converted into `{none}`, and numbers will be
-/// converted to floats or integers depending on whether they are whole numbers.
-///
-/// ```
-///
 /// Display: JSON
 /// Category: data-loading
 #[func]
@@ -293,9 +290,8 @@ pub fn json_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let data: Bytes = data.into();
     let value: Value =
-        serde_json::from_slice(&data).map_err(format_json_error).at(span)?;
+        serde_json::from_slice(data.as_slice()).map_err(format_json_error).at(span)?;
     Ok(value)
 }
 
@@ -307,7 +303,7 @@ pub fn json_decode(
 pub fn json_encode(
     /// Value to be encoded
     value: Spanned<Value>,
-    /// Pretty print
+    /// Whether to pretty print the JSON with newlines and indentation.
     #[named]
     #[default(true)]
     pretty: bool,
@@ -320,7 +316,7 @@ pub fn json_encode(
         serde_json::to_string(&value)
     }
     .map(|v| v.into())
-    .map_err(|e| eco_format!("failed to create json: {}", e.to_string()))
+    .map_err(|e| eco_format!("failed to encode value as json: {e}"))
     .at(span)
 }
 
@@ -374,12 +370,6 @@ pub fn toml(
 
 /// Reads structured data from a TOML string/bytes.
 ///
-/// The string/bytes must contain a valid TOML table. TOML tables will be
-/// converted into Typst dictionaries, and TOML arrays will be converted into
-/// Typst arrays. Strings, booleans and datetimes will be converted into the Typst
-/// equivalents and numbers will be converted to floats or integers depending on
-/// whether they are whole numbers.
-///
 /// Display: TOML
 /// Category: data-loading
 #[func]
@@ -388,8 +378,7 @@ pub fn toml_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let data: Bytes = data.into();
-    let raw = std::str::from_utf8(&data)
+    let raw = std::str::from_utf8(data.as_slice())
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
 
@@ -397,7 +386,7 @@ pub fn toml_decode(
     Ok(value)
 }
 
-/// Encode structured data into a toml string.
+/// Encode structured data into a TOML string.
 ///
 /// Display: TOML
 /// Category: data-loading
@@ -405,7 +394,7 @@ pub fn toml_decode(
 pub fn toml_encode(
     /// Value to be encoded
     value: Spanned<Value>,
-    /// Pretty print
+    /// Apply a default pretty policy to the document
     #[named]
     #[default(true)]
     pretty: bool,
@@ -414,7 +403,7 @@ pub fn toml_encode(
 
     if pretty { toml::to_string_pretty(&value) } else { toml::to_string(&value) }
         .map(|v| v.into())
-        .map_err(|e| eco_format!("failed to create toml: {}", e.to_string()))
+        .map_err(|e| eco_format!("failed to encode value as toml: {e}"))
         .at(span)
 }
 
@@ -492,13 +481,6 @@ pub fn yaml(
 
 /// Reads structured data from a YAML string/bytes.
 ///
-/// The string/bytes must contain a valid YAML object or array. YAML mappings will be
-/// converted into Typst dictionaries, and YAML sequences will be converted into
-/// Typst arrays. Strings and booleans will be converted into the Typst
-/// equivalents, null-values (`null`, `~` or empty ``) will be converted into
-/// `{none}`, and numbers will be converted to floats or integers depending on
-/// whether they are whole numbers.
-///
 /// Display: YAML
 /// Category: data-loading
 #[func]
@@ -507,9 +489,8 @@ pub fn yaml_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let data: Bytes = data.into();
     let value: Value =
-        serde_yaml::from_slice(&data).map_err(format_yaml_error).at(span)?;
+        serde_yaml::from_slice(data.as_slice()).map_err(format_yaml_error).at(span)?;
     Ok(value)
 }
 
@@ -526,7 +507,7 @@ pub fn yaml_encode(
 
     serde_yaml::to_string(&value)
         .map(|v| v.into())
-        .map_err(|e| eco_format!("failed to create json: {}", e.to_string()))
+        .map_err(|e| eco_format!("failed to encode value as yaml: {e}"))
         .at(span)
 }
 
@@ -605,14 +586,6 @@ pub fn xml(
 
 /// Reads structured data from an XML string/bytes.
 ///
-/// The XML string/bytes is parsed into an array of dictionaries and strings. XML nodes
-/// can be elements or strings. Elements are represented as dictionaries with
-/// the the following keys:
-///
-/// - `tag`: The name of the element as a string.
-/// - `attrs`: A dictionary of the element's attributes as strings.
-/// - `children`: An array of the element's child nodes.
-///
 /// Display: XML
 /// Category: data-loading
 #[func]
@@ -621,8 +594,7 @@ pub fn xml_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let data: Bytes = data.into();
-    let text = std::str::from_utf8(&data).map_err(FileError::from).at(span)?;
+    let text = std::str::from_utf8(data.as_slice()).map_err(FileError::from).at(span)?;
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
     Ok(convert_xml(document.root()))
 }
