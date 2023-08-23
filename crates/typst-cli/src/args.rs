@@ -46,6 +46,10 @@ pub struct CompileCommand {
     /// Path to output file (PDF, PNG, or SVG)
     pub output: Option<PathBuf>,
 
+    /// The format of the output file, inferred from the extension by default
+    #[arg(long = "format", short = 'f')]
+    pub format: Option<OutputFormat>,
+
     /// Opens the output file using the default viewer after compilation
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
@@ -57,15 +61,6 @@ pub struct CompileCommand {
     /// Produces a flamegraph of the compilation process
     #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
     pub flamegraph: Option<Option<PathBuf>>,
-}
-
-impl CompileCommand {
-    /// The output path.
-    pub fn output(&self) -> PathBuf {
-        self.output
-            .clone()
-            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
-    }
 }
 
 /// Processes an input file to extract provided metadata
@@ -151,6 +146,23 @@ pub enum DiagnosticFormat {
 }
 
 impl Display for DiagnosticFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.to_possible_value()
+            .expect("no values are skipped")
+            .get_name()
+            .fmt(f)
+    }
+}
+
+/// Which format to use for the generated output file.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+pub enum OutputFormat {
+    Pdf,
+    Png,
+    Svg,
+}
+
+impl Display for OutputFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.to_possible_value()
             .expect("no values are skipped")
