@@ -1,8 +1,7 @@
-use std::{
-    env, fs,
-    io::{self, BufReader, Cursor, ErrorKind, Read, Seek},
-    path::{Path, PathBuf},
-};
+use std::env;
+use std::fs;
+use std::io::{self, BufReader, Cursor, Read, Seek};
+use std::path::{Path, PathBuf};
 
 use semver::Version;
 use serde::Deserialize;
@@ -15,7 +14,7 @@ use crate::args::UpdateCommand;
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
 
-/// Self update the typst CLI binary.
+/// Self update the Typst CLI binary.
 ///
 /// Fetches a target release or the latest release (if no version was specified)
 /// from GitHub, unpacks it and self replaces the current binary with the
@@ -43,7 +42,7 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
         .map_err(|err| eco_format!("failed to locate current exe path: {}", err))?;
 
     let backup_path = backup_path()?;
-    
+
     if command.revert {
         if !backup_path.exists() {
             bail!("unable to revert, no backup found (searched at {backup_path:?})");
@@ -268,6 +267,7 @@ fn backup_path() -> StrResult<PathBuf> {
     #[cfg(not(target_os = "linux"))]
     let root_backup_dir =
         dirs::data_dir().ok_or("unable to locate local data directory")?;
+        
     let backup_dir = root_backup_dir.join("typst");
 
     fs::create_dir_all(&backup_dir)

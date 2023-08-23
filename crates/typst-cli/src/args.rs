@@ -166,7 +166,7 @@ impl Display for DiagnosticFormat {
 
 #[derive(Debug, Clone, Parser)]
 pub struct UpdateCommand {
-    /// Target release to update to, latest will be downloaded if `None`
+    /// Which version to update to (defaults to latest)
     pub version: Option<Version>,
 
     /// Forces a downgrade to an older version, it is not possible to downgrade
@@ -174,9 +174,8 @@ pub struct UpdateCommand {
     #[clap(long, default_value_t = false)]
     pub force: bool,
 
-    /// Reverts to the locally kept previous version. A revert is only possible
-    /// if `typst update` has previously ran once, this will _only_ revert a
-    /// recently applied update.
+    /// Reverts to the version from before the last update, only possible if 
+    /// `typst update` has previously ran
     #[clap(long, default_value_t = false, exclusive = true)]
     pub revert: bool,
 }
