@@ -1,8 +1,7 @@
-use std::{
-    env, fs,
-    io::{self, BufReader, Cursor, ErrorKind, Read, Seek},
-    path::Path,
-};
+use std::env;
+use std::fs;
+use std::io::{self, BufReader, Cursor, ErrorKind, Read, Seek};
+use std::path::Path;
 
 use semver::Version;
 use serde::Deserialize;
@@ -15,7 +14,7 @@ use crate::args::UpdateCommand;
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
 
-/// Self update the typst CLI binary.
+/// Self update the Typst CLI binary.
 ///
 /// Fetches a target release or the latest release (if no version was specified)
 /// from GitHub, unpacks it and self replaces the current binary with the
