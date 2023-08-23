@@ -7,7 +7,6 @@ use ecow::eco_format;
 
 use super::{format_str, Regex, Value};
 use crate::diag::{bail, StrResult};
-use crate::eval::{Dynamic};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use Value::*;
 
@@ -162,7 +161,7 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
 
 /// Apply the unary plus operator to a value.
 pub fn pos(value: Value) -> StrResult<Value> {
-    Ok(match_dyn!(value;
+    Ok(match value {
         Int(v) => Int(v),
         Float(v) => Float(v),
         Length(v) => Length(v),
@@ -171,12 +170,12 @@ pub fn pos(value: Value) -> StrResult<Value> {
         Relative(v) => Relative(v),
         Fraction(v) => Fraction(v),
         v => mismatch!("cannot apply '+' to {}", v),
-    ))
+    })
 }
 
 /// Compute the negation of a value.
 pub fn neg(value: Value) -> StrResult<Value> {
-    Ok(match_dyn!(value;
+    Ok(match value {
         Int(v) => Int(v.checked_neg().ok_or("value is too large")?),
         Float(v) => Float(-v),
         Length(v) => Length(-v),
@@ -186,12 +185,12 @@ pub fn neg(value: Value) -> StrResult<Value> {
         Fraction(v) => Fraction(-v),
         Duration(v) => Duration(-v),
         v => mismatch!("cannot apply '-' to {}", v),
-    ))
+    })
 }
 
 /// Compute the sum of two values.
 pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(match_dyn!((lhs, rhs);
+    Ok(match (lhs, rhs) {
         (a, None) => a,
         (None, b) => b,
 
@@ -230,31 +229,40 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
 
-        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => Dyn(PartialStroke {
+        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
+            Value::dynamic(PartialStroke {
                 paint: Smart::Custom(color.into()),
                 thickness: Smart::Custom(thickness),
                 ..PartialStroke::default()
-        }),
-        (Dyn(a: GenAlign), Dyn(b: GenAlign)) => Dyn({
-            if a.axis() == b.axis() {
-                return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
-            }
+            })
+        },
+        (Duration(a), Duration(b)) => Duration(a + b),
+        (Datetime(a), Duration(b)) => Datetime(a + b),
+        (Duration(a), Datetime(b)) => Datetime(b + a),
+        (Dyn(a), Dyn(b)) => {
+            // 1D alignments can be summed into 2D alignments.
+            if let (Some(&a), Some(&b)) =
+                (a.downcast::<GenAlign>(), b.downcast::<GenAlign>())
+            {
+                if a.axis() == b.axis() {
+                    return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
+                }
 
-            match a.axis() {
-                Axis::X => Axes { x: a, y: b },
-                Axis::Y => Axes { x: b, y: a },
-            }
-        }),
-        (Duration(a), Duration(b)) => Duration(a+b),
-        (Datetime(a), Duration(b)) => Datetime(a+b),
-        (Duration(a), Datetime(b)) => Datetime(b+a),
+                return Ok(Value::dynamic(match a.axis() {
+                    Axis::X => Axes { x: a, y: b },
+                    Axis::Y => Axes { x: b, y: a },
+                }));
+            };
+
+            mismatch!("cannot add {} and {}", a, b);
+        }
         (a, b) => mismatch!("cannot add {} and {}", a, b),
-    ))
+    })
 }
 
 /// Compute the difference of two values.
 pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(match_dyn!((lhs, rhs);
+    Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 - b),
         (Float(a), Int(b)) => Float(a - b as f64),
@@ -276,17 +284,17 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),
 
-        (Duration(a), Duration(b)) => Duration(a-b),
-        (Datetime(a), Duration(b)) => Datetime(a-b),
-        (Datetime(a), Datetime(b)) => Duration((a-b)?),
+        (Duration(a), Duration(b)) => Duration(a - b),
+        (Datetime(a), Duration(b)) => Datetime(a - b),
+        (Datetime(a), Datetime(b)) => Duration((a - b)?),
 
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
-    ))
+    })
 }
 
 /// Compute the product of two values.
 pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
-    Ok(match_dyn!((lhs, rhs);
+    Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or("value is too large")?),
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
@@ -333,13 +341,13 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
         (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 
-        (Int(a), Duration(b)) => Duration(b*(a as f64)),
-        (Float(a), Duration(b)) => Duration(b*a),
-        (Duration(a), Int(b)) => Duration(a*(b as f64)),
-        (Duration(a), Float(b)) => Duration(a*b),
+        (Int(a), Duration(b)) => Duration(b * (a as f64)),
+        (Float(a), Duration(b)) => Duration(b * a),
+        (Duration(a), Int(b)) => Duration(a * (b as f64)),
+        (Duration(a), Float(b)) => Duration(a * b),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
-    ))
+    })
 }
 
 /// Compute the quotient of two values.
@@ -348,7 +356,7 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         bail!("cannot divide by zero");
     }
 
-    Ok(match_dyn!((lhs, rhs);
+    Ok(match (lhs, rhs) {
         (Int(a), Int(b)) => Float(a as f64 / b as f64),
         (Int(a), Float(b)) => Float(a as f64 / b),
         (Float(a), Int(b)) => Float(a / b as f64),
@@ -378,17 +386,17 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fraction(a), Float(b)) => Fraction(a / b),
         (Fraction(a), Fraction(b)) => Float(a / b),
 
-        (Duration(a), Int(b)) => Duration(a/(b as f64)),
-        (Duration(a), Float(b)) => Duration(a/b),
-        (Duration(a), Duration(b)) => Float(a/b),
+        (Duration(a), Int(b)) => Duration(a / (b as f64)),
+        (Duration(a), Float(b)) => Duration(a / b),
+        (Duration(a), Duration(b)) => Float(a / b),
 
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
-    ))
+    })
 }
 
 /// Whether a value is a numeric zero.
 fn is_zero(v: &Value) -> bool {
-    match_dyn!(*v;
+    match *v {
         Int(v) => v == 0,
         Float(v) => v == 0.0,
         Length(v) => v.is_zero(),
@@ -398,7 +406,7 @@ fn is_zero(v: &Value) -> bool {
         Fraction(v) => v.is_zero(),
         Duration(v) => v.is_zero(),
         _ => false,
-    )
+    }
 }
 
 /// Try to divide two lengths.
@@ -463,7 +471,7 @@ comparison!(geq, ">=", Ordering::Greater | Ordering::Equal);
 
 /// Determine whether two values are equal.
 pub fn equal(lhs: &Value, rhs: &Value) -> bool {
-    match_dyn!((lhs, rhs);
+    match (lhs, rhs) {
         // Compare reflexively.
         (None, None) => true,
         (Auto, Auto) => true,
@@ -496,12 +504,12 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (&Relative(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
         (&Relative(a), &Ratio(b)) => a.rel == b && a.abs.is_zero(),
         _ => false,
-    )
+    }
 }
 
 /// Compare two values.
 pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
-    Ok(match_dyn!((lhs, rhs);
+    Ok(match (lhs, rhs) {
         (Bool(a), Bool(b)) => a.cmp(b),
         (Int(a), Int(b)) => a.cmp(b),
         (Float(a), Float(b)) => try_cmp_values(a, b)?,
@@ -524,7 +532,7 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Datetime(a), Datetime(b)) => a.cmp(&b),
 
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
-    ))
+    })
 }
 
 /// Try to compare two values.
