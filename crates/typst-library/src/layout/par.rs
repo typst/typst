@@ -932,6 +932,8 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
         for (i, pred) in table.iter().enumerate().skip(active) {
             // Layout the line.
             let start = pred.line.end;
+
+            // Fix for https://github.com/unicode-org/icu4x/issues/3811
             if i > 0 {
                 if let Some(s_pred) = table.get(i + 1) {
                     let next_start = s_pred.line.end;
