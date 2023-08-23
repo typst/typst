@@ -373,6 +373,8 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Func(a), Func(b)) => a == b,
         (Args(a), Args(b)) => a == b,
         (Module(a), Module(b)) => a == b,
+        (Datetime(a), Datetime(b)) => a == b,
+        (Duration(a), Duration(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
 
         // Some technically different things should compare equal.
