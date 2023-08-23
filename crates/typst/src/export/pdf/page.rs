@@ -5,6 +5,7 @@ use pdf_writer::types::{
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
+use super::external_graphics_state::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
@@ -32,6 +33,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
     let mut ctx = PageContext {
         parent: ctx,
         page_ref,
+        uses_opacities: false,
         content: Content::new(),
         state: State::default(),
         saves: vec![],
@@ -59,6 +61,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
         size,
         content: ctx.content,
         id: ctx.page_ref,
+        uses_opacities: ctx.uses_opacities,
         links: ctx.links,
     };
 
@@ -98,6 +101,14 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
     }
 
     images.finish();
+
+    let mut ext_gs_states = resources.ext_g_states();
+    for (gs_ref, gs) in ctx.ext_gs_map.pdf_indices(&ctx.ext_gs_refs) {
+        let name = eco_format!("Gs{}", gs);
+        ext_gs_states.pair(Name(name.as_bytes()), gs_ref);
+    }
+    ext_gs_states.finish();
+
     resources.finish();
     pages.finish();
 }
@@ -114,6 +125,16 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
     let h = page.size.y.to_f32();
     page_writer.media_box(Rect::new(0.0, 0.0, w, h));
     page_writer.contents(content_id);
+
+    if page.uses_opacities {
+        page_writer
+            .group()
+            .transparency()
+            .isolated(false)
+            .knockout(false)
+            .color_space()
+            .srgb();
+    }
 
     let mut annotations = page_writer.annotations();
     for (dest, rect) in page.links {
@@ -161,6 +182,8 @@ pub struct Page {
     pub size: Size,
     /// The page's content stream.
     pub content: Content,
+    /// Whether the page uses opacities.
+    pub uses_opacities: bool,
     /// Links in the PDF coordinate system.
     pub links: Vec<(Destination, Rect)>,
 }
@@ -173,6 +196,7 @@ struct PageContext<'a, 'b> {
     state: State,
     saves: Vec<State>,
     bottom: f32,
+    uses_opacities: bool,
     links: Vec<(Destination, Rect)>,
 }
 
@@ -184,6 +208,7 @@ struct State {
     font: Option<(Font, Abs)>,
     fill: Option<Paint>,
     fill_space: Option<Name<'static>>,
+    external_graphics_state: Option<ExternalGraphicsState>,
     stroke: Option<Stroke>,
     stroke_space: Option<Name<'static>>,
 }
@@ -197,6 +222,46 @@ impl PageContext<'_, '_> {
     fn restore_state(&mut self) {
         self.content.restore_state();
         self.state = self.saves.pop().expect("missing state save");
+    }
+
+    fn set_external_graphics_state(&mut self, graphics_state: &ExternalGraphicsState) {
+        let current_state = self.state.external_graphics_state.as_ref();
+        if current_state != Some(graphics_state) {
+            self.parent.ext_gs_map.insert(*graphics_state);
+            let name = eco_format!("Gs{}", self.parent.ext_gs_map.map(*graphics_state));
+            self.content.set_parameters(Name(name.as_bytes()));
+
+            if graphics_state.uses_opacities() {
+                self.uses_opacities = true;
+            }
+        }
+    }
+
+    fn set_opacities(&mut self, stroke: Option<&Stroke>, fill: Option<&Paint>) {
+        let stroke_opacity = stroke
+            .map(|stroke| {
+                let Paint::Solid(color) = stroke.paint;
+                if let Color::Rgba(rgba_color) = color {
+                    rgba_color.a
+                } else {
+                    255
+                }
+            })
+            .unwrap_or(255);
+        let fill_opacity = fill
+            .map(|paint| {
+                let Paint::Solid(color) = paint;
+                if let Color::Rgba(rgba_color) = color {
+                    rgba_color.a
+                } else {
+                    255
+                }
+            })
+            .unwrap_or(255);
+        self.set_external_graphics_state(&ExternalGraphicsState {
+            stroke_opacity,
+            fill_opacity,
+        });
     }
 
     fn transform(&mut self, transform: Transform) {
@@ -373,6 +438,7 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
 
     ctx.set_fill(&text.fill);
     ctx.set_font(&text.font, text.size);
+    ctx.set_opacities(None, Some(&text.fill));
     ctx.content.begin_text();
 
     // Positiosn the text.
@@ -437,6 +503,8 @@ fn write_shape(ctx: &mut PageContext, x: f32, y: f32, shape: &Shape) {
     if let Some(stroke) = stroke {
         ctx.set_stroke(stroke);
     }
+
+    ctx.set_opacities(stroke, shape.fill.as_ref());
 
     match shape.geometry {
         Geometry::Line(target) => {

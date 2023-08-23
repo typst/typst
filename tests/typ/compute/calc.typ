@@ -18,11 +18,11 @@
 #test(calc.round(calc.pi, digits: 2), 3.14)
 
 ---
-// Error: 6-10 expected boolean, integer, float, or string, found length
+// Error: 6-10 expected boolean, float, string, or integer, found length
 #int(10pt)
 
 ---
-// Error: 8-13 expected boolean, integer, float, ratio, or string, found function
+// Error: 8-13 expected boolean, integer, ratio, string, or float, found function
 #float(float)
 
 ---

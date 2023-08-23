@@ -7,8 +7,9 @@ use ttf_parser::{name_id, GlyphId, Tag};
 use unicode_general_category::GeneralCategory;
 
 use super::{deflate, EmExt, PdfContext, RefExt};
+use crate::eval::Bytes;
 use crate::font::Font;
-use crate::util::{Bytes, SliceExt};
+use crate::util::SliceExt;
 
 const CMAP_NAME: Name = Name(b"Custom");
 const SYSTEM_INFO: SystemInfo = SystemInfo {

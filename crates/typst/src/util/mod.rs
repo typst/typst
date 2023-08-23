@@ -2,14 +2,9 @@
 
 pub mod fat;
 
-mod bytes;
-
-pub use bytes::Bytes;
-
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
-use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
@@ -105,40 +100,6 @@ where
         let (head, tail) = self.slice.split_at(count);
         self.slice = tail;
         Some((key, head))
-    }
-}
-
-/// Extra methods for [`Path`].
-pub trait PathExt {
-    /// Treat `self` as a virtual root relative to which the `path` is resolved.
-    ///
-    /// Returns `None` if the path lexically escapes the root. The path
-    /// might still escape through symlinks.
-    fn join_rooted(&self, path: &Path) -> Option<PathBuf>;
-}
-
-impl PathExt for Path {
-    fn join_rooted(&self, path: &Path) -> Option<PathBuf> {
-        let mut parts: Vec<_> = self.components().collect();
-        let root = parts.len();
-        for component in path.components() {
-            match component {
-                Component::Prefix(_) => return None,
-                Component::RootDir => parts.truncate(root),
-                Component::CurDir => {}
-                Component::ParentDir => {
-                    if parts.len() <= root {
-                        return None;
-                    }
-                    parts.pop();
-                }
-                Component::Normal(_) => parts.push(component),
-            }
-        }
-        if parts.len() < root {
-            return None;
-        }
-        Some(parts.into_iter().collect())
     }
 }
 

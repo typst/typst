@@ -12,13 +12,14 @@ use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
 use image::io::Limits;
-use image::{ImageDecoder, ImageResult};
+use image::{guess_format, ImageDecoder, ImageResult};
+use typst_macros::{cast, Cast};
 use usvg::{TreeParsing, TreeTextToPath};
 
-use crate::diag::{format_xml_like_error, StrResult};
+use crate::diag::{bail, format_xml_like_error, StrResult};
+use crate::eval::Bytes;
 use crate::font::Font;
 use crate::geom::Axes;
-use crate::util::Bytes;
 use crate::World;
 
 /// A raster or vector image.
@@ -156,8 +157,18 @@ pub enum ImageFormat {
     Vector(VectorFormat),
 }
 
+cast! {
+    ImageFormat,
+    self => match self {
+        Self::Raster(v) => v.into_value(),
+        Self::Vector(v) => v.into_value()
+    },
+    v: RasterFormat => Self::Raster(v),
+    v: VectorFormat => Self::Vector(v),
+}
+
 /// A raster graphics format.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum RasterFormat {
     /// Raster format for illustrations and transparent graphics.
     Png,
@@ -168,10 +179,17 @@ pub enum RasterFormat {
 }
 
 /// A vector graphics format.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum VectorFormat {
     /// The vector graphics format of the web.
     Svg,
+}
+
+impl RasterFormat {
+    /// Try to detect the format of data in a buffer.
+    pub fn detect(data: &[u8]) -> Option<Self> {
+        guess_format(data).ok().and_then(|format| format.try_into().ok())
+    }
 }
 
 impl From<RasterFormat> for image::ImageFormat {
@@ -181,6 +199,19 @@ impl From<RasterFormat> for image::ImageFormat {
             RasterFormat::Jpg => image::ImageFormat::Jpeg,
             RasterFormat::Gif => image::ImageFormat::Gif,
         }
+    }
+}
+
+impl TryFrom<image::ImageFormat> for RasterFormat {
+    type Error = EcoString;
+
+    fn try_from(format: image::ImageFormat) -> StrResult<Self> {
+        Ok(match format {
+            image::ImageFormat::Png => RasterFormat::Png,
+            image::ImageFormat::Jpeg => RasterFormat::Jpg,
+            image::ImageFormat::Gif => RasterFormat::Gif,
+            _ => bail!("Format not yet supported."),
+        })
     }
 }
 

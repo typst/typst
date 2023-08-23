@@ -908,6 +908,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
 
     // Cost parameters.
     const HYPH_COST: Cost = 0.5;
+    const RUNT_COST: Cost = 0.5;
     const CONSECUTIVE_DASH_COST: Cost = 300.0;
     const MAX_COST: Cost = 1_000_000.0;
     const MIN_RATIO: f64 = -1.0;
@@ -928,9 +929,22 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
         let mut best: Option<Entry> = None;
 
         // Find the optimal predecessor.
-        for (i, pred) in table.iter_mut().enumerate().skip(active) {
+        for (i, pred) in table.iter().enumerate().skip(active) {
             // Layout the line.
             let start = pred.line.end;
+
+            // Fix for https://github.com/unicode-org/icu4x/issues/3811
+            if i > 0 {
+                if let Some(s_pred) = table.get(i + 1) {
+                    let next_start = s_pred.line.end;
+                    if !p.bidi.text[start..next_start]
+                        .contains(|c: char| !c.is_whitespace())
+                    {
+                        continue;
+                    }
+                }
+            }
+
             let attempt = line(vt, p, start..end, mandatory, hyphen);
 
             // Determine how much the line's spaces would need to be stretched
@@ -984,13 +998,18 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
                 ratio.powi(3).abs()
             };
 
+            // Penalize runts.
+            if k == i + 1 && eof {
+                cost += RUNT_COST;
+            }
+
             // Penalize hyphens.
             if hyphen {
                 cost += HYPH_COST;
             }
 
             // In Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
-            // where r is the ratio, p=50 is penaty, and a=3000 is consecutive penaty.
+            // where r is the ratio, p=50 is the penalty, and a=3000 is consecutive the penalty.
             // We divide the whole formula by 10, resulting (0.01 + |r|^3 + p)^2 + a,
             // where p=0.5 and a=300
             cost = (0.01 + cost).powi(2);
@@ -1344,7 +1363,9 @@ fn finalize(
     let width = if !region.x.is_finite()
         || (!expand && lines.iter().all(|line| line.fr().is_zero()))
     {
-        p.hang + lines.iter().map(|line| line.width).max().unwrap_or_default()
+        region
+            .x
+            .min(p.hang + lines.iter().map(|line| line.width).max().unwrap_or_default())
     } else {
         region.x
     };

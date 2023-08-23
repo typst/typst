@@ -217,6 +217,13 @@
 #([One], [Two], [Three]).join([, ], last: [ and ]).
 
 ---
+// Test the `intersperse` method
+#test(().intersperse("a"), ())
+#test((1,).intersperse("a"), (1,))
+#test((1, 2).intersperse("a"), (1, "a", 2))
+#test((1, 2, "b").intersperse("a"), (1, "a", 2, "a", "b"))
+
+---
 // Test the `sorted` method.
 #test(().sorted(), ())
 #test(().sorted(key: x => x), ())
@@ -237,6 +244,15 @@
 #test((1, 2, 3, 4).zip((5, 6)), ((1, 5), (2, 6)))
 #test(((1, 2), 3).zip((4, 5)), (((1, 2), 4), (3, 5)))
 #test((1, "hi").zip((true, false)), ((1, true), ("hi", false)))
+
+---
+// Test the `enumerate` method.
+#test(().enumerate(), ())
+#test(().enumerate(start: 5), ())
+#test(("a", "b", "c").enumerate(), ((0, "a"), (1, "b"), (2, "c")))
+#test(("a", "b", "c").enumerate(start: 1), ((1, "a"), (2, "b"), (3, "c")))
+#test(("a", "b", "c").enumerate(start: 42), ((42, "a"), (43, "b"), (44, "c")))
+#test(("a", "b", "c").enumerate(start: -7), ((-7, "a"), (-6, "b"), (-5, "c")))
 
 ---
 // Test the `dedup` method.

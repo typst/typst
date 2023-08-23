@@ -4,11 +4,10 @@ use comemo::Prehashed;
 use pulldown_cmark as md;
 use typed_arena::Arena;
 use typst::diag::FileResult;
-use typst::eval::{Datetime, Tracer};
+use typst::eval::{Bytes, Datetime, Tracer};
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
-use typst::syntax::{FileId, Source};
-use typst::util::Bytes;
+use typst::syntax::{FileId, Source, VirtualPath};
 use typst::World;
 use yaml_front_matter::YamlFrontMatter;
 
@@ -425,7 +424,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         return Html::new(format!("<pre>{}</pre>", highlighted.as_str()));
     }
 
-    let id = FileId::new(None, Path::new("/main.typ"));
+    let id = FileId::new(None, VirtualPath::new("main.typ"));
     let source = Source::new(id, compile);
     let world = DocWorld(source);
     let mut tracer = Tracer::default();
@@ -499,8 +498,8 @@ impl World for DocWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         assert!(id.package().is_none());
         Ok(FILES
-            .get_file(id.path().strip_prefix("/").unwrap())
-            .unwrap_or_else(|| panic!("failed to load {:?}", id.path().display()))
+            .get_file(id.vpath().as_rootless_path())
+            .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath()))
             .contents()
             .into())
     }

@@ -41,8 +41,7 @@
 #"Hello".at(5)
 
 ---
-// Error: 25-32 expected string, found dictionary
-#"Hello".at(5, default: (a: 10))
+#test("Hello".at(5, default: (a: 10)), (a: 10))
 
 ---
 // Test the `slice` method.
