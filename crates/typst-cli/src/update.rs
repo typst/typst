@@ -1,7 +1,7 @@
 use std::{
     env, fs,
     io::{self, BufReader, Cursor, ErrorKind, Read, Seek},
-    path::Path,
+    path::{Path, PathBuf},
 };
 
 use semver::Version;
@@ -21,67 +21,51 @@ const TYPST_REPO: &str = "typst";
 /// from GitHub, unpacks it and self replaces the current binary with the
 /// pre-compiled asset from the downloaded release.
 pub fn update(command: UpdateCommand) -> StrResult<()> {
-    match self_update_permitted()? {
-        SelfUpdatePermission::Deny => {
-            eprintln!("Self-update is disabled for this build of the typst cli");
-            eprintln!("You should probably use your system package manager");
-            bail!("update failed");
-        }
-        SelfUpdatePermission::Permit => {}
-    }
-
     if let Some(ref version) = command.version {
         let current_tag = env!("CARGO_PKG_VERSION").parse().unwrap();
-        if !command.force && version < &current_tag {
-            eprintln!("Certain downgraded Typst versions will not have the update command available");
-            eprintln!("Forcing a downgrade might break your installation");
+
+        if version < &Version::new(0, 8, 0) {
             eprintln!(
-                "You can force a downgrade by running `typst update <VERSION> --force`"
+                "Versions older than 0.8 will not have the update command available"
+            );
+            eprintln!("Forcing a downgrade might break your installation");
+        }
+
+        if !command.force && version < &current_tag {
+            eprintln!(
+                "Downgrading requires the --force flag: `typst update <VERSION> --force`"
             );
             bail!("update failed");
         }
     }
 
     let current_exe = env::current_exe()
-        .map_err(|err| eco_format!("failed to grab current exe path: {}", err))?;
+        .map_err(|err| eco_format!("failed to locate current exe path: {}", err))?;
 
-    #[cfg(target_os = "linux")]
-    let root_backup_dir = dirs::state_dir()
-        .or_else(|| dirs::data_dir())
-        .expect("unable to locate local data or state directories");
-    #[cfg(not(target_os = "linux"))]
-    let root_backup_dir =
-        dirs::data_dir().expect("unable to locate local data directory");
-    let backup_dir = root_backup_dir.join("typst");
-    let backup = backup_dir.join("typst_backup.part");
-
-    fs::create_dir_all(&backup_dir)
-        .map_err(|err| eco_format!("failed to create backup directory: {err}"))?;
-
+    let backup_path = backup_path()?;
+    
     if command.revert {
-        if !backup.exists() {
-            bail!("unable to revert, no backup found (searched in {backup_dir:?})");
+        if !backup_path.exists() {
+            bail!("unable to revert, no backup found (searched at {backup_path:?})");
         }
 
-        return self_replace::self_replace(&backup)
-            .and_then(|_| fs::remove_file(&backup))
+        return self_replace::self_replace(&backup_path)
+            .and_then(|_| fs::remove_file(&backup_path))
             .map_err(|err| eco_format!("unable to revert to backup: {err}"));
     }
 
-    let buffer = command
-        .version
-        .map_or_else(Release::from_latest, Release::from_tag)
+    let buffer = Release::from_tag(command.version)
         .and_then(|release| {
-            if !update_needed(&release) && !command.force {
-                bail!("Already on the latest version");
+            if !update_needed(&release)? && !command.force {
+                bail!("already on the latest version");
             }
 
             Ok(release)
         })
-        .and_then(|release| release.download_asset(asset_needed()?))
+        .and_then(|release| release.download_asset(needed_asset()?))
         .and_then(|binary| binary.unpack())?;
 
-    fs::copy(&current_exe, &backup)
+    fs::copy(&current_exe, &backup_path)
         .map_err(|err| eco_format!("backing up failed: {}", err))?;
 
     let temp_exe = current_exe
@@ -106,13 +90,6 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
         })
 }
 
-/// Reflects the posibility of self updating.
-#[derive(Clone, Copy, Debug)]
-enum SelfUpdatePermission {
-    Deny,
-    Permit,
-}
-
 /// Assets belonging to a GitHub release.
 ///
 /// Primarily used to download pre-compiled Typst CLI binaries.
@@ -130,31 +107,28 @@ struct Release {
 }
 
 impl Release {
-    /// Download the lastest release from the Typst repository.
-    pub fn from_latest() -> StrResult<Self> {
-        let url = format!(
-            "https://api.github.com/repos/{}/{}/releases/latest",
-            TYPST_GITHUB_ORG, TYPST_REPO
-        );
-
-        Release::download(&url)
-    }
-
-    /// Download the target release from the Typst repository.
-    pub fn from_tag(tag: Version) -> StrResult<Release> {
-        let url = format!(
-            "https://api.github.com/repos/{}/{}/releases/tags/v{}",
-            TYPST_GITHUB_ORG, TYPST_REPO, tag
-        );
+    /// Download the target release, or latest if version is `None`, from the
+    /// Typst repository.
+    pub fn from_tag(tag: Option<Version>) -> StrResult<Release> {
+        let url = match tag {
+            Some(tag) => format!(
+                "https://api.github.com/repos/{}/{}/releases/tags/v{}",
+                TYPST_GITHUB_ORG, TYPST_REPO, tag
+            ),
+            None => format!(
+                "https://api.github.com/repos/{}/{}/releases/latest",
+                TYPST_GITHUB_ORG, TYPST_REPO
+            ),
+        };
 
         Release::download(&url)
     }
 
     fn download(url: &str) -> StrResult<Self> {
         match ureq::get(url).call() {
-            Ok(response) => {
-                Ok(response.into_json().expect("unable to get json from response"))
-            }
+            Ok(response) => response
+                .into_json()
+                .map_err(|err| eco_format!("unable to get json from response: {err}")),
             Err(ureq::Error::Status(404, _)) => {
                 bail!("release not found (searched at {url})")
             }
@@ -200,7 +174,7 @@ trait Unpack {
 impl<R: Read + Seek> Unpack for ZipArchive<R> {
     fn unpack_typst_binary(&mut self) -> StrResult<Vec<u8>> {
         let mut binary = self
-            .by_name(&format!("{}/typst.exe", asset_needed()?))
+            .by_name(&format!("{}/typst.exe", needed_asset()?))
             .map_err(|_| "asset archive did not contain typst binary")?;
 
         let mut buffer = Vec::with_capacity(binary.size() as usize);
@@ -257,7 +231,7 @@ impl PackedBinary {
 
 /// Determines what asset to download according to the target platform the CLI
 /// is running on.
-fn asset_needed() -> StrResult<&'static str> {
+fn needed_asset() -> StrResult<&'static str> {
     Ok(match env!("TARGET") {
         "x86_64-unknown-linux-gnu" => "typst-x86_64-unknown-linux-musl",
         "x86_64-unknown-linux-musl" => "typst-x86_64-unknown-linux-musl",
@@ -273,39 +247,31 @@ fn asset_needed() -> StrResult<&'static str> {
 
 /// Compares latest release version to current version to see if an update
 /// is even needed
-fn update_needed(release: &Release) -> bool {
+fn update_needed(release: &Release) -> StrResult<bool> {
     let current_tag: Version = env!("CARGO_PKG_VERSION").parse().unwrap();
     let new_tag: Version = release
         .tag_name
         .strip_prefix('v')
         .unwrap_or(&release.tag_name)
         .parse()
-        .expect("release tag not in semver format");
+        .map_err(|_| "release tag not in semver format")?;
 
-    new_tag > current_tag
+    Ok(new_tag > current_tag)
 }
 
-/// A shallow check to see if we have the proper permissions to create files
-/// in the current working directory.
-fn self_update_permitted() -> StrResult<SelfUpdatePermission> {
-    if cfg!(windows) {
-        Ok(SelfUpdatePermission::Permit)
-    } else {
-        let current_exe = env::current_exe()
-            .map_err(|err| eco_format!("failed to grab current exe path: {}", err))?;
-        let current_exe_dir =
-            current_exe.parent().expect("typst cli isn't in a directory");
-        if let Err(e) =
-            tempfile::Builder::new().prefix("updtest").tempdir_in(current_exe_dir)
-        {
-            match e.kind() {
-                ErrorKind::PermissionDenied => {
-                    return Ok(SelfUpdatePermission::Deny);
-                }
-                _ => return Err(e.to_string().into()),
-            }
-        }
+fn backup_path() -> StrResult<PathBuf> {
+    #[cfg(target_os = "linux")]
+    let root_backup_dir = dirs::state_dir()
+        .or_else(|| dirs::data_dir())
+        .ok_or("unable to locate local data or state directories")?;
 
-        Ok(SelfUpdatePermission::Permit)
-    }
+    #[cfg(not(target_os = "linux"))]
+    let root_backup_dir =
+        dirs::data_dir().ok_or("unable to locate local data directory")?;
+    let backup_dir = root_backup_dir.join("typst");
+
+    fs::create_dir_all(&backup_dir)
+        .map_err(|err| eco_format!("failed to create backup directory: {err}"))?;
+
+    Ok(backup_dir.join("typst_backup.part"))
 }

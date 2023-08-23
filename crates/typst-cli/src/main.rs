@@ -43,9 +43,7 @@ fn main() -> ExitCode {
         Command::Fonts(command) => crate::fonts::fonts(command),
         #[cfg(not(feature = "self-update"))]
         Command::Update(_command) => {
-            Err("self-updating is not enabled for this executable, please update 
-                with the package manager or mechanism used for initial installation"
-                .into())
+            Err("self-updating is not enabled for this executable, please update with the package manager or mechanism used for initial installation".into())
         }
         #[cfg(feature = "self-update")]
         Command::Update(command) => crate::update::update(command),
