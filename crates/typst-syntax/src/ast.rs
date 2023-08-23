@@ -2016,11 +2016,10 @@ node! {
 impl<'a> ImportItems<'a> {
     /// Returns an iterator over the items to import from the module.
     pub fn iter(self) -> impl DoubleEndedIterator<Item = ImportItem<'a>> {
-        self.0.children().filter_map(|child| {
-            child
-                .cast::<RenamedImportItem>()
-                .map(ImportItem::Renamed)
-                .or_else(|| child.cast::<Ident>().map(ImportItem::Simple))
+        self.0.children().filter_map(|child| match child.kind() {
+            SyntaxKind::RenamedImportItem => child.cast().map(ImportItem::Renamed),
+            SyntaxKind::Ident => child.cast().map(ImportItem::Simple),
+            _ => Option::None,
         })
     }
 }
