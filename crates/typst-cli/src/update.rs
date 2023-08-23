@@ -54,7 +54,7 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
             .map_err(|err| eco_format!("unable to revert to backup: {err}"));
     }
 
-    fs::copy(&current_exe, &backup_path)
+    fs::copy(current_exe, &backup_path)
         .map_err(|err| eco_format!("backing up failed: {}", err))?;
 
     let release = Release::from_tag(command.version)?;
