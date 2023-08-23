@@ -117,7 +117,7 @@
 #item(2)[a]
 
 ---
-// Warning: 15-27 renaming imported name to its own name
+// Warning: 15-27 unnecessary import rename to same name
 #import enum: item as item
 
 ---
