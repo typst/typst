@@ -68,7 +68,7 @@ pub enum Readable {
 impl Readable {
     fn as_slice(&self) -> &[u8] {
         match self {
-            Readable::Bytes(v) => &v,
+            Readable::Bytes(v) => v,
             Readable::Str(v) => v.as_bytes(),
         }
     }
