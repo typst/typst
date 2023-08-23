@@ -27,6 +27,9 @@ impl CompileCommand {
             .unwrap_or_else(|| self.common.input.with_extension("pdf"))
     }
 
+    /// The format to use for generated output, either specified by the user or inferred from the extension.
+    ///
+    /// Will return `Err` if the format was not specified and could not be inferred.
     pub fn output_format(&self) -> StrResult<OutputFormat> {
         Ok(if let Some(specified) = self.format {
             specified
@@ -35,7 +38,7 @@ impl CompileCommand {
                 Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
                 Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
                 Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
-                _ => return Err(eco_format!("could not infer output format for output path {output:?}. consider providing the format manually with `--format/-f`")),
+                _ => bail!("could not infer output format for path {}.\nconsider providing the format manually with `--format/-f`", output.display()),
             }
         } else {
             OutputFormat::Pdf

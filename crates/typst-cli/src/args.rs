@@ -46,7 +46,7 @@ pub struct CompileCommand {
     /// Path to output file (PDF, PNG, or SVG)
     pub output: Option<PathBuf>,
 
-    /// Specify the format of the output file, normally inferred from the extension
+    /// The format of the output file, inferred from the extension by default
     #[arg(long = "format", short = 'f')]
     pub format: Option<OutputFormat>,
 
@@ -154,7 +154,7 @@ impl Display for DiagnosticFormat {
     }
 }
 
-/// Which format to use for diagnostics.
+/// Which format to use for the generated output file.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
 pub enum OutputFormat {
     Pdf,
