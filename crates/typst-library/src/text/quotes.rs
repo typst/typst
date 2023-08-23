@@ -99,13 +99,12 @@ impl Quoter {
     ) -> &'a str {
         let peeked = peeked.unwrap_or(' ');
         let mut expect_opening = self.expect_opening;
-        if let Some(prev_double) = self.prev_quote_type {
+        if let Some(prev_double) = self.prev_quote_type.take() {
             if double != prev_double {
                 expect_opening = true;
             }
         }
 
-        self.prev_quote_type = None;
         if expect_opening {
             self.quote_depth += 1;
             self.prev_quote_type = Some(double);
