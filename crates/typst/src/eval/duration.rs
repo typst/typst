@@ -4,7 +4,7 @@ use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
-use typst_macros::cast;
+use crate::eval::{Value, Type, Reflect, CastInfo, IntoValue, FromValue, StrResult};
 
 /// A duration object that represents either a positive or negative span of time.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -133,6 +133,4 @@ impl Div for Duration {
     }
 }
 
-cast! {
-    type Duration: "duration",
-}
+primitive! { Duration: "duration", Duration }

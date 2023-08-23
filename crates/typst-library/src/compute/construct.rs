@@ -233,7 +233,7 @@ pub fn datetime(
     /// The second of the datetime.
     #[named]
     second: Option<SecondComponent>,
-) -> StrResult<Datetime> {
+) -> StrResult<Value> {
     let time = match (hour, minute, second) {
         (Some(hour), Some(minute), Some(second)) => {
             match time::Time::from_hms(hour.0, minute.0, second.0) {
@@ -265,7 +265,7 @@ pub fn datetime(
         (None, None) => {
             bail!("at least one of date or time must be fully specified")
         }
-    })
+    }.into_value())
 }
 
 pub struct YearComponent(i32);
@@ -327,11 +327,11 @@ pub fn datetime_today(
     offset: Smart<i64>,
     /// The virtual machine.
     vt: &mut Vt,
-) -> StrResult<Datetime> {
+) -> StrResult<Value> {
     Ok(vt
         .world
         .today(offset.as_custom())
-        .ok_or("unable to get the current date")?)
+        .ok_or("unable to get the current date")?.into_value())
 }
 
 /// Creates a new duration.
@@ -371,13 +371,14 @@ pub fn duration(
     #[named]
     #[default(0)]
     weeks: i64,
-) -> Duration {
-    (time::Duration::seconds(seconds)
+) -> Value {
+    Duration::from(
+    time::Duration::seconds(seconds)
         + time::Duration::minutes(minutes)
         + time::Duration::hours(hours)
         + time::Duration::days(days)
         + time::Duration::weeks(weeks))
-    .into()
+    .into_value()
 }
 
 /// Creates a CMYK color.
