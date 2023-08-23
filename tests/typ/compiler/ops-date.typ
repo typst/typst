@@ -1,9 +1,12 @@
-// negate Duration
+// Test durations.
 // Ref: false
+
+---
+// Negate durations.
 #test(-duration(hours: 2), duration(hours: -2))
 
 ---
-// add and subtract Durations
+// Test adding and subtracting durations.
 // Ref: false
 #test(duration(weeks:1, hours:1), duration(weeks:1) + duration(hours:1))
 #test(duration(weeks:1, hours:-1), duration(weeks:1) - duration(hours:1))

@@ -341,9 +341,10 @@ pub fn datetime_today(
 ///
 /// ## Example
 /// ```example
-/// #let duration = duration(days: 3, hours: 12)
-///
-/// #duration.hours() == 84
+/// #duration(
+///   days: 3, 
+///   hours: 12,
+/// ).hours()
 /// ```
 ///
 /// Display: Duration

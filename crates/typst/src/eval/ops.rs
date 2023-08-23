@@ -4,12 +4,10 @@ use std::cmp::Ordering;
 use std::fmt::Debug;
 
 use ecow::eco_format;
-use typst::eval::Datetime;
-use typst::eval::Duration;
 
 use super::{format_str, Regex, Value};
 use crate::diag::{bail, StrResult};
-use crate::eval::Dynamic;
+use crate::eval::{Dynamic, Datetime, Duration};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use Value::*;
 
