@@ -125,8 +125,8 @@ impl Release {
         }
     }
 
-    /// Sorts through the assets from a given [`Release`] and picks the right one
-    /// for the target platform, returning its packed binary.
+    /// Downloads the binary from a given [`Release`] and picks the right one
+    /// for the target platform, returning the raw binary data.
     pub fn download_binary(&self, asset_name: &str) -> StrResult<Vec<u8>> {
         let asset = self
             .assets
@@ -208,8 +208,7 @@ fn needed_asset() -> StrResult<&'static str> {
     })
 }
 
-/// Compares latest release version to current version to see if an update
-/// is even needed
+/// Compares the release version to the CLI version to see if an update is needed.
 fn update_needed(release: &Release) -> StrResult<bool> {
     let current_tag: Version = env!("CARGO_PKG_VERSION").parse().unwrap();
     let new_tag: Version = release
@@ -222,7 +221,13 @@ fn update_needed(release: &Release) -> StrResult<bool> {
     Ok(new_tag > current_tag)
 }
 
-/// Path to a possible backup file
+/// Path to a potential backup file.
+///
+/// The backup will be placed in one of the following directories, depending on
+/// the platform:
+///  - `$XDG_STATE_HOME` or `~/.local/state` on Linux
+///  - `~/Library/Application Support` on macOS
+///  - `%APPDATA%` on Windows
 fn backup_path() -> StrResult<PathBuf> {
     #[cfg(target_os = "linux")]
     let root_backup_dir = dirs::state_dir()
