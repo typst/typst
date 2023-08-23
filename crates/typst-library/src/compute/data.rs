@@ -139,17 +139,6 @@ pub fn csv(
 
 /// Reads structured data from a CSV string/bytes.
 ///
-/// ## Example { #example }
-/// ```example
-/// #let results = csv.decode(read("data.csv"))
-///
-/// #table(
-///   columns: 2,
-///   [*Condition*], [*Result*],
-///   ..results.flatten(),
-/// )
-/// ```
-///
 /// Display: CSV
 /// Category: data-loading
 #[func]
@@ -301,7 +290,7 @@ pub fn json_decode(
 /// Category: data-loading
 #[func]
 pub fn json_encode(
-    /// Value to be encoded
+    /// Value to be encoded.
     value: Spanned<Value>,
     /// Whether to pretty print the JSON with newlines and indentation.
     #[named]
@@ -392,9 +381,9 @@ pub fn toml_decode(
 /// Category: data-loading
 #[func]
 pub fn toml_encode(
-    /// Value to be encoded
+    /// Value to be encoded.
     value: Spanned<Value>,
-    /// Apply a default pretty policy to the document
+    /// Apply a default pretty policy to the document.
     #[named]
     #[default(true)]
     pretty: bool,
@@ -500,7 +489,7 @@ pub fn yaml_decode(
 /// Category: data-loading
 #[func]
 pub fn yaml_encode(
-    /// Value to be encoded
+    /// Value to be encoded.
     value: Spanned<Value>,
 ) -> SourceResult<Str> {
     let Spanned { v: value, span } = value;
