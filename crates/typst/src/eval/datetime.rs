@@ -7,8 +7,10 @@ use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::{format_description, PrimitiveDateTime};
 
-use crate::diag::{bail};
-use crate::eval::{Value, Type, Reflect, CastInfo, IntoValue, FromValue, StrResult, Duration};
+use crate::diag::bail;
+use crate::eval::{
+    CastInfo, Duration, FromValue, IntoValue, Reflect, StrResult, Type, Value,
+};
 use crate::util::pretty_array_like;
 
 /// A datetime object that represents either a date, a time or a combination of

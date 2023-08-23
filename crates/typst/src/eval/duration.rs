@@ -1,10 +1,10 @@
+use crate::eval::{CastInfo, FromValue, IntoValue, Reflect, StrResult, Type, Value};
 use crate::util::pretty_array_like;
 use ecow::{eco_format, EcoVec};
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
-use crate::eval::{Value, Type, Reflect, CastInfo, IntoValue, FromValue, StrResult};
 
 /// A duration object that represents either a positive or negative span of time.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]

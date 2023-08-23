@@ -10,127 +10,6 @@ use crate::diag::{bail, StrResult};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use Value::*;
 
-macro_rules! match_dyn {
-    // Wrap the user-provided arguments in `@(...)`
-    ($e:expr; $($rest:tt)*) => {
-        match_dyn!{@pat($e; $($rest)*,) @arms()}
-    };
-
-   // Interpret one match pattern: (Dyn)
-    (@pat($e:expr; Dyn($pn:ident: $pt:ty) $(if $cond:expr)? => $($rest:tt)*) @arms($($arms:tt)*)) => {
-        match_dyn!{
-            // Next index, match argument, remaining match results
-            @exec($e; $($rest)*)
-            @arms($($arms)*)
-            @pats(Dyn(ref $pn))
-            @ifs($pn.is::<$pt>() $($cond)?)
-            @casts(let $pn = *$pn.downcast::<$pt>().unwrap())
-        }
-    };
-
-   // Interpret one match pattern: (Dyn, Dyn)
-   (@pat($e:expr; (Dyn($an:ident: $at:ty), Dyn($bn:ident: $bt:ty)) $(if $cond:expr)? => $($rest:tt)*) @arms($($arms:tt)*)) => {
-        match_dyn!{
-            // Next index, match argument, remaining match results
-            @exec($e; $($rest)*)
-            @arms($($arms)*)
-            @pats((Dyn(ref $an), Dyn(ref $bn)))
-            @ifs($an.is::<$at>(), $bn.is::<$bt>() $($cond)?)
-            @casts(let $an = *$an.downcast::<$at>().unwrap() let $bn = *$bn.downcast::<$bt>().unwrap())
-        }
-    };
-
-
-    // Interpret one match pattern: (Dyn, Regular)
-    (@pat($e:expr; (Dyn($an:ident: $at:ty), $b:pat) $(if $cond:expr)? => $($rest:tt)*) @arms($($arms:tt)*)) => {
-        match_dyn!{
-            // Next index, match argument, remaining match results
-            @exec($e; $($rest)*)
-            @arms($($arms)*)
-            @pats((Dyn(ref $an), $b))
-            @ifs($an.is::<$at>() $($cond)?)
-            @casts(let $an = *$an.downcast::<$at>().unwrap())
-        }
-    };
-
-
-    // Interpret one match pattern: (Regular, Dyn)
-    (@pat($e:expr; ($a:pat, Dyn($bn:ident: $bt:ty)) $(if $cond:expr)? => $($rest:tt)*) @arms($($arms:tt)*)) => {
-        match_dyn!{
-            // Next index, match argument, remaining match results
-            @exec($e; $($rest)*)
-            @arms($($arms)*)
-            @pats(($a, Dyn(ref $bn)))
-            @ifs($bn.is::<$bt>() $($cond)?)
-            @casts(let $bn = *$bn.downcast::<$bt>().unwrap())
-        }
-    };
-
-    // Interpret one match pattern: Regular or (Regular, Regular)
-    (@pat($e:expr; $p:pat $(if $cond:expr)? => $($rest:tt)*) @arms($($arms:tt)*)) => {
-        match_dyn!{
-            // Next index, match argument, remaining match results
-            @exec($e; $($rest)*)
-            @arms($($arms)*)
-            @pats($p)
-            @ifs($($cond)?)
-            @casts()
-        }
-    };
-
-    // Interpret one result => Dyn
-   (@exec($e:expr; Dyn($cmd:expr), $($rest:tt)*) @arms($($arms:tt)*) @pats($pats:pat) @ifs($($($ifs:expr),+)?) @casts($($casts:stmt)*))  => {
-        match_dyn!{
-            // Next index, match argument, remaining match results
-            @pat($e; $($rest)*)
-            @arms(
-                $($arms)*
-                $pats $(if $($ifs)&&+)? => {
-                    $($casts)*
-                    Dyn(Dynamic::new($cmd))
-                }
-            )
-        }
-    };
-
-    // Interpret one result => block
-   (@exec($e:expr; $cmd:block $($rest:tt)*) @arms($($arms:tt)*) @pats($pats:pat) @ifs($($($ifs:expr),+)?) @casts($($casts:stmt)*))  => {
-        match_dyn!{
-            // Next index, match argument, remaining match results
-            @pat($e; $($rest)*)
-            @arms(
-                $($arms)*
-                $pats $(if $($ifs)&&+)? => {
-                    $($casts)*
-                    $cmd
-                }
-            )
-        }
-    };
-
-    // Interpret one result => cmd
-   (@exec($e:expr; $cmd:expr, $($rest:tt)*) @arms($($arms:tt)*) @pats($pats:pat) @ifs($($($ifs:expr),+)?) @casts($($casts:stmt)*))  => {
-        match_dyn!{
-            // Next index, match argument, remaining match results
-            @pat($e; $($rest)*)
-            @arms(
-                $($arms)*
-                $pats $(if $($ifs)&&+)? => {
-                    $($casts)*
-                    $cmd
-                }
-            )
-        }
-    };
-
-    // No more match arms, produce final output
-    (@pat($e:expr; $(,)?) @arms($($arms:tt)*)) => {
-        match $e {
-            $($arms)*
-        }
-    };
-}
-
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
@@ -235,7 +114,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 thickness: Smart::Custom(thickness),
                 ..PartialStroke::default()
             })
-        },
+        }
         (Duration(a), Duration(b)) => Duration(a + b),
         (Datetime(a), Duration(b)) => Datetime(a + b),
         (Duration(a), Datetime(b)) => Datetime(b + a),
@@ -528,8 +407,8 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Relative(a), Length(b)) if a.rel.is_zero() => try_cmp_values(&a.abs, b)?,
         (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
-        (Duration(a), Duration(b)) => a.cmp(&b),
-        (Datetime(a), Datetime(b)) => a.cmp(&b),
+        (Duration(a), Duration(b)) => a.cmp(b),
+        (Datetime(a), Datetime(b)) => a.cmp(b),
 
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
     })

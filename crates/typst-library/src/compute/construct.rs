@@ -265,7 +265,8 @@ pub fn datetime(
         (None, None) => {
             bail!("at least one of date or time must be fully specified")
         }
-    }.into_value())
+    }
+    .into_value())
 }
 
 pub struct YearComponent(i32);
@@ -331,7 +332,8 @@ pub fn datetime_today(
     Ok(vt
         .world
         .today(offset.as_custom())
-        .ok_or("unable to get the current date")?.into_value())
+        .ok_or("unable to get the current date")?
+        .into_value())
 }
 
 /// Creates a new duration.
@@ -373,11 +375,12 @@ pub fn duration(
     weeks: i64,
 ) -> Value {
     Duration::from(
-    time::Duration::seconds(seconds)
-        + time::Duration::minutes(minutes)
-        + time::Duration::hours(hours)
-        + time::Duration::days(days)
-        + time::Duration::weeks(weeks))
+        time::Duration::seconds(seconds)
+            + time::Duration::minutes(minutes)
+            + time::Duration::hours(hours)
+            + time::Duration::days(days)
+            + time::Duration::weeks(weeks),
+    )
     .into_value()
 }
 

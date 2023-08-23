@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use super::{Args, Bytes, IntoValue, Plugin, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
-use crate::eval::{bail};
+use crate::eval::bail;
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
@@ -231,9 +231,7 @@ pub fn call(
         },
 
         Value::Datetime(datetime) => match method {
-            "display" => {
-                datetime.display(args.eat()?).at(args.span)?.into_value()
-            }
+            "display" => datetime.display(args.eat()?).at(args.span)?.into_value(),
             "year" => datetime.year().into_value(),
             "month" => datetime.month().into_value(),
             "weekday" => datetime.weekday().into_value(),
