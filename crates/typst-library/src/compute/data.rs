@@ -1,4 +1,3 @@
-use std::io::Read;
 use typst::diag::{format_xml_like_error, FileError};
 use typst::eval::Bytes;
 
@@ -66,9 +65,8 @@ pub enum Readable {
     Bytes(Bytes),
 }
 
-impl Readable{
-    fn as_slice(&self) -> &[u8]
-    {
+impl Readable {
+    fn as_slice(&self) -> &[u8] {
         match self {
             Readable::Bytes(v) => &v,
             Readable::Str(v) => v.as_bytes(),
@@ -279,8 +277,9 @@ pub fn json_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let value: Value =
-        serde_json::from_slice(data.as_slice()).map_err(format_json_error).at(span)?;
+    let value: Value = serde_json::from_slice(data.as_slice())
+        .map_err(format_json_error)
+        .at(span)?;
     Ok(value)
 }
 
@@ -478,8 +477,9 @@ pub fn yaml_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let value: Value =
-        serde_yaml::from_slice(data.as_slice()).map_err(format_yaml_error).at(span)?;
+    let value: Value = serde_yaml::from_slice(data.as_slice())
+        .map_err(format_yaml_error)
+        .at(span)?;
     Ok(value)
 }
 
@@ -583,7 +583,9 @@ pub fn xml_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let text = std::str::from_utf8(data.as_slice()).map_err(FileError::from).at(span)?;
+    let text = std::str::from_utf8(data.as_slice())
+        .map_err(FileError::from)
+        .at(span)?;
     let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
     Ok(convert_xml(document.root()))
 }
