@@ -25,8 +25,7 @@ use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
-use typst::syntax::{FileId, Source, Span, SyntaxNode};
-use typst::util::PathExt;
+use typst::syntax::{FileId, Source, Span, SyntaxNode, VirtualPath};
 use typst::World;
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
@@ -289,7 +288,7 @@ impl World for TestWorld {
 
 impl TestWorld {
     fn set(&mut self, path: &Path, text: String) -> Source {
-        self.main = FileId::new(None, &Path::new("/").join(path));
+        self.main = FileId::new(None, VirtualPath::new(path));
         let mut slot = self.slot(self.main).unwrap();
         let source = Source::new(self.main, text);
         slot.source = OnceCell::from(Ok(source.clone()));
@@ -302,7 +301,7 @@ impl TestWorld {
             None => PathBuf::new(),
         };
 
-        let system_path = root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
+        let system_path = id.vpath().resolve(&root).ok_or(FileError::AccessDenied)?;
 
         Ok(RefMut::map(self.paths.borrow_mut(), |paths| {
             paths.entry(system_path.clone()).or_insert_with(|| PathSlot {

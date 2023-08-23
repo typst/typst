@@ -414,7 +414,7 @@ impl Closure {
         args.finish()?;
 
         // Handle control flow.
-        let result = closure.body().eval(&mut vm);
+        let output = closure.body().eval(&mut vm)?;
         match vm.flow {
             Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
             Some(FlowEvent::Return(_, None)) => {}
@@ -422,7 +422,7 @@ impl Closure {
             None => {}
         }
 
-        result
+        Ok(output)
     }
 }
 

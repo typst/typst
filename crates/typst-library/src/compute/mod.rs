@@ -39,4 +39,5 @@ pub(super) fn define(global: &mut Scope) {
     global.define("yaml", yaml_func());
     global.define("xml", xml_func());
     global.define("calc", calc::module());
+    global.define("plugin", plugin_func());
 }

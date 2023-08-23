@@ -222,13 +222,14 @@ use crate::prelude::*;
 /// Gets the value of the state at the end of the document.
 ///
 /// - location: location (positional, required)
-///   Can be any location. Why is it required then? As noted before, Typst has
-///   to evaluate parts of your code multiple times to determine the values of
-///   all state. By only allowing this method within [`locate`]($func/locate)
-///   calls, the amount of code that can depend on the method's result is
-///   reduced. If you could call `final` directly at the top level of a module,
-///   the evaluation of the whole module and its exports could depend on the
-///   state's value.
+///   Can be an arbitrary location, as its value is irrelevant for the method's
+///   return value. Why is it required then? As noted before, Typst has to
+///   evaluate parts of your code multiple times to determine the values of all
+///   state. By only allowing this method within [`locate`]($func/locate) calls,
+///   the amount of code that can depend on the method's result is reduced. If
+///   you could call `final` directly at the top level of a module, the
+///   evaluation of the whole module and its exports could depend on the state's
+///   value.
 ///
 /// - returns: any
 ///
