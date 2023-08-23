@@ -2014,8 +2014,8 @@ node! {
 }
 
 impl<'a> ImportItems<'a> {
-    /// The items to import from the module.
-    pub fn items(self) -> impl DoubleEndedIterator<Item = ImportItem<'a>> {
+    /// Returns an iterator over the items to import from the module.
+    pub fn iter(self) -> impl DoubleEndedIterator<Item = ImportItem<'a>> {
         self.0.children().filter_map(|child| {
             child
                 .cast::<RenamedImportItem>()

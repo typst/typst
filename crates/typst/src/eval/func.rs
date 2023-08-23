@@ -545,7 +545,7 @@ impl<'a> CapturesVisitor<'a> {
             Some(ast::Expr::Import(expr)) => {
                 self.visit(expr.source().to_untyped());
                 if let Some(ast::Imports::Items(items)) = expr.imports() {
-                    for item in items.items() {
+                    for item in items.iter() {
                         self.bind(item.bound_name());
                     }
                 }

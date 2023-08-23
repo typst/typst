@@ -1717,7 +1717,7 @@ fn apply_imports<V: IntoValue>(
         Some(ast::Imports::Items(items)) => {
             let mut errors = vec![];
             let scope = scope(&source_value);
-            for item in items.items() {
+            for item in items.iter() {
                 let original_ident = item.original_name();
                 if let Some(value) = scope.get(&original_ident) {
                     if let ast::ImportItem::Renamed(renamed_item) = &item {
@@ -1726,7 +1726,7 @@ fn apply_imports<V: IntoValue>(
                         {
                             vm.vt.tracer.warn(warning!(
                                 renamed_item.span(),
-                                "renaming imported name to its own name",
+                                "unnecessary import rename to same name",
                             ));
                         }
                     }
