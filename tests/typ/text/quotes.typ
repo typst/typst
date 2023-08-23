@@ -63,4 +63,6 @@ Some people's thought on this would be #[#set smartquote(enabled: false); "stran
 
 ---
 // Test nested double and single quotes.
-"'test' statement"
+"'test statement'" \
+"'test' statement" \
+"statement 'test'"
