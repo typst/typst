@@ -174,7 +174,7 @@ pub struct UpdateCommand {
     #[clap(long, default_value_t = false)]
     pub force: bool,
 
-    /// Reverts to the version from before the last update, only possible if 
+    /// Reverts to the version from before the last update, only possible if
     /// `typst update` has previously ran
     #[clap(long, default_value_t = false, exclusive = true)]
     pub revert: bool,

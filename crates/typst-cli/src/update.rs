@@ -267,7 +267,7 @@ fn backup_path() -> StrResult<PathBuf> {
     #[cfg(not(target_os = "linux"))]
     let root_backup_dir =
         dirs::data_dir().ok_or("unable to locate local data directory")?;
-        
+
     let backup_dir = root_backup_dir.join("typst");
 
     fs::create_dir_all(&backup_dir)
