@@ -39,7 +39,7 @@
 #import "module.typ": item as something
 #test(something(1, 2), 3)
 
-// Mixing up renamed and not renamed items.
+// Mixing renamed and not renamed items.
 #import "module.typ": fn, b as val, item as other
 #test(val, 1)
 #test(other(1, 2), 3)
