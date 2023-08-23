@@ -1,21 +1,21 @@
 // Test page breaks on basically empty pages.
 
 ---
-// After strong place
+// After place
 // Should result in three pages.
 First
 #pagebreak(weak: true)
-#place(right, weak: false)[Strong A]
+#place(right)[placed A]
 #pagebreak(weak: true)
 Third
 
 ---
-// After only ignorables
+// After only ignorables & invisibles
 // Should result in two pages.
 First
 #pagebreak(weak: true)
 #counter(page).update(1)
-#place(right, weak: true)[Weak A]
+#metadata("Some")
 #pagebreak(weak: true)
 Second
 
@@ -25,6 +25,6 @@ Second
 First
 #pagebreak()
 #counter(page).update(1)
-#place(right, weak: true)[Weak A]
+#metadata("Some")
 #pagebreak()
 Third

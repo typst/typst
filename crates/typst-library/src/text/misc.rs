@@ -9,7 +9,7 @@ use crate::prelude::*;
 pub struct SpaceElem {}
 
 impl Behave for SpaceElem {
-    fn behaviour(&self, _: StyleChain) -> Behaviour {
+    fn behaviour(&self) -> Behaviour {
         Behaviour::Weak(2)
     }
 }
@@ -62,7 +62,7 @@ pub struct LinebreakElem {
 }
 
 impl Behave for LinebreakElem {
-    fn behaviour(&self, _: StyleChain) -> Behaviour {
+    fn behaviour(&self) -> Behaviour {
         Behaviour::Destructive
     }
 }

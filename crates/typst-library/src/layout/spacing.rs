@@ -57,13 +57,13 @@ pub struct HElem {
 }
 
 impl Behave for HElem {
-    fn behaviour(&self, _: StyleChain) -> Behaviour {
+    fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
         } else if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)
         } else {
-            Behaviour::Ignorant(false)
+            Behaviour::Invisible
         }
     }
 
@@ -152,13 +152,13 @@ impl VElem {
 }
 
 impl Behave for VElem {
-    fn behaviour(&self, _: StyleChain) -> Behaviour {
+    fn behaviour(&self) -> Behaviour {
         if self.amount().is_fractional() {
             Behaviour::Destructive
         } else if self.weakness(StyleChain::default()) > 0 {
             Behaviour::Weak(self.weakness(StyleChain::default()))
         } else {
-            Behaviour::Ignorant(false)
+            Behaviour::Invisible
         }
     }
 

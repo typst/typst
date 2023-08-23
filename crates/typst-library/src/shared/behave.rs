@@ -35,7 +35,7 @@ impl<'a> BehavedBuilder<'a> {
     pub fn is_basically_empty(&self) -> bool {
         self.builder.is_empty()
             && self.staged.iter().all(|(_, behaviour, _)| {
-                matches!(behaviour, Behaviour::Weak(_) | Behaviour::Ignorant(false))
+                matches!(behaviour, Behaviour::Weak(_) | Behaviour::Invisible)
             })
     }
 
@@ -43,7 +43,7 @@ impl<'a> BehavedBuilder<'a> {
     pub fn push(&mut self, elem: Content, styles: StyleChain<'a>) {
         let interaction = elem
             .with::<dyn Behave>()
-            .map_or(Behaviour::Supportive, |s| Behave::behaviour(s, styles));
+            .map_or(Behaviour::Supportive, Behave::behaviour);
 
         match interaction {
             Behaviour::Weak(level) => {
@@ -73,7 +73,7 @@ impl<'a> BehavedBuilder<'a> {
                 self.builder.push(elem, styles);
                 self.last = interaction;
             }
-            Behaviour::Ignorant(_) => {
+            Behaviour::Ignorant | Behaviour::Invisible => {
                 self.staged.push((elem, interaction, styles));
             }
         }
@@ -94,7 +94,10 @@ impl<'a> BehavedBuilder<'a> {
     /// false.
     fn flush(&mut self, supportive: bool) {
         for (item, interaction, styles) in self.staged.drain(..) {
-            if supportive || matches!(interaction, Behaviour::Ignorant(_)) {
+            if supportive
+                || interaction == Behaviour::Ignorant
+                || interaction == Behaviour::Invisible
+            {
                 self.builder.push(item, styles);
             }
         }

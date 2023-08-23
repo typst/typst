@@ -79,10 +79,6 @@ pub struct PlaceElem {
     /// The vertical displacement of the placed content.
     pub dy: Rel<Length>,
 
-    /// A weak placement will not trigger a pagebreak on empty pages.
-    #[default(false)]
-    pub weak: bool,
-
     /// The content to place.
     #[required]
     pub body: Content,
@@ -130,7 +126,7 @@ impl Layout for PlaceElem {
 }
 
 impl Behave for PlaceElem {
-    fn behaviour(&self, styles: StyleChain) -> Behaviour {
-        Behaviour::Ignorant(!self.weak(styles))
+    fn behaviour(&self) -> Behaviour {
+        Behaviour::Ignorant
     }
 }
