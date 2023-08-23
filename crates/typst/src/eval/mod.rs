@@ -1702,40 +1702,41 @@ fn apply_imports<V: IntoValue>(
     if let Some(new_name) = new_name {
         // Renamed module => just define it on the scope (no items)
         vm.scopes.top.define(new_name, source_value);
-    } else {
-        match imports {
-            None => {
-                vm.scopes.top.define(name(&source_value), source_value);
+        return Ok(());
+    }
+
+    match imports {
+        None => {
+            vm.scopes.top.define(name(&source_value), source_value);
+        }
+        Some(ast::Imports::Wildcard) => {
+            for (var, value) in scope(&source_value).iter() {
+                vm.scopes.top.define(var.clone(), value.clone());
             }
-            Some(ast::Imports::Wildcard) => {
-                for (var, value) in scope(&source_value).iter() {
-                    vm.scopes.top.define(var.clone(), value.clone());
-                }
-            }
-            Some(ast::Imports::Items(items)) => {
-                let mut errors = vec![];
-                let scope = scope(&source_value);
-                for item in items.items() {
-                    let original_ident = item.original_name();
-                    if let Some(value) = scope.get(&original_ident) {
-                        if let ast::ImportItem::Renamed(renamed_item) = &item {
-                            if renamed_item.original_name().as_str()
-                                == renamed_item.new_name().as_str()
-                            {
-                                vm.vt.tracer.warn(SourceDiagnostic::warning(
-                                    renamed_item.span(),
-                                    "renaming imported name to its own name",
-                                ));
-                            }
+        }
+        Some(ast::Imports::Items(items)) => {
+            let mut errors = vec![];
+            let scope = scope(&source_value);
+            for item in items.items() {
+                let original_ident = item.original_name();
+                if let Some(value) = scope.get(&original_ident) {
+                    if let ast::ImportItem::Renamed(renamed_item) = &item {
+                        if renamed_item.original_name().as_str()
+                            == renamed_item.new_name().as_str()
+                        {
+                            vm.vt.tracer.warn(warning!(
+                                renamed_item.span(),
+                                "renaming imported name to its own name",
+                            ));
                         }
-                        vm.define(item.bound_name(), value.clone());
-                    } else {
-                        errors.push(error!(original_ident.span(), "unresolved import"));
                     }
+                    vm.define(item.bound_name(), value.clone());
+                } else {
+                    errors.push(error!(original_ident.span(), "unresolved import"));
                 }
-                if !errors.is_empty() {
-                    return Err(Box::new(errors));
-                }
+            }
+            if !errors.is_empty() {
+                return Err(Box::new(errors));
             }
         }
     }
