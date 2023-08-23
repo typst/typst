@@ -7,7 +7,7 @@ use ecow::eco_format;
 
 use super::{format_str, Regex, Value};
 use crate::diag::{bail, StrResult};
-use crate::eval::{Datetime, Duration, Dynamic};
+use crate::eval::{Dynamic};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use Value::*;
 
@@ -184,7 +184,7 @@ pub fn neg(value: Value) -> StrResult<Value> {
         Ratio(v) => Ratio(-v),
         Relative(v) => Relative(-v),
         Fraction(v) => Fraction(-v),
-        Dyn(v: Duration) => Dyn(-v),
+        Duration(v) => Duration(-v),
         v => mismatch!("cannot apply '-' to {}", v),
     ))
 }
@@ -245,9 +245,9 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 Axis::Y => Axes { x: b, y: a },
             }
         }),
-        (Dyn(a: Duration), Dyn(b: Duration)) => Dyn(a+b),
-        (Dyn(a: Datetime), Dyn(b: Duration)) => Dyn(a+b),
-        (Dyn(a: Duration), Dyn(b: Datetime)) => Dyn(b+a),
+        (Duration(a), Duration(b)) => Duration(a+b),
+        (Datetime(a), Duration(b)) => Datetime(a+b),
+        (Duration(a), Datetime(b)) => Datetime(b+a),
         (a, b) => mismatch!("cannot add {} and {}", a, b),
     ))
 }
@@ -276,9 +276,9 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),
 
-        (Dyn(a:Duration), Dyn(b:Duration)) => Dyn(a-b),
-        (Dyn(a:Datetime), Dyn(b:Duration)) => Dyn(a-b),
-        (Dyn(a:Datetime), Dyn(b:Datetime)) => Dyn((a-b)?),
+        (Duration(a), Duration(b)) => Duration(a-b),
+        (Datetime(a), Duration(b)) => Datetime(a-b),
+        (Datetime(a), Datetime(b)) => Duration((a-b)?),
 
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
     ))
@@ -333,10 +333,10 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
         (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 
-        (Int(a), Dyn(b: Duration)) => Dyn(b*(a as f64)),
-        (Float(a), Dyn(b: Duration)) => Dyn(b*a),
-        (Dyn(a: Duration), Int(b)) => Dyn(a*(b as f64)),
-        (Dyn(a: Duration), Float(b)) => Dyn(a*b),
+        (Int(a), Duration(b)) => Duration(b*(a as f64)),
+        (Float(a), Duration(b)) => Duration(b*a),
+        (Duration(a), Int(b)) => Duration(a*(b as f64)),
+        (Duration(a), Float(b)) => Duration(a*b),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     ))
@@ -378,9 +378,9 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fraction(a), Float(b)) => Fraction(a / b),
         (Fraction(a), Fraction(b)) => Float(a / b),
 
-        (Dyn(a: Duration), Int(b)) => Dyn(a/(b as f64)),
-        (Dyn(a: Duration), Float(b)) => Dyn(a/b),
-        (Dyn(a: Duration), Dyn(b: Duration)) => Float(a/b),
+        (Duration(a), Int(b)) => Duration(a/(b as f64)),
+        (Duration(a), Float(b)) => Duration(a/b),
+        (Duration(a), Duration(b)) => Float(a/b),
 
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
     ))
@@ -396,7 +396,7 @@ fn is_zero(v: &Value) -> bool {
         Ratio(v) => v.is_zero(),
         Relative(v) => v.is_zero(),
         Fraction(v) => v.is_zero(),
-        Dyn(v: Duration) => v.is_zero(),
+        Duration(v) => v.is_zero(),
         _ => false,
     )
 }
@@ -520,8 +520,8 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Relative(a), Length(b)) if a.rel.is_zero() => try_cmp_values(&a.abs, b)?,
         (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
-        (Dyn(a:Duration), Dyn(b:Duration)) => a.cmp(&b),
-        (Dyn(a:Datetime), Dyn(b:Datetime)) => a.cmp(&b),
+        (Duration(a), Duration(b)) => a.cmp(&b),
+        (Datetime(a), Datetime(b)) => a.cmp(&b),
 
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
     ))

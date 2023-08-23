@@ -155,6 +155,10 @@ impl Datetime {
     }
 }
 
+cast! {
+    type Datetime: "datetime",
+}
+
 impl Add<Duration> for Datetime {
     type Output = Datetime;
 
@@ -209,10 +213,6 @@ impl Debug for Datetime {
 
         write!(f, "datetime{}", &pretty_array_like(&filtered, false))
     }
-}
-
-cast! {
-    type Datetime: "datetime",
 }
 
 /// Format the `Format` error of the time crate in an appropriate way.

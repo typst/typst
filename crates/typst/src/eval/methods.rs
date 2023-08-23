@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use super::{Args, Bytes, IntoValue, Plugin, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
-use crate::eval::{bail, Datetime, Duration};
+use crate::eval::{bail};
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
@@ -230,6 +230,29 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Datetime(datetime) => match method {
+            "display" => {
+                datetime.display(args.eat()?).at(args.span)?.into_value()
+            }
+            "year" => datetime.year().into_value(),
+            "month" => datetime.month().into_value(),
+            "weekday" => datetime.weekday().into_value(),
+            "day" => datetime.day().into_value(),
+            "hour" => datetime.hour().into_value(),
+            "minute" => datetime.minute().into_value(),
+            "second" => datetime.second().into_value(),
+            "ordinal" => datetime.ordinal().into_value(),
+            _ => return missing(),
+        },
+        Value::Duration(duration) => match method {
+            "seconds" => duration.seconds().into_value(),
+            "minutes" => duration.minutes().into_value(),
+            "hours" => duration.hours().into_value(),
+            "days" => duration.days().into_value(),
+            "weeks" => duration.weeks().into_value(),
+            _ => return missing(),
+        },
+
         Value::Dyn(dynamic) => {
             if let Some(location) = dynamic.downcast::<Location>() {
                 match method {
@@ -254,30 +277,6 @@ pub fn call(
                             args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
                         selector.clone().after(location, inclusive).into_value()
                     }
-                    _ => return missing(),
-                }
-            } else if let Some(&datetime) = dynamic.downcast::<Datetime>() {
-                match method {
-                    "display" => {
-                        datetime.display(args.eat()?).at(args.span)?.into_value()
-                    }
-                    "year" => datetime.year().into_value(),
-                    "month" => datetime.month().into_value(),
-                    "weekday" => datetime.weekday().into_value(),
-                    "day" => datetime.day().into_value(),
-                    "hour" => datetime.hour().into_value(),
-                    "minute" => datetime.minute().into_value(),
-                    "second" => datetime.second().into_value(),
-                    "ordinal" => datetime.ordinal().into_value(),
-                    _ => return missing(),
-                }
-            } else if let Some(&duration) = dynamic.downcast::<Duration>() {
-                match method {
-                    "seconds" => duration.seconds().into_value(),
-                    "minutes" => duration.minutes().into_value(),
-                    "hours" => duration.hours().into_value(),
-                    "days" => duration.days().into_value(),
-                    "weeks" => duration.weeks().into_value(),
                     _ => return missing(),
                 }
             } else if let Some(direction) = dynamic.downcast::<Dir>() {
