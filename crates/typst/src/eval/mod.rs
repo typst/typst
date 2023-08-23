@@ -1700,7 +1700,7 @@ fn apply_imports<V: IntoValue>(
     scope: impl Fn(&V) -> &Scope,
 ) -> SourceResult<()> {
     if let Some(new_name) = new_name {
-        // Renamed module => just define it on the scope (no items)
+        // Renamed module => just define it on the scope (no items).
         vm.scopes.top.define(new_name, source_value);
         return Ok(());
     }

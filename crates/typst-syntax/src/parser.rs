@@ -1139,12 +1139,12 @@ fn module_import(p: &mut Parser) {
     p.assert(SyntaxKind::Import);
     code_expr(p);
     if p.eat_if(SyntaxKind::As) {
-        // allow renaming a full module import
+        // Allow renaming a full module import.
         p.expect(SyntaxKind::Ident);
         p.wrap(m, SyntaxKind::ModuleImport);
 
-        // friendlier error if the user tries to rename and import items at the
-        // same time
+        // Friendlier error if the user tries to rename and import items at the
+        // same time.
         if p.at(SyntaxKind::Colon) {
             p.unexpected();
             p.hint("cannot import the renamed module and its items at the same time");
@@ -1166,7 +1166,7 @@ fn import_items(p: &mut Parser) {
             p.unexpected();
         }
 
-        // rename imported item
+        // Rename imported item.
         if p.eat_if(SyntaxKind::As) {
             p.expect(SyntaxKind::Ident);
             p.wrap(item_marker, SyntaxKind::RenamedImportItem);

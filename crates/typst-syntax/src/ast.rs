@@ -2037,9 +2037,8 @@ pub enum ImportItem<'a> {
 }
 
 impl<'a> ImportItem<'a> {
-    /// The original name of the imported item,
-    /// at its source. This will be the equal to the
-    /// bound name if the item wasn't renamed with 'as'.
+    /// The original name of the imported item, at its source. This will be the
+    /// equal to the bound name if the item wasn't renamed with 'as'.
     pub fn original_name(self) -> Ident<'a> {
         match self {
             Self::Simple(name) => name,
@@ -2047,9 +2046,8 @@ impl<'a> ImportItem<'a> {
         }
     }
 
-    /// The name which this import item was bound to.
-    /// Corresponds to the new name, if it was renamed;
-    /// otherwise, it's just its original name.
+    /// The name which this import item was bound to. Corresponds to the new
+    /// name, if it was renamed; otherwise, it's just its original name.
     pub fn bound_name(self) -> Ident<'a> {
         match self {
             Self::Simple(name) => name,
