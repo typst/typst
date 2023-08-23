@@ -346,7 +346,6 @@ pub fn datetime_today(
 /// #duration.hours() == 84
 /// ```
 ///
-
 /// Display: Duration
 /// Category: construct
 #[func]
