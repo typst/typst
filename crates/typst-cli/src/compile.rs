@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
@@ -11,13 +11,37 @@ use typst::geom::Color;
 use typst::syntax::{FileId, Source};
 use typst::World;
 
-use crate::args::{CompileCommand, DiagnosticFormat};
+use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
+
+impl CompileCommand {
+    /// The output path.
+    pub fn output(&self) -> PathBuf {
+        self.output
+            .clone()
+            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
+    }
+
+    pub fn output_format(&self) -> StrResult<OutputFormat> {
+        Ok(if let Some(specified) = self.format {
+            specified
+        } else if let Some(output) = &self.output {
+            match output.extension() {
+                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
+                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
+                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
+                _ => return Err(eco_format!("could not infer output format for output path {output:?}. consider providing the format manually with `--format/-f`")),
+            }
+        } else {
+            OutputFormat::Pdf
+        })
+    }
+}
 
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
@@ -97,14 +121,10 @@ pub fn compile_once(
 
 /// Export into the target format.
 fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    match command.output().extension() {
-        Some(ext) if ext.eq_ignore_ascii_case("png") => {
-            export_image(document, command, ImageExportFormat::Png)
-        }
-        Some(ext) if ext.eq_ignore_ascii_case("svg") => {
-            export_image(document, command, ImageExportFormat::Svg)
-        }
-        _ => export_pdf(document, command),
+    match command.output_format()? {
+        OutputFormat::Png => export_image(document, command, ImageExportFormat::Png),
+        OutputFormat::Svg => export_image(document, command, ImageExportFormat::Svg),
+        OutputFormat::Pdf => export_pdf(document, command),
     }
 }
 
