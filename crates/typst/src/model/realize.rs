@@ -214,7 +214,7 @@ pub enum Behaviour {
     /// An element that destroys adjacent weak elements.
     Destructive,
     /// An element that does not interact at all with other elements, having the
-    /// same effect as if it didn't exist, bus has a visual representation.
+    /// same effect as if it didn't exist, but has a visual representation.
     Ignorant,
     /// An element that does not have a visual representation.
     Invisible,
