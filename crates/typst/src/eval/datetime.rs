@@ -1,7 +1,7 @@
+use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::ops::{Add, Sub};
-use std::fmt;
 
 use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
@@ -189,11 +189,7 @@ impl Sub for Datetime {
             (Datetime::Datetime(a), Datetime::Datetime(b)) => Ok((a - b).into()),
             (Datetime::Date(a), Datetime::Date(b)) => Ok((a - b).into()),
             (Datetime::Time(a), Datetime::Time(b)) => Ok((a - b).into()),
-            (a, b) => bail!(
-                "cannot subtract {} from {}",
-                b.get_type(),
-                a.get_type()
-            ),
+            (a, b) => bail!("cannot subtract {} from {}", b.get_type(), a.get_type()),
         }
     }
 }
