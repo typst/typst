@@ -33,6 +33,15 @@ D E F #linebreak(justify: true)
 This text can be fitted in one line.
 
 ---
+// Test that runts are avoided when it's not too costly to do so.
+#set page(width: 124pt)
+#set par(justify: true)
+#for i in range(0, 20) {
+	"a b c "
+}
+#"d"
+
+---
 // Test that justification cannot lead to a leading space
 #set par(justify: true)
 #set text(size: 12pt)

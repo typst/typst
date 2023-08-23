@@ -3,7 +3,7 @@ members = ["crates/*", "tests"]
 default-members = ["crates/typst-cli"]
 
 [workspace.package]
-version = "0.6.0"
+version = "0.7.0"
 rust-version = "1.70" # also change in ci.yml
 authors = ["The Typst Project Developers"]
 edition = "2021"

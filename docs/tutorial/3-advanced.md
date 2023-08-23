@@ -40,7 +40,7 @@ at them:
 - Second level headings are run-ins, italicized and have the same size as the
   body text
 - Finally, the pages should be US letter sized, numbered in the center of the
-  footer and the top left corner of each page should contain the title of the
+  footer and the top right corner of each page should contain the title of the
   paper
 
 We already know how to do many of these things, but for some of them, we'll need
@@ -482,7 +482,7 @@ Let's review the conference's style guide:
 - Second level headings are run-ins, italicized and have the same size as the
   body text ✓
 - Finally, the pages should be US letter sized, numbered in the center and the
-  top left corner of each page should contain the title of the paper ✓
+  top right corner of each page should contain the title of the paper ✓
 
 We are now in compliance with all of these styles and can submit the paper to
 the conference! The finished paper looks like this:

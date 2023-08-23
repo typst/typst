@@ -2,7 +2,7 @@
 
 use ecow::{eco_format, EcoString};
 
-use super::{Args, IntoValue, Str, Value, Vm};
+use super::{Args, Bytes, IntoValue, Plugin, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
 use crate::eval::{bail, Datetime};
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
@@ -55,11 +55,10 @@ pub fn call(
             "len" => string.len().into_value(),
             "first" => string.first().at(span)?.into_value(),
             "last" => string.last().at(span)?.into_value(),
-            "at" => {
-                let index = args.expect("index")?;
-                let default = args.named::<EcoString>("default")?;
-                string.at(index, default.as_deref()).at(span)?.into_value()
-            }
+            "at" => string
+                .at(args.expect("index")?, args.named("default")?)
+                .at(span)?
+                .into_value(),
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -93,11 +92,25 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Bytes(bytes) => match method {
+            "len" => bytes.len().into_value(),
+            "at" => bytes.at(args.expect("index")?, args.named("default")?).at(span)?,
+            "slice" => {
+                let start = args.expect("start")?;
+                let mut end = args.eat()?;
+                if end.is_none() {
+                    end = args.named("count")?.map(|c: i64| start + c);
+                }
+                bytes.slice(start, end).at(span)?.into_value()
+            }
+            _ => return missing(),
+        },
+
         Value::Content(content) => match method {
             "func" => content.func().into_value(),
             "has" => content.has(&args.expect::<EcoString>("field")?).into_value(),
             "at" => content
-                .at(&args.expect::<EcoString>("field")?, args.named("default")?)
+                .at(&args.expect::<Str>("field")?, args.named("default")?)
                 .at(span)?,
             "fields" => content.dict().into_value(),
             "location" => content
@@ -112,10 +125,7 @@ pub fn call(
             "len" => array.len().into_value(),
             "first" => array.first().at(span)?.clone(),
             "last" => array.last().at(span)?.clone(),
-            "at" => array
-                .at(args.expect("index")?, args.named("default")?.as_ref())
-                .at(span)?
-                .clone(),
+            "at" => array.at(args.expect("index")?, args.named("default")?).at(span)?,
             "slice" => {
                 let start = args.expect("start")?;
                 let mut end = args.eat()?;
@@ -144,9 +154,13 @@ pub fn call(
                 let last = args.named("last")?;
                 array.join(sep, last).at(span)?
             }
+            "intersperse" => array.intersperse(args.expect("separator")?).into_value(),
             "sorted" => array.sorted(vm, span, args.named("key")?)?.into_value(),
             "zip" => array.zip(args.expect("other")?).into_value(),
-            "enumerate" => array.enumerate().into_value(),
+            "enumerate" => array
+                .enumerate(args.named("start")?.unwrap_or(0))
+                .at(span)?
+                .into_value(),
             "dedup" => array.dedup(vm, args.named("key")?)?.into_value(),
             _ => return missing(),
         },
@@ -154,13 +168,22 @@ pub fn call(
         Value::Dict(dict) => match method {
             "len" => dict.len().into_value(),
             "at" => dict
-                .at(&args.expect::<Str>("key")?, args.named("default")?.as_ref())
-                .at(span)?
-                .clone(),
+                .at(&args.expect::<Str>("key")?, args.named("default")?)
+                .at(span)?,
             "keys" => dict.keys().into_value(),
             "values" => dict.values().into_value(),
             "pairs" => dict.pairs().into_value(),
-            _ => return missing(),
+            _ => {
+                return if matches!(dict.at(method, None), Ok(Value::Func(_))) {
+                    Err(missing_method(name, method))
+                        .hint(eco_format!(
+                            "to call the function stored in the dictionary, surround the field access with parentheses"
+                        ))
+                        .at(span)
+                } else {
+                    missing()
+                }
+            }
         },
 
         Value::Func(func) => match method {
@@ -267,6 +290,14 @@ pub fn call(
                 match method {
                     "inv" => align2d.map(GenAlign::inv).into_value(),
                     _ => return missing(),
+                }
+            } else if let Some(plugin) = dynamic.downcast::<Plugin>() {
+                if plugin.iter().any(|func_name| func_name == method) {
+                    let bytes = args.all::<Bytes>()?;
+                    args.take().finish()?;
+                    plugin.call(method, bytes).at(span)?.into_value()
+                } else {
+                    return missing();
                 }
             } else {
                 return (vm.items.library_method)(vm, &dynamic, method, args, span);
@@ -393,6 +424,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("starts-with", true),
             ("trim", true),
         ],
+        "bytes" => &[("len", false), ("at", true), ("slice", true)],
         "content" => &[
             ("func", false),
             ("has", true),

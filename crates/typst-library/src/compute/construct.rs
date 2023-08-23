@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Datetime, Module, Regex};
+use typst::eval::{Bytes, Datetime, Module, Plugin, Reflect, Regex};
 
 use crate::prelude::*;
 
@@ -37,9 +37,9 @@ pub struct ToInt(i64);
 cast! {
     ToInt,
     v: bool => Self(v as i64),
-    v: i64 => Self(v),
     v: f64 => Self(v as i64),
     v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid integer: {}", v))?),
+    v: i64 => Self(v),
 }
 
 /// Converts a value to a float.
@@ -77,9 +77,9 @@ cast! {
     ToFloat,
     v: bool => Self(v as i64 as f64),
     v: i64 => Self(v as f64),
-    v: f64 => Self(v),
     v: Ratio => Self(v.get()),
     v: EcoString => Self(v.parse().map_err(|_| eco_format!("invalid float: {}", v))?),
+    v: f64 => Self(v),
 }
 
 /// Creates a grayscale color.
@@ -104,10 +104,6 @@ pub fn luma(
 /// Creates an RGB(A) color.
 ///
 /// The color is specified in the sRGB color space.
-///
-/// _Note:_ While you can specify transparent colors and Typst's preview will
-/// render them correctly, the PDF export does not handle them properly at the
-/// moment. This will be fixed in the future.
 ///
 /// ## Example { #example }
 /// ```example
@@ -349,7 +345,7 @@ pub fn datetime_today(
 /// #square(
 ///   fill: cmyk(27%, 0%, 3%, 5%)
 /// )
-/// ````
+/// ```
 ///
 /// Display: CMYK
 /// Category: construct
@@ -388,13 +384,14 @@ pub fn color_module() -> Module {
 
 /// Create a color by mixing two or more colors.
 ///
-/// ## Example
+/// ## Example { #example }
 /// ```example
-/// #color.mix(red, green)
-/// #color.mix(red, green, white)
-/// #color.mix(red, green, space: "srgb")
-/// #color.mix((red, 30%), (green, 70%))
-/// ````
+/// #set block(height: 20pt, width: 100%)
+/// #block(fill: color.mix(red, blue))
+/// #block(fill: color.mix(red, blue, space: "srgb"))
+/// #block(fill: color.mix((red, 70%), (blue, 30%)))
+/// #block(fill: color.mix(red, blue, white))
+/// ```
 ///
 /// _Note:_ This function must be specified as `color.mix`, not just `mix`.
 /// Currently, `color` is a module, but it is designed to be forward compatible
@@ -406,6 +403,9 @@ pub fn color_module() -> Module {
 pub fn mix(
     /// The colors, optionally with weights, specified as a pair (array of
     /// length two) of color and weight (float or ratio).
+    ///
+    /// The weights do not need to add to `{100%}`, they are relative to the
+    /// sum of all weights.
     #[variadic]
     colors: Vec<WeightedColor>,
     /// The color space to mix in. By default, this happens in a perceptual
@@ -486,6 +486,7 @@ cast! {
 ///   optional `base` parameter.
 /// - Floats are formatted in base 10 and never in exponential notation.
 /// - From labels the name is extracted.
+/// - Bytes are decoded as UTF-8.
 ///
 /// If you wish to convert from and to Unicode code points, see
 /// [`str.to-unicode`]($func/str.to-unicode) and
@@ -545,6 +546,11 @@ cast! {
     v: i64 => Self::Int(v),
     v: f64 => Self::Str(format_str!("{}", v)),
     v: Label => Self::Str(v.0.into()),
+    v: Bytes => Self::Str(
+        std::str::from_utf8(&v)
+            .map_err(|_| "bytes are not valid utf-8")?
+            .into()
+    ),
     v: Str => Self::Str(v),
 }
 
@@ -633,35 +639,6 @@ cast! {
     },
 }
 
-/// Creates a label from a string.
-///
-/// Inserting a label into content attaches it to the closest previous element
-/// that is not a space. Then, the element can be [referenced]($func/ref) and
-/// styled through the label.
-///
-/// ## Example { #example }
-/// ```example
-/// #show <a>: set text(blue)
-/// #show label("b"): set text(red)
-///
-/// = Heading <a>
-/// *Strong* #label("b")
-/// ```
-///
-/// ## Syntax { #syntax }
-/// This function also has dedicated syntax: You can create a label by enclosing
-/// its name in angle brackets. This works both in markup and code.
-///
-/// Display: Label
-/// Category: construct
-#[func]
-pub fn label(
-    /// The name of the label.
-    name: EcoString,
-) -> Label {
-    Label(name)
-}
-
 /// Creates a regular expression from a string.
 ///
 /// The result can be used as a
@@ -699,6 +676,106 @@ pub fn regex(
     regex: Spanned<EcoString>,
 ) -> SourceResult<Regex> {
     Regex::new(&regex.v).at(regex.span)
+}
+
+/// Converts a value to bytes.
+///
+/// - Strings are encoded in UTF-8.
+/// - Arrays of integers between `{0}` and `{255}` are converted directly. The
+///   dedicated byte representation is much more efficient than the array
+///   representation and thus typically used for large byte buffers (e.g. image
+///   data).
+///
+/// ```example
+/// #bytes("Hello 😃") \
+/// #bytes((123, 160, 22, 0))
+/// ```
+///
+/// Display: Bytes
+/// Category: construct
+#[func]
+pub fn bytes(
+    /// The value that should be converted to a string.
+    value: ToBytes,
+) -> Bytes {
+    value.0
+}
+
+/// A value that can be cast to bytes.
+pub struct ToBytes(Bytes);
+
+cast! {
+    ToBytes,
+    v: Str => Self(v.as_bytes().into()),
+    v: Array => Self(v.iter()
+        .map(|v| match v {
+            Value::Int(byte @ 0..=255) => Ok(*byte as u8),
+            Value::Int(_) => bail!("number must be between 0 and 255"),
+            value => Err(<u8 as Reflect>::error(value)),
+        })
+        .collect::<Result<Vec<u8>, _>>()?
+        .into()
+    ),
+    v: Bytes => Self(v),
+}
+
+/// Creates a label from a string.
+///
+/// Inserting a label into content attaches it to the closest previous element
+/// that is not a space. Then, the element can be [referenced]($func/ref) and
+/// styled through the label.
+///
+/// ## Example { #example }
+/// ```example
+/// #show <a>: set text(blue)
+/// #show label("b"): set text(red)
+///
+/// = Heading <a>
+/// *Strong* #label("b")
+/// ```
+///
+/// ## Syntax { #syntax }
+/// This function also has dedicated syntax: You can create a label by enclosing
+/// its name in angle brackets. This works both in markup and code.
+///
+/// Display: Label
+/// Category: construct
+#[func]
+pub fn label(
+    /// The name of the label.
+    name: EcoString,
+) -> Label {
+    Label(name)
+}
+
+/// Converts a value to an array.
+///
+/// Note that this function is only intended for conversion of a collection-like
+/// value to an array, not for creation of an array from individual items. Use
+/// the array syntax `(1, 2, 3)` (or `(1,)` for a single-element array) instead.
+///
+/// ```example
+/// #let hi = "Hello 😃"
+/// #array(bytes(hi))
+/// ```
+///
+/// Display: Array
+/// Category: construct
+#[func]
+pub fn array(
+    /// The value that should be converted to an array.
+    value: ToArray,
+) -> Array {
+    value.0
+}
+
+/// A value that can be cast to bytes.
+pub struct ToArray(Array);
+
+cast! {
+    ToArray,
+    v: Bytes => Self(v.iter().map(|&b| Value::Int(b as i64)).collect()),
+    v: Array => Self(v),
 }
 
 /// Creates an array consisting of consecutive integers.
@@ -752,6 +829,115 @@ pub fn range(
     }
 
     Ok(array)
+}
+
+/// Loads a WebAssembly plugin.
+///
+/// This is **advanced functionality** and not to be confused with
+/// [Typst packages]($scripting/#packages).
+///
+/// Typst is capable of interfacing with plugins compiled to WebAssembly. Plugin
+/// functions may accept multiple [byte buffers]($type/bytes) as arguments and
+/// return a single byte buffer. They should typically be wrapped in idiomatic
+/// Typst functions that perform the necessary conversions between native Typst
+/// types and bytes.
+///
+/// Plugins run in isolation from your system, which means that printing,
+/// reading files, or anything like that will not be supported for security
+/// reasons. To run as a plugin, a program needs to be compiled to a 32-bit
+/// shared WebAssembly library. Many compilers will use the
+/// [WASI ABI](https://wasi.dev/) by default or as their only option (e.g.
+/// emscripten), which allows printing, reading files, etc. This ABI will not
+/// directly work with Typst. You will either need to compile to a different
+/// target or [stub all functions](https://github.com/astrale-sharp/wasm-minimal-protocol/blob/master/wasi-stub).
+///
+/// ## Example { #example }
+/// ```example
+/// #let myplugin = plugin("hello.wasm")
+/// #let concat(a, b) = str(
+///   myplugin.concatenate(
+///     bytes(a),
+///     bytes(b),
+///   )
+/// )
+///
+/// #concat("hello", "world")
+/// ```
+///
+/// ## Protocol { #protocol }
+/// To be used as a plugin, a WebAssembly module must conform to the following
+/// protocol:
+///
+/// ### Exports { #exports }
+/// A plugin module can export functions to make them callable from Typst. To
+/// conform to the protocol, an exported function should:
+///
+/// - Take `n` 32-bit integer arguments `a_1`, `a_2`, ..., `a_n` (interpreted as
+///   lengths, so `usize/size_t` may be preferable), and return one 32-bit
+///   integer.
+///
+/// - The function should first allocate a buffer `buf` of length
+///   `a_1 + a_2 + ... + a_n`, and then call
+///   `wasm_minimal_protocol_write_args_to_buffer(buf.ptr)`.
+///
+/// - The `a_1` first bytes of the buffer now constitute the first argument, the
+///   `a_2` next bytes the second argument, and so on.
+///
+/// - The function can now do its job with the arguments and produce an output
+///   buffer. Before returning, it should call
+///   `wasm_minimal_protocol_send_result_to_host` to send its result back to the
+///   host.
+///
+/// - To signal success, the function should return `0`.
+///
+/// - To signal an error, the function should return `1`. The written buffer is
+///   then interpreted as an UTF-8 encoded error message.
+///
+/// ### Imports { #imports }
+/// Plugin modules need to import two functions that are provided by the runtime.
+/// (Types and functions are described using WAT syntax.)
+///
+/// - `(import "typst_env" "wasm_minimal_protocol_write_args_to_buffer" (func (param i32)))`
+///
+///   Writes the arguments for the current function into a plugin-allocated
+///   buffer. When a plugin function is called, it
+///   [receives the lengths](#exported-functions) of its input buffers as
+///   arguments. It should then allocate a buffer whose capacity is at least the
+///   sum of these lengths. It should then call this function with a `ptr` to
+///   the buffer to fill it with the arguments, one after another.
+///
+/// - `(import "typst_env" "wasm_minimal_protocol_send_result_to_host" (func (param i32 i32)))`
+///
+///   Sends the output of the current function to the host (Typst). The first
+///   parameter shall be a pointer to a buffer (`ptr`), while the second is the
+///   length of that buffer (`len`). The memory pointed at by `ptr` can be freed
+///   immediately after this function returns. If the message should be
+///   interpreted as an error message, it should be encoded as UTF-8.
+///
+/// ## Resources { #resources }
+/// For more resources, check out the
+/// [wasm-minimal-protocol repository](https://github.com/astrale-sharp/wasm-minimal-protocol).
+/// It contains:
+///
+/// - A list of example plugin implementations and a test runner for these
+///   examples
+/// - Wrappers to help you write your plugin in Rust (Zig wrapper in
+///   development)
+/// - A stubber for WASI
+///
+/// Display: Plugin
+/// Category: construct
+#[func]
+pub fn plugin(
+    /// Path to a WebAssembly file.
+    path: Spanned<EcoString>,
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Plugin> {
+    let Spanned { v: path, span } = path;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
+    Plugin::new(data).at(span)
 }
 
 #[cfg(test)]
