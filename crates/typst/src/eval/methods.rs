@@ -273,11 +273,11 @@ pub fn call(
                 }
             } else if let Some(&duration) = dynamic.downcast::<Duration>() {
                 match method {
-                    "seconds" => duration.as_seconds().into_value(),
-                    "minutes" => duration.as_minutes().into_value(),
-                    "hours" => duration.as_hours().into_value(),
-                    "days" => duration.as_days().into_value(),
-                    "weeks" => duration.as_weeks().into_value(),
+                    "seconds" => duration.seconds().into_value(),
+                    "minutes" => duration.minutes().into_value(),
+                    "hours" => duration.hours().into_value(),
+                    "days" => duration.days().into_value(),
+                    "weeks" => duration.weeks().into_value(),
                     _ => return missing(),
                 }
             } else if let Some(direction) = dynamic.downcast::<Dir>() {

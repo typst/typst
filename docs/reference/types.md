@@ -432,14 +432,15 @@ Returns the second of the datetime, if it exists. Otherwise, it returns
 - returns: integer or none
 
 ### ordinal()
-Returns the ordinal (day of the year) of the datetime, if it exists. Otherwise, it returns
-`{none}`.
+Returns the ordinal (day of the year) of the datetime, if it exists.
+Otherwise, it returns `{none}`.
 
 - returns: integer or none
 
 # Duration
-Represents a span of time. Can be created by either specifying a custom duration using the [`duration`]($func/datetime) function or
-by subtracting two dates.
+Represents a span of time. Can be created by either specifying a custom
+duration using the [`duration`]($func/datetime) function or by subtracting two
+dates.
 
 ## Example
 ```example

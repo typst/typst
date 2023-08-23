@@ -10,23 +10,23 @@ use typst_macros::cast;
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Duration(time::Duration);
 impl Duration {
-    pub fn as_seconds(&self) -> f64 {
+    pub fn seconds(&self) -> f64 {
         self.0.as_seconds_f64()
     }
 
-    pub fn as_minutes(&self) -> f64 {
+    pub fn minutes(&self) -> f64 {
         self.0.as_seconds_f64() / 60.0
     }
 
-    pub fn as_hours(&self) -> f64 {
+    pub fn hours(&self) -> f64 {
         self.0.as_seconds_f64() / 3_600.0
     }
 
-    pub fn as_days(&self) -> f64 {
+    pub fn days(&self) -> f64 {
         self.0.as_seconds_f64() / 86_400.0
     }
 
-    pub fn as_weeks(&self) -> f64 {
+    pub fn weeks(&self) -> f64 {
         self.0.as_seconds_f64() / 604_800.0
     }
 

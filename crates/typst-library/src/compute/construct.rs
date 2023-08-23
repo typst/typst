@@ -342,7 +342,7 @@ pub fn datetime_today(
 /// ## Example
 /// ```example
 /// #duration(
-///   days: 3, 
+///   days: 3,
 ///   hours: 12,
 /// ).hours()
 /// ```
@@ -351,23 +351,23 @@ pub fn datetime_today(
 /// Category: construct
 #[func]
 pub fn duration(
-    /// The year of the datetime.
+    /// The amount of seconds.
     #[named]
     #[default(0)]
     seconds: i64,
-    /// The month of the datetime.
+    /// The amount of minutes.
     #[named]
     #[default(0)]
     minutes: i64,
-    /// The day of the datetime.
+    /// The amount of hours.
     #[named]
     #[default(0)]
     hours: i64,
-    /// The hour of the datetime.
+    /// The amount of days.
     #[named]
     #[default(0)]
     days: i64,
-    /// The minute of the datetime.
+    /// The amount of weeks.
     #[named]
     #[default(0)]
     weeks: i64,

@@ -1,13 +1,13 @@
-use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::ops::{Add, Sub};
+use std::fmt;
 
-use crate::diag::{bail, StrResult};
 use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::{format_description, PrimitiveDateTime};
 
+use crate::diag::{bail, StrResult};
 use crate::eval::{cast, Duration};
 use crate::util::pretty_array_like;
 
@@ -145,6 +145,14 @@ impl Datetime {
         let time = time::Time::from_hms(hour, minute, second).ok()?;
         Some(Datetime::Datetime(PrimitiveDateTime::new(date, time)))
     }
+
+    pub fn get_type(&self) -> &'static str {
+        match self {
+            Datetime::Datetime(_) => "datetime",
+            Datetime::Date(_) => "date",
+            Datetime::Time(_) => "time",
+        }
+    }
 }
 
 impl Add<Duration> for Datetime {
@@ -181,7 +189,11 @@ impl Sub for Datetime {
             (Datetime::Datetime(a), Datetime::Datetime(b)) => Ok((a - b).into()),
             (Datetime::Date(a), Datetime::Date(b)) => Ok((a - b).into()),
             (Datetime::Time(a), Datetime::Time(b)) => Ok((a - b).into()),
-            _ => bail!("datetimes have to be compatible for subtraction"),
+            (a, b) => bail!(
+                "cannot subtract {} from {}",
+                b.get_type(),
+                a.get_type()
+            ),
         }
     }
 }

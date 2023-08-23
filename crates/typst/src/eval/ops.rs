@@ -7,7 +7,7 @@ use ecow::eco_format;
 
 use super::{format_str, Regex, Value};
 use crate::diag::{bail, StrResult};
-use crate::eval::{Dynamic, Datetime, Duration};
+use crate::eval::{Datetime, Duration, Dynamic};
 use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
 use Value::*;
 
