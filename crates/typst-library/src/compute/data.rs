@@ -505,6 +505,76 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
     eco_format!("failed to parse yaml file: {}", error.to_string().trim())
 }
 
+/// Reads structured data from a postcard file.
+///
+/// The file must contain a valid postcard serialization. Mappings will be
+/// converted into Typst dictionaries, and sequences will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents, null-values (`null`, `~` or empty ``) will be converted into
+/// `{none}`, and numbers will be converted to floats or integers depending on
+/// whether they are whole numbers.
+///
+/// The function returns a dictionary or value or an array, depending on
+/// the input.
+///
+/// Display: postcard
+/// Category: data-loading
+#[func]
+#[scope(
+scope.define("decode", postcard_decode_func());
+scope.define("encode", postcard_encode_func());
+scope
+)]
+pub fn postcard(
+    /// Path to a postcard file.
+    path: Spanned<EcoString>,
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Value> {
+    let Spanned { v: path, span } = path;
+    let id = vm.location().join(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
+    postcard_decode(Spanned::new(data, span))
+}
+
+/// Reads structured data from postcard bytes.
+///
+/// Display: postcard
+/// Category: data-loading
+#[func]
+pub fn postcard_decode(
+    /// postcard data.
+    data: Spanned<Bytes>,
+) -> SourceResult<Value> {
+    let Spanned { v: data, span } = data;
+    let value: Value = postcard::from_bytes(data.as_slice())
+        .map_err(format_postcard_error)
+        .at(span)?;
+    Ok(value)
+}
+
+/// Encode structured data into postcard bytes.
+///
+/// Display: postcard
+/// Category: data-loading
+#[func]
+pub fn postcard_encode(
+    /// Value to be encoded.
+    value: Spanned<Value>,
+) -> SourceResult<Bytes> {
+    let Spanned { v: value, span } = value;
+
+    postcard::to_allocvec(&value)
+        .map(|v| v.into())
+        .map_err(|e| eco_format!("failed to encode value as yaml: {e}"))
+        .at(span)
+}
+
+/// Format the user-facing YAML error message.
+fn format_postcard_error(error: postcard::Error) -> EcoString {
+    eco_format!("failed to parse postcard: {}", error.to_string().trim())
+}
+
 /// Reads structured data from an XML file.
 ///
 /// The XML file is parsed into an array of dictionaries and strings. XML nodes
