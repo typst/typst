@@ -38,12 +38,7 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
         }
     }
 
-    let current_exe = env::current_exe().map_err(|err| {
-        eco_format!("failed to locate path of the running executable: {err}")
-    })?;
-
     let backup_path = backup_path()?;
-
     if command.revert {
         if !backup_path.exists() {
             bail!("unable to revert, no backup found (searched at {backup_path:?})");
@@ -54,6 +49,9 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
             .map_err(|err| eco_format!("unable to revert to backup: {err}"));
     }
 
+    let current_exe = env::current_exe().map_err(|err| {
+        eco_format!("failed to locate path of the running executable: {err}")
+    })?;
     fs::copy(current_exe, &backup_path)
         .map_err(|err| eco_format!("backing up failed: {}", err))?;
 
@@ -64,7 +62,6 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
     }
 
     let binary_data = release.download_binary(needed_asset()?)?;
-
     let mut temp_exe = NamedTempFile::new()
         .map_err(|err| eco_format!("failed to create temporary binary: {err}"))?;
     temp_exe
@@ -74,9 +71,7 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
     self_replace::self_replace(&temp_exe).map_err(|err| {
         fs::remove_file(&temp_exe).ok();
         eco_format!("self replace failed: {}", err)
-    })?;
-
-    Ok(())
+    })
 }
 
 /// Assets belonging to a GitHub release.
@@ -125,8 +120,9 @@ impl Release {
         }
     }
 
-    /// Downloads the binary from a given [`Release`] and picks the right one
-    /// for the target platform, returning the raw binary data.
+    /// Download the binary from a given [`Release`] and select the
+    /// corresponding asset for this target platform, returning the raw binary
+    /// data.
     pub fn download_binary(&self, asset_name: &str) -> StrResult<Vec<u8>> {
         let asset = self
             .assets
@@ -192,7 +188,7 @@ fn extract_binary_from_tar_xz(data: &[u8]) -> StrResult<Vec<u8>> {
     Ok(buffer)
 }
 
-/// Determines what asset to download according to the target platform the CLI
+/// Determine what asset to download according to the target platform the CLI
 /// is running on.
 fn needed_asset() -> StrResult<&'static str> {
     Ok(match env!("TARGET") {
@@ -208,7 +204,7 @@ fn needed_asset() -> StrResult<&'static str> {
     })
 }
 
-/// Compares the release version to the CLI version to see if an update is needed.
+/// Compare the release version to the CLI version to see if an update is needed.
 fn update_needed(release: &Release) -> StrResult<bool> {
     let current_tag: Version = env!("CARGO_PKG_VERSION").parse().unwrap();
     let new_tag: Version = release
@@ -226,6 +222,7 @@ fn update_needed(release: &Release) -> StrResult<bool> {
 /// The backup will be placed in one of the following directories, depending on
 /// the platform:
 ///  - `$XDG_STATE_HOME` or `~/.local/state` on Linux
+///    - `$XDG_DATA_HOME` or `~/.local/share` if the above path isn't available
 ///  - `~/Library/Application Support` on macOS
 ///  - `%APPDATA%` on Windows
 fn backup_path() -> StrResult<PathBuf> {
