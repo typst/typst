@@ -69,3 +69,5 @@ jobs:
       with:
         artifacts: "typst-${{ matrix.target }}.*"
         allowUpdates: true
+        omitNameDuringUpdate: true
+        omitBodyDuringUpdate: true
