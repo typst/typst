@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
@@ -11,13 +11,40 @@ use typst::geom::Color;
 use typst::syntax::{FileId, Source};
 use typst::World;
 
-use crate::args::{CompileCommand, DiagnosticFormat};
+use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
+
+impl CompileCommand {
+    /// The output path.
+    pub fn output(&self) -> PathBuf {
+        self.output
+            .clone()
+            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
+    }
+
+    /// The format to use for generated output, either specified by the user or inferred from the extension.
+    ///
+    /// Will return `Err` if the format was not specified and could not be inferred.
+    pub fn output_format(&self) -> StrResult<OutputFormat> {
+        Ok(if let Some(specified) = self.format {
+            specified
+        } else if let Some(output) = &self.output {
+            match output.extension() {
+                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
+                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
+                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
+                _ => bail!("could not infer output format for path {}.\nconsider providing the format manually with `--format/-f`", output.display()),
+            }
+        } else {
+            OutputFormat::Pdf
+        })
+    }
+}
 
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
@@ -97,9 +124,10 @@ pub fn compile_once(
 
 /// Export into the target format.
 fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    match command.output().extension() {
-        Some(ext) if ext.eq_ignore_ascii_case("png") => export_png(document, command),
-        _ => export_pdf(document, command),
+    match command.output_format()? {
+        OutputFormat::Png => export_image(document, command, ImageExportFormat::Png),
+        OutputFormat::Svg => export_image(document, command, ImageExportFormat::Svg),
+        OutputFormat::Pdf => export_pdf(document, command),
     }
 }
 
@@ -111,14 +139,24 @@ fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     Ok(())
 }
 
+/// An image format to export in.
+enum ImageExportFormat {
+    Png,
+    Svg,
+}
+
 /// Export to one or multiple PNGs.
-fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
+fn export_image(
+    document: &Document,
+    command: &CompileCommand,
+    fmt: ImageExportFormat,
+) -> StrResult<()> {
     // Determine whether we have a `{n}` numbering.
     let output = command.output();
     let string = output.to_str().unwrap_or_default();
     let numbered = string.contains("{n}");
     if !numbered && document.pages.len() > 1 {
-        bail!("cannot export multiple PNGs without `{{n}}` in output path");
+        bail!("cannot export multiple images without `{{n}}` in output path");
     }
 
     // Find a number width that accommodates all pages. For instance, the
@@ -128,14 +166,23 @@ fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let mut storage;
 
     for (i, frame) in document.pages.iter().enumerate() {
-        let pixmap = typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
         let path = if numbered {
             storage = string.replace("{n}", &format!("{:0width$}", i + 1));
             Path::new(&storage)
         } else {
             output.as_path()
         };
-        pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+        match fmt {
+            ImageExportFormat::Png => {
+                let pixmap =
+                    typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
+                pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+            }
+            ImageExportFormat::Svg => {
+                let svg = typst::export::svg(frame);
+                fs::write(path, svg).map_err(|_| "failed to write SVG file")?;
+            }
+        }
     }
 
     Ok(())
@@ -207,11 +254,23 @@ pub fn print_diagnostics(
 
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
     type FileId = FileId;
-    type Name = FileId;
+    type Name = String;
     type Source = Source;
 
     fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
-        Ok(id)
+        let vpath = id.vpath();
+        Ok(if let Some(package) = id.package() {
+            format!("{package}{}", vpath.as_rooted_path().display())
+        } else {
+            // Try to express the path relative to the working directory.
+            vpath
+                .resolve(self.root())
+                .and_then(|abs| pathdiff::diff_paths(&abs, self.workdir()))
+                .as_deref()
+                .unwrap_or_else(|| vpath.as_rootless_path())
+                .to_string_lossy()
+                .into()
+        })
     }
 
     fn source(&'a self, id: FileId) -> CodespanResult<Self::Source> {

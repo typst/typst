@@ -46,7 +46,7 @@ integers, integers cannot be smaller than `{-9223372036854775808}` or larger tha
 The number can also be specified as hexadecimal, octal, or binary by starting it
 with a zero followed by either `x`, `o`, or `b`.
 
-You can convert a value to an integer with the [`float`]($func/float) function.
+You can convert a value to an integer with the [`int`]($func/int) function.
 
 ## Example
 ```example
@@ -1028,6 +1028,12 @@ Combine all items in the array into one.
 - last: any (named)
   An alternative separator between the last two items
 - returns: any
+
+### intersperse()
+Returns a new array with a separator placed between adjacent items.
+
+- separator: any (positional)
+  The value to insert between each item of the array.
 
 ### sorted()
 Return a new array with the same items, but sorted.
