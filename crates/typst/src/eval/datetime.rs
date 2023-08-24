@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
@@ -15,7 +16,7 @@ use crate::util::pretty_array_like;
 
 /// A datetime object that represents either a date, a time or a combination of
 /// both.
-#[derive(Clone, Copy, PartialEq, Hash, Ord, PartialOrd, Eq)]
+#[derive(Clone, Copy, PartialEq, Hash, Eq)]
 pub enum Datetime {
     /// Representation as a date.
     Date(time::Date),
@@ -158,6 +159,17 @@ impl Datetime {
 }
 
 primitive! { Datetime: "datetime", Datetime }
+
+impl PartialOrd for Datetime {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (Datetime::Datetime(a), Datetime::Datetime(b)) => a.partial_cmp(b),
+            (Datetime::Date(a), Datetime::Date(b)) => a.partial_cmp(b),
+            (Datetime::Time(a), Datetime::Time(b)) => a.partial_cmp(b),
+            _ => None,
+        }
+    }
+}
 
 impl Add<Duration> for Datetime {
     type Output = Datetime;

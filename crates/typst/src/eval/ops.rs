@@ -410,7 +410,11 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
         (Duration(a), Duration(b)) => a.cmp(b),
-        (Datetime(a), Datetime(b)) => a.cmp(b),
+        (Datetime(a), Datetime(b)) => a.partial_cmp(b).ok_or(format!(
+            "cannot compare {} and {}",
+            a.get_type(),
+            b.get_type()
+        ))?,
 
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
     })

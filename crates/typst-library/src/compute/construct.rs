@@ -233,7 +233,7 @@ pub fn datetime(
     /// The second of the datetime.
     #[named]
     second: Option<SecondComponent>,
-) -> StrResult<Value> {
+) -> StrResult<Datetime> {
     let time = match (hour, minute, second) {
         (Some(hour), Some(minute), Some(second)) => {
             match time::Time::from_hms(hour.0, minute.0, second.0) {
@@ -265,8 +265,7 @@ pub fn datetime(
         (None, None) => {
             bail!("at least one of date or time must be fully specified")
         }
-    }
-    .into_value())
+    })
 }
 
 pub struct YearComponent(i32);
@@ -328,18 +327,17 @@ pub fn datetime_today(
     offset: Smart<i64>,
     /// The virtual machine.
     vt: &mut Vt,
-) -> StrResult<Value> {
+) -> StrResult<Datetime> {
     Ok(vt
         .world
         .today(offset.as_custom())
-        .ok_or("unable to get the current date")?
-        .into_value())
+        .ok_or("unable to get the current date")?)
 }
 
 /// Creates a new duration.
 ///
 /// You can specify the [duration]($type/duration) using weeks, days, hours, minutes and seconds.
-/// You can also get a duration when subtracting two [datetimes]($type/datetime).
+/// You can also get a duration by subtracting two [datetimes]($type/datetime).
 ///
 /// ## Example
 /// ```example
@@ -373,7 +371,7 @@ pub fn duration(
     #[named]
     #[default(0)]
     weeks: i64,
-) -> Value {
+) -> Duration {
     Duration::from(
         time::Duration::seconds(seconds)
             + time::Duration::minutes(minutes)
@@ -381,7 +379,6 @@ pub fn duration(
             + time::Duration::days(days)
             + time::Duration::weeks(weeks),
     )
-    .into_value()
 }
 
 /// Creates a CMYK color.
