@@ -507,11 +507,11 @@ pub fn postcard_encode(
 
     postcard::to_allocvec(&value)
         .map(|v| v.into())
-        .map_err(|e| eco_format!("failed to encode value as yaml: {e}"))
+        .map_err(|e| eco_format!("failed to encode value as postcard: {e}"))
         .at(span)
 }
 
-/// Format the user-facing YAML error message.
+/// Format the user-facing postcard error message.
 fn format_postcard_error(error: postcard::Error) -> EcoString {
     eco_format!("failed to parse postcard: {}", error.to_string().trim())
 }
