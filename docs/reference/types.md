@@ -456,28 +456,45 @@ dates.
 ## Methods
 
 ### seconds()
-Returns the amount of seconds that equals the duration.
+Returns the duration in seconds as a floating-point value.
+
+This function returns the total duration represented in seconds as a
+floating-point number. It does not provide the second component of the duration,
+but rather gives the overall duration in terms of seconds.
 
 - returns: float
 
 ### minutes()
-Returns the amount of minutes that equals the duration.
+Returns the duration in minutes as a floating-point value.
+
+This function returns the total duration represented in minutes as a
+floating-point number. It does not provide the minute component of the duration,
+but rather gives the overall duration in terms of minutes.
 
 - returns: float
 
 ### hours()
-Returns the amount of hours that equals the duration.
+Returns the duration in hours as a floating-point value.
 
+This function returns the total duration represented in hours as a
+floating-point number. It does not provide the hour component of the duration,
+but rather gives the overall duration in terms of hours.
 - returns: float
 
 ### days()
-Returns the amount of days that equals the duration.
+Returns the duration in days as a floating-point value.
 
+This function returns the total duration represented in days as a
+floating-point number. It does not provide the day component of the duration,
+but rather gives the overall duration in terms of days.
 - returns: float
 
 ### weeks()
-Returns the amount of weeks that equals the duration.
+Returns the duration in weeks as a floating-point value.
 
+This function returns the total duration represented in weeks as a
+floating-point number. It does not provide the week component of the duration,
+but rather gives the overall duration in terms of weeks.
 - returns: float
 
 # Symbol
