@@ -72,13 +72,9 @@ $ mat(#1, #(foo: "bar")) $
   gutter: 10pt,
 
   $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #3) $,
-  $ mat(augment: #3, 10, 2, 3, 4; 5, 6, 7, 8) $,
-
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 2)) $,
-  $ mat(augment: #(hline: 2), 100, 2, 3; 4, 5, 6; 7, 8, 9) $,
-
   $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 1, vline: 1)) $,
-  $ mat(augment: #(hline: 1, vline: 1), 100, 2, 3; 4, 5, 6; 7, 8, 9) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 2, stroke: 1pt + blue)) $,
 )
 
 ---
@@ -86,6 +82,10 @@ $ mat(#1, #(foo: "bar")) $
 // Test using matrix line drawing with a set rule.
 #set math.mat(augment: (hline: 2, vline: 1, stroke: 2pt + green))
 $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
+
+#set math.mat(augment: 2)
+$ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
+
 #set math.mat(augment: none)
 
 ---

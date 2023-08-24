@@ -89,19 +89,23 @@ pub struct MatElem {
     /// - `{none}`: No lines are drawn.
     /// - A single number: A vertical augmentation line is drawn
     ///   after the specified column number.
-    /// - A dictionary: With a dictionary, multiple augmentation lines can be drawn
-    ///   both horizontally and vertically. Additionally, the style of the lines can be set.
-    ///   The dictionary can contain the following keys:
-    ///   - `hline`: The offsets at which horizontal lines should be drawn. For example, an
-    ///     offset of `2` would result in a horizontal line being drawn after the second
-    ///     row of the matrix. Accepts either an integer for a single line, or an array
-    ///     of integers for multiple lines.
-    ///   - `vline`: The offsets at which vertical lines should be drawn. For example, an
-    ///     offset of `2` would result in a vertical line being drawn after the second
-    ///     column of the matrix. Accepts either an integer for a single line, or an array
-    ///     of integers for multiple lines.
-    ///   - `stroke`: How to stroke the line. See the [line's documentation]($func/line.stroke)
-    ///     for more details. If set to `{auto}`, takes on a thickness of 0.05em and square line caps.
+    /// - A dictionary: With a dictionary, multiple augmentation lines can be
+    ///   drawn both horizontally and vertically. Additionally, the style of the
+    ///   lines can be set. The dictionary can contain the following keys:
+    ///   - `hline`: The offsets at which horizontal lines should be drawn.
+    ///     For example, an offset of `2` would result in a horizontal line
+    ///     being drawn after the second row of the matrix. Accepts either an
+    ///     integer for a single line, or an array of integers
+    ///     for multiple lines.
+    ///   - `vline`: The offsets at which vertical lines should be drawn.
+    ///     For example, an offset of `2` would result in a vertical line being
+    ///     drawn after the second column of the matrix. Accepts either an
+    ///     integer for a single line, or an array of integers
+    ///     for multiple lines.
+    ///   - `stroke`: How to stroke the line. See the
+    ///     [line's documentation]($func/line.stroke)
+    ///     for more details. If set to `{auto}`, takes on a thickness of
+    ///     0.05em and square line caps.
     ///
     /// ```example
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
@@ -110,8 +114,8 @@ pub struct MatElem {
     /// ```example
     /// $ mat(0, 0, 0; 1, 1, 1; augment: #(hline: 1, stroke: 2pt + green)) $
     /// ```
-    #[default(None)]
     #[resolve]
+    #[fold]
     pub augment: Option<Augment>,
 
     /// An array of arrays with the rows of the matrix.
@@ -157,31 +161,27 @@ impl LayoutMath for MatElem {
         let augment = self.augment(ctx.styles());
 
         if let Some(aug) = &augment {
-            if let Smart::Custom(hline) = &aug.hline {
-                for offset in &hline.0 {
-                    if *offset == 0 || *offset >= self.rows().len() {
-                        bail!(
-                            self.span(),
-                            "cannot draw a horizontal line after row {} of a matrix with {} rows",
-                            offset,
-                            self.rows().len()
-                        );
-                    }
+            for &offset in &aug.hline.0 {
+                if offset == 0 || offset >= self.rows().len() {
+                    bail!(
+                        self.span(),
+                        "cannot draw a horizontal line after row {} of a matrix with {} rows",
+                        offset,
+                        self.rows().len()
+                    );
                 }
             }
 
-            if let Smart::Custom(vline) = &aug.vline {
-                let ncols = self.rows().first().map_or(0, |row| row.len());
+            let ncols = self.rows().first().map_or(0, |row| row.len());
 
-                for offset in &vline.0 {
-                    if *offset == 0 || *offset >= ncols {
-                        bail!(
-                            self.span(),
-                            "cannot draw a vertical line after column {} of a matrix with {} columns",
-                            offset,
-                            ncols
-                        );
-                    }
+            for &offset in &aug.vline.0 {
+                if offset == 0 || offset >= ncols {
+                    bail!(
+                        self.span(),
+                        "cannot draw a vertical line after column {} of a matrix with {} columns",
+                        offset,
+                        ncols
+                    );
                 }
             }
         }
@@ -325,13 +325,14 @@ fn layout_mat_body(
         ..Default::default()
     };
 
-    let (hline, vline, stroke) = match &augment {
-        Some(v) => (
-            v.hline_or_default(),
-            v.vline_or_default(),
-            v.stroke_or_default(default_stroke),
-        ),
-        _ => (vec![], vec![], default_stroke),
+    let (hline, vline, stroke) = match augment {
+        Some(v) => {
+            // need to get stroke here for ownership
+            let stroke = v.stroke_or(default_stroke);
+
+            (v.hline, v.vline, stroke)
+        }
+        _ => (Offsets::default(), Offsets::default(), default_stroke),
     };
 
     let ncols = rows.first().map_or(0, |row| row.len());
@@ -367,7 +368,7 @@ fn layout_mat_body(
     ctx.unstyle();
 
     // For each row, combine maximum ascent and descent into a row height.
-    // Sum the row heights and then add the total height of the gaps between rows.
+    // Sum the row heights, then add the total height of the gaps between rows.
     let total_height =
         heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + row_gap * (nrows - 1) as f64;
 
@@ -397,10 +398,10 @@ fn layout_mat_body(
         x += rcol;
 
         // If a vertical line should be inserted after this column
-        if vline.contains(&(index + 1)) {
+        if vline.0.contains(&(index + 1)) {
             frame.push(
                 Point::with_x(x + half_col_gap),
-                vline_item(total_height, stroke.clone(), span),
+                line_item(total_height, true, stroke.clone(), span),
             );
         }
 
@@ -412,12 +413,15 @@ fn layout_mat_body(
     let total_width = x - col_gap;
 
     // This allows the horizontal lines to be laid out
-    for line in hline {
+    for line in hline.0 {
         let offset = (heights[0..line].iter().map(|&(a, b)| a + b).sum::<Abs>()
             + row_gap * (line - 1) as f64)
             + half_row_gap;
 
-        frame.push(Point::with_y(offset), hline_item(total_width, stroke.clone(), span));
+        frame.push(
+            Point::with_y(offset),
+            line_item(total_width, false, stroke.clone(), span),
+        );
     }
 
     frame.size_mut().x = total_width;
@@ -425,25 +429,16 @@ fn layout_mat_body(
     Ok(frame)
 }
 
-fn hline_item(length: Abs, stroke: Stroke, span: Span) -> FrameItem {
-    let hline_geom = Geometry::Line(Point::with_x(length));
+fn line_item(length: Abs, vertical: bool, stroke: Stroke, span: Span) -> FrameItem {
+    let line_geom = if vertical {
+        Geometry::Line(Point::with_y(length))
+    } else {
+        Geometry::Line(Point::with_x(length))
+    };
 
     FrameItem::Shape(
         Shape {
-            geometry: hline_geom,
-            fill: None,
-            stroke: Some(stroke),
-        },
-        span,
-    )
-}
-
-fn vline_item(length: Abs, stroke: Stroke, span: Span) -> FrameItem {
-    let vline_geom = Geometry::Line(Point::with_y(length));
-
-    FrameItem::Shape(
-        Shape {
-            geometry: vline_geom,
+            geometry: line_geom,
             fill: None,
             stroke: Some(stroke),
         },
@@ -488,30 +483,16 @@ fn layout_delimiters(
 /// should be drawn on a matrix.
 #[derive(Default, Clone, Hash)]
 pub struct Augment<T = Length> {
-    pub hline: Smart<Offsets>,
-    pub vline: Smart<Offsets>,
+    pub hline: Offsets,
+    pub vline: Offsets,
     pub stroke: Smart<PartialStroke<T>>,
 }
 
 impl Augment<Abs> {
-    fn hline_or_default(&self) -> Vec<usize> {
-        match &self.hline {
-            Smart::Custom(v) => v.0.to_vec(),
-            _ => vec![],
-        }
-    }
-
-    fn vline_or_default(&self) -> Vec<usize> {
-        match &self.vline {
-            Smart::Custom(v) => v.0.to_vec(),
-            _ => vec![],
-        }
-    }
-
-    fn stroke_or_default(&self, default: Stroke) -> Stroke {
+    fn stroke_or(&self, fallback: Stroke) -> Stroke {
         match &self.stroke {
-            Smart::Custom(v) => v.clone().unwrap_or(default),
-            _ => default,
+            Smart::Custom(v) => v.clone().unwrap_or(fallback),
+            _ => fallback,
         }
     }
 }
@@ -528,49 +509,50 @@ impl Resolve for Augment {
     }
 }
 
+impl Fold for Augment<Abs> {
+    type Output = Augment<Abs>;
+
+    fn fold(mut self, outer: Self::Output) -> Self::Output {
+        self.stroke = self.stroke.fold(outer.stroke);
+        self
+    }
+}
+
 cast! {
     Augment,
     self => {
-        let mut v = Dict::new();
+        let stroke = self.stroke.unwrap_or_default();
 
-        let hline = match self.hline {
-            Smart::Custom(v) => v,
-            _ => Offsets(vec![]),
+        let d = dict! {
+            "hline" => self.hline.into_value(),
+            "vline" => self.vline.into_value(),
+            "stroke" => stroke.into_value()
         };
 
-        let vline = match self.vline {
-            Smart::Custom(v) => v,
-            _ => Offsets(vec![]),
-        };
-
-        let stroke = match self.stroke {
-            Smart::Custom(v) => v,
-            _ => PartialStroke::default(),
-        };
-
-        v.insert("hline".into(), hline.into_value());
-        v.insert("vline".into(), vline.into_value());
-        v.insert("stroke".into(), stroke.into_value());
-
-        v.into_value()
+        d.into_value()
     },
     v: usize => Augment {
-        hline: Smart::Auto,
-        vline: Smart::Custom(Offsets(vec![v])),
+        hline: Offsets::default(),
+        vline: Offsets(vec![v]),
         stroke: Smart::Auto,
     },
     mut dict: Dict => {
+        // need the transpose for the defaults to work
         let hline = dict.take("hline").ok().map(Offsets::from_value)
-            .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
-
+            .transpose().unwrap_or_default().unwrap_or_default();
         let vline = dict.take("vline").ok().map(Offsets::from_value)
-            .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
+            .transpose().unwrap_or_default().unwrap_or_default();
 
         let stroke = dict.take("stroke").ok().map(PartialStroke::from_value)
             .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
 
         Augment { hline, vline, stroke }
     },
+}
+
+cast! {
+    Augment<Abs>,
+    self => self.into_value(),
 }
 
 /// The offsets at which augmentation lines
