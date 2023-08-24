@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
-use serde::Serialize;
+use serde::{Deserialize, Serialize, Serializer};
 
 use super::{ops, Args, CastInfo, FromValue, Func, IntoValue, Reflect, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
@@ -33,9 +33,12 @@ macro_rules! __array {
 pub use crate::__array as array;
 #[doc(hidden)]
 pub use ecow::eco_vec;
+use pdf_writer::Finish;
+use serde::ser::SerializeSeq;
 
 /// A reference counted array with value semantics.
-#[derive(Default, Clone, PartialEq, Hash, Serialize)]
+#[derive(Default, Clone, PartialEq, Hash, Deserialize)]
+#[serde(transparent)]
 pub struct Array(EcoVec<Value>);
 
 impl Array {
@@ -445,6 +448,16 @@ impl Array {
         wrapped
             .and_then(|v| usize::try_from(v).ok())
             .filter(|&v| v < self.0.len() + end_ok as usize)
+    }
+}
+
+impl Serialize for Array {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut seq = serializer.serialize_seq(Some(self.0.len()))?;
+        for elem in self.0 {
+            seq.serialize_element(&elem)?;
+        }
+        seq.end()
     }
 }
 
