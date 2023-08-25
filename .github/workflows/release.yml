@@ -65,7 +65,9 @@ jobs:
           tar cJf $directory.tar.xz $directory
         fi
 
-    - uses: ncipollo/release-action@v1
+    - uses: ncipollo/release-action@v1.12.0
       with:
         artifacts: "typst-${{ matrix.target }}.*"
         allowUpdates: true
+        omitNameDuringUpdate: true
+        omitBodyDuringUpdate: true

@@ -27,11 +27,19 @@ use crate::prelude::*;
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
 ///
+/// What is ```rust fn main()``` in Rust
+/// would be ```c int main()``` in C.
+///
 /// ```rust
 /// fn main() {
 ///     println!("Hello World!");
 /// }
 /// ```
+///
+/// This has ``` `backticks` ``` in it
+/// (but the spaces are trimmed). And
+/// ``` here``` the leading space is
+/// also trimmed.
 /// ````
 ///
 /// ## Syntax { #syntax }
@@ -39,8 +47,15 @@ use crate::prelude::*;
 /// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
 /// When you use three or more backticks, you can additionally specify a
 /// language tag for syntax highlighting directly after the opening backticks.
-/// Within raw blocks, everything is rendered as is, in particular, there are no
-/// escape sequences.
+/// Within raw blocks, everything (except for the language tag, if applicable)
+/// is rendered as is, in particular, there are no escape sequences.
+///
+/// The language tag is an identifier that directly follows the opening
+/// backticks only if there are three or more backticks. If your text starts
+/// with something that looks like an identifier, but no syntax highlighting is
+/// needed, start the text with a single space (which will be trimmed) or use
+/// the single backtick syntax. If your text should start or end with a
+/// backtick, put a space before or after it (it will be trimmed).
 ///
 /// Display: Raw Text / Code
 /// Category: text
@@ -71,8 +86,9 @@ pub struct RawElem {
 
     /// Whether the raw text is displayed as a separate block.
     ///
-    /// In markup mode, using one-backtick notation makes this `{false}`,
-    /// whereas using three-backtick notation makes it `{true}`.
+    /// In markup mode, using one-backtick notation makes this `{false}`.
+    /// Using three-backtick notation makes it `{true}` if the enclosed content
+    /// contains at least one line break.
     ///
     /// ````example
     /// // Display inline code in a small box
@@ -93,6 +109,8 @@ pub struct RawElem {
     /// )
     ///
     /// With `rg`, you can search through your files quickly.
+    /// This example searches the current directory recursively
+    /// for the text `Hello World`:
     ///
     /// ```bash
     /// rg "Hello World"
@@ -111,6 +129,8 @@ pub struct RawElem {
     /// ```typ
     /// This is *Typst!*
     /// ```
+    ///
+    /// This is ```typ also *Typst*```, but inline!
     /// ````
     pub lang: Option<EcoString>,
 

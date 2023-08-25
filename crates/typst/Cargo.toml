@@ -38,7 +38,7 @@ regex = "1"
 resvg = { version = "0.32", default-features = false, features = ["raster-images"] }
 roxmltree = "0.18"
 rustybuzz = "0.7"
-serde = { version = ">= 1.0.126, <= 1.0.171", features = ["derive"] }
+serde = { version = "1.0.184", features = ["derive"] }
 siphasher = "0.3"
 subsetter = "0.1.1"
 svg2pdf = "0.6"

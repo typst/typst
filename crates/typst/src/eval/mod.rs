@@ -65,7 +65,6 @@ pub use self::value::{Dynamic, Type, Value};
 
 use std::collections::HashSet;
 use std::mem;
-use std::path::Path;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
@@ -84,7 +83,7 @@ use crate::model::{
 use crate::syntax::ast::{self, AstNode};
 use crate::syntax::{
     parse, parse_code, parse_math, FileId, PackageSpec, PackageVersion, Source, Span,
-    Spanned, SyntaxKind, SyntaxNode,
+    Spanned, SyntaxKind, SyntaxNode, VirtualPath,
 };
 use crate::World;
 
@@ -103,7 +102,7 @@ pub fn eval(
     // Prevent cyclic evaluation.
     let id = source.id();
     if route.contains(id) {
-        panic!("Tried to cyclicly evaluate {}", id.path().display());
+        panic!("Tried to cyclicly evaluate {:?}", id.vpath());
     }
 
     // Hook up the lang items.
@@ -143,7 +142,13 @@ pub fn eval(
     }
 
     // Assemble the module.
-    let name = id.path().file_stem().unwrap_or_default().to_string_lossy();
+    let name = id
+        .vpath()
+        .as_rootless_path()
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy();
+
     Ok(Module::new(name).with_scope(vm.scopes.top).with_content(output))
 }
 
@@ -1800,7 +1805,7 @@ fn import(
 /// Import an external package.
 fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Module> {
     // Evaluate the manifest.
-    let manifest_id = FileId::new(Some(spec.clone()), Path::new("/typst.toml"));
+    let manifest_id = FileId::new(Some(spec.clone()), VirtualPath::new("typst.toml"));
     let bytes = vm.world().file(manifest_id).at(span)?;
     let manifest = PackageManifest::parse(&bytes).at(span)?;
     manifest.validate(&spec).at(span)?;
