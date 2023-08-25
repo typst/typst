@@ -294,7 +294,8 @@ fn parse_toml_date(dict: &Dict) -> Option<Datetime> {
         return None;
     }
 
-    let Ok(s) = String::from_value(dict.at("$__toml_private_datetime", None).unwrap()) else {
+    let Ok(s) = String::from_value(dict.at("$__toml_private_datetime", None).unwrap())
+    else {
         return None;
     };
 
