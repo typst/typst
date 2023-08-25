@@ -247,6 +247,7 @@ impl LocalName for HeadingElem {
             Lang::DANISH => "Afsnit",
             Lang::DUTCH => "Hoofdstuk",
             Lang::FILIPINO => "Seksyon",
+            Lang::FINNISH => "Osio",
             Lang::FRENCH => "Chapitre",
             Lang::GERMAN => "Abschnitt",
             Lang::ITALIAN => "Sezione",

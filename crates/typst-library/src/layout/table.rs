@@ -313,6 +313,7 @@ impl LocalName for TableElem {
             Lang::DANISH => "Tabel",
             Lang::DUTCH => "Tabel",
             Lang::FILIPINO => "Talaan",
+            Lang::FINNISH => "Taulukko",
             Lang::FRENCH => "Tableau",
             Lang::GERMAN => "Tabelle",
             Lang::ITALIAN => "Tabella",
