@@ -43,7 +43,7 @@ siphasher = "0.3"
 subsetter = "0.1.1"
 svg2pdf = "0.6"
 tiny-skia = "0.9.0"
-toml = { version = "0.7.3", default-features = false, features = ["parse"] }
+toml = { version = "0.7.4", default-features = false, features = ["parse"] }
 tracing = "0.1.37"
 ttf-parser = "0.18.1"
 unicode-general-category = "0.6"
@@ -54,7 +54,7 @@ unscanny = "0.1"
 usvg = { version = "0.32", default-features = false, features = ["text"] }
 xmlwriter = "0.1.0"
 xmp-writer = "0.1"
-time = { version = "0.3.20", features = ["std", "formatting"] }
+time = { version = "0.3.20", features = ["std", "formatting", "macros"] }
 wasmi = "0.30.0"
 xmlparser = "0.13.5"
 
