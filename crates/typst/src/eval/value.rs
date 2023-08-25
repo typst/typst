@@ -9,8 +9,8 @@ use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
-use typst::eval::Duration;
 use time::macros::format_description;
+use typst::eval::Duration;
 
 use super::{
     cast, fields, format_str, ops, Args, Array, Bytes, CastInfo, Content, Dict,
@@ -446,7 +446,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let dict = Dict::deserialize(MapAccessDeserializer::new(map))?;
         Ok(match parse_toml_date(&dict) {
             None => dict.into_value(),
-            Some(dt) => Value::dynamic(dt),
+            Some(dt) => dt.into_value(),
         })
     }
 }
