@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::io;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked};
@@ -126,7 +127,7 @@ impl Image {
     }
 
     /// The decoded version of the image.
-    pub fn decoded(&self) -> Arc<DecodedImage> {
+    pub fn decoded(&self) -> Rc<DecodedImage> {
         match self.format() {
             ImageFormat::Raster(format) => decode_raster(self.data(), format),
             ImageFormat::Vector(VectorFormat::Svg) => {
@@ -265,7 +266,7 @@ pub struct IccProfile(pub Vec<u8>);
 
 /// Decode a raster image.
 #[comemo::memoize]
-fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Arc<DecodedImage>> {
+fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Rc<DecodedImage>> {
     fn decode_with<'a, T: ImageDecoder<'a>>(
         decoder: ImageResult<T>,
     ) -> ImageResult<(image::DynamicImage, Option<IccProfile>)> {
@@ -284,7 +285,7 @@ fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Arc<DecodedIma
     }
     .map_err(format_image_error)?;
 
-    Ok(Arc::new(DecodedImage::Raster(dynamic, icc, format)))
+    Ok(Rc::new(DecodedImage::Raster(dynamic, icc, format)))
 }
 
 /// Decode an SVG image.
@@ -292,7 +293,7 @@ fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Arc<DecodedIma
 fn decode_svg(
     data: &Bytes,
     loader: Tracked<dyn SvgFontLoader + '_>,
-) -> StrResult<Arc<DecodedImage>> {
+) -> StrResult<Rc<DecodedImage>> {
     // Disable usvg's default to "Times New Roman". Instead, we default to
     // the empty family and later, when we traverse the SVG, we check for
     // empty and non-existing family names and replace them with the true
@@ -304,7 +305,7 @@ fn decode_svg(
         let fontdb = load_svg_fonts(&tree, loader);
         tree.convert_text(&fontdb);
     }
-    Ok(Arc::new(DecodedImage::Svg(tree)))
+    Ok(Rc::new(DecodedImage::Svg(tree)))
 }
 
 /// Discover and load the fonts referenced by an SVG.
