@@ -687,7 +687,7 @@ impl Debug for Meta {
             Self::Link(dest) => write!(f, "Link({dest:?})"),
             Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
             Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
-            Self::PageLabel(page, value) => write!(f, "PageLabel({page},{value:?})"),
+            Self::PageLabel(page, value) => write!(f, "PageLabel({page}, {value:?})"),
             Self::Hide => f.pad("Hide"),
         }
     }

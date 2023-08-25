@@ -353,11 +353,21 @@ impl Introspector {
     }
 
     /// Yields all elements up until (but not including) `page`.
-    pub fn query_up_to(&self, page: NonZeroUsize) -> EcoVec<Prehashed<Content>> {
-        self.all()
-            .filter(|elem| self.page(elem.location().unwrap()) < page)
+    pub fn query_up_to(
+        &self,
+        selector: &Selector,
+        page: NonZeroUsize,
+    ) -> EcoVec<Prehashed<Content>> {
+        self.query(selector)
+            .iter()
+            .filter(|elem| {
+                let Some(loc) = elem.location() else {
+                    return false;
+                };
+                self.page(loc) < page
+            })
             .cloned()
-            .collect::<EcoVec<_>>()
+            .collect()
     }
 
     /// The total number pages.

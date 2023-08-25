@@ -11,7 +11,7 @@ use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
 use super::external_graphics_state::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
-use crate::eval::{Dict, Str as TypstStr, Value};
+use crate::eval::{Dict, Value};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, LineCap, LineJoin, Numeric, Paint, Point, Ratio,
@@ -622,23 +622,21 @@ fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
     let label_ref = ctx.parent.alloc.bump();
     let logical_numbering = v.clone().cast::<Dict>().unwrap();
 
-    let prefix = logical_numbering.at("prefix", Some(Value::None)).unwrap();
-    let style = logical_numbering.at("style", Some(Value::None)).unwrap();
-    let offset = logical_numbering.at("offset", Some(Value::None)).unwrap();
+    let prefix = logical_numbering.at("prefix", Some(Value::None)).unwrap_or_default();
+    let style = logical_numbering.at("style", Some(Value::None)).unwrap_or_default();
+    let offset = logical_numbering.at("offset", Some(Value::None)).unwrap_or_default();
 
-    let prefix_str = prefix.cast::<TypstStr>().ok();
-    let num_style =
-        style
-            .cast::<TypstStr>()
-            .ok()
-            .map(|style_name| match style_name.as_str() {
-                "arabic" => NumberingStyle::Arabic,
-                "upper-roman" => NumberingStyle::UpperRoman,
-                "lower-roman" => NumberingStyle::LowerRoman,
-                "upper-alpha" => NumberingStyle::UpperAlpha,
-                "lower-alpha" => NumberingStyle::LowerAlpha,
-                _ => unreachable!(),
-            });
+    let prefix_str = prefix.cast::<typst::eval::Str>().ok();
+    let num_style = style.cast::<typst::eval::Str>().ok().map(|style_name| {
+        match style_name.as_str() {
+            "arabic" => NumberingStyle::Arabic,
+            "upper-roman" => NumberingStyle::UpperRoman,
+            "lower-roman" => NumberingStyle::LowerRoman,
+            "upper-alpha" => NumberingStyle::UpperAlpha,
+            "lower-alpha" => NumberingStyle::LowerAlpha,
+            _ => unreachable!(),
+        }
+    });
     let offset_opt = offset.cast::<usize>().ok();
 
     // Don't create a PageLabel if neither style nor prefix are specified.

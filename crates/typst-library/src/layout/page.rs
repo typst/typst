@@ -387,11 +387,11 @@ impl PageElem {
             Size::zero(),
         );
 
-        let cs = Counter::new(CounterKey::Page).page_delta(vt, number)?;
+        let cs = Counter::new(CounterKey::Page).logical_page_num(vt, number)?;
         let page_label_meta = FrameItem::Meta(
             Meta::PageLabel(
                 number,
-                LogicalNumbering::apply(self.numbering(styles), cs).into_value(),
+                LogicalNumbering::new(self.numbering(styles), cs).into_value(),
             ),
             Size::zero(),
         );
@@ -416,22 +416,25 @@ impl PageElem {
             frame.translate(Point::new(margin.left, margin.top));
             frame.push(Point::zero(), numbering_meta.clone());
 
-            // TODO: simplify
-            let matches_spec = |n: Numbering| {
-                let Numbering::Pattern(p) = n else { return false; };
-                let (_, kind, _) = p.pieces.first().unwrap();
-                matches!(
-                    kind,
-                    NumberingKind::Arabic | NumberingKind::Letter | NumberingKind::Roman
-                )
-            };
+            // Realize page label if there is a numbering & check for uniqueness
+            // unless it doesn't match the five styles in the PDF spec.
+            if let Some(num) = self.numbering(styles) {
+                let matches_spec = |n: &Numbering| {
+                    let Numbering::Pattern(p) = n else {
+                        return false;
+                    };
+                    let (_, kind, _) = p.pieces.first().unwrap();
+                    matches!(
+                        kind,
+                        NumberingKind::Arabic
+                            | NumberingKind::Letter
+                            | NumberingKind::Roman
+                    )
+                };
 
-            if self.numbering(styles).is_some_and(matches_spec) {
-                if *prev_page_label != self.numbering(styles) {
+                if !matches_spec(&num) || *prev_page_label != self.numbering(styles) {
                     frame.push(Point::zero(), page_label_meta.clone());
                 }
-            } else {
-                frame.push(Point::zero(), page_label_meta.clone());
             }
             *prev_page_label = self.numbering(styles);
 
@@ -717,7 +720,7 @@ impl Parity {
 #[derive(Debug, Clone, PartialEq, Hash, Default)]
 pub struct LogicalNumbering {
     /// Can be any string or none. Will always be prepended to the numbering style.
-    prefix: Option<String>,
+    prefix: Option<EcoString>,
 
     /// Based on the numbering pattern.
     ///
@@ -732,45 +735,37 @@ pub struct LogicalNumbering {
 }
 
 impl LogicalNumbering {
-    pub fn apply(numbering: Option<Numbering>, page: usize) -> LogicalNumbering {
-        numbering
-            .map(|num| match num {
-                Numbering::Pattern(pat) => {
-                    if let Some((prefix, kind, case)) = pat.pieces.first() {
-                        let style = match (kind, case) {
-                            (NumberingKind::Arabic, _) => Some(LabelStyle::Arabic),
-                            (NumberingKind::Roman, Case::Lower) => {
-                                Some(LabelStyle::LowerRoman)
-                            }
-                            (NumberingKind::Roman, Case::Upper) => {
-                                Some(LabelStyle::UpperRoman)
-                            }
-                            (NumberingKind::Letter, Case::Lower) => {
-                                Some(LabelStyle::LowerAlpha)
-                            }
-                            (NumberingKind::Letter, Case::Upper) => {
-                                Some(LabelStyle::UpperAlpha)
-                            }
-                            _ => None,
-                        };
+    /// Create a new `LogicalNumbering` from a `Numbering` and apply the page number.
+    pub fn new(numbering: Option<Numbering>, page: usize) -> Self {
+        let Some(numbering) = numbering else {
+            return Self::default();
+        };
+        if let Numbering::Pattern(pat) = numbering {
+            let Some((prefix, kind, case)) = pat.pieces.first() else {
+                return Self::default();
+            };
+            let style = match (kind, case) {
+                (NumberingKind::Arabic, _) => Some(LabelStyle::Arabic),
+                (NumberingKind::Roman, Case::Lower) => Some(LabelStyle::LowerRoman),
+                (NumberingKind::Roman, Case::Upper) => Some(LabelStyle::UpperRoman),
+                (NumberingKind::Letter, Case::Lower) => Some(LabelStyle::LowerAlpha),
+                (NumberingKind::Letter, Case::Upper) => Some(LabelStyle::UpperAlpha),
+                _ => None,
+            };
 
-                        // Prefix and offset depend on the style: If it is supported by the pdf spec,
-                        // we use the given prefix and an offset. Otherwise, everything goes into prefix.
-                        let prefix = if style.is_none() {
-                            Some(pat.apply(&[page]).to_string())
-                        } else {
-                            (!prefix.is_empty()).then_some(prefix.to_string())
-                        };
-                        let offset = style.and(NonZeroUsize::new(page));
+            // Prefix and offset depend on the style: If it is supported by the pdf spec,
+            // we use the given prefix and an offset. Otherwise, everything goes into prefix.
+            let prefix = if style.is_none() {
+                Some(pat.apply(&[page]))
+            } else {
+                (!prefix.is_empty()).then(|| prefix.clone())
+            };
+            let offset = style.and(NonZeroUsize::new(page));
 
-                        LogicalNumbering { prefix, style, offset }
-                    } else {
-                        LogicalNumbering::default()
-                    }
-                }
-                _ => LogicalNumbering::default(),
-            })
-            .unwrap_or_default()
+            return Self { prefix, style, offset };
+        }
+
+        Self::default()
     }
 }
 

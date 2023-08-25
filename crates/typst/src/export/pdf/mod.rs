@@ -151,7 +151,7 @@ fn write_catalog(ctx: &mut PdfContext) {
     catalog.pair(Name(b"Metadata"), meta_ref);
 
     // Insert the page labels (either chain the insert or keep the `entries` reference around).
-    {
+    if !&ctx.logical_pages.is_empty() {
         let mut num_tree = catalog.page_labels();
         let mut entries = num_tree.nums();
 
