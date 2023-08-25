@@ -214,7 +214,8 @@ impl Show for OutlineElem {
                 self.span(),
                 elem.clone().into_inner(),
                 self.fill(styles),
-            )? else {
+            )?
+            else {
                 continue;
             };
 

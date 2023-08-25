@@ -515,8 +515,7 @@ fn parse_theme(
     vm: &mut Vm,
     args: &mut Args,
 ) -> SourceResult<(Option<EcoString>, Option<Bytes>)> {
-    let Some(Spanned { v: path, span }) =
-        args.named::<Spanned<EcoString>>("theme")?
+    let Some(Spanned { v: path, span }) = args.named::<Spanned<EcoString>>("theme")?
     else {
         return Ok((None, None));
     };
