@@ -229,12 +229,10 @@ impl Layout for TableElem {
 /// and after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
 fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
     let mut offset = Abs::zero();
-    std::iter::once(Abs::zero())
-        .chain(extents.into_iter())
-        .map(move |extent| {
-            offset += extent;
-            offset
-        })
+    std::iter::once(Abs::zero()).chain(extents).map(move |extent| {
+        offset += extent;
+        offset
+    })
 }
 
 /// A value that can be configured per cell.
