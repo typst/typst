@@ -4,7 +4,7 @@ use std::ops::{Add, AddAssign};
 use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use super::{array, Array, Str, Value};
 use crate::diag::StrResult;
@@ -195,6 +195,15 @@ impl Serialize for Dict {
         S: Serializer,
     {
         self.0.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Dict {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(IndexMap::<Str, Value>::deserialize(deserializer)?.into())
     }
 }
 
