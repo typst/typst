@@ -60,6 +60,24 @@
   minute: 38,
   second: 57,
 ))
+#test(data.date_time2, datetime(
+  year: 2023,
+  month: 2,
+  day: 1,
+  hour: 15,
+  minute: 38,
+  second: 57,
+))
+#test(data.date, datetime(
+  year: 2023,
+  month: 2,
+  day: 1,
+))
+#test(data.time, datetime(
+  hour: 15,
+  minute: 38,
+  second: 57,
+))
 
 ---
 // Error: 7-24 failed to parse toml file: expected `.`, `=`, index 15-16
@@ -68,7 +86,7 @@
 ---
 // Test reading YAML data
 #let data = yaml("/files/yaml-types.yaml")
-#test(data.len(), 7)
+#test(data.len(), 8)
 #test(data.null_key, (none, none))
 #test(data.string, "text")
 #test(data.integer, 5)
@@ -76,7 +94,7 @@
 #test(data.mapping, ("1": "one", "2": "two"))
 #test(data.seq, (1,2,3,4))
 #test(data.bool, false)
-#test(data.keys().contains("true"), false)
+#test(data.keys().contains("true"), true)
 ---
 
 ---

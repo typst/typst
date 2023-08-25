@@ -1371,8 +1371,8 @@ where
         match p {
             ast::DestructuringKind::Normal(expr) => {
                 let Ok(v) = value.at(i as i64, None) else {
-                        bail!(expr.span(), "not enough elements to destructure");
-                    };
+                    bail!(expr.span(), "not enough elements to destructure");
+                };
                 f(vm, expr, v)?;
                 i += 1;
             }

@@ -859,7 +859,7 @@ fn minmax(
     goal: Ordering,
 ) -> SourceResult<Value> {
     let mut iter = values.into_iter();
-    let Some(Spanned { v: mut extremum, ..}) = iter.next() else {
+    let Some(Spanned { v: mut extremum, .. }) = iter.next() else {
         bail!(span, "expected at least one value");
     };
 

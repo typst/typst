@@ -3,7 +3,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::ops::{Add, AddAssign};
 
 use ecow::{eco_format, EcoString, EcoVec};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::{ops, Args, CastInfo, FromValue, Func, IntoValue, Reflect, Value, Vm};
 use crate::diag::{At, SourceResult, StrResult};
@@ -35,7 +35,8 @@ pub use crate::__array as array;
 pub use ecow::eco_vec;
 
 /// A reference counted array with value semantics.
-#[derive(Default, Clone, PartialEq, Hash, Serialize)]
+#[derive(Default, Clone, PartialEq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Array(EcoVec<Value>);
 
 impl Array {
