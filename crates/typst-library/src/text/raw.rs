@@ -352,6 +352,7 @@ impl LocalName for RawElem {
             Lang::DANISH => "Liste",
             Lang::DUTCH => "Listing",
             Lang::FILIPINO => "Listahan",
+            Lang::FINNISH => "Esimerkki",
             Lang::FRENCH => "Liste",
             Lang::GERMAN => "Listing",
             Lang::ITALIAN => "Codice",
@@ -515,8 +516,7 @@ fn parse_theme(
     vm: &mut Vm,
     args: &mut Args,
 ) -> SourceResult<(Option<EcoString>, Option<Bytes>)> {
-    let Some(Spanned { v: path, span }) =
-        args.named::<Spanned<EcoString>>("theme")?
+    let Some(Spanned { v: path, span }) = args.named::<Spanned<EcoString>>("theme")?
     else {
         return Ok((None, None));
     };
