@@ -249,14 +249,12 @@ impl Layout for EquationElem {
         // Find a math font.
         let variant = variant(styles);
         let world = vt.world;
-        let Some(font) = families(styles)
-            .find_map(|family| {
-                let id = world.book().select(family.as_str(), variant)?;
-                let font = world.font(id)?;
-                let _ = font.ttf().tables().math?.constants?;
-                Some(font)
-            })
-        else {
+        let Some(font) = families(styles).find_map(|family| {
+            let id = world.book().select(family.as_str(), variant)?;
+            let font = world.font(id)?;
+            let _ = font.ttf().tables().math?.constants?;
+            Some(font)
+        }) else {
             bail!(self.span(), "current font does not support math");
         };
 
@@ -324,11 +322,12 @@ impl LocalName for EquationElem {
             Lang::ARABIC => "معادلة",
             Lang::BOKMÅL => "Ligning",
             Lang::CHINESE if option_eq(region, "TW") => "方程式",
-            Lang::CHINESE => "等式",
+            Lang::CHINESE => "公式",
             Lang::CZECH => "Rovnice",
             Lang::DANISH => "Ligning",
             Lang::DUTCH => "Vergelijking",
             Lang::FILIPINO => "Ekwasyon",
+            Lang::FINNISH => "Yhtälö",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
             Lang::ITALIAN => "Equazione",

@@ -3,6 +3,7 @@ use std::path::Path;
 
 use typst::geom::Smart;
 use typst::image::{Image, ImageFormat, RasterFormat, VectorFormat};
+use typst::util::option_eq;
 
 use crate::compute::Readable;
 use crate::meta::{Figurable, LocalName};
@@ -231,16 +232,18 @@ impl Layout for ImageElem {
 }
 
 impl LocalName for ImageElem {
-    fn local_name(&self, lang: Lang, _: Option<Region>) -> &'static str {
+    fn local_name(&self, lang: Lang, region: Option<Region>) -> &'static str {
         match lang {
             Lang::ALBANIAN => "Figurë",
             Lang::ARABIC => "شكل",
             Lang::BOKMÅL => "Figur",
+            Lang::CHINESE if option_eq(region, "TW") => "圖",
             Lang::CHINESE => "图",
             Lang::CZECH => "Obrázek",
             Lang::DANISH => "Figur",
             Lang::DUTCH => "Figuur",
             Lang::FILIPINO => "Pigura",
+            Lang::FINNISH => "Kuva",
             Lang::FRENCH => "Figure",
             Lang::GERMAN => "Abbildung",
             Lang::ITALIAN => "Figura",

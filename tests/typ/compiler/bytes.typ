@@ -13,6 +13,17 @@
 #test(array(bytes("Hello")), (0x48, 0x65, 0x6C, 0x6C, 0x6F))
 
 ---
+// Test addition and joining.
+#test(bytes((1, 2)) + bytes(()), bytes((1, 2)))
+#test(bytes((1, 2)) + bytes((3, 4)), bytes((1, 2, 3, 4)))
+#test(bytes(()) + bytes((3, 4)), bytes((3, 4)))
+#test(str({
+  bytes("Hello")
+  bytes((0x20,))
+  bytes("World")
+}), "Hello World")
+
+---
 // Error: 8-14 expected string, array, or bytes, found dictionary
 #bytes((a: 1))
 

@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
@@ -237,6 +237,15 @@ impl Introspector {
             .get_index_of(&elem.location().unwrap())
             .unwrap_or(usize::MAX)
     }
+
+    /// Perform a binary search for `elem` among the `list`.
+    fn binary_search(
+        &self,
+        list: &[Prehashed<Content>],
+        elem: &Content,
+    ) -> Result<usize, usize> {
+        list.binary_search_by_key(&self.index(elem), |elem| self.index(elem))
+    }
 }
 
 #[comemo::track]
@@ -252,12 +261,9 @@ impl Introspector {
             Selector::Elem(..)
             | Selector::Label(_)
             | Selector::Regex(_)
-            | Selector::Can(_)
-            | Selector::Or(_)
-            | Selector::And(_) => {
+            | Selector::Can(_) => {
                 self.all().filter(|elem| selector.matches(elem)).cloned().collect()
             }
-
             Selector::Location(location) => {
                 self.get(location).cloned().into_iter().collect()
             }
@@ -265,9 +271,7 @@ impl Introspector {
                 let mut list = self.query(selector);
                 if let Some(end) = self.query_first(end) {
                     // Determine which elements are before `end`.
-                    let split = match list
-                        .binary_search_by_key(&self.index(&end), |elem| self.index(elem))
-                    {
+                    let split = match self.binary_search(&list, &end) {
                         // Element itself is contained.
                         Ok(i) => i + *inclusive as usize,
                         // Element itself is not contained.
@@ -281,10 +285,7 @@ impl Introspector {
                 let mut list = self.query(selector);
                 if let Some(start) = self.query_first(start) {
                     // Determine which elements are after `start`.
-                    let split = match list
-                        .binary_search_by_key(&self.index(&start), |elem| {
-                            self.index(elem)
-                        }) {
+                    let split = match self.binary_search(&list, &start) {
                         // Element itself is contained.
                         Ok(i) => i + !*inclusive as usize,
                         // Element itself is not contained.
@@ -294,6 +295,37 @@ impl Introspector {
                 }
                 list
             }
+            Selector::And(selectors) => {
+                let mut results: Vec<_> =
+                    selectors.iter().map(|sel| self.query(sel)).collect();
+
+                // Extract the smallest result list and then keep only those
+                // elements in the smallest list that are also in all other
+                // lists.
+                results
+                    .iter()
+                    .enumerate()
+                    .min_by_key(|(_, vec)| vec.len())
+                    .map(|(i, _)| i)
+                    .map(|i| results.swap_remove(i))
+                    .iter()
+                    .flatten()
+                    .filter(|candidate| {
+                        results
+                            .iter()
+                            .all(|other| self.binary_search(other, candidate).is_ok())
+                    })
+                    .cloned()
+                    .collect()
+            }
+            Selector::Or(selectors) => selectors
+                .iter()
+                .flat_map(|sel| self.query(sel))
+                .map(|elem| self.index(&elem))
+                .collect::<BTreeSet<usize>>()
+                .into_iter()
+                .map(|index| self.elems[index].0.clone())
+                .collect(),
         };
 
         self.queries.borrow_mut().insert(hash, output.clone());

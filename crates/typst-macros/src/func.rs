@@ -53,11 +53,9 @@ fn prepare(stream: TokenStream, item: &syn::ItemFn) -> Result<Func> {
         };
 
         let syn::Pat::Ident(syn::PatIdent {
-            by_ref: None,
-            mutability: None,
-            ident,
-            ..
-        }) = &*typed.pat else {
+            by_ref: None, mutability: None, ident, ..
+        }) = &*typed.pat
+        else {
             bail!(typed.pat, "expected identifier");
         };
 

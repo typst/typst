@@ -42,7 +42,7 @@ impl Styles {
 
     /// Apply outer styles. Like [`chain`](StyleChain::chain), but in-place.
     pub fn apply(&mut self, mut outer: Self) {
-        outer.0.extend(mem::take(self).0.into_iter());
+        outer.0.extend(mem::take(self).0);
         *self = outer;
     }
 
@@ -53,7 +53,7 @@ impl Styles {
 
     /// Apply a slice of outer styles.
     pub fn apply_slice(&mut self, outer: &[Prehashed<Style>]) {
-        self.0 = outer.iter().cloned().chain(mem::take(self).0.into_iter()).collect();
+        self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
     }
 
     /// Add an origin span to all contained properties.

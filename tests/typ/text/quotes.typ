@@ -60,3 +60,9 @@ He's told some books contain questionable "example text".
 "She suddenly started speaking french: #text(lang: "fr")['Je suis une banane.']" Roman told me.
 
 Some people's thought on this would be #[#set smartquote(enabled: false); "strange."]
+
+---
+// Test nested double and single quotes.
+"'test statement'" \
+"'test' statement" \
+"statement 'test'"

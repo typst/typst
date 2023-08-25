@@ -3,13 +3,14 @@ use std::collections::{BTreeSet, HashSet};
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
+use serde::{Deserialize, Serialize};
 use unscanny::Scanner;
 
 use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
 use crate::eval::{
-    fields_on, format_str, methods_on, CastInfo, Func, Library, Scope, Value,
+    fields_on, format_str, methods_on, CastInfo, Func, Library, Plugin, Scope, Value,
 };
 use crate::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
@@ -46,7 +47,7 @@ pub fn autocomplete(
 }
 
 /// An autocompletion option.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Completion {
     /// The kind of item this completes to.
     pub kind: CompletionKind,
@@ -62,7 +63,8 @@ pub struct Completion {
 }
 
 /// A kind of item that can be completed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum CompletionKind {
     /// A syntactical structure.
     Syntax,
@@ -410,6 +412,18 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 // Consider all names from the function's scope.
                 for (name, value) in info.scope.iter() {
                     ctx.value_completion(Some(name.clone()), value, true, None);
+                }
+            }
+        }
+        Value::Dyn(val) => {
+            if let Some(plugin) = val.downcast::<Plugin>() {
+                for name in plugin.iter() {
+                    ctx.completions.push(Completion {
+                        kind: CompletionKind::Func,
+                        label: name.clone(),
+                        apply: None,
+                        detail: None,
+                    })
                 }
             }
         }

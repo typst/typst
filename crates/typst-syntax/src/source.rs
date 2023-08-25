@@ -241,7 +241,7 @@ impl Source {
 
 impl Debug for Source {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Source({})", self.id().path().display())
+        write!(f, "Source({:?})", self.id().vpath())
     }
 }
 

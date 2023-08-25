@@ -7,7 +7,7 @@ use typst::diag::FileResult;
 use typst::eval::{Bytes, Datetime, Tracer};
 use typst::font::{Font, FontBook};
 use typst::geom::{Point, Size};
-use typst::syntax::{FileId, Source};
+use typst::syntax::{FileId, Source, VirtualPath};
 use typst::World;
 use yaml_front_matter::YamlFrontMatter;
 
@@ -172,7 +172,9 @@ impl<'a> Handler<'a> {
             md::Event::Html(html) if html.starts_with("<contributors") => {
                 let from = html_attr(html, "from").unwrap();
                 let to = html_attr(html, "to").unwrap();
-                let Some(output) = contributors(self.resolver, from, to) else { return false };
+                let Some(output) = contributors(self.resolver, from, to) else {
+                    return false;
+                };
                 *html = output.raw.into();
             }
 
@@ -424,7 +426,7 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         return Html::new(format!("<pre>{}</pre>", highlighted.as_str()));
     }
 
-    let id = FileId::new(None, Path::new("/main.typ"));
+    let id = FileId::new(None, VirtualPath::new("main.typ"));
     let source = Source::new(id, compile);
     let world = DocWorld(source);
     let mut tracer = Tracer::default();
@@ -498,8 +500,8 @@ impl World for DocWorld {
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         assert!(id.package().is_none());
         Ok(FILES
-            .get_file(id.path().strip_prefix("/").unwrap())
-            .unwrap_or_else(|| panic!("failed to load {:?}", id.path().display()))
+            .get_file(id.vpath().as_rootless_path())
+            .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath()))
             .contents()
             .into())
     }
