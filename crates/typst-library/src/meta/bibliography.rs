@@ -234,6 +234,7 @@ impl LocalName for BibliographyElem {
             Lang::DANISH => "Bibliografi",
             Lang::DUTCH => "Bibliografie",
             Lang::FILIPINO => "Bibliograpiya",
+            Lang::FINNISH => "Viitteet",
             Lang::FRENCH => "Bibliographie",
             Lang::GERMAN => "Bibliographie",
             Lang::ITALIAN => "Bibliografia",

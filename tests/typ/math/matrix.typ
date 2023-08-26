@@ -63,3 +63,31 @@ $ mat(B, A B) $
 $ mat(B, A B, dots) $
 $ mat(B, A B, dots;) $
 $ mat(#1, #(foo: "bar")) $
+
+---
+
+// Test matrix line drawing (augmentation).
+#grid(
+  columns: 2,
+  gutter: 10pt,
+
+  $ mat(10, 2, 3, 4; 5, 6, 7, 8; augment: #3) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 2)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(hline: 1, vline: 1)) $,
+  $ mat(100, 2, 3; 4, 5, 6; 7, 8, 9; augment: #(vline: 2, stroke: 1pt + blue)) $,
+)
+
+---
+
+// Test using matrix line drawing with a set rule.
+#set math.mat(augment: (hline: 2, vline: 1, stroke: 2pt + green))
+$ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
+
+#set math.mat(augment: 2)
+$ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
+
+#set math.mat(augment: none)
+
+---
+// Error: 3-37 cannot draw a vertical line after column 3 of a matrix with 3 columns
+$ mat(1, 0, 0; 0, 1, 1; augment: #3) $,
