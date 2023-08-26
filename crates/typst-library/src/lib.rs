@@ -5,6 +5,7 @@
 #![allow(clippy::comparison_chain)]
 
 pub mod compute;
+pub mod info;
 pub mod layout;
 pub mod math;
 pub mod meta;
@@ -15,7 +16,7 @@ pub mod text;
 pub mod visualize;
 
 use typst::diag::At;
-use typst::eval::{Dict, IntoValue, LangItems, Library, Module, Scope};
+use typst::eval::{LangItems, Library, Module, Scope};
 use typst::geom::Smart;
 use typst::model::{Element, Styles};
 
@@ -41,7 +42,7 @@ fn global(math: Module) -> Module {
     compute::define(&mut global);
     symbols::define(&mut global);
     global.define("math", math);
-    global.define("info", info_module());
+    global.define("info", info::module());
 
     Module::new("global").with_scope(global)
 }
@@ -143,29 +144,4 @@ fn items() -> LangItems {
             }
         },
     }
-}
-
-/// Construct the module with information about typst itself
-fn info_module() -> Module {
-    let mut scope = Scope::deduplicating();
-
-    let mut version_dict = Dict::new();
-    version_dict.insert(
-        "major".into(),
-        env!("CARGO_PKG_VERSION_MAJOR").parse::<u32>().unwrap().into_value(),
-    );
-    version_dict.insert(
-        "minor".into(),
-        env!("CARGO_PKG_VERSION_MINOR").parse::<u32>().unwrap().into_value(),
-    );
-    version_dict.insert(
-        "patch".into(),
-        env!("CARGO_PKG_VERSION_PATCH").parse::<u32>().unwrap().into_value(),
-    );
-
-    scope.define("version", version_dict);
-    scope.define("version_string", env!("CARGO_PKG_VERSION"));
-    scope.define("commit", option_env!("TYPST_COMMIT"));
-
-    Module::new("info").with_scope(scope)
 }
