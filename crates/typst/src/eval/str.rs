@@ -324,6 +324,11 @@ impl Str {
         Ok(Self(self.0.repeat(n)))
     }
 
+    /// Reverse the string.
+    pub fn rev(&self) -> Self {
+        self.as_str().graphemes(true).rev().collect::<String>().into()
+    }
+
     /// Resolve an index or throw an out of bounds error.
     fn locate(&self, index: i64) -> StrResult<usize> {
         self.locate_opt(index)?
