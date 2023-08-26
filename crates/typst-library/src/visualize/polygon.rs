@@ -94,7 +94,7 @@ impl Layout for PolygonElem {
         let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
 
-        Ok(Fragment::frame(frame.debug()))
+        Ok(Fragment::frame(frame))
     }
 }
 
