@@ -38,6 +38,7 @@ pub enum Command {
     Fonts(FontsCommand),
 
     /// Self update the Typst CLI
+    #[cfg_attr(not(feature = "self-update"), doc = " (disabled)")]
     Update(UpdateCommand),
 }
 
@@ -164,13 +165,12 @@ pub struct UpdateCommand {
     /// Which version to update to (defaults to latest)
     pub version: Option<Version>,
 
-    /// Forces a downgrade to an older version, it is not possible to downgrade
-    /// without the `--force` flag
+    /// Forces a downgrade to an older version (required for downgrading)
     #[clap(long, default_value_t = false)]
     pub force: bool,
 
-    /// Reverts to the version from before the last update, only possible if
-    /// `typst update` has previously ran
+    /// Reverts to the version from before the last update (only possible if
+    /// `typst update` has previously ran)
     #[clap(long, default_value_t = false, exclusive = true)]
     pub revert: bool,
 }

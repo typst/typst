@@ -41,11 +41,6 @@ fn main() -> ExitCode {
         Command::Watch(command) => crate::watch::watch(command),
         Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
-        #[cfg(not(feature = "self-update"))]
-        Command::Update(_command) => {
-            Err("self-updating is not enabled for this executable, please update with the package manager or mechanism used for initial installation".into())
-        }
-        #[cfg(feature = "self-update")]
         Command::Update(command) => crate::update::update(command),
     };
 
@@ -86,4 +81,18 @@ fn color_stream() -> termcolor::StandardStream {
 /// Used by `args.rs`.
 fn typst_version() -> &'static str {
     env!("TYPST_VERSION")
+}
+
+#[cfg(not(feature = "self-update"))]
+mod update {
+    use crate::args::UpdateCommand;
+    use typst::diag::{bail, StrResult};
+
+    pub fn update(_: UpdateCommand) -> StrResult<()> {
+        bail!(
+            "self-updating is not enabled for this executable, \
+             please update with the package manager or mechanism \
+             used for initial installation"
+        )
+    }
 }

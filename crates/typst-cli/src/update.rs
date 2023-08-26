@@ -1,7 +1,6 @@
 use std::env;
 use std::fs;
-use std::io::Write;
-use std::io::{Cursor, Read};
+use std::io::{Cursor, Read, Write};
 use std::path::PathBuf;
 
 use semver::Version;
@@ -27,13 +26,15 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
 
         if version < &Version::new(0, 8, 0) {
             eprintln!(
-                "Versions older than 0.8 will not have the update command available"
+                "Note: Versions older than 0.8.0 will not have \
+                 the update command available."
             );
         }
 
         if !command.force && version < &current_tag {
             bail!(
-                "Downgrading requires the --force flag: `typst update <VERSION> --force`"
+                "downgrading requires the --force flag: \
+                `typst update <VERSION> --force`"
             );
         }
     }
@@ -41,36 +42,40 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
     let backup_path = backup_path()?;
     if command.revert {
         if !backup_path.exists() {
-            bail!("unable to revert, no backup found (searched at {backup_path:?})");
+            bail!(
+                "unable to revert, no backup found (searched at {})",
+                backup_path.display()
+            );
         }
 
         return self_replace::self_replace(&backup_path)
             .and_then(|_| fs::remove_file(&backup_path))
-            .map_err(|err| eco_format!("unable to revert to backup: {err}"));
+            .map_err(|err| eco_format!("failed to revert to backup: {err}"));
     }
 
     let current_exe = env::current_exe().map_err(|err| {
         eco_format!("failed to locate path of the running executable: {err}")
     })?;
+
     fs::copy(current_exe, &backup_path)
-        .map_err(|err| eco_format!("backing up failed: {}", err))?;
+        .map_err(|err| eco_format!("failed to create backup: {err}"))?;
 
     let release = Release::from_tag(command.version)?;
-
     if !update_needed(&release)? && !command.force {
-        bail!("already on the latest version");
+        eprintln!("Already up-to-date.");
+        return Ok(());
     }
 
     let binary_data = release.download_binary(needed_asset()?)?;
     let mut temp_exe = NamedTempFile::new()
-        .map_err(|err| eco_format!("failed to create temporary binary: {err}"))?;
+        .map_err(|err| eco_format!("failed to create temporary file: {err}"))?;
     temp_exe
         .write_all(&binary_data)
         .map_err(|err| eco_format!("failed to write binary data: {err}"))?;
 
     self_replace::self_replace(&temp_exe).map_err(|err| {
         fs::remove_file(&temp_exe).ok();
-        eco_format!("self replace failed: {}", err)
+        eco_format!("failed to self-replace running executable: {err}")
     })
 }
 
@@ -79,8 +84,8 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
 /// Primarily used to download pre-compiled Typst CLI binaries.
 #[derive(Debug, Deserialize)]
 struct Asset {
-    pub name: String,
-    pub browser_download_url: String,
+    name: String,
+    browser_download_url: String,
 }
 
 /// A GitHub release.
@@ -105,14 +110,10 @@ impl Release {
             ),
         };
 
-        Release::download(&url)
-    }
-
-    fn download(url: &str) -> StrResult<Self> {
-        match ureq::get(url).call() {
+        match ureq::get(&url).call() {
             Ok(response) => response
                 .into_json()
-                .map_err(|err| eco_format!("unable to get json from response: {err}")),
+                .map_err(|err| eco_format!("unable to parse JSON response: {err}")),
             Err(ureq::Error::Status(404, _)) => {
                 bail!("release not found (searched at {url})")
             }
@@ -130,6 +131,7 @@ impl Release {
             .find(|a| a.name.starts_with(asset_name))
             .ok_or("could not find release for your target platform")?;
 
+        eprintln!("Downloading release ...");
         let response = match ureq::get(&asset.browser_download_url).call() {
             Ok(response) => response,
             Err(ureq::Error::Status(404, _)) => {
@@ -229,7 +231,7 @@ fn backup_path() -> StrResult<PathBuf> {
     #[cfg(target_os = "linux")]
     let root_backup_dir = dirs::state_dir()
         .or_else(|| dirs::data_dir())
-        .ok_or("unable to locate local data or state directories")?;
+        .ok_or("unable to locate local data or state directory")?;
 
     #[cfg(not(target_os = "linux"))]
     let root_backup_dir =
