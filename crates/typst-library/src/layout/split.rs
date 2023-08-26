@@ -44,7 +44,7 @@ impl Layout for SplitElem {
         let body_frames = body.layout(vt, styles, regions)?.into_frames();
         let n = body_frames.len();
         let res = Content::sequence(body_frames.iter().enumerate().map(|(i, frame)| {
-            let body = LayoutedContent::new().with_index(i).with_size(frame.size().map(Rel::from));
+            let body = OpaqueContent::new().with_index(i).with_size(frame.size().map(Rel::from));
             SplitItem::new()
                 .with_index(i)
                 .with_count(n)
@@ -87,22 +87,22 @@ impl Layout for SplitItem {
     }
 }
 
-/// A stand-in for content that has already been fully layouted.
+/// A stand-in for content that has already been finalized.
 ///
-/// This is conceptually an opaque rectangle with already layouted content inside
-/// (which can't be accessed anymore). It is only used in conjunction with `split`.
+/// This is conceptually an opaque rectangle with content inside, which can't be accessed anymore.
+/// It is only used in conjunction with `split`.
 ///
-/// Display: Pre-Layouted content
+/// Display: Opaque content
 /// Category: layout
 #[element(Layout)]
-pub struct LayoutedContent {
-    /// The index of the part this is a stand-in for.
+pub struct OpaqueContent {
+    #[internal]
     index: usize,
     #[internal]
     size: Axes<Rel<Length>>,
 }
 
-impl Layout for LayoutedContent {
+impl Layout for OpaqueContent {
     fn layout(
         &self,
         _vt: &mut Vt,
