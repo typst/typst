@@ -36,7 +36,7 @@ open = "4.0.2"
 pathdiff = "0.1"
 same-file = "1"
 # https://github.com/mitsuhiko/self-replace/pull/16
-self-replace = { git = "https://github.com/Gui-Yom/self-replace", optional = true }
+self-replace = { git = "https://github.com/typst/self-replace", optional = true }
 semver = "1"
 serde = "1.0.184"
 serde_json = "1"

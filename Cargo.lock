@@ -2211,7 +2211,7 @@ dependencies = [
 [[package]]
 name = "self-replace"
 version = "1.3.5"
-source = "git+https://github.com/Gui-Yom/self-replace#2e6d5e4808bba73b713fd85cf5616b7d846143c2"
+source = "git+https://github.com/typst/self-replace#2e6d5e4808bba73b713fd85cf5616b7d846143c2"
 dependencies = [
  "fastrand 1.9.0",
  "tempfile",
