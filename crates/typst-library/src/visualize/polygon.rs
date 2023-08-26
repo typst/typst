@@ -136,7 +136,9 @@ pub fn polygon_regular(
 ) -> Content {
     let radius = size / 2.0;
     let angle = |i: f64| (2.0 * PI * i / (vertices as f64) + (1.5 * PI));
-    let left = (0..=vertices).map(|v| {(radius * angle(v as f64).cos()) + radius}).fold(radius, |min, v| if min < v { min } else { v });
+    let left = (0..=vertices)
+        .map(|v| (radius * angle(v as f64).cos()) + radius)
+        .fold(radius, |min, v| if min < v { min } else { v });
     let vertices = (0..=vertices)
         .map(|v| {
             let x = (radius * angle(v as f64).cos()) + radius - left;
