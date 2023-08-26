@@ -85,10 +85,23 @@ impl Content {
 
     /// Access the children if this is a sequence.
     pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Self>> {
-        if !self.is::<SequenceElem>() {
+        if !self.is_sequence() {
             return None;
         }
         Some(self.attrs.iter().filter_map(Attr::child))
+    }
+
+    pub fn is_sequence(&self) -> bool {
+        self.is::<SequenceElem>()
+    }
+
+    /// Also auto expands sequence of sequences into flat sequence
+    pub fn sequence_recursive_for_each(&self, f: &mut impl FnMut(&Self)) {
+        if let Some(childs) = self.to_sequence() {
+            childs.for_each(|c| c.sequence_recursive_for_each(f));
+        } else {
+            f(self);
+        }
     }
 
     /// Access the child and styles.
