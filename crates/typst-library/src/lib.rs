@@ -150,7 +150,7 @@ fn info_module() -> Module {
     let mut scope = Scope::deduplicating();
 
     scope.define("version", env!("CARGO_PKG_VERSION"));
-    scope.define("commit", env!("TYPST_COMMIT"));
+    scope.define("commit", option_env!("TYPST_COMMIT"));
 
     Module::new("info").with_scope(scope)
 }
