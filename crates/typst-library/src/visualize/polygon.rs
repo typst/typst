@@ -141,7 +141,8 @@ pub fn polygon_regular(
             base + PI * (1.0 / 2.0 - 1.0 / vertices as f64)
         } else {
             base + 1.5 * PI
-        }};
+        }
+    };
     let left = (0..=vertices)
         .map(|v| (radius * angle(v as f64).cos()) + radius)
         .fold(radius, |min, v| if min < v { min } else { v });
