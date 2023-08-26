@@ -94,7 +94,7 @@ impl Layout for PolygonElem {
         let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
 
-        Ok(Fragment::frame(frame))
+        Ok(Fragment::frame(frame.debug()))
     }
 }
 
@@ -134,12 +134,12 @@ pub fn polygon_regular(
     #[default(3)]
     vertices: u64,
 ) -> Content {
-    let origin = size / 2.0;
+    let radius = size / 2.0;
     let angle = |i: f64| (2.0 * PI * i / (vertices as f64) + (1.5 * PI));
     let vertices = (0..=vertices)
         .map(|i| {
-            let x = (origin * angle(i as f64).cos()) + origin;
-            let y = (origin * angle(i as f64).sin()) + origin;
+            let x = (radius * angle(i as f64).cos()) + radius;
+            let y = (radius * angle(i as f64).sin()) + radius;
             Axes::new(x, y).map(Rel::from)
         })
         .collect();
