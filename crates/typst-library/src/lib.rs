@@ -41,6 +41,7 @@ fn global(math: Module) -> Module {
     compute::define(&mut global);
     symbols::define(&mut global);
     global.define("math", math);
+    global.define("info", info_module());
 
     Module::new("global").with_scope(global)
 }
@@ -142,4 +143,13 @@ fn items() -> LangItems {
             }
         },
     }
+}
+
+/// Construct the module with information about typst itself
+fn info_module() -> Module {
+    let mut scope = Scope::deduplicating();
+
+    scope.define("version", env!("CARGO_PKG_VERSION"));
+
+    Module::new("info").with_scope(scope)
 }
