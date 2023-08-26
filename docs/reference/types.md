@@ -692,6 +692,8 @@ string and returns the resulting string.
 ### rev()
 Reverses the grapheme clusters and returns the resulting string.
 
+- returns: string
+
 ### trim()
 Removes matches of a pattern from one or both sides of the string, once or
 repeatedly and returns the resulting string.
