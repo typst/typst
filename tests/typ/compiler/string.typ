@@ -177,6 +177,16 @@
 #"123".replace("123", (1, 2, 3))
 
 ---
+// Test the 'rev' method
+#test("Hello".rev(), "olleH")
+#test("World!".rev(), "!dlroW")
+#test("".rev(), "")
+#test("A".rev(), "A")
+#test("AB".rev(), "BA")
+#test("123".rev(), "321")
+#test("🏳️‍🌈A🏳️‍⚧️".rev(), "🏳️‍⚧️A🏳️‍🌈")
+
+---
 // Test the `trim` method.
 #let str = "Typst, LaTeX, Word, InDesign"
 #let array = ("Typst", "LaTeX", "Word", "InDesign")
