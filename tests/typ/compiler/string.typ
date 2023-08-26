@@ -211,5 +211,14 @@
 #test("a123c".split(regex("\d+")), ("a", "c"))
 
 ---
+// Test the `rev` method.
+#test("abc".rev(), "cba")
+#test("ax̂e".rev(), "ex̂a")
+
+---
+// Error: 12-15 unknown variable: arg
+#"abc".rev(arg)
+
+---
 // Error: 2-2:1 unclosed string
 #"hello\"
