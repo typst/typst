@@ -340,7 +340,8 @@ impl Frame {
                 &mut FrameItem::Placeholder(i) => {
                     // note: this shouldn't be able to fail since `FrameItem::Placeholder` is only generated in one place
                     // and this method is called immediately afterwards (see SplitElem::layout)
-                    let inner_frame = source.get(i).expect("Mismatched placeholder and source").clone();
+                    let inner_frame =
+                        source.get(i).expect("Mismatched placeholder and source").clone();
                     *item = FrameItem::Group(GroupItem::new(inner_frame));
                 }
                 FrameItem::Group(gr) => {

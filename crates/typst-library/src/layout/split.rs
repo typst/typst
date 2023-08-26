@@ -44,7 +44,9 @@ impl Layout for SplitElem {
         let body_frames = body.layout(vt, styles, regions)?.into_frames();
         let n = body_frames.len();
         let res = Content::sequence(body_frames.iter().enumerate().map(|(i, frame)| {
-            let body = OpaqueContent::new().with_index(i).with_size(frame.size().map(Rel::from));
+            let body = OpaqueContent::new()
+                .with_index(i)
+                .with_size(frame.size().map(Rel::from));
             SplitItem::new()
                 .with_index(i)
                 .with_count(n)
