@@ -190,7 +190,8 @@ impl Show for RefElem {
                     )
                 })
                 .hint(eco_format!(
-                    "you can enable {0} numbering with `#set {0}(numbering: \"1.\")`",
+                    "you can enable {} numbering with `#set {}(numbering: \"1.\")`",
+                    elem.func().name(),
                     if elem.func() == EquationElem::func() {
                         "math.equation"
                     } else {
