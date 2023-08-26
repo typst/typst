@@ -82,6 +82,7 @@ pub fn call(
                 let count = args.named("count")?;
                 string.replace(vm, pattern, with, count)?.into_value()
             }
+            "rev" => string.clusters().rev().join(None, None).at(span)?.into_value(),
             "trim" => {
                 let pattern = args.eat()?;
                 let at = args.named("at")?;
