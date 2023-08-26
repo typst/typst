@@ -138,8 +138,8 @@ pub fn polygon_regular(
     let angle = |i: f64| (2.0 * PI * i / (vertices as f64) + (1.5 * PI));
     let vertices = (0..=vertices)
         .map(|i| {
-            let x = origin * angle(i as f64).cos();
-            let y = origin * angle(i as f64).sin();
+            let x = (origin * angle(i as f64).cos()) + origin;
+            let y = (origin * angle(i as f64).sin()) + origin;
             Axes::new(x, y).map(Rel::from)
         })
         .collect();
