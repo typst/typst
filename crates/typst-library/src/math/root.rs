@@ -4,7 +4,7 @@ use super::*;
 ///
 /// ## Example { #example }
 /// ```example
-/// $ sqrt(x^2) = x = sqrt(x)^2 $
+/// $ sqrt(3 - 2sqrt(2)) = sqrt(2) - 1 $
 /// ```
 ///
 /// Display: Square Root
