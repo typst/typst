@@ -126,7 +126,7 @@ pub fn polygon_regular(
 
     /// The size of the polygon.
     #[named]
-    #[default(Abs::pt(30.0).into())]
+    #[default(Em::one().into())]
     size: Length,
 
     /// The number of vertices in the polygon.
