@@ -689,6 +689,11 @@ string and returns the resulting string.
   If given, only the first `count` matches of the pattern are placed.
 - returns: string
 
+### rev()
+Reverses the string, keeping grapheme clusters intact.
+
+- returns: string
+
 ### trim()
 Removes matches of a pattern from one or both sides of the string, once or
 repeatedly and returns the resulting string.
