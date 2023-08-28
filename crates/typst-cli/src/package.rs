@@ -60,9 +60,7 @@ fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()>
     };
 
     let remote = RemoteReader::from_response(response);
-    let data = remote
-        .download()
-        .map_err(|_| PackageError::NetworkFailed)?;
+    let data = remote.download().map_err(|_| PackageError::NetworkFailed)?;
 
     let decompressed = flate2::read::GzDecoder::new(data.as_slice());
     tar::Archive::new(decompressed).unpack(package_dir).map_err(|_| {
