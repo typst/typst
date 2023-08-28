@@ -116,7 +116,13 @@ impl Str {
         match pattern {
             StrPattern::Str(pat) => self.0.ends_with(pat.as_str()),
             StrPattern::Regex(re) => {
-                re.find_iter(self).last().map_or(false, |m| m.end() == self.0.len())
+                // Regex expressions return non-overlapping matches, adding an
+                // ending anchor forces our regex to find the end
+                let anchored = Regex::new(&format!("({})$", re.as_str())).unwrap();
+                anchored
+                    .find_iter(self)
+                    .last()
+                    .map_or(false, |m| m.end() == self.0.len())
             }
         }
     }
