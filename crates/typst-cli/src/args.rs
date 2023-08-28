@@ -1,6 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
+use semver::Version;
+
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 
 /// The Typst compiler.
@@ -34,6 +36,10 @@ pub enum Command {
 
     /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
+
+    /// Self update the Typst CLI
+    #[cfg_attr(not(feature = "self-update"), doc = " (disabled)")]
+    Update(UpdateCommand),
 }
 
 /// Compiles an input file into a supported output format
@@ -46,6 +52,10 @@ pub struct CompileCommand {
     /// Path to output file (PDF, PNG, or SVG)
     pub output: Option<PathBuf>,
 
+    /// The format of the output file, inferred from the extension by default
+    #[arg(long = "format", short = 'f')]
+    pub format: Option<OutputFormat>,
+
     /// Opens the output file using the default viewer after compilation
     #[arg(long = "open")]
     pub open: Option<Option<String>>,
@@ -57,15 +67,6 @@ pub struct CompileCommand {
     /// Produces a flamegraph of the compilation process
     #[arg(long = "flamegraph", value_name = "OUTPUT_SVG")]
     pub flamegraph: Option<Option<PathBuf>>,
-}
-
-impl CompileCommand {
-    /// The output path.
-    pub fn output(&self) -> PathBuf {
-        self.output
-            .clone()
-            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
-    }
 }
 
 /// Processes an input file to extract provided metadata
@@ -151,6 +152,38 @@ pub enum DiagnosticFormat {
 }
 
 impl Display for DiagnosticFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        self.to_possible_value()
+            .expect("no values are skipped")
+            .get_name()
+            .fmt(f)
+    }
+}
+
+#[derive(Debug, Clone, Parser)]
+pub struct UpdateCommand {
+    /// Which version to update to (defaults to latest)
+    pub version: Option<Version>,
+
+    /// Forces a downgrade to an older version (required for downgrading)
+    #[clap(long, default_value_t = false)]
+    pub force: bool,
+
+    /// Reverts to the version from before the last update (only possible if
+    /// `typst update` has previously ran)
+    #[clap(long, default_value_t = false, exclusive = true)]
+    pub revert: bool,
+}
+
+/// Which format to use for the generated output file.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, ValueEnum)]
+pub enum OutputFormat {
+    Pdf,
+    Png,
+    Svg,
+}
+
+impl Display for OutputFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         self.to_possible_value()
             .expect("no values are skipped")

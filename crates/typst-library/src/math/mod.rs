@@ -249,14 +249,12 @@ impl Layout for EquationElem {
         // Find a math font.
         let variant = variant(styles);
         let world = vt.world;
-        let Some(font) = families(styles)
-            .find_map(|family| {
-                let id = world.book().select(family.as_str(), variant)?;
-                let font = world.font(id)?;
-                let _ = font.ttf().tables().math?.constants?;
-                Some(font)
-            })
-        else {
+        let Some(font) = families(styles).find_map(|family| {
+            let id = world.book().select(family.as_str(), variant)?;
+            let font = world.font(id)?;
+            let _ = font.ttf().tables().math?.constants?;
+            Some(font)
+        }) else {
             bail!(self.span(), "current font does not support math");
         };
 
@@ -329,6 +327,7 @@ impl LocalName for EquationElem {
             Lang::DANISH => "Ligning",
             Lang::DUTCH => "Vergelijking",
             Lang::FILIPINO => "Ekwasyon",
+            Lang::FINNISH => "Yhtälö",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
             Lang::ITALIAN => "Equazione",
@@ -419,11 +418,12 @@ impl LayoutMath for Content {
             return realized.layout_math(ctx);
         }
 
-        if let Some(children) = self.to_sequence() {
+        if self.is_sequence() {
             let mut bb = BehavedBuilder::new();
-            for child in children {
-                bb.push(child.clone(), StyleChain::default());
-            }
+            self.sequence_recursive_for_each(&mut |child: &Content| {
+                bb.push(child.clone(), StyleChain::default())
+            });
+
             for (child, _) in bb.finish().0.iter() {
                 child.layout_math(ctx)?;
             }

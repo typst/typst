@@ -5,14 +5,18 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use serde::{Serialize, Serializer};
+use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
+use serde::de::{Error, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
+use time::macros::format_description;
 
 use super::{
     cast, fields, format_str, ops, Args, Array, Bytes, CastInfo, Content, Dict,
     FromValue, Func, IntoValue, Module, Reflect, Str, Symbol,
 };
 use crate::diag::StrResult;
+use crate::eval::Datetime;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
@@ -271,6 +275,177 @@ impl Serialize for Value {
             // Fall back to repr() for other things.
             other => serializer.serialize_str(&other.repr()),
         }
+    }
+}
+
+fn parse_toml_date(dict: &Dict) -> Option<Datetime> {
+    if dict.len() != 1 || !dict.contains("$__toml_private_datetime") {
+        return None;
+    }
+
+    let Ok(s) = String::from_value(dict.at("$__toml_private_datetime", None).unwrap())
+    else {
+        return None;
+    };
+
+    if let Ok(d) = time::PrimitiveDateTime::parse(
+        &s,
+        &format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]Z"),
+    ) {
+        Some(
+            Datetime::from_ymd_hms(
+                d.year(),
+                d.month() as u8,
+                d.day(),
+                d.hour(),
+                d.minute(),
+                d.second(),
+            )
+            .unwrap(),
+        )
+    } else if let Ok(d) = time::PrimitiveDateTime::parse(
+        &s,
+        &format_description!("[year]-[month]-[day]T[hour]:[minute]:[second]"),
+    ) {
+        Some(
+            Datetime::from_ymd_hms(
+                d.year(),
+                d.month() as u8,
+                d.day(),
+                d.hour(),
+                d.minute(),
+                d.second(),
+            )
+            .unwrap(),
+        )
+    } else if let Ok(d) =
+        time::Date::parse(&s, &format_description!("[year]-[month]-[day]"))
+    {
+        Some(Datetime::from_ymd(d.year(), d.month() as u8, d.day()).unwrap())
+    } else if let Ok(d) =
+        time::Time::parse(&s, &format_description!("[hour]:[minute]:[second]"))
+    {
+        Some(Datetime::from_hms(d.hour(), d.minute(), d.second()).unwrap())
+    } else {
+        None
+    }
+}
+
+struct ValueVisitor;
+
+impl<'de> Visitor<'de> for ValueVisitor {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a typst value")
+    }
+
+    fn visit_bool<E: Error>(self, v: bool) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_i8<E: Error>(self, v: i8) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_i16<E: Error>(self, v: i16) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_i32<E: Error>(self, v: i32) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u8<E: Error>(self, v: u8) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u16<E: Error>(self, v: u16) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u32<E: Error>(self, v: u32) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
+        Ok((v as f64).into_value())
+    }
+
+    fn visit_f64<E: Error>(self, v: f64) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_char<E: Error>(self, v: char) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_borrowed_str<E: Error>(self, v: &'de str) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_bytes<E: Error>(self, v: &[u8]) -> Result<Self::Value, E> {
+        Ok(Bytes::from(v).into_value())
+    }
+
+    fn visit_borrowed_bytes<E: Error>(self, v: &'de [u8]) -> Result<Self::Value, E> {
+        Ok(Bytes::from(v).into_value())
+    }
+
+    fn visit_byte_buf<E: Error>(self, v: Vec<u8>) -> Result<Self::Value, E> {
+        Ok(Bytes::from(v).into_value())
+    }
+
+    fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+        Ok(Value::None)
+    }
+
+    fn visit_some<D: Deserializer<'de>>(
+        self,
+        deserializer: D,
+    ) -> Result<Self::Value, D::Error> {
+        Value::deserialize(deserializer)
+    }
+
+    fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+        Ok(Value::None)
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, seq: A) -> Result<Self::Value, A::Error> {
+        Ok(Array::deserialize(SeqAccessDeserializer::new(seq))?.into_value())
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<Self::Value, A::Error> {
+        let dict = Dict::deserialize(MapAccessDeserializer::new(map))?;
+        Ok(match parse_toml_date(&dict) {
+            None => dict.into_value(),
+            Some(dt) => Value::dynamic(dt),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(ValueVisitor)
     }
 }
 

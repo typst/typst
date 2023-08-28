@@ -12,6 +12,8 @@ use clap_mangen::Man;
 mod args;
 
 fn main() {
+    // https://stackoverflow.com/a/51311222/11494565
+    println!("cargo:rustc-env=TARGET={}", env::var("TARGET").unwrap());
     println!("cargo:rerun-if-env-changed=TYPST_VERSION");
     println!("cargo:rerun-if-env-changed=GEN_ARTIFACTS");
 

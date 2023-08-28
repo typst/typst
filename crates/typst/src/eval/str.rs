@@ -4,7 +4,7 @@ use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
 use ecow::EcoString;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{cast, dict, Args, Array, Dict, Func, IntoValue, Value, Vm};
@@ -26,7 +26,8 @@ pub use crate::__format_str as format_str;
 pub use ecow::eco_format;
 
 /// An immutable reference counted string.
-#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize)]
+#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct Str(EcoString);
 
 impl Str {
@@ -321,6 +322,11 @@ impl Str {
             .ok_or_else(|| format!("cannot repeat this string {} times", n))?;
 
         Ok(Self(self.0.repeat(n)))
+    }
+
+    /// Reverse the string.
+    pub fn rev(&self) -> Self {
+        self.as_str().graphemes(true).rev().collect::<String>().into()
     }
 
     /// Resolve an index or throw an out of bounds error.
