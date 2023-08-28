@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use ureq::Response;
 
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
-/// over a websocket and displays statics about its progress.
+/// over a websocket and displays statistics about its progress.
 ///
 /// Downloads will _never_ fail due to statistics failing to print, print errors
 /// are silently ignored.
@@ -50,9 +50,9 @@ impl RemoteReader {
         }
     }
 
-    /// Download the body content and return it as a raw buffer while attempting
-    /// to print download statistics to a terminal. Download progress gets
-    /// displayed and updated every second.
+    /// Download the bodies content as raw bytes while attempting to print
+    /// download statistics to standard out. Download progress gets displayed
+    /// and updated every second.
     ///
     /// These statistics will never prevent a download from completing, errors
     /// are silently ignored.
@@ -117,7 +117,7 @@ impl RemoteReader {
     }
 
     /// Compile and format several download statistics and make an attempt at
-    /// displaying them to the terminal.
+    /// displaying them on standard out.
     fn display(&mut self) {
         let percent = (self.total_downloaded as f64 / self.content_len as f64) * 100.;
         let sum: usize = self.downloaded_last_few_secs.iter().sum();
@@ -145,7 +145,7 @@ impl RemoteReader {
         self.displayed_charcount = Some(output.chars().count());
     }
 
-    /// Erases each previously printed character and adds a carriage return
+    /// Erase each previously printed character and add a carriage return
     /// character, clearing the line for the next `display()` update.
     fn erase_chars(&mut self, count: usize) {
         let _ = write!(self.terminal, "{}", " ".repeat(count));
@@ -154,7 +154,7 @@ impl RemoteReader {
     }
 }
 
-/// Appends a unit-of-time suffix.
+/// Append a unit-of-time suffix.
 fn time_suffix(duration: Duration) -> String {
     let secs = duration.as_secs();
     match format_dhms(secs) {
@@ -165,7 +165,7 @@ fn time_suffix(duration: Duration) -> String {
     }
 }
 
-/// Format the total amound of seconds into the amount of days, hours, minutes
+/// Format the total amount of seconds into the amount of days, hours, minutes
 /// and seconds.
 fn format_dhms(sec: u64) -> (u64, u8, u8, u8) {
     let (mins, sec) = (sec / 60, (sec % 60) as u8);
@@ -174,8 +174,8 @@ fn format_dhms(sec: u64) -> (u64, u8, u8, u8) {
     (days, hours, mins, sec)
 }
 
-/// Formats a given size as a unit of time. Appending a '/s' (per second) suffix
-/// is done by setting `include_suffix` to true.
+/// Format a given size as a unit of time. Setting `include_suffix` to true
+/// appends a '/s' (per second) suffix.
 fn as_time_unit(size: usize, include_suffix: bool) -> String {
     const KI: f64 = 1024.0;
     const MI: f64 = KI * KI;

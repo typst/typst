@@ -160,8 +160,7 @@ impl Display for DiagnosticFormat {
     }
 }
 
-/// Self-updates the CLI and replaces it with pre-compiled binary from a Typst
-/// release.
+/// Update the CLI using a pre-compiled binary from a Typst GitHub release.
 #[derive(Debug, Clone, Parser)]
 pub struct UpdateCommand {
     /// Which version to update to (defaults to latest)
