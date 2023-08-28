@@ -78,6 +78,14 @@
 #test(other.push(2), 3)
 
 ---
+// Mixing renamed module and items.
+#import "module.typ" as newname: b as newval, item
+#test(newname.b, 1)
+#test(newval, 1)
+#test(item(1, 2), 3)
+#test(newname.item(1, 2), 3)
+
+---
 // Renamed module import with function scopes.
 #import enum as othernum
 #test(enum, othernum)
@@ -143,12 +151,6 @@
 #import () => {5}: x
 
 ---
-// Error: 32-33 unexpected colon
-// Hint: 32-33 cannot import the renamed module and its items at the same time
-// Hint: 32-33 try importing the module's items in a separate `import` expression
-#import "module.typ" as renamed: a, b, c
-
----
 // Error: 9-10 expected path, module or function, found integer
 #import 5: something
 
@@ -192,6 +194,18 @@
 #import "./modules/cycle1.typ": *
 
 This is never reached.
+
+---
+// Renaming does not import the old name (without items).
+#import "module.typ" as something
+// Error: 7-13 unknown variable: module
+#test(module.b, 1)
+
+---
+// Renaming does not import the old name (with items).
+#import "module.typ" as something: b as other
+// Error: 7-13 unknown variable: module
+#test(module.b, 1)
 
 ---
 // Error: 8 expected expression

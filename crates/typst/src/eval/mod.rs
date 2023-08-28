@@ -1691,7 +1691,7 @@ impl Eval for ast::ForLoop<'_> {
 }
 
 /// Applies imports from `import` to the current scope.
-fn apply_imports<V: IntoValue>(
+fn apply_imports<V: IntoValue + Clone>(
     imports: Option<ast::Imports>,
     vm: &mut Vm,
     source_value: V,
@@ -1700,13 +1700,21 @@ fn apply_imports<V: IntoValue>(
     scope: impl Fn(&V) -> &Scope,
 ) -> SourceResult<()> {
     if let Some(new_name) = new_name {
-        // Renamed module => just define it on the scope (no items).
-        vm.scopes.top.define(new_name, source_value);
-        return Ok(());
+        // Renamed module => define it on the scope (possibly with further items).
+        if imports.is_none() {
+            // Avoid unneeded clone when there are no imported items.
+            vm.scopes.top.define(new_name, source_value);
+            return Ok(());
+        } else {
+            vm.scopes.top.define(new_name, source_value.clone());
+        }
     }
 
     match imports {
         None => {
+            // If the module were renamed and there were no imported items, we
+            // would have returned above. It is therefore safe to import the
+            // module with its original name here.
             vm.scopes.top.define(name(&source_value), source_value);
         }
         Some(ast::Imports::Wildcard) => {
