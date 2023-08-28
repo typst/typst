@@ -7,6 +7,8 @@ use termcolor::WriteColor;
 use typst::diag::{PackageError, PackageResult};
 use typst::syntax::PackageSpec;
 
+use crate::download::RemoteReader;
+
 use super::color_stream;
 
 /// Make a package available in the on-disk cache.
@@ -49,15 +51,20 @@ fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()>
     );
 
     print_downloading(spec).unwrap();
-    let reader = match ureq::get(&url).call() {
-        Ok(response) => response.into_reader(),
+    let response = match ureq::get(&url).call() {
+        Ok(response) => response,
         Err(ureq::Error::Status(404, _)) => {
             return Err(PackageError::NotFound(spec.clone()))
         }
         Err(_) => return Err(PackageError::NetworkFailed),
     };
 
-    let decompressed = flate2::read::GzDecoder::new(reader);
+    let remote = RemoteReader::from_response(response);
+    let data = remote
+        .download()
+        .map_err(|_| PackageError::NetworkFailed)?;
+
+    let decompressed = flate2::read::GzDecoder::new(data.as_slice());
     tar::Archive::new(decompressed).unpack(package_dir).map_err(|_| {
         fs::remove_dir_all(package_dir).ok();
         PackageError::MalformedArchive

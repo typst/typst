@@ -11,6 +11,7 @@ use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
+use crate::download::RemoteReader;
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -140,11 +141,10 @@ impl Release {
             Err(_) => bail!("failed to load asset (network failed)"),
         };
 
-        let mut data = Vec::new();
-        response
-            .into_reader()
-            .read_to_end(&mut data)
-            .map_err(|err| eco_format!("failed to read response buffer: {err}"))?;
+        let remote = RemoteReader::from_response(response);
+        let data = remote
+            .download()
+            .map_err(|err| eco_format!("download failed: {err}"))?;
 
         if asset_name.contains("windows") {
             extract_binary_from_zip(&data, asset_name)
