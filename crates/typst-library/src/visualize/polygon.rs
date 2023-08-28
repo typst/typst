@@ -141,10 +141,13 @@ pub fn polygon_regular(
     let horizontal_offset = (0..=vertices)
         .map(|v| (radius * angle(v as f64).cos()) + radius)
         .fold(radius, |min, v| if min < v { min } else { v });
+    let vertical_offset = (0..=vertices)
+        .map(|v| (radius * angle(v as f64).sin()) + radius)
+        .fold(radius, |min, v| if min < v { min } else { v });
     let vertices = (0..=vertices)
         .map(|v| {
             let x = (radius * angle(v as f64).cos()) + radius - horizontal_offset;
-            let y = (radius * angle(v as f64).sin()) + radius;
+            let y = (radius * angle(v as f64).sin()) + radius - vertical_offset;
             Axes::new(x, y).map(Rel::from)
         })
         .collect();
