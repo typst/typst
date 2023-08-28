@@ -66,6 +66,7 @@ use std::mem;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
+use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -1733,7 +1734,7 @@ fn apply_imports<V: IntoValue + Clone>(
                             == renamed_item.new_name().as_str()
                         {
                             vm.vt.tracer.warn(warning!(
-                                renamed_item.span(),
+                                renamed_item.new_name().span(),
                                 "unnecessary import rename to same name",
                             ));
                         }
@@ -1759,7 +1760,20 @@ impl Eval for ast::ModuleImport<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
-        let new_name = self.new_name().map(ast::Ident::as_str);
+        let new_name_ident = self.new_name();
+        let new_name = new_name_ident.map(ast::Ident::as_str);
+        if_chain! {
+            if let Some(new_name_ident) = new_name_ident;
+            if let ast::Expr::Ident(ident) = self.source();
+            if ident.as_str() == new_name_ident.as_str();
+            then {
+                // warn on `import x as x`
+                vm.vt.tracer.warn(warning!(
+                    new_name_ident.span(),
+                    "unnecessary import rename to same name",
+                ));
+            }
+        }
         if let Value::Func(func) = source {
             if func.info().is_none() {
                 bail!(span, "cannot import from user-defined functions");

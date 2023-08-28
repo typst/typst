@@ -125,8 +125,23 @@
 #item(2)[a]
 
 ---
-// Warning: 15-27 unnecessary import rename to same name
+// Warning: 23-27 unnecessary import rename to same name
 #import enum: item as item
+
+---
+// Warning: 17-21 unnecessary import rename to same name
+#import enum as enum
+
+---
+// Warning: 17-21 unnecessary import rename to same name
+#import enum as enum: item
+// Warning: 17-21 unnecessary import rename to same name
+// Warning: 31-35 unnecessary import rename to same name
+#import enum as enum: item as item
+
+---
+// No warning on a case that isn't obviously pathological
+#import "module.typ" as module
 
 ---
 // Can't import from closures.
