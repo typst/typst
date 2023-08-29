@@ -29,7 +29,7 @@
 #polygon((0pt, 10pt), (30pt, 20pt), (0pt, 30pt), (20pt, 0pt), (20pt, 35pt))
 
 // Regular polygon; should have equal side lengths
-#polygon.regular(size: 9pt, vertices: 9)
+#for k in range(3,9) {box(width: 36pt)[#polygon.regular(size: 30pt, vertices: k,)]}
 
 ---
 // Error: 10-17 point array must contain exactly two entries
