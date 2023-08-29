@@ -4,6 +4,9 @@ use std::time::{Duration, Instant};
 
 use ureq::Response;
 
+/// Keep track of this many past download amounts
+const DOWNLOAD_TRACK_COUNT: usize = 5;
+
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
 /// over a websocket and displays statistics about its progress.
 ///
@@ -42,7 +45,7 @@ impl RemoteReader {
             content_len,
             total_downloaded: 0,
             downloaded_this_sec: 0,
-            downloaded_last_few_secs: VecDeque::new(),
+            downloaded_last_few_secs: VecDeque::with_capacity(DOWNLOAD_TRACK_COUNT),
             start_time: Instant::now(),
             last_print: None,
             displayed_charcount: None,
@@ -90,6 +93,10 @@ impl RemoteReader {
             self.downloaded_this_sec += read;
 
             if elapsed >= Duration::from_secs(1) {
+                if self.downloaded_last_few_secs.len() == DOWNLOAD_TRACK_COUNT {
+                    self.downloaded_last_few_secs.pop_back();
+                }
+
                 self.downloaded_last_few_secs.push_front(self.downloaded_this_sec);
                 self.downloaded_this_sec = 0;
 
