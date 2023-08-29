@@ -138,12 +138,16 @@ pub fn polygon_regular(
     let angle = |i: f64| {
         2.0 * PI * i / (vertices as f64) + PI * (1.0 / 2.0 - 1.0 / vertices as f64)
     };
-    let horizontal_offset = (0..=vertices)
-        .map(|v| (radius * angle(v as f64).cos()) + radius)
-        .fold(radius, |min, v| if min < v { min } else { v });
-    let vertical_offset = (0..=vertices)
-        .map(|v| (radius * angle(v as f64).sin()) + radius)
-        .fold(radius, |min, v| if min < v { min } else { v });
+    let (horizontal_offset, vertical_offset) = (0..=vertices)
+        .map(|v| {
+            (
+                (radius * angle(v as f64).cos()) + radius,
+                (radius * angle(v as f64).sin()) + radius,
+            )
+        })
+        .fold((radius, radius), |(min_x, min_y), (v_x, v_y)| {
+            (if min_x < v_x { min_x } else { v_x }, if min_y < v_y { min_y } else { v_y })
+        });
     let vertices = (0..=vertices)
         .map(|v| {
             let x = (radius * angle(v as f64).cos()) + radius - horizontal_offset;
