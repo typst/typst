@@ -70,3 +70,17 @@ World
 #show "GRAPH": image("/files/graph.png")
 
 The GRAPH has nodes.
+
+---
+// Test special symbols
+#show "A = B ( c ) [ d ] e ‣ —": set text(red)
+
+There are escapes and shortcuts: A = B ( c ) \[ d \] e \u{2023} ---
+
+---
+// Test variables
+#show "my string variable": set text(red)
+
+#let var = "string" 
+
+This is my #var variable

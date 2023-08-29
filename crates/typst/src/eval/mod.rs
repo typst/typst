@@ -399,9 +399,81 @@ fn eval_markup<'a>(
     let flow = vm.flow.take();
     let mut seq = Vec::with_capacity(exprs.size_hint().1.unwrap_or_default());
 
+    // That stores previous text node
+    // to merge it with next adjacent one if present.
+    let mut previous_text: Option<EcoString> = None;
+
+    // Let's believe that two adjacent spaces is gibberish.
+    // That variable helps to join two texts, if they are separated by spaces only
+    // And move space to it's own node otherwise.
+    let mut stored_space: Option<ast::Expr<'_>> = None;
+
+    // Unfortunately, it is currently impossible to attach exact span to merged text node,
+    // So let's attach at least some of them.
+    let mut last_span: Span = Span::detached();
+
+    // Function to dump all stored texts and spaces into `seq`.
+    fn push_text(
+        vm: &mut Vm,
+        seq: &mut Vec<Content>,
+        previous_text: &mut Option<EcoString>,
+        stored_space: &mut Option<ast::Expr<'_>>,
+        span: Span,
+    ) -> SourceResult<()> {
+        if previous_text.is_some() {
+            seq.push(
+                // Note: not full span!
+                (vm.items.text)(previous_text.take().unwrap()).spanned(span),
+            );
+        }
+        if let Some(space) = stored_space.take() {
+            seq.push(space.eval(vm)?.display().spanned(space.span()))
+        }
+        Ok(())
+    }
+
     while let Some(expr) = exprs.next() {
+        // Extract text from nodes if okay
+        let new_text = match expr {
+            ast::Expr::Text(text) => Some(text.get().to_string()),
+            ast::Expr::Escape(ref esc) => Some(esc.get().to_string()),
+            ast::Expr::Shorthand(ref short) => Some(short.get().to_string()),
+            _ => None,
+        };
+
+        if let Some(ref mut old_text) = previous_text {
+            if let Some(ref new_text) = new_text {
+                // Two adjacent text nodes
+                if stored_space.take().is_some() {
+                    // …separated by space
+                    old_text.push(' ');
+                }
+                old_text.push_str(new_text);
+                last_span = expr.span();
+                continue;
+            } else if matches!(expr, ast::Expr::Space(_)) {
+                // Possibly attached space, store
+                stored_space = Some(expr);
+                last_span = expr.span();
+                continue;
+            }
+        } else if let Some(new_text) = new_text {
+            // Starting new text
+            previous_text = Some(new_text.into());
+            last_span = expr.span();
+            continue;
+        }
+
         match expr {
             ast::Expr::Set(set) => {
+                push_text(
+                    vm,
+                    &mut seq,
+                    &mut previous_text,
+                    &mut stored_space,
+                    last_span,
+                )?;
+
                 let styles = set.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -410,6 +482,14 @@ fn eval_markup<'a>(
                 seq.push(eval_markup(vm, exprs)?.styled_with_map(styles))
             }
             ast::Expr::Show(show) => {
+                push_text(
+                    vm,
+                    &mut seq,
+                    &mut previous_text,
+                    &mut stored_space,
+                    last_span,
+                )?;
+
                 let recipe = show.eval(vm)?;
                 if vm.flow.is_some() {
                     break;
@@ -420,20 +500,56 @@ fn eval_markup<'a>(
             }
             expr => match expr.eval(vm)? {
                 Value::Label(label) => {
+                    push_text(
+                        vm,
+                        &mut seq,
+                        &mut previous_text,
+                        &mut stored_space,
+                        last_span,
+                    )?;
+
                     if let Some(elem) =
                         seq.iter_mut().rev().find(|node| !node.can::<dyn Unlabellable>())
                     {
                         *elem = mem::take(elem).labelled(label);
                     }
                 }
-                value => seq.push(value.display().spanned(expr.span())),
+                value => {
+                    // String variables should be also merged
+                    if let Value::Str(s) = value {
+                        if let Some(ref mut old_text) = previous_text {
+                            // other text node and str value
+                            if stored_space.take().is_some() {
+                                // …separated by space
+                                old_text.push(' ');
+                            }
+                            old_text.push_str(&s);
+                        } else {
+                            // new, just store
+                            previous_text = Some(s.into());
+                        }
+                    } else {
+                        push_text(
+                            vm,
+                            &mut seq,
+                            &mut previous_text,
+                            &mut stored_space,
+                            last_span,
+                        )?;
+                        seq.push(value.display().spanned(expr.span()));
+                    }
+                }
             },
         }
+
+        last_span = expr.span();
 
         if vm.flow.is_some() {
             break;
         }
     }
+
+    push_text(vm, &mut seq, &mut previous_text, &mut stored_space, last_span)?;
 
     if flow.is_some() {
         vm.flow = flow;
