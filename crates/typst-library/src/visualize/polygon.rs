@@ -124,7 +124,7 @@ pub fn polygon_regular(
     #[named]
     stroke: Option<Smart<Option<PartialStroke>>>,
 
-    /// The size of the polygon.
+    /// The diameter of the circumcircle of the regular polygon (https://en.wikipedia.org/wiki/Circumcircle).
     #[named]
     #[default(Em::one().into())]
     size: Length,
