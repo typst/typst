@@ -65,6 +65,13 @@ use crate::font::{Font, FontBook};
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 
 /// Compile a source file into a fully layouted document.
+///
+/// - Returns `Ok(document)` if there were no fatal errors.
+/// - Returns `Err(errors)` if there were fatal errors.
+///
+/// Requires a mutable reference to a tracer. Such a tracer can be created with
+/// `Tracer::new()`. Independently of whether compilation succeeded, calling
+/// `tracer.warnings()` after compilation will return all compiler warnings.
 #[tracing::instrument(skip_all)]
 pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     let route = Route::default();

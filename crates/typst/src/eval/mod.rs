@@ -90,7 +90,7 @@ const MAX_CALL_DEPTH: usize = 64;
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
-#[tracing::instrument(skip(world, route, tracer, source))]
+#[tracing::instrument(skip_all)]
 pub fn eval(
     world: Tracked<dyn World + '_>,
     route: Tracked<Route>,
@@ -108,9 +108,9 @@ pub fn eval(
     set_lang_items(library.items.clone());
 
     // Prepare VT.
-    let mut locator = Locator::default();
+    let mut locator = Locator::new();
     let introspector = Introspector::default();
-    let mut delayed = DelayedErrors::default();
+    let mut delayed = DelayedErrors::new();
     let vt = Vt {
         world,
         introspector: introspector.track(),
@@ -126,7 +126,7 @@ pub fn eval(
 
     let root = source.root();
     let errors = root.errors();
-    if !errors.is_empty() && vm.traced.is_none() {
+    if !errors.is_empty() && vm.inspected.is_none() {
         return Err(Box::new(errors.into_iter().map(Into::into).collect()));
     }
 
@@ -175,9 +175,9 @@ pub fn eval_string(
     }
 
     // Prepare VT.
-    let mut tracer = Tracer::default();
-    let mut locator = Locator::default();
-    let mut delayed = DelayedErrors::default();
+    let mut tracer = Tracer::new();
+    let mut locator = Locator::new();
+    let mut delayed = DelayedErrors::new();
     let introspector = Introspector::default();
     let vt = Vt {
         world,
@@ -242,8 +242,8 @@ pub struct Vm<'a> {
     scopes: Scopes<'a>,
     /// The current call depth.
     depth: usize,
-    /// A span that is currently traced.
-    traced: Option<Span>,
+    /// A span that is currently under inspection.
+    inspected: Option<Span>,
 }
 
 impl<'a> Vm<'a> {
@@ -254,7 +254,7 @@ impl<'a> Vm<'a> {
         file: Option<FileId>,
         scopes: Scopes<'a>,
     ) -> Self {
-        let traced = file.and_then(|id| vt.tracer.span(id));
+        let inspected = file.and_then(|id| vt.tracer.inspected(id));
         let items = vt.world.library().items.clone();
         Self {
             vt,
@@ -264,7 +264,7 @@ impl<'a> Vm<'a> {
             flow: None,
             scopes,
             depth: 0,
-            traced,
+            inspected,
         }
     }
 
@@ -294,8 +294,8 @@ impl<'a> Vm<'a> {
     #[tracing::instrument(skip_all)]
     pub fn define(&mut self, var: ast::Ident, value: impl IntoValue) {
         let value = value.into_value();
-        if self.traced == Some(var.span()) {
-            self.vt.tracer.trace(value.clone());
+        if self.inspected == Some(var.span()) {
+            self.vt.tracer.value(value.clone());
         }
         self.scopes.top.define(var.get().clone(), value);
     }
@@ -512,8 +512,8 @@ impl Eval for ast::Expr<'_> {
         }?
         .spanned(span);
 
-        if vm.traced == Some(span) {
-            vm.vt.tracer.trace(v.clone());
+        if vm.inspected == Some(span) {
+            vm.vt.tracer.value(v.clone());
         }
 
         Ok(v)
@@ -1954,8 +1954,8 @@ impl Access for ast::Ident<'_> {
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         let span = self.span();
         let value = vm.scopes.get_mut(&self).at(span)?;
-        if vm.traced == Some(span) {
-            vm.vt.tracer.trace(value.clone());
+        if vm.inspected == Some(span) {
+            vm.vt.tracer.value(value.clone());
         }
         Ok(value)
     }

@@ -526,15 +526,14 @@ fn test_part(
     if world.print.model {
         let world = (world as &dyn World).track();
         let route = typst::eval::Route::default();
-        let mut tracer = typst::eval::Tracer::default();
+        let mut tracer = typst::eval::Tracer::new();
 
         let module =
             typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
-    let mut tracer = Tracer::default();
-
+    let mut tracer = Tracer::new();
     let (mut frames, diagnostics) = match typst::compile(world, &mut tracer) {
         Ok(document) => (document.pages, tracer.warnings()),
         Err(errors) => {

@@ -73,7 +73,7 @@ pub fn compile_once(
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let mut tracer = Tracer::default();
+    let mut tracer = Tracer::new();
     let result = typst::compile(world, &mut tracer);
     let warnings = tracer.warnings();
 
@@ -218,7 +218,7 @@ pub fn print_diagnostics(
         config.display_style = term::DisplayStyle::Short;
     }
 
-    for diagnostic in warnings.iter().chain(errors.iter()) {
+    for diagnostic in warnings.iter().chain(errors) {
         let diag = match diagnostic.severity {
             Severity::Error => Diagnostic::error(),
             Severity::Warning => Diagnostic::warning(),

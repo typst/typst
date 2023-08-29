@@ -60,7 +60,7 @@ pub fn typeset(
     loop {
         tracing::info!("Layout iteration {iter}");
 
-        delayed = DelayedErrors::default();
+        delayed = DelayedErrors::new();
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut locator = Locator::new();
@@ -147,6 +147,13 @@ impl Vt<'_> {
 /// Holds delayed errors.
 #[derive(Default, Clone)]
 pub struct DelayedErrors(Vec<SourceDiagnostic>);
+
+impl DelayedErrors {
+    /// Create an empty list of delayed errors.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 #[comemo::track]
 impl DelayedErrors {
