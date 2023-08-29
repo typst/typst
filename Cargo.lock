@@ -2990,6 +2990,7 @@ version = "0.7.0"
 dependencies = [
  "clap",
  "comemo",
+ "ecow",
  "iai",
  "once_cell",
  "oxipng",

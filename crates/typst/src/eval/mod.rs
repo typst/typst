@@ -122,7 +122,7 @@ pub fn eval(
     // Prepare VM.
     let route = Route::insert(route, id);
     let scopes = Scopes::new(Some(library));
-    let mut vm = Vm::new(vt, route.track(), id, scopes);
+    let mut vm = Vm::new(vt, route.track(), Some(id), scopes);
 
     let root = source.root();
     let errors = root.errors();
@@ -189,9 +189,8 @@ pub fn eval_string(
 
     // Prepare VM.
     let route = Route::default();
-    let id = FileId::detached();
     let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(vt, route.track(), id, scopes);
+    let mut vm = Vm::new(vt, route.track(), None, scopes);
     vm.scopes.scopes.push(scope);
 
     // Evaluate the code.
@@ -235,8 +234,8 @@ pub struct Vm<'a> {
     items: LangItems,
     /// The route of source ids the VM took to reach its current location.
     route: Tracked<'a, Route<'a>>,
-    /// The current location.
-    location: FileId,
+    /// The id of the currently evaluated file.
+    file: Option<FileId>,
     /// A control flow event that is currently happening.
     flow: Option<FlowEvent>,
     /// The stack of scopes.
@@ -252,16 +251,16 @@ impl<'a> Vm<'a> {
     fn new(
         vt: Vt<'a>,
         route: Tracked<'a, Route>,
-        location: FileId,
+        file: Option<FileId>,
         scopes: Scopes<'a>,
     ) -> Self {
-        let traced = vt.tracer.span(location);
+        let traced = file.and_then(|id| vt.tracer.span(id));
         let items = vt.world.library().items.clone();
         Self {
             vt,
             items,
             route,
-            location,
+            file,
             flow: None,
             scopes,
             depth: 0,
@@ -274,9 +273,21 @@ impl<'a> Vm<'a> {
         self.vt.world
     }
 
-    /// The location to which paths are relative currently.
-    pub fn location(&self) -> FileId {
-        self.location
+    /// The id of the currently evaluated file.
+    ///
+    /// Returns `None` if the VM is in a detached context, e.g. when evaluating
+    /// a user-provided string.
+    pub fn file(&self) -> Option<FileId> {
+        self.file
+    }
+
+    /// Resolve a path relative to the currently evaluated file.
+    pub fn resolve_path(&self, path: &str) -> StrResult<FileId> {
+        let Some(file) = self.file else {
+            bail!("cannot access file system from here");
+        };
+
+        Ok(file.join(path))
     }
 
     /// Define a variable in the current scope.
@@ -331,8 +342,8 @@ pub struct Route<'a> {
 
 impl<'a> Route<'a> {
     /// Create a new route with just one entry.
-    pub fn new(id: FileId) -> Self {
-        Self { id: Some(id), outer: None }
+    pub fn new(id: Option<FileId>) -> Self {
+        Self { id, outer: None }
     }
 
     /// Insert a new id into the route.
@@ -1301,7 +1312,7 @@ impl Eval for ast::Closure<'_> {
         // Define the closure.
         let closure = Closure {
             node: self.to_untyped().clone(),
-            location: vm.location,
+            file: vm.file,
             defaults,
             captured,
         };
@@ -1809,7 +1820,7 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     manifest.validate(&spec).at(span)?;
 
     // Evaluate the entry point.
-    let entrypoint_id = manifest_id.join(&manifest.package.entrypoint).at(span)?;
+    let entrypoint_id = manifest_id.join(&manifest.package.entrypoint);
     let source = vm.world().source(entrypoint_id).at(span)?;
     let point = || Tracepoint::Import;
     Ok(eval(vm.world(), vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)
@@ -1821,7 +1832,7 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
 fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     // Load the source file.
     let world = vm.world();
-    let id = vm.location().join(path).at(span)?;
+    let id = vm.resolve_path(path).at(span)?;
     let source = world.source(id).at(span)?;
 
     // Prevent cyclic importing.

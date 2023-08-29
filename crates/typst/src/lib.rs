@@ -142,12 +142,18 @@ pub trait World {
     fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
         &[]
     }
+}
 
+/// Helper methods on [`World`] implementations.
+pub trait WorldExt {
     /// Get the byte range for a span.
-    #[track_caller]
-    fn range(&self, span: Span) -> Range<usize> {
-        self.source(span.id())
-            .expect("span does not point into any source file")
-            .range(span)
+    ///
+    /// Returns `None` if the `Span` does not point into any source file.
+    fn range(&self, span: Span) -> Option<Range<usize>>;
+}
+
+impl<T: World> WorldExt for T {
+    fn range(&self, span: Span) -> Option<Range<usize>> {
+        self.source(span.id()?).ok()?.range(span)
     }
 }

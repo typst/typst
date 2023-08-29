@@ -45,7 +45,7 @@ impl Tracer {
 impl Tracer {
     /// The traced span if it is part of the given source file.
     pub fn span(&self, id: FileId) -> Option<Span> {
-        if self.span.map(Span::id) == Some(id) {
+        if self.span.and_then(Span::id) == Some(id) {
             self.span
         } else {
             None

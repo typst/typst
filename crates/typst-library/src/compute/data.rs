@@ -37,7 +37,7 @@ pub fn read(
     vm: &mut Vm,
 ) -> SourceResult<Readable> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     Ok(match encoding {
         None => Readable::Bytes(data),
@@ -130,7 +130,7 @@ pub fn csv(
     vm: &mut Vm,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     csv_decode(Spanned::new(Readable::Bytes(data), span), delimiter)
 }
@@ -262,7 +262,7 @@ pub fn json(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     json_decode(Spanned::new(Readable::Bytes(data), span))
 }
@@ -350,7 +350,7 @@ pub fn toml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
 
     toml_decode(Spanned::new(Readable::Bytes(data), span))
@@ -462,7 +462,7 @@ pub fn yaml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     yaml_decode(Spanned::new(Readable::Bytes(data), span))
 }
@@ -568,7 +568,7 @@ pub fn xml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     xml_decode(Spanned::new(Readable::Bytes(data), span))
 }

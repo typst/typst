@@ -58,7 +58,7 @@ pub struct BibliographyElem {
         let data = paths.0
             .iter()
             .map(|path| {
-                let id = vm.location().join(path).at(span)?;
+                let id = vm.resolve_path(path).at(span)?;
                 vm.world().file(id).at(span)
             })
             .collect::<SourceResult<Vec<Bytes>>>()?;

@@ -31,6 +31,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use crate::diag::{warning, SourceDiagnostic, SourceResult};
 use crate::doc::Document;
 use crate::eval::Tracer;
+use crate::syntax::Span;
 use crate::World;
 
 /// Typeset content into a fully layouted document.
@@ -88,11 +89,8 @@ pub fn typeset(
 
         if iter >= 5 {
             tracer.warn(
-                warning!(
-                    world.main().root().span(),
-                    "layout did not converge within 5 attempts",
-                )
-                .with_hint("check if any states or queries are updating themselves"),
+                warning!(Span::detached(), "layout did not converge within 5 attempts",)
+                    .with_hint("check if any states or queries are updating themselves"),
             );
             break;
         }

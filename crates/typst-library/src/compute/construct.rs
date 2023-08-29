@@ -935,7 +935,7 @@ pub fn plugin(
     vm: &mut Vm,
 ) -> SourceResult<Plugin> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     Plugin::new(data).at(span)
 }
