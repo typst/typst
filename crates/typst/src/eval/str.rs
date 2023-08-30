@@ -123,14 +123,10 @@ impl Str {
                     }
 
                     // There might still be a match overlapping this one, so
-                    // restart at the next code point
-                    if let Some(c) = &self[mat.start()..].chars().next() {
-                        start_byte = mat.start() + c.len_utf8();
-                    } else {
-                        break;
-                    }
+                    // restart at the next code point.
+                    let Some(c) = self[mat.start()..].chars().next() else { break };
+                    start_byte = mat.start() + c.len_utf8();
                 }
-
                 false
             }
         }
