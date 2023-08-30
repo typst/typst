@@ -505,7 +505,7 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
     eco_format!("failed to parse yaml file: {}", error.to_string().trim())
 }
 
-/// Reads structured data from a cbor file.
+/// Reads structured data from a CBOR file.
 ///
 /// The file must contain a valid cbor serialization. Mappings will be
 /// converted into Typst dictionaries, and sequences will be converted into
@@ -517,16 +517,16 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 /// The function returns a dictionary or value or an array, depending on
 /// the input.
 ///
-/// Display: cbor
+/// Display: CBOR
 /// Category: data-loading
 #[func]
 #[scope(
-scope.define("decode", cbor_decode_func());
-scope.define("encode", cbor_encode_func());
-scope
+    scope.define("decode", cbor_decode_func());
+    scope.define("encode", cbor_encode_func());
+    scope
 )]
 pub fn cbor(
-    /// Path to a cbor file.
+    /// Path to a CBOR file.
     path: Spanned<EcoString>,
     /// The virtual machine.
     vm: &mut Vm,
@@ -537,9 +537,9 @@ pub fn cbor(
     cbor_decode(Spanned::new(data, span))
 }
 
-/// Reads structured data from cbor bytes.
+/// Reads structured data from CBOR bytes.
 ///
-/// Display: cbor
+/// Display: CBOR
 /// Category: data-loading
 #[func]
 pub fn cbor_decode(
@@ -553,9 +553,9 @@ pub fn cbor_decode(
     Ok(value)
 }
 
-/// Encode structured data into cbor bytes.
+/// Encode structured data into CBOR bytes.
 ///
-/// Display: cbor
+/// Display: CBOR
 /// Category: data-loading
 #[func]
 pub fn cbor_encode(
