@@ -9,6 +9,7 @@ use typst::diag::FileError;
 use typst::eval::Bytes;
 use typst::syntax::{self, LinkedNode};
 use typst::util::option_eq;
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
@@ -636,20 +637,20 @@ fn align_tabs(text: &str, tab_size: usize) -> EcoString {
     let replacement = " ".repeat(tab_size);
     let divisor = tab_size.max(1);
     let mut column = 0;
-    for c in text.chars() {
+    for c in text.graphemes(true) {
         match c {
-            '\t' => {
+            "\t" => {
                 let required = tab_size - column % divisor;
                 res.push_str(&replacement[..required]);
                 column += required;
             }
-            '\n' => {
+            "\n" => {
                 column = 0;
-                res.push(c);
+                res.push_str(c);
             }
             _ => {
                 column += 1;
-                res.push(c);
+                res.push_str(c);
             }
         }
     }
