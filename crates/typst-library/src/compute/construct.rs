@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Bytes, Datetime, Module, Plugin, Reflect, Regex};
+use typst::eval::{Bytes, Datetime, Duration, Module, Plugin, Reflect, Regex};
 
 use crate::prelude::*;
 
@@ -332,6 +332,54 @@ pub fn datetime_today(
         .world
         .today(offset.as_custom())
         .ok_or("unable to get the current date")?)
+}
+
+/// Creates a new duration.
+///
+/// You can specify the [duration]($type/duration) using weeks, days, hours,
+/// minutes and seconds. You can also get a duration by subtracting two
+/// [datetimes]($type/datetime).
+///
+/// ## Example
+/// ```example
+/// #duration(
+///   days: 3,
+///   hours: 12,
+/// ).hours()
+/// ```
+///
+/// Display: Duration
+/// Category: construct
+#[func]
+pub fn duration(
+    /// The number of seconds.
+    #[named]
+    #[default(0)]
+    seconds: i64,
+    /// The number of minutes.
+    #[named]
+    #[default(0)]
+    minutes: i64,
+    /// The number of hours.
+    #[named]
+    #[default(0)]
+    hours: i64,
+    /// The number of days.
+    #[named]
+    #[default(0)]
+    days: i64,
+    /// The number of weeks.
+    #[named]
+    #[default(0)]
+    weeks: i64,
+) -> Duration {
+    Duration::from(
+        time::Duration::seconds(seconds)
+            + time::Duration::minutes(minutes)
+            + time::Duration::hours(hours)
+            + time::Duration::days(days)
+            + time::Duration::weeks(weeks),
+    )
 }
 
 /// Creates a CMYK color.

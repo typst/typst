@@ -431,6 +431,71 @@ Returns the second of the datetime, if it exists. Otherwise, it returns
 
 - returns: integer or none
 
+### ordinal()
+Returns the ordinal (day of the year) of the datetime, if it exists.
+Otherwise, it returns `{none}`.
+
+- returns: integer or none
+
+# Duration
+Represents a span of time. Can be created by either specifying a custom
+duration using the [`duration`]($func/datetime) function or by subtracting two
+[datetimes]($type/datetime).
+
+## Example
+```example
+#let duration = duration(
+  days: 4,
+  hours: 2,
+  minutes: 10,
+)
+
+#duration.hours()
+```
+
+## Methods
+### seconds()
+Returns the duration in seconds as a floating-point value.
+
+This function returns the total duration represented in seconds as a
+floating-point number. It does not provide the second component of the duration,
+but rather gives the overall duration in terms of seconds.
+
+- returns: float
+
+### minutes()
+Returns the duration in minutes as a floating-point value.
+
+This function returns the total duration represented in minutes as a
+floating-point number. It does not provide the minute component of the duration,
+but rather gives the overall duration in terms of minutes.
+
+- returns: float
+
+### hours()
+Returns the duration in hours as a floating-point value.
+
+This function returns the total duration represented in hours as a
+floating-point number. It does not provide the hour component of the duration,
+but rather gives the overall duration in terms of hours.
+- returns: float
+
+### days()
+Returns the duration in days as a floating-point value.
+
+This function returns the total duration represented in days as a
+floating-point number. It does not provide the day component of the duration,
+but rather gives the overall duration in terms of days.
+- returns: float
+
+### weeks()
+Returns the duration in weeks as a floating-point value.
+
+This function returns the total duration represented in weeks as a
+floating-point number. It does not provide the week component of the duration,
+but rather gives the overall duration in terms of weeks.
+- returns: float
+
 # Symbol
 A Unicode symbol.
 
