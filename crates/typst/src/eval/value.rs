@@ -446,7 +446,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let dict = Dict::deserialize(MapAccessDeserializer::new(map))?;
         Ok(match parse_toml_date(&dict) {
             None => dict.into_value(),
-            Some(dt) => dt.into_value(),
+            Some(datetime) => datetime.into_value(),
         })
     }
 }
@@ -621,6 +621,8 @@ primitive! {
 }
 primitive! { Bytes: "bytes", Bytes }
 primitive! { Label: "label", Label }
+primitive! { Datetime: "datetime", Datetime }
+primitive! { Duration: "duration", Duration }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),

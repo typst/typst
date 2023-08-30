@@ -106,6 +106,28 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Datetime(datetime) => match method {
+            "display" => datetime.display(args.eat()?).at(args.span)?.into_value(),
+            "year" => datetime.year().into_value(),
+            "month" => datetime.month().into_value(),
+            "weekday" => datetime.weekday().into_value(),
+            "day" => datetime.day().into_value(),
+            "hour" => datetime.hour().into_value(),
+            "minute" => datetime.minute().into_value(),
+            "second" => datetime.second().into_value(),
+            "ordinal" => datetime.ordinal().into_value(),
+            _ => return missing(),
+        },
+
+        Value::Duration(duration) => match method {
+            "seconds" => duration.seconds().into_value(),
+            "minutes" => duration.minutes().into_value(),
+            "hours" => duration.hours().into_value(),
+            "days" => duration.days().into_value(),
+            "weeks" => duration.weeks().into_value(),
+            _ => return missing(),
+        },
+
         Value::Content(content) => match method {
             "func" => content.func().into_value(),
             "has" => content.has(&args.expect::<EcoString>("field")?).into_value(),
@@ -227,27 +249,6 @@ pub fn call(
         Value::Args(args) => match method {
             "pos" => args.to_pos().into_value(),
             "named" => args.to_named().into_value(),
-            _ => return missing(),
-        },
-
-        Value::Datetime(datetime) => match method {
-            "display" => datetime.display(args.eat()?).at(args.span)?.into_value(),
-            "year" => datetime.year().into_value(),
-            "month" => datetime.month().into_value(),
-            "weekday" => datetime.weekday().into_value(),
-            "day" => datetime.day().into_value(),
-            "hour" => datetime.hour().into_value(),
-            "minute" => datetime.minute().into_value(),
-            "second" => datetime.second().into_value(),
-            "ordinal" => datetime.ordinal().into_value(),
-            _ => return missing(),
-        },
-        Value::Duration(duration) => match method {
-            "seconds" => duration.seconds().into_value(),
-            "minutes" => duration.minutes().into_value(),
-            "hours" => duration.hours().into_value(),
-            "days" => duration.days().into_value(),
-            "weeks" => duration.weeks().into_value(),
             _ => return missing(),
         },
 
@@ -432,6 +433,24 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("trim", true),
         ],
         "bytes" => &[("len", false), ("at", true), ("slice", true)],
+        "datetime" => &[
+            ("display", true),
+            ("year", false),
+            ("month", false),
+            ("weekday", false),
+            ("day", false),
+            ("hour", false),
+            ("minute", false),
+            ("second", false),
+            ("ordinal", false),
+        ],
+        "duration" => &[
+            ("seconds", false),
+            ("minutes", false),
+            ("hours", false),
+            ("days", false),
+            ("weeks", false),
+        ],
         "content" => &[
             ("func", false),
             ("has", true),

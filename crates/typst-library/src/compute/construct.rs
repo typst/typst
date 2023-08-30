@@ -336,8 +336,9 @@ pub fn datetime_today(
 
 /// Creates a new duration.
 ///
-/// You can specify the [duration]($type/duration) using weeks, days, hours, minutes and seconds.
-/// You can also get a duration by subtracting two [datetimes]($type/datetime).
+/// You can specify the [duration]($type/duration) using weeks, days, hours,
+/// minutes and seconds. You can also get a duration by subtracting two
+/// [datetimes]($type/datetime).
 ///
 /// ## Example
 /// ```example
@@ -351,23 +352,23 @@ pub fn datetime_today(
 /// Category: construct
 #[func]
 pub fn duration(
-    /// The amount of seconds.
+    /// The number of seconds.
     #[named]
     #[default(0)]
     seconds: i64,
-    /// The amount of minutes.
+    /// The number of minutes.
     #[named]
     #[default(0)]
     minutes: i64,
-    /// The amount of hours.
+    /// The number of hours.
     #[named]
     #[default(0)]
     hours: i64,
-    /// The amount of days.
+    /// The number of days.
     #[named]
     #[default(0)]
     days: i64,
-    /// The amount of weeks.
+    /// The number of weeks.
     #[named]
     #[default(0)]
     weeks: i64,

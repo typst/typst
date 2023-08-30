@@ -440,7 +440,7 @@ Otherwise, it returns `{none}`.
 # Duration
 Represents a span of time. Can be created by either specifying a custom
 duration using the [`duration`]($func/datetime) function or by subtracting two
-dates.
+[datetimes]($type/datetime).
 
 ## Example
 ```example
@@ -454,7 +454,6 @@ dates.
 ```
 
 ## Methods
-
 ### seconds()
 Returns the duration in seconds as a floating-point value.
 

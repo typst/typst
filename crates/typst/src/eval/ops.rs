@@ -115,9 +115,11 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
                 ..PartialStroke::default()
             })
         }
+
         (Duration(a), Duration(b)) => Duration(a + b),
         (Datetime(a), Duration(b)) => Datetime(a + b),
         (Duration(a), Datetime(b)) => Datetime(b + a),
+
         (Dyn(a), Dyn(b)) => {
             // 1D alignments can be summed into 2D alignments.
             if let (Some(&a), Some(&b)) =
@@ -135,6 +137,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 
             mismatch!("cannot add {} and {}", a, b);
         }
+
         (a, b) => mismatch!("cannot add {} and {}", a, b),
     })
 }
@@ -384,6 +387,7 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (&Ratio(a), &Relative(b)) => a == b.rel && b.abs.is_zero(),
         (&Relative(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
         (&Relative(a), &Ratio(b)) => a.rel == b && a.abs.is_zero(),
+
         _ => false,
     }
 }
@@ -410,11 +414,7 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
         (Duration(a), Duration(b)) => a.cmp(b),
-        (Datetime(a), Datetime(b)) => a.partial_cmp(b).ok_or(format!(
-            "cannot compare {} and {}",
-            a.get_type(),
-            b.get_type()
-        ))?,
+        (Datetime(a), Datetime(b)) => try_cmp_datetimes(a, b)?,
 
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
     })
@@ -424,6 +424,12 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
 fn try_cmp_values<T: PartialOrd + Debug>(a: &T, b: &T) -> StrResult<Ordering> {
     a.partial_cmp(b)
         .ok_or_else(|| eco_format!("cannot compare {:?} with {:?}", a, b))
+}
+
+/// Try to compare two datetimes.
+fn try_cmp_datetimes(a: &super::Datetime, b: &super::Datetime) -> StrResult<Ordering> {
+    a.partial_cmp(b)
+        .ok_or_else(|| eco_format!("cannot compare {} and {}", a.kind(), b.kind()))
 }
 
 /// Test whether one value is "in" another one.

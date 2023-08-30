@@ -1,37 +1,43 @@
-use crate::eval::{CastInfo, FromValue, IntoValue, Reflect, StrResult, Type, Value};
 use crate::util::pretty_array_like;
-use ecow::{eco_format, EcoVec};
+use ecow::eco_format;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 
-/// A duration object that represents either a positive or negative span of time.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+/// Represents a positive or negative span of time.
+#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Duration(time::Duration);
+
 impl Duration {
+    /// Whether the duration is empty / zero.
+    pub fn is_zero(&self) -> bool {
+        self.0.is_zero()
+    }
+
+    /// The duration expressed in seconds.
     pub fn seconds(&self) -> f64 {
         self.0.as_seconds_f64()
     }
 
+    /// The duration expressed in minutes.
     pub fn minutes(&self) -> f64 {
-        self.0.as_seconds_f64() / 60.0
+        self.seconds() / 60.0
     }
 
+    /// The duration expressed in hours.
     pub fn hours(&self) -> f64 {
-        self.0.as_seconds_f64() / 3_600.0
+        self.seconds() / 3_600.0
     }
 
+    /// The duration expressed in days.
     pub fn days(&self) -> f64 {
-        self.0.as_seconds_f64() / 86_400.0
+        self.seconds() / 86_400.0
     }
 
+    /// The duration expressed in weeks.
     pub fn weeks(&self) -> f64 {
-        self.0.as_seconds_f64() / 604_800.0
-    }
-
-    pub fn is_zero(&self) -> bool {
-        self.0.is_zero()
+        self.seconds() / 604_800.0
     }
 }
 
@@ -44,7 +50,7 @@ impl From<time::Duration> for Duration {
 impl Debug for Duration {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let mut tmp = self.0;
-        let mut vec = EcoVec::new();
+        let mut vec = Vec::with_capacity(5);
 
         let weeks = tmp.whole_seconds() / 604_800.0 as i64;
         if weeks != 0 {
@@ -132,5 +138,3 @@ impl Div for Duration {
         self.0 / rhs.0
     }
 }
-
-primitive! { Duration: "duration", Duration }

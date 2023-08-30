@@ -9,14 +9,12 @@ use time::error::{Format, InvalidFormatDescription};
 use time::{format_description, PrimitiveDateTime};
 
 use crate::diag::bail;
-use crate::eval::{
-    CastInfo, Duration, FromValue, IntoValue, Reflect, StrResult, Type, Value,
-};
+use crate::eval::{Duration, StrResult};
 use crate::util::pretty_array_like;
 
 /// A datetime object that represents either a date, a time or a combination of
 /// both.
-#[derive(Clone, Copy, PartialEq, Hash, Eq)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Datetime {
     /// Representation as a date.
     Date(time::Date),
@@ -27,6 +25,15 @@ pub enum Datetime {
 }
 
 impl Datetime {
+    /// Which kind of variant this datetime stores.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Datetime::Datetime(_) => "datetime",
+            Datetime::Date(_) => "date",
+            Datetime::Time(_) => "time",
+        }
+    }
+
     /// Display the date and/or time in a certain format.
     pub fn display(&self, pattern: Option<EcoString>) -> Result<EcoString, EcoString> {
         let pattern = pattern.as_ref().map(EcoString::as_str).unwrap_or(match self {
@@ -148,17 +155,7 @@ impl Datetime {
         let time = time::Time::from_hms(hour, minute, second).ok()?;
         Some(Datetime::Datetime(PrimitiveDateTime::new(date, time)))
     }
-
-    pub fn get_type(&self) -> &'static str {
-        match self {
-            Datetime::Datetime(_) => "datetime",
-            Datetime::Date(_) => "date",
-            Datetime::Time(_) => "time",
-        }
-    }
 }
-
-primitive! { Datetime: "datetime", Datetime }
 
 impl PartialOrd for Datetime {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -205,7 +202,7 @@ impl Sub for Datetime {
             (Datetime::Datetime(a), Datetime::Datetime(b)) => Ok((a - b).into()),
             (Datetime::Date(a), Datetime::Date(b)) => Ok((a - b).into()),
             (Datetime::Time(a), Datetime::Time(b)) => Ok((a - b).into()),
-            (a, b) => bail!("cannot subtract {} from {}", b.get_type(), a.get_type()),
+            (a, b) => bail!("cannot subtract {} from {}", b.kind(), a.kind()),
         }
     }
 }
