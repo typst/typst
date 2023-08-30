@@ -266,14 +266,12 @@ impl Synthesize for RawElem {
 impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let tab_size = RawElem::tab_size_in(styles) as usize;
-        let text = if tab_size > 0 && self.text().contains('\t') {
-            let replacement =
-                unsafe { String::from_utf8_unchecked(vec![b' '; tab_size]) };
-            self.text().replace('\t', &replacement).into()
-        } else {
-            self.text()
-        };
+        let mut text = self.text();
+        if text.contains('\t') {
+            let tab_size = RawElem::tab_size_in(styles);
+            let replacement = " ".repeat(tab_size);
+            text = text.replace('\t', &replacement).into();
+        }
         let lang = self
             .lang(styles)
             .as_ref()
