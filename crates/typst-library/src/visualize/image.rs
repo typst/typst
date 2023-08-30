@@ -73,7 +73,7 @@ pub struct ImageElem {
     pub fit: ImageFit,
 }
 
-/// Decode a raster of vector graphic from bytes or a string.
+/// Decode a raster or vector graphic from bytes or a string.
 ///
 /// ## Example { #example }
 /// ```example
