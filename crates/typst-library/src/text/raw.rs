@@ -218,6 +218,25 @@ pub struct RawElem {
     #[internal]
     #[parse(theme_data.map(Some))]
     pub theme_data: Option<Bytes>,
+
+    /// The size for a tab stop in spaces.
+    ///
+    /// By default, this is set to `4` spaces per tab stop.
+    ///
+    /// #set raw(tab-size: 2)
+    /// ```typ
+    /// - compact with
+    /// 	- $2$ spaces per tab
+    /// ```
+    ///
+    /// #set raw(tab-size: 8)
+    /// ```typ
+    /// - spacious with
+    /// 	- $8$ spaces per tab
+    /// ```
+    /// ````
+    #[default(4)]
+    pub tab_size: u32,
 }
 
 impl RawElem {
@@ -247,7 +266,14 @@ impl Synthesize for RawElem {
 impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let text = self.text();
+        let tab_size = RawElem::tab_size_in(styles) as usize;
+        let text = if tab_size > 0 && self.text().contains('\t') {
+            let replacement =
+                unsafe { String::from_utf8_unchecked(vec![b' '; tab_size]) };
+            self.text().replace('\t', &replacement).into()
+        } else {
+            self.text()
+        };
         let lang = self
             .lang(styles)
             .as_ref()
