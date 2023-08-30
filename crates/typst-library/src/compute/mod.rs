@@ -38,6 +38,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("json", json_func());
     global.define("toml", toml_func());
     global.define("yaml", yaml_func());
+    global.define("cbor", cbor_func());
     global.define("xml", xml_func());
     global.define("calc", calc::module());
     global.define("plugin", plugin_func());
