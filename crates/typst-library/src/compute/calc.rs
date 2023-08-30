@@ -47,6 +47,7 @@ pub fn module() -> Module {
     scope.define("inf", f64::INFINITY);
     scope.define("nan", f64::NAN);
     scope.define("pi", std::f64::consts::PI);
+    scope.define("tau", std::f64::consts::TAU);
     scope.define("e", std::f64::consts::E);
     Module::new("calc").with_scope(scope)
 }
