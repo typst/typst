@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use ureq::Response;
 
-/// Keep track of this many past download amounts
+/// Keep track of this many past download amounts.
 const DOWNLOAD_TRACK_COUNT: usize = 5;
 
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
@@ -71,9 +71,9 @@ impl RemoteReader {
             let read = match self.reader.read(&mut data[offset..]) {
                 Ok(0) => break,
                 Ok(n) => n,
-                // if the data is not yet ready but will be available eventually
+                // If the data is not yet ready but will be available eventually
                 // keep trying until we either get an actual error, receive data
-                // or an Ok(0)
+                // or an Ok(0).
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(e),
             };
