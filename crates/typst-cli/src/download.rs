@@ -12,6 +12,7 @@ use ureq::Response;
 const SPEED_SAMPLES: usize = 5;
 
 /// Download binary data and display its progress.
+#[allow(clippy::result_large_err)]
 pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
     let response = ureq::get(url).call()?;
     Ok(RemoteReader::from_response(response).download()?)
