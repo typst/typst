@@ -1138,6 +1138,12 @@ fn module_import(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Import);
     code_expr(p);
+    if p.eat_if(SyntaxKind::As) {
+        // Allow renaming a full module import.
+        // If items are included, both the full module and the items are
+        // imported at the same time.
+        p.expect(SyntaxKind::Ident);
+    }
     if p.eat_if(SyntaxKind::Colon) && !p.eat_if(SyntaxKind::Star) {
         import_items(p);
     }
@@ -1147,9 +1153,17 @@ fn module_import(p: &mut Parser) {
 fn import_items(p: &mut Parser) {
     let m = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Semicolon) {
+        let item_marker = p.marker();
         if !p.eat_if(SyntaxKind::Ident) {
             p.unexpected();
         }
+
+        // Rename imported item.
+        if p.eat_if(SyntaxKind::As) {
+            p.expect(SyntaxKind::Ident);
+            p.wrap(item_marker, SyntaxKind::RenamedImportItem);
+        }
+
         if p.current().is_terminator() {
             break;
         }

@@ -1,4 +1,5 @@
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
+use crate::math::EquationElem;
 use crate::meta::FootnoteElem;
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -189,8 +190,13 @@ impl Show for RefElem {
                     )
                 })
                 .hint(eco_format!(
-                    "you can enable heading numbering with `#set {}(numbering: \"1.\")`",
-                    elem.func().name()
+                    "you can enable {} numbering with `#set {}(numbering: \"1.\")`",
+                    elem.func().name(),
+                    if elem.func() == EquationElem::func() {
+                        "math.equation"
+                    } else {
+                        elem.func().name()
+                    }
                 ))
                 .at(span)?;
 

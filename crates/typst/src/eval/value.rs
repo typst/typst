@@ -10,6 +10,7 @@ use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
 use time::macros::format_description;
+use typst::eval::Duration;
 
 use super::{
     cast, fields, format_str, ops, Args, Array, Bytes, CastInfo, Content, Dict,
@@ -55,6 +56,10 @@ pub enum Value {
     Bytes(Bytes),
     /// A label: `<intro>`.
     Label(Label),
+    /// A datetime
+    Datetime(Datetime),
+    /// A duration
+    Duration(Duration),
     /// A content value: `[*Hi* there]`.
     Content(Content),
     // Content styles.
@@ -116,6 +121,8 @@ impl Value {
             Self::Str(_) => Str::TYPE_NAME,
             Self::Bytes(_) => Bytes::TYPE_NAME,
             Self::Label(_) => Label::TYPE_NAME,
+            Self::Datetime(_) => Datetime::TYPE_NAME,
+            Self::Duration(_) => Duration::TYPE_NAME,
             Self::Content(_) => Content::TYPE_NAME,
             Self::Styles(_) => Styles::TYPE_NAME,
             Self::Array(_) => Array::TYPE_NAME,
@@ -200,6 +207,8 @@ impl Debug for Value {
             Self::Str(v) => Debug::fmt(v, f),
             Self::Bytes(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
+            Self::Datetime(v) => Debug::fmt(v, f),
+            Self::Duration(v) => Debug::fmt(v, f),
             Self::Content(v) => Debug::fmt(v, f),
             Self::Styles(v) => Debug::fmt(v, f),
             Self::Array(v) => Debug::fmt(v, f),
@@ -245,6 +254,8 @@ impl Hash for Value {
             Self::Label(v) => v.hash(state),
             Self::Content(v) => v.hash(state),
             Self::Styles(v) => v.hash(state),
+            Self::Datetime(v) => v.hash(state),
+            Self::Duration(v) => v.hash(state),
             Self::Array(v) => v.hash(state),
             Self::Dict(v) => v.hash(state),
             Self::Func(v) => v.hash(state),
@@ -435,7 +446,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
         let dict = Dict::deserialize(MapAccessDeserializer::new(map))?;
         Ok(match parse_toml_date(&dict) {
             None => dict.into_value(),
-            Some(dt) => Value::dynamic(dt),
+            Some(datetime) => datetime.into_value(),
         })
     }
 }
@@ -610,6 +621,8 @@ primitive! {
 }
 primitive! { Bytes: "bytes", Bytes }
 primitive! { Label: "label", Label }
+primitive! { Datetime: "datetime", Datetime }
+primitive! { Duration: "duration", Duration }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),

@@ -21,9 +21,10 @@ pub enum Jump {
 
 impl Jump {
     fn from_span(world: &dyn World, span: Span) -> Option<Self> {
-        let source = world.source(span.id()).ok()?;
+        let id = span.id()?;
+        let source = world.source(id).ok()?;
         let node = source.find(span)?;
-        Some(Self::Source(span.id(), node.offset()))
+        Some(Self::Source(id, node.offset()))
     }
 }
 
@@ -67,18 +68,15 @@ pub fn jump_from_click(
 
             FrameItem::Text(text) => {
                 for glyph in &text.glyphs {
-                    let (span, span_offset) = glyph.span;
-                    if span.is_detached() {
-                        continue;
-                    }
-
                     let width = glyph.x_advance.at(text.size);
                     if is_in_rect(
                         Point::new(pos.x, pos.y - text.size),
                         Size::new(width, text.size),
                         click,
                     ) {
-                        let source = world.source(span.id()).ok()?;
+                        let (span, span_offset) = glyph.span;
+                        let Some(id) = span.id() else { continue };
+                        let source = world.source(id).ok()?;
                         let node = source.find(span)?;
                         let pos = if node.kind() == SyntaxKind::Text {
                             let range = node.range();

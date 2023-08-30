@@ -490,7 +490,7 @@ fn parse_syntaxes(
         .0
         .iter()
         .map(|path| {
-            let id = vm.location().join(path).at(span)?;
+            let id = vm.resolve_path(path).at(span)?;
             vm.world().file(id).at(span)
         })
         .collect::<SourceResult<Vec<Bytes>>>()?;
@@ -522,7 +522,7 @@ fn parse_theme(
     };
 
     // Load theme file.
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
 
     // Check that parsing works.

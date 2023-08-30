@@ -9,7 +9,7 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 
 use crate::syntax::{PackageSpec, Span, Spanned, SyntaxError};
-use crate::World;
+use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
 ///
@@ -206,16 +206,12 @@ impl<T> Trace<T> for SourceResult<T> {
         F: Fn() -> Tracepoint,
     {
         self.map_err(|mut errors| {
-            if span.is_detached() {
-                return errors;
-            }
-
-            let trace_range = world.range(span);
-            for error in errors.iter_mut().filter(|e| !e.span.is_detached()) {
+            let Some(trace_range) = world.range(span) else { return errors };
+            for error in errors.iter_mut() {
                 // Skip traces that surround the error.
-                if error.span.id() == span.id() {
-                    let error_range = world.range(error.span);
-                    if trace_range.start <= error_range.start
+                if let Some(error_range) = world.range(error.span) {
+                    if error.span.id() == span.id()
+                        && trace_range.start <= error_range.start
                         && trace_range.end >= error_range.end
                     {
                         continue;

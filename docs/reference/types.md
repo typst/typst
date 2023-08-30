@@ -431,6 +431,71 @@ Returns the second of the datetime, if it exists. Otherwise, it returns
 
 - returns: integer or none
 
+### ordinal()
+Returns the ordinal (day of the year) of the datetime, if it exists.
+Otherwise, it returns `{none}`.
+
+- returns: integer or none
+
+# Duration
+Represents a span of time. Can be created by either specifying a custom
+duration using the [`duration`]($func/datetime) function or by subtracting two
+[datetimes]($type/datetime).
+
+## Example
+```example
+#let duration = duration(
+  days: 4,
+  hours: 2,
+  minutes: 10,
+)
+
+#duration.hours()
+```
+
+## Methods
+### seconds()
+Returns the duration in seconds as a floating-point value.
+
+This function returns the total duration represented in seconds as a
+floating-point number. It does not provide the second component of the duration,
+but rather gives the overall duration in terms of seconds.
+
+- returns: float
+
+### minutes()
+Returns the duration in minutes as a floating-point value.
+
+This function returns the total duration represented in minutes as a
+floating-point number. It does not provide the minute component of the duration,
+but rather gives the overall duration in terms of minutes.
+
+- returns: float
+
+### hours()
+Returns the duration in hours as a floating-point value.
+
+This function returns the total duration represented in hours as a
+floating-point number. It does not provide the hour component of the duration,
+but rather gives the overall duration in terms of hours.
+- returns: float
+
+### days()
+Returns the duration in days as a floating-point value.
+
+This function returns the total duration represented in days as a
+floating-point number. It does not provide the day component of the duration,
+but rather gives the overall duration in terms of days.
+- returns: float
+
+### weeks()
+Returns the duration in weeks as a floating-point value.
+
+This function returns the total duration represented in weeks as a
+floating-point number. It does not provide the week component of the duration,
+but rather gives the overall duration in terms of weeks.
+- returns: float
+
 # Symbol
 A Unicode symbol.
 
@@ -687,6 +752,11 @@ string and returns the resulting string.
   The string to replace the matches with or a function that gets a dictionary for each match and can return individual replacement strings.
 - count: integer (named)
   If given, only the first `count` matches of the pattern are placed.
+- returns: string
+
+### rev()
+Reverses the grapheme clusters and returns the resulting string.
+
 - returns: string
 
 ### trim()
@@ -963,13 +1033,17 @@ for loop.
 - returns: array
 
 ### zip()
-Zips the array with another array. If the two arrays are of unequal length, it
-will only zip up until the last element of the smaller array and the remaining
-elements will be ignored. The return value is an array where each element is yet
-another array of size 2.
+Zips the array with other arrays. If the arrays are of unequal length, it will
+only zip up until the last element of the shortest array and the remaining
+elements will be ignored. The return value is an array where each element is
+yet another array, the size of each of those is the number of zipped arrays.
 
-- other: array (positional, required)
-  The other array which should be zipped with the current one.
+This method is variadic, meaning that you can zip multiple arrays together at
+once: `(1, 2, 3).zip((3, 4, 5), (6, 7, 8))` returning:
+`((1, 3, 6), (2, 4, 7), (3, 5, 8))`.
+
+- others: array (variadic)
+  The other arrays which should be zipped with the current one.
 - returns: array
 
 ### fold()

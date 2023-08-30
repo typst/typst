@@ -8,8 +8,8 @@ use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
 use typst::doc::Document;
 use typst::eval::{eco_format, Tracer};
 use typst::geom::Color;
-use typst::syntax::{FileId, Source};
-use typst::World;
+use typst::syntax::{FileId, Source, Span};
+use typst::{World, WorldExt};
 
 use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::watch::Status;
@@ -73,7 +73,7 @@ pub fn compile_once(
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let mut tracer = Tracer::default();
+    let mut tracer = Tracer::new();
     let result = typst::compile(world, &mut tracer);
     let warnings = tracer.warnings();
 
@@ -218,7 +218,7 @@ pub fn print_diagnostics(
         config.display_style = term::DisplayStyle::Short;
     }
 
-    for diagnostic in warnings.iter().chain(errors.iter()) {
+    for diagnostic in warnings.iter().chain(errors) {
         let diag = match diagnostic.severity {
             Severity::Error => Diagnostic::error(),
             Severity::Warning => Diagnostic::warning(),
@@ -231,25 +231,27 @@ pub fn print_diagnostics(
                 .map(|e| (eco_format!("hint: {e}")).into())
                 .collect(),
         )
-        .with_labels(vec![Label::primary(
-            diagnostic.span.id(),
-            world.range(diagnostic.span),
-        )]);
+        .with_labels(label(world, diagnostic.span).into_iter().collect());
 
         term::emit(&mut w, &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
         for point in &diagnostic.trace {
             let message = point.v.to_string();
-            let help = Diagnostic::help().with_message(message).with_labels(vec![
-                Label::primary(point.span.id(), world.range(point.span)),
-            ]);
+            let help = Diagnostic::help()
+                .with_message(message)
+                .with_labels(label(world, point.span).into_iter().collect());
 
             term::emit(&mut w, &config, world, &help)?;
         }
     }
 
     Ok(())
+}
+
+/// Create a label for a span.
+fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
+    Some(Label::primary(span.id()?, world.range(span)?))
 }
 
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {

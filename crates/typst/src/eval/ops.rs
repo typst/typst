@@ -62,6 +62,7 @@ pub fn neg(value: Value) -> StrResult<Value> {
         Ratio(v) => Ratio(-v),
         Relative(v) => Relative(-v),
         Fraction(v) => Fraction(-v),
+        Duration(v) => Duration(-v),
         v => mismatch!("cannot apply '-' to {}", v),
     })
 }
@@ -115,6 +116,10 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
             })
         }
 
+        (Duration(a), Duration(b)) => Duration(a + b),
+        (Datetime(a), Duration(b)) => Datetime(a + b),
+        (Duration(a), Datetime(b)) => Datetime(b + a),
+
         (Dyn(a), Dyn(b)) => {
             // 1D alignments can be summed into 2D alignments.
             if let (Some(&a), Some(&b)) =
@@ -160,6 +165,10 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Relative(a), Relative(b)) => Relative(a - b),
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),
+
+        (Duration(a), Duration(b)) => Duration(a - b),
+        (Datetime(a), Duration(b)) => Datetime(a - b),
+        (Datetime(a), Datetime(b)) => Duration((a - b)?),
 
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
     })
@@ -214,6 +223,11 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
         (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
 
+        (Int(a), Duration(b)) => Duration(b * (a as f64)),
+        (Float(a), Duration(b)) => Duration(b * a),
+        (Duration(a), Int(b)) => Duration(a * (b as f64)),
+        (Duration(a), Float(b)) => Duration(a * b),
+
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
 }
@@ -254,6 +268,10 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fraction(a), Float(b)) => Fraction(a / b),
         (Fraction(a), Fraction(b)) => Float(a / b),
 
+        (Duration(a), Int(b)) => Duration(a / (b as f64)),
+        (Duration(a), Float(b)) => Duration(a / b),
+        (Duration(a), Duration(b)) => Float(a / b),
+
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
     })
 }
@@ -268,6 +286,7 @@ fn is_zero(v: &Value) -> bool {
         Ratio(v) => v.is_zero(),
         Relative(v) => v.is_zero(),
         Fraction(v) => v.is_zero(),
+        Duration(v) => v.is_zero(),
         _ => false,
     }
 }
@@ -357,6 +376,8 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Func(a), Func(b)) => a == b,
         (Args(a), Args(b)) => a == b,
         (Module(a), Module(b)) => a == b,
+        (Datetime(a), Datetime(b)) => a == b,
+        (Duration(a), Duration(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
 
         // Some technically different things should compare equal.
@@ -392,6 +413,9 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Relative(a), Length(b)) if a.rel.is_zero() => try_cmp_values(&a.abs, b)?,
         (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
+        (Duration(a), Duration(b)) => a.cmp(b),
+        (Datetime(a), Datetime(b)) => try_cmp_datetimes(a, b)?,
+
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
     })
 }
@@ -400,6 +424,12 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
 fn try_cmp_values<T: PartialOrd + Debug>(a: &T, b: &T) -> StrResult<Ordering> {
     a.partial_cmp(b)
         .ok_or_else(|| eco_format!("cannot compare {:?} with {:?}", a, b))
+}
+
+/// Try to compare two datetimes.
+fn try_cmp_datetimes(a: &super::Datetime, b: &super::Datetime) -> StrResult<Ordering> {
+    a.partial_cmp(b)
+        .ok_or_else(|| eco_format!("cannot compare {} and {}", a.kind(), b.kind()))
 }
 
 /// Test whether one value is "in" another one.
