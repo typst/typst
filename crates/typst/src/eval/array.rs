@@ -317,52 +317,45 @@ impl Array {
         Array(vec)
     }
 
-    /// The method `array.zip`, depending on the arguments,
-    /// it automatically detects whether it should use the single
-    /// zip operator, which depends on the standard library's implementation and can therefore
-    /// be faster. Or it should use the [`Self::zip_many`] method which can zip
-    /// more than two arrays together in a variadic way.
-    pub fn zip_method(&self, args: &mut Args) -> SourceResult<Self> {
-        Ok(if args.remaining() > 1 {
-            self.zip_many(args.all()?)
-        } else {
-            self.zip(args.expect("other")?)
-        })
-    }
+    /// The method `array.zip`, depending on the arguments, it automatically
+    /// detects whether it should use the single zip operator, which depends
+    /// on the standard library's implementation and can therefore be faster.
+    /// Or it zips using a manual implementation which allows for zipping more
+    /// than two arrays at once.
+    pub fn zip(&self, args: &mut Args) -> SourceResult<Self> {
+        // If there are more than one arrays, we use the manual
+        // method.
+        if args.remaining() > 1 {
+            let mut out = Self::with_capacity(self.len());
+            let mut iterators = args
+                .all::<Array>()?
+                .into_iter()
+                .map(|i| i.into_iter())
+                .collect::<Vec<_>>();
 
-    /// Zips the array with another array. If the two arrays are of unequal length, it will only
-    /// zip up until the last element of the smaller array and the remaining elements will be
-    /// ignored. The return value is an array where each element is yet another array of size 2.
-    pub fn zip(&self, other: Self) -> Self {
-        self.iter()
-            .zip(other)
-            .map(|(first, second)| array![first.clone(), second].into_value())
-            .collect()
-    }
+            for this in self.iter() {
+                let mut row = Self::with_capacity(1 + iterators.len());
+                row.push(this.clone());
 
-    /// Zips the array with multiple other arrays. If the two arrays are of unequal length, it will only
-    /// zip up until the last element of the smallest array and the remaining elements will be
-    /// ignored. The return value is an array where each element is yet another array of size `1 + other.len()`.
-    pub fn zip_many(&self, other: Vec<Self>) -> Self {
-        let mut out = Self::with_capacity(self.len());
-        let mut iterators = other.into_iter().map(|i| i.into_iter()).collect::<Vec<_>>();
+                for iterator in &mut iterators {
+                    let Some(item) = iterator.next() else {
+                        return Ok(out);
+                    };
 
-        for this in self.iter() {
-            let mut row = Self::with_capacity(1 + iterators.len());
-            row.push(this.clone());
+                    row.push(item);
+                }
 
-            for iterator in &mut iterators {
-                let Some(item) = iterator.next() else {
-                    return out;
-                };
-
-                row.push(item);
+                out.push(row.into_value());
             }
 
-            out.push(row.into_value());
+            Ok(out)
+        } else {
+            Ok(self
+                .iter()
+                .zip(args.expect::<Array>("others")?)
+                .map(|(first, second)| array![first.clone(), second].into_value())
+                .collect())
         }
-
-        out
     }
 
     /// Return a sorted version of this array, optionally by a given key function.

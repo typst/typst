@@ -41,7 +41,7 @@ impl Args {
         Self { span, items }
     }
 
-    /// Returns the number of remaining values
+    /// Returns the number of remaining values.
     pub fn remaining(&self) -> usize {
         self.items.len()
     }

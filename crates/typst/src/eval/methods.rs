@@ -157,7 +157,7 @@ pub fn call(
             }
             "intersperse" => array.intersperse(args.expect("separator")?).into_value(),
             "sorted" => array.sorted(vm, span, args.named("key")?)?.into_value(),
-            "zip" => array.zip_method(&mut args)?.into_value(),
+            "zip" => array.zip(&mut args)?.into_value(),
             "enumerate" => array
                 .enumerate(args.named("start")?.unwrap_or(0))
                 .at(span)?
