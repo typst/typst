@@ -68,6 +68,7 @@ use std::mem;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
+use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -1704,15 +1705,30 @@ impl Eval for ast::ForLoop<'_> {
 }
 
 /// Applies imports from `import` to the current scope.
-fn apply_imports<V: IntoValue>(
+fn apply_imports<V: IntoValue + Clone>(
     imports: Option<ast::Imports>,
     vm: &mut Vm,
     source_value: V,
-    name: impl Fn(&V) -> EcoString,
+    new_name: Option<&str>,
+    name: impl FnOnce(&V) -> EcoString,
     scope: impl Fn(&V) -> &Scope,
 ) -> SourceResult<()> {
+    if let Some(new_name) = new_name {
+        // Renamed module => define it on the scope (possibly with further items).
+        if imports.is_none() {
+            // Avoid unneeded clone when there are no imported items.
+            vm.scopes.top.define(new_name, source_value);
+            return Ok(());
+        } else {
+            vm.scopes.top.define(new_name, source_value.clone());
+        }
+    }
+
     match imports {
         None => {
+            // If the module were renamed and there were no imported items, we
+            // would have returned above. It is therefore safe to import the
+            // module with its original name here.
             vm.scopes.top.define(name(&source_value), source_value);
         }
         Some(ast::Imports::Wildcard) => {
@@ -1723,11 +1739,22 @@ fn apply_imports<V: IntoValue>(
         Some(ast::Imports::Items(items)) => {
             let mut errors = vec![];
             let scope = scope(&source_value);
-            for ident in items.idents() {
-                if let Some(value) = scope.get(&ident) {
-                    vm.define(ident, value.clone());
+            for item in items.iter() {
+                let original_ident = item.original_name();
+                if let Some(value) = scope.get(&original_ident) {
+                    if let ast::ImportItem::Renamed(renamed_item) = &item {
+                        if renamed_item.original_name().as_str()
+                            == renamed_item.new_name().as_str()
+                        {
+                            vm.vt.tracer.warn(warning!(
+                                renamed_item.new_name().span(),
+                                "unnecessary import rename to same name",
+                            ));
+                        }
+                    }
+                    vm.define(item.bound_name(), value.clone());
                 } else {
-                    errors.push(error!(ident.span(), "unresolved import"));
+                    errors.push(error!(original_ident.span(), "unresolved import"));
                 }
             }
             if !errors.is_empty() {
@@ -1746,6 +1773,20 @@ impl Eval for ast::ModuleImport<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
+        let new_name_ident = self.new_name();
+        let new_name = new_name_ident.map(ast::Ident::as_str);
+        if_chain! {
+            if let Some(new_name_ident) = new_name_ident;
+            if let ast::Expr::Ident(ident) = self.source();
+            if ident.as_str() == new_name_ident.as_str();
+            then {
+                // warn on `import x as x`
+                vm.vt.tracer.warn(warning!(
+                    new_name_ident.span(),
+                    "unnecessary import rename to same name",
+                ));
+            }
+        }
         if let Value::Func(func) = source {
             if func.info().is_none() {
                 bail!(span, "cannot import from user-defined functions");
@@ -1754,6 +1795,7 @@ impl Eval for ast::ModuleImport<'_> {
                 self.imports(),
                 vm,
                 func,
+                new_name,
                 |func| func.info().unwrap().name.into(),
                 |func| &func.info().unwrap().scope,
             )?;
@@ -1763,6 +1805,7 @@ impl Eval for ast::ModuleImport<'_> {
                 self.imports(),
                 vm,
                 module,
+                new_name,
                 |module| module.name().clone(),
                 |module| module.scope(),
             )?;
