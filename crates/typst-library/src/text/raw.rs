@@ -265,30 +265,7 @@ impl Show for RawElem {
         let mut text = self.text();
         if text.contains('\t') {
             let tab_size = RawElem::tab_size_in(styles);
-            let amount = text.chars().filter(|&c| c == '\t').count();
-            let mut res =
-                EcoString::with_capacity(text.len() - amount + amount * tab_size);
-            let replacement = " ".repeat(tab_size);
-            let divisor = tab_size.max(1);
-            let mut column = 0;
-            for c in text.chars() {
-                match c {
-                    '\t' => {
-                        let required = tab_size - column % divisor;
-                        res.push_str(&replacement[..required]);
-                        column += required;
-                    }
-                    '\n' => {
-                        column = 0;
-                        res.push(c);
-                    }
-                    _ => {
-                        column += 1;
-                        res.push(c);
-                    }
-                }
-            }
-            text = res;
+            text = align_tabs(&text, tab_size);
         }
         let lang = self
             .lang(styles)
@@ -650,4 +627,31 @@ fn item(
             font_style,
         },
     }
+}
+
+/// Replace tabs with spaces to align with multiples of  `tab_size`.
+fn align_tabs(text: &str, tab_size: usize) -> EcoString {
+    let amount = text.chars().filter(|&c| c == '\t').count();
+    let mut res = EcoString::with_capacity(text.len() - amount + amount * tab_size);
+    let replacement = " ".repeat(tab_size);
+    let divisor = tab_size.max(1);
+    let mut column = 0;
+    for c in text.chars() {
+        match c {
+            '\t' => {
+                let required = tab_size - column % divisor;
+                res.push_str(&replacement[..required]);
+                column += required;
+            }
+            '\n' => {
+                column = 0;
+                res.push(c);
+            }
+            _ => {
+                column += 1;
+                res.push(c);
+            }
+        }
+    }
+    res
 }
