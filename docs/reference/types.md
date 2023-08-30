@@ -1033,13 +1033,17 @@ for loop.
 - returns: array
 
 ### zip()
-Zips the array with another array. If the two arrays are of unequal length, it
-will only zip up until the last element of the smaller array and the remaining
-elements will be ignored. The return value is an array where each element is yet
-another array of size 2.
+Zips the array with other arrays. If the arrays are of unequal length, it will
+only zip up until the last element of the shortest array and the remaining
+elements will be ignored. The return value is an array where each element is
+yet another array, the size of each of those is the number of zipped arrays.
 
-- other: array (positional, required)
-  The other array which should be zipped with the current one.
+This method is variadic, meaning that you can zip multiple arrays together at
+once: `(1, 2, 3).zip((3, 4, 5), (6, 7, 8))` returning:
+`((1, 3, 6), (2, 4, 7), (3, 5, 8))`.
+
+- others: array (variadic)
+  The other arrays which should be zipped with the current one.
 - returns: array
 
 ### fold()
