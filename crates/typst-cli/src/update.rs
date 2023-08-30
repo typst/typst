@@ -20,7 +20,7 @@ const TYPST_REPO: &str = "typst";
 /// Fetches a target release or the latest release (if no version was specified)
 /// from GitHub, unpacks it and self replaces the current binary with the
 /// pre-compiled asset from the downloaded release.
-pub fn update(command: UpdateCommand) -> StrResult<()> {
+pub fn update(command: &UpdateCommand) -> StrResult<()> {
     if let Some(ref version) = command.version {
         let current_tag = env!("CARGO_PKG_VERSION").parse().unwrap();
 
@@ -60,7 +60,7 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
     fs::copy(current_exe, &backup_path)
         .map_err(|err| eco_format!("failed to create backup: {err}"))?;
 
-    let release = Release::from_tag(command.version)?;
+    let release = Release::from_tag(command.version.as_ref())?;
     if !update_needed(&release)? && !command.force {
         eprintln!("Already up-to-date.");
         return Ok(());
@@ -98,7 +98,7 @@ struct Release {
 impl Release {
     /// Download the target release, or latest if version is `None`, from the
     /// Typst repository.
-    pub fn from_tag(tag: Option<Version>) -> StrResult<Release> {
+    pub fn from_tag(tag: Option<&Version>) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
                 "https://api.github.com/repos/{}/{}/releases/tags/v{}",
