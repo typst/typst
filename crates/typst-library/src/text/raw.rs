@@ -219,23 +219,19 @@ pub struct RawElem {
     #[parse(theme_data.map(Some))]
     pub theme_data: Option<Bytes>,
 
-    /// The size for a tab stop in spaces.
+    /// The size for a tab stop in spaces. A tab is replaced with enough spaces to
+    /// align with the next multiple of the size.
     ///
-    /// By default, this is set to `4` spaces per tab stop.
-    ///
-    /// #set raw(tab-size: 2)
-    /// ```typ
-    /// - compact with
-    /// 	- $2$ spaces per tab
-    /// ```
-    ///
+    /// ````example
     /// #set raw(tab-size: 8)
-    /// ```typ
-    /// - spacious with
-    /// 	- $8$ spaces per tab
+    /// ```tsv
+    /// Year	Month	Day
+    /// 2000	2	3
+    /// 2001	2	1
+    /// 2002	3	10
     /// ```
     /// ````
-    #[default(4)]
+    #[default(2)]
     pub tab_size: usize,
 }
 
@@ -269,8 +265,29 @@ impl Show for RawElem {
         let mut text = self.text();
         if text.contains('\t') {
             let tab_size = RawElem::tab_size_in(styles);
+            let amount = text.chars().filter(|&c| c == '\t').count();
+            let mut res =
+                EcoString::with_capacity(text.len() - amount + amount * tab_size);
             let replacement = " ".repeat(tab_size);
-            text = text.replace('\t', &replacement).into();
+            let mut column = 0;
+            for c in text.chars() {
+                match c {
+                    '\t' => {
+                        let required = tab_size - column % tab_size;
+                        res.push_str(&replacement[..required]);
+                        column += required;
+                    }
+                    '\n' => {
+                        column = 0;
+                        res.push(c);
+                    }
+                    _ => {
+                        column += 1;
+                        res.push(c);
+                    }
+                }
+            }
+            text = res;
         }
         let lang = self
             .lang(styles)
