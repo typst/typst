@@ -63,7 +63,7 @@ impl Behave for HElem {
         } else if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)
         } else {
-            Behaviour::Ignorant
+            Behaviour::Invisible
         }
     }
 
@@ -158,7 +158,7 @@ impl Behave for VElem {
         } else if self.weakness(StyleChain::default()) > 0 {
             Behaviour::Weak(self.weakness(StyleChain::default()))
         } else {
-            Behaviour::Ignorant
+            Behaviour::Invisible
         }
     }
 
