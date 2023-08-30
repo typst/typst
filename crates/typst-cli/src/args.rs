@@ -19,7 +19,7 @@ pub struct CliArguments {
     pub verbosity: u8,
 
     /// Path to a custom CA certificate to use when making network requests.
-    #[clap(env = "TYPST_CERT")]
+    #[clap(long = "cert", env = "TYPST_CERT")]
     pub cert: Option<PathBuf>,
 }
 
