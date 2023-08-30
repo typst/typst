@@ -1,74 +1,77 @@
 use std::collections::VecDeque;
-use std::io::{self, ErrorKind, Read, Stdout, Write};
+use std::io::{self, ErrorKind, Read, Stderr, Write};
 use std::time::{Duration, Instant};
 
 use ureq::Response;
 
-/// Keep track of this many past download amounts.
-const DOWNLOAD_TRACK_COUNT: usize = 5;
+// Acknowledgement:
+// Closely modelled after rustup's [`DownloadTracker`].
+// https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs
+
+/// Keep track of this many download speed samples.
+const SPEED_SAMPLES: usize = 5;
+
+/// Download binary data and display its progress.
+pub fn download_with_progress(url: &str) -> Result<Vec<u8>, ureq::Error> {
+    let response = ureq::get(url).call()?;
+    Ok(RemoteReader::from_response(response).download()?)
+}
 
 /// A wrapper around [`ureq::Response`] that reads the response body in chunks
 /// over a websocket and displays statistics about its progress.
 ///
 /// Downloads will _never_ fail due to statistics failing to print, print errors
 /// are silently ignored.
-///
-/// [`ureq::Response`]: https://docs.rs/ureq/2.7.1/ureq/struct.Response.html
-pub struct RemoteReader {
+struct RemoteReader {
     reader: Box<dyn Read + Send + Sync + 'static>,
-    content_len: usize,
+    content_len: Option<usize>,
     total_downloaded: usize,
     downloaded_this_sec: usize,
     downloaded_last_few_secs: VecDeque<usize>,
     start_time: Instant,
     last_print: Option<Instant>,
     displayed_charcount: Option<usize>,
-    terminal: Stdout,
+    stderr: Stderr,
 }
 
 impl RemoteReader {
     /// Wraps a [`ureq::Response`] and prepares it for downloading.
     ///
-    /// Downloading data in chunks requires that the content length is known
-    /// before any reads take place. The response _must_ have a 'Content-Length'
-    /// header attached, otherwise downloading will fail.
-    ///
-    /// [`ureq::Response`]: https://docs.rs/ureq/2.7.1/ureq/struct.Response.html
+    /// The 'Content-Length' header is used as a size hint for read
+    /// optimization, if present.
     pub fn from_response(response: Response) -> Self {
-        let content_len = response
+        let content_len: Option<usize> = response
             .header("Content-Length")
-            .and_then(|header| header.parse().ok())
-            .unwrap_or_default();
+            .and_then(|header| header.parse().ok());
 
         Self {
             reader: response.into_reader(),
             content_len,
             total_downloaded: 0,
             downloaded_this_sec: 0,
-            downloaded_last_few_secs: VecDeque::with_capacity(DOWNLOAD_TRACK_COUNT),
+            downloaded_last_few_secs: VecDeque::with_capacity(SPEED_SAMPLES),
             start_time: Instant::now(),
             last_print: None,
             displayed_charcount: None,
-            terminal: std::io::stdout(),
+            stderr: io::stderr(),
         }
     }
 
     /// Download the bodies content as raw bytes while attempting to print
-    /// download statistics to standard out. Download progress gets displayed
+    /// download statistics to standard error. Download progress gets displayed
     /// and updated every second.
     ///
     /// These statistics will never prevent a download from completing, errors
     /// are silently ignored.
     pub fn download(mut self) -> io::Result<Vec<u8>> {
-        if self.content_len == 0 {
-            return Err(ErrorKind::UnexpectedEof.into());
-        }
-
-        let mut data = vec![0; self.content_len];
-        let mut offset = 0;
+        let mut buffer = vec![0; 8192];
+        let mut data = match self.content_len {
+            Some(content_len) => Vec::with_capacity(content_len),
+            None => Vec::with_capacity(8192),
+        };
 
         loop {
-            let read = match self.reader.read(&mut data[offset..]) {
+            let read = match self.reader.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(n) => n,
                 // If the data is not yet ready but will be available eventually
@@ -77,7 +80,8 @@ impl RemoteReader {
                 Err(ref e) if e.kind() == ErrorKind::Interrupted => continue,
                 Err(e) => return Err(e),
             };
-            offset += read;
+
+            data.extend(&buffer[..read]);
 
             let last_printed = match self.last_print {
                 Some(prev) => prev,
@@ -93,7 +97,7 @@ impl RemoteReader {
             self.downloaded_this_sec += read;
 
             if elapsed >= Duration::from_secs(1) {
-                if self.downloaded_last_few_secs.len() == DOWNLOAD_TRACK_COUNT {
+                if self.downloaded_last_few_secs.len() == SPEED_SAMPLES {
                     self.downloaded_last_few_secs.pop_back();
                 }
 
@@ -105,49 +109,52 @@ impl RemoteReader {
                 }
 
                 self.display();
-                let _ = write!(self.terminal, "\r");
+                let _ = write!(self.stderr, "\r");
                 self.last_print = Some(Instant::now());
-            }
-
-            if read == 0 {
-                assert_eq!(self.total_downloaded, self.content_len);
-                break;
             }
         }
 
         self.display();
-        let _ = writeln!(self.terminal);
-
-        assert_eq!(self.total_downloaded, self.content_len);
+        let _ = writeln!(self.stderr);
 
         Ok(data)
     }
 
     /// Compile and format several download statistics and make an attempt at
-    /// displaying them on standard out.
+    /// displaying them on standard error.
     fn display(&mut self) {
-        let percent = (self.total_downloaded as f64 / self.content_len as f64) * 100.;
         let sum: usize = self.downloaded_last_few_secs.iter().sum();
         let len = self.downloaded_last_few_secs.len();
-        let speed = if len > 0 { sum / len } else { self.content_len };
-        let remaining = self.content_len - self.total_downloaded;
+        let speed = if len > 0 { sum / len } else { self.content_len.unwrap_or(0) };
 
-        let output = format!(
-            "{} / {} ({:3.0} %) {} in {} ETA: {}",
-            as_time_unit(self.total_downloaded, false),
-            as_time_unit(self.content_len, false),
-            percent,
-            as_time_unit(speed, true),
-            time_suffix(Instant::now().saturating_duration_since(self.start_time)),
-            time_suffix(Duration::from_secs(if speed == 0 {
-                0
-            } else {
-                (remaining / speed) as u64
-            }))
-        );
+        let total = as_time_unit(self.total_downloaded, false);
+        let speed_h = as_time_unit(speed, true);
+        let elapsed =
+            time_suffix(Instant::now().saturating_duration_since(self.start_time));
 
-        let _ = write!(self.terminal, "{output}");
-        let _ = self.terminal.flush();
+        let output = match self.content_len {
+            Some(content_len) => {
+                let percent = (self.total_downloaded as f64 / content_len as f64) * 100.;
+                let remaining = content_len - self.total_downloaded;
+
+                format!(
+                    "{} / {} ({:3.0} %) {} in {} ETA: {}",
+                    total,
+                    as_time_unit(content_len, false),
+                    percent,
+                    speed_h,
+                    elapsed,
+                    time_suffix(Duration::from_secs(if speed == 0 {
+                        0
+                    } else {
+                        (remaining / speed) as u64
+                    }))
+                )
+            }
+            None => format!("Total: {} Speed: {} Elapsed: {}", total, speed_h, elapsed,),
+        };
+
+        let _ = write!(self.stderr, "{output}");
 
         self.displayed_charcount = Some(output.chars().count());
     }
@@ -155,9 +162,8 @@ impl RemoteReader {
     /// Erase each previously printed character and add a carriage return
     /// character, clearing the line for the next `display()` update.
     fn erase_chars(&mut self, count: usize) {
-        let _ = write!(self.terminal, "{}", " ".repeat(count));
-        let _ = self.terminal.flush();
-        let _ = write!(self.terminal, "\r");
+        let _ = write!(self.stderr, "{}", " ".repeat(count));
+        let _ = write!(self.stderr, "\r");
     }
 }
 

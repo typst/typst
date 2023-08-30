@@ -7,7 +7,7 @@ use termcolor::WriteColor;
 use typst::diag::{PackageError, PackageResult};
 use typst::syntax::PackageSpec;
 
-use crate::download::RemoteReader;
+use crate::download::download_with_progress;
 
 use super::color_stream;
 
@@ -51,16 +51,13 @@ fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()>
     );
 
     print_downloading(spec).unwrap();
-    let response = match ureq::get(&url).call() {
-        Ok(response) => response,
+    let data = match download_with_progress(&url) {
+        Ok(data) => data,
         Err(ureq::Error::Status(404, _)) => {
             return Err(PackageError::NotFound(spec.clone()))
         }
         Err(_) => return Err(PackageError::NetworkFailed),
     };
-
-    let remote = RemoteReader::from_response(response);
-    let data = remote.download().map_err(|_| PackageError::NetworkFailed)?;
 
     let decompressed = flate2::read::GzDecoder::new(data.as_slice());
     tar::Archive::new(decompressed).unpack(package_dir).map_err(|_| {
