@@ -41,6 +41,11 @@ impl Args {
         Self { span, items }
     }
 
+    /// Returns the number of remaining values
+    pub fn remaining(&self) -> usize {
+        self.items.len()
+    }
+
     /// Push a positional argument.
     pub fn push(&mut self, span: Span, value: Value) {
         self.items.push(Arg {
