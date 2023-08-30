@@ -269,11 +269,12 @@ impl Show for RawElem {
             let mut res =
                 EcoString::with_capacity(text.len() - amount + amount * tab_size);
             let replacement = " ".repeat(tab_size);
+            let divisor = tab_size.max(1);
             let mut column = 0;
             for c in text.chars() {
                 match c {
                     '\t' => {
-                        let required = tab_size - column % tab_size;
+                        let required = tab_size - column % divisor;
                         res.push_str(&replacement[..required]);
                         column += required;
                     }
