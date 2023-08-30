@@ -236,7 +236,7 @@ pub struct RawElem {
     /// ```
     /// ````
     #[default(4)]
-    pub tab_size: u32,
+    pub tab_size: usize,
 }
 
 impl RawElem {
