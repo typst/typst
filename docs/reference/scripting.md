@@ -264,7 +264,10 @@ types. You cannot define your own methods.
 ```
 
 Methods are the only functions in Typst that can modify the value they are
-called on.
+called on. In some cases, this means that a method is only called for its side
+effect and its return value should be ignored (and not participate in joining).
+The canonical way to discard a value is with a let binding:
+`{let _ = array.remove(1)}`.
 
 ## Modules { #modules }
 You can split up your Typst projects into multiple files called _modules._ A
