@@ -124,7 +124,7 @@ impl Str {
 
                     // There might still be a match overlapping this one, so
                     // restart at the next code point
-                    if let Some(c) = &self[start_byte..].chars().next() {
+                    if let Some(c) = &self[mat.start()..].chars().next() {
                         start_byte = mat.start() + c.len_utf8();
                     } else {
                         break;
