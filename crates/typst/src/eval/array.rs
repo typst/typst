@@ -323,39 +323,39 @@ impl Array {
     /// Or it zips using a manual implementation which allows for zipping more
     /// than two arrays at once.
     pub fn zip(&self, args: &mut Args) -> SourceResult<Self> {
-        // If there are more than one arrays, we use the manual
-        // method.
-        if args.remaining() > 1 {
-            let mut out = Self::with_capacity(self.len());
-            let mut iterators = args
-                .all::<Array>()?
-                .into_iter()
-                .map(|i| i.into_iter())
-                .collect::<Vec<_>>();
-
-            for this in self.iter() {
-                let mut row = Self::with_capacity(1 + iterators.len());
-                row.push(this.clone());
-
-                for iterator in &mut iterators {
-                    let Some(item) = iterator.next() else {
-                        return Ok(out);
-                    };
-
-                    row.push(item);
-                }
-
-                out.push(row.into_value());
-            }
-
-            Ok(out)
-        } else {
-            Ok(self
+        // Fast path for just two arrays.
+        if args.remaining() <= 1 {
+            return Ok(self
                 .iter()
                 .zip(args.expect::<Array>("others")?)
                 .map(|(first, second)| array![first.clone(), second].into_value())
-                .collect())
+                .collect());
         }
+
+        // If there is more than one array, we use the manual method.
+        let mut out = Self::with_capacity(self.len());
+        let mut iterators = args
+            .all::<Array>()?
+            .into_iter()
+            .map(|i| i.into_iter())
+            .collect::<Vec<_>>();
+
+        for this in self.iter() {
+            let mut row = Self::with_capacity(1 + iterators.len());
+            row.push(this.clone());
+
+            for iterator in &mut iterators {
+                let Some(item) = iterator.next() else {
+                    return Ok(out);
+                };
+
+                row.push(item);
+            }
+
+            out.push(row.into_value());
+        }
+
+        Ok(out)
     }
 
     /// Return a sorted version of this array, optionally by a given key function.
