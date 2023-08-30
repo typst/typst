@@ -532,7 +532,7 @@ pub fn cbor(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     cbor_decode(Spanned::new(data, span))
 }
