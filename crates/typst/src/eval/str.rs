@@ -117,15 +117,15 @@ impl Str {
             StrPattern::Str(pat) => self.0.ends_with(pat.as_str()),
             StrPattern::Regex(re) => {
                 let mut start_byte = 0;
-                while let Some(mat) = re.find_iter(&self[start_byte..]).last() {
-                    if start_byte + mat.end() == self.0.len() {
+                while let Some(mat) = re.find_at(self, start_byte) {
+                    if mat.end() == self.0.len() {
                         return true;
                     }
 
                     // There might still be a match overlapping this one, so
                     // restart at the next code point
                     if let Some(c) = &self[start_byte..].chars().next() {
-                        start_byte += mat.start() + c.len_utf8();
+                        start_byte = mat.start() + c.len_utf8();
                     } else {
                         break;
                     }
