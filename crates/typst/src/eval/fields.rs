@@ -1,6 +1,7 @@
 use ecow::{eco_format, EcoString};
 
 use crate::diag::StrResult;
+use crate::eval::Version;
 use crate::geom::{Axes, GenAlign, PartialStroke, Stroke};
 
 use super::{IntoValue, Value};
@@ -15,6 +16,10 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
 
     // Special cases, such as module and dict, are handled by Value itself
     let result = match value {
+        Value::Version(version) => match version.component(field) {
+            Ok(i) => i.into_value(),
+            Err(_) => return missing(),
+        },
         Value::Length(length) => match field {
             "em" => length.em.into_value(),
             "abs" => length.abs.into_value(),
@@ -84,6 +89,7 @@ fn missing_field(type_name: &str, field: &str) -> EcoString {
 /// List the available fields for a type.
 pub fn fields_on(type_name: &str) -> &[&'static str] {
     match type_name {
+        "version" => &Version::COMPONENT_NAMES,
         "length" => &["em", "abs"],
         "relative length" => &["ratio", "length"],
         "stroke" => &["paint", "thickness", "cap", "join", "dash", "miter-limit"],

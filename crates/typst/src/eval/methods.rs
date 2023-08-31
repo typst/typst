@@ -51,6 +51,12 @@ pub fn call(
             _ => return missing(),
         },
 
+        Value::Version(version) => match method {
+            "at" => version.at(args.expect("index")?).at(span)?.into_value(),
+            "array" => version.into_array().into_value(),
+            _ => return missing(),
+        },
+
         Value::Str(string) => match method {
             "len" => string.len().into_value(),
             "first" => string.first().at(span)?.into_value(),
@@ -414,6 +420,7 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("cmyk", false),
             ("luma", false),
         ],
+        "version" => &[("at", true), ("array", false)],
         "string" => &[
             ("len", false),
             ("at", true),

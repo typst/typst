@@ -14,7 +14,7 @@ use typst::eval::Duration;
 
 use super::{
     cast, fields, format_str, ops, Args, Array, Bytes, CastInfo, Content, Dict,
-    FromValue, Func, IntoValue, Module, Reflect, Str, Symbol,
+    FromValue, Func, IntoValue, Module, Reflect, Str, Symbol, Version,
 };
 use crate::diag::StrResult;
 use crate::eval::Datetime;
@@ -50,6 +50,8 @@ pub enum Value {
     Color(Color),
     /// A symbol: `arrow.l`.
     Symbol(Symbol),
+    /// A version.
+    Version(Version),
     /// A string: `"string"`.
     Str(Str),
     /// Raw bytes.
@@ -118,6 +120,7 @@ impl Value {
             Self::Fraction(_) => Fr::TYPE_NAME,
             Self::Color(_) => Color::TYPE_NAME,
             Self::Symbol(_) => Symbol::TYPE_NAME,
+            Self::Version(_) => Version::TYPE_NAME,
             Self::Str(_) => Str::TYPE_NAME,
             Self::Bytes(_) => Bytes::TYPE_NAME,
             Self::Label(_) => Label::TYPE_NAME,
@@ -143,6 +146,7 @@ impl Value {
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
             Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.at(field, None),
             Self::Content(content) => content.at(field, None),
             Self::Module(module) => module.get(field).cloned(),
@@ -173,6 +177,7 @@ impl Value {
             Self::Float(v) => item!(text)(eco_format!("{}", v)),
             Self::Str(v) => item!(text)(v.into()),
             Self::Symbol(v) => item!(text)(v.get().into()),
+            Self::Version(v) => item!(text)(eco_format!("{}", v)),
             Self::Content(v) => v,
             Self::Func(_) => Content::empty(),
             Self::Module(module) => module.content(),
@@ -204,6 +209,7 @@ impl Debug for Value {
             Self::Fraction(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
             Self::Symbol(v) => Debug::fmt(v, f),
+            Self::Version(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
             Self::Bytes(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
@@ -249,6 +255,7 @@ impl Hash for Value {
             Self::Fraction(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
             Self::Symbol(v) => v.hash(state),
+            Self::Version(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
             Self::Bytes(v) => v.hash(state),
             Self::Label(v) => v.hash(state),
@@ -279,6 +286,7 @@ impl Serialize for Value {
             Self::Str(v) => v.serialize(serializer),
             Self::Bytes(v) => v.serialize(serializer),
             Self::Symbol(v) => v.serialize(serializer),
+            Self::Version(v) => v.serialize(serializer),
             Self::Content(v) => v.serialize(serializer),
             Self::Array(v) => v.serialize(serializer),
             Self::Dict(v) => v.serialize(serializer),
@@ -614,10 +622,12 @@ primitive! { Rel<Length>:  "relative length",
 primitive! { Fr: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { Symbol: "symbol", Symbol }
+primitive! { Version: "version", Version }
 primitive! {
     Str: "string",
     Str,
-    Symbol(symbol) => symbol.get().into()
+    Symbol(symbol) => symbol.get().into(),
+    Version(version) => eco_format!("{version}").into()
 }
 primitive! { Bytes: "bytes", Bytes }
 primitive! { Label: "label", Label }
@@ -627,7 +637,8 @@ primitive! { Content: "content",
     Content,
     None => Content::empty(),
     Symbol(v) => item!(text)(v.get().into()),
-    Str(v) => item!(text)(v.into())
+    Str(v) => item!(text)(v.into()),
+    Version(v) => item!(text)(eco_format!("{v}"))
 }
 primitive! { Styles: "styles", Styles }
 primitive! { Array: "array", Array }

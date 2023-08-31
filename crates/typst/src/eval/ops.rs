@@ -367,6 +367,7 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Fraction(a), Fraction(b)) => a == b,
         (Color(a), Color(b)) => a == b,
         (Symbol(a), Symbol(b)) => a == b,
+        (Version(a), Version(b)) => a == b,
         (Str(a), Str(b)) => a == b,
         (Bytes(a), Bytes(b)) => a == b,
         (Label(a), Label(b)) => a == b,
@@ -403,6 +404,7 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Ratio(a), Ratio(b)) => a.cmp(b),
         (Relative(a), Relative(b)) => try_cmp_values(a, b)?,
         (Fraction(a), Fraction(b)) => a.cmp(b),
+        (Version(a), Version(b)) => a.cmp(b),
         (Str(a), Str(b)) => a.cmp(b),
 
         // Some technically different things should be comparable.
