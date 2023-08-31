@@ -63,7 +63,7 @@ pub use self::str::{format_str, Regex, Str};
 pub use self::symbol::Symbol;
 pub use self::tracer::Tracer;
 pub use self::value::{Dynamic, Type, Value};
-pub use self::version::Version;
+pub use self::version::{Version, VersionComponent};
 
 use std::collections::HashSet;
 use std::mem;

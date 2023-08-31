@@ -1,17 +1,16 @@
 //! Information about typst itself
 
-use typst::eval::{Module, Scope, Value, Version};
+use typst::eval::{Module, Scope, Value, Version, VersionComponent};
 
 /// Construct the module with information about typst itself
 pub fn module() -> Module {
     let mut scope = Scope::deduplicating();
 
-    let version = Version::new([
-        env!("CARGO_PKG_VERSION_MAJOR").parse::<i64>().unwrap(),
-        env!("CARGO_PKG_VERSION_MINOR").parse::<i64>().unwrap(),
-        env!("CARGO_PKG_VERSION_PATCH").parse::<i64>().unwrap(),
-    ])
-    .unwrap();
+    let version = Version::from_iter([
+        env!("CARGO_PKG_VERSION_MAJOR").parse::<VersionComponent>().unwrap(),
+        env!("CARGO_PKG_VERSION_MINOR").parse::<VersionComponent>().unwrap(),
+        env!("CARGO_PKG_VERSION_PATCH").parse::<VersionComponent>().unwrap(),
+    ]);
 
     scope.define("version", Value::Version(version));
     scope.define("commit", option_env!("TYPST_COMMIT"));

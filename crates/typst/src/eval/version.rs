@@ -6,6 +6,7 @@ use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::repeat;
+use std::str::FromStr;
 use typst::eval::Array;
 
 /// A version, with any number of components.
@@ -37,13 +38,8 @@ macro_rules! component_names {
 impl Version {
     component_names!["major", "minor", "patch"];
 
-    /// Construct a new version
-    pub fn new(components: impl IntoIterator<Item = i64>) -> Option<Self> {
-        components
-            .into_iter()
-            .map(VersionComponent::new)
-            .collect::<Option<EcoVec<_>>>()
-            .map(Self)
+    pub fn new() -> Self {
+        Self(EcoVec::new())
     }
 
     fn get(&self, index: usize) -> Option<VersionComponent> {
@@ -85,6 +81,16 @@ impl Version {
     /// Convert a version into an array
     pub fn into_array(self) -> Array {
         self.0.into_iter().map(|i| Value::Int(i.get())).collect()
+    }
+
+    pub fn push(&mut self, component: VersionComponent) {
+        self.0.push(component);
+    }
+}
+
+impl FromIterator<VersionComponent> for Version {
+    fn from_iter<T: IntoIterator<Item=VersionComponent>>(iter: T) -> Self {
+        Self(EcoVec::from_iter(iter))
     }
 }
 
@@ -177,6 +183,19 @@ impl VersionComponent {
 
     pub fn get(self) -> i64 {
         self.0 as i64
+    }
+}
+
+impl FromStr for VersionComponent {
+    type Err = std::num::ParseIntError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // ensure there is no negative sign
+        let _ = u64::from_str(s)?;
+        // actually parse as signed, to ensure the value is below the max
+        let i: i64 = s.parse()?;
+
+        Ok(Self(i as u64))
     }
 }
 
