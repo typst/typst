@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::eval::{Bytes, Datetime, Duration, Module, Plugin, Reflect, Regex};
+use typst::eval::{Bytes, Datetime, Duration, Module, Plugin, Reflect, Regex, Version};
 
 use crate::prelude::*;
 
@@ -824,6 +824,7 @@ cast! {
     ToArray,
     v: Bytes => Self(v.iter().map(|&b| Value::Int(b as i64)).collect()),
     v: Array => Self(v),
+    v: Version => Self(v.clone().into_array())
 }
 
 /// Creates an array consisting of consecutive integers.
