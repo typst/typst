@@ -27,6 +27,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("datetime", datetime_func());
     global.define("duration", duration_func());
     global.define("symbol", symbol_func());
+    global.define("version", version_func());
     global.define("str", str_func());
     global.define("bytes", bytes_func());
     global.define("label", label_func());
