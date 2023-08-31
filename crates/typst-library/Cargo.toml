@@ -50,7 +50,3 @@ unicode-bidi = "0.3.13"
 unicode-math-class = "0.1"
 unicode-script = "0.5"
 unicode-segmentation = "1"
-
-[build-dependencies]
-gix-ref = "0.35.0"
-gix-odb = "0.51.0"
