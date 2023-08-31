@@ -31,7 +31,7 @@ your page set rule at the start of your document or in your template.
 This example visualizes the dimensions for page content, headers, and footers.
 The page content is the page size (ISO B7) minus each side's default margin. In
 the top and the bottom margin, there are stroked rectangles visualizing header
-and footer. They do not touch the main content, instead  they are offset by 30%
+and footer. They do not touch the main content, instead they are offset by 30%
 of the respective margin. You can control this offset by specifying
 `header-ascent` and `footer-descent`.
 
@@ -44,7 +44,7 @@ use-case, you will want to change this. You can do this by using the `page` set
 rule and passing it a string argument to use a common page size. Options include
 the complete ISO 216 series (e.g. `"iso-a4"`, `"iso-c2"`), customary US formats
 like `"us-legal"` or `"us-letter"`, and more. Check out the reference for the
-page size argument to learn about all available options.
+[page's paper argument]($func/page.paper) to learn about all available options.
 
 ```example
 #set page("us-letter")
@@ -99,9 +99,9 @@ the margin dictionary. The `inside` margin points towards the spine, the
 
 ```example
 #set page(margin: (
-    inside: 2.5cm,
-    outside: 2cm,
-    y: 1.75cm,
+  inside: 2.5cm,
+  outside: 2cm,
+  y: 1.75cm,
 ))
 ```
 
@@ -135,9 +135,9 @@ can pass any content as their values:
 
 ```example
 #set page(header: [
-    _Lisa Strassner's Thesis_
-    #h(1fr)
-    National Academy of Sciences
+  _Lisa Strassner's Thesis_
+  #h(1fr)
+  National Academy of Sciences
 ])
 ```
 
@@ -153,10 +153,10 @@ conditionally remove the header on the first page:
 ```example
 #set page(
   header: locate(loc => {
-    if (counter(page).at(loc).first() > 1) [
-        _Lisa Strassner's Thesis_
-        #h(1fr)
-        National Academy of Sciences
+    if counter(page).at(loc).first() > 1 [
+      _Lisa Strassner's Thesis_
+      #h(1fr)
+      National Academy of Sciences
     ]
   }),
 )
@@ -186,15 +186,15 @@ on the current page:
   header: locate(loc => {
     let page-counter = counter(page)
     let matches = query(<big-table>, loc)
-    let has-no-table = matches.all(m =>
-      page-counter.at(m.location()) !=
-        page-counter.at(loc)
+    let current = page-counter.at(loc)
+    let has-table = matches.any(m =>
+      page-counter.at(m.location()) == current
     )
 
-    if (has-no-table) [
-        _Lisa Strassner's Thesis_
-        #h(1fr)
-        National Academy of Sciences
+    if not has-table [
+      _Lisa Strassner's Thesis_
+      #h(1fr)
+      National Academy of Sciences
     ]
   }),
 )
@@ -202,7 +202,7 @@ on the current page:
 #lorem(100)
 #pagebreak()
 
-#table() <big-table>
+#table[A][B] <big-table>
 ```
 
 Here, we query for all instances of the `<big-table>` label. We then check that
@@ -237,8 +237,8 @@ the string.
 #set page(numbering: "1 of 1")
 ```
 
-Go to the numbering function reference to learn more about the arguments you can
-pass here.
+Go to the [numbering function reference]($func/numbering) to learn more about
+the arguments you can pass here.
 
 In case you need to right- or left-align the page number, use the
 `numbering-align` argument of the page set rule. Alternating alignment between
@@ -305,9 +305,8 @@ example, let's insert a circle for each page.
   footer: locate(loc => {
     let page-num = counter(page).at(loc).first()
     let circles = (
-        box(circle(radius: 2pt, fill: navy)),
-      ) * page-num
-
+      box(circle(radius: 2pt, fill: navy)),
+    ) * page-num
     align(right, circles.join(h(1pt)))
   })
 )
@@ -337,7 +336,7 @@ simplest manipulation is to set the counter back to 1.
 ```
 
 This line will reset the page counter back to one. It should be placed at the
-start of a page because it will otherwise create a page break. You can also also
+start of a page because it will otherwise create a page break. You can also
 update the counter given its previous value by passing a function:
 
 ```example
@@ -347,7 +346,9 @@ update the counter given its previous value by passing a function:
 In this example, we skip five pages. `i` is the current value of the page
 counter and `i + 5` is the return value of our function.
 
-<!-- ## Add columns
+<!--
+
+## Add columns
 
 ### Columns after start of doc
 
