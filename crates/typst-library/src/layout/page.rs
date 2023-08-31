@@ -369,30 +369,27 @@ impl PageElem {
         let background = self.background(styles);
         let header = self.header(styles);
         let header_ascent = self.header_ascent(styles);
+        let numbering = self.numbering(styles);
         let footer = self.footer(styles).or_else(|| {
-            self.numbering(styles).map(|numbering| {
+            numbering.as_ref().map(|numbering| {
                 let both = match &numbering {
                     Numbering::Pattern(pattern) => pattern.pieces() >= 2,
                     Numbering::Func(_) => true,
                 };
                 Counter::new(CounterKey::Page)
-                    .display(Some(numbering), both)
+                    .display(Some(numbering.clone()), both)
                     .aligned(self.number_align(styles))
             })
         });
         let footer_descent = self.footer_descent(styles);
-
-        let numbering_meta = FrameItem::Meta(
-            Meta::PageNumbering(self.numbering(styles).into_value()),
+        let logical_number = Counter::logical_page_number(vt, number)?;
+        let logical_numbering = LogicalNumbering::new(numbering.as_ref(), logical_number);
+        let page_label_meta = FrameItem::Meta(
+            Meta::PageLabel(number, logical_numbering.into_value()),
             Size::zero(),
         );
-
-        let cs = Counter::new(CounterKey::Page).logical_page_num(vt, number)?;
-        let page_label_meta = FrameItem::Meta(
-            Meta::PageLabel(
-                number,
-                LogicalNumbering::new(self.numbering(styles), cs).into_value(),
-            ),
+        let numbering_meta = FrameItem::Meta(
+            Meta::PageNumbering(numbering.clone().into_value()),
             Size::zero(),
         );
 
@@ -418,12 +415,10 @@ impl PageElem {
 
             // Realize page label if there is a numbering & check for uniqueness
             // unless it doesn't match the five styles in the PDF spec.
-            if let Some(num) = self.numbering(styles) {
+            if let Some(num) = &numbering {
                 let matches_spec = |n: &Numbering| {
-                    let Numbering::Pattern(p) = n else {
-                        return false;
-                    };
-                    let (_, kind, _) = p.pieces.first().unwrap();
+                    let Numbering::Pattern(p) = n else { return false };
+                    let Some((_, kind, _)) = p.pieces.first() else { return false };
                     matches!(
                         kind,
                         NumberingKind::Arabic
@@ -431,12 +426,11 @@ impl PageElem {
                             | NumberingKind::Roman
                     )
                 };
-
-                if !matches_spec(&num) || *prev_page_label != self.numbering(styles) {
+                if !matches_spec(num) || *prev_page_label != numbering {
                     frame.push(Point::zero(), page_label_meta.clone());
                 }
             }
-            *prev_page_label = self.numbering(styles);
+            *prev_page_label = numbering.clone();
 
             // The page size with margins.
             let size = frame.size();
@@ -721,12 +715,10 @@ impl Parity {
 pub struct LogicalNumbering {
     /// Can be any string or none. Will always be prepended to the numbering style.
     prefix: Option<EcoString>,
-
     /// Based on the numbering pattern.
     ///
-    /// If `none` or numbering is a function, field will be empty.
+    /// If `None` or numbering is a function, the field will be empty.
     style: Option<LabelStyle>,
-
     /// Offset for the page label start.
     ///
     /// Describes where to start counting from when setting a style.
@@ -735,37 +727,37 @@ pub struct LogicalNumbering {
 }
 
 impl LogicalNumbering {
-    /// Create a new `LogicalNumbering` from a `Numbering` and apply the page number.
-    pub fn new(numbering: Option<Numbering>, page: usize) -> Self {
-        let Some(numbering) = numbering else {
+    /// Create a new `LogicalNumbering` from a `Numbering` applied to a page
+    /// number.
+    pub fn new(numbering: Option<&Numbering>, page: usize) -> Self {
+        let Some(Numbering::Pattern(pat)) = numbering else {
             return Self::default();
         };
-        if let Numbering::Pattern(pat) = numbering {
-            let Some((prefix, kind, case)) = pat.pieces.first() else {
-                return Self::default();
-            };
-            let style = match (kind, case) {
-                (NumberingKind::Arabic, _) => Some(LabelStyle::Arabic),
-                (NumberingKind::Roman, Case::Lower) => Some(LabelStyle::LowerRoman),
-                (NumberingKind::Roman, Case::Upper) => Some(LabelStyle::UpperRoman),
-                (NumberingKind::Letter, Case::Lower) => Some(LabelStyle::LowerAlpha),
-                (NumberingKind::Letter, Case::Upper) => Some(LabelStyle::UpperAlpha),
-                _ => None,
-            };
 
-            // Prefix and offset depend on the style: If it is supported by the pdf spec,
-            // we use the given prefix and an offset. Otherwise, everything goes into prefix.
-            let prefix = if style.is_none() {
-                Some(pat.apply(&[page]))
-            } else {
-                (!prefix.is_empty()).then(|| prefix.clone())
-            };
-            let offset = style.and(NonZeroUsize::new(page));
+        let Some((prefix, kind, case)) = pat.pieces.first() else {
+            return Self::default();
+        };
 
-            return Self { prefix, style, offset };
-        }
+        let style = match (kind, case) {
+            (NumberingKind::Arabic, _) => Some(LabelStyle::Arabic),
+            (NumberingKind::Roman, Case::Lower) => Some(LabelStyle::LowerRoman),
+            (NumberingKind::Roman, Case::Upper) => Some(LabelStyle::UpperRoman),
+            (NumberingKind::Letter, Case::Lower) => Some(LabelStyle::LowerAlpha),
+            (NumberingKind::Letter, Case::Upper) => Some(LabelStyle::UpperAlpha),
+            _ => None,
+        };
 
-        Self::default()
+        // Prefix and offset depend on the style: If it is supported by the PDF
+        // spec, we use the given prefix and an offset. Otherwise, everything
+        // goes into prefix.
+        let prefix = if style.is_none() {
+            Some(pat.apply(&[page]))
+        } else {
+            (!prefix.is_empty()).then(|| prefix.clone())
+        };
+
+        let offset = style.and(NonZeroUsize::new(page));
+        Self { prefix, style, offset }
     }
 }
 
@@ -773,17 +765,13 @@ impl LogicalNumbering {
 pub enum LabelStyle {
     /// Decimal arabic numerals (1, 2, 3).
     Arabic,
-
     /// Lowercase roman numerals (i, ii, iii).
     LowerRoman,
-
     /// Uppercase roman numerals (I, II, III).
     UpperRoman,
-
     /// Lowercase letters (`a` to `z` for the first 26 pages,
     /// `aa` to `zz` and so on for the next).
     LowerAlpha,
-
     /// Uppercase letters (`A` to `Z` for the first 26 pages,
     /// `AA` to `ZZ` and so on for the next).
     UpperAlpha,
@@ -791,14 +779,11 @@ pub enum LabelStyle {
 
 cast! {
     LogicalNumbering,
-    self => {
-        let mut dict = Dict::new();
-        dict.insert("prefix".into(), self.prefix.map_or(Value::None, |p| Value::Str(p.into())));
-        dict.insert("style".into(), self.style.map_or(Value::None, |s| s.into_value()));
-        dict.insert("offset".into(), self.offset.map_or(Value::None, |o| Value::Int(o.get() as i64)));
-
-        Value::Dict(dict)
-    },
+    self => dict! {
+        "prefix" => self.prefix,
+        "style" => self.style,
+        "offset" => self.offset,
+    }.into_value(),
 }
 
 /// Specification of a paper.

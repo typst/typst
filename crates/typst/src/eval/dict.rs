@@ -49,10 +49,14 @@ impl Dict {
         self.0.len()
     }
 
+    /// Get the value the given `key` maps to.
+    pub fn get(&self, key: &str) -> Option<&Value> {
+        self.0.get(key)
+    }
+
     /// Borrow the value the given `key` maps to,
     pub fn at(&self, key: &str, default: Option<Value>) -> StrResult<Value> {
-        self.0
-            .get(key)
+        self.get(key)
             .cloned()
             .or(default)
             .ok_or_else(|| missing_key_no_default(key))

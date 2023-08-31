@@ -389,30 +389,22 @@ impl Counter {
         UpdateElem::new(self.0, update).pack()
     }
 
-    /// Calculates the logical page number from the given physical page number.
-    pub fn logical_page_num(
-        &self,
+    /// Calculates the logical page number for the given physical page number.
+    pub fn logical_page_number(
         vt: &mut Vt,
         physical_page: NonZeroUsize,
     ) -> SourceResult<usize> {
-        if !self.is_page() {
-            panic!("Only works for the page counter!");
-        }
-
-        let field =
-            Some(Dict::from_iter([(Str::from("key"), CounterKey::Page.into_value())]));
-        let sequence = self.sequence(vt)?;
+        let counter = Counter(CounterKey::Page);
+        let sequence = counter.sequence(vt)?;
         let offset = vt
             .introspector
-            .query_up_to(
-                &Selector::Elem(UpdateElem::func(), field),
-                physical_page.saturating_add(1),
-            )
+            .query_up_to(&counter.selector(), physical_page.saturating_add(1))
             .len();
 
-        // Get the counter state (and therefore page) closest to the current physical page.
-        let (cs, page) = &sequence[offset];
-        Ok(physical_page.get().saturating_sub(page.get()) + cs.first())
+        // Get the counter state (and therefore page) closest to the current
+        // physical page.
+        let (state, page) = &sequence[offset];
+        Ok(physical_page.get().saturating_sub(page.get()) + state.first())
     }
 
     /// Produce the whole sequence of counter states.

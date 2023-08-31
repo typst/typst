@@ -136,7 +136,7 @@ cast! {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct NumberingPattern {
     pub pieces: EcoVec<(EcoString, NumberingKind, Case)>,
-    suffix: EcoString,
+    pub suffix: EcoString,
     trimmed: bool,
 }
 

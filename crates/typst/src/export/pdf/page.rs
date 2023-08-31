@@ -11,7 +11,7 @@ use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
 use super::external_graphics_state::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
-use crate::eval::{Dict, Value};
+use crate::eval::Value;
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, LineCap, LineJoin, Numeric, Paint, Point, Ratio,
@@ -618,46 +618,44 @@ fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size)
 }
 
 /// Encode a page label into the [`PdfContext`].
-fn write_page_label(ctx: &mut PageContext, v: &Value, n: NonZeroUsize) {
+fn write_page_label(
+    ctx: &mut PageContext,
+    logical_numbering: &Value,
+    number: NonZeroUsize,
+) {
+    let Value::Dict(dict) = logical_numbering else { return };
+
     let label_ref = ctx.parent.alloc.bump();
-    let logical_numbering = v.clone().cast::<Dict>().unwrap();
+    let mut entry = ctx.parent.writer.indirect(label_ref).start::<PageLabel>();
+    let mut create_label = false;
 
-    let prefix = logical_numbering.at("prefix", Some(Value::None)).unwrap_or_default();
-    let style = logical_numbering.at("style", Some(Value::None)).unwrap_or_default();
-    let offset = logical_numbering.at("offset", Some(Value::None)).unwrap_or_default();
+    // Only add what is actually provided. Don't add empty prefix string if it
+    // wasn't given for example.
+    if let Some(Value::Str(prefix)) = dict.get("prefix") {
+        create_label = true;
+        entry.prefix(TextStr(prefix));
+    }
 
-    let prefix_str = prefix.cast::<typst::eval::Str>().ok();
-    let num_style = style.cast::<typst::eval::Str>().ok().map(|style_name| {
-        match style_name.as_str() {
+    if let Some(Value::Str(style)) = dict.get("style") {
+        create_label = true;
+        entry.style(match style.as_str() {
             "arabic" => NumberingStyle::Arabic,
             "upper-roman" => NumberingStyle::UpperRoman,
             "lower-roman" => NumberingStyle::LowerRoman,
             "upper-alpha" => NumberingStyle::UpperAlpha,
             "lower-alpha" => NumberingStyle::LowerAlpha,
             _ => unreachable!(),
-        }
-    });
-    let offset_opt = offset.cast::<usize>().ok();
+        });
+    }
+
+    if let Some(&Value::Int(offset)) = dict.get("offset") {
+        entry.offset(offset as i32);
+    }
 
     // Don't create a PageLabel if neither style nor prefix are specified.
-    if prefix_str.is_some() || num_style.is_some() {
-        ctx.parent.logical_pages.push((n, label_ref));
+    if create_label {
+        ctx.parent.logical_pages.push((number, label_ref));
     }
-
-    // Only add what is actually provided. Don't add empty prefix string if it wasn't given for example.
-    let mut entry = ctx.parent.writer.indirect(label_ref).start::<PageLabel>();
-
-    if let Some(p) = prefix_str {
-        entry.prefix(TextStr(&p));
-    }
-    if let Some(s) = num_style {
-        entry.style(s);
-    }
-    if let Some(o) = offset_opt {
-        entry.offset(o as i32);
-    }
-
-    entry.finish();
 }
 
 impl From<&LineCap> for LineCapStyle {
