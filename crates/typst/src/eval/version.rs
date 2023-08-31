@@ -12,7 +12,7 @@ use typst::eval::Array;
 ///
 /// The list of components is semantically extended by an infinite list of zeros
 #[derive(Clone)]
-pub struct Version(EcoVec<NonNegativeI64>);
+pub struct Version(EcoVec<VersionComponent>);
 
 // helper macro to make sure COMPONENT_NAMES and resolve_component_name never go out of sync
 macro_rules! component_names {
@@ -41,12 +41,12 @@ impl Version {
     pub fn new(components: impl IntoIterator<Item = i64>) -> Option<Self> {
         components
             .into_iter()
-            .map(NonNegativeI64::new)
+            .map(VersionComponent::new)
             .collect::<Option<EcoVec<_>>>()
             .map(Self)
     }
 
-    fn get(&self, index: usize) -> Option<NonNegativeI64> {
+    fn get(&self, index: usize) -> Option<VersionComponent> {
         self.0.get(index).copied()
     }
 
@@ -91,7 +91,7 @@ impl Version {
 impl Ord for Version {
     fn cmp(&self, other: &Self) -> Ordering {
         let max_len = self.0.len().max(other.0.len());
-        let tail = repeat(&NonNegativeI64::ZERO);
+        let tail = repeat(&VersionComponent::ZERO);
 
         let self_iter = self.0.iter().chain(tail.clone());
         let other_iter = other.0.iter().chain(tail);
@@ -162,10 +162,10 @@ impl Serialize for Version {
 
 #[derive(Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[repr(transparent)]
-struct NonNegativeI64(u64);
+pub struct VersionComponent(u64);
 
 #[allow(dead_code)] // reason: kept for completeness, might be used in the future
-impl NonNegativeI64 {
+impl VersionComponent {
     pub const ZERO: Self = Self(0);
 
     pub const MIN: Self = Self(0);
@@ -180,19 +180,19 @@ impl NonNegativeI64 {
     }
 }
 
-impl Display for NonNegativeI64 {
+impl Display for VersionComponent {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         Display::fmt(&self.0, f)
     }
 }
 
-impl Debug for NonNegativeI64 {
+impl Debug for VersionComponent {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         Debug::fmt(&self.0, f)
     }
 }
 
-impl Serialize for NonNegativeI64 {
+impl Serialize for VersionComponent {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
