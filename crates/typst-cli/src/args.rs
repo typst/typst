@@ -1,6 +1,8 @@
 use std::fmt::{self, Display, Formatter};
 use std::path::PathBuf;
 
+use semver::Version;
+
 use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 
 /// The Typst compiler.
@@ -34,6 +36,10 @@ pub enum Command {
 
     /// Lists all discovered fonts in system and custom font paths
     Fonts(FontsCommand),
+
+    /// Self update the Typst CLI
+    #[cfg_attr(not(feature = "self-update"), doc = " (disabled)")]
+    Update(UpdateCommand),
 }
 
 /// Compiles an input file into a supported output format
@@ -152,6 +158,22 @@ impl Display for DiagnosticFormat {
             .get_name()
             .fmt(f)
     }
+}
+
+/// Update the CLI using a pre-compiled binary from a Typst GitHub release.
+#[derive(Debug, Clone, Parser)]
+pub struct UpdateCommand {
+    /// Which version to update to (defaults to latest)
+    pub version: Option<Version>,
+
+    /// Forces a downgrade to an older version (required for downgrading)
+    #[clap(long, default_value_t = false)]
+    pub force: bool,
+
+    /// Reverts to the version from before the last update (only possible if
+    /// `typst update` has previously ran)
+    #[clap(long, default_value_t = false, exclusive = true)]
+    pub revert: bool,
 }
 
 /// Which format to use for the generated output file.

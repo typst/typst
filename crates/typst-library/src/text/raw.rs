@@ -9,6 +9,7 @@ use typst::diag::FileError;
 use typst::eval::Bytes;
 use typst::syntax::{self, LinkedNode};
 use typst::util::option_eq;
+use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
@@ -218,6 +219,21 @@ pub struct RawElem {
     #[internal]
     #[parse(theme_data.map(Some))]
     pub theme_data: Option<Bytes>,
+
+    /// The size for a tab stop in spaces. A tab is replaced with enough spaces to
+    /// align with the next multiple of the size.
+    ///
+    /// ````example
+    /// #set raw(tab-size: 8)
+    /// ```tsv
+    /// Year	Month	Day
+    /// 2000	2	3
+    /// 2001	2	1
+    /// 2002	3	10
+    /// ```
+    /// ````
+    #[default(2)]
+    pub tab_size: usize,
 }
 
 impl RawElem {
@@ -247,7 +263,12 @@ impl Synthesize for RawElem {
 impl Show for RawElem {
     #[tracing::instrument(name = "RawElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let text = self.text();
+        let mut text = self.text();
+        if text.contains('\t') {
+            let tab_size = RawElem::tab_size_in(styles);
+            text = align_tabs(&text, tab_size);
+        }
+
         let lang = self
             .lang(styles)
             .as_ref()
@@ -490,7 +511,7 @@ fn parse_syntaxes(
         .0
         .iter()
         .map(|path| {
-            let id = vm.location().join(path).at(span)?;
+            let id = vm.resolve_path(path).at(span)?;
             vm.world().file(id).at(span)
         })
         .collect::<SourceResult<Vec<Bytes>>>()?;
@@ -522,7 +543,7 @@ fn parse_theme(
     };
 
     // Load theme file.
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
 
     // Check that parsing works.
@@ -608,4 +629,34 @@ fn item(
             font_style,
         },
     }
+}
+
+/// Replace tabs with spaces to align with multiples of `tab_size`.
+fn align_tabs(text: &str, tab_size: usize) -> EcoString {
+    let replacement = " ".repeat(tab_size);
+    let divisor = tab_size.max(1);
+    let amount = text.chars().filter(|&c| c == '\t').count();
+
+    let mut res = EcoString::with_capacity(text.len() - amount + amount * tab_size);
+    let mut column = 0;
+
+    for grapheme in text.graphemes(true) {
+        match grapheme {
+            "\t" => {
+                let required = tab_size - column % divisor;
+                res.push_str(&replacement[..required]);
+                column += required;
+            }
+            "\n" => {
+                res.push_str(grapheme);
+                column = 0;
+            }
+            _ => {
+                res.push_str(grapheme);
+                column += 1;
+            }
+        }
+    }
+
+    res
 }

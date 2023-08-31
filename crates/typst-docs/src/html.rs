@@ -429,8 +429,8 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
     let id = FileId::new(None, VirtualPath::new("main.typ"));
     let source = Source::new(id, compile);
     let world = DocWorld(source);
-    let mut tracer = Tracer::default();
 
+    let mut tracer = Tracer::new();
     let mut frames = match typst::compile(&world, &mut tracer) {
         Ok(doc) => doc.pages,
         Err(err) => {

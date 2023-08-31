@@ -94,9 +94,8 @@ impl Func {
             }
             Repr::Closure(closure) => {
                 // Determine the route inside the closure.
-                let fresh = Route::new(closure.location);
-                let route =
-                    if vm.location.is_detached() { fresh.track() } else { vm.route };
+                let fresh = Route::new(closure.file);
+                let route = if vm.file.is_none() { fresh.track() } else { vm.route };
 
                 Closure::call(
                     self,
@@ -134,7 +133,7 @@ impl Func {
             delayed: TrackedMut::reborrow_mut(&mut vt.delayed),
             tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
         };
-        let mut vm = Vm::new(vt, route.track(), FileId::detached(), scopes);
+        let mut vm = Vm::new(vt, route.track(), None, scopes);
         let args = Args::new(self.span(), args);
         self.call_vm(&mut vm, args)
     }
@@ -298,7 +297,7 @@ pub(super) struct Closure {
     /// The closure's syntax node. Must be castable to `ast::Closure`.
     pub node: SyntaxNode,
     /// The source file where the closure was defined.
-    pub location: FileId,
+    pub file: Option<FileId>,
     /// Default values of named parameters.
     pub defaults: Vec<Value>,
     /// Captured values from outer scopes.
@@ -351,7 +350,7 @@ impl Closure {
         };
 
         // Prepare VM.
-        let mut vm = Vm::new(vt, route, this.location, scopes);
+        let mut vm = Vm::new(vt, route, this.file, scopes);
         vm.depth = depth;
 
         // Provide the closure itself for recursive calls.
@@ -545,8 +544,8 @@ impl<'a> CapturesVisitor<'a> {
             Some(ast::Expr::Import(expr)) => {
                 self.visit(expr.source().to_untyped());
                 if let Some(ast::Imports::Items(items)) = expr.imports() {
-                    for item in items.idents() {
-                        self.bind(item);
+                    for item in items.iter() {
+                        self.bind(item.bound_name());
                     }
                 }
             }

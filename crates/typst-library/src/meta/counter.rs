@@ -181,20 +181,20 @@ use crate::prelude::*;
 ///   the document. We then pass this location to our counter's `at` method to
 ///   get its value at the current location. The `at` method always returns an
 ///   array because counters can have multiple levels. As the counter starts at
-///   one, the first value is thus `{(1,)}`.
+///   zero, the first value is thus `{(0,)}`.
 ///
 /// - We now [`query`]($func/query) the document for all elements with the
 ///   `{<intro>}` label. The result is an array from which we extract the first
 ///   (and only) element's [location]($type/content.location). We then look up
 ///   the value of the counter at that location. The first update to the counter
-///   sets it to `{1 + 3 = 4}`. At the introduction heading, the value is thus
-///   `{(4,)}`.
+///   sets it to `{0 + 3 = 3}`. At the introduction heading, the value is thus
+///   `{(3,)}`.
 ///
 /// - Last but not least, we call the `final` method on the counter. It tells us
 ///   what the counter's value will be at the end of the document. We also need
 ///   to give it a location to prove that we are inside of a `locate` call, but
 ///   which one doesn't matter. After the heading follow two calls to `step()`,
-///   so the final value is `{(6,)}`.
+///   so the final value is `{(5,)}`.
 ///
 /// ## Other kinds of state { #other-state }
 /// The `counter` function is closely related to [state]($func/state) function.

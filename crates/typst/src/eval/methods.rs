@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 
 use super::{Args, Bytes, IntoValue, Plugin, Str, Value, Vm};
 use crate::diag::{At, Hint, SourceResult};
-use crate::eval::{bail, Datetime};
+use crate::eval::bail;
 use crate::geom::{Align, Axes, Color, Dir, Em, GenAlign};
 use crate::model::{Location, Selector};
 use crate::syntax::Span;
@@ -82,6 +82,7 @@ pub fn call(
                 let count = args.named("count")?;
                 string.replace(vm, pattern, with, count)?.into_value()
             }
+            "rev" => string.rev().into_value(),
             "trim" => {
                 let pattern = args.eat()?;
                 let at = args.named("at")?;
@@ -103,6 +104,28 @@ pub fn call(
                 }
                 bytes.slice(start, end).at(span)?.into_value()
             }
+            _ => return missing(),
+        },
+
+        Value::Datetime(datetime) => match method {
+            "display" => datetime.display(args.eat()?).at(args.span)?.into_value(),
+            "year" => datetime.year().into_value(),
+            "month" => datetime.month().into_value(),
+            "weekday" => datetime.weekday().into_value(),
+            "day" => datetime.day().into_value(),
+            "hour" => datetime.hour().into_value(),
+            "minute" => datetime.minute().into_value(),
+            "second" => datetime.second().into_value(),
+            "ordinal" => datetime.ordinal().into_value(),
+            _ => return missing(),
+        },
+
+        Value::Duration(duration) => match method {
+            "seconds" => duration.seconds().into_value(),
+            "minutes" => duration.minutes().into_value(),
+            "hours" => duration.hours().into_value(),
+            "days" => duration.days().into_value(),
+            "weeks" => duration.weeks().into_value(),
             _ => return missing(),
         },
 
@@ -156,7 +179,7 @@ pub fn call(
             }
             "intersperse" => array.intersperse(args.expect("separator")?).into_value(),
             "sorted" => array.sorted(vm, span, args.named("key")?)?.into_value(),
-            "zip" => array.zip(args.expect("other")?).into_value(),
+            "zip" => array.zip(&mut args)?.into_value(),
             "enumerate" => array
                 .enumerate(args.named("start")?.unwrap_or(0))
                 .at(span)?
@@ -254,20 +277,6 @@ pub fn call(
                             args.named_or_find::<bool>("inclusive")?.unwrap_or(true);
                         selector.clone().after(location, inclusive).into_value()
                     }
-                    _ => return missing(),
-                }
-            } else if let Some(&datetime) = dynamic.downcast::<Datetime>() {
-                match method {
-                    "display" => {
-                        datetime.display(args.eat()?).at(args.span)?.into_value()
-                    }
-                    "year" => datetime.year().into_value(),
-                    "month" => datetime.month().into_value(),
-                    "weekday" => datetime.weekday().into_value(),
-                    "day" => datetime.day().into_value(),
-                    "hour" => datetime.hour().into_value(),
-                    "minute" => datetime.minute().into_value(),
-                    "second" => datetime.second().into_value(),
                     _ => return missing(),
                 }
             } else if let Some(direction) = dynamic.downcast::<Dir>() {
@@ -425,6 +434,24 @@ pub fn methods_on(type_name: &str) -> &[(&'static str, bool)] {
             ("trim", true),
         ],
         "bytes" => &[("len", false), ("at", true), ("slice", true)],
+        "datetime" => &[
+            ("display", true),
+            ("year", false),
+            ("month", false),
+            ("weekday", false),
+            ("day", false),
+            ("hour", false),
+            ("minute", false),
+            ("second", false),
+            ("ordinal", false),
+        ],
+        "duration" => &[
+            ("seconds", false),
+            ("minutes", false),
+            ("hours", false),
+            ("days", false),
+            ("weeks", false),
+        ],
         "content" => &[
             ("func", false),
             ("has", true),

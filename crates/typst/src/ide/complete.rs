@@ -503,12 +503,12 @@ fn import_item_completions<'a>(
         _ => return,
     };
 
-    if existing.idents().next().is_none() {
+    if existing.iter().next().is_none() {
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
     for (name, value) in module.scope().iter() {
-        if existing.idents().all(|ident| ident.as_str() != name) {
+        if existing.iter().all(|item| item.original_name().as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, false, None);
         }
     }

@@ -4,15 +4,15 @@ use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
-use std::fmt::Write as FmtWrite;
+use std::fmt::{self, Display, Formatter, Write as _};
 use std::fs;
 use std::io::{self, Write};
-use std::iter;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
+use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
@@ -26,7 +26,7 @@ use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer,
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{FileId, Source, Span, SyntaxNode, VirtualPath};
-use typst::World;
+use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
 
@@ -237,7 +237,7 @@ impl TestWorld {
 
         Self {
             print,
-            main: FileId::detached(),
+            main: FileId::new(None, VirtualPath::new("main.typ")),
             library: Prehashed::new(library()),
             book: Prehashed::new(FontBook::from_fonts(&fonts)),
             fonts,
@@ -526,15 +526,14 @@ fn test_part(
     if world.print.model {
         let world = (world as &dyn World).track();
         let route = typst::eval::Route::default();
-        let mut tracer = typst::eval::Tracer::default();
+        let mut tracer = typst::eval::Tracer::new();
 
         let module =
             typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
-    let mut tracer = Tracer::default();
-
+    let mut tracer = Tracer::new();
     let (mut frames, diagnostics) = match typst::compile(world, &mut tracer) {
         Ok(document) => (document.pages, tracer.warnings()),
         Err(errors) => {
@@ -555,39 +554,46 @@ fn test_part(
     // This has one caveat: due to the format of the expected hints, we can not
     // verify if a hint belongs to a diagnostic or not. That should be irrelevant
     // however, as the line of the hint is still verified.
-    let actual_diagnostics: HashSet<UserOutput> = diagnostics
-        .into_iter()
-        .inspect(|diagnostic| assert!(!diagnostic.span.is_detached()))
-        .filter(|diagnostic| diagnostic.span.id() == source.id())
-        .flat_map(|diagnostic| {
-            let range = world.range(diagnostic.span);
-            let message = diagnostic.message.replace('\\', "/");
-            let output = match diagnostic.severity {
-                Severity::Error => UserOutput::Error(range.clone(), message),
-                Severity::Warning => UserOutput::Warning(range.clone(), message),
-            };
+    let mut actual_diagnostics = HashSet::new();
+    for diagnostic in &diagnostics {
+        // Ignore diagnostics from other files.
+        if diagnostic.span.id().map_or(false, |id| id != source.id()) {
+            continue;
+        }
 
-            let hints = diagnostic
-                .hints
-                .iter()
-                .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
-                .map(|hint| UserOutput::Hint(range.clone(), hint.to_string()));
+        let annotation = Annotation {
+            kind: match diagnostic.severity {
+                Severity::Error => AnnotationKind::Error,
+                Severity::Warning => AnnotationKind::Warning,
+            },
+            range: world.range(diagnostic.span),
+            message: diagnostic.message.replace('\\', "/").into(),
+        };
 
-            iter::once(output).chain(hints).collect::<Vec<_>>()
-        })
-        .collect();
+        if validate_hints {
+            for hint in &diagnostic.hints {
+                actual_diagnostics.insert(Annotation {
+                    kind: AnnotationKind::Hint,
+                    message: hint.clone(),
+                    range: annotation.range.clone(),
+                });
+            }
+        }
+
+        actual_diagnostics.insert(annotation);
+    }
 
     // Basically symmetric_difference, but we need to know where an item is coming from.
     let mut unexpected_outputs = actual_diagnostics
-        .difference(&metadata.invariants)
+        .difference(&metadata.annotations)
         .collect::<Vec<_>>();
     let mut missing_outputs = metadata
-        .invariants
+        .annotations
         .difference(&actual_diagnostics)
         .collect::<Vec<_>>();
 
-    unexpected_outputs.sort_by_key(|&o| o.start());
-    missing_outputs.sort_by_key(|&o| o.start());
+    unexpected_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+    missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
 
     // This prints all unexpected emits first, then all missing emits.
     // Is this reasonable or subject to change?
@@ -597,41 +603,34 @@ fn test_part(
 
         for unexpected in unexpected_outputs {
             write!(output, "    Not annotated | ").unwrap();
-            print_user_output(output, &source, line, unexpected)
+            print_annotation(output, &source, line, unexpected)
         }
 
         for missing in missing_outputs {
             write!(output, "    Not emitted   | ").unwrap();
-            print_user_output(output, &source, line, missing)
+            print_annotation(output, &source, line, missing)
         }
     }
 
     (ok, compare_ref, frames)
 }
 
-fn print_user_output(
+fn print_annotation(
     output: &mut String,
     source: &Source,
     line: usize,
-    user_output: &UserOutput,
+    annotation: &Annotation,
 ) {
-    let (range, message) = match &user_output {
-        UserOutput::Error(r, m) => (r, m),
-        UserOutput::Warning(r, m) => (r, m),
-        UserOutput::Hint(r, m) => (r, m),
-    };
-
-    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
-    let start_col = 1 + source.byte_to_column(range.start).unwrap();
-    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
-    let end_col = 1 + source.byte_to_column(range.end).unwrap();
-    let kind = match user_output {
-        UserOutput::Error(_, _) => "Error",
-        UserOutput::Warning(_, _) => "Warning",
-        UserOutput::Hint(_, _) => "Hint",
-    };
-    writeln!(output, "{kind}: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
-        .unwrap();
+    let Annotation { range, message, kind } = annotation;
+    write!(output, "{kind}: ").unwrap();
+    if let Some(range) = range {
+        let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
+        let start_col = 1 + source.byte_to_column(range.start).unwrap();
+        let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
+        let end_col = 1 + source.byte_to_column(range.end).unwrap();
+        write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
+    }
+    writeln!(output, "{message}").unwrap();
 }
 
 struct TestConfiguration {
@@ -641,101 +640,93 @@ struct TestConfiguration {
 
 struct TestPartMetadata {
     part_configuration: TestConfiguration,
-    invariants: HashSet<UserOutput>,
+    annotations: HashSet<Annotation>,
 }
 
-#[derive(PartialEq, Eq, Debug, Hash)]
-enum UserOutput {
-    Error(Range<usize>, String),
-    Warning(Range<usize>, String),
-    Hint(Range<usize>, String),
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+struct Annotation {
+    range: Option<Range<usize>>,
+    message: EcoString,
+    kind: AnnotationKind,
 }
 
-impl UserOutput {
-    fn start(&self) -> usize {
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+enum AnnotationKind {
+    Error,
+    Warning,
+    Hint,
+}
+
+impl AnnotationKind {
+    fn iter() -> impl Iterator<Item = Self> {
+        [AnnotationKind::Error, AnnotationKind::Warning, AnnotationKind::Hint].into_iter()
+    }
+
+    fn as_str(self) -> &'static str {
         match self {
-            UserOutput::Error(r, _) => r.start,
-            UserOutput::Warning(r, _) => r.start,
-            UserOutput::Hint(r, _) => r.start,
+            AnnotationKind::Error => "Error",
+            AnnotationKind::Warning => "Warning",
+            AnnotationKind::Hint => "Hint",
         }
     }
+}
 
-    fn error(range: Range<usize>, message: String) -> UserOutput {
-        UserOutput::Error(range, message)
-    }
-
-    fn warning(range: Range<usize>, message: String) -> UserOutput {
-        UserOutput::Warning(range, message)
-    }
-
-    fn hint(range: Range<usize>, message: String) -> UserOutput {
-        UserOutput::Hint(range, message)
+impl Display for AnnotationKind {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(self.as_str())
     }
 }
 
 fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
     let mut validate_hints = None;
-    let mut expectations = HashSet::default();
+    let mut annotations = HashSet::default();
 
     let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
         compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
         validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
 
-        fn num(s: &mut Scanner) -> isize {
+        fn num(s: &mut Scanner) -> Option<isize> {
             let mut first = true;
             let n = &s.eat_while(|c: char| {
                 let valid = first && c == '-' || c.is_numeric();
                 first = false;
                 valid
             });
-            n.parse().unwrap_or_else(|e| panic!("{n} is not a number ({e})"))
+            n.parse().ok()
         }
 
         let comments_until_code =
             lines[i..].iter().take_while(|line| line.starts_with("//")).count();
 
-        let pos = |s: &mut Scanner| -> usize {
-            let first = num(s) - 1;
+        let pos = |s: &mut Scanner| -> Option<usize> {
+            let first = num(s)? - 1;
             let (delta, column) =
-                if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
-            let line = (i + comments_until_code)
-                .checked_add_signed(delta)
-                .expect("line number overflowed limits");
-            source
-                .line_column_to_byte(
-                    line,
-                    usize::try_from(column).expect("column number overflowed limits"),
-                )
-                .unwrap()
+                if s.eat_if(':') { (first, num(s)? - 1) } else { (0, first) };
+            let line = (i + comments_until_code).checked_add_signed(delta)?;
+            source.line_column_to_byte(line, usize::try_from(column).ok()?)
         };
 
-        let error_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::error;
-        let warning_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::warning;
-        let hint_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::hint;
+        let range = |s: &mut Scanner| -> Option<Range<usize>> {
+            let start = pos(s)?;
+            let end = if s.eat_if('-') { pos(s)? } else { start };
+            Some(start..end)
+        };
 
-        let error_metadata = get_metadata(line, "Error").map(|s| (s, error_factory));
-        let get_warning_metadata =
-            || get_metadata(line, "Warning").map(|s| (s, warning_factory));
-        let get_hint_metadata = || get_metadata(line, "Hint").map(|s| (s, hint_factory));
-
-        if let Some((expectation, factory)) = error_metadata
-            .or_else(get_warning_metadata)
-            .or_else(get_hint_metadata)
-        {
+        for kind in AnnotationKind::iter() {
+            let Some(expectation) = get_metadata(line, kind.as_str()) else { continue };
             let mut s = Scanner::new(expectation);
-            let start = pos(&mut s);
-            let end = if s.eat_if('-') { pos(&mut s) } else { start };
-            let range = start..end;
-
-            expectations.insert(factory(range, s.after().trim().to_string()));
-        };
+            let range = range(&mut s);
+            let rest = if range.is_some() { s.after() } else { s.string() };
+            let message = rest.trim().into();
+            annotations.insert(Annotation { kind, range, message });
+        }
     }
 
     TestPartMetadata {
         part_configuration: TestConfiguration { compare_ref, validate_hints },
-        invariants: expectations,
+        annotations,
     }
 }
 

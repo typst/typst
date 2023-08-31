@@ -31,6 +31,7 @@ use comemo::{Track, Tracked, TrackedMut, Validate};
 use crate::diag::{warning, SourceDiagnostic, SourceResult};
 use crate::doc::Document;
 use crate::eval::Tracer;
+use crate::syntax::Span;
 use crate::World;
 
 /// Typeset content into a fully layouted document.
@@ -59,7 +60,7 @@ pub fn typeset(
     loop {
         tracing::info!("Layout iteration {iter}");
 
-        delayed = DelayedErrors::default();
+        delayed = DelayedErrors::new();
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut locator = Locator::new();
@@ -88,11 +89,8 @@ pub fn typeset(
 
         if iter >= 5 {
             tracer.warn(
-                warning!(
-                    world.main().root().span(),
-                    "layout did not converge within 5 attempts",
-                )
-                .with_hint("check if any states or queries are updating themselves"),
+                warning!(Span::detached(), "layout did not converge within 5 attempts",)
+                    .with_hint("check if any states or queries are updating themselves"),
             );
             break;
         }
@@ -149,6 +147,13 @@ impl Vt<'_> {
 /// Holds delayed errors.
 #[derive(Default, Clone)]
 pub struct DelayedErrors(Vec<SourceDiagnostic>);
+
+impl DelayedErrors {
+    /// Create an empty list of delayed errors.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 #[comemo::track]
 impl DelayedErrors {

@@ -8,6 +8,7 @@ use typst::diag::{PackageError, PackageResult};
 use typst::syntax::PackageSpec;
 
 use super::color_stream;
+use crate::download::download_with_progress;
 
 /// Make a package available in the on-disk cache.
 pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
@@ -49,15 +50,15 @@ fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()>
     );
 
     print_downloading(spec).unwrap();
-    let reader = match ureq::get(&url).call() {
-        Ok(response) => response.into_reader(),
+    let data = match download_with_progress(&url) {
+        Ok(data) => data,
         Err(ureq::Error::Status(404, _)) => {
             return Err(PackageError::NotFound(spec.clone()))
         }
         Err(_) => return Err(PackageError::NetworkFailed),
     };
 
-    let decompressed = flate2::read::GzDecoder::new(reader);
+    let decompressed = flate2::read::GzDecoder::new(data.as_slice());
     tar::Archive::new(decompressed).unpack(package_dir).map_err(|_| {
         fs::remove_dir_all(package_dir).ok();
         PackageError::MalformedArchive

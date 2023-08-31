@@ -1,17 +1,20 @@
+use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
+use std::ops::{Add, Sub};
 
 use ecow::{eco_format, EcoString, EcoVec};
 use time::error::{Format, InvalidFormatDescription};
 use time::{format_description, PrimitiveDateTime};
 
-use crate::eval::cast;
+use crate::diag::bail;
+use crate::eval::{Duration, StrResult};
 use crate::util::pretty_array_like;
 
 /// A datetime object that represents either a date, a time or a combination of
 /// both.
-#[derive(Clone, Copy, PartialEq, Hash)]
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Datetime {
     /// Representation as a date.
     Date(time::Date),
@@ -22,6 +25,15 @@ pub enum Datetime {
 }
 
 impl Datetime {
+    /// Which kind of variant this datetime stores.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Datetime::Datetime(_) => "datetime",
+            Datetime::Date(_) => "date",
+            Datetime::Time(_) => "time",
+        }
+    }
+
     /// Display the date and/or time in a certain format.
     pub fn display(&self, pattern: Option<EcoString>) -> Result<EcoString, EcoString> {
         let pattern = pattern.as_ref().map(EcoString::as_str).unwrap_or(match self {
@@ -106,6 +118,15 @@ impl Datetime {
         }
     }
 
+    /// Return the ordinal (day of the year), if existing.
+    pub fn ordinal(&self) -> Option<u16> {
+        match self {
+            Datetime::Datetime(datetime) => Some(datetime.ordinal()),
+            Datetime::Date(date) => Some(date.ordinal()),
+            Datetime::Time(_) => None,
+        }
+    }
+
     /// Create a datetime from year, month, and day.
     pub fn from_ymd(year: i32, month: u8, day: u8) -> Option<Self> {
         Some(Datetime::Date(
@@ -136,6 +157,56 @@ impl Datetime {
     }
 }
 
+impl PartialOrd for Datetime {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match (self, other) {
+            (Datetime::Datetime(a), Datetime::Datetime(b)) => a.partial_cmp(b),
+            (Datetime::Date(a), Datetime::Date(b)) => a.partial_cmp(b),
+            (Datetime::Time(a), Datetime::Time(b)) => a.partial_cmp(b),
+            _ => None,
+        }
+    }
+}
+
+impl Add<Duration> for Datetime {
+    type Output = Datetime;
+
+    fn add(self, rhs: Duration) -> Self::Output {
+        let rhs: time::Duration = rhs.into();
+        match self {
+            Datetime::Datetime(datetime) => Self::Datetime(datetime + rhs),
+            Datetime::Date(date) => Self::Date(date + rhs),
+            Datetime::Time(time) => Self::Time(time + rhs),
+        }
+    }
+}
+
+impl Sub<Duration> for Datetime {
+    type Output = Datetime;
+
+    fn sub(self, rhs: Duration) -> Self::Output {
+        let rhs: time::Duration = rhs.into();
+        match self {
+            Datetime::Datetime(datetime) => Self::Datetime(datetime - rhs),
+            Datetime::Date(date) => Self::Date(date - rhs),
+            Datetime::Time(time) => Self::Time(time - rhs),
+        }
+    }
+}
+
+impl Sub for Datetime {
+    type Output = StrResult<Duration>;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        match (self, rhs) {
+            (Datetime::Datetime(a), Datetime::Datetime(b)) => Ok((a - b).into()),
+            (Datetime::Date(a), Datetime::Date(b)) => Ok((a - b).into()),
+            (Datetime::Time(a), Datetime::Time(b)) => Ok((a - b).into()),
+            (a, b) => bail!("cannot subtract {} from {}", b.kind(), a.kind()),
+        }
+    }
+}
+
 impl Debug for Datetime {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let year = self.year().map(|y| eco_format!("year: {y}"));
@@ -151,10 +222,6 @@ impl Debug for Datetime {
 
         write!(f, "datetime{}", &pretty_array_like(&filtered, false))
     }
-}
-
-cast! {
-    type Datetime: "datetime",
 }
 
 /// Format the `Format` error of the time crate in an appropriate way.

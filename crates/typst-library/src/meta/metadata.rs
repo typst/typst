@@ -38,6 +38,6 @@ impl Show for MetadataElem {
 
 impl Behave for MetadataElem {
     fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
+        Behaviour::Invisible
     }
 }
