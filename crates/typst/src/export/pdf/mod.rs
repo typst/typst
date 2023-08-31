@@ -6,6 +6,8 @@ mod image;
 mod outline;
 mod page;
 
+pub use self::page::{PdfPageLabel, PdfPageLabelStyle};
+
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;

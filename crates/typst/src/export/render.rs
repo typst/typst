@@ -107,7 +107,7 @@ fn render_frame(
                 Meta::Link(_) => {}
                 Meta::Elem(_) => {}
                 Meta::PageNumbering(_) => {}
-                Meta::PageLabel(_, _) => {}
+                Meta::PdfPageLabel(_, _) => {}
                 Meta::Hide => {}
             },
         }

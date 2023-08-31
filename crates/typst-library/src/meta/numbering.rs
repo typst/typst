@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
 use ecow::EcoVec;
+use typst::export::{PdfPageLabel, PdfPageLabelStyle};
 
 use crate::prelude::*;
 use crate::text::Case;
@@ -97,6 +98,40 @@ impl Numbering {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => func.call_vt(vt, numbers.iter().copied())?,
         })
+    }
+
+    /// Create a new `PdfNumbering` from a `Numbering` applied to a page
+    /// number.
+    pub fn apply_pdf(&self, number: usize) -> PdfPageLabel {
+        let Numbering::Pattern(pat) = self else {
+            return PdfPageLabel::default();
+        };
+
+        let Some((prefix, kind, case)) = pat.pieces.first() else {
+            return PdfPageLabel::default();
+        };
+
+        let style = match (kind, case) {
+            (NumberingKind::Arabic, _) => Some(PdfPageLabelStyle::Arabic),
+            (NumberingKind::Roman, Case::Lower) => Some(PdfPageLabelStyle::LowerRoman),
+            (NumberingKind::Roman, Case::Upper) => Some(PdfPageLabelStyle::UpperRoman),
+            (NumberingKind::Letter, Case::Lower) => Some(PdfPageLabelStyle::LowerAlpha),
+            (NumberingKind::Letter, Case::Upper) => Some(PdfPageLabelStyle::UpperAlpha),
+            _ => None,
+        };
+
+        // Prefix and offset depend on the style: If it is supported by the PDF
+        // spec, we use the given prefix and an offset. Otherwise, everything
+        // goes into prefix.
+        let prefix = if style.is_none() {
+            Some(pat.apply(&[number]))
+        } else {
+            (!prefix.is_empty()).then(|| prefix.clone())
+        };
+
+        let offset = style.and(NonZeroUsize::new(number));
+
+        PdfPageLabel { prefix, style, offset }
     }
 
     /// Trim the prefix suffix if this is a pattern.

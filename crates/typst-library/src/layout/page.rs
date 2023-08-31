@@ -4,7 +4,7 @@ use std::str::FromStr;
 use super::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, Numbering, NumberingKind};
 use crate::prelude::*;
-use crate::text::{Case, TextElem};
+use crate::text::TextElem;
 
 /// Layouts its child onto one or multiple pages.
 ///
@@ -382,16 +382,19 @@ impl PageElem {
             })
         });
         let footer_descent = self.footer_descent(styles);
-        let logical_number = Counter::logical_page_number(vt, number)?;
-        let logical_numbering = LogicalNumbering::new(numbering.as_ref(), logical_number);
-        let page_label_meta = FrameItem::Meta(
-            Meta::PageLabel(number, logical_numbering.into_value()),
-            Size::zero(),
-        );
+
         let numbering_meta = FrameItem::Meta(
             Meta::PageNumbering(numbering.clone().into_value()),
             Size::zero(),
         );
+
+        let logical_number = Counter::logical_page_number(vt, number)?;
+        let page_label = numbering
+            .as_ref()
+            .map(|numbering| numbering.apply_pdf(logical_number))
+            .unwrap_or_default();
+        let page_label_meta =
+            FrameItem::Meta(Meta::PdfPageLabel(page_label, number), Size::zero());
 
         // Post-process pages.
         for frame in frames.iter_mut() {
@@ -708,82 +711,6 @@ impl Parity {
             Self::Odd => number % 2 == 1,
         }
     }
-}
-
-/// Specification for logical page numbers (PDF only).
-#[derive(Debug, Clone, PartialEq, Hash, Default)]
-pub struct LogicalNumbering {
-    /// Can be any string or none. Will always be prepended to the numbering style.
-    prefix: Option<EcoString>,
-    /// Based on the numbering pattern.
-    ///
-    /// If `None` or numbering is a function, the field will be empty.
-    style: Option<LabelStyle>,
-    /// Offset for the page label start.
-    ///
-    /// Describes where to start counting from when setting a style.
-    /// (Has to be greater or equal than 1)
-    offset: Option<NonZeroUsize>,
-}
-
-impl LogicalNumbering {
-    /// Create a new `LogicalNumbering` from a `Numbering` applied to a page
-    /// number.
-    pub fn new(numbering: Option<&Numbering>, page: usize) -> Self {
-        let Some(Numbering::Pattern(pat)) = numbering else {
-            return Self::default();
-        };
-
-        let Some((prefix, kind, case)) = pat.pieces.first() else {
-            return Self::default();
-        };
-
-        let style = match (kind, case) {
-            (NumberingKind::Arabic, _) => Some(LabelStyle::Arabic),
-            (NumberingKind::Roman, Case::Lower) => Some(LabelStyle::LowerRoman),
-            (NumberingKind::Roman, Case::Upper) => Some(LabelStyle::UpperRoman),
-            (NumberingKind::Letter, Case::Lower) => Some(LabelStyle::LowerAlpha),
-            (NumberingKind::Letter, Case::Upper) => Some(LabelStyle::UpperAlpha),
-            _ => None,
-        };
-
-        // Prefix and offset depend on the style: If it is supported by the PDF
-        // spec, we use the given prefix and an offset. Otherwise, everything
-        // goes into prefix.
-        let prefix = if style.is_none() {
-            Some(pat.apply(&[page]))
-        } else {
-            (!prefix.is_empty()).then(|| prefix.clone())
-        };
-
-        let offset = style.and(NonZeroUsize::new(page));
-        Self { prefix, style, offset }
-    }
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
-pub enum LabelStyle {
-    /// Decimal arabic numerals (1, 2, 3).
-    Arabic,
-    /// Lowercase roman numerals (i, ii, iii).
-    LowerRoman,
-    /// Uppercase roman numerals (I, II, III).
-    UpperRoman,
-    /// Lowercase letters (`a` to `z` for the first 26 pages,
-    /// `aa` to `zz` and so on for the next).
-    LowerAlpha,
-    /// Uppercase letters (`A` to `Z` for the first 26 pages,
-    /// `AA` to `ZZ` and so on for the next).
-    UpperAlpha,
-}
-
-cast! {
-    LogicalNumbering,
-    self => dict! {
-        "prefix" => self.prefix,
-        "style" => self.style,
-        "offset" => self.offset,
-    }.into_value(),
 }
 
 /// Specification of a paper.

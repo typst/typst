@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
     ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
     NumberingStyle,
@@ -11,7 +11,6 @@ use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
 use super::external_graphics_state::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
-use crate::eval::Value;
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, Em, Geometry, LineCap, LineJoin, Numeric, Paint, Point, Ratio,
@@ -402,7 +401,9 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
                 Meta::Elem(_) => {}
                 Meta::Hide => {}
                 Meta::PageNumbering(_) => {}
-                Meta::PageLabel(n, v) => write_page_label(ctx, v, *n),
+                Meta::PdfPageLabel(label, number) => {
+                    write_page_label(ctx, label, *number)
+                }
             },
         }
     }
@@ -618,43 +619,27 @@ fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size)
 }
 
 /// Encode a page label into the [`PdfContext`].
-fn write_page_label(
-    ctx: &mut PageContext,
-    logical_numbering: &Value,
-    number: NonZeroUsize,
-) {
-    let Value::Dict(dict) = logical_numbering else { return };
-
+fn write_page_label(ctx: &mut PageContext, label: &PdfPageLabel, number: NonZeroUsize) {
     let label_ref = ctx.parent.alloc.bump();
     let mut entry = ctx.parent.writer.indirect(label_ref).start::<PageLabel>();
-    let mut create_label = false;
+
+    // Don't create a PageLabel if neither style nor prefix are specified.
+    if label.prefix.is_some() || label.style.is_some() {
+        ctx.parent.logical_pages.push((number, label_ref));
+    }
 
     // Only add what is actually provided. Don't add empty prefix string if it
     // wasn't given for example.
-    if let Some(Value::Str(prefix)) = dict.get("prefix") {
-        create_label = true;
+    if let Some(prefix) = &label.prefix {
         entry.prefix(TextStr(prefix));
     }
 
-    if let Some(Value::Str(style)) = dict.get("style") {
-        create_label = true;
-        entry.style(match style.as_str() {
-            "arabic" => NumberingStyle::Arabic,
-            "upper-roman" => NumberingStyle::UpperRoman,
-            "lower-roman" => NumberingStyle::LowerRoman,
-            "upper-alpha" => NumberingStyle::UpperAlpha,
-            "lower-alpha" => NumberingStyle::LowerAlpha,
-            _ => unreachable!(),
-        });
+    if let Some(style) = label.style {
+        entry.style(style.into());
     }
 
-    if let Some(&Value::Int(offset)) = dict.get("offset") {
-        entry.offset(offset as i32);
-    }
-
-    // Don't create a PageLabel if neither style nor prefix are specified.
-    if create_label {
-        ctx.parent.logical_pages.push((number, label_ref));
+    if let Some(offset) = label.offset {
+        entry.offset(offset.get() as i32);
     }
 }
 
@@ -674,6 +659,51 @@ impl From<&LineJoin> for LineJoinStyle {
             LineJoin::Miter => LineJoinStyle::MiterJoin,
             LineJoin::Round => LineJoinStyle::RoundJoin,
             LineJoin::Bevel => LineJoinStyle::BevelJoin,
+        }
+    }
+}
+
+/// Specification for a PDF page label.
+#[derive(Debug, Clone, PartialEq, Hash, Default)]
+pub struct PdfPageLabel {
+    /// Can be any string or none. Will always be prepended to the numbering style.
+    pub prefix: Option<EcoString>,
+    /// Based on the numbering pattern.
+    ///
+    /// If `None` or numbering is a function, the field will be empty.
+    pub style: Option<PdfPageLabelStyle>,
+    /// Offset for the page label start.
+    ///
+    /// Describes where to start counting from when setting a style.
+    /// (Has to be greater or equal than 1)
+    pub offset: Option<NonZeroUsize>,
+}
+
+/// A PDF page label number style.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum PdfPageLabelStyle {
+    /// Decimal arabic numerals (1, 2, 3).
+    Arabic,
+    /// Lowercase roman numerals (i, ii, iii).
+    LowerRoman,
+    /// Uppercase roman numerals (I, II, III).
+    UpperRoman,
+    /// Lowercase letters (`a` to `z` for the first 26 pages,
+    /// `aa` to `zz` and so on for the next).
+    LowerAlpha,
+    /// Uppercase letters (`A` to `Z` for the first 26 pages,
+    /// `AA` to `ZZ` and so on for the next).
+    UpperAlpha,
+}
+
+impl From<PdfPageLabelStyle> for NumberingStyle {
+    fn from(value: PdfPageLabelStyle) -> Self {
+        match value {
+            PdfPageLabelStyle::Arabic => Self::Arabic,
+            PdfPageLabelStyle::LowerRoman => Self::LowerRoman,
+            PdfPageLabelStyle::UpperRoman => Self::UpperRoman,
+            PdfPageLabelStyle::LowerAlpha => Self::LowerAlpha,
+            PdfPageLabelStyle::UpperAlpha => Self::UpperAlpha,
         }
     }
 }

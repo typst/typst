@@ -9,6 +9,7 @@ use std::sync::Arc;
 use ecow::EcoString;
 
 use crate::eval::{cast, dict, Dict, Value};
+use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
     self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Length,
@@ -669,8 +670,8 @@ pub enum Meta {
     Elem(Content),
     /// The numbering of the current page.
     PageNumbering(Value),
-    /// The page label of the current page.
-    PageLabel(NonZeroUsize, Value),
+    /// A PDF page label of the current page.
+    PdfPageLabel(PdfPageLabel, NonZeroUsize),
     /// Indicates that content should be hidden. This variant doesn't appear
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
@@ -687,7 +688,7 @@ impl Debug for Meta {
             Self::Link(dest) => write!(f, "Link({dest:?})"),
             Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
             Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
-            Self::PageLabel(page, value) => write!(f, "PageLabel({page}, {value:?})"),
+            Self::PdfPageLabel(label, num) => write!(f, "PdfPageLabel({label:?}, {num})"),
             Self::Hide => f.pad("Hide"),
         }
     }
