@@ -17,6 +17,7 @@ path = "src/main.rs"
 test = false
 doctest = false
 bench = false
+doc = false
 
 [dependencies]
 typst = { path = "../typst" }
