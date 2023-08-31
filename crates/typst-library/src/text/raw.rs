@@ -268,6 +268,7 @@ impl Show for RawElem {
             let tab_size = RawElem::tab_size_in(styles);
             text = align_tabs(&text, tab_size);
         }
+
         let lang = self
             .lang(styles)
             .as_ref()
@@ -630,29 +631,32 @@ fn item(
     }
 }
 
-/// Replace tabs with spaces to align with multiples of  `tab_size`.
+/// Replace tabs with spaces to align with multiples of `tab_size`.
 fn align_tabs(text: &str, tab_size: usize) -> EcoString {
-    let amount = text.chars().filter(|&c| c == '\t').count();
-    let mut res = EcoString::with_capacity(text.len() - amount + amount * tab_size);
     let replacement = " ".repeat(tab_size);
     let divisor = tab_size.max(1);
+    let amount = text.chars().filter(|&c| c == '\t').count();
+
+    let mut res = EcoString::with_capacity(text.len() - amount + amount * tab_size);
     let mut column = 0;
-    for c in text.graphemes(true) {
-        match c {
+
+    for grapheme in text.graphemes(true) {
+        match grapheme {
             "\t" => {
                 let required = tab_size - column % divisor;
                 res.push_str(&replacement[..required]);
                 column += required;
             }
             "\n" => {
+                res.push_str(grapheme);
                 column = 0;
-                res.push_str(c);
             }
             _ => {
+                res.push_str(grapheme);
                 column += 1;
-                res.push_str(c);
             }
         }
     }
+
     res
 }
