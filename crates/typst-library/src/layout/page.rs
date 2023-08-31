@@ -372,7 +372,7 @@ impl PageElem {
         let numbering = self.numbering(styles);
         let footer = self.footer(styles).or_else(|| {
             numbering.as_ref().map(|numbering| {
-                let both = match &numbering {
+                let both = match numbering {
                     Numbering::Pattern(pattern) => pattern.pieces() >= 2,
                     Numbering::Func(_) => true,
                 };
@@ -427,7 +427,7 @@ impl PageElem {
                         NumberingKind::Arabic
                             | NumberingKind::Letter
                             | NumberingKind::Roman
-                    )
+                    ) && p.suffix.is_empty()
                 };
                 if !matches_spec(num) || *prev_page_label != numbering {
                     frame.push(Point::zero(), page_label_meta.clone());

@@ -111,14 +111,22 @@ impl Numbering {
             return PdfPageLabel::default();
         };
 
-        let style = match (kind, case) {
-            (NumberingKind::Arabic, _) => Some(PdfPageLabelStyle::Arabic),
-            (NumberingKind::Roman, Case::Lower) => Some(PdfPageLabelStyle::LowerRoman),
-            (NumberingKind::Roman, Case::Upper) => Some(PdfPageLabelStyle::UpperRoman),
-            (NumberingKind::Letter, Case::Lower) => Some(PdfPageLabelStyle::LowerAlpha),
-            (NumberingKind::Letter, Case::Upper) => Some(PdfPageLabelStyle::UpperAlpha),
-            _ => None,
-        };
+        // If there is a suffix, we cannot use the common style optimisation,
+        // since PDF does not provide a suffix field.
+        let style = pat
+            .suffix
+            .is_empty()
+            .then(|| {
+                Some(match (kind, case) {
+                    (NumberingKind::Arabic, _) => PdfPageLabelStyle::Arabic,
+                    (NumberingKind::Roman, Case::Lower) => PdfPageLabelStyle::LowerRoman,
+                    (NumberingKind::Roman, Case::Upper) => PdfPageLabelStyle::UpperRoman,
+                    (NumberingKind::Letter, Case::Lower) => PdfPageLabelStyle::LowerAlpha,
+                    (NumberingKind::Letter, Case::Upper) => PdfPageLabelStyle::UpperAlpha,
+                    _ => return None,
+                })
+            })
+            .flatten();
 
         // Prefix and offset depend on the style: If it is supported by the PDF
         // spec, we use the given prefix and an offset. Otherwise, everything
