@@ -11,7 +11,9 @@ use typst::eval::Array;
 
 /// A version, with any number of components.
 ///
-/// The list of components is semantically extended by an infinite list of zeros
+/// The list of components is semantically extended by an infinite list of zeros.
+/// This means that, for example, `0.8` is the same as `0.8.0`.
+/// As a special case, the empty version (that has no components at all) is the same as `0`, `0.0`, `0.0.0`, and so on.
 #[derive(Clone)]
 pub struct Version(EcoVec<VersionComponent>);
 

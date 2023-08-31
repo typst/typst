@@ -531,6 +531,22 @@ cast! {
     },
 }
 
+/// Creates a version.
+///
+/// Arguments are the version's components;
+/// Array arguments are flattened.
+///
+/// ## Example { #example }
+/// ```example
+/// // any number of components is ok
+/// #let version0 = version()
+/// #let version1 = version(1)
+/// #let version5 = version(1, 2, 3, 4, 5)
+///
+/// #let version5_from_array = version((1, 2, 3, 4, 5))
+/// #let version5_mixed = version(1, (2, 3), 4, (5,))
+/// ```
+///
 /// Display: version
 /// Category: construct
 #[func]
