@@ -89,7 +89,7 @@ impl Version {
 }
 
 impl FromIterator<VersionComponent> for Version {
-    fn from_iter<T: IntoIterator<Item=VersionComponent>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = VersionComponent>>(iter: T) -> Self {
         Self(EcoVec::from_iter(iter))
     }
 }
