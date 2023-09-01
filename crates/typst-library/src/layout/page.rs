@@ -12,8 +12,11 @@ use crate::text::TextElem;
 /// properties, it can also be used to explicitly render its argument onto
 /// a set of pages of its own.
 ///
-/// Pages can be set to use `{auto}` as their width or height. In this case,
-/// the pages will grow to fit their content on the respective axis.
+/// Pages can be set to use `{auto}` as their width or height. In this case, the
+/// pages will grow to fit their content on the respective axis.
+///
+/// The [Guide for Page Setup]($guides/page-setup-guide) explains how to use
+/// this and related functions to set up a document with many examples.
 ///
 /// ## Example { #example }
 /// ```example
