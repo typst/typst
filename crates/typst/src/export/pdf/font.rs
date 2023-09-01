@@ -11,6 +11,8 @@ use crate::eval::Bytes;
 use crate::font::Font;
 use crate::util::SliceExt;
 
+const CFF: Tag = Tag::from_bytes(b"CFF ");
+const CFF2: Tag = Tag::from_bytes(b"CFF2");
 const CMAP_NAME: Name = Name(b"Custom");
 const SYSTEM_INFO: SystemInfo = SystemInfo {
     registry: Str(b"Adobe"),
@@ -33,48 +35,57 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         let metrics = font.metrics();
         let ttf = font.ttf();
 
+        // Do we have a TrueType or CFF font?
+        //
+        // FIXME 1: CFF2 must be handled differently and requires PDF 2.0
+        // (or we have to convert it to CFF).
+        //
+        // FIXME 2: CFF fonts that have a Top DICT that uses CIDFont operators
+        // may not have an identity CID-GID encoding. These are currently not
+        // handled correctly. See also:
+        // - PDF Spec, Section 9.7.4.2
+        // - https://stackoverflow.com/questions/74165171/embedded-opentype-cff-font-in-a-pdf-shows-strange-behaviour-in-some-viewers
+        let is_cff = ttf
+            .raw_face()
+            .table(CFF)
+            .or_else(|| ttf.raw_face().table(CFF2))
+            .is_some();
+
         let postscript_name = font
             .find_name(name_id::POST_SCRIPT_NAME)
             .unwrap_or_else(|| "unknown".to_string());
 
-        let base_font = eco_format!("ABCDEF+{}", postscript_name);
-        let base_font = Name(base_font.as_bytes());
+        let subset_tag = subset_tag(glyph_set);
+        let base_font = eco_format!("{subset_tag}+{postscript_name}");
+        let base_font_type0 = if is_cff {
+            eco_format!("{base_font}-Identity-H")
+        } else {
+            base_font.clone()
+        };
 
         // Write the base font object referencing the CID font.
         ctx.writer
             .type0_font(type0_ref)
-            .base_font(base_font)
+            .base_font(Name(base_font_type0.as_bytes()))
             .encoding_predefined(Name(b"Identity-H"))
             .descendant_font(cid_ref)
             .to_unicode(cmap_ref);
 
-        // Check for the presence of CFF outlines to select the correct
-        // CID-Font subtype.
-        let subtype = match ttf
-            .raw_face()
-            .table(Tag::from_bytes(b"CFF "))
-            .or(ttf.raw_face().table(Tag::from_bytes(b"CFF2")))
-        {
-            Some(_) => CidFontType::Type0,
-            None => CidFontType::Type2,
-        };
-
         // Write the CID font referencing the font descriptor.
         let mut cid = ctx.writer.cid_font(cid_ref);
-        cid.subtype(subtype);
-        cid.base_font(base_font);
+        cid.subtype(if is_cff { CidFontType::Type0 } else { CidFontType::Type2 });
+        cid.base_font(Name(base_font.as_bytes()));
         cid.system_info(SYSTEM_INFO);
         cid.font_descriptor(descriptor_ref);
         cid.default_width(0.0);
-
-        if subtype == CidFontType::Type2 {
+        if !is_cff {
             cid.cid_to_gid_map_predefined(Name(b"Identity"));
         }
 
         // Extract the widths of all glyphs.
         let num_glyphs = ttf.number_of_glyphs();
         let mut widths = vec![0.0; num_glyphs as usize];
-        for &g in glyph_set.keys() {
+        for g in std::iter::once(0).chain(glyph_set.keys().copied()) {
             let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
             widths[g as usize] = font.to_em(x).to_font_units();
         }
@@ -118,7 +129,7 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         // Write the font descriptor (contains metrics about the font).
         let mut font_descriptor = ctx.writer.font_descriptor(descriptor_ref);
         font_descriptor
-            .name(base_font)
+            .name(Name(base_font.as_bytes()))
             .flags(flags)
             .bbox(bbox)
             .italic_angle(italic_angle)
@@ -127,10 +138,11 @@ pub fn write_fonts(ctx: &mut PdfContext) {
             .cap_height(cap_height)
             .stem_v(stem_v);
 
-        match subtype {
-            CidFontType::Type0 => font_descriptor.font_file3(data_ref),
-            CidFontType::Type2 => font_descriptor.font_file2(data_ref),
-        };
+        if is_cff {
+            font_descriptor.font_file3(data_ref);
+        } else {
+            font_descriptor.font_file2(data_ref);
+        }
 
         font_descriptor.finish();
 
@@ -142,10 +154,10 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         // Subset and write the font's bytes.
         let glyphs: Vec<_> = glyph_set.keys().copied().collect();
         let data = subset_font(font, &glyphs);
+
         let mut stream = ctx.writer.stream(data_ref, &data);
         stream.filter(Filter::FlateDecode);
-
-        if subtype == CidFontType::Type0 {
+        if is_cff {
             stream.pair(Name(b"Subtype"), Name(b"CIDFontType0C"));
         }
 
@@ -154,13 +166,36 @@ pub fn write_fonts(ctx: &mut PdfContext) {
 }
 
 /// Subset a font to the given glyphs.
+///
+/// - For a font with TrueType outlines, this returns the whole OpenType font.
+/// - For a font with CFF outlines, this returns just the CFF font program.
 #[comemo::memoize]
 fn subset_font(font: &Font, glyphs: &[u16]) -> Bytes {
     let data = font.data();
     let profile = subsetter::Profile::pdf(glyphs);
     let subsetted = subsetter::subset(data, font.index(), profile);
-    let data = subsetted.as_deref().unwrap_or(data);
+    let mut data = subsetted.as_deref().unwrap_or(data);
+
+    // Extract the standalone CFF font program if applicable.
+    let raw = ttf_parser::RawFace::parse(data, 0).unwrap();
+    if let Some(cff) = raw.table(CFF) {
+        data = cff;
+    }
+
     deflate(data).into()
+}
+
+/// Produce a unique 6 letter tag for a glyph set.
+fn subset_tag(glyphs: &BTreeMap<u16, EcoString>) -> EcoString {
+    const LEN: usize = 6;
+    const BASE: u128 = 26;
+    let mut hash = crate::util::hash128(&glyphs);
+    let mut letter = [b'A'; LEN];
+    for l in letter.iter_mut() {
+        *l = b'A' + (hash % BASE) as u8;
+        hash /= BASE;
+    }
+    std::str::from_utf8(&letter).unwrap().into()
 }
 
 /// Create a /ToUnicode CMap.
