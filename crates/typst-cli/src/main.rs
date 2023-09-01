@@ -11,7 +11,6 @@ mod watch;
 mod world;
 
 use std::cell::Cell;
-use std::env;
 use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;
 
@@ -77,11 +76,6 @@ fn color_stream() -> termcolor::StandardStream {
     } else {
         ColorChoice::Never
     })
-}
-
-/// Used by `args.rs`.
-fn typst_version() -> &'static str {
-    env!("TYPST_VERSION")
 }
 
 #[cfg(not(feature = "self-update"))]

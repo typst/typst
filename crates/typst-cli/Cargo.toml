@@ -54,6 +54,7 @@ xz2 = { version = "0.1", optional = true }
 zip = { version = "0.6", optional = true }
 
 [build-dependencies]
+typst = { path = "../typst" }
 semver = "1"
 clap = { version = "4.2.4", features = ["derive", "string"] }
 clap_complete = "4.2.1"

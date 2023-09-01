@@ -13,7 +13,7 @@ pub fn module() -> Module {
     ]);
 
     scope.define("version", Value::Version(version));
-    scope.define("commit", option_env!("TYPST_COMMIT"));
+    scope.define("commit", typst::typst_commit());
 
     Module::new("info").with_scope(scope)
 }
