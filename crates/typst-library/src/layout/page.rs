@@ -140,6 +140,9 @@ pub struct PageElem {
 
     /// How many columns the page has.
     ///
+    /// If you need to insert columns into a page or other container, you can
+    /// also use the [`columns` function]($func/columns).
+    ///
     /// ```example:single
     /// #set page(columns: 2, height: 4.8cm)
     /// Climate change is one of the most

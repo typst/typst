@@ -5,9 +5,14 @@ description: |
 ---
 
 # Page setup guide
-A good page setup is the basis for every legible document. This guide will help
-you to set up pages, margins, headers, footers, and page numbers to your heart's
-content so you can get started with writing.
+Your page setup is a big part of the first impression your document gives. Line
+lengths, margins, and columns influence
+[appearance](https://practicaltypography.com/page-margins.html) and
+[legibility](https://designregression.com/article/line-length-revisited-following-the-research)
+while the right headers and footers will help your reader easily navigate your
+document. This guide will help you to customize pages, margins, headers,
+footers, and page numbers so that they are the right fit for your content and
+you can get started with writing.
 
 In Typst, each page has a width and a height, and margins on all four sides. The
 top and bottom margin may contain a header and footer. The set rule of the
@@ -17,11 +22,11 @@ page afterwards, so it may insert a page break. Therefore, it is best to specify
 your page set rule at the start of your document or in your template.
 
 ```example
-#set rect(width: 100%, height: 100%)
+#set rect(width: 100%, height: 100%, inset: 4pt)
 #set page(
   "iso-b7",
-  header: rect(),
-  footer: rect(),
+  header: rect[Header],
+  footer: rect[Footer],
   number-align: top + center,
 )
 
@@ -62,11 +67,12 @@ This page is a square.
 ```
 
 ### Change the page's margins
-Margins are a vital ingredient for good typography: Typographers consider lines
-that fit between 45 and 75 characters best length for legibility and your
-margins help define line widths. By default, Typst will create margins
-proportional to the page size for your document. To set custom margins, you will
-use the `margin` argument in the `page` set rule.
+Margins are a vital ingredient for good typography: [Typographers consider lines
+that fit between 45 and 75 characters best length for
+legibility](http://webtypography.net/2.1.2) and your margins and [columns](#columns) help
+define line widths. By default, Typst will create margins proportional to the
+page size for your document. To set custom margins, you will use the `margin`
+argument in the `page` set rule.
 
 The `margin` argument will accept a length if you want to set all margins to the
 same width. However, you often want to set different margins on each side. To do
@@ -346,14 +352,123 @@ update the counter given its previous value by passing a function:
 In this example, we skip five pages. `i` is the current value of the page
 counter and `i + 5` is the return value of our function.
 
-<!--
+In case you need to retrieve the actual page number instead of the value of the
+page counter, you can use the `page` method on the parameter of the `locate`
+closure:
 
-## Add columns
+```example
+#counter(page).update(i => i + 5)
 
-### Columns after start of doc
+// This returns one even though the
+// page counter was incremented by 5.
+#locate(loc => {loc.page()})
+```
+
+You can also obtain the page numbering pattern from the `locate` closure
+parameter with the `page-numbering` method.
+
+## Add columns { #columns }
+Add columns to your document to fit more on a page while maintaining legible
+line lengths. Columns are vertical blocks of text which are separated by some
+whitespace. This space is called the gutter.
+
+If all of your content needs to be laid out in columns, you can just specify the
+desired number of columns in the `page` set rule:
+
+```example
+>>> #set page(height: 120pt)
+#set page(columns: 2)
+#lorem(30)
+```
+
+If you need to adjust the gutter between the columns, refer to the method used
+in the next section.
+
+### Use columns anywhere in your document
+Very commonly, scientific papers have a single-column title and abstract, while
+the main body is set in two-columns. To achieve this effect, Typst includes a
+standalone `columns` function that can be used to insert columns anywhere on a
+page.
+
+Conceptually, the `columns` function must wrap the content of the columns:
+
+```example:single
+= Impacts of Odobenidae
+
+#set par(justify: true)
+#columns(2)[
+  == About seals in the wild
+  #lorem(80)
+]
+```
+
+However, we can use the "everything show rule" to reduce nesting write more
+legible Typst markup:
+
+```example:single
+>>> #set page(height: 180pt)
+= Impacts of Odobenidae
+
+#set par(justify: true)
+#show: columns.with(2)
+>>> #h(11pt)
+
+== About seals in the wild
+#lorem(80)
+```
+
+The show rule will wrap everything that comes after it in its function. The
+`with` method allows us to pass arguments, in this case, the column count, to a
+function without calling it.
+
+Another use of the `columns` function is to create columns inside of a container
+like a rectangle or to customize gutter size:
+
+```example
+#rect(
+  width: 6cm,
+  height: 3.5cm,
+  columns(2, gutter: 12pt)[
+    In the dimly lit gas station,
+    a solitary taxi stood silently,
+    its yellow paint fading with
+    time. Its windows were dark,
+    its engine idle, and its tires
+    rested on the cold concrete.
+  ]
+)
+```
 
 ### Balanced columns
+If the columns on the last page of a document differ greatly in length, they may
+create a lopsided and unappealing layout. That's why typographers will often
+equalize the length of columns on the last page. This effect is called balancing
+columns. Typst cannot yet balance columns automatically. However, you can
+balance columns manually by placing `[#colbreak()]` at an appropriate spot in
+your markup, creating the desired column break manually.
 
-### Marginals -->
 
-<!-- One-off modification -->
+## One-off modifications
+You do not need to override your page settings if you need to insert a single
+page with a different setup. For example, you may want to insert page that's
+flipped to landscape to insert a big table or change the margin and columns for
+your title page. In this case, you can call `page` as a function with your
+content as argument and the overrides as parameter. This will insert enough new
+pages with your overridden settings to place your content on them. Typst will
+revert to the page settings from the set rule after the call.
+
+```example
+>>> #set page("a6")
+#page(flipped: true)[
+  = Multiplication table
+
+  #table(
+    columns: 5 * (1fr,),
+    ..for x in range(1, 6) {
+      for y in range(1, 10) {
+        (str(x*y),)
+      }
+    }
+  )
+]
+```
