@@ -69,10 +69,8 @@ pub fn typeset(
         };
 
         // Layout!
-        let result = (library.items.layout)(&mut vt, content, styles)?;
+        document = (library.items.layout)(&mut vt, content, styles)?;
 
-        // Only now assign the document and construct the new introspector.
-        document = result;
         introspector = Introspector::new(&document.pages);
         iter += 1;
 
