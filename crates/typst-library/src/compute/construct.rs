@@ -3,10 +3,7 @@ use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
 
-use typst::diag::SourceDiagnostic;
-use typst::eval::{
-    Bytes, Datetime, Duration, Module, Plugin, Reflect, Regex, Version, VersionComponent,
-};
+use typst::eval::{Bytes, Datetime, Duration, Module, Plugin, Reflect, Regex, Version};
 
 use crate::prelude::*;
 
@@ -550,47 +547,34 @@ cast! {
 pub fn version(
     /// The components of the version (array arguments are flattened)
     #[variadic]
-    components: Vec<Spanned<VersionComponents>>,
-) -> SourceResult<Version> {
+    components: Vec<VersionComponents>,
+) -> Version {
     let mut res = Version::new();
-    let mut errs = vec![];
-
-    let mut push = |i, span| match VersionComponent::new(i) {
-        Some(i) => res.push(i),
-        None => errs.push(SourceDiagnostic::error(
-            span,
-            "version component must be non-negative",
-        )),
-    };
 
     for c in components {
-        match c.v {
-            VersionComponents::Single(i) => push(i, c.span),
+        match c {
+            VersionComponents::Single(i) => res.push(i),
             VersionComponents::Multiple(v) => {
                 for i in v {
-                    push(i, c.span);
+                    res.push(i);
                 }
             }
         }
     }
 
-    if errs.is_empty() {
-        Ok(res)
-    } else {
-        Err(Box::new(errs))
-    }
+    res
 }
 
 /// One or multiple version components
 pub enum VersionComponents {
-    Single(i64),
-    Multiple(Vec<i64>),
+    Single(u32),
+    Multiple(Vec<u32>),
 }
 
 cast! {
     VersionComponents,
-    i: i64 => Self::Single(i),
-    arr: Vec<i64> => Self::Multiple(arr)
+    i: u32 => Self::Single(i),
+    arr: Vec<u32> => Self::Multiple(arr)
 }
 
 /// Converts a value to a string.

@@ -1,8 +1,7 @@
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::iter::repeat;
-use std::str::FromStr;
 
 use ecow::EcoVec;
 
@@ -21,7 +20,7 @@ use crate::diag::{bail, StrResult};
 // It being different from `Eq` is consistent with many other typst types.
 #[allow(clippy::derived_hash_with_manual_eq)]
 #[derive(Clone, Hash)]
-pub struct Version(EcoVec<VersionComponent>);
+pub struct Version(EcoVec<u32>);
 
 // helper macro to make sure COMPONENT_NAMES and resolve_component_name never go out of sync
 macro_rules! component_names {
@@ -50,7 +49,7 @@ impl Version {
         Self(EcoVec::new())
     }
 
-    fn get(&self, index: usize) -> Option<VersionComponent> {
+    fn get(&self, index: usize) -> Option<u32> {
         self.0.get(index).copied()
     }
 
@@ -64,8 +63,7 @@ impl Version {
         Ok(usize::try_from(index)
             .ok()
             .and_then(|i| self.get(i))
-            .unwrap_or_default()
-            .get())
+            .unwrap_or_default() as i64)
     }
 
     /// Get a named component of a version.
@@ -73,23 +71,23 @@ impl Version {
     /// Always non-negative. Returns `0` if the version isn't specified to the necessary length.
     pub fn component(&self, name: &str) -> StrResult<i64> {
         match Self::resolve_component_name(name) {
-            Some(i) => Ok(self.get(i).unwrap_or_default().get()),
+            Some(i) => Ok(self.get(i).unwrap_or_default() as i64),
             None => bail!("unknown version component"),
         }
     }
 
     /// Convert a version into an array
     pub fn into_array(self) -> Array {
-        self.0.into_iter().map(|i| Value::Int(i.get())).collect()
+        self.0.into_iter().map(|i| Value::Int(i as i64)).collect()
     }
 
-    pub fn push(&mut self, component: VersionComponent) {
+    pub fn push(&mut self, component: u32) {
         self.0.push(component);
     }
 }
 
-impl FromIterator<VersionComponent> for Version {
-    fn from_iter<T: IntoIterator<Item = VersionComponent>>(iter: T) -> Self {
+impl FromIterator<u32> for Version {
+    fn from_iter<T: IntoIterator<Item = u32>>(iter: T) -> Self {
         Self(EcoVec::from_iter(iter))
     }
 }
@@ -97,7 +95,7 @@ impl FromIterator<VersionComponent> for Version {
 impl Ord for Version {
     fn cmp(&self, other: &Self) -> Ordering {
         let max_len = self.0.len().max(other.0.len());
-        let tail = repeat(&VersionComponent::ZERO);
+        let tail = repeat(&0);
 
         let self_iter = self.0.iter().chain(tail.clone());
         let other_iter = other.0.iter().chain(tail);
@@ -144,46 +142,5 @@ impl Display for Version {
 impl Debug for Version {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "version({self})")
-    }
-}
-
-#[derive(Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
-#[repr(transparent)]
-pub struct VersionComponent(u64);
-
-impl VersionComponent {
-    pub const ZERO: Self = Self(0);
-
-    pub fn new(value: i64) -> Option<Self> {
-        (value >= 0).then_some(Self(value as u64))
-    }
-
-    pub fn get(self) -> i64 {
-        self.0 as i64
-    }
-}
-
-impl FromStr for VersionComponent {
-    type Err = std::num::ParseIntError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        // ensure there is no negative sign
-        let _ = u64::from_str(s)?;
-        // actually parse as signed, to ensure the value is below the max
-        let i: i64 = s.parse()?;
-
-        Ok(Self(i as u64))
-    }
-}
-
-impl Display for VersionComponent {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl Debug for VersionComponent {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        Debug::fmt(&self.0, f)
     }
 }
