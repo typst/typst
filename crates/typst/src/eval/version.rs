@@ -19,14 +19,14 @@ use crate::diag::{bail, StrResult};
 // for values that display differently.
 // It being different from `Eq` is consistent with many other typst types.
 #[allow(clippy::derived_hash_with_manual_eq)]
-#[derive(Clone, Hash)]
+#[derive(Default, Clone, Hash)]
 pub struct Version(EcoVec<u32>);
 
 impl Version {
     pub const COMPONENT_NAMES: [&'static str; 3] = ["major", "minor", "patch"];
 
     pub fn new() -> Self {
-        Self(EcoVec::new())
+        Self::default()
     }
 
     fn get(&self, index: usize) -> Option<u32> {
