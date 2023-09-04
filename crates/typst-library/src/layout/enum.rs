@@ -23,6 +23,11 @@ use super::GridLayouter;
 /// 5. I am confused.
 /// +  Moving on ...
 ///
+/// Multiple lines:
+/// + This enum item has multiple
+///   lines because the next line
+///   is indented.
+///
 /// Function call.
 /// #enum[First][Second]
 /// ```

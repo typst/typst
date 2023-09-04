@@ -88,7 +88,7 @@ fantasy encyclopedia.
 
 ```example
 #set heading(numbering: "(I)")
-#show heading: it => block[
+#show heading: it => [
   #set align(center)
   #set text(font: "Inria Serif")
   \~ #emph(it.body)

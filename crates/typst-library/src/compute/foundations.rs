@@ -63,6 +63,7 @@ pub fn repr(
 ///
 /// Display: Panic
 /// Category: foundations
+/// Keywords: error
 #[func]
 pub fn panic(
     /// The values to panic with.

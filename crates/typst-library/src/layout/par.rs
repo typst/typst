@@ -75,20 +75,18 @@ pub struct ParElem {
     /// appearance of the text.
     ///
     /// ```example
-    /// #set page(width: 190pt)
+    /// #set page(width: 207pt)
     /// #set par(linebreaks: "simple")
-    /// Some texts are frustratingly
-    /// challenging to break in a
-    /// visually pleasing way. This
-    /// very aesthetic example is one
-    /// of them.
+    /// Some texts feature many longer
+    /// words. Those are often exceedingly
+    /// challenging to break in a visually
+    /// pleasing way.
     ///
     /// #set par(linebreaks: "optimized")
-    /// Some texts are frustratingly
-    /// challenging to break in a
-    /// visually pleasing way. This
-    /// very aesthetic example is one
-    /// of them.
+    /// Some texts feature many longer
+    /// words. Those are often exceedingly
+    /// challenging to break in a visually
+    /// pleasing way.
     /// ```
     #[default]
     pub linebreaks: Smart<Linebreaks>,
