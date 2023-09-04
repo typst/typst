@@ -1,19 +1,21 @@
-use crate::diag::{bail, StrResult};
-use crate::eval::Value;
-use ecow::EcoVec;
-use serde::{Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::iter::repeat;
 use std::str::FromStr;
-use typst::eval::Array;
+
+use ecow::EcoVec;
+
+use super::{Array, Value};
+use crate::diag::{bail, StrResult};
 
 /// A version, with any number of components.
 ///
-/// The list of components is semantically extended by an infinite list of zeros.
+/// The list of components is semantically extended
+/// by an infinite list of zeros.
 /// This means that, for example, `0.8` is the same as `0.8.0`.
-/// As a special case, the empty version (that has no components at all) is the same as `0`, `0.0`, `0.0.0`, and so on.
+/// As a special case, the empty version (that has no components at all)
+/// is the same as `0`, `0.0`, `0.0.0`, and so on.
 #[derive(Clone)]
 pub struct Version(EcoVec<VersionComponent>);
 
@@ -105,12 +107,15 @@ impl Ord for Version {
         Ordering::Equal
     }
 }
+
 impl PartialOrd for Version {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
+
 impl Eq for Version {}
+
 impl PartialEq for Version {
     fn eq(&self, other: &Self) -> bool {
         matches!(self.cmp(other), Ordering::Equal)
@@ -147,7 +152,7 @@ impl Display for Version {
 
 impl Debug for Version {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "version({})", self)
+        write!(f, "version({self})")
     }
 }
 

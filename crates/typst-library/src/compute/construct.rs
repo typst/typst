@@ -2,8 +2,8 @@ use std::num::NonZeroI64;
 use std::str::FromStr;
 
 use time::{Month, PrimitiveDateTime};
-use typst::diag::SourceDiagnostic;
 
+use typst::diag::SourceDiagnostic;
 use typst::eval::{
     Bytes, Datetime, Duration, Module, Plugin, Reflect, Regex, Version, VersionComponent,
 };
@@ -532,9 +532,6 @@ cast! {
 }
 
 /// Creates a version.
-///
-/// Arguments are the version's components;
-/// Array arguments are flattened.
 ///
 /// ## Example { #example }
 /// ```example
