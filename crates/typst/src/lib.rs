@@ -164,19 +164,3 @@ impl<T: World> WorldExt for T {
         self.source(span.id()?).ok()?.range(span)
     }
 }
-
-/// Get the full hash for the commit typst was at when compiled.
-pub const fn typst_commit() -> Option<&'static str> {
-    let hash = env!("TYPST_COMMIT");
-    // not using bool::then to make it const fn compatible
-    if hash.is_empty() {
-        None
-    } else {
-        Some(hash)
-    }
-}
-
-/// Get a string representing the version and, if not disabled, a representation of the commit typst was at when compiled.
-pub const fn typst_version() -> &'static str {
-    env!("TYPST_VERSION")
-}

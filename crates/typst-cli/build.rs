@@ -1,6 +1,7 @@
 use std::env;
 use std::fs::{create_dir_all, File};
 use std::path::Path;
+use std::process::Command;
 
 use clap::{CommandFactory, ValueEnum};
 use clap_complete::{generate_to, Shell};
@@ -13,7 +14,12 @@ mod args;
 fn main() {
     // https://stackoverflow.com/a/51311222/11494565
     println!("cargo:rustc-env=TARGET={}", env::var("TARGET").unwrap());
+    println!("cargo:rerun-if-env-changed=TYPST_VERSION");
     println!("cargo:rerun-if-env-changed=GEN_ARTIFACTS");
+
+    if option_env!("TYPST_VERSION").is_none() {
+        println!("cargo:rustc-env=TYPST_VERSION={}", typst_version());
+    }
 
     if let Some(dir) = env::var_os("GEN_ARTIFACTS") {
         let out = &Path::new(&dir);
@@ -35,4 +41,22 @@ fn main() {
             generate_to(*shell, cmd, "typst", out).unwrap();
         }
     }
+}
+
+/// Also used by `args.rs`.
+fn typst_version() -> String {
+    if let Some(version) = option_env!("TYPST_VERSION") {
+        return version.to_owned();
+    }
+
+    let pkg = env!("CARGO_PKG_VERSION");
+    let hash = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout.get(..8)?.into()).ok())
+        .unwrap_or_else(|| "unknown hash".into());
+
+    format!("{pkg} ({hash})")
 }

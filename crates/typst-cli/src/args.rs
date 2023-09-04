@@ -7,7 +7,7 @@ use clap::{ArgAction, Args, Parser, Subcommand, ValueEnum};
 
 /// The Typst compiler.
 #[derive(Debug, Clone, Parser)]
-#[clap(name = "typst", version = typst::typst_version(), author)]
+#[clap(name = "typst", version = crate::typst_version(), author)]
 pub struct CliArguments {
     /// The command to run
     #[command(subcommand)]
