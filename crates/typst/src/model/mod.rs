@@ -24,8 +24,6 @@ pub use self::styles::{
     Styles, Transform,
 };
 
-use std::mem::ManuallyDrop;
-
 use comemo::{Track, Tracked, TrackedMut, Validate};
 
 use crate::diag::{warning, SourceDiagnostic, SourceResult};
@@ -51,9 +49,7 @@ pub fn typeset(
     let mut document;
     let mut delayed;
 
-    // We need `ManuallyDrop` until this lands in stable:
-    // https://github.com/rust-lang/rust/issues/70919
-    let mut introspector = ManuallyDrop::new(Introspector::new(&[]));
+    let mut introspector = Introspector::new(&[]);
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
@@ -73,14 +69,9 @@ pub fn typeset(
         };
 
         // Layout!
-        let result = (library.items.layout)(&mut vt, content, styles)?;
+        document = (library.items.layout)(&mut vt, content, styles)?;
 
-        // Drop the old introspector.
-        ManuallyDrop::into_inner(introspector);
-
-        // Only now assign the document and construct the new introspector.
-        document = result;
-        introspector = ManuallyDrop::new(Introspector::new(&document.pages));
+        introspector = Introspector::new(&document.pages);
         iter += 1;
 
         if introspector.validate(&constraint) {
@@ -95,9 +86,6 @@ pub fn typeset(
             break;
         }
     }
-
-    // Drop the introspector.
-    ManuallyDrop::into_inner(introspector);
 
     // Promote delayed errors.
     if !delayed.0.is_empty() {
