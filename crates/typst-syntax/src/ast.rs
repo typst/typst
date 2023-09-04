@@ -451,7 +451,7 @@ node! {
 
 impl Shorthand<'_> {
     /// A list of all shorthands in markup mode.
-    pub const MARKUP_LIST: &[(&'static str, char)] = &[
+    pub const MARKUP_LIST: &'static [(&'static str, char)] = &[
         ("...", '…'),
         ("~", '\u{00A0}'),
         ("--", '\u{2013}'),
@@ -460,7 +460,7 @@ impl Shorthand<'_> {
     ];
 
     /// A list of all shorthands in math mode.
-    pub const MATH_LIST: &[(&'static str, char)] = &[
+    pub const MATH_LIST: &'static [(&'static str, char)] = &[
         ("...", '…'),
         ("-", '\u{2212}'),
         ("'", '′'),
