@@ -624,8 +624,7 @@ primitive! { Version: "version", Version }
 primitive! {
     Str: "string",
     Str,
-    Symbol(symbol) => symbol.get().into(),
-    Version(version) => eco_format!("{version}").into()
+    Symbol(symbol) => symbol.get().into()
 }
 primitive! { Bytes: "bytes", Bytes }
 primitive! { Label: "label", Label }
@@ -635,8 +634,7 @@ primitive! { Content: "content",
     Content,
     None => Content::empty(),
     Symbol(v) => item!(text)(v.get().into()),
-    Str(v) => item!(text)(v.into()),
-    Version(v) => item!(text)(eco_format!("{v}"))
+    Str(v) => item!(text)(v.into())
 }
 primitive! { Styles: "styles", Styles }
 primitive! { Array: "array", Array }
