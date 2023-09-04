@@ -159,15 +159,6 @@ impl Debug for Version {
     }
 }
 
-impl Serialize for Version {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
-    }
-}
-
 #[derive(Default, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 #[repr(transparent)]
 pub struct VersionComponent(u64);
@@ -210,14 +201,5 @@ impl Display for VersionComponent {
 impl Debug for VersionComponent {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         Debug::fmt(&self.0, f)
-    }
-}
-
-impl Serialize for VersionComponent {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.0.serialize(serializer)
     }
 }
