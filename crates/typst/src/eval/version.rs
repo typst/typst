@@ -16,7 +16,11 @@ use crate::diag::{bail, StrResult};
 /// This means that, for example, `0.8` is the same as `0.8.0`.
 /// As a special case, the empty version (that has no components at all)
 /// is the same as `0`, `0.0`, `0.0.0`, and so on.
-#[derive(Clone)]
+// reason: hash is for incremental compilation, so it needs to be different
+// for values that display differently.
+// It being different from `Eq` is consistent with many other typst types.
+#[allow(clippy::derived_hash_with_manual_eq)]
+#[derive(Clone, Hash)]
 pub struct Version(EcoVec<VersionComponent>);
 
 // helper macro to make sure COMPONENT_NAMES and resolve_component_name never go out of sync
@@ -119,19 +123,6 @@ impl Eq for Version {}
 impl PartialEq for Version {
     fn eq(&self, other: &Self) -> bool {
         matches!(self.cmp(other), Ordering::Equal)
-    }
-}
-
-impl Hash for Version {
-    // Don't hash any explicitly suffixed zeros so that equal but non-identical versions (e.g. 1.2 and 1.2.0) hash as the same version
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let len = self
-            .0
-            .iter()
-            .rposition(|x| x.get() != 0)
-            .unwrap_or_else(|| self.0.len());
-
-        self.0[..len].hash(state);
     }
 }
 
