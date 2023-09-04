@@ -22,28 +22,8 @@ use crate::diag::{bail, StrResult};
 #[derive(Clone, Hash)]
 pub struct Version(EcoVec<u32>);
 
-// helper macro to make sure COMPONENT_NAMES and resolve_component_name never go out of sync
-macro_rules! component_names {
-    (@gen [$($arms:tt)*] [$($index:tt)*] [$($values:literal),*] $name:literal $(, $($rest:tt)*)?) => {
-        component_names!(@gen [$($arms)* $name => $($index)*,] [$($index)* + 1] [$($values,)* $name] $($($rest)*)?);
-    };
-    (@gen [$($arms:tt)*] [$($index:tt)*] [$($values:literal),*] /* end */) => {
-        // note: index is now the index after the end, i.e. the len
-        pub const COMPONENT_NAMES: [&'static str; { $($index)* }] = [$($values),*];
-        fn resolve_component_name(name: &str) -> Option<usize> {
-            Some(match name {
-                $($arms)*
-                _ => return None
-            })
-        }
-    };
-    ($($input:tt)*) => {
-        component_names!(@gen [] [0] [] $($input)*);
-    };
-}
-
 impl Version {
-    component_names!["major", "minor", "patch"];
+    pub const COMPONENT_NAMES: [&'static str; 3] = ["major", "minor", "patch"];
 
     pub fn new() -> Self {
         Self(EcoVec::new())
@@ -70,7 +50,7 @@ impl Version {
     ///
     /// Always non-negative. Returns `0` if the version isn't specified to the necessary length.
     pub fn component(&self, name: &str) -> StrResult<i64> {
-        match Self::resolve_component_name(name) {
+        match Self::COMPONENT_NAMES.iter().position(|s| name == s) {
             Some(i) => Ok(self.get(i).unwrap_or_default() as i64),
             None => bail!("unknown version component"),
         }
