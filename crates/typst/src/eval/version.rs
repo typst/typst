@@ -72,14 +72,6 @@ impl Version {
         }
     }
 
-    /// Get an iterator of the values of all named version components for a version.
-    pub fn named_components(&self) -> impl Iterator<Item = (&'static str, i64)> + '_ {
-        Self::COMPONENT_NAMES
-            .into_iter()
-            .enumerate()
-            .map(|(i, name)| (name, self.get(i).unwrap_or_default().get()))
-    }
-
     /// Convert a version into an array
     pub fn into_array(self) -> Array {
         self.0.into_iter().map(|i| Value::Int(i.get())).collect()
@@ -163,12 +155,8 @@ impl Debug for Version {
 #[repr(transparent)]
 pub struct VersionComponent(u64);
 
-#[allow(dead_code)] // reason: kept for completeness, might be used in the future
 impl VersionComponent {
     pub const ZERO: Self = Self(0);
-
-    pub const MIN: Self = Self(0);
-    pub const MAX: Self = Self(i64::MAX as u64);
 
     pub fn new(value: i64) -> Option<Self> {
         (value >= 0).then_some(Self(value as u64))
