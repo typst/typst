@@ -265,6 +265,17 @@ pub struct PackageVersion {
     pub patch: u32,
 }
 
+impl PackageVersion {
+    /// The current compiler version.
+    pub fn compiler() -> Self {
+        Self {
+            major: env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
+            minor: env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
+            patch: env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
+        }
+    }
+}
+
 impl FromStr for PackageVersion {
     type Err = EcoString;
 

@@ -1920,6 +1920,16 @@ impl PackageManifest {
             );
         }
 
+        if let Some(compiler) = self.package.compiler {
+            let current = PackageVersion::compiler();
+            if current < compiler {
+                bail!(
+                    "package requires typst {compiler} or newer \
+                     (current version is {current})"
+                );
+            }
+        }
+
         Ok(())
     }
 }
@@ -1935,6 +1945,8 @@ struct PackageInfo {
     version: PackageVersion,
     /// The path of the entrypoint into the package.
     entrypoint: EcoString,
+    /// The minimum required compiler version for the package.
+    compiler: Option<PackageVersion>,
 }
 
 impl Eval for ast::LoopBreak<'_> {
