@@ -533,12 +533,11 @@ cast! {
 /// ## Example { #example }
 /// ```example
 /// // any number of components is ok
-/// #let version0 = version()
-/// #let version1 = version(1)
-/// #let version5 = version(1, 2, 3, 4, 5)
-///
-/// #let version5_from_array = version((1, 2, 3, 4, 5))
-/// #let version5_mixed = version(1, (2, 3), 4, (5,))
+/// #version() \
+/// #version(1) \
+/// #version(1, 2, 3, 4) \
+/// #version((1, 2, 3, 4)) \
+/// #version((1, 2), 3)
 /// ```
 ///
 /// Display: version
