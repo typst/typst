@@ -50,7 +50,7 @@ impl Version {
     ///
     /// Always non-negative. Returns `0` if the version isn't specified to the necessary length.
     pub fn component(&self, name: &str) -> StrResult<i64> {
-        match Self::COMPONENT_NAMES.iter().position(|s| name == s) {
+        match Self::COMPONENT_NAMES.iter().position(|&s| name == s) {
             Some(i) => Ok(self.get(i).unwrap_or_default() as i64),
             None => bail!("unknown version component"),
         }
