@@ -945,9 +945,9 @@ dependencies = [
 
 [[package]]
 name = "hypher"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "927f74d31cdbfd8de201340c0bc474c52c9145193ccd8885fcede14005591aad"
+checksum = "723e315d77ea8aa1aedf53ad979ff0e763cfa2a1b3403248e427ae052f403cad"
 
 [[package]]
 name = "iai"
