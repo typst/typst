@@ -15,6 +15,9 @@ use crate::diag::{bail, StrResult};
 /// This means that, for example, `0.8` is the same as `0.8.0`.
 /// As a special case, the empty version (that has no components at all)
 /// is the same as `0`, `0.0`, `0.0.0`, and so on.
+///
+/// The first three components have names: `major`, `minor`, `patch` in that order.
+/// All components after that do not have names.
 // reason: hash is for incremental compilation, so it needs to be different
 // for values that display differently.
 // It being different from `Eq` is consistent with many other typst types.
@@ -23,8 +26,10 @@ use crate::diag::{bail, StrResult};
 pub struct Version(EcoVec<u32>);
 
 impl Version {
+    /// The names for the first components of a version.
     pub const COMPONENT_NAMES: [&'static str; 3] = ["major", "minor", "patch"];
 
+    /// Create a new (empty) version.
     pub fn new() -> Self {
         Self::default()
     }
@@ -61,6 +66,7 @@ impl Version {
         self.0.into_iter().map(|i| Value::Int(i as i64)).collect()
     }
 
+    /// Push a component to the end of this version.
     pub fn push(&mut self, component: u32) {
         self.0.push(component);
     }
