@@ -6,7 +6,7 @@ use std::iter::repeat;
 use ecow::EcoVec;
 
 use super::{Array, Value};
-use crate::diag::{bail, StrResult};
+use crate::diag::{bail, error, StrResult};
 
 /// A version, with any number of components.
 ///
@@ -55,10 +55,11 @@ impl Version {
     ///
     /// Always non-negative. Returns `0` if the version isn't specified to the necessary length.
     pub fn component(&self, name: &str) -> StrResult<i64> {
-        match Self::COMPONENT_NAMES.iter().position(|&s| name == s) {
-            Some(i) => Ok(self.get(i).unwrap_or_default() as i64),
-            None => bail!("unknown version component"),
-        }
+        self.0
+            .iter()
+            .zip(Self::COMPONENT_NAMES)
+            .find_map(|(&i, s)| (s == name).then_some(i as i64))
+            .ok_or_else(|| error!("unknown version component"))
     }
 
     /// Convert a version into an array
