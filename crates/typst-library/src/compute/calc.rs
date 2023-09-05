@@ -356,75 +356,66 @@ pub fn atan2(
     Angle::rad(f64::atan2(y.float(), x.float()))
 }
 
-/// Calculates the hyperbolic sine of an angle.
-///
-/// When called with an integer or a float, they will be interpreted as radians.
+/// Calculates the hyperbolic sine of a hyperbolic angle.
 ///
 /// ## Example { #example }
 /// ```example
 /// #calc.sinh(0) \
-/// #calc.sinh(45deg)
+/// #calc.sinh(1.5)
 /// ```
 ///
 /// Display: Hyperbolic sine
 /// Category: calculate
 #[func]
 pub fn sinh(
-    /// The angle whose hyperbolic sine to calculate.
-    angle: AngleLike,
+    /// The hyperbolic angle whose hyperbolic sine to calculate.
+    value: Num,
 ) -> f64 {
-    match angle {
-        AngleLike::Angle(a) => a.to_rad().sinh(),
-        AngleLike::Int(n) => (n as f64).sinh(),
-        AngleLike::Float(n) => n.sinh(),
+    match value {
+        Num::Int(n) => (n as f64).sinh(),
+        Num::Float(n) => n.sinh(),
     }
 }
 
-/// Calculates the hyperbolic cosine of an angle.
-///
-/// When called with an integer or a float, they will be interpreted as radians.
+/// Calculates the hyperbolic cosine of a hyperbolic angle.
 ///
 /// ## Example { #example }
 /// ```example
 /// #calc.cosh(0) \
-/// #calc.cosh(45deg)
+/// #calc.cosh(1.5)
 /// ```
 ///
 /// Display: Hyperbolic cosine
 /// Category: calculate
 #[func]
 pub fn cosh(
-    /// The angle whose hyperbolic cosine to calculate.
-    angle: AngleLike,
+    /// The hyperbolic angle whose hyperbolic cosine to calculate.
+    value: Num,
 ) -> f64 {
-    match angle {
-        AngleLike::Angle(a) => a.to_rad().cosh(),
-        AngleLike::Int(n) => (n as f64).cosh(),
-        AngleLike::Float(n) => n.cosh(),
+    match value {
+        Num::Int(n) => (n as f64).cosh(),
+        Num::Float(n) => n.cosh(),
     }
 }
 
-/// Calculates the hyperbolic tangent of an angle.
-///
-/// When called with an integer or a float, they will be interpreted as radians.
+/// Calculates the hyperbolic tangent of an hyperbolic angle.
 ///
 /// ## Example { #example }
 /// ```example
 /// #calc.tanh(0) \
-/// #calc.tanh(45deg)
+/// #calc.tanh(1.5)
 /// ```
 ///
 /// Display: Hyperbolic tangent
 /// Category: calculate
 #[func]
 pub fn tanh(
-    /// The angle whose hyperbolic tangent to calculate.
-    angle: AngleLike,
+    /// The hyperbolic angle whose hyperbolic tangent to calculate.
+    value: Num,
 ) -> f64 {
-    match angle {
-        AngleLike::Angle(a) => a.to_rad().tanh(),
-        AngleLike::Int(n) => (n as f64).tanh(),
-        AngleLike::Float(n) => n.tanh(),
+    match value {
+        Num::Int(n) => (n as f64).tanh(),
+        Num::Float(n) => n.tanh(),
     }
 }
 
