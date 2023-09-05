@@ -16,7 +16,7 @@ use crate::diag::{bail, error, StrResult};
 /// As a special case, the empty version (that has no components at all)
 /// is the same as `0`, `0.0`, `0.0.0`, and so on.
 ///
-/// The first three components have names: `major`, `minor`, `patch` in that order.
+/// The first three components have names: `major`, `minor`, `patch`.
 /// All components after that do not have names.
 // reason: hash is for incremental compilation, so it needs to be different
 // for values that display differently.
@@ -40,10 +40,14 @@ impl Version {
 
     /// Get a component of a version.
     ///
-    /// Always non-negative. Returns `0` if the version isn't specified to the necessary length.
-    pub fn at(&self, index: i64) -> StrResult<i64> {
+    /// Always non-negative. Returns `0` if the version isn't specified to the
+    /// necessary length.
+    pub fn at(&self, mut index: i64) -> StrResult<i64> {
         if index < 0 {
-            bail!("version component index out of bounds ({index})");
+            match (self.0.len() as i64).checked_add(index) {
+                Some(pos_index) if pos_index >= 0 => index = pos_index,
+                _ => bail!("version component index out of bounds ({index})"),
+            }
         }
         Ok(usize::try_from(index)
             .ok()
@@ -53,7 +57,8 @@ impl Version {
 
     /// Get a named component of a version.
     ///
-    /// Always non-negative. Returns `0` if the version isn't specified to the necessary length.
+    /// Always non-negative. Returns `0` if the version isn't specified to the
+    /// necessary length.
     pub fn component(&self, name: &str) -> StrResult<i64> {
         self.0
             .iter()
