@@ -420,8 +420,10 @@ impl PageElem {
             footer = footer.or(numbering_marginal);
         }
 
-        let numbering_meta =
-            FrameItem::Meta(Meta::PageNumbering(numbering.clone().into_value()), Size::zero());
+        let numbering_meta = FrameItem::Meta(
+            Meta::PageNumbering(numbering.clone().into_value()),
+            Size::zero(),
+        );
 
         let logical_number = Counter::logical_page_number(vt, number)?;
         let page_label = numbering
