@@ -4,7 +4,7 @@
 // Test spacing cases.
 $ä, +, c, (, )$ \
 $=), (+), {times}$
-$⟧<⟦, |-|, [=$ \
+$⟧<⟦, abs(-), [=$ \
 $a=b, a==b$ \
 $-a, +a$ \
 $a not b$ \

@@ -9,3 +9,4 @@ to Typst for LaTeX users. Feel free to propose other topics for guides!
 
 ## List of Guides { #list-of-guides }
 - [Guide for LaTeX users]($guides/guide-for-latex-users)
+- [Page setup guide]($guides/page-setup-guide)

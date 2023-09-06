@@ -190,7 +190,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             } else {
                 glyph.into()
             }
-        } else if text.chars().all(|c| c.is_ascii_digit()) {
+        } else if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
             // Numbers aren't that difficult.
             let mut fragments = vec![];
             for c in text.chars() {

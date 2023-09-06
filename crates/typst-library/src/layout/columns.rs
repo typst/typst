@@ -9,6 +9,9 @@ use crate::text::TextElem;
 /// height on the page. The columns function can break across pages if
 /// necessary.
 ///
+/// If you need to insert columns across your whole document, you can use the
+/// [`{page}` function's `columns` parameter]($func/page.columns) instead.
+///
 /// ## Example { #example }
 /// ```example
 /// = Towards Advanced Deep Learning

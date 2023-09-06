@@ -25,7 +25,7 @@ use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
-use typst::syntax::{FileId, Source, Span, SyntaxNode, VirtualPath};
+use typst::syntax::{FileId, PackageVersion, Source, Span, SyntaxNode, VirtualPath};
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
@@ -719,7 +719,10 @@ fn parse_part_metadata(source: &Source) -> TestPartMetadata {
             let mut s = Scanner::new(expectation);
             let range = range(&mut s);
             let rest = if range.is_some() { s.after() } else { s.string() };
-            let message = rest.trim().into();
+            let message = rest
+                .trim()
+                .replace("VERSION", &PackageVersion::compiler().to_string())
+                .into();
             annotations.insert(Annotation { kind, range, message });
         }
     }

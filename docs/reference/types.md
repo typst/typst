@@ -60,7 +60,7 @@ You can convert a value to an integer with the [`int`]($func/int) function.
 ```
 
 # Float
-A floating-pointer number.
+A floating-point number.
 
 A limited-precision representation of a real number. Typst uses 64 bits to
 store floats. Wherever a float is expected, you can also pass an

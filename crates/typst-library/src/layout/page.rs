@@ -12,8 +12,11 @@ use crate::text::TextElem;
 /// properties, it can also be used to explicitly render its argument onto
 /// a set of pages of its own.
 ///
-/// Pages can be set to use `{auto}` as their width or height. In this case,
-/// the pages will grow to fit their content on the respective axis.
+/// Pages can be set to use `{auto}` as their width or height. In this case, the
+/// pages will grow to fit their content on the respective axis.
+///
+/// The [Guide for Page Setup]($guides/page-setup-guide) explains how to use
+/// this and related functions to set up a document with many examples.
 ///
 /// ## Example { #example }
 /// ```example
@@ -140,6 +143,9 @@ pub struct PageElem {
 
     /// How many columns the page has.
     ///
+    /// If you need to insert columns into a page or other container, you can
+    /// also use the [`columns` function]($func/columns).
+    ///
     /// ```example:single
     /// #set page(columns: 2, height: 4.8cm)
     /// Climate change is one of the most
@@ -171,7 +177,8 @@ pub struct PageElem {
 
     /// How to [number]($func/numbering) the pages.
     ///
-    /// If an explicit `footer` is given, the numbering is ignored.
+    /// If an explicit `footer` (or `header` for top-aligned numbering) is
+    /// given, the numbering is ignored.
     ///
     /// ```example
     /// #set page(
@@ -186,6 +193,11 @@ pub struct PageElem {
 
     /// The alignment of the page numbering.
     ///
+    /// If the vertical component is `top`, the numbering is placed into the
+    /// header and if it is `bottom`, it is placed in the footer. Horizon
+    /// alignment is forbidden. If an explicit matching `header` or `footer` is
+    /// given, the numbering is ignored.
+    ///
     /// ```example
     /// #set page(
     ///   margin: (top: 16pt, bottom: 24pt),
@@ -196,6 +208,15 @@ pub struct PageElem {
     /// #lorem(30)
     /// ```
     #[default(Align::Center.into())]
+    #[parse({
+        let spanned: Option<Spanned<Axes<_>>> = args.named("number-align")?;
+        if let Some(Spanned { v, span }) = spanned {
+            if matches!(v.y, Some(GenAlign::Specific(Align::Horizon))) {
+                bail!(span, "page number cannot be `horizon`-aligned");
+            }
+        }
+        spanned.map(|s| s.v)
+    })]
     pub number_align: Axes<Option<GenAlign>>,
 
     /// The page's header. Fills the top margin of each page.
@@ -367,26 +388,40 @@ impl PageElem {
         let fill = self.fill(styles);
         let foreground = self.foreground(styles);
         let background = self.background(styles);
-        let header = self.header(styles);
         let header_ascent = self.header_ascent(styles);
-        let numbering = self.numbering(styles);
-        let footer = self.footer(styles).or_else(|| {
-            numbering.as_ref().map(|numbering| {
-                let both = match numbering {
-                    Numbering::Pattern(pattern) => pattern.pieces() >= 2,
-                    Numbering::Func(_) => true,
-                };
-                Counter::new(CounterKey::Page)
-                    .display(Some(numbering.clone()), both)
-                    .aligned(self.number_align(styles))
-            })
-        });
         let footer_descent = self.footer_descent(styles);
+        let numbering = self.numbering(styles);
+        let number_align = self.number_align(styles);
+        let mut header = self.header(styles);
+        let mut footer = self.footer(styles);
 
-        let numbering_meta = FrameItem::Meta(
-            Meta::PageNumbering(numbering.clone().into_value()),
-            Size::zero(),
-        );
+        // Construct the numbering (for header or footer).
+        let numbering_marginal = numbering.clone().map(|numbering| {
+            let both = match &numbering {
+                Numbering::Pattern(pattern) => pattern.pieces() >= 2,
+                Numbering::Func(_) => true,
+            };
+
+            let mut counter =
+                Counter::new(CounterKey::Page).display(Some(numbering), both);
+
+            // We interpret the Y alignment as selecting header or footer
+            // and then ignore it for aligning the actual number.
+            if let Some(x) = number_align.x {
+                counter = counter.aligned(Axes::with_x(Some(x)));
+            }
+
+            counter
+        });
+
+        if matches!(number_align.y, Some(GenAlign::Specific(Align::Top))) {
+            header = header.or(numbering_marginal);
+        } else {
+            footer = footer.or(numbering_marginal);
+        }
+
+        let numbering_meta =
+            FrameItem::Meta(Meta::PageNumbering(numbering.clone().into_value()), Size::zero());
 
         let logical_number = Counter::logical_page_number(vt, number)?;
         let page_label = numbering

@@ -743,7 +743,7 @@ pub fn regex(
 /// Category: construct
 #[func]
 pub fn bytes(
-    /// The value that should be converted to a string.
+    /// The value that should be converted to bytes.
     value: ToBytes,
 ) -> Bytes {
     value.0
