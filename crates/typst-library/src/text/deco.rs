@@ -72,9 +72,8 @@ pub struct UnderlineElem {
 impl Show for UnderlineElem {
     #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let (stroke, evade) = (
-            self.stroke(styles).unwrap_or_default(),
-            self.evade(styles));
+        let (stroke, evade) =
+            (self.stroke(styles).unwrap_or_default(), self.evade(styles));
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Underline(stroke, evade),
             offset: self.offset(styles),
@@ -157,9 +156,8 @@ pub struct OverlineElem {
 impl Show for OverlineElem {
     #[tracing::instrument(name = "OverlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let (stroke, evade) = (
-            self.stroke(styles).unwrap_or_default(),
-            self.evade(styles));
+        let (stroke, evade) =
+            (self.stroke(styles).unwrap_or_default(), self.evade(styles));
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Overline(stroke, evade),
             offset: self.offset(styles),
@@ -284,9 +282,7 @@ pub struct HighlightElem {
 impl Show for HighlightElem {
     #[tracing::instrument(name = "HighlightElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let fill = self.fill(styles).unwrap_or(
-            Paint::Solid(Color::YELLOW)
-            );
+        let fill = self.fill(styles).unwrap_or(Paint::Solid(Color::YELLOW));
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             line: DecoLine::Highlight(fill),
             offset: self.offset(styles),
@@ -341,8 +337,9 @@ pub(super) fn decorate(
         let descender = font_metrics.descender.at(text.size);
         let ascender = font_metrics.ascender.at(text.size);
         let height = ascender - descender;
-        let bg = Geometry::Rect(Size::new(width + 2.0 * deco.extent, height)).filled(fill.clone());
-        let offset = - ascender - shift;
+        let bg = Geometry::Rect(Size::new(width + 2.0 * deco.extent, height))
+            .filled(fill.clone());
+        let offset = -ascender - shift;
         let origin = Point::new(pos.x - deco.extent, pos.y + offset);
         frame.prepend(origin, FrameItem::Shape(bg, Span::detached()));
         return;
