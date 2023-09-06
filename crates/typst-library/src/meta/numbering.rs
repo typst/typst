@@ -102,7 +102,19 @@ impl Numbering {
 
     /// Create a new `PdfNumbering` from a `Numbering` applied to a page
     /// number.
-    pub fn apply_pdf(&self, number: usize) -> PdfPageLabel {
+    pub fn apply_pdf(&self, vt: &mut Vt, number: usize) -> PdfPageLabel {
+        // If the numbering function returns something that can reasonably be made into text,
+        // we use that as the logical page prefix.
+        if let Numbering::Func(func) = self {
+            // TODO: needs at least two arguments in `args`, don't know what to put as the second one.
+            let func_pattern =
+                func.call_vt(vt, [number, number].iter().copied()).unwrap_or_default();
+            let prefix =
+                Some(func_pattern.display().plain_text()).filter(|s| !s.is_empty());
+
+            return PdfPageLabel { prefix, ..Default::default() };
+        }
+
         let Numbering::Pattern(pat) = self else {
             return PdfPageLabel::default();
         };
