@@ -128,6 +128,8 @@ pub trait World {
     /// Try to access the specified file.
     fn file(&self, id: FileId) -> FileResult<Bytes>;
 
+    fn write(&self, id: FileId, data: &[u8]) -> FileResult<()>;
+
     /// Try to access the font with the given index in the font book.
     fn font(&self, index: usize) -> Option<Font>;
 

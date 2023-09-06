@@ -93,6 +93,26 @@ impl From<Readable> for Bytes {
     }
 }
 
+/// Writes plain text to a file.
+///
+///
+/// Display: Write
+/// Category: data-loading
+#[func]
+pub fn write(
+    /// Path to a file.
+    path: Spanned<EcoString>,
+    /// Text to write.
+    text: Spanned<EcoString>,
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<()> {
+    let Spanned { v: path, span } = path;
+    let Spanned { v: text, span: _ } = text;
+    let id = vm.resolve_path(&path).at(span)?;
+    vm.world().write(id, text.as_bytes()).at(span)
+}
+
 /// Reads structured data from a CSV file.
 ///
 /// The CSV file will be read and parsed into a 2-dimensional array of strings:
