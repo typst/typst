@@ -72,12 +72,13 @@ pub struct UnderlineElem {
 impl Show for UnderlineElem {
     #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let (stroke, evade) = (
+            self.stroke(styles).unwrap_or_default(),
+            self.evade(styles));
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Underline,
-            stroke: self.stroke(styles).unwrap_or_default(),
+            line: DecoLine::Underline(stroke, evade),
             offset: self.offset(styles),
             extent: self.extent(styles),
-            evade: self.evade(styles),
         })))
     }
 }
@@ -156,12 +157,13 @@ pub struct OverlineElem {
 impl Show for OverlineElem {
     #[tracing::instrument(name = "OverlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let (stroke, evade) = (
+            self.stroke(styles).unwrap_or_default(),
+            self.evade(styles));
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Overline,
-            stroke: self.stroke(styles).unwrap_or_default(),
+            line: DecoLine::Overline(stroke, evade),
             offset: self.offset(styles),
             extent: self.extent(styles),
-            evade: self.evade(styles),
         })))
     }
 }
@@ -225,24 +227,71 @@ pub struct StrikeElem {
 impl Show for StrikeElem {
     #[tracing::instrument(name = "StrikeElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let stroke = self.stroke(styles).unwrap_or_default();
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Strikethrough,
-            stroke: self.stroke(styles).unwrap_or_default(),
+            // note that we do not support evade option for Strikethrough.
+            line: DecoLine::Strikethrough(stroke),
             offset: self.offset(styles),
             extent: self.extent(styles),
-            evade: false,
         })))
     }
 }
 
-/// Defines a line that is positioned over, under or on top of text.
+/// Highlight on text.
+///
+/// TODO: add example
+/// ## Example { #example }
+/// ```example
+/// This is #highlight[important].
+/// ```
+///
+/// Display: Highlight
+/// Category: text
+#[element(Show)]
+pub struct HighlightElem {
+    // TODO: add doc/explanation
+    /// How to highlight the rectangle.
+    ///
+    /// When setting a fill, the default stroke disappears. To create a
+    /// rectangle with both fill and stroke, you have to configure both.
+    ///
+    /// ```example
+    /// #rect(fill: blue)
+    /// ```
+    pub fill: Option<Paint>,
+
+    #[resolve]
+    pub offset: Smart<Length>,
+
+    #[resolve]
+    pub extent: Length,
+
+    /// The content to strike through.
+    #[required]
+    pub body: Content,
+}
+
+impl Show for HighlightElem {
+    #[tracing::instrument(name = "HighlightElem::show", skip_all)]
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let fill = self.fill(styles).unwrap_or(
+            Paint::Solid(Color::YELLOW)
+            );
+        Ok(self.body().styled(TextElem::set_deco(Decoration {
+            line: DecoLine::Highlight(fill),
+            offset: self.offset(styles),
+            extent: self.extent(styles),
+        })))
+    }
+}
+
+/// Defines a line-based decoration that is positioned over, under or on top of text,
+/// or highlight the text by setting the background color.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     pub line: DecoLine,
-    pub stroke: PartialStroke<Abs>,
     pub offset: Smart<Abs>,
     pub extent: Abs,
-    pub evade: bool,
 }
 
 impl Fold for Decoration {
@@ -259,11 +308,12 @@ cast! {
 }
 
 /// A kind of decorative line.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum DecoLine {
-    Underline,
-    Strikethrough,
-    Overline,
+    Underline(PartialStroke<Abs>, bool),
+    Strikethrough(PartialStroke<Abs>),
+    Overline(PartialStroke<Abs>, bool),
+    Highlight(Paint),
 }
 
 /// Add line decorations to a single run of shaped text.

@@ -35,6 +35,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("super", SuperElem::func());
     global.define("underline", UnderlineElem::func());
     global.define("strike", StrikeElem::func());
+    global.define("highlight", HighlightElem::func());
     global.define("overline", OverlineElem::func());
     global.define("raw", RawElem::func());
     global.define("lorem", lorem_func());
