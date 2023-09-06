@@ -34,7 +34,7 @@ document or in your template.
   "iso-b7",
   header: rect[Header],
   footer: rect[Footer],
-  number-align: top + center,
+  number-align: center,
 )
 
 #rect(fill: rgb("#565565"))

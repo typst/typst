@@ -177,7 +177,8 @@ pub struct PageElem {
 
     /// How to [number]($func/numbering) the pages.
     ///
-    /// If an explicit `footer` is given, the numbering is ignored.
+    /// If an explicit `footer` (or `header` for top-aligned numbering) is
+    /// given, the numbering is ignored.
     ///
     /// ```example
     /// #set page(
@@ -192,6 +193,11 @@ pub struct PageElem {
 
     /// The alignment of the page numbering.
     ///
+    /// If the vertical component is `top`, the numbering is placed into the
+    /// header and if it is `bottom`, it is placed in the footer. Horizon
+    /// alignment is forbidden. If an explicit matching `header` or `footer` is
+    /// given, the numbering is ignored.
+    ///
     /// ```example
     /// #set page(
     ///   margin: (top: 16pt, bottom: 24pt),
@@ -202,6 +208,15 @@ pub struct PageElem {
     /// #lorem(30)
     /// ```
     #[default(Align::Center.into())]
+    #[parse({
+        let spanned: Option<Spanned<Axes<_>>> = args.named("number-align")?;
+        if let Some(Spanned { v, span }) = spanned {
+            if matches!(v.y, Some(GenAlign::Specific(Align::Horizon))) {
+                bail!(span, "page number cannot be `horizon`-aligned");
+            }
+        }
+        spanned.map(|s| s.v)
+    })]
     pub number_align: Axes<Option<GenAlign>>,
 
     /// The page's header. Fills the top margin of each page.
@@ -372,25 +387,40 @@ impl PageElem {
         let fill = self.fill(styles);
         let foreground = self.foreground(styles);
         let background = self.background(styles);
-        let header = self.header(styles);
         let header_ascent = self.header_ascent(styles);
-        let footer = self.footer(styles).or_else(|| {
-            self.numbering(styles).map(|numbering| {
-                let both = match &numbering {
-                    Numbering::Pattern(pattern) => pattern.pieces() >= 2,
-                    Numbering::Func(_) => true,
-                };
-                Counter::new(CounterKey::Page)
-                    .display(Some(numbering), both)
-                    .aligned(self.number_align(styles))
-            })
-        });
         let footer_descent = self.footer_descent(styles);
+        let numbering = self.numbering(styles);
+        let number_align = self.number_align(styles);
+        let mut header = self.header(styles);
+        let mut footer = self.footer(styles);
 
-        let numbering_meta = FrameItem::Meta(
-            Meta::PageNumbering(self.numbering(styles).into_value()),
-            Size::zero(),
-        );
+        // Construct the numbering (for header or footer).
+        let numbering_marginal = numbering.clone().map(|numbering| {
+            let both = match &numbering {
+                Numbering::Pattern(pattern) => pattern.pieces() >= 2,
+                Numbering::Func(_) => true,
+            };
+
+            let mut counter =
+                Counter::new(CounterKey::Page).display(Some(numbering), both);
+
+            // We interpret the Y alignment as selecting header or footer
+            // and then ignore it for aligning the actual number.
+            if let Some(x) = number_align.x {
+                counter = counter.aligned(Axes::with_x(Some(x)));
+            }
+
+            counter
+        });
+
+        if matches!(number_align.y, Some(GenAlign::Specific(Align::Top))) {
+            header = header.or(numbering_marginal);
+        } else {
+            footer = footer.or(numbering_marginal);
+        }
+
+        let numbering_meta =
+            FrameItem::Meta(Meta::PageNumbering(numbering.into_value()), Size::zero());
 
         // Post-process pages.
         for frame in frames.iter_mut() {
