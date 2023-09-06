@@ -237,9 +237,8 @@ impl Show for StrikeElem {
     }
 }
 
-/// Highlight on text.
+/// Highlight text by setting background color.
 ///
-/// TODO: add example
 /// ## Example { #example }
 /// ```example
 /// This is #highlight[important].
@@ -249,24 +248,35 @@ impl Show for StrikeElem {
 /// Category: text
 #[element(Show)]
 pub struct HighlightElem {
-    // TODO: add doc/explanation
-    /// How to highlight the rectangle.
-    ///
-    /// When setting a fill, the default stroke disappears. To create a
-    /// rectangle with both fill and stroke, you have to configure both.
+    /// The color to fill in the background of the text.
+    /// (Default: Yellow)
     ///
     /// ```example
-    /// #rect(fill: blue)
+    /// This is #highlight(fill: blue)[with blue]. \
     /// ```
     pub fill: Option<Paint>,
 
+    /// The position of the background rectangle relative to the baseline.
+    /// Read from the font tables if `{auto}`.
+    ///
+    /// ```example
+    /// #highlight(offset: -1.2em)[
+    ///   The Tale Of A Faraway background
+    /// ]
+    /// ```
     #[resolve]
     pub offset: Smart<Length>,
 
+    /// The amount by which to extend the background rectangle beyond
+    /// (or within if negative) the content.
+    ///
+    /// ```example
+    /// A long #highlight(extent: 4pt)[background]. \
+    /// ```
     #[resolve]
     pub extent: Length,
 
-    /// The content to strike through.
+    /// The content to set background.
     #[required]
     pub body: Content,
 }
