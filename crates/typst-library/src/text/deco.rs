@@ -323,17 +323,30 @@ pub(super) fn decorate(
     text: &TextItem,
     shift: Abs,
     pos: Point,
-    width: Abs,
 ) {
     let font_metrics = text.font.metrics();
-    let metrics = match deco.line {
-        DecoLine::Strikethrough => font_metrics.strikethrough,
-        DecoLine::Overline => font_metrics.overline,
-        DecoLine::Underline => font_metrics.underline,
+    let width = text.width();
+
+    if let DecoLine::Highlight(fill) = &deco.line {
+        let descender = font_metrics.descender.at(text.size);
+        let ascender = font_metrics.ascender.at(text.size);
+        let height = ascender - descender;
+        let bg = Geometry::Rect(Size::new(width + 2.0 * deco.extent, height)).filled(fill.clone());
+        let offset = - ascender - shift;
+        let origin = Point::new(pos.x - deco.extent, pos.y + offset);
+        frame.prepend(origin, FrameItem::Shape(bg, Span::detached()));
+        return;
+    }
+
+    let (stroke, metrics, evade) = match &deco.line {
+        DecoLine::Strikethrough(s) => (s, font_metrics.strikethrough, false),
+        DecoLine::Overline(s, e) => (s, font_metrics.overline, *e),
+        DecoLine::Underline(s, e) => (s, font_metrics.underline, *e),
+        _ => return,
     };
 
     let offset = deco.offset.unwrap_or(-metrics.position.at(text.size)) - shift;
-    let stroke = deco.stroke.clone().unwrap_or(Stroke {
+    let stroke = stroke.clone().unwrap_or(Stroke {
         paint: text.fill.clone(),
         thickness: metrics.thickness.at(text.size),
         ..Stroke::default()
@@ -349,13 +362,13 @@ pub(super) fn decorate(
         let origin = Point::new(from, pos.y + offset);
         let target = Point::new(to - from, Abs::zero());
 
-        if target.x >= min_width || !deco.evade {
+        if target.x >= min_width || !evade {
             let shape = Geometry::Line(target).stroked(stroke.clone());
             frame.push(origin, FrameItem::Shape(shape, Span::detached()));
         }
     };
 
-    if !deco.evade {
+    if !evade {
         push_segment(start, end);
         return;
     }
