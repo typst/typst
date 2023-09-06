@@ -369,12 +369,9 @@ pub fn atan2(
 #[func]
 pub fn sinh(
     /// The hyperbolic angle whose hyperbolic sine to calculate.
-    value: Num,
+    value: f64,
 ) -> f64 {
-    match value {
-        Num::Int(n) => (n as f64).sinh(),
-        Num::Float(n) => n.sinh(),
-    }
+    value.sinh()
 }
 
 /// Calculates the hyperbolic cosine of a hyperbolic angle.
@@ -390,12 +387,9 @@ pub fn sinh(
 #[func]
 pub fn cosh(
     /// The hyperbolic angle whose hyperbolic cosine to calculate.
-    value: Num,
+    value: f64,
 ) -> f64 {
-    match value {
-        Num::Int(n) => (n as f64).cosh(),
-        Num::Float(n) => n.cosh(),
-    }
+    value.cosh()
 }
 
 /// Calculates the hyperbolic tangent of an hyperbolic angle.
@@ -411,12 +405,9 @@ pub fn cosh(
 #[func]
 pub fn tanh(
     /// The hyperbolic angle whose hyperbolic tangent to calculate.
-    value: Num,
+    value: f64,
 ) -> f64 {
-    match value {
-        Num::Int(n) => (n as f64).tanh(),
-        Num::Float(n) => n.tanh(),
-    }
+    value.tanh()
 }
 
 /// Calculates the logarithm of a number.
