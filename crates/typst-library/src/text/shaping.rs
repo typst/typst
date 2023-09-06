@@ -293,16 +293,14 @@ impl<'a> ShapedText<'a> {
                 glyphs,
             };
 
-            let layer = frame.layer();
-            let width = item.width();
+            frame.push(pos, FrameItem::Text(item.clone()));
 
             // Apply line decorations.
             for deco in &decos {
-                decorate(&mut frame, deco, &item, shift, pos, width);
+                decorate(&mut frame, deco, &item, shift, pos);
             }
 
-            frame.insert(layer, pos, FrameItem::Text(item));
-            offset += width;
+            offset += item.width();
         }
 
         // Apply metadata.
