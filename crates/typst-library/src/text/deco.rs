@@ -227,7 +227,7 @@ impl Show for StrikeElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let stroke = self.stroke(styles).unwrap_or_default();
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            // note that we do not support evade option for Strikethrough.
+            // Note that we do not support evade option for strikethrough.
             line: DecoLine::Strikethrough(stroke),
             offset: self.offset(styles),
             extent: self.extent(styles),
@@ -235,7 +235,7 @@ impl Show for StrikeElem {
     }
 }
 
-/// Highlight text by setting background color.
+/// Highlight text with a background color.
 ///
 /// ## Example { #example }
 /// ```example
@@ -246,11 +246,11 @@ impl Show for StrikeElem {
 /// Category: text
 #[element(Show)]
 pub struct HighlightElem {
-    /// The color to fill in the background of the text.
+    /// The color to highlight the text with.
     /// (Default: Yellow)
     ///
     /// ```example
-    /// This is #highlight(fill: blue)[with blue]. \
+    /// This is #highlight(fill: blue)[with blue].
     /// ```
     pub fill: Option<Paint>,
 
@@ -265,7 +265,7 @@ pub struct HighlightElem {
     #[resolve]
     pub offset: Smart<Length>,
 
-    /// The amount by which to extend the background rectangle beyond
+    /// The amount by which to extend the background to the sides beyond
     /// (or within if negative) the content.
     ///
     /// ```example
@@ -274,7 +274,7 @@ pub struct HighlightElem {
     #[resolve]
     pub extent: Length,
 
-    /// The content to set background.
+    /// The content that should be highlighted.
     #[required]
     pub body: Content,
 }
@@ -292,7 +292,7 @@ impl Show for HighlightElem {
 }
 
 /// Defines a line-based decoration that is positioned over, under or on top of text,
-/// or highlight the text by setting the background color.
+/// or highlights the text with a background.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     pub line: DecoLine,
