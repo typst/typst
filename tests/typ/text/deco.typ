@@ -20,14 +20,16 @@
 
 ---
 #let redact = strike.with(stroke: 10pt, extent: 0.05em)
-#let highlight_custom = strike.with(stroke: 10pt + rgb("abcdef88"), extent: 0.05em)
+#let highlight-custom = strike.with(stroke: 10pt + rgb("abcdef88"), extent: 0.05em)
 
 // Abuse thickness and transparency for redacting and highlighting stuff.
 Sometimes, we work #redact[in secret].
-There might be #highlight_custom[redacted] things.
+There might be #highlight-custom[redacted] things.
  underline()
 
-This is the built-in #highlight[highlight with default color]. We can also specify a customized value #highlight(fill: rgb("abcdef88"))[to highlight]. Notice color difference with the #highlight_custom[redacted] above.
+This is the built-in #highlight[highlight with default color]. We can also specify
+a customized value #highlight(fill: rgb("abcdef88"))[to highlight]. Notice color
+difference with the #highlight-custom[redacted] above.
 
 ---
 // Test stroke folding.
