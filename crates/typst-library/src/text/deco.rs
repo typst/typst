@@ -252,7 +252,8 @@ pub struct HighlightElem {
     /// ```example
     /// This is #highlight(fill: blue)[with blue].
     /// ```
-    pub fill: Option<Paint>,
+    #[default(Paint::Solid(Color::YELLOW))]
+    pub fill: Paint,
 
     /// The position of the background rectangle relative to the baseline.
     /// Read from the font tables if `{auto}`.
@@ -282,9 +283,8 @@ pub struct HighlightElem {
 impl Show for HighlightElem {
     #[tracing::instrument(name = "HighlightElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let fill = self.fill(styles).unwrap_or(Paint::Solid(Color::YELLOW));
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Highlight(fill),
+            line: DecoLine::Highlight(self.fill(styles)),
             offset: self.offset(styles),
             extent: self.extent(styles),
         })))
