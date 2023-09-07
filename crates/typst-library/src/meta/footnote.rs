@@ -58,7 +58,7 @@ cast! {
 /// ```
 ///
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
-/// apply to the footnote's content. See [here][issue] more information.
+/// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
 ///
@@ -165,6 +165,12 @@ impl Count for FootnoteElem {
 ///
 /// This function is not intended to be called directly. Instead, it is used
 /// in set and show rules to customize footnote listings.
+///
+/// _Note:_ Set and show rules for `footnote.entry` must be defined at the
+/// beginning of the document in order to work correctly.
+/// See [here][issue] for more information.
+///
+/// [issue]: https://github.com/typst/typst/issues/1348#issuecomment-1566316463
 ///
 /// ## Example { #example }
 /// ```example
