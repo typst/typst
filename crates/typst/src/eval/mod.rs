@@ -202,9 +202,10 @@ pub fn eval_string(
         EvalMode::Markup => {
             Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
-        EvalMode::Math => {
-            Value::Content(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
-        }
+        EvalMode::Math => Value::Content((vm.items.equation)(
+            root.cast::<ast::Math>().unwrap().eval(&mut vm)?,
+            false,
+        )),
     };
 
     // Handle control flow.
