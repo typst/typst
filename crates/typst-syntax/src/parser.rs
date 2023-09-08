@@ -226,11 +226,11 @@ fn whitespace_line(p: &mut Parser) {
 
 fn equation(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Math);
+    let mode_before = p.enter_mode(LexMode::Math);
     p.assert(SyntaxKind::Dollar);
     math(p, |p| p.at(SyntaxKind::Dollar));
     p.expect_closing_delimiter(m, SyntaxKind::Dollar);
-    p.exit();
+    p.exit_mode(mode_before);
     p.wrap(m, SyntaxKind::Equation);
 }
 
@@ -571,13 +571,13 @@ fn code(p: &mut Parser, stop: impl FnMut(&Parser) -> bool) {
 
 fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
     while !p.eof() && !stop(p) {
-        p.stop_at_newline(true);
+        let newline_before = p.set_newline_stop(true);
         let prev = p.prev_end();
         code_expr(p);
         if p.progress(prev) && !p.eof() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
             p.expected("semicolon or line break");
         }
-        p.unstop();
+        p.unset_newline_stop(newline_before);
         if !p.progress(prev) && !p.eof() {
             p.unexpected();
         }
@@ -593,8 +593,8 @@ fn code_expr_or_pattern(p: &mut Parser) {
 }
 
 fn embedded_code_expr(p: &mut Parser) {
-    p.stop_at_newline(true);
-    p.enter(LexMode::Code);
+    let newline_before = p.set_newline_stop(true);
+    let mode_before = p.enter_mode(LexMode::Code);
     p.assert(SyntaxKind::Hashtag);
     p.unskip();
 
@@ -626,8 +626,8 @@ fn embedded_code_expr(p: &mut Parser) {
         p.expected("semicolon or line break");
     }
 
-    p.exit();
-    p.unstop();
+    p.exit_mode(mode_before);
+    p.unset_newline_stop(newline_before);
 }
 
 fn code_expr_prec(
@@ -771,8 +771,8 @@ pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNod
 
 fn code_block(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Code);
-    p.stop_at_newline(false);
+    let mode_before = p.enter_mode(LexMode::Code);
+    let newline_before = p.set_newline_stop(false);
     p.assert(SyntaxKind::LeftBrace);
     code(p, |p| {
         p.at(SyntaxKind::RightBrace)
@@ -780,18 +780,18 @@ fn code_block(p: &mut Parser) {
             || p.at(SyntaxKind::RightParen)
     });
     p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
-    p.exit();
-    p.unstop();
+    p.exit_mode(mode_before);
+    p.unset_newline_stop(newline_before);
     p.wrap(m, SyntaxKind::CodeBlock);
 }
 
 fn content_block(p: &mut Parser) {
     let m = p.marker();
-    p.enter(LexMode::Markup);
+    let mode_before = p.enter_mode(LexMode::Markup);
     p.assert(SyntaxKind::LeftBracket);
     markup(p, true, 0, |p| p.at(SyntaxKind::RightBracket));
     p.expect_closing_delimiter(m, SyntaxKind::RightBracket);
-    p.exit();
+    p.exit_mode(mode_before);
     p.wrap(m, SyntaxKind::ContentBlock);
 }
 
@@ -852,7 +852,7 @@ fn invalidate_destructuring(p: &mut Parser, m: Marker) {
 }
 
 fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
-    p.stop_at_newline(false);
+    let newline_before = p.set_newline_stop(false);
 
     let m = p.marker();
     p.assert(SyntaxKind::LeftParen);
@@ -901,7 +901,7 @@ fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
     }
 
     p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.unstop();
+    p.unset_newline_stop(newline_before);
 
     if parenthesized && count == 1 {
         SyntaxKind::Parenthesized
@@ -1440,9 +1440,8 @@ struct Parser<'s> {
     prev_end: usize,
     current_start: usize,
     current: SyntaxKind,
-    modes: Vec<LexMode>,
     nodes: Vec<SyntaxNode>,
-    stop_at_newline: Vec<bool>,
+    stop_at_newline: bool,
     balanced: bool,
 }
 
@@ -1460,9 +1459,8 @@ impl<'s> Parser<'s> {
             prev_end: offset,
             current_start: offset,
             current,
-            modes: vec![],
             nodes: vec![],
-            stop_at_newline: vec![],
+            stop_at_newline: false,
             balanced: true,
         }
     }
@@ -1581,29 +1579,31 @@ impl<'s> Parser<'s> {
         offset < self.prev_end
     }
 
-    fn enter(&mut self, mode: LexMode) {
-        self.modes.push(self.lexer.mode());
+    fn enter_mode(&mut self, mode: LexMode) -> LexMode {
+        let mode_before = self.lexer.mode();
         self.lexer.set_mode(mode);
+        mode_before
     }
 
-    fn exit(&mut self) {
-        let mode = self.modes.pop().unwrap();
-        if mode != self.lexer.mode() {
+    fn exit_mode(&mut self, mode_before: LexMode) {
+        if mode_before != self.lexer.mode() {
             self.unskip();
-            self.lexer.set_mode(mode);
+            self.lexer.set_mode(mode_before);
             self.lexer.jump(self.current_start);
             self.lex();
             self.skip();
         }
     }
 
-    fn stop_at_newline(&mut self, stop: bool) {
-        self.stop_at_newline.push(stop);
+    fn set_newline_stop(&mut self, stop: bool) -> bool {
+        let before = self.stop_at_newline;
+        self.stop_at_newline = stop;
+        before
     }
 
-    fn unstop(&mut self) {
+    fn unset_newline_stop(&mut self, before: bool) {
         self.unskip();
-        self.stop_at_newline.pop();
+        self.stop_at_newline = before;
         self.lexer.jump(self.prev_end);
         self.lex();
         self.skip();
@@ -1654,7 +1654,7 @@ impl<'s> Parser<'s> {
         self.current = self.lexer.next();
         if self.lexer.mode() == LexMode::Code
             && self.lexer.newline()
-            && self.stop_at_newline.last().copied().unwrap_or(false)
+            && self.stop_at_newline
             && !matches!(self.lexer.clone().next(), SyntaxKind::Else | SyntaxKind::Dot)
         {
             self.current = SyntaxKind::Eof;
