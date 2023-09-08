@@ -247,12 +247,12 @@ impl Show for StrikeElem {
 #[element(Show)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
-    /// (Default: Yellow)
+    /// (Default: 0xffff5f)
     ///
     /// ```example
     /// This is #highlight(fill: blue)[with blue].
     /// ```
-    #[default(Paint::Solid(Color::YELLOW))]
+    #[default(Color::Rgba(RgbaColor::new(0xFF, 0xFF, 0x5F, 0xFF)).into())]
     pub fill: Paint,
 
     /// The position of the background rectangle relative to the baseline.
