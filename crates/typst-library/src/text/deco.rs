@@ -72,11 +72,13 @@ pub struct UnderlineElem {
 impl Show for UnderlineElem {
     #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let (stroke, evade) =
-            (self.stroke(styles).unwrap_or_default(), self.evade(styles));
+        let (stroke, offset, evade) = (
+            self.stroke(styles).unwrap_or_default(),
+            self.offset(styles),
+            self.evade(styles),
+        );
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Underline(stroke, evade),
-            offset: self.offset(styles),
+            line: DecoLine::Underline(stroke, offset, evade),
             extent: self.extent(styles),
         })))
     }
@@ -156,11 +158,13 @@ pub struct OverlineElem {
 impl Show for OverlineElem {
     #[tracing::instrument(name = "OverlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let (stroke, evade) =
-            (self.stroke(styles).unwrap_or_default(), self.evade(styles));
+        let (stroke, offset, evade) = (
+            self.stroke(styles).unwrap_or_default(),
+            self.offset(styles),
+            self.evade(styles),
+        );
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Overline(stroke, evade),
-            offset: self.offset(styles),
+            line: DecoLine::Overline(stroke, offset, evade),
             extent: self.extent(styles),
         })))
     }
@@ -225,11 +229,11 @@ pub struct StrikeElem {
 impl Show for StrikeElem {
     #[tracing::instrument(name = "StrikeElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let stroke = self.stroke(styles).unwrap_or_default();
+        let (stroke, offset) =
+            (self.stroke(styles).unwrap_or_default(), self.offset(styles));
         Ok(self.body().styled(TextElem::set_deco(Decoration {
             // Note that we do not support evade option for strikethrough.
-            line: DecoLine::Strikethrough(stroke),
-            offset: self.offset(styles),
+            line: DecoLine::Strikethrough(stroke, offset),
             extent: self.extent(styles),
         })))
     }
@@ -254,17 +258,6 @@ pub struct HighlightElem {
     /// ```
     #[default(Color::Rgba(RgbaColor::new(0xFF, 0xFF, 0x5F, 0xFF)).into())]
     pub fill: Paint,
-
-    /// The position of the background rectangle relative to the baseline.
-    /// Read from the font tables if `{auto}`.
-    ///
-    /// ```example
-    /// #highlight(offset: -1.2em)[
-    ///   The Tale Of A Faraway background
-    /// ]
-    /// ```
-    #[resolve]
-    pub offset: Smart<Length>,
 
     /// The top end of the background rectangle. Note that top edge will update
     /// to be always higher than the glyph's bounding box.
@@ -319,7 +312,6 @@ impl Show for HighlightElem {
                 self.top_edge(styles),
                 self.bottom_edge(styles),
             ),
-            offset: self.offset(styles),
             extent: self.extent(styles),
         })))
     }
@@ -330,7 +322,6 @@ impl Show for HighlightElem {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     pub line: DecoLine,
-    pub offset: Smart<Abs>,
     pub extent: Abs,
 }
 
@@ -350,9 +341,9 @@ cast! {
 /// A kind of decorative line.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum DecoLine {
-    Underline(PartialStroke<Abs>, bool),
-    Strikethrough(PartialStroke<Abs>),
-    Overline(PartialStroke<Abs>, bool),
+    Underline(PartialStroke<Abs>, Smart<Abs>, bool),
+    Strikethrough(PartialStroke<Abs>, Smart<Abs>),
+    Overline(PartialStroke<Abs>, Smart<Abs>, bool),
     Highlight(Paint, TopEdge, BottomEdge),
 }
 
@@ -398,14 +389,14 @@ pub(super) fn decorate(
         return;
     }
 
-    let (stroke, metrics, evade) = match &deco.line {
-        DecoLine::Strikethrough(s) => (s, font_metrics.strikethrough, false),
-        DecoLine::Overline(s, e) => (s, font_metrics.overline, *e),
-        DecoLine::Underline(s, e) => (s, font_metrics.underline, *e),
+    let (stroke, metrics, offset, evade) = match &deco.line {
+        DecoLine::Strikethrough(s, o) => (s, font_metrics.strikethrough, o, false),
+        DecoLine::Overline(s, o, e) => (s, font_metrics.overline, o, *e),
+        DecoLine::Underline(s, o, e) => (s, font_metrics.underline, o, *e),
         _ => return,
     };
 
-    let offset = deco.offset.unwrap_or(-metrics.position.at(text.size)) - shift;
+    let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
     let stroke = stroke.clone().unwrap_or(Stroke {
         paint: text.fill.clone(),
         thickness: metrics.thickness.at(text.size),
