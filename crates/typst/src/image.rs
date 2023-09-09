@@ -76,7 +76,7 @@ impl Image {
         data: Bytes,
         format: ImageFormat,
         world: Tracked<dyn World + '_>,
-        fallback_family: Option<&str>,
+        fallback_family: Option<EcoString>,
         alt: Option<EcoString>,
     ) -> StrResult<Self> {
         let loader = WorldLoader::new(world, fallback_family);
@@ -313,31 +313,39 @@ fn load_svg_fonts(
     tree: &usvg::Tree,
     loader: Tracked<dyn SvgFontLoader + '_>,
 ) -> fontdb::Database {
-    let mut referenced = BTreeMap::<EcoString, bool>::new();
     let mut fontdb = fontdb::Database::new();
-    let mut load = |family_cased: &str| {
-        let family = EcoString::from(family_cased.trim()).to_lowercase();
-        if let Some(&success) = referenced.get(&family) {
-            return success;
+    let mut referenced = BTreeMap::<EcoString, Option<EcoString>>::new();
+
+    // Loads a font family by its Typst name and returns its usvg-compatible
+    // name.
+    let mut load = |family: &str| -> Option<EcoString> {
+        let family = EcoString::from(family.trim()).to_lowercase();
+        if let Some(success) = referenced.get(&family) {
+            return success.clone();
         }
 
         // We load all variants for the family, since we don't know which will
         // be used.
-        let mut success = false;
+        let mut name = None;
         for font in loader.load(&family) {
             let source = Arc::new(font.data().clone());
             fontdb.load_font_source(fontdb::Source::Binary(source));
-            success = true;
+            if name.is_none() {
+                name = font
+                    .find_name(ttf_parser::name_id::TYPOGRAPHIC_FAMILY)
+                    .or_else(|| font.find_name(ttf_parser::name_id::FAMILY))
+                    .map(Into::into);
+            }
         }
 
-        referenced.insert(family, success);
-        success
+        referenced.insert(family, name.clone());
+        name
     };
 
     // Load fallback family.
-    let fallback_cased = loader.fallback();
-    if let Some(family_cased) = fallback_cased {
-        load(family_cased);
+    let mut fallback_usvg_compatible = None;
+    if let Some(family) = loader.fallback_family() {
+        fallback_usvg_compatible = load(family);
     }
 
     // Find out which font families are referenced by the SVG.
@@ -345,10 +353,11 @@ fn load_svg_fonts(
         let usvg::NodeKind::Text(text) = &mut *node.borrow_mut() else { return };
         for chunk in &mut text.chunks {
             for span in &mut chunk.spans {
-                for family_cased in &mut span.font.families {
-                    if family_cased.is_empty() || !load(family_cased) {
-                        let Some(fallback) = fallback_cased else { continue };
-                        *family_cased = fallback.into();
+                for family in &mut span.font.families {
+                    if family.is_empty() || load(family).is_none() {
+                        if let Some(fallback) = &fallback_usvg_compatible {
+                            *family = fallback.into();
+                        }
                     }
                 }
             }
@@ -384,40 +393,31 @@ where
 #[comemo::track]
 trait SvgFontLoader {
     /// Load all fonts for the given lowercased font family.
-    fn load(&self, lower_family: &str) -> EcoVec<Font>;
+    fn load(&self, family: &str) -> EcoVec<Font>;
 
-    /// The case-sensitive name of the fallback family.
-    fn fallback(&self) -> Option<&str>;
+    /// The fallback family.
+    fn fallback_family(&self) -> Option<&str>;
 }
 
 /// Loads fonts for an SVG from a world
 struct WorldLoader<'a> {
     world: Tracked<'a, dyn World + 'a>,
     seen: RefCell<BTreeMap<EcoString, EcoVec<Font>>>,
-    fallback_family_cased: Option<String>,
+    fallback_family: Option<EcoString>,
 }
 
 impl<'a> WorldLoader<'a> {
-    fn new(world: Tracked<'a, dyn World + 'a>, fallback_family: Option<&str>) -> Self {
-        // Recover the non-lowercased version of the family because
-        // usvg is case sensitive.
-        let book = world.book();
-        let fallback_family_cased = fallback_family
-            .and_then(|lowercase| book.select_family(lowercase).next())
-            .and_then(|index| book.info(index))
-            .map(|info| info.family.clone());
-
-        Self {
-            world,
-            fallback_family_cased,
-            seen: Default::default(),
-        }
+    fn new(
+        world: Tracked<'a, dyn World + 'a>,
+        fallback_family: Option<EcoString>,
+    ) -> Self {
+        Self { world, fallback_family, seen: Default::default() }
     }
 
     fn into_prepared(self) -> PreparedLoader {
         PreparedLoader {
             families: self.seen.into_inner(),
-            fallback_family_cased: self.fallback_family_cased,
+            fallback_family: self.fallback_family,
         }
     }
 }
@@ -437,8 +437,8 @@ impl SvgFontLoader for WorldLoader<'_> {
             .clone()
     }
 
-    fn fallback(&self) -> Option<&str> {
-        self.fallback_family_cased.as_deref()
+    fn fallback_family(&self) -> Option<&str> {
+        self.fallback_family.as_deref()
     }
 }
 
@@ -446,7 +446,7 @@ impl SvgFontLoader for WorldLoader<'_> {
 #[derive(Default, Hash)]
 struct PreparedLoader {
     families: BTreeMap<EcoString, EcoVec<Font>>,
-    fallback_family_cased: Option<String>,
+    fallback_family: Option<EcoString>,
 }
 
 impl SvgFontLoader for PreparedLoader {
@@ -454,8 +454,8 @@ impl SvgFontLoader for PreparedLoader {
         self.families.get(family).cloned().unwrap_or_default()
     }
 
-    fn fallback(&self) -> Option<&str> {
-        self.fallback_family_cased.as_deref()
+    fn fallback_family(&self) -> Option<&str> {
+        self.fallback_family.as_deref()
     }
 }
 
