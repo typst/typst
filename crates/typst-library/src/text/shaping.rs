@@ -297,7 +297,7 @@ impl<'a> ShapedText<'a> {
 
             // Apply line decorations.
             for deco in &decos {
-                decorate(&mut frame, deco, &item, shift, pos);
+                decorate(&mut frame, self.styles, deco, &item, shift, pos);
             }
 
             offset += item.width();

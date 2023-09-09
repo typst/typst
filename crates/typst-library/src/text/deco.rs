@@ -1,7 +1,7 @@
 use kurbo::{BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
 
-use super::TextElem;
+use super::{BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric};
 use crate::prelude::*;
 
 /// Underlines text.
@@ -266,6 +266,36 @@ pub struct HighlightElem {
     #[resolve]
     pub offset: Smart<Length>,
 
+    /// The top end of the background rectangle. Note that top edge will update
+    /// to be always higher than the glyph's bounding box.
+    /// (default: "ascender")
+    ///
+    /// ```example
+    /// #let highlight-default = highlight.with(top-edge: "ascender")
+    /// #let highlight-tight = highlight.with(top-edge: "x-height")
+    ///
+    /// #highlight-default[a], #highlight-default[ai], #highlight-default[aib]
+    ///
+    /// #highlight-tight[a], #highlight-tight[ai], #highlight-tight[aib]
+    /// ```
+    #[default(TopEdge::Metric(TopEdgeMetric::Ascender))]
+    pub top_edge: TopEdge,
+
+    /// The bottom end of the background rectangle. Note that top edge will update
+    /// to be always lower than the glyph's bounding box.
+    /// (default: "descender")
+    ///
+    /// ```example
+    /// #let highlight-default = highlight.with(bottom-edge: "descender")
+    /// #let highlight-tight = highlight.with(bottom-edge: "baseline")
+    ///
+    /// #highlight-default[a], #highlight-default[ah]
+    ///
+    /// #highlight-tight[a], #highlight-tight[ah]
+    /// ```
+    #[default(BottomEdge::Metric(BottomEdgeMetric::Descender))]
+    pub bottom_edge: BottomEdge,
+
     /// The amount by which to extend the background to the sides beyond
     /// (or within if negative) the content.
     ///
@@ -284,7 +314,11 @@ impl Show for HighlightElem {
     #[tracing::instrument(name = "HighlightElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Highlight(self.fill(styles)),
+            line: DecoLine::Highlight(
+                self.fill(styles),
+                self.top_edge(styles),
+                self.bottom_edge(styles),
+            ),
             offset: self.offset(styles),
             extent: self.extent(styles),
         })))
@@ -319,12 +353,13 @@ pub enum DecoLine {
     Underline(PartialStroke<Abs>, bool),
     Strikethrough(PartialStroke<Abs>),
     Overline(PartialStroke<Abs>, bool),
-    Highlight(Paint),
+    Highlight(Paint, TopEdge, BottomEdge),
 }
 
 /// Add line decorations to a single run of shaped text.
 pub(super) fn decorate(
     frame: &mut Frame,
+    styles: StyleChain,
     deco: &Decoration,
     text: &TextItem,
     shift: Abs,
@@ -333,13 +368,31 @@ pub(super) fn decorate(
     let font_metrics = text.font.metrics();
     let width = text.width();
 
-    if let DecoLine::Highlight(fill) = &deco.line {
-        let descender = font_metrics.descender.at(text.size);
-        let ascender = font_metrics.ascender.at(text.size);
-        let height = ascender - descender;
-        let bg = Geometry::Rect(Size::new(width + 2.0 * deco.extent, height))
+    if let DecoLine::Highlight(fill, top_edge, bottom_edge) = &deco.line {
+        // return the top/bottom edge of the text given the metric of the font
+        fn get_top_bottom(
+            text: &TextItem,
+            top_edge: TopEdge,
+            bottom_edge: BottomEdge,
+            styles: StyleChain,
+        ) -> (Abs, Abs) {
+            let mut top = top_edge.resolve(styles, &text.font, None);
+            let mut bottom = bottom_edge.resolve(styles, &text.font, None);
+            // loop over the glyphs to extract the max/min for top and bottom edge
+            for g in text.glyphs.iter() {
+                if let Some(bb) =
+                    text.font.ttf().glyph_bounding_box(ttf_parser::GlyphId(g.id))
+                {
+                    top = top.max(text.font.to_em(bb.y_max).resolve(styles));
+                    bottom = bottom.min(text.font.to_em(bb.y_min).resolve(styles));
+                }
+            }
+            (top, bottom)
+        }
+        let (top, bottom) = get_top_bottom(text, *top_edge, *bottom_edge, styles);
+        let bg = Geometry::Rect(Size::new(width + 2.0 * deco.extent, top - bottom))
             .filled(fill.clone());
-        let offset = -ascender - shift;
+        let offset = (-top) - shift;
         let origin = Point::new(pos.x - deco.extent, pos.y + offset);
         frame.prepend(origin, FrameItem::Shape(bg, Span::detached()));
         return;
