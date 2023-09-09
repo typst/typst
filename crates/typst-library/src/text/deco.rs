@@ -282,9 +282,9 @@ pub struct HighlightElem {
     /// #let highlight-default = highlight.with(bottom-edge: "descender")
     /// #let highlight-tight = highlight.with(bottom-edge: "baseline")
     ///
-    /// #highlight-default[a], #highlight-default[ah]
+    /// #highlight-default[a], #highlight-default[ap]
     ///
-    /// #highlight-tight[a], #highlight-tight[ah]
+    /// #highlight-tight[a], #highlight-tight[ap]
     /// ```
     #[default(BottomEdge::Metric(BottomEdgeMetric::Descender))]
     pub bottom_edge: BottomEdge,
