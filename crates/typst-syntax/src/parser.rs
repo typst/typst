@@ -247,10 +247,10 @@ fn math(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
 }
 
 fn math_expr(p: &mut Parser) {
-    math_expr_prec(p, 0, SyntaxKind::Eof)
+    math_expr_prec(p, false, SyntaxKind::Eof)
 }
 
-fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
+fn math_expr_prec(p: &mut Parser, precedence: bool, stop: SyntaxKind) {
     let m = p.marker();
     let mut continuable = false;
     match p.current() {
@@ -269,8 +269,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 p.convert(SyntaxKind::Ident);
                 p.wrap(m, SyntaxKind::FieldAccess);
             }
-            if min_prec < 3 && p.directly_at(SyntaxKind::Text) && p.current_text() == "("
-            {
+            if p.directly_at(SyntaxKind::Text) && p.current_text() == "(" {
                 math_args(p);
                 p.wrap(m, SyntaxKind::FuncCall);
                 continuable = false;
@@ -294,13 +293,11 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         }
 
         SyntaxKind::Root => {
-            if min_prec < 3 {
-                p.eat();
-                let m2 = p.marker();
-                math_expr_prec(p, 2, stop);
-                math_unparen(p, m2);
-                p.wrap(m, SyntaxKind::MathRoot);
-            }
+            p.eat();
+            let m2 = p.marker();
+            math_expr_prec(p, true, stop);
+            math_unparen(p, m2);
+            p.wrap(m, SyntaxKind::MathRoot);
         }
 
         SyntaxKind::Prime => {
@@ -318,82 +315,77 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
         _ => p.expected("expression"),
     }
 
-    if continuable
-        && min_prec < 3
-        && p.prev_end() == p.current_start()
-        && maybe_delimited(p)
-    {
+    if continuable && p.prev_end() == p.current_start() && maybe_delimited(p) {
         p.wrap(m, SyntaxKind::Math);
     }
 
-    // Whether there were _any_ primes in the loop.
-    let mut primed = false;
-
-    while !p.eof() && !p.at(stop) {
-        if p.directly_at(SyntaxKind::Text) && p.current_text() == "!" {
-            p.eat();
-            p.wrap(m, SyntaxKind::Math);
-            continue;
-        }
-
-        let prime_marker = p.marker();
-        if p.eat_if_direct(SyntaxKind::Prime) {
-            // Eat as many primes as possible.
-            while p.eat_if_direct(SyntaxKind::Prime) {}
-            p.wrap(prime_marker, SyntaxKind::MathPrimes);
-
-            // Will not be continued, so need to wrap the prime as attachment.
-            if p.at(stop) {
-                p.wrap(m, SyntaxKind::MathAttach);
-            }
-
-            primed = true;
-            continue;
-        }
-
-        // Separate primes and superscripts to different attachments.
-        if primed && p.current() == SyntaxKind::Hat {
-            p.wrap(m, SyntaxKind::MathAttach);
-        }
-
-        let Some((kind, stop, assoc, mut prec)) = math_op(p.current()) else {
-            // No attachments, so we need to wrap primes as attachment.
-            if primed {
-                p.wrap(m, SyntaxKind::MathAttach);
-            }
-
-            break;
-        };
-
-        if primed && kind == SyntaxKind::MathFrac {
-            p.wrap(m, SyntaxKind::MathAttach);
-        }
-
-        if prec < min_prec {
-            break;
-        }
-
-        match assoc {
-            ast::Assoc::Left => prec += 1,
-            ast::Assoc::Right => {}
-        }
-
-        if kind == SyntaxKind::MathFrac {
-            math_unparen(p, m);
-        }
-
+    fn superscript(p: &mut Parser) {
         p.eat();
         let m2 = p.marker();
-        math_expr_prec(p, prec, stop);
+        math_expr_prec(p, true, SyntaxKind::Underscore);
         math_unparen(p, m2);
+    }
 
-        if p.eat_if(SyntaxKind::Underscore) || (!primed && p.eat_if(SyntaxKind::Hat)) {
-            let m3 = p.marker();
-            math_expr_prec(p, prec, SyntaxKind::Eof);
-            math_unparen(p, m3);
+    fn subscript(p: &mut Parser) {
+        p.eat();
+        let m2 = p.marker();
+        math_expr_prec(p, true, SyntaxKind::Hat);
+        math_unparen(p, m2);
+    }
+
+    fn primes(p: &mut Parser) -> bool {
+        let prime_marker = p.marker();
+        if !p.eat_if_direct(SyntaxKind::Prime) {
+            return true;
         }
+        while p.eat_if_direct(SyntaxKind::Prime) {}
+        p.wrap(prime_marker, SyntaxKind::MathPrimes);
+        false
+    }
 
-        p.wrap(m, kind);
+    // Parse following `!`, `'`,  `_`, `^` and `/`.
+    loop {
+        match p.current() {
+            _ if p.at(stop) => break,
+            SyntaxKind::Text => {
+                if p.current_text() != "!" || !p.eat_if_direct(SyntaxKind::Text) {
+                    break;
+                }
+                p.wrap(m, SyntaxKind::Math);
+            }
+            SyntaxKind::Prime => {
+                if primes(p) {
+                    break;
+                }
+                if p.current() == SyntaxKind::Underscore {
+                    subscript(p);
+                }
+                p.wrap(m, SyntaxKind::MathAttach);
+            }
+            SyntaxKind::Underscore => {
+                subscript(p);
+                if p.current() == SyntaxKind::Hat {
+                    superscript(p);
+                }
+                p.wrap(m, SyntaxKind::MathAttach);
+            }
+            SyntaxKind::Hat => {
+                superscript(p);
+                if p.current() == SyntaxKind::Underscore {
+                    subscript(p);
+                }
+                p.wrap(m, SyntaxKind::MathAttach);
+            }
+            SyntaxKind::Slash if !precedence => {
+                math_unparen(p, m);
+                p.eat();
+                let m2 = p.marker();
+                math_expr_prec(p, true, SyntaxKind::Eof);
+                math_unparen(p, m2);
+                p.wrap(m, SyntaxKind::MathFrac);
+            }
+            _ => break,
+        }
     }
 }
 
@@ -456,21 +448,6 @@ fn math_class(text: &str) -> Option<MathClass> {
         .next()
         .filter(|_| chars.next().is_none())
         .and_then(unicode_math_class::class)
-}
-
-fn math_op(kind: SyntaxKind) -> Option<(SyntaxKind, SyntaxKind, ast::Assoc, usize)> {
-    match kind {
-        SyntaxKind::Underscore => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Hat, ast::Assoc::Right, 2))
-        }
-        SyntaxKind::Hat => {
-            Some((SyntaxKind::MathAttach, SyntaxKind::Underscore, ast::Assoc::Right, 2))
-        }
-        SyntaxKind::Slash => {
-            Some((SyntaxKind::MathFrac, SyntaxKind::Eof, ast::Assoc::Left, 1))
-        }
-        _ => None,
-    }
 }
 
 fn math_args(p: &mut Parser) {
