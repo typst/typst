@@ -48,9 +48,9 @@
           commonCraneArgs = {
             inherit src pname version;
 
-            # buildInputs = optionals pkgs.stdenv.isDarwin [
-            #   pkgs.darwin.apple_sdk.frameworks.CoreServices
-            # ];
+            buildInputs = optionals pkgs.stdenv.isDarwin [
+              pkgs.darwin.apple_sdk.frameworks.CoreServices
+            ];
 
             nativeBuildInputs = [ pkgs.installShellFiles ];
           };
@@ -90,6 +90,7 @@
 
       perSystem = { pkgs, ... }:
         let
+		  inherit (pkgs) lib;
           typst = packageFor pkgs;
         in
         {
@@ -105,10 +106,10 @@
               cargo
             ];
 
-            # buildInputs = optionals pkgs.stdenv.isDarwin [
-            #   pkgs.darwin.apple_sdk.frameworks.CoreServices
-            #   pkgs.libiconv
-            # ];
+            buildInputs = lib.optionals pkgs.stdenv.isDarwin [
+              pkgs.darwin.apple_sdk.frameworks.CoreServices
+              pkgs.libiconv
+            ];
           };
         };
     };
