@@ -396,10 +396,10 @@ pub(super) fn decorate(
         _ => return,
     };
 
-    let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
+    let offset = offset.unwrap_or(-metrics.position.resolve(styles)) - shift;
     let stroke = stroke.clone().unwrap_or(Stroke {
         paint: text.fill.clone(),
-        thickness: metrics.thickness.at(text.size),
+        thickness: metrics.thickness.resolve(styles),
         ..Stroke::default()
     });
 
@@ -433,20 +433,20 @@ pub(super) fn decorate(
     let mut intersections = vec![];
 
     for glyph in text.glyphs.iter() {
-        let dx = glyph.x_offset.at(text.size) + x;
+        let dx = glyph.x_offset.resolve(styles) + x;
         let mut builder =
             BezPathBuilder::new(font_metrics.units_per_em, text.size, dx.to_raw());
 
         let bbox = text.font.ttf().outline_glyph(GlyphId(glyph.id), &mut builder);
         let path = builder.finish();
 
-        x += glyph.x_advance.at(text.size);
+        x += glyph.x_advance.resolve(styles);
 
         // Only do the costly segments intersection test if the line
         // intersects the bounding box.
         let intersect = bbox.map_or(false, |bbox| {
-            let y_min = -text.font.to_em(bbox.y_max).at(text.size);
-            let y_max = -text.font.to_em(bbox.y_min).at(text.size);
+            let y_min = -text.font.to_em(bbox.y_max).resolve(styles);
+            let y_max = -text.font.to_em(bbox.y_min).resolve(styles);
             offset >= y_min && offset <= y_max
         });
 
