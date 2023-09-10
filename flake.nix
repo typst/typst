@@ -90,7 +90,7 @@
 
       perSystem = { pkgs, ... }:
         let
-		  inherit (pkgs) lib;
+          inherit (pkgs) lib;
           typst = packageFor pkgs;
         in
         {
