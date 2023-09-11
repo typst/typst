@@ -83,7 +83,7 @@ fn retrieve(
 /// Format the query result in the output format.
 fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
     if command.one && elements.len() != 1 {
-        bail!("expected exactly one element, found {}", elements.len())
+        bail!("expected exactly one element, found {}", elements.len());
     }
 
     let mapped: Vec<_> = elements
@@ -95,7 +95,11 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
         .collect();
 
     if command.one {
-        serialize(&mapped[0], command.format)
+        let Some(value) = mapped.get(0)
+        else {
+            bail!("no such field found for element");
+        };
+        serialize(value, command.format)
     } else {
         serialize(&mapped, command.format)
     }
