@@ -12,12 +12,14 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
+use dssim::load_image;
 use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
 use tiny_skia as sk;
 use unscanny::Scanner;
+use usvg::TreeParsing;
 use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
@@ -26,7 +28,7 @@ use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer,
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
 use typst::syntax::{FileId, PackageVersion, Source, Span, SyntaxNode, VirtualPath};
-use typst::{World, WorldExt};
+use typst::{export, World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
 
@@ -428,9 +430,10 @@ fn test(
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
 
-        let svg = typst::export::svg_merged(&document.pages, Abs::pt(5.0));
+        let svg_canvas = render_svg(&document.pages);
         fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
-        std::fs::write(svg_path, svg).unwrap();
+        let rasterize_svg_path = format!("{}.png", svg_path.display());
+        svg_canvas.save_png(&rasterize_svg_path).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
             if canvas.width() != ref_pixmap.width()
@@ -448,6 +451,21 @@ fn test(
                     writeln!(output, "  Does not match reference image.").unwrap();
                     ok = false;
                 }
+            }
+            let dssim = dssim::Dssim::new();
+            let ref_img = load_image(&dssim, ref_path);
+            let test_img = load_image(&dssim, rasterize_svg_path);
+            if let (Ok(ref_img), Ok(test_img)) = (ref_img, test_img) {
+                let (score, diff_map) = dssim.compare(&ref_img, &test_img);
+                println!("score: {}", score);
+                if score > 0.01 {
+                    writeln!(output, "  Does not match reference image. score: {score}")
+                        .unwrap();
+                    ok = false;
+                }
+            } else {
+                writeln!(output, "  Failed to open reference image.").unwrap();
+                ok = false;
             }
         } else if !document.pages.is_empty() {
             if args.update {
@@ -918,6 +936,62 @@ fn render(frames: &[Frame]) -> sk::Pixmap {
     }
 
     pixmap
+}
+
+/// Draw all frames into one image with padding in between.
+fn render_svg(frames: &[Frame]) -> sk::Pixmap {
+    let pixel_per_pt: f32 = 2.0;
+    let pixmaps: Vec<_> = frames
+        .iter()
+        .map(|frame| {
+            let limit = Abs::cm(100.0);
+            if frame.width() > limit || frame.height() > limit {
+                panic!("overlarge frame: {:?}", frame.size());
+            }
+            let svg = export::svg(frame);
+            let document = roxmltree::Document::parse(&svg).unwrap();
+            let options = usvg::Options {
+                text_rendering: usvg::TextRendering::GeometricPrecision,
+                ..Default::default()
+            };
+            let tree = usvg::Tree::from_xmltree(&document, &options).unwrap();
+            let mut pixmap = sk::Pixmap::new(
+                (frame.width().to_pt() * pixel_per_pt as f64).round().max(1.0) as u32,
+                (frame.height().to_pt() * pixel_per_pt as f64).round().max(1.0) as u32,
+            )
+            .unwrap();
+            pixmap.fill(sk::Color::WHITE);
+            let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
+            resvg::render(&tree, resvg::FitTo::Original, ts, pixmap.as_mut()).unwrap();
+            pixmap
+        })
+        .collect();
+
+    let pad = (5.0 * pixel_per_pt).round() as u32;
+    let pxw = 2 * pad + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
+    let pxh = pad + pixmaps.iter().map(|pixmap| pixmap.height() + pad).sum::<u32>();
+
+    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
+    canvas.fill(sk::Color::BLACK);
+
+    let [x, mut y] = [pad; 2];
+    for (frame, mut pixmap) in frames.iter().zip(pixmaps) {
+        let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
+        render_links(&mut pixmap, ts, frame);
+
+        canvas.draw_pixmap(
+            x as i32,
+            y as i32,
+            pixmap.as_ref(),
+            &sk::PixmapPaint::default(),
+            sk::Transform::identity(),
+            None,
+        );
+
+        y += pixmap.height() + pad;
+    }
+
+    canvas
 }
 
 /// Draw extra boxes for links so we can see whether they are there.
