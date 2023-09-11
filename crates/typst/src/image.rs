@@ -76,10 +76,10 @@ impl Image {
         data: Bytes,
         format: ImageFormat,
         world: Tracked<dyn World + '_>,
-        fallback_family: Option<EcoString>,
+        fallback_families: EcoVec<String>,
         alt: Option<EcoString>,
     ) -> StrResult<Self> {
-        let loader = WorldLoader::new(world, fallback_family);
+        let loader = WorldLoader::new(world, fallback_families);
         let decoded = match format {
             ImageFormat::Raster(format) => decode_raster(&data, format)?,
             ImageFormat::Vector(VectorFormat::Svg) => {
@@ -342,23 +342,50 @@ fn load_svg_fonts(
         name
     };
 
-    // Load fallback family.
-    let mut fallback_usvg_compatible = None;
-    if let Some(family) = loader.fallback_family() {
-        fallback_usvg_compatible = load(family);
-    }
-
-    // Find out which font families are referenced by the SVG.
+    // Determine the best font for each text node.
     traverse_svg(&tree.root, &mut |node| {
         let usvg::NodeKind::Text(text) = &mut *node.borrow_mut() else { return };
         for chunk in &mut text.chunks {
             for span in &mut chunk.spans {
-                for family in &mut span.font.families {
-                    if family.is_empty() || load(family).is_none() {
-                        if let Some(fallback) = &fallback_usvg_compatible {
-                            *family = fallback.into();
+                let text = chunk
+                    .text
+                    .chars()
+                    .skip(span.start)
+                    .take(span.end - span.start)
+                    .collect::<EcoString>();
+
+                // Find a font that covers all characters in the span while
+                // taking the fallback order into account.
+                let font = span
+                    .font
+                    .families
+                    .iter()
+                    .chain(loader.fallback_families().iter())
+                    .filter(|family| !family.is_empty())
+                    .find_map(|family| {
+                        let fonts = loader.load(family.to_lowercase().as_str());
+                        let full_coverage = fonts.iter().any(|font| {
+                            text.chars().all(|c| font.info().coverage.contains(c as u32))
+                        });
+                        match full_coverage {
+                            true => load(&family),
+                            false => None,
+                        }
+                    });
+
+                match font {
+                    Some(font) => span.font.families = vec![font.to_string()],
+                    None if span.font.families[0].is_empty() => {
+                        // Use first fallback if no complete font was found.
+                        if let Some(fallback) = loader
+                            .fallback_families()
+                            .first()
+                            .and_then(|family| load(family.as_str()))
+                        {
+                            span.font.families[0] = fallback.to_string();
                         }
                     }
+                    None => { /* Keep the specified font */ }
                 }
             }
         }
@@ -395,29 +422,29 @@ trait SvgFontLoader {
     /// Load all fonts for the given lowercased font family.
     fn load(&self, family: &str) -> EcoVec<Font>;
 
-    /// The fallback family.
-    fn fallback_family(&self) -> Option<&str>;
+    /// Prioritized sequence of fallback font families.
+    fn fallback_families(&self) -> &[String];
 }
 
 /// Loads fonts for an SVG from a world
 struct WorldLoader<'a> {
     world: Tracked<'a, dyn World + 'a>,
     seen: RefCell<BTreeMap<EcoString, EcoVec<Font>>>,
-    fallback_family: Option<EcoString>,
+    fallback_families: EcoVec<String>,
 }
 
 impl<'a> WorldLoader<'a> {
     fn new(
         world: Tracked<'a, dyn World + 'a>,
-        fallback_family: Option<EcoString>,
+        fallback_families: EcoVec<String>,
     ) -> Self {
-        Self { world, fallback_family, seen: Default::default() }
+        Self { world, fallback_families, seen: Default::default() }
     }
 
     fn into_prepared(self) -> PreparedLoader {
         PreparedLoader {
             families: self.seen.into_inner(),
-            fallback_family: self.fallback_family,
+            fallback_families: self.fallback_families,
         }
     }
 }
@@ -437,8 +464,8 @@ impl SvgFontLoader for WorldLoader<'_> {
             .clone()
     }
 
-    fn fallback_family(&self) -> Option<&str> {
-        self.fallback_family.as_deref()
+    fn fallback_families(&self) -> &[String] {
+        self.fallback_families.as_slice()
     }
 }
 
@@ -446,7 +473,7 @@ impl SvgFontLoader for WorldLoader<'_> {
 #[derive(Default, Hash)]
 struct PreparedLoader {
     families: BTreeMap<EcoString, EcoVec<Font>>,
-    fallback_family: Option<EcoString>,
+    fallback_families: EcoVec<String>,
 }
 
 impl SvgFontLoader for PreparedLoader {
@@ -454,8 +481,8 @@ impl SvgFontLoader for PreparedLoader {
         self.families.get(family).cloned().unwrap_or_default()
     }
 
-    fn fallback_family(&self) -> Option<&str> {
-        self.fallback_family.as_deref()
+    fn fallback_families(&self) -> &[String] {
+        self.fallback_families.as_slice()
     }
 }
 

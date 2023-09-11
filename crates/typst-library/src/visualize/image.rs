@@ -160,7 +160,7 @@ impl Layout for ImageElem {
             data.into(),
             format,
             vt.world,
-            families(styles).next().map(|s| s.as_str().into()),
+            families(styles).map(|s| s.as_str().into()).collect(),
             self.alt(styles),
         )
         .at(self.span())?;
