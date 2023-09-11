@@ -17,6 +17,7 @@ use std::process::ExitCode;
 
 use clap::Parser;
 use codespan_reporting::term::{self, termcolor};
+use once_cell::sync::Lazy;
 use termcolor::{ColorChoice, WriteColor};
 
 use crate::args::{CliArguments, Command};
@@ -26,10 +27,12 @@ thread_local! {
     static EXIT: Cell<ExitCode> = Cell::new(ExitCode::SUCCESS);
 }
 
+/// The parsed commandline arguments.
+static ARGS: Lazy<CliArguments> = Lazy::new(CliArguments::parse);
+
 /// Entry point.
 fn main() -> ExitCode {
-    let arguments = CliArguments::parse();
-    let _guard = match crate::tracing::setup_tracing(&arguments) {
+    let _guard = match crate::tracing::setup_tracing(&ARGS) {
         Ok(guard) => guard,
         Err(err) => {
             eprintln!("failed to initialize tracing {}", err);
@@ -37,9 +40,9 @@ fn main() -> ExitCode {
         }
     };
 
-    let res = match arguments.command {
-        Command::Compile(command) => crate::compile::compile(command),
-        Command::Watch(command) => crate::watch::watch(command),
+    let res = match &ARGS.command {
+        Command::Compile(command) => crate::compile::compile(command.clone()),
+        Command::Watch(command) => crate::watch::watch(command.clone()),
         Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command),
@@ -89,7 +92,7 @@ mod update {
     use crate::args::UpdateCommand;
     use typst::diag::{bail, StrResult};
 
-    pub fn update(_: UpdateCommand) -> StrResult<()> {
+    pub fn update(_: &UpdateCommand) -> StrResult<()> {
         bail!(
             "self-updating is not enabled for this executable, \
              please update with the package manager or mechanism \

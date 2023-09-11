@@ -661,6 +661,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "env_proxy"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a5019be18538406a43b5419a5501461f0c8b49ea7dfda0cfc32f4e51fc44be1"
+dependencies = [
+ "log",
+ "url",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2173,6 +2183,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-pemfile"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d3987094b1d07b653b7dfdc3f70ce9a1da9c51ac18c1b06b662e4f9a0e9f4b2"
+dependencies = [
+ "base64",
+]
+
+[[package]]
 name = "rustls-webpki"
 version = "0.100.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2906,6 +2925,7 @@ dependencies = [
  "codespan-reporting",
  "comemo",
  "dirs",
+ "env_proxy",
  "flate2",
  "inferno",
  "memmap2",
@@ -2913,6 +2933,8 @@ dependencies = [
  "once_cell",
  "open",
  "pathdiff 0.1.0",
+ "rustls",
+ "rustls-pemfile",
  "same-file",
  "self-replace",
  "semver",

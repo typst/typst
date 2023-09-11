@@ -12,7 +12,7 @@ use crate::set_failed;
 use crate::world::SystemWorld;
 
 /// Execute a query command.
-pub fn query(command: QueryCommand) -> StrResult<()> {
+pub fn query(command: &QueryCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
     tracing::info!("Starting querying");
 
@@ -27,8 +27,8 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     match result {
         // Retrieve and print query results.
         Ok(document) => {
-            let data = retrieve(&world, &command, &document)?;
-            let serialized = format(data, &command)?;
+            let data = retrieve(&world, command, &document)?;
+            let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.common.diagnostic_format)
                 .map_err(|_| "failed to print diagnostics")?;
