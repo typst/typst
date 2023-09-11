@@ -34,6 +34,11 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => Str(format_str!("{a}{b}")),
+        (Str(a), Type(b)) => Str(format_str!("{a}{b}")),
+
         (a, b) => mismatch!("cannot join {} with {}", a, b),
     })
 }
@@ -118,6 +123,10 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Duration(a), Duration(b)) => Duration(a + b),
         (Datetime(a), Duration(b)) => Datetime(a + b),
         (Duration(a), Datetime(b)) => Datetime(b + a),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => Str(format_str!("{a}{b}")),
+        (Str(a), Type(b)) => Str(format_str!("{a}{b}")),
 
         (Dyn(a), Dyn(b)) => {
             // Alignments can be summed.
@@ -380,6 +389,10 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (&Relative(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
         (&Relative(a), &Ratio(b)) => a.rel == b && a.abs.is_zero(),
 
+        // Type compatibility.
+        (Type(a), Str(b)) => a.compat_name() == b.as_str(),
+        (Str(a), Type(b)) => a.as_str() == b.compat_name(),
+
         _ => false,
     }
 }
@@ -449,6 +462,11 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
         (Dyn(a), Str(b)) => a.downcast::<Regex>().map(|regex| regex.is_match(b)),
         (Str(a), Dict(b)) => Some(b.contains(a)),
         (a, Array(b)) => Some(b.contains(a.clone())),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => Some(b.as_str().contains(a.compat_name())),
+        (Type(a), Dict(b)) => Some(b.contains(a.compat_name())),
+
         _ => Option::None,
     }
 }

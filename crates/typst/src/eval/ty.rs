@@ -80,6 +80,14 @@ impl Type {
     }
 }
 
+// Type compatibility.
+impl Type {
+    /// The type's backwards-compatible name.
+    pub fn compat_name(&self) -> &str {
+        self.long_name()
+    }
+}
+
 #[scope]
 impl Type {
     /// Determines a value's type.
