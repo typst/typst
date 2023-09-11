@@ -485,10 +485,9 @@ fn load_syntaxes(paths: &SyntaxPaths, bytes: &[Bytes]) -> StrResult<Arc<SyntaxSe
     // We might have multiple sublime-syntax/yaml files
     for (path, bytes) in paths.0.iter().zip(bytes.iter()) {
         let src = std::str::from_utf8(bytes).map_err(FileError::from)?;
-        out.add(
-            SyntaxDefinition::load_from_str(src, false, None)
-                .map_err(|e| eco_format!("failed to parse syntax file `{path}`: {e}"))?,
-        );
+        out.add(SyntaxDefinition::load_from_str(src, false, None).map_err(|err| {
+            eco_format!("failed to parse syntax file `{path}` ({err})")
+        })?);
     }
 
     Ok(Arc::new(out.build()))
@@ -528,7 +527,7 @@ fn load_theme(path: EcoString, bytes: Bytes) -> StrResult<Arc<synt::Theme>> {
 
     synt::ThemeSet::load_from_reader(&mut cursor)
         .map(Arc::new)
-        .map_err(|e| eco_format!("failed to parse theme file `{path}`: {e}"))
+        .map_err(|err| eco_format!("failed to parse theme file `{path}` ({err})"))
 }
 
 /// Function to parse the theme argument.

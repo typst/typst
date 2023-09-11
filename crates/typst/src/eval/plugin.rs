@@ -42,7 +42,7 @@ impl Plugin {
     pub fn new(bytes: Bytes) -> StrResult<Self> {
         let engine = Engine::default();
         let module = Module::new(&engine, bytes.as_slice())
-            .map_err(|err| format!("failed to load WebAssembly module: {err}"))?;
+            .map_err(|err| format!("failed to load WebAssembly module ({err})"))?;
 
         let mut linker = Linker::new(&engine);
         linker

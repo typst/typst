@@ -650,8 +650,8 @@ fn parse_bib(path_str: &str, src: &str) -> StrResult<Vec<hayagriva::Entry>> {
 }
 
 /// Format a Hayagriva loading error.
-fn format_hayagriva_error(error: YamlBibliographyError) -> EcoString {
-    eco_format!("{error}")
+fn format_hayagriva_error(err: YamlBibliographyError) -> EcoString {
+    eco_format!("{err}")
 }
 
 /// Format a BibLaTeX loading error.

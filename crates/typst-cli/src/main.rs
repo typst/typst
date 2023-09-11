@@ -35,7 +35,7 @@ fn main() -> ExitCode {
     let _guard = match crate::tracing::setup_tracing(&ARGS) {
         Ok(guard) => guard,
         Err(err) => {
-            eprintln!("failed to initialize tracing {}", err);
+            eprintln!("failed to initialize tracing ({err})");
             None
         }
     };

@@ -1,5 +1,6 @@
 use typst::diag::{format_xml_like_error, FileError};
 use typst::eval::Bytes;
+use typst::syntax::is_newline;
 
 use crate::prelude::*;
 
@@ -197,15 +198,16 @@ cast! {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
-    match error.kind() {
+fn format_csv_error(err: csv::Error, line: usize) -> EcoString {
+    match err.kind() {
         csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
         csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             eco_format!(
-                "failed to parse csv file: found {len} instead of {expected_len} fields in line {line}"
+                "failed to parse CSV (found {len} instead of \
+                 {expected_len} fields in line {line})"
             )
         }
-        _ => "failed to parse csv file".into(),
+        _ => eco_format!("failed to parse CSV ({err})"),
     }
 }
 
@@ -278,7 +280,7 @@ pub fn json_decode(
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
     serde_json::from_slice(data.as_slice())
-        .map_err(format_json_error)
+        .map_err(|err| eco_format!("failed to parse JSON ({err})"))
         .at(span)
 }
 
@@ -302,14 +304,8 @@ pub fn json_encode(
         serde_json::to_string(&value)
     }
     .map(|v| v.into())
-    .map_err(|e| eco_format!("failed to encode value as json: {e}"))
+    .map_err(|err| eco_format!("failed to encode value as JSON ({err})"))
     .at(span)
-}
-
-/// Format the user-facing JSON error message.
-fn format_json_error(error: serde_json::Error) -> EcoString {
-    assert!(error.is_syntax() || error.is_eof());
-    eco_format!("failed to parse json file: syntax error in line {}", error.line())
 }
 
 /// Reads structured data from a TOML file.
@@ -366,7 +362,9 @@ pub fn toml_decode(
     let raw = std::str::from_utf8(data.as_slice())
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
-    toml::from_str(raw).map_err(format_toml_error).at(span)
+    toml::from_str(raw)
+        .map_err(|err| format_toml_error(err, raw))
+        .at(span)
 }
 
 /// Encodes structured data into a TOML string.
@@ -385,21 +383,21 @@ pub fn toml_encode(
     let Spanned { v: value, span } = value;
     if pretty { toml::to_string_pretty(&value) } else { toml::to_string(&value) }
         .map(|v| v.into())
-        .map_err(|e| eco_format!("failed to encode value as toml: {e}"))
+        .map_err(|err| eco_format!("failed to encode value as TOML ({err})"))
         .at(span)
 }
 
 /// Format the user-facing TOML error message.
-fn format_toml_error(error: toml::de::Error) -> EcoString {
-    if let Some(range) = error.span() {
+fn format_toml_error(error: toml::de::Error, raw: &str) -> EcoString {
+    if let Some(head) = error.span().and_then(|range| raw.get(..range.start)) {
+        let line = head.lines().count();
+        let column = 1 + head.chars().rev().take_while(|&c| !is_newline(c)).count();
         eco_format!(
-            "failed to parse toml file: {}, index {}-{}",
+            "failed to parse TOML ({} at line {line} column {column})",
             error.message(),
-            range.start,
-            range.end
         )
     } else {
-        eco_format!("failed to parse toml file: {}", error.message())
+        eco_format!("failed to parse TOML ({})", error.message())
     }
 }
 
@@ -464,7 +462,7 @@ pub fn yaml_decode(
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
     serde_yaml::from_slice(data.as_slice())
-        .map_err(format_yaml_error)
+        .map_err(|err| eco_format!("failed to parse YAML ({err})"))
         .at(span)
 }
 
@@ -480,13 +478,8 @@ pub fn yaml_encode(
     let Spanned { v: value, span } = value;
     serde_yaml::to_string(&value)
         .map(|v| v.into())
-        .map_err(|e| eco_format!("failed to encode value as yaml: {e}"))
+        .map_err(|err| eco_format!("failed to encode value as YAML ({err})"))
         .at(span)
-}
-
-/// Format the user-facing YAML error message.
-fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
-    eco_format!("failed to parse yaml file: {}", error.to_string().trim())
 }
 
 /// Reads structured data from a CBOR file.
@@ -529,7 +522,7 @@ pub fn cbor_decode(
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
     ciborium::from_reader(data.as_slice())
-        .map_err(|e| eco_format!("failed to parse cbor: {e}"))
+        .map_err(|err| eco_format!("failed to parse CBOR ({err})"))
         .at(span)
 }
 
@@ -546,7 +539,7 @@ pub fn cbor_encode(
     let mut res = Vec::new();
     ciborium::into_writer(&value, &mut res)
         .map(|_| res.into())
-        .map_err(|e| eco_format!("failed to encode value as cbor: {e}"))
+        .map_err(|err| eco_format!("failed to encode value as CBOR ({err})"))
         .at(span)
 }
 
@@ -661,5 +654,5 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 
 /// Format the user-facing XML error message.
 fn format_xml_error(error: roxmltree::Error) -> EcoString {
-    format_xml_like_error("xml file", error)
+    format_xml_like_error("XML", error)
 }

@@ -221,5 +221,5 @@
 #datetime.today().display("  []")
 
 ---
-// Error: 26-36 failed to format datetime in the requested format
+// Error: 26-36 failed to format datetime (insufficient information)
 #datetime.today().display("[hour]")

@@ -2925,6 +2925,7 @@ dependencies = [
  "codespan-reporting",
  "comemo",
  "dirs",
+ "ecow",
  "env_proxy",
  "flate2",
  "inferno",

@@ -8,7 +8,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked};
-use ecow::{EcoString, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
@@ -463,7 +463,7 @@ impl SvgFontLoader for PreparedLoader {
 fn format_image_error(error: image::ImageError) -> EcoString {
     match error {
         image::ImageError::Limits(_) => "file is too large".into(),
-        _ => "failed to decode image".into(),
+        err => eco_format!("failed to decode image ({err})"),
     }
 }
 
@@ -474,8 +474,8 @@ fn format_usvg_error(error: usvg::Error) -> EcoString {
         usvg::Error::MalformedGZip => "file is not compressed correctly".into(),
         usvg::Error::ElementsLimitReached => "file is too large".into(),
         usvg::Error::InvalidSize => {
-            "failed to parse svg: width, height, or viewbox is invalid".into()
+            "failed to parse SVG (width, height, or viewbox is invalid)".into()
         }
-        usvg::Error::ParsingFailed(error) => format_xml_like_error("svg", error),
+        usvg::Error::ParsingFailed(error) => format_xml_like_error("SVG", error),
     }
 }

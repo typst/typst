@@ -228,7 +228,10 @@ impl Debug for Datetime {
 fn format_time_format_error(error: Format) -> EcoString {
     match error {
         Format::InvalidComponent(name) => eco_format!("invalid component '{}'", name),
-        _ => "failed to format datetime in the requested format".into(),
+        Format::InsufficientTypeInformation { .. } => {
+            "failed to format datetime (insufficient information)".into()
+        }
+        err => eco_format!("failed to format datetime in the requested format ({err})"),
     }
 }
 
@@ -263,6 +266,6 @@ fn format_time_invalid_format_description_error(
         InvalidFormatDescription::NotSupported { context, what, index, .. } => {
             eco_format!("{} is not supported in {} at index {}", what, context, index)
         }
-        _ => "failed to parse datetime format".into(),
+        err => eco_format!("failed to parse datetime format ({err})"),
     }
 }
