@@ -50,3 +50,16 @@ This text can be fitted in one line.
 lorem ipsum 1234, lorem ipsum dolor sit amet
 
 #"  leading whitespace should still be displayed"
+
+---
+// Test that justification doesn't break code blocks
+
+#set par(justify: true)
+
+```cpp
+int main() {
+  printf("Hello world\n");
+  return 0;
+}
+```
+

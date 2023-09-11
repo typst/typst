@@ -16,6 +16,7 @@ mod args;
 mod auto;
 mod bytes;
 mod datetime;
+mod duration;
 mod fields;
 mod func;
 mod int;
@@ -48,6 +49,7 @@ pub use self::cast::{
 };
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
+pub use self::duration::Duration;
 pub use self::fields::fields_on;
 pub use self::func::{Func, FuncInfo, NativeFunc, ParamInfo};
 pub use self::library::{set_lang_items, LangItems, Library};
@@ -66,6 +68,7 @@ use std::mem;
 
 use comemo::{Track, Tracked, TrackedMut, Validate};
 use ecow::{EcoString, EcoVec};
+use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -90,7 +93,7 @@ const MAX_CALL_DEPTH: usize = 64;
 
 /// Evaluate a source file and return the resulting module.
 #[comemo::memoize]
-#[tracing::instrument(skip(world, route, tracer, source))]
+#[tracing::instrument(skip_all)]
 pub fn eval(
     world: Tracked<dyn World + '_>,
     route: Tracked<Route>,
@@ -108,9 +111,9 @@ pub fn eval(
     set_lang_items(library.items.clone());
 
     // Prepare VT.
-    let mut locator = Locator::default();
+    let mut locator = Locator::new();
     let introspector = Introspector::default();
-    let mut delayed = DelayedErrors::default();
+    let mut delayed = DelayedErrors::new();
     let vt = Vt {
         world,
         introspector: introspector.track(),
@@ -122,11 +125,11 @@ pub fn eval(
     // Prepare VM.
     let route = Route::insert(route, id);
     let scopes = Scopes::new(Some(library));
-    let mut vm = Vm::new(vt, route.track(), id, scopes);
+    let mut vm = Vm::new(vt, route.track(), Some(id), scopes);
 
     let root = source.root();
     let errors = root.errors();
-    if !errors.is_empty() && vm.traced.is_none() {
+    if !errors.is_empty() && vm.inspected.is_none() {
         return Err(Box::new(errors.into_iter().map(Into::into).collect()));
     }
 
@@ -175,9 +178,9 @@ pub fn eval_string(
     }
 
     // Prepare VT.
-    let mut tracer = Tracer::default();
-    let mut locator = Locator::default();
-    let mut delayed = DelayedErrors::default();
+    let mut tracer = Tracer::new();
+    let mut locator = Locator::new();
+    let mut delayed = DelayedErrors::new();
     let introspector = Introspector::default();
     let vt = Vt {
         world,
@@ -189,9 +192,8 @@ pub fn eval_string(
 
     // Prepare VM.
     let route = Route::default();
-    let id = FileId::detached();
     let scopes = Scopes::new(Some(world.library()));
-    let mut vm = Vm::new(vt, route.track(), id, scopes);
+    let mut vm = Vm::new(vt, route.track(), None, scopes);
     vm.scopes.scopes.push(scope);
 
     // Evaluate the code.
@@ -200,9 +202,10 @@ pub fn eval_string(
         EvalMode::Markup => {
             Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
-        EvalMode::Math => {
-            Value::Content(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
-        }
+        EvalMode::Math => Value::Content((vm.items.equation)(
+            root.cast::<ast::Math>().unwrap().eval(&mut vm)?,
+            false,
+        )),
     };
 
     // Handle control flow.
@@ -235,16 +238,16 @@ pub struct Vm<'a> {
     items: LangItems,
     /// The route of source ids the VM took to reach its current location.
     route: Tracked<'a, Route<'a>>,
-    /// The current location.
-    location: FileId,
+    /// The id of the currently evaluated file.
+    file: Option<FileId>,
     /// A control flow event that is currently happening.
     flow: Option<FlowEvent>,
     /// The stack of scopes.
     scopes: Scopes<'a>,
     /// The current call depth.
     depth: usize,
-    /// A span that is currently traced.
-    traced: Option<Span>,
+    /// A span that is currently under inspection.
+    inspected: Option<Span>,
 }
 
 impl<'a> Vm<'a> {
@@ -252,20 +255,20 @@ impl<'a> Vm<'a> {
     fn new(
         vt: Vt<'a>,
         route: Tracked<'a, Route>,
-        location: FileId,
+        file: Option<FileId>,
         scopes: Scopes<'a>,
     ) -> Self {
-        let traced = vt.tracer.span(location);
+        let inspected = file.and_then(|id| vt.tracer.inspected(id));
         let items = vt.world.library().items.clone();
         Self {
             vt,
             items,
             route,
-            location,
+            file,
             flow: None,
             scopes,
             depth: 0,
-            traced,
+            inspected,
         }
     }
 
@@ -274,17 +277,29 @@ impl<'a> Vm<'a> {
         self.vt.world
     }
 
-    /// The location to which paths are relative currently.
-    pub fn location(&self) -> FileId {
-        self.location
+    /// The id of the currently evaluated file.
+    ///
+    /// Returns `None` if the VM is in a detached context, e.g. when evaluating
+    /// a user-provided string.
+    pub fn file(&self) -> Option<FileId> {
+        self.file
+    }
+
+    /// Resolve a path relative to the currently evaluated file.
+    pub fn resolve_path(&self, path: &str) -> StrResult<FileId> {
+        let Some(file) = self.file else {
+            bail!("cannot access file system from here");
+        };
+
+        Ok(file.join(path))
     }
 
     /// Define a variable in the current scope.
     #[tracing::instrument(skip_all)]
     pub fn define(&mut self, var: ast::Ident, value: impl IntoValue) {
         let value = value.into_value();
-        if self.traced == Some(var.span()) {
-            self.vt.tracer.trace(value.clone());
+        if self.inspected == Some(var.span()) {
+            self.vt.tracer.value(value.clone());
         }
         self.scopes.top.define(var.get().clone(), value);
     }
@@ -331,8 +346,8 @@ pub struct Route<'a> {
 
 impl<'a> Route<'a> {
     /// Create a new route with just one entry.
-    pub fn new(id: FileId) -> Self {
-        Self { id: Some(id), outer: None }
+    pub fn new(id: Option<FileId>) -> Self {
+        Self { id, outer: None }
     }
 
     /// Insert a new id into the route.
@@ -501,8 +516,8 @@ impl Eval for ast::Expr<'_> {
         }?
         .spanned(span);
 
-        if vm.traced == Some(span) {
-            vm.vt.tracer.trace(v.clone());
+        if vm.inspected == Some(span) {
+            vm.vt.tracer.value(v.clone());
         }
 
         Ok(v)
@@ -1301,7 +1316,7 @@ impl Eval for ast::Closure<'_> {
         // Define the closure.
         let closure = Closure {
             node: self.to_untyped().clone(),
-            location: vm.location,
+            file: vm.file,
             defaults,
             captured,
         };
@@ -1691,15 +1706,30 @@ impl Eval for ast::ForLoop<'_> {
 }
 
 /// Applies imports from `import` to the current scope.
-fn apply_imports<V: IntoValue>(
+fn apply_imports<V: IntoValue + Clone>(
     imports: Option<ast::Imports>,
     vm: &mut Vm,
     source_value: V,
-    name: impl Fn(&V) -> EcoString,
+    new_name: Option<&str>,
+    name: impl FnOnce(&V) -> EcoString,
     scope: impl Fn(&V) -> &Scope,
 ) -> SourceResult<()> {
+    if let Some(new_name) = new_name {
+        // Renamed module => define it on the scope (possibly with further items).
+        if imports.is_none() {
+            // Avoid unneeded clone when there are no imported items.
+            vm.scopes.top.define(new_name, source_value);
+            return Ok(());
+        } else {
+            vm.scopes.top.define(new_name, source_value.clone());
+        }
+    }
+
     match imports {
         None => {
+            // If the module were renamed and there were no imported items, we
+            // would have returned above. It is therefore safe to import the
+            // module with its original name here.
             vm.scopes.top.define(name(&source_value), source_value);
         }
         Some(ast::Imports::Wildcard) => {
@@ -1710,11 +1740,22 @@ fn apply_imports<V: IntoValue>(
         Some(ast::Imports::Items(items)) => {
             let mut errors = vec![];
             let scope = scope(&source_value);
-            for ident in items.idents() {
-                if let Some(value) = scope.get(&ident) {
-                    vm.define(ident, value.clone());
+            for item in items.iter() {
+                let original_ident = item.original_name();
+                if let Some(value) = scope.get(&original_ident) {
+                    if let ast::ImportItem::Renamed(renamed_item) = &item {
+                        if renamed_item.original_name().as_str()
+                            == renamed_item.new_name().as_str()
+                        {
+                            vm.vt.tracer.warn(warning!(
+                                renamed_item.new_name().span(),
+                                "unnecessary import rename to same name",
+                            ));
+                        }
+                    }
+                    vm.define(item.bound_name(), value.clone());
                 } else {
-                    errors.push(error!(ident.span(), "unresolved import"));
+                    errors.push(error!(original_ident.span(), "unresolved import"));
                 }
             }
             if !errors.is_empty() {
@@ -1733,6 +1774,20 @@ impl Eval for ast::ModuleImport<'_> {
     fn eval(self, vm: &mut Vm) -> SourceResult<Self::Output> {
         let span = self.source().span();
         let source = self.source().eval(vm)?;
+        let new_name_ident = self.new_name();
+        let new_name = new_name_ident.map(ast::Ident::as_str);
+        if_chain! {
+            if let Some(new_name_ident) = new_name_ident;
+            if let ast::Expr::Ident(ident) = self.source();
+            if ident.as_str() == new_name_ident.as_str();
+            then {
+                // warn on `import x as x`
+                vm.vt.tracer.warn(warning!(
+                    new_name_ident.span(),
+                    "unnecessary import rename to same name",
+                ));
+            }
+        }
         if let Value::Func(func) = source {
             if func.info().is_none() {
                 bail!(span, "cannot import from user-defined functions");
@@ -1741,6 +1796,7 @@ impl Eval for ast::ModuleImport<'_> {
                 self.imports(),
                 vm,
                 func,
+                new_name,
                 |func| func.info().unwrap().name.into(),
                 |func| &func.info().unwrap().scope,
             )?;
@@ -1750,6 +1806,7 @@ impl Eval for ast::ModuleImport<'_> {
                 self.imports(),
                 vm,
                 module,
+                new_name,
                 |module| module.name().clone(),
                 |module| module.scope(),
             )?;
@@ -1809,7 +1866,7 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
     manifest.validate(&spec).at(span)?;
 
     // Evaluate the entry point.
-    let entrypoint_id = manifest_id.join(&manifest.package.entrypoint).at(span)?;
+    let entrypoint_id = manifest_id.join(&manifest.package.entrypoint);
     let source = vm.world().source(entrypoint_id).at(span)?;
     let point = || Tracepoint::Import;
     Ok(eval(vm.world(), vm.route, TrackedMut::reborrow_mut(&mut vm.vt.tracer), &source)
@@ -1821,7 +1878,7 @@ fn import_package(vm: &mut Vm, spec: PackageSpec, span: Span) -> SourceResult<Mo
 fn import_file(vm: &mut Vm, path: &str, span: Span) -> SourceResult<Module> {
     // Load the source file.
     let world = vm.world();
-    let id = vm.location().join(path).at(span)?;
+    let id = vm.resolve_path(path).at(span)?;
     let source = world.source(id).at(span)?;
 
     // Prevent cyclic importing.
@@ -1864,6 +1921,16 @@ impl PackageManifest {
             );
         }
 
+        if let Some(compiler) = self.package.compiler {
+            let current = PackageVersion::compiler();
+            if current < compiler {
+                bail!(
+                    "package requires typst {compiler} or newer \
+                     (current version is {current})"
+                );
+            }
+        }
+
         Ok(())
     }
 }
@@ -1879,6 +1946,8 @@ struct PackageInfo {
     version: PackageVersion,
     /// The path of the entrypoint into the package.
     entrypoint: EcoString,
+    /// The minimum required compiler version for the package.
+    compiler: Option<PackageVersion>,
 }
 
 impl Eval for ast::LoopBreak<'_> {
@@ -1943,8 +2012,8 @@ impl Access for ast::Ident<'_> {
     fn access<'a>(self, vm: &'a mut Vm) -> SourceResult<&'a mut Value> {
         let span = self.span();
         let value = vm.scopes.get_mut(&self).at(span)?;
-        if vm.traced == Some(span) {
-            vm.vt.tracer.trace(value.clone());
+        if vm.inspected == Some(span) {
+            vm.vt.tracer.value(value.clone());
         }
         Ok(value)
     }

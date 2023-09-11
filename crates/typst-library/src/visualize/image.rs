@@ -44,7 +44,7 @@ pub struct ImageElem {
     #[parse(
         let Spanned { v: path, span } =
             args.expect::<Spanned<EcoString>>("path to image file")?;
-        let id = vm.location().join(&path).at(span)?;
+        let id = vm.resolve_path(&path).at(span)?;
         let data = vm.world().file(id).at(span)?;
         path
     )]
@@ -73,7 +73,7 @@ pub struct ImageElem {
     pub fit: ImageFit,
 }
 
-/// Decode a raster of vector graphic from bytes or a string.
+/// Decode a raster or vector graphic from bytes or a string.
 ///
 /// ## Example { #example }
 /// ```example
@@ -168,7 +168,7 @@ impl Layout for ImageElem {
             data.into(),
             format,
             vt.world,
-            families(styles).next().as_ref().map(|f| f.as_str()),
+            families(styles).next().map(|s| s.as_str().into()),
             self.alt(styles),
         )
         .at(self.span())?;

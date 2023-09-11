@@ -86,7 +86,7 @@
 ---
 // Test reading YAML data
 #let data = yaml("/files/yaml-types.yaml")
-#test(data.len(), 8)
+#test(data.len(), 9)
 #test(data.null_key, (none, none))
 #test(data.string, "text")
 #test(data.integer, 5)
@@ -95,7 +95,7 @@
 #test(data.seq, (1,2,3,4))
 #test(data.bool, false)
 #test(data.keys().contains("true"), true)
----
+#test(data.at("1"), "ok")
 
 ---
 // Error: 7-24 failed to parse yaml file: while parsing a flow sequence, expected ',' or ']' at line 2 column 1

@@ -45,6 +45,11 @@ impl Array {
         Self::default()
     }
 
+    /// Creates a new vec, with a known capacity.
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self(EcoVec::with_capacity(capacity))
+    }
+
     /// Return `true` if the length is 0.
     pub fn is_empty(&self) -> bool {
         self.0.len() == 0
@@ -312,14 +317,45 @@ impl Array {
         Array(vec)
     }
 
-    /// Zips the array with another array. If the two arrays are of unequal length, it will only
-    /// zip up until the last element of the smaller array and the remaining elements will be
-    /// ignored. The return value is an array where each element is yet another array of size 2.
-    pub fn zip(&self, other: Array) -> Array {
-        self.iter()
-            .zip(other)
-            .map(|(first, second)| array![first.clone(), second].into_value())
-            .collect()
+    /// The method `array.zip`, depending on the arguments, it automatically
+    /// detects whether it should use the single zip operator, which depends
+    /// on the standard library's implementation and can therefore be faster.
+    /// Or it zips using a manual implementation which allows for zipping more
+    /// than two arrays at once.
+    pub fn zip(&self, args: &mut Args) -> SourceResult<Self> {
+        // Fast path for just two arrays.
+        if args.remaining() <= 1 {
+            return Ok(self
+                .iter()
+                .zip(args.expect::<Array>("others")?)
+                .map(|(first, second)| array![first.clone(), second].into_value())
+                .collect());
+        }
+
+        // If there is more than one array, we use the manual method.
+        let mut out = Self::with_capacity(self.len());
+        let mut iterators = args
+            .all::<Array>()?
+            .into_iter()
+            .map(|i| i.into_iter())
+            .collect::<Vec<_>>();
+
+        for this in self.iter() {
+            let mut row = Self::with_capacity(1 + iterators.len());
+            row.push(this.clone());
+
+            for iterator in &mut iterators {
+                let Some(item) = iterator.next() else {
+                    return Ok(out);
+                };
+
+                row.push(item);
+            }
+
+            out.push(row.into_value());
+        }
+
+        Ok(out)
     }
 
     /// Return a sorted version of this array, optionally by a given key function.

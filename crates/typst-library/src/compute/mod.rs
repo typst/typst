@@ -25,6 +25,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("cmyk", cmyk_func());
     global.define("color", color_module());
     global.define("datetime", datetime_func());
+    global.define("duration", duration_func());
     global.define("symbol", symbol_func());
     global.define("str", str_func());
     global.define("bytes", bytes_func());
@@ -37,6 +38,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("json", json_func());
     global.define("toml", toml_func());
     global.define("yaml", yaml_func());
+    global.define("cbor", cbor_func());
     global.define("xml", xml_func());
     global.define("calc", calc::module());
     global.define("plugin", plugin_func());

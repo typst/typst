@@ -12,6 +12,11 @@
 #test(add(2, 8), 10)
 
 ---
+// Test too high required compiler version.
+// Error: 9-29 package requires typst 1.0.0 or newer (current version is VERSION)
+#import "@test/future:0.1.0": future
+
+---
 // Error: 9-13 `@` is not a valid package namespace
 #import "@@": *
 

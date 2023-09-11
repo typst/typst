@@ -282,7 +282,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
                 math_class(p.current_text()),
                 None | Some(MathClass::Alphabetic)
             );
-            if !maybe_delimited(p, true) {
+            if !maybe_delimited(p) {
                 p.eat();
             }
         }
@@ -321,7 +321,7 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     if continuable
         && min_prec < 3
         && p.prev_end() == p.current_start()
-        && maybe_delimited(p, false)
+        && maybe_delimited(p)
     {
         p.wrap(m, SyntaxKind::Math);
     }
@@ -397,29 +397,20 @@ fn math_expr_prec(p: &mut Parser, min_prec: usize, stop: SyntaxKind) {
     }
 }
 
-fn maybe_delimited(p: &mut Parser, allow_fence: bool) -> bool {
-    if allow_fence && math_class(p.current_text()) == Some(MathClass::Fence) {
-        math_delimited(p, MathClass::Fence);
-        true
-    } else if math_class(p.current_text()) == Some(MathClass::Opening) {
-        math_delimited(p, MathClass::Closing);
-        true
-    } else {
-        false
+fn maybe_delimited(p: &mut Parser) -> bool {
+    let open = math_class(p.current_text()) == Some(MathClass::Opening);
+    if open {
+        math_delimited(p);
     }
+    open
 }
 
-fn math_delimited(p: &mut Parser, stop: MathClass) {
+fn math_delimited(p: &mut Parser) {
     let m = p.marker();
     p.eat();
     let m2 = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Dollar) {
-        let class = math_class(p.current_text());
-        if stop == MathClass::Fence && class == Some(MathClass::Closing) {
-            break;
-        }
-
-        if class == Some(stop) {
+        if math_class(p.current_text()) == Some(MathClass::Closing) {
             p.wrap(m2, SyntaxKind::Math);
             p.eat();
             p.wrap(m, SyntaxKind::MathDelimited);
@@ -1138,6 +1129,12 @@ fn module_import(p: &mut Parser) {
     let m = p.marker();
     p.assert(SyntaxKind::Import);
     code_expr(p);
+    if p.eat_if(SyntaxKind::As) {
+        // Allow renaming a full module import.
+        // If items are included, both the full module and the items are
+        // imported at the same time.
+        p.expect(SyntaxKind::Ident);
+    }
     if p.eat_if(SyntaxKind::Colon) && !p.eat_if(SyntaxKind::Star) {
         import_items(p);
     }
@@ -1147,9 +1144,17 @@ fn module_import(p: &mut Parser) {
 fn import_items(p: &mut Parser) {
     let m = p.marker();
     while !p.eof() && !p.at(SyntaxKind::Semicolon) {
+        let item_marker = p.marker();
         if !p.eat_if(SyntaxKind::Ident) {
             p.unexpected();
         }
+
+        // Rename imported item.
+        if p.eat_if(SyntaxKind::As) {
+            p.expect(SyntaxKind::Ident);
+            p.wrap(item_marker, SyntaxKind::RenamedImportItem);
+        }
+
         if p.current().is_terminator() {
             break;
         }

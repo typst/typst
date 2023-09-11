@@ -37,7 +37,7 @@ pub fn read(
     vm: &mut Vm,
 ) -> SourceResult<Readable> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     Ok(match encoding {
         None => Readable::Bytes(data),
@@ -130,14 +130,14 @@ pub fn csv(
     vm: &mut Vm,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     csv_decode(Spanned::new(Readable::Bytes(data), span), delimiter)
 }
 
 /// Reads structured data from a CSV string/bytes.
 ///
-/// Display: CSV
+/// Display: Decode CSV
 /// Category: data-loading
 #[func]
 pub fn csv_decode(
@@ -262,7 +262,7 @@ pub fn json(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     json_decode(Spanned::new(Readable::Bytes(data), span))
 }
@@ -277,15 +277,14 @@ pub fn json_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let value: Value = serde_json::from_slice(data.as_slice())
+    serde_json::from_slice(data.as_slice())
         .map_err(format_json_error)
-        .at(span)?;
-    Ok(value)
+        .at(span)
 }
 
-/// Encode structured data into a JSON string.
+/// Encodes structured data into a JSON string.
 ///
-/// Display: JSON
+/// Display: Encode JSON
 /// Category: data-loading
 #[func]
 pub fn json_encode(
@@ -297,7 +296,6 @@ pub fn json_encode(
     pretty: bool,
 ) -> SourceResult<Str> {
     let Spanned { v: value, span } = value;
-
     if pretty {
         serde_json::to_string_pretty(&value)
     } else {
@@ -316,11 +314,11 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 
 /// Reads structured data from a TOML file.
 ///
-/// The file must contain a valid TOML table. TOML tables will be
-/// converted into Typst dictionaries, and TOML arrays will be converted into
-/// Typst arrays. Strings, booleans and datetimes will be converted into the Typst
-/// equivalents and numbers will be converted to floats or integers depending on
-/// whether they are whole numbers.
+/// The file must contain a valid TOML table. TOML tables will be converted into
+/// Typst dictionaries, and TOML arrays will be converted into Typst arrays.
+/// Strings, booleans and datetimes will be converted into the Typst equivalents
+/// and numbers will be converted to floats or integers depending on whether
+/// they are whole numbers.
 ///
 /// The TOML file in the example consists of a table with the keys `title`,
 /// `version`, and `authors`.
@@ -350,15 +348,14 @@ pub fn toml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-
     toml_decode(Spanned::new(Readable::Bytes(data), span))
 }
 
 /// Reads structured data from a TOML string/bytes.
 ///
-/// Display: TOML
+/// Display: Decode TOML
 /// Category: data-loading
 #[func]
 pub fn toml_decode(
@@ -369,26 +366,23 @@ pub fn toml_decode(
     let raw = std::str::from_utf8(data.as_slice())
         .map_err(|_| "file is not valid utf-8")
         .at(span)?;
-
-    let value: Value = toml::from_str(raw).map_err(format_toml_error).at(span)?;
-    Ok(value)
+    toml::from_str(raw).map_err(format_toml_error).at(span)
 }
 
-/// Encode structured data into a TOML string.
+/// Encodes structured data into a TOML string.
 ///
-/// Display: TOML
+/// Display: Encode TOML
 /// Category: data-loading
 #[func]
 pub fn toml_encode(
     /// Value to be encoded.
     value: Spanned<Value>,
-    /// Apply a default pretty policy to the document.
+    /// Whether to pretty-print the resulting TOML.
     #[named]
     #[default(true)]
     pretty: bool,
 ) -> SourceResult<Str> {
     let Spanned { v: value, span } = value;
-
     if pretty { toml::to_string_pretty(&value) } else { toml::to_string(&value) }
         .map(|v| v.into())
         .map_err(|e| eco_format!("failed to encode value as toml: {e}"))
@@ -416,16 +410,8 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 /// Typst arrays. Strings and booleans will be converted into the Typst
 /// equivalents, null-values (`null`, `~` or empty ``) will be converted into
 /// `{none}`, and numbers will be converted to floats or integers depending on
-/// whether they are whole numbers.
-///
-/// Note that mapping keys that are not a string cause the entry to be
-/// discarded.
-///
-/// Custom YAML tags are ignored, though the loaded value will still be
-/// present.
-///
-/// The function returns a dictionary or value or an array, depending on
-/// the YAML file.
+/// whether they are whole numbers. Custom YAML tags are ignored, though the
+/// loaded value will still be present.
 ///
 /// The YAML files in the example contain objects with authors as keys,
 /// each with a sequence of their own submapping with the keys
@@ -462,14 +448,14 @@ pub fn yaml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     yaml_decode(Spanned::new(Readable::Bytes(data), span))
 }
 
 /// Reads structured data from a YAML string/bytes.
 ///
-/// Display: YAML
+/// Display: Decode YAML
 /// Category: data-loading
 #[func]
 pub fn yaml_decode(
@@ -477,15 +463,14 @@ pub fn yaml_decode(
     data: Spanned<Readable>,
 ) -> SourceResult<Value> {
     let Spanned { v: data, span } = data;
-    let value: Value = serde_yaml::from_slice(data.as_slice())
+    serde_yaml::from_slice(data.as_slice())
         .map_err(format_yaml_error)
-        .at(span)?;
-    Ok(value)
+        .at(span)
 }
 
-/// Encode structured data into a yaml string.
+/// Encode structured data into a YAML string.
 ///
-/// Display: YAML
+/// Display: Encode YAML
 /// Category: data-loading
 #[func]
 pub fn yaml_encode(
@@ -493,7 +478,6 @@ pub fn yaml_encode(
     value: Spanned<Value>,
 ) -> SourceResult<Str> {
     let Spanned { v: value, span } = value;
-
     serde_yaml::to_string(&value)
         .map(|v| v.into())
         .map_err(|e| eco_format!("failed to encode value as yaml: {e}"))
@@ -503,6 +487,67 @@ pub fn yaml_encode(
 /// Format the user-facing YAML error message.
 fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
     eco_format!("failed to parse yaml file: {}", error.to_string().trim())
+}
+
+/// Reads structured data from a CBOR file.
+///
+/// The file must contain a valid cbor serialization. Mappings will be
+/// converted into Typst dictionaries, and sequences will be converted into
+/// Typst arrays. Strings and booleans will be converted into the Typst
+/// equivalents, null-values (`null`, `~` or empty ``) will be converted into
+/// `{none}`, and numbers will be converted to floats or integers depending on
+/// whether they are whole numbers.
+///
+/// Display: CBOR
+/// Category: data-loading
+#[func]
+#[scope(
+    scope.define("decode", cbor_decode_func());
+    scope.define("encode", cbor_encode_func());
+    scope
+)]
+pub fn cbor(
+    /// Path to a CBOR file.
+    path: Spanned<EcoString>,
+    /// The virtual machine.
+    vm: &mut Vm,
+) -> SourceResult<Value> {
+    let Spanned { v: path, span } = path;
+    let id = vm.resolve_path(&path).at(span)?;
+    let data = vm.world().file(id).at(span)?;
+    cbor_decode(Spanned::new(data, span))
+}
+
+/// Reads structured data from CBOR bytes.
+///
+/// Display: Decode CBOR
+/// Category: data-loading
+#[func]
+pub fn cbor_decode(
+    /// cbor data.
+    data: Spanned<Bytes>,
+) -> SourceResult<Value> {
+    let Spanned { v: data, span } = data;
+    ciborium::from_reader(data.as_slice())
+        .map_err(|e| eco_format!("failed to parse cbor: {e}"))
+        .at(span)
+}
+
+/// Encode structured data into CBOR bytes.
+///
+/// Display: Encode CBOR
+/// Category: data-loading
+#[func]
+pub fn cbor_encode(
+    /// Value to be encoded.
+    value: Spanned<Value>,
+) -> SourceResult<Bytes> {
+    let Spanned { v: value, span } = value;
+    let mut res = Vec::new();
+    ciborium::into_writer(&value, &mut res)
+        .map(|_| res.into())
+        .map_err(|e| eco_format!("failed to encode value as cbor: {e}"))
+        .at(span)
 }
 
 /// Reads structured data from an XML file.
@@ -568,14 +613,14 @@ pub fn xml(
     vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
-    let id = vm.location().join(&path).at(span)?;
+    let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
     xml_decode(Spanned::new(Readable::Bytes(data), span))
 }
 
 /// Reads structured data from an XML string/bytes.
 ///
-/// Display: XML
+/// Display: Decode XML
 /// Category: data-loading
 #[func]
 pub fn xml_decode(

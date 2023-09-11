@@ -11,21 +11,23 @@ use super::GridLayouter;
 ///
 /// ## Example { #example }
 /// ```example
-/// - *Content*
-///   - Text
-///   - Math
-///   - Layout
-///   - Visualize
-///   - Meta
-///   - Symbols
+/// Normal list.
+/// - Text
+/// - Math
+/// - Layout
+/// - ...
 ///
-/// - *Compute*
-///   #list(
-///     [Foundations],
-///     [Calculate],
-///     [Construct],
-///     [Data Loading],
-///   )
+/// Multiple lines.
+/// - This list item spans multiple
+///   lines because it is indented.
+///
+/// Function call.
+/// #list(
+///   [Foundations],
+///   [Calculate],
+///   [Construct],
+///   [Data Loading],
+/// )
 /// ```
 ///
 /// ## Syntax { #syntax }

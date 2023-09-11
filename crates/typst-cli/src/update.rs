@@ -11,6 +11,7 @@ use xz2::bufread::XzDecoder;
 use zip::ZipArchive;
 
 use crate::args::UpdateCommand;
+use crate::download::download_with_progress;
 
 const TYPST_GITHUB_ORG: &str = "typst";
 const TYPST_REPO: &str = "typst";
@@ -132,19 +133,13 @@ impl Release {
             .ok_or("could not find release for your target platform")?;
 
         eprintln!("Downloading release ...");
-        let response = match ureq::get(&asset.browser_download_url).call() {
-            Ok(response) => response,
+        let data = match download_with_progress(&asset.browser_download_url) {
+            Ok(data) => data,
             Err(ureq::Error::Status(404, _)) => {
                 bail!("asset not found (searched for {})", asset.name);
             }
             Err(_) => bail!("failed to load asset (network failed)"),
         };
-
-        let mut data = Vec::new();
-        response
-            .into_reader()
-            .read_to_end(&mut data)
-            .map_err(|err| eco_format!("failed to read response buffer: {err}"))?;
 
         if asset_name.contains("windows") {
             extract_binary_from_zip(&data, asset_name)

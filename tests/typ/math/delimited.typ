@@ -2,8 +2,8 @@
 
 ---
 // Test automatic matching.
-$ (a) + {b/2} + |a|/2 + (b) $
-$f(x/2) < zeta(c^2 + |a + b/2|)$
+$ (a) + {b/2} + abs(a)/2 + (b) $
+$f(x/2) < zeta(c^2 + abs(a + b/2))$
 
 ---
 // Test unmatched.
@@ -17,7 +17,7 @@ $ lr(| ]1,2\[ + 1/2|) $
 ---
 // Test fence confusion.
 $ |x + |y| + z/a| \
-  |x + lr(|y|) + z/a| $
+  lr(|x + |y| + z/a|) $
 
 ---
 // Test that symbols aren't matched automatically.

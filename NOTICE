@@ -33,6 +33,10 @@ The MIT License applies to:
   adapted from the colors.css project
   (https://clrs.cc/)
 
+* The `RemoteReader` defined in `crates/typst-cli/src/download.rs` which is 
+   closely modelled after the `DownloadTracker` from rustup 
+   (https://github.com/rust-lang/rustup/blob/master/src/cli/download_tracker.rs)
+
 The MIT License (MIT)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy

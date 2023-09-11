@@ -610,7 +610,7 @@ pub struct MetaElem {
 
 impl Behave for MetaElem {
     fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
+        Behaviour::Invisible
     }
 }
 

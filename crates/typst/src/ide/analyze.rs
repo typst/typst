@@ -33,7 +33,8 @@ pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
                 }
             }
 
-            let mut tracer = Tracer::new(Some(node.span()));
+            let mut tracer = Tracer::new();
+            tracer.inspect(node.span());
             crate::compile(world, &mut tracer).ok();
             tracer.values()
         }
@@ -45,8 +46,8 @@ pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
 /// Try to load a module from the current source file.
 pub fn analyze_import(world: &dyn World, source: &Source, path: &str) -> Option<Module> {
     let route = Route::default();
-    let mut tracer = Tracer::default();
-    let id = source.id().join(path).ok()?;
+    let mut tracer = Tracer::new();
+    let id = source.id().join(path);
     let source = world.source(id).ok()?;
     eval(world.track(), route.track(), tracer.track_mut(), &source).ok()
 }

@@ -16,9 +16,6 @@ use super::is_ident;
 static INTERNER: Lazy<RwLock<Interner>> =
     Lazy::new(|| RwLock::new(Interner { to_id: HashMap::new(), from_id: Vec::new() }));
 
-/// The path that we use for detached file ids.
-static DETACHED_PATH: Lazy<VirtualPath> = Lazy::new(|| VirtualPath::new("/unknown"));
-
 /// A package-path interner.
 struct Interner {
     to_id: HashMap<Pair, FileId>,
@@ -48,66 +45,41 @@ impl FileId {
         }
 
         let mut interner = INTERNER.write().unwrap();
-        let len = interner.from_id.len();
-        if len >= usize::from(u16::MAX) {
-            panic!("too many file specifications");
-        }
+        let num = interner.from_id.len().try_into().expect("out of file ids");
 
         // Create a new entry forever by leaking the pair. We can't leak more
         // than 2^16 pair (and typically will leak a lot less), so its not a
         // big deal.
-        let id = FileId(len as u16);
+        let id = FileId(num);
         let leaked = Box::leak(Box::new(pair));
         interner.to_id.insert(leaked, id);
         interner.from_id.push(leaked);
         id
     }
 
-    /// Get an id that does not identify any real file.
-    pub const fn detached() -> Self {
-        Self(u16::MAX)
-    }
-
-    /// Whether the id is the detached.
-    pub const fn is_detached(self) -> bool {
-        self.0 == Self::detached().0
-    }
-
     /// The package the file resides in, if any.
     pub fn package(&self) -> Option<&'static PackageSpec> {
-        if self.is_detached() {
-            None
-        } else {
-            self.pair().0.as_ref()
-        }
+        self.pair().0.as_ref()
     }
 
     /// The absolute and normalized path to the file _within_ the project or
     /// package.
     pub fn vpath(&self) -> &'static VirtualPath {
-        if self.is_detached() {
-            &DETACHED_PATH
-        } else {
-            &self.pair().1
-        }
+        &self.pair().1
     }
 
     /// Resolve a file location relative to this file.
-    pub fn join(self, path: &str) -> Result<Self, EcoString> {
-        if self.is_detached() {
-            Err("cannot access file system from here")?;
-        }
-
-        Ok(Self::new(self.package().cloned(), self.vpath().join(path)))
+    pub fn join(self, path: &str) -> Self {
+        Self::new(self.package().cloned(), self.vpath().join(path))
     }
 
     /// Construct from a raw number.
-    pub(crate) const fn from_u16(v: u16) -> Self {
+    pub(crate) const fn from_raw(v: u16) -> Self {
         Self(v)
     }
 
     /// Extract the raw underlying number.
-    pub(crate) const fn as_u16(self) -> u16 {
+    pub(crate) const fn into_raw(self) -> u16 {
         self.0
     }
 
@@ -291,6 +263,17 @@ pub struct PackageVersion {
     pub minor: u32,
     /// The package's patch version.
     pub patch: u32,
+}
+
+impl PackageVersion {
+    /// The current compiler version.
+    pub fn compiler() -> Self {
+        Self {
+            major: env!("CARGO_PKG_VERSION_MAJOR").parse().unwrap(),
+            minor: env!("CARGO_PKG_VERSION_MINOR").parse().unwrap(),
+            patch: env!("CARGO_PKG_VERSION_PATCH").parse().unwrap(),
+        }
+    }
 }
 
 impl FromStr for PackageVersion {

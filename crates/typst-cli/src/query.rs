@@ -20,7 +20,7 @@ pub fn query(command: &QueryCommand) -> StrResult<()> {
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let mut tracer = Tracer::default();
+    let mut tracer = Tracer::new();
     let result = typst::compile(&world, &mut tracer);
     let warnings = tracer.warnings();
 

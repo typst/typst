@@ -116,7 +116,18 @@ impl Str {
         match pattern {
             StrPattern::Str(pat) => self.0.ends_with(pat.as_str()),
             StrPattern::Regex(re) => {
-                re.find_iter(self).last().map_or(false, |m| m.end() == self.0.len())
+                let mut start_byte = 0;
+                while let Some(mat) = re.find_at(self, start_byte) {
+                    if mat.end() == self.0.len() {
+                        return true;
+                    }
+
+                    // There might still be a match overlapping this one, so
+                    // restart at the next code point.
+                    let Some(c) = self[mat.start()..].chars().next() else { break };
+                    start_byte = mat.start() + c.len_utf8();
+                }
+                false
             }
         }
     }

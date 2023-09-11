@@ -1,3 +1,5 @@
+use std::iter::Peekable;
+
 use icu_properties::{maps::CodePointMapData, LineBreak};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
@@ -73,20 +75,18 @@ pub struct ParElem {
     /// appearance of the text.
     ///
     /// ```example
-    /// #set page(width: 190pt)
+    /// #set page(width: 207pt)
     /// #set par(linebreaks: "simple")
-    /// Some texts are frustratingly
-    /// challenging to break in a
-    /// visually pleasing way. This
-    /// very aesthetic example is one
-    /// of them.
+    /// Some texts feature many longer
+    /// words. Those are often exceedingly
+    /// challenging to break in a visually
+    /// pleasing way.
     ///
     /// #set par(linebreaks: "optimized")
-    /// Some texts are frustratingly
-    /// challenging to break in a
-    /// visually pleasing way. This
-    /// very aesthetic example is one
-    /// of them.
+    /// Some texts feature many longer
+    /// words. Those are often exceedingly
+    /// challenging to break in a visually
+    /// pleasing way.
     /// ```
     #[default]
     pub linebreaks: Smart<Linebreaks>,
@@ -933,18 +933,6 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             // Layout the line.
             let start = pred.line.end;
 
-            // Fix for https://github.com/unicode-org/icu4x/issues/3811
-            if i > 0 {
-                if let Some(s_pred) = table.get(i + 1) {
-                    let next_start = s_pred.line.end;
-                    if !p.bidi.text[start..next_start]
-                        .contains(|c: char| !c.is_whitespace())
-                    {
-                        continue;
-                    }
-                }
-            }
-
             let attempt = line(vt, p, start..end, mandatory, hyphen);
 
             // Determine how much the line's spaces would need to be stretched
@@ -1103,7 +1091,7 @@ fn breakpoints<'a>(p: &'a Preparation<'a>) -> Breakpoints<'a> {
     linebreaks.next();
     Breakpoints {
         p,
-        linebreaks,
+        linebreaks: linebreaks.peekable(),
         syllables: None,
         offset: 0,
         suffix: 0,
@@ -1117,7 +1105,7 @@ struct Breakpoints<'a> {
     /// The paragraph's items.
     p: &'a Preparation<'a>,
     /// The inner iterator over the unicode line break opportunities.
-    linebreaks: LineBreakIteratorUtf8<'a, 'a>,
+    linebreaks: Peekable<LineBreakIteratorUtf8<'a, 'a>>,
     /// Iterator over syllables of the current word.
     syllables: Option<hypher::Syllables<'a>>,
     /// The current text offset.
@@ -1175,6 +1163,20 @@ impl Iterator for Breakpoints<'_> {
                     self.suffix = self.offset + trimmed.len();
                     self.syllables = Some(hypher::hyphenate(trimmed, lang));
                     return self.next();
+                }
+            }
+        }
+
+        // Fix for https://github.com/unicode-org/icu4x/issues/3811
+        if !self.mandatory {
+            while let Some(&next) = self.linebreaks.peek() {
+                if !self.p.bidi.text[self.end..next]
+                    .contains(|c: char| !c.is_whitespace())
+                {
+                    self.end = next;
+                    self.linebreaks.next();
+                } else {
+                    break;
                 }
             }
         }

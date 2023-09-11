@@ -167,8 +167,10 @@ fn reference_pages(resolver: &dyn Resolver) -> PageModel {
 /// Build the guides section.
 fn guides_pages(resolver: &dyn Resolver) -> PageModel {
     let mut page = markdown_page(resolver, "/docs/", "guides/welcome.md");
-    page.children =
-        vec![markdown_page(resolver, "/docs/guides/", "guides/guide-for-latex-users.md")];
+    page.children = vec![
+        markdown_page(resolver, "/docs/guides/", "guides/guide-for-latex-users.md"),
+        markdown_page(resolver, "/docs/guides/", "guides/page-setup.md"),
+    ];
     page
 }
 
