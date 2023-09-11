@@ -289,10 +289,11 @@ impl Layout for EquationElem {
                 frame.push_frame(Point::new(x, y), counter)
             }
         } else {
+            let font_size = TextElem::size_in(styles);
             let slack = ParElem::leading_in(styles) * 0.7;
-            let top_edge = TextElem::top_edge_in(styles).resolve(styles, &font, None);
+            let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
             let bottom_edge =
-                -TextElem::bottom_edge_in(styles).resolve(styles, &font, None);
+                -TextElem::bottom_edge_in(styles).resolve(font_size, &font, None);
 
             let ascent = top_edge.max(frame.ascent() - slack);
             let descent = bottom_edge.max(frame.descent() - slack);

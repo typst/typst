@@ -35,6 +35,7 @@ pub(super) fn define(global: &mut Scope) {
     global.define("super", SuperElem::func());
     global.define("underline", UnderlineElem::func());
     global.define("strike", StrikeElem::func());
+    global.define("highlight", HighlightElem::func());
     global.define("overline", OverlineElem::func());
     global.define("raw", RawElem::func());
     global.define("lorem", lorem_func());
@@ -652,17 +653,17 @@ impl TopEdge {
     }
 
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
+    pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
             TopEdge::Metric(metric) => {
                 if let Ok(metric) = metric.try_into() {
-                    font.metrics().vertical(metric).resolve(styles)
+                    font.metrics().vertical(metric).at(font_size)
                 } else {
-                    bbox.map(|bbox| (font.to_em(bbox.y_max)).resolve(styles))
+                    bbox.map(|bbox| (font.to_em(bbox.y_max)).at(font_size))
                         .unwrap_or_default()
                 }
             }
-            TopEdge::Length(length) => length.resolve(styles),
+            TopEdge::Length(length) => length.at(font_size),
         }
     }
 }
@@ -722,17 +723,17 @@ impl BottomEdge {
     }
 
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
+    pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
             BottomEdge::Metric(metric) => {
                 if let Ok(metric) = metric.try_into() {
-                    font.metrics().vertical(metric).resolve(styles)
+                    font.metrics().vertical(metric).at(font_size)
                 } else {
-                    bbox.map(|bbox| (font.to_em(bbox.y_min)).resolve(styles))
+                    bbox.map(|bbox| (font.to_em(bbox.y_min)).at(font_size))
                         .unwrap_or_default()
                 }
             }
-            BottomEdge::Length(length) => length.resolve(styles),
+            BottomEdge::Length(length) => length.at(font_size),
         }
     }
 }

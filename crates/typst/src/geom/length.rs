@@ -34,6 +34,11 @@ impl Length {
             None
         }
     }
+
+    /// Convert to an absolute length at the given font size.
+    pub fn at(self, font_size: Abs) -> Abs {
+        self.abs + self.em.at(font_size)
+    }
 }
 
 impl Debug for Length {

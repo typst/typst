@@ -1,7 +1,7 @@
 use kurbo::{BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
 
-use super::TextElem;
+use super::{BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric};
 use crate::prelude::*;
 
 /// Underlines text.
@@ -73,11 +73,12 @@ impl Show for UnderlineElem {
     #[tracing::instrument(name = "UnderlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Underline,
-            stroke: self.stroke(styles).unwrap_or_default(),
-            offset: self.offset(styles),
+            line: DecoLine::Underline {
+                stroke: self.stroke(styles).unwrap_or_default(),
+                offset: self.offset(styles),
+                evade: self.evade(styles),
+            },
             extent: self.extent(styles),
-            evade: self.evade(styles),
         })))
     }
 }
@@ -157,11 +158,12 @@ impl Show for OverlineElem {
     #[tracing::instrument(name = "OverlineElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Overline,
-            stroke: self.stroke(styles).unwrap_or_default(),
-            offset: self.offset(styles),
+            line: DecoLine::Overline {
+                stroke: self.stroke(styles).unwrap_or_default(),
+                offset: self.offset(styles),
+                evade: self.evade(styles),
+            },
             extent: self.extent(styles),
-            evade: self.evade(styles),
         })))
     }
 }
@@ -226,23 +228,98 @@ impl Show for StrikeElem {
     #[tracing::instrument(name = "StrikeElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         Ok(self.body().styled(TextElem::set_deco(Decoration {
-            line: DecoLine::Strikethrough,
-            stroke: self.stroke(styles).unwrap_or_default(),
-            offset: self.offset(styles),
+            // Note that we do not support evade option for strikethrough.
+            line: DecoLine::Strikethrough {
+                stroke: self.stroke(styles).unwrap_or_default(),
+                offset: self.offset(styles),
+            },
             extent: self.extent(styles),
-            evade: false,
         })))
     }
 }
 
-/// Defines a line that is positioned over, under or on top of text.
+/// Highlights text with a background color.
+///
+/// ## Example { #example }
+/// ```example
+/// This is #highlight[important].
+/// ```
+///
+/// Display: Highlight
+/// Category: text
+#[element(Show)]
+pub struct HighlightElem {
+    /// The color to highlight the text with.
+    /// (Default: 0xffff5f)
+    ///
+    /// ```example
+    /// This is #highlight(fill: blue)[with blue].
+    /// ```
+    #[default(Color::Rgba(RgbaColor::new(0xFF, 0xFF, 0x5F, 0xFF)).into())]
+    pub fill: Paint,
+
+    /// The top end of the background rectangle. Note that top edge will update
+    /// to be always higher than the glyph's bounding box.
+    /// (default: "ascender")
+    ///
+    /// ```example
+    /// #set highlight(top-edge: "ascender")
+    /// #highlight[a] #highlight[aib]
+    ///
+    /// #set highlight(top-edge: "x-height")
+    /// #highlight[a] #highlight[aib]
+    /// ```
+    #[default(TopEdge::Metric(TopEdgeMetric::Ascender))]
+    pub top_edge: TopEdge,
+
+    /// The bottom end of the background rectangle. Note that top edge will update
+    /// to be always lower than the glyph's bounding box.
+    /// (default: "descender")
+    ///
+    /// ```example
+    /// #set highlight(bottom-edge: "descender")
+    /// #highlight[a] #highlight[ap]
+    ///
+    /// #set highlight(bottom-edge: "baseline")
+    /// #highlight[a] #highlight[ap]
+    /// ```
+    #[default(BottomEdge::Metric(BottomEdgeMetric::Descender))]
+    pub bottom_edge: BottomEdge,
+
+    /// The amount by which to extend the background to the sides beyond
+    /// (or within if negative) the content.
+    ///
+    /// ```example
+    /// A long #highlight(extent: 4pt)[background].
+    /// ```
+    #[resolve]
+    pub extent: Length,
+
+    /// The content that should be highlighted.
+    #[required]
+    pub body: Content,
+}
+
+impl Show for HighlightElem {
+    #[tracing::instrument(name = "HighlightElem::show", skip_all)]
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        Ok(self.body().styled(TextElem::set_deco(Decoration {
+            line: DecoLine::Highlight {
+                fill: self.fill(styles),
+                top_edge: self.top_edge(styles),
+                bottom_edge: self.bottom_edge(styles),
+            },
+            extent: self.extent(styles),
+        })))
+    }
+}
+
+/// Defines a line-based decoration that is positioned over, under or on top of text,
+/// or highlights the text with a background.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
-    pub line: DecoLine,
-    pub stroke: PartialStroke<Abs>,
-    pub offset: Smart<Abs>,
-    pub extent: Abs,
-    pub evade: bool,
+    line: DecoLine,
+    extent: Abs,
 }
 
 impl Fold for Decoration {
@@ -259,11 +336,12 @@ cast! {
 }
 
 /// A kind of decorative line.
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum DecoLine {
-    Underline,
-    Strikethrough,
-    Overline,
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+enum DecoLine {
+    Underline { stroke: PartialStroke<Abs>, offset: Smart<Abs>, evade: bool },
+    Strikethrough { stroke: PartialStroke<Abs>, offset: Smart<Abs> },
+    Overline { stroke: PartialStroke<Abs>, offset: Smart<Abs>, evade: bool },
+    Highlight { fill: Paint, top_edge: TopEdge, bottom_edge: BottomEdge },
 }
 
 /// Add line decorations to a single run of shaped text.
@@ -271,19 +349,36 @@ pub(super) fn decorate(
     frame: &mut Frame,
     deco: &Decoration,
     text: &TextItem,
+    width: Abs,
     shift: Abs,
     pos: Point,
-    width: Abs,
 ) {
     let font_metrics = text.font.metrics();
-    let metrics = match deco.line {
-        DecoLine::Strikethrough => font_metrics.strikethrough,
-        DecoLine::Overline => font_metrics.overline,
-        DecoLine::Underline => font_metrics.underline,
+
+    if let DecoLine::Highlight { fill, top_edge, bottom_edge } = &deco.line {
+        let (top, bottom) = determine_edges(text, *top_edge, *bottom_edge);
+        let rect = Geometry::Rect(Size::new(width + 2.0 * deco.extent, top - bottom))
+            .filled(fill.clone());
+        let origin = Point::new(pos.x - deco.extent, pos.y - top - shift);
+        frame.prepend(origin, FrameItem::Shape(rect, Span::detached()));
+        return;
+    }
+
+    let (stroke, metrics, offset, evade) = match &deco.line {
+        DecoLine::Strikethrough { stroke, offset } => {
+            (stroke, font_metrics.strikethrough, offset, false)
+        }
+        DecoLine::Overline { stroke, offset, evade } => {
+            (stroke, font_metrics.overline, offset, *evade)
+        }
+        DecoLine::Underline { stroke, offset, evade } => {
+            (stroke, font_metrics.underline, offset, *evade)
+        }
+        _ => return,
     };
 
-    let offset = deco.offset.unwrap_or(-metrics.position.at(text.size)) - shift;
-    let stroke = deco.stroke.clone().unwrap_or(Stroke {
+    let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
+    let stroke = stroke.clone().unwrap_or(Stroke {
         paint: text.fill.clone(),
         thickness: metrics.thickness.at(text.size),
         ..Stroke::default()
@@ -299,13 +394,13 @@ pub(super) fn decorate(
         let origin = Point::new(from, pos.y + offset);
         let target = Point::new(to - from, Abs::zero());
 
-        if target.x >= min_width || !deco.evade {
+        if target.x >= min_width || !evade {
             let shape = Geometry::Line(target).stroked(stroke.clone());
             frame.push(origin, FrameItem::Shape(shape, Span::detached()));
         }
     };
 
-    if !deco.evade {
+    if !evade {
         push_segment(start, end);
         return;
     }
@@ -364,6 +459,31 @@ pub(super) fn decorate(
             push_segment(l + gap_padding, r - gap_padding);
         }
     }
+}
+
+// Return the top/bottom edge of the text given the metric of the font.
+fn determine_edges(
+    text: &TextItem,
+    top_edge: TopEdge,
+    bottom_edge: BottomEdge,
+) -> (Abs, Abs) {
+    let mut bbox = None;
+    if top_edge.is_bounds() || bottom_edge.is_bounds() {
+        let ttf = text.font.ttf();
+        bbox = text
+            .glyphs
+            .iter()
+            .filter_map(|g| ttf.glyph_bounding_box(ttf_parser::GlyphId(g.id)))
+            .reduce(|a, b| ttf_parser::Rect {
+                y_max: a.y_max.max(b.y_max),
+                y_min: a.y_min.min(b.y_min),
+                ..a
+            });
+    }
+
+    let top = top_edge.resolve(text.size, &text.font, bbox);
+    let bottom = bottom_edge.resolve(text.size, &text.font, bbox);
+    (top, bottom)
 }
 
 /// Builds a kurbo [`BezPath`] for a glyph.
