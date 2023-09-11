@@ -293,14 +293,18 @@ impl<'a> ShapedText<'a> {
                 glyphs,
             };
 
-            frame.push(pos, FrameItem::Text(item.clone()));
-
-            // Apply line decorations.
-            for deco in &decos {
-                decorate(&mut frame, self.styles, deco, &item, shift, pos);
+            let width = item.width();
+            if decos.is_empty() {
+                frame.push(pos, FrameItem::Text(item));
+            } else {
+                // Apply line decorations.
+                frame.push(pos, FrameItem::Text(item.clone()));
+                for deco in &decos {
+                    decorate(&mut frame, deco, &item, width, shift, pos);
+                }
             }
 
-            offset += item.width();
+            offset += width;
         }
 
         // Apply metadata.
@@ -319,8 +323,8 @@ impl<'a> ShapedText<'a> {
 
         // Expand top and bottom by reading the font's vertical metrics.
         let mut expand = |font: &Font, bbox: Option<ttf_parser::Rect>| {
-            top.set_max(top_edge.resolve(self.styles, font, bbox));
-            bottom.set_max(-bottom_edge.resolve(self.styles, font, bbox));
+            top.set_max(top_edge.resolve(self.size, font, bbox));
+            bottom.set_max(-bottom_edge.resolve(self.size, font, bbox));
         };
 
         if self.glyphs.is_empty() {

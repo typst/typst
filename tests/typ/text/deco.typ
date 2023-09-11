@@ -25,23 +25,35 @@
 // Abuse thickness and transparency for redacting and highlighting stuff.
 Sometimes, we work #redact[in secret].
 There might be #highlight-custom[redacted] things.
- underline()
-
-This is the built-in #highlight[highlight with default color]. We can also specify
-a customized value #highlight(fill: rgb("abcdef88"))[to highlight]. Notice color
-difference with the #highlight-custom[redacted] above.
-
-Default highlight:
-
-#highlight[ace], #highlight[base],#highlight[super], #highlight[phone]
-
-#let highlight-tight = highlight.with(top-edge: "x-height", bottom-edge: "baseline")
-
-A tighter highlight:
-
-#highlight-tight[ace], #highlight-tight[base],#highlight-tight[super], #highlight-tight[phone]
 
 ---
 // Test stroke folding.
 #set underline(stroke: 2pt, offset: 2pt)
 #underline(text(red, [DANGER!]))
+
+---
+// Test highlight.
+This is the built-in #highlight[highlight with default color].
+We can also specify a customized value
+#highlight(fill: green.lighten(80%))[to highlight].
+
+---
+// Test default highlight bounds.
+#highlight[ace],
+#highlight[base],
+#highlight[super],
+#highlight[phone #sym.integral]
+
+---
+// Test a tighter highlight.
+#set highlight(top-edge: "x-height", bottom-edge: "baseline")
+#highlight[ace],
+#highlight[base],
+#highlight[super],
+#highlight[phone #sym.integral]
+
+---
+// Test a bounds highlight.
+#set highlight(top-edge: "bounds", bottom-edge: "bounds")
+#highlight[abc]
+#highlight[abc #sym.integral]
