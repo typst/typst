@@ -6,19 +6,15 @@ use crate::prelude::*;
 
 /// Underlines text.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// This is #underline[important].
 /// ```
-///
-/// Display: Underline
-/// Category: text
-#[element(Show)]
+#[elem(Show)]
 pub struct UnderlineElem {
-    /// How to stroke the line.
+    /// How to [stroke]($stroke) the line.
     ///
-    /// See the [line's documentation]($func/line.stroke) for more details. If
-    /// set to `{auto}`, takes on the text's color and a thickness defined in
+    /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
     ///
     /// ```example
@@ -30,7 +26,7 @@ pub struct UnderlineElem {
     /// ```
     #[resolve]
     #[fold]
-    pub stroke: Smart<PartialStroke>,
+    pub stroke: Smart<Stroke>,
 
     /// The position of the line relative to the baseline, read from the font
     /// tables if `{auto}`.
@@ -85,19 +81,15 @@ impl Show for UnderlineElem {
 
 /// Adds a line over text.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #overline[A line over text.]
 /// ```
-///
-/// Display: Overline
-/// Category: text
-#[element(Show)]
+#[elem(Show)]
 pub struct OverlineElem {
-    /// How to stroke the line.
+    /// How to [stroke]($stroke) the line.
     ///
-    /// See the [line's documentation]($func/line.stroke) for more details. If
-    /// set to `{auto}`, takes on the text's color and a thickness defined in
+    /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
     ///
     /// ```example
@@ -110,7 +102,7 @@ pub struct OverlineElem {
     /// ```
     #[resolve]
     #[fold]
-    pub stroke: Smart<PartialStroke>,
+    pub stroke: Smart<Stroke>,
 
     /// The position of the line relative to the baseline. Read from the font
     /// tables if `{auto}`.
@@ -170,23 +162,19 @@ impl Show for OverlineElem {
 
 /// Strikes through text.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// This is #strike[not] relevant.
 /// ```
-///
-/// Display: Strikethrough
-/// Category: text
-#[element(Show)]
+#[elem(title = "Strikethrough", Show)]
 pub struct StrikeElem {
-    /// How to stroke the line.
+    /// How to [stroke]($stroke) the line.
     ///
-    /// See the [line's documentation]($func/line.stroke) for more details. If
-    /// set to `{auto}`, takes on the text's color and a thickness defined in
+    /// If set to `{auto}`, takes on the text's color and a thickness defined in
     /// the current font.
     ///
-    /// _Note:_ Please don't use this for real redaction as you can still
-    /// copy paste the text.
+    /// _Note:_ Please don't use this for real redaction as you can still copy
+    /// paste the text.
     ///
     /// ```example
     /// This is #strike(stroke: 1.5pt + red)[very stricken through]. \
@@ -194,7 +182,7 @@ pub struct StrikeElem {
     /// ```
     #[resolve]
     #[fold]
-    pub stroke: Smart<PartialStroke>,
+    pub stroke: Smart<Stroke>,
 
     /// The position of the line relative to the baseline. Read from the font
     /// tables if `{auto}`.
@@ -240,14 +228,11 @@ impl Show for StrikeElem {
 
 /// Highlights text with a background color.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// This is #highlight[important].
 /// ```
-///
-/// Display: Highlight
-/// Category: text
-#[element(Show)]
+#[elem(Show)]
 pub struct HighlightElem {
     /// The color to highlight the text with.
     /// (Default: 0xffff5f)
@@ -316,6 +301,7 @@ impl Show for HighlightElem {
 
 /// Defines a line-based decoration that is positioned over, under or on top of text,
 /// or highlights the text with a background.
+#[ty]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Decoration {
     line: DecoLine,
@@ -332,15 +318,15 @@ impl Fold for Decoration {
 }
 
 cast! {
-    type Decoration: "decoration",
+    type Decoration,
 }
 
 /// A kind of decorative line.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum DecoLine {
-    Underline { stroke: PartialStroke<Abs>, offset: Smart<Abs>, evade: bool },
-    Strikethrough { stroke: PartialStroke<Abs>, offset: Smart<Abs> },
-    Overline { stroke: PartialStroke<Abs>, offset: Smart<Abs>, evade: bool },
+    Underline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool },
+    Strikethrough { stroke: Stroke<Abs>, offset: Smart<Abs> },
+    Overline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool },
     Highlight { fill: Paint, top_edge: TopEdge, bottom_edge: BottomEdge },
 }
 
@@ -378,10 +364,10 @@ pub(super) fn decorate(
     };
 
     let offset = offset.unwrap_or(-metrics.position.at(text.size)) - shift;
-    let stroke = stroke.clone().unwrap_or(Stroke {
+    let stroke = stroke.clone().unwrap_or(FixedStroke {
         paint: text.fill.clone(),
         thickness: metrics.thickness.at(text.size),
-        ..Stroke::default()
+        ..FixedStroke::default()
     });
 
     let gap_padding = 0.08 * text.size;

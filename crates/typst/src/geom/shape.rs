@@ -8,7 +8,7 @@ pub struct Shape {
     /// The shape's background fill.
     pub fill: Option<Paint>,
     /// The shape's border stroke.
-    pub stroke: Option<Stroke>,
+    pub stroke: Option<FixedStroke>,
 }
 
 /// A shape's geometry.
@@ -29,7 +29,7 @@ impl Geometry {
     }
 
     /// Stroke the geometry without a fill.
-    pub fn stroked(self, stroke: Stroke) -> Shape {
+    pub fn stroked(self, stroke: FixedStroke) -> Shape {
         Shape { geometry: self, fill: None, stroke: Some(stroke) }
     }
 }

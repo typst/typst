@@ -234,7 +234,7 @@ impl From<ttf_parser::RasterImageFormat> for ImageFormat {
 pub enum DecodedImage {
     /// A decoded pixel raster with its ICC profile.
     Raster(image::DynamicImage, Option<IccProfile>, RasterFormat),
-    /// An decoded SVG tree.
+    /// A decoded SVG tree.
     Svg(usvg::Tree),
 }
 

@@ -24,7 +24,7 @@ pub trait ContentExt {
     fn backlinked(self, loc: Location) -> Self;
 
     /// Set alignments for this content.
-    fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self;
+    fn aligned(self, align: Align) -> Self;
 
     /// Pad this content at the sides.
     fn padded(self, padding: Sides<Rel<Length>>) -> Self;
@@ -56,8 +56,8 @@ impl ContentExt for Content {
         self.styled(MetaElem::set_data(vec![Meta::Elem(backlink)]))
     }
 
-    fn aligned(self, aligns: Axes<Option<GenAlign>>) -> Self {
-        self.styled(AlignElem::set_alignment(aligns))
+    fn aligned(self, align: Align) -> Self {
+        self.styled(AlignElem::set_alignment(align))
     }
 
     fn padded(self, padding: Sides<Rel<Length>>) -> Self {

@@ -18,7 +18,7 @@ use crate::text::families;
 /// in the resulting PDF. Make sure to double-check embedded SVG images. If you
 /// have an issue, also feel free to report it on [GitHub][gh-svg].
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #figure(
 ///   image("molecular.jpg", width: 80%),
@@ -30,14 +30,7 @@ use crate::text::families;
 /// ```
 ///
 /// [gh-svg]: https://github.com/typst/typst/issues?q=is%3Aopen+is%3Aissue+label%3Asvg
-///
-/// Display: Image
-/// Category: visualize
-#[element(Layout, LocalName, Figurable)]
-#[scope(
-    scope.define("decode", image_decode_func());
-    scope
-)]
+#[elem(scope, Layout, LocalName, Figurable)]
 pub struct ImageElem {
     /// Path to an image file.
     #[required]
@@ -73,59 +66,58 @@ pub struct ImageElem {
     pub fit: ImageFit,
 }
 
-/// Decode a raster or vector graphic from bytes or a string.
-///
-/// ## Example { #example }
-/// ```example
-/// #let original = read("diagram.svg")
-/// #let changed = original.replace(
-///   "#2B80FF", // blue
-///   green.hex(),
-/// )
-///
-/// #image.decode(original)
-/// #image.decode(changed)
-/// ```
-///
-/// Display: Decode Image
-/// Category: visualize
-#[func]
-pub fn image_decode(
-    /// The data to decode as an image. Can be a string for SVGs.
-    data: Readable,
-    /// The image's format. Detected automatically by default.
-    #[named]
-    format: Option<Smart<ImageFormat>>,
-    /// The width of the image.
-    #[named]
-    width: Option<Smart<Rel<Length>>>,
-    /// The height of the image.
-    #[named]
-    height: Option<Smart<Rel<Length>>>,
-    /// A text describing the image.
-    #[named]
-    alt: Option<Option<EcoString>>,
-    /// How the image should adjust itself to a given area.
-    #[named]
-    fit: Option<ImageFit>,
-) -> StrResult<Content> {
-    let mut elem = ImageElem::new(EcoString::new(), data);
-    if let Some(format) = format {
-        elem.push_format(format);
+#[scope]
+impl ImageElem {
+    /// Decode a raster or vector graphic from bytes or a string.
+    ///
+    /// ```example
+    /// #let original = read("diagram.svg")
+    /// #let changed = original.replace(
+    ///   "#2B80FF", // blue
+    ///   green.to-hex(),
+    /// )
+    ///
+    /// #image.decode(original)
+    /// #image.decode(changed)
+    /// ```
+    #[func(title = "Decode Image")]
+    pub fn decode(
+        /// The data to decode as an image. Can be a string for SVGs.
+        data: Readable,
+        /// The image's format. Detected automatically by default.
+        #[named]
+        format: Option<Smart<ImageFormat>>,
+        /// The width of the image.
+        #[named]
+        width: Option<Smart<Rel<Length>>>,
+        /// The height of the image.
+        #[named]
+        height: Option<Smart<Rel<Length>>>,
+        /// A text describing the image.
+        #[named]
+        alt: Option<Option<EcoString>>,
+        /// How the image should adjust itself to a given area.
+        #[named]
+        fit: Option<ImageFit>,
+    ) -> StrResult<Content> {
+        let mut elem = ImageElem::new(EcoString::new(), data);
+        if let Some(format) = format {
+            elem.push_format(format);
+        }
+        if let Some(width) = width {
+            elem.push_width(width);
+        }
+        if let Some(height) = height {
+            elem.push_height(height);
+        }
+        if let Some(alt) = alt {
+            elem.push_alt(alt);
+        }
+        if let Some(fit) = fit {
+            elem.push_fit(fit);
+        }
+        Ok(elem.pack())
     }
-    if let Some(width) = width {
-        elem.push_width(width);
-    }
-    if let Some(height) = height {
-        elem.push_height(height);
-    }
-    if let Some(alt) = alt {
-        elem.push_alt(alt);
-    }
-    if let Some(fit) = fit {
-        elem.push_fit(fit);
-    }
-    Ok(elem.pack())
 }
 
 impl Layout for ImageElem {
@@ -175,8 +167,7 @@ impl Layout for ImageElem {
 
         let sizing = Axes::new(self.width(styles), self.height(styles));
         let region = sizing
-            .zip(regions.base())
-            .map(|(s, r)| s.map(|v| v.resolve(styles).relative_to(r)))
+            .zip_map(regions.base(), |s, r| s.map(|v| v.resolve(styles).relative_to(r)))
             .unwrap_or(regions.base());
 
         let expand = sizing.as_ref().map(Smart::is_custom) | regions.expand;
@@ -217,7 +208,7 @@ impl Layout for ImageElem {
         // process.
         let mut frame = Frame::new(fitted);
         frame.push(Point::zero(), FrameItem::Image(image, fitted, self.span()));
-        frame.resize(target, Align::CENTER_HORIZON);
+        frame.resize(target, Axes::splat(FixedAlign::Center));
 
         // Create a clipping group if only part of the image should be visible.
         if fit == ImageFit::Cover && !target.fits(fitted) {

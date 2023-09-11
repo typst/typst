@@ -1,6 +1,18 @@
 use super::*;
 
-/// A fraction of remaining space.
+/// Defines how the the remaining space in a layout is distributed.
+///
+/// Each fractionally sized element gets space based on the ratio of its
+/// fraction to the sum of all fractions.
+///
+/// For more details, also see the [h]($h) and [v]($v) functions and the
+/// [grid function]($grid).
+///
+/// # Example
+/// ```example
+/// Left #h(1fr) Left-ish #h(2fr) Right
+/// ```
+#[ty(name = "fraction")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Fr(Scalar);
 
@@ -91,19 +103,19 @@ impl Mul<Fr> for f64 {
     }
 }
 
-impl Div<f64> for Fr {
-    type Output = Self;
-
-    fn div(self, other: f64) -> Self {
-        Self(self.0 / other)
-    }
-}
-
 impl Div for Fr {
     type Output = f64;
 
     fn div(self, other: Self) -> f64 {
         self.get() / other.get()
+    }
+}
+
+impl Div<f64> for Fr {
+    type Output = Self;
+
+    fn div(self, other: f64) -> Self {
+        Self(self.0 / other)
     }
 }
 

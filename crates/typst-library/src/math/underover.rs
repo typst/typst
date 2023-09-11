@@ -11,14 +11,10 @@ enum LineKind {
 
 /// A horizontal line under content.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ underline(1 + 2 + ... + 5) $
 /// ```
-///
-/// Display: Underline
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct UnderlineElem {
     /// The content above the line.
     #[required]
@@ -34,14 +30,10 @@ impl LayoutMath for UnderlineElem {
 
 /// A horizontal line over content.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ overline(1 + 2 + ... + 5) $
 /// ```
-///
-/// Display: Overline
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct OverlineElem {
     /// The content below the line.
     #[required]
@@ -103,10 +95,10 @@ fn layout_underoverline(
     frame.push(
         line_pos,
         FrameItem::Shape(
-            Geometry::Line(Point::with_x(width)).stroked(Stroke {
+            Geometry::Line(Point::with_x(width)).stroked(FixedStroke {
                 paint: TextElem::fill_in(ctx.styles()),
                 thickness: bar_height,
-                ..Stroke::default()
+                ..FixedStroke::default()
             }),
             span,
         ),
@@ -119,14 +111,10 @@ fn layout_underoverline(
 
 /// A horizontal brace under content, with an optional annotation below.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ underbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
-///
-/// Display: Underbrace
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct UnderbraceElem {
     /// The content above the brace.
     #[required]
@@ -154,14 +142,10 @@ impl LayoutMath for UnderbraceElem {
 
 /// A horizontal brace over content, with an optional annotation above.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ overbrace(1 + 2 + ... + 5, "numbers") $
 /// ```
-///
-/// Display: Overbrace
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct OverbraceElem {
     /// The content below the brace.
     #[required]
@@ -189,14 +173,10 @@ impl LayoutMath for OverbraceElem {
 
 /// A horizontal bracket under content, with an optional annotation below.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ underbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
-///
-/// Display: Underbracket
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct UnderbracketElem {
     /// The content above the bracket.
     #[required]
@@ -224,14 +204,10 @@ impl LayoutMath for UnderbracketElem {
 
 /// A horizontal bracket over content, with an optional annotation above.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ overbracket(1 + 2 + ... + 5, "numbers") $
 /// ```
-///
-/// Display: Overbracket
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct OverbracketElem {
     /// The content below the bracket.
     #[required]
@@ -294,7 +270,7 @@ fn layout_underoverspreader(
         baseline = rows.len() - 1;
     }
 
-    let frame = stack(ctx, rows, Align::Center, gap, baseline);
+    let frame = stack(ctx, rows, FixedAlign::Center, gap, baseline);
     ctx.push(FrameFragment::new(ctx, frame).with_class(body_class));
 
     Ok(())
@@ -307,7 +283,7 @@ fn layout_underoverspreader(
 pub(super) fn stack(
     ctx: &MathContext,
     rows: Vec<MathRow>,
-    align: Align,
+    align: FixedAlign,
     gap: Abs,
     baseline: usize,
 ) -> Frame {

@@ -8,29 +8,22 @@ use crate::prelude::*;
 /// descriptions span over multiple lines, they use hanging indent to
 /// communicate the visual hierarchy.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// / Ligature: A merged glyph.
 /// / Kerning: A spacing adjustment
 ///   between two adjacent letters.
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: Starting a line with a slash,
 /// followed by a term, a colon and a description creates a term list item.
-///
-/// Display: Term List
-/// Category: layout
-#[element(Layout)]
-#[scope(
-    scope.define("item", TermItem::func());
-    scope
-)]
+#[elem(scope, title = "Term List", Layout)]
 pub struct TermsElem {
-    /// If this is `{false}`, the items are spaced apart with [term list
-    /// spacing]($func/terms.spacing). If it is `{true}`, they use normal
-    /// [leading]($func/par.leading) instead. This makes the term list more
-    /// compact, which can look better if the items are short.
+    /// If this is `{false}`, the items are spaced apart with
+    /// [term list spacing]($terms.spacing). If it is `{true}`, they use normal
+    /// [leading]($par.leading) instead. This makes the term list more compact,
+    /// which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
@@ -81,7 +74,7 @@ pub struct TermsElem {
 
     /// The spacing between the items of a wide (non-tight) term list.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
+    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
     pub spacing: Smart<Spacing>,
 
     /// The term list's children.
@@ -98,6 +91,12 @@ pub struct TermsElem {
     /// ```
     #[variadic]
     pub children: Vec<TermItem>,
+}
+
+#[scope]
+impl TermsElem {
+    #[elem]
+    type TermItem;
 }
 
 impl Layout for TermsElem {
@@ -138,10 +137,7 @@ impl Layout for TermsElem {
 }
 
 /// A term list item.
-///
-/// Display: Term List Item
-/// Category: layout
-#[element]
+#[elem(name = "item", title = "Term List Item")]
 pub struct TermItem {
     /// The term described by the list item.
     #[required]

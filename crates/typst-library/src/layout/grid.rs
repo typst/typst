@@ -34,7 +34,7 @@ use super::Sizing;
 /// instead of an array. For example, `columns:` `{3}` is equivalent to
 /// `columns:` `{(auto, auto, auto)}`.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set text(10pt, style: "italic")
 /// #let cell = rect.with(
@@ -58,10 +58,7 @@ use super::Sizing;
 ///   cell[One more thing...],
 /// )
 /// ```
-///
-/// Display: Grid
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct GridElem {
     /// The column sizes.
     ///

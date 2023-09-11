@@ -41,7 +41,10 @@ macro_rules! __bail {
 }
 
 #[doc(inline)]
-pub use crate::__bail as bail;
+pub use crate::{__bail as bail, __error as error, __warning as warning};
+
+#[doc(hidden)]
+pub use ecow::{eco_format, EcoString};
 
 /// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
 #[macro_export]
@@ -70,13 +73,6 @@ macro_rules! __warning {
         )
     };
 }
-
-#[doc(inline)]
-pub use crate::__error as error;
-#[doc(inline)]
-pub use crate::__warning as warning;
-#[doc(hidden)]
-pub use ecow::{eco_format, EcoString};
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, Box<Vec<SourceDiagnostic>>>;

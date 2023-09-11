@@ -15,7 +15,7 @@ use crate::visualize::ImageElem;
 /// For example, figures containing images will be numbered separately from
 /// figures containing tables.
 ///
-/// ## Examples { #examples }
+/// # Examples
 /// The example below shows a basic figure with an image:
 /// ```example
 /// @glacier shows a glacier. Glaciers
@@ -27,9 +27,8 @@ use crate::visualize::ImageElem;
 /// ) <glacier>
 /// ```
 ///
-/// You can also insert [tables]($func/table) into figures to give them a
-/// caption. The figure will detect this and automatically use a separate
-/// counter.
+/// You can also insert [tables]($table) into figures to give them a caption.
+/// The figure will detect this and automatically use a separate counter.
 ///
 /// ```example
 /// #figure(
@@ -45,7 +44,7 @@ use crate::visualize::ImageElem;
 /// This behaviour can be overridden by explicitly specifying the figure's
 /// `kind`. All figures of the same kind share a common counter.
 ///
-/// ## Modifying the appearance { #modifying-appearance }
+/// # Modifying the appearance { #modifying-appearance }
 /// You can completely customize the look of your figures with a [show
 /// rule]($styling/#show-rules). In the example below, we show the figure's
 /// caption above its body and display its supplement and counter after the
@@ -73,13 +72,10 @@ use crate::visualize::ImageElem;
 /// If your figure is too large and its contents are breakable across pages
 /// (e.g. if it contains a large table), then you can make the figure breakable
 /// across pages as well by using `[#show figure: set block(breakable: true)]`
-/// (see the [block]($func/block) documentation for more information).
-///
-/// Display: Figure
-/// Category: meta
-#[element(Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
+/// (see the [block]($block) documentation for more information).
+#[elem(Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
 pub struct FigureElem {
-    /// The content of the figure. Often, an [image]($func/image).
+    /// The content of the figure. Often, an [image]($image).
     #[required]
     pub body: Content,
 
@@ -103,7 +99,7 @@ pub struct FigureElem {
     /// )
     /// #lorem(60)
     /// ```
-    pub placement: Option<Smart<VerticalAlign>>,
+    pub placement: Option<Smart<VAlign>>,
 
     /// The figure's caption.
     pub caption: Option<Content>,
@@ -122,8 +118,17 @@ pub struct FigureElem {
     ///   caption: [I'm down here],
     /// )
     /// ```
-    #[default(VerticalAlign(GenAlign::Specific(Align::Bottom)))]
-    pub caption_pos: VerticalAlign,
+    #[default(VAlign::Bottom)]
+    #[parse({
+        let option: Option<Spanned<VAlign>> = args.named("caption-pos")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align == VAlign::Horizon {
+                bail!(span, "expected `top` or `bottom`");
+            }
+        }
+        option.map(|spanned| spanned.v)
+    })]
+    pub caption_pos: VAlign,
 
     /// The kind of figure this is.
     ///
@@ -133,7 +138,7 @@ pub struct FigureElem {
     /// Setting this to something other than `{auto}` will override the
     /// automatic detection. This can be useful if
     /// - you wish to create a custom figure type that is not an
-    ///   [image]($func/image), a [table]($func/table) or [code]($func/raw),
+    ///   [image]($image), a [table]($table) or [code]($raw),
     /// - you want to force the figure to use a specific counter regardless of
     ///   its content.
     ///
@@ -155,8 +160,8 @@ pub struct FigureElem {
     /// The figure's supplement.
     ///
     /// If set to `{auto}`, the figure will try to automatically determine the
-    /// correct supplement based on the `kind` and the active [text
-    /// language]($func/text.lang). If you are using a custom figure type, you
+    /// correct supplement based on the `kind` and the active
+    /// [text language]($text.lang). If you are using a custom figure type, you
     /// will need to manually specify the supplement.
     ///
     /// If a function is specified, it is passed the first descendant of the
@@ -174,7 +179,7 @@ pub struct FigureElem {
     pub supplement: Smart<Option<Supplement>>,
 
     /// How to number the figure. Accepts a
-    /// [numbering pattern or function]($func/numbering).
+    /// [numbering pattern or function]($numbering).
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
     pub numbering: Option<Numbering>,
 
@@ -182,16 +187,15 @@ pub struct FigureElem {
     #[default(Em::new(0.65).into())]
     pub gap: Length,
 
-    /// Whether the figure should appear in an [`outline`]($func/outline)
-    /// of figures.
+    /// Whether the figure should appear in an [`outline`]($outline) of figures.
     #[default(true)]
     pub outlined: bool,
 
     /// Convenience field to get access to the counter for this figure.
     ///
     /// The counter only depends on the `kind`:
-    /// - For (tables)[$func/table]: `{counter(figure.where(kind: table))}`
-    /// - For (images)[$func/image]: `{counter(figure.where(kind: image))}`
+    /// - For (tables)[@table]: `{counter(figure.where(kind: table))}`
+    /// - For (images)[@image]: `{counter(figure.where(kind: image))}`
     /// - For a custom kind: `{counter(figure.where(kind: kind))}`
     ///
     /// These are the counters you'll need to modify if you want to skip a
@@ -210,15 +214,8 @@ impl Synthesize for FigureElem {
                 .query_first(Selector::can::<dyn Figurable>())
                 .cloned()
                 .map(|elem| FigureKind::Elem(elem.func()))
-                .unwrap_or_else(|| FigureKind::Elem(ImageElem::func()))
+                .unwrap_or_else(|| FigureKind::Elem(ImageElem::elem()))
         });
-
-        let caption_pos =
-            VerticalAlign(GenAlign::Specific(match self.caption_pos(styles) {
-                VerticalAlign(GenAlign::Specific(Align::Top)) => Align::Top,
-                VerticalAlign(GenAlign::Specific(Align::Bottom)) => Align::Bottom,
-                _ => bail!(self.span(), "caption-pos can only be top or bottom"),
-            }));
 
         // Resolve the supplement.
         let supplement = match self.supplement(styles) {
@@ -261,14 +258,14 @@ impl Synthesize for FigureElem {
 
         // Construct the figure's counter.
         let counter = Counter::new(CounterKey::Selector(Selector::Elem(
-            Self::func(),
+            Self::elem(),
             Some(dict! {
                 "kind" => kind.clone(),
             }),
         )));
 
         self.push_placement(self.placement(styles));
-        self.push_caption_pos(caption_pos);
+        self.push_caption_pos(self.caption_pos(styles));
         self.push_caption(self.caption(styles));
         self.push_kind(Smart::Custom(kind));
         self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
@@ -288,10 +285,7 @@ impl Show for FigureElem {
         // Build the caption, if any.
         if let Some(caption) = self.full_caption(vt)? {
             let v = VElem::weak(self.gap(styles).into()).pack();
-            realized = if matches!(
-                self.caption_pos(styles),
-                VerticalAlign(GenAlign::Specific(Align::Bottom))
-            ) {
+            realized = if self.caption_pos(styles) == VAlign::Bottom {
                 realized + v + caption
             } else {
                 caption + v + realized
@@ -302,15 +296,13 @@ impl Show for FigureElem {
         realized = BlockElem::new()
             .with_body(Some(realized))
             .pack()
-            .aligned(Axes::with_x(Some(Align::Center.into())));
+            .aligned(Align::CENTER);
 
         // Wrap in a float.
         if let Some(align) = self.placement(styles) {
             realized = PlaceElem::new(realized)
                 .with_float(true)
-                .with_alignment(align.map(|VerticalAlign(align)| {
-                    Axes::new(Some(Align::Center.into()), Some(align))
-                }))
+                .with_alignment(align.map(|align| HAlign::Center + align))
                 .pack();
         }
 
@@ -345,7 +337,7 @@ impl Refable for FigureElem {
     }
 
     fn counter(&self) -> Counter {
-        self.counter().unwrap_or_else(|| Counter::of(Self::func()))
+        self.counter().unwrap_or_else(|| Counter::of(Self::elem()))
     }
 
     fn numbering(&self) -> Option<Numbering> {
@@ -379,8 +371,8 @@ impl FigureElem {
             self.counter(),
             self.numbering(StyleChain::default()),
         ) {
-            let loc = self.0.location().unwrap();
-            let numbers = counter.at(vt, loc)?.display(vt, &numbering)?;
+            let location = self.0.location().unwrap();
+            let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
 
             if !supplement.is_empty() {
                 supplement += TextElem::packed("\u{a0}");
@@ -397,7 +389,7 @@ impl FigureElem {
 #[derive(Debug, Clone)]
 pub enum FigureKind {
     /// The kind is an element function.
-    Elem(ElemFunc),
+    Elem(Element),
     /// The kind is a name.
     Name(EcoString),
 }
@@ -408,7 +400,7 @@ cast! {
         Self::Elem(v) => v.into_value(),
         Self::Name(v) => v.into_value(),
     },
-    v: ElemFunc => Self::Elem(v),
+    v: Element => Self::Elem(v),
     v: EcoString => Self::Name(v),
 }
 

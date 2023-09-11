@@ -2,10 +2,7 @@ use super::TextElem;
 use crate::prelude::*;
 
 /// A text space.
-///
-/// Display: Space
-/// Category: text
-#[element(Behave, Unlabellable, PlainText)]
+#[elem(Behave, Unlabellable, PlainText)]
 pub struct SpaceElem {}
 
 impl Behave for SpaceElem {
@@ -28,21 +25,18 @@ impl PlainText for SpaceElem {
 /// end of a paragraph is ignored, but more than one creates additional empty
 /// lines.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// *Date:* 26.12.2022 \
 /// *Topic:* Infrastructure Test \
 /// *Severity:* High \
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: To insert a line break, simply write
 /// a backslash followed by whitespace. This always creates an unjustified
 /// break.
-///
-/// Display: Line Break
-/// Category: text
-#[element(Behave)]
+#[elem(title = "Line Break", Behave)]
 pub struct LinebreakElem {
     /// Whether to justify the line before the break.
     ///
@@ -71,7 +65,7 @@ impl Behave for LinebreakElem {
 ///
 /// Increases the current font weight by a given `delta`.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// This is *strong.* \
 /// This is #strong[too.] \
@@ -80,15 +74,12 @@ impl Behave for LinebreakElem {
 /// And this is *evermore.*
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: To strongly emphasize content,
 /// simply enclose it in stars/asterisks (`*`). Note that this only works at
 /// word boundaries. To strongly emphasize part of a word, you have to use the
 /// function.
-///
-/// Display: Strong Emphasis
-/// Category: text
-#[element(Show)]
+#[elem(title = "Strong Emphasis", Show)]
 pub struct StrongElem {
     /// The delta to apply on the font weight.
     ///
@@ -131,12 +122,12 @@ impl Fold for Delta {
 
 /// Emphasizes content by setting it in italics.
 ///
-/// - If the current [text style]($func/text.style) is `{"normal"}`,
-///   this turns it into `{"italic"}`.
-/// - If it is already `{"italic"}` or `{"oblique"}`,
-///   it turns it back to `{"normal"}`.
+/// - If the current [text style]($text.style) is `{"normal"}`, this turns it
+///   into `{"italic"}`.
+/// - If it is already `{"italic"}` or `{"oblique"}`, it turns it back to
+///   `{"normal"}`.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// This is _emphasized._ \
 /// This is #emph[too.]
@@ -148,14 +139,11 @@ impl Fold for Delta {
 /// This is _emphasized_ differently.
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: To emphasize content, simply
 /// enclose it in underscores (`_`). Note that this only works at word
 /// boundaries. To emphasize part of a word, you have to use the function.
-///
-/// Display: Emphasis
-/// Category: text
-#[element(Show)]
+#[elem(title = "Emphasis", Show)]
 pub struct EmphElem {
     /// The content to emphasize.
     #[required]
@@ -189,16 +177,13 @@ impl Fold for Toggle {
 
 /// Converts text or content to lowercase.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #lower("ABC") \
 /// #lower[*My Text*] \
 /// #lower[already low]
 /// ```
-///
-/// Display: Lowercase
-/// Category: text
-#[func]
+#[func(title = "Lowercase")]
 pub fn lower(
     /// The text to convert to lowercase.
     text: Caseable,
@@ -208,16 +193,13 @@ pub fn lower(
 
 /// Converts text or content to uppercase.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #upper("abc") \
 /// #upper[*my text*] \
 /// #upper[ALREADY HIGH]
 /// ```
-///
-/// Display: Uppercase
-/// Category: text
-#[func]
+#[func(title = "Uppercase")]
 pub fn upper(
     /// The text to convert to uppercase.
     text: Caseable,
@@ -278,7 +260,7 @@ impl Case {
 /// support selecting a dedicated smallcaps font as well as synthesizing
 /// smallcaps from normal letters, but this is not yet implemented.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set par(justify: true)
 /// #set heading(numbering: "I.")
@@ -292,10 +274,7 @@ impl Case {
 /// = Introduction
 /// #lorem(40)
 /// ```
-///
-/// Display: Small Capitals
-/// Category: text
-#[func]
+#[func(title = "Small Capitals")]
 pub fn smallcaps(
     /// The text to display to small capitals.
     body: Content,
@@ -310,7 +289,7 @@ pub fn smallcaps(
 /// the same but randomly chosen. As usual for blind texts, it does not make any
 /// sense. Use it as a placeholder to try layouts.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// = Blind Text
 /// #lorem(30)
@@ -318,10 +297,7 @@ pub fn smallcaps(
 /// = More Blind Text
 /// #lorem(15)
 /// ```
-///
-/// Display: Blind Text
-/// Category: text
-#[func]
+#[func(keywords = ["Blind Text"])]
 pub fn lorem(
     /// The length of the blind text in words.
     words: usize,

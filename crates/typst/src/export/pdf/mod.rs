@@ -1,6 +1,6 @@
 //! Exporting into PDF documents.
 
-mod external_graphics_state;
+mod extg;
 mod font;
 mod image;
 mod outline;
@@ -22,7 +22,7 @@ use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
 use crate::model::Introspector;
 
-use external_graphics_state::ExternalGraphicsState;
+use extg::ExternalGraphicsState;
 
 /// Export a document into a PDF file.
 ///
@@ -33,7 +33,7 @@ pub fn pdf(document: &Document) -> Vec<u8> {
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
-    external_graphics_state::write_external_graphics_states(&mut ctx);
+    extg::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx);
     ctx.writer.finish()

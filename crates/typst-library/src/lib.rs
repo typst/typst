@@ -14,10 +14,9 @@ pub mod symbols;
 pub mod text;
 pub mod visualize;
 
-use typst::diag::At;
-use typst::eval::{LangItems, Library, Module, Scope};
-use typst::geom::Smart;
-use typst::model::{Element, Styles};
+use typst::eval::{Array, LangItems, Library, Module, Scope};
+use typst::geom::{Align, Color, Dir, Smart};
+use typst::model::{NativeElement, Styles};
 
 use self::layout::LayoutRoot;
 
@@ -32,17 +31,53 @@ pub fn build() -> Library {
 #[tracing::instrument(skip_all)]
 fn global(math: Module) -> Module {
     let mut global = Scope::deduplicating();
-
-    // Categories.
     text::define(&mut global);
+    global.define_module(math);
     layout::define(&mut global);
     visualize::define(&mut global);
     meta::define(&mut global);
-    compute::define(&mut global);
     symbols::define(&mut global);
-    global.define("math", math);
+    compute::define(&mut global);
+    prelude(&mut global);
+    Module::new("global", global)
+}
 
-    Module::new("global").with_scope(global)
+/// Defines scoped values that are globally available, too.
+fn prelude(global: &mut Scope) {
+    global.define("black", Color::BLACK);
+    global.define("gray", Color::GRAY);
+    global.define("silver", Color::SILVER);
+    global.define("white", Color::WHITE);
+    global.define("navy", Color::NAVY);
+    global.define("blue", Color::BLUE);
+    global.define("aqua", Color::AQUA);
+    global.define("teal", Color::TEAL);
+    global.define("eastern", Color::EASTERN);
+    global.define("purple", Color::PURPLE);
+    global.define("fuchsia", Color::FUCHSIA);
+    global.define("maroon", Color::MAROON);
+    global.define("red", Color::RED);
+    global.define("orange", Color::ORANGE);
+    global.define("yellow", Color::YELLOW);
+    global.define("olive", Color::OLIVE);
+    global.define("green", Color::GREEN);
+    global.define("lime", Color::LIME);
+    global.define("luma", Color::luma_data());
+    global.define("rgb", Color::rgb_data());
+    global.define("cmyk", Color::cmyk_data());
+    global.define("range", Array::range_data());
+    global.define("ltr", Dir::LTR);
+    global.define("rtl", Dir::RTL);
+    global.define("ttb", Dir::TTB);
+    global.define("btt", Dir::BTT);
+    global.define("start", Align::START);
+    global.define("left", Align::LEFT);
+    global.define("center", Align::CENTER);
+    global.define("right", Align::RIGHT);
+    global.define("end", Align::END);
+    global.define("top", Align::TOP);
+    global.define("horizon", Align::HORIZON);
+    global.define("bottom", Align::BOTTOM);
 }
 
 /// Construct the standard style map.
@@ -59,9 +94,9 @@ fn items() -> LangItems {
         space: || text::SpaceElem::new().pack(),
         linebreak: || text::LinebreakElem::new().pack(),
         text: |text| text::TextElem::new(text).pack(),
-        text_func: text::TextElem::func(),
+        text_elem: text::TextElem::elem(),
         text_str: |content| Some(content.to::<text::TextElem>()?.text()),
-        smart_quote: |double| text::SmartQuoteElem::new().with_double(double).pack(),
+        smart_quote: |double| text::SmartquoteElem::new().with_double(double).pack(),
         parbreak: || layout::ParbreakElem::new().pack(),
         strong: |body| text::StrongElem::new(body).pack(),
         emph: |body| text::EmphElem::new(body).pack(),
@@ -85,7 +120,7 @@ fn items() -> LangItems {
         },
         bibliography_keys: meta::BibliographyElem::keys,
         heading: |level, title| meta::HeadingElem::new(title).with_level(level).pack(),
-        heading_func: meta::HeadingElem::func(),
+        heading_elem: meta::HeadingElem::elem(),
         list_item: |body| layout::ListItem::new(body).pack(),
         enum_item: |number, body| {
             let mut elem = layout::EnumItem::new(body);
@@ -95,9 +130,6 @@ fn items() -> LangItems {
             elem.pack()
         },
         term_item: |term, description| layout::TermItem::new(term, description).pack(),
-        rgb_func: compute::rgb_func(),
-        cmyk_func: compute::cmyk_func(),
-        luma_func: compute::luma_func(),
         equation: |body, block| math::EquationElem::new(body).with_block(block).pack(),
         math_align_point: || math::AlignPointElem::new().pack(),
         math_delimited: |open, body, close| math::LrElem::new(open + body + close).pack(),
@@ -130,16 +162,6 @@ fn items() -> LangItems {
         math_frac: |num, denom| math::FracElem::new(num, denom).pack(),
         math_root: |index, radicand| {
             math::RootElem::new(radicand).with_index(index).pack()
-        },
-        library_method: |vm, dynamic, method, args, span| {
-            if let Some(counter) = dynamic.downcast::<meta::Counter>().cloned() {
-                counter.call_method(vm, method, args, span)
-            } else if let Some(state) = dynamic.downcast::<meta::State>().cloned() {
-                state.call_method(vm, method, args, span)
-            } else {
-                Err(format!("type {} has no method `{method}`", dynamic.type_name()))
-                    .at(span)
-            }
         },
     }
 }

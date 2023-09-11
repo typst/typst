@@ -5,13 +5,13 @@ use pdf_writer::types::{
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
-use super::external_graphics_state::ExternalGraphicsState;
+use super::extg::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Em, Geometry, LineCap, LineJoin, Numeric, Paint, Point, Ratio,
-    Shape, Size, Stroke, Transform,
+    self, Abs, Color, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint,
+    Point, Ratio, Shape, Size, Transform,
 };
 use crate::image::Image;
 
@@ -209,7 +209,7 @@ struct State {
     fill: Option<Paint>,
     fill_space: Option<Name<'static>>,
     external_graphics_state: Option<ExternalGraphicsState>,
-    stroke: Option<Stroke>,
+    stroke: Option<FixedStroke>,
     stroke_space: Option<Name<'static>>,
 }
 
@@ -237,7 +237,7 @@ impl PageContext<'_, '_> {
         }
     }
 
-    fn set_opacities(&mut self, stroke: Option<&Stroke>, fill: Option<&Paint>) {
+    fn set_opacities(&mut self, stroke: Option<&FixedStroke>, fill: Option<&Paint>) {
         let stroke_opacity = stroke
             .map(|stroke| {
                 let Paint::Solid(color) = stroke.paint;
@@ -319,9 +319,9 @@ impl PageContext<'_, '_> {
         self.state.fill_space = None;
     }
 
-    fn set_stroke(&mut self, stroke: &Stroke) {
+    fn set_stroke(&mut self, stroke: &FixedStroke) {
         if self.state.stroke.as_ref() != Some(stroke) {
-            let Stroke {
+            let FixedStroke {
                 paint,
                 thickness,
                 line_cap,

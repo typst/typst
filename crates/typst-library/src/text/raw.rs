@@ -12,7 +12,7 @@ use typst::util::option_eq;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
-    FontFamily, FontList, Hyphenate, LinebreakElem, SmartQuoteElem, TextElem, TextSize,
+    FontFamily, FontList, Hyphenate, LinebreakElem, SmartquoteElem, TextElem, TextSize,
 };
 use crate::layout::BlockElem;
 use crate::meta::{Figurable, LocalName};
@@ -23,7 +23,7 @@ use crate::prelude::*;
 /// Displays the text verbatim and in a monospace font. This is typically used
 /// to embed computer code into your document.
 ///
-/// ## Example { #example }
+/// # Example
 /// ````example
 /// Adding `rbx` to `rcx` gives
 /// the desired result.
@@ -43,7 +43,7 @@ use crate::prelude::*;
 /// also trimmed.
 /// ````
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax. You can enclose text in 1 or 3+
 /// backticks (`` ` ``) to make it raw. Two backticks produce empty raw text.
 /// When you use three or more backticks, you can additionally specify a
@@ -57,10 +57,15 @@ use crate::prelude::*;
 /// needed, start the text with a single space (which will be trimmed) or use
 /// the single backtick syntax. If your text should start or end with a
 /// backtick, put a space before or after it (it will be trimmed).
-///
-/// Display: Raw Text / Code
-/// Category: text
-#[element(Synthesize, Show, Finalize, LocalName, Figurable, PlainText)]
+#[elem(
+    title = "Raw Text / Code",
+    Synthesize,
+    Show,
+    Finalize,
+    LocalName,
+    Figurable,
+    PlainText
+)]
 pub struct RawElem {
     /// The raw text.
     ///
@@ -153,8 +158,8 @@ pub struct RawElem {
     /// code = "centered"
     /// ```
     /// ````
-    #[default(HorizontalAlign(GenAlign::Start))]
-    pub align: HorizontalAlign,
+    #[default(HAlign::Start)]
+    pub align: HAlign,
 
     /// One or multiple additional syntax definitions to load. The syntax
     /// definitions should be in the
@@ -190,10 +195,10 @@ pub struct RawElem {
     /// Applying a theme only affects the color of specifically highlighted
     /// text. It does not consider the theme's foreground and background
     /// properties, so that you retain control over the color of raw text. You
-    /// can apply the foreground color yourself with the [`text`]($func/text)
-    /// function and the background with a [filled block]($func/block.fill). You
-    /// could also use the [`xml`]($func/xml) function to extract these
-    /// properties from the theme.
+    /// can apply the foreground color yourself with the [`text`]($text)
+    /// function and the background with a [filled block]($block.fill). You
+    /// could also use the [`xml`]($xml) function to extract these properties
+    /// from the theme.
     ///
     /// ````example
     /// #set raw(theme: "halcyon.tmTheme")
@@ -340,7 +345,7 @@ impl Show for RawElem {
 
         if self.block(styles) {
             // Align the text before inserting it into the block.
-            realized = realized.aligned(Axes::with_x(Some(self.align(styles).into())));
+            realized = realized.aligned(self.align(styles).into());
             realized = BlockElem::new().with_body(Some(realized)).pack();
         }
 
@@ -356,7 +361,7 @@ impl Finalize for RawElem {
         styles.set(TextElem::set_size(TextSize(Em::new(0.8).into())));
         styles
             .set(TextElem::set_font(FontList(vec![FontFamily::new("DejaVu Sans Mono")])));
-        styles.set(SmartQuoteElem::set_enabled(false));
+        styles.set(SmartquoteElem::set_enabled(false));
         realized.styled_with_map(styles)
     }
 }

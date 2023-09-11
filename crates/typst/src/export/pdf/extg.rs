@@ -1,5 +1,6 @@
-use crate::export::pdf::{PdfContext, RefExt};
 use pdf_writer::Finish;
+
+use crate::export::pdf::{PdfContext, RefExt};
 
 /// A PDF external graphics state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]

@@ -6,7 +6,7 @@ use crate::prelude::*;
 /// The stack places a list of items along an axis, with optional spacing
 /// between each item.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #stack(
 ///   dir: ttb,
@@ -15,10 +15,7 @@ use crate::prelude::*;
 ///   rect(width: 90pt),
 /// )
 /// ```
-///
-/// Display: Stack
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct StackElem {
     /// The direction along which the items are stacked. Possible values are:
     ///
@@ -27,7 +24,7 @@ pub struct StackElem {
     /// - `{ttb}`: Top to bottom.
     /// - `{btt}`: Bottom to top.
     ///
-    /// You cab use the `start` and `end` methods to obtain the initial and
+    /// You can use the `start` and `end` methods to obtain the initial and
     /// final points (respectively) of a direction, as `alignment`. You can also
     /// use the `axis` method to determine whether a direction is
     /// `{"horizontal"}` or `{"vertical"}`. The `inv` method returns a
@@ -141,7 +138,7 @@ enum StackItem {
     /// Fractional spacing between other items.
     Fractional(Fr),
     /// A frame for a layouted block.
-    Frame(Frame, Axes<Align>),
+    Frame(Frame, Axes<FixedAlign>),
 }
 
 impl<'a> StackLayouter<'a> {
@@ -204,7 +201,7 @@ impl<'a> StackLayouter<'a> {
         }
 
         // Block-axis alignment of the `AlignElement` is respected by stacks.
-        let aligns = if let Some(align) = block.to::<AlignElem>() {
+        let align = if let Some(align) = block.to::<AlignElem>() {
             align.alignment(styles)
         } else if let Some((_, local)) = block.to_styled() {
             AlignElem::alignment_in(styles.chain(local))
@@ -230,7 +227,7 @@ impl<'a> StackLayouter<'a> {
             self.used.main += gen.main;
             self.used.cross.set_max(gen.cross);
 
-            self.items.push(StackItem::Frame(frame, aligns));
+            self.items.push(StackItem::Frame(frame, align));
 
             if i + 1 < len {
                 self.finish_region();
@@ -259,18 +256,18 @@ impl<'a> StackLayouter<'a> {
 
         let mut output = Frame::new(size);
         let mut cursor = Abs::zero();
-        let mut ruler: Align = self.dir.start().into();
+        let mut ruler: FixedAlign = self.dir.start().into();
 
         // Place all frames.
         for item in self.items.drain(..) {
             match item {
                 StackItem::Absolute(v) => cursor += v,
                 StackItem::Fractional(v) => cursor += v.share(self.fr, remaining),
-                StackItem::Frame(frame, aligns) => {
+                StackItem::Frame(frame, align) => {
                     if self.dir.is_positive() {
-                        ruler = ruler.max(aligns.get(self.axis));
+                        ruler = ruler.max(align.get(self.axis));
                     } else {
-                        ruler = ruler.min(aligns.get(self.axis));
+                        ruler = ruler.min(align.get(self.axis));
                     }
 
                     // Align along the main axis.
@@ -285,7 +282,7 @@ impl<'a> StackLayouter<'a> {
 
                     // Align along the cross axis.
                     let other = self.axis.other();
-                    let cross = aligns
+                    let cross = align
                         .get(other)
                         .position(size.get(other) - frame.size().get(other));
 

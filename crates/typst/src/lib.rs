@@ -104,7 +104,7 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
 /// change and can thus even be cached across multiple compilations (for
 /// long-running applications like `typst watch`). Source files on the other
 /// hand can change and should thus be cleared after. Advanced clients like
-/// language servers can also retain the source files and [edited](Source::edit)
+/// language servers can also retain the source files and [edit](Source::edit)
 /// them in-place to benefit from better incremental performance.
 #[comemo::track]
 pub trait World {

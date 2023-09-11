@@ -14,8 +14,8 @@ use usvg::{NodeExt, TreeParsing};
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Geometry, LineCap, LineJoin, Paint, PathItem, Shape, Size, Stroke,
-    Transform,
+    self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
+    Size, Transform,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -466,7 +466,7 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if let Some(Stroke {
+    if let Some(FixedStroke {
         paint,
         thickness,
         line_cap,

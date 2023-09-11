@@ -15,15 +15,15 @@ pub use typst::diag::{bail, error, At, Hint, SourceResult, StrResult};
 pub use typst::doc::*;
 #[doc(no_inline)]
 pub use typst::eval::{
-    array, cast, dict, format_str, func, Args, Array, AutoValue, Cast, Dict, FromValue,
-    Func, IntoValue, Never, NoneValue, Scope, Str, Symbol, Type, Value, Vm,
+    array, cast, dict, format_str, func, scope, ty, Args, Array, Bytes, Cast, Dict,
+    FromValue, Func, IntoValue, Scope, Str, Symbol, Type, Value, Vm,
 };
 #[doc(no_inline)]
 pub use typst::geom::*;
 #[doc(no_inline)]
 pub use typst::model::{
-    element, Behave, Behaviour, Construct, Content, ElemFunc, Element, Finalize, Fold,
-    Introspector, Label, Locatable, LocatableSelector, Location, Locator, MetaElem,
+    elem, Behave, Behaviour, Construct, Content, Element, Finalize, Fold, Introspector,
+    Label, Locatable, LocatableSelector, Location, Locator, MetaElem, NativeElement,
     PlainText, Resolve, Selector, Set, Show, StyleChain, StyleVec, Styles, Synthesize,
     Unlabellable, Vt,
 };

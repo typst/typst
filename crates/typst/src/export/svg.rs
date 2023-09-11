@@ -10,8 +10,8 @@ use xmlwriter::XmlWriter;
 use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Axes, Geometry, LineCap, LineJoin, Paint, PathItem, Ratio, Shape, Size, Stroke,
-    Transform,
+    Abs, Axes, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Ratio, Shape,
+    Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -303,7 +303,7 @@ impl SVGRenderer {
     }
 
     /// Write a stroke attribute.
-    fn write_stroke(&mut self, stroke: &Stroke) {
+    fn write_stroke(&mut self, stroke: &FixedStroke) {
         let Paint::Solid(color) = stroke.paint;
         self.xml.write_attribute("stroke", &color.to_rgba().to_hex());
         self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
