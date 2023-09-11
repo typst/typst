@@ -9,13 +9,13 @@ that you are using a new typesetting system, and you want your report to fit in
 with the other student's submissions. In this chapter, we will see how to format
 your report using Typst's styling system.
 
-## Set rules { #set-rules }
+## Set rules
 As we have seen in the previous chapter, Typst has functions that _insert_
-content (e.g. the [`image`]($func/image) function) and others that _manipulate_
-content that they received as arguments (e.g. the [`align`]($func/align)
-function). The first impulse you might have when you want, for example, to
-justify the report, could be to look for a function that does that and wrap the
-complete document in it.
+content (e.g. the [`image`]($image) function) and others that _manipulate_
+content that they received as arguments (e.g. the [`align`]($align) function).
+The first impulse you might have when you want, for example, to justify the
+report, could be to look for a function that does that and wrap the complete
+document in it.
 
 ```example
 #par(justify: true)[
@@ -38,9 +38,9 @@ do in Typst, there is special syntax for it: Instead of putting the content
 inside of the argument list, you can write it in square brackets directly after
 the normal arguments, saving on punctuation.
 
-As seen above, that works. The [`par`]($func/par) function justifies all
-paragraphs within it. However, wrapping the document in countless functions and
-applying styles selectively and in-situ can quickly become cumbersome.
+As seen above, that works. The [`par`]($par) function justifies all paragraphs
+within it. However, wrapping the document in countless functions and applying
+styles selectively and in-situ can quickly become cumbersome.
 
 Fortunately, Typst has a more elegant solution. With _set rules,_ you can apply
 style properties to all occurrences of some kind of content. You write a set
@@ -89,15 +89,13 @@ Back to set rules: When writing a rule, you choose the function depending on
 what type of element you want to style. Here is a list of some functions that
 are commonly used in set rules:
 
-- [`text`]($func/text) to set font family, size, color, and other properties of
-  text
-- [`page`]($func/page) to set the page size, margins, headers, enable columns,
-  and footers
-- [`par`]($func/par) to justify paragraphs, set line spacing, and more
-- [`heading`]($func/heading) to set the appearance of headings and enable
-  numbering
-- [`document`]($func/document) to set the metadata contained in the PDF output,
-  such as title and author
+- [`text`]($text) to set font family, size, color, and other properties of text
+- [`page`]($page) to set the page size, margins, headers, enable columns, and
+  footers
+- [`par`]($par) to justify paragraphs, set line spacing, and more
+- [`heading`]($heading) to set the appearance of headings and enable numbering
+- [`document`]($document) to set the metadata contained in the PDF output, such
+  as title and author
 
 Not all function parameters can be set. In general, only parameters that tell
 a function _how_ to do something can be set, not those that tell it _what_ to
@@ -151,23 +149,22 @@ behavior of these natural structures.
 
 There are a few things of note here.
 
-First is the [`page`]($func/page) set rule. It receives two arguments: the page
-size and margins for the page. The page size is a string. Typst accepts
-[many standard page sizes,]($func/page.paper) but you can also specify a custom
-page size. The margins are specified as a [dictionary.]($type/dictionary)
-Dictionaries are a collection of key-value pairs. In this case, the keys are `x`
-and `y`, and the values are the horizontal and vertical margins, respectively.
-We could also have specified separate margins for each side by passing a
-dictionary with the keys `{left}`, `{right}`, `{top}`, and `{bottom}`.
+First is the [`page`]($page) set rule. It receives two arguments: the page size
+and margins for the page. The page size is a string. Typst accepts
+[many standard page sizes,]($page.paper) but you can also specify a custom page
+size. The margins are specified as a [dictionary.]($dictionary) Dictionaries are
+a collection of key-value pairs. In this case, the keys are `x` and `y`, and the
+values are the horizontal and vertical margins, respectively. We could also have
+specified separate margins for each side by passing a dictionary with the keys
+`{left}`, `{right}`, `{top}`, and `{bottom}`.
 
-Next is the set [`text`]($func/text) set rule. Here, we set the font size to
-`{10pt}` and font family to `{"New Computer Modern"}`. The Typst app comes with
-many fonts that you can try for your document. When you are in the text
-function's argument list, you can discover the available fonts in the
-autocomplete panel.
+Next is the set [`text`]($text) set rule. Here, we set the font size to `{10pt}`
+and font family to `{"New Computer Modern"}`. The Typst app comes with many
+fonts that you can try for your document. When you are in the text function's
+argument list, you can discover the available fonts in the autocomplete panel.
 
 We have also set the spacing between lines (a.k.a. leading): It is specified as
-a [length]($type/length) value, and we used the `em` unit to specify the leading
+a [length]($length) value, and we used the `em` unit to specify the leading
 relative to the size of the font: `{1em}` is equivalent to the current font size
 (which defaults to `{11pt}`).
 
@@ -177,8 +174,8 @@ center alignment. Vertical and horizontal alignments can be combined with the
 
 ## A hint of sophistication { #sophistication }
 To structure our document more clearly, we now want to number our headings. We
-can do this by setting the `numbering` parameter of the
-[`heading`]($func/heading) function.
+can do this by setting the `numbering` parameter of the [`heading`]($heading)
+function.
 
 ```example
 >>> #set text(font: "New Computer Modern")
@@ -196,8 +193,8 @@ can do this by setting the `numbering` parameter of the
 
 We specified the string `{"1."}` as the numbering parameter. This tells Typst to
 number the headings with arabic numerals and to put a dot between the number of
-each level. We can also use
-[letters, roman numerals, and symbols]($func/numbering) for our headings:
+each level. We can also use [letters, roman numerals, and symbols]($numbering)
+for our headings:
 
 ```example
 >>> #set text(font: "New Computer Modern")
@@ -213,7 +210,7 @@ each level. We can also use
 #lorem(15)
 ```
 
-This example also uses the [`lorem`]($func/lorem) function to generate some
+This example also uses the [`lorem`]($lorem) function to generate some
 placeholder text. This function takes a number as an argument and generates that
 many words of _Lorem Ipsum_ text.
 
@@ -222,13 +219,13 @@ many words of _Lorem Ipsum_ text.
 Did you wonder why the headings and text set rules apply to all text and headings,
 even if they are not produced with the respective functions?
 
-Typst internally calls the `heading` function every time you write `[= Conclusion]`.
-In fact, the function call `[#heading[Conclusion]]` is equivalent to the heading
-markup above. Other markup elements work similarly, they are only
-_syntax sugar_ for the corresponding function calls.
+Typst internally calls the `heading` function every time you write
+`[= Conclusion]`. In fact, the function call `[#heading[Conclusion]]` is
+equivalent to the heading markup above. Other markup elements work similarly,
+they are only _syntax sugar_ for the corresponding function calls.
 </div>
 
-## Show rules { #show-rules }
+## Show rules
 You are already pretty happy with how this turned out. But one last thing needs
 to be fixed: The report you are writing is intended for a larger project and
 that project's name should always be accompanied by a logo, even in prose.
@@ -236,7 +233,8 @@ that project's name should always be accompanied by a logo, even in prose.
 You consider your options. You could add an `[#image("logo.svg")]` call before
 every instance of the logo using search and replace. That sounds very tedious.
 Instead, you could maybe
-[define a custom function]($type/function/#definitions) that always yields the logo with its image. However, there is an even easier way:
+[define a custom function]($function/#defining-functions) that always yields the
+logo with its image. However, there is an even easier way:
 
 With show rules, you can redefine how Typst displays certain elements. You
 specify which elements Typst should show differently and how they should look.
@@ -272,7 +270,7 @@ expects code instead of markup, the leading `#` is not needed to access
 functions, keywords, and variables. This can be observed in parameter lists,
 function definitions, and [code blocks]($scripting).
 
-## Review { #review }
+## Review
 You now know how to apply basic formatting to your Typst documents. You learned
 how to set the font, justify your paragraphs, change the page dimensions, and
 add numbering to your headings with set rules. You also learned how to use a

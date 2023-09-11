@@ -2962,6 +2962,7 @@ name = "typst-docs"
 version = "0.7.0"
 dependencies = [
  "comemo",
+ "ecow",
  "heck",
  "include_dir",
  "once_cell",

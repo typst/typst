@@ -154,7 +154,7 @@ impl Dict {
             .ok_or_else(|| missing_key_no_default(&key))
     }
 
-    /// Insert a new pair into the dictionary and return the value. If the
+    /// Inserts a new pair into the dictionary and return the value. If the
     /// dictionary already contains this key, the value is updated.
     #[func]
     pub fn insert(
@@ -167,7 +167,7 @@ impl Dict {
         Arc::make_mut(&mut self.0).insert(key, value);
     }
 
-    /// Remove a pair from the dictionary by key and return the value.
+    /// Removes a pair from the dictionary by key and return the value.
     #[func]
     pub fn remove(&mut self, key: Str) -> StrResult<Value> {
         match Arc::make_mut(&mut self.0).shift_remove(&key) {

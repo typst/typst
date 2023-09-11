@@ -6,8 +6,8 @@ description: |
 
 # Community
 Hey and welcome to the Community page! We're so glad you're here. Typst is
-developed by an early-stage startup and is still in its infancy, but it
-would be pointless without people like you who are interested in it.
+developed by an early-stage startup and is still in its infancy, but it would be
+pointless without people like you who are interested in it.
 
 We would love to not only hear from you but to also provide spaces where you can
 discuss any topic around Typst, typesetting, writing, the sciences, and
@@ -22,9 +22,9 @@ Of course, you are also very welcome to connect with us on social media
 [GitHub](https://github.com/typst)).
 
 ## What to share? { #want-to-share }
-For our community, we want to foster versatility and inclusivity.
-You are welcome to post about any topic that you think would interest other
-community members, but if you need a little inspiration, here are a few ideas:
+For our community, we want to foster versatility and inclusivity. You are
+welcome to post about any topic that you think would interest other community
+members, but if you need a little inspiration, here are a few ideas:
 
 - Share and discuss your thoughts and ideas for new features or improvements
   you'd like to see in Typst
@@ -33,16 +33,15 @@ community members, but if you need a little inspiration, here are a few ideas:
 - Share importable files or templates that you use to style your documents
 - Alert us of bugs you encounter while using Typst
 
-## Beta test { #beta-test }
-We are starting a public beta test of our product on March 21st, 2023.
-The Typst compiler is still under active development and breaking changes can
-occur at any point. The compiler is developed in the open on
+## Beta test
+We are starting a public beta test of our product on March 21st, 2023. The Typst
+compiler is still under active development and breaking changes can occur at any
+point. The compiler is developed in the open on
 [GitHub](https://github.com/typst/typst).
 
 We will update the members of our Discord server and our social media followers
-when new features become available. We'll also update you on the
-development progress of large features. A development tracker will become
-available on the documentation pages soon.
+when new features become available. We'll also update you on the development
+progress of large features.
 
 ## How to support Typst { #support-typst }
 If you want to support Typst, there are multiple ways to do that! You can

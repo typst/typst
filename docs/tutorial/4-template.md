@@ -195,26 +195,26 @@ Next, we copy the code that generates title, abstract and authors from the
 previous chapter into the template, replacing the fixed details with the
 parameters.
 
-The new `authors` parameter expects an [array]($type/array) of
-[dictionaries]($type/dictionary) with the keys `name`, `affiliation` and
-`email`. Because we can have an arbitrary number of authors, we dynamically
-determine if we need one, two or three columns for the author list. First, we
-determine the number of authors using the [`.len()`]($type/array.len) method on
-the `authors` array. Then, we set the number of columns as the minimum of this
-count and three, so that we never create more than three columns. If there are
-more than three authors, a new row will be inserted instead. For this purpose,
-we have also added a `row-gutter` parameter to the `grid` function. Otherwise,
-the rows would be too close together. To extract the details about the authors
-from the dictionary, we use the [field access syntax]($scripting/#fields).
+The new `authors` parameter expects an [array]($array) of
+[dictionaries]($dictionary) with the keys `name`, `affiliation` and `email`.
+Because we can have an arbitrary number of authors, we dynamically determine if
+we need one, two or three columns for the author list. First, we determine the
+number of authors using the [`.len()`]($array.len) method on the `authors`
+array. Then, we set the number of columns as the minimum of this count and
+three, so that we never create more than three columns. If there are more than
+three authors, a new row will be inserted instead. For this purpose, we have
+also added a `row-gutter` parameter to the `grid` function. Otherwise, the rows
+would be too close together. To extract the details about the authors from the
+dictionary, we use the [field access syntax]($scripting/#fields).
 
 We still have to provide an argument to the grid for each author: Here is where
-the array's [`map` method]($type/array.map) comes in handy. It takes a function
-as an argument that gets called with each item of the array. We pass it a
-function that formats the details for each author and returns a new array
-containing content values. We've now got one array of values that we'd like to
-use as multiple arguments for the grid. We can do that by using the [`spread`
-operator]($type/arguments). It takes an array and applies each of its items as a
-separate argument to the function.
+the array's [`map` method]($array.map) comes in handy. It takes a function as an
+argument that gets called with each item of the array. We pass it a function
+that formats the details for each author and returns a new array containing
+content values. We've now got one array of values that we'd like to use as
+multiple arguments for the grid. We can do that by using the
+[`spread` operator]($arguments). It takes an array and applies each of its items
+as a separate argument to the function.
 
 The resulting template function looks like this:
 
@@ -365,7 +365,7 @@ conference! Why not share it on
 [Typst's Discord server](https://discord.gg/2uDybryKPe) so that others can use
 it too?
 
-## Review { #review }
+## Review
 Congratulations, you have completed Typst's Tutorial! In this section, you have
 learned how to define your own functions and how to create and apply templates
 that define reusable document styles. You've made it far and learned a lot. You

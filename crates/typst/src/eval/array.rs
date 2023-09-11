@@ -207,7 +207,7 @@ impl Array {
             .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
     }
 
-    /// Add a value to the end of the array.
+    /// Adds a value to the end of the array.
     #[func]
     pub fn push(
         &mut self,
@@ -217,14 +217,14 @@ impl Array {
         self.0.push(value);
     }
 
-    /// Remove the last item from the array and return it. Fails with an error
+    /// Removes the last item from the array and returns it. Fails with an error
     /// if the array is empty.
     #[func]
     pub fn pop(&mut self) -> StrResult<Value> {
         self.0.pop().ok_or_else(array_is_empty)
     }
 
-    /// Insert a value into the array at the specified index. Fails with an
+    /// Inserts a value into the array at the specified index. Fails with an
     /// error if the index is out of bounds.
     #[func]
     pub fn insert(
@@ -240,7 +240,7 @@ impl Array {
         Ok(())
     }
 
-    /// Remove the value at the specified index from the array and return it.
+    /// Removes the value at the specified index from the array and return it.
     #[func]
     pub fn remove(
         &mut self,
@@ -252,7 +252,7 @@ impl Array {
         Ok(self.0.remove(i))
     }
 
-    /// Extract a subslice of the array. Fails with an error if the start or
+    /// Extracts a subslice of the array. Fails with an error if the start or
     /// index is out of bounds.
     #[func]
     pub fn slice(
