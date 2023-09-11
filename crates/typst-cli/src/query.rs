@@ -95,8 +95,7 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
         .collect();
 
     if command.one {
-        let Some(value) = mapped.get(0)
-        else {
+        let Some(value) = mapped.get(0) else {
             bail!("no such field found for element");
         };
         serialize(value, command.format)
