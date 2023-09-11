@@ -35,9 +35,9 @@
 
 ---
 // Ref: false
-#test(type(center), "alignment")
-#test(type(horizon), "alignment")
-#test(type(center + horizon), "2d alignment")
+#test(type(center), alignment)
+#test(type(horizon), alignment)
+#test(type(center + horizon), alignment)
 
 ---
 // Error: 8-22 cannot add two horizontal alignments
@@ -46,3 +46,7 @@
 ---
 // Error: 8-20 cannot add two vertical alignments
 #align(top + bottom, [A])
+
+---
+// Error: 8-30 cannot add a vertical and a 2D alignment
+#align(top + (bottom + right), [A])

@@ -116,12 +116,10 @@
 
 ---
 // Usual importing syntax also works for function scopes
-#import enum
 #let d = (e: enum)
 #import d.e
 #import d.e as renamed
 #import d.e: item
-
 #item(2)[a]
 
 ---
@@ -166,11 +164,11 @@
 #import () => {5}: x
 
 ---
-// Error: 9-10 expected path, module or function, found integer
+// Error: 9-10 expected path, module, function, or type, found integer
 #import 5: something
 
 ---
-// Error: 9-10 expected path, module or function, found integer
+// Error: 9-10 expected path, module, function, or type, found integer
 #import 5 as x
 
 ---
@@ -213,14 +211,14 @@ This is never reached.
 ---
 // Renaming does not import the old name (without items).
 #import "module.typ" as something
-// Error: 7-13 unknown variable: module
-#test(module.b, 1)
+// Error: 7-12 unknown variable: mymod
+#test(mymod.b, 1)
 
 ---
 // Renaming does not import the old name (with items).
 #import "module.typ" as something: b as other
-// Error: 7-13 unknown variable: module
-#test(module.b, 1)
+// Error: 7-12 unknown variable: mymod
+#test(mymod.b, 1)
 
 ---
 // Error: 8 expected expression

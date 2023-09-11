@@ -19,8 +19,9 @@
 ---
 #let p = plugin("/files/hello.wasm")
 
-// Error: 10-14 unexpected argument
-#p.hello(true)
+// Error: 10-14 expected bytes, found boolean
+// Error: 27-29 expected bytes, found integer
+#p.hello(true, bytes(()), 10)
 
 ---
 #let p = plugin("/files/hello.wasm")

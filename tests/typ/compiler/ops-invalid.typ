@@ -87,7 +87,7 @@
 #(3 / 12pt)
 
 ---
-// Error: 3-10 cannot repeat this string -1 times
+// Error: 3-10 number must be at least zero
 #(-1 * "")
 
 ---

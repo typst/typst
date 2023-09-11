@@ -11,7 +11,7 @@
 #test(float(10), 10.0)
 #test(float(50% * 30%), 0.15)
 #test(float("31.4e-1"), 3.14)
-#test(type(float(10)), "float")
+#test(type(float(10)), float)
 
 ---
 #test(calc.round(calc.e, digits: 2), 2.72)
@@ -22,7 +22,7 @@
 #int(10pt)
 
 ---
-// Error: 8-13 expected boolean, integer, ratio, string, or float, found function
+// Error: 8-13 expected boolean, integer, ratio, string, or float, found type
 #float(float)
 
 ---

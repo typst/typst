@@ -76,7 +76,7 @@
 
 // Return value.
 #test(for v in "" [], none)
-#test(type(for v in "1" []), "content")
+#test(type(for v in "1" []), content)
 
 ---
 // Uniterable expression.

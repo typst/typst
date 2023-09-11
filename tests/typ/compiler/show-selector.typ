@@ -40,4 +40,4 @@ the ```rs &mut T``` reference.
 
 ---
 // Error: 7-35 this selector cannot be used with show
-#show selector(heading).or(strong): none
+#show selector(heading).or(figure): none
