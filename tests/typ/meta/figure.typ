@@ -41,7 +41,7 @@ We can clearly see that @fig-cylinder and
 #show figure.where(kind: "theorem"): it => {
   let name = none
   if not it.caption == none {
-    name = [ #emph(it.caption)]
+    name = [ #emph(it.caption.body)]
   } else {
     name = []
   }
@@ -100,34 +100,3 @@ We can clearly see that @fig-cylinder and
 #show figure: set block(breakable: true)
 
 #figure(table[a][b][c][d][e], caption: [A table])
-
----
-// Test figure.caption element
-#show figure.caption: emph
-
-#figure("Not italicized", caption: "Italicized")
-
----
-// Test figure.caption element for specific figure kinds
-#show figure.where(kind: table): it => {
-  show figure.caption: underline
-  it
-}
-
-#figure([Not a table], caption: "Not underlined")
-#figure(table[A table], caption: "Underlined")
-
----
-// Test creating custom figure.caption
-#show figure.where(kind: "custom"): it => rect({
-  align(center, it.body)
-  line(length: 100%)
-  figure.caption(it.caption, "Custom figure", it.counter.display("I"))
-})
-
-#figure([A figure], caption: "Not italicized", kind: "custom", supplement: "Ignored")
-
-#show figure.caption: emph
-
-#figure([Another figure], caption: "Italicized", kind: "custom", supplement: "Ignored too")
-
