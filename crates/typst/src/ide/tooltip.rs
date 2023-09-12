@@ -73,7 +73,7 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
     let mut last = None;
     let mut pieces: Vec<EcoString> = vec![];
     let mut iter = values.iter();
-    for value in (&mut iter).take(Tracer::MAX - 1) {
+    for value in (&mut iter).take(Tracer::MAX_VALUES - 1) {
         if let Some((prev, count)) = &mut last {
             if *prev == value {
                 *count += 1;
@@ -138,7 +138,7 @@ fn named_param_tooltip(
     world: &(dyn World + 'static),
     leaf: &LinkedNode,
 ) -> Option<Tooltip> {
-    let (info, named) = if_chain! {
+    let (func, named) = if_chain! {
         // Ensure that we are in a named pair in the arguments to a function
         // call or set rule.
         if let Some(parent) = leaf.parent();
@@ -155,8 +155,7 @@ fn named_param_tooltip(
 
         // Find metadata about the function.
         if let Some(Value::Func(func)) = world.library().global.scope().get(&callee);
-        if let Some(info) = func.info();
-        then { (info, named) }
+        then { (func, named) }
         else { return None; }
     };
 
@@ -164,7 +163,7 @@ fn named_param_tooltip(
     if_chain! {
         if leaf.index() == 0;
         if let Some(ident) = leaf.cast::<ast::Ident>();
-        if let Some(param) = info.param(&ident);
+        if let Some(param) = func.param(&ident);
         then {
             return Some(Tooltip::Text(plain_docs_sentence(param.docs)));
         }
@@ -173,8 +172,8 @@ fn named_param_tooltip(
     // Hovering over a string parameter value.
     if_chain! {
         if let Some(string) = leaf.cast::<ast::Str>();
-        if let Some(param) = info.param(&named.name());
-        if let Some(docs) = find_string_doc(&param.cast, &string.get());
+        if let Some(param) = func.param(&named.name());
+        if let Some(docs) = find_string_doc(&param.input, &string.get());
         then {
             return Some(Tooltip::Text(docs.into()));
         }

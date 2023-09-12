@@ -17,7 +17,7 @@ use crate::world::SystemWorld;
 /// Execute a watching compilation command.
 pub fn watch(mut command: CompileCommand) -> StrResult<()> {
     // Create the world that serves sources, files, and fonts.
-    let mut world = SystemWorld::new(&command)?;
+    let mut world = SystemWorld::new(&command.common)?;
 
     // Perform initial compilation.
     compile_once(&mut world, &mut command, true)?;
@@ -25,7 +25,7 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
     // Setup file watching.
     let (tx, rx) = std::sync::mpsc::channel();
     let mut watcher = RecommendedWatcher::new(tx, notify::Config::default())
-        .map_err(|_| "failed to setup file watching")?;
+        .map_err(|err| eco_format!("failed to setup file watching ({err})"))?;
 
     // Watch all the files that are used by the input file and its dependencies.
     watch_dependencies(&mut world, &mut watcher, HashSet::new())?;
@@ -41,7 +41,8 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
             .into_iter()
             .chain(std::iter::from_fn(|| rx.recv_timeout(timeout).ok()))
         {
-            let event = event.map_err(|_| "failed to watch directory")?;
+            let event =
+                event.map_err(|err| eco_format!("failed to watch directory ({err})"))?;
 
             // Workaround for notify-rs' implicit unwatch on remove/rename
             // (triggered by some editors when saving files) with the inotify
@@ -94,7 +95,7 @@ fn watch_dependencies(
             tracing::info!("Watching {}", path.display());
             watcher
                 .watch(path, RecursiveMode::NonRecursive)
-                .map_err(|_| eco_format!("failed to watch {path:?}"))?;
+                .map_err(|err| eco_format!("failed to watch {path:?} ({err})"))?;
         }
     }
 
@@ -159,7 +160,7 @@ impl Status {
         w.set_color(&color)?;
         write!(w, "watching")?;
         w.reset()?;
-        writeln!(w, " {}", command.input.display())?;
+        writeln!(w, " {}", command.common.input.display())?;
 
         w.set_color(&color)?;
         write!(w, "writing to")?;

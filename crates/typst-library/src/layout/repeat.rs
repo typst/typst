@@ -12,7 +12,7 @@ use super::AlignElem;
 /// Errors if there no bounds on the available space, as it would create
 /// infinite content.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// Sign on the dotted line:
 /// #box(width: 1fr, repeat[.])
@@ -23,10 +23,7 @@ use super::AlignElem;
 ///   Berlin, the 22nd of December, 2022
 /// ]
 /// ```
-///
-/// Display: Repeat
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct RepeatElem {
     /// The content to repeat.
     #[required]
@@ -43,7 +40,7 @@ impl Layout for RepeatElem {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.size, Axes::new(false, false));
         let piece = self.body().layout(vt, styles, pod)?.into_frame();
-        let align = AlignElem::alignment_in(styles).x.resolve(styles);
+        let align = AlignElem::alignment_in(styles).resolve(styles);
 
         let fill = regions.size.x;
         let width = piece.width();
@@ -64,7 +61,7 @@ impl Layout for RepeatElem {
 
         let mut offset = Abs::zero();
         if count == 1.0 {
-            offset += align.position(remaining);
+            offset += align.x.position(remaining);
         }
 
         if width > Abs::zero() {

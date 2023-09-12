@@ -1,9 +1,17 @@
 use std::fmt::{self, Debug, Formatter};
 
-use super::{CastInfo, FromValue, IntoValue, Reflect, Value};
+use super::{ty, CastInfo, FromValue, IntoValue, Reflect, Type, Value};
 use crate::diag::StrResult;
 
 /// A value that indicates a smart default.
+///
+/// The auto type has exactly one value: `{auto}`.
+///
+/// Parameters that support the `{auto}` value have some smart default or
+/// contextual behaviour. A good example is the [text direction]($text.dir)
+/// parameter. Setting it to `{auto}` lets Typst automatically determine the
+/// direction from the [text language]($text.lang).
+#[ty(name = "auto")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct AutoValue;
 
@@ -23,8 +31,12 @@ impl FromValue for AutoValue {
 }
 
 impl Reflect for AutoValue {
-    fn describe() -> CastInfo {
-        CastInfo::Type("auto")
+    fn input() -> CastInfo {
+        CastInfo::Type(Type::of::<Self>())
+    }
+
+    fn output() -> CastInfo {
+        CastInfo::Type(Type::of::<Self>())
     }
 
     fn castable(value: &Value) -> bool {

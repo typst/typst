@@ -2,8 +2,16 @@ use super::*;
 
 /// A ratio of a whole.
 ///
-/// _Note_: `50%` is represented as `0.5` here, but stored as `50.0` in the
-/// corresponding [literal](crate::syntax::ast::Numeric).
+/// Written as a number, followed by a percent sign.
+///
+/// # Example
+/// ```example
+/// #set align(center)
+/// #scale(x: 150%)[
+///   Scaled apart.
+/// ]
+/// ```
+#[ty]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ratio(Scalar);
 
@@ -102,6 +110,14 @@ impl Mul<Ratio> for f64 {
     }
 }
 
+impl Div for Ratio {
+    type Output = f64;
+
+    fn div(self, other: Self) -> f64 {
+        self.get() / other.get()
+    }
+}
+
 impl Div<f64> for Ratio {
     type Output = Self;
 
@@ -115,14 +131,6 @@ impl Div<Ratio> for f64 {
 
     fn div(self, other: Ratio) -> Self {
         self / other.get()
-    }
-}
-
-impl Div for Ratio {
-    type Output = f64;
-
-    fn div(self, other: Self) -> f64 {
-        self.get() / other.get()
     }
 }
 

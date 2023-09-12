@@ -111,8 +111,12 @@ pub enum Corner {
 }
 
 impl<T: Reflect> Reflect for Corners<Option<T>> {
-    fn describe() -> CastInfo {
-        T::describe() + Dict::describe()
+    fn input() -> CastInfo {
+        T::input() + Dict::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output() + Dict::output()
     }
 
     fn castable(value: &Value) -> bool {

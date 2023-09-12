@@ -14,7 +14,7 @@ user to plan for and prioritize new features. Get started by filing a new issue
 on [GitHub](https://github.com/typst/typst/issues) or discuss your feature
 request with the [community]($community).
 
-## Language and Compiler { #language-and-compiler }
+## Language and Compiler
 - **Structure and Styling**
   - Fix show rule recursion
   - Fix show-set order
@@ -24,7 +24,7 @@ request with the [community]($community).
   - Custom elements (that work with set and show rules)
   - Possibly a capability system, e.g. to make your own element referenceable
 - **Layout**
-  - Floating layout
+  - Advanced floating layout
   - Rework layout engine to a more flexible model that has first-class support
     for both "normal" text layout and more canvas-like layout
   - Unified layout primitives across normal content and math
@@ -36,8 +36,6 @@ request with the [community]($community).
   - Layout with collision
 - **Export**
   - Implement emoji export
-  - Implement transparency
-  - Fix SVG export issues
   - HTML export
   - EPUB export
   - Tagged PDF for Accessibility
@@ -51,17 +49,11 @@ request with the [community]($community).
   - Ruby and Warichu
   - Kashida justification
 - **Scripting**
-  - More fields and methods on primitives
-  - Import renaming with as
   - Allow expressions as dictionary keys
-  - Make types first-class values and bring methods and functions closer
-    together
   - Function hoisting if possible
   - Get values of set rules
   - Doc comments
   - Type hints
-  - WebAssembly integration
-  - Query from CLI
 - **Visualization**
   - Arrows
   - Gradients
@@ -75,13 +67,12 @@ request with the [community]($community).
   - Benchmarking
   - Better contributor documentation
 
-## Library { #library }
+## Library
 - **Customization**
   - Integrate CSL (Citation Style Language)
   - Bibliography and citation customization
   - Outline customization
   - Table stroke customization
-  - Themes for raw text and more/custom syntaxes
 - **Numbering**
   - Relative counters, e.g. for figure numbering per section
   - Improve equation numbering
@@ -97,12 +88,11 @@ request with the [community]($community).
   - Fix font handling
   - Provide more primitives
   - Smarter automatic delimiter sizing
-  - Augmented matrices
   - Big fractions
 - **Other**
   - Plotting
 
-## Web App { #web-app }
+## Web App
 - **Editing**
   - Smarter & more action buttons
   - Basic, built-in image editor (cropping, etc.)

@@ -7,7 +7,7 @@ pub fn symbols(stream: TokenStream) -> Result<TokenStream> {
     let pairs = list.iter().map(|symbol| {
         let name = symbol.name.to_string();
         let kind = match &symbol.kind {
-            Kind::Single(c) => quote! { typst::eval::Symbol::new(#c), },
+            Kind::Single(c) => quote! { typst::eval::Symbol::single(#c), },
             Kind::Multiple(variants) => {
                 let variants = variants.iter().map(|variant| {
                     let name = &variant.name;

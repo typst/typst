@@ -6,12 +6,13 @@ use std::ptr;
 use comemo::Prehashed;
 use ecow::{eco_vec, EcoString, EcoVec};
 
-use super::{Content, ElemFunc, Element, Selector, Vt};
+use super::{Content, Element, NativeElement, Selector, Vt};
 use crate::diag::{SourceResult, Trace, Tracepoint};
-use crate::eval::{cast, Args, FromValue, Func, IntoValue, Value, Vm};
+use crate::eval::{cast, ty, Args, FromValue, Func, IntoValue, Value, Vm};
 use crate::syntax::Span;
 
 /// A list of style properties.
+#[ty]
 #[derive(Default, PartialEq, Clone, Hash)]
 pub struct Styles(EcoVec<Prehashed<Style>>);
 
@@ -42,7 +43,7 @@ impl Styles {
 
     /// Apply outer styles. Like [`chain`](StyleChain::chain), but in-place.
     pub fn apply(&mut self, mut outer: Self) {
-        outer.0.extend(mem::take(self).0.into_iter());
+        outer.0.extend(mem::take(self).0);
         *self = outer;
     }
 
@@ -53,7 +54,7 @@ impl Styles {
 
     /// Apply a slice of outer styles.
     pub fn apply_slice(&mut self, outer: &[Prehashed<Style>]) {
-        self.0 = outer.iter().cloned().chain(mem::take(self).0.into_iter()).collect();
+        self.0 = outer.iter().cloned().chain(mem::take(self).0).collect();
     }
 
     /// Add an origin span to all contained properties.
@@ -70,11 +71,11 @@ impl Styles {
 
     /// Returns `Some(_)` with an optional span if this list contains
     /// styles for the given element.
-    pub fn interruption<T: Element>(&self) -> Option<Option<Span>> {
-        let func = T::func();
+    pub fn interruption<T: NativeElement>(&self) -> Option<Option<Span>> {
+        let elem = T::elem();
         self.0.iter().find_map(|entry| match &**entry {
-            Style::Property(property) => property.is_of(func).then_some(property.span),
-            Style::Recipe(recipe) => recipe.is_of(func).then_some(Some(recipe.span)),
+            Style::Property(property) => property.is_of(elem).then_some(property.span),
+            Style::Recipe(recipe) => recipe.is_of(elem).then_some(Some(recipe.span)),
         })
     }
 }
@@ -143,7 +144,7 @@ impl From<Recipe> for Style {
 #[derive(Clone, PartialEq, Hash)]
 pub struct Property {
     /// The element the property belongs to.
-    element: ElemFunc,
+    elem: Element,
     /// The property's name.
     name: EcoString,
     /// The property's value.
@@ -154,13 +155,9 @@ pub struct Property {
 
 impl Property {
     /// Create a new property from a key-value pair.
-    pub fn new(
-        element: ElemFunc,
-        name: impl Into<EcoString>,
-        value: impl IntoValue,
-    ) -> Self {
+    pub fn new(elem: Element, name: impl Into<EcoString>, value: impl IntoValue) -> Self {
         Self {
-            element,
+            elem,
             name: name.into(),
             value: value.into_value(),
             span: None,
@@ -168,19 +165,19 @@ impl Property {
     }
 
     /// Whether this property is the given one.
-    pub fn is(&self, element: ElemFunc, name: &str) -> bool {
-        self.element == element && self.name == name
+    pub fn is(&self, elem: Element, name: &str) -> bool {
+        self.elem == elem && self.name == name
     }
 
     /// Whether this property belongs to the given element.
-    pub fn is_of(&self, element: ElemFunc) -> bool {
-        self.element == element
+    pub fn is_of(&self, elem: Element) -> bool {
+        self.elem == elem
     }
 }
 
 impl Debug for Property {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "set {}({}: {:?})", self.element.name(), self.name, self.value)?;
+        write!(f, "set {}({}: {:?})", self.elem.name(), self.name, self.value)?;
         Ok(())
     }
 }
@@ -198,7 +195,7 @@ pub struct Recipe {
 
 impl Recipe {
     /// Whether this recipe is for the given type of element.
-    pub fn is_of(&self, element: ElemFunc) -> bool {
+    pub fn is_of(&self, element: Element) -> bool {
         match self.selector {
             Some(Selector::Elem(own, _)) => own == element,
             _ => false,
@@ -323,7 +320,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get<T: FromValue>(
         self,
-        func: ElemFunc,
+        func: Element,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T,
@@ -336,7 +333,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve<T: FromValue + Resolve>(
         self,
-        func: ElemFunc,
+        func: Element,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T,
@@ -347,7 +344,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_fold<T: FromValue + Fold>(
         self,
-        func: ElemFunc,
+        func: Element,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> T::Output,
@@ -368,7 +365,7 @@ impl<'a> StyleChain<'a> {
     /// Cast the first value for the given property in the chain.
     pub fn get_resolve_fold<T>(
         self,
-        func: ElemFunc,
+        func: Element,
         name: &'a str,
         inherent: Option<Value>,
         default: impl Fn() -> <T::Output as Fold>::Output,
@@ -402,7 +399,7 @@ impl<'a> StyleChain<'a> {
     /// Iterate over all values for the given property in the chain.
     pub fn properties<T: FromValue + 'a>(
         self,
-        func: ElemFunc,
+        func: Element,
         name: &'a str,
         inherent: Option<Value>,
     ) -> impl Iterator<Item = T> + '_ {

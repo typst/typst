@@ -6,7 +6,7 @@ pub fn sym() -> Module {
     for (name, symbol) in SYM {
         scope.define(*name, symbol.clone());
     }
-    Module::new("sym").with_scope(scope)
+    Module::new("sym", scope)
 }
 
 /// The list of general symbols.

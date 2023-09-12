@@ -6,7 +6,7 @@ pub fn emoji() -> Module {
     for (name, symbol) in EMOJI {
         scope.define(*name, symbol.clone());
     }
-    Module::new("emoji").with_scope(scope)
+    Module::new("emoji", scope)
 }
 
 /// A list of named emoji.

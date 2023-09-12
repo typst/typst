@@ -4,15 +4,15 @@ use std::cell::{RefCell, RefMut};
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::OsStr;
-use std::fmt::Write as FmtWrite;
+use std::fmt::{self, Display, Formatter, Write as _};
 use std::fs;
 use std::io::{self, Write};
-use std::iter;
 use std::ops::Range;
 use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use comemo::{Prehashed, Track};
+use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
@@ -22,12 +22,11 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
-use typst::eval::{eco_format, func, Datetime, Library, NoneValue, Tracer, Value};
+use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, RgbaColor, Smart};
-use typst::syntax::{FileId, Source, Span, SyntaxNode};
-use typst::util::{Bytes, PathExt};
-use typst::World;
+use typst::syntax::{FileId, PackageVersion, Source, Span, SyntaxNode, VirtualPath};
+use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
 
@@ -35,6 +34,7 @@ const TYP_DIR: &str = "typ";
 const REF_DIR: &str = "ref";
 const PNG_DIR: &str = "png";
 const PDF_DIR: &str = "pdf";
+const SVG_DIR: &str = "svg";
 const FONT_DIR: &str = "../assets/fonts";
 const ASSET_DIR: &str = "../assets";
 
@@ -116,11 +116,19 @@ fn main() {
             let path = src_path.strip_prefix(TYP_DIR).unwrap();
             let png_path = Path::new(PNG_DIR).join(path).with_extension("png");
             let ref_path = Path::new(REF_DIR).join(path).with_extension("png");
+            let svg_path = Path::new(SVG_DIR).join(path).with_extension("svg");
             let pdf_path =
                 args.pdf.then(|| Path::new(PDF_DIR).join(path).with_extension("pdf"));
 
-            test(world, &src_path, &png_path, &ref_path, pdf_path.as_deref(), &args)
-                as usize
+            test(
+                world,
+                &src_path,
+                &png_path,
+                &ref_path,
+                pdf_path.as_deref(),
+                &svg_path,
+                &args,
+            ) as usize
         })
         .collect::<Vec<_>>();
 
@@ -143,8 +151,6 @@ fn main() {
 }
 
 fn library() -> Library {
-    /// Display: Test
-    /// Category: test
     #[func]
     fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
         if lhs != rhs {
@@ -153,8 +159,6 @@ fn library() -> Library {
         Ok(NoneValue)
     }
 
-    /// Display: Print
-    /// Category: test
     #[func]
     fn print(#[variadic] values: Vec<Value>) -> NoneValue {
         let mut stdout = io::stdout().lock();
@@ -183,8 +187,8 @@ fn library() -> Library {
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
 
     // Hook up helpers into the global scope.
-    lib.global.scope_mut().define("test", test_func());
-    lib.global.scope_mut().define("print", print_func());
+    lib.global.scope_mut().define_func::<test>();
+    lib.global.scope_mut().define_func::<print>();
     lib.global
         .scope_mut()
         .define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
@@ -229,7 +233,7 @@ impl TestWorld {
 
         Self {
             print,
-            main: FileId::detached(),
+            main: FileId::new(None, VirtualPath::new("main.typ")),
             library: Prehashed::new(library()),
             book: Prehashed::new(FontBook::from_fonts(&fonts)),
             fonts,
@@ -280,7 +284,7 @@ impl World for TestWorld {
 
 impl TestWorld {
     fn set(&mut self, path: &Path, text: String) -> Source {
-        self.main = FileId::new(None, &Path::new("/").join(path));
+        self.main = FileId::new(None, VirtualPath::new(path));
         let mut slot = self.slot(self.main).unwrap();
         let source = Source::new(self.main, text);
         slot.source = OnceCell::from(Ok(source.clone()));
@@ -293,7 +297,7 @@ impl TestWorld {
             None => PathBuf::new(),
         };
 
-        let system_path = root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
+        let system_path = id.vpath().resolve(&root).ok_or(FileError::AccessDenied)?;
 
         Ok(RefMut::map(self.paths.borrow_mut(), |paths| {
             paths.entry(system_path.clone()).or_insert_with(|| PathSlot {
@@ -328,6 +332,7 @@ fn test(
     png_path: &Path,
     ref_path: &Path,
     pdf_path: Option<&Path>,
+    svg_path: &Path,
     args: &Args,
 ) -> bool {
     struct PanicGuard<'a>(&'a Path);
@@ -418,6 +423,10 @@ fn test(
         let canvas = render(&document.pages);
         fs::create_dir_all(png_path.parent().unwrap()).unwrap();
         canvas.save_png(png_path).unwrap();
+
+        let svg = typst::export::svg_merged(&document.pages, Abs::pt(5.0));
+        fs::create_dir_all(svg_path.parent().unwrap()).unwrap();
+        std::fs::write(svg_path, svg).unwrap();
 
         if let Ok(ref_pixmap) = sk::Pixmap::load_png(ref_path) {
             if canvas.width() != ref_pixmap.width()
@@ -513,15 +522,14 @@ fn test_part(
     if world.print.model {
         let world = (world as &dyn World).track();
         let route = typst::eval::Route::default();
-        let mut tracer = typst::eval::Tracer::default();
+        let mut tracer = typst::eval::Tracer::new();
 
         let module =
             typst::eval::eval(world, route.track(), tracer.track_mut(), &source).unwrap();
         writeln!(output, "Model:\n{:#?}\n", module.content()).unwrap();
     }
 
-    let mut tracer = Tracer::default();
-
+    let mut tracer = Tracer::new();
     let (mut frames, diagnostics) = match typst::compile(world, &mut tracer) {
         Ok(document) => (document.pages, tracer.warnings()),
         Err(errors) => {
@@ -542,39 +550,46 @@ fn test_part(
     // This has one caveat: due to the format of the expected hints, we can not
     // verify if a hint belongs to a diagnostic or not. That should be irrelevant
     // however, as the line of the hint is still verified.
-    let actual_diagnostics: HashSet<UserOutput> = diagnostics
-        .into_iter()
-        .inspect(|diagnostic| assert!(!diagnostic.span.is_detached()))
-        .filter(|diagnostic| diagnostic.span.id() == source.id())
-        .flat_map(|diagnostic| {
-            let range = world.range(diagnostic.span);
-            let message = diagnostic.message.replace('\\', "/");
-            let output = match diagnostic.severity {
-                Severity::Error => UserOutput::Error(range.clone(), message),
-                Severity::Warning => UserOutput::Warning(range.clone(), message),
-            };
+    let mut actual_diagnostics = HashSet::new();
+    for diagnostic in &diagnostics {
+        // Ignore diagnostics from other files.
+        if diagnostic.span.id().map_or(false, |id| id != source.id()) {
+            continue;
+        }
 
-            let hints = diagnostic
-                .hints
-                .iter()
-                .filter(|_| validate_hints) // No unexpected hints should be verified if disabled.
-                .map(|hint| UserOutput::Hint(range.clone(), hint.to_string()));
+        let annotation = Annotation {
+            kind: match diagnostic.severity {
+                Severity::Error => AnnotationKind::Error,
+                Severity::Warning => AnnotationKind::Warning,
+            },
+            range: world.range(diagnostic.span),
+            message: diagnostic.message.replace('\\', "/").into(),
+        };
 
-            iter::once(output).chain(hints).collect::<Vec<_>>()
-        })
-        .collect();
+        if validate_hints {
+            for hint in &diagnostic.hints {
+                actual_diagnostics.insert(Annotation {
+                    kind: AnnotationKind::Hint,
+                    message: hint.clone(),
+                    range: annotation.range.clone(),
+                });
+            }
+        }
+
+        actual_diagnostics.insert(annotation);
+    }
 
     // Basically symmetric_difference, but we need to know where an item is coming from.
     let mut unexpected_outputs = actual_diagnostics
-        .difference(&metadata.invariants)
+        .difference(&metadata.annotations)
         .collect::<Vec<_>>();
     let mut missing_outputs = metadata
-        .invariants
+        .annotations
         .difference(&actual_diagnostics)
         .collect::<Vec<_>>();
 
-    unexpected_outputs.sort_by_key(|&o| o.start());
-    missing_outputs.sort_by_key(|&o| o.start());
+    unexpected_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
+    missing_outputs.sort_by_key(|&v| v.range.as_ref().map(|r| r.start));
 
     // This prints all unexpected emits first, then all missing emits.
     // Is this reasonable or subject to change?
@@ -584,41 +599,34 @@ fn test_part(
 
         for unexpected in unexpected_outputs {
             write!(output, "    Not annotated | ").unwrap();
-            print_user_output(output, &source, line, unexpected)
+            print_annotation(output, &source, line, unexpected)
         }
 
         for missing in missing_outputs {
             write!(output, "    Not emitted   | ").unwrap();
-            print_user_output(output, &source, line, missing)
+            print_annotation(output, &source, line, missing)
         }
     }
 
     (ok, compare_ref, frames)
 }
 
-fn print_user_output(
+fn print_annotation(
     output: &mut String,
     source: &Source,
     line: usize,
-    user_output: &UserOutput,
+    annotation: &Annotation,
 ) {
-    let (range, message) = match &user_output {
-        UserOutput::Error(r, m) => (r, m),
-        UserOutput::Warning(r, m) => (r, m),
-        UserOutput::Hint(r, m) => (r, m),
-    };
-
-    let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
-    let start_col = 1 + source.byte_to_column(range.start).unwrap();
-    let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
-    let end_col = 1 + source.byte_to_column(range.end).unwrap();
-    let kind = match user_output {
-        UserOutput::Error(_, _) => "Error",
-        UserOutput::Warning(_, _) => "Warning",
-        UserOutput::Hint(_, _) => "Hint",
-    };
-    writeln!(output, "{kind}: {start_line}:{start_col}-{end_line}:{end_col}: {message}")
-        .unwrap();
+    let Annotation { range, message, kind } = annotation;
+    write!(output, "{kind}: ").unwrap();
+    if let Some(range) = range {
+        let start_line = 1 + line + source.byte_to_line(range.start).unwrap();
+        let start_col = 1 + source.byte_to_column(range.start).unwrap();
+        let end_line = 1 + line + source.byte_to_line(range.end).unwrap();
+        let end_col = 1 + source.byte_to_column(range.end).unwrap();
+        write!(output, "{start_line}:{start_col}-{end_line}:{end_col}: ").unwrap();
+    }
+    writeln!(output, "{message}").unwrap();
 }
 
 struct TestConfiguration {
@@ -628,88 +636,96 @@ struct TestConfiguration {
 
 struct TestPartMetadata {
     part_configuration: TestConfiguration,
-    invariants: HashSet<UserOutput>,
+    annotations: HashSet<Annotation>,
 }
 
-#[derive(PartialEq, Eq, Debug, Hash)]
-enum UserOutput {
-    Error(Range<usize>, String),
-    Warning(Range<usize>, String),
-    Hint(Range<usize>, String),
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+struct Annotation {
+    range: Option<Range<usize>>,
+    message: EcoString,
+    kind: AnnotationKind,
 }
 
-impl UserOutput {
-    fn start(&self) -> usize {
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+enum AnnotationKind {
+    Error,
+    Warning,
+    Hint,
+}
+
+impl AnnotationKind {
+    fn iter() -> impl Iterator<Item = Self> {
+        [AnnotationKind::Error, AnnotationKind::Warning, AnnotationKind::Hint].into_iter()
+    }
+
+    fn as_str(self) -> &'static str {
         match self {
-            UserOutput::Error(r, _) => r.start,
-            UserOutput::Warning(r, _) => r.start,
-            UserOutput::Hint(r, _) => r.start,
+            AnnotationKind::Error => "Error",
+            AnnotationKind::Warning => "Warning",
+            AnnotationKind::Hint => "Hint",
         }
     }
+}
 
-    fn error(range: Range<usize>, message: String) -> UserOutput {
-        UserOutput::Error(range, message)
-    }
-
-    fn warning(range: Range<usize>, message: String) -> UserOutput {
-        UserOutput::Warning(range, message)
-    }
-
-    fn hint(range: Range<usize>, message: String) -> UserOutput {
-        UserOutput::Hint(range, message)
+impl Display for AnnotationKind {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(self.as_str())
     }
 }
 
 fn parse_part_metadata(source: &Source) -> TestPartMetadata {
     let mut compare_ref = None;
     let mut validate_hints = None;
-    let mut expectations = HashSet::default();
+    let mut annotations = HashSet::default();
 
     let lines: Vec<_> = source.text().lines().map(str::trim).collect();
     for (i, line) in lines.iter().enumerate() {
         compare_ref = get_flag_metadata(line, "Ref").or(compare_ref);
         validate_hints = get_flag_metadata(line, "Hints").or(validate_hints);
 
-        fn num(s: &mut Scanner) -> usize {
-            s.eat_while(char::is_numeric).parse().unwrap()
+        fn num(s: &mut Scanner) -> Option<isize> {
+            let mut first = true;
+            let n = &s.eat_while(|c: char| {
+                let valid = first && c == '-' || c.is_numeric();
+                first = false;
+                valid
+            });
+            n.parse().ok()
         }
 
         let comments_until_code =
             lines[i..].iter().take_while(|line| line.starts_with("//")).count();
 
-        let pos = |s: &mut Scanner| -> usize {
-            let first = num(s) - 1;
+        let pos = |s: &mut Scanner| -> Option<usize> {
+            let first = num(s)? - 1;
             let (delta, column) =
-                if s.eat_if(':') { (first, num(s) - 1) } else { (0, first) };
-            let line = (i + comments_until_code) + delta;
-            source.line_column_to_byte(line, column).unwrap()
+                if s.eat_if(':') { (first, num(s)? - 1) } else { (0, first) };
+            let line = (i + comments_until_code).checked_add_signed(delta)?;
+            source.line_column_to_byte(line, usize::try_from(column).ok()?)
         };
 
-        let error_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::error;
-        let warning_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::warning;
-        let hint_factory: fn(Range<usize>, String) -> UserOutput = UserOutput::hint;
+        let range = |s: &mut Scanner| -> Option<Range<usize>> {
+            let start = pos(s)?;
+            let end = if s.eat_if('-') { pos(s)? } else { start };
+            Some(start..end)
+        };
 
-        let error_metadata = get_metadata(line, "Error").map(|s| (s, error_factory));
-        let get_warning_metadata =
-            || get_metadata(line, "Warning").map(|s| (s, warning_factory));
-        let get_hint_metadata = || get_metadata(line, "Hint").map(|s| (s, hint_factory));
-
-        if let Some((expectation, factory)) = error_metadata
-            .or_else(get_warning_metadata)
-            .or_else(get_hint_metadata)
-        {
+        for kind in AnnotationKind::iter() {
+            let Some(expectation) = get_metadata(line, kind.as_str()) else { continue };
             let mut s = Scanner::new(expectation);
-            let start = pos(&mut s);
-            let end = if s.eat_if('-') { pos(&mut s) } else { start };
-            let range = start..end;
-
-            expectations.insert(factory(range, s.after().trim().to_string()));
-        };
+            let range = range(&mut s);
+            let rest = if range.is_some() { s.after() } else { s.string() };
+            let message = rest
+                .trim()
+                .replace("VERSION", &PackageVersion::compiler().to_string())
+                .into();
+            annotations.insert(Annotation { kind, range, message });
+        }
     }
 
     TestPartMetadata {
         part_configuration: TestConfiguration { compare_ref, validate_hints },
-        invariants: expectations,
+        annotations,
     }
 }
 
@@ -871,42 +887,33 @@ fn test_spans_impl(output: &mut String, node: &SyntaxNode, within: Range<u64>) -
 /// Draw all frames into one image with padding in between.
 fn render(frames: &[Frame]) -> sk::Pixmap {
     let pixel_per_pt = 2.0;
-    let pixmaps: Vec<_> = frames
-        .iter()
-        .map(|frame| {
-            let limit = Abs::cm(100.0);
-            if frame.width() > limit || frame.height() > limit {
-                panic!("overlarge frame: {:?}", frame.size());
-            }
-            typst::export::render(frame, pixel_per_pt, Color::WHITE)
-        })
-        .collect();
+    let padding = Abs::pt(5.0);
 
-    let pad = (5.0 * pixel_per_pt).round() as u32;
-    let pxw = 2 * pad + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
-    let pxh = pad + pixmaps.iter().map(|pixmap| pixmap.height() + pad).sum::<u32>();
-
-    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
-    canvas.fill(sk::Color::BLACK);
-
-    let [x, mut y] = [pad; 2];
-    for (frame, mut pixmap) in frames.iter().zip(pixmaps) {
-        let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
-        render_links(&mut pixmap, ts, frame);
-
-        canvas.draw_pixmap(
-            x as i32,
-            y as i32,
-            pixmap.as_ref(),
-            &sk::PixmapPaint::default(),
-            sk::Transform::identity(),
-            None,
-        );
-
-        y += pixmap.height() + pad;
+    for frame in frames {
+        let limit = Abs::cm(100.0);
+        if frame.width() > limit || frame.height() > limit {
+            panic!("overlarge frame: {:?}", frame.size());
+        }
     }
 
-    canvas
+    let mut pixmap = typst::export::render_merged(
+        frames,
+        pixel_per_pt,
+        Color::WHITE,
+        padding,
+        Color::BLACK,
+    );
+
+    let padding = (pixel_per_pt * padding.to_pt() as f32).round();
+    let [x, mut y] = [padding; 2];
+    for frame in frames {
+        let ts =
+            sk::Transform::from_scale(pixel_per_pt, pixel_per_pt).post_translate(x, y);
+        render_links(&mut pixmap, ts, frame);
+        y += (pixel_per_pt * frame.height().to_pt() as f32).round().max(1.0) + padding;
+    }
+
+    pixmap
 }
 
 /// Draw extra boxes for links so we can see whether they are there.

@@ -1,5 +1,5 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::fmt::{self, Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
@@ -11,14 +11,19 @@ use indexmap::IndexMap;
 use super::{Content, Selector};
 use crate::diag::{bail, StrResult};
 use crate::doc::{Frame, FrameItem, Meta, Position};
-use crate::eval::{cast, Value};
+use crate::eval::{cast, func, scope, ty, Dict, Value, Vm};
 use crate::geom::{Point, Transform};
 use crate::model::Label;
 use crate::util::NonZeroExt;
 
-/// Identifies the location of an element in the document.
+/// Identifies an element in the document.
 ///
-/// This struct is created by [`Locator::locate`].
+/// A location uniquely identifies an element in the document and lets you
+/// access its absolute position on the pages. You can retrieve the current
+/// location with the [`locate`]($locate) function and the location of a queried
+/// or shown element with the [`location()`]($content.location) method on
+/// content.
+#[ty(scope)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location {
     /// The hash of the element.
@@ -40,6 +45,44 @@ impl Location {
     }
 }
 
+#[scope]
+impl Location {
+    /// Return the page number for this location.
+    ///
+    /// Note that this does not return the value of the [page counter]($counter)
+    /// at this location, but the true page number (starting from one).
+    ///
+    /// If you want to know the value of the page counter, use
+    /// `{counter(page).at(loc)}` instead.
+    #[func]
+    pub fn page(self, vm: &mut Vm) -> NonZeroUsize {
+        vm.vt.introspector.page(self)
+    }
+
+    /// Return a dictionary with the page number and the x, y position for this
+    /// location. The page number starts at one and the coordinates are measured
+    /// from the top-left of the page.
+    ///
+    /// If you only need the page number, use `page()` instead as it allows
+    /// Typst to skip unnecessary work.
+    #[func]
+    pub fn position(self, vm: &mut Vm) -> Dict {
+        vm.vt.introspector.position(self).into()
+    }
+
+    /// Returns the page numbering pattern of the page at this location. This
+    /// can be used when displaying the page counter in order to obtain the
+    /// local numbering. This is useful if you are building custom indices or
+    /// outlines.
+    ///
+    /// If the page numbering is set to `none` at that location, this function
+    /// returns `none`.
+    #[func]
+    pub fn page_numbering(self, vm: &mut Vm) -> Value {
+        vm.vt.introspector.page_numbering(self)
+    }
+}
+
 impl Debug for Location {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("..")
@@ -47,7 +90,7 @@ impl Debug for Location {
 }
 
 cast! {
-    type Location: "location",
+    type Location,
 }
 
 /// Provides locations for elements in the document.
@@ -237,6 +280,15 @@ impl Introspector {
             .get_index_of(&elem.location().unwrap())
             .unwrap_or(usize::MAX)
     }
+
+    /// Perform a binary search for `elem` among the `list`.
+    fn binary_search(
+        &self,
+        list: &[Prehashed<Content>],
+        elem: &Content,
+    ) -> Result<usize, usize> {
+        list.binary_search_by_key(&self.index(elem), |elem| self.index(elem))
+    }
 }
 
 #[comemo::track]
@@ -252,12 +304,9 @@ impl Introspector {
             Selector::Elem(..)
             | Selector::Label(_)
             | Selector::Regex(_)
-            | Selector::Can(_)
-            | Selector::Or(_)
-            | Selector::And(_) => {
+            | Selector::Can(_) => {
                 self.all().filter(|elem| selector.matches(elem)).cloned().collect()
             }
-
             Selector::Location(location) => {
                 self.get(location).cloned().into_iter().collect()
             }
@@ -265,9 +314,7 @@ impl Introspector {
                 let mut list = self.query(selector);
                 if let Some(end) = self.query_first(end) {
                     // Determine which elements are before `end`.
-                    let split = match list
-                        .binary_search_by_key(&self.index(&end), |elem| self.index(elem))
-                    {
+                    let split = match self.binary_search(&list, &end) {
                         // Element itself is contained.
                         Ok(i) => i + *inclusive as usize,
                         // Element itself is not contained.
@@ -281,10 +328,7 @@ impl Introspector {
                 let mut list = self.query(selector);
                 if let Some(start) = self.query_first(start) {
                     // Determine which elements are after `start`.
-                    let split = match list
-                        .binary_search_by_key(&self.index(&start), |elem| {
-                            self.index(elem)
-                        }) {
+                    let split = match self.binary_search(&list, &start) {
                         // Element itself is contained.
                         Ok(i) => i + !*inclusive as usize,
                         // Element itself is not contained.
@@ -294,6 +338,37 @@ impl Introspector {
                 }
                 list
             }
+            Selector::And(selectors) => {
+                let mut results: Vec<_> =
+                    selectors.iter().map(|sel| self.query(sel)).collect();
+
+                // Extract the smallest result list and then keep only those
+                // elements in the smallest list that are also in all other
+                // lists.
+                results
+                    .iter()
+                    .enumerate()
+                    .min_by_key(|(_, vec)| vec.len())
+                    .map(|(i, _)| i)
+                    .map(|i| results.swap_remove(i))
+                    .iter()
+                    .flatten()
+                    .filter(|candidate| {
+                        results
+                            .iter()
+                            .all(|other| self.binary_search(other, candidate).is_ok())
+                    })
+                    .cloned()
+                    .collect()
+            }
+            Selector::Or(selectors) => selectors
+                .iter()
+                .flat_map(|sel| self.query(sel))
+                .map(|elem| self.index(&elem))
+                .collect::<BTreeSet<usize>>()
+                .into_iter()
+                .map(|index| self.elems[index].0.clone())
+                .collect(),
         };
 
         self.queries.borrow_mut().insert(hash, output.clone());

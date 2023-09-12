@@ -1,23 +1,137 @@
 use std::any::TypeId;
+use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
 
 use once_cell::sync::Lazy;
 
 use super::{Content, Selector, Styles};
 use crate::diag::SourceResult;
-use crate::eval::{cast, Args, Dict, Func, FuncInfo, Value, Vm};
+use crate::eval::{cast, Args, Dict, Func, ParamInfo, Scope, Value, Vm};
+use crate::util::Static;
 
 /// A document element.
-pub trait Element: Construct + Set + Sized + 'static {
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct Element(Static<NativeElementData>);
+
+impl Element {
+    /// Get the element for `T`.
+    pub fn of<T: NativeElement>() -> Self {
+        T::elem()
+    }
+
+    /// The element's normal name (e.g. `enum`).
+    pub fn name(self) -> &'static str {
+        self.0.name
+    }
+
+    /// The element's title case name, for use in documentation
+    /// (e.g. `Numbered List`).
+    pub fn title(&self) -> &'static str {
+        self.0.title
+    }
+
+    /// Documentation for the element (as Markdown).
+    pub fn docs(&self) -> &'static str {
+        self.0.docs
+    }
+
+    /// Search keywords for the element.
+    pub fn keywords(&self) -> &'static [&'static str] {
+        self.0.keywords
+    }
+
+    /// Construct an instance of this element.
+    pub fn construct(self, vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
+        (self.0.construct)(vm, args)
+    }
+
+    /// Execute the set rule for the element and return the resulting style map.
+    pub fn set(self, vm: &mut Vm, mut args: Args) -> SourceResult<Styles> {
+        let styles = (self.0.set)(vm, &mut args)?;
+        args.finish()?;
+        Ok(styles)
+    }
+
+    /// Whether the element has the given capability.
+    pub fn can<C>(self) -> bool
+    where
+        C: ?Sized + 'static,
+    {
+        self.can_type_id(TypeId::of::<C>())
+    }
+
+    /// Whether the element has the given capability where the capability is
+    /// given by a `TypeId`.
+    pub fn can_type_id(self, type_id: TypeId) -> bool {
+        (self.0.vtable)(type_id).is_some()
+    }
+
+    /// The VTable for capabilities dispatch.
+    pub fn vtable(self) -> fn(of: TypeId) -> Option<*const ()> {
+        self.0.vtable
+    }
+
+    /// Create a selector for this element.
+    pub fn select(self) -> Selector {
+        Selector::Elem(self, None)
+    }
+
+    /// Create a selector for this element, filtering for those
+    /// that [fields](super::Content::field) match the given argument.
+    pub fn where_(self, fields: Dict) -> Selector {
+        Selector::Elem(self, Some(fields))
+    }
+
+    /// The element's associated scope of sub-definition.
+    pub fn scope(&self) -> &'static Scope {
+        &(self.0).0.scope
+    }
+
+    /// Details about the element's fields.
+    pub fn params(&self) -> &'static [ParamInfo] {
+        &(self.0).0.params
+    }
+}
+
+impl Debug for Element {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(self.name())
+    }
+}
+
+impl Ord for Element {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.name().cmp(other.name())
+    }
+}
+
+impl PartialOrd for Element {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+cast! {
+    Element,
+    self => Value::Func(self.into()),
+    v: Func => v.element().ok_or("expected element")?,
+}
+
+/// A Typst element that is defined by a native Rust type.
+pub trait NativeElement: Construct + Set + Sized + 'static {
+    /// Get the element for the native Rust element.
+    fn elem() -> Element {
+        Element::from(Self::data())
+    }
+
+    /// Get the element data for the native Rust element.
+    fn data() -> &'static NativeElementData;
+
     /// Pack the element into type-erased content.
     fn pack(self) -> Content;
 
     /// Extract this element from type-erased content.
     fn unpack(content: &Content) -> Option<&Self>;
-
-    /// The element's function.
-    fn func() -> ElemFunc;
 }
 
 /// An element's constructor function.
@@ -35,100 +149,26 @@ pub trait Set {
     fn set(vm: &mut Vm, args: &mut Args) -> SourceResult<Styles>;
 }
 
-/// An element's function.
-#[derive(Copy, Clone)]
-pub struct ElemFunc(pub(super) &'static NativeElemFunc);
-
-impl ElemFunc {
-    /// The function's name.
-    pub fn name(self) -> &'static str {
-        self.0.name
-    }
-
-    /// Apply the given arguments to the function.
-    pub fn with(self, args: Args) -> Func {
-        Func::from(self).with(args)
-    }
-
-    /// Extract details about the function.
-    pub fn info(&self) -> &'static FuncInfo {
-        &self.0.info
-    }
-
-    /// Construct an element.
-    pub fn construct(self, vm: &mut Vm, args: &mut Args) -> SourceResult<Content> {
-        (self.0.construct)(vm, args)
-    }
-
-    /// Whether the contained element has the given capability.
-    pub fn can<C>(&self) -> bool
-    where
-        C: ?Sized + 'static,
-    {
-        (self.0.vtable)(TypeId::of::<C>()).is_some()
-    }
-
-    /// Create a selector for elements of this function.
-    pub fn select(self) -> Selector {
-        Selector::Elem(self, None)
-    }
-
-    /// Create a selector for elements of this function, filtering for those
-    /// whose [fields](super::Content::field) match the given arguments.
-    pub fn where_(self, fields: Dict) -> Selector {
-        Selector::Elem(self, Some(fields))
-    }
-
-    /// Execute the set rule for the element and return the resulting style map.
-    pub fn set(self, vm: &mut Vm, mut args: Args) -> SourceResult<Styles> {
-        let styles = (self.0.set)(vm, &mut args)?;
-        args.finish()?;
-        Ok(styles)
-    }
+/// Defines a native element.
+pub struct NativeElementData {
+    pub name: &'static str,
+    pub title: &'static str,
+    pub docs: &'static str,
+    pub keywords: &'static [&'static str],
+    pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
+    pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
+    pub vtable: fn(of: TypeId) -> Option<*const ()>,
+    pub scope: Lazy<Scope>,
+    pub params: Lazy<Vec<ParamInfo>>,
 }
 
-impl Debug for ElemFunc {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(self.name())
-    }
-}
-
-impl Eq for ElemFunc {}
-
-impl PartialEq for ElemFunc {
-    fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.0, other.0)
-    }
-}
-
-impl Hash for ElemFunc {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_usize(self.0 as *const _ as usize);
+impl From<&'static NativeElementData> for Element {
+    fn from(data: &'static NativeElementData) -> Self {
+        Self(Static(data))
     }
 }
 
 cast! {
-    ElemFunc,
-    self => Value::Func(self.into()),
-    v: Func => v.element().ok_or("expected element function")?,
-}
-
-impl From<&'static NativeElemFunc> for ElemFunc {
-    fn from(native: &'static NativeElemFunc) -> Self {
-        Self(native)
-    }
-}
-
-/// An element function backed by a Rust type.
-pub struct NativeElemFunc {
-    /// The element's name.
-    pub name: &'static str,
-    /// The element's vtable for capability dispatch.
-    pub vtable: fn(of: TypeId) -> Option<*const ()>,
-    /// The element's constructor.
-    pub construct: fn(&mut Vm, &mut Args) -> SourceResult<Content>,
-    /// The element's set rule.
-    pub set: fn(&mut Vm, &mut Args) -> SourceResult<Styles>,
-    /// Details about the function.
-    pub info: Lazy<FuncInfo>,
+    &'static NativeElementData,
+    self => Element::from(self).into_value(),
 }

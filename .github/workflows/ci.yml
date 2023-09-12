@@ -1,10 +1,6 @@
 name: Continuous integration
 on: [push, pull_request]
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   RUSTFLAGS: "-Dwarnings"
   RUSTDOCFLAGS: "-Dwarnings"
@@ -39,15 +35,3 @@ jobs:
       - uses: dtolnay/rust-toolchain@1.70.0
       - uses: Swatinem/rust-cache@v2
       - run: cargo check --workspace
-
-  nix-flake:
-    name: Test Nix Flake
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: DeterminateSystems/nix-installer-action@v4
-      - uses: DeterminateSystems/magic-nix-cache-action@v2
-      - run: nix flake check
-      - run: nix build
-      - run: nix shell -c typst --version
-      - run: nix run . -- --version

@@ -8,61 +8,65 @@ use typst::eval::{Module, Scope};
 
 use crate::prelude::*;
 
-/// A module with computational functions.
-pub fn module() -> Module {
+/// Hook up all calculation definitions.
+pub(super) fn define(global: &mut Scope) {
+    global.category("calculate");
+    global.define_module(module());
+}
+
+/// A module with calculation definitions.
+fn module() -> Module {
     let mut scope = Scope::new();
-    scope.define("abs", abs_func());
-    scope.define("pow", pow_func());
-    scope.define("exp", exp_func());
-    scope.define("sqrt", sqrt_func());
-    scope.define("sin", sin_func());
-    scope.define("cos", cos_func());
-    scope.define("tan", tan_func());
-    scope.define("asin", asin_func());
-    scope.define("acos", acos_func());
-    scope.define("atan", atan_func());
-    scope.define("atan2", atan2_func());
-    scope.define("sinh", sinh_func());
-    scope.define("cosh", cosh_func());
-    scope.define("tanh", tanh_func());
-    scope.define("log", log_func());
-    scope.define("ln", ln_func());
-    scope.define("fact", fact_func());
-    scope.define("perm", perm_func());
-    scope.define("binom", binom_func());
-    scope.define("gcd", gcd_func());
-    scope.define("lcm", lcm_func());
-    scope.define("floor", floor_func());
-    scope.define("ceil", ceil_func());
-    scope.define("trunc", trunc_func());
-    scope.define("fract", fract_func());
-    scope.define("round", round_func());
-    scope.define("clamp", clamp_func());
-    scope.define("min", min_func());
-    scope.define("max", max_func());
-    scope.define("even", even_func());
-    scope.define("odd", odd_func());
-    scope.define("rem", rem_func());
-    scope.define("quo", quo_func());
+    scope.category("calculate");
+    scope.define_func::<abs>();
+    scope.define_func::<pow>();
+    scope.define_func::<exp>();
+    scope.define_func::<sqrt>();
+    scope.define_func::<sin>();
+    scope.define_func::<cos>();
+    scope.define_func::<tan>();
+    scope.define_func::<asin>();
+    scope.define_func::<acos>();
+    scope.define_func::<atan>();
+    scope.define_func::<atan2>();
+    scope.define_func::<sinh>();
+    scope.define_func::<cosh>();
+    scope.define_func::<tanh>();
+    scope.define_func::<log>();
+    scope.define_func::<ln>();
+    scope.define_func::<fact>();
+    scope.define_func::<perm>();
+    scope.define_func::<binom>();
+    scope.define_func::<gcd>();
+    scope.define_func::<lcm>();
+    scope.define_func::<floor>();
+    scope.define_func::<ceil>();
+    scope.define_func::<trunc>();
+    scope.define_func::<fract>();
+    scope.define_func::<round>();
+    scope.define_func::<clamp>();
+    scope.define_func::<min>();
+    scope.define_func::<max>();
+    scope.define_func::<even>();
+    scope.define_func::<odd>();
+    scope.define_func::<rem>();
+    scope.define_func::<quo>();
     scope.define("inf", f64::INFINITY);
     scope.define("nan", f64::NAN);
     scope.define("pi", std::f64::consts::PI);
+    scope.define("tau", std::f64::consts::TAU);
     scope.define("e", std::f64::consts::E);
-    Module::new("calc").with_scope(scope)
+    Module::new("calc", scope)
 }
 
 /// Calculates the absolute value of a numeric value.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.abs(-5) \
 /// #calc.abs(5pt - 2cm) \
 /// #calc.abs(2fr)
 /// ```
-///
-/// Display: Absolute
-/// Category: calculate
-#[func]
+#[func(title = "Absolute")]
 pub fn abs(
     /// The value whose absolute value to calculate.
     value: ToAbs,
@@ -86,21 +90,17 @@ cast! {
 
 /// Raises a value to some exponent.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.pow(2, 3)
 /// ```
-///
-/// Display: Power
-/// Category: calculate
-#[func]
+#[func(title = "Power")]
 pub fn pow(
+    /// The callsite span.
+    span: Span,
     /// The base of the power.
     base: Num,
     /// The exponent of the power.
     exponent: Spanned<Num>,
-    /// The callsite span.
-    span: Span,
 ) -> SourceResult<Num> {
     match exponent.v {
         _ if exponent.v.float() == 0.0 && base.float() == 0.0 => {
@@ -141,19 +141,15 @@ pub fn pow(
 
 /// Raises a value to some exponent of e.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.exp(1)
 /// ```
-///
-/// Display: Exponential
-/// Category: calculate
-#[func]
+#[func(title = "Exponential")]
 pub fn exp(
-    /// The exponent of the power.
-    exponent: Spanned<Num>,
     /// The callsite span.
     span: Span,
+    /// The exponent of the power.
+    exponent: Spanned<Num>,
 ) -> SourceResult<f64> {
     match exponent.v {
         Num::Int(i) if i32::try_from(i).is_err() => {
@@ -175,15 +171,11 @@ pub fn exp(
 
 /// Extracts the square root of a number.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.sqrt(16) \
 /// #calc.sqrt(2.5)
 /// ```
-///
-/// Display: Square Root
-/// Category: calculate
-#[func]
+#[func(title = "Square Root")]
 pub fn sqrt(
     /// The number whose square root to calculate. Must be non-negative.
     value: Spanned<Num>,
@@ -199,16 +191,12 @@ pub fn sqrt(
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
 ///
-/// ## Example { #example }
 /// ```example
 /// #assert(calc.sin(90deg) == calc.sin(-270deg))
 /// #calc.sin(1.5) \
 /// #calc.sin(90deg)
 /// ```
-///
-/// Display: Sine
-/// Category: calculate
-#[func]
+#[func(title = "Sine")]
 pub fn sin(
     /// The angle whose sine to calculate.
     angle: AngleLike,
@@ -225,16 +213,12 @@ pub fn sin(
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.cos(90deg) \
 /// #calc.cos(1.5) \
 /// #calc.cos(90deg)
 /// ```
-///
-/// Display: Cosine
-/// Category: calculate
-#[func]
+#[func(title = "Cosine")]
 pub fn cos(
     /// The angle whose cosine to calculate.
     angle: AngleLike,
@@ -251,15 +235,11 @@ pub fn cos(
 /// When called with an integer or a float, they will be interpreted as
 /// radians.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.tan(1.5) \
 /// #calc.tan(90deg)
 /// ```
-///
-/// Display: Tangent
-/// Category: calculate
-#[func]
+#[func(title = "Tangent")]
 pub fn tan(
     /// The angle whose tangent to calculate.
     angle: AngleLike,
@@ -273,15 +253,11 @@ pub fn tan(
 
 /// Calculates the arcsine of a number.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.asin(0) \
 /// #calc.asin(1)
 /// ```
-///
-/// Display: Arcsine
-/// Category: calculate
-#[func]
+#[func(title = "Arcsine")]
 pub fn asin(
     /// The number whose arcsine to calculate. Must be between -1 and 1.
     value: Spanned<Num>,
@@ -295,15 +271,11 @@ pub fn asin(
 
 /// Calculates the arccosine of a number.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.acos(0) \
 /// #calc.acos(1)
 /// ```
-///
-/// Display: Arccosine
-/// Category: calculate
-#[func]
+#[func(title = "Arccosine")]
 pub fn acos(
     /// The number whose arcsine to calculate. Must be between -1 and 1.
     value: Spanned<Num>,
@@ -317,15 +289,11 @@ pub fn acos(
 
 /// Calculates the arctangent of a number.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.atan(0) \
 /// #calc.atan(1)
 /// ```
-///
-/// Display: Arctangent
-/// Category: calculate
-#[func]
+#[func(title = "Arctangent")]
 pub fn atan(
     /// The number whose arctangent to calculate.
     value: Num,
@@ -337,15 +305,11 @@ pub fn atan(
 ///
 /// The arguments are `(x, y)`, not `(y, x)`.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.atan2(1, 1) \
 /// #calc.atan2(-2, -3)
 /// ```
-///
-/// Display: Four-quadrant Arctangent
-/// Category: calculate
-#[func]
+#[func(title = "Four-quadrant Arctangent")]
 pub fn atan2(
     /// The X coordinate.
     x: Num,
@@ -355,99 +319,65 @@ pub fn atan2(
     Angle::rad(f64::atan2(y.float(), x.float()))
 }
 
-/// Calculates the hyperbolic sine of an angle.
+/// Calculates the hyperbolic sine of a hyperbolic angle.
 ///
-/// When called with an integer or a float, they will be interpreted as radians.
-///
-/// ## Example { #example }
 /// ```example
 /// #calc.sinh(0) \
-/// #calc.sinh(45deg)
+/// #calc.sinh(1.5)
 /// ```
-///
-/// Display: Hyperbolic sine
-/// Category: calculate
-#[func]
+#[func(title = "Hyperbolic Sine")]
 pub fn sinh(
-    /// The angle whose hyperbolic sine to calculate.
-    angle: AngleLike,
+    /// The hyperbolic angle whose hyperbolic sine to calculate.
+    value: f64,
 ) -> f64 {
-    match angle {
-        AngleLike::Angle(a) => a.to_rad().sinh(),
-        AngleLike::Int(n) => (n as f64).sinh(),
-        AngleLike::Float(n) => n.sinh(),
-    }
+    value.sinh()
 }
 
-/// Calculates the hyperbolic cosine of an angle.
+/// Calculates the hyperbolic cosine of a hyperbolic angle.
 ///
-/// When called with an integer or a float, they will be interpreted as radians.
-///
-/// ## Example { #example }
 /// ```example
 /// #calc.cosh(0) \
-/// #calc.cosh(45deg)
+/// #calc.cosh(1.5)
 /// ```
-///
-/// Display: Hyperbolic cosine
-/// Category: calculate
-#[func]
+#[func(title = "Hyperbolic Cosine")]
 pub fn cosh(
-    /// The angle whose hyperbolic cosine to calculate.
-    angle: AngleLike,
+    /// The hyperbolic angle whose hyperbolic cosine to calculate.
+    value: f64,
 ) -> f64 {
-    match angle {
-        AngleLike::Angle(a) => a.to_rad().cosh(),
-        AngleLike::Int(n) => (n as f64).cosh(),
-        AngleLike::Float(n) => n.cosh(),
-    }
+    value.cosh()
 }
 
-/// Calculates the hyperbolic tangent of an angle.
+/// Calculates the hyperbolic tangent of an hyperbolic angle.
 ///
-/// When called with an integer or a float, they will be interpreted as radians.
-///
-/// ## Example { #example }
 /// ```example
 /// #calc.tanh(0) \
-/// #calc.tanh(45deg)
+/// #calc.tanh(1.5)
 /// ```
-///
-/// Display: Hyperbolic tangent
-/// Category: calculate
-#[func]
+#[func(title = "Hyperbolic Tangent")]
 pub fn tanh(
-    /// The angle whose hyperbolic tangent to calculate.
-    angle: AngleLike,
+    /// The hyperbolic angle whose hyperbolic tangent to calculate.
+    value: f64,
 ) -> f64 {
-    match angle {
-        AngleLike::Angle(a) => a.to_rad().tanh(),
-        AngleLike::Int(n) => (n as f64).tanh(),
-        AngleLike::Float(n) => n.tanh(),
-    }
+    value.tanh()
 }
 
 /// Calculates the logarithm of a number.
 ///
 /// If the base is not specified, the logarithm is calculated in base 10.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.log(100)
 /// ```
-///
-/// Display: Logarithm
-/// Category: calculate
-#[func]
+#[func(title = "Logarithm")]
 pub fn log(
+    /// The callsite span.
+    span: Span,
     /// The number whose logarithm to calculate. Must be strictly positive.
     value: Spanned<Num>,
     /// The base of the logarithm. May not be zero.
     #[named]
     #[default(Spanned::new(10.0, Span::detached()))]
     base: Spanned<f64>,
-    /// The callsite span.
-    span: Span,
 ) -> SourceResult<f64> {
     let number = value.v.float();
     if number <= 0.0 {
@@ -477,19 +407,15 @@ pub fn log(
 
 /// Calculates the natural logarithm of a number.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.ln(calc.e)
 /// ```
-///
-/// Display: Natural Logarithm
-/// Category: calculate
-#[func]
+#[func(title = "Natural Logarithm")]
 pub fn ln(
-    /// The number whose logarithm to calculate. Must be strictly positive.
-    value: Spanned<Num>,
     /// The callsite span.
     span: Span,
+    /// The number whose logarithm to calculate. Must be strictly positive.
+    value: Spanned<Num>,
 ) -> SourceResult<f64> {
     let number = value.v.float();
     if number <= 0.0 {
@@ -506,14 +432,10 @@ pub fn ln(
 
 /// Calculates the factorial of a number.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.fact(5)
 /// ```
-///
-/// Display: Factorial
-/// Category: calculate
-#[func]
+#[func(title = "Factorial")]
 pub fn fact(
     /// The number whose factorial to calculate. Must be non-negative.
     number: u64,
@@ -523,14 +445,10 @@ pub fn fact(
 
 /// Calculates a permutation.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.perm(10, 5)
 /// ```
-///
-/// Display: Permutation
-/// Category: calculate
-#[func]
+#[func(title = "Permutation")]
 pub fn perm(
     /// The base number. Must be non-negative.
     base: u64,
@@ -564,14 +482,10 @@ fn fact_impl(start: u64, end: u64) -> Option<i64> {
 
 /// Calculates a binomial coefficient.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.binom(10, 5)
 /// ```
-///
-/// Display: Binomial
-/// Category: calculate
-#[func]
+#[func(title = "Binomial")]
 pub fn binom(
     /// The upper coefficient. Must be non-negative.
     n: u64,
@@ -605,14 +519,10 @@ fn binom_impl(n: u64, k: u64) -> Option<i64> {
 
 /// Calculates the greatest common divisor of two integers.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.gcd(7, 42)
 /// ```
-///
-/// Display: Greatest Common Divisor
-/// Category: calculate
-#[func]
+#[func(title = "Greatest Common Divisor")]
 pub fn gcd(
     /// The first integer.
     a: i64,
@@ -631,14 +541,10 @@ pub fn gcd(
 
 /// Calculates the least common multiple of two integers.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.lcm(96, 13)
 /// ```
-///
-/// Display: Least Common Multiple
-/// Category: calculate
-#[func]
+#[func(title = "Least Common Multiple")]
 pub fn lcm(
     /// The first integer.
     a: i64,
@@ -659,15 +565,11 @@ pub fn lcm(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// ## Example { #example }
 /// ```example
 /// #assert(calc.floor(3.14) == 3)
 /// #assert(calc.floor(3) == 3)
 /// #calc.floor(500.1)
 /// ```
-///
-/// Display: Round down
-/// Category: calculate
 #[func]
 pub fn floor(
     /// The number to round down.
@@ -683,15 +585,11 @@ pub fn floor(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// ## Example { #example }
 /// ```example
 /// #assert(calc.ceil(3.14) == 4)
 /// #assert(calc.ceil(3) == 3)
 /// #calc.ceil(500.1)
 /// ```
-///
-/// Display: Round up
-/// Category: calculate
 #[func]
 pub fn ceil(
     /// The number to round up.
@@ -707,16 +605,12 @@ pub fn ceil(
 ///
 /// If the number is already an integer, it is returned unchanged.
 ///
-/// ## Example { #example }
 /// ```example
 /// #assert(calc.trunc(3) == 3)
 /// #assert(calc.trunc(-3.7) == -3)
 /// #assert(calc.trunc(15.9) == 15)
 /// ```
-///
-/// Display: Truncate
-/// Category: calculate
-#[func]
+#[func(title = "Truncate")]
 pub fn trunc(
     /// The number to truncate.
     value: Num,
@@ -731,15 +625,11 @@ pub fn trunc(
 ///
 /// If the number is an integer, returns `0`.
 ///
-/// ## Example { #example }
 /// ```example
 /// #assert(calc.fract(3) == 0)
 /// #calc.fract(-3.1)
 /// ```
-///
-/// Display: Fractional
-/// Category: calculate
-#[func]
+#[func(title = "Fractional")]
 pub fn fract(
     /// The number to truncate.
     value: Num,
@@ -754,15 +644,11 @@ pub fn fract(
 ///
 /// Optionally, a number of decimal places can be specified.
 ///
-/// ## Example { #example }
 /// ```example
 /// #assert(calc.round(3.14) == 3)
 /// #assert(calc.round(3.5) == 4)
 /// #calc.round(3.1415, digits: 2)
 /// ```
-///
-/// Display: Round
-/// Category: calculate
 #[func]
 pub fn round(
     /// The number to round.
@@ -784,15 +670,11 @@ pub fn round(
 
 /// Clamps a number between a minimum and maximum value.
 ///
-/// ## Example { #example }
 /// ```example
 /// #assert(calc.clamp(5, 0, 10) == 5)
 /// #assert(calc.clamp(5, 6, 10) == 6)
 /// #calc.clamp(5, 0, 4)
 /// ```
-///
-/// Display: Clamp
-/// Category: calculate
 #[func]
 pub fn clamp(
     /// The number to clamp.
@@ -810,44 +692,36 @@ pub fn clamp(
 
 /// Determines the minimum of a sequence of values.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.min(1, -3, -5, 20, 3, 6) \
 /// #calc.min("typst", "in", "beta")
 /// ```
-///
-/// Display: Minimum
-/// Category: calculate
-#[func]
+#[func(title = "Minimum")]
 pub fn min(
+    /// The callsite span.
+    span: Span,
     /// The sequence of values from which to extract the minimum.
     /// Must not be empty.
     #[variadic]
     values: Vec<Spanned<Value>>,
-    /// The callsite span.
-    span: Span,
 ) -> SourceResult<Value> {
     minmax(span, values, Ordering::Less)
 }
 
 /// Determines the maximum of a sequence of values.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.max(1, -3, -5, 20, 3, 6) \
 /// #calc.max("typst", "in", "beta")
 /// ```
-///
-/// Display: Maximum
-/// Category: calculate
-#[func]
+#[func(title = "Maximum")]
 pub fn max(
+    /// The callsite span.
+    span: Span,
     /// The sequence of values from which to extract the maximum.
     /// Must not be empty.
     #[variadic]
     values: Vec<Spanned<Value>>,
-    /// The callsite span.
-    span: Span,
 ) -> SourceResult<Value> {
     minmax(span, values, Ordering::Greater)
 }
@@ -859,7 +733,7 @@ fn minmax(
     goal: Ordering,
 ) -> SourceResult<Value> {
     let mut iter = values.into_iter();
-    let Some(Spanned { v: mut extremum, ..}) = iter.next() else {
+    let Some(Spanned { v: mut extremum, .. }) = iter.next() else {
         bail!(span, "expected at least one value");
     };
 
@@ -875,15 +749,11 @@ fn minmax(
 
 /// Determines whether an integer is even.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.even(4) \
 /// #calc.even(5) \
 /// #range(10).filter(calc.even)
 /// ```
-///
-/// Display: Even
-/// Category: calculate
 #[func]
 pub fn even(
     /// The number to check for evenness.
@@ -894,15 +764,11 @@ pub fn even(
 
 /// Determines whether an integer is odd.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.odd(4) \
 /// #calc.odd(5) \
 /// #range(10).filter(calc.odd)
 /// ```
-///
-/// Display: Odd
-/// Category: calculate
 #[func]
 pub fn odd(
     /// The number to check for oddness.
@@ -913,15 +779,11 @@ pub fn odd(
 
 /// Calculates the remainder of two numbers.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.rem(20, 6) \
 /// #calc.rem(1.75, 0.5)
 /// ```
-///
-/// Display: Remainder
-/// Category: calculate
-#[func]
+#[func(title = "Remainder")]
 pub fn rem(
     /// The dividend of the remainder.
     dividend: Num,
@@ -936,15 +798,11 @@ pub fn rem(
 
 /// Calculates the quotient of two numbers.
 ///
-/// ## Example { #example }
 /// ```example
 /// #calc.quo(14, 5) \
 /// #calc.quo(3.46, 0.5)
 /// ```
-///
-/// Display: Quotient
-/// Category: calculate
-#[func]
+#[func(title = "Quotient")]
 pub fn quo(
     /// The dividend of the quotient.
     dividend: Num,
@@ -966,7 +824,7 @@ pub enum Num {
 }
 
 impl Num {
-    pub fn apply2(
+    fn apply2(
         self,
         other: Self,
         int: impl FnOnce(i64, i64) -> i64,
@@ -978,7 +836,7 @@ impl Num {
         }
     }
 
-    pub fn apply3(
+    fn apply3(
         self,
         other: Self,
         third: Self,
@@ -991,7 +849,7 @@ impl Num {
         }
     }
 
-    pub fn float(self) -> f64 {
+    fn float(self) -> f64 {
         match self {
             Self::Int(v) => v as f64,
             Self::Float(v) => v,

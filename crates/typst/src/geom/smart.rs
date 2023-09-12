@@ -97,12 +97,16 @@ impl<T> Default for Smart<T> {
 }
 
 impl<T: Reflect> Reflect for Smart<T> {
-    fn castable(value: &Value) -> bool {
-        AutoValue::castable(value) || T::castable(value)
+    fn input() -> CastInfo {
+        T::input() + AutoValue::input()
     }
 
-    fn describe() -> CastInfo {
-        T::describe() + AutoValue::describe()
+    fn output() -> CastInfo {
+        T::output() + AutoValue::output()
+    }
+
+    fn castable(value: &Value) -> bool {
+        AutoValue::castable(value) || T::castable(value)
     }
 }
 

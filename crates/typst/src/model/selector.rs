@@ -4,22 +4,58 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString, EcoVec};
 
-use super::{Content, ElemFunc, Label, Location};
+use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
 use crate::eval::{
-    cast, CastInfo, Dict, FromValue, Func, IntoValue, Reflect, Regex, Value,
+    cast, func, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Str, Symbol,
+    Type, Value,
 };
-use crate::model::Locatable;
 use crate::util::pretty_array_like;
 
-/// A selector in a show rule.
+/// A filter for selecting elements within the document.
+///
+/// You can construct a selector in the following ways:
+/// - you can use an element [function]($function)
+/// - you can filter for an element function with
+///   [specific fields]($function.where)
+/// - you can use a [string]($str) or [regular expression]($regex)
+/// - you can use a [`{<label>}`]($label)
+/// - you can use a [`location`]($location)
+/// - call the [`selector`]($selector) constructor to convert any of the above
+///   types into a selector value and use the methods below to refine it
+///
+/// Selectors are used to [apply styling rules]($styling/#show-rules) to
+/// elements. You can also use selectors to [query]($query) the document for
+/// certain types of elements.
+///
+/// Furthermore, you can pass a selector to several of Typst's built-in
+/// functions to configure their behaviour. One such example is the
+/// [outline]($outline) where it can be used to change which elements are listed
+/// within the outline.
+///
+/// Multiple selectors can be combined using the methods shown below. However,
+/// not all kinds of selectors are supported in all places, at the moment.
+///
+/// # Example
+/// ```example
+/// #locate(loc => query(
+///   heading.where(level: 1)
+///     .or(heading.where(level: 2)),
+///   loc,
+/// ))
+///
+/// = This will be found
+/// == So will this
+/// === But this will not.
+/// ```
+#[ty(scope)]
 #[derive(Clone, PartialEq, Hash)]
 pub enum Selector {
     /// Matches a specific type of element.
     ///
     /// If there is a dictionary, only elements with the fields from the
     /// dictionary match.
-    Elem(ElemFunc, Option<Dict>),
+    Elem(Element, Option<Dict>),
     /// Matches the element at the specified location.
     Location(Location),
     /// Matches elements with a specific label.
@@ -40,43 +76,27 @@ pub enum Selector {
 
 impl Selector {
     /// Define a simple text selector.
-    pub fn text(text: &str) -> Self {
-        Self::Regex(Regex::new(&regex::escape(text)).unwrap())
+    pub fn text(text: &str) -> StrResult<Self> {
+        if text.is_empty() {
+            bail!("text selector is empty");
+        }
+        Ok(Self::Regex(Regex::new(&regex::escape(text)).unwrap()))
+    }
+
+    /// Define a regex selector.
+    pub fn regex(regex: Regex) -> StrResult<Self> {
+        if regex.as_str().is_empty() {
+            bail!("regex selector is empty");
+        }
+        if regex.is_match("") {
+            bail!("regex matches empty text");
+        }
+        Ok(Self::Regex(regex))
     }
 
     /// Define a simple [`Selector::Can`] selector.
     pub fn can<T: ?Sized + Any>() -> Self {
         Self::Can(TypeId::of::<T>())
-    }
-
-    /// Transforms this selector and an iterator of other selectors into a
-    /// [`Selector::Or`] selector.
-    pub fn and(self, others: impl IntoIterator<Item = Self>) -> Self {
-        Self::And(others.into_iter().chain(Some(self)).collect())
-    }
-
-    /// Transforms this selector and an iterator of other selectors into a
-    /// [`Selector::And`] selector.
-    pub fn or(self, others: impl IntoIterator<Item = Self>) -> Self {
-        Self::Or(others.into_iter().chain(Some(self)).collect())
-    }
-
-    /// Transforms this selector into a [`Selector::Before`] selector.
-    pub fn before(self, location: impl Into<Self>, inclusive: bool) -> Self {
-        Self::Before {
-            selector: Arc::new(self),
-            end: Arc::new(location.into()),
-            inclusive,
-        }
-    }
-
-    /// Transforms this selector into a [`Selector::After`] selector.
-    pub fn after(self, location: impl Into<Self>, inclusive: bool) -> Self {
-        Self::After {
-            selector: Arc::new(self),
-            start: Arc::new(location.into()),
-            inclusive,
-        }
     }
 
     /// Whether the selector matches for the target.
@@ -91,7 +111,7 @@ impl Selector {
             }
             Self::Label(label) => target.label() == Some(label),
             Self::Regex(regex) => {
-                target.func() == item!(text_func)
+                target.func() == item!(text_elem)
                     && item!(text_str)(target).map_or(false, |text| regex.is_match(&text))
             }
             Self::Can(cap) => target.can_type_id(*cap),
@@ -100,6 +120,85 @@ impl Selector {
             Self::Location(location) => target.location() == Some(*location),
             // Not supported here.
             Self::Before { .. } | Self::After { .. } => false,
+        }
+    }
+}
+
+#[scope]
+impl Selector {
+    /// Turns a value into a selector. The following values are accepted:
+    /// - An element function like a `heading` or `figure`.
+    /// - A `{<label>}`.
+    /// - A more complex selector like `{heading.where(level: 1)}`.
+    #[func(constructor)]
+    pub fn construct(
+        /// Can be an element function like a `heading` or `figure`, a `{<label>}`
+        /// or a more complex selector like `{heading.where(level: 1)}`.
+        target: Selector,
+    ) -> Selector {
+        target
+    }
+
+    /// Selects all elements that match this or any of the other selectors.
+    #[func]
+    pub fn or(
+        self,
+        /// The other selectors to match on.
+        #[variadic]
+        others: Vec<LocatableSelector>,
+    ) -> Selector {
+        Self::Or(others.into_iter().map(|s| s.0).chain(Some(self)).collect())
+    }
+
+    /// Selects all elements that match this and all of the the other selectors.
+    #[func]
+    pub fn and(
+        self,
+        /// The other selectors to match on.
+        #[variadic]
+        others: Vec<LocatableSelector>,
+    ) -> Selector {
+        Self::And(others.into_iter().map(|s| s.0).chain(Some(self)).collect())
+    }
+
+    /// Returns a modified selector that will only match elements that occur
+    /// before the first match of `end`.
+    #[func]
+    pub fn before(
+        self,
+        /// The original selection will end at the first match of `end`.
+        end: LocatableSelector,
+        /// Whether `end` itself should match or not. This is only relevant if
+        /// both selectors match the same type of element. Defaults to `{true}`.
+        #[named]
+        #[default(true)]
+        inclusive: bool,
+    ) -> Selector {
+        Self::Before {
+            selector: Arc::new(self),
+            end: Arc::new(end.0),
+            inclusive,
+        }
+    }
+
+    /// Returns a modified selector that will only match elements that occur
+    /// after the first match of `start`.
+    #[func]
+    pub fn after(
+        self,
+        /// The original selection will start at the first match of `start`.
+        start: LocatableSelector,
+        ///  Whether `start` itself should match or not. This is only relevant
+        ///  if both selectors match the same type of element. Defaults to
+        ///  `{true}`.
+        #[named]
+        #[default(true)]
+        inclusive: bool,
+    ) -> Selector {
+        Self::After {
+            selector: Arc::new(self),
+            start: Arc::new(start.0),
+            inclusive,
         }
     }
 }
@@ -152,14 +251,14 @@ impl Debug for Selector {
 }
 
 cast! {
-    type Selector: "selector",
+    type Selector,
     func: Func => func
         .element()
         .ok_or("only element functions can be used as selectors")?
         .select(),
     label: Label => Self::Label(label),
-    text: EcoString => Self::text(&text),
-    regex: Regex => Self::Regex(regex),
+    text: EcoString => Self::text(&text)?,
+    regex: Regex => Self::regex(regex)?,
     location: Location => Self::Location(location),
 }
 
@@ -171,23 +270,26 @@ cast! {
 pub struct LocatableSelector(pub Selector);
 
 impl Reflect for LocatableSelector {
-    fn describe() -> CastInfo {
+    fn input() -> CastInfo {
         CastInfo::Union(vec![
-            CastInfo::Type("function"),
-            CastInfo::Type("label"),
-            CastInfo::Type("selector"),
+            CastInfo::Type(Type::of::<Label>()),
+            CastInfo::Type(Type::of::<Func>()),
+            CastInfo::Type(Type::of::<Selector>()),
         ])
     }
 
+    fn output() -> CastInfo {
+        CastInfo::Type(Type::of::<Selector>())
+    }
+
     fn castable(value: &Value) -> bool {
-        matches!(value.type_name(), "function" | "label" | "selector")
+        Label::castable(value) || Func::castable(value) || Selector::castable(value)
     }
 }
 
-impl IntoValue for LocatableSelector {
-    fn into_value(self) -> Value {
-        self.0.into_value()
-    }
+cast! {
+    LocatableSelector,
+    self => self.0.into_value(),
 }
 
 impl FromValue for LocatableSelector {
@@ -228,6 +330,12 @@ impl FromValue for LocatableSelector {
     }
 }
 
+impl From<Location> for LocatableSelector {
+    fn from(loc: Location) -> Self {
+        Self(Selector::Location(loc))
+    }
+}
+
 /// A selector that can be used with show rules.
 ///
 /// Hopefully, this is made obsolete by a more powerful showing mechanism in the
@@ -236,34 +344,34 @@ impl FromValue for LocatableSelector {
 pub struct ShowableSelector(pub Selector);
 
 impl Reflect for ShowableSelector {
-    fn describe() -> CastInfo {
+    fn input() -> CastInfo {
         CastInfo::Union(vec![
-            CastInfo::Type("function"),
-            CastInfo::Type("label"),
-            CastInfo::Type("string"),
-            CastInfo::Type("regular expression"),
-            CastInfo::Type("symbol"),
-            CastInfo::Type("selector"),
+            CastInfo::Type(Type::of::<Symbol>()),
+            CastInfo::Type(Type::of::<Str>()),
+            CastInfo::Type(Type::of::<Label>()),
+            CastInfo::Type(Type::of::<Func>()),
+            CastInfo::Type(Type::of::<Regex>()),
+            CastInfo::Type(Type::of::<Selector>()),
         ])
     }
 
+    fn output() -> CastInfo {
+        CastInfo::Type(Type::of::<Selector>())
+    }
+
     fn castable(value: &Value) -> bool {
-        matches!(
-            value.type_name(),
-            "symbol"
-                | "string"
-                | "label"
-                | "function"
-                | "regular expression"
-                | "selector"
-        )
+        Symbol::castable(value)
+            || Str::castable(value)
+            || Label::castable(value)
+            || Func::castable(value)
+            || Regex::castable(value)
+            || Selector::castable(value)
     }
 }
 
-impl IntoValue for ShowableSelector {
-    fn into_value(self) -> Value {
-        self.0.into_value()
-    }
+cast! {
+    ShowableSelector,
+    self => self.0.into_value(),
 }
 
 impl FromValue for ShowableSelector {

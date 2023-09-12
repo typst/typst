@@ -22,9 +22,9 @@ az = "1.2"
 chinese-number = { version = "0.7.2", default-features = false, features = ["number-to-chinese"] }
 comemo = "0.3"
 csv = "1"
-ecow = "0.1"
-hayagriva = "0.3"
-hypher = "0.1"
+ecow = { version = "0.1.2", features = ["serde"] }
+hayagriva = "0.3.2"
+hypher = "0.1.3"
 icu_properties = { version = "1.2.0", features = ["serde"] }
 icu_provider = { version = "1.2.0", features = ["sync"] }
 icu_provider_adapters = "1.2.0"
@@ -34,6 +34,7 @@ kurbo = "0.9"
 lipsum = "0.9"
 log = "0.4"
 once_cell = "1"
+ciborium = "0.2.1"
 roxmltree = "0.18"
 rustybuzz = "0.7"
 serde_json = "1"
@@ -41,7 +42,7 @@ serde_yaml = "0.8"
 smallvec = "1.10"
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 time = { version = "0.3.20", features = ["formatting"] }
-toml = { version = "0.7.3", default-features = false, features = ["parse"] }
+toml = { version = "0.7.4"}
 tracing = "0.1.37"
 ttf-parser = "0.18.1"
 typed-arena = "2"

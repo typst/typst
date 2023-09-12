@@ -10,15 +10,14 @@ might not be a built-in property for everything you wish to do. For this reason,
 Typst further supports _show rules_ that can completely redefine the appearance
 of elements.
 
-## Set rules { #set-rules }
+## Set rules
 With set rules, you can customize the appearance of elements. They are written
-as a [function call]($type/function) to an
-[element function]($type/function/#element-functions) preceded by the `{set}`
-keyword (or `[#set]` in markup). Only optional parameters of that function can
-be provided to the set rule. Refer to each function's documentation to see which
-parameters are optional. In the example below, we use two set rules to change
-the [font family]($func/text.font) and
-[heading numbering]($func/heading.numbering).
+as a [function call]($function) to an [element
+function]($function/#element-functions) preceded by the `{set}` keyword (or
+`[#set]` in markup). Only optional parameters of that function can be provided
+to the set rule. Refer to each function's documentation to see which parameters
+are optional. In the example below, we use two set rules to change the
+[font family]($text.font) and [heading numbering]($heading.numbering).
 
 ```example
 #set heading(numbering: "I.")
@@ -60,13 +59,14 @@ a _set-if_ rule.
 #task(critical: false)[Work deadline]
 ```
 
-## Show rules { #show-rules }
+## Show rules
 With show rules, you can deeply customize the look of a type of element. The
 most basic form of show rule is a _show-set rule._ Such a rule is written as the
-`{show}` keyword followed by a [selector]($type/selector), a colon and then a set rule. The most basic form of selector is an
-[element function]($type/function/#element-functions). This lets the set rule
-only apply to the selected element. In the example below, headings become dark
-blue while all other text stays black.
+`{show}` keyword followed by a [selector]($selector), a colon and then a set
+rule. The most basic form of selector is an
+[element function]($function/#element-functions). This lets the set rule only
+apply to the selected element. In the example below, headings become dark blue
+while all other text stays black.
 
 ```example
 #show heading: set text(navy)
@@ -79,16 +79,15 @@ With show-set rules you can mix and match properties from different functions to
 achieve many different effects. But they still limit you to what is predefined
 in Typst. For maximum flexibility, you can instead write a show rule that
 defines how to format an element from scratch. To write such a show rule,
-replace the set rule after the colon with an arbitrary
-[function]($type/function). This function receives the element in question and
-can return arbitrary content. Different
-[fields]($scripting/#fields) are available on the element passed
-to the function. Below, we define a show rule that formats headings for a
-fantasy encyclopedia.
+replace the set rule after the colon with an arbitrary [function]($function).
+This function receives the element in question and can return arbitrary content.
+Different [fields]($scripting/#fields) are available on the element passed to
+the function. Below, we define a show rule that formats headings for a fantasy
+encyclopedia.
 
 ```example
 #set heading(numbering: "(I)")
-#show heading: it => block[
+#show heading: it => [
   #set align(center)
   #set text(font: "Inria Serif")
   \~ #emph(it.body)
@@ -125,15 +124,15 @@ to:
 
 - **Regex:** `{show regex("\w+"): ..}` \
   Select and transform text with a regular expression for even more flexibility.
-  See the documentation of the [`regex` function]($func/regex) for details.
+  See the documentation of the [`regex` type]($regex) for details.
 
 - **Function with fields:** `{show heading.where(level: 1): ..}` \
   Transform only elements that have the specified fields. For example, you might
   want to only change the style of level-1 headings.
 
 - **Label:** `{show <intro>: ..}` \
-  Select and transform elements that have the specified label.
-  See the documentation of the [`label` function]($func/label) for more details.
+  Select and transform elements that have the specified label. See the
+  documentation of the [`label` type]($label) for more details.
 
 ```example
 #show "Project": smallcaps

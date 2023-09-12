@@ -1,33 +1,26 @@
-types: |
-  To style your document, you need to work with values of different kinds: Lengths
-  specifying the size of your elements, colors for your text and shapes, and more.
-  Typst categorizes these into clearly defined _types_ and tells you where it
-  expects which type of value.
+# Descriptions of the documentation categories.
 
-  Apart from very basic types for numeric values and typical types known from
-  programming languages, Typst provides a special type for _content._ A value of
-  this type can hold anything that you can enter into your document: Text,
-  elements like headings and shapes, and style information.
+foundations: |
+  Foundational types and functions.
 
-  In some places of Typst more specialized data types are used. Instead of listing
-  all of them here, they are explained where they are relevant.
+  Here, you'll find documentation for basic data types like [integers]($int) and
+  [strings]($int) as well as details about core computational functions.
 
 text: |
   Text styling.
 
-  The [text function]($func/text) is of particular interest.
+  The [text function]($text) is of particular interest.
 
 math: |
-  Typst has special [syntax]($syntax/#math) and library functions
-  to typeset mathematical formulas. Math formulas can be displayed inline with
-  text or as separate blocks. They will be typeset into their own block if they
-  start and end with at least one space (e.g. `[$ x^2 $]`).
+  Typst has special [syntax]($syntax/#math) and library functions to typeset
+  mathematical formulas. Math formulas can be displayed inline with text or as
+  separate blocks. They will be typeset into their own block if they start and
+  end with at least one space (e.g. `[$ x^2 $]`).
 
   In math, single letters are always displayed as is. Multiple letters, however,
   are interpreted as variables and functions. To display multiple letters
   verbatim, you can place them into quotes and to access single letter
-  variables, you can use the
-  [hashtag syntax]($scripting/#expressions).
+  variables, you can use the [hashtag syntax]($scripting/#expressions).
 
   ```example
   $ A = pi r^2 $
@@ -41,7 +34,7 @@ math: |
   Math mode makes a wide selection of [symbols]($category/symbols/sym) like
   `pi`, `dot`, or `RR` available. Many mathematical symbols are available in
   different variants. You can select between different variants by applying
-  [modifiers]($type/symbol) to the symbol. Typst further recognizes a number of
+  [modifiers]($symbol) to the symbol. Typst further recognizes a number of
   shorthand sequences like `=>` that approximate a symbol. When such a shorthand
   exists, the symbol's documentation lists it.
 
@@ -51,6 +44,7 @@ math: |
 
   Formulas can also contain line breaks. Each line can contain one or multiple
   _alignment points_ (`&`) which are then aligned.
+
   ```example
   $ sum_(k=0)^n k
       &= 1 + ... + n \
@@ -60,11 +54,11 @@ math: |
   Math mode supports special function calls without the hashtag prefix. In these
   "math calls", the argument list works a little differently than in code:
 
-  - Within them, Typst is still in "math mode". Thus, you can write math directly
-    into them, but need to use hashtag syntax to pass code expressions (except
-    for strings, which are available in the math syntax).
-  - They support positional and named arguments, but don't support
-    trailing content blocks and argument spreading.
+  - Within them, Typst is still in "math mode". Thus, you can write math
+    directly into them, but need to use hashtag syntax to pass code expressions
+    (except for strings, which are available in the math syntax).
+  - They support positional and named arguments, but don't support trailing
+    content blocks and argument spreading.
   - They provide additional syntax for 2-dimensional argument lists. The
     semicolon (`;`) merges preceding arguments separated by commas into an array
     argument.
@@ -143,27 +137,11 @@ emoji: |
   certain emojis, you can also import them from the `emoji` module (`[#import
   emoji: face]`) to use them without the `#emoji.` prefix.
 
-foundations: |
-  Foundational functions for computation.
-
-calculate: |
-  Calculations and processing of numeric values.
-
-  These functions are part of the `calc` module and not imported by default. In
-  addition to the functions listed below, the `calc` module also defines the
-  constants `pi`, `e`, `inf`, and `nan`.
-
-construct: |
-  Construction of and conversions between values of different types.
-
 data-loading: |
   Data loading from external files.
 
-  These functions help you with embedding data from experiments in your
-  documents.
-
-utility: |
-  Useful utility functions.
+  These functions help you with loading and embedding data, for example from
+  the results of an experiment.
 
 packages: |
   Typst [packages]($scripting/#packages) encapsulate reusable building blocks

@@ -1,29 +1,32 @@
-use typst::eval::EvalMode;
+use typst::eval::{
+    Datetime, Duration, EvalMode, Module, Never, NoneValue, Plugin, Regex,
+};
 
 use crate::prelude::*;
 
-/// Determines the type of a value.
-///
-/// Returns the name of the value's type.
-///
-/// ## Example { #example }
-/// ```example
-/// #type(12) \
-/// #type(14.7) \
-/// #type("hello") \
-/// #type(none) \
-/// #type([Hi]) \
-/// #type(x => x + 1)
-/// ```
-///
-/// Display: Type
-/// Category: foundations
-#[func]
-pub fn type_(
-    /// The value whose type's to determine.
-    value: Value,
-) -> Str {
-    value.type_name().into()
+/// Hook up all foundational definitions.
+pub(super) fn define(global: &mut Scope) {
+    global.category("foundations");
+    global.define_type::<bool>();
+    global.define_type::<i64>();
+    global.define_type::<f64>();
+    global.define_type::<Str>();
+    global.define_type::<Bytes>();
+    global.define_type::<Content>();
+    global.define_type::<Array>();
+    global.define_type::<Dict>();
+    global.define_type::<Func>();
+    global.define_type::<Args>();
+    global.define_type::<Type>();
+    global.define_type::<Module>();
+    global.define_type::<Regex>();
+    global.define_type::<Datetime>();
+    global.define_type::<Duration>();
+    global.define_type::<Plugin>();
+    global.define_func::<repr>();
+    global.define_func::<panic>();
+    global.define_func::<assert>();
+    global.define_func::<eval>();
 }
 
 /// Returns the string representation of a value.
@@ -35,17 +38,14 @@ pub fn type_(
 /// **Note:** This function is for debugging purposes. Its output should not be
 /// considered stable and may change at any time!
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #none vs #repr(none) \
 /// #"hello" vs #repr("hello") \
 /// #(1, 2) vs #repr((1, 2)) \
 /// #[*Hi*] vs #repr([*Hi*])
 /// ```
-///
-/// Display: Representation
-/// Category: foundations
-#[func]
+#[func(title = "Representation")]
 pub fn repr(
     /// The value whose string representation to produce.
     value: Value,
@@ -55,15 +55,12 @@ pub fn repr(
 
 /// Fails with an error.
 ///
-/// ## Example { #example }
+/// # Example
 /// The code below produces the error `panicked with: "this is wrong"`.
 /// ```typ
 /// #panic("this is wrong")
 /// ```
-///
-/// Display: Panic
-/// Category: foundations
-#[func]
+#[func(keywords = ["error"])]
 pub fn panic(
     /// The values to panic with.
     #[variadic]
@@ -88,21 +85,13 @@ pub fn panic(
 /// produce any output in the document.
 ///
 /// If you wish to test equality between two values, see
-/// [`assert.eq`]($func/assert.eq) and [`assert.ne`]($func/assert.ne).
+/// [`assert.eq`]($assert.eq) and [`assert.ne`]($assert.ne).
 ///
-/// ## Example { #example }
+/// # Example
 /// ```typ
 /// #assert(1 < 2, message: "math broke")
 /// ```
-///
-/// Display: Assert
-/// Category: foundations
-#[func]
-#[scope(
-    scope.define("eq", assert_eq_func());
-    scope.define("ne", assert_ne_func());
-    scope
-)]
+#[func(scope)]
 pub fn assert(
     /// The condition that must be true for the assertion to pass.
     condition: bool,
@@ -120,91 +109,83 @@ pub fn assert(
     Ok(NoneValue)
 }
 
-/// Ensures that two values are equal.
-///
-/// Fails with an error if the first value is not equal to the second. Does not
-/// produce any output in the document.
-///
-/// ## Example { #example }
-/// ```typ
-/// #assert.eq(10, 10)
-/// ```
-///
-/// Display: Assert Equals
-/// Category: foundations
-#[func]
-pub fn assert_eq(
-    /// The first value to compare.
-    left: Value,
-
-    /// The second value to compare.
-    right: Value,
-
-    /// An optional message to display on error instead of the representations
-    /// of the compared values.
-    #[named]
-    message: Option<EcoString>,
-) -> StrResult<NoneValue> {
-    if left != right {
-        if let Some(message) = message {
-            bail!("equality assertion failed: {message}");
-        } else {
-            bail!("equality assertion failed: value {left:?} was not equal to {right:?}");
+#[scope]
+impl assert {
+    /// Ensures that two values are equal.
+    ///
+    /// Fails with an error if the first value is not equal to the second. Does not
+    /// produce any output in the document.
+    ///
+    /// ```typ
+    /// #assert.eq(10, 10)
+    /// ```
+    #[func(title = "Assert Equal")]
+    pub fn eq(
+        /// The first value to compare.
+        left: Value,
+        /// The second value to compare.
+        right: Value,
+        /// An optional message to display on error instead of the representations
+        /// of the compared values.
+        #[named]
+        message: Option<EcoString>,
+    ) -> StrResult<NoneValue> {
+        if left != right {
+            if let Some(message) = message {
+                bail!("equality assertion failed: {message}");
+            } else {
+                bail!("equality assertion failed: value {left:?} was not equal to {right:?}");
+            }
         }
+        Ok(NoneValue)
     }
-    Ok(NoneValue)
-}
 
-/// Ensures that two values are not equal.
-///
-/// Fails with an error if the first value is equal to the second. Does not
-/// produce any output in the document.
-///
-/// ## Example { #example }
-/// ```typ
-/// #assert.ne(3, 4)
-/// ```
-///
-/// Display: Assert Not Equals
-/// Category: foundations
-#[func]
-pub fn assert_ne(
-    /// The first value to compare.
-    left: Value,
-
-    /// The second value to compare.
-    right: Value,
-
-    /// An optional message to display on error instead of the representations
-    /// of the compared values.
-    #[named]
-    message: Option<EcoString>,
-) -> StrResult<NoneValue> {
-    if left == right {
-        if let Some(message) = message {
-            bail!("inequality assertion failed: {message}");
-        } else {
-            bail!("inequality assertion failed: value {left:?} was equal to {right:?}");
+    /// Ensures that two values are not equal.
+    ///
+    /// Fails with an error if the first value is equal to the second. Does not
+    /// produce any output in the document.
+    ///
+    /// ```typ
+    /// #assert.ne(3, 4)
+    /// ```
+    #[func(title = "Assert Not Equal")]
+    pub fn ne(
+        /// The first value to compare.
+        left: Value,
+        /// The second value to compare.
+        right: Value,
+        /// An optional message to display on error instead of the representations
+        /// of the compared values.
+        #[named]
+        message: Option<EcoString>,
+    ) -> StrResult<NoneValue> {
+        if left == right {
+            if let Some(message) = message {
+                bail!("inequality assertion failed: {message}");
+            } else {
+                bail!(
+                    "inequality assertion failed: value {left:?} was equal to {right:?}"
+                );
+            }
         }
+        Ok(NoneValue)
     }
-    Ok(NoneValue)
 }
 
 /// Evaluates a string as Typst code.
 ///
 /// This function should only be used as a last resort.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #eval("1 + 1") \
 /// #eval("(1, 2, 3, 4)").len() \
 /// #eval("*Markup!*", mode: "markup") \
 /// ```
-///
-/// Display: Evaluate
-/// Category: foundations
-#[func]
+#[func(title = "Evaluate")]
 pub fn eval(
+    /// The virtual machine.
+    vm: &mut Vm,
     /// A string of Typst code to evaluate.
     ///
     /// The code in the string cannot interact with the file system.
@@ -234,8 +215,6 @@ pub fn eval(
     #[named]
     #[default]
     scope: Dict,
-    /// The virtual machine.
-    vm: &mut Vm,
 ) -> SourceResult<Value> {
     let Spanned { v: text, span } = source;
     let dict = scope;

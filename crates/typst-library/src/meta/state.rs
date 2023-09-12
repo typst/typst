@@ -30,7 +30,7 @@ use crate::prelude::*;
 /// #compute("x - 5")
 /// ```
 ///
-/// ## State and document markup { #state-and-markup }
+/// # State and document markup { #state-and-markup }
 /// Why does it do that? Because, in general, this kind of computation with side
 /// effects is problematic in document markup and Typst is upfront about that.
 /// For the results to make sense, the computation must proceed in the same
@@ -61,7 +61,7 @@ use crate::prelude::*;
 /// `template` function and only then sees the `Outline`. Just counting up would
 /// number the `Introduction` with `1` and the `Outline` with `2`.
 ///
-/// ## Managing state in Typst { #state-in-typst }
+/// # Managing state in Typst { #state-in-typst }
 /// So what do we do instead? We use Typst's state management system. Calling
 /// the `state` function with an identifying string key and an optional initial
 /// value gives you a state value which exposes a few methods. The two most
@@ -122,14 +122,14 @@ use crate::prelude::*;
 ///
 /// This example is of course a bit silly, but in practice this is often exactly
 /// what you want! A good example are heading counters, which is why Typst's
-/// [counting system]($func/counter) is very similar to its state system.
+/// [counting system]($counter) is very similar to its state system.
 ///
-/// ## Time Travel { #time-travel }
+/// # Time Travel
 /// By using Typst's state management system you also get time travel
-/// capabilities! By combining the state system with [`locate`]($func/locate)
-/// and [`query`]($func/query), we can find out what the value of the state will
-/// be at any position in the document from anywhere else. In particular, the
-/// `at` method gives us the value of the state at any location and the `final`
+/// capabilities! By combining the state system with [`locate`]($locate) and
+/// [`query`]($query), we can find out what the value of the state will be at
+/// any position in the document from anywhere else. In particular, the `at`
+/// method gives us the value of the state at any location and the `final`
 /// methods gives us the value of the state at the end of the document.
 ///
 /// ```example
@@ -156,7 +156,7 @@ use crate::prelude::*;
 /// #compute("x - 5")
 /// ```
 ///
-/// ## A word of caution { #caution }
+/// # A word of caution { #caution }
 /// To resolve the values of all states, Typst evaluates parts of your code
 /// multiple times. However, there is no guarantee that your state manipulation
 /// can actually be completely resolved.
@@ -180,72 +180,7 @@ use crate::prelude::*;
 /// `locate` calls or `display` calls of state or counters. Instead, pass a
 /// function to `update` that determines the value of the state based on its
 /// previous value.
-///
-/// ## Methods
-/// ### display()
-/// Displays the value of the state.
-///
-/// - format: function (positional)
-///   A function which receives the value of the state and can return arbitrary
-///   content which is then displayed. If this is omitted, the value is directly
-///   displayed.
-///
-/// - returns: content
-///
-/// ### update()
-/// Updates the value of the state.
-///
-/// The update will be in effect at the position where the returned content is
-/// inserted into the document. If you don't put the output into the document,
-/// nothing happens! This would be the case, for example, if you write
-/// `{let _ = state("key").update(7)}`. State updates are always applied in
-/// layout order and in that case, Typst wouldn't know when to update the state.
-///
-/// - value: any or function (positional, required)
-///   If given a non function-value, sets the state to that value. If given a
-///   function, that function receives the previous state and has to return the
-///   new state.
-///
-/// - returns: content
-///
-/// ### at()
-/// Gets the value of the state at the given location.
-///
-/// - location: location (positional, required)
-///   The location at which the state's value should be retrieved. A suitable
-///   location can be retrieved from [`locate`]($func/locate) or
-///   [`query`]($func/query).
-///
-/// - returns: any
-///
-/// ### final()
-/// Gets the value of the state at the end of the document.
-///
-/// - location: location (positional, required)
-///   Can be any location. Why is it required then? As noted before, Typst has
-///   to evaluate parts of your code multiple times to determine the values of
-///   all state. By only allowing this method within [`locate`]($func/locate)
-///   calls, the amount of code that can depend on the method's result is
-///   reduced. If you could call `final` directly at the top level of a module,
-///   the evaluation of the whole module and its exports could depend on the
-///   state's value.
-///
-/// - returns: any
-///
-/// Display: State
-/// Category: meta
-#[func]
-pub fn state(
-    /// The key that identifies this state.
-    key: Str,
-    /// The initial value of the state.
-    #[default]
-    init: Value,
-) -> State {
-    State { key, init }
-}
-
-/// A state.
+#[ty(scope)]
 #[derive(Clone, PartialEq, Hash)]
 pub struct State {
     /// The key that identifies the state.
@@ -255,49 +190,9 @@ pub struct State {
 }
 
 impl State {
-    /// Call a method on a state.
-    #[tracing::instrument(skip(vm))]
-    pub fn call_method(
-        self,
-        vm: &mut Vm,
-        method: &str,
-        mut args: Args,
-        span: Span,
-    ) -> SourceResult<Value> {
-        let value = match method {
-            "display" => self.display(args.eat()?).into_value(),
-            "at" => self.at(&mut vm.vt, args.expect("location")?)?,
-            "final" => self.final_(&mut vm.vt, args.expect("location")?)?,
-            "update" => self.update(args.expect("value or function")?).into_value(),
-            _ => bail!(span, "type state has no method `{}`", method),
-        };
-        args.finish()?;
-        Ok(value)
-    }
-
-    /// Display the current value of the state.
-    pub fn display(self, func: Option<Func>) -> Content {
-        DisplayElem::new(self, func).pack()
-    }
-
-    /// Get the value of the state at the given location.
-    #[tracing::instrument(skip(self, vt))]
-    pub fn at(self, vt: &mut Vt, location: Location) -> SourceResult<Value> {
-        let sequence = self.sequence(vt)?;
-        let offset = vt.introspector.query(&self.selector().before(location, true)).len();
-        Ok(sequence[offset].clone())
-    }
-
-    /// Get the value of the state at the final location.
-    #[tracing::instrument(skip(self, vt))]
-    pub fn final_(self, vt: &mut Vt, _: Location) -> SourceResult<Value> {
-        let sequence = self.sequence(vt)?;
-        Ok(sequence.last().unwrap().clone())
-    }
-
-    /// Produce content that performs a state update.
-    pub fn update(self, update: StateUpdate) -> Content {
-        UpdateElem::new(self.key, update).pack()
+    /// Create a new state identified by a key.
+    pub fn new(key: Str, init: Value) -> State {
+        Self { key, init }
     }
 
     /// Produce the whole sequence of states.
@@ -349,7 +244,94 @@ impl State {
 
     /// The selector for this state's updates.
     fn selector(&self) -> Selector {
-        Selector::Elem(UpdateElem::func(), Some(dict! { "key" => self.key.clone() }))
+        Selector::Elem(UpdateElem::elem(), Some(dict! { "key" => self.key.clone() }))
+    }
+}
+
+#[scope]
+impl State {
+    /// Create a new state identified by a key.
+    #[func(constructor)]
+    pub fn construct(
+        /// The key that identifies this state.
+        key: Str,
+        /// The initial value of the state.
+        #[default]
+        init: Value,
+    ) -> State {
+        Self::new(key, init)
+    }
+
+    /// Displays the current value of the state.
+    #[func]
+    pub fn display(
+        self,
+        /// A function which receives the value of the state and can return
+        /// arbitrary content which is then displayed. If this is omitted, the
+        /// value is directly displayed.
+        #[default]
+        func: Option<Func>,
+    ) -> Content {
+        DisplayElem::new(self, func).pack()
+    }
+
+    /// Update the value of the state.
+    ///
+    /// The update will be in effect at the position where the returned content
+    /// is inserted into the document. If you don't put the output into the
+    /// document, nothing happens! This would be the case, for example, if you
+    /// write `{let _ = state("key").update(7)}`. State updates are always
+    /// applied in layout order and in that case, Typst wouldn't know when to
+    /// update the state.
+    #[func]
+    pub fn update(
+        self,
+        /// If given a non function-value, sets the state to that value. If
+        /// given a function, that function receives the previous state and has
+        /// to return the new state.
+        update: StateUpdate,
+    ) -> Content {
+        UpdateElem::new(self.key, update).pack()
+    }
+
+    /// Get the value of the state at the given location.
+    #[func]
+    pub fn at(
+        &self,
+        /// The virtual typesetter.
+        vt: &mut Vt,
+        /// The location at which the state's value should be retrieved. A
+        /// suitable location can be retrieved from [`locate`]($locate) or
+        /// [`query`]($query).
+        location: Location,
+    ) -> SourceResult<Value> {
+        let sequence = self.sequence(vt)?;
+        let offset = vt
+            .introspector
+            .query(&self.selector().before(location.into(), true))
+            .len();
+        Ok(sequence[offset].clone())
+    }
+
+    /// Get the value of the state at the end of the document.
+    #[func]
+    pub fn final_(
+        &self,
+        /// The virtual typesetter.
+        vt: &mut Vt,
+        /// Can be an arbitrary location, as its value is irrelevant for the
+        /// method's return value. Why is it required then? As noted before,
+        /// Typst has to evaluate parts of your code multiple times to determine
+        /// the values of all state. By only allowing this method within
+        /// [`locate`]($locate) calls, the amount of code that can depend on the
+        /// method's result is reduced. If you could call `final` directly at
+        /// the top level of a module, the evaluation of the whole module and
+        /// its exports could depend on the state's value.
+        location: Location,
+    ) -> SourceResult<Value> {
+        let _ = location;
+        let sequence = self.sequence(vt)?;
+        Ok(sequence.last().unwrap().clone())
     }
 }
 
@@ -364,10 +346,11 @@ impl Debug for State {
 }
 
 cast! {
-    type State: "state",
+    type State,
 }
 
 /// An update to perform on a state.
+#[ty]
 #[derive(Clone, PartialEq, Hash)]
 pub enum StateUpdate {
     /// Set the state to the specified value.
@@ -383,16 +366,13 @@ impl Debug for StateUpdate {
 }
 
 cast! {
-    type StateUpdate: "state update",
+    type StateUpdate,
     v: Func => Self::Func(v),
     v: Value => Self::Set(v),
 }
 
 /// Executes a display of a state.
-///
-/// Display: State
-/// Category: special
-#[element(Locatable, Show)]
+#[elem(Locatable, Show)]
 struct DisplayElem {
     /// The state.
     #[required]
@@ -418,10 +398,7 @@ impl Show for DisplayElem {
 }
 
 /// Executes a display of a state.
-///
-/// Display: State
-/// Category: special
-#[element(Locatable, Show)]
+#[elem(Locatable, Show)]
 struct UpdateElem {
     /// The key that identifies the state.
     #[required]

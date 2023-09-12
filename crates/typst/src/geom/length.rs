@@ -1,9 +1,38 @@
+use ecow::eco_format;
+
 use super::*;
+use crate::diag::{At, Hint, SourceResult};
+use crate::syntax::Span;
 
 /// A size or distance, possibly expressed with contextual units.
 ///
-/// Currently supports absolute and font-relative units, but support could quite
-/// easily be extended to other units.
+/// Typst supports the following length units:
+///
+/// - Points: `{72pt}`
+/// - Millimeters: `{254mm}`
+/// - Centimeters: `{2.54cm}`
+/// - Inches: `{1in}`
+/// - Relative to font size: `{2.5em}`
+///
+/// You can multiply lengths with and divide them by integers and floats.
+///
+/// # Example
+/// ```example
+/// #rect(width: 20pt)
+/// #rect(width: 2em)
+/// #rect(width: 1in)
+///
+/// #(3em + 5pt).em \
+/// #(20pt).em \
+/// #(40em + 2pt).abs \
+/// #(5em).abs
+/// ```
+///
+/// # Fields
+/// - `abs`: A length with just the absolute component of the current length
+///   (that is, excluding the `em` component).
+/// - `em`: The amount of `em` units in this length, as a [float]($float).
+#[ty(scope)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Length {
     /// The absolute part.
@@ -33,6 +62,68 @@ impl Length {
         } else {
             None
         }
+    }
+
+    /// Convert to an absolute length at the given font size.
+    pub fn at(self, font_size: Abs) -> Abs {
+        self.abs + self.em.at(font_size)
+    }
+
+    /// Fails with an error if the length has a non-zero font-relative part.
+    fn ensure_that_em_is_zero(&self, span: Span, unit: &str) -> SourceResult<()> {
+        if self.em == Em::zero() {
+            return Ok(());
+        }
+        Err(eco_format!(
+            "cannot convert a length with non-zero em units (`{self:?}`) to {unit}"
+        ))
+        .hint(eco_format!("use `length.abs.{unit}()` instead to ignore its em component"))
+        .at(span)
+    }
+}
+
+#[scope]
+impl Length {
+    /// Converts this length to points.
+    ///
+    /// Fails with an error if this length has non-zero `em` units (such as
+    /// `5em + 2pt` instead of just `2pt`). Use the `abs` field (such as in
+    /// `(5em + 2pt).abs.pt()`) to ignore the `em` component of the length (thus
+    /// converting only its absolute component).
+    #[func(name = "pt", title = "Points")]
+    pub fn to_pt(&self, span: Span) -> SourceResult<f64> {
+        self.ensure_that_em_is_zero(span, "pt")?;
+        Ok(self.abs.to_pt())
+    }
+
+    /// Converts this length to millimeters.
+    ///
+    /// Fails with an error if this length has non-zero `em` units. See the
+    /// [`pt`]($length.pt) method for more details.
+    #[func(name = "mm", title = "Millimeters")]
+    pub fn to_mm(&self, span: Span) -> SourceResult<f64> {
+        self.ensure_that_em_is_zero(span, "mm")?;
+        Ok(self.abs.to_mm())
+    }
+
+    /// Converts this length to centimeters.
+    ///
+    /// Fails with an error if this length has non-zero `em` units. See the
+    /// [`pt`]($length.pt) method for more details.
+    #[func(name = "cm", title = "Centimeters")]
+    pub fn to_cm(&self, span: Span) -> SourceResult<f64> {
+        self.ensure_that_em_is_zero(span, "cm")?;
+        Ok(self.abs.to_cm())
+    }
+
+    /// Converts this length to inches.
+    ///
+    /// Fails with an error if this length has non-zero `em` units. See the
+    /// [`pt`]($length.pt) method for more details.
+    #[func(name = "inches")]
+    pub fn to_inches(&self, span: Span) -> SourceResult<f64> {
+        self.ensure_that_em_is_zero(span, "inches")?;
+        Ok(self.abs.to_inches())
     }
 }
 
@@ -103,6 +194,14 @@ impl Mul<f64> for Length {
 
     fn mul(self, rhs: f64) -> Self::Output {
         Self { abs: self.abs * rhs, em: self.em * rhs }
+    }
+}
+
+impl Mul<Length> for f64 {
+    type Output = Length;
+
+    fn mul(self, rhs: Length) -> Self::Output {
+        rhs * self
     }
 }
 

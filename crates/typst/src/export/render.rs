@@ -14,8 +14,8 @@ use usvg::{NodeExt, TreeParsing};
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Geometry, LineCap, LineJoin, Paint, PathItem, Shape, Size, Stroke,
-    Transform,
+    self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
+    Size, Transform,
 };
 use crate::image::{DecodedImage, Image};
 
@@ -33,6 +33,47 @@ pub fn render(frame: &Frame, pixel_per_pt: f32, fill: Color) -> sk::Pixmap {
 
     let ts = sk::Transform::from_scale(pixel_per_pt, pixel_per_pt);
     render_frame(&mut canvas, ts, None, frame);
+
+    canvas
+}
+
+/// Export multiple frames into a single raster image.
+///
+/// The padding will be added around and between the individual frames.
+pub fn render_merged(
+    frames: &[Frame],
+    pixel_per_pt: f32,
+    frame_fill: Color,
+    padding: Abs,
+    padding_fill: Color,
+) -> sk::Pixmap {
+    let pixmaps: Vec<_> = frames
+        .iter()
+        .map(|frame| typst::export::render(frame, pixel_per_pt, frame_fill))
+        .collect();
+
+    let padding = (pixel_per_pt * padding.to_f32()).round() as u32;
+    let pxw =
+        2 * padding + pixmaps.iter().map(sk::Pixmap::width).max().unwrap_or_default();
+    let pxh =
+        padding + pixmaps.iter().map(|pixmap| pixmap.height() + padding).sum::<u32>();
+
+    let mut canvas = sk::Pixmap::new(pxw, pxh).unwrap();
+    canvas.fill(padding_fill.into());
+
+    let [x, mut y] = [padding; 2];
+    for pixmap in pixmaps {
+        canvas.draw_pixmap(
+            x as i32,
+            y as i32,
+            pixmap.as_ref(),
+            &sk::PixmapPaint::default(),
+            sk::Transform::identity(),
+            None,
+        );
+
+        y += pixmap.height() + padding;
+    }
 
     canvas
 }
@@ -425,7 +466,7 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if let Some(Stroke {
+    if let Some(FixedStroke {
         paint,
         thickness,
         line_cap,

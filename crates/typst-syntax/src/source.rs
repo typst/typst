@@ -9,6 +9,7 @@ use comemo::Prehashed;
 
 use super::reparser::reparse;
 use super::{is_newline, parse, FileId, LinkedNode, Span, SyntaxNode};
+use crate::VirtualPath;
 
 /// A source file.
 ///
@@ -44,19 +45,7 @@ impl Source {
 
     /// Create a source file without a real id and path, usually for testing.
     pub fn detached(text: impl Into<String>) -> Self {
-        Self::new(FileId::detached(), text.into())
-    }
-
-    /// Create a source file with the same synthetic span for all nodes.
-    pub fn synthesized(text: String, span: Span) -> Self {
-        let mut root = parse(&text);
-        root.synthesize(span);
-        Self(Arc::new(Repr {
-            id: FileId::detached(),
-            lines: lines(&text),
-            text: Prehashed::new(text),
-            root: Prehashed::new(root),
-        }))
+        Self::new(FileId::new(None, VirtualPath::new("main.typ")), text.into())
     }
 
     /// The root node of the file's untyped syntax tree.
@@ -151,12 +140,9 @@ impl Source {
 
     /// Get the byte range for the given span in this file.
     ///
-    /// Panics if the span does not point into this source file.
-    #[track_caller]
-    pub fn range(&self, span: Span) -> Range<usize> {
-        self.find(span)
-            .expect("span does not point into this source file")
-            .range()
+    /// Returns `None` if the span does not point into this source file.
+    pub fn range(&self, span: Span) -> Option<Range<usize>> {
+        Some(self.find(span)?.range())
     }
 
     /// Return the index of the UTF-16 code unit at the byte index.
@@ -241,7 +227,7 @@ impl Source {
 
 impl Debug for Source {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "Source({})", self.id().path().display())
+        write!(f, "Source({:?})", self.id().vpath())
     }
 }
 

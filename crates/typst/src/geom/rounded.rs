@@ -5,7 +5,7 @@ pub fn rounded_rect(
     size: Size,
     radius: Corners<Abs>,
     fill: Option<Paint>,
-    stroke: Sides<Option<Stroke>>,
+    stroke: Sides<Option<FixedStroke>>,
 ) -> Vec<Shape> {
     let mut res = vec![];
     if fill.is_some() || (stroke.iter().any(Option::is_some) && stroke.is_uniform()) {
@@ -43,8 +43,8 @@ fn fill_geometry(size: Size, radius: Corners<Abs>) -> Geometry {
 fn stroke_segments(
     size: Size,
     radius: Corners<Abs>,
-    stroke: Sides<Option<Stroke>>,
-) -> Vec<(Path, Option<Stroke>)> {
+    stroke: Sides<Option<FixedStroke>>,
+) -> Vec<(Path, Option<FixedStroke>)> {
     let mut res = vec![];
 
     let mut connection = Connection::default();
