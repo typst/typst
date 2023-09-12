@@ -368,7 +368,7 @@ fn load_svg_fonts(
                             text.chars().all(|c| font.info().coverage.contains(c as u32))
                         });
                         match full_coverage {
-                            true => load(&family),
+                            true => load(family),
                             false => None,
                         }
                     });
