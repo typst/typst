@@ -460,7 +460,7 @@ impl Default for FixedStroke {
             line_cap: LineCap::Butt,
             line_join: LineJoin::Miter,
             dash_pattern: None,
-            miter_limit: Scalar(4.0),
+            miter_limit: Scalar(0.1),
         }
     }
 }
