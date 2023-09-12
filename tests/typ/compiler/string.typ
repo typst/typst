@@ -73,6 +73,11 @@
 #test("abc".contains(regex("^[abc]+$")), true)
 
 ---
+// Test `count` method.
+#test("It is Typst".count("t"), 2)
+#test("It is Typst".count(regex("[Tt]")), 3) 
+
+---
 // Test the `starts-with` and `ends-with` methods.
 #test("Typst".starts-with("Ty"), true)
 #test("Typst".starts-with(regex("[Tt]ys")), false)

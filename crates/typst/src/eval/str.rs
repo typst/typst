@@ -298,6 +298,15 @@ impl Str {
         }
     }
 
+    /// Count all non-overlapping matches of specified pattern.
+    #[func]
+    pub fn count(&self, pattern: StrPattern) -> usize {
+        match pattern {
+            StrPattern::Str(pat) => self.0.match_indices(pat.as_str()).count(),
+            StrPattern::Regex(re) => re.find_iter(&self.0).count(),
+        }
+    }
+
     /// Whether the string starts with the specified pattern.
     #[func]
     pub fn starts_with(
