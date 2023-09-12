@@ -4,21 +4,18 @@ const FRAC_AROUND: Em = Em::new(0.1);
 
 /// A mathematical fraction.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// $ 1/2 < (x+1)/2 $
 /// $ ((x+1)) / 2 = frac(a, b) $
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: Use a slash to turn neighbouring
 /// expressions into a fraction. Multiple atoms can be grouped into a single
 /// expression using round grouping parenthesis. Such parentheses are removed
 /// from the output, but you can nest multiple to force them.
-///
-/// Display: Fraction
-/// Category: math
-#[element(LayoutMath)]
+#[elem(title = "Fraction", LayoutMath)]
 pub struct FracElem {
     /// The fraction's numerator.
     #[required]
@@ -38,14 +35,11 @@ impl LayoutMath for FracElem {
 
 /// A binomial expression.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// $ binom(n, k) $
 /// ```
-///
-/// Display: Binomial
-/// Category: math
-#[element(LayoutMath)]
+#[elem(title = "Binomial", LayoutMath)]
 pub struct BinomElem {
     /// The binomial's upper index.
     #[required]
@@ -122,21 +116,23 @@ fn layout(
     frame.push_frame(denom_pos, denom);
 
     if binom {
-        ctx.push(
-            GlyphFragment::new(ctx, '(', span).stretch_vertical(ctx, height, short_fall),
-        );
+        let mut left =
+            GlyphFragment::new(ctx, '(', span).stretch_vertical(ctx, height, short_fall);
+        left.center_on_axis(ctx);
+        ctx.push(left);
         ctx.push(FrameFragment::new(ctx, frame));
-        ctx.push(
-            GlyphFragment::new(ctx, ')', span).stretch_vertical(ctx, height, short_fall),
-        );
+        let mut right =
+            GlyphFragment::new(ctx, ')', span).stretch_vertical(ctx, height, short_fall);
+        right.center_on_axis(ctx);
+        ctx.push(right);
     } else {
         frame.push(
             line_pos,
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(line_width)).stroked(Stroke {
+                Geometry::Line(Point::with_x(line_width)).stroked(FixedStroke {
                     paint: TextElem::fill_in(ctx.styles()),
                     thickness,
-                    ..Stroke::default()
+                    ..FixedStroke::default()
                 }),
                 span,
             ),

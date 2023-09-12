@@ -2,26 +2,13 @@ use super::*;
 
 /// A base with optional attachments.
 ///
-/// ## Example { #example }
 /// ```example
-/// // With syntax.
-/// $ sum_(i=0)^n a_i = 2^(1+i) $
-///
-/// // With function call.
 /// $ attach(
 ///   Pi, t: alpha, b: beta,
 ///   tl: 1, tr: 2+3, bl: 4+5, br: 6,
 /// ) $
 /// ```
-///
-/// ## Syntax { #syntax }
-/// This function also has dedicated syntax for attachments after the base: Use
-/// the underscore (`_`) to indicate a subscript i.e. bottom attachment and the
-/// hat (`^`) to indicate a superscript i.e. top attachment.
-///
-/// Display: Attachment
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct AttachElem {
     /// The base to which things are attached.
     #[required]
@@ -86,19 +73,15 @@ impl LayoutMath for AttachElem {
 
 /// Grouped primes.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ a'''_b = a^'''_b $
 /// ```
 ///
-/// ## Syntax
+/// # Syntax
 /// This function has dedicated syntax: use apostrophes instead of primes. They
 /// will automatically attach to the previous element, moving superscripts to
 /// the next level.
-///
-/// Display: Attachment
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct PrimesElem {
     /// The number of grouped primes.
     #[required]
@@ -141,14 +124,10 @@ impl LayoutMath for PrimesElem {
 
 /// Forces a base to display attachments as scripts.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ scripts(sum)_1^2 != sum_1^2 $
 /// ```
-///
-/// Display: Scripts
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct ScriptsElem {
     /// The base to attach the scripts to.
     #[required]
@@ -167,14 +146,10 @@ impl LayoutMath for ScriptsElem {
 
 /// Forces a base to display attachments as limits.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ limits(A)_1^2 != A_1^2 $
 /// ```
-///
-/// Display: Limits
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct LimitsElem {
     /// The base to attach the limits to.
     #[required]
@@ -216,10 +191,16 @@ pub enum Limits {
 impl Limits {
     /// The default limit configuration if the given character is the base.
     pub fn for_char(c: char) -> Self {
-        if Self::DEFAULT_TO_LIMITS.contains(&c) {
-            Limits::Display
-        } else {
-            Limits::Never
+        match unicode_math_class::class(c) {
+            Some(MathClass::Large) => {
+                if is_integral_char(c) {
+                    Limits::Never
+                } else {
+                    Limits::Display
+                }
+            }
+            Some(MathClass::Relation) => Limits::Always,
+            _ => Limits::Never,
         }
     }
 
@@ -231,18 +212,6 @@ impl Limits {
             Self::Never => false,
         }
     }
-
-    /// Unicode codepoints that should show attachments as limits in display
-    /// mode.
-    #[rustfmt::skip]
-    const DEFAULT_TO_LIMITS: &[char] = &[
-        /* ∏ */ '\u{220F}', /* ∐ */ '\u{2210}', /* ∑ */ '\u{2211}',
-        /* ⋀ */ '\u{22C0}', /* ⋁ */ '\u{22C1}',
-        /* ⋂ */ '\u{22C2}', /* ⋃ */ '\u{22C3}',
-        /* ⨀ */ '\u{2A00}', /* ⨁ */ '\u{2A01}', /* ⨂ */ '\u{2A02}',
-        /* ⨃ */ '\u{2A03}', /* ⨄ */ '\u{2A04}',
-        /* ⨅ */ '\u{2A05}', /* ⨆ */ '\u{2A06}',
-    ];
 }
 
 macro_rules! measure {
@@ -442,6 +411,11 @@ fn compute_shifts_up_and_down(
     }
 
     (shift_up, shift_down)
+}
+
+/// Determines if the character is one of a variety of integral signs
+fn is_integral_char(c: char) -> bool {
+    ('∫'..='∳').contains(&c) || ('⨋'..='⨜').contains(&c)
 }
 
 /// Whether the fragment consists of a single character or atomic piece of text.

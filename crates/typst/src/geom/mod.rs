@@ -28,7 +28,7 @@ mod stroke;
 mod transform;
 
 pub use self::abs::{Abs, AbsUnit};
-pub use self::align::{Align, GenAlign, HorizontalAlign, VerticalAlign};
+pub use self::align::{Align, FixedAlign, HAlign, VAlign};
 pub use self::angle::{Angle, AngleUnit};
 pub use self::axes::{Axes, Axis};
 pub use self::color::{
@@ -51,9 +51,7 @@ pub use self::shape::{Geometry, Shape};
 pub use self::sides::{Side, Sides};
 pub use self::size::Size;
 pub use self::smart::Smart;
-pub use self::stroke::{
-    DashLength, DashPattern, LineCap, LineJoin, PartialStroke, Stroke,
-};
+pub use self::stroke::{DashLength, DashPattern, FixedStroke, LineCap, LineJoin, Stroke};
 pub use self::transform::Transform;
 
 use std::cmp::Ordering;
@@ -64,7 +62,7 @@ use std::iter::Sum;
 use std::ops::*;
 
 use crate::diag::{bail, StrResult};
-use crate::eval::{array, cast, Array, Dict, Value};
+use crate::eval::{array, cast, func, scope, ty, Array, Dict, Value};
 use crate::model::{Fold, Resolve, StyleChain};
 
 /// Generic access to a structure's components.

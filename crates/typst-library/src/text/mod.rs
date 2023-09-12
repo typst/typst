@@ -15,28 +15,31 @@ pub use self::shaping::*;
 pub use self::shift::*;
 
 use rustybuzz::Tag;
-use typst::font::{FontMetrics, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
+use ttf_parser::Rect;
+use typst::font::{Font, FontStretch, FontStyle, FontWeight, VerticalFontMetric};
 
 use crate::layout::ParElem;
 use crate::prelude::*;
 
 /// Hook up all text definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.define("text", TextElem::func());
-    global.define("linebreak", LinebreakElem::func());
-    global.define("smartquote", SmartQuoteElem::func());
-    global.define("strong", StrongElem::func());
-    global.define("emph", EmphElem::func());
-    global.define("lower", lower_func());
-    global.define("upper", upper_func());
-    global.define("smallcaps", smallcaps_func());
-    global.define("sub", SubElem::func());
-    global.define("super", SuperElem::func());
-    global.define("underline", UnderlineElem::func());
-    global.define("strike", StrikeElem::func());
-    global.define("overline", OverlineElem::func());
-    global.define("raw", RawElem::func());
-    global.define("lorem", lorem_func());
+    global.category("text");
+    global.define_elem::<TextElem>();
+    global.define_elem::<LinebreakElem>();
+    global.define_elem::<SmartquoteElem>();
+    global.define_elem::<StrongElem>();
+    global.define_elem::<EmphElem>();
+    global.define_elem::<SubElem>();
+    global.define_elem::<SuperElem>();
+    global.define_elem::<UnderlineElem>();
+    global.define_elem::<OverlineElem>();
+    global.define_elem::<StrikeElem>();
+    global.define_elem::<HighlightElem>();
+    global.define_elem::<RawElem>();
+    global.define_func::<lower>();
+    global.define_func::<upper>();
+    global.define_func::<smallcaps>();
+    global.define_func::<lorem>();
 }
 
 /// Customizes the look and layout of text in a variety of ways.
@@ -45,7 +48,7 @@ pub(super) fn define(global: &mut Scope) {
 /// the set rule is often the simpler choice, calling the `text` function
 /// directly can be useful when passing text as an argument to another function.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set text(18pt)
 /// With a set rule.
@@ -54,10 +57,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-///
-/// Display: Text
-/// Category: text
-#[element(Construct, PlainText)]
+#[elem(Construct, PlainText)]
 pub struct TextElem {
     /// A prioritized sequence of font families.
     ///
@@ -109,8 +109,8 @@ pub struct TextElem {
     /// italic and oblique style is rarely observable.
     ///
     /// If you want to emphasize your text, you should do so using the
-    /// [emph]($func/emph) function instead. This makes it easy to adapt the
-    /// style later if you change your mind about how to signify the emphasis.
+    /// [emph]($emph) function instead. This makes it easy to adapt the style
+    /// later if you change your mind about how to signify the emphasis.
     ///
     /// ```example
     /// #text(font: "Linux Libertine", style: "italic")[Italic]
@@ -124,7 +124,7 @@ pub struct TextElem {
     /// that is closest in weight.
     ///
     /// If you want to strongly emphasize your text, you should do so using the
-    /// [strong]($func/strong) function instead. This makes it easy to adapt the
+    /// [strong]($strong) function instead. This makes it easy to adapt the
     /// style later if you change your mind about how to signify the strong
     /// emphasis.
     ///
@@ -140,12 +140,12 @@ pub struct TextElem {
     pub weight: FontWeight,
 
     /// The desired width of the glyphs. Accepts a ratio between `{50%}` and
-    /// `{200%}`. When the desired weight is not available, Typst selects the
+    /// `{200%}`. When the desired width is not available, Typst selects the
     /// font from the family that is closest in stretch. This will only stretch
     /// the text if a condensed or expanded version of the font is available.
     ///
     /// If you want to adjust the amount of space between characters instead of
-    /// stretching the glyphs itself, use the [`tracking`]($func/text.tracking)
+    /// stretching the glyphs itself, use the [`tracking`]($text.tracking)
     /// property instead.
     ///
     /// ```example
@@ -194,7 +194,7 @@ pub struct TextElem {
     /// the space character in the font.
     ///
     /// If you want to adjust the amount of space between characters rather than
-    /// words, use the [`tracking`]($func/text.tracking) property instead.
+    /// words, use the [`tracking`]($text.tracking) property instead.
     ///
     /// ```example
     /// #set text(spacing: 200%)
@@ -245,8 +245,8 @@ pub struct TextElem {
     /// #set text(top-edge: "cap-height")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    #[default(TextEdge::Metric(VerticalFontMetric::CapHeight))]
-    pub top_edge: TextEdge,
+    #[default(TopEdge::Metric(TopEdgeMetric::CapHeight))]
+    pub top_edge: TopEdge,
 
     /// The bottom end of the conceptual frame around the text used for layout
     /// and positioning. This affects the size of containers that hold text.
@@ -261,8 +261,8 @@ pub struct TextElem {
     /// #set text(bottom-edge: "descender")
     /// #rect(fill: aqua)[Typst]
     /// ```
-    #[default(TextEdge::Metric(VerticalFontMetric::Baseline))]
-    pub bottom_edge: TextEdge,
+    #[default(BottomEdge::Metric(BottomEdgeMetric::Baseline))]
+    pub bottom_edge: BottomEdge,
 
     /// An [ISO 639-1/2/3 language code.](https://en.wikipedia.org/wiki/ISO_639)
     ///
@@ -270,7 +270,7 @@ pub struct TextElem {
     ///
     /// - The text processing pipeline can make more informed choices.
     /// - Hyphenation will use the correct patterns for the language.
-    /// - [Smart quotes]($func/smartquote) turns into the correct quotes for the
+    /// - [Smart quotes]($smartquote) turns into the correct quotes for the
     ///   language.
     /// - And all other things which are language-aware.
     ///
@@ -289,6 +289,35 @@ pub struct TextElem {
     /// This lets the text processing pipeline make more informed choices.
     pub region: Option<Region>,
 
+    /// The OpenType writing script.
+    ///
+    /// The combination of `{lang}` and `{script}` determine how font features,
+    /// such as glyph substitution, are implemented. Frequently the value is a
+    /// modified (all-lowercase) ISO 15924 script identifier, and the `math`
+    /// writing script is used for features appropriate for mathematical
+    /// symbols.
+    ///
+    /// When set to `{auto}`, the default and recommended setting, an
+    /// appropriate script is chosen for each block of characters sharing a
+    /// common Unicode script property.
+    ///
+    /// ```example
+    /// #set text(
+    ///   font: "Linux Libertine",
+    ///   size: 20pt,
+    /// )
+    ///
+    /// #let scedilla = [Ş]
+    /// #scedilla // S with a cedilla
+    ///
+    /// #set text(lang: "ro", script: "latn")
+    /// #scedilla // S with a subscript comma
+    ///
+    /// #set text(lang: "ro", script: "grek")
+    /// #scedilla // S with a cedilla
+    /// ```
+    pub script: Smart<WritingScript>,
+
     /// The dominant direction for text and inline objects. Possible values are:
     ///
     /// - `{auto}`: Automatically infer the direction from the `lang` property.
@@ -296,13 +325,13 @@ pub struct TextElem {
     /// - `{rtl}`: Layout text from right to left.
     ///
     /// When writing in right-to-left scripts like Arabic or Hebrew, you should
-    /// set the [text language]($func/text.lang) or direction. While individual
-    /// runs of text are automatically layouted in the correct direction,
-    /// setting the dominant direction gives the bidirectional reordering
-    /// algorithm the necessary information to correctly place punctuation and
-    /// inline objects. Furthermore, setting the direction affects the alignment
-    /// values `start` and `end`, which are equivalent to `left` and `right` in
-    /// `ltr` text and the other way around in `rtl` text.
+    /// set the [text language]($text.lang) or direction. While individual runs
+    /// of text are automatically layouted in the correct direction, setting the
+    /// dominant direction gives the bidirectional reordering algorithm the
+    /// necessary information to correctly place punctuation and inline objects.
+    /// Furthermore, setting the direction affects the alignment values `start`
+    /// and `end`, which are equivalent to `left` and `right` in `ltr` text and
+    /// the other way around in `rtl` text.
     ///
     /// If you set this to `rtl` and experience bugs or in some way bad looking
     /// output, please do get in touch with us through the
@@ -319,7 +348,7 @@ pub struct TextElem {
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
     /// will be hyphenated if and only if justification is enabled.
     ///
-    /// Setting the [text language]($func/text.lang) ensures that the correct
+    /// Setting the [text language]($text.lang) ensures that the correct
     /// hyphenation patterns are used.
     ///
     /// ```example
@@ -606,33 +635,138 @@ cast! {
     v: Length => Self(v),
 }
 
-/// Specifies the bottom or top edge of text.
+/// Specifies the top edge of text.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum TextEdge {
-    /// An edge specified using one of the well-known font metrics.
-    Metric(VerticalFontMetric),
+pub enum TopEdge {
+    /// An edge specified via font metrics or bounding box.
+    Metric(TopEdgeMetric),
     /// An edge specified as a length.
     Length(Length),
 }
 
-impl TextEdge {
+impl TopEdge {
+    /// Determine if the edge is specified from bounding box info.
+    pub fn is_bounds(&self) -> bool {
+        matches!(self, Self::Metric(TopEdgeMetric::Bounds))
+    }
+
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, metrics: &FontMetrics) -> Abs {
+    pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
-            Self::Metric(metric) => metrics.vertical(metric).resolve(styles),
-            Self::Length(length) => length.resolve(styles),
+            TopEdge::Metric(metric) => {
+                if let Ok(metric) = metric.try_into() {
+                    font.metrics().vertical(metric).at(font_size)
+                } else {
+                    bbox.map(|bbox| (font.to_em(bbox.y_max)).at(font_size))
+                        .unwrap_or_default()
+                }
+            }
+            TopEdge::Length(length) => length.at(font_size),
         }
     }
 }
 
 cast! {
-    TextEdge,
+    TopEdge,
     self => match self {
         Self::Metric(metric) => metric.into_value(),
         Self::Length(length) => length.into_value(),
     },
-    v: VerticalFontMetric => Self::Metric(v),
+    v: TopEdgeMetric => Self::Metric(v),
     v: Length => Self::Length(v),
+}
+
+/// Metrics that describe the top edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum TopEdgeMetric {
+    /// The font's ascender, which typically exceeds the height of all glyphs.
+    Ascender,
+    /// The approximate height of uppercase letters.
+    CapHeight,
+    /// The approximate height of non-ascending lowercase letters.
+    XHeight,
+    /// The baseline on which the letters rest.
+    Baseline,
+    /// The top edge of the glyph's bounding box.
+    Bounds,
+}
+
+impl TryInto<VerticalFontMetric> for TopEdgeMetric {
+    type Error = ();
+
+    fn try_into(self) -> Result<VerticalFontMetric, Self::Error> {
+        match self {
+            Self::Ascender => Ok(VerticalFontMetric::Ascender),
+            Self::CapHeight => Ok(VerticalFontMetric::CapHeight),
+            Self::XHeight => Ok(VerticalFontMetric::XHeight),
+            Self::Baseline => Ok(VerticalFontMetric::Baseline),
+            _ => Err(()),
+        }
+    }
+}
+
+/// Specifies the top edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum BottomEdge {
+    /// An edge specified via font metrics or bounding box.
+    Metric(BottomEdgeMetric),
+    /// An edge specified as a length.
+    Length(Length),
+}
+
+impl BottomEdge {
+    /// Determine if the edge is specified from bounding box info.
+    pub fn is_bounds(&self) -> bool {
+        matches!(self, Self::Metric(BottomEdgeMetric::Bounds))
+    }
+
+    /// Resolve the value of the text edge given a font's metrics.
+    pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
+        match self {
+            BottomEdge::Metric(metric) => {
+                if let Ok(metric) = metric.try_into() {
+                    font.metrics().vertical(metric).at(font_size)
+                } else {
+                    bbox.map(|bbox| (font.to_em(bbox.y_min)).at(font_size))
+                        .unwrap_or_default()
+                }
+            }
+            BottomEdge::Length(length) => length.at(font_size),
+        }
+    }
+}
+
+cast! {
+    BottomEdge,
+    self => match self {
+        Self::Metric(metric) => metric.into_value(),
+        Self::Length(length) => length.into_value(),
+    },
+    v: BottomEdgeMetric => Self::Metric(v),
+    v: Length => Self::Length(v),
+}
+
+/// Metrics that describe the bottom edge of text.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
+pub enum BottomEdgeMetric {
+    /// The baseline on which the letters rest.
+    Baseline,
+    /// The font's descender, which typically exceeds the depth of all glyphs.
+    Descender,
+    /// The bottom edge of the glyph's bounding box.
+    Bounds,
+}
+
+impl TryInto<VerticalFontMetric> for BottomEdgeMetric {
+    type Error = ();
+
+    fn try_into(self) -> Result<VerticalFontMetric, Self::Error> {
+        match self {
+            Self::Baseline => Ok(VerticalFontMetric::Baseline),
+            Self::Descender => Ok(VerticalFontMetric::Descender),
+            _ => Err(()),
+        }
+    }
 }
 
 /// The direction of text and inline objects in their line.

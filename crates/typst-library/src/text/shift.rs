@@ -5,14 +5,11 @@ use crate::prelude::*;
 ///
 /// The text is rendered smaller and its baseline is lowered.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// Revenue#sub[yearly]
 /// ```
-///
-/// Display: Subscript
-/// Category: text
-#[element(Show)]
+#[elem(title = "Subscript", Show)]
 pub struct SubElem {
     /// Whether to prefer the dedicated subscript characters of the font.
     ///
@@ -68,14 +65,11 @@ impl Show for SubElem {
 ///
 /// The text is rendered smaller and its baseline is raised.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// 1#super[st] try!
 /// ```
-///
-/// Display: Superscript
-/// Category: text
-#[element(Show)]
+#[elem(title = "Superscript", Show)]
 pub struct SuperElem {
     /// Whether to prefer the dedicated superscript characters of the font.
     ///

@@ -8,11 +8,12 @@ use std::sync::Arc;
 
 use ecow::EcoString;
 
-use crate::eval::{cast, dict, Dict, Value};
+use crate::eval::{cast, dict, ty, Dict, Value};
 use crate::font::Font;
 use crate::geom::{
-    self, rounded_rect, Abs, Align, Axes, Color, Corners, Dir, Em, Geometry, Length,
-    Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size, Stroke, Transform,
+    self, rounded_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
+    Geometry, Length, Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size,
+    Transform,
 };
 use crate::image::Image;
 use crate::model::{Content, Location, MetaElem, StyleChain};
@@ -231,14 +232,11 @@ impl Frame {
 
     /// Resize the frame to a new size, distributing new space according to the
     /// given alignments.
-    pub fn resize(&mut self, target: Size, aligns: Axes<Align>) {
+    pub fn resize(&mut self, target: Size, align: Axes<FixedAlign>) {
         if self.size != target {
-            let offset = Point::new(
-                aligns.x.position(target.x - self.size.x),
-                aligns.y.position(target.y - self.size.y),
-            );
+            let offset = align.zip_map(target - self.size, FixedAlign::position);
             self.size = target;
-            self.translate(offset);
+            self.translate(offset.to_point());
         }
     }
 
@@ -290,7 +288,7 @@ impl Frame {
     pub fn fill_and_stroke(
         &mut self,
         fill: Option<Paint>,
-        stroke: Sides<Option<Stroke>>,
+        stroke: Sides<Option<FixedStroke>>,
         outset: Sides<Rel<Abs>>,
         radius: Corners<Rel<Abs>>,
         span: Span,
@@ -357,10 +355,10 @@ impl Frame {
             1,
             Point::with_y(self.baseline()),
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(self.size.x)).stroked(Stroke {
+                Geometry::Line(Point::with_x(self.size.x)).stroked(FixedStroke {
                     paint: Color::RED.into(),
                     thickness: Abs::pt(1.0),
-                    ..Stroke::default()
+                    ..FixedStroke::default()
                 }),
                 Span::detached(),
             ),
@@ -384,10 +382,10 @@ impl Frame {
         self.push(
             Point::with_y(y),
             FrameItem::Shape(
-                Geometry::Line(Point::with_x(self.size.x)).stroked(Stroke {
+                Geometry::Line(Point::with_x(self.size.x)).stroked(FixedStroke {
                     paint: Color::GREEN.into(),
                     thickness: Abs::pt(1.0),
-                    ..Stroke::default()
+                    ..FixedStroke::default()
                 }),
                 Span::detached(),
             ),
@@ -514,6 +512,45 @@ impl Glyph {
     }
 }
 
+/// An ISO 15924-type script identifier
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct WritingScript([u8; 4], u8);
+
+impl WritingScript {
+    /// Return the script as an all lowercase string slice.
+    pub fn as_str(&self) -> &str {
+        std::str::from_utf8(&self.0[..usize::from(self.1)]).unwrap_or_default()
+    }
+
+    /// Return the description of the script as raw bytes.
+    pub fn as_bytes(&self) -> &[u8; 4] {
+        &self.0
+    }
+}
+
+impl FromStr for WritingScript {
+    type Err = &'static str;
+
+    /// Construct a region from its ISO 15924 code.
+    fn from_str(iso: &str) -> Result<Self, Self::Err> {
+        let len = iso.len();
+        if matches!(len, 3..=4) && iso.is_ascii() {
+            let mut bytes = [b' '; 4];
+            bytes[..len].copy_from_slice(iso.as_bytes());
+            bytes.make_ascii_lowercase();
+            Ok(Self(bytes, len as u8))
+        } else {
+            Err("expected three or four letter script code (ISO 15924 or 'math')")
+        }
+    }
+}
+
+cast! {
+    WritingScript,
+    self => self.as_str().into_value(),
+    string: EcoString => Self::from_str(&string)?,
+}
+
 /// An identifier for a natural language.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Lang([u8; 3], u8);
@@ -528,6 +565,7 @@ impl Lang {
     pub const DUTCH: Self = Self(*b"nl ", 2);
     pub const ENGLISH: Self = Self(*b"en ", 2);
     pub const FILIPINO: Self = Self(*b"tl ", 2);
+    pub const FINNISH: Self = Self(*b"fi ", 2);
     pub const FRENCH: Self = Self(*b"fr ", 2);
     pub const GERMAN: Self = Self(*b"de ", 2);
     pub const ITALIAN: Self = Self(*b"it ", 2);
@@ -620,6 +658,7 @@ cast! {
 }
 
 /// Meta information that isn't visible or renderable.
+#[ty]
 #[derive(Clone, PartialEq, Hash)]
 pub enum Meta {
     /// An internal or external link to a destination.
@@ -636,7 +675,7 @@ pub enum Meta {
 }
 
 cast! {
-    type Meta: "meta",
+    type Meta,
 }
 
 impl Debug for Meta {

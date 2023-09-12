@@ -47,7 +47,7 @@
 #f.invalid
 
 ---
-// Error: 6-13 dictionary does not contain key "invalid" and no default value was specified
+// Error: 6-13 dictionary does not contain key "invalid"
 #(:).invalid
 
 ---
@@ -55,7 +55,7 @@
 #false.ok
 
 ---
-// Error: 25-28 content does not contain field "fun" and no default value was specified
+// Error: 25-28 content does not contain field "fun"
 #show heading: it => it.fun
 = A
 
@@ -73,21 +73,21 @@
 
 ---
 // Test length fields.
-#test((1pt).em, 0em)
+#test((1pt).em, 0.0)
 #test((1pt).abs, 1pt)
-#test((3em).em, 3em)
+#test((3em).em, 3.0)
 #test((3em).abs, 0pt)
-#test((2em + 2pt).em, 2em)
+#test((2em + 2pt).em, 2.0)
 #test((2em + 2pt).abs, 2pt)
 
 ---
 // Test stroke fields for simple strokes.
 #test((1em + blue).paint, blue)
 #test((1em + blue).thickness, 1em)
-#test((1em + blue).cap, "butt")
-#test((1em + blue).join, "miter")
-#test((1em + blue).dash, none)
-#test((1em + blue).miter-limit, 4.0)
+#test((1em + blue).cap, auto)
+#test((1em + blue).join, auto)
+#test((1em + blue).dash, auto)
+#test((1em + blue).miter-limit, auto)
 
 ---
 // Test complex stroke fields.
@@ -102,7 +102,7 @@
 #test(s1.cap, "round")
 #test(s1.join, "bevel")
 #test(s1.miter-limit, 5.0)
-#test(s3.miter-limit, 4.0)
+#test(s3.miter-limit, auto)
 #test(s1.dash, none)
 #test(s2.dash, (array: (3pt, "dot", 4em), phase: 0pt))
 #test(s3.dash, (array: (3pt, "dot", 4em), phase: 5em))
@@ -148,3 +148,53 @@
 #test((top + start).y, top)
 #test((bottom + end).y, bottom)
 #test((horizon + center).y, horizon)
+
+---
+#{
+  let object = sym.eq.not
+  // Error: 3-9 cannot mutate fields on symbol
+  object.property = "value"
+}
+
+---
+#{
+  let object = [hi]
+  // Error: 3-9 cannot mutate fields on content
+  object.property = "value"
+}
+
+---
+#{
+  let object = calc
+  // Error: 3-9 cannot mutate fields on module
+  object.property = "value"
+}
+
+---
+#{
+  let object = calc.sin
+  // Error: 3-9 cannot mutate fields on function
+  object.property = "value"
+}
+
+---
+#{
+  let object = none
+  // Error: 3-9 none does not have accessible fields
+  object.property = "value"
+}
+
+---
+#{
+  let object = 10
+  // Error: 3-9 integer does not have accessible fields
+  object.property = "value"
+}
+
+---
+#{
+  let s = 1pt + red
+  // Error: 3-4 fields on stroke are not yet mutable
+  // Hint: 3-4 try creating a new stroke with the updated field value instead
+  s.thickness = 5pt
+}

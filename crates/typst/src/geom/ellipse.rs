@@ -1,7 +1,7 @@
 use super::*;
 
 /// Produce a shape that approximates an axis-aligned ellipse.
-pub fn ellipse(size: Size, fill: Option<Paint>, stroke: Option<Stroke>) -> Shape {
+pub fn ellipse(size: Size, fill: Option<Paint>, stroke: Option<FixedStroke>) -> Shape {
     // https://stackoverflow.com/a/2007782
     let z = Abs::zero();
     let rx = size.x / 2.0;

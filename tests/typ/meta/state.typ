@@ -16,6 +16,15 @@ Was: #locate(location => {
 }).
 
 ---
+// Try same key with different initial value.
+#state("key", 2).display()
+#state("key").update(x => x + 1)
+#state("key", 2).display()
+#state("key", 3).display()
+#state("key").update(x => x + 1)
+#state("key", 2).display()
+
+---
 #set page(width: 200pt)
 #set text(8pt)
 
@@ -37,3 +46,11 @@ Was: #locate(location => {
 #trait[Adventure]
 #trait[Fear]
 #trait[Anger]
+
+---
+// Make sure that a warning is produced if the layout fails to converge.
+// Warning: layout did not converge within 5 attempts
+// Hint: check if any states or queries are updating themselves
+#let s = state("s", 1)
+#locate(loc => s.update(s.final(loc) + 1))
+#s.display()

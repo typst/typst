@@ -45,11 +45,11 @@ jobs:
       if: ${{ matrix.cross}}
       run: |
         cargo install cross --git https://github.com/cross-rs/cross.git
-        cross build -p typst-cli --release --target ${{ matrix.target }}
+        cross build -p typst-cli --release --target ${{ matrix.target }} --features self-update
 
     - name: Run Cargo
       if: ${{ !matrix.cross }}
-      run: cargo build -p typst-cli --release --target ${{ matrix.target }}
+      run: cargo build -p typst-cli --release --target ${{ matrix.target }} --features self-update
 
     - name: create artifact directory
       shell: bash
@@ -65,7 +65,9 @@ jobs:
           tar cJf $directory.tar.xz $directory
         fi
 
-    - uses: ncipollo/release-action@v1
+    - uses: ncipollo/release-action@v1.12.0
       with:
         artifacts: "typst-${{ matrix.target }}.*"
         allowUpdates: true
+        omitNameDuringUpdate: true
+        omitBodyDuringUpdate: true

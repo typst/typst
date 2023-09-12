@@ -3,16 +3,18 @@ use super::*;
 /// Forced use of a certain math class.
 ///
 /// This is useful to treat certain symbols as if they were of a different
-/// class, e.g. to make text behave like a binary operator.
+/// class, e.g. to make a symbol behave like a relation.
 ///
 /// # Example
 /// ```example
-/// $x class("relation", "<=") 5$
-/// ```
+/// #let loves = math.class(
+///   "relation",
+///   sym.suit.heart,
+/// )
 ///
-/// Display: Class
-/// Category: math
-#[element(LayoutMath)]
+/// $x loves y and y loves 5$
+/// ```
+#[elem(LayoutMath)]
 pub struct ClassElem {
     /// The class to apply to the content.
     #[required]

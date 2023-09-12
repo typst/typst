@@ -1,6 +1,17 @@
 use super::*;
 
-/// An angle.
+/// An angle describing a rotation.
+///
+/// Typst supports the following angular units:
+///
+/// - Degrees: `{180deg}`
+/// - Radians: `{3.14rad}`
+///
+/// # Example
+/// ```example
+/// #rotate(10deg)[Hello there!]
+/// ```
+#[ty(scope)]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle(Scalar);
 
@@ -40,16 +51,6 @@ impl Angle {
         self.to_raw() / unit.raw_scale()
     }
 
-    /// Convert this to a number of radians.
-    pub fn to_rad(self) -> f64 {
-        self.to_unit(AngleUnit::Rad)
-    }
-
-    /// Convert this to a number of degrees.
-    pub fn to_deg(self) -> f64 {
-        self.to_unit(AngleUnit::Deg)
-    }
-
     /// The absolute value of the this angle.
     pub fn abs(self) -> Self {
         Self::raw(self.to_raw().abs())
@@ -68,6 +69,21 @@ impl Angle {
     /// Get the tangent of this angle in radians.
     pub fn tan(self) -> f64 {
         self.to_rad().tan()
+    }
+}
+
+#[scope]
+impl Angle {
+    /// Converts this angle to radians.
+    #[func(name = "rad", title = "Radians")]
+    pub fn to_rad(self) -> f64 {
+        self.to_unit(AngleUnit::Rad)
+    }
+
+    /// Converts this angle to degrees.
+    #[func(name = "deg", title = "Degrees")]
+    pub fn to_deg(self) -> f64 {
+        self.to_unit(AngleUnit::Deg)
     }
 }
 
@@ -121,19 +137,19 @@ impl Mul<Angle> for f64 {
     }
 }
 
-impl Div<f64> for Angle {
-    type Output = Self;
-
-    fn div(self, other: f64) -> Self {
-        Self(self.0 / other)
-    }
-}
-
 impl Div for Angle {
     type Output = f64;
 
     fn div(self, other: Self) -> f64 {
         self.to_raw() / other.to_raw()
+    }
+}
+
+impl Div<f64> for Angle {
+    type Output = Self;
+
+    fn div(self, other: f64) -> Self {
+        Self(self.0 / other)
     }
 }
 

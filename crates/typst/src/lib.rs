@@ -40,42 +40,47 @@ extern crate self as typst;
 #[macro_use]
 pub mod util;
 #[macro_use]
-pub mod diag;
-#[macro_use]
 pub mod eval;
+pub mod diag;
 pub mod doc;
 pub mod export;
-pub mod file;
 pub mod font;
 pub mod geom;
 pub mod ide;
 pub mod image;
 pub mod model;
-pub mod syntax;
+
+#[doc(inline)]
+pub use typst_syntax as syntax;
+
+use std::ops::Range;
 
 use comemo::{Prehashed, Track, TrackedMut};
 use ecow::EcoString;
 
 use crate::diag::{FileResult, SourceResult};
 use crate::doc::Document;
-use crate::eval::{Datetime, Library, Route, Tracer};
-use crate::file::{FileId, PackageSpec};
+use crate::eval::{Bytes, Datetime, Library, Route, Tracer};
 use crate::font::{Font, FontBook};
-use crate::syntax::Source;
-use crate::util::Bytes;
+use crate::syntax::{FileId, PackageSpec, Source, Span};
 
 /// Compile a source file into a fully layouted document.
-#[tracing::instrument(skip(world))]
-pub fn compile(world: &dyn World) -> SourceResult<Document> {
+///
+/// - Returns `Ok(document)` if there were no fatal errors.
+/// - Returns `Err(errors)` if there were fatal errors.
+///
+/// Requires a mutable reference to a tracer. Such a tracer can be created with
+/// `Tracer::new()`. Independently of whether compilation succeeded, calling
+/// `tracer.warnings()` after compilation will return all compiler warnings.
+#[tracing::instrument(skip_all)]
+pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     let route = Route::default();
-    let mut tracer = Tracer::default();
 
     // Call `track` just once to keep comemo's ID stable.
     let world = world.track();
     let mut tracer = tracer.track_mut();
 
     // Evaluate the source file into a module.
-    tracing::info!("Starting evaluation");
     let module = eval::eval(
         world,
         route.track(),
@@ -83,7 +88,7 @@ pub fn compile(world: &dyn World) -> SourceResult<Document> {
         &world.main(),
     )?;
 
-    // Typeset the module's contents.
+    // Typeset it.
     model::typeset(world, tracer, &module.content())
 }
 
@@ -99,7 +104,7 @@ pub fn compile(world: &dyn World) -> SourceResult<Document> {
 /// change and can thus even be cached across multiple compilations (for
 /// long-running applications like `typst watch`). Source files on the other
 /// hand can change and should thus be cleared after. Advanced clients like
-/// language servers can also retain the source files and [edited](Source::edit)
+/// language servers can also retain the source files and [edit](Source::edit)
 /// them in-place to benefit from better incremental performance.
 #[comemo::track]
 pub trait World {
@@ -143,5 +148,19 @@ pub trait World {
     /// `https://packages.typst.org/preview/index.json`.
     fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
         &[]
+    }
+}
+
+/// Helper methods on [`World`] implementations.
+pub trait WorldExt {
+    /// Get the byte range for a span.
+    ///
+    /// Returns `None` if the `Span` does not point into any source file.
+    fn range(&self, span: Span) -> Option<Range<usize>>;
+}
+
+impl<T: World> WorldExt for T {
+    fn range(&self, span: Span) -> Option<Range<usize>> {
+        self.source(span.id()?).ok()?.range(span)
     }
 }

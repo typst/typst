@@ -7,7 +7,7 @@ use crate::prelude::*;
 /// other content in the container. Page margins will be respected.
 ///
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set page(height: 60pt)
 /// Hello, world!
@@ -20,10 +20,7 @@ use crate::prelude::*;
 ///   ),
 /// )
 /// ```
-///
-/// Display: Place
-/// Category: layout
-#[element(Layout, Behave)]
+#[elem(Layout, Behave)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -34,8 +31,8 @@ pub struct PlaceElem {
     /// that axis will be ignored, instead, the item will be placed in the
     /// origin of the axis.
     #[positional]
-    #[default(Smart::Custom(Axes::with_x(Some(GenAlign::Start))))]
-    pub alignment: Smart<Axes<Option<GenAlign>>>,
+    #[default(Smart::Custom(Align::START))]
+    pub alignment: Smart<Align>,
 
     /// Whether the placed element has floating layout.
     ///
@@ -92,45 +89,13 @@ impl Layout for PlaceElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let mut frame = self.layout_inner(vt, styles, regions)?.into_frame();
-
-        // If expansion is off, zero all sizes so that we don't take up any
-        // space in our parent. Otherwise, respect the expand settings.
-        let target = regions.expand.select(regions.size, Size::zero());
-        frame.resize(target, Align::LEFT_TOP);
-
-        Ok(Fragment::frame(frame))
-    }
-}
-
-impl PlaceElem {
-    /// Layout without zeroing the frame size.
-    pub fn layout_inner(
-        &self,
-        vt: &mut Vt,
-        styles: StyleChain,
-        regions: Regions,
-    ) -> SourceResult<Fragment> {
         // The pod is the base area of the region because for absolute
         // placement we don't really care about the already used area.
         let base = regions.base();
-        let expand =
-            Axes::new(base.x.is_finite(), base.y.is_finite() && !self.float(styles));
-
-        let pod = Regions::one(base, expand);
-
         let float = self.float(styles);
         let alignment = self.alignment(styles);
-        if float
-            && !matches!(
-                alignment,
-                Smart::Auto
-                    | Smart::Custom(Axes {
-                        y: Some(GenAlign::Specific(Align::Top | Align::Bottom)),
-                        ..
-                    })
-            )
-        {
+
+        if float && alignment.map_or(false, |align| align.y() == Some(VAlign::Horizon)) {
             bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
         } else if !float && alignment.is_auto() {
             return Err("automatic positioning is only available for floating placement")
@@ -138,14 +103,11 @@ impl PlaceElem {
                 .at(self.span());
         }
 
-        let child = self
-            .body()
-            .moved(Axes::new(self.dx(styles), self.dy(styles)))
-            .aligned(
-                alignment.unwrap_or_else(|| Axes::with_x(Some(Align::Center.into()))),
-            );
+        let child = self.body().aligned(alignment.unwrap_or_else(|| Align::CENTER));
 
-        child.layout(vt, styles, pod)
+        let pod = Regions::one(base, Axes::splat(false));
+        let frame = child.layout(vt, styles, pod)?.into_frame();
+        Ok(Fragment::frame(frame))
     }
 }
 

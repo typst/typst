@@ -10,7 +10,7 @@
 ---
 #set page(width: 200pt)
 = Details
-See also #cite("arrgh", "distress", [p. 22]), @arrgh[p. 4], and @distress[p. 5].
+See also #cite("arrgh", "distress", supplement: [p. 22]), @arrgh[p. 4], and @distress[p. 5].
 #bibliography("/files/works.bib")
 
 ---

@@ -4,24 +4,24 @@ use std::fs;
 use std::hash::Hash;
 use std::path::{Path, PathBuf};
 
-use chrono::Datelike;
+use chrono::{DateTime, Datelike, Local};
 use comemo::Prehashed;
 use same_file::Handle;
 use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::diag::{FileError, FileResult, StrResult};
-use typst::eval::{eco_format, Datetime, Library};
-use typst::file::FileId;
+use typst::eval::{eco_format, Bytes, Datetime, Library};
 use typst::font::{Font, FontBook};
-use typst::syntax::Source;
-use typst::util::{Bytes, PathExt};
+use typst::syntax::{FileId, Source, VirtualPath};
 use typst::World;
 
-use crate::args::CompileCommand;
+use crate::args::SharedArgs;
 use crate::fonts::{FontSearcher, FontSlot};
 use crate::package::prepare_package;
 
 /// A world that provides access to the operating system.
 pub struct SystemWorld {
+    /// The working directory.
+    workdir: Option<PathBuf>,
     /// The root relative to which absolute paths are resolved.
     root: PathBuf,
     /// The input path.
@@ -38,19 +38,19 @@ pub struct SystemWorld {
     hashes: RefCell<HashMap<FileId, FileResult<PathHash>>>,
     /// Maps canonical path hashes to source files and buffers.
     paths: RefCell<HashMap<PathHash, PathSlot>>,
-    /// The current date if requested. This is stored here to ensure it is
+    /// The current datetime if requested. This is stored here to ensure it is
     /// always the same within one compilation. Reset between compilations.
-    today: OnceCell<Option<Datetime>>,
+    now: OnceCell<DateTime<Local>>,
 }
 
 impl SystemWorld {
     /// Create a new system world.
-    pub fn new(command: &CompileCommand) -> StrResult<Self> {
+    pub fn new(command: &SharedArgs) -> StrResult<Self> {
         let mut searcher = FontSearcher::new();
         searcher.search(&command.font_paths);
 
         // Resolve the system-global input path.
-        let system_input = command.input.canonicalize().map_err(|_| {
+        let input = command.input.canonicalize().map_err(|_| {
             eco_format!("input file not found (searched at {})", command.input.display())
         })?;
 
@@ -59,34 +59,43 @@ impl SystemWorld {
             let path = command
                 .root
                 .as_deref()
-                .or_else(|| system_input.parent())
+                .or_else(|| input.parent())
                 .unwrap_or(Path::new("."));
             path.canonicalize().map_err(|_| {
                 eco_format!("root directory not found (searched at {})", path.display())
             })?
         };
 
-        // Resolve the input path within the project.
-        let project_input = system_input
-            .strip_prefix(&root)
-            .map(|path| Path::new("/").join(path))
-            .map_err(|_| "input file must be contained in project root")?;
+        // Resolve the virtual path of the main file within the project root.
+        let main_path = VirtualPath::within_root(&input, &root)
+            .ok_or("input file must be contained in project root")?;
 
         Ok(Self {
+            workdir: std::env::current_dir().ok(),
             root,
-            main: FileId::new(None, &project_input),
+            main: FileId::new(None, main_path),
             library: Prehashed::new(typst_library::build()),
             book: Prehashed::new(searcher.book),
             fonts: searcher.fonts,
             hashes: RefCell::default(),
             paths: RefCell::default(),
-            today: OnceCell::new(),
+            now: OnceCell::new(),
         })
     }
 
     /// The id of the main source file.
     pub fn main(&self) -> FileId {
         self.main
+    }
+
+    /// The root relative to which absolute paths are resolved.
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// The current working directory.
+    pub fn workdir(&self) -> &Path {
+        self.workdir.as_deref().unwrap_or(Path::new("."))
     }
 
     /// Return all paths the last compilation depended on.
@@ -98,7 +107,7 @@ impl SystemWorld {
     pub fn reset(&mut self) {
         self.hashes.borrow_mut().clear();
         self.paths.borrow_mut().clear();
-        self.today.take();
+        self.now.take();
     }
 
     /// Lookup a source file by id.
@@ -134,18 +143,18 @@ impl World for SystemWorld {
     }
 
     fn today(&self, offset: Option<i64>) -> Option<Datetime> {
-        *self.today.get_or_init(|| {
-            let naive = match offset {
-                None => chrono::Local::now().naive_local(),
-                Some(o) => (chrono::Utc::now() + chrono::Duration::hours(o)).naive_utc(),
-            };
+        let now = self.now.get_or_init(chrono::Local::now);
 
-            Datetime::from_ymd(
-                naive.year(),
-                naive.month().try_into().ok()?,
-                naive.day().try_into().ok()?,
-            )
-        })
+        let naive = match offset {
+            None => now.naive_local(),
+            Some(o) => now.naive_utc() + chrono::Duration::hours(o),
+        };
+
+        Datetime::from_ymd(
+            naive.year(),
+            naive.month().try_into().ok()?,
+            naive.day().try_into().ok()?,
+        )
     }
 }
 
@@ -161,15 +170,16 @@ impl SystemWorld {
             .or_insert_with(|| {
                 // Determine the root path relative to which the file path
                 // will be resolved.
-                let root = match id.package() {
-                    Some(spec) => prepare_package(spec)?,
-                    None => self.root.clone(),
-                };
+                let buf;
+                let mut root = &self.root;
+                if let Some(spec) = id.package() {
+                    buf = prepare_package(spec)?;
+                    root = &buf;
+                }
 
                 // Join the path to the root. If it tries to escape, deny
                 // access. Note: It can still escape via symlinks.
-                system_path =
-                    root.join_rooted(id.path()).ok_or(FileError::AccessDenied)?;
+                system_path = id.vpath().resolve(root).ok_or(FileError::AccessDenied)?;
 
                 PathHash::new(&system_path)
             })

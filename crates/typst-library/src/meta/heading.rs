@@ -17,14 +17,13 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 ///
 /// Typst can automatically number your headings for you. To enable numbering,
 /// specify how you want your headings to be numbered with a
-/// [numbering pattern or function]($func/numbering).
+/// [numbering pattern or function]($numbering).
 ///
 /// Independently from the numbering, Typst can also automatically generate an
-/// [outline]($func/outline) of all headings for you. To exclude one or more
-/// headings from this outline, you can set the `outlined` parameter to
-/// `{false}`.
+/// [outline]($outline) of all headings for you. To exclude one or more headings
+/// from this outline, you can set the `outlined` parameter to `{false}`.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set heading(numbering: "1.a)")
 ///
@@ -35,21 +34,18 @@ use crate::text::{SpaceElem, TextElem, TextSize};
 /// To start, ...
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// Headings have dedicated syntax: They can be created by starting a line with
 /// one or multiple equals signs, followed by a space. The number of equals
 /// signs determines the heading's logical nesting depth.
-///
-/// Display: Heading
-/// Category: meta
-#[element(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
+#[elem(Locatable, Synthesize, Count, Show, Finalize, LocalName, Refable, Outlinable)]
 pub struct HeadingElem {
     /// The logical nesting depth of the heading, starting from one.
     #[default(NonZeroUsize::ONE)]
     pub level: NonZeroUsize,
 
     /// How to number the heading. Accepts a
-    /// [numbering pattern or function]($func/numbering).
+    /// [numbering pattern or function]($numbering).
     ///
     /// ```example
     /// #set heading(numbering: "1.a.")
@@ -78,11 +74,11 @@ pub struct HeadingElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
-    /// Whether the heading should appear in the [outline]($func/outline).
+    /// Whether the heading should appear in the [outline]($outline).
     ///
-    /// Note that this property, if set to `{true}`, ensures the heading is
-    /// also shown as a bookmark in the exported PDF's outline (when exporting
-    /// to PDF). To change that behavior, use the `bookmarked` property.
+    /// Note that this property, if set to `{true}`, ensures the heading is also
+    /// shown as a bookmark in the exported PDF's outline (when exporting to
+    /// PDF). To change that behavior, use the `bookmarked` property.
     ///
     /// ```example
     /// #outline()
@@ -103,9 +99,8 @@ pub struct HeadingElem {
     /// The default value of `{auto}` indicates that the heading will only
     /// appear in the exported PDF's outline if its `outlined` property is set
     /// to `{true}`, that is, if it would also be listed in Typst's
-    /// [outline]($func/outline). Setting this property to either
-    /// `{true}` (bookmark) or `{false}` (don't bookmark) bypasses that
-    /// behavior.
+    /// [outline]($outline). Setting this property to either `{true}` (bookmark)
+    /// or `{false}` (don't bookmark) bypasses that behavior.
     ///
     /// ```example
     /// #heading[Normal heading]
@@ -149,7 +144,7 @@ impl Show for HeadingElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         if let Some(numbering) = self.numbering(styles) {
-            realized = Counter::of(Self::func())
+            realized = Counter::of(Self::elem())
                 .display(Some(numbering), false)
                 .spanned(self.span())
                 + HElem::new(Em::new(0.3).into()).with_weak(true).pack()
@@ -205,7 +200,7 @@ impl Refable for HeadingElem {
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(Self::func())
+        Counter::of(Self::elem())
     }
 
     fn numbering(&self) -> Option<Numbering> {
@@ -221,7 +216,7 @@ impl Outlinable for HeadingElem {
 
         let mut content = self.body();
         if let Some(numbering) = self.numbering(StyleChain::default()) {
-            let numbers = Counter::of(Self::func())
+            let numbers = Counter::of(Self::elem())
                 .at(vt, self.0.location().unwrap())?
                 .display(vt, &numbering)?;
             content = numbers + SpaceElem::new().pack() + content;
@@ -247,6 +242,7 @@ impl LocalName for HeadingElem {
             Lang::DANISH => "Afsnit",
             Lang::DUTCH => "Hoofdstuk",
             Lang::FILIPINO => "Seksyon",
+            Lang::FINNISH => "Osio",
             Lang::FRENCH => "Chapitre",
             Lang::GERMAN => "Abschnitt",
             Lang::ITALIAN => "Sezione",

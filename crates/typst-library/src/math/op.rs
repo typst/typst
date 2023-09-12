@@ -4,23 +4,20 @@ use super::*;
 
 /// A text operator in an equation.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// $ tan x = (sin x)/(cos x) $
 /// $ op("custom",
 ///      limits: #true)_(n->oo) n $
 /// ```
 ///
-/// ## Predefined Operators { #predefined }
+/// # Predefined Operators { #predefined }
 /// Typst predefines the operators `arccos`, `arcsin`, `arctan`, `arg`, `cos`,
 /// `cosh`, `cot`, `coth`, `csc`, `ctg`, `deg`, `det`, `dim`, `exp`, `gcd`,
 /// `hom`, `id`, `im`, `inf`, `ker`, `lg`, `lim`, `liminf`, `limsup`, `ln`,
 /// `log`, `max`, `min`, `mod`, `Pr`, `sec`, `sin`, `sinc`, `sinh`, `sup`,
 /// `tan`, `tanh`, `tg` and `tr`.
-///
-/// Display: Text Operator
-/// Category: math
-#[element(LayoutMath)]
+#[elem(title = "Text Operator", LayoutMath)]
 pub struct OpElem {
     /// The operator's text.
     #[required]

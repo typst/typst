@@ -10,7 +10,8 @@ mod fragment;
 mod grid;
 mod hide;
 mod list;
-mod measure;
+#[path = "measure.rs"]
+mod measure_;
 mod pad;
 mod page;
 mod par;
@@ -32,7 +33,7 @@ pub use self::fragment::*;
 pub use self::grid::*;
 pub use self::hide::*;
 pub use self::list::*;
-pub use self::measure::*;
+pub use self::measure_::*;
 pub use self::pad::*;
 pub use self::page::*;
 pub use self::par::*;
@@ -57,7 +58,7 @@ use crate::math::{EquationElem, LayoutMath};
 use crate::meta::DocumentElem;
 use crate::prelude::*;
 use crate::shared::BehavedBuilder;
-use crate::text::{LinebreakElem, SmartQuoteElem, SpaceElem, TextElem};
+use crate::text::{LinebreakElem, SmartquoteElem, SpaceElem, TextElem};
 use crate::visualize::{
     CircleElem, EllipseElem, ImageElem, LineElem, PathElem, PolygonElem, RectElem,
     SquareElem,
@@ -65,43 +66,39 @@ use crate::visualize::{
 
 /// Hook up all layout definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.define("page", PageElem::func());
-    global.define("pagebreak", PagebreakElem::func());
-    global.define("v", VElem::func());
-    global.define("par", ParElem::func());
-    global.define("parbreak", ParbreakElem::func());
-    global.define("h", HElem::func());
-    global.define("box", BoxElem::func());
-    global.define("block", BlockElem::func());
-    global.define("list", ListElem::func());
-    global.define("enum", EnumElem::func());
-    global.define("terms", TermsElem::func());
-    global.define("table", TableElem::func());
-    global.define("stack", StackElem::func());
-    global.define("grid", GridElem::func());
-    global.define("columns", ColumnsElem::func());
-    global.define("colbreak", ColbreakElem::func());
-    global.define("place", PlaceElem::func());
-    global.define("align", AlignElem::func());
-    global.define("pad", PadElem::func());
-    global.define("repeat", RepeatElem::func());
-    global.define("move", MoveElem::func());
-    global.define("scale", ScaleElem::func());
-    global.define("rotate", RotateElem::func());
-    global.define("hide", HideElem::func());
-    global.define("measure", measure_func());
-    global.define("ltr", Dir::LTR);
-    global.define("rtl", Dir::RTL);
-    global.define("ttb", Dir::TTB);
-    global.define("btt", Dir::BTT);
-    global.define("start", GenAlign::Start);
-    global.define("end", GenAlign::End);
-    global.define("left", GenAlign::Specific(Align::Left));
-    global.define("center", GenAlign::Specific(Align::Center));
-    global.define("right", GenAlign::Specific(Align::Right));
-    global.define("top", GenAlign::Specific(Align::Top));
-    global.define("horizon", GenAlign::Specific(Align::Horizon));
-    global.define("bottom", GenAlign::Specific(Align::Bottom));
+    global.category("layout");
+    global.define_type::<Length>();
+    global.define_type::<Angle>();
+    global.define_type::<Ratio>();
+    global.define_type::<Rel<Length>>();
+    global.define_type::<Fr>();
+    global.define_type::<Dir>();
+    global.define_type::<Align>();
+    global.define_elem::<PageElem>();
+    global.define_elem::<PagebreakElem>();
+    global.define_elem::<VElem>();
+    global.define_elem::<ParElem>();
+    global.define_elem::<ParbreakElem>();
+    global.define_elem::<HElem>();
+    global.define_elem::<BoxElem>();
+    global.define_elem::<BlockElem>();
+    global.define_elem::<ListElem>();
+    global.define_elem::<EnumElem>();
+    global.define_elem::<TermsElem>();
+    global.define_elem::<TableElem>();
+    global.define_elem::<StackElem>();
+    global.define_elem::<GridElem>();
+    global.define_elem::<ColumnsElem>();
+    global.define_elem::<ColbreakElem>();
+    global.define_elem::<PlaceElem>();
+    global.define_elem::<AlignElem>();
+    global.define_elem::<PadElem>();
+    global.define_elem::<RepeatElem>();
+    global.define_elem::<MoveElem>();
+    global.define_elem::<ScaleElem>();
+    global.define_elem::<RotateElem>();
+    global.define_elem::<HideElem>();
+    global.define_func::<measure>();
 }
 
 /// Root-level layout.
@@ -266,6 +263,8 @@ fn realize_block<'a>(
     content: &'a Content,
     styles: StyleChain<'a>,
 ) -> SourceResult<(Content, StyleChain<'a>)> {
+    // These elements implement `Layout` but still require a flow for
+    // proper layout.
     if content.can::<dyn Layout>()
         && !content.is::<LineElem>()
         && !content.is::<RectElem>()
@@ -275,6 +274,7 @@ fn realize_block<'a>(
         && !content.is::<ImageElem>()
         && !content.is::<PolygonElem>()
         && !content.is::<PathElem>()
+        && !content.is::<PlaceElem>()
         && !applicable(content, styles)
     {
         return Ok((content.clone(), styles));
@@ -464,7 +464,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
     fn interrupt_page(&mut self, styles: Option<StyleChain<'a>>) -> SourceResult<()> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
-        if !self.flow.0.is_empty() || (doc.keep_next && styles.is_some()) {
+        if !self.flow.0.is_basically_empty() || (doc.keep_next && styles.is_some()) {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()
@@ -595,7 +595,7 @@ impl<'a> ParBuilder<'a> {
             || content.is::<TextElem>()
             || content.is::<HElem>()
             || content.is::<LinebreakElem>()
-            || content.is::<SmartQuoteElem>()
+            || content.is::<SmartquoteElem>()
             || content.to::<EquationElem>().map_or(false, |elem| !elem.block(styles))
             || content.is::<BoxElem>()
         {

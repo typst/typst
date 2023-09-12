@@ -1,15 +1,33 @@
 use std::fmt::{self, Debug, Formatter};
 
-use super::{cast, CastInfo, FromValue, IntoValue, Reflect, Value};
+use serde::{Serialize, Serializer};
+
+use super::{cast, ty, CastInfo, FromValue, IntoValue, Reflect, Type, Value};
 use crate::diag::StrResult;
 
 /// A value that indicates the absence of any other value.
+///
+/// The none type has exactly one value: `{none}`.
+///
+/// When inserted into the document, it is not visible. This is also the value
+/// that is produced by empty code blocks. It can be
+/// [joined]($scripting/#blocks) with any value, yielding the other value.
+///
+/// # Example
+/// ```example
+/// Not visible: #none
+/// ```
+#[ty(name = "none")]
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct NoneValue;
 
 impl Reflect for NoneValue {
-    fn describe() -> CastInfo {
-        CastInfo::Type("none")
+    fn input() -> CastInfo {
+        CastInfo::Type(Type::of::<Self>())
+    }
+
+    fn output() -> CastInfo {
+        CastInfo::Type(Type::of::<Self>())
     }
 
     fn castable(value: &Value) -> bool {
@@ -38,6 +56,15 @@ impl Debug for NoneValue {
     }
 }
 
+impl Serialize for NoneValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_none()
+    }
+}
+
 cast! {
     (),
     self => Value::None,
@@ -45,8 +72,12 @@ cast! {
 }
 
 impl<T: Reflect> Reflect for Option<T> {
-    fn describe() -> CastInfo {
-        T::describe() + NoneValue::describe()
+    fn input() -> CastInfo {
+        T::input() + NoneValue::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output() + NoneValue::output()
     }
 
     fn castable(value: &Value) -> bool {

@@ -1,4 +1,6 @@
-use super::{Content, ElemFunc, Element, MetaElem, Recipe, Selector, StyleChain, Vt};
+use super::{
+    Content, Element, MetaElem, NativeElement, Recipe, Selector, StyleChain, Vt,
+};
 use crate::diag::SourceResult;
 use crate::doc::Meta;
 use crate::util::hash128;
@@ -214,8 +216,10 @@ pub enum Behaviour {
     /// An element that destroys adjacent weak elements.
     Destructive,
     /// An element that does not interact at all with other elements, having the
-    /// same effect as if it didn't exist.
+    /// same effect as if it didn't exist, but has a visual representation.
     Ignorant,
+    /// An element that does not have a visual representation.
+    Invisible,
 }
 
 /// Guards content against being affected by the same show rule multiple times.
@@ -224,5 +228,5 @@ pub enum Guard {
     /// The nth recipe from the top of the chain.
     Nth(usize),
     /// The [base recipe](Show) for a kind of element.
-    Base(ElemFunc),
+    Base(Element),
 }

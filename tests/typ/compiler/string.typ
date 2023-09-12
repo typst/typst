@@ -41,8 +41,7 @@
 #"Hello".at(5)
 
 ---
-// Error: 25-32 expected string, found dictionary
-#"Hello".at(5, default: (a: 10))
+#test("Hello".at(5, default: (a: 10)), (a: 10))
 
 ---
 // Test the `slice` method.
@@ -82,6 +81,9 @@
 #test("Typst".ends-with(regex("\d*")), true)
 #test("Typst".ends-with(regex("\d+")), false)
 #test("Typ12".ends-with(regex("\d+")), true)
+#test("typst13".ends-with(regex("1[0-9]")), true)
+#test("typst113".ends-with(regex("1[0-9]")), true)
+#test("typst23".ends-with(regex("1[0-9]")), false)
 
 ---
 // Test the `find` and `position` methods.
@@ -210,6 +212,15 @@
 #test("abc".split("b"), ("a", "c"))
 #test("a123c".split(regex("\d")), ("a", "", "", "c"))
 #test("a123c".split(regex("\d+")), ("a", "c"))
+
+---
+// Test the `rev` method.
+#test("abc".rev(), "cba")
+#test("ax̂e".rev(), "ex̂a")
+
+---
+// Error: 12-15 unknown variable: arg
+#"abc".rev(arg)
 
 ---
 // Error: 2-2:1 unclosed string

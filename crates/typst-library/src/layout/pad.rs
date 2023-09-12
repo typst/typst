@@ -5,7 +5,7 @@ use crate::prelude::*;
 /// The spacing can be specified for each side individually, or for all sides at
 /// once by specifying a positional argument.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set align(center)
 ///
@@ -13,10 +13,7 @@ use crate::prelude::*;
 /// _Typing speeds can be
 ///  measured in words per minute._
 /// ```
-///
-/// Display: Padding
-/// Category: layout
-#[element(Layout)]
+#[elem(title = "Padding", Layout)]
 pub struct PadElem {
     /// The padding at the left side.
     #[parse(
@@ -120,6 +117,5 @@ fn shrink(size: Size, padding: Sides<Rel<Abs>>) -> Size {
 ///   <=> (1 - p.rel) * w = s + p.abs
 ///   <=> w = (s + p.abs) / (1 - p.rel)
 fn grow(size: Size, padding: Sides<Rel<Abs>>) -> Size {
-    size.zip(padding.sum_by_axis())
-        .map(|(s, p)| (s + p.abs).safe_div(1.0 - p.rel.get()))
+    size.zip_map(padding.sum_by_axis(), |s, p| (s + p.abs).safe_div(1.0 - p.rel.get()))
 }

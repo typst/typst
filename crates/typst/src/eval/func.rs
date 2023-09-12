@@ -1,23 +1,123 @@
 use std::fmt::{self, Debug, Formatter};
-use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked, TrackedMut};
-use ecow::eco_format;
 use once_cell::sync::Lazy;
 
 use super::{
-    cast, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes, Tracer,
-    Value, Vm,
+    cast, scope, ty, Args, CastInfo, Eval, FlowEvent, IntoValue, Route, Scope, Scopes,
+    Tracer, Type, Value, Vm,
 };
 use crate::diag::{bail, SourceResult, StrResult};
-use crate::file::FileId;
-use crate::model::{DelayedErrors, ElemFunc, Introspector, Locator, Vt};
-use crate::syntax::ast::{self, AstNode, Expr, Ident};
-use crate::syntax::{Span, SyntaxNode};
+use crate::model::{
+    Content, DelayedErrors, Element, Introspector, Locator, Selector, Vt,
+};
+use crate::syntax::ast::{self, AstNode};
+use crate::syntax::{FileId, Span, SyntaxNode};
+use crate::util::Static;
 use crate::World;
 
-/// An evaluatable function.
+#[doc(inline)]
+pub use typst_macros::func;
+
+/// A mapping from argument values to a return value.
+///
+/// You can call a function by writing a comma-separated list of function
+/// _arguments_ enclosed in parentheses directly after the function name.
+/// Additionally, you can pass any number of trailing content blocks arguments
+/// to a function _after_ the normal argument list. If the normal argument list
+/// would become empty, it can be omitted. Typst supports positional and named
+/// arguments. The former are identified by position and type, while the later
+/// are written as `name: value`.
+///
+/// Within math mode, function calls have special behaviour. See the
+/// [math documentation]($category/math) for more details.
+///
+/// # Example
+/// ```example
+/// // Call a function.
+/// #list([A], [B])
+///
+/// // Named arguments and trailing
+/// // content blocks.
+/// #enum(start: 2)[A][B]
+///
+/// // Version without parentheses.
+/// #list[A][B]
+/// ```
+///
+/// Functions are a fundamental building block of Typst. Typst provides
+/// functions for a variety of typesetting tasks. Moreover, the markup you write
+/// is backed by functions and all styling happens through functions. This
+/// reference lists all available functions and how you can use them. Please
+/// also refer to the documentation about [set]($styling/#set-rules) and
+/// [show]($styling/#show-rules) rules to learn about additional ways you can
+/// work with functions in Typst.
+///
+/// # Element functions
+/// Some functions are associated with _elements_ like [headings]($heading) or
+/// [tables]($table). When called, these create an element of their respective
+/// kind. In contrast to normal functions, they can further be used in [set
+/// rules]($styling/#set-rules), [show rules]($styling/#show-rules), and
+/// [selectors]($selector).
+///
+/// # Function scopes
+/// Functions can hold related definitions in their own scope, similar to a
+/// [module]($scripting/#modules). Examples of this are
+/// [`assert.eq`]($assert.eq) or [`list.item`]($list.item). However, this
+/// feature is currently only available for built-in functions.
+///
+/// # Defining functions
+/// You can define your own function with a [let binding]($scripting/#bindings)
+/// that has a parameter list after the binding's name. The parameter list can
+/// contain positional parameters, named parameters with default values and
+/// [argument sinks]($arguments). The right-hand side of the binding can be a
+/// block or any other expression. It defines the function's return value and
+/// can depend on the parameters.
+///
+/// ```example
+/// #let alert(body, fill: red) = {
+///   set text(white)
+///   set align(center)
+///   rect(
+///     fill: fill,
+///     inset: 8pt,
+///     radius: 4pt,
+///     [*Warning:\ #body*],
+///   )
+/// }
+///
+/// #alert[
+///   Danger is imminent!
+/// ]
+///
+/// #alert(fill: blue)[
+///   KEEP OFF TRACKS
+/// ]
+/// ```
+///
+/// # Unnamed functions { #unnamed }
+/// You can also created an unnamed function without creating a binding by
+/// specifying a parameter list followed by `=>` and the function body. If your
+/// function has just one parameter, the parentheses around the parameter list
+/// are optional. Unnamed functions are mainly useful for show rules, but also
+/// for settable properties that take functions like the page function's
+/// [`footer`]($page.footer) property.
+///
+/// ```example
+/// #show "once?": it => [#it #it]
+/// once?
+/// ```
+///
+/// # Notable fact
+/// In Typst, all functions are _pure._ This means that for the same
+/// arguments, they always return the same result. They cannot "remember" things to
+/// produce another value when they are called a second time.
+///
+/// The only exception are built-in methods like
+/// [`array.push(value)`]($array.push). These can modify the values they are
+/// called on.
+#[ty(scope, name = "function")]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Func {
@@ -31,9 +131,9 @@ pub struct Func {
 #[derive(Clone, PartialEq, Hash)]
 enum Repr {
     /// A native Rust function.
-    Native(&'static NativeFunc),
+    Native(Static<NativeFuncData>),
     /// A function for an element.
-    Elem(ElemFunc),
+    Element(Element),
     /// A user-defined closure.
     Closure(Arc<Prehashed<Closure>>),
     /// A nested function with pre-applied arguments.
@@ -41,37 +141,106 @@ enum Repr {
 }
 
 impl Func {
-    /// The name of the function.
+    /// The function's name (e.g. `min`).
+    ///
+    /// Returns `None` if this is an anonymous closure.
     pub fn name(&self) -> Option<&str> {
         match &self.repr {
-            Repr::Native(native) => Some(native.info.name),
-            Repr::Elem(func) => Some(func.info().name),
-            Repr::Closure(closure) => closure.name.as_deref(),
-            Repr::With(arc) => arc.0.name(),
+            Repr::Native(native) => Some(native.name),
+            Repr::Element(elem) => Some(elem.name()),
+            Repr::Closure(closure) => closure.name(),
+            Repr::With(with) => with.0.name(),
         }
     }
 
-    /// Extract details the function.
-    pub fn info(&self) -> Option<&FuncInfo> {
+    /// The function's title case name, for use in documentation (e.g. `Minimum`).
+    ///
+    /// Returns `None` if this is a closure.
+    pub fn title(&self) -> Option<&'static str> {
         match &self.repr {
-            Repr::Native(native) => Some(&native.info),
-            Repr::Elem(func) => Some(func.info()),
+            Repr::Native(native) => Some(native.title),
+            Repr::Element(elem) => Some(elem.title()),
             Repr::Closure(_) => None,
-            Repr::With(arc) => arc.0.info(),
+            Repr::With(with) => with.0.title(),
         }
     }
 
-    /// The function's span.
-    pub fn span(&self) -> Span {
-        self.span
+    /// Documentation for the function (as Markdown).
+    pub fn docs(&self) -> Option<&'static str> {
+        match &self.repr {
+            Repr::Native(native) => Some(native.docs),
+            Repr::Element(elem) => Some(elem.docs()),
+            Repr::Closure(_) => None,
+            Repr::With(with) => with.0.docs(),
+        }
     }
 
-    /// Attach a span to this function if it doesn't already have one.
-    pub fn spanned(mut self, span: Span) -> Self {
-        if self.span.is_detached() {
-            self.span = span;
+    /// Get details about this function's parameters if available.
+    pub fn params(&self) -> Option<&'static [ParamInfo]> {
+        match &self.repr {
+            Repr::Native(native) => Some(&native.0.params),
+            Repr::Element(elem) => Some(elem.params()),
+            Repr::Closure(_) => None,
+            Repr::With(with) => with.0.params(),
         }
-        self
+    }
+
+    /// Get the parameter info for a parameter with the given name if it exist.
+    pub fn param(&self, name: &str) -> Option<&'static ParamInfo> {
+        self.params()?.iter().find(|param| param.name == name)
+    }
+
+    /// Get details about the function's return type.
+    pub fn returns(&self) -> Option<&'static CastInfo> {
+        static CONTENT: Lazy<CastInfo> =
+            Lazy::new(|| CastInfo::Type(Type::of::<Content>()));
+        match &self.repr {
+            Repr::Native(native) => Some(&native.0.returns),
+            Repr::Element(_) => Some(&CONTENT),
+            Repr::Closure(_) => None,
+            Repr::With(with) => with.0.returns(),
+        }
+    }
+
+    /// Search keywords for the function.
+    pub fn keywords(&self) -> &'static [&'static str] {
+        match &self.repr {
+            Repr::Native(native) => native.keywords,
+            Repr::Element(elem) => elem.keywords(),
+            Repr::Closure(_) => &[],
+            Repr::With(with) => with.0.keywords(),
+        }
+    }
+
+    /// The function's associated scope of sub-definition.
+    pub fn scope(&self) -> Option<&'static Scope> {
+        match &self.repr {
+            Repr::Native(native) => Some(&native.0.scope),
+            Repr::Element(elem) => Some(elem.scope()),
+            Repr::Closure(_) => None,
+            Repr::With(with) => with.0.scope(),
+        }
+    }
+
+    /// Get a field from this function's scope, if possible.
+    pub fn field(&self, field: &str) -> StrResult<&'static Value> {
+        let scope =
+            self.scope().ok_or("cannot access fields on user-defined functions")?;
+        match scope.get(field) {
+            Some(field) => Ok(field),
+            None => match self.name() {
+                Some(name) => bail!("function `{name}` does not contain field `{field}`"),
+                None => bail!("function does not contain field `{field}`"),
+            },
+        }
+    }
+
+    /// Extract the element function, if it is one.
+    pub fn element(&self) -> Option<Element> {
+        match self.repr {
+            Repr::Element(func) => Some(func),
+            _ => None,
+        }
     }
 
     /// Call the function with the given arguments.
@@ -84,20 +253,19 @@ impl Func {
 
         match &self.repr {
             Repr::Native(native) => {
-                let value = (native.func)(vm, &mut args)?;
+                let value = (native.function)(vm, &mut args)?;
                 args.finish()?;
                 Ok(value)
             }
-            Repr::Elem(func) => {
+            Repr::Element(func) => {
                 let value = func.construct(vm, &mut args)?;
                 args.finish()?;
                 Ok(Value::Content(value))
             }
             Repr::Closure(closure) => {
                 // Determine the route inside the closure.
-                let fresh = Route::new(closure.location);
-                let route =
-                    if vm.location.is_detached() { fresh.track() } else { vm.route };
+                let fresh = Route::new(closure.file);
+                let route = if vm.file.is_none() { fresh.track() } else { vm.route };
 
                 Closure::call(
                     self,
@@ -111,9 +279,9 @@ impl Func {
                     args,
                 )
             }
-            Repr::With(arc) => {
-                args.items = arc.1.items.iter().cloned().chain(args.items).collect();
-                arc.0.call_vm(vm, args)
+            Repr::With(with) => {
+                args.items = with.1.items.iter().cloned().chain(args.items).collect();
+                with.0.call_vm(vm, args)
             }
         }
     }
@@ -135,47 +303,61 @@ impl Func {
             delayed: TrackedMut::reborrow_mut(&mut vt.delayed),
             tracer: TrackedMut::reborrow_mut(&mut vt.tracer),
         };
-        let mut vm = Vm::new(vt, route.track(), FileId::detached(), scopes);
+        let mut vm = Vm::new(vt, route.track(), None, scopes);
         let args = Args::new(self.span(), args);
         self.call_vm(&mut vm, args)
     }
 
-    /// Apply the given arguments to the function.
-    pub fn with(self, args: Args) -> Self {
+    /// The function's span.
+    pub fn span(&self) -> Span {
+        self.span
+    }
+
+    /// Attach a span to this function if it doesn't already have one.
+    pub fn spanned(mut self, span: Span) -> Self {
+        if self.span.is_detached() {
+            self.span = span;
+        }
+        self
+    }
+}
+
+#[scope]
+impl Func {
+    /// Returns a new function that has the given arguments pre-applied.
+    #[func]
+    pub fn with(
+        self,
+        /// The real arguments (the other argument is just for the docs).
+        /// The docs argument cannot be called `args`.
+        args: Args,
+        /// The arguments to apply to the function.
+        #[external]
+        arguments: Args,
+    ) -> Func {
         let span = self.span;
         Self { repr: Repr::With(Arc::new((self, args))), span }
     }
 
-    /// Extract the element function, if it is one.
-    pub fn element(&self) -> Option<ElemFunc> {
-        match self.repr {
-            Repr::Elem(func) => Some(func),
-            _ => None,
-        }
-    }
-
-    /// Get a field from this function's scope, if possible.
-    pub fn get(&self, field: &str) -> StrResult<&Value> {
-        match &self.repr {
-            Repr::Native(func) => func.info.scope.get(field).ok_or_else(|| {
-                eco_format!(
-                    "function `{}` does not contain field `{}`",
-                    func.info.name,
-                    field
-                )
-            }),
-            Repr::Elem(func) => func.info().scope.get(field).ok_or_else(|| {
-                eco_format!(
-                    "function `{}` does not contain field `{}`",
-                    func.name(),
-                    field
-                )
-            }),
-            Repr::Closure(_) => {
-                Err(eco_format!("cannot access fields on user-defined functions"))
-            }
-            Repr::With(arc) => arc.0.get(field),
-        }
+    /// Returns a selector that filters for elements belonging to this function
+    /// whose fields have the values of the given arguments.
+    #[func]
+    pub fn where_(
+        self,
+        /// The real arguments (the other argument is just for the docs).
+        /// The docs argument cannot be called `args`.
+        args: Args,
+        /// The fields to filter for.
+        #[external]
+        fields: Args,
+    ) -> StrResult<Selector> {
+        let mut args = args;
+        let fields = args.to_named();
+        args.items.retain(|arg| arg.name.is_none());
+        Ok(self
+            .element()
+            .ok_or("`where()` can only be called on element functions")?
+            .where_(fields))
     }
 }
 
@@ -200,82 +382,56 @@ impl From<Repr> for Func {
     }
 }
 
-impl From<ElemFunc> for Func {
-    fn from(func: ElemFunc) -> Self {
-        Repr::Elem(func).into()
+impl From<Element> for Func {
+    fn from(func: Element) -> Self {
+        Repr::Element(func).into()
     }
 }
 
-/// A Typst function defined by a native Rust function.
-pub struct NativeFunc {
-    /// The function's implementation.
-    pub func: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
-    /// Details about the function.
-    pub info: Lazy<FuncInfo>,
-}
-
-impl PartialEq for NativeFunc {
-    fn eq(&self, other: &Self) -> bool {
-        self.func as usize == other.func as usize
+/// A Typst function that is defined by a native Rust type that shadows a
+/// native Rust function.
+pub trait NativeFunc {
+    /// Get the function for the native Rust type.
+    fn func() -> Func {
+        Func::from(Self::data())
     }
+
+    /// Get the function data for the native Rust type.
+    fn data() -> &'static NativeFuncData;
 }
 
-impl Eq for NativeFunc {}
-
-impl Hash for NativeFunc {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        (self.func as usize).hash(state);
-    }
+/// Defines a native function.
+pub struct NativeFuncData {
+    pub function: fn(&mut Vm, &mut Args) -> SourceResult<Value>,
+    pub name: &'static str,
+    pub title: &'static str,
+    pub docs: &'static str,
+    pub keywords: &'static [&'static str],
+    pub scope: Lazy<Scope>,
+    pub params: Lazy<Vec<ParamInfo>>,
+    pub returns: Lazy<CastInfo>,
 }
 
-impl From<&'static NativeFunc> for Func {
-    fn from(native: &'static NativeFunc) -> Self {
-        Repr::Native(native).into()
+impl From<&'static NativeFuncData> for Func {
+    fn from(data: &'static NativeFuncData) -> Self {
+        Repr::Native(Static(data)).into()
     }
 }
 
 cast! {
-    &'static NativeFunc,
-    self => Value::Func(self.into()),
+    &'static NativeFuncData,
+    self => Func::from(self).into_value(),
 }
 
-/// Details about a function.
-#[derive(Debug, Clone)]
-pub struct FuncInfo {
-    /// The function's name.
-    pub name: &'static str,
-    /// The display name of the function.
-    pub display: &'static str,
-    /// A string of search keywords.
-    pub keywords: Option<&'static str>,
-    /// Which category the function is part of.
-    pub category: &'static str,
-    /// Documentation for the function.
-    pub docs: &'static str,
-    /// Details about the function's parameters.
-    pub params: Vec<ParamInfo>,
-    /// Valid values for the return value.
-    pub returns: CastInfo,
-    /// The function's own scope of fields and sub-functions.
-    pub scope: Scope,
-}
-
-impl FuncInfo {
-    /// Get the parameter info for a parameter with the given name
-    pub fn param(&self, name: &str) -> Option<&ParamInfo> {
-        self.params.iter().find(|param| param.name == name)
-    }
-}
-
-/// Describes a named parameter.
+/// Describes a function parameter.
 #[derive(Debug, Clone)]
 pub struct ParamInfo {
     /// The parameter's name.
     pub name: &'static str,
     /// Documentation for the parameter.
     pub docs: &'static str,
-    /// Valid values for the parameter.
-    pub cast: CastInfo,
+    /// Describe what values this parameter accepts.
+    pub input: CastInfo,
     /// Creates an instance of the parameter's default value.
     pub default: Option<fn() -> Value>,
     /// Is the parameter positional?
@@ -296,36 +452,32 @@ pub struct ParamInfo {
 /// A user-defined closure.
 #[derive(Hash)]
 pub(super) struct Closure {
+    /// The closure's syntax node. Must be castable to `ast::Closure`.
+    pub node: SyntaxNode,
     /// The source file where the closure was defined.
-    pub location: FileId,
-    /// The name of the closure.
-    pub name: Option<Ident>,
+    pub file: Option<FileId>,
+    /// Default values of named parameters.
+    pub defaults: Vec<Value>,
     /// Captured values from outer scopes.
     pub captured: Scope,
-    /// The list of parameters.
-    pub params: Vec<Param>,
-    /// The expression the closure should evaluate to.
-    pub body: Expr,
-}
-
-/// A closure parameter.
-#[derive(Hash)]
-pub enum Param {
-    /// A positional parameter: `x`.
-    Pos(ast::Pattern),
-    /// A named parameter with a default value: `draw: false`.
-    Named(Ident, Value),
-    /// An argument sink: `..args`.
-    Sink(Option<Ident>),
 }
 
 impl Closure {
+    /// The name of the closure.
+    pub fn name(&self) -> Option<&str> {
+        self.node
+            .cast::<ast::Closure>()
+            .unwrap()
+            .name()
+            .map(|ident| ident.as_str())
+    }
+
     /// Call the function in the context with the arguments.
     #[comemo::memoize]
     #[tracing::instrument(skip_all)]
     #[allow(clippy::too_many_arguments)]
     fn call(
-        this: &Func,
+        func: &Func,
         world: Tracked<dyn World + '_>,
         route: Tracked<Route>,
         introspector: Tracked<Introspector>,
@@ -335,15 +487,15 @@ impl Closure {
         depth: usize,
         mut args: Args,
     ) -> SourceResult<Value> {
-        let closure = match &this.repr {
-            Repr::Closure(closure) => closure,
-            _ => panic!("`this` must be a closure"),
+        let Repr::Closure(this) = &func.repr else {
+            panic!("`this` must be a closure");
         };
+        let closure = this.node.cast::<ast::Closure>().unwrap();
 
         // Don't leak the scopes from the call site. Instead, we use the scope
         // of captured variables we collected earlier.
         let mut scopes = Scopes::new(None);
-        scopes.top = closure.captured.clone();
+        scopes.top = this.captured.clone();
 
         // Prepare VT.
         let mut locator = Locator::chained(locator);
@@ -356,46 +508,53 @@ impl Closure {
         };
 
         // Prepare VM.
-        let mut vm = Vm::new(vt, route, closure.location, scopes);
+        let mut vm = Vm::new(vt, route, this.file, scopes);
         vm.depth = depth;
 
         // Provide the closure itself for recursive calls.
-        if let Some(name) = &closure.name {
-            vm.define(name.clone(), Value::Func(this.clone()));
+        if let Some(name) = closure.name() {
+            vm.define(name, Value::Func(func.clone()));
         }
 
         // Parse the arguments according to the parameter list.
-        let num_pos_params =
-            closure.params.iter().filter(|p| matches!(p, Param::Pos(_))).count();
+        let num_pos_params = closure
+            .params()
+            .children()
+            .filter(|p| matches!(p, ast::Param::Pos(_)))
+            .count();
         let num_pos_args = args.to_pos().len();
         let sink_size = num_pos_args.checked_sub(num_pos_params);
 
         let mut sink = None;
         let mut sink_pos_values = None;
-        for p in &closure.params {
+        let mut defaults = this.defaults.iter();
+        for p in closure.params().children() {
             match p {
-                Param::Pos(pattern) => match pattern {
+                ast::Param::Pos(pattern) => match pattern {
                     ast::Pattern::Normal(ast::Expr::Ident(ident)) => {
-                        vm.define(ident.clone(), args.expect::<Value>(ident)?)
+                        vm.define(ident, args.expect::<Value>(&ident)?)
                     }
                     ast::Pattern::Normal(_) => unreachable!(),
-                    _ => {
-                        pattern.define(
+                    pattern => {
+                        super::define_pattern(
                             &mut vm,
+                            pattern,
                             args.expect::<Value>("pattern parameter")?,
                         )?;
                     }
                 },
-                Param::Sink(ident) => {
-                    sink = ident.clone();
+                ast::Param::Sink(ident) => {
+                    sink = ident.name();
                     if let Some(sink_size) = sink_size {
                         sink_pos_values = Some(args.consume(sink_size)?);
                     }
                 }
-                Param::Named(ident, default) => {
+                ast::Param::Named(named) => {
+                    let name = named.name();
+                    let default = defaults.next().unwrap();
                     let value =
-                        args.named::<Value>(ident)?.unwrap_or_else(|| default.clone());
-                    vm.define(ident.clone(), value);
+                        args.named::<Value>(&name)?.unwrap_or_else(|| default.clone());
+                    vm.define(name, value);
                 }
             }
         }
@@ -412,7 +571,7 @@ impl Closure {
         args.finish()?;
 
         // Handle control flow.
-        let result = closure.body.eval(&mut vm);
+        let output = closure.body().eval(&mut vm)?;
         match vm.flow {
             Some(FlowEvent::Return(_, Some(explicit))) => return Ok(explicit),
             Some(FlowEvent::Return(_, None)) => {}
@@ -420,7 +579,7 @@ impl Closure {
             None => {}
         }
 
-        result
+        Ok(output)
     }
 }
 
@@ -483,7 +642,7 @@ impl<'a> CapturesVisitor<'a> {
             Some(ast::Expr::Closure(expr)) => {
                 for param in expr.params().children() {
                     if let ast::Param::Named(named) = param {
-                        self.visit(named.expr().as_untyped());
+                        self.visit(named.expr().to_untyped());
                     }
                 }
 
@@ -506,7 +665,7 @@ impl<'a> CapturesVisitor<'a> {
                     }
                 }
 
-                self.visit(expr.body().as_untyped());
+                self.visit(expr.body().to_untyped());
                 self.internal.exit();
             }
 
@@ -514,7 +673,7 @@ impl<'a> CapturesVisitor<'a> {
             // active after the body is evaluated.
             Some(ast::Expr::Let(expr)) => {
                 if let Some(init) = expr.init() {
-                    self.visit(init.as_untyped());
+                    self.visit(init.to_untyped());
                 }
 
                 for ident in expr.kind().idents() {
@@ -526,7 +685,7 @@ impl<'a> CapturesVisitor<'a> {
             // active after the iterable is evaluated but before the body is
             // evaluated.
             Some(ast::Expr::For(expr)) => {
-                self.visit(expr.iter().as_untyped());
+                self.visit(expr.iter().to_untyped());
                 self.internal.enter();
 
                 let pattern = expr.pattern();
@@ -534,17 +693,17 @@ impl<'a> CapturesVisitor<'a> {
                     self.bind(ident);
                 }
 
-                self.visit(expr.body().as_untyped());
+                self.visit(expr.body().to_untyped());
                 self.internal.exit();
             }
 
             // An import contains items, but these are active only after the
             // path is evaluated.
             Some(ast::Expr::Import(expr)) => {
-                self.visit(expr.source().as_untyped());
+                self.visit(expr.source().to_untyped());
                 if let Some(ast::Imports::Items(items)) = expr.imports() {
-                    for item in items {
-                        self.bind(item);
+                    for item in items.iter() {
+                        self.bind(item.bound_name());
                     }
                 }
             }
@@ -560,14 +719,14 @@ impl<'a> CapturesVisitor<'a> {
 
     /// Bind a new internal variable.
     fn bind(&mut self, ident: ast::Ident) {
-        self.internal.top.define(ident.take(), Value::None);
+        self.internal.top.define(ident.get().clone(), Value::None);
     }
 
     /// Capture a variable if it isn't internal.
     fn capture(&mut self, ident: ast::Ident) {
         if self.internal.get(&ident).is_err() {
             if let Ok(value) = self.external.get(&ident) {
-                self.captures.define_captured(ident.take(), value.clone());
+                self.captures.define_captured(ident.get().clone(), value.clone());
             }
         }
     }
@@ -576,7 +735,7 @@ impl<'a> CapturesVisitor<'a> {
     fn capture_in_math(&mut self, ident: ast::MathIdent) {
         if self.internal.get(&ident).is_err() {
             if let Ok(value) = self.external.get_in_math(&ident) {
-                self.captures.define_captured(ident.take(), value.clone());
+                self.captures.define_captured(ident.get().clone(), value.clone());
             }
         }
     }

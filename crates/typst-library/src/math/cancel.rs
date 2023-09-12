@@ -4,17 +4,14 @@ use super::*;
 ///
 /// This is commonly used to show the elimination of a term.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// >>> #set page(width: 140pt)
 /// Here, we can simplify:
 /// $ (a dot b dot cancel(x)) /
 ///     cancel(x) $
 /// ```
-///
-/// Display: Cancel
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct CancelElem {
     /// The content over which the line should be placed.
     #[required]
@@ -53,8 +50,8 @@ pub struct CancelElem {
     #[default(false)]
     pub cross: bool,
 
-    /// How to rotate the cancel line. See the [line's
-    /// documentation]($func/line.angle) for more details.
+    /// How to rotate the cancel line. See the
+    /// [line's documentation]($line.angle) for more details.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -63,8 +60,7 @@ pub struct CancelElem {
     #[default(Angle::zero())]
     pub rotation: Angle,
 
-    /// How to stroke the cancel line. See the
-    /// [line's documentation]($func/line.stroke) for more details.
+    /// How to [stroke]($stroke) the cancel line.
     ///
     /// ```example
     /// >>> #set page(width: 140pt)
@@ -79,12 +75,12 @@ pub struct CancelElem {
     /// ```
     #[resolve]
     #[fold]
-    #[default(PartialStroke {
+    #[default(Stroke {
         // Default stroke has 0.5pt for better visuals.
         thickness: Smart::Custom(Abs::pt(0.5)),
         ..Default::default()
     })]
-    pub stroke: PartialStroke,
+    pub stroke: Stroke,
 }
 
 impl LayoutMath for CancelElem {
@@ -99,7 +95,7 @@ impl LayoutMath for CancelElem {
         let span = self.span();
         let length = self.length(styles).resolve(styles);
 
-        let stroke = self.stroke(styles).unwrap_or(Stroke {
+        let stroke = self.stroke(styles).unwrap_or(FixedStroke {
             paint: TextElem::fill_in(styles),
             ..Default::default()
         });
@@ -139,7 +135,7 @@ impl LayoutMath for CancelElem {
 /// Draws a cancel line.
 fn draw_cancel_line(
     length: Rel<Abs>,
-    stroke: Stroke,
+    stroke: FixedStroke,
     invert: bool,
     angle: Angle,
     body_size: Size,
@@ -172,8 +168,8 @@ fn draw_cancel_line(
     // (-width / 2, height / 2) with length components (width, -height) (sign is
     // inverted in the y-axis). After applying the scale, the line will have the
     // correct length and orientation (inverted if needed).
-    let start = Axes::new(-mid.x, mid.y).zip(scales).map(|(l, s)| l * s);
-    let delta = Axes::new(width, -height).zip(scales).map(|(l, s)| l * s);
+    let start = Axes::new(-mid.x, mid.y).zip_map(scales, |l, s| l * s);
+    let delta = Axes::new(width, -height).zip_map(scales, |l, s| l * s);
 
     let mut frame = Frame::new(body_size);
     frame.push(

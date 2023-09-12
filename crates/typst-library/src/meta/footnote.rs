@@ -34,11 +34,11 @@ cast! {
 /// and can break across multiple pages.
 ///
 /// To customize the appearance of the entry in the footnote listing, see
-/// [`footnote.entry`]($func/footnote.entry). The footnote itself is realized as
-/// a normal superscript, so you can use a set rule on the
-/// [`super`]($func/super) function to customize it.
+/// [`footnote.entry`]($footnote.entry). The footnote itself is realized as a
+/// normal superscript, so you can use a set rule on the [`super`]($super)
+/// function to customize it.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// Check the docs for more details.
 /// #footnote[https://typst.app/docs]
@@ -46,7 +46,7 @@ cast! {
 ///
 /// The footnote automatically attaches itself to the preceding word, even if
 /// there is a space before it in the markup. To force space, you can use the
-/// string `[#" "]` or explicit [horizontal spacing]($func/h).
+/// string `[#" "]` or explicit [horizontal spacing]($h).
 ///
 /// By giving a label to a footnote, you can have multiple references to it.
 ///
@@ -58,24 +58,17 @@ cast! {
 /// ```
 ///
 /// _Note:_ Set and show rules in the scope where `footnote` is called may not
-/// apply to the footnote's content. See [here][issue] more information.
+/// apply to the footnote's content. See [here][issue] for more information.
 ///
 /// [issue]: https://github.com/typst/typst/issues/1467#issuecomment-1588799440
-///
-/// Display: Footnote
-/// Category: meta
-#[element(Locatable, Synthesize, Show, Count)]
-#[scope(
-    scope.define("entry", FootnoteEntry::func());
-    scope
-)]
+#[elem(scope, Locatable, Synthesize, Show, Count)]
 pub struct FootnoteElem {
     /// How to number footnotes.
     ///
     /// By default, the footnote numbering continues throughout your document.
     /// If you prefer per-page footnote numbering, you can reset the footnote
-    /// [counter]($func/counter) in the page [header]($func/page.header). In the
-    /// future, there might be a simpler way to achieve this.
+    /// [counter]($counter) in the page [header]($page.header). In the future,
+    /// there might be a simpler way to achieve this.
     ///
     /// ```example
     /// #set footnote(numbering: "*")
@@ -91,6 +84,12 @@ pub struct FootnoteElem {
     /// footnote this one should point to.
     #[required]
     pub body: FootnoteBody,
+}
+
+#[scope]
+impl FootnoteElem {
+    #[elem]
+    type FootnoteEntry;
 }
 
 impl FootnoteElem {
@@ -145,7 +144,7 @@ impl Show for FootnoteElem {
         Ok(vt.delayed(|vt| {
             let loc = self.declaration_location(vt).at(self.span())?;
             let numbering = self.numbering(styles);
-            let counter = Counter::of(Self::func());
+            let counter = Counter::of(Self::elem());
             let num = counter.at(vt, loc)?.display(vt, &numbering)?;
             let sup = SuperElem::new(num).pack();
             let hole = HElem::new(Abs::zero().into()).with_weak(true).pack();
@@ -166,7 +165,11 @@ impl Count for FootnoteElem {
 /// This function is not intended to be called directly. Instead, it is used
 /// in set and show rules to customize footnote listings.
 ///
-/// ## Example { #example }
+/// _Note:_ Set and show rules for `footnote.entry` must be defined at the
+/// beginning of the document in order to work correctly.
+/// See [here](https://github.com/typst/typst/issues/1348#issuecomment-1566316463)
+/// for more information.
+///
 /// ```example
 /// #show footnote.entry: set text(red)
 ///
@@ -174,10 +177,7 @@ impl Count for FootnoteElem {
 /// #footnote[It's down here]
 /// has red text!
 /// ```
-///
-/// Display: Footnote Entry
-/// Category: meta
-#[element(Show, Finalize)]
+#[elem(name = "entry", title = "Footnote Entry", Show, Finalize)]
 pub struct FootnoteEntry {
     /// The footnote for this entry. It's location can be used to determine
     /// the footnote counter state.
@@ -214,7 +214,7 @@ pub struct FootnoteEntry {
     #[default(
         LineElem::new()
             .with_length(Ratio::new(0.3).into())
-            .with_stroke(PartialStroke {
+            .with_stroke(Stroke {
                 thickness: Smart::Custom(Abs::pt(0.5).into()),
                 ..Default::default()
             })
@@ -267,7 +267,7 @@ impl Show for FootnoteEntry {
         let note = self.note();
         let number_gap = Em::new(0.05);
         let numbering = note.numbering(StyleChain::default());
-        let counter = Counter::of(FootnoteElem::func());
+        let counter = Counter::of(FootnoteElem::elem());
         let loc = note.0.location().unwrap();
         let num = counter.at(vt, loc)?.display(vt, &numbering)?;
         let sup = SuperElem::new(num)

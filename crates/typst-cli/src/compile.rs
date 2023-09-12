@@ -1,18 +1,17 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
 use termcolor::{ColorChoice, StandardStream};
-use typst::diag::{bail, SourceError, StrResult};
+use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
 use typst::doc::Document;
-use typst::eval::eco_format;
-use typst::file::FileId;
+use typst::eval::{eco_format, Tracer};
 use typst::geom::Color;
-use typst::syntax::Source;
-use typst::World;
+use typst::syntax::{FileId, Source, Span};
+use typst::{World, WorldExt};
 
-use crate::args::{CompileCommand, DiagnosticFormat};
+use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
@@ -20,9 +19,36 @@ use crate::{color_stream, set_failed};
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
 
+impl CompileCommand {
+    /// The output path.
+    pub fn output(&self) -> PathBuf {
+        self.output
+            .clone()
+            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
+    }
+
+    /// The format to use for generated output, either specified by the user or inferred from the extension.
+    ///
+    /// Will return `Err` if the format was not specified and could not be inferred.
+    pub fn output_format(&self) -> StrResult<OutputFormat> {
+        Ok(if let Some(specified) = self.format {
+            specified
+        } else if let Some(output) = &self.output {
+            match output.extension() {
+                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
+                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
+                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
+                _ => bail!("could not infer output format for path {}.\nconsider providing the format manually with `--format/-f`", output.display()),
+            }
+        } else {
+            OutputFormat::Pdf
+        })
+    }
+}
+
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
-    let mut world = SystemWorld::new(&command)?;
+    let mut world = SystemWorld::new(&command.common)?;
     compile_once(&mut world, &mut command, false)?;
     Ok(())
 }
@@ -43,22 +69,31 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Reset everything and ensure that the main file is still present.
+    // Reset everything and ensure that the main file is present.
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let result = typst::compile(world);
-    let duration = start.elapsed();
+    let mut tracer = Tracer::new();
+    let result = typst::compile(world, &mut tracer);
+    let warnings = tracer.warnings();
 
     match result {
         // Export the PDF / PNG.
         Ok(document) => {
             export(&document, command)?;
+            let duration = start.elapsed();
 
             tracing::info!("Compilation succeeded in {duration:?}");
             if watching {
-                Status::Success(duration).print(command).unwrap();
+                if warnings.is_empty() {
+                    Status::Success(duration).print(command).unwrap();
+                } else {
+                    Status::PartialSuccess(duration).print(command).unwrap();
+                }
             }
+
+            print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
+                .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
             if let Some(open) = command.open.take() {
                 open_file(open.as_deref(), &command.output())?;
@@ -74,8 +109,13 @@ pub fn compile_once(
                 Status::Error.print(command).unwrap();
             }
 
-            print_diagnostics(world, *errors, command.diagnostic_format)
-                .map_err(|_| "failed to print diagnostics")?;
+            print_diagnostics(
+                world,
+                &errors,
+                &warnings,
+                command.common.diagnostic_format,
+            )
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
 
@@ -84,9 +124,10 @@ pub fn compile_once(
 
 /// Export into the target format.
 fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    match command.output().extension() {
-        Some(ext) if ext.eq_ignore_ascii_case("png") => export_png(document, command),
-        _ => export_pdf(document, command),
+    match command.output_format()? {
+        OutputFormat::Png => export_image(document, command, ImageExportFormat::Png),
+        OutputFormat::Svg => export_image(document, command, ImageExportFormat::Svg),
+        OutputFormat::Pdf => export_pdf(document, command),
     }
 }
 
@@ -94,18 +135,29 @@ fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
 fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let output = command.output();
     let buffer = typst::export::pdf(document);
-    fs::write(output, buffer).map_err(|_| "failed to write PDF file")?;
+    fs::write(output, buffer)
+        .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
     Ok(())
 }
 
+/// An image format to export in.
+enum ImageExportFormat {
+    Png,
+    Svg,
+}
+
 /// Export to one or multiple PNGs.
-fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
+fn export_image(
+    document: &Document,
+    command: &CompileCommand,
+    fmt: ImageExportFormat,
+) -> StrResult<()> {
     // Determine whether we have a `{n}` numbering.
     let output = command.output();
     let string = output.to_str().unwrap_or_default();
     let numbered = string.contains("{n}");
     if !numbered && document.pages.len() > 1 {
-        bail!("cannot export multiple PNGs without `{{n}}` in output path");
+        bail!("cannot export multiple images without `{{n}}` in output path");
     }
 
     // Find a number width that accommodates all pages. For instance, the
@@ -115,14 +167,26 @@ fn export_png(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let mut storage;
 
     for (i, frame) in document.pages.iter().enumerate() {
-        let pixmap = typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
         let path = if numbered {
             storage = string.replace("{n}", &format!("{:0width$}", i + 1));
             Path::new(&storage)
         } else {
             output.as_path()
         };
-        pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+        match fmt {
+            ImageExportFormat::Png => {
+                let pixmap =
+                    typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
+                pixmap
+                    .save_png(path)
+                    .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
+            }
+            ImageExportFormat::Svg => {
+                let svg = typst::export::svg(frame);
+                fs::write(path, svg)
+                    .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
+            }
+        }
     }
 
     Ok(())
@@ -142,9 +206,10 @@ fn open_file(open: Option<&str>, path: &Path) -> StrResult<()> {
 }
 
 /// Print diagnostic messages to the terminal.
-fn print_diagnostics(
+pub fn print_diagnostics(
     world: &SystemWorld,
-    errors: Vec<SourceError>,
+    errors: &[SourceDiagnostic],
+    warnings: &[SourceDiagnostic],
     diagnostic_format: DiagnosticFormat,
 ) -> Result<(), codespan_reporting::files::Error> {
     let mut w = match diagnostic_format {
@@ -157,27 +222,29 @@ fn print_diagnostics(
         config.display_style = term::DisplayStyle::Short;
     }
 
-    for error in errors {
-        // The main diagnostic.
-        let diag = Diagnostic::error()
-            .with_message(error.message)
-            .with_notes(
-                error
-                    .hints
-                    .iter()
-                    .map(|e| (eco_format!("hint: {e}")).into())
-                    .collect(),
-            )
-            .with_labels(vec![Label::primary(error.span.id(), error.span.range(world))]);
+    for diagnostic in warnings.iter().chain(errors) {
+        let diag = match diagnostic.severity {
+            Severity::Error => Diagnostic::error(),
+            Severity::Warning => Diagnostic::warning(),
+        }
+        .with_message(diagnostic.message.clone())
+        .with_notes(
+            diagnostic
+                .hints
+                .iter()
+                .map(|e| (eco_format!("hint: {e}")).into())
+                .collect(),
+        )
+        .with_labels(label(world, diagnostic.span).into_iter().collect());
 
         term::emit(&mut w, &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
-        for point in error.trace {
+        for point in &diagnostic.trace {
             let message = point.v.to_string();
-            let help = Diagnostic::help().with_message(message).with_labels(vec![
-                Label::primary(point.span.id(), point.span.range(world)),
-            ]);
+            let help = Diagnostic::help()
+                .with_message(message)
+                .with_labels(label(world, point.span).into_iter().collect());
 
             term::emit(&mut w, &config, world, &help)?;
         }
@@ -186,13 +253,30 @@ fn print_diagnostics(
     Ok(())
 }
 
+/// Create a label for a span.
+fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
+    Some(Label::primary(span.id()?, world.range(span)?))
+}
+
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
     type FileId = FileId;
-    type Name = FileId;
+    type Name = String;
     type Source = Source;
 
     fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
-        Ok(id)
+        let vpath = id.vpath();
+        Ok(if let Some(package) = id.package() {
+            format!("{package}{}", vpath.as_rooted_path().display())
+        } else {
+            // Try to express the path relative to the working directory.
+            vpath
+                .resolve(self.root())
+                .and_then(|abs| pathdiff::diff_paths(&abs, self.workdir()))
+                .as_deref()
+                .unwrap_or_else(|| vpath.as_rootless_path())
+                .to_string_lossy()
+                .into()
+        })
     }
 
     fn source(&'a self, id: FileId) -> CodespanResult<Self::Source> {

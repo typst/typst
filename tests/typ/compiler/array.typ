@@ -71,7 +71,7 @@
 
 ---
 // Test bad lvalue.
-// Error: 2:3-2:15 type array has no method `yolo`
+// Error: 2:9-2:13 type array has no method `yolo`
 #let array = (1, 2, 3)
 #(array.yolo() = 4)
 
@@ -122,7 +122,7 @@
 }
 
 ---
-// Error: 2:16-2:18 missing argument: index
+// Error: 2:2-2:18 missing argument: index
 #let numbers = ()
 #numbers.insert()
 
@@ -217,6 +217,13 @@
 #([One], [Two], [Three]).join([, ], last: [ and ]).
 
 ---
+// Test the `intersperse` method
+#test(().intersperse("a"), ())
+#test((1,).intersperse("a"), (1,))
+#test((1, 2).intersperse("a"), (1, "a", 2))
+#test((1, 2, "b").intersperse("a"), (1, "a", 2, "a", "b"))
+
+---
 // Test the `sorted` method.
 #test(().sorted(), ())
 #test(().sorted(key: x => x), ())
@@ -237,7 +244,34 @@
 #test((1, 2, 3, 4).zip((5, 6)), ((1, 5), (2, 6)))
 #test(((1, 2), 3).zip((4, 5)), (((1, 2), 4), (3, 5)))
 #test((1, "hi").zip((true, false)), ((1, true), ("hi", false)))
+#test((1, 2, 3).zip((3, 4, 5), (6, 7, 8)), ((1, 3, 6), (2, 4, 7), (3, 5, 8)))
+#test(().zip((), ()), ())
+#test((1,).zip((2,), (3,)), ((1, 2, 3),))
 
+---
+// Test the `enumerate` method.
+#test(().enumerate(), ())
+#test(().enumerate(start: 5), ())
+#test(("a", "b", "c").enumerate(), ((0, "a"), (1, "b"), (2, "c")))
+#test(("a", "b", "c").enumerate(start: 1), ((1, "a"), (2, "b"), (3, "c")))
+#test(("a", "b", "c").enumerate(start: 42), ((42, "a"), (43, "b"), (44, "c")))
+#test(("a", "b", "c").enumerate(start: -7), ((-7, "a"), (-6, "b"), (-5, "c")))
+
+---
+// Test the `dedup` method.
+#test(().dedup(), ())
+#test((1,).dedup(), (1,))
+#test((1, 1).dedup(), (1,))
+#test((1, 2, 1).dedup(), (1, 2))
+#test(("Jane", "John", "Eric").dedup(), ("Jane", "John", "Eric"))
+#test(("Jane", "John", "Eric", "John").dedup(), ("Jane", "John", "Eric"))
+
+---
+// Test the `dedup` with the `key` argument.
+#test((1, 2, 3, 4, 5, 6).dedup(key: x => calc.rem(x, 2)), (1, 2))
+#test((1, 2, 3, 4, 5, 6).dedup(key: x => calc.rem(x, 3)), (1, 2, 3))
+#test(("Hello", "World", "Hi", "There").dedup(key: x => x.len()), ("Hello", "Hi"))
+#test(("Hello", "World", "Hi", "There").dedup(key: x => x.at(0)), ("Hello", "World", "There"))
 
 ---
 // Error: 32-37 cannot divide by zero

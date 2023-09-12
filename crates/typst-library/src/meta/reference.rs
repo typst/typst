@@ -1,4 +1,5 @@
 use super::{BibliographyElem, CiteElem, Counter, Figurable, Numbering};
+use crate::math::EquationElem;
 use crate::meta::FootnoteElem;
 use crate::prelude::*;
 use crate::text::TextElem;
@@ -8,20 +9,19 @@ use crate::text::TextElem;
 /// Produces a textual reference to a label. For example, a reference to a
 /// heading will yield an appropriate string such as "Section 1" for a reference
 /// to the first heading. The references are also links to the respective
-/// element. Reference syntax can also be used to [cite]($func/cite) from a
+/// element. Reference syntax can also be used to [cite]($cite) from a
 /// bibliography.
 ///
-/// Referenceable elements include [headings]($func/heading),
-/// [figures]($func/figure), [equations]($func/math.equation), and
-/// [footnotes]($func/footnote). To create a custom referenceable element like a
-/// theorem, you can create a figure of a custom [`kind`]($func/figure.kind) and
-/// write a show rule for it. In the future, there might be a more direct way to
-/// define a custom referenceable element.
+/// Referenceable elements include [headings]($heading), [figures]($figure),
+/// [equations]($math.equation), and [footnotes]($footnote). To create a custom
+/// referenceable element like a theorem, you can create a figure of a custom
+/// [`kind`]($figure.kind) and write a show rule for it. In the future, there
+/// might be a more direct way to define a custom referenceable element.
 ///
 /// If you just want to link to a labelled element and not get an automatic
-/// textual reference, consider using the [`link`]($func/link) function instead.
+/// textual reference, consider using the [`link`]($link) function instead.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set heading(numbering: "1.")
 /// #set math.equation(numbering: "(1)")
@@ -45,7 +45,7 @@ use crate::text::TextElem;
 /// #bibliography("works.bib")
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: A reference to a label can be
 /// created by typing an `@` followed by the name of the label (e.g.
 /// `[= Introduction <intro>]` can be referenced by typing `[@intro]`).
@@ -53,7 +53,7 @@ use crate::text::TextElem;
 /// To customize the supplement, add content in square brackets after the
 /// reference: `[@intro[Chapter]]`.
 ///
-/// ## Customization { #customization }
+/// # Customization
 /// If you write a show rule for references, you can access the referenced
 /// element through the `element` field of the reference. The `element` may
 /// be `{none}` even if it exists if Typst hasn't discovered it yet, so you
@@ -82,10 +82,7 @@ use crate::text::TextElem;
 /// In @beginning we prove @pythagoras.
 /// $ a^2 + b^2 = c^2 $ <pythagoras>
 /// ```
-///
-/// Display: Reference
-/// Category: meta
-#[element(Synthesize, Locatable, Show)]
+#[elem(title = "Reference", Synthesize, Locatable, Show)]
 pub struct RefElem {
     /// The target label that should be referenced.
     #[required]
@@ -162,7 +159,7 @@ impl Show for RefElem {
 
             let elem = elem.at(span)?;
 
-            if elem.func() == FootnoteElem::func() {
+            if elem.func() == FootnoteElem::elem() {
                 return Ok(FootnoteElem::with_label(target).pack().spanned(span));
             }
 
@@ -189,8 +186,13 @@ impl Show for RefElem {
                     )
                 })
                 .hint(eco_format!(
-                    "you can enable heading numbering with `#set {}(numbering: \"1.\")`",
-                    elem.func().name()
+                    "you can enable {} numbering with `#set {}(numbering: \"1.\")`",
+                    elem.func().name(),
+                    if elem.func() == EquationElem::elem() {
+                        "math.equation"
+                    } else {
+                        elem.func().name()
+                    }
                 ))
                 .at(span)?;
 

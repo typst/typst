@@ -78,7 +78,7 @@ Another text.
 = Heading
 
 ---
-// Error: 25-29 content does not contain field "page" and no default value was specified
+// Error: 25-29 content does not contain field "page"
 #show heading: it => it.page
 = Heading
 
@@ -96,7 +96,7 @@ Hey
 = Heading
 
 ---
-// Error: 7-10 expected function, label, string, regular expression, symbol, or selector, found color
+// Error: 7-10 expected symbol, string, label, function, regex, or selector, found color
 #show red: []
 
 ---

@@ -10,6 +10,8 @@ use crate::prelude::*;
 
 /// Hook up all symbol definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.define("sym", sym());
-    global.define("emoji", emoji());
+    global.category("symbols");
+    global.define_type::<Symbol>();
+    global.define_module(sym());
+    global.define_module(emoji());
 }

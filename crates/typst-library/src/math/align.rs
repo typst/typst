@@ -1,10 +1,7 @@
 use super::*;
 
 /// A math alignment point: `&`, `&&`.
-///
-/// Display: Alignment Point
-/// Category: math
-#[element(LayoutMath)]
+#[elem(title = "Alignment Point", LayoutMath)]
 pub struct AlignPointElem {}
 
 impl LayoutMath for AlignPointElem {

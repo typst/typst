@@ -9,7 +9,10 @@ use crate::text::TextElem;
 /// height on the page. The columns function can break across pages if
 /// necessary.
 ///
-/// ## Example { #example }
+/// If you need to insert columns across your whole document, you can use the
+/// [`{page}` function's `columns` parameter]($page.columns) instead.
+///
+/// # Example
 /// ```example
 /// = Towards Advanced Deep Learning
 ///
@@ -29,10 +32,7 @@ use crate::text::TextElem;
 /// increasingly been used to solve a
 /// variety of problems.
 /// ```
-///
-/// Display: Columns
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct ColumnsElem {
     /// The number of columns.
     #[positional]
@@ -129,11 +129,11 @@ impl Layout for ColumnsElem {
 
 /// Forces a column break.
 ///
-/// The function will behave like a [page break]($func/pagebreak) when used in a
+/// The function will behave like a [page break]($pagebreak) when used in a
 /// single column layout or the last column on a page. Otherwise, content after
 /// the column break will be placed in the next column.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set page(columns: 2)
 /// Preliminary findings from our
@@ -150,10 +150,7 @@ impl Layout for ColumnsElem {
 /// understanding of the fundamental
 /// laws of nature.
 /// ```
-///
-/// Display: Column Break
-/// Category: layout
-#[element(Behave)]
+#[elem(title = "Column Break", Behave)]
 pub struct ColbreakElem {
     /// If `{true}`, the column break is skipped if the current column is
     /// already empty.

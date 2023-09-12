@@ -16,7 +16,7 @@ use crate::text::Case;
 /// number is substituted, their prefixes, and one suffix. The prefixes and the
 /// suffix are repeated as-is.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #numbering("1.1)", 1, 2, 3) \
 /// #numbering("1.a.i", 1, 2) \
@@ -29,11 +29,10 @@ use crate::text::Case;
 ///   1, 2, 3,
 /// )
 /// ```
-///
-/// Display: Numbering
-/// Category: meta
 #[func]
 pub fn numbering(
+    /// The virtual machine.
+    vm: &mut Vm,
     /// Defines how the numbering works.
     ///
     /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `い`, `イ`, `א`, `가`,
@@ -64,8 +63,6 @@ pub fn numbering(
     /// given, the last counting symbol with its prefix is repeated.
     #[variadic]
     numbers: Vec<usize>,
-    /// The virtual machine.
-    vm: &mut Vm,
 ) -> SourceResult<Value> {
     numbering.apply_vm(vm, &numbers)
 }

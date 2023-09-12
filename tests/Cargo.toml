@@ -10,6 +10,7 @@ publish = false
 typst = { path = "../crates/typst" }
 typst-library = { path = "../crates/typst-library" }
 comemo = "0.3"
+ecow = { version = "0.1.2", features = ["serde"] }
 iai = { git = "https://github.com/reknih/iai" }
 once_cell = "1"
 oxipng = { version = "8.0.0", default-features = false, features = ["filetime", "parallel", "zopfli"] }

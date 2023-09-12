@@ -8,7 +8,8 @@ use hayagriva::io::{BibLaTeXError, YamlBibliographyError};
 use hayagriva::style::{self, Brackets, Citation, Database, DisplayString, Formatting};
 use hayagriva::Entry;
 use typst::diag::FileError;
-use typst::util::{option_eq, Bytes};
+use typst::eval::Bytes;
+use typst::util::option_eq;
 
 use super::{LinkElem, LocalName, RefElem};
 use crate::layout::{BlockElem, GridElem, ParElem, Sizing, TrackSizings, VElem};
@@ -29,8 +30,8 @@ use crate::text::TextElem;
 ///
 /// As soon as you add a bibliography somewhere in your document, you can start
 /// citing things with reference syntax (`[@key]`) or explicit calls to the
-/// [citation]($func/cite) function (`[#cite("key")]`). The bibliography will
-/// only show entries for works that were referenced in the document.
+/// [citation]($cite) function (`[#cite("key")]`). The bibliography will only
+/// show entries for works that were referenced in the document.
 ///
 /// # Example
 /// ```example
@@ -42,10 +43,7 @@ use crate::text::TextElem;
 ///
 /// #bibliography("works.bib")
 /// ```
-///
-/// Display: Bibliography
-/// Category: meta
-#[element(Locatable, Synthesize, Show, Finalize, LocalName)]
+#[elem(Locatable, Synthesize, Show, Finalize, LocalName)]
 pub struct BibliographyElem {
     /// Path to a Hayagriva `.yml` or BibLaTeX `.bib` file.
     #[required]
@@ -57,7 +55,7 @@ pub struct BibliographyElem {
         let data = paths.0
             .iter()
             .map(|path| {
-                let id = vm.location().join(path).at(span)?;
+                let id = vm.resolve_path(path).at(span)?;
                 vm.world().file(id).at(span)
             })
             .collect::<SourceResult<Vec<Bytes>>>()?;
@@ -77,8 +75,8 @@ pub struct BibliographyElem {
 
     /// The title of the bibliography.
     ///
-    /// - When set to `{auto}`, an appropriate title for the [text
-    ///   language]($func/text.lang) will be used. This is the default.
+    /// - When set to `{auto}`, an appropriate title for the
+    ///   [text language]($text.lang) will be used. This is the default.
     /// - When set to `{none}`, the bibliography will not have a title.
     /// - A custom title can be set by passing content.
     ///
@@ -108,7 +106,7 @@ cast! {
 impl BibliographyElem {
     /// Find the document's bibliography.
     pub fn find(introspector: Tracked<Introspector>) -> StrResult<Self> {
-        let mut iter = introspector.query(&Self::func().select()).into_iter();
+        let mut iter = introspector.query(&Self::elem().select()).into_iter();
         let Some(elem) = iter.next() else {
             bail!("the document does not contain a bibliography");
         };
@@ -123,7 +121,7 @@ impl BibliographyElem {
     /// Whether the bibliography contains the given key.
     pub fn has(vt: &Vt, key: &str) -> bool {
         vt.introspector
-            .query(&Self::func().select())
+            .query(&Self::elem().select())
             .into_iter()
             .flat_map(|elem| {
                 let elem = elem.to::<Self>().unwrap();
@@ -233,6 +231,7 @@ impl LocalName for BibliographyElem {
             Lang::DANISH => "Bibliografi",
             Lang::DUTCH => "Bibliografie",
             Lang::FILIPINO => "Bibliograpiya",
+            Lang::FINNISH => "Viitteet",
             Lang::FRENCH => "Bibliographie",
             Lang::GERMAN => "Bibliographie",
             Lang::ITALIAN => "Bibliografia",
@@ -287,8 +286,8 @@ impl BibliographyStyle {
 
 /// Cite a work from the bibliography.
 ///
-/// Before you starting citing, you need to add a
-/// [bibliography]($func/bibliography) somewhere in your document.
+/// Before you starting citing, you need to add a [bibliography]($bibliography)
+/// somewhere in your document.
 ///
 /// # Example
 /// ```example
@@ -302,13 +301,10 @@ impl BibliographyStyle {
 /// ```
 ///
 /// # Syntax
-/// This function indirectly has dedicated syntax. [References]($func/ref)
-/// can be used to cite works from the bibliography. The label then
-/// corresponds to the citation key.
-///
-/// Display: Citation
-/// Category: meta
-#[element(Locatable, Synthesize, Show)]
+/// This function indirectly has dedicated syntax. [References]($ref) can be
+/// used to cite works from the bibliography. The label then corresponds to the
+/// citation key.
+#[elem(Locatable, Synthesize, Show)]
 pub struct CiteElem {
     /// The citation keys that identify the elements that shall be cited in
     /// the bibliography.
@@ -327,7 +323,6 @@ pub struct CiteElem {
     ///
     /// #bibliography("works.bib")
     /// ```
-    #[positional]
     pub supplement: Option<Content>,
 
     /// Whether the citation should include brackets.
@@ -433,8 +428,8 @@ impl Works {
         let citations = vt
             .introspector
             .query(&Selector::Or(eco_vec![
-                RefElem::func().select(),
-                CiteElem::func().select(),
+                RefElem::elem().select(),
+                CiteElem::elem().select(),
             ]))
             .into_iter()
             .map(|elem| match elem.to::<RefElem>() {
@@ -605,7 +600,7 @@ fn load(paths: &BibPaths, data: &[Bytes]) -> StrResult<EcoVec<hayagriva::Entry>>
 
     // We might have multiple bib/yaml files
     for (path, bytes) in paths.0.iter().zip(data) {
-        let src = std::str::from_utf8(bytes).map_err(|_| FileError::InvalidUtf8)?;
+        let src = std::str::from_utf8(bytes).map_err(FileError::from)?;
         let entries = parse_bib(path, src)?;
         result.extend(entries);
     }
@@ -648,8 +643,8 @@ fn parse_bib(path_str: &str, src: &str) -> StrResult<Vec<hayagriva::Entry>> {
 }
 
 /// Format a Hayagriva loading error.
-fn format_hayagriva_error(error: YamlBibliographyError) -> EcoString {
-    eco_format!("{error}")
+fn format_hayagriva_error(err: YamlBibliographyError) -> EcoString {
+    eco_format!("{err}")
 }
 
 /// Format a BibLaTeX loading error.

@@ -15,6 +15,9 @@
   <a href="https://github.com/typst/typst/blob/main/LICENSE">
     <img alt="Apache-2 License" src="https://img.shields.io/badge/license-Apache%202-brightgreen"/>
   </a>
+  <a href="https://typst.app/jobs/">
+    <img alt="Jobs at Typst" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Ftypst.app%2Fassets%2Fdata%2Fshields.json&query=%24.jobs.text&label=jobs&color=%23A561FF&cacheSeconds=1800">
+  </a>
 </p>
 
 Typst is a new markup-based typesetting system that is designed to be as powerful
@@ -64,7 +67,7 @@ Let's dissect what's going on:
   write a hashtag followed by an expression. We define two variables and a
   recursive function to compute the n-th fibonacci number. Then, we display the
   results in a center-aligned table. The table function takes its cells
-  row-by-row. Therefore, we first pass the formulas `$F_1$` to `$F_10$` and then
+  row-by-row. Therefore, we first pass the formulas `$F_1$` to `$F_8$` and then
   the computed fibonacci numbers. We apply the spreading operator (`..`) to both
   because they are arrays and we want to pass the arrays' items as individual
   arguments.
@@ -112,6 +115,7 @@ Typst's CLI is available from different sources:
   - macOS/Linux: `brew install typst`
   - Arch Linux: `pacman -S typst`
   - Void Linux: `xbps-install typst`
+  - Windows Package Manager: `winget install --id Typst.Typst`
 
 - If you have a [Rust][rust] toolchain installed, you can also install the
   latest development version with
