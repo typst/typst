@@ -100,3 +100,12 @@ We can clearly see that @fig-cylinder and
 #show figure: set block(breakable: true)
 
 #figure(table[a][b][c][d][e], caption: [A table])
+
+---
+// Test custom separator for figure caption
+#set figure.caption(separator: [ --- ])
+
+#figure(
+  table(columns: 2)[a][b],
+  caption: [The table with custom separator.],
+)
