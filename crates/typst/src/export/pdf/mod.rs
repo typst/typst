@@ -15,6 +15,7 @@ use std::num::NonZeroUsize;
 
 use ecow::EcoString;
 use pdf_writer::types::Direction;
+use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 use xmp_writer::{LangId, RenditionClass, XmpWriter};
 
@@ -55,7 +56,6 @@ pub struct PdfContext<'a> {
     page_heights: Vec<f32>,
     alloc: Ref,
     page_tree_ref: Ref,
-    logical_pages: Vec<(NonZeroUsize, Ref)>,
     font_refs: Vec<Ref>,
     image_refs: Vec<Ref>,
     ext_gs_refs: Vec<Ref>,
@@ -86,7 +86,6 @@ impl<'a> PdfContext<'a> {
             alloc,
             page_tree_ref,
             page_refs: vec![],
-            logical_pages: vec![],
             font_refs: vec![],
             image_refs: vec![],
             ext_gs_refs: vec![],
@@ -116,6 +115,9 @@ fn write_catalog(ctx: &mut PdfContext) {
 
     // Write the outline tree.
     let outline_root_id = outline::write_outline(ctx);
+
+    // Write the page labels.
+    let page_labels = write_page_labels(ctx);
 
     // Write the document information.
     let mut info = ctx.writer.document_info(ctx.alloc.bump());
@@ -152,12 +154,11 @@ fn write_catalog(ctx: &mut PdfContext) {
     catalog.viewer_preferences().direction(dir);
     catalog.pair(Name(b"Metadata"), meta_ref);
 
-    // Insert the page labels (either chain the insert or keep the `entries`
-    // reference around).
-    if !ctx.logical_pages.is_empty() {
+    // Insert the page labels.
+    if !page_labels.is_empty() {
         let mut num_tree = catalog.page_labels();
         let mut entries = num_tree.nums();
-        for (n, r) in &ctx.logical_pages {
+        for (n, r) in &page_labels {
             entries.insert(n.get() as i32 - 1, *r);
         }
     }
@@ -169,6 +170,55 @@ fn write_catalog(ctx: &mut PdfContext) {
     if let Some(lang) = lang {
         catalog.lang(TextStr(lang.as_str()));
     }
+}
+
+/// Write the page labels.
+#[tracing::instrument(skip_all)]
+fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
+    let mut result = vec![];
+    let mut prev: Option<&PdfPageLabel> = None;
+
+    for (i, page) in ctx.pages.iter().enumerate() {
+        let nr = NonZeroUsize::new(1 + i).unwrap();
+        let Some(label) = &page.label else { continue };
+
+        // Don't create a label if neither style nor prefix are specified.
+        if label.prefix.is_none() && label.style.is_none() {
+            continue;
+        }
+
+        if let Some(pre) = prev {
+            if label.prefix == pre.prefix
+                && label.style == pre.style
+                && label.offset == pre.offset.map(|n| n.saturating_add(1))
+            {
+                prev = Some(label);
+                continue;
+            }
+        }
+
+        let id = ctx.alloc.bump();
+        let mut entry = ctx.writer.indirect(id).start::<PageLabel>();
+
+        // Only add what is actually provided. Don't add empty prefix string if
+        // it wasn't given for example.
+        if let Some(prefix) = &label.prefix {
+            entry.prefix(TextStr(prefix));
+        }
+
+        if let Some(style) = label.style {
+            entry.style(style.into());
+        }
+
+        if let Some(offset) = label.offset {
+            entry.offset(offset.get() as i32);
+        }
+
+        result.push((nr, id));
+        prev = Some(label);
+    }
+
+    result
 }
 
 /// Compress data with the DEFLATE algorithm.

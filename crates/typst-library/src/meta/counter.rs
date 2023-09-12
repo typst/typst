@@ -233,24 +233,6 @@ impl Counter {
         Ok(CounterState(smallvec![at_state.first(), final_state.first()]))
     }
 
-    /// Calculates the logical page number for the given physical page number.
-    pub fn logical_page_number(
-        vt: &mut Vt,
-        physical_page: NonZeroUsize,
-    ) -> SourceResult<usize> {
-        let counter = Counter(CounterKey::Page);
-        let sequence = counter.sequence(vt)?;
-        let offset = vt
-            .introspector
-            .query_up_to(&counter.selector(), physical_page.saturating_add(1))
-            .len();
-
-        // Get the counter state (and therefore page) closest to the current
-        // physical page.
-        let (state, page) = &sequence[offset];
-        Ok(physical_page.get().saturating_sub(page.get()) + state.first())
-    }
-
     /// Produce the whole sequence of counter states.
     ///
     /// This has to happen just once for all counters, cutting down the number
@@ -286,11 +268,8 @@ impl Counter {
             delayed,
             tracer,
         };
-        let mut state = CounterState(match &self.0 {
-            // special case, because pages always start at one.
-            CounterKey::Page => smallvec![1],
-            _ => smallvec![0],
-        });
+
+        let mut state = CounterState::init(&self.0);
         let mut page = NonZeroUsize::ONE;
         let mut stops = eco_vec![(state.clone(), page)];
 
@@ -561,6 +540,15 @@ pub trait Count {
 pub struct CounterState(pub SmallVec<[usize; 3]>);
 
 impl CounterState {
+    /// Get the initial counter state for the key.
+    pub fn init(key: &CounterKey) -> Self {
+        Self(match key {
+            // special case, because pages always start at one.
+            CounterKey::Page => smallvec![1],
+            _ => smallvec![0],
+        })
+    }
+
     /// Advance the counter and return the numbers for the given heading.
     pub fn update(&mut self, vt: &mut Vt, update: CounterUpdate) -> SourceResult<()> {
         match update {
@@ -660,7 +648,7 @@ impl Show for DisplayElem {
     }
 }
 
-/// Executes a display of a state.
+/// Executes an update of a counter.
 #[elem(Locatable, Show)]
 struct UpdateElem {
     /// The key that identifies the counter.
@@ -676,5 +664,62 @@ impl Show for UpdateElem {
     #[tracing::instrument(name = "UpdateElem::show", skip(self))]
     fn show(&self, _: &mut Vt, _: StyleChain) -> SourceResult<Content> {
         Ok(Content::empty())
+    }
+}
+
+/// An specialized handler of the page counter that tracks both the physical
+/// and the logical page counter.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub struct ManualPageCounter {
+    physical: NonZeroUsize,
+    logical: usize,
+}
+
+impl ManualPageCounter {
+    /// Create a new fast page counter, starting at 1.
+    pub fn new() -> Self {
+        Self { physical: NonZeroUsize::ONE, logical: 1 }
+    }
+
+    /// Get the current physical page counter state.
+    pub fn physical(&self) -> NonZeroUsize {
+        self.physical
+    }
+
+    /// Get the current logical page counter state.
+    pub fn logical(&self) -> usize {
+        self.logical
+    }
+
+    /// Advance past a page.
+    pub fn visit(&mut self, vt: &mut Vt, page: &Frame) -> SourceResult<()> {
+        for (_, item) in page.items() {
+            match item {
+                FrameItem::Group(group) => self.visit(vt, &group.frame)?,
+                FrameItem::Meta(Meta::Elem(elem), _) => {
+                    let Some(elem) = elem.to::<UpdateElem>() else { continue };
+                    if elem.key() == CounterKey::Page {
+                        let mut state = CounterState(smallvec![self.logical]);
+                        state.update(vt, elem.update())?;
+                        self.logical = state.first();
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Step past a page _boundary._
+    pub fn step(&mut self) {
+        self.physical = self.physical.saturating_add(1);
+        self.logical += 1;
+    }
+}
+
+impl Default for ManualPageCounter {
+    fn default() -> Self {
+        Self::new()
     }
 }

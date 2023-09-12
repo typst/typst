@@ -5,8 +5,8 @@ use pdf_writer::types::{
     ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
     NumberingStyle,
 };
-use pdf_writer::writers::{ColorSpace, PageLabel};
-use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str, TextStr};
+use pdf_writer::writers::ColorSpace;
+use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
 use super::extg::ExternalGraphicsState;
 use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
@@ -36,6 +36,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
     let mut ctx = PageContext {
         parent: ctx,
         page_ref,
+        label: None,
         uses_opacities: false,
         content: Content::new(),
         state: State::default(),
@@ -62,10 +63,11 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
 
     let page = Page {
         size,
-        content: ctx.content,
+        content: ctx.content.finish(),
         id: ctx.page_ref,
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
+        label: ctx.label,
     };
 
     ctx.parent.pages.push(page);
@@ -74,8 +76,8 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
 /// Write the page tree.
 #[tracing::instrument(skip_all)]
 pub fn write_page_tree(ctx: &mut PdfContext) {
-    for page in std::mem::take(&mut ctx.pages).into_iter() {
-        write_page(ctx, page);
+    for i in 0..ctx.pages.len() {
+        write_page(ctx, i);
     }
 
     let mut pages = ctx.writer.pages(ctx.page_tree_ref);
@@ -118,7 +120,8 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 
 /// Write a page tree node.
 #[tracing::instrument(skip_all)]
-fn write_page(ctx: &mut PdfContext, page: Page) {
+fn write_page(ctx: &mut PdfContext, i: usize) {
+    let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
 
     let mut page_writer = ctx.writer.page(page.id);
@@ -140,9 +143,9 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
     }
 
     let mut annotations = page_writer.annotations();
-    for (dest, rect) in page.links {
+    for (dest, rect) in &page.links {
         let mut annotation = annotations.push();
-        annotation.subtype(AnnotationType::Link).rect(rect);
+        annotation.subtype(AnnotationType::Link).rect(*rect);
         annotation.border(0.0, 0.0, 0.0, None);
 
         let pos = match dest {
@@ -153,8 +156,8 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
                     .uri(Str(uri.as_bytes()));
                 continue;
             }
-            Destination::Position(pos) => pos,
-            Destination::Location(loc) => ctx.introspector.position(loc),
+            Destination::Position(pos) => *pos,
+            Destination::Location(loc) => ctx.introspector.position(*loc),
         };
 
         let index = pos.page.get() - 1;
@@ -172,8 +175,7 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
     annotations.finish();
     page_writer.finish();
 
-    let data = page.content.finish();
-    let data = deflate(&data);
+    let data = deflate(&page.content);
     ctx.writer.stream(content_id, &data).filter(Filter::FlateDecode);
 }
 
@@ -184,17 +186,20 @@ pub struct Page {
     /// The page's dimensions.
     pub size: Size,
     /// The page's content stream.
-    pub content: Content,
+    pub content: Vec<u8>,
     /// Whether the page uses opacities.
     pub uses_opacities: bool,
     /// Links in the PDF coordinate system.
     pub links: Vec<(Destination, Rect)>,
+    /// The page's PDF label.
+    pub label: Option<PdfPageLabel>,
 }
 
 /// An exporter for the contents of a single PDF page.
 struct PageContext<'a, 'b> {
     parent: &'a mut PdfContext<'b>,
     page_ref: Ref,
+    label: Option<PdfPageLabel>,
     content: Content,
     state: State,
     saves: Vec<State>,
@@ -401,9 +406,7 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
                 Meta::Elem(_) => {}
                 Meta::Hide => {}
                 Meta::PageNumbering(_) => {}
-                Meta::PdfPageLabel(label, number) => {
-                    write_page_label(ctx, label, *number)
-                }
+                Meta::PdfPageLabel(label) => ctx.label = Some(label.clone()),
             },
         }
     }
@@ -616,31 +619,6 @@ fn write_link(ctx: &mut PageContext, pos: Point, dest: &Destination, size: Size)
     let rect = Rect::new(x1, y1, x2, y2);
 
     ctx.links.push((dest.clone(), rect));
-}
-
-/// Encode a page label into the [`PdfContext`].
-fn write_page_label(ctx: &mut PageContext, label: &PdfPageLabel, number: NonZeroUsize) {
-    let label_ref = ctx.parent.alloc.bump();
-    let mut entry = ctx.parent.writer.indirect(label_ref).start::<PageLabel>();
-
-    // Don't create a PageLabel if neither style nor prefix are specified.
-    if label.prefix.is_some() || label.style.is_some() {
-        ctx.parent.logical_pages.push((number, label_ref));
-    }
-
-    // Only add what is actually provided. Don't add empty prefix string if it
-    // wasn't given for example.
-    if let Some(prefix) = &label.prefix {
-        entry.prefix(TextStr(prefix));
-    }
-
-    if let Some(style) = label.style {
-        entry.style(style.into());
-    }
-
-    if let Some(offset) = label.offset {
-        entry.offset(offset.get() as i32);
-    }
 }
 
 impl From<&LineCap> for LineCapStyle {

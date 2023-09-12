@@ -1,4 +1,5 @@
 use crate::layout::{LayoutRoot, PageElem};
+use crate::meta::ManualPageCounter;
 use crate::prelude::*;
 
 /// The root element of a document and its metadata.
@@ -45,7 +46,7 @@ impl LayoutRoot for DocumentElem {
         tracing::info!("Document layout");
 
         let mut pages = vec![];
-        let mut prev_page_label = None;
+        let mut page_counter = ManualPageCounter::new();
 
         for mut child in &self.children() {
             let outer = styles;
@@ -56,8 +57,7 @@ impl LayoutRoot for DocumentElem {
             }
 
             if let Some(page) = child.to::<PageElem>() {
-                let number = NonZeroUsize::ONE.saturating_add(pages.len());
-                let fragment = page.layout(vt, styles, number, &mut prev_page_label)?;
+                let fragment = page.layout(vt, styles, &mut page_counter)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");

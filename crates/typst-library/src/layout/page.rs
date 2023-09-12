@@ -4,7 +4,7 @@ use std::str::FromStr;
 use typst::eval::AutoValue;
 
 use super::{AlignElem, ColumnsElem};
-use crate::meta::{Counter, CounterKey, Numbering, NumberingKind};
+use crate::meta::{Counter, CounterKey, ManualPageCounter, Numbering};
 use crate::prelude::*;
 use crate::text::TextElem;
 
@@ -327,8 +327,7 @@ impl PageElem {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        mut number: NonZeroUsize,
-        prev_page_label: &mut Option<Numbering>,
+        page_counter: &mut ManualPageCounter,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -379,7 +378,10 @@ impl PageElem {
         let mut frames = child.layout(vt, styles, regions)?.into_frames();
 
         // Align the child to the pagebreak's parity.
-        if self.clear_to(styles).is_some_and(|p| !p.matches(number.get())) {
+        if self
+            .clear_to(styles)
+            .is_some_and(|p| !p.matches(page_counter.physical().get()))
+        {
             let size = area.map(Abs::is_finite).select(area, Size::zero());
             frames.insert(0, Frame::new(size));
         }
@@ -390,6 +392,7 @@ impl PageElem {
         let header_ascent = self.header_ascent(styles);
         let footer_descent = self.footer_descent(styles);
         let numbering = self.numbering(styles);
+        let numbering_meta = Meta::PageNumbering(numbering.clone().into_value());
         let number_align = self.number_align(styles);
         let mut header = self.header(styles);
         let mut footer = self.footer(styles);
@@ -419,22 +422,9 @@ impl PageElem {
             footer = footer.or(numbering_marginal);
         }
 
-        let numbering_meta = FrameItem::Meta(
-            Meta::PageNumbering(numbering.clone().into_value()),
-            Size::zero(),
-        );
-
-        let logical_number = Counter::logical_page_number(vt, number)?;
-        let page_label = numbering
-            .as_ref()
-            .map(|numbering| numbering.apply_pdf(logical_number))
-            .unwrap_or_default();
-        let page_label_meta =
-            FrameItem::Meta(Meta::PdfPageLabel(page_label, number), Size::zero());
-
         // Post-process pages.
         for frame in frames.iter_mut() {
-            tracing::info!("Layouting page #{number}");
+            tracing::info!("Layouting page #{}", page_counter.physical());
 
             // The padded width of the page's content without margins.
             let pw = frame.width();
@@ -443,33 +433,14 @@ impl PageElem {
             // Thus, for left-bound pages, we want to swap on even pages and
             // for right-bound pages, we want to swap on odd pages.
             let mut margin = margin;
-            if two_sided && binding.swap(number) {
+            if two_sided && binding.swap(page_counter.physical()) {
                 std::mem::swap(&mut margin.left, &mut margin.right);
             }
 
             // Realize margins.
             frame.set_size(frame.size() + margin.sum_by_axis());
             frame.translate(Point::new(margin.left, margin.top));
-            frame.push(Point::zero(), numbering_meta.clone());
-
-            // Realize page label if there is a numbering & check for uniqueness
-            // unless it doesn't match the five styles in the PDF spec.
-            if let Some(num) = &numbering {
-                let matches_spec = |n: &Numbering| {
-                    let Numbering::Pattern(p) = n else { return false };
-                    let Some((_, kind, _)) = p.pieces.first() else { return false };
-                    matches!(
-                        kind,
-                        NumberingKind::Arabic
-                            | NumberingKind::Letter
-                            | NumberingKind::Roman
-                    ) && p.suffix.is_empty()
-                };
-                if !matches_spec(num) || *prev_page_label != numbering {
-                    frame.push(Point::zero(), page_label_meta.clone());
-                }
-            }
-            *prev_page_label = numbering.clone();
+            frame.push_positionless_meta(numbering_meta.clone());
 
             // The page size with margins.
             let size = frame.size();
@@ -520,7 +491,16 @@ impl PageElem {
                 frame.fill(fill.clone());
             }
 
-            number = number.saturating_add(1);
+            page_counter.visit(vt, frame)?;
+
+            // Add a PDF page label if there is a numbering.
+            if let Some(num) = &numbering {
+                if let Some(page_label) = num.apply_pdf(page_counter.logical()) {
+                    frame.push_positionless_meta(Meta::PdfPageLabel(page_label));
+                }
+            }
+
+            page_counter.step();
         }
 
         Ok(Fragment::frames(frames))

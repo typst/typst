@@ -144,6 +144,11 @@ impl Frame {
         }
     }
 
+    /// Add zero-sized metadata at the origin.
+    pub fn push_positionless_meta(&mut self, meta: Meta) {
+        self.push(Point::zero(), FrameItem::Meta(meta, Size::zero()));
+    }
+
     /// Insert an item at the given layer in the frame.
     ///
     /// This panics if the layer is greater than the number of layers present.
@@ -670,7 +675,7 @@ pub enum Meta {
     /// The numbering of the current page.
     PageNumbering(Value),
     /// A PDF page label of the current page.
-    PdfPageLabel(PdfPageLabel, NonZeroUsize),
+    PdfPageLabel(PdfPageLabel),
     /// Indicates that content should be hidden. This variant doesn't appear
     /// in the final frames as it is removed alongside the content that should
     /// be hidden.
@@ -687,7 +692,7 @@ impl Debug for Meta {
             Self::Link(dest) => write!(f, "Link({dest:?})"),
             Self::Elem(content) => write!(f, "Elem({:?})", content.func()),
             Self::PageNumbering(value) => write!(f, "PageNumbering({value:?})"),
-            Self::PdfPageLabel(label, num) => write!(f, "PdfPageLabel({label:?}, {num})"),
+            Self::PdfPageLabel(label) => write!(f, "PdfPageLabel({label:?})"),
             Self::Hide => f.pad("Hide"),
         }
     }
