@@ -427,7 +427,7 @@ impl PageElem {
         let logical_number = Counter::logical_page_number(vt, number)?;
         let page_label = numbering
             .as_ref()
-            .map(|numbering| numbering.apply_pdf(vt, logical_number))
+            .map(|numbering| numbering.apply_pdf(logical_number))
             .unwrap_or_default();
         let page_label_meta =
             FrameItem::Meta(Meta::PdfPageLabel(page_label, number), Size::zero());
