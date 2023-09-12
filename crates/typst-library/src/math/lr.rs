@@ -7,16 +7,7 @@ pub(super) const DELIM_SHORT_FALL: Em = Em::new(0.1);
 ///
 /// While matched delimiters scale by default, this can be used to scale
 /// unmatched delimiters and to control the delimiter scaling more precisely.
-///
-/// ## Example { #example }
-/// ```example
-/// $ lr(]a, b/2]) $
-/// $ lr(]sum_(x=1)^n] x, size: #50%) $
-/// ```
-///
-/// Display: Left/Right
-/// Category: math
-#[element(LayoutMath)]
+#[elem(title = "Left/Right", LayoutMath)]
 pub struct LrElem {
     /// The size of the brackets, relative to the height of the wrapped content.
     pub size: Smart<Rel<Length>>,
@@ -107,13 +98,9 @@ fn scale(
 
 /// Floors an expression.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ floor(x/2) $
 /// ```
-///
-/// Display: Floor
-/// Category: math
 #[func]
 pub fn floor(
     /// The expression to floor.
@@ -124,13 +111,9 @@ pub fn floor(
 
 /// Ceils an expression.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ ceil(x/2) $
 /// ```
-///
-/// Display: Ceil
-/// Category: math
 #[func]
 pub fn ceil(
     /// The expression to ceil.
@@ -141,13 +124,9 @@ pub fn ceil(
 
 /// Rounds an expression.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ round(x/2) $
 /// ```
-///
-/// Display: Round
-/// Category: math
 #[func]
 pub fn round(
     /// The expression to round.
@@ -158,14 +137,9 @@ pub fn round(
 
 /// Takes the absolute value of an expression.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ abs(x/2) $
 /// ```
-///
-///
-/// Display: Abs
-/// Category: math
 #[func]
 pub fn abs(
     /// The expression to take the absolute value of.
@@ -176,13 +150,9 @@ pub fn abs(
 
 /// Takes the norm of an expression.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ norm(x/2) $
 /// ```
-///
-/// Display: Norm
-/// Category: math
 #[func]
 pub fn norm(
     /// The expression to take the norm of.

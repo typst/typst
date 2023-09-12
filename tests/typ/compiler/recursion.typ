@@ -23,13 +23,13 @@
 // Test capturing with named function.
 #let f = 10
 #let f() = f
-#test(type(f()), "function")
+#test(type(f()), function)
 
 ---
 // Test capturing with unnamed function.
 #let f = 10
 #let f = () => f
-#test(type(f()), "integer")
+#test(type(f()), int)
 
 ---
 // Error: 15-21 maximum function call depth exceeded

@@ -11,7 +11,7 @@ use crate::prelude::*;
 /// elements into a paragraph. Boxes take the size of their contents by default
 /// but can also be sized explicitly.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// Refer to the docs
 /// #box(
@@ -20,15 +20,12 @@ use crate::prelude::*;
 /// )
 /// for more information.
 /// ```
-///
-/// Display: Box
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct BoxElem {
     /// The width of the box.
     ///
-    /// Boxes can have [fractional]($type/fraction) widths, as the example
-    /// below demonstrates.
+    /// Boxes can have [fractional]($fraction) widths, as the example below
+    /// demonstrates.
     ///
     /// _Note:_ Currently, only boxes and only their widths might be fractionally
     /// sized within paragraphs. Support for fractionally sized images, shapes,
@@ -51,23 +48,29 @@ pub struct BoxElem {
     pub baseline: Rel<Length>,
 
     /// The box's background color. See the
-    /// [rectangle's documentation]($func/rect.fill) for more details.
+    /// [rectangle's documentation]($rect.fill) for more details.
     pub fill: Option<Paint>,
 
     /// The box's border color. See the
-    /// [rectangle's documentation]($func/rect.stroke) for more details.
+    /// [rectangle's documentation]($rect.stroke) for more details.
     #[resolve]
     #[fold]
-    pub stroke: Sides<Option<Option<PartialStroke>>>,
+    pub stroke: Sides<Option<Option<Stroke>>>,
 
-    /// How much to round the box's corners. See the [rectangle's
-    /// documentation]($func/rect.radius) for more details.
+    /// How much to round the box's corners. See the
+    /// [rectangle's documentation]($rect.radius) for more details.
     #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
-    /// How much to pad the box's content. See the [rectangle's
-    /// documentation]($func/rect.inset) for more details.
+    /// How much to pad the box's content.
+    ///
+    /// _Note:_ When the box contains text, its exact size depends on the
+    /// current [text edges]($text.top-edge).
+    ///
+    /// ```example
+    /// #rect(inset: 0pt)[Tight]
+    /// ```
     #[resolve]
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
@@ -76,7 +79,7 @@ pub struct BoxElem {
     ///
     /// This is useful to prevent padding from affecting line layout. For a
     /// generalized version of the example below, see the documentation for the
-    /// [raw text's block parameter]($func/raw.block).
+    /// [raw text's block parameter]($raw.block).
     ///
     /// ```example
     /// An inline
@@ -119,8 +122,7 @@ impl Layout for BoxElem {
         let expand = sizing.as_ref().map(Smart::is_custom);
         let size = sizing
             .resolve(styles)
-            .zip(regions.base())
-            .map(|(s, b)| s.map(|v| v.relative_to(b)))
+            .zip_map(regions.base(), |s, b| s.map(|v| v.relative_to(b)))
             .unwrap_or(regions.base());
 
         // Apply inset.
@@ -151,7 +153,7 @@ impl Layout for BoxElem {
 
         // Prepare fill and stroke.
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
+        let stroke = self.stroke(styles).map(|s| s.map(Stroke::unwrap_or_default));
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {
@@ -172,7 +174,7 @@ impl Layout for BoxElem {
 /// Such a container can be used to separate content, size it, and give it a
 /// background or border.
 ///
-/// ## Examples { #examples }
+/// # Examples
 /// With a block, you can give a background to content while still allowing it
 /// to break across multiple pages.
 /// ```example
@@ -196,10 +198,7 @@ impl Layout for BoxElem {
 /// = Blocky
 /// More text.
 /// ```
-///
-/// Display: Block
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct BlockElem {
     /// The block's width.
     ///
@@ -215,7 +214,7 @@ pub struct BlockElem {
     pub width: Smart<Rel<Length>>,
 
     /// The block's height. When the height is larger than the remaining space
-    /// on a page and [`breakable`]($func/block.breakable) is `{true}`, the
+    /// on a page and [`breakable`]($block.breakable) is `{true}`, the
     /// block will continue on the next page with the remaining height.
     ///
     /// ```example
@@ -244,29 +243,29 @@ pub struct BlockElem {
     pub breakable: bool,
 
     /// The block's background color. See the
-    /// [rectangle's documentation]($func/rect.fill) for more details.
+    /// [rectangle's documentation]($rect.fill) for more details.
     pub fill: Option<Paint>,
 
     /// The block's border color. See the
-    /// [rectangle's documentation]($func/rect.stroke) for more details.
+    /// [rectangle's documentation]($rect.stroke) for more details.
     #[resolve]
     #[fold]
-    pub stroke: Sides<Option<Option<PartialStroke>>>,
+    pub stroke: Sides<Option<Option<Stroke>>>,
 
-    /// How much to round the block's corners. See the [rectangle's
-    /// documentation]($func/rect.radius) for more details.
+    /// How much to round the block's corners. See the
+    /// [rectangle's documentation]($rect.radius) for more details.
     #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
-    /// How much to pad the block's content. See the [rectangle's
-    /// documentation]($func/rect.inset) for more details.
+    /// How much to pad the block's content. See the
+    /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the block's size without affecting the layout. See
-    /// the [rectangle's documentation]($func/rect.outset) for more details.
+    /// the [box's documentation]($box.outset) for more details.
     #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
@@ -352,8 +351,7 @@ impl Layout for BlockElem {
         let mut expand = sizing.as_ref().map(Smart::is_custom);
         let mut size = sizing
             .resolve(styles)
-            .zip(regions.base())
-            .map(|(s, b)| s.map(|v| v.relative_to(b)))
+            .zip_map(regions.base(), |s, b| s.map(|v| v.relative_to(b)))
             .unwrap_or(regions.base());
 
         // Layout the child.
@@ -418,7 +416,7 @@ impl Layout for BlockElem {
 
         // Prepare fill and stroke.
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(|s| s.map(PartialStroke::unwrap_or_default));
+        let stroke = self.stroke(styles).map(|s| s.map(Stroke::unwrap_or_default));
 
         // Add fill and/or stroke.
         if fill.is_some() || stroke.iter().any(Option::is_some) {

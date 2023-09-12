@@ -2,13 +2,9 @@ use super::*;
 
 /// Bold font style in math.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ bold(A) := B^+ $
 /// ```
-///
-/// Display: Bold
-/// Category: math
 #[func]
 pub fn bold(
     /// The content to style.
@@ -19,13 +15,9 @@ pub fn bold(
 
 /// Upright (non-italic) font style in math.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ upright(A) != A $
 /// ```
-///
-/// Display: Upright
-/// Category: math
 #[func]
 pub fn upright(
     /// The content to style.
@@ -37,9 +29,6 @@ pub fn upright(
 /// Italic font style in math.
 ///
 /// For roman letters and greek lowercase letters, this is already the default.
-///
-/// Display: Italic
-/// Category: math
 #[func]
 pub fn italic(
     /// The content to style.
@@ -50,9 +39,6 @@ pub fn italic(
 /// Serif (roman) font style in math.
 ///
 /// This is already the default.
-///
-/// Display: Serif
-/// Category: math
 #[func]
 pub fn serif(
     /// The content to style.
@@ -63,14 +49,10 @@ pub fn serif(
 
 /// Sans-serif font style in math.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ sans(A B C) $
 /// ```
-///
-/// Display: Sans-serif
-/// Category: math
-#[func]
+#[func(title = "Sans Serif")]
 pub fn sans(
     /// The content to style.
     body: Content,
@@ -80,14 +62,10 @@ pub fn sans(
 
 /// Calligraphic font style in math.
 ///
-/// ## Example { #example }
 /// ```example
 /// Let $cal(P)$ be the set of ...
 /// ```
-///
-/// Display: Calligraphic
-/// Category: math
-#[func]
+#[func(title = "Calligraphic")]
 pub fn cal(
     /// The content to style.
     body: Content,
@@ -97,14 +75,10 @@ pub fn cal(
 
 /// Fraktur font style in math.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ frak(P) $
 /// ```
-///
-/// Display: Fraktur
-/// Category: math
-#[func]
+#[func(title = "Fraktur")]
 pub fn frak(
     /// The content to style.
     body: Content,
@@ -114,14 +88,10 @@ pub fn frak(
 
 /// Monospace font style in math.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ mono(x + y = z) $
 /// ```
-///
-/// Display: Monospace
-/// Category: math
-#[func]
+#[func(title = "Monospace")]
 pub fn mono(
     /// The content to style.
     body: Content,
@@ -134,16 +104,12 @@ pub fn mono(
 /// For uppercase latin letters, blackboard bold is additionally available
 /// through [symbols]($category/symbols/sym) of the form `NN` and `RR`.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ bb(b) $
 /// $ bb(N) = NN $
 /// $ f: NN -> RR $
 /// ```
-///
-/// Display: Blackboard Bold
-/// Category: math
-#[func]
+#[func(title = "Blackboard Bold")]
 pub fn bb(
     /// The content to style.
     body: Content,
@@ -155,14 +121,10 @@ pub fn bb(
 ///
 /// This is the normal size for block equations.
 ///
-/// ## Example { #example }
 /// ```example
 /// $sum_i x_i/2 = display(sum_i x_i/2)$
 /// ```
-///
-/// Display: Display Size
-/// Category: math
-#[func]
+#[func(title = "Display Size")]
 pub fn display(
     /// The content to size.
     body: Content,
@@ -182,15 +144,11 @@ pub fn display(
 ///
 /// This is the normal size for inline equations.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ sum_i x_i/2
 ///     = inline(sum_i x_i/2) $
 /// ```
-///
-/// Display: Inline Size
-/// Category: math
-#[func]
+#[func(title = "Inline Size")]
 pub fn inline(
     /// The content to size.
     body: Content,
@@ -210,14 +168,10 @@ pub fn inline(
 ///
 /// This is the smaller size used in powers or sub- or superscripts.
 ///
-/// ## Example { #example }
 /// ```example
 /// $sum_i x_i/2 = script(sum_i x_i/2)$
 /// ```
-///
-/// Display: Script Size
-/// Category: math
-#[func]
+#[func(title = "Script Size")]
 pub fn script(
     /// The content to size.
     body: Content,
@@ -238,14 +192,10 @@ pub fn script(
 /// This is the smallest size, used in second-level sub- and superscripts
 /// (script of the script).
 ///
-/// ## Example { #example }
 /// ```example
 /// $sum_i x_i/2 = sscript(sum_i x_i/2)$
 /// ```
-///
-/// Display: Script-Script Size
-/// Category: math
-#[func]
+#[func(title = "Script-Script Size")]
 pub fn sscript(
     /// The content to size.
     body: Content,
@@ -262,10 +212,7 @@ pub fn sscript(
 }
 
 /// A font variant in math.
-///
-/// Display: Bold
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct MathStyleElem {
     /// The content to style.
     #[required]

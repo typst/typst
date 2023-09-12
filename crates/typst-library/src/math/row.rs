@@ -121,7 +121,7 @@ impl MathRow {
 
     pub fn into_frame(self, ctx: &MathContext) -> Frame {
         let styles = ctx.styles();
-        let align = AlignElem::alignment_in(styles).x.resolve(styles);
+        let align = AlignElem::alignment_in(styles).resolve(styles).x;
         self.into_aligned_frame(ctx, &[], align)
     }
 
@@ -137,53 +137,54 @@ impl MathRow {
         self,
         ctx: &MathContext,
         points: &[Abs],
-        align: Align,
+        align: FixedAlign,
     ) -> Frame {
-        if self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
-            let leading = if ctx.style.size >= MathSize::Text {
-                ParElem::leading_in(ctx.styles())
-            } else {
-                TIGHT_LEADING.scaled(ctx)
-            };
-
-            let mut rows: Vec<_> = self.rows();
-
-            if matches!(rows.last(), Some(row) if row.0.is_empty()) {
-                rows.pop();
-            }
-
-            let AlignmentResult { points, width } = alignments(&rows);
-            let mut frame = Frame::new(Size::zero());
-
-            for (i, row) in rows.into_iter().enumerate() {
-                let sub = row.into_line_frame(&points, align);
-                let size = frame.size_mut();
-                if i > 0 {
-                    size.y += leading;
-                }
-
-                let mut pos = Point::with_y(size.y);
-                if points.is_empty() {
-                    pos.x = align.position(width - sub.width());
-                }
-                size.y += sub.height();
-                size.x.set_max(sub.width());
-                frame.push_frame(pos, sub);
-            }
-            frame
-        } else {
-            self.into_line_frame(points, align)
+        if !self.iter().any(|frag| matches!(frag, MathFragment::Linebreak)) {
+            return self.into_line_frame(points, align);
         }
+
+        let leading = if ctx.style.size >= MathSize::Text {
+            ParElem::leading_in(ctx.styles())
+        } else {
+            TIGHT_LEADING.scaled(ctx)
+        };
+
+        let mut rows: Vec<_> = self.rows();
+
+        if matches!(rows.last(), Some(row) if row.0.is_empty()) {
+            rows.pop();
+        }
+
+        let AlignmentResult { points, width } = alignments(&rows);
+        let mut frame = Frame::new(Size::zero());
+
+        for (i, row) in rows.into_iter().enumerate() {
+            let sub = row.into_line_frame(&points, align);
+            let size = frame.size_mut();
+            if i > 0 {
+                size.y += leading;
+            }
+
+            let mut pos = Point::with_y(size.y);
+            if points.is_empty() {
+                pos.x = align.position(width - sub.width());
+            }
+            size.y += sub.height();
+            size.x.set_max(sub.width());
+            frame.push_frame(pos, sub);
+        }
+
+        frame
     }
 
-    fn into_line_frame(self, points: &[Abs], align: Align) -> Frame {
+    fn into_line_frame(self, points: &[Abs], align: FixedAlign) -> Frame {
         let ascent = self.ascent();
         let mut frame = Frame::new(Size::new(Abs::zero(), ascent + self.descent()));
         frame.set_baseline(ascent);
 
         let mut next_x = {
             let mut widths = Vec::new();
-            if !points.is_empty() && align != Align::Left {
+            if !points.is_empty() && align != FixedAlign::Start {
                 let mut width = Abs::zero();
                 for fragment in self.iter() {
                     if matches!(fragment, MathFragment::Align) {
@@ -201,8 +202,10 @@ impl MathRow {
             let mut point_widths = points.iter().copied().zip(widths);
             let mut alternator = LeftRightAlternator::Right;
             move || match align {
-                Align::Left => prev_points.next(),
-                Align::Right => point_widths.next().map(|(point, width)| point - width),
+                FixedAlign::Start => prev_points.next(),
+                FixedAlign::End => {
+                    point_widths.next().map(|(point, width)| point - width)
+                }
                 _ => point_widths
                     .next()
                     .zip(prev_points.next())

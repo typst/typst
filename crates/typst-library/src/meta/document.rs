@@ -17,10 +17,7 @@ use crate::prelude::*;
 ///
 /// Note that metadata set with this function is not rendered within the
 /// document. Instead, it is embedded in the compiled PDF file.
-///
-/// Display: Document
-/// Category: meta
-#[element(Construct, LayoutRoot)]
+#[elem(Construct, LayoutRoot)]
 pub struct DocumentElem {
     /// The document's title. This is often rendered as the title of the
     /// PDF viewer window.

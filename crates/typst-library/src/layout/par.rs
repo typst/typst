@@ -16,7 +16,7 @@ use crate::layout::AlignElem;
 use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
-    is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartQuoteElem,
+    is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartquoteElem,
     SpaceElem, TextElem,
 };
 
@@ -26,7 +26,7 @@ use crate::text::{
 /// properties, it can also be used to explicitly render its argument onto a
 /// paragraph of its own.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #show par: set block(spacing: 0.65em)
 /// #set par(
@@ -45,10 +45,7 @@ use crate::text::{
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-///
-/// Display: Paragraph
-/// Category: layout
-#[element(Construct)]
+#[elem(title = "Paragraph", Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     #[resolve]
@@ -57,13 +54,13 @@ pub struct ParElem {
 
     /// Whether to justify text in its line.
     ///
-    /// Hyphenation will be enabled for justified paragraphs if the [text
-    /// property hyphenate]($func/text.hyphenate) is set to `{auto}` and the
-    /// current language is known.
+    /// Hyphenation will be enabled for justified paragraphs if the
+    /// [text function's `hyphenate` property]($text.hyphenate) is set to
+    /// `{auto}` and the current language is known.
     ///
-    /// Note that the current [alignment]($func/align) still has an effect on
-    /// the placement of the last line except if it ends with a [justified line
-    /// break]($func/linebreak.justify).
+    /// Note that the current [alignment]($align) still has an effect on the
+    /// placement of the last line except if it ends with a
+    /// [justified line break]($linebreak.justify).
     #[default(false)]
     pub justify: bool,
 
@@ -88,7 +85,6 @@ pub struct ParElem {
     /// challenging to break in a visually
     /// pleasing way.
     /// ```
-    #[default]
     pub linebreaks: Smart<Linebreaks>,
 
     /// The indent the first line of a paragraph should have.
@@ -98,7 +94,7 @@ pub struct ParElem {
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
     /// space between paragraphs or by indented first lines. Consider reducing
-    /// the [paragraph spacing]($func/block.spacing) to the [`leading`] when
+    /// the [paragraph spacing]($block.spacing) to the [`leading`] when
     /// using this property (e.g. using
     /// `[#show par: set block(spacing: 0.65em)]`).
     pub first_line_indent: Length,
@@ -219,7 +215,7 @@ pub enum Linebreaks {
 /// [for loops]($scripting/#loops). Multiple consecutive
 /// paragraph breaks collapse into a single one.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #for i in range(3) {
 ///   [Blind text #i: ]
@@ -228,13 +224,10 @@ pub enum Linebreaks {
 /// }
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// Instead of calling this function, you can insert a blank line into your
 /// markup to create a paragraph break.
-///
-/// Display: Paragraph Break
-/// Category: layout
-#[element(Unlabellable)]
+#[elem(title = "Paragraph Break", Unlabellable)]
 pub struct ParbreakElem {}
 
 impl Unlabellable for ParbreakElem {}
@@ -266,8 +259,8 @@ struct Preparation<'a> {
     hyphenate: Option<bool>,
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
-    /// The paragraph's resolved alignment.
-    align: Align,
+    /// The paragraph's resolved horizontal alignment.
+    align: FixedAlign,
     /// Whether to justify the paragraph.
     justify: bool,
     /// The paragraph's hanging indent.
@@ -550,7 +543,7 @@ fn collect<'a>(
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
         && consecutive
-        && AlignElem::alignment_in(*styles).x.resolve(*styles)
+        && AlignElem::alignment_in(*styles).resolve(*styles).x
             == TextElem::dir_in(*styles).start().into()
     {
         full.push(SPACING_REPLACE);
@@ -593,15 +586,15 @@ fn collect<'a>(
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
             Segment::Text(c.len_utf8())
-        } else if let Some(elem) = child.to::<SmartQuoteElem>() {
+        } else if let Some(elem) = child.to::<SmartquoteElem>() {
             let prev = full.len();
-            if SmartQuoteElem::enabled_in(styles) {
+            if SmartquoteElem::enabled_in(styles) {
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
                 let quotes = Quotes::from_lang(
                     lang,
                     region,
-                    SmartQuoteElem::alternative_in(styles),
+                    SmartquoteElem::alternative_in(styles),
                 );
                 let peeked = iter.peek().and_then(|child| {
                     let child = if let Some((child, _)) = child.to_styled() {
@@ -611,7 +604,7 @@ fn collect<'a>(
                     };
                     if let Some(elem) = child.to::<TextElem>() {
                         elem.text().chars().next()
-                    } else if child.is::<SmartQuoteElem>() {
+                    } else if child.is::<SmartquoteElem>() {
                         Some('"')
                     } else if child.is::<SpaceElem>()
                         || child.is::<HElem>()
@@ -642,7 +635,7 @@ fn collect<'a>(
         };
 
         if let Some(last) = full.chars().last() {
-            quoter.last(last, child.is::<SmartQuoteElem>());
+            quoter.last(last, child.is::<SmartquoteElem>());
         }
 
         spans.push(segment.len(), child.span());
@@ -673,9 +666,10 @@ fn prepare<'a>(
     styles: StyleChain<'a>,
     region: Size,
 ) -> SourceResult<Preparation<'a>> {
+    let dir = TextElem::dir_in(styles);
     let bidi = BidiInfo::new(
         text,
-        match TextElem::dir_in(styles) {
+        match dir {
             Dir::LTR => Some(BidiLevel::ltr()),
             Dir::RTL => Some(BidiLevel::rtl()),
             _ => None,
@@ -734,7 +728,7 @@ fn prepare<'a>(
         styles,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
         lang: shared_get(styles, children, TextElem::lang_in),
-        align: AlignElem::alignment_in(styles).x.resolve(styles),
+        align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
     })

@@ -46,7 +46,7 @@
 #test({
   type("")
   none
-}, "string")
+}, str)
 
 ---
 // Some things can't be joined.

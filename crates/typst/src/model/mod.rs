@@ -9,10 +9,10 @@ mod selector;
 mod styles;
 
 #[doc(inline)]
-pub use typst_macros::element;
+pub use typst_macros::elem;
 
 pub use self::content::{Content, MetaElem, PlainText};
-pub use self::element::{Construct, ElemFunc, Element, NativeElemFunc, Set};
+pub use self::element::{Construct, Element, NativeElement, NativeElementData, Set};
 pub use self::introspect::{Introspector, Location, Locator};
 pub use self::label::{Label, Unlabellable};
 pub use self::realize::{

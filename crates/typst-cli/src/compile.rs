@@ -93,7 +93,7 @@ pub fn compile_once(
             }
 
             print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
-                .map_err(|_| "failed to print diagnostics")?;
+                .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
             if let Some(open) = command.open.take() {
                 open_file(open.as_deref(), &command.output())?;
@@ -115,7 +115,7 @@ pub fn compile_once(
                 &warnings,
                 command.common.diagnostic_format,
             )
-            .map_err(|_| "failed to print diagnostics")?;
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
 
@@ -135,7 +135,8 @@ fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
 fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let output = command.output();
     let buffer = typst::export::pdf(document);
-    fs::write(output, buffer).map_err(|_| "failed to write PDF file")?;
+    fs::write(output, buffer)
+        .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
     Ok(())
 }
 
@@ -176,11 +177,14 @@ fn export_image(
             ImageExportFormat::Png => {
                 let pixmap =
                     typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
-                pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+                pixmap
+                    .save_png(path)
+                    .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
             }
             ImageExportFormat::Svg => {
                 let svg = typst::export::svg(frame);
-                fs::write(path, svg).map_err(|_| "failed to write SVG file")?;
+                fs::write(path, svg)
+                    .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
             }
         }
     }

@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 /// A rectangle with optional content.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// // Without content.
 /// #rect(width: 35%, height: 30pt)
@@ -15,10 +15,7 @@ use crate::prelude::*;
 ///   to fit the content.
 /// ]
 /// ```
-///
-/// Display: Rectangle
-/// Category: visualize
-#[element(Layout)]
+#[elem(title = "Rectangle", Layout)]
 pub struct RectElem {
     /// The rectangle's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -41,8 +38,7 @@ pub struct RectElem {
     /// - `{none}` to disable stroking
     /// - `{auto}` for a stroke of `{1pt + black}` if and if only if no fill is
     ///   given.
-    /// - Any kind of stroke that can also be used for
-    ///   [lines]($func/line.stroke).
+    /// - Any kind of [stroke]($stroke)
     /// - A dictionary describing the stroke for each side inidvidually. The
     ///   dictionary can contain the following keys in order of precedence:
     ///   - `top`: The top stroke.
@@ -65,7 +61,7 @@ pub struct RectElem {
     /// ```
     #[resolve]
     #[fold]
-    pub stroke: Smart<Sides<Option<Option<PartialStroke>>>>,
+    pub stroke: Smart<Sides<Option<Option<Stroke>>>>,
 
     /// How much to round the rectangle's corners, relative to the minimum of
     /// the width and height divided by two. This can be:
@@ -106,20 +102,14 @@ pub struct RectElem {
     pub radius: Corners<Option<Rel<Length>>>,
 
     /// How much to pad the rectangle's content.
-    ///
-    /// _Note:_ When the rectangle contains text, its exact size depends on the
-    /// current [text edges]($func/text.top-edge).
-    ///
-    /// ```example
-    /// #rect(inset: 0pt)[Tight]
-    /// ```
+    /// See the [box's documentation]($box.outset) for more details.
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the rectangle's size without affecting the layout.
-    /// See the [box's documentation]($func/box.outset) for more details.
+    /// See the [box's documentation]($box.outset) for more details.
     #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
@@ -159,7 +149,7 @@ impl Layout for RectElem {
 
 /// A square with optional content.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// // Without content.
 /// #square(size: 40pt)
@@ -170,10 +160,7 @@ impl Layout for RectElem {
 ///   sized to fit.
 /// ]
 /// ```
-///
-/// Display: Square
-/// Category: visualize
-#[element(Layout)]
+#[elem(Layout)]
 pub struct SquareElem {
     /// The square's side length. This is mutually exclusive with `width` and
     /// `height`.
@@ -203,31 +190,31 @@ pub struct SquareElem {
     })]
     pub height: Smart<Rel<Length>>,
 
-    /// How to fill the square. See the
-    /// [rectangle's documentation]($func/rect.fill) for more details.
+    /// How to fill the square. See the [rectangle's documentation]($rect.fill)
+    /// for more details.
     pub fill: Option<Paint>,
 
-    /// How to stroke the square. See the [rectangle's
-    /// documentation]($func/rect.stroke) for more details.
+    /// How to stroke the square. See the
+    /// [rectangle's documentation]($rect.stroke) for more details.
     #[resolve]
     #[fold]
-    pub stroke: Smart<Sides<Option<Option<PartialStroke>>>>,
+    pub stroke: Smart<Sides<Option<Option<Stroke>>>>,
 
-    /// How much to round the square's corners. See the [rectangle's
-    /// documentation]($func/rect.radius) for more details.
+    /// How much to round the square's corners. See the
+    /// [rectangle's documentation]($rect.radius) for more details.
     #[resolve]
     #[fold]
     pub radius: Corners<Option<Rel<Length>>>,
 
-    /// How much to pad the square's content. See the [rectangle's
-    /// documentation]($func/rect.inset) for more details.
+    /// How much to pad the square's content. See the
+    /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the square's size without affecting the layout. See
-    /// the [rectangle's documentation]($func/rect.outset) for more details.
+    /// the [box's documentation]($box.outset) for more details.
     #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
@@ -268,7 +255,7 @@ impl Layout for SquareElem {
 
 /// An ellipse with optional content.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// // Without content.
 /// #ellipse(width: 35%, height: 30pt)
@@ -280,10 +267,7 @@ impl Layout for SquareElem {
 ///   to fit the content.
 /// ]
 /// ```
-///
-/// Display: Ellipse
-/// Category: visualize
-#[element(Layout)]
+#[elem(Layout)]
 pub struct EllipseElem {
     /// The ellipse's width, relative to its parent container.
     pub width: Smart<Rel<Length>>,
@@ -291,25 +275,25 @@ pub struct EllipseElem {
     /// The ellipse's height, relative to its parent container.
     pub height: Smart<Rel<Length>>,
 
-    /// How to fill the ellipse. See the
-    /// [rectangle's documentation]($func/rect.fill) for more details.
+    /// How to fill the ellipse. See the [rectangle's documentation]($rect.fill)
+    /// for more details.
     pub fill: Option<Paint>,
 
-    /// How to stroke the ellipse. See the [rectangle's
-    /// documentation]($func/rect.stroke) for more details.
+    /// How to stroke the ellipse. See the
+    /// [rectangle's documentation]($rect.stroke) for more details.
     #[resolve]
     #[fold]
-    pub stroke: Smart<Option<PartialStroke>>,
+    pub stroke: Smart<Option<Stroke>>,
 
-    /// How much to pad the ellipse's content. See the [rectangle's
-    /// documentation]($func/rect.inset) for more details.
+    /// How much to pad the ellipse's content. See the
+    /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the ellipse's size without affecting the layout. See
-    /// the [rectangle's documentation]($func/rect.outset) for more details.
+    /// the [box's documentation]($box.outset) for more details.
     #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
@@ -349,7 +333,7 @@ impl Layout for EllipseElem {
 
 /// A circle with optional content.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// // Without content.
 /// #circle(radius: 25pt)
@@ -361,10 +345,7 @@ impl Layout for EllipseElem {
 ///   sized to fit.
 /// ]
 /// ```
-///
-/// Display: Circle
-/// Category: visualize
-#[element(Layout)]
+#[elem(Layout)]
 pub struct CircleElem {
     /// The circle's radius. This is mutually exclusive with `width` and
     /// `height`.
@@ -398,26 +379,26 @@ pub struct CircleElem {
     })]
     pub height: Smart<Rel<Length>>,
 
-    /// How to fill the circle. See the
-    /// [rectangle's documentation]($func/rect.fill) for more details.
+    /// How to fill the circle. See the [rectangle's documentation]($rect.fill)
+    /// for more details.
     pub fill: Option<Paint>,
 
-    /// How to stroke the circle. See the [rectangle's
-    /// documentation]($func/rect.stroke) for more details.
+    /// How to stroke the circle. See the
+    /// [rectangle's documentation]($rect.stroke) for more details.
     #[resolve]
     #[fold]
     #[default(Smart::Auto)]
-    pub stroke: Smart<Option<PartialStroke>>,
+    pub stroke: Smart<Option<Stroke>>,
 
-    /// How much to pad the circle's content. See the [rectangle's
-    /// documentation]($func/rect.inset) for more details.
+    /// How much to pad the circle's content. See the
+    /// [box's documentation]($box.inset) for more details.
     #[resolve]
     #[fold]
     #[default(Sides::splat(Abs::pt(5.0).into()))]
     pub inset: Sides<Option<Rel<Length>>>,
 
     /// How much to expand the circle's size without affecting the layout. See
-    /// the [rectangle's documentation]($func/rect.outset) for more details.
+    /// the [box's documentation]($box.outset) for more details.
     #[resolve]
     #[fold]
     pub outset: Sides<Option<Rel<Length>>>,
@@ -464,15 +445,14 @@ fn layout(
     body: &Option<Content>,
     sizing: Axes<Smart<Rel<Length>>>,
     fill: Option<Paint>,
-    stroke: Smart<Sides<Option<PartialStroke<Abs>>>>,
+    stroke: Smart<Sides<Option<Stroke<Abs>>>>,
     mut inset: Sides<Rel<Abs>>,
     outset: Sides<Rel<Abs>>,
     radius: Corners<Rel<Abs>>,
     span: Span,
 ) -> SourceResult<Fragment> {
     let resolved = sizing
-        .zip(regions.base())
-        .map(|(s, r)| s.map(|v| v.resolve(styles).relative_to(r)));
+        .zip_map(regions.base(), |s, r| s.map(|v| v.resolve(styles).relative_to(r)));
 
     let mut frame;
     if let Some(child) = body {
@@ -517,11 +497,9 @@ fn layout(
 
     // Prepare stroke.
     let stroke = match stroke {
-        Smart::Auto if fill.is_none() => Sides::splat(Some(Stroke::default())),
+        Smart::Auto if fill.is_none() => Sides::splat(Some(FixedStroke::default())),
         Smart::Auto => Sides::splat(None),
-        Smart::Custom(strokes) => {
-            strokes.map(|s| s.map(PartialStroke::unwrap_or_default))
-        }
+        Smart::Custom(strokes) => strokes.map(|s| s.map(Stroke::unwrap_or_default)),
     };
 
     // Add fill and/or stroke.

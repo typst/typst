@@ -1,6 +1,8 @@
 use std::ptr;
 use std::str::FromStr;
 
+use typst::eval::AutoValue;
+
 use super::{AlignElem, ColumnsElem};
 use crate::meta::{Counter, CounterKey, Numbering, NumberingKind};
 use crate::prelude::*;
@@ -18,17 +20,14 @@ use crate::text::TextElem;
 /// The [Guide for Page Setup]($guides/page-setup-guide) explains how to use
 /// this and related functions to set up a document with many examples.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// >>> #set page(margin: auto)
 /// #set page("us-letter")
 ///
 /// There you go, US friends!
 /// ```
-///
-/// Display: Page
-/// Category: layout
-#[element]
+#[elem]
 pub struct PageElem {
     /// A standard paper size to set width and height.
     #[external]
@@ -59,9 +58,9 @@ pub struct PageElem {
     /// The height of the page.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
-    /// by inserting a [page break]($func/pagebreak). Most examples throughout
-    /// this documentation use `{auto}` for the height of the page to
-    /// dynamically grow and shrink to fit their content.
+    /// by inserting a [page break]($pagebreak). Most examples throughout this
+    /// documentation use `{auto}` for the height of the page to dynamically
+    /// grow and shrink to fit their content.
     #[resolve]
     #[parse(
         args.named("height")?
@@ -103,9 +102,9 @@ pub struct PageElem {
     ///   - `bottom`: The bottom margin.
     ///   - `left`: The left margin.
     ///   - `inside`: The margin at the inner side of the page (where the
-    ///     [binding]($func/page.binding) is).
+    ///     [binding]($page.binding) is).
     ///   - `outside`: The margin at the outer side of the page (opposite to the
-    ///     [binding]($func/page.binding)).
+    ///     [binding]($page.binding)).
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
     ///   - `rest`: The margins on all sides except those for which the
@@ -132,7 +131,7 @@ pub struct PageElem {
 
     /// On which side the pages will be bound.
     ///
-    /// - `{auto}`: Equivalent to `left` if the [text direction]($func/text.dir)
+    /// - `{auto}`: Equivalent to `left` if the [text direction]($text.dir)
     ///   is left-to-right and `right` if it is right-to-left.
     /// - `left`: Bound on the left side.
     /// - `right`: Bound on the right side.
@@ -144,7 +143,7 @@ pub struct PageElem {
     /// How many columns the page has.
     ///
     /// If you need to insert columns into a page or other container, you can
-    /// also use the [`columns` function]($func/columns).
+    /// also use the [`columns` function]($columns).
     ///
     /// ```example:single
     /// #set page(columns: 2, height: 4.8cm)
@@ -175,7 +174,7 @@ pub struct PageElem {
     /// ```
     pub fill: Option<Paint>,
 
-    /// How to [number]($func/numbering) the pages.
+    /// How to [number]($numbering) the pages.
     ///
     /// If an explicit `footer` (or `header` for top-aligned numbering) is
     /// given, the numbering is ignored.
@@ -207,17 +206,17 @@ pub struct PageElem {
     ///
     /// #lorem(30)
     /// ```
-    #[default(Align::Center.into())]
+    #[default(HAlign::Center + VAlign::Bottom)]
     #[parse({
-        let spanned: Option<Spanned<Axes<_>>> = args.named("number-align")?;
-        if let Some(Spanned { v, span }) = spanned {
-            if matches!(v.y, Some(GenAlign::Specific(Align::Horizon))) {
+        let option: Option<Spanned<Align>> = args.named("number-align")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align.y() == Some(VAlign::Horizon) {
                 bail!(span, "page number cannot be `horizon`-aligned");
             }
         }
-        spanned.map(|s| s.v)
+        option.map(|spanned| spanned.v)
     })]
-    pub number_align: Axes<Option<GenAlign>>,
+    pub number_align: Align,
 
     /// The page's header. Fills the top margin of each page.
     ///
@@ -245,7 +244,7 @@ pub struct PageElem {
     ///
     /// For just a page number, the `numbering` property, typically suffices. If
     /// you want to create a custom footer, but still display the page number,
-    /// you can directly access the [page counter]($func/counter).
+    /// you can directly access the [page counter]($counter).
     ///
     /// ```example
     /// #set par(justify: true)
@@ -407,14 +406,14 @@ impl PageElem {
 
             // We interpret the Y alignment as selecting header or footer
             // and then ignore it for aligning the actual number.
-            if let Some(x) = number_align.x {
-                counter = counter.aligned(Axes::with_x(Some(x)));
+            if let Some(x) = number_align.x() {
+                counter = counter.aligned(x.into());
             }
 
             counter
         });
 
-        if matches!(number_align.y, Some(GenAlign::Specific(Align::Top))) {
+        if matches!(number_align.y(), Some(VAlign::Top)) {
             header = header.or(numbering_marginal);
         } else {
             footer = footer.or(numbering_marginal);
@@ -491,16 +490,16 @@ impl PageElem {
                     let ascent = header_ascent.relative_to(margin.top);
                     pos = Point::with_x(margin.left);
                     area = Size::new(pw, margin.top - ascent);
-                    align = Align::Bottom.into();
+                    align = Align::BOTTOM;
                 } else if ptr::eq(marginal, &footer) {
                     let descent = footer_descent.relative_to(margin.bottom);
                     pos = Point::new(margin.left, size.y - margin.bottom + descent);
                     area = Size::new(pw, margin.bottom - descent);
-                    align = Align::Top.into();
+                    align = Align::TOP;
                 } else {
                     pos = Point::zero();
                     area = size;
-                    align = Align::CENTER_HORIZON.into();
+                    align = HAlign::Center + VAlign::Horizon;
                 };
 
                 let pod = Regions::one(area, Axes::splat(true));
@@ -656,12 +655,12 @@ impl Binding {
 cast! {
     Binding,
     self => match self {
-        Self::Left => GenAlign::Specific(Align::Left).into_value(),
-        Self::Right => GenAlign::Specific(Align::Right).into_value(),
+        Self::Left => Align::LEFT.into_value(),
+        Self::Right => Align::RIGHT.into_value(),
     },
-    v: GenAlign => match v {
-        GenAlign::Specific(Align::Left) => Self::Left,
-        GenAlign::Specific(Align::Right) => Self::Right,
+    v: Align => match v {
+        Align::LEFT => Self::Left,
+        Align::RIGHT => Self::Right,
         _ => bail!("must be `left` or `right`"),
     },
 }
@@ -699,7 +698,7 @@ cast! {
 ///
 /// Must not be used inside any containers.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// The next page contains
 /// more details on compound theory.
@@ -708,10 +707,7 @@ cast! {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
-///
-/// Display: Page Break
-/// Category: layout
-#[element]
+#[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
     /// empty.

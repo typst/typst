@@ -21,7 +21,7 @@ const TYPST_REPO: &str = "typst";
 /// Fetches a target release or the latest release (if no version was specified)
 /// from GitHub, unpacks it and self replaces the current binary with the
 /// pre-compiled asset from the downloaded release.
-pub fn update(command: UpdateCommand) -> StrResult<()> {
+pub fn update(command: &UpdateCommand) -> StrResult<()> {
     if let Some(ref version) = command.version {
         let current_tag = env!("CARGO_PKG_VERSION").parse().unwrap();
 
@@ -51,17 +51,17 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
 
         return self_replace::self_replace(&backup_path)
             .and_then(|_| fs::remove_file(&backup_path))
-            .map_err(|err| eco_format!("failed to revert to backup: {err}"));
+            .map_err(|err| eco_format!("failed to revert to backup ({err})"));
     }
 
     let current_exe = env::current_exe().map_err(|err| {
-        eco_format!("failed to locate path of the running executable: {err}")
+        eco_format!("failed to locate path of the running executable ({err})")
     })?;
 
     fs::copy(current_exe, &backup_path)
-        .map_err(|err| eco_format!("failed to create backup: {err}"))?;
+        .map_err(|err| eco_format!("failed to create backup ({err})"))?;
 
-    let release = Release::from_tag(command.version)?;
+    let release = Release::from_tag(command.version.as_ref())?;
     if !update_needed(&release)? && !command.force {
         eprintln!("Already up-to-date.");
         return Ok(());
@@ -69,14 +69,14 @@ pub fn update(command: UpdateCommand) -> StrResult<()> {
 
     let binary_data = release.download_binary(needed_asset()?)?;
     let mut temp_exe = NamedTempFile::new()
-        .map_err(|err| eco_format!("failed to create temporary file: {err}"))?;
+        .map_err(|err| eco_format!("failed to create temporary file ({err})"))?;
     temp_exe
         .write_all(&binary_data)
-        .map_err(|err| eco_format!("failed to write binary data: {err}"))?;
+        .map_err(|err| eco_format!("failed to write binary data ({err})"))?;
 
     self_replace::self_replace(&temp_exe).map_err(|err| {
         fs::remove_file(&temp_exe).ok();
-        eco_format!("failed to self-replace running executable: {err}")
+        eco_format!("failed to self-replace running executable ({err})")
     })
 }
 
@@ -99,7 +99,7 @@ struct Release {
 impl Release {
     /// Download the target release, or latest if version is `None`, from the
     /// Typst repository.
-    pub fn from_tag(tag: Option<Version>) -> StrResult<Release> {
+    pub fn from_tag(tag: Option<&Version>) -> StrResult<Release> {
         let url = match tag {
             Some(tag) => format!(
                 "https://api.github.com/repos/{}/{}/releases/tags/v{}",
@@ -118,7 +118,7 @@ impl Release {
             Err(ureq::Error::Status(404, _)) => {
                 bail!("release not found (searched at {url})")
             }
-            Err(_) => bail!("failed to download release (network failed)"),
+            Err(err) => bail!("failed to download release ({err})"),
         }
     }
 
@@ -138,7 +138,7 @@ impl Release {
             Err(ureq::Error::Status(404, _)) => {
                 bail!("asset not found (searched for {})", asset.name);
             }
-            Err(_) => bail!("failed to load asset (network failed)"),
+            Err(err) => bail!("failed to download asset ({err})"),
         };
 
         if asset_name.contains("windows") {
@@ -152,7 +152,7 @@ impl Release {
 /// Extract the Typst binary from a ZIP archive.
 fn extract_binary_from_zip(data: &[u8], asset_name: &str) -> StrResult<Vec<u8>> {
     let mut archive = ZipArchive::new(Cursor::new(data))
-        .map_err(|err| eco_format!("failed to extract ZIP archive: {err}"))?;
+        .map_err(|err| eco_format!("failed to extract ZIP archive ({err})"))?;
 
     let mut file = archive
         .by_name(&format!("{asset_name}/typst.exe"))
@@ -160,7 +160,7 @@ fn extract_binary_from_zip(data: &[u8], asset_name: &str) -> StrResult<Vec<u8>> 
 
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).map_err(|err| {
-        eco_format!("failed to read binary data from ZIP archive: {err}")
+        eco_format!("failed to read binary data from ZIP archive ({err})")
     })?;
 
     Ok(buffer)
@@ -172,14 +172,14 @@ fn extract_binary_from_tar_xz(data: &[u8]) -> StrResult<Vec<u8>> {
 
     let mut file = archive
         .entries()
-        .map_err(|err| eco_format!("failed to extract tar.xz archive: {err}"))?
+        .map_err(|err| eco_format!("failed to extract tar.xz archive ({err})"))?
         .filter_map(Result::ok)
         .find(|e| e.path().unwrap_or_default().ends_with("typst"))
         .ok_or("tar.xz archive did not contain Typst binary")?;
 
     let mut buffer = vec![];
     file.read_to_end(&mut buffer).map_err(|err| {
-        eco_format!("failed to read binary data from tar.xz archive: {err}")
+        eco_format!("failed to read binary data from tar.xz archive ({err})")
     })?;
 
     Ok(buffer)
@@ -235,7 +235,7 @@ fn backup_path() -> StrResult<PathBuf> {
     let backup_dir = root_backup_dir.join("typst");
 
     fs::create_dir_all(&backup_dir)
-        .map_err(|err| eco_format!("failed to create backup directory: {err}"))?;
+        .map_err(|err| eco_format!("failed to create backup directory ({err})"))?;
 
     Ok(backup_dir.join("typst_backup.part"))
 }

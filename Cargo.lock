@@ -625,9 +625,9 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "ecow"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5c5051925c54d9a42c8652313b5358a7432eed209466b443ed5220431243a14"
+checksum = "1d1990d053cf6edf3f030682dba3b0eb65ef01fabb2686072765d8a17d6728e8"
 dependencies = [
  "serde",
 ]
@@ -658,6 +658,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "85cdab6a89accf66733ad5a1693a4dcced6aeff64602b634530dd73c1f3ee9f0"
 dependencies = [
  "log",
+]
+
+[[package]]
+name = "env_proxy"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a5019be18538406a43b5419a5501461f0c8b49ea7dfda0cfc32f4e51fc44be1"
+dependencies = [
+ "log",
+ "url",
 ]
 
 [[package]]
@@ -2173,6 +2183,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustls-pemfile"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2d3987094b1d07b653b7dfdc3f70ce9a1da9c51ac18c1b06b662e4f9a0e9f4b2"
+dependencies = [
+ "base64",
+]
+
+[[package]]
 name = "rustls-webpki"
 version = "0.100.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2906,6 +2925,8 @@ dependencies = [
  "codespan-reporting",
  "comemo",
  "dirs",
+ "ecow",
+ "env_proxy",
  "flate2",
  "inferno",
  "memmap2",
@@ -2913,6 +2934,8 @@ dependencies = [
  "once_cell",
  "open",
  "pathdiff 0.1.0",
+ "rustls",
+ "rustls-pemfile",
  "same-file",
  "self-replace",
  "semver",
@@ -2939,6 +2962,7 @@ name = "typst-docs"
 version = "0.7.0"
 dependencies = [
  "comemo",
+ "ecow",
  "heck",
  "include_dir",
  "once_cell",

@@ -1,6 +1,21 @@
 use super::*;
 
 /// The four directions into which content can be laid out.
+///
+///  Possible values are:
+/// - `{ltr}`: Left to right.
+/// - `{rtl}`: Right to left.
+/// - `{ttb}`: Top to bottom.
+/// - `{btt}`: Bottom to top.
+///
+/// These values are available globally and
+/// also in the direction type's scope, so you can write either of the following
+/// two:
+/// ```example
+/// #stack(dir: rtl)[A][B][C]
+/// #stack(dir: direction.rtl)[A][B][C]
+/// ```
+#[ty(scope, name = "direction")]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Dir {
     /// Left to right.
@@ -14,7 +29,32 @@ pub enum Dir {
 }
 
 impl Dir {
-    /// The specific axis this direction belongs to.
+    /// Whether this direction points into the positive coordinate direction.
+    ///
+    /// The positive directions are left-to-right and top-to-bottom.
+    pub const fn is_positive(self) -> bool {
+        match self {
+            Self::LTR | Self::TTB => true,
+            Self::RTL | Self::BTT => false,
+        }
+    }
+}
+
+#[scope]
+impl Dir {
+    pub const LTR: Self = Self::LTR;
+    pub const RTL: Self = Self::RTL;
+    pub const TTB: Self = Self::TTB;
+    pub const BTT: Self = Self::BTT;
+
+    /// The axis this direction belongs to, either `{"horizontal"}` or
+    /// `{"vertical"}`.
+    ///
+    /// ```example
+    /// #ltr.axis() \
+    /// #ttb.axis()
+    /// ```
+    #[func]
     pub const fn axis(self) -> Axis {
         match self {
             Self::LTR | Self::RTL => Axis::X,
@@ -22,7 +62,15 @@ impl Dir {
         }
     }
 
-    /// The side this direction starts at.
+    /// The start point of this direction, as an alignment.
+    ///
+    /// ```example
+    /// #ltr.start() \
+    /// #rtl.start() \
+    /// #ttb.start() \
+    /// #btt.start()
+    /// ```
+    #[func]
     pub const fn start(self) -> Side {
         match self {
             Self::LTR => Side::Left,
@@ -32,7 +80,15 @@ impl Dir {
         }
     }
 
-    /// The side this direction ends at.
+    /// The end point of this direction, as an alignment.
+    ///
+    /// ```example
+    /// #ltr.end() \
+    /// #rtl.end() \
+    /// #ttb.end() \
+    /// #btt.end()
+    /// ```
+    #[func]
     pub const fn end(self) -> Side {
         match self {
             Self::LTR => Side::Right,
@@ -43,22 +99,20 @@ impl Dir {
     }
 
     /// The inverse direction.
-    pub const fn inv(self) -> Self {
+    ///
+    /// ```example
+    /// #ltr.inv() \
+    /// #rtl.inv() \
+    /// #ttb.inv() \
+    /// #btt.inv()
+    /// ```
+    #[func(title = "Inverse")]
+    pub const fn inv(self) -> Dir {
         match self {
             Self::LTR => Self::RTL,
             Self::RTL => Self::LTR,
             Self::TTB => Self::BTT,
             Self::BTT => Self::TTB,
-        }
-    }
-
-    /// Whether this direction points into the positive coordinate direction.
-    ///
-    /// The positive directions are left-to-right and top-to-bottom.
-    pub const fn is_positive(self) -> bool {
-        match self {
-            Self::LTR | Self::TTB => true,
-            Self::RTL | Self::BTT => false,
         }
     }
 }
@@ -75,5 +129,5 @@ impl Debug for Dir {
 }
 
 cast! {
-    type Dir: "direction",
+    type Dir,
 }

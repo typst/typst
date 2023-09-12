@@ -2,7 +2,7 @@ use crate::prelude::*;
 
 /// A line from one point to another.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set page(height: 100pt)
 ///
@@ -13,10 +13,7 @@ use crate::prelude::*;
 ///   stroke: 2pt + maroon,
 /// )
 /// ```
-///
-/// Display: Line
-/// Category: visualize
-#[element(Layout)]
+#[elem(Layout)]
 pub struct LineElem {
     /// The start point of the line.
     ///
@@ -37,42 +34,7 @@ pub struct LineElem {
     /// respected if `end` is `none`.
     pub angle: Angle,
 
-    /// How to stroke the line. This can be:
-    ///
-    /// - A length specifying the stroke's thickness. The color is inherited,
-    ///   defaulting to black.
-    /// - A color to use for the stroke. The thickness is inherited, defaulting
-    ///   to `{1pt}`.
-    /// - A stroke combined from color and thickness using the `+` operator as
-    ///   in `{2pt + red}`.
-    /// - A stroke described by a dictionary with any of the following keys:
-    ///   - `paint`: The [color]($type/color) to use for the stroke.
-    ///   - `thickness`: The stroke's thickness as a [length]($type/length).
-    ///   - `cap`: How the line terminates. One of `{"butt"}`, `{"round"}`, or
-    ///     `{"square"}`.
-    ///   - `join`: How sharp turns of a contour are rendered. One of
-    ///     `{"miter"}`, `{"round"}`, or `{"bevel"}`. Not applicable to lines
-    ///     but to [polygons]($func/polygon) or [paths]($func/path).
-    ///   - `miter-limit`: Number at which protruding sharp angles are rendered
-    ///     with a bevel instead. The higher the number, the sharper an angle
-    ///     can be before it is bevelled. Only applicable if `join` is
-    ///     `{"miter"}`. Defaults to `{4.0}`.
-    ///   - `dash`: The dash pattern to use. Can be any of the following:
-    ///     - One of the predefined patterns `{"solid"}`, `{"dotted"}`,
-    ///       `{"densely-dotted"}`, `{"loosely-dotted"}`, `{"dashed"}`,
-    ///       `{"densely-dashed"}`, `{"loosely-dashed"}`, `{"dash-dotted"}`,
-    ///       `{"densely-dash-dotted"}` or `{"loosely-dash-dotted"}`
-    ///     - An [array]($type/array) with alternating lengths for dashes and
-    ///       gaps. You can also use the string `{"dot"}` for a length equal to
-    ///       the line thickness.
-    ///     - A [dictionary]($type/dictionary) with the keys `array` (same as
-    ///       the array above), and `phase` (of type [length]($type/length)),
-    ///       which defines where in the pattern to start drawing.
-    ///
-    /// On a `stroke` object, you can access any of the fields mentioned in the
-    /// dictionary format above. For example, `{(2pt + blue).thickness}` is
-    /// `{2pt}`, `{(2pt + blue).miter-limit}` is `{4.0}` (the default), and so
-    /// on.
+    /// How to [stroke]($stroke) the line.
     ///
     /// ```example
     /// #set line(length: 100%)
@@ -86,7 +48,7 @@ pub struct LineElem {
     /// ```
     #[resolve]
     #[fold]
-    pub stroke: PartialStroke,
+    pub stroke: Stroke,
 }
 
 impl Layout for LineElem {
@@ -97,10 +59,8 @@ impl Layout for LineElem {
         styles: StyleChain,
         regions: Regions,
     ) -> SourceResult<Fragment> {
-        let resolve = |axes: Axes<Rel<Abs>>| {
-            axes.zip(regions.base()).map(|(l, b)| l.relative_to(b))
-        };
-
+        let resolve =
+            |axes: Axes<Rel<Abs>>| axes.zip_map(regions.base(), Rel::relative_to);
         let start = resolve(self.start(styles));
         let delta =
             self.end(styles).map(|end| resolve(end) - start).unwrap_or_else(|| {

@@ -7,7 +7,7 @@ use crate::prelude::*;
 /// other content in the container. Page margins will be respected.
 ///
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set page(height: 60pt)
 /// Hello, world!
@@ -20,10 +20,7 @@ use crate::prelude::*;
 ///   ),
 /// )
 /// ```
-///
-/// Display: Place
-/// Category: layout
-#[element(Layout, Behave)]
+#[elem(Layout, Behave)]
 pub struct PlaceElem {
     /// Relative to which position in the parent container to place the content.
     ///
@@ -34,8 +31,8 @@ pub struct PlaceElem {
     /// that axis will be ignored, instead, the item will be placed in the
     /// origin of the axis.
     #[positional]
-    #[default(Smart::Custom(Axes::with_x(Some(GenAlign::Start))))]
-    pub alignment: Smart<Axes<Option<GenAlign>>>,
+    #[default(Smart::Custom(Align::START))]
+    pub alignment: Smart<Align>,
 
     /// Whether the placed element has floating layout.
     ///
@@ -98,16 +95,7 @@ impl Layout for PlaceElem {
         let float = self.float(styles);
         let alignment = self.alignment(styles);
 
-        if float
-            && !matches!(
-                alignment,
-                Smart::Auto
-                    | Smart::Custom(Axes {
-                        y: Some(GenAlign::Specific(Align::Top | Align::Bottom)),
-                        ..
-                    })
-            )
-        {
+        if float && alignment.map_or(false, |align| align.y() == Some(VAlign::Horizon)) {
             bail!(self.span(), "floating placement must be `auto`, `top`, or `bottom`");
         } else if !float && alignment.is_auto() {
             return Err("automatic positioning is only available for floating placement")
@@ -115,9 +103,7 @@ impl Layout for PlaceElem {
                 .at(self.span());
         }
 
-        let child = self.body().aligned(
-            alignment.unwrap_or_else(|| Axes::with_x(Some(Align::Center.into()))),
-        );
+        let child = self.body().aligned(alignment.unwrap_or_else(|| Align::CENTER));
 
         let pod = Regions::one(base, Axes::splat(false));
         let frame = child.layout(vt, styles, pod)?.into_frame();

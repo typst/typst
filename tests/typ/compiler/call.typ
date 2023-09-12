@@ -31,12 +31,12 @@
 
 // Call function assigned to variable.
 #let alias = type
-#test(alias(alias), "function")
+#test(alias(alias), type)
 
 // Callee expressions.
 #{
   // Wrapped in parens.
-  test((type)("hi"), "string")
+  test((type)("hi"), str)
 
   // Call the return value of a function.
   let adder(dx) = x => x + dx
