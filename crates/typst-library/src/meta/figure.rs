@@ -171,18 +171,6 @@ pub struct FigureElem {
     /// ```
     pub supplement: Smart<Option<Supplement>>,
 
-    /// The separator which will appear between figure`s number and figure`s caption if provided
-    ///
-    /// ```example
-    /// #figure(
-    ///   [The contents of my figure!],
-    ///   caption: [My custom figure],
-    ///   supplement: [Bar],
-    ///   separator: [---],
-    /// )
-    #[default(TextElem::packed(": "))]
-    pub separator: Content,
-
     /// How to number the figure. Accepts a
     /// [numbering pattern or function]($numbering).
     #[default(Some(NumberingPattern::from_str("1").unwrap().into()))]
@@ -289,7 +277,6 @@ impl Synthesize for FigureElem {
         self.push_caption(caption);
         self.push_kind(Smart::Custom(kind));
         self.push_supplement(Smart::Custom(supplement.map(Supplement::Content)));
-        self.push_separator(self.separator(styles));
         self.push_numbering(numbering);
         self.push_outlined(self.outlined(styles));
         self.push_counter(Some(counter));
@@ -372,12 +359,11 @@ impl Outlinable for FigureElem {
             return Ok(None);
         }
 
-        let Some(mut caption) =
-            self.caption(StyleChain::default()).map(|caption| caption.body())
-        else {
+        let Some(caption) = self.caption(StyleChain::default()) else {
             return Ok(None);
         };
 
+        let mut realized = caption.body();
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
             Some(counter),
@@ -394,12 +380,12 @@ impl Outlinable for FigureElem {
                 supplement += TextElem::packed('\u{a0}');
             }
 
-            let separator = self.separator(StyleChain::default());
+            let separator = caption.separator(StyleChain::default());
 
-            caption = supplement + numbers + separator + caption;
+            realized = supplement + numbers + separator + caption.body();
         }
 
-        Ok(Some(caption))
+        Ok(Some(realized))
     }
 }
 
@@ -459,6 +445,19 @@ pub struct FigureCaption {
     })]
     pub position: VAlign,
 
+    /// The separator which will appear between the number and body.
+    ///
+    /// ```example
+    /// #set figure.caption(separator: [ --- ])
+    ///
+    /// #figure(
+    ///   rect[Hello],
+    ///   caption: [A rectangle],
+    /// )
+    /// ```
+    #[default(TextElem::packed(": "))]
+    pub separator: Content,
+
     /// The caption's body.
     ///
     /// Can be used alongside `kind`, `supplement`, `counter`, `numbering`, and
@@ -502,13 +501,14 @@ pub struct FigureCaption {
 impl Synthesize for FigureCaption {
     fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         self.push_position(self.position(styles));
+        self.push_separator(self.separator(styles));
         Ok(())
     }
 }
 
 impl Show for FigureCaption {
     #[tracing::instrument(name = "FigureCaption::show", skip_all)]
-    fn show(&self, vt: &mut Vt, _: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
 
         if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) =
@@ -518,7 +518,7 @@ impl Show for FigureCaption {
             if !supplement.is_empty() {
                 supplement += TextElem::packed('\u{a0}');
             }
-            realized = supplement + numbers + TextElem::packed(": ") + realized;
+            realized = supplement + numbers + self.separator(styles) + realized;
         }
 
         Ok(realized)

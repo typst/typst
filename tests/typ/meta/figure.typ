@@ -103,9 +103,9 @@ We can clearly see that @fig-cylinder and
 
 ---
 // Test custom separator for figure caption
+#set figure.caption(separator: [ --- ])
 
 #figure(
   table(columns: 2)[a][b],
   caption: [The table with custom separator.],
-  separator: [ --- ],
 )
