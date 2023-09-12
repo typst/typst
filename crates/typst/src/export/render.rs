@@ -6,7 +6,7 @@ use std::sync::Arc;
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use pixglyph::Bitmap;
-use resvg::FitTo;
+use resvg::tiny_skia::IntRect;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::{NodeExt, TreeParsing};
@@ -212,7 +212,8 @@ fn render_svg_glyph(
 
     // Parse SVG.
     let opts = usvg::Options::default();
-    let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    let usvg_tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    let tree = resvg::Tree::from_usvg(&usvg_tree);
     let view_box = tree.view_box.rect;
 
     // If there's no viewbox defined, use the em square for our scale
@@ -236,41 +237,30 @@ fn render_svg_glyph(
     // Compute the space we need to draw our glyph.
     // See https://github.com/RazrFalcon/resvg/issues/602 for why
     // using the svg size is problematic here.
-    let mut bbox = usvg::Rect::new_bbox();
-    for node in tree.root.descendants() {
-        if let Some(rect) = node.calculate_bbox().and_then(|b| b.to_rect()) {
+    let mut bbox = usvg::BBox::default();
+    for node in usvg_tree.root.descendants() {
+        if let Some(rect) = node.calculate_bbox() {
             bbox = bbox.expand(rect);
         }
     }
-
-    let canvas_rect = usvg::ScreenRect::new(0, 0, canvas.width(), canvas.height())?;
 
     // Compute the bbox after the transform is applied.
     // We add a nice 5px border along the bounding box to
     // be on the safe size. We also compute the intersection
     // with the canvas rectangle
-    let svg_ts = usvg::Transform::new(
-        ts.sx.into(),
-        ts.kx.into(),
-        ts.ky.into(),
-        ts.sy.into(),
-        ts.tx.into(),
-        ts.ty.into(),
-    );
-    let bbox = bbox.transform(&svg_ts)?.to_screen_rect();
-    let bbox = usvg::ScreenRect::new(
+    let bbox = bbox.transform(ts)?.to_rect()?.round()?;
+    let bbox = IntRect::from_xywh(
         bbox.left() - 5,
         bbox.y() - 5,
         bbox.width() + 10,
         bbox.height() + 10,
-    )?
-    .fit_to_rect(canvas_rect);
+    )?;
 
     let mut pixmap = sk::Pixmap::new(bbox.width(), bbox.height())?;
 
     // We offset our transform so that the pixmap starts at the edge of the bbox.
     let ts = ts.post_translate(-bbox.left() as f32, -bbox.top() as f32);
-    resvg::render(&tree, FitTo::Original, ts, pixmap.as_mut())?;
+    tree.render(ts, &mut pixmap.as_mut());
 
     canvas.draw_pixmap(
         bbox.left(),
@@ -407,7 +397,9 @@ fn render_outline_glyph(
         // Premultiply the text color.
         let Paint::Solid(color) = text.fill;
         let c = color.to_rgba();
-        let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply().get();
+        let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply();
+        let color =
+            u32::from_ne_bytes([color.red(), color.green(), color.blue(), color.alpha()]);
 
         // Blend the glyph bitmap with the existing pixels on the canvas.
         let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
@@ -597,12 +589,12 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
             }
         }
         DecodedImage::Svg(tree) => {
-            resvg::render(
-                tree,
-                FitTo::Size(w, h),
-                sk::Transform::identity(),
-                pixmap.as_mut(),
-            )?;
+            let tree = resvg::Tree::from_usvg(tree);
+            let ts = tiny_skia::Transform::from_scale(
+                w as f32 / tree.size.width(),
+                h as f32 / tree.size.height(),
+            );
+            tree.render(ts, &mut pixmap.as_mut())
         }
     }
     Some(Arc::new(pixmap))
