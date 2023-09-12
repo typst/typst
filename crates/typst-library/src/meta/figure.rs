@@ -81,7 +81,7 @@ use crate::visualize::ImageElem;
 /// ```example
 /// #show figure.where(
 ///   kind: table
-/// ): set figure.caption(pos: top)
+/// ): set figure.caption(position: top)
 ///
 /// #figure(
 ///   table(columns: 2)[A][B][C][D],
@@ -293,7 +293,7 @@ impl Show for FigureElem {
         // Build the caption, if any.
         if let Some(caption) = self.caption(styles) {
             let v = VElem::weak(self.gap(styles).into()).pack();
-            realized = if caption.pos(styles) == VAlign::Bottom {
+            realized = if caption.position(styles) == VAlign::Bottom {
                 realized + v + caption.pack()
             } else {
                 caption.pack() + v + realized
@@ -412,7 +412,7 @@ pub struct FigureCaption {
     /// ```example
     /// #show figure.where(
     ///   kind: table
-    /// ): set figure.caption(pos: top)
+    /// ): set figure.caption(position: top)
     ///
     /// #figure(
     ///   table(columns: 2)[A][B],
@@ -427,14 +427,14 @@ pub struct FigureCaption {
     /// #figure(
     ///   table(columns: 2)[A][B],
     ///   caption: figure.caption(
-    ///     pos: bottom,
+    ///     position: bottom,
     ///     [I'm down here too!]
     ///   )
     /// )
     /// ```
     #[default(VAlign::Bottom)]
     #[parse({
-        let option: Option<Spanned<VAlign>> = args.named("pos")?;
+        let option: Option<Spanned<VAlign>> = args.named("position")?;
         if let Some(Spanned { v: align, span }) = option {
             if align == VAlign::Horizon {
                 bail!(span, "expected `top` or `bottom`");
@@ -442,7 +442,7 @@ pub struct FigureCaption {
         }
         option.map(|spanned| spanned.v)
     })]
-    pub pos: VAlign,
+    pub position: VAlign,
 
     /// The caption's body.
     ///
@@ -486,7 +486,7 @@ pub struct FigureCaption {
 
 impl Synthesize for FigureCaption {
     fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
-        self.push_pos(self.pos(styles));
+        self.push_position(self.position(styles));
         Ok(())
     }
 }

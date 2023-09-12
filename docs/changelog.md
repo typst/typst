@@ -124,8 +124,8 @@ description: |
 - Miscellaneous Improvements
   - Added [`bookmarked`]($heading.bookmarked) argument to heading to control
     whether a heading becomes part of the PDF outline
-  - Added [`caption-pos`]($figure.caption.pos) argument to control the position
-    of a figure's caption
+  - Added [`caption-pos`]($figure.caption.position) argument to control the
+    position of a figure's caption
   - Added [`metadata`]($metadata) function for exposing an arbitrary value to
     the introspection system
   - Fixed that a [`state`]($state) was identified by the pair `(key, init)`
