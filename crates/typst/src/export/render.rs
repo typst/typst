@@ -223,12 +223,12 @@ fn render_svg_glyph(
 
     // ... but if there's a viewbox or width, use that.
     if root.has_attribute("viewBox") || root.has_attribute("width") {
-        width = view_box.width() as f32;
+        width = view_box.width();
     }
 
     // Same as for width.
     if root.has_attribute("viewBox") || root.has_attribute("height") {
-        height = view_box.height() as f32;
+        height = view_box.height();
     }
 
     let size = text.size.to_f32();
