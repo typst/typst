@@ -1,0 +1,40 @@
+// (i) - (ii). No style opt. because of suffix.
+#set page(numbering: "(i)")
+#lorem(30)
+#pagebreak()
+#lorem(30)
+// 3 - 4. Style opt. Page Label should use /D style.
+#set page(numbering: "1")
+#lorem(30)
+#pagebreak()
+#lorem(30)
+// I - IV. Style opt. Page Label should use /R style and start at 1 again.
+#set page(numbering: "I / I")
+#counter(page).update(1)
+#lorem(30)
+#pagebreak()
+#lorem(30)
+#pagebreak()
+#lorem(30)
+#pagebreak()
+#lorem(30)
+// Pre: ほ, Pre: ろ, Pre: は, Pre: に. No style opt. Uses prefix field entirely.
+// Counter update without numbering change.
+#set page(numbering: "Pre: い")
+#lorem(30)
+#pagebreak()
+#lorem(30)
+#counter(page).update(2)
+#lorem(30)
+#pagebreak()
+#lorem(30)
+#pagebreak()
+#lorem(30)
+// aa & ba. Style opt only for values <= 26. Page Label uses lower alphabet style.
+// Repeats letter each 26 pages or uses numbering directly as prefix.
+#set page(numbering: "a")
+#counter(page).update(27)
+#lorem(30)
+#pagebreak()
+#counter(page).update(53)
+#lorem(30)

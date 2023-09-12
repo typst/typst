@@ -118,8 +118,12 @@ impl Numbering {
                 (Kind::Arabic, _) => style = Some(Style::Arabic),
                 (Kind::Roman, Case::Lower) => style = Some(Style::LowerRoman),
                 (Kind::Roman, Case::Upper) => style = Some(Style::UpperRoman),
-                (Kind::Letter, Case::Lower) => style = Some(Style::LowerAlpha),
-                (Kind::Letter, Case::Upper) => style = Some(Style::UpperAlpha),
+                (Kind::Letter, Case::Lower) if number <= 26 => {
+                    style = Some(Style::LowerAlpha)
+                }
+                (Kind::Letter, Case::Upper) if number <= 26 => {
+                    style = Some(Style::UpperAlpha)
+                }
                 _ => {}
             }
         }
