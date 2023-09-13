@@ -702,7 +702,7 @@ impl Array {
     }
 
     /// Return a sorted version of this array, optionally by a given key
-    /// function.
+    /// function. The sorting algorithm used is stable.
     ///
     /// Returns an error if two values could not be compared or if the key
     /// function (if given) yields an error.
