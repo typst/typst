@@ -397,9 +397,8 @@ fn render_outline_glyph(
         // Premultiply the text color.
         let Paint::Solid(color) = text.fill;
         let c = color.to_rgba();
-        let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply();
         let color =
-            u32::from_ne_bytes([color.red(), color.green(), color.blue(), color.alpha()]);
+            bytemuck::cast(sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply());
 
         // Blend the glyph bitmap with the existing pixels on the canvas.
         let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());

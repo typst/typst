@@ -2496,8 +2496,9 @@ checksum = "81cdd64d312baedb58e21336b31bc043b77e01cc99033ce76ef539f78e965ebc"
 
 [[package]]
 name = "svg2pdf"
-version = "0.6.0"
-source = "git+https://github.com/typst/svg2pdf#d507d79c9c4cca9026e81a2a6c7fb813b9eb339d"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c267ce43e1b46631a121481ae2d7dc00dda163d486f0f600be772bbe24d6037"
 dependencies = [
  "image",
  "miniz_oxide",
