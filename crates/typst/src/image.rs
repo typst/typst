@@ -158,6 +158,18 @@ pub enum ImageFormat {
     Vector(VectorFormat),
 }
 
+impl From<RasterFormat> for ImageFormat {
+    fn from(format: RasterFormat) -> Self {
+        Self::Raster(format)
+    }
+}
+
+impl From<VectorFormat> for ImageFormat {
+    fn from(format: VectorFormat) -> Self {
+        Self::Vector(format)
+    }
+}
+
 cast! {
     ImageFormat,
     self => match self {
@@ -213,20 +225,6 @@ impl TryFrom<image::ImageFormat> for RasterFormat {
             image::ImageFormat::Gif => RasterFormat::Gif,
             _ => bail!("Format not yet supported."),
         })
-    }
-}
-
-impl From<ttf_parser::RasterImageFormat> for RasterFormat {
-    fn from(format: ttf_parser::RasterImageFormat) -> Self {
-        match format {
-            ttf_parser::RasterImageFormat::PNG => RasterFormat::Png,
-        }
-    }
-}
-
-impl From<ttf_parser::RasterImageFormat> for ImageFormat {
-    fn from(format: ttf_parser::RasterImageFormat) -> Self {
-        Self::Raster(format.into())
     }
 }
 

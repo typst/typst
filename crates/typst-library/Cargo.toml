@@ -38,13 +38,13 @@ ciborium = "0.2.1"
 roxmltree = "0.18"
 rustybuzz = "0.7"
 serde_json = "1"
-serde_yaml = "0.8"
+serde_yaml = "0.9"
 smallvec = "1.10"
 syntect = { version = "5", default-features = false, features = ["parsing", "regex-fancy", "plist-load", "yaml-load"] }
 time = { version = "0.3.20", features = ["formatting"] }
-toml = { version = "0.7.4"}
+toml = { version = "0.8" }
 tracing = "0.1.37"
-ttf-parser = "0.18.1"
+ttf-parser = "0.19.2"
 typed-arena = "2"
 unicode-bidi = "0.3.13"
 unicode-math-class = "0.1"

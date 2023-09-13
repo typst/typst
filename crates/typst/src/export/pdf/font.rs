@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
-use unicode_general_category::GeneralCategory;
+use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
 use super::{deflate, EmExt, PdfContext, RefExt};
 use crate::eval::Bytes;
@@ -215,9 +215,7 @@ fn create_cmap(
 
         subtable.codepoints(|n| {
             let Some(c) = std::char::from_u32(n) else { return };
-            if unicode_general_category::get_general_category(c)
-                == GeneralCategory::PrivateUse
-            {
+            if c.general_category() == GeneralCategory::PrivateUse {
                 return;
             }
 

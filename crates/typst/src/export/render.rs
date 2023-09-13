@@ -17,7 +17,7 @@ use crate::geom::{
     self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
     Size, Transform,
 };
-use crate::image::{DecodedImage, Image};
+use crate::image::{DecodedImage, Image, RasterFormat};
 
 /// Export a frame into a raster image.
 ///
@@ -296,7 +296,10 @@ fn render_bitmap_glyph(
     let size = text.size.to_f32();
     let ppem = size * ts.sy;
     let raster = text.font.ttf().glyph_raster_image(id, ppem as u16)?;
-    let image = Image::new(raster.data.into(), raster.format.into(), None).ok()?;
+    if raster.format != ttf_parser::RasterImageFormat::PNG {
+        return None;
+    }
+    let image = Image::new(raster.data.into(), RasterFormat::Png.into(), None).ok()?;
 
     // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
     // and maybe also for Noto Color Emoji. And: Is the size calculation

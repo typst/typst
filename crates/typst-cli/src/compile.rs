@@ -271,7 +271,7 @@ impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
             // Try to express the path relative to the working directory.
             vpath
                 .resolve(self.root())
-                .and_then(|abs| pathdiff::diff_paths(&abs, self.workdir()))
+                .and_then(|abs| pathdiff::diff_paths(abs, self.workdir()))
                 .as_deref()
                 .unwrap_or_else(|| vpath.as_rootless_path())
                 .to_string_lossy()

@@ -420,9 +420,12 @@ fn convert_outline_glyph_to_path(font: &Font, id: GlyphId) -> Option<EcoString> 
 /// Convert a bitmap glyph to an encoded image URL.
 #[comemo::memoize]
 fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64, f64)> {
-    let bitmap = font.ttf().glyph_raster_image(id, std::u16::MAX)?;
-    let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
-    Some((image, bitmap.x as f64, bitmap.y as f64))
+    let raster = font.ttf().glyph_raster_image(id, std::u16::MAX)?;
+    if raster.format != ttf_parser::RasterImageFormat::PNG {
+        return None;
+    }
+    let image = Image::new(raster.data.into(), RasterFormat::Png.into(), None).ok()?;
+    Some((image, raster.x as f64, raster.y as f64))
 }
 
 /// Convert an SVG glyph to an encoded image URL.
