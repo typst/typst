@@ -15,7 +15,7 @@ use image::codecs::png::PngDecoder;
 use image::io::Limits;
 use image::{guess_format, ImageDecoder, ImageResult};
 use typst_macros::{cast, Cast};
-use usvg::{TreeParsing, TreeTextToPath};
+use usvg::{NodeExt, TreeParsing, TreeTextToPath};
 
 use crate::diag::{bail, format_xml_like_error, StrResult};
 use crate::eval::Bytes;
@@ -370,9 +370,9 @@ fn traverse_svg<F>(node: &usvg::Node, f: &mut F)
 where
     F: FnMut(&usvg::Node),
 {
-    f(node);
-    for child in node.children() {
-        traverse_svg(&child, f);
+    for descendant in node.descendants() {
+        f(&descendant);
+        descendant.subroots(|subroot| traverse_svg(&subroot, f))
     }
 }
 
