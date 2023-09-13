@@ -316,18 +316,18 @@ impl SVGRenderer {
             },
         );
         self.xml.write_attribute(
-            "stoke-linejoin",
+            "stroke-linejoin",
             match stroke.line_join {
                 LineJoin::Miter => "miter",
                 LineJoin::Round => "round",
                 LineJoin::Bevel => "bevel",
             },
         );
-        self.xml.write_attribute("stoke-miterlimit", &stroke.miter_limit.0);
+        self.xml.write_attribute("stroke-miterlimit", &stroke.miter_limit.0);
         if let Some(pattern) = &stroke.dash_pattern {
-            self.xml.write_attribute("stoken-dashoffset", &pattern.phase.to_pt());
+            self.xml.write_attribute("stroke-dashoffset", &pattern.phase.to_pt());
             self.xml.write_attribute(
-                "stoken-dasharray",
+                "stroke-dasharray",
                 &pattern
                     .array
                     .iter()
