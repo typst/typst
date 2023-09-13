@@ -236,7 +236,7 @@ impl PageContext<'_, '_> {
         let current_state = self.state.external_graphics_state.as_ref();
         if current_state != Some(graphics_state) {
             self.parent.ext_gs_map.insert(*graphics_state);
-            let name = eco_format!("Gs{}", self.parent.ext_gs_map.map(*graphics_state));
+            let name = eco_format!("Gs{}", self.parent.ext_gs_map.map(graphics_state));
             self.content.set_parameters(Name(name.as_bytes()));
 
             if graphics_state.uses_opacities() {
@@ -288,7 +288,7 @@ impl PageContext<'_, '_> {
     fn set_font(&mut self, font: &Font, size: Abs) {
         if self.state.font.as_ref().map(|(f, s)| (f, *s)) != Some((font, size)) {
             self.parent.font_map.insert(font.clone());
-            let name = eco_format!("F{}", self.parent.font_map.map(font.clone()));
+            let name = eco_format!("F{}", self.parent.font_map.map(font));
             self.content.set_font(Name(name.as_bytes()), size.to_f32());
             self.state.font = Some((font.clone(), size));
         }
@@ -472,8 +472,9 @@ fn write_text(ctx: &mut PageContext, x: f32, y: f32, text: &TextItem) {
             adjustment = Em::zero();
         }
 
-        encoded.push((glyph.id >> 8) as u8);
-        encoded.push((glyph.id & 0xff) as u8);
+        let cid = super::font::glyph_cid(&text.font, glyph.id);
+        encoded.push((cid >> 8) as u8);
+        encoded.push((cid & 0xff) as u8);
 
         if let Some(advance) = text.font.advance(glyph.id) {
             adjustment += glyph.x_advance - advance;
@@ -568,7 +569,7 @@ fn write_path(ctx: &mut PageContext, x: f32, y: f32, path: &geom::Path) {
 /// Encode a vector or raster image into the content stream.
 fn write_image(ctx: &mut PageContext, x: f32, y: f32, image: &Image, size: Size) {
     ctx.parent.image_map.insert(image.clone());
-    let name = eco_format!("Im{}", ctx.parent.image_map.map(image.clone()));
+    let name = eco_format!("Im{}", ctx.parent.image_map.map(image));
     let w = size.x.to_f32();
     let h = size.y.to_f32();
     ctx.content.save_state();

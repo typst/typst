@@ -253,8 +253,8 @@ where
         });
     }
 
-    fn map(&self, item: T) -> usize {
-        self.to_pdf[&item]
+    fn map(&self, item: &T) -> usize {
+        self.to_pdf[item]
     }
 
     fn pdf_indices<'a>(
