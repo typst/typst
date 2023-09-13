@@ -313,7 +313,7 @@ fn decode_svg(
 #[derive(Clone)]
 struct FontData {
     /// The usvg-compatible font family name.
-    usvg_family: Option<EcoString>,
+    usvg_family: EcoString,
     /// The font variants included in the family.
     fonts: EcoVec<Font>,
 }
@@ -325,12 +325,13 @@ fn load_svg_fonts(
 ) -> fontdb::Database {
     let mut fontdb = fontdb::Database::new();
     let mut font_cache = BTreeMap::<EcoString, FontData>::new();
+    let mut loaded = BTreeMap::<EcoString, ()>::new();
 
     // Loads a font family by its Typst name and returns its data.
-    let mut load = |family: &str| -> FontData {
+    let mut load = |family: &str| -> Option<FontData> {
         let family = EcoString::from(family.trim()).to_lowercase();
         if let Some(success) = font_cache.get(&family) {
-            return success.clone();
+            return Some(success.clone());
         }
 
         let fonts = loader.load(&family);
@@ -340,25 +341,31 @@ fn load_svg_fonts(
                 .map(Into::<EcoString>::into)
         });
 
-        let font_data = FontData { usvg_family, fonts };
+        let font_data = FontData { usvg_family: usvg_family?, fonts };
         font_cache.insert(family, font_data.clone());
-        font_data
+        Some(font_data)
     };
 
     // Loads a font family into the fontdb database.
     let mut load_into_db = |font_data: &FontData| {
+        if loaded.contains_key(&font_data.usvg_family) {
+            return;
+        }
+
+        // We load all variants for the family, since we don't know which will
+        // be used.
         for font in &font_data.fonts {
-            // We load all variants for the family, since we don't know which will
-            // be used.
             let source = Arc::new(font.data().clone());
             fontdb.load_font_source(fontdb::Source::Binary(source));
         }
+
+        loaded.insert(font_data.usvg_family.clone(), ());
     };
 
-    let fallback_families = loader.fallback_families();
-    let fallback_fonts = fallback_families
+    let fallback_fonts =  loader
+        .fallback_families()
         .iter()
-        .map(|family| load(family.as_str()))
+        .filter_map(|family| load(family.as_str()))
         .collect::<EcoVec<_>>();
 
     // Determine the best font for each text node.
@@ -377,7 +384,7 @@ fn load_svg_fonts(
                 let inline_fonts = inline_families
                     .iter()
                     .filter(|family| !family.is_empty())
-                    .map(|family| load(family.as_str()))
+                    .filter_map(|family| load(family.as_str()))
                     .collect::<EcoVec<_>>();
 
                 // Find a font that covers all characters in the span while
@@ -390,9 +397,9 @@ fn load_svg_fonts(
                             text.chars().all(|c| font.info().coverage.contains(c as u32))
                         })
                     })
-                    .and_then(|font_data| {
+                    .map(|font_data| {
                         load_into_db(font_data);
-                        font_data.usvg_family.as_ref()
+                        &font_data.usvg_family
                     });
 
                 match usvg_family {
@@ -405,10 +412,9 @@ fn load_svg_fonts(
                         if_chain! {
                             if inline_families[0].is_empty();
                             if let Some(fallback) = fallback_fonts.first();
-                            if let Some(name) = &fallback.usvg_family;
                             then {
                                 load_into_db(fallback);
-                                inline_families[0] = name.to_string();
+                                inline_families[0] = fallback.usvg_family.to_string();
                             }
                         }
                     }
