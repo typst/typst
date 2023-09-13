@@ -370,12 +370,7 @@ fn load_svg_fonts(
         let usvg::NodeKind::Text(text) = &mut *node.borrow_mut() else { return };
         for chunk in &mut text.chunks {
             for span in &mut chunk.spans {
-                let text = chunk
-                    .text
-                    .chars()
-                    .skip(span.start)
-                    .take(span.end - span.start)
-                    .collect::<EcoString>();
+                let Some(text) = chunk.text.get(span.start..span.end) else { continue };
 
                 let inline_families = &mut span.font.families;
                 let inline_fonts = inline_families
