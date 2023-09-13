@@ -266,6 +266,7 @@ fn realize_block<'a>(
     // These elements implement `Layout` but still require a flow for
     // proper layout.
     if content.can::<dyn Layout>()
+        && !content.is::<BoxElem>()
         && !content.is::<LineElem>()
         && !content.is::<RectElem>()
         && !content.is::<SquareElem>()

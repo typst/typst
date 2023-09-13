@@ -149,6 +149,12 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(self.layout_fragment(elem)?.into_frame())
     }
 
+    pub fn layout_box(&mut self, boxed: &BoxElem) -> SourceResult<Frame> {
+        Ok(boxed
+            .layout(self.vt, self.outer.chain(&self.local), self.regions)?
+            .into_frame())
+    }
+
     pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {
         Ok(content
             .layout(self.vt, self.outer.chain(&self.local), self.regions)?
