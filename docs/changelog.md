@@ -5,7 +5,7 @@ description: |
 ---
 
 # Changelog
-## Unreleased
+## Version 0.8.0 (September 13, 2023) { #v0.8.0 }
 - Scripting
   - Plugins (thanks to [@astrale-sharp](https://github.com/astrale-sharp))
     - Typst can now load [plugins]($plugin) that are compiled to WebAssembly
@@ -14,7 +14,7 @@ description: |
     - These plugins are fully encapsulated (no access to file system or network)
     - Plugins can be shipped as part of [packages]($scripting/#packages)
     - Plugins work just the same in the web app
-  - Types as first-class values (**Breaking change**)
+  - Types are now first-class values (**Breaking change**)
     - A [type]($type) is now itself a value
     - Some types can be called like functions (those that have a constructor),
       e.g. [`int`]($int) and [`str`]($str)
@@ -57,7 +57,7 @@ description: |
     [`tab-width`]($raw.tab-size) parameter
   - The layout engine now tries to prevent "runts" (final lines consisting of
     just a single word)
-  - Added Finish translations
+  - Added Finnish translations
   - Added hyphenation support for Polish
   - Improved handling of consecutive smart quotes of different kinds
   - Fixed vertical alignments for [`number-align`]($page.number-align) argument
@@ -73,7 +73,7 @@ description: |
 - Math
   - Added support for [augmented matrices]($math.mat.augment)
   - Removed support for automatic matching of fences like `|` and `||` as
-    there were too many false positive. You can use functions like
+    there were too many false positives. You can use functions like
     [`abs`]($math.abs) or [`norm`]($math.norm) or an explicit [`lr`]($math.lr)
     call instead. (**Breaking change**)
   - Fixed spacing after number with decimal point in math
@@ -97,7 +97,7 @@ description: |
   - Fixed crash when field wasn't present and `--one` is passed to `typst query`
 
 - Miscellaneous Improvements
-  - Added [page setup guide]($guides/page-setup)
+  - Added [page setup guide]($guides/page-setup-guide)
   - Added [`figure.caption`]($figure.caption) function that can be used for
     simpler figure customization (**Breaking change** because `it.caption` now
     renders the full caption with supplement in figure show rules and manual
@@ -120,6 +120,8 @@ description: |
 - Development
   - Made `Span` and `FileId` more type-safe so that all error conditions must be
     handled by `World` implementors
+
+<contributors from="v0.7.0" to="v0.8.0" />
 
 ## Version 0.7.0 (August 7, 2023) { #v0.7.0 }
 - Text and Layout

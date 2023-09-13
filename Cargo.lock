@@ -2829,7 +2829,7 @@ checksum = "497961ef93d974e23eb6f433eb5fe1b7930b659f06d12dec6fc44a8f554c0bba"
 
 [[package]]
 name = "typst"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "base64",
  "bitflags 2.4.0",
@@ -2877,7 +2877,7 @@ dependencies = [
 
 [[package]]
 name = "typst-cli"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "chrono",
  "clap",
@@ -2920,7 +2920,7 @@ dependencies = [
 
 [[package]]
 name = "typst-docs"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -2941,7 +2941,7 @@ dependencies = [
 
 [[package]]
 name = "typst-library"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "az",
  "chinese-number",
@@ -2980,7 +2980,7 @@ dependencies = [
 
 [[package]]
 name = "typst-macros"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "heck",
  "proc-macro2",
@@ -2990,7 +2990,7 @@ dependencies = [
 
 [[package]]
 name = "typst-syntax"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "comemo",
  "ecow",
@@ -3005,7 +3005,7 @@ dependencies = [
 
 [[package]]
 name = "typst-tests"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "clap",
  "comemo",
@@ -3015,7 +3015,7 @@ dependencies = [
  "oxipng",
  "rayon",
  "tiny-skia",
- "ttf-parser 0.18.1",
+ "ttf-parser 0.19.2",
  "typst",
  "typst-library",
  "unscanny",
