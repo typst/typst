@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked};
 use ecow::{eco_format, EcoString, EcoVec};
+use if_chain::if_chain;
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
@@ -308,39 +309,57 @@ fn decode_svg(
     Ok(Rc::new(DecodedImage::Svg(tree)))
 }
 
+/// A font family and its variants.
+#[derive(Clone)]
+struct FontData {
+    /// The usvg-compatible font family name.
+    usvg_family: Option<EcoString>,
+    /// The font variants included in the family.
+    fonts: EcoVec<Font>,
+}
+
 /// Discover and load the fonts referenced by an SVG.
 fn load_svg_fonts(
     tree: &usvg::Tree,
     loader: Tracked<dyn SvgFontLoader + '_>,
 ) -> fontdb::Database {
     let mut fontdb = fontdb::Database::new();
-    let mut referenced = BTreeMap::<EcoString, Option<EcoString>>::new();
+    let mut font_cache = BTreeMap::<EcoString, FontData>::new();
 
-    // Loads a font family by its Typst name and returns its usvg-compatible
-    // name.
-    let mut load = |family: &str| -> Option<EcoString> {
+    // Loads a font family by its Typst name and returns its data.
+    let mut load = |family: &str| -> FontData {
         let family = EcoString::from(family.trim()).to_lowercase();
-        if let Some(success) = referenced.get(&family) {
+        if let Some(success) = font_cache.get(&family) {
             return success.clone();
         }
 
-        // We load all variants for the family, since we don't know which will
-        // be used.
-        let mut name = None;
-        for font in loader.load(&family) {
+        let fonts = loader.load(&family);
+        let usvg_family = fonts.iter().find_map(|font| {
+            font.find_name(ttf_parser::name_id::TYPOGRAPHIC_FAMILY)
+                .or_else(|| font.find_name(ttf_parser::name_id::FAMILY))
+                .map(Into::<EcoString>::into)
+        });
+
+        let font_data = FontData { usvg_family, fonts };
+        font_cache.insert(family, font_data.clone());
+        font_data
+    };
+
+    // Loads a font family into the fontdb database.
+    let mut load_into_db = |font_data: &FontData| {
+        for font in &font_data.fonts {
+            // We load all variants for the family, since we don't know which will
+            // be used.
             let source = Arc::new(font.data().clone());
             fontdb.load_font_source(fontdb::Source::Binary(source));
-            if name.is_none() {
-                name = font
-                    .find_name(ttf_parser::name_id::TYPOGRAPHIC_FAMILY)
-                    .or_else(|| font.find_name(ttf_parser::name_id::FAMILY))
-                    .map(Into::into);
-            }
         }
-
-        referenced.insert(family, name.clone());
-        name
     };
+
+    let fallback_families = loader.fallback_families();
+    let fallback_fonts = fallback_families
+        .iter()
+        .map(|family| load(family.as_str()))
+        .collect::<EcoVec<_>>();
 
     // Determine the best font for each text node.
     traverse_svg(&tree.root, &mut |node| {
@@ -354,38 +373,45 @@ fn load_svg_fonts(
                     .take(span.end - span.start)
                     .collect::<EcoString>();
 
+                let inline_families = &mut span.font.families;
+                let inline_fonts = inline_families
+                    .iter()
+                    .filter(|family| !family.is_empty())
+                    .map(|family| load(family.as_str()))
+                    .collect::<EcoVec<_>>();
+
                 // Find a font that covers all characters in the span while
                 // taking the fallback order into account.
-                let font = span
-                    .font
-                    .families
+                let usvg_family = inline_fonts
                     .iter()
-                    .chain(loader.fallback_families().iter())
-                    .filter(|family| !family.is_empty())
-                    .find_map(|family| {
-                        let fonts = loader.load(family.to_lowercase().as_str());
-                        let full_coverage = fonts.iter().any(|font| {
+                    .chain(fallback_fonts.iter())
+                    .find(|font_data| {
+                        font_data.fonts.iter().any(|font| {
                             text.chars().all(|c| font.info().coverage.contains(c as u32))
-                        });
-                        match full_coverage {
-                            true => load(family),
-                            false => None,
-                        }
+                        })
+                    })
+                    .and_then(|font_data| {
+                        load_into_db(font_data);
+                        font_data.usvg_family.as_ref()
                     });
 
-                match font {
-                    Some(font) => span.font.families = vec![font.to_string()],
-                    None if span.font.families[0].is_empty() => {
-                        // Use first fallback if no complete font was found.
-                        if let Some(fallback) = loader
-                            .fallback_families()
-                            .first()
-                            .and_then(|family| load(family.as_str()))
-                        {
-                            span.font.families[0] = fallback.to_string();
+                match usvg_family {
+                    Some(font) => *inline_families = vec![font.to_string()],
+                    None => {
+                        // Use first fallback if no complete found was found.
+                        if inline_families.is_empty() {
+                            inline_families.push(String::new());
+                        }
+                        if_chain! {
+                            if inline_families[0].is_empty();
+                            if let Some(fallback) = fallback_fonts.first();
+                            if let Some(name) = &fallback.usvg_family;
+                            then {
+                                load_into_db(fallback);
+                                inline_families[0] = name.to_string();
+                            }
                         }
                     }
-                    None => { /* Keep the specified font */ }
                 }
             }
         }
