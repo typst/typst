@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked};
 use ecow::{eco_format, EcoString, EcoVec};
-use if_chain::if_chain;
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
@@ -389,33 +388,25 @@ fn load_svg_fonts(
 
                 // Find a font that covers all characters in the span while
                 // taking the fallback order into account.
-                let usvg_family = inline_fonts
-                    .iter()
-                    .chain(fallback_fonts.iter())
-                    .find(|font_data| {
+                let font =
+                    inline_fonts.iter().chain(fallback_fonts.iter()).find(|font_data| {
                         font_data.fonts.iter().any(|font| {
                             text.chars().all(|c| font.info().coverage.contains(c as u32))
                         })
-                    })
-                    .map(|font_data| {
-                        load_into_db(font_data);
-                        &font_data.usvg_family
                     });
 
-                match usvg_family {
-                    Some(font) => *inline_families = vec![font.to_string()],
-                    None => {
-                        // Use first fallback if no complete found was found.
-                        if inline_families.is_empty() {
-                            inline_families.push(String::new());
-                        }
-                        if_chain! {
-                            if inline_families[0].is_empty();
-                            if let Some(fallback) = fallback_fonts.first();
-                            then {
-                                load_into_db(fallback);
-                                inline_families[0] = fallback.usvg_family.to_string();
-                            }
+                if let Some(font) = font {
+                    load_into_db(font);
+                    *inline_families = vec![font.usvg_family.to_string()]
+                } else {
+                    // Use first fallback if no complete found was found.
+                    if inline_families.is_empty() {
+                        inline_families.push(String::new());
+                    }
+                    if inline_families[0].is_empty() {
+                        if let Some(fallback) = fallback_fonts.first() {
+                            load_into_db(fallback);
+                            inline_families[0] = fallback.usvg_family.to_string();
                         }
                     }
                 }
