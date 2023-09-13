@@ -474,7 +474,7 @@ impl<'a> FlowLayouter<'a> {
                 }
             }
         }
-        used.y += footnote_height;
+        used.y += footnote_height + float_top_height + float_bottom_height;
 
         // Determine the size of the flow in this region depending on whether
         // the region expands. Also account for fractional spacing and

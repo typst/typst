@@ -20,7 +20,7 @@ include_dir = "0.7"
 once_cell = "1"
 pulldown-cmark = "0.9"
 serde = { version = "1.0.184", features = ["derive"] }
-serde_yaml = "0.8"
+serde_yaml = "0.9"
 syntect = { version = "5", default-features = false, features = ["parsing", "html", "regex-fancy"] }
 typed-arena = "2"
 unicode_names2 = "0.6.0"

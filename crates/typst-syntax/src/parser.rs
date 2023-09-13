@@ -571,13 +571,13 @@ fn code(p: &mut Parser, stop: impl FnMut(&Parser) -> bool) {
 
 fn code_exprs(p: &mut Parser, mut stop: impl FnMut(&Parser) -> bool) {
     while !p.eof() && !stop(p) {
-        p.stop_at_newline(true);
+        p.enter_newline_mode(NewlineMode::Contextual);
         let prev = p.prev_end();
         code_expr(p);
         if p.progress(prev) && !p.eof() && !stop(p) && !p.eat_if(SyntaxKind::Semicolon) {
             p.expected("semicolon or line break");
         }
-        p.unstop();
+        p.exit_newline_mode();
         if !p.progress(prev) && !p.eof() {
             p.unexpected();
         }
@@ -593,7 +593,7 @@ fn code_expr_or_pattern(p: &mut Parser) {
 }
 
 fn embedded_code_expr(p: &mut Parser) {
-    p.stop_at_newline(true);
+    p.enter_newline_mode(NewlineMode::Stop);
     p.enter(LexMode::Code);
     p.assert(SyntaxKind::Hashtag);
     p.unskip();
@@ -611,12 +611,8 @@ fn embedded_code_expr(p: &mut Parser) {
     code_expr_prec(p, true, 0, false);
 
     // Consume error for things like `#12p` or `#"abc\"`.#
-    if !p.progress(prev) {
-        if p.current().is_trivia() {
-            // p.unskip();
-        } else if !p.eof() {
-            p.unexpected();
-        }
+    if !p.progress(prev) && !p.current().is_trivia() && !p.eof() {
+        p.unexpected();
     }
 
     let semi =
@@ -627,7 +623,7 @@ fn embedded_code_expr(p: &mut Parser) {
     }
 
     p.exit();
-    p.unstop();
+    p.exit_newline_mode();
 }
 
 fn code_expr_prec(
@@ -772,7 +768,7 @@ pub(super) fn reparse_block(text: &str, range: Range<usize>) -> Option<SyntaxNod
 fn code_block(p: &mut Parser) {
     let m = p.marker();
     p.enter(LexMode::Code);
-    p.stop_at_newline(false);
+    p.enter_newline_mode(NewlineMode::Continue);
     p.assert(SyntaxKind::LeftBrace);
     code(p, |p| {
         p.at(SyntaxKind::RightBrace)
@@ -781,7 +777,7 @@ fn code_block(p: &mut Parser) {
     });
     p.expect_closing_delimiter(m, SyntaxKind::RightBrace);
     p.exit();
-    p.unstop();
+    p.exit_newline_mode();
     p.wrap(m, SyntaxKind::CodeBlock);
 }
 
@@ -852,7 +848,7 @@ fn invalidate_destructuring(p: &mut Parser, m: Marker) {
 }
 
 fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
-    p.stop_at_newline(false);
+    p.enter_newline_mode(NewlineMode::Continue);
 
     let m = p.marker();
     p.assert(SyntaxKind::LeftParen);
@@ -901,7 +897,7 @@ fn collection(p: &mut Parser, keyed: bool) -> SyntaxKind {
     }
 
     p.expect_closing_delimiter(m, SyntaxKind::RightParen);
-    p.unstop();
+    p.exit_newline_mode();
 
     if parenthesized && count == 1 {
         SyntaxKind::Parenthesized
@@ -1442,8 +1438,18 @@ struct Parser<'s> {
     current: SyntaxKind,
     modes: Vec<LexMode>,
     nodes: Vec<SyntaxNode>,
-    stop_at_newline: Vec<bool>,
+    newline_modes: Vec<NewlineMode>,
     balanced: bool,
+}
+
+/// How to proceed with parsing when seeing a newline.
+enum NewlineMode {
+    /// Stop always.
+    Stop,
+    /// Proceed if there is no continuation with `else` or `.`
+    Contextual,
+    /// Just proceed like with normal whitespace.
+    Continue,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -1462,7 +1468,7 @@ impl<'s> Parser<'s> {
             current,
             modes: vec![],
             nodes: vec![],
-            stop_at_newline: vec![],
+            newline_modes: vec![],
             balanced: true,
         }
     }
@@ -1597,13 +1603,13 @@ impl<'s> Parser<'s> {
         }
     }
 
-    fn stop_at_newline(&mut self, stop: bool) {
-        self.stop_at_newline.push(stop);
+    fn enter_newline_mode(&mut self, stop: NewlineMode) {
+        self.newline_modes.push(stop);
     }
 
-    fn unstop(&mut self) {
+    fn exit_newline_mode(&mut self) {
         self.unskip();
-        self.stop_at_newline.pop();
+        self.newline_modes.pop();
         self.lexer.jump(self.prev_end);
         self.lex();
         self.skip();
@@ -1654,8 +1660,15 @@ impl<'s> Parser<'s> {
         self.current = self.lexer.next();
         if self.lexer.mode() == LexMode::Code
             && self.lexer.newline()
-            && self.stop_at_newline.last().copied().unwrap_or(false)
-            && !matches!(self.lexer.clone().next(), SyntaxKind::Else | SyntaxKind::Dot)
+            && match self.newline_modes.last() {
+                Some(NewlineMode::Continue) => false,
+                Some(NewlineMode::Contextual) => !matches!(
+                    self.lexer.clone().next(),
+                    SyntaxKind::Else | SyntaxKind::Dot
+                ),
+                Some(NewlineMode::Stop) => true,
+                None => false,
+            }
         {
             self.current = SyntaxKind::Eof;
         }

@@ -457,18 +457,20 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
+        if let Some(boxed) = self.to::<BoxElem>() {
+            let frame = ctx.layout_box(boxed)?;
+            ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
+            return Ok(());
+        }
+
         if let Some(elem) = self.with::<dyn LayoutMath>() {
             return elem.layout_math(ctx);
         }
 
         let mut frame = ctx.layout_content(self)?;
         if !frame.has_baseline() {
-            if self.is::<BoxElem>() {
-                frame.set_baseline(frame.height());
-            } else {
-                let axis = scaled!(ctx, axis_height);
-                frame.set_baseline(frame.height() / 2.0 + axis);
-            }
+            let axis = scaled!(ctx, axis_height);
+            frame.set_baseline(frame.height() / 2.0 + axis);
         }
         ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
 

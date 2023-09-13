@@ -648,7 +648,7 @@ impl Array {
         /// A value to insert between each item of the array.
         #[default]
         separator: Option<Value>,
-        /// An alternative separator between the last two items
+        /// An alternative separator between the last two items.
         #[named]
         last: Option<Value>,
     ) -> StrResult<Value> {
@@ -675,7 +675,11 @@ impl Array {
     /// Returns an array with a copy of the separator value placed between
     /// adjacent elements.
     #[func]
-    pub fn intersperse(&self, sep: Value) -> Array {
+    pub fn intersperse(
+        &self,
+        /// The value that will be placed between each adjacent element.
+        separator: Value,
+    ) -> Array {
         // TODO: Use once stabilized:
         // https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.intersperse
         let size = match self.len() {
@@ -690,7 +694,7 @@ impl Array {
         }
 
         for value in iter {
-            vec.push(sep.clone());
+            vec.push(separator.clone());
             vec.push(value);
         }
 

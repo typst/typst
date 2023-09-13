@@ -8,9 +8,9 @@ use crate::diag::StrResult;
 
 /// An evaluated module, either built-in or resulting from a file.
 ///
-/// You can access definitions from the module using [field access
-/// notation]($scripting/#fields) and interact with it using the [import and
-/// include syntaxes]($scripting/#modules).
+/// You can access definitions from the module using
+/// [field access notation]($scripting/#fields) and interact with it using the
+/// [import and include syntaxes]($scripting/#modules).
 ///
 /// # Example
 /// ```example

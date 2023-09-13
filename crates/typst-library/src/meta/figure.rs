@@ -11,9 +11,9 @@ use crate::visualize::ImageElem;
 
 /// A figure with an optional caption.
 ///
-/// Automatically detects its contents to select the correct counting track.
-/// For example, figures containing images will be numbered separately from
-/// figures containing tables.
+/// Automatically detects its contents to select the correct counting track. For
+/// example, figures containing images will be numbered separately from figures
+/// containing tables.
 ///
 /// # Examples
 /// The example below shows a basic figure with an image:
@@ -44,36 +44,51 @@ use crate::visualize::ImageElem;
 /// This behaviour can be overridden by explicitly specifying the figure's
 /// `kind`. All figures of the same kind share a common counter.
 ///
-/// # Modifying the appearance { #modifying-appearance }
-/// You can completely customize the look of your figures with a [show
-/// rule]($styling/#show-rules). In the example below, we show the figure's
-/// caption above its body and display its supplement and counter after the
-/// caption.
+/// # Figure behaviour
+/// By default, figures are placed within the flow of content. To make them
+/// float to the top or bottom of the page, you can use the
+/// [`placement`]($figure.placement) argument.
+///
+/// If your figure is too large and its contents are breakable across pages
+/// (e.g. if it contains a large table), then you can make the figure itself
+/// breakable across pages as well with this show rule:
+/// ```typ
+/// #show figure: set block(breakable: true)
+/// ```
+///
+/// See the [block]($block.breakable) documentation for more information about
+/// breakable and non-breakable blocks.
+///
+/// # Caption customization
+/// You can modify the apperance of the figure's caption with its associated
+/// [`caption`]($figure.caption) function. In the example below, we emphasize
+/// all captions:
 ///
 /// ```example
-/// #show figure: it => align(center)[
-///   #it.caption |
-///   #emph[
-///     #it.supplement
-///     #it.counter.display(it.numbering)
-///   ]
-///   #v(10pt, weak: true)
-///   #it.body
-/// ]
+/// #show figure.caption: emph
 ///
 /// #figure(
-///   image("molecular.jpg", width: 80%),
-///   caption: [
-///     The molecular testing pipeline.
-///   ],
+///   rect[Hello],
+///   caption: [I am emphasized!],
 /// )
 /// ```
 ///
-/// If your figure is too large and its contents are breakable across pages
-/// (e.g. if it contains a large table), then you can make the figure breakable
-/// across pages as well by using `[#show figure: set block(breakable: true)]`
-/// (see the [block]($block) documentation for more information).
-#[elem(Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
+/// By using a [`where`]($function.where) selector, we can scope such rules to
+/// specific kinds of figures. For example, to position the caption above
+/// tables, but keep it below for all other kinds of figures, we could write the
+/// following show-set rule:
+///
+/// ```example
+/// #show figure.where(
+///   kind: table
+/// ): set figure.caption(position: top)
+///
+/// #figure(
+///   table(columns: 2)[A][B][C][D],
+///   caption: [I'm up here],
+/// )
+/// ```
+#[elem(scope, Locatable, Synthesize, Count, Show, Finalize, Refable, Outlinable)]
 pub struct FigureElem {
     /// The content of the figure. Often, an [image]($image).
     #[required]
@@ -87,6 +102,10 @@ pub struct FigureElem {
     ///   is closer.
     /// - `{top}`: The figure floats to the top of the page.
     /// - `{bottom}`: The figure floats to the bottom of the page.
+    ///
+    /// The gap between the main flow content and the floating figure is
+    /// controlled by the [`clearance`]($place.clearance) argument on the
+    /// `place` function.
     ///
     /// ```example
     /// #set page(height: 200pt)
@@ -102,33 +121,7 @@ pub struct FigureElem {
     pub placement: Option<Smart<VAlign>>,
 
     /// The figure's caption.
-    pub caption: Option<Content>,
-
-    /// The caption's position. Either `{top}` or `{bottom}`.
-    ///
-    /// ```example
-    /// #figure(
-    ///   table(columns: 2)[A][B],
-    ///   caption: [I'm up here],
-    ///   caption-pos: top,
-    /// )
-    ///
-    /// #figure(
-    ///   table(columns: 2)[A][B],
-    ///   caption: [I'm down here],
-    /// )
-    /// ```
-    #[default(VAlign::Bottom)]
-    #[parse({
-        let option: Option<Spanned<VAlign>> = args.named("caption-pos")?;
-        if let Some(Spanned { v: align, span }) = option {
-            if align == VAlign::Horizon {
-                bail!(span, "expected `top` or `bottom`");
-            }
-        }
-        option.map(|spanned| spanned.v)
-    })]
-    pub caption_pos: VAlign,
+    pub caption: Option<FigureCaption>,
 
     /// The kind of figure this is.
     ///
@@ -204,6 +197,12 @@ pub struct FigureElem {
     pub counter: Option<Counter>,
 }
 
+#[scope]
+impl FigureElem {
+    #[elem]
+    type FigureCaption;
+}
+
 impl Synthesize for FigureElem {
     fn synthesize(&mut self, vt: &mut Vt, styles: StyleChain) -> SourceResult<()> {
         let numbering = self.numbering(styles);
@@ -238,9 +237,9 @@ impl Synthesize for FigureElem {
                     bail!(self.span(), "please specify the figure's supplement")
                 }
 
-                name.unwrap_or_default()
+                Some(name.unwrap_or_default())
             }
-            Smart::Custom(None) => Content::empty(),
+            Smart::Custom(None) => None,
             Smart::Custom(Some(supplement)) => {
                 // Resolve the supplement with the first descendant of the kind or
                 // just the body, if none was found.
@@ -252,7 +251,7 @@ impl Synthesize for FigureElem {
                 };
 
                 let target = descendant.unwrap_or_else(|| self.body());
-                supplement.resolve(vt, [target])?
+                Some(supplement.resolve(vt, [target])?)
             }
         };
 
@@ -264,11 +263,20 @@ impl Synthesize for FigureElem {
             }),
         )));
 
+        // Fill the figure's caption.
+        let mut caption = self.caption(styles);
+        if let Some(caption) = &mut caption {
+            caption.push_kind(kind.clone());
+            caption.push_supplement(supplement.clone());
+            caption.push_numbering(numbering.clone());
+            caption.push_counter(Some(counter.clone()));
+            caption.push_location(self.0.location());
+        }
+
         self.push_placement(self.placement(styles));
-        self.push_caption_pos(self.caption_pos(styles));
-        self.push_caption(self.caption(styles));
+        self.push_caption(caption);
         self.push_kind(Smart::Custom(kind));
-        self.push_supplement(Smart::Custom(Some(Supplement::Content(supplement))));
+        self.push_supplement(Smart::Custom(supplement.map(Supplement::Content)));
         self.push_numbering(numbering);
         self.push_outlined(self.outlined(styles));
         self.push_counter(Some(counter));
@@ -279,18 +287,18 @@ impl Synthesize for FigureElem {
 
 impl Show for FigureElem {
     #[tracing::instrument(name = "FigureElem::show", skip_all)]
-    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
 
         // Build the caption, if any.
-        if let Some(caption) = self.full_caption(vt)? {
+        if let Some(caption) = self.caption(styles) {
             let v = VElem::weak(self.gap(styles).into()).pack();
-            realized = if self.caption_pos(styles) == VAlign::Bottom {
-                realized + v + caption
+            realized = if caption.position(styles) == VAlign::Bottom {
+                realized + v + caption.pack()
             } else {
-                caption + v + realized
-            }
-        };
+                caption.pack() + v + realized
+            };
+        }
 
         // Wrap the contents in a block.
         realized = BlockElem::new()
@@ -351,17 +359,11 @@ impl Outlinable for FigureElem {
             return Ok(None);
         }
 
-        self.full_caption(vt)
-    }
-}
-
-impl FigureElem {
-    /// Builds the full caption for the figure (with supplement and numbering).
-    pub fn full_caption(&self, vt: &mut Vt) -> SourceResult<Option<Content>> {
-        let Some(mut caption) = self.caption(StyleChain::default()) else {
+        let Some(caption) = self.caption(StyleChain::default()) else {
             return Ok(None);
         };
 
+        let mut realized = caption.body();
         if let (
             Smart::Custom(Some(Supplement::Content(mut supplement))),
             Some(counter),
@@ -375,14 +377,157 @@ impl FigureElem {
             let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
 
             if !supplement.is_empty() {
-                supplement += TextElem::packed("\u{a0}");
+                supplement += TextElem::packed('\u{a0}');
             }
 
-            caption = supplement + numbers + TextElem::packed(": ") + caption;
+            let separator = caption.separator(StyleChain::default());
+
+            realized = supplement + numbers + separator + caption.body();
         }
 
-        Ok(Some(caption))
+        Ok(Some(realized))
     }
+}
+
+/// The caption of a figure. This element can be used in set and show rules to
+/// customize the appearance of captions for all figures or figures of a
+/// specific kind.
+///
+/// In addition to its `pos` and `body`, the `caption` also provides the
+/// figure's `kind`, `supplement`, `counter`, `numbering`, and `location` as
+/// fields. These parts can be used in [`where`]($function.where) selectors and
+/// show rules to build a completely custom caption.
+///
+/// ```example
+/// #show figure.caption: emph
+///
+/// #figure(
+///   rect[Hello],
+///   caption: [A rectangle],
+/// )
+/// ```
+#[elem(name = "caption", Synthesize, Show)]
+pub struct FigureCaption {
+    /// The caption's position in the figure. Either `{top}` or `{bottom}`.
+    ///
+    /// ```example
+    /// #show figure.where(
+    ///   kind: table
+    /// ): set figure.caption(position: top)
+    ///
+    /// #figure(
+    ///   table(columns: 2)[A][B],
+    ///   caption: [I'm up here],
+    /// )
+    ///
+    /// #figure(
+    ///   rect[Hi],
+    ///   caption: [I'm down here],
+    /// )
+    ///
+    /// #figure(
+    ///   table(columns: 2)[A][B],
+    ///   caption: figure.caption(
+    ///     position: bottom,
+    ///     [I'm down here too!]
+    ///   )
+    /// )
+    /// ```
+    #[default(VAlign::Bottom)]
+    #[parse({
+        let option: Option<Spanned<VAlign>> = args.named("position")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align == VAlign::Horizon {
+                bail!(span, "expected `top` or `bottom`");
+            }
+        }
+        option.map(|spanned| spanned.v)
+    })]
+    pub position: VAlign,
+
+    /// The separator which will appear between the number and body.
+    ///
+    /// ```example
+    /// #set figure.caption(separator: [ --- ])
+    ///
+    /// #figure(
+    ///   rect[Hello],
+    ///   caption: [A rectangle],
+    /// )
+    /// ```
+    #[default(TextElem::packed(": "))]
+    pub separator: Content,
+
+    /// The caption's body.
+    ///
+    /// Can be used alongside `kind`, `supplement`, `counter`, `numbering`, and
+    /// `location` to completely customize the caption.
+    ///
+    /// ```example
+    /// #show figure.caption: it => [
+    ///   #underline(it.body) |
+    ///   #it.supplement #it.counter.display(it.numbering)
+    /// ]
+    ///
+    /// #figure(
+    ///   rect[Hello],
+    ///   caption: [A rectangle],
+    /// )
+    /// ```
+    #[required]
+    pub body: Content,
+
+    /// The figure's supplement.
+    #[synthesized]
+    pub kind: FigureKind,
+
+    /// The figure's supplement.
+    #[synthesized]
+    pub supplement: Option<Content>,
+
+    /// How to number the figure.
+    #[synthesized]
+    pub numbering: Option<Numbering>,
+
+    /// The counter for the figure.
+    #[synthesized]
+    pub counter: Option<Counter>,
+
+    /// The figure's location.
+    #[synthesized]
+    pub location: Option<Location>,
+}
+
+impl Synthesize for FigureCaption {
+    fn synthesize(&mut self, _: &mut Vt, styles: StyleChain) -> SourceResult<()> {
+        self.push_position(self.position(styles));
+        self.push_separator(self.separator(styles));
+        Ok(())
+    }
+}
+
+impl Show for FigureCaption {
+    #[tracing::instrument(name = "FigureCaption::show", skip_all)]
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+        let mut realized = self.body();
+
+        if let (Some(mut supplement), Some(numbering), Some(counter), Some(location)) =
+            (self.supplement(), self.numbering(), self.counter(), self.location())
+        {
+            let numbers = counter.at(vt, location)?.display(vt, &numbering)?;
+            if !supplement.is_empty() {
+                supplement += TextElem::packed('\u{a0}');
+            }
+            realized = supplement + numbers + self.separator(styles) + realized;
+        }
+
+        Ok(realized)
+    }
+}
+
+cast! {
+    FigureCaption,
+    v: Content => v.to::<Self>().cloned().unwrap_or_else(|| Self::new(v.clone())),
 }
 
 /// The `kind` parameter of a [`FigureElem`].
