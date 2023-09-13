@@ -1,6 +1,9 @@
-use ecow::eco_format;
+use std::num::NonZeroUsize;
+
+use ecow::{eco_format, EcoString};
 use pdf_writer::types::{
     ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
+    NumberingStyle,
 };
 use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
@@ -33,6 +36,7 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
     let mut ctx = PageContext {
         parent: ctx,
         page_ref,
+        label: None,
         uses_opacities: false,
         content: Content::new(),
         state: State::default(),
@@ -59,10 +63,11 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
 
     let page = Page {
         size,
-        content: ctx.content,
+        content: ctx.content.finish(),
         id: ctx.page_ref,
         uses_opacities: ctx.uses_opacities,
         links: ctx.links,
+        label: ctx.label,
     };
 
     ctx.parent.pages.push(page);
@@ -71,8 +76,8 @@ pub fn construct_page(ctx: &mut PdfContext, frame: &Frame) {
 /// Write the page tree.
 #[tracing::instrument(skip_all)]
 pub fn write_page_tree(ctx: &mut PdfContext) {
-    for page in std::mem::take(&mut ctx.pages).into_iter() {
-        write_page(ctx, page);
+    for i in 0..ctx.pages.len() {
+        write_page(ctx, i);
     }
 
     let mut pages = ctx.writer.pages(ctx.page_tree_ref);
@@ -115,7 +120,8 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 
 /// Write a page tree node.
 #[tracing::instrument(skip_all)]
-fn write_page(ctx: &mut PdfContext, page: Page) {
+fn write_page(ctx: &mut PdfContext, i: usize) {
+    let page = &ctx.pages[i];
     let content_id = ctx.alloc.bump();
 
     let mut page_writer = ctx.writer.page(page.id);
@@ -137,9 +143,9 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
     }
 
     let mut annotations = page_writer.annotations();
-    for (dest, rect) in page.links {
+    for (dest, rect) in &page.links {
         let mut annotation = annotations.push();
-        annotation.subtype(AnnotationType::Link).rect(rect);
+        annotation.subtype(AnnotationType::Link).rect(*rect);
         annotation.border(0.0, 0.0, 0.0, None);
 
         let pos = match dest {
@@ -150,8 +156,8 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
                     .uri(Str(uri.as_bytes()));
                 continue;
             }
-            Destination::Position(pos) => pos,
-            Destination::Location(loc) => ctx.introspector.position(loc),
+            Destination::Position(pos) => *pos,
+            Destination::Location(loc) => ctx.introspector.position(*loc),
         };
 
         let index = pos.page.get() - 1;
@@ -169,8 +175,7 @@ fn write_page(ctx: &mut PdfContext, page: Page) {
     annotations.finish();
     page_writer.finish();
 
-    let data = page.content.finish();
-    let data = deflate(&data);
+    let data = deflate(&page.content);
     ctx.writer.stream(content_id, &data).filter(Filter::FlateDecode);
 }
 
@@ -181,17 +186,20 @@ pub struct Page {
     /// The page's dimensions.
     pub size: Size,
     /// The page's content stream.
-    pub content: Content,
+    pub content: Vec<u8>,
     /// Whether the page uses opacities.
     pub uses_opacities: bool,
     /// Links in the PDF coordinate system.
     pub links: Vec<(Destination, Rect)>,
+    /// The page's PDF label.
+    pub label: Option<PdfPageLabel>,
 }
 
 /// An exporter for the contents of a single PDF page.
 struct PageContext<'a, 'b> {
     parent: &'a mut PdfContext<'b>,
     page_ref: Ref,
+    label: Option<PdfPageLabel>,
     content: Content,
     state: State,
     saves: Vec<State>,
@@ -398,6 +406,7 @@ fn write_frame(ctx: &mut PageContext, frame: &Frame) {
                 Meta::Elem(_) => {}
                 Meta::Hide => {}
                 Meta::PageNumbering(_) => {}
+                Meta::PdfPageLabel(label) => ctx.label = Some(label.clone()),
             },
         }
     }
@@ -628,6 +637,51 @@ impl From<&LineJoin> for LineJoinStyle {
             LineJoin::Miter => LineJoinStyle::MiterJoin,
             LineJoin::Round => LineJoinStyle::RoundJoin,
             LineJoin::Bevel => LineJoinStyle::BevelJoin,
+        }
+    }
+}
+
+/// Specification for a PDF page label.
+#[derive(Debug, Clone, PartialEq, Hash, Default)]
+pub struct PdfPageLabel {
+    /// Can be any string or none. Will always be prepended to the numbering style.
+    pub prefix: Option<EcoString>,
+    /// Based on the numbering pattern.
+    ///
+    /// If `None` or numbering is a function, the field will be empty.
+    pub style: Option<PdfPageLabelStyle>,
+    /// Offset for the page label start.
+    ///
+    /// Describes where to start counting from when setting a style.
+    /// (Has to be greater or equal than 1)
+    pub offset: Option<NonZeroUsize>,
+}
+
+/// A PDF page label number style.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum PdfPageLabelStyle {
+    /// Decimal arabic numerals (1, 2, 3).
+    Arabic,
+    /// Lowercase roman numerals (i, ii, iii).
+    LowerRoman,
+    /// Uppercase roman numerals (I, II, III).
+    UpperRoman,
+    /// Lowercase letters (`a` to `z` for the first 26 pages,
+    /// `aa` to `zz` and so on for the next).
+    LowerAlpha,
+    /// Uppercase letters (`A` to `Z` for the first 26 pages,
+    /// `AA` to `ZZ` and so on for the next).
+    UpperAlpha,
+}
+
+impl From<PdfPageLabelStyle> for NumberingStyle {
+    fn from(value: PdfPageLabelStyle) -> Self {
+        match value {
+            PdfPageLabelStyle::Arabic => Self::Arabic,
+            PdfPageLabelStyle::LowerRoman => Self::LowerRoman,
+            PdfPageLabelStyle::UpperRoman => Self::UpperRoman,
+            PdfPageLabelStyle::LowerAlpha => Self::LowerAlpha,
+            PdfPageLabelStyle::UpperAlpha => Self::UpperAlpha,
         }
     }
 }
