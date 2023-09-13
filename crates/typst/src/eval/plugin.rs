@@ -195,6 +195,7 @@ impl Plugin {
     }
 
     /// Call the plugin function with the given `name`.
+    #[comemo::memoize]
     pub fn call(&self, name: &str, args: Vec<Bytes>) -> StrResult<Bytes> {
         // Find the function with the given name.
         let func = self

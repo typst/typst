@@ -82,16 +82,16 @@ impl Dict {
         self.0.get(key).ok_or_else(|| missing_key(key))
     }
 
-    /// Remove the value if the dictionary contains the given key.
-    pub fn take(&mut self, key: &str) -> StrResult<Value> {
-        Arc::make_mut(&mut self.0).remove(key).ok_or_else(|| missing_key(key))
-    }
-
     /// Mutably borrow the value the given `key` maps to.
     pub fn at_mut(&mut self, key: &str) -> StrResult<&mut Value> {
         Arc::make_mut(&mut self.0)
             .get_mut(key)
             .ok_or_else(|| missing_key_no_default(key))
+    }
+
+    /// Remove the value if the dictionary contains the given key.
+    pub fn take(&mut self, key: &str) -> StrResult<Value> {
+        Arc::make_mut(&mut self.0).remove(key).ok_or_else(|| missing_key(key))
     }
 
     /// Whether the dictionary contains a specific key.

@@ -23,18 +23,18 @@ doc = false
 typst = { path = "../typst" }
 typst-library = { path = "../typst-library" }
 chrono = { version = "0.4.24", default-features = false, features = ["clock", "std"] }
-clap = { version = "4.2.4", features = ["derive", "env"] }
+clap = { version = "4.4", features = ["derive", "env"] }
 codespan-reporting = "0.11"
 comemo = "0.3"
 ecow = "0.1.1"
 dirs = "5"
 flate2 = "1"
 inferno = "0.11.15"
-memmap2 = "0.5"
-notify = "5"
+memmap2 = "0.7"
+notify = "6"
 once_cell = "1"
-open = "4.0.2"
-pathdiff = "0.1"
+open = "5"
+pathdiff = "0.2"
 same-file = "1"
 # https://github.com/mitsuhiko/self-replace/pull/16
 self-replace = { git = "https://github.com/typst/self-replace", optional = true }
@@ -58,10 +58,10 @@ xz2 = { version = "0.1", optional = true }
 zip = { version = "0.6", optional = true }
 
 [build-dependencies]
-semver = "1"
-clap = { version = "4.2.4", features = ["derive", "string"] }
+clap = { version = "4.4", features = ["derive", "string"] }
 clap_complete = "4.2.1"
 clap_mangen = "0.2.10"
+semver = "1"
 
 [features]
 default = ["embed-fonts"]

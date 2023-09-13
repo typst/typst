@@ -98,7 +98,7 @@
 #test(data.at("1"), "ok")
 
 ---
-// Error: 7-24 failed to parse YAML (while parsing a flow sequence, expected ',' or ']' at line 2 column 1)
+// Error: 7-24 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
 #yaml("/files/bad.yaml")
 
 ---

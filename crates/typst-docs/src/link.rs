@@ -37,16 +37,16 @@ fn split_link(link: &str) -> StrResult<(&str, &str)> {
 /// Resolve a `$` link head to a known destination.
 fn resolve_known(head: &str) -> Option<&'static str> {
     Some(match head {
-        "$tutorial" => "/docs/tutorial/",
-        "$reference" => "/docs/reference/",
-        "$category" => "/docs/reference/",
-        "$syntax" => "/docs/reference/syntax/",
-        "$styling" => "/docs/reference/styling/",
-        "$scripting" => "/docs/reference/scripting/",
-        "$guides" => "/docs/guides/",
-        "$packages" => "/docs/packages/",
-        "$changelog" => "/docs/changelog/",
-        "$community" => "/docs/community/",
+        "$tutorial" => "/docs/tutorial",
+        "$reference" => "/docs/reference",
+        "$category" => "/docs/reference",
+        "$syntax" => "/docs/reference/syntax",
+        "$styling" => "/docs/reference/styling",
+        "$scripting" => "/docs/reference/scripting",
+        "$guides" => "/docs/guides",
+        "$packages" => "/docs/packages",
+        "$changelog" => "/docs/changelog",
+        "$community" => "/docs/community",
         _ => return None,
     })
 }

@@ -18,11 +18,40 @@ pub use typst_macros::{scope, ty};
 /// shapes, and more. Typst categorizes these into clearly defined _types_ and
 /// tells you where it expects which type of value.
 ///
-/// Apart from very basic types for numeric values and [typical]($int)
+/// Apart from basic types for numeric values and [typical]($int)
 /// [types]($float) [known]($str) [from]($array) [programming]($dictionary)
 /// languages, Typst provides a special type for [_content._]($content) A value
 /// of this type can hold anything that you can enter into your document: Text,
 /// elements like headings and shapes, and style information.
+///
+/// # Example
+/// ```example
+/// #let x = 10
+/// #if type(x) == int [
+///   #x is an integer!
+/// ] else [
+///   #x is another value...
+/// ]
+///
+/// An image is of type
+/// #type(image("glacier.jpg")).
+/// ```
+///
+/// The type of `10` is `int`. Now, what is the type of `int` or even `type`?
+/// ```example
+/// #type(int) \
+/// #type(type)
+/// ```
+///
+/// # Compatibility
+/// In Typst 0.7 and lower, the `type` function returned a string instead of a
+/// type. Compatibility with the old way will remain for a while to give package
+/// authors time to upgrade, but it will be removed at some point.
+///
+/// - Checks like `{int == "integer"}` evaluate to `{true}`
+/// - Adding/joining a type and string will yield a string
+/// - The `{in}` operator on a type and a dictionary will evaluate to `{true}`
+///   if the dictionary has a string key matching the type's name
 #[ty(scope)]
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Type(Static<NativeTypeData>);

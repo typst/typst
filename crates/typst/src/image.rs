@@ -15,7 +15,7 @@ use image::codecs::png::PngDecoder;
 use image::io::Limits;
 use image::{guess_format, ImageDecoder, ImageResult};
 use typst_macros::{cast, Cast};
-use usvg::{TreeParsing, TreeTextToPath};
+use usvg::{NodeExt, TreeParsing, TreeTextToPath};
 
 use crate::diag::{bail, format_xml_like_error, StrResult};
 use crate::eval::Bytes;
@@ -158,6 +158,18 @@ pub enum ImageFormat {
     Vector(VectorFormat),
 }
 
+impl From<RasterFormat> for ImageFormat {
+    fn from(format: RasterFormat) -> Self {
+        Self::Raster(format)
+    }
+}
+
+impl From<VectorFormat> for ImageFormat {
+    fn from(format: VectorFormat) -> Self {
+        Self::Vector(format)
+    }
+}
+
 cast! {
     ImageFormat,
     self => match self {
@@ -213,20 +225,6 @@ impl TryFrom<image::ImageFormat> for RasterFormat {
             image::ImageFormat::Gif => RasterFormat::Gif,
             _ => bail!("Format not yet supported."),
         })
-    }
-}
-
-impl From<ttf_parser::RasterImageFormat> for RasterFormat {
-    fn from(format: ttf_parser::RasterImageFormat) -> Self {
-        match format {
-            ttf_parser::RasterImageFormat::PNG => RasterFormat::Png,
-        }
-    }
-}
-
-impl From<ttf_parser::RasterImageFormat> for ImageFormat {
-    fn from(format: ttf_parser::RasterImageFormat) -> Self {
-        Self::Raster(format.into())
     }
 }
 
@@ -422,9 +420,9 @@ fn traverse_svg<F>(node: &usvg::Node, f: &mut F)
 where
     F: FnMut(&usvg::Node),
 {
-    f(node);
-    for child in node.children() {
-        traverse_svg(&child, f);
+    for descendant in node.descendants() {
+        f(&descendant);
+        descendant.subroots(|subroot| traverse_svg(&subroot, f))
     }
 }
 
