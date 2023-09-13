@@ -327,7 +327,7 @@ impl SVGRenderer {
         if let Some(pattern) = &stroke.dash_pattern {
             self.xml.write_attribute("stoken-dashoffset", &pattern.phase.to_pt());
             self.xml.write_attribute(
-                "stoken-dasharray",
+                "stoke-dasharray",
                 &pattern
                     .array
                     .iter()
