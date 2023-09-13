@@ -291,13 +291,15 @@ ways:
 - **Import:** `{import "bar.typ"}` \
   Evaluates the file at the path `bar.typ` and inserts the resulting
   [module]($module) into the current scope as `bar` (filename without
-  extension).
+  extension). You can use the `as` keyword to rename the imported module:
+  `{import "bar.typ" as baz}`
 
 - **Import items:** `{import "bar.typ": a, b}` \
   Evaluates the file at the path `bar.typ`, extracts the values of the variables
   `a` and `b` (that need to be defined in `bar.typ`, e.g. through `{let}`
-  bindings) and defines them in the current file. Replacing `a, b` with `*` loads
-  all variables defined in a module.
+  bindings) and defines them in the current file. Replacing `a, b` with `*`
+  loads all variables defined in a module. You can use the `as` keyword to
+  rename the individual items: `{import "bar.typ": a as one, b as two}`
 
 Instead of a path, you can also use a [module value]($module), as shown in the
 following example:
