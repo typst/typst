@@ -362,7 +362,7 @@ fn load_svg_fonts(
         loaded.insert(font_data.usvg_family.clone(), ());
     };
 
-    let fallback_fonts =  loader
+    let fallback_fonts = loader
         .fallback_families()
         .iter()
         .filter_map(|family| load(family.as_str()))
