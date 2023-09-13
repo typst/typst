@@ -248,7 +248,7 @@ fn render_svg_glyph(
     // We add a nice 5px border along the bounding box to
     // be on the safe size. We also compute the intersection
     // with the canvas rectangle
-    let bbox = bbox.transform(ts)?.to_rect()?.round()?;
+    let bbox = bbox.transform(ts)?.to_rect()?.round_out()?;
     let bbox = IntRect::from_xywh(
         bbox.left() - 5,
         bbox.y() - 5,
