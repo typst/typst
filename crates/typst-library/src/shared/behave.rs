@@ -32,10 +32,11 @@ impl<'a> BehavedBuilder<'a> {
 
     /// Whether the builder is empty except for some weak elements that will
     /// probably collapse.
-    pub fn is_basically_empty(&self) -> bool {
-        self.builder.is_empty()
-            && self.staged.iter().all(|(_, behaviour, _)| {
-                matches!(behaviour, Behaviour::Weak(_) | Behaviour::Invisible)
+    pub fn has_strong_elements(&self, last: bool) -> bool {
+        !self.builder.is_empty()
+            || self.staged.iter().any(|(_, behaviour, _)| {
+                !matches!(behaviour, Behaviour::Weak(_) | Behaviour::Invisible)
+                    || (last && *behaviour == Behaviour::Invisible)
             })
     }
 

@@ -250,7 +250,7 @@ fn realize_root<'a>(
 
     let mut builder = Builder::new(vt, scratch, true);
     builder.accept(content, styles)?;
-    builder.interrupt_page(Some(styles))?;
+    builder.interrupt_page(Some(styles), true)?;
     let (pages, shared) = builder.doc.unwrap().pages.finish();
     Ok((DocumentElem::new(pages.to_vec()).pack(), shared))
 }
@@ -375,7 +375,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             .to::<PagebreakElem>()
             .map_or(false, |pagebreak| !pagebreak.weak(styles));
 
-        self.interrupt_page(keep.then_some(styles))?;
+        self.interrupt_page(keep.then_some(styles), false)?;
 
         if let Some(doc) = &mut self.doc {
             if doc.accept(content, styles) {
@@ -424,7 +424,7 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
             if self.doc.is_none() {
                 bail!(span, "page configuration is not allowed inside of containers");
             }
-            self.interrupt_page(outer)?;
+            self.interrupt_page(outer, false)?;
         } else if local.interruption::<ParElem>().is_some()
             || local.interruption::<AlignElem>().is_some()
         {
@@ -462,10 +462,14 @@ impl<'a, 'v, 't> Builder<'a, 'v, 't> {
         Ok(())
     }
 
-    fn interrupt_page(&mut self, styles: Option<StyleChain<'a>>) -> SourceResult<()> {
+    fn interrupt_page(
+        &mut self,
+        styles: Option<StyleChain<'a>>,
+        last: bool,
+    ) -> SourceResult<()> {
         self.interrupt_par()?;
         let Some(doc) = &mut self.doc else { return Ok(()) };
-        if !self.flow.0.is_basically_empty() || (doc.keep_next && styles.is_some()) {
+        if (doc.keep_next && styles.is_some()) || self.flow.0.has_strong_elements(last) {
             let (flow, shared) = mem::take(&mut self.flow).0.finish();
             let styles = if shared == StyleChain::default() {
                 styles.unwrap_or_default()
@@ -588,7 +592,7 @@ struct ParBuilder<'a>(BehavedBuilder<'a>);
 impl<'a> ParBuilder<'a> {
     fn accept(&mut self, content: &'a Content, styles: StyleChain<'a>) -> bool {
         if content.is::<MetaElem>() {
-            if !self.0.is_basically_empty() {
+            if self.0.has_strong_elements(false) {
                 self.0.push(content.clone(), styles);
                 return true;
             }
