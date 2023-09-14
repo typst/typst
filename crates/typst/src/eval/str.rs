@@ -9,7 +9,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use super::{
     cast, dict, func, scope, ty, Args, Array, Bytes, Dict, Func, IntoValue, Type, Value,
-    Vm, Version
+    Version, Vm,
 };
 use crate::diag::{bail, At, SourceResult, StrResult};
 use crate::geom::Align;

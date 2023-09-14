@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     cast, func, ops, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
-    Reflect, Value, Vm, Version
+    Reflect, Value, Version, Vm,
 };
 use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::ops::{add, mul};
