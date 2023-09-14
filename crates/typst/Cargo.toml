@@ -41,7 +41,7 @@ rustybuzz = "0.7"
 serde = { version = "1.0.184", features = ["derive"] }
 siphasher = "0.3"
 subsetter = "0.1.1"
-svg2pdf = "0.7"
+svg2pdf = "0.7.1"
 tiny-skia = "0.10.0"
 toml = { version = "0.8", default-features = false, features = ["parse"] }
 tracing = "0.1.37"
