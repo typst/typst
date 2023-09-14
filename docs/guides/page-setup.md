@@ -174,15 +174,13 @@ conditionally remove the header on the first page:
 
 ```typ
 >>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
-#set page(
-  header: locate(loc => {
-    if counter(page).at(loc).first() > 1 [
-      _Lisa Strassner's Thesis_
-      #h(1fr)
-      National Academy of Sciences
-    ]
-  }),
-)
+#set page(header: locate(loc => {
+  if counter(page).at(loc).first() > 1 [
+    _Lisa Strassner's Thesis_
+    #h(1fr)
+    National Academy of Sciences
+  ]
+}))
 
 #lorem(150)
 ```
@@ -208,22 +206,20 @@ such a label exists on the current page:
 
 ```typ
 >>> #set page("a5", margin: (x: 2.5cm, y: 3cm))
-#set page(
-  header: locate(loc => {
-    let page-counter = counter(page)
-    let matches = query(<big-table>, loc)
-    let current = page-counter.at(loc)
-    let has-table = matches.any(m =>
-      page-counter.at(m.location()) == current
-    )
+#set page(header: locate(loc => {
+  let page-counter = counter(page)
+  let matches = query(<big-table>, loc)
+  let current = page-counter.at(loc)
+  let has-table = matches.any(m =>
+    page-counter.at(m.location()) == current
+  )
 
-    if not has-table [
-      _Lisa Strassner's Thesis_
-      #h(1fr)
-      National Academy of Sciences
-    ]
-  }),
-)
+  if not has-table [
+    _Lisa Strassner's Thesis_
+    #h(1fr)
+    National Academy of Sciences
+  ]
+}))
 
 #lorem(100)
 #pagebreak()
@@ -295,100 +291,45 @@ a custom footer with page numbers and more.
 
 ```example
 >>> #set page("iso-b6", margin: 1.75cm)
-#set page(
-  footer: locate(loc => {
-    let page-num = counter(page)
-      .at(loc)
-      .first()
-
-    let page-total = counter(page)
-      .final(loc)
-      .first()
-
-    strong[
-      American Society of Proceedings
-    ]
-    h(1fr)
-    [#page-num/#page-total]
-  })
-)
+#set page(footer: [
+  *American Society of Proceedings*
+  #h(1fr)
+  #counter(page).display(
+    "1/1",
+    both: true,
+  )
+])
 
 This page has a custom footer.
 ```
 
-The example above shows how to add a custom footer with page numbers. First, we
-need to recover the page number using the page counter. For this, we are using
-the [`{locate}` function]($locate) to check the page counter, just like in
-the conditional header section. We then store the current and final page number
-in variables.
+First, we add some strongly emphasized text on the left and add free space to
+fill the line. Then, we call `counter(page)` to retrieve the page counter and
+use its `display` function to show its current value. We also set `both` to
+`{true}` so that our numbering pattern applies to the current _and_ final page
+number.
 
-Then, we can proceed to build our footer. We add a strong label on the left,
-insert all the free space on the line, and finally display the current page
-number and the page total. This would work just the same in the header and with
-any content.
-
-We can, of course, use the [`{numbering}` function]($numbering) to use numbering
-pattern strings like before:
+We can also get more creative with the page number. For example, let's insert a
+circle for each page.
 
 ```example
 >>> #set page("iso-b6", margin: 1.75cm)
-#set page(
-  footer: locate(loc => {
-    let page-num = counter(page)
-      .at(loc)
-      .first()
-
-    let page-total = counter(page)
-      .final(loc)
-      .first()
-
-    strong[
-      American Society of Proceedings
-    ]
-
-    h(1fr)
-
-    numbering(
-      "i of I",
-      page-num,
-      page-total
-    )
-  })
-)
-
-This page has a custom footer.
-```
-
-The `{numbering}` function accepts multiple arguments. It will use the arguments
-in order for each number character. You could, for example, put the page total
-in front of the page number by reversing the argument order.
-
-We can even use these variables to get more creative with the page number. For
-example, let's insert a circle for each page.
-
-```example
->>> #set page("iso-b6", margin: 1.75cm)
-#set page(
-  footer: locate(loc => {
-    let page-num = counter(page)
-      .at(loc)
-      .first()
-
-    let circles = (
+#set page(footer: [
+  *Fun Typography Club*
+  #h(1fr)
+  #counter(page).display(num => {
+    let circles = num * (
       box(circle(
         radius: 2pt,
         fill: navy,
       )),
-    ) * page-num
-
-    strong[Fun Typography Club]
-    h(1fr)
+    )
     box(
       inset: (bottom: 1pt),
       circles.join(h(1pt))
     )
   })
-)
+])
 
 This page has a custom footer.
 ```
@@ -426,22 +367,22 @@ start of a page because it will otherwise create a page break. You can also
 update the counter given its previous value by passing a function:
 
 ```typ
-#counter(page).update(i => i + 5)
+#counter(page).update(n => n + 5)
 ```
 
-In this example, we skip five pages. `i` is the current value of the page
-counter and `i + 5` is the return value of our function.
+In this example, we skip five pages. `n` is the current value of the page
+counter and `n + 5` is the return value of our function.
 
 In case you need to retrieve the actual page number instead of the value of the
 page counter, you can use the [`page`]($locate) method on the argument of the
 `{locate}` closure:
 
 ```example
-#counter(page).update(i => i + 5)
+#counter(page).update(n => n + 5)
 
 // This returns one even though the
 // page counter was incremented by 5.
-#locate(loc => {loc.page()})
+#locate(loc => loc.page())
 ```
 
 You can also obtain the page numbering pattern from the `{locate}` closure
