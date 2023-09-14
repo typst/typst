@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{
     cast, func, ops, scope, ty, Args, Bytes, CastInfo, FromValue, Func, IntoValue,
-    Reflect, Value, Vm,
+    Reflect, Value, Vm, Version
 };
 use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::ops::{add, mul};
@@ -804,6 +804,7 @@ cast! {
     ToArray,
     v: Bytes => Self(v.iter().map(|&b| Value::Int(b.into())).collect()),
     v: Array => Self(v),
+    v: Version => Self(v.clone().into_array())
 }
 
 impl Debug for Array {
