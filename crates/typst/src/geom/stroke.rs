@@ -64,8 +64,8 @@ use super::*;
 ///
 /// # Fields
 /// On a `stroke` object, you can access any of the fields mentioned in the
-/// dictionary format above. For example, `{(2pt + blue).thickness}` is `{2pt}`,
-/// `{(2pt + blue).miter-limit}` is `{4.0}` (the default), and so on.
+/// dictionary format above. For example, `{(2pt + blue).thickness}` is `{2pt}`.
+/// Meanwhile, `{(2pt + blue).cap}` is `{auto}` because it's unspecified.
 #[ty]
 #[derive(Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {

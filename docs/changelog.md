@@ -7,7 +7,8 @@ description: |
 # Changelog
 ## Version 0.8.0 (September 13, 2023) { #v0.8.0 }
 - Scripting
-  - Plugins (thanks to [@astrale-sharp](https://github.com/astrale-sharp))
+  - Plugins (thanks to [@astrale-sharp](https://github.com/astrale-sharp) and
+    [@arnaudgolfouse](https://github.com/arnaudgolfouse))
     - Typst can now load [plugins]($plugin) that are compiled to WebAssembly
     - Anything that can be compiled to WebAssembly can thus be loaded as a
       plugin

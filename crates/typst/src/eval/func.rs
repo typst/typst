@@ -333,7 +333,8 @@ impl Func {
         args: Args,
         /// The arguments to apply to the function.
         #[external]
-        arguments: Args,
+        #[variadic]
+        arguments: Vec<Args>,
     ) -> Func {
         let span = self.span;
         Self { repr: Repr::With(Arc::new((self, args))), span }
@@ -348,8 +349,9 @@ impl Func {
         /// The docs argument cannot be called `args`.
         args: Args,
         /// The fields to filter for.
+        #[variadic]
         #[external]
-        fields: Args,
+        fields: Vec<Args>,
     ) -> StrResult<Selector> {
         let mut args = args;
         let fields = args.to_named();

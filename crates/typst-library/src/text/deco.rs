@@ -243,9 +243,7 @@ pub struct HighlightElem {
     #[default(Color::Rgba(RgbaColor::new(0xFF, 0xFF, 0x5F, 0xFF)).into())]
     pub fill: Paint,
 
-    /// The top end of the background rectangle. Note that top edge will update
-    /// to be always higher than the glyph's bounding box.
-    /// (default: "ascender")
+    /// The top end of the background rectangle.
     ///
     /// ```example
     /// #set highlight(top-edge: "ascender")
@@ -257,9 +255,7 @@ pub struct HighlightElem {
     #[default(TopEdge::Metric(TopEdgeMetric::Ascender))]
     pub top_edge: TopEdge,
 
-    /// The bottom end of the background rectangle. Note that top edge will update
-    /// to be always lower than the glyph's bounding box.
-    /// (default: "descender")
+    /// The bottom end of the background rectangle.
     ///
     /// ```example
     /// #set highlight(bottom-edge: "descender")
