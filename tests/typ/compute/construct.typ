@@ -104,7 +104,7 @@
 #test(str(10 / 3).len() > 10, true)
 
 ---
-// Error: 6-8 expected integer, float, bytes, label, type, or string, found content
+// Error: 6-8 expected integer, float, version, bytes, label, type, or string, found content
 #str([])
 
 ---
