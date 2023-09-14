@@ -189,7 +189,7 @@ to LaTeX.
 
 ### Data types
 You likely already noticed that the arguments have distinctive data types. Typst
-supports many data types. Below, there is a table with some of the most
+supports many [data types]($type). Below, there is a table with some of the most
 important ones and how to write them. In order to specify values of any of these
 types, you have to be in code mode!
 
@@ -380,8 +380,8 @@ show rule.
 In the web app, you can choose from predefined templates or even
 create your own using the template wizard. You can also check out the
 [`awesome-typst` repository](https://github.com/qjcg/awesome-typst) to find
-templates made by the community. We plan to build a package manager to make
-templates even easier to share in the future!
+templates made by the community. We plan to add support for templates to Typst's
+package manager in the future.
 
 You can also [create your own, custom templates.]($tutorial/making-a-template)
 They are shorter and more readable than the corresponding LaTeX `.sty` files by
@@ -410,17 +410,29 @@ and their corresponding Typst functions.
 | caption                         | [`figure`]($figure) function                                  |
 | enumitem                        | [`list`]($list), [`enum`]($enum), [`terms`]($terms) functions |
 
-If you need to load functions and variables from another file, for example, to
-use a template, you can use an [`import`]($scripting/#modules) statement. If you
-want to include the textual content of another file instead, you can use an
-[`{include}`]($scripting/#modules) statement. It will retrieve the content of
-the specified file and put it in your document.
+Although _many_ things are built-in, not everything can be. That's why Typst has
+a built-in [package manager]($packages) where the community can share their
+creations and automations. Let's take, for instance, the _tablex_ package: This
+package allows you to customize your tables in ways the built-in table does not
+yet support. To use tablex in your document, you can just write:
 
-Currently, there is no package manager for Typst, but we plan to build one so
-that you can easily use packages with tools and templates from the community and
-publish your own. Until then, you might want to check out the
+```typ
+#import "@preview/tablex:0.0.5": tablex, gridx
+```
+
+(The `@preview` is a _namespace_ that is used while the package manager is still
+in its early and experimental state. It will be replaced in the future.)
+
+Aside from the official package repository, you might also want to check out the
 [awesome-typst repository](https://github.com/qjcg/awesome-typst), which
-compiles a curated list of libraries created for Typst.
+compiles a curated list of resources created for Typst.
+
+If you need to load functions and variables from another file within your
+project, for example to use a template, you can use use the same
+[`{import}`]($scripting/#modules) statement with a file name rather than a
+package specification. To instead include the textual content of another file,
+you can use an [`{include}`]($scripting/#modules) statement. It will retrieve
+the content of the specified file and put it in your document.
 
 ## How do I input maths? { #maths }
 To enter math mode in Typst, just enclose your equation in dollar signs. You can
@@ -558,9 +570,7 @@ applicable, contains possible workarounds.
 - **Native charts and plots.** LaTeX users often create charts along with their
   documents in PGF/TikZ. Typst does not yet include tools to draw diagrams, but
   the community is stepping up with solutions such as
-  [`typst-canvas`](https://github.com/johannes-wolf/typst-canvas),
-  [`typst-plot`](https://github.com/johannes-wolf/typst-plot), and
-  [`circuitypst`](https://github.com/fenjalien/circuitypst). You can add those
+  [`cetz`](https://github.com/johannes-wolf/typst-canvas). You can add those
   to your document to get started with drawing diagrams.
 
 - **Change page margins without a pagebreak.** In LaTeX, margins can always be
@@ -569,17 +579,10 @@ applicable, contains possible workarounds.
   paragraphs to stretch into the margins, then reverting to the old margins, you
   can use the [`pad` function]($pad) with negative padding.
 
-- **Floating figures.** The figure command of LaTeX will smartly choose where to
-  place a figure, be it on the top or bottom of the page, or a dedicated figure
-  page. Typst's figure will always appear at the spot where they have been
-  inserted in the markup. While this behavior can save some headache, it is
-  often cumbersome to manually place figures. We will be adding this feature
-  soon!
-
 - **Include PDFs as images.** In LaTeX, it has become customary to insert vector
   graphics as PDF or EPS files. Typst supports neither format as an image
-  format, but you can easily convert both into SVG files with [online
-  tools](https://cloudconvert.com/pdf-to-svg) or
+  format, but you can easily convert both into SVG files with
+  [online tools](https://cloudconvert.com/pdf-to-svg) or
   [Inkscape](https://inkscape.org/). We plan to add automatic conversion for
   these file formats to the Typst web app, too!
 
@@ -594,8 +597,8 @@ applicable, contains possible workarounds.
 
 - **Bibliographies are not customizable.** In LaTeX, the packages `bibtex`,
   `biblatex`, and `natbib` provide a wide range of reference and bibliography
-  formats. You can also use custom `.bbx` files to define your own styles there.
-  Typst only supports a small set of citation styles at the moment, but we want
-  to build upon this by supporting [Citation Style Language
+  formats. These packages also allow you to write `.bbx` files to define your
+  own styles. Typst only supports a small set of citation styles at the moment,
+  but we want to build upon this by supporting [Citation Style Language
   (CSL)](https://citationstyles.org), an XML-based format backed by Zotero that
   allows you to describe your own bibliography styles.
