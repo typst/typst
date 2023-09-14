@@ -112,7 +112,7 @@ impl Version {
         if index < 0 {
             match (self.0.len() as i64).checked_add(index) {
                 Some(pos_index) if pos_index >= 0 => index = pos_index,
-                _ => bail!("version component index out of bounds ({index})"),
+                _ => bail!("version component index out of bounds (index: {index}, len: {})", self.0.len()),
             }
         }
         Ok(usize::try_from(index)
