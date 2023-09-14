@@ -75,7 +75,7 @@ Let's dissect what's going on:
 <details>
   <summary>Text version of the code example.</summary>
 
-  ```text
+  ```typst
   #set page(width: 10cm, height: auto)
   #set heading(numbering: "1.")
 
