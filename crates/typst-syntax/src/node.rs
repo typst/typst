@@ -105,22 +105,22 @@ impl SyntaxNode {
     }
 
     /// Whether the node can be cast to the given AST node.
-    pub fn is<T: AstNode>(&self) -> bool {
+    pub fn is<'a, T: AstNode<'a>>(&'a self) -> bool {
         self.cast::<T>().is_some()
     }
 
     /// Try to convert the node to a typed AST node.
-    pub fn cast<T: AstNode>(&self) -> Option<T> {
+    pub fn cast<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
         T::from_untyped(self)
     }
 
     /// Cast the first child that can cast to the AST type `T`.
-    pub fn cast_first_match<T: AstNode>(&self) -> Option<T> {
+    pub fn cast_first_match<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
         self.children().find_map(Self::cast)
     }
 
     /// Cast the last child that can cast to the AST type `T`.
-    pub fn cast_last_match<T: AstNode>(&self) -> Option<T> {
+    pub fn cast_last_match<'a, T: AstNode<'a>>(&'a self) -> Option<T> {
         self.children().rev().find_map(Self::cast)
     }
 
@@ -202,7 +202,7 @@ impl SyntaxNode {
             return Err(Unnumberable);
         }
 
-        let mid = Span::new(id, (within.start + within.end) / 2);
+        let mid = Span::new(id, (within.start + within.end) / 2).unwrap();
         match &mut self.0 {
             Repr::Leaf(leaf) => leaf.span = mid,
             Repr::Inner(inner) => Arc::make_mut(inner).numberize(id, None, within)?,
@@ -273,6 +273,17 @@ impl SyntaxNode {
             Repr::Error(node) => node.error.span.number() + 1,
         }
     }
+
+    /// An arbitrary node just for filling a slot in memory.
+    ///
+    /// In contrast to `default()`, this is a const fn.
+    pub(super) const fn arbitrary() -> Self {
+        Self(Repr::Leaf(LeafNode {
+            kind: SyntaxKind::Eof,
+            text: EcoString::new(),
+            span: Span::detached(),
+        }))
+    }
 }
 
 impl Debug for SyntaxNode {
@@ -287,7 +298,7 @@ impl Debug for SyntaxNode {
 
 impl Default for SyntaxNode {
     fn default() -> Self {
-        Self::error("", "")
+        Self::arbitrary()
     }
 }
 
@@ -413,7 +424,7 @@ impl InnerNode {
         let mut start = within.start;
         if range.is_none() {
             let end = start + stride;
-            self.span = Span::new(id, (start + end) / 2);
+            self.span = Span::new(id, (start + end) / 2).unwrap();
             self.upper = within.end;
             start = end;
         }
@@ -437,6 +448,7 @@ impl InnerNode {
         mut range: Range<usize>,
         replacement: Vec<SyntaxNode>,
     ) -> NumberingResult {
+        let Some(id) = self.span.id() else { return Err(Unnumberable) };
         let superseded = &self.children[range.clone()];
 
         // Compute the new byte length.
@@ -494,7 +506,6 @@ impl InnerNode {
 
             // Try to renumber.
             let within = start_number..end_number;
-            let id = self.span.id();
             if self.numberize(id, Some(renumber), within).is_ok() {
                 return Ok(());
             }
@@ -802,6 +813,8 @@ impl<'a> LinkedNode<'a> {
 impl Deref for LinkedNode<'_> {
     type Target = SyntaxNode;
 
+    /// Dereference to a syntax node. Note that this shortens the lifetime, so
+    /// you may need to use [`get()`](Self::get) instead in some situations.
     fn deref(&self) -> &Self::Target {
         self.get()
     }

@@ -5,16 +5,13 @@ const ACCENT_SHORT_FALL: Em = Em::new(0.5);
 
 /// Attaches an accent to a base.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// $grave(a) = accent(a, `)$ \
 /// $arrow(a) = accent(a, arrow)$ \
 /// $tilde(a) = accent(a, \u{0303})$
 /// ```
-///
-/// Display: Accent
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct AccentElem {
     /// The base to which the accent is applied.
     /// May consist of multiple letters.

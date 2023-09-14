@@ -1,17 +1,43 @@
 use std::borrow::Cow;
 use std::fmt::{self, Debug, Formatter};
-use std::ops::Deref;
+use std::ops::{Add, AddAssign, Deref};
 use std::sync::Arc;
 
 use comemo::Prehashed;
 use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 
-use crate::diag::StrResult;
+use super::{cast, func, scope, ty, Array, Reflect, Str, Value};
+use crate::diag::{bail, StrResult};
 
-use super::Value;
-
-/// A shared byte buffer that is cheap to clone and hash.
+/// A sequence of bytes.
+///
+/// This is conceptually similar to an array of [integers]($int) between `{0}`
+/// and `{255}`, but represented much more efficiently.
+///
+/// You can convert
+/// - a [string]($str) or an [array]($array) of integers to bytes with the
+///   [`bytes`]($bytes) constructor
+/// - bytes to a string with the [`str`]($str) constructor
+/// - bytes to an array of integers with the [`array`]($array) constructor
+///
+/// When [reading]($read) data from a file, you can decide whether to load it
+/// as a string or as raw bytes.
+///
+/// ```example
+/// #bytes((123, 160, 22, 0)) \
+/// #bytes("Hello 😃")
+///
+/// #let data = read(
+///   "rhino.png",
+///   encoding: none,
+/// )
+///
+/// // Magic bytes.
+/// #array(data.slice(0, 4)) \
+/// #str(data.slice(1, 4))
+/// ```
+#[ty(scope)]
 #[derive(Clone, Hash, Eq, PartialEq)]
 pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
 
@@ -21,19 +47,9 @@ impl Bytes {
         Self(Arc::new(Prehashed::new(Cow::Borrowed(slice))))
     }
 
-    /// Get the byte at the given index.
-    pub fn at(&self, index: i64, default: Option<Value>) -> StrResult<Value> {
-        self.locate_opt(index)
-            .and_then(|i| self.0.get(i).map(|&b| Value::Int(b as i64)))
-            .or(default)
-            .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
-    }
-
-    /// Extract a contiguous subregion of the bytes.
-    pub fn slice(&self, start: i64, end: Option<i64>) -> StrResult<Self> {
-        let start = self.locate(start)?;
-        let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
-        Ok(self.0[start..end].into())
+    /// Return `true` if the length is 0.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Return a view into the buffer.
@@ -61,6 +77,79 @@ impl Bytes {
         wrapped
             .and_then(|v| usize::try_from(v).ok())
             .filter(|&v| v <= self.0.len())
+    }
+}
+
+#[scope]
+impl Bytes {
+    /// Converts a value to bytes.
+    ///
+    /// - Strings are encoded in UTF-8.
+    /// - Arrays of integers between `{0}` and `{255}` are converted directly. The
+    ///   dedicated byte representation is much more efficient than the array
+    ///   representation and thus typically used for large byte buffers (e.g. image
+    ///   data).
+    ///
+    /// ```example
+    /// #bytes("Hello 😃") \
+    /// #bytes((123, 160, 22, 0))
+    /// ```
+    #[func(constructor)]
+    pub fn construct(
+        /// The value that should be converted to bytes.
+        value: ToBytes,
+    ) -> Bytes {
+        value.0
+    }
+
+    /// The length in bytes.
+    #[func(title = "Length")]
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns the byte at the specified index. Returns the default value if
+    /// the index is out of bounds or fails with an error if no default value
+    /// was specified.
+    #[func]
+    pub fn at(
+        &self,
+        /// The index at which to retrieve the byte.
+        index: i64,
+        /// A default value to return if the index is out of bounds.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        self.locate_opt(index)
+            .and_then(|i| self.0.get(i).map(|&b| Value::Int(b.into())))
+            .or(default)
+            .ok_or_else(|| out_of_bounds_no_default(index, self.len()))
+    }
+
+    /// Extracts a subslice of the bytes. Fails with an error if the start or
+    /// index is out of bounds.
+    #[func]
+    pub fn slice(
+        &self,
+        /// The start index (inclusive).
+        start: i64,
+        /// The end index (exclusive). If omitted, the whole slice until the end
+        /// is extracted.
+        #[default]
+        end: Option<i64>,
+        /// The number of items to extract. This is equivalent to passing
+        /// `start + count` as the `end` position. Mutually exclusive with
+        /// `end`.
+        #[named]
+        count: Option<i64>,
+    ) -> StrResult<Bytes> {
+        let mut end = end;
+        if end.is_none() {
+            end = count.map(|c: i64| start + c);
+        }
+        let start = self.locate(start)?;
+        let end = self.locate(end.unwrap_or(self.len() as i64))?.max(start);
+        Ok(self.0[start..end].into())
     }
 }
 
@@ -96,6 +185,31 @@ impl Debug for Bytes {
     }
 }
 
+impl Add for Bytes {
+    type Output = Self;
+
+    fn add(mut self, rhs: Self) -> Self::Output {
+        self += rhs;
+        self
+    }
+}
+
+impl AddAssign for Bytes {
+    fn add_assign(&mut self, rhs: Self) {
+        if rhs.is_empty() {
+            // Nothing to do
+        } else if self.is_empty() {
+            *self = rhs;
+        } else if Arc::strong_count(&self.0) == 1 && matches!(**self.0, Cow::Owned(_)) {
+            Arc::make_mut(&mut self.0).update(|cow| {
+                cow.to_mut().extend_from_slice(&rhs);
+            })
+        } else {
+            *self = Self::from([self.as_slice(), rhs.as_slice()].concat());
+        }
+    }
+}
+
 impl Serialize for Bytes {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -107,6 +221,24 @@ impl Serialize for Bytes {
             serializer.serialize_bytes(self)
         }
     }
+}
+
+/// A value that can be cast to bytes.
+pub struct ToBytes(Bytes);
+
+cast! {
+    ToBytes,
+    v: Str => Self(v.as_bytes().into()),
+    v: Array => Self(v.iter()
+        .map(|item| match item {
+            Value::Int(byte @ 0..=255) => Ok(*byte as u8),
+            Value::Int(_) => bail!("number must be between 0 and 255"),
+            value => Err(<u8 as Reflect>::error(value)),
+        })
+        .collect::<Result<Vec<u8>, _>>()?
+        .into()
+    ),
+    v: Bytes => Self(v),
 }
 
 /// The out of bounds access error message.

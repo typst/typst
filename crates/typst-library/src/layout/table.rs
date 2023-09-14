@@ -9,13 +9,13 @@ use crate::prelude::*;
 /// Tables are used to arrange content in cells. Cells can contain arbitrary
 /// content, including multiple paragraphs and are specified in row-major order.
 /// Because tables are just grids with configurable cell properties, refer to
-/// the [grid documentation]($func/grid) for more information on how to size the
+/// the [grid documentation]($grid) for more information on how to size the
 /// table tracks.
 ///
-/// To give a table a caption and make it [referenceable]($func/ref), put it
-/// into a [figure]($func/figure).
+/// To give a table a caption and make it [referenceable]($ref), put it into a
+/// [figure]($figure).
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #table(
 ///   columns: (1fr, auto, auto),
@@ -34,34 +34,31 @@ use crate::prelude::*;
 ///   [$a$: edge length]
 /// )
 /// ```
-///
-/// Display: Table
-/// Category: layout
-#[element(Layout, LocalName, Figurable)]
+#[elem(Layout, LocalName, Figurable)]
 pub struct TableElem {
-    /// The column sizes. See the [grid documentation]($func/grid) for more
+    /// The column sizes. See the [grid documentation]($grid) for more
     /// information on track sizing.
     pub columns: TrackSizings,
 
-    /// The row sizes. See the [grid documentation]($func/grid) for more
-    /// information on track sizing.
+    /// The row sizes. See the [grid documentation]($grid) for more information
+    /// on track sizing.
     pub rows: TrackSizings,
 
-    /// The gaps between rows & columns. See the [grid
-    /// documentation]($func/grid) for more information on gutters.
+    /// The gaps between rows & columns. See the [grid documentation]($grid) for
+    /// more information on gutters.
     #[external]
     pub gutter: TrackSizings,
 
-    /// The gaps between columns. Takes precedence over `gutter`. See the [grid
-    /// documentation]($func/grid) for more information on gutters.
+    /// The gaps between columns. Takes precedence over `gutter`. See the
+    /// [grid documentation]($grid) for more information on gutters.
     #[parse(
         let gutter = args.named("gutter")?;
         args.named("column-gutter")?.or_else(|| gutter.clone())
     )]
     pub column_gutter: TrackSizings,
 
-    /// The gaps between rows. Takes precedence over `gutter`. See the [grid
-    /// documentation]($func/grid) for more information on gutters.
+    /// The gaps between rows. Takes precedence over `gutter`. See the
+    /// [grid documentation]($grid) for more information on gutters.
     #[parse(args.named("row-gutter")?.or_else(|| gutter.clone()))]
     pub row_gutter: TrackSizings,
 
@@ -102,20 +99,19 @@ pub struct TableElem {
     ///   [A], [B], [C],
     /// )
     /// ```
-    pub align: Celled<Smart<Axes<Option<GenAlign>>>>,
+    pub align: Celled<Smart<Align>>,
 
-    /// How to stroke the cells.
+    /// How to [stroke]($stroke) the cells.
     ///
-    /// See the [line's documentation]($func/line.stroke) for more details.
     /// Strokes can be disabled by setting this to `{none}`.
     ///
     /// _Note:_ Richer stroke customization for individual cells is not yet
-    /// implemented, but will be in the future. In the meantime, you can use
-    /// the third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
+    /// implemented, but will be in the future. In the meantime, you can use the
+    /// third-party [tablex library](https://github.com/PgBiel/typst-tablex/).
     #[resolve]
     #[fold]
-    #[default(Some(PartialStroke::default()))]
-    pub stroke: Option<PartialStroke>,
+    #[default(Some(Stroke::default()))]
+    pub stroke: Option<Stroke>,
 
     /// How much to pad the cells' content.
     #[default(Abs::pt(5.0).into())]
@@ -158,7 +154,7 @@ impl Layout for TableElem {
             .collect::<SourceResult<_>>()?;
 
         let fill = self.fill(styles);
-        let stroke = self.stroke(styles).map(PartialStroke::unwrap_or_default);
+        let stroke = self.stroke(styles).map(Stroke::unwrap_or_default);
 
         // Prepare grid layout by unifying content and gutter tracks.
         let layouter = GridLayouter::new(
@@ -229,12 +225,10 @@ impl Layout for TableElem {
 /// and after the extents, e.g. [10mm, 5mm] -> [0mm, 10mm, 15mm].
 fn points(extents: impl IntoIterator<Item = Abs>) -> impl Iterator<Item = Abs> {
     let mut offset = Abs::zero();
-    std::iter::once(Abs::zero())
-        .chain(extents.into_iter())
-        .map(move |extent| {
-            offset += extent;
-            offset
-        })
+    std::iter::once(Abs::zero()).chain(extents).map(move |extent| {
+        offset += extent;
+        offset
+    })
 }
 
 /// A value that can be configured per cell.
@@ -270,8 +264,12 @@ impl<T: Default> Default for Celled<T> {
 }
 
 impl<T: Reflect> Reflect for Celled<T> {
-    fn describe() -> CastInfo {
-        T::describe() + Array::describe() + Func::describe()
+    fn input() -> CastInfo {
+        T::input() + Array::input() + Func::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output() + Array::output() + Func::output()
     }
 
     fn castable(value: &Value) -> bool {
@@ -313,6 +311,7 @@ impl LocalName for TableElem {
             Lang::DANISH => "Tabel",
             Lang::DUTCH => "Tabel",
             Lang::FILIPINO => "Talaan",
+            Lang::FINNISH => "Taulukko",
             Lang::FRENCH => "Tableau",
             Lang::GERMAN => "Tabelle",
             Lang::ITALIAN => "Tabella",

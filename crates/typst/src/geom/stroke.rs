@@ -2,43 +2,73 @@ use crate::eval::{dict, Cast, FromValue, NoneValue};
 
 use super::*;
 
-/// A stroke of a geometric shape.
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct Stroke {
-    /// The stroke's paint.
-    pub paint: Paint,
-    /// The stroke's thickness.
-    pub thickness: Abs,
-    /// The stroke's line cap.
-    pub line_cap: LineCap,
-    /// The stroke's line join.
-    pub line_join: LineJoin,
-    /// The stroke's line dash pattern.
-    pub dash_pattern: Option<DashPattern<Abs, Abs>>,
-    /// The miter limit. Defaults to 4.0, same as `tiny-skia`.
-    pub miter_limit: Scalar,
-}
-
-impl Default for Stroke {
-    fn default() -> Self {
-        Self {
-            paint: Paint::Solid(Color::BLACK),
-            thickness: Abs::pt(1.0),
-            line_cap: LineCap::Butt,
-            line_join: LineJoin::Miter,
-            dash_pattern: None,
-            miter_limit: Scalar(4.0),
-        }
-    }
-}
-
-/// A partial stroke representation.
+/// Defines how to draw a line.
 ///
-/// In this representation, both fields are optional so that you can pass either
-/// just a paint (`red`), just a thickness (`0.1em`) or both (`2pt + red`) where
-/// this is expected.
+/// A stroke has a _paint_ (typically a solid color), a _thickness,_ a line
+/// _cap,_ a line _join,_ a _miter-limit,_ and a _dash_ pattern. All of these
+/// values are optional and have sensible defaults.
+///
+/// # Example
+/// ```example
+/// #set line(length: 100%)
+/// #stack(
+///   spacing: 1em,
+///   line(stroke: 2pt + red),
+///   line(stroke: (paint: blue, thickness: 4pt, cap: "round")),
+///   line(stroke: (paint: blue, thickness: 1pt, dash: "dashed")),
+/// )
+/// ```
+///
+/// # Simple strokes
+/// You can create a simple solid stroke from a color, a thickness, or a
+/// combination of the two. Specifically, wherever a stroke is expected you can
+/// pass any of the following values:
+///
+/// - A length specifying the stroke's thickness. The color is inherited,
+///   defaulting to black.
+/// - A color to use for the stroke. The thickness is inherited, defaulting to
+///   `{1pt}`.
+/// - A stroke combined from color and thickness using the `+` operator as in
+///   `{2pt + red}`.
+///
+/// # Complex strokes
+/// For full control, you can also pass a [dictionary]($dictionary) to any
+/// function that expects a stroke. This dictionary has the following keys:
+///
+/// - `paint`: The [color]($color) to use for the stroke.
+///
+/// - `thickness`: The stroke's thickness as a [length]($length).
+///
+/// - `cap`: How the line terminates. One of `{"butt"}`, `{"round"}`, or
+///   `{"square"}`.
+///
+/// - `join`: How sharp turns of a contour are rendered. One of `{"miter"}`,
+///   `{"round"}`, or `{"bevel"}`. Not applicable to lines but to
+///   [polygons]($polygon) or [paths]($path).
+///
+/// - `miter-limit`: Number at which protruding sharp angles are rendered with a
+///   bevel instead. The higher the number, the sharper an angle can be before
+///   it is bevelled. Only applicable if `join` is `{"miter"}`. Defaults to
+///   `{4.0}`.
+///
+/// - `dash`: The dash pattern to use. Can be any of the following:
+///   - One of the predefined patterns `{"solid"}`, `{"dotted"}`,
+///     `{"densely-dotted"}`, `{"loosely-dotted"}`, `{"dashed"}`,
+///     `{"densely-dashed"}`, `{"loosely-dashed"}`, `{"dash-dotted"}`,
+///     `{"densely-dash-dotted"}` or `{"loosely-dash-dotted"}`
+///   - An [array]($array) with alternating lengths for dashes and gaps. You can
+///     also use the string `{"dot"}` for a length equal to the line thickness.
+///   - A [dictionary]($dictionary) with the keys `array` (same as the array
+///     above), and `phase` (of type [length]($length)), which defines where in
+///     the pattern to start drawing.
+///
+/// # Fields
+/// On a `stroke` object, you can access any of the fields mentioned in the
+/// dictionary format above. For example, `{(2pt + blue).thickness}` is `{2pt}`.
+/// Meanwhile, `{(2pt + blue).cap}` is `{auto}` because it's unspecified.
+#[ty]
 #[derive(Default, Clone, Eq, PartialEq, Hash)]
-pub struct PartialStroke<T = Length> {
+pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
     pub paint: Smart<Paint>,
     /// The stroke's thickness.
@@ -53,13 +83,13 @@ pub struct PartialStroke<T = Length> {
     pub miter_limit: Smart<Scalar>,
 }
 
-impl<T> PartialStroke<T> {
+impl<T: Numeric> Stroke<T> {
     /// Map the contained lengths with `f`.
-    pub fn map<F, U>(self, f: F) -> PartialStroke<U>
+    pub fn map<F, U: Numeric>(self, f: F) -> Stroke<U>
     where
         F: Fn(T) -> U,
     {
-        PartialStroke {
+        Stroke {
             paint: self.paint,
             thickness: self.thickness.map(&f),
             line_cap: self.line_cap,
@@ -82,9 +112,9 @@ impl<T> PartialStroke<T> {
     }
 }
 
-impl PartialStroke<Abs> {
+impl Stroke<Abs> {
     /// Unpack the stroke, filling missing fields from the `default`.
-    pub fn unwrap_or(self, default: Stroke) -> Stroke {
+    pub fn unwrap_or(self, default: FixedStroke) -> FixedStroke {
         let thickness = self.thickness.unwrap_or(default.thickness);
         let dash_pattern = self
             .dash_pattern
@@ -100,7 +130,7 @@ impl PartialStroke<Abs> {
             })
             .unwrap_or(default.dash_pattern);
 
-        Stroke {
+        FixedStroke {
             paint: self.paint.unwrap_or(default.paint),
             thickness,
             line_cap: self.line_cap.unwrap_or(default.line_cap),
@@ -111,12 +141,12 @@ impl PartialStroke<Abs> {
     }
 
     /// Unpack the stroke, filling missing fields with the default values.
-    pub fn unwrap_or_default(self) -> Stroke {
-        self.unwrap_or(Stroke::default())
+    pub fn unwrap_or_default(self) -> FixedStroke {
+        self.unwrap_or(FixedStroke::default())
     }
 }
 
-impl<T: Debug> Debug for PartialStroke<T> {
+impl<T: Numeric + Debug> Debug for Stroke<T> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let Self {
             paint,
@@ -176,11 +206,11 @@ impl<T: Debug> Debug for PartialStroke<T> {
     }
 }
 
-impl Resolve for PartialStroke {
-    type Output = PartialStroke<Abs>;
+impl Resolve for Stroke {
+    type Output = Stroke<Abs>;
 
     fn resolve(self, styles: StyleChain) -> Self::Output {
-        PartialStroke {
+        Stroke {
             paint: self.paint,
             thickness: self.thickness.resolve(styles),
             line_cap: self.line_cap,
@@ -191,7 +221,7 @@ impl Resolve for PartialStroke {
     }
 }
 
-impl Fold for PartialStroke<Abs> {
+impl Fold for Stroke<Abs> {
     type Output = Self;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
@@ -207,7 +237,7 @@ impl Fold for PartialStroke<Abs> {
 }
 
 cast! {
-    type PartialStroke: "stroke",
+    type Stroke,
     thickness: Length => Self {
         thickness: Smart::Custom(thickness),
         ..Default::default()
@@ -242,7 +272,7 @@ cast! {
 }
 
 cast! {
-    PartialStroke<Abs>,
+    Stroke<Abs>,
     self => self.map(Length::from).into_value(),
 }
 
@@ -284,14 +314,14 @@ impl Debug for LineJoin {
 
 /// A line dash pattern.
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct DashPattern<T = Length, DT = DashLength<T>> {
+pub struct DashPattern<T: Numeric = Length, DT = DashLength<T>> {
     /// The dash array.
     pub array: Vec<DT>,
     /// The dash phase.
     pub phase: T,
 }
 
-impl<T: Debug, DT: Debug> Debug for DashPattern<T, DT> {
+impl<T: Numeric + Debug, DT: Debug> Debug for DashPattern<T, DT> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "(array: (")?;
         for (i, elem) in self.array.iter().enumerate() {
@@ -306,7 +336,7 @@ impl<T: Debug, DT: Debug> Debug for DashPattern<T, DT> {
     }
 }
 
-impl<T: Default> From<Vec<DashLength<T>>> for DashPattern<T> {
+impl<T: Numeric + Default> From<Vec<DashLength<T>>> for DashPattern<T> {
     fn from(array: Vec<DashLength<T>>) -> Self {
         Self { array, phase: T::default() }
     }
@@ -353,20 +383,14 @@ cast! {
     },
 }
 
-/// The length of a dash in a line dash pattern
+/// The length of a dash in a line dash pattern.
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub enum DashLength<T = Length> {
+pub enum DashLength<T: Numeric = Length> {
     LineWidth,
     Length(T),
 }
 
-impl From<Abs> for DashLength {
-    fn from(l: Abs) -> Self {
-        DashLength::Length(l.into())
-    }
-}
-
-impl<T> DashLength<T> {
+impl<T: Numeric> DashLength<T> {
     fn finish(self, line_width: T) -> T {
         match self {
             Self::LineWidth => line_width,
@@ -375,7 +399,7 @@ impl<T> DashLength<T> {
     }
 }
 
-impl<T: Debug> Debug for DashLength<T> {
+impl<T: Numeric + Debug> Debug for DashLength<T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::LineWidth => write!(f, "\"dot\""),
@@ -395,13 +419,48 @@ impl Resolve for DashLength {
     }
 }
 
+impl From<Abs> for DashLength {
+    fn from(l: Abs) -> Self {
+        DashLength::Length(l.into())
+    }
+}
+
 cast! {
     DashLength,
     self => match self {
         Self::LineWidth => "dot".into_value(),
         Self::Length(v) => v.into_value(),
     },
-
     "dot" => Self::LineWidth,
     v: Length => Self::Length(v),
+}
+
+/// A fully specified stroke of a geometric shape.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct FixedStroke {
+    /// The stroke's paint.
+    pub paint: Paint,
+    /// The stroke's thickness.
+    pub thickness: Abs,
+    /// The stroke's line cap.
+    pub line_cap: LineCap,
+    /// The stroke's line join.
+    pub line_join: LineJoin,
+    /// The stroke's line dash pattern.
+    pub dash_pattern: Option<DashPattern<Abs, Abs>>,
+    /// The miter limit. Defaults to 4.0, same as `tiny-skia`.
+    pub miter_limit: Scalar,
+}
+
+impl Default for FixedStroke {
+    fn default() -> Self {
+        Self {
+            paint: Paint::Solid(Color::BLACK),
+            thickness: Abs::pt(1.0),
+            line_cap: LineCap::Butt,
+            line_join: LineJoin::Miter,
+            dash_pattern: None,
+            miter_limit: Scalar(4.0),
+        }
+    }
 }

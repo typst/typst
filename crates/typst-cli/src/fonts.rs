@@ -12,7 +12,7 @@ use walkdir::WalkDir;
 use crate::args::FontsCommand;
 
 /// Execute a font listing command.
-pub fn fonts(command: FontsCommand) -> StrResult<()> {
+pub fn fonts(command: &FontsCommand) -> StrResult<()> {
     let mut searcher = FontSearcher::new();
     searcher.search(&command.font_paths);
 

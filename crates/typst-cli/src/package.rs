@@ -3,11 +3,13 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
 use codespan_reporting::term::{self, termcolor};
+use ecow::eco_format;
 use termcolor::WriteColor;
 use typst::diag::{PackageError, PackageResult};
 use typst::syntax::PackageSpec;
 
 use super::color_stream;
+use crate::download::download_with_progress;
 
 /// Make a package available in the on-disk cache.
 pub fn prepare_package(spec: &PackageSpec) -> PackageResult<PathBuf> {
@@ -49,18 +51,19 @@ fn download_package(spec: &PackageSpec, package_dir: &Path) -> PackageResult<()>
     );
 
     print_downloading(spec).unwrap();
-    let reader = match ureq::get(&url).call() {
-        Ok(response) => response.into_reader(),
+
+    let data = match download_with_progress(&url) {
+        Ok(data) => data,
         Err(ureq::Error::Status(404, _)) => {
             return Err(PackageError::NotFound(spec.clone()))
         }
-        Err(_) => return Err(PackageError::NetworkFailed),
+        Err(err) => return Err(PackageError::NetworkFailed(Some(eco_format!("{err}")))),
     };
 
-    let decompressed = flate2::read::GzDecoder::new(reader);
-    tar::Archive::new(decompressed).unpack(package_dir).map_err(|_| {
+    let decompressed = flate2::read::GzDecoder::new(data.as_slice());
+    tar::Archive::new(decompressed).unpack(package_dir).map_err(|err| {
         fs::remove_dir_all(package_dir).ok();
-        PackageError::MalformedArchive
+        PackageError::MalformedArchive(Some(eco_format!("{err}")))
     })
 }
 

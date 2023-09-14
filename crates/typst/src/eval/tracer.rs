@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use ecow::{eco_vec, EcoVec};
+use ecow::EcoVec;
 
 use super::Value;
 use crate::diag::SourceDiagnostic;
@@ -10,27 +10,28 @@ use crate::util::hash128;
 /// Traces warnings and which values existed for an expression at a span.
 #[derive(Default, Clone)]
 pub struct Tracer {
-    span: Option<Span>,
+    inspected: Option<Span>,
     values: EcoVec<Value>,
     warnings: EcoVec<SourceDiagnostic>,
     warnings_set: HashSet<u128>,
 }
 
 impl Tracer {
-    /// The maximum number of traced items.
-    pub const MAX: usize = 10;
+    /// The maximum number of inspeted values.
+    pub const MAX_VALUES: usize = 10;
 
-    /// Create a new tracer, possibly with a span under inspection.
-    pub fn new(span: Option<Span>) -> Self {
-        Self {
-            span,
-            values: eco_vec![],
-            warnings: eco_vec![],
-            warnings_set: HashSet::new(),
-        }
+    /// Create a new tracer.
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    /// Get the traced values.
+    /// Mark a span as inspected. All values observed for this span can be
+    /// retrieved via `values` later.
+    pub fn inspect(&mut self, span: Span) {
+        self.inspected = Some(span);
+    }
+
+    /// Get the values for the inspeted span.
     pub fn values(self) -> EcoVec<Value> {
         self.values
     }
@@ -43,18 +44,18 @@ impl Tracer {
 
 #[comemo::track]
 impl Tracer {
-    /// The traced span if it is part of the given source file.
-    pub fn span(&self, id: FileId) -> Option<Span> {
-        if self.span.map(Span::id) == Some(id) {
-            self.span
+    /// The inspeted span if it is part of the given source file.
+    pub fn inspected(&self, id: FileId) -> Option<Span> {
+        if self.inspected.and_then(Span::id) == Some(id) {
+            self.inspected
         } else {
             None
         }
     }
 
     /// Trace a value for the span.
-    pub fn trace(&mut self, v: Value) {
-        if self.values.len() < Self::MAX {
+    pub fn value(&mut self, v: Value) {
+        if self.values.len() < Self::MAX_VALUES {
             self.values.push(v);
         }
     }

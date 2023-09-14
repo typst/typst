@@ -128,10 +128,10 @@ impl TracingGuard {
 impl Drop for TracingGuard {
     fn drop(&mut self) {
         if !std::thread::panicking() {
-            if let Err(e) = self.finish() {
+            if let Err(err) = self.finish() {
                 // Since we are finished, we cannot rely on tracing to log the
                 // error.
-                eprintln!("failed to flush tracing flamegraph: {e}");
+                eprintln!("failed to flush tracing flamegraph ({err})");
             }
         }
     }

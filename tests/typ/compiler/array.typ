@@ -71,7 +71,7 @@
 
 ---
 // Test bad lvalue.
-// Error: 2:3-2:15 type array has no method `yolo`
+// Error: 2:9-2:13 type array has no method `yolo`
 #let array = (1, 2, 3)
 #(array.yolo() = 4)
 
@@ -122,7 +122,7 @@
 }
 
 ---
-// Error: 2:16-2:18 missing argument: index
+// Error: 2:2-2:18 missing argument: index
 #let numbers = ()
 #numbers.insert()
 
@@ -217,6 +217,13 @@
 #([One], [Two], [Three]).join([, ], last: [ and ]).
 
 ---
+// Test the `intersperse` method
+#test(().intersperse("a"), ())
+#test((1,).intersperse("a"), (1,))
+#test((1, 2).intersperse("a"), (1, "a", 2))
+#test((1, 2, "b").intersperse("a"), (1, "a", 2, "a", "b"))
+
+---
 // Test the `sorted` method.
 #test(().sorted(), ())
 #test(().sorted(key: x => x), ())
@@ -237,6 +244,9 @@
 #test((1, 2, 3, 4).zip((5, 6)), ((1, 5), (2, 6)))
 #test(((1, 2), 3).zip((4, 5)), (((1, 2), 4), (3, 5)))
 #test((1, "hi").zip((true, false)), ((1, true), ("hi", false)))
+#test((1, 2, 3).zip((3, 4, 5), (6, 7, 8)), ((1, 3, 6), (2, 4, 7), (3, 5, 8)))
+#test(().zip((), ()), ())
+#test((1,).zip((2,), (3,)), ((1, 2, 3),))
 
 ---
 // Test the `enumerate` method.

@@ -8,20 +8,17 @@ use crate::prelude::*;
 /// remaining space on the line is distributed among all fractional spacings
 /// according to their relative fractions.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// First #h(1cm) Second \
 /// First #h(30%) Second \
 /// First #h(2fr) Second #h(1fr) Third
 /// ```
 ///
-/// ## Mathematical Spacing { #math-spacing }
+/// # Mathematical Spacing { #math-spacing }
 /// In [mathematical formulas]($category/math), you can additionally use these
 /// constants to add spacing between elements: `thin`, `med`, `thick`, `quad`.
-///
-/// Display: Spacing (H)
-/// Category: layout
-#[element(Behave)]
+#[elem(title = "Spacing (H)", Behave)]
 pub struct HElem {
     /// How much spacing to insert.
     #[required]
@@ -63,7 +60,7 @@ impl Behave for HElem {
         } else if self.weak(StyleChain::default()) {
             Behaviour::Weak(1)
         } else {
-            Behaviour::Ignorant
+            Behaviour::Invisible
         }
     }
 
@@ -79,7 +76,7 @@ impl Behave for HElem {
 /// the remaining space on the page is distributed among all fractional spacings
 /// according to their relative fractions.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #grid(
 ///   rows: 3cm,
@@ -93,10 +90,7 @@ impl Behave for HElem {
 ///   [A #v(1fr) B],
 /// )
 /// ```
-///
-/// Display: Spacing (V)
-/// Category: layout
-#[element(Behave)]
+#[elem(title = "Spacing (V)", Behave)]
 pub struct VElem {
     /// How much spacing to insert.
     #[required]
@@ -158,7 +152,7 @@ impl Behave for VElem {
         } else if self.weakness(StyleChain::default()) > 0 {
             Behaviour::Weak(self.weakness(StyleChain::default()))
         } else {
-            Behaviour::Ignorant
+            Behaviour::Invisible
         }
     }
 

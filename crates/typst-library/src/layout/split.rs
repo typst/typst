@@ -19,18 +19,17 @@ use crate::prelude::*;
 ///
 /// #columns(3, split(lorem(100)))
 /// ```
-///
-/// Display: Split
-/// Category: layout
-#[element(Layout)]
-#[scope(
-    scope.define("item", SplitItem::func());
-    scope
-)]
+#[elem(scope, Layout)]
 pub struct SplitElem {
     /// The content to be split.
     #[positional]
     pub body: Content,
+}
+
+#[scope]
+impl SplitElem {
+    #[elem]
+    type SplitItem;
 }
 
 impl Layout for SplitElem {
@@ -65,10 +64,7 @@ impl Layout for SplitElem {
 /// A single part of split content.
 ///
 /// On its own, this does nothing; It is intended to be used in a `show` rule.
-///
-/// Display: Split Item
-/// Category: layout
-#[element(Layout)]
+#[elem(name = "item", Layout)]
 pub struct SplitItem {
     /// The index of this part
     pub index: usize,
@@ -96,7 +92,7 @@ impl Layout for SplitItem {
 ///
 /// Display: Opaque content
 /// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct OpaqueContent {
     #[internal]
     index: usize,

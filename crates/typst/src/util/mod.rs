@@ -1,11 +1,14 @@
 //! Utilities.
 
 pub mod fat;
+mod fmt;
 
-use std::fmt::{self, Debug, Formatter};
+pub use self::fmt::{pretty_array_like, pretty_comma_list, separated_list};
+
+use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
-use std::path::{Component, Path, PathBuf};
+use std::ops::Deref;
 use std::sync::Arc;
 
 use siphasher::sip128::{Hasher128, SipHasher13};
@@ -13,15 +16,15 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 /// Turn a closure into a struct implementing [`Debug`].
 pub fn debug<F>(f: F) -> impl Debug
 where
-    F: Fn(&mut Formatter) -> fmt::Result,
+    F: Fn(&mut Formatter) -> std::fmt::Result,
 {
     struct Wrapper<F>(F);
 
     impl<F> Debug for Wrapper<F>
     where
-        F: Fn(&mut Formatter) -> fmt::Result,
+        F: Fn(&mut Formatter) -> std::fmt::Result,
     {
-        fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             self.0(f)
         }
     }
@@ -104,123 +107,44 @@ where
     }
 }
 
-/// Extra methods for [`Path`].
-pub trait PathExt {
-    /// Treat `self` as a virtual root relative to which the `path` is resolved.
-    ///
-    /// Returns `None` if the path lexically escapes the root. The path
-    /// might still escape through symlinks.
-    fn join_rooted(&self, path: &Path) -> Option<PathBuf>;
-}
-
-impl PathExt for Path {
-    fn join_rooted(&self, path: &Path) -> Option<PathBuf> {
-        let mut parts: Vec<_> = self.components().collect();
-        let root = parts.len();
-        for component in path.components() {
-            match component {
-                Component::Prefix(_) => return None,
-                Component::RootDir => parts.truncate(root),
-                Component::CurDir => {}
-                Component::ParentDir => {
-                    if parts.len() <= root {
-                        return None;
-                    }
-                    parts.pop();
-                }
-                Component::Normal(_) => parts.push(component),
-            }
-        }
-        if parts.len() < root {
-            return None;
-        }
-        Some(parts.into_iter().collect())
-    }
-}
-
-/// Format pieces separated with commas and a final "and" or "or".
-pub fn separated_list(pieces: &[impl AsRef<str>], last: &str) -> String {
-    let mut buf = String::new();
-    for (i, part) in pieces.iter().enumerate() {
-        match i {
-            0 => {}
-            1 if pieces.len() == 2 => {
-                buf.push(' ');
-                buf.push_str(last);
-                buf.push(' ');
-            }
-            i if i + 1 == pieces.len() => {
-                buf.push_str(", ");
-                buf.push_str(last);
-                buf.push(' ');
-            }
-            _ => buf.push_str(", "),
-        }
-        buf.push_str(part.as_ref());
-    }
-    buf
-}
-
-/// Format a comma-separated list.
-///
-/// Tries to format horizontally, but falls back to vertical formatting if the
-/// pieces are too long.
-pub fn pretty_comma_list(pieces: &[impl AsRef<str>], trailing_comma: bool) -> String {
-    const MAX_WIDTH: usize = 50;
-
-    let mut buf = String::new();
-    let len = pieces.iter().map(|s| s.as_ref().len()).sum::<usize>()
-        + 2 * pieces.len().saturating_sub(1);
-
-    if len <= MAX_WIDTH {
-        for (i, piece) in pieces.iter().enumerate() {
-            if i > 0 {
-                buf.push_str(", ");
-            }
-            buf.push_str(piece.as_ref());
-        }
-        if trailing_comma {
-            buf.push(',');
-        }
-    } else {
-        for piece in pieces {
-            buf.push_str(piece.as_ref().trim());
-            buf.push_str(",\n");
-        }
-    }
-
-    buf
-}
-
-/// Format an array-like construct.
-///
-/// Tries to format horizontally, but falls back to vertical formatting if the
-/// pieces are too long.
-pub fn pretty_array_like(parts: &[impl AsRef<str>], trailing_comma: bool) -> String {
-    let list = pretty_comma_list(parts, trailing_comma);
-    let mut buf = String::new();
-    buf.push('(');
-    if list.contains('\n') {
-        buf.push('\n');
-        for (i, line) in list.lines().enumerate() {
-            if i > 0 {
-                buf.push('\n');
-            }
-            buf.push_str("  ");
-            buf.push_str(line);
-        }
-        buf.push('\n');
-    } else {
-        buf.push_str(&list);
-    }
-    buf.push(')');
-    buf
-}
-
 /// Check if the [`Option`]-wrapped L is same to R.
 pub fn option_eq<L, R>(left: Option<L>, other: R) -> bool
 where
     L: PartialEq<R>,
 {
-    left.map(|v| v == other).unwrap_or(false)
+    left.map_or(false, |v| v == other)
+}
+
+/// A container around a static reference that is cheap to clone and hash.
+#[derive(Debug)]
+pub struct Static<T: 'static>(pub &'static T);
+
+impl<T> Deref for Static<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl<T> Copy for Static<T> {}
+
+impl<T> Clone for Static<T> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<T> Eq for Static<T> {}
+
+impl<T> PartialEq for Static<T> {
+    fn eq(&self, other: &Self) -> bool {
+        std::ptr::eq(self.0, other.0)
+    }
+}
+
+impl<T> Hash for Static<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_usize(self.0 as *const _ as _);
+    }
 }

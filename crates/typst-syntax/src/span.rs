@@ -28,54 +28,57 @@ pub struct Span(NonZeroU64);
 
 impl Span {
     /// The full range of numbers available for span numbering.
-    pub const FULL: Range<u64> = 2..(1 << Self::BITS);
+    pub(super) const FULL: Range<u64> = 2..(1 << Self::BITS);
+
+    /// The value reserved for the detached span.
     const DETACHED: u64 = 1;
 
-    // Data layout:
-    // | 16 bits source id | 48 bits number |
+    /// Data layout:
+    /// | 16 bits source id | 48 bits number |
     const BITS: usize = 48;
 
     /// Create a new span from a source id and a unique number.
     ///
-    /// Panics if the `number` is not contained in `FULL`.
-    #[track_caller]
-    pub const fn new(id: FileId, number: u64) -> Self {
-        assert!(
-            Self::FULL.start <= number && number < Self::FULL.end,
-            "span number outside valid range"
-        );
+    /// Returns `None` if `number` is not contained in `FULL`.
+    pub(super) const fn new(id: FileId, number: u64) -> Option<Self> {
+        if number < Self::FULL.start || number >= Self::FULL.end {
+            return None;
+        }
 
-        Self::pack(id, number)
-    }
-
-    /// A span that does not point into any source file.
-    pub const fn detached() -> Self {
-        Self::pack(FileId::detached(), Self::DETACHED)
-    }
-
-    /// Pack the components into a span.
-    #[track_caller]
-    const fn pack(id: FileId, number: u64) -> Span {
-        let bits = ((id.as_u16() as u64) << Self::BITS) | number;
+        let bits = ((id.into_raw() as u64) << Self::BITS) | number;
         match NonZeroU64::new(bits) {
-            Some(v) => Self(v),
-            None => panic!("span encoding is zero"),
+            Some(v) => Some(Self(v)),
+            None => unreachable!(),
         }
     }
 
-    /// The id of the source file the span points into.
-    pub const fn id(self) -> FileId {
-        FileId::from_u16((self.0.get() >> Self::BITS) as u16)
-    }
-
-    /// The unique number of the span within its source file.
-    pub const fn number(self) -> u64 {
-        self.0.get() & ((1 << Self::BITS) - 1)
+    /// Create a span that does not point into any source file.
+    pub const fn detached() -> Self {
+        match NonZeroU64::new(Self::DETACHED) {
+            Some(v) => Self(v),
+            None => unreachable!(),
+        }
     }
 
     /// Whether the span is detached.
     pub const fn is_detached(self) -> bool {
-        self.id().is_detached()
+        self.0.get() == Self::DETACHED
+    }
+
+    /// The id of the source file the span points into.
+    ///
+    /// Returns `None` if the span is detached.
+    pub const fn id(self) -> Option<FileId> {
+        if self.is_detached() {
+            return None;
+        }
+        let bits = (self.0.get() >> Self::BITS) as u16;
+        Some(FileId::from_raw(bits))
+    }
+
+    /// The unique number of the span within its [`Source`](super::Source).
+    pub const fn number(self) -> u64 {
+        self.0.get() & ((1 << Self::BITS) - 1)
     }
 }
 
@@ -120,9 +123,9 @@ mod tests {
 
     #[test]
     fn test_span_encoding() {
-        let id = FileId::from_u16(5);
-        let span = Span::new(id, 10);
-        assert_eq!(span.id(), id);
+        let id = FileId::from_raw(5);
+        let span = Span::new(id, 10).unwrap();
+        assert_eq!(span.id(), Some(id));
         assert_eq!(span.number(), 10);
     }
 }

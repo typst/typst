@@ -7,15 +7,12 @@ use crate::prelude::*;
 /// content. It may also be useful to redact content because its arguments are
 /// not included in the output.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// Hello Jane \
 /// #hide[Hello] Joe
 /// ```
-///
-/// Display: Hide
-/// Category: layout
-#[element(Show)]
+#[elem(Show)]
 pub struct HideElem {
     /// The content to hide.
     #[required]

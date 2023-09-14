@@ -14,12 +14,13 @@ bench = false
 typst = { path = "../typst" }
 typst-library = { path = "../typst-library" }
 comemo = "0.3"
+ecow = { version = "0.1.2", features = ["serde"] }
 heck = "0.4"
 include_dir = "0.7"
 once_cell = "1"
 pulldown-cmark = "0.9"
-serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.8"
+serde = { version = "1.0.184", features = ["derive"] }
+serde_yaml = "0.9"
 syntect = { version = "5", default-features = false, features = ["parsing", "html", "regex-fancy"] }
 typed-arena = "2"
 unicode_names2 = "0.6.0"

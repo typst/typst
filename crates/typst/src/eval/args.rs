@@ -2,12 +2,42 @@ use std::fmt::{self, Debug, Formatter};
 
 use ecow::{eco_format, EcoVec};
 
-use super::{Array, Dict, FromValue, IntoValue, Str, Value};
-use crate::diag::{bail, At, SourceResult};
+use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Str, Value};
+use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::pretty_array_like;
 
-/// Evaluated arguments to a function.
+/// Captured arguments to a function.
+///
+/// # Argument Sinks
+/// Like built-in functions, custom functions can also take a variable number of
+/// arguments. You can specify an _argument sink_ which collects all excess
+/// arguments as `..sink`. The resulting `sink` value is of the `arguments`
+/// type. It exposes methods to access the positional and named arguments.
+///
+/// ```example
+/// #let format(title, ..authors) = {
+///   let by = authors
+///     .pos()
+///     .join(", ", last: " and ")
+///
+///   [*#title* \ _Written by #by;_]
+/// }
+///
+/// #format("ArtosFlow", "Jane", "Joe")
+/// ```
+///
+/// # Spreading
+/// Inversely to an argument sink, you can _spread_ arguments, arrays and
+/// dictionaries into a function call with the `..spread` operator:
+///
+/// ```example
+/// #let array = (2, 3, 5)
+/// #calc.min(..array)
+/// #let dict = (fill: blue)
+/// #text(..dict)[Hello]
+/// ```
+#[ty(scope, name = "arguments")]
 #[derive(Clone, PartialEq, Hash)]
 pub struct Args {
     /// The span of the whole argument list.
@@ -39,6 +69,11 @@ impl Args {
             })
             .collect();
         Self { span, items }
+    }
+
+    /// Returns the number of remaining positional arguments.
+    pub fn remaining(&self) -> usize {
+        self.items.iter().filter(|slot| slot.name.is_none()).count()
     }
 
     /// Push a positional argument.
@@ -120,8 +155,21 @@ impl Args {
         T: FromValue<Spanned<Value>>,
     {
         let mut list = vec![];
-        while let Some(value) = self.find()? {
-            list.push(value);
+        let mut errors = vec![];
+        self.items.retain(|item| {
+            if item.name.is_some() {
+                return true;
+            };
+            let span = item.value.span;
+            let spanned = Spanned::new(std::mem::take(&mut item.value.v), span);
+            match T::from_value(spanned) {
+                Ok(val) => list.push(val),
+                Err(err) => errors.push(SourceDiagnostic::error(span, err)),
+            }
+            false
+        });
+        if !errors.is_empty() {
+            return Err(Box::new(errors));
         }
         Ok(list)
     }
@@ -178,8 +226,12 @@ impl Args {
         }
         Ok(())
     }
+}
 
-    /// Extract the positional arguments as an array.
+#[scope]
+impl Args {
+    /// Returns the captured positional arguments as an array.
+    #[func(name = "pos", title = "Positional")]
     pub fn to_pos(&self) -> Array {
         self.items
             .iter()
@@ -188,7 +240,8 @@ impl Args {
             .collect()
     }
 
-    /// Extract the named arguments as a dictionary.
+    /// Returns the captured named arguments as a dictionary.
+    #[func(name = "named")]
     pub fn to_named(&self) -> Dict {
         self.items
             .iter()

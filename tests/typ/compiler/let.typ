@@ -189,11 +189,11 @@ Three
 #let (a: "a", b: 2) = (a: 1, b: 2)
 
 ---
-// Error: 10-11 destructuring key not found in dictionary
+// Error: 10-11 dictionary does not contain key "b"
 #let (a, b) = (a: 1)
 
 ---
-// Error: 10-11 destructuring key not found in dictionary
+// Error: 10-11 dictionary does not contain key "b"
 #let (a, b: b) = (a: 1)
 
 ---

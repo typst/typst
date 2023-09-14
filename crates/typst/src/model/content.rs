@@ -8,20 +8,63 @@ use ecow::{eco_format, EcoString, EcoVec};
 use serde::{Serialize, Serializer};
 
 use super::{
-    element, Behave, Behaviour, ElemFunc, Element, Guard, Label, Locatable, Location,
+    elem, Behave, Behaviour, Element, Guard, Label, Locatable, Location, NativeElement,
     Recipe, Selector, Style, Styles, Synthesize,
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
-use crate::eval::{Dict, FromValue, IntoValue, Str, Value, Vm};
+use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Str, Value, Vm};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
-/// Composable representation of styled content.
+/// A piece of document content.
+///
+/// This type is at the heart of Typst. All markup you write and most
+/// [functions]($function) you call produce content values. You can create a
+/// content value by enclosing markup in square brackets. This is also how you
+/// pass content to functions.
+///
+/// # Example
+/// ```example
+/// Type of *Hello!* is
+/// #type([*Hello!*])
+/// ```
+///
+/// Content can be added with the `+` operator,
+/// [joined together]($scripting/#blocks) and multiplied with integers. Wherever
+/// content is expected, you can also pass a [string]($str) or `{none}`.
+///
+/// # Representation
+/// Content consists of elements with fields. When constructing an element with
+/// its _element function,_ you provide these fields as arguments and when you
+/// have a content value, you can access its fields with [field access
+/// syntax]($scripting/#field-access).
+///
+/// Some fields are required: These must be provided when constructing an
+/// element and as a consequence, they are always available through field access
+/// on content of that type. Required fields are marked as such in the
+/// documentation.
+///
+/// Most fields are optional: Like required fields, they can be passed to the
+/// element function to configure them for a single element. However, these can
+/// also be configured with [set rules]($styling/#set-rules) to apply them to
+/// all elements within a scope. Optional fields are only available with field
+/// access syntax when they are were explicitly passed to the element function,
+/// not when they result from a set rule.
+///
+/// Each element has a default appearance. However, you can also completely
+/// customize its appearance with a [show rule]($styling/#show-rules). The show
+/// rule is passed the element. It can access the element's field and produce
+/// arbitrary content from it.
+///
+/// In the web app, you can hover over a content variable to see exactly which
+/// elements the content is composed of and what fields they have.
+/// Alternatively, you can inspect the output of the [`repr`]($repr) function.
+#[ty(scope)]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content {
-    func: ElemFunc,
+    elem: Element,
     attrs: EcoVec<Attr>,
 }
 
@@ -40,13 +83,13 @@ enum Attr {
 
 impl Content {
     /// Create an empty element.
-    pub fn new(func: ElemFunc) -> Self {
-        Self { func, attrs: EcoVec::new() }
+    pub fn new(elem: Element) -> Self {
+        Self { elem, attrs: EcoVec::new() }
     }
 
     /// Create empty content.
     pub fn empty() -> Self {
-        Self::new(SequenceElem::func())
+        Self::new(SequenceElem::elem())
     }
 
     /// Create a new sequence element from multiples elements.
@@ -63,32 +106,40 @@ impl Content {
         content
     }
 
-    /// The element function of the contained content.
-    pub fn func(&self) -> ElemFunc {
-        self.func
-    }
-
     /// Whether the content is an empty sequence.
     pub fn is_empty(&self) -> bool {
         self.is::<SequenceElem>() && self.attrs.is_empty()
     }
 
     /// Whether the contained element is of type `T`.
-    pub fn is<T: Element>(&self) -> bool {
-        self.func == T::func()
+    pub fn is<T: NativeElement>(&self) -> bool {
+        self.elem == T::elem()
     }
 
     /// Cast to `T` if the contained element is of type `T`.
-    pub fn to<T: Element>(&self) -> Option<&T> {
+    pub fn to<T: NativeElement>(&self) -> Option<&T> {
         T::unpack(self)
     }
 
     /// Access the children if this is a sequence.
     pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Self>> {
-        if !self.is::<SequenceElem>() {
+        if !self.is_sequence() {
             return None;
         }
         Some(self.attrs.iter().filter_map(Attr::child))
+    }
+
+    pub fn is_sequence(&self) -> bool {
+        self.is::<SequenceElem>()
+    }
+
+    /// Also auto expands sequence of sequences into flat sequence
+    pub fn sequence_recursive_for_each(&self, f: &mut impl FnMut(&Self)) {
+        if let Some(childs) = self.to_sequence() {
+            childs.for_each(|c| c.sequence_recursive_for_each(f));
+        } else {
+            f(self);
+        }
     }
 
     /// Access the child and styles.
@@ -106,13 +157,13 @@ impl Content {
     where
         C: ?Sized + 'static,
     {
-        (self.func.0.vtable)(TypeId::of::<C>()).is_some()
+        self.elem.can::<C>()
     }
 
-    /// Whether the contained element has the given capability.
-    /// Where the capability is given by a `TypeId`.
+    /// Whether the contained element has the given capability where the
+    /// capability is given by a `TypeId`.
     pub fn can_type_id(&self, type_id: TypeId) -> bool {
-        (self.func.0.vtable)(type_id).is_some()
+        self.elem.can_type_id(type_id)
     }
 
     /// Cast to a trait object if the contained element has the given
@@ -121,7 +172,7 @@ impl Content {
     where
         C: ?Sized + 'static,
     {
-        let vtable = (self.func.0.vtable)(TypeId::of::<C>())?;
+        let vtable = self.elem.vtable()(TypeId::of::<C>())?;
         let data = self as *const Self as *const ();
         Some(unsafe { &*crate::util::fat::from_raw_parts(data, vtable) })
     }
@@ -132,7 +183,7 @@ impl Content {
     where
         C: ?Sized + 'static,
     {
-        let vtable = (self.func.0.vtable)(TypeId::of::<C>())?;
+        let vtable = self.elem.vtable()(TypeId::of::<C>())?;
         let data = self as *mut Self as *mut ();
         Some(unsafe { &mut *crate::util::fat::from_raw_parts_mut(data, vtable) })
     }
@@ -198,26 +249,6 @@ impl Content {
     /// Iter over all fields on the content.
     ///
     /// Does not include synthesized fields for sequence and styled elements.
-    pub fn fields(&self) -> impl Iterator<Item = (&EcoString, Value)> {
-        static CHILD: EcoString = EcoString::inline("child");
-        static CHILDREN: EcoString = EcoString::inline("children");
-
-        let option = if let Some(iter) = self.to_sequence() {
-            Some((&CHILDREN, Value::Array(iter.cloned().map(Value::Content).collect())))
-        } else if let Some((child, _)) = self.to_styled() {
-            Some((&CHILD, Value::Content(child.clone())))
-        } else {
-            None
-        };
-
-        self.fields_ref()
-            .map(|(name, value)| (name, value.clone()))
-            .chain(option)
-    }
-
-    /// Iter over all fields on the content.
-    ///
-    /// Does not include synthesized fields for sequence and styled elements.
     pub fn fields_ref(&self) -> impl Iterator<Item = (&EcoString, &Value)> {
         let mut iter = self.attrs.iter();
         std::iter::from_fn(move || {
@@ -225,6 +256,11 @@ impl Content {
             let value = iter.next()?.value()?;
             Some((field, value))
         })
+    }
+
+    /// Borrow the value of the given field.
+    pub fn get(&self, key: &str) -> StrResult<Value> {
+        self.field(key).ok_or_else(|| missing_field(key))
     }
 
     /// Try to access a field on the content as a specified type.
@@ -239,25 +275,6 @@ impl Content {
     #[track_caller]
     pub fn expect_field<T: FromValue>(&self, name: &str) -> T {
         self.field(name).unwrap().cast().unwrap()
-    }
-
-    /// Whether the content has the specified field.
-    pub fn has(&self, field: &str) -> bool {
-        self.field(field).is_some()
-    }
-
-    /// Borrow the value of the given field.
-    pub fn at(&self, field: &str, default: Option<Value>) -> StrResult<Value> {
-        self.field(field)
-            .or(default)
-            .ok_or_else(|| missing_field_no_default(field))
-    }
-
-    /// Return the fields of the content as a dict.
-    pub fn dict(&self) -> Dict {
-        self.fields()
-            .map(|(key, value)| (key.to_owned().into(), value))
-            .collect()
     }
 
     /// The content's label.
@@ -297,7 +314,7 @@ impl Content {
             prev.apply(styles);
             self
         } else {
-            let mut content = Content::new(StyledElem::func());
+            let mut content = Content::new(StyledElem::elem());
             content.attrs.push(Attr::Child(Prehashed::new(self)));
             content.attrs.push(Attr::Styles(styles));
             content
@@ -350,14 +367,6 @@ impl Content {
             || self.can::<dyn Synthesize>()
             || self.label().is_some())
             && !self.is_prepared()
-    }
-
-    /// This content's location in the document flow.
-    pub fn location(&self) -> Option<Location> {
-        self.attrs.iter().find_map(|modifier| match modifier {
-            Attr::Location(location) => Some(*location),
-            _ => None,
-        })
     }
 
     /// Attach a location to this content.
@@ -438,9 +447,90 @@ impl Content {
     }
 }
 
+#[scope]
+impl Content {
+    /// The content's element function. This function can be used to create the element
+    /// contained in this content. It can be used in set and show rules for the
+    /// element. Can be compared with global functions to check whether you have
+    /// a specific
+    /// kind of element.
+    #[func]
+    pub fn func(&self) -> Element {
+        self.elem
+    }
+
+    /// Whether the content has the specified field.
+    #[func]
+    pub fn has(
+        &self,
+        /// The field to look for.
+        field: Str,
+    ) -> bool {
+        self.field(&field).is_some()
+    }
+
+    /// Access the specified field on the content. Returns the default value if
+    /// the field does not exist or fails with an error if no default value was
+    /// specified.
+    #[func]
+    pub fn at(
+        &self,
+        /// The field to access.
+        field: Str,
+        /// A default value to return if the field does not exist.
+        #[named]
+        default: Option<Value>,
+    ) -> StrResult<Value> {
+        self.field(&field)
+            .or(default)
+            .ok_or_else(|| missing_field_no_default(&field))
+    }
+
+    /// Returns the fields of this content.
+    ///
+    /// ```example
+    /// #rect(
+    ///   width: 10cm,
+    ///   height: 10cm,
+    /// ).fields()
+    /// ```
+    #[func]
+    pub fn fields(&self) -> Dict {
+        static CHILD: EcoString = EcoString::inline("child");
+        static CHILDREN: EcoString = EcoString::inline("children");
+
+        let option = if let Some(iter) = self.to_sequence() {
+            Some((&CHILDREN, Value::Array(iter.cloned().map(Value::Content).collect())))
+        } else if let Some((child, _)) = self.to_styled() {
+            Some((&CHILD, Value::Content(child.clone())))
+        } else {
+            None
+        };
+
+        self.fields_ref()
+            .map(|(name, value)| (name, value.clone()))
+            .chain(option)
+            .map(|(key, value)| (key.to_owned().into(), value))
+            .collect()
+    }
+
+    /// The location of the content. This is only available on content returned
+    /// by [query]($query) or provided by a
+    /// [show rule]($reference/styling/#show-rules), for other content it will
+    /// be `{none}`. The resulting location can be used with
+    /// [counters]($counter), [state]($state) and [queries]($query).
+    #[func]
+    pub fn location(&self) -> Option<Location> {
+        self.attrs.iter().find_map(|modifier| match modifier {
+            Attr::Location(location) => Some(*location),
+            _ => None,
+        })
+    }
+}
+
 impl Debug for Content {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let name = self.func.name();
+        let name = self.elem.name();
         if let Some(text) = item!(text_str)(self) {
             f.write_char('[')?;
             f.write_str(&text)?;
@@ -452,6 +542,7 @@ impl Debug for Content {
 
         let mut pieces: Vec<_> = self
             .fields()
+            .into_iter()
             .map(|(name, value)| eco_format!("{name}: {value:?}"))
             .collect();
 
@@ -477,7 +568,7 @@ impl PartialEq for Content {
         } else if let (Some(left), Some(right)) = (self.to_styled(), other.to_styled()) {
             left == right
         } else {
-            self.func == other.func && self.fields_ref().eq(other.fields_ref())
+            self.elem == other.elem && self.fields_ref().eq(other.fields_ref())
         }
     }
 }
@@ -523,8 +614,8 @@ impl Serialize for Content {
         S: Serializer,
     {
         serializer.collect_map(
-            iter::once((&"func".into(), self.func().name().into_value()))
-                .chain(self.fields()),
+            iter::once((&"func".into(), &self.func().name().into_value()))
+                .chain(self.fields_ref()),
         )
     }
 }
@@ -573,21 +664,16 @@ impl Attr {
     }
 }
 
-/// Display: Sequence
-/// Category: special
-#[element]
+/// Defines the `ElemFunc` for sequences.
+#[elem]
 struct SequenceElem {}
 
-/// Display: Sequence
-/// Category: special
-#[element]
+/// Defines the `ElemFunc` for styled elements.
+#[elem]
 struct StyledElem {}
 
 /// Hosts metadata and ensures metadata is produced even for empty elements.
-///
-/// Display: Meta
-/// Category: special
-#[element(Behave)]
+#[elem(Behave)]
 pub struct MetaElem {
     /// Metadata that should be attached to all elements affected by this style
     /// property.
@@ -597,7 +683,7 @@ pub struct MetaElem {
 
 impl Behave for MetaElem {
     fn behaviour(&self) -> Behaviour {
-        Behaviour::Ignorant
+        Behaviour::Invisible
     }
 }
 
@@ -605,6 +691,12 @@ impl Behave for MetaElem {
 pub trait PlainText {
     /// Write this element's plain text into the given buffer.
     fn plain_text(&self, text: &mut EcoString);
+}
+
+/// The missing field access error message.
+#[cold]
+fn missing_field(field: &str) -> EcoString {
+    eco_format!("content does not contain field {:?}", Str::from(field))
 }
 
 /// The missing field access error message when no default value was given.

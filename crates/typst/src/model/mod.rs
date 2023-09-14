@@ -9,10 +9,10 @@ mod selector;
 mod styles;
 
 #[doc(inline)]
-pub use typst_macros::element;
+pub use typst_macros::elem;
 
 pub use self::content::{Content, MetaElem, PlainText};
-pub use self::element::{Construct, ElemFunc, Element, NativeElemFunc, Set};
+pub use self::element::{Construct, Element, NativeElement, NativeElementData, Set};
 pub use self::introspect::{Introspector, Location, Locator};
 pub use self::label::{Label, Unlabellable};
 pub use self::realize::{
@@ -24,13 +24,12 @@ pub use self::styles::{
     Styles, Transform,
 };
 
-use std::mem::ManuallyDrop;
-
 use comemo::{Track, Tracked, TrackedMut, Validate};
 
 use crate::diag::{warning, SourceDiagnostic, SourceResult};
 use crate::doc::Document;
 use crate::eval::Tracer;
+use crate::syntax::Span;
 use crate::World;
 
 /// Typeset content into a fully layouted document.
@@ -50,16 +49,14 @@ pub fn typeset(
     let mut document;
     let mut delayed;
 
-    // We need `ManuallyDrop` until this lands in stable:
-    // https://github.com/rust-lang/rust/issues/70919
-    let mut introspector = ManuallyDrop::new(Introspector::new(&[]));
+    let mut introspector = Introspector::new(&[]);
 
     // Relayout until all introspections stabilize.
     // If that doesn't happen within five attempts, we give up.
     loop {
         tracing::info!("Layout iteration {iter}");
 
-        delayed = DelayedErrors::default();
+        delayed = DelayedErrors::new();
 
         let constraint = <Introspector as Validate>::Constraint::new();
         let mut locator = Locator::new();
@@ -72,14 +69,9 @@ pub fn typeset(
         };
 
         // Layout!
-        let result = (library.items.layout)(&mut vt, content, styles)?;
+        document = (library.items.layout)(&mut vt, content, styles)?;
 
-        // Drop the old introspector.
-        ManuallyDrop::into_inner(introspector);
-
-        // Only now assign the document and construct the new introspector.
-        document = result;
-        introspector = ManuallyDrop::new(Introspector::new(&document.pages));
+        introspector = Introspector::new(&document.pages);
         iter += 1;
 
         if introspector.validate(&constraint) {
@@ -88,18 +80,12 @@ pub fn typeset(
 
         if iter >= 5 {
             tracer.warn(
-                warning!(
-                    world.main().root().span(),
-                    "layout did not converge within 5 attempts",
-                )
-                .with_hint("check if any states or queries are updating themselves"),
+                warning!(Span::detached(), "layout did not converge within 5 attempts",)
+                    .with_hint("check if any states or queries are updating themselves"),
             );
             break;
         }
     }
-
-    // Drop the introspector.
-    ManuallyDrop::into_inner(introspector);
 
     // Promote delayed errors.
     if !delayed.0.is_empty() {
@@ -149,6 +135,13 @@ impl Vt<'_> {
 /// Holds delayed errors.
 #[derive(Default, Clone)]
 pub struct DelayedErrors(Vec<SourceDiagnostic>);
+
+impl DelayedErrors {
+    /// Create an empty list of delayed errors.
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
 
 #[comemo::track]
 impl DelayedErrors {

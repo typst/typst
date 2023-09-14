@@ -9,43 +9,38 @@ use super::GridLayouter;
 /// Displays a sequence of items vertically, with each item introduced by a
 /// marker.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
-/// - *Content*
-///   - Text
-///   - Math
-///   - Layout
-///   - Visualize
-///   - Meta
-///   - Symbols
+/// Normal list.
+/// - Text
+/// - Math
+/// - Layout
+/// - ...
 ///
-/// - *Compute*
-///   #list(
-///     [Foundations],
-///     [Calculate],
-///     [Construct],
-///     [Data Loading],
-///   )
+/// Multiple lines.
+/// - This list item spans multiple
+///   lines because it is indented.
+///
+/// Function call.
+/// #list(
+///   [Foundations],
+///   [Calculate],
+///   [Construct],
+///   [Data Loading],
+/// )
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This functions also has dedicated syntax: Start a line with a hyphen,
 /// followed by a space to create a list item. A list item can contain multiple
 /// paragraphs and other block-level content. All content that is indented
 /// more than an item's marker becomes part of that item.
-///
-/// Display: Bullet List
-/// Category: layout
-#[element(Layout)]
-#[scope(
-    scope.define("item", ListItem::func());
-    scope
-)]
+#[elem(scope, title = "Bullet List", Layout)]
 pub struct ListElem {
-    /// If this is `{false}`, the items are spaced apart with [list
-    /// spacing]($func/list.spacing). If it is `{true}`, they use normal
-    /// [leading]($func/par.leading) instead. This makes the list more compact,
-    /// which can look better if the items are short.
+    /// If this is `{false}`, the items are spaced apart with
+    /// [list spacing]($list.spacing). If it is `{true}`, they use normal
+    /// [leading]($par.leading) instead. This makes the list more compact, which
+    /// can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
     /// whether items are separated with a blank line. If items directly follow
@@ -96,7 +91,7 @@ pub struct ListElem {
 
     /// The spacing between the items of a wide (non-tight) list.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
+    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
     pub spacing: Smart<Spacing>,
 
     /// The bullet list's children.
@@ -116,6 +111,12 @@ pub struct ListElem {
     #[internal]
     #[fold]
     depth: Depth,
+}
+
+#[scope]
+impl ListElem {
+    #[elem]
+    type ListItem;
 }
 
 impl Layout for ListElem {
@@ -140,7 +141,7 @@ impl Layout for ListElem {
             .marker(styles)
             .resolve(vt, depth)?
             // avoid '#set align' interference with the list
-            .aligned(Align::LEFT_TOP.into());
+            .aligned(HAlign::Start + VAlign::Top);
 
         let mut cells = vec![];
         for item in self.children() {
@@ -168,10 +169,7 @@ impl Layout for ListElem {
 }
 
 /// A bullet list item.
-///
-/// Display: Bullet List Item
-/// Category: layout
-#[element]
+#[elem(name = "item", title = "Bullet List Item")]
 pub struct ListItem {
     /// The item's body.
     #[required]

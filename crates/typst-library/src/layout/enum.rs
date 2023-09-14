@@ -11,7 +11,7 @@ use super::GridLayouter;
 ///
 /// Displays a sequence of items vertically and numbers them consecutively.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// Automatically numbered:
 /// + Preparations
@@ -22,6 +22,11 @@ use super::GridLayouter;
 /// 2. What is the first step?
 /// 5. I am confused.
 /// +  Moving on ...
+///
+/// Multiple lines:
+/// + This enum item has multiple
+///   lines because the next line
+///   is indented.
 ///
 /// Function call.
 /// #enum[First][Second]
@@ -36,8 +41,8 @@ use super::GridLayouter;
 /// + Don't forget step two
 /// ```
 ///
-/// You can also use [`enum.item`]($func/enum.item) to programmatically
-/// customize the number of each item in the enumeration:
+/// You can also use [`enum.item`]($enum.item) to programmatically customize the
+/// number of each item in the enumeration:
 ///
 /// ```example
 /// #enum(
@@ -47,7 +52,7 @@ use super::GridLayouter;
 /// )
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This functions also has dedicated syntax:
 ///
 /// - Starting a line with a plus sign creates an automatically numbered
@@ -58,18 +63,11 @@ use super::GridLayouter;
 /// Enumeration items can contain multiple paragraphs and other block-level
 /// content. All content that is indented more than an item's marker becomes
 /// part of that item.
-///
-/// Display: Numbered List
-/// Category: layout
-#[element(Layout)]
-#[scope(
-    scope.define("item", EnumItem::func());
-    scope
-)]
+#[elem(scope, title = "Numbered List", Layout)]
 pub struct EnumElem {
     /// If this is `{false}`, the items are spaced apart with
-    /// [enum spacing]($func/enum.spacing). If it is `{true}`, they use normal
-    /// [leading]($func/par.leading) instead. This makes the enumeration more
+    /// [enum spacing]($enum.spacing). If it is `{true}`, they use normal
+    /// [leading]($par.leading) instead. This makes the enumeration more
     /// compact, which can look better if the items are short.
     ///
     /// In markup mode, the value of this parameter is determined based on
@@ -90,7 +88,7 @@ pub struct EnumElem {
     pub tight: bool,
 
     /// How to number the enumeration. Accepts a
-    /// [numbering pattern or function]($func/numbering).
+    /// [numbering pattern or function]($numbering).
     ///
     /// If the numbering pattern contains multiple counting symbols, they apply
     /// to nested enums. If given a function, the function receives one argument
@@ -148,7 +146,7 @@ pub struct EnumElem {
 
     /// The spacing between the items of a wide (non-tight) enumeration.
     ///
-    /// If set to `{auto}`, uses the spacing [below blocks]($func/block.below).
+    /// If set to `{auto}`, uses the spacing [below blocks]($block.below).
     pub spacing: Smart<Spacing>,
 
     /// The horizontal alignment that enum numbers should have.
@@ -172,8 +170,8 @@ pub struct EnumElem {
     /// 16. Sixteen
     /// 32. Thirty two
     /// ````
-    #[default(HorizontalAlign(GenAlign::End))]
-    pub number_align: HorizontalAlign,
+    #[default(HAlign::End)]
+    pub number_align: HAlign,
 
     /// The numbered list's items.
     ///
@@ -194,6 +192,12 @@ pub struct EnumElem {
     #[internal]
     #[fold]
     parents: Parent,
+}
+
+#[scope]
+impl EnumElem {
+    #[elem]
+    type EnumItem;
 }
 
 impl Layout for EnumElem {
@@ -220,11 +224,10 @@ impl Layout for EnumElem {
         let full = self.full(styles);
 
         // Horizontally align based on the given respective parameter.
-        // Vertically align to the top to avoid inheriting 'horizon' or
-        // 'bottom' alignment from the context and having the number be
-        // displaced in relation to the item it refers to.
-        let number_align: Axes<Option<GenAlign>> =
-            Axes::new(self.number_align(styles).into(), Align::Top.into()).map(Some);
+        // Vertically align to the top to avoid inheriting `horizon` or `bottom`
+        // alignment from the context and having the number be displaced in
+        // relation to the item it refers to.
+        let number_align = self.number_align(styles) + VAlign::Top;
 
         for item in self.children() {
             number = item.number(styles).unwrap_or(number);
@@ -273,10 +276,7 @@ impl Layout for EnumElem {
 }
 
 /// An enumeration item.
-///
-/// Display: Numbered List Item
-/// Category: layout
-#[element]
+#[elem(name = "item", title = "Numbered List Item")]
 pub struct EnumItem {
     /// The item's number.
     #[positional]

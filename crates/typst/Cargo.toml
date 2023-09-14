@@ -22,39 +22,40 @@ base64 = "0.21.2"
 bitflags = { version = "2", features = ["serde"] }
 bytemuck = "1"
 comemo = "0.3"
-ecow = { version = "0.1.1", features = ["serde"] }
+ecow = { version = "0.1.2", features = ["serde"] }
 flate2 = "1"
-fontdb = "0.13"
+fontdb = { version = "0.14", default-features = false }
 if_chain = "1"
 image = { version = "0.24", default-features = false, features = ["png", "jpeg", "gif"] }
-indexmap = { version = "1.9.3", features = ["serde"] }
+indexmap = { version = "2", features = ["serde"] }
 log = "0.4"
 miniz_oxide = "0.7"
 oklab = "1"
 once_cell = "1"
-pdf-writer = "0.8"
-pixglyph = "0.1"
+pdf-writer = "0.8.1"
+pixglyph = "0.2"
 regex = "1"
-resvg = { version = "0.32", default-features = false, features = ["raster-images"] }
+resvg = { version = "0.35.0", default-features = false, features = ["raster-images"] }
 roxmltree = "0.18"
 rustybuzz = "0.7"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1.0.184", features = ["derive"] }
 siphasher = "0.3"
 subsetter = "0.1.1"
-svg2pdf = "0.6"
-tiny-skia = "0.9.0"
-toml = { version = "0.7.3", default-features = false, features = ["parse"] }
+svg2pdf = "0.7.1"
+tiny-skia = "0.10.0"
+toml = { version = "0.8", default-features = false, features = ["parse"] }
 tracing = "0.1.37"
-ttf-parser = "0.18.1"
-unicode-general-category = "0.6"
+ttf-parser = "0.19.2"
+unicode-properties = "0.1"
 unicode-ident = "1.0"
 unicode-math-class = "0.1"
 unicode-segmentation = "1"
 unscanny = "0.1"
-usvg = { version = "0.32", default-features = false, features = ["text"] }
+usvg = { version = "0.35", default-features = false, features = ["text"] }
 xmlwriter = "0.1.0"
 xmp-writer = "0.1"
-time = { version = "0.3.20", features = ["std", "formatting"] }
+time = { version = "0.3.20", features = ["std", "formatting", "macros", "parsing"] }
+wasmi = "0.31.0"
 xmlparser = "0.13.5"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

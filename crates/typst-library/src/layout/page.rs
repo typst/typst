@@ -1,8 +1,10 @@
 use std::ptr;
 use std::str::FromStr;
 
+use typst::eval::AutoValue;
+
 use super::{AlignElem, ColumnsElem};
-use crate::meta::{Counter, CounterKey, Numbering};
+use crate::meta::{Counter, CounterKey, ManualPageCounter, Numbering};
 use crate::prelude::*;
 use crate::text::TextElem;
 
@@ -12,20 +14,20 @@ use crate::text::TextElem;
 /// properties, it can also be used to explicitly render its argument onto
 /// a set of pages of its own.
 ///
-/// Pages can be set to use `{auto}` as their width or height. In this case,
-/// the pages will grow to fit their content on the respective axis.
+/// Pages can be set to use `{auto}` as their width or height. In this case, the
+/// pages will grow to fit their content on the respective axis.
 ///
-/// ## Example { #example }
+/// The [Guide for Page Setup]($guides/page-setup-guide) explains how to use
+/// this and related functions to set up a document with many examples.
+///
+/// # Example
 /// ```example
 /// >>> #set page(margin: auto)
 /// #set page("us-letter")
 ///
 /// There you go, US friends!
 /// ```
-///
-/// Display: Page
-/// Category: layout
-#[element]
+#[elem]
 pub struct PageElem {
     /// A standard paper size to set width and height.
     #[external]
@@ -56,9 +58,9 @@ pub struct PageElem {
     /// The height of the page.
     ///
     /// If this is set to `{auto}`, page breaks can only be triggered manually
-    /// by inserting a [page break]($func/pagebreak). Most examples throughout
-    /// this documentation use `{auto}` for the height of the page to
-    /// dynamically grow and shrink to fit their content.
+    /// by inserting a [page break]($pagebreak). Most examples throughout this
+    /// documentation use `{auto}` for the height of the page to dynamically
+    /// grow and shrink to fit their content.
     #[resolve]
     #[parse(
         args.named("height")?
@@ -100,9 +102,9 @@ pub struct PageElem {
     ///   - `bottom`: The bottom margin.
     ///   - `left`: The left margin.
     ///   - `inside`: The margin at the inner side of the page (where the
-    ///     [binding]($func/page.binding) is).
+    ///     [binding]($page.binding) is).
     ///   - `outside`: The margin at the outer side of the page (opposite to the
-    ///     [binding]($func/page.binding)).
+    ///     [binding]($page.binding)).
     ///   - `x`: The horizontal margins.
     ///   - `y`: The vertical margins.
     ///   - `rest`: The margins on all sides except those for which the
@@ -129,7 +131,7 @@ pub struct PageElem {
 
     /// On which side the pages will be bound.
     ///
-    /// - `{auto}`: Equivalent to `left` if the [text direction]($func/text.dir)
+    /// - `{auto}`: Equivalent to `left` if the [text direction]($text.dir)
     ///   is left-to-right and `right` if it is right-to-left.
     /// - `left`: Bound on the left side.
     /// - `right`: Bound on the right side.
@@ -139,6 +141,9 @@ pub struct PageElem {
     pub binding: Smart<Binding>,
 
     /// How many columns the page has.
+    ///
+    /// If you need to insert columns into a page or other container, you can
+    /// also use the [`columns` function]($columns).
     ///
     /// ```example:single
     /// #set page(columns: 2, height: 4.8cm)
@@ -169,9 +174,10 @@ pub struct PageElem {
     /// ```
     pub fill: Option<Paint>,
 
-    /// How to [number]($func/numbering) the pages.
+    /// How to [number]($numbering) the pages.
     ///
-    /// If an explicit `footer` is given, the numbering is ignored.
+    /// If an explicit `footer` (or `header` for top-aligned numbering) is
+    /// given, the numbering is ignored.
     ///
     /// ```example
     /// #set page(
@@ -186,6 +192,11 @@ pub struct PageElem {
 
     /// The alignment of the page numbering.
     ///
+    /// If the vertical component is `top`, the numbering is placed into the
+    /// header and if it is `bottom`, it is placed in the footer. Horizon
+    /// alignment is forbidden. If an explicit matching `header` or `footer` is
+    /// given, the numbering is ignored.
+    ///
     /// ```example
     /// #set page(
     ///   margin: (top: 16pt, bottom: 24pt),
@@ -195,8 +206,17 @@ pub struct PageElem {
     ///
     /// #lorem(30)
     /// ```
-    #[default(Align::Center.into())]
-    pub number_align: Axes<Option<GenAlign>>,
+    #[default(HAlign::Center + VAlign::Bottom)]
+    #[parse({
+        let option: Option<Spanned<Align>> = args.named("number-align")?;
+        if let Some(Spanned { v: align, span }) = option {
+            if align.y() == Some(VAlign::Horizon) {
+                bail!(span, "page number cannot be `horizon`-aligned");
+            }
+        }
+        option.map(|spanned| spanned.v)
+    })]
+    pub number_align: Align,
 
     /// The page's header. Fills the top margin of each page.
     ///
@@ -224,7 +244,7 @@ pub struct PageElem {
     ///
     /// For just a page number, the `numbering` property, typically suffices. If
     /// you want to create a custom footer, but still display the page number,
-    /// you can directly access the [page counter]($func/counter).
+    /// you can directly access the [page counter]($counter).
     ///
     /// ```example
     /// #set par(justify: true)
@@ -307,7 +327,7 @@ impl PageElem {
         &self,
         vt: &mut Vt,
         styles: StyleChain,
-        mut number: NonZeroUsize,
+        page_counter: &mut ManualPageCounter,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -358,7 +378,10 @@ impl PageElem {
         let mut frames = child.layout(vt, styles, regions)?.into_frames();
 
         // Align the child to the pagebreak's parity.
-        if self.clear_to(styles).is_some_and(|p| !p.matches(number.get())) {
+        if self
+            .clear_to(styles)
+            .is_some_and(|p| !p.matches(page_counter.physical().get()))
+        {
             let size = area.map(Abs::is_finite).select(area, Size::zero());
             frames.insert(0, Frame::new(size));
         }
@@ -366,29 +389,42 @@ impl PageElem {
         let fill = self.fill(styles);
         let foreground = self.foreground(styles);
         let background = self.background(styles);
-        let header = self.header(styles);
         let header_ascent = self.header_ascent(styles);
-        let footer = self.footer(styles).or_else(|| {
-            self.numbering(styles).map(|numbering| {
-                let both = match &numbering {
-                    Numbering::Pattern(pattern) => pattern.pieces() >= 2,
-                    Numbering::Func(_) => true,
-                };
-                Counter::new(CounterKey::Page)
-                    .display(Some(numbering), both)
-                    .aligned(self.number_align(styles))
-            })
-        });
         let footer_descent = self.footer_descent(styles);
+        let numbering = self.numbering(styles);
+        let numbering_meta = Meta::PageNumbering(numbering.clone().into_value());
+        let number_align = self.number_align(styles);
+        let mut header = self.header(styles);
+        let mut footer = self.footer(styles);
 
-        let numbering_meta = FrameItem::Meta(
-            Meta::PageNumbering(self.numbering(styles).into_value()),
-            Size::zero(),
-        );
+        // Construct the numbering (for header or footer).
+        let numbering_marginal = numbering.clone().map(|numbering| {
+            let both = match &numbering {
+                Numbering::Pattern(pattern) => pattern.pieces() >= 2,
+                Numbering::Func(_) => true,
+            };
+
+            let mut counter =
+                Counter::new(CounterKey::Page).display(Some(numbering), both);
+
+            // We interpret the Y alignment as selecting header or footer
+            // and then ignore it for aligning the actual number.
+            if let Some(x) = number_align.x() {
+                counter = counter.aligned(x.into());
+            }
+
+            counter
+        });
+
+        if matches!(number_align.y(), Some(VAlign::Top)) {
+            header = header.or(numbering_marginal);
+        } else {
+            footer = footer.or(numbering_marginal);
+        }
 
         // Post-process pages.
         for frame in frames.iter_mut() {
-            tracing::info!("Layouting page #{number}");
+            tracing::info!("Layouting page #{}", page_counter.physical());
 
             // The padded width of the page's content without margins.
             let pw = frame.width();
@@ -397,14 +433,14 @@ impl PageElem {
             // Thus, for left-bound pages, we want to swap on even pages and
             // for right-bound pages, we want to swap on odd pages.
             let mut margin = margin;
-            if two_sided && binding.swap(number) {
+            if two_sided && binding.swap(page_counter.physical()) {
                 std::mem::swap(&mut margin.left, &mut margin.right);
             }
 
             // Realize margins.
             frame.set_size(frame.size() + margin.sum_by_axis());
             frame.translate(Point::new(margin.left, margin.top));
-            frame.push(Point::zero(), numbering_meta.clone());
+            frame.push_positionless_meta(numbering_meta.clone());
 
             // The page size with margins.
             let size = frame.size();
@@ -425,16 +461,16 @@ impl PageElem {
                     let ascent = header_ascent.relative_to(margin.top);
                     pos = Point::with_x(margin.left);
                     area = Size::new(pw, margin.top - ascent);
-                    align = Align::Bottom.into();
+                    align = Align::BOTTOM;
                 } else if ptr::eq(marginal, &footer) {
                     let descent = footer_descent.relative_to(margin.bottom);
                     pos = Point::new(margin.left, size.y - margin.bottom + descent);
                     area = Size::new(pw, margin.bottom - descent);
-                    align = Align::Top.into();
+                    align = Align::TOP;
                 } else {
                     pos = Point::zero();
                     area = size;
-                    align = Align::CENTER_HORIZON.into();
+                    align = HAlign::Center + VAlign::Horizon;
                 };
 
                 let pod = Regions::one(area, Axes::splat(true));
@@ -455,7 +491,16 @@ impl PageElem {
                 frame.fill(fill.clone());
             }
 
-            number = number.saturating_add(1);
+            page_counter.visit(vt, frame)?;
+
+            // Add a PDF page label if there is a numbering.
+            if let Some(num) = &numbering {
+                if let Some(page_label) = num.apply_pdf(page_counter.logical()) {
+                    frame.push_positionless_meta(Meta::PdfPageLabel(page_label));
+                }
+            }
+
+            page_counter.step();
         }
 
         Ok(Fragment::frames(frames))
@@ -590,12 +635,12 @@ impl Binding {
 cast! {
     Binding,
     self => match self {
-        Self::Left => GenAlign::Specific(Align::Left).into_value(),
-        Self::Right => GenAlign::Specific(Align::Right).into_value(),
+        Self::Left => Align::LEFT.into_value(),
+        Self::Right => Align::RIGHT.into_value(),
     },
-    v: GenAlign => match v {
-        GenAlign::Specific(Align::Left) => Self::Left,
-        GenAlign::Specific(Align::Right) => Self::Right,
+    v: Align => match v {
+        Align::LEFT => Self::Left,
+        Align::RIGHT => Self::Right,
         _ => bail!("must be `left` or `right`"),
     },
 }
@@ -633,7 +678,7 @@ cast! {
 ///
 /// Must not be used inside any containers.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// The next page contains
 /// more details on compound theory.
@@ -642,10 +687,7 @@ cast! {
 /// == Compound Theory
 /// In 1984, the first ...
 /// ```
-///
-/// Display: Page Break
-/// Category: layout
-#[element]
+#[elem(title = "Page Break")]
 pub struct PagebreakElem {
     /// If `{true}`, the page break is skipped if the current page is already
     /// empty.

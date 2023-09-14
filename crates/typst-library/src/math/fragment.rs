@@ -472,7 +472,7 @@ impl<'a> GlyphwiseSubsts<'a> {
     pub fn new(gsub: LayoutTable<'a>, feature: Feature) -> Option<Self> {
         let table = gsub
             .features
-            .find(feature.tag)
+            .find(ttf_parser::Tag(feature.tag.0))
             .and_then(|feature| feature.lookup_indices.get(0))
             .and_then(|index| gsub.lookups.get(index))?;
         let table = table.subtables.get::<SubstitutionSubtable>(0)?;

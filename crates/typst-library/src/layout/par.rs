@@ -1,3 +1,5 @@
+use std::iter::Peekable;
+
 use icu_properties::{maps::CodePointMapData, LineBreak};
 use icu_provider::AsDeserializingBufferProvider;
 use icu_provider_adapters::fork::ForkByKeyProvider;
@@ -14,7 +16,7 @@ use crate::layout::AlignElem;
 use crate::math::EquationElem;
 use crate::prelude::*;
 use crate::text::{
-    is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartQuoteElem,
+    is_gb_style, shape, LinebreakElem, Quoter, Quotes, ShapedText, SmartquoteElem,
     SpaceElem, TextElem,
 };
 
@@ -24,7 +26,7 @@ use crate::text::{
 /// properties, it can also be used to explicitly render its argument onto a
 /// paragraph of its own.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #show par: set block(spacing: 0.65em)
 /// #set par(
@@ -43,10 +45,7 @@ use crate::text::{
 /// let $a$ be the smallest of the
 /// three integers. Then, we ...
 /// ```
-///
-/// Display: Paragraph
-/// Category: layout
-#[element(Construct)]
+#[elem(title = "Paragraph", Construct)]
 pub struct ParElem {
     /// The spacing between lines.
     #[resolve]
@@ -55,13 +54,13 @@ pub struct ParElem {
 
     /// Whether to justify text in its line.
     ///
-    /// Hyphenation will be enabled for justified paragraphs if the [text
-    /// property hyphenate]($func/text.hyphenate) is set to `{auto}` and the
-    /// current language is known.
+    /// Hyphenation will be enabled for justified paragraphs if the
+    /// [text function's `hyphenate` property]($text.hyphenate) is set to
+    /// `{auto}` and the current language is known.
     ///
-    /// Note that the current [alignment]($func/align) still has an effect on
-    /// the placement of the last line except if it ends with a [justified line
-    /// break]($func/linebreak.justify).
+    /// Note that the current [alignment]($align) still has an effect on the
+    /// placement of the last line except if it ends with a
+    /// [justified line break]($linebreak.justify).
     #[default(false)]
     pub justify: bool,
 
@@ -73,22 +72,19 @@ pub struct ParElem {
     /// appearance of the text.
     ///
     /// ```example
-    /// #set page(width: 190pt)
+    /// #set page(width: 207pt)
     /// #set par(linebreaks: "simple")
-    /// Some texts are frustratingly
-    /// challenging to break in a
-    /// visually pleasing way. This
-    /// very aesthetic example is one
-    /// of them.
+    /// Some texts feature many longer
+    /// words. Those are often exceedingly
+    /// challenging to break in a visually
+    /// pleasing way.
     ///
     /// #set par(linebreaks: "optimized")
-    /// Some texts are frustratingly
-    /// challenging to break in a
-    /// visually pleasing way. This
-    /// very aesthetic example is one
-    /// of them.
+    /// Some texts feature many longer
+    /// words. Those are often exceedingly
+    /// challenging to break in a visually
+    /// pleasing way.
     /// ```
-    #[default]
     pub linebreaks: Smart<Linebreaks>,
 
     /// The indent the first line of a paragraph should have.
@@ -98,7 +94,7 @@ pub struct ParElem {
     ///
     /// By typographic convention, paragraph breaks are indicated either by some
     /// space between paragraphs or by indented first lines. Consider reducing
-    /// the [paragraph spacing]($func/block.spacing) to the [`leading`] when
+    /// the [paragraph spacing]($block.spacing) to the [`leading`] when
     /// using this property (e.g. using
     /// `[#show par: set block(spacing: 0.65em)]`).
     pub first_line_indent: Length,
@@ -219,7 +215,7 @@ pub enum Linebreaks {
 /// [for loops]($scripting/#loops). Multiple consecutive
 /// paragraph breaks collapse into a single one.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #for i in range(3) {
 ///   [Blind text #i: ]
@@ -228,13 +224,10 @@ pub enum Linebreaks {
 /// }
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// Instead of calling this function, you can insert a blank line into your
 /// markup to create a paragraph break.
-///
-/// Display: Paragraph Break
-/// Category: layout
-#[element(Unlabellable)]
+#[elem(title = "Paragraph Break", Unlabellable)]
 pub struct ParbreakElem {}
 
 impl Unlabellable for ParbreakElem {}
@@ -266,8 +259,8 @@ struct Preparation<'a> {
     hyphenate: Option<bool>,
     /// The text language if it's the same for all children.
     lang: Option<Lang>,
-    /// The paragraph's resolved alignment.
-    align: Align,
+    /// The paragraph's resolved horizontal alignment.
+    align: FixedAlign,
     /// Whether to justify the paragraph.
     justify: bool,
     /// The paragraph's hanging indent.
@@ -550,7 +543,7 @@ fn collect<'a>(
     let first_line_indent = ParElem::first_line_indent_in(*styles);
     if !first_line_indent.is_zero()
         && consecutive
-        && AlignElem::alignment_in(*styles).x.resolve(*styles)
+        && AlignElem::alignment_in(*styles).resolve(*styles).x
             == TextElem::dir_in(*styles).start().into()
     {
         full.push(SPACING_REPLACE);
@@ -593,15 +586,15 @@ fn collect<'a>(
             let c = if elem.justify(styles) { '\u{2028}' } else { '\n' };
             full.push(c);
             Segment::Text(c.len_utf8())
-        } else if let Some(elem) = child.to::<SmartQuoteElem>() {
+        } else if let Some(elem) = child.to::<SmartquoteElem>() {
             let prev = full.len();
-            if SmartQuoteElem::enabled_in(styles) {
+            if SmartquoteElem::enabled_in(styles) {
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
                 let quotes = Quotes::from_lang(
                     lang,
                     region,
-                    SmartQuoteElem::alternative_in(styles),
+                    SmartquoteElem::alternative_in(styles),
                 );
                 let peeked = iter.peek().and_then(|child| {
                     let child = if let Some((child, _)) = child.to_styled() {
@@ -611,7 +604,7 @@ fn collect<'a>(
                     };
                     if let Some(elem) = child.to::<TextElem>() {
                         elem.text().chars().next()
-                    } else if child.is::<SmartQuoteElem>() {
+                    } else if child.is::<SmartquoteElem>() {
                         Some('"')
                     } else if child.is::<SpaceElem>()
                         || child.is::<HElem>()
@@ -642,7 +635,7 @@ fn collect<'a>(
         };
 
         if let Some(last) = full.chars().last() {
-            quoter.last(last);
+            quoter.last(last, child.is::<SmartquoteElem>());
         }
 
         spans.push(segment.len(), child.span());
@@ -673,9 +666,10 @@ fn prepare<'a>(
     styles: StyleChain<'a>,
     region: Size,
 ) -> SourceResult<Preparation<'a>> {
+    let dir = TextElem::dir_in(styles);
     let bidi = BidiInfo::new(
         text,
-        match TextElem::dir_in(styles) {
+        match dir {
             Dir::LTR => Some(BidiLevel::ltr()),
             Dir::RTL => Some(BidiLevel::rtl()),
             _ => None,
@@ -734,7 +728,7 @@ fn prepare<'a>(
         styles,
         hyphenate: shared_get(styles, children, TextElem::hyphenate_in),
         lang: shared_get(styles, children, TextElem::lang_in),
-        align: AlignElem::alignment_in(styles).x.resolve(styles),
+        align: AlignElem::alignment_in(styles).resolve(styles).x,
         justify: ParElem::justify_in(styles),
         hang: ParElem::hanging_indent_in(styles),
     })
@@ -929,9 +923,10 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
         let mut best: Option<Entry> = None;
 
         // Find the optimal predecessor.
-        for (i, pred) in table.iter_mut().enumerate().skip(active) {
+        for (i, pred) in table.iter().enumerate().skip(active) {
             // Layout the line.
             let start = pred.line.end;
+
             let attempt = line(vt, p, start..end, mandatory, hyphen);
 
             // Determine how much the line's spaces would need to be stretched
@@ -996,7 +991,7 @@ fn linebreak_optimized<'a>(vt: &Vt, p: &'a Preparation<'a>, width: Abs) -> Vec<L
             }
 
             // In Knuth paper, cost = (1 + 100|r|^3 + p)^2 + a,
-            // where r is the ratio, p=50 is penaty, and a=3000 is consecutive penaty.
+            // where r is the ratio, p=50 is the penalty, and a=3000 is consecutive the penalty.
             // We divide the whole formula by 10, resulting (0.01 + |r|^3 + p)^2 + a,
             // where p=0.5 and a=300
             cost = (0.01 + cost).powi(2);
@@ -1090,7 +1085,7 @@ fn breakpoints<'a>(p: &'a Preparation<'a>) -> Breakpoints<'a> {
     linebreaks.next();
     Breakpoints {
         p,
-        linebreaks,
+        linebreaks: linebreaks.peekable(),
         syllables: None,
         offset: 0,
         suffix: 0,
@@ -1104,7 +1099,7 @@ struct Breakpoints<'a> {
     /// The paragraph's items.
     p: &'a Preparation<'a>,
     /// The inner iterator over the unicode line break opportunities.
-    linebreaks: LineBreakIteratorUtf8<'a, 'a>,
+    linebreaks: Peekable<LineBreakIteratorUtf8<'a, 'a>>,
     /// Iterator over syllables of the current word.
     syllables: Option<hypher::Syllables<'a>>,
     /// The current text offset.
@@ -1162,6 +1157,20 @@ impl Iterator for Breakpoints<'_> {
                     self.suffix = self.offset + trimmed.len();
                     self.syllables = Some(hypher::hyphenate(trimmed, lang));
                     return self.next();
+                }
+            }
+        }
+
+        // Fix for https://github.com/unicode-org/icu4x/issues/3811
+        if !self.mandatory {
+            while let Some(&next) = self.linebreaks.peek() {
+                if !self.p.bidi.text[self.end..next]
+                    .contains(|c: char| !c.is_whitespace())
+                {
+                    self.end = next;
+                    self.linebreaks.next();
+                } else {
+                    break;
                 }
             }
         }

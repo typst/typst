@@ -8,7 +8,7 @@ use crate::prelude::*;
 /// it at the original positions. Containers will still be sized as if the
 /// content was not moved.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #rect(inset: 0pt, move(
 ///   dx: 6pt, dy: 6pt,
@@ -20,10 +20,7 @@ use crate::prelude::*;
 ///   )
 /// ))
 /// ```
-///
-/// Display: Move
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct MoveElem {
     /// The horizontal displacement of the content.
     pub dx: Rel<Length>,
@@ -47,7 +44,7 @@ impl Layout for MoveElem {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
         let delta = Axes::new(self.dx(styles), self.dy(styles)).resolve(styles);
-        let delta = delta.zip(regions.base()).map(|(d, s)| d.relative_to(s));
+        let delta = delta.zip_map(regions.base(), Rel::relative_to);
         frame.translate(delta.to_point());
         Ok(Fragment::frame(frame))
     }
@@ -58,7 +55,7 @@ impl Layout for MoveElem {
 /// Rotates an element by a given angle. The layout will act as if the element
 /// was not rotated.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #stack(
 ///   dir: ltr,
@@ -67,10 +64,7 @@ impl Layout for MoveElem {
 ///     .map(i => rotate(24deg * i)[X]),
 /// )
 /// ```
-///
-/// Display: Rotate
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct RotateElem {
     /// The amount of rotation.
     ///
@@ -96,10 +90,9 @@ pub struct RotateElem {
     /// #box(rotate(30deg, origin: top + left, square()))
     /// #box(rotate(30deg, origin: bottom + right, square()))
     /// ```
-    #[resolve]
     #[fold]
-    #[default(Align::CENTER_HORIZON)]
-    pub origin: Axes<Option<GenAlign>>,
+    #[default(HAlign::Center + VAlign::Horizon)]
+    pub origin: Align,
 
     /// The content to rotate.
     #[required]
@@ -116,8 +109,10 @@ impl Layout for RotateElem {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
-        let Axes { x, y } =
-            self.origin(styles).zip(frame.size()).map(|(o, s)| o.position(s));
+        let Axes { x, y } = self
+            .origin(styles)
+            .resolve(styles)
+            .zip_map(frame.size(), FixedAlign::position);
         let ts = Transform::translate(x, y)
             .pre_concat(Transform::rotate(self.angle(styles)))
             .pre_concat(Transform::translate(-x, -y));
@@ -130,15 +125,12 @@ impl Layout for RotateElem {
 ///
 /// Lets you mirror content by specifying a negative scale on a single axis.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set align(center)
 /// #scale(x: -100%)[This is mirrored.]
 /// ```
-///
-/// Display: Scale
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct ScaleElem {
     /// The horizontal scaling factor.
     ///
@@ -163,10 +155,9 @@ pub struct ScaleElem {
     /// A#box(scale(75%)[A])A \
     /// B#box(scale(75%, origin: bottom + left)[B])B
     /// ```
-    #[resolve]
     #[fold]
-    #[default(Align::CENTER_HORIZON)]
-    pub origin: Axes<Option<GenAlign>>,
+    #[default(HAlign::Center + VAlign::Horizon)]
+    pub origin: Align,
 
     /// The content to scale.
     #[required]
@@ -183,8 +174,10 @@ impl Layout for ScaleElem {
     ) -> SourceResult<Fragment> {
         let pod = Regions::one(regions.base(), Axes::splat(false));
         let mut frame = self.body().layout(vt, styles, pod)?.into_frame();
-        let Axes { x, y } =
-            self.origin(styles).zip(frame.size()).map(|(o, s)| o.position(s));
+        let Axes { x, y } = self
+            .origin(styles)
+            .resolve(styles)
+            .zip_map(frame.size(), FixedAlign::position);
         let transform = Transform::translate(x, y)
             .pre_concat(Transform::scale(self.x(styles), self.y(styles)))
             .pre_concat(Transform::translate(-x, -y));

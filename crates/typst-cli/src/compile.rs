@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use codespan_reporting::diagnostic::{Diagnostic, Label};
 use codespan_reporting::term::{self, termcolor};
@@ -8,16 +8,43 @@ use typst::diag::{bail, Severity, SourceDiagnostic, StrResult};
 use typst::doc::Document;
 use typst::eval::{eco_format, Tracer};
 use typst::geom::Color;
-use typst::syntax::{FileId, Source};
-use typst::World;
+use typst::syntax::{FileId, Source, Span};
+use typst::{World, WorldExt};
 
-use crate::args::{CompileCommand, DiagnosticFormat};
+use crate::args::{CompileCommand, DiagnosticFormat, OutputFormat};
 use crate::watch::Status;
 use crate::world::SystemWorld;
 use crate::{color_stream, set_failed};
 
 type CodespanResult<T> = Result<T, CodespanError>;
 type CodespanError = codespan_reporting::files::Error;
+
+impl CompileCommand {
+    /// The output path.
+    pub fn output(&self) -> PathBuf {
+        self.output
+            .clone()
+            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
+    }
+
+    /// The format to use for generated output, either specified by the user or inferred from the extension.
+    ///
+    /// Will return `Err` if the format was not specified and could not be inferred.
+    pub fn output_format(&self) -> StrResult<OutputFormat> {
+        Ok(if let Some(specified) = self.format {
+            specified
+        } else if let Some(output) = &self.output {
+            match output.extension() {
+                Some(ext) if ext.eq_ignore_ascii_case("pdf") => OutputFormat::Pdf,
+                Some(ext) if ext.eq_ignore_ascii_case("png") => OutputFormat::Png,
+                Some(ext) if ext.eq_ignore_ascii_case("svg") => OutputFormat::Svg,
+                _ => bail!("could not infer output format for path {}.\nconsider providing the format manually with `--format/-f`", output.display()),
+            }
+        } else {
+            OutputFormat::Pdf
+        })
+    }
+}
 
 /// Execute a compilation command.
 pub fn compile(mut command: CompileCommand) -> StrResult<()> {
@@ -46,7 +73,7 @@ pub fn compile_once(
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let mut tracer = Tracer::default();
+    let mut tracer = Tracer::new();
     let result = typst::compile(world, &mut tracer);
     let warnings = tracer.warnings();
 
@@ -66,7 +93,7 @@ pub fn compile_once(
             }
 
             print_diagnostics(world, &[], &warnings, command.common.diagnostic_format)
-                .map_err(|_| "failed to print diagnostics")?;
+                .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
 
             if let Some(open) = command.open.take() {
                 open_file(open.as_deref(), &command.output())?;
@@ -88,7 +115,7 @@ pub fn compile_once(
                 &warnings,
                 command.common.diagnostic_format,
             )
-            .map_err(|_| "failed to print diagnostics")?;
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
 
@@ -97,14 +124,10 @@ pub fn compile_once(
 
 /// Export into the target format.
 fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
-    match command.output().extension() {
-        Some(ext) if ext.eq_ignore_ascii_case("png") => {
-            export_image(document, command, ImageExportFormat::Png)
-        }
-        Some(ext) if ext.eq_ignore_ascii_case("svg") => {
-            export_image(document, command, ImageExportFormat::Svg)
-        }
-        _ => export_pdf(document, command),
+    match command.output_format()? {
+        OutputFormat::Png => export_image(document, command, ImageExportFormat::Png),
+        OutputFormat::Svg => export_image(document, command, ImageExportFormat::Svg),
+        OutputFormat::Pdf => export_pdf(document, command),
     }
 }
 
@@ -112,7 +135,8 @@ fn export(document: &Document, command: &CompileCommand) -> StrResult<()> {
 fn export_pdf(document: &Document, command: &CompileCommand) -> StrResult<()> {
     let output = command.output();
     let buffer = typst::export::pdf(document);
-    fs::write(output, buffer).map_err(|_| "failed to write PDF file")?;
+    fs::write(output, buffer)
+        .map_err(|err| eco_format!("failed to write PDF file ({err})"))?;
     Ok(())
 }
 
@@ -153,11 +177,14 @@ fn export_image(
             ImageExportFormat::Png => {
                 let pixmap =
                     typst::export::render(frame, command.ppi / 72.0, Color::WHITE);
-                pixmap.save_png(path).map_err(|_| "failed to write PNG file")?;
+                pixmap
+                    .save_png(path)
+                    .map_err(|err| eco_format!("failed to write PNG file ({err})"))?;
             }
             ImageExportFormat::Svg => {
                 let svg = typst::export::svg(frame);
-                fs::write(path, svg).map_err(|_| "failed to write SVG file")?;
+                fs::write(path, svg)
+                    .map_err(|err| eco_format!("failed to write SVG file ({err})"))?;
             }
         }
     }
@@ -195,7 +222,7 @@ pub fn print_diagnostics(
         config.display_style = term::DisplayStyle::Short;
     }
 
-    for diagnostic in warnings.iter().chain(errors.iter()) {
+    for diagnostic in warnings.iter().chain(errors) {
         let diag = match diagnostic.severity {
             Severity::Error => Diagnostic::error(),
             Severity::Warning => Diagnostic::warning(),
@@ -208,19 +235,16 @@ pub fn print_diagnostics(
                 .map(|e| (eco_format!("hint: {e}")).into())
                 .collect(),
         )
-        .with_labels(vec![Label::primary(
-            diagnostic.span.id(),
-            world.range(diagnostic.span),
-        )]);
+        .with_labels(label(world, diagnostic.span).into_iter().collect());
 
         term::emit(&mut w, &config, world, &diag)?;
 
         // Stacktrace-like helper diagnostics.
         for point in &diagnostic.trace {
             let message = point.v.to_string();
-            let help = Diagnostic::help().with_message(message).with_labels(vec![
-                Label::primary(point.span.id(), world.range(point.span)),
-            ]);
+            let help = Diagnostic::help()
+                .with_message(message)
+                .with_labels(label(world, point.span).into_iter().collect());
 
             term::emit(&mut w, &config, world, &help)?;
         }
@@ -229,13 +253,30 @@ pub fn print_diagnostics(
     Ok(())
 }
 
+/// Create a label for a span.
+fn label(world: &SystemWorld, span: Span) -> Option<Label<FileId>> {
+    Some(Label::primary(span.id()?, world.range(span)?))
+}
+
 impl<'a> codespan_reporting::files::Files<'a> for SystemWorld {
     type FileId = FileId;
-    type Name = FileId;
+    type Name = String;
     type Source = Source;
 
     fn name(&'a self, id: FileId) -> CodespanResult<Self::Name> {
-        Ok(id)
+        let vpath = id.vpath();
+        Ok(if let Some(package) = id.package() {
+            format!("{package}{}", vpath.as_rooted_path().display())
+        } else {
+            // Try to express the path relative to the working directory.
+            vpath
+                .resolve(self.root())
+                .and_then(|abs| pathdiff::diff_paths(abs, self.workdir()))
+                .as_deref()
+                .unwrap_or_else(|| vpath.as_rootless_path())
+                .to_string_lossy()
+                .into()
+        })
     }
 
     fn source(&'a self, id: FileId) -> CodespanResult<Self::Source> {

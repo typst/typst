@@ -9,7 +9,7 @@ use std::string::FromUtf8Error;
 use comemo::Tracked;
 
 use crate::syntax::{PackageSpec, Span, Spanned, SyntaxError};
-use crate::World;
+use crate::{World, WorldExt};
 
 /// Early-return with a [`StrResult`] or [`SourceResult`].
 ///
@@ -41,7 +41,10 @@ macro_rules! __bail {
 }
 
 #[doc(inline)]
-pub use crate::__bail as bail;
+pub use crate::{__bail as bail, __error as error, __warning as warning};
+
+#[doc(hidden)]
+pub use ecow::{eco_format, EcoString};
 
 /// Construct an [`EcoString`] or [`SourceDiagnostic`] with severity `Error`.
 #[macro_export]
@@ -70,13 +73,6 @@ macro_rules! __warning {
         )
     };
 }
-
-#[doc(inline)]
-pub use crate::__error as error;
-#[doc(inline)]
-pub use crate::__warning as warning;
-#[doc(hidden)]
-pub use ecow::{eco_format, EcoString};
 
 /// A result that can carry multiple source errors.
 pub type SourceResult<T> = Result<T, Box<Vec<SourceDiagnostic>>>;
@@ -206,16 +202,12 @@ impl<T> Trace<T> for SourceResult<T> {
         F: Fn() -> Tracepoint,
     {
         self.map_err(|mut errors| {
-            if span.is_detached() {
-                return errors;
-            }
-
-            let trace_range = world.range(span);
-            for error in errors.iter_mut().filter(|e| !e.span.is_detached()) {
+            let Some(trace_range) = world.range(span) else { return errors };
+            for error in errors.iter_mut() {
                 // Skip traces that surround the error.
-                if error.span.id() == span.id() {
-                    let error_range = world.range(error.span);
-                    if trace_range.start <= error_range.start
+                if let Some(error_range) = world.range(error.span) {
+                    if error.span.id() == span.id()
+                        && trace_range.start <= error_range.start
                         && trace_range.end >= error_range.end
                     {
                         continue;
@@ -324,21 +316,23 @@ pub enum FileError {
     /// The package the file is part of could not be loaded.
     Package(PackageError),
     /// Another error.
-    Other,
+    ///
+    /// The optional string can give more details, if available.
+    Other(Option<EcoString>),
 }
 
 impl FileError {
     /// Create a file error from an I/O error.
-    pub fn from_io(error: io::Error, path: &Path) -> Self {
-        match error.kind() {
+    pub fn from_io(err: io::Error, path: &Path) -> Self {
+        match err.kind() {
             io::ErrorKind::NotFound => Self::NotFound(path.into()),
             io::ErrorKind::PermissionDenied => Self::AccessDenied,
             io::ErrorKind::InvalidData
-                if error.to_string().contains("stream did not contain valid UTF-8") =>
+                if err.to_string().contains("stream did not contain valid UTF-8") =>
             {
                 Self::InvalidUtf8
             }
-            _ => Self::Other,
+            _ => Self::Other(Some(eco_format!("{err}"))),
         }
     }
 }
@@ -356,7 +350,8 @@ impl Display for FileError {
             Self::NotSource => f.pad("not a typst source file"),
             Self::InvalidUtf8 => f.pad("file is not valid utf-8"),
             Self::Package(error) => error.fmt(f),
-            Self::Other => f.pad("failed to load file"),
+            Self::Other(Some(err)) => write!(f, "failed to load file ({err})"),
+            Self::Other(None) => f.pad("failed to load file"),
         }
     }
 }
@@ -374,14 +369,14 @@ impl From<FromUtf8Error> for FileError {
 }
 
 impl From<PackageError> for FileError {
-    fn from(error: PackageError) -> Self {
-        Self::Package(error)
+    fn from(err: PackageError) -> Self {
+        Self::Package(err)
     }
 }
 
 impl From<FileError> for EcoString {
-    fn from(error: FileError) -> Self {
-        eco_format!("{error}")
+    fn from(err: FileError) -> Self {
+        eco_format!("{err}")
     }
 }
 
@@ -389,16 +384,18 @@ impl From<FileError> for EcoString {
 pub type PackageResult<T> = Result<T, PackageError>;
 
 /// An error that occured while trying to load a package.
+///
+/// Some variants have an optional string can give more details, if available.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum PackageError {
     /// The specified package does not exist.
     NotFound(PackageSpec),
     /// Failed to retrieve the package through the network.
-    NetworkFailed,
+    NetworkFailed(Option<EcoString>),
     /// The package archive was malformed.
-    MalformedArchive,
+    MalformedArchive(Option<EcoString>),
     /// Another error.
-    Other,
+    Other(Option<EcoString>),
 }
 
 impl std::error::Error for PackageError {}
@@ -409,16 +406,25 @@ impl Display for PackageError {
             Self::NotFound(spec) => {
                 write!(f, "package not found (searched for {spec})",)
             }
-            Self::NetworkFailed => f.pad("failed to load package (network failed)"),
-            Self::MalformedArchive => f.pad("failed to load package (archive malformed)"),
-            Self::Other => f.pad("failed to load package"),
+            Self::NetworkFailed(Some(err)) => {
+                write!(f, "failed to download package ({err})")
+            }
+            Self::NetworkFailed(None) => f.pad("failed to download package"),
+            Self::MalformedArchive(Some(err)) => {
+                write!(f, "failed to decompress package ({err})")
+            }
+            Self::MalformedArchive(None) => {
+                f.pad("failed to decompress package (archive malformed)")
+            }
+            Self::Other(Some(err)) => write!(f, "failed to load package ({err})"),
+            Self::Other(None) => f.pad("failed to load package"),
         }
     }
 }
 
 impl From<PackageError> for EcoString {
-    fn from(error: PackageError) -> Self {
-        eco_format!("{error}")
+    fn from(err: PackageError) -> Self {
+        eco_format!("{err}")
     }
 }
 
@@ -427,26 +433,26 @@ pub fn format_xml_like_error(format: &str, error: roxmltree::Error) -> EcoString
     match error {
         roxmltree::Error::UnexpectedCloseTag { expected, actual, pos } => {
             eco_format!(
-                "failed to parse {format}: found closing tag '{actual}' \
-                 instead of '{expected}' in line {}",
+                "failed to parse {format} (found closing tag '{actual}' \
+                 instead of '{expected}' in line {})",
                 pos.row
             )
         }
         roxmltree::Error::UnknownEntityReference(entity, pos) => {
             eco_format!(
-                "failed to parse {format}: unknown entity '{entity}' in line {}",
+                "failed to parse {format} (unknown entity '{entity}' in line {})",
                 pos.row
             )
         }
         roxmltree::Error::DuplicatedAttribute(attr, pos) => {
             eco_format!(
-                "failed to parse {format}: duplicate attribute '{attr}' in line {}",
+                "failed to parse {format}: (duplicate attribute '{attr}' in line {})",
                 pos.row
             )
         }
         roxmltree::Error::NoRootNode => {
-            eco_format!("failed to parse {format}: missing root node")
+            eco_format!("failed to parse {format} (missing root node)")
         }
-        _ => eco_format!("failed to parse {format}"),
+        err => eco_format!("failed to parse {format} ({err})"),
     }
 }

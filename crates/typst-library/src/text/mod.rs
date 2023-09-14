@@ -23,21 +23,23 @@ use crate::prelude::*;
 
 /// Hook up all text definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.define("text", TextElem::func());
-    global.define("linebreak", LinebreakElem::func());
-    global.define("smartquote", SmartQuoteElem::func());
-    global.define("strong", StrongElem::func());
-    global.define("emph", EmphElem::func());
-    global.define("lower", lower_func());
-    global.define("upper", upper_func());
-    global.define("smallcaps", smallcaps_func());
-    global.define("sub", SubElem::func());
-    global.define("super", SuperElem::func());
-    global.define("underline", UnderlineElem::func());
-    global.define("strike", StrikeElem::func());
-    global.define("overline", OverlineElem::func());
-    global.define("raw", RawElem::func());
-    global.define("lorem", lorem_func());
+    global.category("text");
+    global.define_elem::<TextElem>();
+    global.define_elem::<LinebreakElem>();
+    global.define_elem::<SmartquoteElem>();
+    global.define_elem::<StrongElem>();
+    global.define_elem::<EmphElem>();
+    global.define_elem::<SubElem>();
+    global.define_elem::<SuperElem>();
+    global.define_elem::<UnderlineElem>();
+    global.define_elem::<OverlineElem>();
+    global.define_elem::<StrikeElem>();
+    global.define_elem::<HighlightElem>();
+    global.define_elem::<RawElem>();
+    global.define_func::<lower>();
+    global.define_func::<upper>();
+    global.define_func::<smallcaps>();
+    global.define_func::<lorem>();
 }
 
 /// Customizes the look and layout of text in a variety of ways.
@@ -46,7 +48,7 @@ pub(super) fn define(global: &mut Scope) {
 /// the set rule is often the simpler choice, calling the `text` function
 /// directly can be useful when passing text as an argument to another function.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set text(18pt)
 /// With a set rule.
@@ -55,10 +57,7 @@ pub(super) fn define(global: &mut Scope) {
 ///   With a function call.
 /// ])
 /// ```
-///
-/// Display: Text
-/// Category: text
-#[element(Construct, PlainText)]
+#[elem(Construct, PlainText)]
 pub struct TextElem {
     /// A prioritized sequence of font families.
     ///
@@ -110,8 +109,8 @@ pub struct TextElem {
     /// italic and oblique style is rarely observable.
     ///
     /// If you want to emphasize your text, you should do so using the
-    /// [emph]($func/emph) function instead. This makes it easy to adapt the
-    /// style later if you change your mind about how to signify the emphasis.
+    /// [emph]($emph) function instead. This makes it easy to adapt the style
+    /// later if you change your mind about how to signify the emphasis.
     ///
     /// ```example
     /// #text(font: "Linux Libertine", style: "italic")[Italic]
@@ -125,7 +124,7 @@ pub struct TextElem {
     /// that is closest in weight.
     ///
     /// If you want to strongly emphasize your text, you should do so using the
-    /// [strong]($func/strong) function instead. This makes it easy to adapt the
+    /// [strong]($strong) function instead. This makes it easy to adapt the
     /// style later if you change your mind about how to signify the strong
     /// emphasis.
     ///
@@ -146,7 +145,7 @@ pub struct TextElem {
     /// the text if a condensed or expanded version of the font is available.
     ///
     /// If you want to adjust the amount of space between characters instead of
-    /// stretching the glyphs itself, use the [`tracking`]($func/text.tracking)
+    /// stretching the glyphs itself, use the [`tracking`]($text.tracking)
     /// property instead.
     ///
     /// ```example
@@ -195,7 +194,7 @@ pub struct TextElem {
     /// the space character in the font.
     ///
     /// If you want to adjust the amount of space between characters rather than
-    /// words, use the [`tracking`]($func/text.tracking) property instead.
+    /// words, use the [`tracking`]($text.tracking) property instead.
     ///
     /// ```example
     /// #set text(spacing: 200%)
@@ -271,7 +270,7 @@ pub struct TextElem {
     ///
     /// - The text processing pipeline can make more informed choices.
     /// - Hyphenation will use the correct patterns for the language.
-    /// - [Smart quotes]($func/smartquote) turns into the correct quotes for the
+    /// - [Smart quotes]($smartquote) turns into the correct quotes for the
     ///   language.
     /// - And all other things which are language-aware.
     ///
@@ -326,13 +325,13 @@ pub struct TextElem {
     /// - `{rtl}`: Layout text from right to left.
     ///
     /// When writing in right-to-left scripts like Arabic or Hebrew, you should
-    /// set the [text language]($func/text.lang) or direction. While individual
-    /// runs of text are automatically layouted in the correct direction,
-    /// setting the dominant direction gives the bidirectional reordering
-    /// algorithm the necessary information to correctly place punctuation and
-    /// inline objects. Furthermore, setting the direction affects the alignment
-    /// values `start` and `end`, which are equivalent to `left` and `right` in
-    /// `ltr` text and the other way around in `rtl` text.
+    /// set the [text language]($text.lang) or direction. While individual runs
+    /// of text are automatically layouted in the correct direction, setting the
+    /// dominant direction gives the bidirectional reordering algorithm the
+    /// necessary information to correctly place punctuation and inline objects.
+    /// Furthermore, setting the direction affects the alignment values `start`
+    /// and `end`, which are equivalent to `left` and `right` in `ltr` text and
+    /// the other way around in `rtl` text.
     ///
     /// If you set this to `rtl` and experience bugs or in some way bad looking
     /// output, please do get in touch with us through the
@@ -349,7 +348,7 @@ pub struct TextElem {
     /// Whether to hyphenate text to improve line breaking. When `{auto}`, text
     /// will be hyphenated if and only if justification is enabled.
     ///
-    /// Setting the [text language]($func/text.lang) ensures that the correct
+    /// Setting the [text language]($text.lang) ensures that the correct
     /// hyphenation patterns are used.
     ///
     /// ```example
@@ -652,17 +651,17 @@ impl TopEdge {
     }
 
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
+    pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
             TopEdge::Metric(metric) => {
                 if let Ok(metric) = metric.try_into() {
-                    font.metrics().vertical(metric).resolve(styles)
+                    font.metrics().vertical(metric).at(font_size)
                 } else {
-                    bbox.map(|bbox| (font.to_em(bbox.y_max)).resolve(styles))
+                    bbox.map(|bbox| (font.to_em(bbox.y_max)).at(font_size))
                         .unwrap_or_default()
                 }
             }
-            TopEdge::Length(length) => length.resolve(styles),
+            TopEdge::Length(length) => length.at(font_size),
         }
     }
 }
@@ -722,17 +721,17 @@ impl BottomEdge {
     }
 
     /// Resolve the value of the text edge given a font's metrics.
-    pub fn resolve(self, styles: StyleChain, font: &Font, bbox: Option<Rect>) -> Abs {
+    pub fn resolve(self, font_size: Abs, font: &Font, bbox: Option<Rect>) -> Abs {
         match self {
             BottomEdge::Metric(metric) => {
                 if let Ok(metric) = metric.try_into() {
-                    font.metrics().vertical(metric).resolve(styles)
+                    font.metrics().vertical(metric).at(font_size)
                 } else {
-                    bbox.map(|bbox| (font.to_em(bbox.y_min)).resolve(styles))
+                    bbox.map(|bbox| (font.to_em(bbox.y_min)).at(font_size))
                         .unwrap_or_default()
                 }
             }
-            BottomEdge::Length(length) => length.resolve(styles),
+            BottomEdge::Length(length) => length.at(font_size),
         }
     }
 }

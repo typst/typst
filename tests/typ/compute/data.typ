@@ -27,7 +27,7 @@
 #csv("nope.csv")
 
 ---
-// Error: 6-22 failed to parse csv file: found 3 instead of 2 fields in line 3
+// Error: 6-22 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/files/bad.csv")
 
 ---
@@ -38,7 +38,7 @@
 #test(data.at(2).weight, 150)
 
 ---
-// Error: 7-24 failed to parse json file: syntax error in line 3
+// Error: 7-24 failed to parse JSON (expected value at line 3 column 14)
 #json("/files/bad.json")
 
 ---
@@ -60,15 +60,33 @@
   minute: 38,
   second: 57,
 ))
+#test(data.date_time2, datetime(
+  year: 2023,
+  month: 2,
+  day: 1,
+  hour: 15,
+  minute: 38,
+  second: 57,
+))
+#test(data.date, datetime(
+  year: 2023,
+  month: 2,
+  day: 1,
+))
+#test(data.time, datetime(
+  hour: 15,
+  minute: 38,
+  second: 57,
+))
 
 ---
-// Error: 7-24 failed to parse toml file: expected `.`, `=`, index 15-16
+// Error: 7-24 failed to parse TOML (expected `.`, `=` at line 1 column 16)
 #toml("/files/bad.toml")
 
 ---
 // Test reading YAML data
 #let data = yaml("/files/yaml-types.yaml")
-#test(data.len(), 7)
+#test(data.len(), 9)
 #test(data.null_key, (none, none))
 #test(data.string, "text")
 #test(data.integer, 5)
@@ -76,11 +94,11 @@
 #test(data.mapping, ("1": "one", "2": "two"))
 #test(data.seq, (1,2,3,4))
 #test(data.bool, false)
-#test(data.keys().contains("true"), false)
----
+#test(data.keys().contains("true"), true)
+#test(data.at("1"), "ok")
 
 ---
-// Error: 7-24 failed to parse yaml file: while parsing a flow sequence, expected ',' or ']' at line 2 column 1
+// Error: 7-24 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
 #yaml("/files/bad.yaml")
 
 ---
@@ -109,5 +127,5 @@
 ),))
 
 ---
-// Error: 6-22 failed to parse xml file: found closing tag 'data' instead of 'hello' in line 3
+// Error: 6-22 failed to parse XML (found closing tag 'data' instead of 'hello' in line 3)
 #xml("/files/bad.xml")

@@ -5,14 +5,19 @@ use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
 use ecow::eco_format;
-use serde::{Serialize, Serializer};
+use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
+use serde::de::{Error, MapAccess, SeqAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use siphasher::sip128::{Hasher128, SipHasher13};
+use typst::eval::Duration;
 
 use super::{
-    cast, fields, format_str, ops, Args, Array, Bytes, CastInfo, Content, Dict,
-    FromValue, Func, IntoValue, Module, Reflect, Str, Symbol,
+    fields, format_str, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict,
+    FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Scope,
+    Str, Symbol, Type,
 };
 use crate::diag::StrResult;
+use crate::eval::Datetime;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
@@ -51,6 +56,10 @@ pub enum Value {
     Bytes(Bytes),
     /// A label: `<intro>`.
     Label(Label),
+    /// A datetime
+    Datetime(Datetime),
+    /// A duration
+    Duration(Duration),
     /// A content value: `[*Hi* there]`.
     Content(Content),
     // Content styles.
@@ -63,8 +72,12 @@ pub enum Value {
     Func(Func),
     /// Captured arguments to a function.
     Args(Args),
+    /// A type.
+    Type(Type),
     /// A module.
     Module(Module),
+    /// A WebAssembly plugin.
+    Plugin(Plugin),
     /// A dynamic value.
     Dyn(Dynamic),
 }
@@ -73,7 +86,7 @@ impl Value {
     /// Create a new dynamic value.
     pub fn dynamic<T>(any: T) -> Self
     where
-        T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
+        T: Debug + NativeType + PartialEq + Hash + Sync + Send + 'static,
     {
         Self::Dyn(Dynamic::new(any))
     }
@@ -94,32 +107,36 @@ impl Value {
         }
     }
 
-    /// The name of the stored value's type.
-    pub fn type_name(&self) -> &'static str {
+    /// The type of this value.
+    pub fn ty(&self) -> Type {
         match self {
-            Self::None => "none",
-            Self::Auto => "auto",
-            Self::Bool(_) => bool::TYPE_NAME,
-            Self::Int(_) => i64::TYPE_NAME,
-            Self::Float(_) => f64::TYPE_NAME,
-            Self::Length(_) => Length::TYPE_NAME,
-            Self::Angle(_) => Angle::TYPE_NAME,
-            Self::Ratio(_) => Ratio::TYPE_NAME,
-            Self::Relative(_) => Rel::<Length>::TYPE_NAME,
-            Self::Fraction(_) => Fr::TYPE_NAME,
-            Self::Color(_) => Color::TYPE_NAME,
-            Self::Symbol(_) => Symbol::TYPE_NAME,
-            Self::Str(_) => Str::TYPE_NAME,
-            Self::Bytes(_) => Bytes::TYPE_NAME,
-            Self::Label(_) => Label::TYPE_NAME,
-            Self::Content(_) => Content::TYPE_NAME,
-            Self::Styles(_) => Styles::TYPE_NAME,
-            Self::Array(_) => Array::TYPE_NAME,
-            Self::Dict(_) => Dict::TYPE_NAME,
-            Self::Func(_) => Func::TYPE_NAME,
-            Self::Args(_) => Args::TYPE_NAME,
-            Self::Module(_) => Module::TYPE_NAME,
-            Self::Dyn(v) => v.type_name(),
+            Self::None => Type::of::<NoneValue>(),
+            Self::Auto => Type::of::<AutoValue>(),
+            Self::Bool(_) => Type::of::<bool>(),
+            Self::Int(_) => Type::of::<i64>(),
+            Self::Float(_) => Type::of::<f64>(),
+            Self::Length(_) => Type::of::<Length>(),
+            Self::Angle(_) => Type::of::<Angle>(),
+            Self::Ratio(_) => Type::of::<Ratio>(),
+            Self::Relative(_) => Type::of::<Rel<Length>>(),
+            Self::Fraction(_) => Type::of::<Fr>(),
+            Self::Color(_) => Type::of::<Color>(),
+            Self::Symbol(_) => Type::of::<Symbol>(),
+            Self::Str(_) => Type::of::<Str>(),
+            Self::Bytes(_) => Type::of::<Bytes>(),
+            Self::Label(_) => Type::of::<Label>(),
+            Self::Datetime(_) => Type::of::<Datetime>(),
+            Self::Duration(_) => Type::of::<Duration>(),
+            Self::Content(_) => Type::of::<Content>(),
+            Self::Styles(_) => Type::of::<Styles>(),
+            Self::Array(_) => Type::of::<Array>(),
+            Self::Dict(_) => Type::of::<Dict>(),
+            Self::Func(_) => Type::of::<Func>(),
+            Self::Args(_) => Type::of::<Args>(),
+            Self::Type(_) => Type::of::<Type>(),
+            Self::Module(_) => Type::of::<Module>(),
+            Self::Plugin(_) => Type::of::<Module>(),
+            Self::Dyn(v) => v.ty(),
         }
     }
 
@@ -132,17 +149,51 @@ impl Value {
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
             Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
-            Self::Dict(dict) => dict.at(field, None),
-            Self::Content(content) => content.at(field, None),
-            Self::Module(module) => module.get(field).cloned(),
-            Self::Func(func) => func.get(field).cloned(),
+            Self::Dict(dict) => dict.get(field).cloned(),
+            Self::Content(content) => content.get(field),
+            Self::Type(ty) => ty.field(field).cloned(),
+            Self::Func(func) => func.field(field).cloned(),
+            Self::Module(module) => module.field(field).cloned(),
             _ => fields::field(self, field),
+        }
+    }
+
+    /// The associated scope, if this is a function, type, or module.
+    pub fn scope(&self) -> Option<&Scope> {
+        match self {
+            Self::Func(func) => func.scope(),
+            Self::Type(ty) => Some(ty.scope()),
+            Self::Module(module) => Some(module.scope()),
+            _ => None,
+        }
+    }
+
+    /// Try to extract documentation for the value.
+    pub fn docs(&self) -> Option<&'static str> {
+        match self {
+            Self::Func(func) => func.docs(),
+            Self::Type(ty) => Some(ty.docs()),
+            _ => None,
         }
     }
 
     /// Return the debug representation of the value.
     pub fn repr(&self) -> Str {
-        format_str!("{:?}", self)
+        format_str!("{self:?}")
+    }
+
+    /// Return the display representation of the value.
+    pub fn display(self) -> Content {
+        match self {
+            Self::None => Content::empty(),
+            Self::Int(v) => item!(text)(eco_format!("{v}")),
+            Self::Float(v) => item!(text)(eco_format!("{v}")),
+            Self::Str(v) => item!(text)(v.into()),
+            Self::Symbol(v) => item!(text)(v.get().into()),
+            Self::Content(v) => v,
+            Self::Module(module) => module.content(),
+            _ => item!(raw)(self.repr().into(), Some("typc".into()), false),
+        }
     }
 
     /// Attach a span to the value, if possible.
@@ -153,36 +204,13 @@ impl Value {
             v => v,
         }
     }
-
-    /// Return the display representation of the value.
-    pub fn display(self) -> Content {
-        match self {
-            Self::None => Content::empty(),
-            Self::Int(v) => item!(text)(eco_format!("{}", v)),
-            Self::Float(v) => item!(text)(eco_format!("{}", v)),
-            Self::Str(v) => item!(text)(v.into()),
-            Self::Symbol(v) => item!(text)(v.get().into()),
-            Self::Content(v) => v,
-            Self::Func(_) => Content::empty(),
-            Self::Module(module) => module.content(),
-            _ => item!(raw)(self.repr().into(), Some("typc".into()), false),
-        }
-    }
-
-    /// Try to extract documentation for the value.
-    pub fn docs(&self) -> Option<&'static str> {
-        match self {
-            Self::Func(func) => func.info().map(|info| info.docs),
-            _ => None,
-        }
-    }
 }
 
 impl Debug for Value {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
-            Self::None => f.pad("none"),
-            Self::Auto => f.pad("auto"),
+            Self::None => Debug::fmt(&NoneValue, f),
+            Self::Auto => Debug::fmt(&AutoValue, f),
             Self::Bool(v) => Debug::fmt(v, f),
             Self::Int(v) => Debug::fmt(v, f),
             Self::Float(v) => Debug::fmt(v, f),
@@ -196,13 +224,17 @@ impl Debug for Value {
             Self::Str(v) => Debug::fmt(v, f),
             Self::Bytes(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
+            Self::Datetime(v) => Debug::fmt(v, f),
+            Self::Duration(v) => Debug::fmt(v, f),
             Self::Content(v) => Debug::fmt(v, f),
             Self::Styles(v) => Debug::fmt(v, f),
             Self::Array(v) => Debug::fmt(v, f),
             Self::Dict(v) => Debug::fmt(v, f),
             Self::Func(v) => Debug::fmt(v, f),
             Self::Args(v) => Debug::fmt(v, f),
+            Self::Type(v) => Debug::fmt(v, f),
             Self::Module(v) => Debug::fmt(v, f),
+            Self::Plugin(v) => Debug::fmt(v, f),
             Self::Dyn(v) => Debug::fmt(v, f),
         }
     }
@@ -241,11 +273,15 @@ impl Hash for Value {
             Self::Label(v) => v.hash(state),
             Self::Content(v) => v.hash(state),
             Self::Styles(v) => v.hash(state),
+            Self::Datetime(v) => v.hash(state),
+            Self::Duration(v) => v.hash(state),
             Self::Array(v) => v.hash(state),
             Self::Dict(v) => v.hash(state),
             Self::Func(v) => v.hash(state),
             Self::Args(v) => v.hash(state),
+            Self::Type(v) => v.hash(state),
             Self::Module(v) => v.hash(state),
+            Self::Plugin(v) => v.hash(state),
             Self::Dyn(v) => v.hash(state),
         }
     }
@@ -257,10 +293,10 @@ impl Serialize for Value {
         S: Serializer,
     {
         match self {
-            Self::None => serializer.serialize_none(),
-            Self::Bool(v) => serializer.serialize_bool(*v),
-            Self::Int(v) => serializer.serialize_i64(*v),
-            Self::Float(v) => serializer.serialize_f64(*v),
+            Self::None => NoneValue.serialize(serializer),
+            Self::Bool(v) => v.serialize(serializer),
+            Self::Int(v) => v.serialize(serializer),
+            Self::Float(v) => v.serialize(serializer),
             Self::Str(v) => v.serialize(serializer),
             Self::Bytes(v) => v.serialize(serializer),
             Self::Symbol(v) => v.serialize(serializer),
@@ -274,7 +310,126 @@ impl Serialize for Value {
     }
 }
 
-/// A dynamic value.
+impl<'de> Deserialize<'de> for Value {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_any(ValueVisitor)
+    }
+}
+
+/// Visitor for value deserialization.
+struct ValueVisitor;
+
+impl<'de> Visitor<'de> for ValueVisitor {
+    type Value = Value;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("a typst value")
+    }
+
+    fn visit_bool<E: Error>(self, v: bool) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_i8<E: Error>(self, v: i8) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_i16<E: Error>(self, v: i16) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_i32<E: Error>(self, v: i32) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_i64<E: Error>(self, v: i64) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u8<E: Error>(self, v: u8) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u16<E: Error>(self, v: u16) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u32<E: Error>(self, v: u32) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_u64<E: Error>(self, v: u64) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_f32<E: Error>(self, v: f32) -> Result<Self::Value, E> {
+        Ok((v as f64).into_value())
+    }
+
+    fn visit_f64<E: Error>(self, v: f64) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_char<E: Error>(self, v: char) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_borrowed_str<E: Error>(self, v: &'de str) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
+        Ok(v.into_value())
+    }
+
+    fn visit_bytes<E: Error>(self, v: &[u8]) -> Result<Self::Value, E> {
+        Ok(Bytes::from(v).into_value())
+    }
+
+    fn visit_borrowed_bytes<E: Error>(self, v: &'de [u8]) -> Result<Self::Value, E> {
+        Ok(Bytes::from(v).into_value())
+    }
+
+    fn visit_byte_buf<E: Error>(self, v: Vec<u8>) -> Result<Self::Value, E> {
+        Ok(Bytes::from(v).into_value())
+    }
+
+    fn visit_none<E: Error>(self) -> Result<Self::Value, E> {
+        Ok(Value::None)
+    }
+
+    fn visit_some<D: Deserializer<'de>>(
+        self,
+        deserializer: D,
+    ) -> Result<Self::Value, D::Error> {
+        Value::deserialize(deserializer)
+    }
+
+    fn visit_unit<E: Error>(self) -> Result<Self::Value, E> {
+        Ok(Value::None)
+    }
+
+    fn visit_seq<A: SeqAccess<'de>>(self, seq: A) -> Result<Self::Value, A::Error> {
+        Ok(Array::deserialize(SeqAccessDeserializer::new(seq))?.into_value())
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<Self::Value, A::Error> {
+        let dict = Dict::deserialize(MapAccessDeserializer::new(map))?;
+        Ok(match Datetime::from_toml_dict(&dict) {
+            None => dict.into_value(),
+            Some(datetime) => datetime.into_value(),
+        })
+    }
+}
+
+/// A value that is not part of the built-in enum.
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Dynamic(Arc<dyn Bounds>);
@@ -283,24 +438,24 @@ impl Dynamic {
     /// Create a new instance from any value that satisfies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
+        T: Debug + NativeType + PartialEq + Hash + Sync + Send + 'static,
     {
         Self(Arc::new(any))
     }
 
     /// Whether the wrapped type is `T`.
-    pub fn is<T: Type + 'static>(&self) -> bool {
+    pub fn is<T: 'static>(&self) -> bool {
         (*self.0).as_any().is::<T>()
     }
 
     /// Try to downcast to a reference to a specific type.
-    pub fn downcast<T: Type + 'static>(&self) -> Option<&T> {
+    pub fn downcast<T: 'static>(&self) -> Option<&T> {
         (*self.0).as_any().downcast_ref()
     }
 
     /// The name of the stored value's type.
-    pub fn type_name(&self) -> &'static str {
-        self.0.dyn_type_name()
+    pub fn ty(&self) -> Type {
+        self.0.dyn_ty()
     }
 }
 
@@ -316,21 +471,16 @@ impl PartialEq for Dynamic {
     }
 }
 
-cast! {
-    Dynamic,
-    self => Value::Dyn(self),
-}
-
 trait Bounds: Debug + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
-    fn dyn_type_name(&self) -> &'static str;
+    fn dyn_ty(&self) -> Type;
     fn hash128(&self) -> u128;
 }
 
 impl<T> Bounds for T
 where
-    T: Type + Debug + PartialEq + Hash + Sync + Send + 'static,
+    T: Debug + NativeType + PartialEq + Hash + Sync + Send + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -341,8 +491,8 @@ where
         self == other
     }
 
-    fn dyn_type_name(&self) -> &'static str {
-        T::TYPE_NAME
+    fn dyn_ty(&self) -> Type {
+        Type::of::<T>()
     }
 
     #[tracing::instrument(skip_all)]
@@ -362,25 +512,19 @@ impl Hash for dyn Bounds {
     }
 }
 
-/// The type of a value.
-pub trait Type {
-    /// The name of the type.
-    const TYPE_NAME: &'static str;
-}
-
-/// Implement traits for primitives.
+/// Implements traits for primitives (Value enum variants).
 macro_rules! primitive {
     (
         $ty:ty: $name:literal, $variant:ident
         $(, $other:ident$(($binding:ident))? => $out:expr)*
     ) => {
-        impl Type for $ty {
-            const TYPE_NAME: &'static str = $name;
-        }
-
         impl Reflect for $ty {
-            fn describe() -> CastInfo {
-                CastInfo::Type(Self::TYPE_NAME)
+            fn input() -> CastInfo {
+                CastInfo::Type(Type::of::<Self>())
+            }
+
+            fn output() -> CastInfo {
+                CastInfo::Type(Type::of::<Self>())
             }
 
             fn castable(value: &Value) -> bool {
@@ -402,8 +546,8 @@ macro_rules! primitive {
                     $(Value::$other$(($binding))? => Ok($out),)*
                     v => Err(eco_format!(
                         "expected {}, found {}",
-                        Self::TYPE_NAME,
-                        v.type_name(),
+                        Type::of::<Self>(),
+                        v.ty(),
                     )),
                 }
             }
@@ -435,6 +579,8 @@ primitive! {
 }
 primitive! { Bytes: "bytes", Bytes }
 primitive! { Label: "label", Label }
+primitive! { Datetime: "datetime", Datetime }
+primitive! { Duration: "duration", Duration }
 primitive! { Content: "content",
     Content,
     None => Content::empty(),
@@ -444,9 +590,15 @@ primitive! { Content: "content",
 primitive! { Styles: "styles", Styles }
 primitive! { Array: "array", Array }
 primitive! { Dict: "dictionary", Dict }
-primitive! { Func: "function", Func }
+primitive! {
+    Func: "function",
+    Func,
+    Type(ty) => ty.constructor()?.clone()
+}
 primitive! { Args: "arguments", Args }
+primitive! { Type: "type", Type }
 primitive! { Module: "module", Module }
+primitive! { Plugin: "plugin", Plugin }
 
 #[cfg(test)]
 mod tests {

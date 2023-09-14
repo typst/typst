@@ -65,6 +65,13 @@ use crate::font::{Font, FontBook};
 use crate::syntax::{FileId, PackageSpec, Source, Span};
 
 /// Compile a source file into a fully layouted document.
+///
+/// - Returns `Ok(document)` if there were no fatal errors.
+/// - Returns `Err(errors)` if there were fatal errors.
+///
+/// Requires a mutable reference to a tracer. Such a tracer can be created with
+/// `Tracer::new()`. Independently of whether compilation succeeded, calling
+/// `tracer.warnings()` after compilation will return all compiler warnings.
 #[tracing::instrument(skip_all)]
 pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document> {
     let route = Route::default();
@@ -97,7 +104,7 @@ pub fn compile(world: &dyn World, tracer: &mut Tracer) -> SourceResult<Document>
 /// change and can thus even be cached across multiple compilations (for
 /// long-running applications like `typst watch`). Source files on the other
 /// hand can change and should thus be cleared after. Advanced clients like
-/// language servers can also retain the source files and [edited](Source::edit)
+/// language servers can also retain the source files and [edit](Source::edit)
 /// them in-place to benefit from better incremental performance.
 #[comemo::track]
 pub trait World {
@@ -142,12 +149,18 @@ pub trait World {
     fn packages(&self) -> &[(PackageSpec, Option<EcoString>)] {
         &[]
     }
+}
 
+/// Helper methods on [`World`] implementations.
+pub trait WorldExt {
     /// Get the byte range for a span.
-    #[track_caller]
-    fn range(&self, span: Span) -> Range<usize> {
-        self.source(span.id())
-            .expect("span does not point into any source file")
-            .range(span)
+    ///
+    /// Returns `None` if the `Span` does not point into any source file.
+    fn range(&self, span: Span) -> Option<Range<usize>>;
+}
+
+impl<T: World> WorldExt for T {
+    fn range(&self, span: Span) -> Option<Range<usize>> {
+        self.source(span.id()?).ok()?.range(span)
     }
 }

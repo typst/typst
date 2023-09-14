@@ -1,17 +1,22 @@
+use std::fmt::{self, Debug, Formatter};
 use std::ops::Range;
 
 use comemo::Prehashed;
+use ecow::EcoString;
+use heck::{ToKebabCase, ToTitleCase};
 use pulldown_cmark as md;
+use serde::{Deserialize, Serialize};
 use typed_arena::Arena;
-use typst::diag::FileResult;
-use typst::eval::{Bytes, Datetime, Tracer};
+use typst::diag::{FileResult, StrResult};
+use typst::eval::{Bytes, Datetime, Library, Tracer};
 use typst::font::{Font, FontBook};
-use typst::geom::{Point, Size};
-use typst::syntax::{FileId, Source};
+use typst::geom::{Abs, Point, Size};
+use typst::syntax::{FileId, Source, VirtualPath};
 use typst::World;
+use unscanny::Scanner;
 use yaml_front_matter::YamlFrontMatter;
 
-use super::*;
+use super::{contributors, OutlineItem, Resolver, FILE_DIR, FONTS, LIBRARY};
 
 /// HTML documentation.
 #[derive(Serialize)]
@@ -21,7 +26,7 @@ pub struct Html {
     #[serde(skip)]
     md: String,
     #[serde(skip)]
-    description: Option<String>,
+    description: Option<EcoString>,
     #[serde(skip)]
     outline: Vec<OutlineItem>,
 }
@@ -39,18 +44,7 @@ impl Html {
 
     /// Convert markdown to HTML.
     #[track_caller]
-    pub fn markdown(resolver: &dyn Resolver, md: &str) -> Self {
-        Self::markdown_with_id_base(resolver, md, "")
-    }
-
-    /// Convert markdown to HTML, preceding all fragment identifiers with the
-    /// `id_base`.
-    #[track_caller]
-    pub fn markdown_with_id_base(
-        resolver: &dyn Resolver,
-        md: &str,
-        id_base: &str,
-    ) -> Self {
+    pub fn markdown(resolver: &dyn Resolver, md: &str, nesting: Option<usize>) -> Self {
         let mut text = md;
         let mut description = None;
         let document = YamlFrontMatter::parse::<Metadata>(md);
@@ -62,9 +56,18 @@ impl Html {
         let options = md::Options::ENABLE_TABLES | md::Options::ENABLE_HEADING_ATTRIBUTES;
 
         let ids = Arena::new();
-        let mut handler = Handler::new(resolver, id_base.into(), &ids);
-        let iter = md::Parser::new_ext(text, options)
-            .filter_map(|mut event| handler.handle(&mut event).then_some(event));
+        let mut handler = Handler::new(text, resolver, nesting, &ids);
+        let mut events = md::Parser::new_ext(text, options).peekable();
+        let iter = std::iter::from_fn(|| loop {
+            let mut event = events.next()?;
+            handler.peeked = events.peek().and_then(|event| match event {
+                md::Event::Text(text) => Some(text.clone()),
+                _ => None,
+            });
+            if handler.handle(&mut event) {
+                return Some(event);
+            }
+        });
 
         let mut raw = String::new();
         md::html::push_html(&mut raw, iter);
@@ -93,7 +96,11 @@ impl Html {
     /// Returns `None` if the HTML doesn't start with an `h1` tag.
     pub fn title(&self) -> Option<&str> {
         let mut s = Scanner::new(&self.raw);
-        s.eat_if("<h1>").then(|| s.eat_until("</h1>"))
+        s.eat_if("<h1").then(|| {
+            s.eat_until('>');
+            s.eat_if('>');
+            s.eat_until("</h1>")
+        })
     }
 
     /// The outline of the HTML.
@@ -102,7 +109,7 @@ impl Html {
     }
 
     /// The description from the front matter.
-    pub fn description(&self) -> Option<String> {
+    pub fn description(&self) -> Option<EcoString> {
         self.description.clone()
     }
 }
@@ -116,26 +123,35 @@ impl Debug for Html {
 /// Front matter metadata.
 #[derive(Deserialize)]
 struct Metadata {
-    description: String,
+    description: EcoString,
 }
 
 struct Handler<'a> {
+    text: &'a str,
     resolver: &'a dyn Resolver,
-    lang: Option<String>,
-    code: String,
+    peeked: Option<md::CowStr<'a>>,
+    lang: Option<EcoString>,
+    code: EcoString,
     outline: Vec<OutlineItem>,
-    id_base: String,
+    nesting: Option<usize>,
     ids: &'a Arena<String>,
 }
 
 impl<'a> Handler<'a> {
-    fn new(resolver: &'a dyn Resolver, id_base: String, ids: &'a Arena<String>) -> Self {
+    fn new(
+        text: &'a str,
+        resolver: &'a dyn Resolver,
+        nesting: Option<usize>,
+        ids: &'a Arena<String>,
+    ) -> Self {
         Self {
+            text,
             resolver,
+            peeked: None,
             lang: None,
-            code: String::new(),
+            code: EcoString::new(),
             outline: vec![],
-            id_base,
+            nesting,
             ids,
         }
     }
@@ -157,22 +173,22 @@ impl<'a> Handler<'a> {
             }
 
             // Register HTML headings for the outline.
-            md::Event::Start(md::Tag::Heading(level, Some(id), _)) => {
+            md::Event::Start(md::Tag::Heading(level, id, _)) => {
                 self.handle_heading(id, level);
             }
 
             // Also handle heading closings.
-            md::Event::End(md::Tag::Heading(level, Some(_), _)) => {
-                if *level > md::HeadingLevel::H1 && !self.id_base.is_empty() {
-                    nest_heading(level);
-                }
+            md::Event::End(md::Tag::Heading(level, _, _)) => {
+                nest_heading(level, self.nesting());
             }
 
             // Rewrite contributor sections.
             md::Event::Html(html) if html.starts_with("<contributors") => {
                 let from = html_attr(html, "from").unwrap();
                 let to = html_attr(html, "to").unwrap();
-                let Some(output) = contributors(self.resolver, from, to) else { return false };
+                let Some(output) = contributors(self.resolver, from, to) else {
+                    return false;
+                };
                 *html = output.raw.into();
             }
 
@@ -183,10 +199,10 @@ impl<'a> Handler<'a> {
                     "unsupported link type: {ty:?}",
                 );
 
-                *dest = self
-                    .handle_link(dest)
-                    .unwrap_or_else(|| panic!("invalid link: {dest}"))
-                    .into();
+                *dest = match self.handle_link(dest) {
+                    Ok(link) => link.into(),
+                    Err(err) => panic!("invalid link: {dest} ({err})"),
+                };
             }
 
             // Inline raw.
@@ -206,7 +222,7 @@ impl<'a> Handler<'a> {
             // Code blocks.
             md::Event::Start(md::Tag::CodeBlock(md::CodeBlockKind::Fenced(lang))) => {
                 self.lang = Some(lang.as_ref().into());
-                self.code = String::new();
+                self.code = EcoString::new();
                 return false;
             }
             md::Event::End(md::Tag::CodeBlock(md::CodeBlockKind::Fenced(_))) => {
@@ -230,7 +246,7 @@ impl<'a> Handler<'a> {
     }
 
     fn handle_image(&self, link: &str) -> String {
-        if let Some(file) = FILES.get_file(link) {
+        if let Some(file) = FILE_DIR.get_file(link) {
             self.resolver.image(link, file.contents())
         } else if let Some(url) = self.resolver.link(link) {
             url
@@ -239,16 +255,35 @@ impl<'a> Handler<'a> {
         }
     }
 
-    fn handle_heading(&mut self, id: &mut &'a str, level: &mut md::HeadingLevel) {
+    fn handle_heading(
+        &mut self,
+        id_slot: &mut Option<&'a str>,
+        level: &mut md::HeadingLevel,
+    ) {
+        nest_heading(level, self.nesting());
         if *level == md::HeadingLevel::H1 {
             return;
         }
 
+        let default = self.peeked.as_ref().map(|text| text.to_kebab_case());
+        let id: &'a str = match (&id_slot, default) {
+            (Some(id), default) => {
+                if Some(*id) == default.as_deref() {
+                    eprintln!("heading id #{id} was specified unnecessarily");
+                }
+                id
+            }
+            (None, Some(default)) => self.ids.alloc(default).as_str(),
+            (None, None) => panic!("missing heading id {}", self.text),
+        };
+
+        *id_slot = (!id.is_empty()).then_some(id);
+
         // Special case for things like "v0.3.0".
         let name = if id.starts_with('v') && id.contains('.') {
-            id.to_string()
+            id.into()
         } else {
-            id.to_title_case()
+            id.to_title_case().into()
         };
 
         let mut children = &mut self.outline;
@@ -260,106 +295,22 @@ impl<'a> Handler<'a> {
             depth -= 1;
         }
 
-        // Put base before id.
-        if !self.id_base.is_empty() {
-            nest_heading(level);
-            *id = self.ids.alloc(format!("{}-{id}", self.id_base)).as_str();
-        }
-
-        children.push(OutlineItem { id: id.to_string(), name, children: vec![] });
+        children.push(OutlineItem { id: id.into(), name, children: vec![] });
     }
 
-    fn handle_link(&self, link: &str) -> Option<String> {
-        if link.starts_with('#') || link.starts_with("http") {
-            return Some(link.into());
+    fn handle_link(&self, link: &str) -> StrResult<String> {
+        if let Some(link) = self.resolver.link(link) {
+            return Ok(link);
         }
 
-        if !link.starts_with('$') {
-            return self.resolver.link(link);
+        crate::link::resolve(link)
+    }
+
+    fn nesting(&self) -> usize {
+        match self.nesting {
+            Some(nesting) => nesting,
+            None => panic!("headings are not allowed here:\n{}", self.text),
         }
-
-        let root = link.split('/').next()?;
-        let rest = &link[root.len()..].trim_matches('/');
-        let base = match root {
-            "$tutorial" => "/docs/tutorial/",
-            "$reference" => "/docs/reference/",
-            "$category" => "/docs/reference/",
-            "$syntax" => "/docs/reference/syntax/",
-            "$styling" => "/docs/reference/styling/",
-            "$scripting" => "/docs/reference/scripting/",
-            "$types" => "/docs/reference/types/",
-            "$type" => "/docs/reference/types/",
-            "$func" => "/docs/reference/",
-            "$guides" => "/docs/guides/",
-            "$packages" => "/docs/packages/",
-            "$changelog" => "/docs/changelog/",
-            "$community" => "/docs/community/",
-            _ => panic!("unknown link root: {root}"),
-        };
-
-        let mut route = base.to_string();
-        if root == "$type" && rest.contains('.') {
-            let mut parts = rest.split('.');
-            let ty = parts.next()?;
-            let method = parts.next()?;
-            route.push_str(ty);
-            route.push_str("/#methods-");
-            route.push_str(method);
-        } else if root == "$func" {
-            let mut parts = rest.split('.').peekable();
-            let first = parts.peek().copied();
-            let mut focus = &LIBRARY.global;
-            while let Some(m) = first.and_then(|name| module(focus, name).ok()) {
-                focus = m;
-                parts.next();
-            }
-
-            let name = parts.next()?;
-
-            let value = focus.get(name).ok()?;
-            let Value::Func(func) = value else { return None };
-            let info = func.info()?;
-            route.push_str(info.category);
-            route.push('/');
-
-            if let Some(group) = GROUPS
-                .iter()
-                .filter(|_| first == Some("math"))
-                .find(|group| group.functions.iter().any(|func| func == info.name))
-            {
-                route.push_str(&group.name);
-                route.push_str("/#");
-                route.push_str(info.name);
-                if let Some(param) = parts.next() {
-                    route.push_str("-parameters-");
-                    route.push_str(param);
-                }
-            } else {
-                route.push_str(name);
-                route.push('/');
-                if let Some(next) = parts.next() {
-                    if info.params.iter().any(|param| param.name == next) {
-                        route.push_str("#parameters-");
-                        route.push_str(next);
-                    } else if info.scope.iter().any(|(name, _)| name == next) {
-                        route.push('#');
-                        route.push_str(info.name);
-                        route.push('-');
-                        route.push_str(next);
-                    } else {
-                        return None;
-                    }
-                }
-            }
-        } else {
-            route.push_str(rest);
-        }
-
-        if !route.contains('#') && !route.ends_with('/') {
-            route.push('/');
-        }
-
-        Some(route)
     }
 }
 
@@ -424,11 +375,11 @@ fn code_block(resolver: &dyn Resolver, lang: &str, text: &str) -> Html {
         return Html::new(format!("<pre>{}</pre>", highlighted.as_str()));
     }
 
-    let id = FileId::new(None, Path::new("/main.typ"));
+    let id = FileId::new(None, VirtualPath::new("main.typ"));
     let source = Source::new(id, compile);
     let world = DocWorld(source);
-    let mut tracer = Tracer::default();
 
+    let mut tracer = Tracer::new();
     let mut frames = match typst::compile(&world, &mut tracer) {
         Ok(doc) => doc.pages,
         Err(err) => {
@@ -464,15 +415,10 @@ fn html_attr_range(html: &str, attr: &str) -> Option<Range<usize>> {
 }
 
 /// Increase the nesting level of a Markdown heading.
-fn nest_heading(level: &mut md::HeadingLevel) {
-    *level = match &level {
-        md::HeadingLevel::H1 => md::HeadingLevel::H2,
-        md::HeadingLevel::H2 => md::HeadingLevel::H3,
-        md::HeadingLevel::H3 => md::HeadingLevel::H4,
-        md::HeadingLevel::H4 => md::HeadingLevel::H5,
-        md::HeadingLevel::H5 => md::HeadingLevel::H6,
-        v => **v,
-    };
+fn nest_heading(level: &mut md::HeadingLevel, nesting: usize) {
+    *level = ((*level as usize) + nesting)
+        .try_into()
+        .unwrap_or(md::HeadingLevel::H6);
 }
 
 /// A world for example compilations.
@@ -497,9 +443,9 @@ impl World for DocWorld {
 
     fn file(&self, id: FileId) -> FileResult<Bytes> {
         assert!(id.package().is_none());
-        Ok(FILES
-            .get_file(id.path().strip_prefix("/").unwrap())
-            .unwrap_or_else(|| panic!("failed to load {:?}", id.path().display()))
+        Ok(FILE_DIR
+            .get_file(id.vpath().as_rootless_path())
+            .unwrap_or_else(|| panic!("failed to load {:?}", id.vpath()))
             .contents()
             .into())
     }

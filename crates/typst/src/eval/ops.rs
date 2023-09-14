@@ -5,15 +5,15 @@ use std::fmt::Debug;
 
 use ecow::eco_format;
 
-use super::{format_str, Regex, Value};
+use super::{format_str, IntoValue, Regex, Value};
 use crate::diag::{bail, StrResult};
-use crate::geom::{Axes, Axis, GenAlign, Length, Numeric, PartialStroke, Rel, Smart};
+use crate::geom::{Align, Length, Numeric, Rel, Smart, Stroke};
 use Value::*;
 
 /// Bail with a type mismatch error.
 macro_rules! mismatch {
     ($fmt:expr, $($value:expr),* $(,)?) => {
-        return Err(eco_format!($fmt, $($value.type_name()),*))
+        return Err(eco_format!($fmt, $($value.ty()),*))
     };
 }
 
@@ -26,6 +26,7 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Str(a), Str(b)) => Str(a + b),
         (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
         (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
+        (Bytes(a), Bytes(b)) => Bytes(a + b),
         (Content(a), Content(b)) => Content(a + b),
         (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
         (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
@@ -33,6 +34,11 @@ pub fn join(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Symbol(a), Content(b)) => Content(item!(text)(a.get().into()) + b),
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => Str(format_str!("{a}{b}")),
+        (Str(a), Type(b)) => Str(format_str!("{a}{b}")),
+
         (a, b) => mismatch!("cannot join {} with {}", a, b),
     })
 }
@@ -54,13 +60,14 @@ pub fn pos(value: Value) -> StrResult<Value> {
 /// Compute the negation of a value.
 pub fn neg(value: Value) -> StrResult<Value> {
     Ok(match value {
-        Int(v) => Int(v.checked_neg().ok_or("value is too large")?),
+        Int(v) => Int(v.checked_neg().ok_or_else(too_large)?),
         Float(v) => Float(-v),
         Length(v) => Length(-v),
         Angle(v) => Angle(-v),
         Ratio(v) => Ratio(-v),
         Relative(v) => Relative(-v),
         Fraction(v) => Fraction(-v),
+        Duration(v) => Duration(-v),
         v => mismatch!("cannot apply '-' to {}", v),
     })
 }
@@ -71,7 +78,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (a, None) => a,
         (None, b) => b,
 
-        (Int(a), Int(b)) => Int(a.checked_add(b).ok_or("value is too large")?),
+        (Int(a), Int(b)) => Int(a.checked_add(b).ok_or_else(too_large)?),
         (Int(a), Float(b)) => Float(a as f64 + b),
         (Float(a), Int(b)) => Float(a + b as f64),
         (Float(a), Float(b)) => Float(a + b),
@@ -96,6 +103,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Str(a), Str(b)) => Str(a + b),
         (Str(a), Symbol(b)) => Str(format_str!("{a}{b}")),
         (Symbol(a), Str(b)) => Str(format_str!("{a}{b}")),
+        (Bytes(a), Bytes(b)) => Bytes(a + b),
         (Content(a), Content(b)) => Content(a + b),
         (Content(a), Symbol(b)) => Content(a + item!(text)(b.get().into())),
         (Content(a), Str(b)) => Content(a + item!(text)(b.into())),
@@ -105,28 +113,26 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Array(a), Array(b)) => Array(a + b),
         (Dict(a), Dict(b)) => Dict(a + b),
 
-        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => {
-            Value::dynamic(PartialStroke {
-                paint: Smart::Custom(color.into()),
-                thickness: Smart::Custom(thickness),
-                ..PartialStroke::default()
-            })
+        (Color(color), Length(thickness)) | (Length(thickness), Color(color)) => Stroke {
+            paint: Smart::Custom(color.into()),
+            thickness: Smart::Custom(thickness),
+            ..Stroke::default()
         }
+        .into_value(),
+
+        (Duration(a), Duration(b)) => Duration(a + b),
+        (Datetime(a), Duration(b)) => Datetime(a + b),
+        (Duration(a), Datetime(b)) => Datetime(b + a),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => Str(format_str!("{a}{b}")),
+        (Str(a), Type(b)) => Str(format_str!("{a}{b}")),
 
         (Dyn(a), Dyn(b)) => {
-            // 1D alignments can be summed into 2D alignments.
-            if let (Some(&a), Some(&b)) =
-                (a.downcast::<GenAlign>(), b.downcast::<GenAlign>())
-            {
-                if a.axis() == b.axis() {
-                    return Err(eco_format!("cannot add two {:?} alignments", a.axis()));
-                }
-
-                return Ok(Value::dynamic(match a.axis() {
-                    Axis::X => Axes { x: a, y: b },
-                    Axis::Y => Axes { x: b, y: a },
-                }));
-            };
+            // Alignments can be summed.
+            if let (Some(&a), Some(&b)) = (a.downcast::<Align>(), b.downcast::<Align>()) {
+                return Ok((a + b)?.into_value());
+            }
 
             mismatch!("cannot add {} and {}", a, b);
         }
@@ -138,7 +144,7 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
 /// Compute the difference of two values.
 pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or("value is too large")?),
+        (Int(a), Int(b)) => Int(a.checked_sub(b).ok_or_else(too_large)?),
         (Int(a), Float(b)) => Float(a as f64 - b),
         (Float(a), Int(b)) => Float(a - b as f64),
         (Float(a), Float(b)) => Float(a - b),
@@ -159,6 +165,10 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 
         (Fraction(a), Fraction(b)) => Fraction(a - b),
 
+        (Duration(a), Duration(b)) => Duration(a - b),
+        (Datetime(a), Duration(b)) => Datetime(a - b),
+        (Datetime(a), Datetime(b)) => Duration((a - b)?),
+
         (a, b) => mismatch!("cannot subtract {1} from {0}", a, b),
     })
 }
@@ -166,7 +176,7 @@ pub fn sub(lhs: Value, rhs: Value) -> StrResult<Value> {
 /// Compute the product of two values.
 pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
     Ok(match (lhs, rhs) {
-        (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or("value is too large")?),
+        (Int(a), Int(b)) => Int(a.checked_mul(b).ok_or_else(too_large)?),
         (Int(a), Float(b)) => Float(a as f64 * b),
         (Float(a), Int(b)) => Float(a * b as f64),
         (Float(a), Float(b)) => Float(a * b),
@@ -205,12 +215,17 @@ pub fn mul(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Float(a), Fraction(b)) => Fraction(a * b),
         (Ratio(a), Fraction(b)) => Fraction(a.get() * b),
 
-        (Str(a), Int(b)) => Str(a.repeat(b)?),
-        (Int(a), Str(b)) => Str(b.repeat(a)?),
-        (Array(a), Int(b)) => Array(a.repeat(b)?),
-        (Int(a), Array(b)) => Array(b.repeat(a)?),
+        (Str(a), Int(b)) => Str(a.repeat(Value::Int(b).cast()?)?),
+        (Int(a), Str(b)) => Str(b.repeat(Value::Int(a).cast()?)?),
+        (Array(a), Int(b)) => Array(a.repeat(Value::Int(b).cast()?)?),
+        (Int(a), Array(b)) => Array(b.repeat(Value::Int(a).cast()?)?),
         (Content(a), b @ Int(_)) => Content(a.repeat(b.cast()?)),
         (a @ Int(_), Content(b)) => Content(b.repeat(a.cast()?)),
+
+        (Int(a), Duration(b)) => Duration(b * (a as f64)),
+        (Float(a), Duration(b)) => Duration(b * a),
+        (Duration(a), Int(b)) => Duration(a * (b as f64)),
+        (Duration(a), Float(b)) => Duration(a * b),
 
         (a, b) => mismatch!("cannot multiply {} with {}", a, b),
     })
@@ -252,6 +267,10 @@ pub fn div(lhs: Value, rhs: Value) -> StrResult<Value> {
         (Fraction(a), Float(b)) => Fraction(a / b),
         (Fraction(a), Fraction(b)) => Float(a / b),
 
+        (Duration(a), Int(b)) => Duration(a / (b as f64)),
+        (Duration(a), Float(b)) => Duration(a / b),
+        (Duration(a), Duration(b)) => Float(a / b),
+
         (a, b) => mismatch!("cannot divide {} by {}", a, b),
     })
 }
@@ -266,6 +285,7 @@ fn is_zero(v: &Value) -> bool {
         Ratio(v) => v.is_zero(),
         Relative(v) => v.is_zero(),
         Fraction(v) => v.is_zero(),
+        Duration(v) => v.is_zero(),
         _ => false,
     }
 }
@@ -354,7 +374,11 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (Dict(a), Dict(b)) => a == b,
         (Func(a), Func(b)) => a == b,
         (Args(a), Args(b)) => a == b,
+        (Type(a), Type(b)) => a == b,
         (Module(a), Module(b)) => a == b,
+        (Plugin(a), Plugin(b)) => a == b,
+        (Datetime(a), Datetime(b)) => a == b,
+        (Duration(a), Duration(b)) => a == b,
         (Dyn(a), Dyn(b)) => a == b,
 
         // Some technically different things should compare equal.
@@ -364,6 +388,10 @@ pub fn equal(lhs: &Value, rhs: &Value) -> bool {
         (&Ratio(a), &Relative(b)) => a == b.rel && b.abs.is_zero(),
         (&Relative(a), &Length(b)) => a.abs == b && a.rel.is_zero(),
         (&Relative(a), &Ratio(b)) => a.rel == b && a.abs.is_zero(),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => a.compat_name() == b.as_str(),
+        (Str(a), Type(b)) => a.as_str() == b.compat_name(),
 
         _ => false,
     }
@@ -390,6 +418,9 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
         (Relative(a), Length(b)) if a.rel.is_zero() => try_cmp_values(&a.abs, b)?,
         (Relative(a), Ratio(b)) if a.abs.is_zero() => a.rel.cmp(b),
 
+        (Duration(a), Duration(b)) => a.cmp(b),
+        (Datetime(a), Datetime(b)) => try_cmp_datetimes(a, b)?,
+
         _ => mismatch!("cannot compare {} and {}", lhs, rhs),
     })
 }
@@ -398,6 +429,12 @@ pub fn compare(lhs: &Value, rhs: &Value) -> StrResult<Ordering> {
 fn try_cmp_values<T: PartialOrd + Debug>(a: &T, b: &T) -> StrResult<Ordering> {
     a.partial_cmp(b)
         .ok_or_else(|| eco_format!("cannot compare {:?} with {:?}", a, b))
+}
+
+/// Try to compare two datetimes.
+fn try_cmp_datetimes(a: &super::Datetime, b: &super::Datetime) -> StrResult<Ordering> {
+    a.partial_cmp(b)
+        .ok_or_else(|| eco_format!("cannot compare {} and {}", a.kind(), b.kind()))
 }
 
 /// Test whether one value is "in" another one.
@@ -424,7 +461,17 @@ pub fn contains(lhs: &Value, rhs: &Value) -> Option<bool> {
         (Str(a), Str(b)) => Some(b.as_str().contains(a.as_str())),
         (Dyn(a), Str(b)) => a.downcast::<Regex>().map(|regex| regex.is_match(b)),
         (Str(a), Dict(b)) => Some(b.contains(a)),
-        (a, Array(b)) => Some(b.contains(a)),
+        (a, Array(b)) => Some(b.contains(a.clone())),
+
+        // Type compatibility.
+        (Type(a), Str(b)) => Some(b.as_str().contains(a.compat_name())),
+        (Type(a), Dict(b)) => Some(b.contains(a.compat_name())),
+
         _ => Option::None,
     }
+}
+
+#[cold]
+fn too_large() -> &'static str {
+    "value is too large"
 }

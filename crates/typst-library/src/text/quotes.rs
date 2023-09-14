@@ -5,9 +5,9 @@ use crate::prelude::*;
 /// A language-aware quote that reacts to its context.
 ///
 /// Automatically turns into an appropriate opening or closing quote based on
-/// the active [text language]($func/text.lang).
+/// the active [text language]($text.lang).
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// "This is in quotes."
 ///
@@ -18,14 +18,11 @@ use crate::prelude::*;
 /// "C'est entre guillemets."
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: The normal quote characters
 /// (`'` and `"`). Typst automatically makes your quotes smart.
-///
-/// Display: Smart Quote
-/// Category: text
-#[element]
-pub struct SmartQuoteElem {
+#[elem]
+pub struct SmartquoteElem {
     /// Whether this should be a double quote.
     #[default(true)]
     pub double: bool,
@@ -66,6 +63,8 @@ pub struct Quoter {
     expect_opening: bool,
     /// Whether the last character was numeric.
     last_num: bool,
+    /// The previous type of quote character, if it was an opening quote.
+    prev_quote_type: Option<bool>,
 }
 
 impl Quoter {
@@ -75,13 +74,17 @@ impl Quoter {
             quote_depth: 0,
             expect_opening: true,
             last_num: false,
+            prev_quote_type: None,
         }
     }
 
     /// Process the last seen character.
-    pub fn last(&mut self, c: char) {
+    pub fn last(&mut self, c: char, is_quote: bool) {
         self.expect_opening = is_ignorable(c) || is_opening_bracket(c);
         self.last_num = c.is_numeric();
+        if !is_quote {
+            self.prev_quote_type = None;
+        }
     }
 
     /// Process and substitute a quote.
@@ -92,8 +95,16 @@ impl Quoter {
         peeked: Option<char>,
     ) -> &'a str {
         let peeked = peeked.unwrap_or(' ');
-        if self.expect_opening {
+        let mut expect_opening = self.expect_opening;
+        if let Some(prev_double) = self.prev_quote_type.take() {
+            if double != prev_double {
+                expect_opening = true;
+            }
+        }
+
+        if expect_opening {
             self.quote_depth += 1;
+            self.prev_quote_type = Some(double);
             quotes.open(double)
         } else if self.quote_depth > 0
             && (peeked.is_ascii_punctuation() || is_ignorable(peeked))

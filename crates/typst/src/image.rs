@@ -4,17 +4,18 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::{self, Debug, Formatter};
 use std::io;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use comemo::{Prehashed, Track, Tracked};
-use ecow::{EcoString, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 use image::codecs::gif::GifDecoder;
 use image::codecs::jpeg::JpegDecoder;
 use image::codecs::png::PngDecoder;
 use image::io::Limits;
 use image::{guess_format, ImageDecoder, ImageResult};
 use typst_macros::{cast, Cast};
-use usvg::{TreeParsing, TreeTextToPath};
+use usvg::{NodeExt, TreeParsing, TreeTextToPath};
 
 use crate::diag::{bail, format_xml_like_error, StrResult};
 use crate::eval::Bytes;
@@ -75,7 +76,7 @@ impl Image {
         data: Bytes,
         format: ImageFormat,
         world: Tracked<dyn World + '_>,
-        fallback_family: Option<&str>,
+        fallback_family: Option<EcoString>,
         alt: Option<EcoString>,
     ) -> StrResult<Self> {
         let loader = WorldLoader::new(world, fallback_family);
@@ -126,7 +127,7 @@ impl Image {
     }
 
     /// The decoded version of the image.
-    pub fn decoded(&self) -> Arc<DecodedImage> {
+    pub fn decoded(&self) -> Rc<DecodedImage> {
         match self.format() {
             ImageFormat::Raster(format) => decode_raster(self.data(), format),
             ImageFormat::Vector(VectorFormat::Svg) => {
@@ -155,6 +156,18 @@ pub enum ImageFormat {
     Raster(RasterFormat),
     /// A vector graphics format.
     Vector(VectorFormat),
+}
+
+impl From<RasterFormat> for ImageFormat {
+    fn from(format: RasterFormat) -> Self {
+        Self::Raster(format)
+    }
+}
+
+impl From<VectorFormat> for ImageFormat {
+    fn from(format: VectorFormat) -> Self {
+        Self::Vector(format)
+    }
 }
 
 cast! {
@@ -215,25 +228,11 @@ impl TryFrom<image::ImageFormat> for RasterFormat {
     }
 }
 
-impl From<ttf_parser::RasterImageFormat> for RasterFormat {
-    fn from(format: ttf_parser::RasterImageFormat) -> Self {
-        match format {
-            ttf_parser::RasterImageFormat::PNG => RasterFormat::Png,
-        }
-    }
-}
-
-impl From<ttf_parser::RasterImageFormat> for ImageFormat {
-    fn from(format: ttf_parser::RasterImageFormat) -> Self {
-        Self::Raster(format.into())
-    }
-}
-
 /// A decoded image.
 pub enum DecodedImage {
     /// A decoded pixel raster with its ICC profile.
     Raster(image::DynamicImage, Option<IccProfile>, RasterFormat),
-    /// An decoded SVG tree.
+    /// A decoded SVG tree.
     Svg(usvg::Tree),
 }
 
@@ -265,7 +264,7 @@ pub struct IccProfile(pub Vec<u8>);
 
 /// Decode a raster image.
 #[comemo::memoize]
-fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Arc<DecodedImage>> {
+fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Rc<DecodedImage>> {
     fn decode_with<'a, T: ImageDecoder<'a>>(
         decoder: ImageResult<T>,
     ) -> ImageResult<(image::DynamicImage, Option<IccProfile>)> {
@@ -284,7 +283,7 @@ fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Arc<DecodedIma
     }
     .map_err(format_image_error)?;
 
-    Ok(Arc::new(DecodedImage::Raster(dynamic, icc, format)))
+    Ok(Rc::new(DecodedImage::Raster(dynamic, icc, format)))
 }
 
 /// Decode an SVG image.
@@ -292,7 +291,7 @@ fn decode_raster(data: &Bytes, format: RasterFormat) -> StrResult<Arc<DecodedIma
 fn decode_svg(
     data: &Bytes,
     loader: Tracked<dyn SvgFontLoader + '_>,
-) -> StrResult<Arc<DecodedImage>> {
+) -> StrResult<Rc<DecodedImage>> {
     // Disable usvg's default to "Times New Roman". Instead, we default to
     // the empty family and later, when we traverse the SVG, we check for
     // empty and non-existing family names and replace them with the true
@@ -304,7 +303,7 @@ fn decode_svg(
         let fontdb = load_svg_fonts(&tree, loader);
         tree.convert_text(&fontdb);
     }
-    Ok(Arc::new(DecodedImage::Svg(tree)))
+    Ok(Rc::new(DecodedImage::Svg(tree)))
 }
 
 /// Discover and load the fonts referenced by an SVG.
@@ -312,31 +311,39 @@ fn load_svg_fonts(
     tree: &usvg::Tree,
     loader: Tracked<dyn SvgFontLoader + '_>,
 ) -> fontdb::Database {
-    let mut referenced = BTreeMap::<EcoString, bool>::new();
     let mut fontdb = fontdb::Database::new();
-    let mut load = |family_cased: &str| {
-        let family = EcoString::from(family_cased.trim()).to_lowercase();
-        if let Some(&success) = referenced.get(&family) {
-            return success;
+    let mut referenced = BTreeMap::<EcoString, Option<EcoString>>::new();
+
+    // Loads a font family by its Typst name and returns its usvg-compatible
+    // name.
+    let mut load = |family: &str| -> Option<EcoString> {
+        let family = EcoString::from(family.trim()).to_lowercase();
+        if let Some(success) = referenced.get(&family) {
+            return success.clone();
         }
 
         // We load all variants for the family, since we don't know which will
         // be used.
-        let mut success = false;
+        let mut name = None;
         for font in loader.load(&family) {
             let source = Arc::new(font.data().clone());
             fontdb.load_font_source(fontdb::Source::Binary(source));
-            success = true;
+            if name.is_none() {
+                name = font
+                    .find_name(ttf_parser::name_id::TYPOGRAPHIC_FAMILY)
+                    .or_else(|| font.find_name(ttf_parser::name_id::FAMILY))
+                    .map(Into::into);
+            }
         }
 
-        referenced.insert(family, success);
-        success
+        referenced.insert(family, name.clone());
+        name
     };
 
     // Load fallback family.
-    let fallback_cased = loader.fallback();
-    if let Some(family_cased) = fallback_cased {
-        load(family_cased);
+    let mut fallback_usvg_compatible = None;
+    if let Some(family) = loader.fallback_family() {
+        fallback_usvg_compatible = load(family);
     }
 
     // Find out which font families are referenced by the SVG.
@@ -344,10 +351,11 @@ fn load_svg_fonts(
         let usvg::NodeKind::Text(text) = &mut *node.borrow_mut() else { return };
         for chunk in &mut text.chunks {
             for span in &mut chunk.spans {
-                for family_cased in &mut span.font.families {
-                    if family_cased.is_empty() || !load(family_cased) {
-                        let Some(fallback) = fallback_cased else { continue };
-                        *family_cased = fallback.into();
+                for family in &mut span.font.families {
+                    if family.is_empty() || load(family).is_none() {
+                        if let Some(fallback) = &fallback_usvg_compatible {
+                            *family = fallback.into();
+                        }
                     }
                 }
             }
@@ -362,9 +370,9 @@ fn traverse_svg<F>(node: &usvg::Node, f: &mut F)
 where
     F: FnMut(&usvg::Node),
 {
-    f(node);
-    for child in node.children() {
-        traverse_svg(&child, f);
+    for descendant in node.descendants() {
+        f(&descendant);
+        descendant.subroots(|subroot| traverse_svg(&subroot, f))
     }
 }
 
@@ -383,40 +391,31 @@ where
 #[comemo::track]
 trait SvgFontLoader {
     /// Load all fonts for the given lowercased font family.
-    fn load(&self, lower_family: &str) -> EcoVec<Font>;
+    fn load(&self, family: &str) -> EcoVec<Font>;
 
-    /// The case-sensitive name of the fallback family.
-    fn fallback(&self) -> Option<&str>;
+    /// The fallback family.
+    fn fallback_family(&self) -> Option<&str>;
 }
 
 /// Loads fonts for an SVG from a world
 struct WorldLoader<'a> {
     world: Tracked<'a, dyn World + 'a>,
     seen: RefCell<BTreeMap<EcoString, EcoVec<Font>>>,
-    fallback_family_cased: Option<String>,
+    fallback_family: Option<EcoString>,
 }
 
 impl<'a> WorldLoader<'a> {
-    fn new(world: Tracked<'a, dyn World + 'a>, fallback_family: Option<&str>) -> Self {
-        // Recover the non-lowercased version of the family because
-        // usvg is case sensitive.
-        let book = world.book();
-        let fallback_family_cased = fallback_family
-            .and_then(|lowercase| book.select_family(lowercase).next())
-            .and_then(|index| book.info(index))
-            .map(|info| info.family.clone());
-
-        Self {
-            world,
-            fallback_family_cased,
-            seen: Default::default(),
-        }
+    fn new(
+        world: Tracked<'a, dyn World + 'a>,
+        fallback_family: Option<EcoString>,
+    ) -> Self {
+        Self { world, fallback_family, seen: Default::default() }
     }
 
     fn into_prepared(self) -> PreparedLoader {
         PreparedLoader {
             families: self.seen.into_inner(),
-            fallback_family_cased: self.fallback_family_cased,
+            fallback_family: self.fallback_family,
         }
     }
 }
@@ -436,8 +435,8 @@ impl SvgFontLoader for WorldLoader<'_> {
             .clone()
     }
 
-    fn fallback(&self) -> Option<&str> {
-        self.fallback_family_cased.as_deref()
+    fn fallback_family(&self) -> Option<&str> {
+        self.fallback_family.as_deref()
     }
 }
 
@@ -445,7 +444,7 @@ impl SvgFontLoader for WorldLoader<'_> {
 #[derive(Default, Hash)]
 struct PreparedLoader {
     families: BTreeMap<EcoString, EcoVec<Font>>,
-    fallback_family_cased: Option<String>,
+    fallback_family: Option<EcoString>,
 }
 
 impl SvgFontLoader for PreparedLoader {
@@ -453,8 +452,8 @@ impl SvgFontLoader for PreparedLoader {
         self.families.get(family).cloned().unwrap_or_default()
     }
 
-    fn fallback(&self) -> Option<&str> {
-        self.fallback_family_cased.as_deref()
+    fn fallback_family(&self) -> Option<&str> {
+        self.fallback_family.as_deref()
     }
 }
 
@@ -462,7 +461,7 @@ impl SvgFontLoader for PreparedLoader {
 fn format_image_error(error: image::ImageError) -> EcoString {
     match error {
         image::ImageError::Limits(_) => "file is too large".into(),
-        _ => "failed to decode image".into(),
+        err => eco_format!("failed to decode image ({err})"),
     }
 }
 
@@ -473,8 +472,8 @@ fn format_usvg_error(error: usvg::Error) -> EcoString {
         usvg::Error::MalformedGZip => "file is not compressed correctly".into(),
         usvg::Error::ElementsLimitReached => "file is too large".into(),
         usvg::Error::InvalidSize => {
-            "failed to parse svg: width, height, or viewbox is invalid".into()
+            "failed to parse SVG (width, height, or viewbox is invalid)".into()
         }
-        usvg::Error::ParsingFailed(error) => format_xml_like_error("svg", error),
+        usvg::Error::ParsingFailed(error) => format_xml_like_error("SVG", error),
     }
 }

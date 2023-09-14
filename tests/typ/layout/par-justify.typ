@@ -40,3 +40,26 @@ This text can be fitted in one line.
 	"a b c "
 }
 #"d"
+
+---
+// Test that justification cannot lead to a leading space
+#set par(justify: true)
+#set text(size: 12pt)
+#set page(width: 45mm, height: auto)
+
+lorem ipsum 1234, lorem ipsum dolor sit amet
+
+#"  leading whitespace should still be displayed"
+
+---
+// Test that justification doesn't break code blocks
+
+#set par(justify: true)
+
+```cpp
+int main() {
+  printf("Hello world\n");
+  return 0;
+}
+```
+

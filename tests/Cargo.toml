@@ -9,16 +9,17 @@ publish = false
 [dev-dependencies]
 typst = { path = "../crates/typst" }
 typst-library = { path = "../crates/typst-library" }
+clap = { version = "4.4", features = ["derive"] }
 comemo = "0.3"
-iai = { git = "https://github.com/reknih/iai" }
+ecow = { version = "0.1.2", features = ["serde"] }
+iai = { git = "https://github.com/typst/iai" }
 once_cell = "1"
-oxipng = { version = "8.0.0", default-features = false, features = ["filetime", "parallel", "zopfli"] }
+oxipng = { git = "https://github.com/typst/oxipng", rev = "b8ec65b", default-features = false, features = ["filetime", "parallel", "zopfli"] }
 rayon = "1.7.0"
-tiny-skia = "0.9.0"
-ttf-parser = "0.18.1"
+tiny-skia = "0.10.0"
+ttf-parser = "0.19.2"
 unscanny = "0.1"
 walkdir = "2"
-clap = { version = "4.2.4", features = ["derive"] }
 
 [[test]]
 name = "tests"

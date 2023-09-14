@@ -180,9 +180,25 @@ impl Side {
     }
 }
 
+cast! {
+    Side,
+    self => Align::from(self).into_value(),
+    align: Align => match align {
+        Align::LEFT => Self::Left,
+        Align::RIGHT => Self::Right,
+        Align::TOP => Self::Top,
+        Align::BOTTOM => Self::Bottom,
+        _ => bail!("cannot convert this alignment to a side"),
+    },
+}
+
 impl<T: Reflect> Reflect for Sides<Option<T>> {
-    fn describe() -> CastInfo {
-        T::describe() + Dict::describe()
+    fn input() -> CastInfo {
+        T::input() + Dict::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output() + Dict::output()
     }
 
     fn castable(value: &Value) -> bool {

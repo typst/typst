@@ -3,12 +3,27 @@ use std::sync::Arc;
 
 use ecow::{eco_format, EcoString};
 
-use super::{Content, Scope, Value};
+use super::{ty, Content, Scope, Value};
 use crate::diag::StrResult;
 
-/// An evaluated module, ready for importing or typesetting.
+/// An evaluated module, either built-in or resulting from a file.
 ///
-/// Values of this type are cheap to clone and hash.
+/// You can access definitions from the module using
+/// [field access notation]($scripting/#fields) and interact with it using the
+/// [import and include syntaxes]($scripting/#modules).
+///
+/// # Example
+/// ```example
+/// <<< #import "utils.typ"
+/// <<< #utils.add(2, 5)
+///
+/// <<< #import utils: sub
+/// <<< #sub(1, 4)
+/// >>> #7
+/// >>>
+/// >>> #(-3)
+/// ```
+#[ty]
 #[derive(Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Module {
@@ -29,10 +44,10 @@ struct Repr {
 
 impl Module {
     /// Create a new module.
-    pub fn new(name: impl Into<EcoString>) -> Self {
+    pub fn new(name: impl Into<EcoString>, scope: Scope) -> Self {
         Self {
             name: name.into(),
-            inner: Arc::new(Repr { scope: Scope::new(), content: Content::empty() }),
+            inner: Arc::new(Repr { scope, content: Content::empty() }),
         }
     }
 
@@ -70,7 +85,7 @@ impl Module {
     }
 
     /// Try to access a definition in the module.
-    pub fn get(&self, name: &str) -> StrResult<&Value> {
+    pub fn field(&self, name: &str) -> StrResult<&Value> {
         self.scope().get(name).ok_or_else(|| {
             eco_format!("module `{}` does not contain `{name}`", self.name())
         })

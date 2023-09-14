@@ -32,12 +32,12 @@ impl<'a> BehavedBuilder<'a> {
 
     /// Whether the builder is empty except for some weak elements that will
     /// probably collapse.
-    pub fn is_basically_empty(&self) -> bool {
-        self.builder.is_empty()
-            && self
-                .staged
-                .iter()
-                .all(|(_, behaviour, _)| matches!(behaviour, Behaviour::Weak(_)))
+    pub fn has_strong_elements(&self, last: bool) -> bool {
+        !self.builder.is_empty()
+            || self.staged.iter().any(|(_, behaviour, _)| {
+                !matches!(behaviour, Behaviour::Weak(_) | Behaviour::Invisible)
+                    || (last && *behaviour == Behaviour::Invisible)
+            })
     }
 
     /// Push an item into the sequence.
@@ -74,7 +74,7 @@ impl<'a> BehavedBuilder<'a> {
                 self.builder.push(elem, styles);
                 self.last = interaction;
             }
-            Behaviour::Ignorant => {
+            Behaviour::Ignorant | Behaviour::Invisible => {
                 self.staged.push((elem, interaction, styles));
             }
         }
@@ -95,7 +95,10 @@ impl<'a> BehavedBuilder<'a> {
     /// false.
     fn flush(&mut self, supportive: bool) {
         for (item, interaction, styles) in self.staged.drain(..) {
-            if supportive || interaction == Behaviour::Ignorant {
+            if supportive
+                || interaction == Behaviour::Ignorant
+                || interaction == Behaviour::Invisible
+            {
                 self.builder.push(item, styles);
             }
         }

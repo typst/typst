@@ -12,7 +12,7 @@ use crate::set_failed;
 use crate::world::SystemWorld;
 
 /// Execute a query command.
-pub fn query(command: QueryCommand) -> StrResult<()> {
+pub fn query(command: &QueryCommand) -> StrResult<()> {
     let mut world = SystemWorld::new(&command.common)?;
     tracing::info!("Starting querying");
 
@@ -20,18 +20,18 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
     world.reset();
     world.source(world.main()).map_err(|err| err.to_string())?;
 
-    let mut tracer = Tracer::default();
+    let mut tracer = Tracer::new();
     let result = typst::compile(&world, &mut tracer);
     let warnings = tracer.warnings();
 
     match result {
         // Retrieve and print query results.
         Ok(document) => {
-            let data = retrieve(&world, &command, &document)?;
-            let serialized = format(data, &command)?;
+            let data = retrieve(&world, command, &document)?;
+            let serialized = format(data, command)?;
             println!("{serialized}");
             print_diagnostics(&world, &[], &warnings, command.common.diagnostic_format)
-                .map_err(|_| "failed to print diagnostics")?;
+                .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
 
         // Print diagnostics.
@@ -43,7 +43,7 @@ pub fn query(command: QueryCommand) -> StrResult<()> {
                 &warnings,
                 command.common.diagnostic_format,
             )
-            .map_err(|_| "failed to print diagnostics")?;
+            .map_err(|err| eco_format!("failed to print diagnostics ({err})"))?;
         }
     }
 
@@ -83,7 +83,7 @@ fn retrieve(
 /// Format the query result in the output format.
 fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
     if command.one && elements.len() != 1 {
-        bail!("expected exactly one element, found {}", elements.len())
+        bail!("expected exactly one element, found {}", elements.len());
     }
 
     let mapped: Vec<_> = elements
@@ -95,7 +95,10 @@ fn format(elements: Vec<Content>, command: &QueryCommand) -> StrResult<String> {
         .collect();
 
     if command.one {
-        serialize(&mapped[0], command.format)
+        let Some(value) = mapped.get(0) else {
+            bail!("no such field found for element");
+        };
+        serialize(value, command.format)
     } else {
         serialize(&mapped, command.format)
     }

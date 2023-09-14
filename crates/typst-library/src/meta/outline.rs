@@ -16,7 +16,7 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// be displayed in the outline alongside its title or caption. By default this
 /// generates a table of contents.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #outline()
 ///
@@ -27,13 +27,13 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// #lorem(10)
 /// ```
 ///
-/// ## Alternative outlines { #alternative-outlines }
+/// # Alternative outlines
 /// By setting the `target` parameter, the outline can be used to generate a
 /// list of other kinds of elements than headings. In the example below, we list
 /// all figures containing images by setting `target` to `{figure.where(kind:
 /// image)}`. We could have also set it to just `figure`, but then the list
 /// would also include figures containing tables or other material. For more
-/// details on the `where` selector, [see here]($type/content.where).
+/// details on the `where` selector, [see here]($function.where).
 ///
 /// ```example
 /// #outline(
@@ -47,25 +47,17 @@ use crate::text::{LinebreakElem, SpaceElem, TextElem};
 /// )
 /// ```
 ///
-/// ## Styling the outline { #styling-the-outline }
+/// # Styling the outline
 /// The outline element has several options for customization, such as its
-/// `title` and `indent` parameters. If desired, however, it is possible to
-/// have more control over the outline's look and style through the
-/// [`outline.entry`]($func/outline.entry) element.
-///
-/// Display: Outline
-/// Category: meta
-/// Keywords: Table of Contents
-#[element(Show, Finalize, LocalName)]
-#[scope(
-    scope.define("entry", OutlineEntry::func());
-    scope
-)]
+/// `title` and `indent` parameters. If desired, however, it is possible to have
+/// more control over the outline's look and style through the
+/// [`outline.entry`]($outline.entry) element.
+#[elem(scope, keywords = ["Table of Contents"], Show, Finalize, LocalName)]
 pub struct OutlineElem {
     /// The title of the outline.
     ///
     /// - When set to `{auto}`, an appropriate title for the
-    ///   [text language]($func/text.lang) will be used. This is the default.
+    ///   [text language]($text.lang) will be used. This is the default.
     /// - When set to `{none}`, the outline will not have a title.
     /// - A custom title can be set by passing content.
     ///
@@ -97,7 +89,7 @@ pub struct OutlineElem {
     /// )
     /// ```
     #[default(LocatableSelector(Selector::Elem(
-        HeadingElem::func(),
+        HeadingElem::elem(),
         Some(dict! { "outlined" => true })
     )))]
     pub target: LocatableSelector,
@@ -125,19 +117,18 @@ pub struct OutlineElem {
     /// - `{none}`: No indent
     /// - `{auto}`: Indents the numbering of the nested entry with the title of
     ///   its parent entry. This only has an effect if the entries are numbered
-    ///   (e.g., via [heading numbering]($func/heading.numbering)).
-    /// - [Relative length]($type/relative-length): Indents the item by this length
+    ///   (e.g., via [heading numbering]($heading.numbering)).
+    /// - [Relative length]($relative): Indents the item by this length
     ///   multiplied by its nesting level. Specifying `{2em}`, for instance,
     ///   would indent top-level headings (not nested) by `{0em}`, second level
     ///   headings by `{2em}` (nested once), third-level headings by `{4em}`
     ///   (nested twice) and so on.
-    /// - [Function]($type/function): You can completely customize this setting
-    ///   with a function. That function receives the nesting level as a
-    ///   parameter (starting at 0 for top-level headings/elements) and can
-    ///   return a relative length or content making up the indent. For example,
-    ///   `{n => n * 2em}` would be equivalent to just specifying `{2em}`,
-    ///   while `{n => [→ ] * n}` would indent with one arrow per nesting
-    ///   level.
+    /// - [Function]($function): You can completely customize this setting with
+    ///   a function. That function receives the nesting level as a parameter
+    ///   (starting at 0 for top-level headings/elements) and can return a
+    ///   relative length or content making up the indent. For example,
+    ///   `{n => n * 2em}` would be equivalent to just specifying `{2em}`, while
+    ///   `{n => [→ ] * n}` would indent with one arrow per nesting level.
     ///
     /// *Migration hints:*  Specifying `{true}` (equivalent to `{auto}`) or
     /// `{false}` (equivalent to `{none}`) for this option is deprecated and
@@ -184,6 +175,12 @@ pub struct OutlineElem {
     pub fill: Option<Content>,
 }
 
+#[scope]
+impl OutlineElem {
+    #[elem]
+    type OutlineEntry;
+}
+
 impl Show for OutlineElem {
     #[tracing::instrument(name = "OutlineElem::show", skip_all)]
     fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
@@ -214,7 +211,8 @@ impl Show for OutlineElem {
                 self.span(),
                 elem.clone().into_inner(),
                 self.fill(styles),
-            )? else {
+            )?
+            else {
                 continue;
             };
 
@@ -268,6 +266,7 @@ impl LocalName for OutlineElem {
             Lang::DANISH => "Indhold",
             Lang::DUTCH => "Inhoudsopgave",
             Lang::FILIPINO => "Talaan ng mga Nilalaman",
+            Lang::FINNISH => "Sisällys",
             Lang::FRENCH => "Table des matières",
             Lang::GERMAN => "Inhaltsverzeichnis",
             Lang::ITALIAN => "Indice",
@@ -389,11 +388,9 @@ cast! {
 /// outlined element, its page number, and the filler content between both.
 ///
 /// This element is intended for use with show rules to control the appearance
-/// of outlines.
-///
-/// ## Example { #example }
-/// The example below shows how to style entries for top-level sections to make
-/// them stand out.
+/// of outlines. To customize an entry's line, you can build it from scratch by
+/// accessing the `level`, `element`, `body`, `fill` and `page` fields on the
+/// entry.
 ///
 /// ```example
 /// #set heading(numbering: "1.")
@@ -414,13 +411,7 @@ cast! {
 /// = Analysis
 /// == Setup
 /// ```
-///
-/// To completely customize an entry's line, you can also build it from scratch
-/// by accessing the `level`, `element`, `body`, `fill` and `page` fields on the entry.
-///
-/// Display: Outline Entry
-/// Category: meta
-#[element(Show)]
+#[elem(name = "entry", title = "Outline Entry", Show)]
 pub struct OutlineEntry {
     /// The nesting level of this outline entry. Starts at `{1}` for top-level
     /// entries.
@@ -428,8 +419,8 @@ pub struct OutlineEntry {
     pub level: NonZeroUsize,
 
     /// The element this entry refers to. Its location will be available
-    /// through the [`location`]($type/content.location) method on content
-    /// and can be [linked]($func/link) to.
+    /// through the [`location`]($content.location) method on content
+    /// and can be [linked]($link) to.
     #[required]
     pub element: Content,
 
@@ -444,7 +435,7 @@ pub struct OutlineEntry {
     /// located in. When `{none}`, empty space is inserted in that gap instead.
     ///
     /// Note that, when using show rules to override outline entries, it is
-    /// recommended to wrap the filling content in a [`box`]($func/box) with
+    /// recommended to wrap the filling content in a [`box`]($box) with
     /// fractional width. For example, `{box(width: 1fr, repeat[-])}` would show
     /// precisely as many `-` characters as necessary to fill a particular gap.
     #[required]

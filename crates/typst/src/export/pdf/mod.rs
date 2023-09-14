@@ -1,17 +1,21 @@
 //! Exporting into PDF documents.
 
-mod external_graphics_state;
+mod extg;
 mod font;
 mod image;
 mod outline;
 mod page;
 
+pub use self::page::{PdfPageLabel, PdfPageLabelStyle};
+
 use std::cmp::Eq;
 use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
+use std::num::NonZeroUsize;
 
 use ecow::EcoString;
 use pdf_writer::types::Direction;
+use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
 use xmp_writer::{LangId, RenditionClass, XmpWriter};
 
@@ -22,7 +26,7 @@ use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
 use crate::model::Introspector;
 
-use external_graphics_state::ExternalGraphicsState;
+use extg::ExternalGraphicsState;
 
 /// Export a document into a PDF file.
 ///
@@ -33,7 +37,7 @@ pub fn pdf(document: &Document) -> Vec<u8> {
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
-    external_graphics_state::write_external_graphics_states(&mut ctx);
+    extg::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
     write_catalog(&mut ctx);
     ctx.writer.finish()
@@ -112,6 +116,9 @@ fn write_catalog(ctx: &mut PdfContext) {
     // Write the outline tree.
     let outline_root_id = outline::write_outline(ctx);
 
+    // Write the page labels.
+    let page_labels = write_page_labels(ctx);
+
     // Write the document information.
     let mut info = ctx.writer.document_info(ctx.alloc.bump());
     let mut xmp = XmpWriter::new();
@@ -147,6 +154,15 @@ fn write_catalog(ctx: &mut PdfContext) {
     catalog.viewer_preferences().direction(dir);
     catalog.pair(Name(b"Metadata"), meta_ref);
 
+    // Insert the page labels.
+    if !page_labels.is_empty() {
+        let mut num_tree = catalog.page_labels();
+        let mut entries = num_tree.nums();
+        for (n, r) in &page_labels {
+            entries.insert(n.get() as i32 - 1, *r);
+        }
+    }
+
     if let Some(outline_root_id) = outline_root_id {
         catalog.outlines(outline_root_id);
     }
@@ -154,6 +170,55 @@ fn write_catalog(ctx: &mut PdfContext) {
     if let Some(lang) = lang {
         catalog.lang(TextStr(lang.as_str()));
     }
+}
+
+/// Write the page labels.
+#[tracing::instrument(skip_all)]
+fn write_page_labels(ctx: &mut PdfContext) -> Vec<(NonZeroUsize, Ref)> {
+    let mut result = vec![];
+    let mut prev: Option<&PdfPageLabel> = None;
+
+    for (i, page) in ctx.pages.iter().enumerate() {
+        let nr = NonZeroUsize::new(1 + i).unwrap();
+        let Some(label) = &page.label else { continue };
+
+        // Don't create a label if neither style nor prefix are specified.
+        if label.prefix.is_none() && label.style.is_none() {
+            continue;
+        }
+
+        if let Some(pre) = prev {
+            if label.prefix == pre.prefix
+                && label.style == pre.style
+                && label.offset == pre.offset.map(|n| n.saturating_add(1))
+            {
+                prev = Some(label);
+                continue;
+            }
+        }
+
+        let id = ctx.alloc.bump();
+        let mut entry = ctx.writer.indirect(id).start::<PageLabel>();
+
+        // Only add what is actually provided. Don't add empty prefix string if
+        // it wasn't given for example.
+        if let Some(prefix) = &label.prefix {
+            entry.prefix(TextStr(prefix));
+        }
+
+        if let Some(style) = label.style {
+            entry.style(style.into());
+        }
+
+        if let Some(offset) = label.offset {
+            entry.offset(offset.get() as i32);
+        }
+
+        result.push((nr, id));
+        prev = Some(label);
+    }
+
+    result
 }
 
 /// Compress data with the DEFLATE algorithm.
@@ -188,8 +253,8 @@ where
         });
     }
 
-    fn map(&self, item: T) -> usize {
-        self.to_pdf[&item]
+    fn map(&self, item: &T) -> usize {
+        self.to_pdf[item]
     }
 
     fn pdf_indices<'a>(

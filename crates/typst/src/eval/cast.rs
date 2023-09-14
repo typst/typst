@@ -4,9 +4,9 @@ use unicode_math_class::MathClass;
 use std::fmt::Write;
 use std::ops::Add;
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 
-use super::Value;
+use super::{Type, Value};
 use crate::diag::{At, SourceResult, StrResult};
 use crate::syntax::{Span, Spanned};
 use crate::util::separated_list;
@@ -25,8 +25,11 @@ use crate::util::separated_list;
 /// `From<T> for Value`, but that inverses the impl and leads to tons of
 /// `.into()` all over the place that become hard to decipher.
 pub trait Reflect {
-    /// Describe the acceptable values for this type.
-    fn describe() -> CastInfo;
+    /// Describe what can be cast into this value.
+    fn input() -> CastInfo;
+
+    /// Describe what this value can be cast into.
+    fn output() -> CastInfo;
 
     /// Whether the given value can be converted to `T`.
     ///
@@ -45,12 +48,16 @@ pub trait Reflect {
     /// );
     /// ```
     fn error(found: &Value) -> EcoString {
-        Self::describe().error(found)
+        Self::input().error(found)
     }
 }
 
 impl Reflect for Value {
-    fn describe() -> CastInfo {
+    fn input() -> CastInfo {
+        CastInfo::Any
+    }
+
+    fn output() -> CastInfo {
         CastInfo::Any
     }
 
@@ -60,8 +67,12 @@ impl Reflect for Value {
 }
 
 impl<T: Reflect> Reflect for Spanned<T> {
-    fn describe() -> CastInfo {
-        T::describe()
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
     }
 
     fn castable(value: &Value) -> bool {
@@ -70,8 +81,12 @@ impl<T: Reflect> Reflect for Spanned<T> {
 }
 
 impl<T: Reflect> Reflect for StrResult<T> {
-    fn describe() -> CastInfo {
-        T::describe()
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
     }
 
     fn castable(value: &Value) -> bool {
@@ -80,8 +95,12 @@ impl<T: Reflect> Reflect for StrResult<T> {
 }
 
 impl<T: Reflect> Reflect for SourceResult<T> {
-    fn describe() -> CastInfo {
-        T::describe()
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
     }
 
     fn castable(value: &Value) -> bool {
@@ -90,8 +109,12 @@ impl<T: Reflect> Reflect for SourceResult<T> {
 }
 
 impl<T: Reflect> Reflect for &T {
-    fn describe() -> CastInfo {
-        T::describe()
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
     }
 
     fn castable(value: &Value) -> bool {
@@ -100,8 +123,12 @@ impl<T: Reflect> Reflect for &T {
 }
 
 impl<T: Reflect> Reflect for &mut T {
-    fn describe() -> CastInfo {
-        T::describe()
+    fn input() -> CastInfo {
+        T::input()
+    }
+
+    fn output() -> CastInfo {
+        T::output()
     }
 
     fn castable(value: &Value) -> bool {
@@ -191,7 +218,7 @@ pub enum CastInfo {
     /// A specific value, plus short documentation for that value.
     Value(Value, &'static str),
     /// Any value of a type.
-    Type(&'static str),
+    Type(Type),
     /// Multiple alternatives.
     Union(Vec<Self>),
 }
@@ -200,32 +227,20 @@ impl CastInfo {
     /// Produce an error message describing what was expected and what was
     /// found.
     pub fn error(&self, found: &Value) -> EcoString {
-        fn accumulate(
-            info: &CastInfo,
-            found: &Value,
-            parts: &mut Vec<EcoString>,
-            matching_type: &mut bool,
-        ) {
-            match info {
-                CastInfo::Any => parts.push("anything".into()),
-                CastInfo::Value(value, _) => {
-                    parts.push(value.repr().into());
-                    if value.type_name() == found.type_name() {
-                        *matching_type = true;
-                    }
-                }
-                CastInfo::Type(ty) => parts.push((*ty).into()),
-                CastInfo::Union(options) => {
-                    for option in options {
-                        accumulate(option, found, parts, matching_type);
-                    }
-                }
-            }
-        }
-
         let mut matching_type = false;
         let mut parts = vec![];
-        accumulate(self, found, &mut parts, &mut matching_type);
+
+        self.walk(|info| match info {
+            CastInfo::Any => parts.push("anything".into()),
+            CastInfo::Value(value, _) => {
+                parts.push(value.repr().into());
+                if value.ty() == found.ty() {
+                    matching_type = true;
+                }
+            }
+            CastInfo::Type(ty) => parts.push(eco_format!("{ty}")),
+            CastInfo::Union(_) => {}
+        });
 
         let mut msg = String::from("expected ");
         if parts.is_empty() {
@@ -236,7 +251,7 @@ impl CastInfo {
 
         if !matching_type {
             msg.push_str(", found ");
-            msg.push_str(found.type_name());
+            write!(msg, "{}", found.ty()).unwrap();
         }
         if_chain::if_chain! {
             if let Value::Int(i) = found;
@@ -248,6 +263,27 @@ impl CastInfo {
         };
 
         msg.into()
+    }
+
+    /// Walk all contained non-union infos.
+    pub fn walk<F>(&self, mut f: F)
+    where
+        F: FnMut(&Self),
+    {
+        fn inner<F>(info: &CastInfo, f: &mut F)
+        where
+            F: FnMut(&CastInfo),
+        {
+            if let CastInfo::Union(infos) = info {
+                for child in infos {
+                    inner(child, f);
+                }
+            } else {
+                f(info);
+            }
+        }
+
+        inner(self, &mut f)
     }
 }
 
@@ -299,7 +335,11 @@ impl<T> Container for Vec<T> {
 pub enum Never {}
 
 impl Reflect for Never {
-    fn describe() -> CastInfo {
+    fn input() -> CastInfo {
+        CastInfo::Union(vec![])
+    }
+
+    fn output() -> CastInfo {
         CastInfo::Union(vec![])
     }
 

@@ -3,14 +3,16 @@ use std::collections::{BTreeSet, HashSet};
 
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
+use serde::{Deserialize, Serialize};
 use unscanny::Scanner;
 
 use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
 use crate::eval::{
-    fields_on, format_str, methods_on, CastInfo, Func, Library, Scope, Value,
+    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Scope, Type, Value,
 };
+use crate::geom::Color;
 use crate::syntax::{
     ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
 };
@@ -46,7 +48,7 @@ pub fn autocomplete(
 }
 
 /// An autocompletion option.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Completion {
     /// The kind of item this completes to.
     pub kind: CompletionKind,
@@ -62,12 +64,15 @@ pub struct Completion {
 }
 
 /// A kind of item that can be completed.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum CompletionKind {
     /// A syntactical structure.
     Syntax,
     /// A function.
     Func,
+    /// A type.
+    Type,
     /// A function parameter.
     Param,
     /// A constant.
@@ -350,7 +355,17 @@ fn complete_field_accesses(ctx: &mut CompletionContext) -> bool {
 
 /// Add completions for all fields on a value.
 fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
-    for &(method, args) in methods_on(value.type_name()) {
+    for (name, value) in value.ty().scope().iter() {
+        ctx.value_completion(Some(name.clone()), value, true, None);
+    }
+
+    if let Some(scope) = value.scope() {
+        for (name, value) in scope.iter() {
+            ctx.value_completion(Some(name.clone()), value, true, None);
+        }
+    }
+
+    for &(method, args) in crate::eval::mutable_methods_on(value.ty()) {
         ctx.completions.push(Completion {
             kind: CompletionKind::Func,
             label: method.into(),
@@ -363,7 +378,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         })
     }
 
-    for &field in fields_on(value.type_name()) {
+    for &field in crate::eval::fields_on(value.ty()) {
         // Complete the field name along with its value. Notes:
         // 1. No parentheses since function fields cannot currently be called
         // with method syntax;
@@ -392,7 +407,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
         Value::Content(content) => {
             for (name, value) in content.fields() {
-                ctx.value_completion(Some(name.clone()), &value, false, None);
+                ctx.value_completion(Some(name.into()), &value, false, None);
             }
         }
         Value::Dict(dict) => {
@@ -400,17 +415,14 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
                 ctx.value_completion(Some(name.clone().into()), value, false, None);
             }
         }
-        Value::Module(module) => {
-            for (name, value) in module.scope().iter() {
-                ctx.value_completion(Some(name.clone()), value, true, None);
-            }
-        }
-        Value::Func(func) => {
-            if let Some(info) = func.info() {
-                // Consider all names from the function's scope.
-                for (name, value) in info.scope.iter() {
-                    ctx.value_completion(Some(name.clone()), value, true, None);
-                }
+        Value::Plugin(plugin) => {
+            for name in plugin.iter() {
+                ctx.completions.push(Completion {
+                    kind: CompletionKind::Func,
+                    label: name.clone(),
+                    apply: None,
+                    detail: None,
+                })
             }
         }
         _ => {}
@@ -442,13 +454,13 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
     // "#import "path.typ": a, b, |".
     if_chain! {
         if let Some(prev) = ctx.leaf.prev_sibling();
-        if let Some(ast::Expr::Import(import)) = prev.cast();
+        if let Some(ast::Expr::Import(import)) = prev.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
         if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.cursor;
-            import_item_completions(ctx, &items, &value);
+            import_item_completions(ctx, items, &value);
             return true;
         }
     }
@@ -460,13 +472,13 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(parent) = ctx.leaf.parent();
         if parent.kind() == SyntaxKind::ImportItems;
         if let Some(grand) = parent.parent();
-        if let Some(ast::Expr::Import(import)) = grand.cast();
+        if let Some(ast::Expr::Import(import)) = grand.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = grand.children().find(|child| child.is::<ast::Expr>());
         if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.leaf.offset();
-            import_item_completions(ctx, &items, &value);
+            import_item_completions(ctx, items, &value);
             return true;
         }
     }
@@ -475,9 +487,9 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for all exports of a module.
-fn import_item_completions(
-    ctx: &mut CompletionContext,
-    existing: &[ast::Ident],
+fn import_item_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    existing: ast::ImportItems<'a>,
     value: &Value,
 ) {
     let module = match value {
@@ -489,12 +501,12 @@ fn import_item_completions(
         _ => return,
     };
 
-    if existing.is_empty() {
+    if existing.iter().next().is_none() {
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
     for (name, value) in module.scope().iter() {
-        if existing.iter().all(|ident| ident.as_str() != name) {
+        if existing.iter().all(|item| item.original_name().as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, false, None);
         }
     }
@@ -543,9 +555,10 @@ fn set_rule_completions(ctx: &mut CompletionContext) {
     ctx.scope_completions(true, |value| {
         matches!(
             value,
-            Value::Func(func) if func.info().map_or(false, |info| {
-                info.params.iter().any(|param| param.settable)
-            }),
+            Value::Func(func) if func.params()
+                .unwrap_or_default()
+                .iter()
+                .any(|param| param.settable),
         )
     });
 }
@@ -604,9 +617,9 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             SyntaxKind::Named => parent.parent(),
             _ => Some(parent),
         };
-        if let Some(args) = parent.cast::<ast::Args>();
+        if let Some(args) = parent.get().cast::<ast::Args>();
         if let Some(grand) = parent.parent();
-        if let Some(expr) = grand.cast::<ast::Expr>();
+        if let Some(expr) = grand.get().cast::<ast::Expr>();
         let set = matches!(expr, ast::Expr::Set(_));
         if let Some(callee) = match expr {
             ast::Expr::FuncCall(call) => Some(call.callee()),
@@ -634,13 +647,13 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
     if_chain! {
         if deciding.kind() == SyntaxKind::Colon;
         if let Some(prev) = deciding.prev_leaf();
-        if let Some(param) = prev.cast::<ast::Ident>();
+        if let Some(param) = prev.get().cast::<ast::Ident>();
         then {
             if let Some(next) = deciding.next_leaf() {
                 ctx.from = ctx.cursor.min(next.offset());
             }
 
-            named_param_value_completions(ctx, &callee, &param);
+            named_param_value_completions(ctx, callee, &param);
             return true;
         }
     }
@@ -655,12 +668,15 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
             }
 
             // Exclude arguments which are already present.
-            let exclude: Vec<_> = args.items().filter_map(|arg| match arg {
-                ast::Arg::Named(named) => Some(named.name()),
-                _ => None,
-            }).collect();
+            let exclude: Vec<_> = args
+                .items()
+                .filter_map(|arg| match arg {
+                    ast::Arg::Named(named) => Some(named.name()),
+                    _ => None,
+                })
+                .collect();
 
-            param_completions(ctx, &callee, set, &exclude);
+            param_completions(ctx, callee, set, &exclude);
             return true;
         }
     }
@@ -669,16 +685,16 @@ fn complete_params(ctx: &mut CompletionContext) -> bool {
 }
 
 /// Add completions for the parameters of a function.
-fn param_completions(
-    ctx: &mut CompletionContext,
-    callee: &ast::Expr,
+fn param_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    callee: ast::Expr<'a>,
     set: bool,
-    exclude: &[ast::Ident],
+    exclude: &[ast::Ident<'a>],
 ) {
     let Some(func) = resolve_global_callee(ctx, callee) else { return };
-    let Some(info) = func.info() else { return };
+    let Some(params) = func.params() else { return };
 
-    for param in &info.params {
+    for param in params {
         if exclude.iter().any(|ident| ident.as_str() == param.name) {
             continue;
         }
@@ -697,7 +713,7 @@ fn param_completions(
         }
 
         if param.positional {
-            ctx.cast_completions(&param.cast);
+            ctx.cast_completions(&param.input);
         }
     }
 
@@ -707,19 +723,18 @@ fn param_completions(
 }
 
 /// Add completions for the values of a named function parameter.
-fn named_param_value_completions(
-    ctx: &mut CompletionContext,
-    callee: &ast::Expr,
+fn named_param_value_completions<'a>(
+    ctx: &mut CompletionContext<'a>,
+    callee: ast::Expr<'a>,
     name: &str,
 ) {
     let Some(func) = resolve_global_callee(ctx, callee) else { return };
-    let Some(info) = func.info() else { return };
-    let Some(param) = info.param(name) else { return };
+    let Some(param) = func.param(name) else { return };
     if !param.named {
         return;
     }
 
-    ctx.cast_completions(&param.cast);
+    ctx.cast_completions(&param.input);
     if name == "font" {
         ctx.font_completions();
     }
@@ -732,14 +747,14 @@ fn named_param_value_completions(
 /// Resolve a callee expression to a global function.
 fn resolve_global_callee<'a>(
     ctx: &CompletionContext<'a>,
-    callee: &ast::Expr,
+    callee: ast::Expr<'a>,
 ) -> Option<&'a Func> {
     let value = match callee {
-        ast::Expr::Ident(ident) => ctx.global.get(ident)?,
+        ast::Expr::Ident(ident) => ctx.global.get(&ident)?,
         ast::Expr::FieldAccess(access) => match access.target() {
             ast::Expr::Ident(target) => match ctx.global.get(&target)? {
-                Value::Module(module) => module.get(&access.field()).ok()?,
-                Value::Func(func) => func.get(&access.field()).ok()?,
+                Value::Module(module) => module.field(&access.field()).ok()?,
+                Value::Func(func) => func.field(&access.field()).ok()?,
                 _ => return None,
             },
             _ => return None,
@@ -791,7 +806,7 @@ fn complete_code(ctx: &mut CompletionContext) -> bool {
 #[rustfmt::skip]
 fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
     ctx.scope_completions(true, |value| !hashtag || {
-        matches!(value, Value::Symbol(_) | Value::Func(_) | Value::Module(_))
+        matches!(value, Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_))
     });
 
     ctx.snippet_completion(
@@ -1088,7 +1103,7 @@ impl<'a> CompletionContext<'a> {
 
         let detail = docs.map(Into::into).or_else(|| match value {
             Value::Symbol(_) => None,
-            Value::Func(func) => func.info().map(|info| plain_docs_sentence(info.docs)),
+            Value::Func(func) => func.docs().map(plain_docs_sentence),
             v => {
                 let repr = v.repr();
                 (repr.as_str() != label).then(|| repr.into())
@@ -1097,7 +1112,16 @@ impl<'a> CompletionContext<'a> {
 
         let mut apply = None;
         if parens && matches!(value, Value::Func(_)) {
-            apply = Some(eco_format!("{label}(${{}})"));
+            if let Value::Func(func) = value {
+                if func
+                    .params()
+                    .is_some_and(|params| params.iter().all(|param| param.name == "self"))
+                {
+                    apply = Some(eco_format!("{label}()${{}}"));
+                } else {
+                    apply = Some(eco_format!("{label}(${{}})"));
+                }
+            }
         } else if at {
             apply = Some(eco_format!("at(\"{label}\")"));
         } else if label.starts_with('"') && self.after.starts_with('"') {
@@ -1109,6 +1133,7 @@ impl<'a> CompletionContext<'a> {
         self.completions.push(Completion {
             kind: match value {
                 Value::Func(_) => CompletionKind::Func,
+                Value::Type(_) => CompletionKind::Type,
                 Value::Symbol(s) => CompletionKind::Symbol(s.get()),
                 _ => CompletionKind::Constant,
             },
@@ -1130,47 +1155,46 @@ impl<'a> CompletionContext<'a> {
             CastInfo::Value(value, docs) => {
                 self.value_completion(None, value, true, Some(docs));
             }
-            CastInfo::Type("none") => self.snippet_completion("none", "none", "Nothing."),
-            CastInfo::Type("auto") => {
-                self.snippet_completion("auto", "auto", "A smart default.");
-            }
-            CastInfo::Type("boolean") => {
-                self.snippet_completion("false", "false", "No / Disabled.");
-                self.snippet_completion("true", "true", "Yes / Enabled.");
-            }
-            CastInfo::Type("color") => {
-                self.snippet_completion(
-                    "luma()",
-                    "luma(${v})",
-                    "A custom grayscale color.",
-                );
-                self.snippet_completion(
-                    "rgb()",
-                    "rgb(${r}, ${g}, ${b}, ${a})",
-                    "A custom RGBA color.",
-                );
-                self.snippet_completion(
-                    "cmyk()",
-                    "cmyk(${c}, ${m}, ${y}, ${k})",
-                    "A custom CMYK color.",
-                );
-                self.scope_completions(false, |value| value.type_name() == "color");
-            }
-            CastInfo::Type("function") => {
-                self.snippet_completion(
-                    "function",
-                    "(${params}) => ${output}",
-                    "A custom function.",
-                );
-            }
             CastInfo::Type(ty) => {
-                self.completions.push(Completion {
-                    kind: CompletionKind::Syntax,
-                    label: (*ty).into(),
-                    apply: Some(eco_format!("${{{ty}}}")),
-                    detail: Some(eco_format!("A value of type {ty}.")),
-                });
-                self.scope_completions(false, |value| value.type_name() == *ty);
+                if *ty == Type::of::<NoneValue>() {
+                    self.snippet_completion("none", "none", "Nothing.")
+                } else if *ty == Type::of::<AutoValue>() {
+                    self.snippet_completion("auto", "auto", "A smart default.");
+                } else if *ty == Type::of::<bool>() {
+                    self.snippet_completion("false", "false", "No / Disabled.");
+                    self.snippet_completion("true", "true", "Yes / Enabled.");
+                } else if *ty == Type::of::<Color>() {
+                    self.snippet_completion(
+                        "luma()",
+                        "luma(${v})",
+                        "A custom grayscale color.",
+                    );
+                    self.snippet_completion(
+                        "rgb()",
+                        "rgb(${r}, ${g}, ${b}, ${a})",
+                        "A custom RGBA color.",
+                    );
+                    self.snippet_completion(
+                        "cmyk()",
+                        "cmyk(${c}, ${m}, ${y}, ${k})",
+                        "A custom CMYK color.",
+                    );
+                    self.scope_completions(false, |value| value.ty() == *ty);
+                } else if *ty == Type::of::<Func>() {
+                    self.snippet_completion(
+                        "function",
+                        "(${params}) => ${output}",
+                        "A custom function.",
+                    );
+                } else {
+                    self.completions.push(Completion {
+                        kind: CompletionKind::Syntax,
+                        label: ty.long_name().into(),
+                        apply: Some(eco_format!("${{{ty}}}")),
+                        detail: Some(eco_format!("A value of type {ty}.")),
+                    });
+                    self.scope_completions(false, |value| value.ty() == *ty);
+                }
             }
             CastInfo::Union(union) => {
                 for info in union {
@@ -1189,20 +1213,20 @@ impl<'a> CompletionContext<'a> {
         while let Some(node) = &ancestor {
             let mut sibling = Some(node.clone());
             while let Some(node) = &sibling {
-                if let Some(v) = node.cast::<ast::LetBinding>() {
+                if let Some(v) = node.get().cast::<ast::LetBinding>() {
                     for ident in v.kind().idents() {
-                        defined.insert(ident.take());
+                        defined.insert(ident.get());
                     }
                 }
                 sibling = node.prev_sibling();
             }
 
             if let Some(parent) = node.parent() {
-                if let Some(v) = parent.cast::<ast::ForLoop>() {
+                if let Some(v) = parent.get().cast::<ast::ForLoop>() {
                     if node.prev_sibling_kind() != Some(SyntaxKind::In) {
                         let pattern = v.pattern();
                         for ident in pattern.idents() {
-                            defined.insert(ident.take());
+                            defined.insert(ident.get());
                         }
                     }
                 }
@@ -1233,7 +1257,7 @@ impl<'a> CompletionContext<'a> {
             if !name.is_empty() {
                 self.completions.push(Completion {
                     kind: CompletionKind::Constant,
-                    label: name,
+                    label: name.clone(),
                     apply: None,
                     detail: None,
                 });

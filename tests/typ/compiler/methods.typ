@@ -31,7 +31,7 @@
 #test(auto, [a].at("doesn't exist", default: auto))
 
 ---
-// Error: 2:2-2:15 type array has no method `fun`
+// Error: 2:10-2:13 type array has no method `fun`
 #let numbers = ()
 #numbers.fun()
 
@@ -76,23 +76,23 @@
 #test((5em + 6in).abs.inches(), 6.0)
 
 ---
-// Error: 2-21 cannot convert a length with non-zero em units (-6pt + 10.5em) to pt
-// Hint: 2-21 use 'length.abs.pt()' instead to ignore its em component
+// Error: 2-21 cannot convert a length with non-zero em units (`-6pt + 10.5em`) to pt
+// Hint: 2-21 use `length.abs.pt()` instead to ignore its em component
 #(10.5em - 6pt).pt()
 
 ---
-// Error: 2-12 cannot convert a length with non-zero em units (3em) to cm
-// Hint: 2-12 use 'length.abs.cm()' instead to ignore its em component
+// Error: 2-12 cannot convert a length with non-zero em units (`3em`) to cm
+// Hint: 2-12 use `length.abs.cm()` instead to ignore its em component
 #(3em).cm()
 
 ---
-// Error: 2-20 cannot convert a length with non-zero em units (-226.77pt + 93em) to mm
-// Hint: 2-20 use 'length.abs.mm()' instead to ignore its em component
+// Error: 2-20 cannot convert a length with non-zero em units (`-226.77pt + 93em`) to mm
+// Hint: 2-20 use `length.abs.mm()` instead to ignore its em component
 #(93em - 80mm).mm()
 
 ---
-// Error: 2-24 cannot convert a length with non-zero em units (432pt + 4.5em) to inches
-// Hint: 2-24 use 'length.abs.inches()' instead to ignore its em component
+// Error: 2-24 cannot convert a length with non-zero em units (`432pt + 4.5em`) to inches
+// Hint: 2-24 use `length.abs.inches()` instead to ignore its em component
 #(4.5em + 6in).inches()
 
 ---
@@ -104,32 +104,32 @@
 
 ---
 // Test color '.rgba()', '.cmyk()' and '.luma()' without conversions
-#test(rgb(1, 2, 3, 4).rgba(), (1, 2, 3, 4))
-#test(rgb(1, 2, 3).rgba(), (1, 2, 3, 255))
-#test(cmyk(20%, 20%, 40%, 20%).cmyk(), (20%, 20%, 40%, 20%))
-#test(luma(40).luma(), 40)
+#test(rgb(1, 2, 3, 4).to-rgba(), (1, 2, 3, 4))
+#test(rgb(1, 2, 3).to-rgba(), (1, 2, 3, 255))
+#test(cmyk(20%, 20%, 40%, 20%).to-cmyk(), (20%, 20%, 40%, 20%))
+#test(luma(40).to-luma(), 40)
 
 ---
 // Test color conversions.
-#test(rgb(1, 2, 3).hex(), "#010203")
-#test(rgb(1, 2, 3, 4).hex(), "#01020304")
-#test(cmyk(4%, 5%, 6%, 7%).rgba(), (228, 225, 223, 255))
-#test(cmyk(4%, 5%, 6%, 7%).hex(), "#e4e1df")
-#test(luma(40).rgba(), (40, 40, 40, 255))
-#test(luma(40).hex(), "#282828")
-#test(repr(luma(40).cmyk()), repr((11.76%, 10.59%, 10.59%, 14.12%)))
+#test(rgb(1, 2, 3).to-hex(), "#010203")
+#test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
+#test(cmyk(4%, 5%, 6%, 7%).to-rgba(), (228, 225, 223, 255))
+#test(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
+#test(luma(40).to-rgba(), (40, 40, 40, 255))
+#test(luma(40).to-hex(), "#282828")
+#test(repr(luma(40).to-cmyk()), repr((11.76%, 10.59%, 10.59%, 14.12%)))
 
 ---
-// Error: 2-24 cannot obtain cmyk values from rgba color
-#rgb(1, 2, 3, 4).cmyk()
+// Error: 2-27 cannot obtain cmyk values from rgba color
+#rgb(1, 2, 3, 4).to-cmyk()
 
 ---
-// Error: 2-24 cannot obtain the luma value of rgba color
-#rgb(1, 2, 3, 4).luma()
+// Error: 2-27 cannot obtain the luma value of rgba color
+#rgb(1, 2, 3, 4).to-luma()
 
 ---
-// Error: 2-29 cannot obtain the luma value of cmyk color
-#cmyk(4%, 5%, 6%, 7%).luma()
+// Error: 2-32 cannot obtain the luma value of cmyk color
+#cmyk(4%, 5%, 6%, 7%).to-luma()
 
 ---
 // Test alignment methods.
@@ -198,3 +198,11 @@
 #test(2deg.deg(), 2.0)
 #test(2.94deg.deg(), 2.94)
 #test(0rad.deg(), 0.0)
+
+---
+// Test date methods.
+#test(datetime(day: 1, month: 1, year: 2000).ordinal(), 1);
+#test(datetime(day: 1, month: 3, year: 2000).ordinal(), 31 + 29 + 1);
+#test(datetime(day: 31, month: 12, year: 2000).ordinal(), 366);
+#test(datetime(day: 1, month: 3, year: 2001).ordinal(), 31 + 28 + 1);
+#test(datetime(day: 31, month: 12, year: 2001).ordinal(), 365);

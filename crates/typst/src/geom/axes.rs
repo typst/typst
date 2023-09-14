@@ -57,6 +57,14 @@ impl<T> Axes<T> {
         Axes { x: (self.x, other.x), y: (self.y, other.y) }
     }
 
+    /// Apply a function to this and another-instance componentwise.
+    pub fn zip_map<F, V, U>(self, other: Axes<V>, mut f: F) -> Axes<U>
+    where
+        F: FnMut(T, V) -> U,
+    {
+        Axes { x: f(self.x, other.x), y: f(self.y, other.y) }
+    }
+
     /// Whether a condition is true for at least one of fields.
     pub fn any<F>(self, mut f: F) -> bool
     where
@@ -139,11 +147,7 @@ where
     T: Debug + 'static,
 {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if let Axes { x: Some(x), y: Some(y) } =
-            self.as_ref().map(|v| (v as &dyn Any).downcast_ref::<GenAlign>())
-        {
-            write!(f, "{:?} + {:?}", x, y)
-        } else if (&self.x as &dyn Any).is::<Abs>() {
+        if (&self.x as &dyn Any).is::<Abs>() {
             write!(f, "Size({:?}, {:?})", self.x, self.y)
         } else {
             write!(f, "Axes({:?}, {:?})", self.x, self.y)
@@ -192,6 +196,13 @@ impl Debug for Axis {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(self.description())
     }
+}
+
+cast! {
+    Axis,
+    self => self.description().into_value(),
+    "horizontal" => Self::X,
+    "vertical" => Self::X,
 }
 
 impl<T> Axes<Option<T>> {
@@ -302,7 +313,7 @@ impl<T: Fold> Fold for Axes<Option<T>> {
     type Output = Axes<T::Output>;
 
     fn fold(self, outer: Self::Output) -> Self::Output {
-        self.zip(outer).map(|(inner, outer)| match inner {
+        self.zip_map(outer, |inner, outer| match inner {
             Some(value) => value.fold(outer),
             None => outer,
         })

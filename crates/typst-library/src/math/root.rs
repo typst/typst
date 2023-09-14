@@ -2,14 +2,10 @@ use super::*;
 
 /// A square root.
 ///
-/// ## Example { #example }
 /// ```example
-/// $ sqrt(x^2) = x = sqrt(x)^2 $
+/// $ sqrt(3 - 2 sqrt(2)) = sqrt(2) - 1 $
 /// ```
-///
-/// Display: Square Root
-/// Category: math
-#[func]
+#[func(title = "Square Root")]
 pub fn sqrt(
     /// The expression to take the square root of.
     radicand: Content,
@@ -19,14 +15,10 @@ pub fn sqrt(
 
 /// A general root.
 ///
-/// ## Example { #example }
 /// ```example
 /// $ root(3, x) $
 /// ```
-///
-/// Display: Root
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct RootElem {
     /// Which root of the radicand to take.
     #[positional]
@@ -129,10 +121,10 @@ fn layout(
     frame.push(
         line_pos,
         FrameItem::Shape(
-            Geometry::Line(Point::with_x(radicand.width())).stroked(Stroke {
+            Geometry::Line(Point::with_x(radicand.width())).stroked(FixedStroke {
                 paint: TextElem::fill_in(ctx.styles()),
                 thickness,
-                ..Stroke::default()
+                ..FixedStroke::default()
             }),
             span,
         ),

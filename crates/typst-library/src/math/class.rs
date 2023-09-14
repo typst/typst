@@ -5,7 +5,7 @@ use super::*;
 /// This is useful to treat certain symbols as if they were of a different
 /// class, e.g. to make a symbol behave like a relation.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #let loves = math.class(
 ///   "relation",
@@ -14,10 +14,7 @@ use super::*;
 ///
 /// $x loves y and y loves 5$
 /// ```
-///
-/// Display: Class
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct ClassElem {
     /// The class to apply to the content.
     #[required]
