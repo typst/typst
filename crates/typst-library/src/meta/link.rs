@@ -6,7 +6,7 @@ use crate::text::{Hyphenate, TextElem};
 /// By default, links are not styled any different from normal text. However,
 /// you can easily apply a style of your choice with a show rule.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #show link: underline
 ///
@@ -18,13 +18,10 @@ use crate::text::{Hyphenate, TextElem};
 /// ]
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: Text that starts with `http://` or
 /// `https://` is automatically turned into a link.
-///
-/// Display: Link
-/// Category: meta
-#[element(Show)]
+#[elem(Show)]
 pub struct LinkElem {
     /// The destination the link points to.
     ///
@@ -35,17 +32,16 @@ pub struct LinkElem {
     ///
     /// - To link to another part of the document, `dest` can take one of three
     ///   forms:
-    ///   - A [label]($func/label) attached to an element. If you also want
-    ///     automatic text for the link based on the element, consider using
-    ///     a [reference]($func/ref) instead.
+    ///   - A [label]($label) attached to an element. If you also want automatic
+    ///     text for the link based on the element, consider using a
+    ///     [reference]($ref) instead.
     ///
-    ///   - A [location]($func/locate) resulting from a [`locate`]($func/locate)
-    ///     call or [`query`]($func/query).
+    ///   - A [location]($locate) resulting from a [`locate`]($locate) call or
+    ///     [`query`]($query).
     ///
-    ///   - A dictionary with a `page` key of type [integer]($type/integer) and
-    ///     `x` and `y` coordinates of type [length]($type/length). Pages are
-    ///     counted from one, and the coordinates are relative to the page's top
-    ///     left corner.
+    ///   - A dictionary with a `page` key of type [integer]($int) and `x` and
+    ///     `y` coordinates of type [length]($length). Pages are counted from
+    ///     one, and the coordinates are relative to the page's top left corner.
     ///
     /// ```example
     /// = Introduction <intro>

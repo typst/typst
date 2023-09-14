@@ -12,15 +12,12 @@ const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
 ///
 /// Content in the vector's elements can be aligned with the `&` symbol.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// $ vec(a, b, c) dot vec(1, 2, 3)
 ///     = a + 2b + 3c $
 /// ```
-///
-/// Display: Vector
-/// Category: math
-#[element(LayoutMath)]
+#[elem(title = "Vector", LayoutMath)]
 pub struct VecElem {
     /// The delimiter to use.
     ///
@@ -40,7 +37,7 @@ impl LayoutMath for VecElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
-        let frame = layout_vec_body(ctx, &self.children(), Align::Center)?;
+        let frame = layout_vec_body(ctx, &self.children(), FixedAlign::Center)?;
         layout_delimiters(
             ctx,
             frame,
@@ -61,7 +58,7 @@ impl LayoutMath for VecElem {
 ///
 /// Content in cells that are in the same row can be aligned with the `&` symbol.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// $ mat(
 ///   1, 2, ..., 10;
@@ -70,10 +67,7 @@ impl LayoutMath for VecElem {
 ///   10, 10, ..., 10;
 /// ) $
 /// ```
-///
-/// Display: Matrix
-/// Category: math
-#[element(LayoutMath)]
+#[elem(title = "Matrix", LayoutMath)]
 pub struct MatElem {
     /// The delimiter to use.
     ///
@@ -102,10 +96,8 @@ pub struct MatElem {
     ///     drawn after the second column of the matrix. Accepts either an
     ///     integer for a single line, or an array of integers
     ///     for multiple lines.
-    ///   - `stroke`: How to stroke the line. See the
-    ///     [line's documentation]($func/line.stroke)
-    ///     for more details. If set to `{auto}`, takes on a thickness of
-    ///     0.05em and square line caps.
+    ///   - `stroke`: How to [stroke]($stroke) the line. If set to `{auto}`,
+    ///     takes on a thickness of 0.05em and square line caps.
     ///
     /// ```example
     /// $ mat(1, 0, 1; 0, 1, 2; augment: #2) $
@@ -204,7 +196,7 @@ impl LayoutMath for MatElem {
 ///
 /// Content across different branches can be aligned with the `&` symbol.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// $ f(x, y) := cases(
 ///   1 "if" (x dot y)/2 <= 0,
@@ -213,10 +205,7 @@ impl LayoutMath for MatElem {
 ///   4 "else",
 /// ) $
 /// ```
-///
-/// Display: Cases
-/// Category: math
-#[element(LayoutMath)]
+#[elem(LayoutMath)]
 pub struct CasesElem {
     /// The delimiter to use.
     ///
@@ -236,7 +225,7 @@ impl LayoutMath for CasesElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
-        let frame = layout_vec_body(ctx, &self.children(), Align::Left)?;
+        let frame = layout_vec_body(ctx, &self.children(), FixedAlign::Start)?;
         layout_delimiters(ctx, frame, Some(delim.open()), None, self.span())
     }
 }
@@ -289,7 +278,7 @@ impl Delimiter {
 fn layout_vec_body(
     ctx: &mut MathContext,
     column: &[Content],
-    align: Align,
+    align: FixedAlign,
 ) -> SourceResult<Frame> {
     let gap = ROW_GAP.scaled(ctx);
     ctx.style(ctx.style.for_denominator());
@@ -319,7 +308,7 @@ fn layout_mat_body(
     // look correct by default at all matrix sizes.
     // The line cap is also set to square because it looks more "correct".
     let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.scaled(ctx);
-    let default_stroke = Stroke {
+    let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
         line_cap: LineCap::Square,
         ..Default::default()
@@ -383,7 +372,7 @@ fn layout_mat_body(
         let mut y = Abs::zero();
 
         for (cell, &(ascent, descent)) in col.into_iter().zip(&heights) {
-            let cell = cell.into_aligned_frame(ctx, &points, Align::Center);
+            let cell = cell.into_aligned_frame(ctx, &points, FixedAlign::Center);
             let pos = Point::new(
                 if points.is_empty() { x + (rcol - cell.width()) / 2.0 } else { x },
                 y + ascent - cell.ascent(),
@@ -429,7 +418,7 @@ fn layout_mat_body(
     Ok(frame)
 }
 
-fn line_item(length: Abs, vertical: bool, stroke: Stroke, span: Span) -> FrameItem {
+fn line_item(length: Abs, vertical: bool, stroke: FixedStroke, span: Span) -> FrameItem {
     let line_geom = if vertical {
         Geometry::Line(Point::with_y(length))
     } else {
@@ -482,14 +471,14 @@ fn layout_delimiters(
 /// Parameters specifying how augmentation lines
 /// should be drawn on a matrix.
 #[derive(Default, Clone, Hash)]
-pub struct Augment<T = Length> {
+pub struct Augment<T: Numeric = Length> {
     pub hline: Offsets,
     pub vline: Offsets,
-    pub stroke: Smart<PartialStroke<T>>,
+    pub stroke: Smart<Stroke<T>>,
 }
 
 impl Augment<Abs> {
-    fn stroke_or(&self, fallback: Stroke) -> Stroke {
+    fn stroke_or(&self, fallback: FixedStroke) -> FixedStroke {
         match &self.stroke {
             Smart::Custom(v) => v.clone().unwrap_or(fallback),
             _ => fallback,
@@ -543,7 +532,7 @@ cast! {
         let vline = dict.take("vline").ok().map(Offsets::from_value)
             .transpose().unwrap_or_default().unwrap_or_default();
 
-        let stroke = dict.take("stroke").ok().map(PartialStroke::from_value)
+        let stroke = dict.take("stroke").ok().map(Stroke::from_value)
             .transpose()?.map(Smart::Custom).unwrap_or(Smart::Auto);
 
         Augment { hline, vline, stroke }

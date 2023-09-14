@@ -14,5 +14,5 @@ pub fn module() -> Module {
 
     scope.define("version", Value::Version(version));
 
-    Module::new("info").with_scope(scope)
+    Module::new("info", scope)
 }

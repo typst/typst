@@ -7,9 +7,9 @@ mod align;
 mod attach;
 mod cancel;
 mod class;
-mod delimited;
 mod frac;
 mod fragment;
+mod lr;
 mod matrix;
 mod op;
 mod root;
@@ -24,8 +24,8 @@ pub use self::align::*;
 pub use self::attach::*;
 pub use self::cancel::*;
 pub use self::class::*;
-pub use self::delimited::*;
 pub use self::frac::*;
+pub use self::lr::*;
 pub use self::matrix::*;
 pub use self::op::*;
 pub use self::root::*;
@@ -57,79 +57,64 @@ use crate::text::{
 /// Create a module with all math definitions.
 pub fn module() -> Module {
     let mut math = Scope::deduplicating();
-    math.define("equation", EquationElem::func());
-    math.define("text", TextElem::func());
+    math.category("math");
+    math.define_elem::<EquationElem>();
+    math.define_elem::<TextElem>();
+    math.define_elem::<LrElem>();
+    math.define_elem::<AttachElem>();
+    math.define_elem::<ScriptsElem>();
+    math.define_elem::<LimitsElem>();
+    math.define_elem::<AccentElem>();
+    math.define_elem::<UnderlineElem>();
+    math.define_elem::<OverlineElem>();
+    math.define_elem::<UnderbraceElem>();
+    math.define_elem::<OverbraceElem>();
+    math.define_elem::<UnderbracketElem>();
+    math.define_elem::<OverbracketElem>();
+    math.define_elem::<CancelElem>();
+    math.define_elem::<FracElem>();
+    math.define_elem::<BinomElem>();
+    math.define_elem::<VecElem>();
+    math.define_elem::<MatElem>();
+    math.define_elem::<CasesElem>();
+    math.define_elem::<RootElem>();
+    math.define_elem::<ClassElem>();
+    math.define_elem::<OpElem>();
+    math.define_func::<abs>();
+    math.define_func::<norm>();
+    math.define_func::<floor>();
+    math.define_func::<ceil>();
+    math.define_func::<round>();
+    math.define_func::<sqrt>();
+    math.define_func::<upright>();
+    math.define_func::<bold>();
+    math.define_func::<italic>();
+    math.define_func::<serif>();
+    math.define_func::<sans>();
+    math.define_func::<cal>();
+    math.define_func::<frak>();
+    math.define_func::<mono>();
+    math.define_func::<bb>();
+    math.define_func::<display>();
+    math.define_func::<inline>();
+    math.define_func::<script>();
+    math.define_func::<sscript>();
 
-    // Grouping.
-    math.define("lr", LrElem::func());
-    math.define("abs", abs_func());
-    math.define("norm", norm_func());
-    math.define("floor", floor_func());
-    math.define("ceil", ceil_func());
-    math.define("round", round_func());
-
-    // Attachments and accents.
-    math.define("attach", AttachElem::func());
-    math.define("scripts", ScriptsElem::func());
-    math.define("limits", LimitsElem::func());
-    math.define("accent", AccentElem::func());
-    math.define("underline", UnderlineElem::func());
-    math.define("overline", OverlineElem::func());
-    math.define("underbrace", UnderbraceElem::func());
-    math.define("overbrace", OverbraceElem::func());
-    math.define("underbracket", UnderbracketElem::func());
-    math.define("overbracket", OverbracketElem::func());
-    math.define("cancel", CancelElem::func());
-
-    // Fractions and matrix-likes.
-    math.define("frac", FracElem::func());
-    math.define("binom", BinomElem::func());
-    math.define("vec", VecElem::func());
-    math.define("mat", MatElem::func());
-    math.define("cases", CasesElem::func());
-
-    // Roots.
-    math.define("sqrt", sqrt_func());
-    math.define("root", RootElem::func());
-
-    // Styles.
-    math.define("upright", upright_func());
-    math.define("bold", bold_func());
-    math.define("italic", italic_func());
-    math.define("serif", serif_func());
-    math.define("sans", sans_func());
-    math.define("cal", cal_func());
-    math.define("frak", frak_func());
-    math.define("mono", mono_func());
-    math.define("bb", bb_func());
-
-    math.define("display", display_func());
-    math.define("inline", inline_func());
-    math.define("script", script_func());
-    math.define("sscript", sscript_func());
-
-    math.define("class", ClassElem::func());
-
-    // Text operators.
-    math.define("op", OpElem::func());
+    // Text operators, spacings, and symbols.
     op::define(&mut math);
-
-    // Spacings.
     spacing::define(&mut math);
-
-    // Symbols.
     for (name, symbol) in crate::symbols::SYM {
         math.define(*name, symbol.clone());
     }
 
-    Module::new("math").with_scope(math)
+    Module::new("math", math)
 }
 
 /// A mathematical equation.
 ///
 /// Can be displayed inline with text or as a separate block.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #set text(font: "New Computer Modern")
 ///
@@ -142,16 +127,13 @@ pub fn module() -> Module {
 /// $ sum_(k=1)^n k = (n(n+1)) / 2 $
 /// ```
 ///
-/// ## Syntax { #syntax }
+/// # Syntax
 /// This function also has dedicated syntax: Write mathematical markup within
 /// dollar signs to create an equation. Starting and ending the equation with at
 /// least one space lifts it into a separate block that is centered
 /// horizontally. For more details about math syntax, see the
 /// [main math page]($category/math).
-///
-/// Display: Equation
-/// Category: math
-#[element(
+#[elem(
     Locatable, Synthesize, Show, Finalize, Layout, LayoutMath, Count, LocalName, Refable,
     Outlinable
 )]
@@ -160,7 +142,7 @@ pub struct EquationElem {
     #[default(false)]
     pub block: bool,
 
-    /// How to [number]($func/numbering) block-level equations.
+    /// How to [number]($numbering) block-level equations.
     ///
     /// ```example
     /// #set math.equation(numbering: "(1)")
@@ -216,9 +198,9 @@ impl Synthesize for EquationElem {
 impl Show for EquationElem {
     #[tracing::instrument(name = "EquationElem::show", skip_all)]
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
-        let mut realized = self.clone().pack().guarded(Guard::Base(Self::func()));
+        let mut realized = self.clone().pack().guarded(Guard::Base(Self::elem()));
         if self.block(styles) {
-            realized = realized.aligned(Axes::with_x(Some(Align::Center.into())))
+            realized = realized.aligned(Align::CENTER);
         }
         Ok(realized)
     }
@@ -264,7 +246,7 @@ impl Layout for EquationElem {
         if block {
             if let Some(numbering) = self.numbering(styles) {
                 let pod = Regions::one(regions.base(), Axes::splat(false));
-                let counter = Counter::of(Self::func())
+                let counter = Counter::of(Self::elem())
                     .display(Some(numbering), false)
                     .layout(vt, styles, pod)?
                     .into_frame();
@@ -277,7 +259,7 @@ impl Layout for EquationElem {
                 };
 
                 let height = frame.height().max(counter.height());
-                frame.resize(Size::new(width, height), Align::CENTER_HORIZON);
+                frame.resize(Size::new(width, height), Axes::splat(FixedAlign::Center));
 
                 let x = if TextElem::dir_in(styles).is_positive() {
                     frame.width() - counter.width()
@@ -289,10 +271,11 @@ impl Layout for EquationElem {
                 frame.push_frame(Point::new(x, y), counter)
             }
         } else {
+            let font_size = TextElem::size_in(styles);
             let slack = ParElem::leading_in(styles) * 0.7;
-            let top_edge = TextElem::top_edge_in(styles).resolve(styles, &font, None);
+            let top_edge = TextElem::top_edge_in(styles).resolve(font_size, &font, None);
             let bottom_edge =
-                -TextElem::bottom_edge_in(styles).resolve(styles, &font, None);
+                -TextElem::bottom_edge_in(styles).resolve(font_size, &font, None);
 
             let ascent = top_edge.max(frame.ascent() - slack);
             let descent = bottom_edge.max(frame.descent() - slack);
@@ -357,7 +340,7 @@ impl Refable for EquationElem {
     }
 
     fn counter(&self) -> Counter {
-        Counter::of(Self::func())
+        Counter::of(Self::elem())
     }
 
     fn numbering(&self) -> Option<Numbering> {
@@ -474,18 +457,20 @@ impl LayoutMath for Content {
             return Ok(());
         }
 
+        if let Some(boxed) = self.to::<BoxElem>() {
+            let frame = ctx.layout_box(boxed)?;
+            ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
+            return Ok(());
+        }
+
         if let Some(elem) = self.with::<dyn LayoutMath>() {
             return elem.layout_math(ctx);
         }
 
         let mut frame = ctx.layout_content(self)?;
         if !frame.has_baseline() {
-            if self.is::<BoxElem>() {
-                frame.set_baseline(frame.height());
-            } else {
-                let axis = scaled!(ctx, axis_height);
-                frame.set_baseline(frame.height() / 2.0 + axis);
-            }
+            let axis = scaled!(ctx, axis_height);
+            frame.set_baseline(frame.height() / 2.0 + axis);
         }
         ctx.push(FrameFragment::new(ctx, frame).with_spaced(true));
 

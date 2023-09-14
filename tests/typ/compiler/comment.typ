@@ -12,7 +12,7 @@ C/*
 
 // Works in code.
 #test(type(/*1*/ 1) //
-, "integer")
+, int)
 
 // End of block comment in line comment.
 // Hello */

@@ -14,10 +14,12 @@ mod str;
 mod value;
 mod args;
 mod auto;
+mod bool;
 mod bytes;
 mod datetime;
 mod duration;
 mod fields;
+mod float;
 mod func;
 mod int;
 mod methods;
@@ -28,6 +30,7 @@ mod plugin;
 mod scope;
 mod symbol;
 mod tracer;
+mod ty;
 mod version;
 
 #[doc(hidden)]
@@ -37,9 +40,6 @@ pub use {
     indexmap::IndexMap,
     once_cell::sync::Lazy,
 };
-
-#[doc(inline)]
-pub use typst_macros::{func, symbols};
 
 pub use self::args::{Arg, Args};
 pub use self::array::{array, Array};
@@ -51,19 +51,21 @@ pub use self::cast::{
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
-pub use self::fields::fields_on;
-pub use self::func::{Func, FuncInfo, NativeFunc, ParamInfo};
+pub use self::func::{func, Func, NativeFunc, NativeFuncData, ParamInfo};
 pub use self::library::{set_lang_items, LangItems, Library};
-pub use self::methods::methods_on;
 pub use self::module::Module;
 pub use self::none::NoneValue;
 pub use self::plugin::Plugin;
-pub use self::scope::{Scope, Scopes};
+pub use self::scope::{NativeScope, Scope, Scopes};
 pub use self::str::{format_str, Regex, Str};
-pub use self::symbol::Symbol;
+pub use self::symbol::{symbols, Symbol};
 pub use self::tracer::Tracer;
-pub use self::value::{Dynamic, Type, Value};
+pub use self::ty::{scope, ty, NativeType, NativeTypeData, Type};
+pub use self::value::{Dynamic, Value};
 pub use self::version::Version;
+
+pub(crate) use self::fields::fields_on;
+pub(crate) use self::methods::mutable_methods_on;
 
 use std::collections::HashSet;
 use std::mem;
@@ -152,7 +154,7 @@ pub fn eval(
         .unwrap_or_default()
         .to_string_lossy();
 
-    Ok(Module::new(name).with_scope(vm.scopes.top).with_content(output))
+    Ok(Module::new(name, vm.scopes.top).with_content(output))
 }
 
 /// Evaluate a string as code and return the resulting value.
@@ -204,9 +206,10 @@ pub fn eval_string(
         EvalMode::Markup => {
             Value::Content(root.cast::<ast::Markup>().unwrap().eval(&mut vm)?)
         }
-        EvalMode::Math => {
-            Value::Content(root.cast::<ast::Math>().unwrap().eval(&mut vm)?)
-        }
+        EvalMode::Math => Value::Content((vm.items.equation)(
+            root.cast::<ast::Math>().unwrap().eval(&mut vm)?,
+            false,
+        )),
     };
 
     // Handle control flow.
@@ -576,7 +579,7 @@ impl Eval for ast::Escape<'_> {
 
     #[tracing::instrument(name = "Escape::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Symbol(Symbol::new(self.get())))
+        Ok(Value::Symbol(Symbol::single(self.get())))
     }
 }
 
@@ -585,7 +588,7 @@ impl Eval for ast::Shorthand<'_> {
 
     #[tracing::instrument(name = "Shorthand::eval", skip_all)]
     fn eval(self, _: &mut Vm) -> SourceResult<Self::Output> {
-        Ok(Value::Symbol(Symbol::new(self.get())))
+        Ok(Value::Symbol(Symbol::single(self.get())))
     }
 }
 
@@ -993,7 +996,7 @@ impl Eval for ast::Array<'_> {
                 ast::ArrayItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
                     Value::Array(array) => vec.extend(array.into_iter()),
-                    v => bail!(expr.span(), "cannot spread {} into array", v.type_name()),
+                    v => bail!(expr.span(), "cannot spread {} into array", v.ty()),
                 },
             }
         }
@@ -1020,11 +1023,7 @@ impl Eval for ast::Dict<'_> {
                 ast::DictItem::Spread(expr) => match expr.eval(vm)? {
                     Value::None => {}
                     Value::Dict(dict) => map.extend(dict.into_iter()),
-                    v => bail!(
-                        expr.span(),
-                        "cannot spread {} into dictionary",
-                        v.type_name()
-                    ),
+                    v => bail!(expr.span(), "cannot spread {} into dictionary", v.ty()),
                 },
             }
         }
@@ -1086,8 +1085,8 @@ fn apply_binary_expr(
     let lhs = binary.lhs().eval(vm)?;
 
     // Short-circuit boolean operations.
-    if (binary.op() == ast::BinOp::And && lhs == Value::Bool(false))
-        || (binary.op() == ast::BinOp::Or && lhs == Value::Bool(true))
+    if (binary.op() == ast::BinOp::And && lhs == false.into_value())
+        || (binary.op() == ast::BinOp::Or && lhs == true.into_value())
     {
         return Ok(lhs);
     }
@@ -1147,49 +1146,83 @@ impl Eval for ast::FuncCall<'_> {
         let callee_span = callee.span();
         let args = self.args();
 
-        // Try to evaluate as a method call. This is possible if the callee is a
-        // field access and does not evaluate to a module.
+        // Try to evaluate as a call to an associated function or field.
         let (callee, mut args) = if let ast::Expr::FieldAccess(access) = callee {
             let target = access.target();
+            let target_span = target.span();
             let field = access.field();
-            let point = || Tracepoint::Call(Some(field.get().clone()));
-            if methods::is_mutating(&field) {
-                let args = args.eval(vm)?;
+            let field_span = field.span();
+
+            let target = if methods::is_mutating(&field) {
+                let mut args = args.eval(vm)?;
                 let target = target.access(vm)?;
 
-                // Prioritize a function's own methods (with, where) over its
-                // fields. This is fine as we define each field of a function,
-                // if it has any.
-                // ('methods_on' will be empty for Symbol and Module - their
-                // method calls always refer to their fields.)
-                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
-                    || methods_on(target.type_name())
-                        .iter()
-                        .any(|&(m, _)| m == field.as_str())
-                {
+                // Only arrays and dictionaries have mutable methods.
+                if matches!(target, Value::Array(_) | Value::Dict(_)) {
+                    args.span = span;
+                    let point = || Tracepoint::Call(Some(field.get().clone()));
                     return methods::call_mut(target, &field, args, span).trace(
                         vm.world(),
                         point,
                         span,
                     );
                 }
-                (target.field(&field).at(field.span())?, args)
-            } else {
-                let target = target.eval(vm)?;
-                let args = args.eval(vm)?;
 
-                if !matches!(target, Value::Symbol(_) | Value::Module(_) | Value::Func(_))
-                    || methods_on(target.type_name())
-                        .iter()
-                        .any(|&(m, _)| m == field.as_str())
-                {
-                    return methods::call(vm, target, &field, args, span).trace(
-                        vm.world(),
-                        point,
-                        span,
-                    );
+                target.clone()
+            } else {
+                access.target().eval(vm)?
+            };
+
+            let mut args = args.eval(vm)?;
+
+            // Handle plugins.
+            if let Value::Plugin(plugin) = &target {
+                let bytes = args.all::<Bytes>()?;
+                args.finish()?;
+                return Ok(plugin.call(&field, bytes).at(span)?.into_value());
+            }
+
+            // Prioritize associated functions on the value's type (i.e.,
+            // methods) over its fields. A function call on a field is only
+            // allowed for functions, types, modules (because they are scopes),
+            // and symbols (because they have modifiers).
+            //
+            // For dictionaries, it is not allowed because it would be ambigious
+            // (prioritizing associated functions would make an addition of a
+            // new associated function a breaking change and prioritizing fields
+            // would break associated functions for certain dictionaries).
+            if let Some(callee) = target.ty().scope().get(&field) {
+                let this = Arg {
+                    span: target_span,
+                    name: None,
+                    value: Spanned::new(target, target_span),
+                };
+                args.span = span;
+                args.items.insert(0, this);
+                (callee.clone(), args)
+            } else if matches!(
+                target,
+                Value::Symbol(_) | Value::Func(_) | Value::Type(_) | Value::Module(_)
+            ) {
+                (target.field(&field).at(field_span)?, args)
+            } else {
+                let mut error = error!(
+                    field_span,
+                    "type {} has no method `{}`",
+                    target.ty(),
+                    field.as_str()
+                );
+
+                if let Value::Dict(dict) = target {
+                    if matches!(dict.get(&field), Ok(Value::Func(_))) {
+                        error.hint(
+                            "to call the function stored in the dictionary, \
+                             surround the field access with parentheses",
+                        );
+                    }
                 }
-                (target.field(&field).at(field.span())?, args)
+
+                bail!(error);
             }
         } else {
             (callee.eval(vm)?, args.eval(vm)?)
@@ -1285,7 +1318,7 @@ impl Eval for ast::Args<'_> {
                         }));
                     }
                     Value::Args(args) => items.extend(args.items),
-                    v => bail!(expr.span(), "cannot spread {}", v.type_name()),
+                    v => bail!(expr.span(), "cannot spread {}", v.ty()),
                 },
             }
         }
@@ -1365,7 +1398,7 @@ where
         ast::Pattern::Destructuring(destruct) => match value {
             Value::Array(value) => destructure_array(vm, pattern, value, f, destruct)?,
             Value::Dict(value) => destructure_dict(vm, value, f, destruct)?,
-            _ => bail!(pattern.span(), "cannot destructure {}", value.type_name()),
+            _ => bail!(pattern.span(), "cannot destructure {}", value.ty()),
         },
     }
     Ok(())
@@ -1437,21 +1470,15 @@ where
     for p in destruct.bindings() {
         match p {
             ast::DestructuringKind::Normal(ast::Expr::Ident(ident)) => {
-                let v = dict
-                    .at(&ident, None)
-                    .map_err(|_| "destructuring key not found in dictionary")
-                    .at(ident.span())?;
-                f(vm, ast::Expr::Ident(ident), v)?;
+                let v = dict.get(&ident).at(ident.span())?;
+                f(vm, ast::Expr::Ident(ident), v.clone())?;
                 used.insert(ident.as_str());
             }
             ast::DestructuringKind::Sink(spread) => sink = spread.expr(),
             ast::DestructuringKind::Named(named) => {
                 let name = named.name();
-                let v = dict
-                    .at(&name, None)
-                    .map_err(|_| "destructuring key not found in dictionary")
-                    .at(name.span())?;
-                f(vm, named.expr(), v)?;
+                let v = dict.get(&name).at(name.span())?;
+                f(vm, named.expr(), v.clone())?;
                 used.insert(name.as_str());
             }
             ast::DestructuringKind::Placeholder(_) => {}
@@ -1691,10 +1718,10 @@ impl Eval for ast::ForLoop<'_> {
                 iter!(for pattern in array);
             }
             (ast::Pattern::Normal(_), _) => {
-                bail!(self.iter().span(), "cannot loop over {}", iter.type_name());
+                bail!(self.iter().span(), "cannot loop over {}", iter.ty());
             }
             (_, _) => {
-                bail!(pattern.span(), "cannot destructure values of {}", iter.type_name())
+                bail!(pattern.span(), "cannot destructure values of {}", iter.ty())
             }
         }
 
@@ -1790,16 +1817,25 @@ impl Eval for ast::ModuleImport<'_> {
             }
         }
         if let Value::Func(func) = source {
-            if func.info().is_none() {
+            let Some(scope) = func.scope() else {
                 bail!(span, "cannot import from user-defined functions");
-            }
+            };
             apply_imports(
                 self.imports(),
                 vm,
                 func,
                 new_name,
-                |func| func.info().unwrap().name.into(),
-                |func| &func.info().unwrap().scope,
+                |func| func.name().unwrap_or_default().into(),
+                |_| scope,
+            )?;
+        } else if let Value::Type(ty) = source {
+            apply_imports(
+                self.imports(),
+                vm,
+                ty,
+                new_name,
+                |ty| ty.short_name().into(),
+                |ty| ty.scope(),
             )?;
         } else {
             let module = import(vm, source, span, true)?;
@@ -1834,16 +1870,16 @@ fn import(
     vm: &mut Vm,
     source: Value,
     span: Span,
-    accept_functions: bool,
+    allow_scopes: bool,
 ) -> SourceResult<Module> {
     let path = match source {
         Value::Str(path) => path,
         Value::Module(module) => return Ok(module),
         v => {
-            if accept_functions {
-                bail!(span, "expected path, module or function, found {}", v.type_name())
+            if allow_scopes {
+                bail!(span, "expected path, module, function, or type, found {}", v.ty())
             } else {
-                bail!(span, "expected path or module, found {}", v.type_name())
+                bail!(span, "expected path or module, found {}", v.ty())
             }
         }
     };
@@ -2039,20 +2075,22 @@ fn access_dict<'a>(
     match access.target().access(vm)? {
         Value::Dict(dict) => Ok(dict),
         value => {
-            let type_name = value.type_name();
+            let ty = value.ty();
             let span = access.target().span();
             if matches!(
                 value, // those types have their own field getters
                 Value::Symbol(_) | Value::Content(_) | Value::Module(_) | Value::Func(_)
             ) {
-                bail!(span, "cannot mutate fields on {type_name}");
-            } else if fields::fields_on(type_name).is_empty() {
-                bail!(span, "{type_name} does not have accessible fields");
+                bail!(span, "cannot mutate fields on {ty}");
+            } else if fields::fields_on(ty).is_empty() {
+                bail!(span, "{ty} does not have accessible fields");
             } else {
                 // type supports static fields, which don't yet have
                 // setters
-                Err(eco_format!("fields on {type_name} are not yet mutable"))
-                    .hint(eco_format!("try creating a new {type_name} with the updated field value instead"))
+                Err(eco_format!("fields on {ty} are not yet mutable"))
+                    .hint(eco_format!(
+                        "try creating a new {ty} with the updated field value instead"
+                    ))
                     .at(span)
             }
         }

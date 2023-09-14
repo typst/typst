@@ -5,7 +5,7 @@ use std::iter::repeat;
 
 use ecow::EcoVec;
 
-use super::{Array, Value};
+use super::{Array, Value, func, scope, ty, cast};
 use crate::diag::{bail, error, StrResult};
 
 /// A version, with any number of components.
@@ -22,6 +22,7 @@ use crate::diag::{bail, error, StrResult};
 // for values that display differently.
 // It being different from `Eq` is consistent with many other typst types.
 #[allow(clippy::derived_hash_with_manual_eq)]
+#[ty(scope)]
 #[derive(Default, Clone, Hash)]
 pub struct Version(EcoVec<u32>);
 
@@ -36,23 +37,6 @@ impl Version {
 
     fn get(&self, index: usize) -> Option<u32> {
         self.0.get(index).copied()
-    }
-
-    /// Get a component of a version.
-    ///
-    /// Always non-negative. Returns `0` if the version isn't specified to the
-    /// necessary length.
-    pub fn at(&self, mut index: i64) -> StrResult<i64> {
-        if index < 0 {
-            match (self.0.len() as i64).checked_add(index) {
-                Some(pos_index) if pos_index >= 0 => index = pos_index,
-                _ => bail!("version component index out of bounds ({index})"),
-            }
-        }
-        Ok(usize::try_from(index)
-            .ok()
-            .and_then(|i| self.get(i))
-            .unwrap_or_default() as i64)
     }
 
     /// Get a named component of a version.
@@ -76,6 +60,67 @@ impl Version {
     pub fn push(&mut self, component: u32) {
         self.0.push(component);
     }
+}
+
+#[scope]
+impl Version {
+    /// Creates a new version.
+    ///
+    /// It can have any number of components (even zero).
+    ///
+    /// ```example
+    /// #version() \
+    /// #version(1) \
+    /// #version(1, 2, 3, 4) \
+    /// #version((1, 2, 3, 4)) \
+    /// #version((1, 2), 3)
+    /// ```
+    #[func(constructor)]
+    pub fn construct(
+        /// The components of the version (array arguments are flattened)
+        #[variadic]
+        components: Vec<VersionComponents>,
+    ) -> Version {
+        let mut res = Version::new();
+
+        for c in components {
+            match c {
+                VersionComponents::Single(i) => res.push(i),
+                VersionComponents::Multiple(v) => {
+                    for i in v {
+                        res.push(i);
+                    }
+                }
+            }
+        }
+
+        res
+    }
+    
+    /// Get a component of a version.
+    ///
+    /// Always non-negative. Returns `0` if the version isn't specified to the
+    /// necessary length.
+    #[func]
+    pub fn at(
+        &self,
+        /// The index at which to retrieve the component.
+        /// If negative, indexes from the back of the explicitly given components.
+        index: i64
+    ) -> StrResult<i64> {
+        let mut index = index;
+        if index < 0 {
+            match (self.0.len() as i64).checked_add(index) {
+                Some(pos_index) if pos_index >= 0 => index = pos_index,
+                _ => bail!("version component index out of bounds ({index})"),
+            }
+        }
+        Ok(usize::try_from(index)
+            .ok()
+            .and_then(|i| self.get(i))
+            .unwrap_or_default() as i64)
+    }
+    
 }
 
 impl FromIterator<u32> for Version {
@@ -135,4 +180,16 @@ impl Debug for Version {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         write!(f, "version({self})")
     }
+}
+
+/// One or multiple version components
+pub enum VersionComponents {
+    Single(u32),
+    Multiple(Vec<u32>),
+}
+
+cast! {
+    VersionComponents,
+    i: u32 => Self::Single(i),
+    arr: Vec<u32> => Self::Multiple(arr)
 }

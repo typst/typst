@@ -2,6 +2,7 @@ use ttf_parser::gsub::SubstitutionSubtable;
 use ttf_parser::math::MathValue;
 use typst::font::{FontStyle, FontWeight};
 use typst::model::realize;
+use typst::syntax::is_newline;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::*;
@@ -149,6 +150,12 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
         Ok(self.layout_fragment(elem)?.into_frame())
     }
 
+    pub fn layout_box(&mut self, boxed: &BoxElem) -> SourceResult<Frame> {
+        Ok(boxed
+            .layout(self.vt, self.outer.chain(&self.local), self.regions)?
+            .into_frame())
+    }
+
     pub fn layout_content(&mut self, content: &Content) -> SourceResult<Frame> {
         Ok(content
             .layout(self.vt, self.outer.chain(&self.local), self.regions)?
@@ -190,7 +197,7 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             } else {
                 glyph.into()
             }
-        } else if text.chars().all(|c| c.is_ascii_digit()) {
+        } else if text.chars().all(|c| c.is_ascii_digit() || c == '.') {
             // Numbers aren't that difficult.
             let mut fragments = vec![];
             for c in text.chars() {
@@ -201,39 +208,62 @@ impl<'a, 'b, 'v> MathContext<'a, 'b, 'v> {
             FrameFragment::new(self, frame).into()
         } else {
             // Anything else is handled by Typst's standard text layout.
-            let spaced = text.graphemes(true).nth(1).is_some();
             let mut style = self.style;
             if self.style.italic == Smart::Auto {
                 style = style.with_italic(false);
             }
             let text: EcoString = text.chars().map(|c| style.styled_char(c)).collect();
-            let text = TextElem::packed(text)
-                .styled(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)))
-                .styled(TextElem::set_bottom_edge(BottomEdge::Metric(
-                    BottomEdgeMetric::Bounds,
-                )))
-                .spanned(span);
-            let par = ParElem::new(vec![text]);
-
-            // There isn't a natural width for a paragraph in a math environment;
-            // because it will be placed somewhere probably not at the left margin
-            // it will overflow.  So emulate an `hbox` instead and allow the paragraph
-            // to extend as far as needed.
-            let frame = par
-                .layout(
-                    self.vt,
-                    self.outer.chain(&self.local),
-                    false,
-                    Size::splat(Abs::inf()),
-                    false,
-                )?
-                .into_frame();
-            FrameFragment::new(self, frame)
-                .with_class(MathClass::Alphabetic)
-                .with_spaced(spaced)
-                .into()
+            if text.contains(is_newline) {
+                let mut fragments = vec![];
+                for (i, piece) in text.split(is_newline).enumerate() {
+                    if i != 0 {
+                        fragments.push(MathFragment::Linebreak);
+                    }
+                    if !piece.is_empty() {
+                        fragments.push(self.layout_complex_text(piece, span)?.into());
+                    }
+                }
+                let mut frame = MathRow::new(fragments).into_frame(self);
+                let axis = scaled!(self, axis_height);
+                frame.set_baseline(frame.height() / 2.0 + axis);
+                FrameFragment::new(self, frame).into()
+            } else {
+                self.layout_complex_text(&text, span)?.into()
+            }
         };
         Ok(fragment)
+    }
+
+    pub fn layout_complex_text(
+        &mut self,
+        text: &str,
+        span: Span,
+    ) -> SourceResult<FrameFragment> {
+        let spaced = text.graphemes(true).nth(1).is_some();
+        let elem = TextElem::packed(text)
+            .styled(TextElem::set_top_edge(TopEdge::Metric(TopEdgeMetric::Bounds)))
+            .styled(TextElem::set_bottom_edge(BottomEdge::Metric(
+                BottomEdgeMetric::Bounds,
+            )))
+            .spanned(span);
+
+        // There isn't a natural width for a paragraph in a math environment;
+        // because it will be placed somewhere probably not at the left margin
+        // it will overflow.  So emulate an `hbox` instead and allow the paragraph
+        // to extend as far as needed.
+        let frame = ParElem::new(vec![elem])
+            .layout(
+                self.vt,
+                self.outer.chain(&self.local),
+                false,
+                Size::splat(Abs::inf()),
+                false,
+            )?
+            .into_frame();
+
+        Ok(FrameFragment::new(self, frame)
+            .with_class(MathClass::Alphabetic)
+            .with_spaced(spaced))
     }
 
     pub fn styles(&self) -> StyleChain {

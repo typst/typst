@@ -7,7 +7,7 @@ use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 
 /// A path through a list of points, connected by Bezier curves.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #path(
 ///   fill: blue.lighten(80%),
@@ -18,26 +18,24 @@ use PathVertex::{AllControlPoints, MirroredControlPoint, Vertex};
 ///   ((50%, 0pt), (40pt, 0pt)),
 /// )
 /// ```
-///
-/// Display: Path
-/// Category: visualize
-#[element(Layout)]
+#[elem(Layout)]
 pub struct PathElem {
-    /// How to fill the path. See the
-    /// [rectangle's documentation]($func/rect.fill) for more details.
+    /// How to fill the path.
     ///
-    /// Currently all paths are filled according to the
-    /// [non-zero winding rule](https://en.wikipedia.org/wiki/Nonzero-rule).
+    /// When setting a fill, the default stroke disappears. To create a
+    /// rectangle with both fill and stroke, you have to configure both.
+    ///
+    /// Currently all paths are filled according to the [non-zero winding
+    /// rule](https://en.wikipedia.org/wiki/Nonzero-rule).
     pub fill: Option<Paint>,
 
-    /// How to stroke the path. This can be:
+    /// How to [stroke]($stroke) the path. This can be:
     ///
-    /// See the [line's documentation]($func/line.stroke) for more details. Can
-    /// be set to  `{none}` to disable the stroke or to `{auto}` for a stroke of
-    /// `{1pt}` black if and if only if no fill is given.
+    /// Can be set to  `{none}` to disable the stroke or to `{auto}` for a
+    /// stroke of `{1pt}` black if and if only if no fill is given.
     #[resolve]
     #[fold]
-    pub stroke: Smart<Option<PartialStroke>>,
+    pub stroke: Smart<Option<Stroke>>,
 
     /// Whether to close this path with one last bezier curve. This curve will
     /// takes into account the adjacent control points. If you want to close
@@ -50,8 +48,8 @@ pub struct PathElem {
     ///
     /// Each vertex can be defined in 3 ways:
     ///
-    /// - A regular point, as given to the [`line`]($func/line) or
-    ///   [`polygon`]($func/polygon) function.
+    /// - A regular point, as given to the [`line`]($line) or
+    ///   [`polygon`]($polygon) function.
     /// - An array of two points, the first being the vertex and the second
     ///   being the control point. The control point is expressed relative to
     ///   the vertex and is mirrored to get the second control point. The given
@@ -60,7 +58,7 @@ pub struct PathElem {
     ///   the curve going out of this vertex.
     /// - An array of three points, the first being the vertex and the next
     ///   being the control points (control point for curves coming in and out,
-    ///   respectively)
+    ///   respectively).
     #[variadic]
     pub vertices: Vec<PathVertex>,
 }
@@ -75,8 +73,7 @@ impl Layout for PathElem {
     ) -> SourceResult<Fragment> {
         let resolve = |axes: Axes<Rel<Length>>| {
             axes.resolve(styles)
-                .zip(regions.base())
-                .map(|(l, b)| l.relative_to(b))
+                .zip_map(regions.base(), Rel::relative_to)
                 .to_point()
         };
 
@@ -136,9 +133,9 @@ impl Layout for PathElem {
         // Prepare fill and stroke.
         let fill = self.fill(styles);
         let stroke = match self.stroke(styles) {
-            Smart::Auto if fill.is_none() => Some(Stroke::default()),
+            Smart::Auto if fill.is_none() => Some(FixedStroke::default()),
             Smart::Auto => None,
-            Smart::Custom(stroke) => stroke.map(PartialStroke::unwrap_or_default),
+            Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
         };
 
         let mut frame = Frame::new(size);

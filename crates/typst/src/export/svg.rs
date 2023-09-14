@@ -10,8 +10,8 @@ use xmlwriter::XmlWriter;
 use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Axes, Geometry, LineCap, LineJoin, Paint, PathItem, Ratio, Shape, Size, Stroke,
-    Transform,
+    Abs, Axes, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Ratio, Shape,
+    Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -303,7 +303,7 @@ impl SVGRenderer {
     }
 
     /// Write a stroke attribute.
-    fn write_stroke(&mut self, stroke: &Stroke) {
+    fn write_stroke(&mut self, stroke: &FixedStroke) {
         let Paint::Solid(color) = stroke.paint;
         self.xml.write_attribute("stroke", &color.to_rgba().to_hex());
         self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
@@ -316,18 +316,18 @@ impl SVGRenderer {
             },
         );
         self.xml.write_attribute(
-            "stoke-linejoin",
+            "stroke-linejoin",
             match stroke.line_join {
                 LineJoin::Miter => "miter",
                 LineJoin::Round => "round",
                 LineJoin::Bevel => "bevel",
             },
         );
-        self.xml.write_attribute("stoke-miterlimit", &stroke.miter_limit.0);
+        self.xml.write_attribute("stroke-miterlimit", &stroke.miter_limit.0);
         if let Some(pattern) = &stroke.dash_pattern {
-            self.xml.write_attribute("stoken-dashoffset", &pattern.phase.to_pt());
+            self.xml.write_attribute("stroke-dashoffset", &pattern.phase.to_pt());
             self.xml.write_attribute(
-                "stoken-dasharray",
+                "stroke-dasharray",
                 &pattern
                     .array
                     .iter()
@@ -420,9 +420,12 @@ fn convert_outline_glyph_to_path(font: &Font, id: GlyphId) -> Option<EcoString> 
 /// Convert a bitmap glyph to an encoded image URL.
 #[comemo::memoize]
 fn convert_bitmap_glyph_to_image(font: &Font, id: GlyphId) -> Option<(Image, f64, f64)> {
-    let bitmap = font.ttf().glyph_raster_image(id, std::u16::MAX)?;
-    let image = Image::new(bitmap.data.into(), bitmap.format.into(), None).ok()?;
-    Some((image, bitmap.x as f64, bitmap.y as f64))
+    let raster = font.ttf().glyph_raster_image(id, std::u16::MAX)?;
+    if raster.format != ttf_parser::RasterImageFormat::PNG {
+        return None;
+    }
+    let image = Image::new(raster.data.into(), RasterFormat::Png.into(), None).ok()?;
+    Some((image, raster.x as f64, raster.y as f64))
 }
 
 /// Convert an SVG glyph to an encoded image URL.

@@ -71,7 +71,7 @@
 
 ---
 // Test bad lvalue.
-// Error: 2:3-2:15 type array has no method `yolo`
+// Error: 2:9-2:13 type array has no method `yolo`
 #let array = (1, 2, 3)
 #(array.yolo() = 4)
 
@@ -122,7 +122,7 @@
 }
 
 ---
-// Error: 2:16-2:18 missing argument: index
+// Error: 2:2-2:18 missing argument: index
 #let numbers = ()
 #numbers.insert()
 

@@ -9,9 +9,11 @@ mod footnote;
 mod heading;
 mod link;
 mod metadata;
-mod numbering;
+#[path = "numbering.rs"]
+mod numbering_;
 mod outline;
-mod query;
+#[path = "query.rs"]
+mod query_;
 mod reference;
 mod state;
 
@@ -24,9 +26,9 @@ pub use self::footnote::*;
 pub use self::heading::*;
 pub use self::link::*;
 pub use self::metadata::*;
-pub use self::numbering::*;
+pub use self::numbering_::*;
 pub use self::outline::*;
-pub use self::query::*;
+pub use self::query_::*;
 pub use self::reference::*;
 pub use self::state::*;
 
@@ -35,24 +37,27 @@ use crate::text::TextElem;
 
 /// Hook up all meta definitions.
 pub(super) fn define(global: &mut Scope) {
-    global.define("document", DocumentElem::func());
-    global.define("ref", RefElem::func());
-    global.define("link", LinkElem::func());
-    global.define("outline", OutlineElem::func());
-    global.define("heading", HeadingElem::func());
-    global.define("figure", FigureElem::func());
-    global.define("footnote", FootnoteElem::func());
-    global.define("cite", CiteElem::func());
-    global.define("bibliography", BibliographyElem::func());
-    global.define("locate", locate_func());
-    global.define("style", style_func());
-    global.define("layout", layout_func());
-    global.define("counter", counter_func());
-    global.define("numbering", numbering_func());
-    global.define("state", state_func());
-    global.define("query", query_func());
-    global.define("selector", selector_func());
-    global.define("metadata", MetadataElem::func());
+    global.category("meta");
+    global.define_type::<Label>();
+    global.define_type::<Selector>();
+    global.define_type::<Location>();
+    global.define_type::<Counter>();
+    global.define_type::<State>();
+    global.define_elem::<DocumentElem>();
+    global.define_elem::<RefElem>();
+    global.define_elem::<LinkElem>();
+    global.define_elem::<OutlineElem>();
+    global.define_elem::<HeadingElem>();
+    global.define_elem::<FigureElem>();
+    global.define_elem::<FootnoteElem>();
+    global.define_elem::<CiteElem>();
+    global.define_elem::<BibliographyElem>();
+    global.define_elem::<MetadataElem>();
+    global.define_func::<locate>();
+    global.define_func::<style>();
+    global.define_func::<layout>();
+    global.define_func::<numbering>();
+    global.define_func::<query>();
 }
 
 /// The named with which an element is referenced.

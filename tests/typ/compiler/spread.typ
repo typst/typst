@@ -26,7 +26,7 @@
 // Test doing things with arguments.
 #{
   let save(..args) = {
-    test(type(args), "arguments")
+    test(type(args), arguments)
     test(repr(args), "(three: true, 1, 2)")
   }
 

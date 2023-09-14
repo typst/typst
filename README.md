@@ -67,7 +67,7 @@ Let's dissect what's going on:
   write a hashtag followed by an expression. We define two variables and a
   recursive function to compute the n-th fibonacci number. Then, we display the
   results in a center-aligned table. The table function takes its cells
-  row-by-row. Therefore, we first pass the formulas `$F_1$` to `$F_10$` and then
+  row-by-row. Therefore, we first pass the formulas `$F_1$` to `$F_8$` and then
   the computed fibonacci numbers. We apply the spreading operator (`..`) to both
   because they are arrays and we want to pass the arrays' items as individual
   arguments.

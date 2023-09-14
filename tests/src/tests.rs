@@ -151,8 +151,6 @@ fn main() {
 }
 
 fn library() -> Library {
-    /// Display: Test
-    /// Category: test
     #[func]
     fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
         if lhs != rhs {
@@ -161,8 +159,6 @@ fn library() -> Library {
         Ok(NoneValue)
     }
 
-    /// Display: Print
-    /// Category: test
     #[func]
     fn print(#[variadic] values: Vec<Value>) -> NoneValue {
         let mut stdout = io::stdout().lock();
@@ -191,8 +187,8 @@ fn library() -> Library {
     lib.styles.set(TextElem::set_size(TextSize(Abs::pt(10.0).into())));
 
     // Hook up helpers into the global scope.
-    lib.global.scope_mut().define("test", test_func());
-    lib.global.scope_mut().define("print", print_func());
+    lib.global.scope_mut().define_func::<test>();
+    lib.global.scope_mut().define_func::<print>();
     lib.global
         .scope_mut()
         .define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));

@@ -4,7 +4,7 @@ use ecow::{eco_format, EcoString};
 use pdf_writer::types::{CidFontType, FontFlags, SystemInfo, UnicodeCmap};
 use pdf_writer::{Filter, Finish, Name, Rect, Str};
 use ttf_parser::{name_id, GlyphId, Tag};
-use unicode_general_category::GeneralCategory;
+use unicode_properties::{GeneralCategory, UnicodeGeneralCategory};
 
 use super::{deflate, EmExt, PdfContext, RefExt};
 use crate::eval::Bytes;
@@ -37,14 +37,8 @@ pub fn write_fonts(ctx: &mut PdfContext) {
 
         // Do we have a TrueType or CFF font?
         //
-        // FIXME 1: CFF2 must be handled differently and requires PDF 2.0
+        // FIXME: CFF2 must be handled differently and requires PDF 2.0
         // (or we have to convert it to CFF).
-        //
-        // FIXME 2: CFF fonts that have a Top DICT that uses CIDFont operators
-        // may not have an identity CID-GID encoding. These are currently not
-        // handled correctly. See also:
-        // - PDF Spec, Section 9.7.4.2
-        // - https://stackoverflow.com/questions/74165171/embedded-opentype-cff-font-in-a-pdf-shows-strange-behaviour-in-some-viewers
         let is_cff = ttf
             .raw_face()
             .table(CFF)
@@ -83,11 +77,15 @@ pub fn write_fonts(ctx: &mut PdfContext) {
         }
 
         // Extract the widths of all glyphs.
-        let num_glyphs = ttf.number_of_glyphs();
-        let mut widths = vec![0.0; num_glyphs as usize];
-        for g in std::iter::once(0).chain(glyph_set.keys().copied()) {
-            let x = ttf.glyph_hor_advance(GlyphId(g)).unwrap_or(0);
-            widths[g as usize] = font.to_em(x).to_font_units();
+        let mut widths = vec![];
+        for gid in std::iter::once(0).chain(glyph_set.keys().copied()) {
+            let width = ttf.glyph_hor_advance(GlyphId(gid)).unwrap_or(0);
+            let units = font.to_em(width).to_font_units();
+            let cid = glyph_cid(font, gid);
+            if usize::from(cid) >= widths.len() {
+                widths.resize(usize::from(cid) + 1, 0.0);
+                widths[usize::from(cid)] = units;
+            }
         }
 
         // Write all non-zero glyph widths.
@@ -203,8 +201,8 @@ fn create_cmap(
     ttf: &ttf_parser::Face,
     glyph_set: &mut BTreeMap<u16, EcoString>,
 ) -> UnicodeCmap {
-    // For glyphs that have codepoints mapping to in the font's cmap table, we
-    // prefer them over pre-existing text mappings from the document. Only
+    // For glyphs that have codepoints mapping to them in the font's cmap table,
+    // we prefer them over pre-existing text mappings from the document. Only
     // things that don't have a corresponding codepoint (or only a private-use
     // one) like the "Th" in Linux Libertine get the text of their first
     // occurrences in the document instead.
@@ -215,9 +213,7 @@ fn create_cmap(
 
         subtable.codepoints(|n| {
             let Some(c) = std::char::from_u32(n) else { return };
-            if unicode_general_category::get_general_category(c)
-                == GeneralCategory::PrivateUse
-            {
+            if c.general_category() == GeneralCategory::PrivateUse {
                 return;
             }
 
@@ -237,4 +233,36 @@ fn create_cmap(
     }
 
     cmap
+}
+
+/// Get the CID for a glyph id.
+///
+/// When writing text into a PDF, we have to specify CIDs (character ids) not
+/// GIDs (glyph IDs).
+///
+/// Most of the time, the mapping between these two is an identity mapping. In
+/// particular, for TrueType fonts, the mapping is an identity mapping because
+/// of this line above:
+/// ```ignore
+/// cid.cid_to_gid_map_predefined(Name(b"Identity"));
+/// ```
+///
+/// However, CID-keyed CFF fonts may have a non-identity mapping defined in
+/// their charset. For those, we must map the glyph IDs in a `TextItem` to CIDs.
+/// The font defines the map through its charset. The charset usually maps
+/// glyphs to SIDs (string ids) specifying the glyph's name. Not for CID-keyed
+/// fonts though! For these, the SIDs are CIDs in disguise. Relevant quote from
+/// the CFF spec:
+///
+/// > The charset data, although in the same format as non-CIDFonts, will
+/// > represent CIDs rather than SIDs, [...]
+///
+/// This function performs the mapping from glyph ID to CID. It also works for
+/// non CID-keyed fonts. Then, it will simply return the glyph ID.
+pub(super) fn glyph_cid(font: &Font, glyph_id: u16) -> u16 {
+    font.ttf()
+        .tables()
+        .cff
+        .and_then(|cff| cff.glyph_cid(ttf_parser::GlyphId(glyph_id)))
+        .unwrap_or(glyph_id)
 }

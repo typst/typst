@@ -6,7 +6,7 @@ use std::sync::Arc;
 use image::imageops::FilterType;
 use image::{GenericImageView, Rgba};
 use pixglyph::Bitmap;
-use resvg::FitTo;
+use resvg::tiny_skia::IntRect;
 use tiny_skia as sk;
 use ttf_parser::{GlyphId, OutlineBuilder};
 use usvg::{NodeExt, TreeParsing};
@@ -14,10 +14,10 @@ use usvg::{NodeExt, TreeParsing};
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Geometry, LineCap, LineJoin, Paint, PathItem, Shape, Size, Stroke,
-    Transform,
+    self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
+    Size, Transform,
 };
-use crate::image::{DecodedImage, Image};
+use crate::image::{DecodedImage, Image, RasterFormat};
 
 /// Export a frame into a raster image.
 ///
@@ -107,6 +107,7 @@ fn render_frame(
                 Meta::Link(_) => {}
                 Meta::Elem(_) => {}
                 Meta::PageNumbering(_) => {}
+                Meta::PdfPageLabel(_) => {}
                 Meta::Hide => {}
             },
         }
@@ -212,7 +213,8 @@ fn render_svg_glyph(
 
     // Parse SVG.
     let opts = usvg::Options::default();
-    let tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    let usvg_tree = usvg::Tree::from_xmltree(&document, &opts).ok()?;
+    let tree = resvg::Tree::from_usvg(&usvg_tree);
     let view_box = tree.view_box.rect;
 
     // If there's no viewbox defined, use the em square for our scale
@@ -222,12 +224,12 @@ fn render_svg_glyph(
 
     // ... but if there's a viewbox or width, use that.
     if root.has_attribute("viewBox") || root.has_attribute("width") {
-        width = view_box.width() as f32;
+        width = view_box.width();
     }
 
     // Same as for width.
     if root.has_attribute("viewBox") || root.has_attribute("height") {
-        height = view_box.height() as f32;
+        height = view_box.height();
     }
 
     let size = text.size.to_f32();
@@ -236,41 +238,30 @@ fn render_svg_glyph(
     // Compute the space we need to draw our glyph.
     // See https://github.com/RazrFalcon/resvg/issues/602 for why
     // using the svg size is problematic here.
-    let mut bbox = usvg::Rect::new_bbox();
-    for node in tree.root.descendants() {
-        if let Some(rect) = node.calculate_bbox().and_then(|b| b.to_rect()) {
+    let mut bbox = usvg::BBox::default();
+    for node in usvg_tree.root.descendants() {
+        if let Some(rect) = node.calculate_bbox() {
             bbox = bbox.expand(rect);
         }
     }
-
-    let canvas_rect = usvg::ScreenRect::new(0, 0, canvas.width(), canvas.height())?;
 
     // Compute the bbox after the transform is applied.
     // We add a nice 5px border along the bounding box to
     // be on the safe size. We also compute the intersection
     // with the canvas rectangle
-    let svg_ts = usvg::Transform::new(
-        ts.sx.into(),
-        ts.kx.into(),
-        ts.ky.into(),
-        ts.sy.into(),
-        ts.tx.into(),
-        ts.ty.into(),
-    );
-    let bbox = bbox.transform(&svg_ts)?.to_screen_rect();
-    let bbox = usvg::ScreenRect::new(
+    let bbox = bbox.transform(ts)?.to_rect()?.round_out()?;
+    let bbox = IntRect::from_xywh(
         bbox.left() - 5,
         bbox.y() - 5,
         bbox.width() + 10,
         bbox.height() + 10,
-    )?
-    .fit_to_rect(canvas_rect);
+    )?;
 
     let mut pixmap = sk::Pixmap::new(bbox.width(), bbox.height())?;
 
     // We offset our transform so that the pixmap starts at the edge of the bbox.
     let ts = ts.post_translate(-bbox.left() as f32, -bbox.top() as f32);
-    resvg::render(&tree, FitTo::Original, ts, pixmap.as_mut())?;
+    tree.render(ts, &mut pixmap.as_mut());
 
     canvas.draw_pixmap(
         bbox.left(),
@@ -295,7 +286,10 @@ fn render_bitmap_glyph(
     let size = text.size.to_f32();
     let ppem = size * ts.sy;
     let raster = text.font.ttf().glyph_raster_image(id, ppem as u16)?;
-    let image = Image::new(raster.data.into(), raster.format.into(), None).ok()?;
+    if raster.format != ttf_parser::RasterImageFormat::PNG {
+        return None;
+    }
+    let image = Image::new(raster.data.into(), RasterFormat::Png.into(), None).ok()?;
 
     // FIXME: Vertical alignment isn't quite right for Apple Color Emoji,
     // and maybe also for Noto Color Emoji. And: Is the size calculation
@@ -407,7 +401,8 @@ fn render_outline_glyph(
         // Premultiply the text color.
         let Paint::Solid(color) = text.fill;
         let c = color.to_rgba();
-        let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply().get();
+        let color =
+            bytemuck::cast(sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply());
 
         // Blend the glyph bitmap with the existing pixels on the canvas.
         let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
@@ -466,7 +461,7 @@ fn render_shape(
         canvas.fill_path(&path, &paint, rule, ts, mask);
     }
 
-    if let Some(Stroke {
+    if let Some(FixedStroke {
         paint,
         thickness,
         line_cap,
@@ -597,12 +592,12 @@ fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
             }
         }
         DecodedImage::Svg(tree) => {
-            resvg::render(
-                tree,
-                FitTo::Size(w, h),
-                sk::Transform::identity(),
-                pixmap.as_mut(),
-            )?;
+            let tree = resvg::Tree::from_usvg(tree);
+            let ts = tiny_skia::Transform::from_scale(
+                w as f32 / tree.size.width(),
+                h as f32 / tree.size.height(),
+            );
+            tree.render(ts, &mut pixmap.as_mut())
         }
     }
     Some(Arc::new(pixmap))

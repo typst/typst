@@ -17,6 +17,10 @@ pub struct CliArguments {
     /// -v = warning & error, -vv = info, -vvv = debug, -vvvv = trace
     #[clap(short, long, action = ArgAction::Count)]
     pub verbosity: u8,
+
+    /// Path to a custom CA certificate to use when making network requests.
+    #[clap(long = "cert", env = "TYPST_CERT")]
+    pub cert: Option<PathBuf>,
 }
 
 /// What to do.

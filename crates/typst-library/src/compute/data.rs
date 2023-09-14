@@ -1,17 +1,28 @@
 use typst::diag::{format_xml_like_error, FileError};
 use typst::eval::Bytes;
+use typst::syntax::is_newline;
 
 use crate::prelude::*;
 
+/// Hook up all data loading definitions.
+pub(super) fn define(global: &mut Scope) {
+    global.category("data-loading");
+    global.define_func::<read>();
+    global.define_func::<csv>();
+    global.define_func::<json>();
+    global.define_func::<toml>();
+    global.define_func::<yaml>();
+    global.define_func::<cbor>();
+    global.define_func::<xml>();
+}
+
 /// Reads plain text or data from a file.
 ///
-/// By default, the file will be read as UTF-8 and returned as a
-/// [string]($type/string).
+/// By default, the file will be read as UTF-8 and returned as a [string]($str).
 ///
-/// If you specify `{encoding: none}`, this returns raw [bytes]($type/bytes)
-/// instead.
+/// If you specify `{encoding: none}`, this returns raw [bytes]($bytes) instead.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// An example for a HTML file: \
 /// #let text = read("data.html")
@@ -20,11 +31,10 @@ use crate::prelude::*;
 /// Raw bytes:
 /// #read("tiger.jpg", encoding: none)
 /// ```
-///
-/// Display: Read
-/// Category: data-loading
 #[func]
 pub fn read(
+    /// The virtual machine.
+    vm: &mut Vm,
     /// Path to a file.
     path: Spanned<EcoString>,
     /// The encoding to read the file with.
@@ -33,8 +43,6 @@ pub fn read(
     #[named]
     #[default(Some(Encoding::Utf8))]
     encoding: Option<Encoding>,
-    /// The virtual machine.
-    vm: &mut Vm,
 ) -> SourceResult<Readable> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
@@ -100,7 +108,7 @@ impl From<Readable> for Bytes {
 /// rows will be collected into a single array. Header rows will not be
 /// stripped.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #let results = csv("data.csv")
 ///
@@ -110,15 +118,10 @@ impl From<Readable> for Bytes {
 ///   ..results.flatten(),
 /// )
 /// ```
-///
-/// Display: CSV
-/// Category: data-loading
-#[func]
-#[scope(
-    scope.define("decode", csv_decode_func());
-    scope
-)]
+#[func(scope, title = "CSV")]
 pub fn csv(
+    /// The virtual machine.
+    vm: &mut Vm,
     /// Path to a CSV file.
     path: Spanned<EcoString>,
     /// The delimiter that separates columns in the CSV file.
@@ -126,47 +129,45 @@ pub fn csv(
     #[named]
     #[default]
     delimiter: Delimiter,
-    /// The virtual machine.
-    vm: &mut Vm,
 ) -> SourceResult<Array> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    csv_decode(Spanned::new(Readable::Bytes(data), span), delimiter)
+    self::csv::decode(Spanned::new(Readable::Bytes(data), span), delimiter)
 }
 
-/// Reads structured data from a CSV string/bytes.
-///
-/// Display: Decode CSV
-/// Category: data-loading
-#[func]
-pub fn csv_decode(
-    /// CSV data.
-    data: Spanned<Readable>,
-    /// The delimiter that separates columns in the CSV file.
-    /// Must be a single ASCII character.
-    #[named]
-    #[default]
-    delimiter: Delimiter,
-) -> SourceResult<Array> {
-    let Spanned { v: data, span } = data;
-    let mut builder = csv::ReaderBuilder::new();
-    builder.has_headers(false);
-    builder.delimiter(delimiter.0 as u8);
-    let mut reader = builder.from_reader(data.as_slice());
-    let mut array = Array::new();
+#[scope]
+impl csv {
+    /// Reads structured data from a CSV string/bytes.
+    #[func(title = "Decode CSV")]
+    pub fn decode(
+        /// CSV data.
+        data: Spanned<Readable>,
+        /// The delimiter that separates columns in the CSV file.
+        /// Must be a single ASCII character.
+        #[named]
+        #[default]
+        delimiter: Delimiter,
+    ) -> SourceResult<Array> {
+        let Spanned { v: data, span } = data;
+        let mut builder = ::csv::ReaderBuilder::new();
+        builder.has_headers(false);
+        builder.delimiter(delimiter.0 as u8);
+        let mut reader = builder.from_reader(data.as_slice());
+        let mut array = Array::new();
 
-    for (line, result) in reader.records().enumerate() {
-        // Original solution use line from error, but that is incorrect with
-        // `has_headers` set to `false`. See issue:
-        // https://github.com/BurntSushi/rust-csv/issues/184
-        let line = line + 1; // Counting lines from 1
-        let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
-        let sub = row.into_iter().map(|field| field.into_value()).collect();
-        array.push(Value::Array(sub))
+        for (line, result) in reader.records().enumerate() {
+            // Original solution use line from error, but that is incorrect with
+            // `has_headers` set to `false`. See issue:
+            // https://github.com/BurntSushi/rust-csv/issues/184
+            let line = line + 1; // Counting lines from 1
+            let row = result.map_err(|err| format_csv_error(err, line)).at(span)?;
+            let sub = row.into_iter().map(|field| field.into_value()).collect();
+            array.push(Value::Array(sub))
+        }
+
+        Ok(array)
     }
-
-    Ok(array)
 }
 
 /// The delimiter to use when parsing CSV files.
@@ -197,15 +198,16 @@ cast! {
 }
 
 /// Format the user-facing CSV error message.
-fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
-    match error.kind() {
-        csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
-        csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
+fn format_csv_error(err: ::csv::Error, line: usize) -> EcoString {
+    match err.kind() {
+        ::csv::ErrorKind::Utf8 { .. } => "file is not valid utf-8".into(),
+        ::csv::ErrorKind::UnequalLengths { expected_len, len, .. } => {
             eco_format!(
-                "failed to parse csv file: found {len} instead of {expected_len} fields in line {line}"
+                "failed to parse CSV (found {len} instead of \
+                 {expected_len} fields in line {line})"
             )
         }
-        _ => "failed to parse csv file".into(),
+        _ => eco_format!("failed to parse CSV ({err})"),
     }
 }
 
@@ -222,7 +224,7 @@ fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
 /// The JSON files in the example contain objects with the keys `temperature`,
 /// `unit`, and `weather`.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #let forecast(day) = block[
 ///   #box(square(
@@ -246,70 +248,53 @@ fn format_csv_error(error: csv::Error, line: usize) -> EcoString {
 /// #forecast(json("monday.json"))
 /// #forecast(json("tuesday.json"))
 /// ```
-///
-/// Display: JSON
-/// Category: data-loading
-#[func]
-#[scope(
-    scope.define("decode", json_decode_func());
-    scope.define("encode", json_encode_func());
-    scope
-)]
+#[func(scope, title = "JSON")]
 pub fn json(
-    /// Path to a JSON file.
-    path: Spanned<EcoString>,
     /// The virtual machine.
     vm: &mut Vm,
+    /// Path to a JSON file.
+    path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    json_decode(Spanned::new(Readable::Bytes(data), span))
+    json::decode(Spanned::new(Readable::Bytes(data), span))
 }
 
-/// Reads structured data from a JSON string/bytes.
-///
-/// Display: JSON
-/// Category: data-loading
-#[func]
-pub fn json_decode(
-    /// JSON data.
-    data: Spanned<Readable>,
-) -> SourceResult<Value> {
-    let Spanned { v: data, span } = data;
-    serde_json::from_slice(data.as_slice())
-        .map_err(format_json_error)
-        .at(span)
-}
-
-/// Encodes structured data into a JSON string.
-///
-/// Display: Encode JSON
-/// Category: data-loading
-#[func]
-pub fn json_encode(
-    /// Value to be encoded.
-    value: Spanned<Value>,
-    /// Whether to pretty print the JSON with newlines and indentation.
-    #[named]
-    #[default(true)]
-    pretty: bool,
-) -> SourceResult<Str> {
-    let Spanned { v: value, span } = value;
-    if pretty {
-        serde_json::to_string_pretty(&value)
-    } else {
-        serde_json::to_string(&value)
+#[scope]
+impl json {
+    /// Reads structured data from a JSON string/bytes.
+    #[func(title = "Decode JSON")]
+    pub fn decode(
+        /// JSON data.
+        data: Spanned<Readable>,
+    ) -> SourceResult<Value> {
+        let Spanned { v: data, span } = data;
+        serde_json::from_slice(data.as_slice())
+            .map_err(|err| eco_format!("failed to parse JSON ({err})"))
+            .at(span)
     }
-    .map(|v| v.into())
-    .map_err(|e| eco_format!("failed to encode value as json: {e}"))
-    .at(span)
-}
 
-/// Format the user-facing JSON error message.
-fn format_json_error(error: serde_json::Error) -> EcoString {
-    assert!(error.is_syntax() || error.is_eof());
-    eco_format!("failed to parse json file: syntax error in line {}", error.line())
+    /// Encodes structured data into a JSON string.
+    #[func(title = "Encode JSON")]
+    pub fn encode(
+        /// Value to be encoded.
+        value: Spanned<Value>,
+        /// Whether to pretty print the JSON with newlines and indentation.
+        #[named]
+        #[default(true)]
+        pretty: bool,
+    ) -> SourceResult<Str> {
+        let Spanned { v: value, span } = value;
+        if pretty {
+            serde_json::to_string_pretty(&value)
+        } else {
+            serde_json::to_string(&value)
+        }
+        .map(|v| v.into())
+        .map_err(|err| eco_format!("failed to encode value as JSON ({err})"))
+        .at(span)
+    }
 }
 
 /// Reads structured data from a TOML file.
@@ -323,7 +308,7 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 /// The TOML file in the example consists of a table with the keys `title`,
 /// `version`, and `authors`.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #let details = toml("details.toml")
 ///
@@ -332,74 +317,65 @@ fn format_json_error(error: serde_json::Error) -> EcoString {
 /// Authors: #(details.authors
 ///   .join(", ", last: " and "))
 /// ```
-///
-/// Display: TOML
-/// Category: data-loading
-#[func]
-#[scope(
-    scope.define("decode", toml_decode_func());
-    scope.define("encode", toml_encode_func());
-    scope
-)]
+#[func(scope, title = "TOML")]
 pub fn toml(
-    /// Path to a TOML file.
-    path: Spanned<EcoString>,
     /// The virtual machine.
     vm: &mut Vm,
+    /// Path to a TOML file.
+    path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    toml_decode(Spanned::new(Readable::Bytes(data), span))
+    toml::decode(Spanned::new(Readable::Bytes(data), span))
 }
 
-/// Reads structured data from a TOML string/bytes.
-///
-/// Display: Decode TOML
-/// Category: data-loading
-#[func]
-pub fn toml_decode(
-    /// TOML data.
-    data: Spanned<Readable>,
-) -> SourceResult<Value> {
-    let Spanned { v: data, span } = data;
-    let raw = std::str::from_utf8(data.as_slice())
-        .map_err(|_| "file is not valid utf-8")
-        .at(span)?;
-    toml::from_str(raw).map_err(format_toml_error).at(span)
-}
+#[scope]
+impl toml {
+    /// Reads structured data from a TOML string/bytes.
+    #[func(title = "Decode TOML")]
+    pub fn decode(
+        /// TOML data.
+        data: Spanned<Readable>,
+    ) -> SourceResult<Value> {
+        let Spanned { v: data, span } = data;
+        let raw = std::str::from_utf8(data.as_slice())
+            .map_err(|_| "file is not valid utf-8")
+            .at(span)?;
+        ::toml::from_str(raw)
+            .map_err(|err| format_toml_error(err, raw))
+            .at(span)
+    }
 
-/// Encodes structured data into a TOML string.
-///
-/// Display: Encode TOML
-/// Category: data-loading
-#[func]
-pub fn toml_encode(
-    /// Value to be encoded.
-    value: Spanned<Value>,
-    /// Whether to pretty-print the resulting TOML.
-    #[named]
-    #[default(true)]
-    pretty: bool,
-) -> SourceResult<Str> {
-    let Spanned { v: value, span } = value;
-    if pretty { toml::to_string_pretty(&value) } else { toml::to_string(&value) }
-        .map(|v| v.into())
-        .map_err(|e| eco_format!("failed to encode value as toml: {e}"))
-        .at(span)
+    /// Encodes structured data into a TOML string.
+    #[func(title = "Encode TOML")]
+    pub fn encode(
+        /// Value to be encoded.
+        value: Spanned<Value>,
+        /// Whether to pretty-print the resulting TOML.
+        #[named]
+        #[default(true)]
+        pretty: bool,
+    ) -> SourceResult<Str> {
+        let Spanned { v: value, span } = value;
+        if pretty { ::toml::to_string_pretty(&value) } else { ::toml::to_string(&value) }
+            .map(|v| v.into())
+            .map_err(|err| eco_format!("failed to encode value as TOML ({err})"))
+            .at(span)
+    }
 }
 
 /// Format the user-facing TOML error message.
-fn format_toml_error(error: toml::de::Error) -> EcoString {
-    if let Some(range) = error.span() {
+fn format_toml_error(error: ::toml::de::Error, raw: &str) -> EcoString {
+    if let Some(head) = error.span().and_then(|range| raw.get(..range.start)) {
+        let line = head.lines().count();
+        let column = 1 + head.chars().rev().take_while(|&c| !is_newline(c)).count();
         eco_format!(
-            "failed to parse toml file: {}, index {}-{}",
+            "failed to parse TOML ({} at line {line} column {column})",
             error.message(),
-            range.start,
-            range.end
         )
     } else {
-        eco_format!("failed to parse toml file: {}", error.message())
+        eco_format!("failed to parse TOML ({})", error.message())
     }
 }
 
@@ -417,7 +393,7 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 /// each with a sequence of their own submapping with the keys
 /// "title" and "published"
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #let bookshelf(contents) = {
 ///   for (author, works) in contents {
@@ -432,61 +408,45 @@ fn format_toml_error(error: toml::de::Error) -> EcoString {
 ///   yaml("scifi-authors.yaml")
 /// )
 /// ```
-///
-/// Display: YAML
-/// Category: data-loading
-#[func]
-#[scope(
-    scope.define("decode", yaml_decode_func());
-    scope.define("encode", yaml_encode_func());
-    scope
-)]
+#[func(scope, title = "YAML")]
 pub fn yaml(
-    /// Path to a YAML file.
-    path: Spanned<EcoString>,
     /// The virtual machine.
     vm: &mut Vm,
+    /// Path to a YAML file.
+    path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    yaml_decode(Spanned::new(Readable::Bytes(data), span))
+    yaml::decode(Spanned::new(Readable::Bytes(data), span))
 }
 
-/// Reads structured data from a YAML string/bytes.
-///
-/// Display: Decode YAML
-/// Category: data-loading
-#[func]
-pub fn yaml_decode(
-    /// YAML data.
-    data: Spanned<Readable>,
-) -> SourceResult<Value> {
-    let Spanned { v: data, span } = data;
-    serde_yaml::from_slice(data.as_slice())
-        .map_err(format_yaml_error)
-        .at(span)
-}
+#[scope]
+impl yaml {
+    /// Reads structured data from a YAML string/bytes.
+    #[func(title = "Decode YAML")]
+    pub fn decode(
+        /// YAML data.
+        data: Spanned<Readable>,
+    ) -> SourceResult<Value> {
+        let Spanned { v: data, span } = data;
+        serde_yaml::from_slice(data.as_slice())
+            .map_err(|err| eco_format!("failed to parse YAML ({err})"))
+            .at(span)
+    }
 
-/// Encode structured data into a YAML string.
-///
-/// Display: Encode YAML
-/// Category: data-loading
-#[func]
-pub fn yaml_encode(
-    /// Value to be encoded.
-    value: Spanned<Value>,
-) -> SourceResult<Str> {
-    let Spanned { v: value, span } = value;
-    serde_yaml::to_string(&value)
-        .map(|v| v.into())
-        .map_err(|e| eco_format!("failed to encode value as yaml: {e}"))
-        .at(span)
-}
-
-/// Format the user-facing YAML error message.
-fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
-    eco_format!("failed to parse yaml file: {}", error.to_string().trim())
+    /// Encode structured data into a YAML string.
+    #[func(title = "Encode YAML")]
+    pub fn encode(
+        /// Value to be encoded.
+        value: Spanned<Value>,
+    ) -> SourceResult<Str> {
+        let Spanned { v: value, span } = value;
+        serde_yaml::to_string(&value)
+            .map(|v| v.into())
+            .map_err(|err| eco_format!("failed to encode value as YAML ({err})"))
+            .at(span)
+    }
 }
 
 /// Reads structured data from a CBOR file.
@@ -497,57 +457,46 @@ fn format_yaml_error(error: serde_yaml::Error) -> EcoString {
 /// equivalents, null-values (`null`, `~` or empty ``) will be converted into
 /// `{none}`, and numbers will be converted to floats or integers depending on
 /// whether they are whole numbers.
-///
-/// Display: CBOR
-/// Category: data-loading
-#[func]
-#[scope(
-    scope.define("decode", cbor_decode_func());
-    scope.define("encode", cbor_encode_func());
-    scope
-)]
+#[func(scope, title = "CBOR")]
 pub fn cbor(
-    /// Path to a CBOR file.
-    path: Spanned<EcoString>,
     /// The virtual machine.
     vm: &mut Vm,
+    /// Path to a CBOR file.
+    path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    cbor_decode(Spanned::new(data, span))
+    cbor::decode(Spanned::new(data, span))
 }
 
-/// Reads structured data from CBOR bytes.
-///
-/// Display: Decode CBOR
-/// Category: data-loading
-#[func]
-pub fn cbor_decode(
-    /// cbor data.
-    data: Spanned<Bytes>,
-) -> SourceResult<Value> {
-    let Spanned { v: data, span } = data;
-    ciborium::from_reader(data.as_slice())
-        .map_err(|e| eco_format!("failed to parse cbor: {e}"))
-        .at(span)
-}
+#[scope]
+impl cbor {
+    /// Reads structured data from CBOR bytes.
+    #[func(title = "Decode CBOR")]
+    pub fn decode(
+        /// cbor data.
+        data: Spanned<Bytes>,
+    ) -> SourceResult<Value> {
+        let Spanned { v: data, span } = data;
+        ciborium::from_reader(data.as_slice())
+            .map_err(|err| eco_format!("failed to parse CBOR ({err})"))
+            .at(span)
+    }
 
-/// Encode structured data into CBOR bytes.
-///
-/// Display: Encode CBOR
-/// Category: data-loading
-#[func]
-pub fn cbor_encode(
-    /// Value to be encoded.
-    value: Spanned<Value>,
-) -> SourceResult<Bytes> {
-    let Spanned { v: value, span } = value;
-    let mut res = Vec::new();
-    ciborium::into_writer(&value, &mut res)
-        .map(|_| res.into())
-        .map_err(|e| eco_format!("failed to encode value as cbor: {e}"))
-        .at(span)
+    /// Encode structured data into CBOR bytes.
+    #[func(title = "Encode CBOR")]
+    pub fn encode(
+        /// Value to be encoded.
+        value: Spanned<Value>,
+    ) -> SourceResult<Bytes> {
+        let Spanned { v: value, span } = value;
+        let mut res = Vec::new();
+        ciborium::into_writer(&value, &mut res)
+            .map(|_| res.into())
+            .map_err(|err| eco_format!("failed to encode value as CBOR ({err})"))
+            .at(span)
+    }
 }
 
 /// Reads structured data from an XML file.
@@ -565,7 +514,7 @@ pub fn cbor_encode(
 /// `content` tag contains one or more paragraphs, which are represented as `p`
 /// tags.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #let find-child(elem, tag) = {
 ///   elem.children
@@ -598,41 +547,35 @@ pub fn cbor_encode(
 ///   }
 /// }
 /// ```
-///
-/// Display: XML
-/// Category: data-loading
-#[func]
-#[scope(
-    scope.define("decode", xml_decode_func());
-    scope
-)]
+#[func(scope, title = "XML")]
 pub fn xml(
-    /// Path to an XML file.
-    path: Spanned<EcoString>,
     /// The virtual machine.
     vm: &mut Vm,
+    /// Path to an XML file.
+    path: Spanned<EcoString>,
 ) -> SourceResult<Value> {
     let Spanned { v: path, span } = path;
     let id = vm.resolve_path(&path).at(span)?;
     let data = vm.world().file(id).at(span)?;
-    xml_decode(Spanned::new(Readable::Bytes(data), span))
+    xml::decode(Spanned::new(Readable::Bytes(data), span))
 }
 
-/// Reads structured data from an XML string/bytes.
-///
-/// Display: Decode XML
-/// Category: data-loading
-#[func]
-pub fn xml_decode(
-    /// XML data.
-    data: Spanned<Readable>,
-) -> SourceResult<Value> {
-    let Spanned { v: data, span } = data;
-    let text = std::str::from_utf8(data.as_slice())
-        .map_err(FileError::from)
-        .at(span)?;
-    let document = roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
-    Ok(convert_xml(document.root()))
+#[scope]
+impl xml {
+    /// Reads structured data from an XML string/bytes.
+    #[func(title = "Decode XML")]
+    pub fn decode(
+        /// XML data.
+        data: Spanned<Readable>,
+    ) -> SourceResult<Value> {
+        let Spanned { v: data, span } = data;
+        let text = std::str::from_utf8(data.as_slice())
+            .map_err(FileError::from)
+            .at(span)?;
+        let document =
+            roxmltree::Document::parse(text).map_err(format_xml_error).at(span)?;
+        Ok(convert_xml(document.root()))
+    }
 }
 
 /// Convert an XML node to a Typst value.
@@ -661,5 +604,5 @@ fn convert_xml(node: roxmltree::Node) -> Value {
 
 /// Format the user-facing XML error message.
 fn format_xml_error(error: roxmltree::Error) -> EcoString {
-    format_xml_like_error("xml file", error)
+    format_xml_like_error("XML", error)
 }

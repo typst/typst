@@ -1,152 +1,175 @@
+use heck::ToKebabCase;
+
 use super::*;
 
-/// Expand the `#[element]` macro.
-pub fn element(stream: TokenStream, body: &syn::ItemStruct) -> Result<TokenStream> {
-    let element = prepare(stream, body)?;
+/// Expand the `#[elem]` macro.
+pub fn elem(stream: TokenStream, body: syn::ItemStruct) -> Result<TokenStream> {
+    let element = parse(stream, &body)?;
     Ok(create(&element))
 }
 
+/// Details about an element.
 struct Elem {
     name: String,
-    display: String,
-    category: String,
-    keywords: Option<String>,
+    title: String,
+    scope: bool,
+    keywords: Vec<String>,
     docs: String,
     vis: syn::Visibility,
     ident: Ident,
-    capable: Vec<Ident>,
+    capabilities: Vec<Ident>,
     fields: Vec<Field>,
-    scope: Option<BlockWithReturn>,
 }
 
+/// Details about an element field.
 struct Field {
-    name: String,
-    docs: String,
-    internal: bool,
-    external: bool,
-    positional: bool,
-    required: bool,
-    variadic: bool,
-    synthesized: bool,
-    fold: bool,
-    resolve: bool,
-    parse: Option<BlockWithReturn>,
-    default: syn::Expr,
-    vis: syn::Visibility,
     ident: Ident,
     ident_in: Ident,
     with_ident: Ident,
     push_ident: Ident,
     set_ident: Ident,
+    vis: syn::Visibility,
     ty: syn::Type,
     output: syn::Type,
+    name: String,
+    docs: String,
+    positional: bool,
+    required: bool,
+    variadic: bool,
+    resolve: bool,
+    fold: bool,
+    internal: bool,
+    external: bool,
+    synthesized: bool,
+    parse: Option<BlockWithReturn>,
+    default: syn::Expr,
 }
 
 impl Field {
+    /// Whether the field is present on every instance of the element.
     fn inherent(&self) -> bool {
         self.required || self.variadic
     }
 
+    /// Whether the field can be used with set rules.
     fn settable(&self) -> bool {
         !self.inherent()
     }
 }
 
-/// Preprocess the element's definition.
-fn prepare(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
+/// The `..` in `#[elem(..)]`.
+struct Meta {
+    scope: bool,
+    name: Option<String>,
+    title: Option<String>,
+    keywords: Vec<String>,
+    capabilities: Vec<Ident>,
+}
+
+impl Parse for Meta {
+    fn parse(input: ParseStream) -> Result<Self> {
+        Ok(Self {
+            scope: parse_flag::<kw::scope>(input)?,
+            name: parse_string::<kw::name>(input)?,
+            title: parse_string::<kw::title>(input)?,
+            keywords: parse_string_array::<kw::keywords>(input)?,
+            capabilities: Punctuated::<Ident, Token![,]>::parse_terminated(input)?
+                .into_iter()
+                .collect(),
+        })
+    }
+}
+
+/// Parse details about the element from its struct definition.
+fn parse(stream: TokenStream, body: &syn::ItemStruct) -> Result<Elem> {
+    let meta: Meta = syn::parse2(stream)?;
+    let (name, title) = determine_name_and_title(
+        meta.name,
+        meta.title,
+        &body.ident,
+        Some(|base| base.trim_end_matches("Elem")),
+    )?;
+
+    let docs = documentation(&body.attrs);
+
     let syn::Fields::Named(named) = &body.fields else {
         bail!(body, "expected named fields");
     };
+    let fields = named.named.iter().map(parse_field).collect::<Result<_>>()?;
 
-    let mut fields = vec![];
-    for field in &named.named {
-        let Some(ident) = field.ident.clone() else {
-            bail!(field, "expected named field");
-        };
-
-        let mut attrs = field.attrs.clone();
-        let variadic = has_attr(&mut attrs, "variadic");
-        let required = has_attr(&mut attrs, "required") || variadic;
-        let positional = has_attr(&mut attrs, "positional") || required;
-
-        if ident == "label" {
-            bail!(ident, "invalid field name");
-        }
-
-        let mut field = Field {
-            name: kebab_case(&ident),
-            docs: documentation(&attrs),
-            internal: has_attr(&mut attrs, "internal"),
-            external: has_attr(&mut attrs, "external"),
-            positional,
-            required,
-            variadic,
-            synthesized: has_attr(&mut attrs, "synthesized"),
-            fold: has_attr(&mut attrs, "fold"),
-            resolve: has_attr(&mut attrs, "resolve"),
-            parse: parse_attr(&mut attrs, "parse")?.flatten(),
-            default: parse_attr(&mut attrs, "default")?
-                .flatten()
-                .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
-            vis: field.vis.clone(),
-            ident: ident.clone(),
-            ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
-            with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
-            push_ident: Ident::new(&format!("push_{}", ident), ident.span()),
-            set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
-            ty: field.ty.clone(),
-            output: field.ty.clone(),
-        };
-
-        if field.required && (field.fold || field.resolve) {
-            bail!(ident, "required fields cannot be folded or resolved");
-        }
-
-        if field.required && !field.positional {
-            bail!(ident, "only positional fields can be required");
-        }
-
-        if field.resolve {
-            let output = &field.output;
-            field.output = parse_quote! { <#output as ::typst::model::Resolve>::Output };
-        }
-        if field.fold {
-            let output = &field.output;
-            field.output = parse_quote! { <#output as ::typst::model::Fold>::Output };
-        }
-
-        validate_attrs(&attrs)?;
-        fields.push(field);
-    }
-
-    let capable = Punctuated::<Ident, Token![,]>::parse_terminated
-        .parse2(stream)?
-        .into_iter()
-        .collect();
-
-    let mut attrs = body.attrs.clone();
-    let docs = documentation(&attrs);
-    let mut lines = docs.split('\n').collect();
-    let keywords = meta_line(&mut lines, "Keywords").ok().map(Into::into);
-    let category = meta_line(&mut lines, "Category")?.into();
-    let display = meta_line(&mut lines, "Display")?.into();
-    let docs = lines.join("\n").trim().into();
-
-    let element = Elem {
-        name: body.ident.to_string().trim_end_matches("Elem").to_lowercase(),
-        display,
-        category,
-        keywords,
+    Ok(Elem {
+        name,
+        title,
+        scope: meta.scope,
+        keywords: meta.keywords,
         docs,
         vis: body.vis.clone(),
         ident: body.ident.clone(),
-        capable,
+        capabilities: meta.capabilities,
         fields,
-        scope: parse_attr(&mut attrs, "scope")?.flatten(),
+    })
+}
+
+fn parse_field(field: &syn::Field) -> Result<Field> {
+    let Some(ident) = field.ident.clone() else {
+        bail!(field, "expected named field");
     };
 
+    if ident == "label" {
+        bail!(ident, "invalid field name");
+    }
+
+    let mut attrs = field.attrs.clone();
+    let variadic = has_attr(&mut attrs, "variadic");
+    let required = has_attr(&mut attrs, "required") || variadic;
+    let positional = has_attr(&mut attrs, "positional") || required;
+
+    let mut field = Field {
+        name: ident.to_string().to_kebab_case(),
+        docs: documentation(&attrs),
+        internal: has_attr(&mut attrs, "internal"),
+        external: has_attr(&mut attrs, "external"),
+        positional,
+        required,
+        variadic,
+        synthesized: has_attr(&mut attrs, "synthesized"),
+        fold: has_attr(&mut attrs, "fold"),
+        resolve: has_attr(&mut attrs, "resolve"),
+        parse: parse_attr(&mut attrs, "parse")?.flatten(),
+        default: parse_attr(&mut attrs, "default")?
+            .flatten()
+            .unwrap_or_else(|| parse_quote! { ::std::default::Default::default() }),
+        vis: field.vis.clone(),
+        ident: ident.clone(),
+        ident_in: Ident::new(&format!("{}_in", ident), ident.span()),
+        with_ident: Ident::new(&format!("with_{}", ident), ident.span()),
+        push_ident: Ident::new(&format!("push_{}", ident), ident.span()),
+        set_ident: Ident::new(&format!("set_{}", ident), ident.span()),
+        ty: field.ty.clone(),
+        output: field.ty.clone(),
+    };
+
+    if field.required && (field.fold || field.resolve) {
+        bail!(ident, "required fields cannot be folded or resolved");
+    }
+
+    if field.required && !field.positional {
+        bail!(ident, "only positional fields can be required");
+    }
+
+    if field.resolve {
+        let output = &field.output;
+        field.output = parse_quote! { <#output as ::typst::model::Resolve>::Output };
+    }
+
+    if field.fold {
+        let output = &field.output;
+        field.output = parse_quote! { <#output as ::typst::model::Fold>::Output };
+    }
+
     validate_attrs(&attrs)?;
-    Ok(element)
+
+    Ok(field)
 }
 
 /// Produce the element's definition.
@@ -166,13 +189,13 @@ fn create(element: &Elem) -> TokenStream {
     // Trait implementations.
     let element_impl = create_pack_impl(element);
     let construct_impl = element
-        .capable
+        .capabilities
         .iter()
         .all(|capability| capability != "Construct")
         .then(|| create_construct_impl(element));
     let set_impl = create_set_impl(element);
     let locatable_impl = element
-        .capable
+        .capabilities
         .iter()
         .any(|capability| capability == "Locatable")
         .then(|| quote! { impl ::typst::model::Locatable for #ident {} });
@@ -231,7 +254,7 @@ fn create_new_func(element: &Elem) -> TokenStream {
         /// Create a new element.
         pub fn new(#(#params),*) -> Self {
             Self(::typst::model::Content::new(
-                <Self as ::typst::model::Element>::func()
+                <Self as ::typst::model::NativeElement>::elem()
             ))
             #(#builder_calls)*
         }
@@ -285,7 +308,7 @@ fn create_style_chain_access(field: &Field, inherent: TokenStream) -> TokenStrea
 
     quote! {
         styles.#getter::<#ty>(
-            <Self as ::typst::model::Element>::func(),
+            <Self as ::typst::model::NativeElement>::elem(),
             #name,
             #inherent,
             || #default,
@@ -325,7 +348,7 @@ fn create_set_field_method(field: &Field) -> TokenStream {
         #[doc = #doc]
         #vis fn #set_ident(#ident: #ty) -> ::typst::model::Style {
             ::typst::model::Style::Property(::typst::model::Property::new(
-                <Self as ::typst::model::Element>::func(),
+                <Self as ::typst::model::NativeElement>::elem(),
                 #name,
                 #ident,
             ))
@@ -335,48 +358,53 @@ fn create_set_field_method(field: &Field) -> TokenStream {
 
 /// Create the element's `Pack` implementation.
 fn create_pack_impl(element: &Elem) -> TokenStream {
-    let Elem { ident, name, display, keywords, category, docs, .. } = element;
+    let eval = quote! { ::typst::eval };
+    let model = quote! { ::typst::model };
+
+    let Elem { name, ident, title, scope, keywords, docs, .. } = element;
     let vtable_func = create_vtable_func(element);
-    let infos = element
+    let params = element
         .fields
         .iter()
         .filter(|field| !field.internal && !field.synthesized)
         .map(create_param_info);
-    let scope = create_scope_builder(element.scope.as_ref());
-    let keywords = quote_option(keywords);
+
+    let scope = if *scope {
+        quote! { <#ident as #eval::NativeScope>::scope() }
+    } else {
+        quote! { #eval::Scope::new() }
+    };
+
+    let data = quote! {
+        #model::NativeElementData {
+            name: #name,
+            title: #title,
+            docs: #docs,
+            keywords: &[#(#keywords),*],
+            construct: <#ident as #model::Construct>::construct,
+            set: <#ident as #model::Set>::set,
+            vtable: #vtable_func,
+            scope: #eval::Lazy::new(|| #scope),
+            params: #eval::Lazy::new(|| ::std::vec![#(#params),*])
+        }
+    };
+
     quote! {
-        impl ::typst::model::Element for #ident {
-            fn pack(self) -> ::typst::model::Content {
+        impl #model::NativeElement for #ident {
+            fn data() -> &'static #model::NativeElementData {
+                static DATA: #model::NativeElementData = #data;
+                &DATA
+            }
+
+            fn pack(self) -> #model::Content {
                 self.0
             }
 
-            fn unpack(content: &::typst::model::Content) -> ::std::option::Option<&Self> {
+            fn unpack(content: &#model::Content) -> ::std::option::Option<&Self> {
                 // Safety: Elements are #[repr(transparent)].
                 content.is::<Self>().then(|| unsafe {
                     ::std::mem::transmute(content)
                 })
-            }
-
-            fn func() -> ::typst::model::ElemFunc {
-                static NATIVE: ::typst::model::NativeElemFunc = ::typst::model::NativeElemFunc {
-                    name: #name,
-                    vtable: #vtable_func,
-                    construct: <#ident as ::typst::model::Construct>::construct,
-                    set: <#ident as ::typst::model::Set>::set,
-                    info: ::typst::eval::Lazy::new(|| typst::eval::FuncInfo {
-                        name: #name,
-                        display: #display,
-                        keywords: #keywords,
-                        docs: #docs,
-                        params: ::std::vec![#(#infos),*],
-                        returns: ::typst::eval::CastInfo::Union(::std::vec![
-                            ::typst::eval::CastInfo::Type("content")
-                        ]),
-                        category: #category,
-                        scope: #scope,
-                    }),
-                };
-                (&NATIVE).into()
             }
         }
     }
@@ -385,7 +413,7 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
 /// Create the element's casting vtable.
 fn create_vtable_func(element: &Elem) -> TokenStream {
     let ident = &element.ident;
-    let relevant = element.capable.iter().filter(|&ident| ident != "Construct");
+    let relevant = element.capabilities.iter().filter(|&ident| ident != "Construct");
     let checks = relevant.map(|capability| {
         quote! {
             if id == ::std::any::TypeId::of::<dyn #capability>() {
@@ -399,7 +427,7 @@ fn create_vtable_func(element: &Elem) -> TokenStream {
     quote! {
         |id| {
             let null = Self(::typst::model::Content::new(
-                <#ident as ::typst::model::Element>::func()
+                <#ident as ::typst::model::NativeElement>::elem()
             ));
             #(#checks)*
             None
@@ -441,7 +469,7 @@ fn create_param_info(field: &Field) -> TokenStream {
         ::typst::eval::ParamInfo {
             name: #name,
             docs: #docs,
-            cast: <#ty as ::typst::eval::Reflect>::describe(),
+            input: <#ty as ::typst::eval::Reflect>::input(),
             default: #default,
             positional: #positional,
             named: #named,
@@ -488,7 +516,7 @@ fn create_construct_impl(element: &Elem) -> TokenStream {
                 args: &mut ::typst::eval::Args,
             ) -> ::typst::diag::SourceResult<::typst::model::Content> {
                 let mut element = Self(::typst::model::Content::new(
-                    <Self as ::typst::model::Element>::func()
+                    <Self as ::typst::model::NativeElement>::elem()
                 ));
                 #(#handlers)*
                 Ok(element.0)

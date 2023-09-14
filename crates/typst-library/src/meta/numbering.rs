@@ -2,6 +2,7 @@ use std::str::FromStr;
 
 use chinese_number::{ChineseCase, ChineseCountMethod, ChineseVariant, NumberToChinese};
 use ecow::EcoVec;
+use typst::export::{PdfPageLabel, PdfPageLabelStyle};
 
 use crate::prelude::*;
 use crate::text::Case;
@@ -16,7 +17,7 @@ use crate::text::Case;
 /// number is substituted, their prefixes, and one suffix. The prefixes and the
 /// suffix are repeated as-is.
 ///
-/// ## Example { #example }
+/// # Example
 /// ```example
 /// #numbering("1.1)", 1, 2, 3) \
 /// #numbering("1.a.i", 1, 2) \
@@ -29,11 +30,10 @@ use crate::text::Case;
 ///   1, 2, 3,
 /// )
 /// ```
-///
-/// Display: Numbering
-/// Category: meta
 #[func]
 pub fn numbering(
+    /// The virtual machine.
+    vm: &mut Vm,
     /// Defines how the numbering works.
     ///
     /// **Counting symbols** are `1`, `a`, `A`, `i`, `I`, `い`, `イ`, `א`, `가`,
@@ -64,8 +64,6 @@ pub fn numbering(
     /// given, the last counting symbol with its prefix is repeated.
     #[variadic]
     numbers: Vec<usize>,
-    /// The virtual machine.
-    vm: &mut Vm,
 ) -> SourceResult<Value> {
     numbering.apply_vm(vm, &numbers)
 }
@@ -97,6 +95,50 @@ impl Numbering {
             Self::Pattern(pattern) => Value::Str(pattern.apply(numbers).into()),
             Self::Func(func) => func.call_vt(vt, numbers.iter().copied())?,
         })
+    }
+
+    /// Create a new `PdfNumbering` from a `Numbering` applied to a page
+    /// number.
+    pub fn apply_pdf(&self, number: usize) -> Option<PdfPageLabel> {
+        let Numbering::Pattern(pat) = self else {
+            return None;
+        };
+
+        let Some((prefix, kind, case)) = pat.pieces.first() else {
+            return None;
+        };
+
+        // If there is a suffix, we cannot use the common style optimisation,
+        // since PDF does not provide a suffix field.
+        let mut style = None;
+        if pat.suffix.is_empty() {
+            use NumberingKind as Kind;
+            use PdfPageLabelStyle as Style;
+            match (kind, case) {
+                (Kind::Arabic, _) => style = Some(Style::Arabic),
+                (Kind::Roman, Case::Lower) => style = Some(Style::LowerRoman),
+                (Kind::Roman, Case::Upper) => style = Some(Style::UpperRoman),
+                (Kind::Letter, Case::Lower) if number <= 26 => {
+                    style = Some(Style::LowerAlpha)
+                }
+                (Kind::Letter, Case::Upper) if number <= 26 => {
+                    style = Some(Style::UpperAlpha)
+                }
+                _ => {}
+            }
+        }
+
+        // Prefix and offset depend on the style: If it is supported by the PDF
+        // spec, we use the given prefix and an offset. Otherwise, everything
+        // goes into prefix.
+        let prefix = if style.is_none() {
+            Some(pat.apply(&[number]))
+        } else {
+            (!prefix.is_empty()).then(|| prefix.clone())
+        };
+
+        let offset = style.and(NonZeroUsize::new(number));
+        Some(PdfPageLabel { prefix, style, offset })
     }
 
     /// Trim the prefix suffix if this is a pattern.
@@ -135,8 +177,8 @@ cast! {
 /// - `(I)`
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct NumberingPattern {
-    pieces: EcoVec<(EcoString, NumberingKind, Case)>,
-    suffix: EcoString,
+    pub pieces: EcoVec<(EcoString, NumberingKind, Case)>,
+    pub suffix: EcoString,
     trimmed: bool,
 }
 
@@ -245,7 +287,7 @@ cast! {
 
 /// Different kinds of numberings.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-enum NumberingKind {
+pub enum NumberingKind {
     Arabic,
     Letter,
     Roman,

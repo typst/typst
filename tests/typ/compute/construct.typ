@@ -62,7 +62,8 @@
 
 ---
 // Error: 12-24 expected float or ratio, found string
-#color.mix((red, "yes"), (green, "no"))
+// Error: 26-39 expected float or ratio, found string
+#color.mix((red, "yes"), (green, "no"), (green, 10%))
 
 ---
 // Error: 12-23 expected a color or color-weight pair
@@ -103,7 +104,7 @@
 #test(str(10 / 3).len() > 10, true)
 
 ---
-// Error: 6-8 expected integer, float, label, bytes, or string, found content
+// Error: 6-8 expected integer, float, bytes, label, type, or string, found content
 #str([])
 
 ---
@@ -128,11 +129,11 @@
 #str.to-unicode("ab")
 
 ---
-// Error: 19-21 0xffffffffffffffff is not a valid codepoint
-#str.from-unicode(-1) // negative values are not valid
+// Error: 19-21 number must be at least zero
+#str.from-unicode(-1)
 
 ---
-// Error: 19-27 0x110000 is not a valid codepoint
+// Error: 18-28 0x110000 is not a valid codepoint
 #str.from-unicode(0x110000) // 0x10ffff is the highest valid code point
 
 ---
@@ -205,21 +206,21 @@
 #datetime(year: 2000, month: 2, day: 30)
 
 ---
-// Error: 26-35 missing closing bracket for bracket at index 0
+// Error: 27-34 missing closing bracket for bracket at index 0
 #datetime.today().display("[year")
 
 ---
-// Error: 26-39 invalid component name 'nothing' at index 1
+// Error: 27-38 invalid component name 'nothing' at index 1
 #datetime.today().display("[nothing]")
 
 ---
-// Error: 26-51 invalid modifier 'wrong' at index 6
+// Error: 27-50 invalid modifier 'wrong' at index 6
 #datetime.today().display("[year wrong:last_two]")
 
 ---
-// Error: 26-34 expected component name at index 2
+// Error: 27-33 expected component name at index 2
 #datetime.today().display("  []")
 
 ---
-// Error: 26-36 failed to format datetime in the requested format
+// Error: 2-36 failed to format datetime (insufficient information)
 #datetime.today().display("[hour]")

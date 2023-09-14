@@ -98,8 +98,8 @@
   let dict = (
     func: () => 1,
   )
-  // Error: 3-14 type dictionary has no method `func`
-  // Hint: 3-14 to call the function stored in the dictionary, surround the field access with parentheses
+  // Error: 8-12 type dictionary has no method `func`
+  // Hint: 8-12 to call the function stored in the dictionary, surround the field access with parentheses
   dict.func()
 }
 
@@ -109,6 +109,6 @@
     nonfunc: 1
   )
 
-  // Error: 3-17 type dictionary has no method `nonfunc`
+  // Error: 8-15 type dictionary has no method `nonfunc`
   dict.nonfunc()
 }

@@ -27,7 +27,7 @@
 #csv("nope.csv")
 
 ---
-// Error: 6-22 failed to parse csv file: found 3 instead of 2 fields in line 3
+// Error: 6-22 failed to parse CSV (found 3 instead of 2 fields in line 3)
 #csv("/files/bad.csv")
 
 ---
@@ -38,7 +38,7 @@
 #test(data.at(2).weight, 150)
 
 ---
-// Error: 7-24 failed to parse json file: syntax error in line 3
+// Error: 7-24 failed to parse JSON (expected value at line 3 column 14)
 #json("/files/bad.json")
 
 ---
@@ -80,7 +80,7 @@
 ))
 
 ---
-// Error: 7-24 failed to parse toml file: expected `.`, `=`, index 15-16
+// Error: 7-24 failed to parse TOML (expected `.`, `=` at line 1 column 16)
 #toml("/files/bad.toml")
 
 ---
@@ -98,7 +98,7 @@
 #test(data.at("1"), "ok")
 
 ---
-// Error: 7-24 failed to parse yaml file: while parsing a flow sequence, expected ',' or ']' at line 2 column 1
+// Error: 7-24 failed to parse YAML (did not find expected ',' or ']' at line 2 column 1, while parsing a flow sequence at line 1 column 18)
 #yaml("/files/bad.yaml")
 
 ---
@@ -127,5 +127,5 @@
 ),))
 
 ---
-// Error: 6-22 failed to parse xml file: found closing tag 'data' instead of 'hello' in line 3
+// Error: 6-22 failed to parse XML (found closing tag 'data' instead of 'hello' in line 3)
 #xml("/files/bad.xml")

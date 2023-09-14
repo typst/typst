@@ -79,11 +79,11 @@
   test(v + v, 2 * v)
 
   // Integer addition does not give a float.
-  if type(v) != "integer" {
+  if type(v) != int {
     test(v + v, 2.0 * v)
   }
 
-  if "relative" not in type(v) and ("pt" not in repr(v) or "em" not in repr(v)) {
+  if type(v) != relative and ("pt" not in repr(v) or "em" not in repr(v)) {
     test(v / v, 1.0)
   }
 }

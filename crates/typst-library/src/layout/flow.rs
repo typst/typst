@@ -14,10 +14,7 @@ use crate::visualize::{
 ///
 /// This element is responsible for layouting both the top-level content flow
 /// and the contents of boxes.
-///
-/// Display: Flow
-/// Category: layout
-#[element(Layout)]
+#[elem(Layout)]
 pub struct FlowElem {
     /// The children that will be arranges into a flow.
     #[variadic]
@@ -62,7 +59,7 @@ impl Layout for FlowElem {
                 frame.meta(styles, true);
                 layouter.items.push(FlowItem::Frame {
                     frame,
-                    aligns: Axes::new(Align::Top, Align::Left),
+                    align: Axes::splat(FixedAlign::Start),
                     sticky: true,
                     movable: false,
                 });
@@ -128,12 +125,12 @@ enum FlowItem {
     /// A frame for a layouted block, how to align it, whether it sticks to the
     /// item after it (for orphan prevention), and whether it is movable
     /// (to keep it together with its footnotes).
-    Frame { frame: Frame, aligns: Axes<Align>, sticky: bool, movable: bool },
+    Frame { frame: Frame, align: Axes<FixedAlign>, sticky: bool, movable: bool },
     /// An absolutely placed frame.
     Placed {
         frame: Frame,
-        x_align: Align,
-        y_align: Smart<Option<Align>>,
+        x_align: FixedAlign,
+        y_align: Smart<Option<FixedAlign>>,
         delta: Axes<Rel<Abs>>,
         float: bool,
         clearance: Abs,
@@ -209,7 +206,7 @@ impl<'a> FlowLayouter<'a> {
         par: &ParElem,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = AlignElem::alignment_in(styles).resolve(styles);
+        let align = AlignElem::alignment_in(styles).resolve(styles);
         let leading = ParElem::leading_in(styles);
         let consecutive = self.last_was_par;
         let lines = par
@@ -242,7 +239,7 @@ impl<'a> FlowLayouter<'a> {
 
             self.layout_item(
                 vt,
-                FlowItem::Frame { frame, aligns, sticky: false, movable: true },
+                FlowItem::Frame { frame, align, sticky: false, movable: true },
             )?;
         }
 
@@ -258,11 +255,11 @@ impl<'a> FlowLayouter<'a> {
         content: &dyn Layout,
         styles: StyleChain,
     ) -> SourceResult<()> {
-        let aligns = AlignElem::alignment_in(styles).resolve(styles);
+        let align = AlignElem::alignment_in(styles).resolve(styles);
         let sticky = BlockElem::sticky_in(styles);
         let pod = Regions::one(self.regions.base(), Axes::splat(false));
         let frame = content.layout(vt, styles, pod)?.into_frame();
-        self.layout_item(vt, FlowItem::Frame { frame, aligns, sticky, movable: true })?;
+        self.layout_item(vt, FlowItem::Frame { frame, align, sticky, movable: true })?;
         self.last_was_par = false;
         Ok(())
     }
@@ -278,10 +275,10 @@ impl<'a> FlowLayouter<'a> {
         let clearance = placed.clearance(styles);
         let alignment = placed.alignment(styles);
         let delta = Axes::new(placed.dx(styles), placed.dy(styles)).resolve(styles);
-        let x_align = alignment.map_or(Align::Center, |aligns| {
-            aligns.x.unwrap_or(GenAlign::Start).resolve(styles)
+        let x_align = alignment.map_or(FixedAlign::Center, |align| {
+            align.x().unwrap_or_default().resolve(styles)
         });
-        let y_align = alignment.map(|align| align.y.resolve(styles));
+        let y_align = alignment.map(|align| align.y().map(VAlign::fix));
         let frame = placed.layout(vt, styles, self.regions)?.into_frame();
         let item = FlowItem::Placed { frame, x_align, y_align, delta, float, clearance };
         self.layout_item(vt, item)
@@ -309,7 +306,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         // How to align the block.
-        let aligns = if let Some(align) = block.to::<AlignElem>() {
+        let align = if let Some(align) = block.to::<AlignElem>() {
             align.alignment(styles)
         } else if let Some((_, local)) = block.to_styled() {
             AlignElem::alignment_in(styles.chain(local))
@@ -332,7 +329,7 @@ impl<'a> FlowLayouter<'a> {
                 self.finish_region(vt)?;
             }
 
-            let item = FlowItem::Frame { frame, aligns, sticky, movable: false };
+            let item = FlowItem::Frame { frame, align, sticky, movable: false };
             self.layout_item(vt, item)?;
         }
 
@@ -404,14 +401,14 @@ impl<'a> FlowLayouter<'a> {
                         - (frame.height() + clearance) / 2.0)
                         / self.regions.full;
                     let better_align =
-                        if ratio <= 0.5 { Align::Bottom } else { Align::Top };
+                        if ratio <= 0.5 { FixedAlign::End } else { FixedAlign::Start };
                     *y_align = Smart::Custom(Some(better_align));
                 }
 
                 // Add some clearance so that the float doesn't touch the main
                 // content.
                 frame.size_mut().y += clearance;
-                if *y_align == Smart::Custom(Some(Align::Bottom)) {
+                if *y_align == Smart::Custom(Some(FixedAlign::End)) {
                     frame.translate(Point::with_y(clearance));
                 }
 
@@ -459,8 +456,10 @@ impl<'a> FlowLayouter<'a> {
                 }
                 FlowItem::Placed { float: false, .. } => {}
                 FlowItem::Placed { frame, float: true, y_align, .. } => match y_align {
-                    Smart::Custom(Some(Align::Top)) => float_top_height += frame.height(),
-                    Smart::Custom(Some(Align::Bottom)) => {
+                    Smart::Custom(Some(FixedAlign::Start)) => {
+                        float_top_height += frame.height()
+                    }
+                    Smart::Custom(Some(FixedAlign::End)) => {
                         float_bottom_height += frame.height()
                     }
                     _ => {}
@@ -475,7 +474,7 @@ impl<'a> FlowLayouter<'a> {
                 }
             }
         }
-        used.y += footnote_height;
+        used.y += footnote_height + float_top_height + float_bottom_height;
 
         // Determine the size of the flow in this region depending on whether
         // the region expands. Also account for fractional spacing and
@@ -486,7 +485,7 @@ impl<'a> FlowLayouter<'a> {
         }
 
         let mut output = Frame::new(size);
-        let mut ruler = Align::Top;
+        let mut ruler = FixedAlign::Start;
         let mut float_top_offset = Abs::zero();
         let mut offset = float_top_height;
         let mut float_bottom_offset = Abs::zero();
@@ -502,9 +501,9 @@ impl<'a> FlowLayouter<'a> {
                     let remaining = self.initial.y - used.y;
                     offset += v.share(fr, remaining);
                 }
-                FlowItem::Frame { frame, aligns, .. } => {
-                    ruler = ruler.max(aligns.y);
-                    let x = aligns.x.position(size.x - frame.width());
+                FlowItem::Frame { frame, align, .. } => {
+                    ruler = ruler.max(align.y);
+                    let x = align.x.position(size.x - frame.width());
                     let y = offset + ruler.position(size.y - used.y);
                     let pos = Point::new(x, y);
                     offset += frame.height();
@@ -514,12 +513,12 @@ impl<'a> FlowLayouter<'a> {
                     let x = x_align.position(size.x - frame.width());
                     let y = if float {
                         match y_align {
-                            Smart::Custom(Some(Align::Top)) => {
+                            Smart::Custom(Some(FixedAlign::Start)) => {
                                 let y = float_top_offset;
                                 float_top_offset += frame.height();
                                 y
                             }
-                            Smart::Custom(Some(Align::Bottom)) => {
+                            Smart::Custom(Some(FixedAlign::End)) => {
                                 let y = size.y - footnote_height - float_bottom_height
                                     + float_bottom_offset;
                                 float_bottom_offset += frame.height();
@@ -537,7 +536,7 @@ impl<'a> FlowLayouter<'a> {
                     };
 
                     let pos = Point::new(x, y)
-                        + delta.zip(size).map(|(d, s)| d.relative_to(s)).to_point();
+                        + delta.zip_map(size, Rel::relative_to).to_point();
 
                     output.push_frame(pos, frame);
                 }

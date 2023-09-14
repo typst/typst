@@ -2,9 +2,9 @@
 // Ref: false
 
 ---
-#test(type(1), "integer")
-#test(type(ltr), "direction")
-#test(type(10 / 3), "float")
+#test(type(1), int)
+#test(type(ltr), direction)
+#test(type(10 / 3), float)
 
 ---
 #test(repr(ltr), "ltr")
@@ -68,9 +68,9 @@
 
 ---
 // Test the `type` function.
-#test(type(1), "integer")
-#test(type(ltr), "direction")
-#test(type(10 / 3), "float")
+#test(type(1), int)
+#test(type(ltr), direction)
+#test(type(10 / 3), float)
 
 ---
 // Test the eval function.
