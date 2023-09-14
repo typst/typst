@@ -14,7 +14,7 @@ use typst::eval::Duration;
 use super::{
     fields, format_str, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict,
     FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Scope,
-    Str, Symbol, Type, Version
+    Str, Symbol, Type, Version,
 };
 use crate::diag::StrResult;
 use crate::eval::Datetime;
