@@ -19,7 +19,7 @@ use usvg::{NodeExt, TreeParsing, TreeTextToPath};
 
 use crate::diag::{bail, format_xml_like_error, StrResult};
 use crate::eval::Bytes;
-use crate::font::Font;
+use crate::font::{Font, FontInfo, FontVariant, FontWeight};
 use crate::geom::Axes;
 use crate::World;
 
@@ -352,15 +352,14 @@ fn load_svg_fonts(
         // We load all variants for the family, since we don't know which will
         // be used.
         for font in &font_data.fonts {
-            let source = Arc::new(font.data().clone());
-            fontdb.load_font_source(fontdb::Source::Binary(source));
+            fontdb.load_font_data(font.data().to_vec());
         }
 
         loaded.insert(font_data.usvg_family.clone());
     };
 
-    let fallback_fonts = loader
-        .fallback_families()
+    let fallback_families = loader.fallback_families();
+    let fallback_fonts = fallback_families
         .iter()
         .filter_map(|family| load(family.as_str()))
         .collect::<EcoVec<_>>();
@@ -372,7 +371,7 @@ fn load_svg_fonts(
             for span in &mut chunk.spans {
                 let Some(text) = chunk.text.get(span.start..span.end) else { continue };
 
-                let inline_families = &mut span.font.families;
+                let inline_families = &span.font.families;
                 let inline_fonts = inline_families
                     .iter()
                     .filter(|family| !family.is_empty())
@@ -390,17 +389,23 @@ fn load_svg_fonts(
 
                 if let Some(font) = font {
                     load_into_db(font);
-                    *inline_families = vec![font.usvg_family.to_string()]
-                } else {
-                    // Use first fallback if no complete found was found.
-                    if inline_families.is_empty() {
-                        inline_families.push(String::new());
-                    }
-                    if inline_families[0].is_empty() {
-                        if let Some(fallback) = fallback_fonts.first() {
-                            load_into_db(fallback);
-                            inline_families[0] = fallback.usvg_family.to_string();
-                        }
+                    span.font.families = vec![font.usvg_family.to_string()];
+                } else if !fallback_families.is_empty() {
+                    // If no font covers all characters, use last resort fallback
+                    // (only if fallback is enabled <=> fallback_families is not empty)
+                    let like = inline_fonts
+                        .first()
+                        .or(fallback_fonts.first())
+                        .and_then(|font_data| font_data.fonts.first())
+                        .map(|font| font.info().clone());
+
+                    let fallback = loader
+                        .find_fallback(text, like, &span.font)
+                        .and_then(|family| load(family.as_str()));
+
+                    if let Some(font) = fallback {
+                        load_into_db(&font);
+                        span.font.families = vec![font.usvg_family.to_string()];
                     }
                 }
             }
@@ -439,14 +444,22 @@ trait SvgFontLoader {
     fn load(&self, family: &str) -> EcoVec<Font>;
 
     /// Prioritized sequence of fallback font families.
-    fn fallback_families(&self) -> &[String];
+    fn fallback_families(&self) -> EcoVec<String>;
+
+    /// Find a last resort fallback for a given text and font variant.
+    fn find_fallback(
+        &self,
+        text: &str,
+        like: Option<FontInfo>,
+        font: &usvg::Font,
+    ) -> Option<EcoString>;
 }
 
 /// Loads fonts for an SVG from a world
 struct WorldLoader<'a> {
     world: Tracked<'a, dyn World + 'a>,
     seen: RefCell<BTreeMap<EcoString, EcoVec<Font>>>,
-    fallback_families: EcoVec<String>,
+    fallback_families: RefCell<EcoVec<String>>,
 }
 
 impl<'a> WorldLoader<'a> {
@@ -454,13 +467,17 @@ impl<'a> WorldLoader<'a> {
         world: Tracked<'a, dyn World + 'a>,
         fallback_families: EcoVec<String>,
     ) -> Self {
-        Self { world, fallback_families, seen: Default::default() }
+        Self {
+            world,
+            fallback_families: RefCell::new(fallback_families),
+            seen: Default::default(),
+        }
     }
 
     fn into_prepared(self) -> PreparedLoader {
         PreparedLoader {
             families: self.seen.into_inner(),
-            fallback_families: self.fallback_families,
+            fallback_families: self.fallback_families.into_inner(),
         }
     }
 }
@@ -480,8 +497,35 @@ impl SvgFontLoader for WorldLoader<'_> {
             .clone()
     }
 
-    fn fallback_families(&self) -> &[String] {
-        self.fallback_families.as_slice()
+    fn fallback_families(&self) -> EcoVec<String> {
+        self.fallback_families.borrow().clone()
+    }
+
+    fn find_fallback(
+        &self,
+        text: &str,
+        like: Option<FontInfo>,
+        font: &usvg::Font,
+    ) -> Option<EcoString> {
+        let variant = FontVariant {
+            style: font.style.into(),
+            weight: FontWeight::from_number(font.weight),
+            stretch: font.stretch.into(),
+        };
+
+        let fallback: Option<EcoString> = self
+            .world
+            .book()
+            .select_fallback(like.as_ref(), variant, text)
+            .and_then(|id| self.world.font(id))
+            .map(|font| font.info().family.to_lowercase().as_str().into());
+
+        if let Some(fallback) = &fallback {
+            // TODO: Prevent duplicates
+            self.fallback_families.borrow_mut().push(fallback.to_string());
+        }
+
+        fallback
     }
 }
 
@@ -497,8 +541,20 @@ impl SvgFontLoader for PreparedLoader {
         self.families.get(family).cloned().unwrap_or_default()
     }
 
-    fn fallback_families(&self) -> &[String] {
-        self.fallback_families.as_slice()
+    fn fallback_families(&self) -> EcoVec<String> {
+        self.fallback_families.clone()
+    }
+
+    fn find_fallback(
+        &self,
+        _: &str,
+        _: Option<FontInfo>,
+        _: &usvg::Font,
+    ) -> Option<EcoString> {
+        // All fallbacks font should be included in 'families' already, so we will
+        // let usvg find it. As "Linux Libertine" must have failed to cover all glyphs,
+        // we can be sure that it will not actually be used as a fallback.
+        Some("Linux Libertine".into())
     }
 }
 
