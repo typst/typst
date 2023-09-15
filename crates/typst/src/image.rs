@@ -1,7 +1,7 @@
 //! Image handling.
 
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::{self, Debug, Formatter};
 use std::io;
 use std::rc::Rc;
@@ -321,8 +321,8 @@ fn load_svg_fonts(
     loader: Tracked<dyn SvgFontLoader + '_>,
 ) -> fontdb::Database {
     let mut fontdb = fontdb::Database::new();
-    let mut font_cache = BTreeMap::<EcoString, FontData>::new();
-    let mut loaded = BTreeMap::<EcoString, ()>::new();
+    let mut font_cache = HashMap::<EcoString, FontData>::new();
+    let mut loaded = HashSet::<EcoString>::new();
 
     // Loads a font family by its Typst name and returns its data.
     let mut load = |family: &str| -> Option<FontData> {
@@ -345,7 +345,7 @@ fn load_svg_fonts(
 
     // Loads a font family into the fontdb database.
     let mut load_into_db = |font_data: &FontData| {
-        if loaded.contains_key(&font_data.usvg_family) {
+        if loaded.contains(&font_data.usvg_family) {
             return;
         }
 
@@ -356,7 +356,7 @@ fn load_svg_fonts(
             fontdb.load_font_source(fontdb::Source::Binary(source));
         }
 
-        loaded.insert(font_data.usvg_family.clone(), ());
+        loaded.insert(font_data.usvg_family.clone());
     };
 
     let fallback_fonts = loader
