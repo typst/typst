@@ -43,7 +43,7 @@ use self::ctx::*;
 use self::fragment::*;
 use self::row::*;
 use self::spacing::*;
-use crate::layout::{BoxElem, HElem, ParElem, Spacing};
+use crate::layout::{AlignElem, BoxElem, HElem, ParElem, Spacing};
 use crate::meta::Supplement;
 use crate::meta::{
     Count, Counter, CounterUpdate, LocalName, Numbering, Outlinable, Refable,
@@ -200,14 +200,18 @@ impl Show for EquationElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.clone().pack().guarded(Guard::Base(Self::elem()));
         if self.block(styles) {
-            realized = realized.aligned(Align::CENTER);
+            realized = AlignElem::new(realized).pack();
         }
         Ok(realized)
     }
 }
 
 impl Finalize for EquationElem {
-    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+    fn finalize(&self, realized: Content, style: StyleChain) -> Content {
+        let mut realized = realized;
+        if self.block(style) {
+            realized = realized.styled(AlignElem::set_alignment(Align::CENTER));
+        }
         realized
             .styled(TextElem::set_weight(FontWeight::from_number(450)))
             .styled(TextElem::set_font(FontList(vec![FontFamily::new(
@@ -251,17 +255,26 @@ impl Layout for EquationElem {
                     .layout(vt, styles, pod)?
                     .into_frame();
 
+                let full_counter_width = counter.width() + NUMBER_GUTTER.resolve(styles);
                 let width = if regions.size.x.is_finite() {
                     regions.size.x
                 } else {
-                    frame.width()
-                        + 2.0 * (counter.width() + NUMBER_GUTTER.resolve(styles))
+                    frame.width() + 2.0 * full_counter_width
                 };
 
                 let height = frame.height().max(counter.height());
-                frame.resize(Size::new(width, height), Axes::splat(FixedAlign::Center));
+                let align = AlignElem::alignment_in(styles).resolve(styles).x;
+                frame.resize(Size::new(width, height), Axes::splat(align));
 
-                let x = if TextElem::dir_in(styles).is_positive() {
+                let dir = TextElem::dir_in(styles);
+                let offset = match (align, dir) {
+                    (FixedAlign::Start, Dir::RTL) => full_counter_width,
+                    (FixedAlign::End, Dir::LTR) => -full_counter_width,
+                    _ => Abs::zero(),
+                };
+                frame.translate(Point::with_x(offset));
+
+                let x = if dir.is_positive() {
                     frame.width() - counter.width()
                 } else {
                     Abs::zero()
