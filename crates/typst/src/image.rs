@@ -321,14 +321,14 @@ fn load_svg_fonts(
     loader: Tracked<dyn SvgFontLoader + '_>,
 ) -> fontdb::Database {
     let mut fontdb = fontdb::Database::new();
-    let mut font_cache = HashMap::<EcoString, FontData>::new();
+    let mut font_cache = HashMap::<EcoString, Option<FontData>>::new();
     let mut loaded = HashSet::<EcoString>::new();
 
     // Loads a font family by its Typst name and returns its data.
     let mut load = |family: &str| -> Option<FontData> {
         let family = EcoString::from(family.trim()).to_lowercase();
         if let Some(success) = font_cache.get(&family) {
-            return Some(success.clone());
+            return success.clone();
         }
 
         let fonts = loader.load(&family);
@@ -338,9 +338,9 @@ fn load_svg_fonts(
                 .map(Into::<EcoString>::into)
         });
 
-        let font_data = FontData { usvg_family: usvg_family?, fonts };
+        let font_data = usvg_family.map(|usvg_family| FontData { usvg_family, fonts });
         font_cache.insert(family, font_data.clone());
-        Some(font_data)
+        font_data
     };
 
     // Loads a font family into the fontdb database.
