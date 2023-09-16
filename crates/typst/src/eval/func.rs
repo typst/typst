@@ -731,7 +731,7 @@ impl<'a> CapturesVisitor<'a> {
     fn capture(
         &mut self,
         ident: &str,
-        getter: impl for<'b> FnOnce(&'b Scopes<'a>, &str) -> StrResult<&'b Value>,
+        getter: impl FnOnce(&'a Scopes<'a>, &str) -> StrResult<&'a Value>,
     ) {
         if self.internal.get(ident).is_err() {
             let Some(value) = self
