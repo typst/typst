@@ -193,6 +193,7 @@ impl Value {
             Self::Int(v) => item!(text)(eco_format!("{v}")),
             Self::Float(v) => item!(text)(eco_format!("{v}")),
             Self::Str(v) => item!(text)(v.into()),
+            Self::Version(v) => item!(text)(eco_format!("{v}")),
             Self::Symbol(v) => item!(text)(v.get().into()),
             Self::Content(v) => v,
             Self::Module(module) => module.content(),
