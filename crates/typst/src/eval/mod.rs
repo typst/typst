@@ -50,7 +50,9 @@ pub use self::cast::{
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
-pub use self::func::{func, Func, NativeFunc, NativeFuncData, ParamInfo};
+pub use self::func::{
+    func, Func, IdeCapturesVisitor, NativeFunc, NativeFuncData, ParamInfo,
+};
 pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::module::Module;
 pub use self::none::NoneValue;

@@ -743,6 +743,171 @@ impl<'a> CapturesVisitor<'a> {
     }
 }
 
+/// A visitor that determines which variables to capture for a closure.
+pub struct IdeCapturesVisitor<'a> {
+    external: &'a mut Scopes<'a>,
+    internal: Scopes<'a>,
+    captures: Scope,
+
+    analyzing: &'a SyntaxNode,
+    is_internal: bool,
+}
+
+impl<'a> IdeCapturesVisitor<'a> {
+    /// Create a new visitor for the given external scopes.
+    pub fn new(external: &'a mut Scopes<'a>, analyzing: &'a SyntaxNode) -> Self {
+        Self {
+            external,
+            internal: Scopes::new(None),
+            captures: Scope::new(),
+            analyzing,
+            is_internal: false,
+        }
+    }
+
+    /// Return the scope of captured variables.
+    pub fn finish(self) -> Scope {
+        self.captures
+    }
+
+    /// Visit any node and collect all captured variables.
+    #[tracing::instrument(skip_all)]
+    pub fn visit(&mut self, node: &SyntaxNode) {
+        if node == self.analyzing {
+            self.is_internal = true;
+        }
+
+        match node.cast() {
+            // Every identifier is a potential variable that we need to capture.
+            // Identifiers that shouldn't count as captures because they
+            // actually bind a new name are handled below (individually through
+            // the expressions that contain them).
+            Some(ast::Expr::Ident(ident)) => self.capture(ident),
+            Some(ast::Expr::MathIdent(ident)) => self.capture_in_math(ident),
+
+            // Code and content blocks create a scope.
+            Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
+                self.internal.enter();
+                for child in node.children() {
+                    self.visit(child);
+                }
+                self.internal.exit();
+            }
+
+            // A closure contains parameter bindings, which are bound before the
+            // body is evaluated. Care must be taken so that the default values
+            // of named parameters cannot access previous parameter bindings.
+            Some(ast::Expr::Closure(expr)) => {
+                for param in expr.params().children() {
+                    if let ast::Param::Named(named) = param {
+                        self.visit(named.expr().to_untyped());
+                    }
+                }
+
+                self.internal.enter();
+                if let Some(name) = expr.name() {
+                    self.bind(name);
+                }
+
+                for param in expr.params().children() {
+                    match param {
+                        ast::Param::Pos(pattern) => {
+                            for ident in pattern.idents() {
+                                self.bind(ident);
+                            }
+                        }
+                        ast::Param::Named(named) => self.bind(named.name()),
+                        ast::Param::Sink(spread) => {
+                            self.bind(spread.name().unwrap_or_default())
+                        }
+                    }
+                }
+
+                self.visit(expr.body().to_untyped());
+                self.internal.exit();
+            }
+
+            // A let expression contains a binding, but that binding is only
+            // active after the body is evaluated.
+            Some(ast::Expr::Let(expr)) => {
+                if let Some(init) = expr.init() {
+                    self.visit(init.to_untyped());
+                }
+
+                for ident in expr.kind().idents() {
+                    self.bind(ident);
+                }
+            }
+
+            // A for loop contains one or two bindings in its pattern. These are
+            // active after the iterable is evaluated but before the body is
+            // evaluated.
+            Some(ast::Expr::For(expr)) => {
+                self.visit(expr.iter().to_untyped());
+                self.internal.enter();
+
+                let pattern = expr.pattern();
+                for ident in pattern.idents() {
+                    self.bind(ident);
+                }
+
+                self.visit(expr.body().to_untyped());
+                self.internal.exit();
+            }
+
+            // An import contains items, but these are active only after the
+            // path is evaluated.
+            Some(ast::Expr::Import(expr)) => {
+                self.visit(expr.source().to_untyped());
+                if let Some(ast::Imports::Items(items)) = expr.imports() {
+                    for item in items.iter() {
+                        self.bind(item.bound_name());
+                    }
+                }
+            }
+
+            // Everything else is traversed from left to right.
+            _ => {
+                for child in node.children() {
+                    self.visit(child);
+                }
+            }
+        }
+
+        if node == self.analyzing {
+            self.is_internal = false;
+        }
+    }
+
+    /// Bind a new internal variable.
+    fn bind(&mut self, ident: ast::Ident) {
+        if !self.is_internal {
+            self.external.top.define(ident.get().clone(), Value::None);
+            return;
+        }
+
+        self.internal.top.define(ident.get().clone(), Value::None);
+    }
+
+    /// Capture a variable if it isn't internal.
+    fn capture(&mut self, ident: ast::Ident) {
+        if self.internal.get(&ident).is_err() {
+            if let Ok(value) = self.external.get(&ident) {
+                self.captures.define_captured(ident.get().clone(), value.clone());
+            }
+        }
+    }
+
+    /// Capture a variable in math mode if it isn't internal.
+    fn capture_in_math(&mut self, ident: ast::MathIdent) {
+        if self.internal.get(&ident).is_err() {
+            if let Ok(value) = self.external.get_in_math(&ident) {
+                self.captures.define_captured(ident.get().clone(), value.clone());
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
