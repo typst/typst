@@ -42,7 +42,7 @@ macro_rules! node {
         impl<'a> AstNode<'a> for $name<'a> {
             #[inline]
             fn from_untyped(node: &'a SyntaxNode) -> Option<Self> {
-                if matches!(node.kind(), SyntaxKind::$name) {
+                if node.kind() == SyntaxKind::$name {
                     Some(Self(node))
                 } else {
                     Option::None
@@ -1438,6 +1438,18 @@ impl BinOp {
             SyntaxKind::SlashEq => Self::DivAssign,
             _ => return Option::None,
         })
+    }
+
+    /// Whether this is an assignment operator.
+    pub fn is_assignment(self) -> bool {
+        matches!(
+            self,
+            Self::Assign
+                | Self::AddAssign
+                | Self::SubAssign
+                | Self::MulAssign
+                | Self::DivAssign
+        )
     }
 
     /// The precedence of this operator.
