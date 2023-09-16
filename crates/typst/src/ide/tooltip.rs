@@ -13,7 +13,7 @@ use crate::syntax::{
     ast::{self, AstNode},
     LinkedNode, Source, SyntaxKind,
 };
-use crate::util::pretty_comma_list;
+use crate::util::{pretty_comma_list, separated_list};
 use crate::World;
 
 /// Describe the item under the cursor.
@@ -125,8 +125,8 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
 
     names.sort();
 
-    let tooltip = pretty_comma_list(&names, false);
-    Some(Tooltip::Code(eco_format!("captures: {tooltip}")))
+    let tooltip = separated_list(&names, "and");
+    Some(Tooltip::Code(eco_format!("This closure captures {tooltip}.")))
 }
 
 /// Tooltip text for a hovered length.
