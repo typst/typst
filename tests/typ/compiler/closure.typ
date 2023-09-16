@@ -132,6 +132,24 @@
 }
 
 ---
+// Mutable method with capture in argument.
+#let x = "b"
+#let f() = {
+  let a = (b: 5)
+  a.at(x) = 10
+  a
+}
+#f()
+
+---
+#let x = ()
+#let f() = {
+  // Error: 3-4 variables from outside the function are read-only and cannot be modified
+  x.at(1) = 2
+}
+#f()
+
+---
 // Named arguments.
 #{
   let greet(name, birthday: false) = {

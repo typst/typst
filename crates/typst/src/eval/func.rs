@@ -688,16 +688,6 @@ impl<'a> CapturesVisitor<'a> {
                 }
             }
 
-            // Don't capture left-hand side of an assignment.
-            Some(ast::Expr::Binary(binary)) if binary.op().is_assignment() => {
-                self.visit(binary.rhs().to_untyped());
-            }
-
-            // Don't capture the left-hand side of a destructuring assignment.
-            Some(ast::Expr::DestructAssign(assignment)) => {
-                self.visit(assignment.value().to_untyped());
-            }
-
             // A for loop contains one or two bindings in its pattern. These are
             // active after the iterable is evaluated but before the body is
             // evaluated.
@@ -828,5 +818,6 @@ mod tests {
         test("#(body = 1)", &[]);
         test("#(body += y)", &["y"]);
         test("#{ (body, a) = (y, 1) }", &["y"]);
+        test("#(x.at(y) = 5)", &["x", "y"])
     }
 }

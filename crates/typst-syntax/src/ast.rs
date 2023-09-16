@@ -1440,18 +1440,6 @@ impl BinOp {
         })
     }
 
-    /// Whether this is an assignment operator.
-    pub fn is_assignment(self) -> bool {
-        matches!(
-            self,
-            Self::Assign
-                | Self::AddAssign
-                | Self::SubAssign
-                | Self::MulAssign
-                | Self::DivAssign
-        )
-    }
-
     /// The precedence of this operator.
     pub fn precedence(self) -> usize {
         match self {
