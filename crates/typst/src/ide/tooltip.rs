@@ -30,15 +30,6 @@ pub fn tooltip(
         return None;
     }
 
-    println!("qwq leaf {:#?}", leaf.kind());
-    {
-        let mut ancestor = Some(&leaf);
-        while let Some(node) = ancestor {
-            println!("qwq ancestor {:#?}", node.kind());
-            ancestor = node.parent();
-        }
-    }
-
     named_param_tooltip(world, &leaf)
         .or_else(|| font_tooltip(world, &leaf))
         .or_else(|| ref_tooltip(world, frames, &leaf))
