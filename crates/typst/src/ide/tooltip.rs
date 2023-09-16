@@ -7,9 +7,7 @@ use if_chain::if_chain;
 use super::analyze::analyze_labels;
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
-use crate::eval::{
-    CapturesVisitor, CastInfo, Scopes, SyntacticalScopeVisitor, Tracer, Value,
-};
+use crate::eval::{CapturesVisitor, CastInfo, Scopes, Tracer, Value};
 use crate::geom::{round_2, Length, Numeric};
 use crate::syntax::{
     ast::{self, AstNode},
@@ -34,7 +32,7 @@ pub fn tooltip(
         .or_else(|| font_tooltip(world, &leaf))
         .or_else(|| ref_tooltip(world, frames, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
-        .or_else(|| closure_tooltip(world, source, &leaf))
+        .or_else(|| closure_tooltip(world, &leaf))
 }
 
 /// A hover tooltip.
@@ -107,11 +105,7 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
 }
 
 /// Tooltip for a hovered closure.
-fn closure_tooltip(
-    world: &(dyn World + 'static),
-    source: &Source,
-    leaf: &LinkedNode,
-) -> Option<Tooltip> {
+fn closure_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tooltip> {
     // Find the closure to analyze.
     let mut ancestor = leaf;
     while !ancestor.is::<ast::Closure>() {
@@ -119,13 +113,9 @@ fn closure_tooltip(
     }
     let closure = ancestor.cast::<ast::Closure>()?.to_untyped();
 
-    // Prepare the syntactical scopes.
-    let mut external_scopes = Scopes::new(Some(world.library()));
-    let mut visitor = SyntacticalScopeVisitor::new(&mut external_scopes.top, closure);
-    visitor.visit(source.root());
-
     // analyze the closure captures.
-    let mut visitor = CapturesVisitor::new(&external_scopes);
+    let external_scopes = Scopes::new(Some(world.library()));
+    let mut visitor = CapturesVisitor::<true>::new(&external_scopes);
     visitor.visit(closure);
     let captures = visitor.finish();
     let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();

@@ -52,7 +52,6 @@ pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
 pub use self::func::{
     func, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
-    SyntacticalScopeVisitor,
 };
 pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::module::Module;
@@ -1343,7 +1342,7 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(&vm.scopes);
+            let mut visitor = CapturesVisitor::<false>::new(&vm.scopes);
             visitor.visit(self.to_untyped());
             visitor.finish()
         };

@@ -597,13 +597,13 @@ cast! {
 }
 
 /// A visitor that determines which variables to capture for a closure.
-pub struct CapturesVisitor<'a> {
+pub struct CapturesVisitor<'a, const SYNTACTICAL: bool> {
     external: &'a Scopes<'a>,
     internal: Scopes<'a>,
     captures: Scope,
 }
 
-impl<'a> CapturesVisitor<'a> {
+impl<'a, const SYNTACTICAL: bool> CapturesVisitor<'a, SYNTACTICAL> {
     /// Create a new visitor for the given external scopes.
     pub fn new(external: &'a Scopes) -> Self {
         Self {
@@ -626,8 +626,10 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(ident),
-            Some(ast::Expr::MathIdent(ident)) => self.capture_in_math(ident),
+            Some(ast::Expr::Ident(ident)) => self.capture(&ident, Scopes::get),
+            Some(ast::Expr::MathIdent(ident)) => {
+                self.capture(&ident, Scopes::get_in_math)
+            }
 
             // Code and content blocks create a scope.
             Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
@@ -725,126 +727,23 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Capture a variable if it isn't internal.
-    fn capture(&mut self, ident: ast::Ident) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get(&ident) {
-                self.captures.define_captured(ident.get().clone(), value.clone());
-            }
+    #[inline]
+    fn capture(
+        &mut self,
+        ident: &str,
+        getter: impl for<'b> FnOnce(&'b Scopes<'a>, &str) -> StrResult<&'b Value>,
+    ) {
+        if self.internal.get(ident).is_err() {
+            let value = if SYNTACTICAL {
+                Value::None
+            } else if let Ok(value) = getter(self.external, ident) {
+                value.clone()
+            } else {
+                return;
+            };
+
+            self.captures.define_captured(ident, value);
         }
-    }
-
-    /// Capture a variable in math mode if it isn't internal.
-    fn capture_in_math(&mut self, ident: ast::MathIdent) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get_in_math(&ident) {
-                self.captures.define_captured(ident.get().clone(), value.clone());
-            }
-        }
-    }
-}
-
-/// A visitor that constructs a syntactical scope for the syntax node
-pub struct SyntacticalScopeVisitor<'a> {
-    /// Populate the visible variables to this scope.
-    external: &'a mut Scope,
-    /// The syntax node to analyze.
-    analyzing: &'a SyntaxNode,
-}
-
-impl<'a> SyntacticalScopeVisitor<'a> {
-    /// Create a new visitor for the given external scopes and a syntax node to analyze.
-    pub fn new(external: &'a mut Scope, analyzing: &'a SyntaxNode) -> Self {
-        Self { external, analyzing }
-    }
-
-    /// Visit any node and collect all bound variables.
-    #[tracing::instrument(skip_all)]
-    pub fn visit(&mut self, node: &SyntaxNode) {
-        if node == self.analyzing {
-            return;
-        }
-
-        match node.cast() {
-            // A closure contains parameter bindings, which are bound before the
-            // body is evaluated. Care must be taken so that the default values
-            // of named parameters cannot access previous parameter bindings.
-            Some(ast::Expr::Closure(expr)) => {
-                for param in expr.params().children() {
-                    if let ast::Param::Named(named) = param {
-                        self.visit(named.expr().to_untyped());
-                    }
-                }
-
-                if let Some(name) = expr.name() {
-                    self.bind(name);
-                }
-
-                for param in expr.params().children() {
-                    match param {
-                        ast::Param::Pos(pattern) => {
-                            for ident in pattern.idents() {
-                                self.bind(ident);
-                            }
-                        }
-                        ast::Param::Named(named) => self.bind(named.name()),
-                        ast::Param::Sink(spread) => {
-                            self.bind(spread.name().unwrap_or_default())
-                        }
-                    }
-                }
-
-                self.visit(expr.body().to_untyped());
-            }
-
-            // A let expression contains a binding, but that binding is only
-            // active after the body is evaluated.
-            Some(ast::Expr::Let(expr)) => {
-                if let Some(init) = expr.init() {
-                    self.visit(init.to_untyped());
-                }
-
-                for ident in expr.kind().idents() {
-                    self.bind(ident);
-                }
-            }
-
-            // A for loop contains one or two bindings in its pattern. These are
-            // active after the iterable is evaluated but before the body is
-            // evaluated.
-            Some(ast::Expr::For(expr)) => {
-                self.visit(expr.iter().to_untyped());
-
-                let pattern = expr.pattern();
-                for ident in pattern.idents() {
-                    self.bind(ident);
-                }
-
-                self.visit(expr.body().to_untyped());
-            }
-
-            // An import contains items, but these are active only after the
-            // path is evaluated.
-            Some(ast::Expr::Import(expr)) => {
-                self.visit(expr.source().to_untyped());
-                if let Some(ast::Imports::Items(items)) = expr.imports() {
-                    for item in items.iter() {
-                        self.bind(item.bound_name());
-                    }
-                }
-            }
-
-            // Everything else is traversed from left to right.
-            _ => {
-                for child in node.children() {
-                    self.visit(child);
-                }
-            }
-        }
-    }
-
-    /// Bind a new visible variable.
-    fn bind(&mut self, ident: ast::Ident) {
-        self.external.define(ident.get().clone(), Value::None);
     }
 }
 
@@ -861,7 +760,7 @@ mod tests {
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
 
-        let mut visitor = CapturesVisitor::new(&scopes);
+        let mut visitor = CapturesVisitor::<false>::new(&scopes);
         let root = parse(text);
         visitor.visit(&root);
 
