@@ -1342,7 +1342,7 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::<false>::new(&vm.scopes);
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes));
             visitor.visit(self.to_untyped());
             visitor.finish()
         };

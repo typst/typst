@@ -597,15 +597,15 @@ cast! {
 }
 
 /// A visitor that determines which variables to capture for a closure.
-pub struct CapturesVisitor<'a, const SYNTACTICAL: bool> {
-    external: &'a Scopes<'a>,
+pub struct CapturesVisitor<'a> {
+    external: Option<&'a Scopes<'a>>,
     internal: Scopes<'a>,
     captures: Scope,
 }
 
-impl<'a, const SYNTACTICAL: bool> CapturesVisitor<'a, SYNTACTICAL> {
+impl<'a> CapturesVisitor<'a> {
     /// Create a new visitor for the given external scopes.
-    pub fn new(external: &'a Scopes) -> Self {
+    pub fn new(external: Option<&'a Scopes<'a>>) -> Self {
         Self {
             external,
             internal: Scopes::new(None),
@@ -734,15 +734,15 @@ impl<'a, const SYNTACTICAL: bool> CapturesVisitor<'a, SYNTACTICAL> {
         getter: impl for<'b> FnOnce(&'b Scopes<'a>, &str) -> StrResult<&'b Value>,
     ) {
         if self.internal.get(ident).is_err() {
-            let value = if SYNTACTICAL {
-                Value::None
-            } else if let Ok(value) = getter(self.external, ident) {
-                value.clone()
-            } else {
+            let Some(value) = self
+                .external
+                .map(|external| getter(external, ident).ok())
+                .unwrap_or(Some(&Value::None))
+            else {
                 return;
             };
 
-            self.captures.define_captured(ident, value);
+            self.captures.define_captured(ident, value.clone());
         }
     }
 }
@@ -760,7 +760,7 @@ mod tests {
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
 
-        let mut visitor = CapturesVisitor::<false>::new(&scopes);
+        let mut visitor = CapturesVisitor::new(Some(&scopes));
         let root = parse(text);
         visitor.visit(&root);
 
