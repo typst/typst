@@ -7,9 +7,12 @@ use if_chain::if_chain;
 use super::analyze::analyze_labels;
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
-use crate::eval::{CastInfo, Tracer, Value};
+use crate::eval::{CastInfo, IdeCapturesVisitor, Scopes, Tracer, Value};
 use crate::geom::{round_2, Length, Numeric};
-use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
+use crate::syntax::{
+    ast::{self, AstNode},
+    LinkedNode, Source, SyntaxKind,
+};
 use crate::util::pretty_comma_list;
 use crate::World;
 
@@ -29,6 +32,7 @@ pub fn tooltip(
         .or_else(|| font_tooltip(world, &leaf))
         .or_else(|| ref_tooltip(world, frames, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
+        .or_else(|| closure_tooltip(world, source, &leaf))
 }
 
 /// A hover tooltip.
@@ -98,6 +102,36 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
 
     let tooltip = pretty_comma_list(&pieces, false);
     (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip.into()))
+}
+
+/// Tooltip for a hovered closure.
+fn closure_tooltip(
+    world: &(dyn World + 'static),
+    source: &Source,
+    leaf: &LinkedNode,
+) -> Option<Tooltip> {
+    let mut ancestor = leaf;
+    while !ancestor.is::<ast::Closure>() {
+        ancestor = ancestor.parent()?;
+    }
+
+    let expr = ancestor.cast::<ast::Closure>()?.to_untyped();
+
+    let mut external_scopes = Scopes::new(Some(world.library()));
+    let mut visitor = IdeCapturesVisitor::new(&mut external_scopes, expr);
+    visitor.visit(source.root());
+
+    let captures = visitor.finish();
+    let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();
+
+    if names.is_empty() {
+        return None;
+    }
+
+    names.sort();
+
+    let tooltip = pretty_comma_list(&names, false);
+    Some(Tooltip::Code(eco_format!("captures {tooltip}")))
 }
 
 /// Tooltip text for a hovered length.
