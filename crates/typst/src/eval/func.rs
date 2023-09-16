@@ -597,7 +597,7 @@ cast! {
 }
 
 /// A visitor that determines which variables to capture for a closure.
-pub(super) struct CapturesVisitor<'a> {
+pub struct CapturesVisitor<'a> {
     external: &'a Scopes<'a>,
     internal: Scopes<'a>,
     captures: Scope,
@@ -743,57 +743,28 @@ impl<'a> CapturesVisitor<'a> {
     }
 }
 
-/// A visitor that determines which variables to capture for a closure.
-pub struct IdeCapturesVisitor<'a> {
-    external: &'a mut Scopes<'a>,
-    internal: Scopes<'a>,
-    captures: Scope,
-
+/// A visitor that constructs a syntactical scope for the syntax node
+pub struct SyntacticalScopeVisitor<'a> {
+    /// Populate the visible variables to this scope.
+    external: &'a mut Scope,
+    /// The syntax node to analyze.
     analyzing: &'a SyntaxNode,
-    is_internal: bool,
 }
 
-impl<'a> IdeCapturesVisitor<'a> {
-    /// Create a new visitor for the given external scopes.
-    pub fn new(external: &'a mut Scopes<'a>, analyzing: &'a SyntaxNode) -> Self {
-        Self {
-            external,
-            internal: Scopes::new(None),
-            captures: Scope::new(),
-            analyzing,
-            is_internal: false,
-        }
+impl<'a> SyntacticalScopeVisitor<'a> {
+    /// Create a new visitor for the given external scopes and a syntax node to analyze.
+    pub fn new(external: &'a mut Scope, analyzing: &'a SyntaxNode) -> Self {
+        Self { external, analyzing }
     }
 
-    /// Return the scope of captured variables.
-    pub fn finish(self) -> Scope {
-        self.captures
-    }
-
-    /// Visit any node and collect all captured variables.
+    /// Visit any node and collect all bound variables.
     #[tracing::instrument(skip_all)]
     pub fn visit(&mut self, node: &SyntaxNode) {
         if node == self.analyzing {
-            self.is_internal = true;
+            return;
         }
 
         match node.cast() {
-            // Every identifier is a potential variable that we need to capture.
-            // Identifiers that shouldn't count as captures because they
-            // actually bind a new name are handled below (individually through
-            // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(ident),
-            Some(ast::Expr::MathIdent(ident)) => self.capture_in_math(ident),
-
-            // Code and content blocks create a scope.
-            Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
-                self.internal.enter();
-                for child in node.children() {
-                    self.visit(child);
-                }
-                self.internal.exit();
-            }
-
             // A closure contains parameter bindings, which are bound before the
             // body is evaluated. Care must be taken so that the default values
             // of named parameters cannot access previous parameter bindings.
@@ -804,7 +775,6 @@ impl<'a> IdeCapturesVisitor<'a> {
                     }
                 }
 
-                self.internal.enter();
                 if let Some(name) = expr.name() {
                     self.bind(name);
                 }
@@ -824,7 +794,6 @@ impl<'a> IdeCapturesVisitor<'a> {
                 }
 
                 self.visit(expr.body().to_untyped());
-                self.internal.exit();
             }
 
             // A let expression contains a binding, but that binding is only
@@ -844,7 +813,6 @@ impl<'a> IdeCapturesVisitor<'a> {
             // evaluated.
             Some(ast::Expr::For(expr)) => {
                 self.visit(expr.iter().to_untyped());
-                self.internal.enter();
 
                 let pattern = expr.pattern();
                 for ident in pattern.idents() {
@@ -852,7 +820,6 @@ impl<'a> IdeCapturesVisitor<'a> {
                 }
 
                 self.visit(expr.body().to_untyped());
-                self.internal.exit();
             }
 
             // An import contains items, but these are active only after the
@@ -873,38 +840,11 @@ impl<'a> IdeCapturesVisitor<'a> {
                 }
             }
         }
-
-        if node == self.analyzing {
-            self.is_internal = false;
-        }
     }
 
-    /// Bind a new internal variable.
+    /// Bind a new visible variable.
     fn bind(&mut self, ident: ast::Ident) {
-        if !self.is_internal {
-            self.external.top.define(ident.get().clone(), Value::None);
-            return;
-        }
-
-        self.internal.top.define(ident.get().clone(), Value::None);
-    }
-
-    /// Capture a variable if it isn't internal.
-    fn capture(&mut self, ident: ast::Ident) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get(&ident) {
-                self.captures.define_captured(ident.get().clone(), value.clone());
-            }
-        }
-    }
-
-    /// Capture a variable in math mode if it isn't internal.
-    fn capture_in_math(&mut self, ident: ast::MathIdent) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get_in_math(&ident) {
-                self.captures.define_captured(ident.get().clone(), value.clone());
-            }
-        }
+        self.external.define(ident.get().clone(), Value::None);
     }
 }
 

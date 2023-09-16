@@ -7,7 +7,9 @@ use if_chain::if_chain;
 use super::analyze::analyze_labels;
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
-use crate::eval::{CastInfo, IdeCapturesVisitor, Scopes, Tracer, Value};
+use crate::eval::{
+    CapturesVisitor, CastInfo, Scopes, SyntacticalScopeVisitor, Tracer, Value,
+};
 use crate::geom::{round_2, Length, Numeric};
 use crate::syntax::{
     ast::{self, AstNode},
@@ -26,6 +28,15 @@ pub fn tooltip(
     let leaf = LinkedNode::new(source.root()).leaf_at(cursor)?;
     if leaf.kind().is_trivia() {
         return None;
+    }
+
+    println!("qwq leaf {:#?}", leaf.kind());
+    {
+        let mut ancestor = Some(&leaf);
+        while let Some(node) = ancestor {
+            println!("qwq ancestor {:#?}", node.kind());
+            ancestor = node.parent();
+        }
     }
 
     named_param_tooltip(world, &leaf)
@@ -110,17 +121,21 @@ fn closure_tooltip(
     source: &Source,
     leaf: &LinkedNode,
 ) -> Option<Tooltip> {
+    // Find the closure to analyze.
     let mut ancestor = leaf;
     while !ancestor.is::<ast::Closure>() {
         ancestor = ancestor.parent()?;
     }
+    let closure = ancestor.cast::<ast::Closure>()?.to_untyped();
 
-    let expr = ancestor.cast::<ast::Closure>()?.to_untyped();
-
+    // Prepare the syntactical scopes.
     let mut external_scopes = Scopes::new(Some(world.library()));
-    let mut visitor = IdeCapturesVisitor::new(&mut external_scopes, expr);
+    let mut visitor = SyntacticalScopeVisitor::new(&mut external_scopes.top, closure);
     visitor.visit(source.root());
 
+    // analyze the closure captures.
+    let mut visitor = CapturesVisitor::new(&external_scopes);
+    visitor.visit(closure);
     let captures = visitor.finish();
     let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();
 
@@ -131,7 +146,7 @@ fn closure_tooltip(
     names.sort();
 
     let tooltip = pretty_comma_list(&names, false);
-    Some(Tooltip::Code(eco_format!("captures {tooltip}")))
+    Some(Tooltip::Code(eco_format!("captures: {tooltip}")))
 }
 
 /// Tooltip text for a hovered length.

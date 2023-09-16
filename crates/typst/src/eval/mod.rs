@@ -51,7 +51,8 @@ pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
 pub use self::func::{
-    func, Func, IdeCapturesVisitor, NativeFunc, NativeFuncData, ParamInfo,
+    func, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
+    SyntacticalScopeVisitor,
 };
 pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::module::Module;
@@ -76,7 +77,7 @@ use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
-use self::func::{CapturesVisitor, Closure};
+use self::func::Closure;
 use crate::diag::{
     bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult, StrResult,
     Trace, Tracepoint,
