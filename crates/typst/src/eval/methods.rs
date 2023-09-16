@@ -16,7 +16,6 @@ pub fn is_accessor(method: &str) -> bool {
 
 /// List the available methods for a type and whether they take arguments.
 pub fn mutable_methods_on(ty: Type) -> &'static [(&'static str, bool)] {
-    // TODO: does Version::at need to be listed here?
     if ty == Type::of::<Array>() {
         &[
             ("first", false),
