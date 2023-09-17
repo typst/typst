@@ -316,7 +316,8 @@ impl PageContext<'_, '_> {
                 }
                 Color::Cmyk(c) => {
                     self.reset_fill_color_space();
-                    self.content.set_fill_cmyk(c.c as f32, c.m as f32, c.y as f32, c.k as f32);
+                    self.content
+                        .set_fill_cmyk(c.c as f32, c.m as f32, c.y as f32, c.k as f32);
                 }
                 Color::Hsl(c) => {
                     self.parent.colors.hsl(&mut self.parent.alloc);
@@ -384,7 +385,8 @@ impl PageContext<'_, '_> {
                 }
                 Color::Cmyk(c) => {
                     self.reset_stroke_color_space();
-                    self.content.set_stroke_cmyk(c.c as f32, c.m as f32, c.y as f32, c.k as f32);
+                    self.content
+                        .set_stroke_cmyk(c.c as f32, c.m as f32, c.y as f32, c.k as f32);
                 }
                 Color::Hsl(c) => {
                     self.parent.colors.hsl(&mut self.parent.alloc);

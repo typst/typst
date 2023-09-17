@@ -1,13 +1,14 @@
 use ecow::{eco_format, EcoString};
-use palette::encoding::{Linear, self};
-use palette::{Darken, Desaturate, FromColor, Lighten, Saturate, ShiftHue, RgbHue};
+use palette::encoding::{self, Linear};
+use palette::{Darken, Desaturate, FromColor, Lighten, RgbHue, Saturate, ShiftHue};
 use std::str::FromStr;
 use typst_syntax::Spanned;
 
 use super::*;
 use crate::diag::{bail, At, SourceResult};
-use crate::eval::{cast, Args, Array, Cast, Str, Func};
+use crate::eval::{cast, Args, Array, Cast, Func, Str};
 
+// Type aliases for `palette` internal types in f64.
 type Oklab = palette::oklab::Oklaba<f64>;
 type LinearRgba = palette::rgb::Rgba<Linear<encoding::Srgb>, f64>;
 type Rgba = palette::rgb::Rgba<encoding::Srgb, f64>;
@@ -383,7 +384,7 @@ impl Color {
         /// The gray component.
         gray: Component,
     ) -> Color {
-        LumaColor::new(gray.0.get() as f64).into()
+        LumaColor::new(gray.0.get()).into()
     }
 
     /// Create an [Oklab](https://bottosson.github.io/posts/oklab/) color.
@@ -411,10 +412,10 @@ impl Color {
         alpha: RatioComponent,
     ) -> Color {
         OklabColor::new(
-            lightness.0.get() as f64,
-            a.0.get() as f64,
-            b.0.get() as f64,
-            alpha.0.get() as f64,
+            lightness.0.get(),
+            a.0.get(),
+            b.0.get(),
+            alpha.0.get(),
         )
         .into()
     }
@@ -444,10 +445,10 @@ impl Color {
         alpha: Component,
     ) -> Color {
         LinearRgbColor::new(
-            red.0.get() as f64,
-            green.0.get() as f64,
-            blue.0.get() as f64,
-            alpha.0.get() as f64,
+            red.0.get(),
+            green.0.get(),
+            blue.0.get(),
+            alpha.0.get(),
         )
         .into()
     }
@@ -501,7 +502,7 @@ impl Color {
             let Component(g) = args.expect("green component")?;
             let Component(b) = args.expect("blue component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            RgbaColor::new(r.get() as f64, g.get() as f64, b.get() as f64, a.get() as f64)
+            RgbaColor::new(r.get(), g.get(), b.get(), a.get())
                 .into()
         })
     }
@@ -529,10 +530,10 @@ impl Color {
         key: RatioComponent,
     ) -> Color {
         CmykColor::new(
-            cyan.0.get() as f64,
-            magenta.0.get() as f64,
-            yellow.0.get() as f64,
-            key.0.get() as f64,
+            cyan.0.get(),
+            magenta.0.get(),
+            yellow.0.get(),
+            key.0.get(),
         )
         .into()
     }
@@ -562,9 +563,9 @@ impl Color {
     ) -> Color {
         HslColor::new(
             hue,
-            saturation.0.get() as f64,
-            lightness.0.get() as f64,
-            alpha.0.get() as f64,
+            saturation.0.get(),
+            lightness.0.get(),
+            alpha.0.get(),
         )
         .into()
     }
@@ -594,15 +595,15 @@ impl Color {
     ) -> Color {
         HsvColor::new(
             hue,
-            saturation.0.get() as f64,
-            value.0.get() as f64,
-            alpha.0.get() as f64,
+            saturation.0.get(),
+            value.0.get(),
+            alpha.0.get(),
         )
         .into()
     }
 
     /// Gets the equivalent D65 Gray component of the color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -612,7 +613,7 @@ impl Color {
     }
 
     /// Converts this color in a D65 Gray color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -622,7 +623,7 @@ impl Color {
     }
 
     /// Gets the equivalent Oklab color components of the color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -632,7 +633,7 @@ impl Color {
     }
 
     /// Converts this color in an Oklab color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -642,7 +643,7 @@ impl Color {
     }
 
     /// Gets the equivalent linear RGB color components of the color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -652,7 +653,7 @@ impl Color {
     }
 
     /// Converts this color in a linear RGB color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -662,7 +663,7 @@ impl Color {
     }
 
     /// Gets the equivalent RGBA color components of the color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -672,7 +673,7 @@ impl Color {
     }
 
     /// Converts this color in an RGBA color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -682,7 +683,7 @@ impl Color {
     }
 
     /// Gets the equivalent CMYK color components of the color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -692,7 +693,7 @@ impl Color {
     }
 
     /// Converts this color in a CMYK color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -702,7 +703,7 @@ impl Color {
     }
 
     /// Gets the equivalent HSL color components of the color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -712,7 +713,7 @@ impl Color {
     }
 
     /// Converts this color in an HSL color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -722,7 +723,7 @@ impl Color {
     }
 
     /// Gets the equivalent HSV color components of the color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -732,7 +733,7 @@ impl Color {
     }
 
     /// Converts this color in an HSV color.
-    /// 
+    ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
     /// to a different color space and back to the original color space may not
     /// yield the same color.
@@ -895,8 +896,8 @@ struct Weight(f64);
 
 cast! {
     Weight,
-    v: f64 => Self(v as f64),
-    v: Ratio => Self(v.get() as f64),
+    v: f64 => Self(v),
+    v: Ratio => Self(v.get()),
 }
 
 /// Convert an RGBA color to four components in the given color space.
@@ -980,7 +981,7 @@ impl From<LumaColor> for Luma {
 
 impl LumaColor {
     pub fn new(l: f64) -> Self {
-        Self(Ratio::new(l as f64))
+        Self(Ratio::new(l))
     }
 }
 
@@ -988,7 +989,7 @@ impl ColorExt for LumaColor {
     const COMPONENTS: usize = 1;
 
     fn to_vec4(self) -> [f64; 4] {
-        [self.0.get() as f64; 4]
+        [self.0.get(); 4]
     }
 
     fn from_vec4(vec: [f64; 4]) -> Self {
@@ -1024,7 +1025,7 @@ impl ColorExt for LumaColor {
     }
 
     fn to_cmyk(self) -> CmykColor {
-        let l = self.0.get() as f64;
+        let l = self.0.get();
         CmykColor::new(l * 0.75, l * 0.68, l * 0.67, l * 0.90)
     }
 
@@ -1033,14 +1034,14 @@ impl ColorExt for LumaColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        let l = self.0.get() as f64;
-        let inc = (1.0 - l) * factor.get() as f64;
+        let l = self.0.get();
+        let inc = (1.0 - l) * factor.get();
         Self::new(l.add(inc).clamp(0.0, 1.0))
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        let l = self.0.get() as f64;
-        let inc = l * factor.get() as f64;
+        let l = self.0.get();
+        let inc = l * factor.get();
         Self::new(l.sub(inc).clamp(0.0, 1.0))
     }
 
@@ -1057,7 +1058,7 @@ impl ColorExt for LumaColor {
     }
 
     fn negate(self) -> Self {
-        Self::new(1.0 - self.0.get() as f64)
+        Self::new(1.0 - self.0.get())
     }
 }
 
@@ -1094,9 +1095,7 @@ impl From<Oklab> for OklabColor {
 
 impl OklabColor {
     pub fn new(l: f64, a: f64, b: f64, alpha: f64) -> Self {
-        Self {
-            l, a, b, alpha
-        }
+        Self { l, a, b, alpha }
     }
 }
 
@@ -1113,10 +1112,10 @@ impl ColorExt for OklabColor {
 
     fn to_array(self) -> Array {
         array![
-            Ratio::new(self.l as f64),
-            self.a as f64,
-            self.b as f64,
-            Ratio::new(self.alpha as f64),
+            Ratio::new(self.l),
+            self.a,
+            self.b,
+            Ratio::new(self.alpha),
         ]
     }
 
@@ -1153,11 +1152,11 @@ impl ColorExt for OklabColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        Oklab::from(self).lighten(factor.get() as f64).into()
+        Oklab::from(self).lighten(factor.get()).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        Oklab::from(self).darken(factor.get() as f64).into()
+        Oklab::from(self).darken(factor.get()).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
@@ -1191,15 +1190,15 @@ impl Hash for OklabColor {
 impl Debug for OklabColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if self.alpha == 1.0 {
-            write!(f, "oklab({:?}, {}, {})", Ratio::new(self.l as f64), self.a, self.b)
+            write!(f, "oklab({:?}, {}, {})", Ratio::new(self.l), self.a, self.b)
         } else {
             write!(
                 f,
                 "oklab({:?}, {}, {}, {:?})",
-                Ratio::new(self.l as f64),
+                Ratio::new(self.l),
                 self.a,
                 self.b,
-                Ratio::new(self.alpha as f64)
+                Ratio::new(self.alpha)
             )
         }
     }
@@ -1253,8 +1252,6 @@ impl ColorExt for LinearRgbColor {
         Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
-    
-
     fn alpha(self) -> Option<f64> {
         Some(self.a)
     }
@@ -1288,11 +1285,11 @@ impl ColorExt for LinearRgbColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        LinearRgba::from(self).lighten(factor.get() as f64).into()
+        LinearRgba::from(self).lighten(factor.get()).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        LinearRgba::from(self).darken(factor.get() as f64).into()
+        LinearRgba::from(self).darken(factor.get()).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
@@ -1313,19 +1310,17 @@ impl ColorExt for LinearRgbColor {
 
     fn to_array(self) -> Array {
         array![
-            Ratio::new(self.r as f64),
-            Ratio::new(self.g as f64),
-            Ratio::new(self.b as f64),
-            Ratio::new(self.a as f64),
+            Ratio::new(self.r),
+            Ratio::new(self.g),
+            Ratio::new(self.b),
+            Ratio::new(self.a),
         ]
     }
 }
 
 impl LinearRgbColor {
     pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
-        Self {
-            r, g, b, a
-        }
+        Self { r, g, b, a }
     }
 }
 
@@ -1346,18 +1341,18 @@ impl Debug for LinearRgbColor {
             write!(
                 f,
                 "linear-rgb({:?}, {:?}, {:?})",
-                Ratio::new(self.r as f64),
-                Ratio::new(self.g as f64),
-                Ratio::new(self.b as f64),
+                Ratio::new(self.r),
+                Ratio::new(self.g),
+                Ratio::new(self.b),
             )
         } else {
             write!(
                 f,
                 "linear-rgb({:?}, {:?}, {:?}, {:?})",
-                Ratio::new(self.r as f64),
-                Ratio::new(self.g as f64),
-                Ratio::new(self.b as f64),
-                Ratio::new(self.a as f64),
+                Ratio::new(self.r),
+                Ratio::new(self.g),
+                Ratio::new(self.b),
+                Ratio::new(self.a),
             )
         }
     }
@@ -1504,11 +1499,11 @@ impl ColorExt for RgbaColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        Rgba::from(self).lighten(factor.get() as f64).into()
+        Rgba::from(self).lighten(factor.get()).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        Rgba::from(self).darken(factor.get() as f64).into()
+        Rgba::from(self).darken(factor.get()).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
@@ -1553,9 +1548,7 @@ impl ColorExt for RgbaColor {
 impl RgbaColor {
     /// Construct a new RGBA color.
     pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
-        Self::Floating {
-            r, g, b, a
-        }
+        Self::Floating { r, g, b, a }
     }
 
     /// Construct a new RGBA color from 8-bit values.
@@ -1633,10 +1626,10 @@ impl Debug for RgbaColor {
             write!(
                 f,
                 "rgba({:?}, {:?}, {:?}, {:?})",
-                Ratio::new(r as f64),
-                Ratio::new(g as f64),
-                Ratio::new(b as f64),
-                Ratio::new(a as f64),
+                Ratio::new(r),
+                Ratio::new(g),
+                Ratio::new(b),
+                Ratio::new(a),
             )?;
         } else {
             write!(f, "rgb(\"{}\")", self.to_hex())?;
@@ -1694,10 +1687,10 @@ impl ColorExt for CmykColor {
     fn to_array(self) -> Array {
         let [c, m, y, k] = self.to_vec4();
         array![
-            Ratio::new(c as f64),
-            Ratio::new(m as f64),
-            Ratio::new(y as f64),
-            Ratio::new(k as f64),
+            Ratio::new(c),
+            Ratio::new(m),
+            Ratio::new(y),
+            Ratio::new(k),
         ]
     }
 
@@ -1738,12 +1731,12 @@ impl ColorExt for CmykColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        let lighten = |u: f64| (u - u * factor.get() as f64).clamp(0.0, 1.0);
+        let lighten = |u: f64| (u - u * factor.get()).clamp(0.0, 1.0);
         Self::new(lighten(self.c), lighten(self.m), lighten(self.y), lighten(self.k))
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        let darken = |u: f64| (u + (1.0 - u) * factor.get() as f64).clamp(0.0, 1.0);
+        let darken = |u: f64| (u + (1.0 - u) * factor.get()).clamp(0.0, 1.0);
         Self::new(darken(self.c), darken(self.m), darken(self.y), darken(self.k))
     }
 
@@ -1767,9 +1760,7 @@ impl ColorExt for CmykColor {
 impl CmykColor {
     /// Construct a new CMYK color.
     pub fn new(c: f64, m: f64, y: f64, k: f64) -> Self {
-        Self {
-            c, m, y, k
-        }
+        Self { c, m, y, k }
     }
 }
 
@@ -1778,10 +1769,10 @@ impl Debug for CmykColor {
         write!(
             f,
             "cmyk({:?}, {:?}, {:?}, {:?})",
-            Ratio::new(self.c as f64),
-            Ratio::new(self.m as f64),
-            Ratio::new(self.y as f64),
-            Ratio::new(self.k as f64),
+            Ratio::new(self.c),
+            Ratio::new(self.m),
+            Ratio::new(self.y),
+            Ratio::new(self.k),
         )
     }
 }
@@ -1830,17 +1821,17 @@ impl Debug for HslColor {
                 f,
                 "hsl({:?}, {:?}, {:?})",
                 self.h,
-                Ratio::new(self.s as f64),
-                Ratio::new(self.l as f64),
+                Ratio::new(self.s),
+                Ratio::new(self.l),
             )
         } else {
             write!(
                 f,
                 "hsl({:?}, {:?}, {:?}, {:?})",
                 self.h,
-                Ratio::new(self.s as f64),
-                Ratio::new(self.l as f64),
-                Ratio::new(self.a as f64),
+                Ratio::new(self.s),
+                Ratio::new(self.l),
+                Ratio::new(self.a),
             )
         }
     }
@@ -1848,14 +1839,14 @@ impl Debug for HslColor {
 
 impl From<HslColor> for Hsl {
     fn from(hsl: HslColor) -> Self {
-        Self::new(RgbHue::new(hsl.h.to_deg() as f64), hsl.s, hsl.l, hsl.a)
+        Self::new(RgbHue::new(hsl.h.to_deg()), hsl.s, hsl.l, hsl.a)
     }
 }
 
 impl From<Hsl> for HslColor {
     fn from(hsl: Hsl) -> Self {
         Self::new(
-            Angle::rad(hsl.hue.into_radians() as f64),
+            Angle::rad(hsl.hue.into_radians()),
             hsl.saturation,
             hsl.lightness,
             hsl.alpha,
@@ -1865,10 +1856,7 @@ impl From<Hsl> for HslColor {
 
 impl HslColor {
     pub fn new(h: Angle, s: f64, l: f64, a: f64) -> Self {
-        Self {
-            h: Angle::deg(h.to_deg()),
-            s, l, a
-        }
+        Self { h: Angle::deg(h.to_deg()), s, l, a }
     }
 }
 
@@ -1876,19 +1864,19 @@ impl ColorExt for HslColor {
     const COMPONENTS: usize = 4;
 
     fn to_vec4(self) -> [f64; 4] {
-        [self.h.to_rad() as f64, self.s, self.l, self.a]
+        [self.h.to_rad(), self.s, self.l, self.a]
     }
 
     fn from_vec4(vec: [f64; 4]) -> Self {
-        Self::new(Angle::rad(vec[0] as f64), vec[1], vec[2], vec[3])
+        Self::new(Angle::rad(vec[0]), vec[1], vec[2], vec[3])
     }
 
     fn to_array(self) -> Array {
         array![
             self.h,
-            Ratio::new(self.s as f64),
-            Ratio::new(self.l as f64),
-            Ratio::new(self.a as f64),
+            Ratio::new(self.s),
+            Ratio::new(self.l),
+            Ratio::new(self.a),
         ]
     }
 
@@ -1921,23 +1909,23 @@ impl ColorExt for HslColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        Hsl::from(self).lighten(factor.get() as f64).into()
+        Hsl::from(self).lighten(factor.get()).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        Hsl::from(self).darken(factor.get() as f64).into()
+        Hsl::from(self).darken(factor.get()).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
-        Hsl::from(self).saturate(factor.get() as f64).into()
+        Hsl::from(self).saturate(factor.get()).into()
     }
 
     fn desaturate(self, factor: Ratio) -> Self {
-        Hsl::from(self).desaturate(factor.get() as f64).into()
+        Hsl::from(self).desaturate(factor.get()).into()
     }
 
     fn hue_rotate(self, hue: Angle) -> Self {
-        Hsl::from(self).shift_hue(hue.to_deg() as f64).into()
+        Hsl::from(self).shift_hue(hue.to_deg()).into()
     }
 
     fn negate(self) -> Self {
@@ -1982,17 +1970,17 @@ impl Debug for HsvColor {
                 f,
                 "hsv({:?}, {:?}, {:?})",
                 self.h,
-                Ratio::new(self.s as f64),
-                Ratio::new(self.v as f64),
+                Ratio::new(self.s),
+                Ratio::new(self.v),
             )
         } else {
             write!(
                 f,
                 "hsv({:?}, {:?}, {:?}, {:?})",
                 self.h,
-                Ratio::new(self.s as f64),
-                Ratio::new(self.v as f64),
-                Ratio::new(self.a as f64),
+                Ratio::new(self.s),
+                Ratio::new(self.v),
+                Ratio::new(self.a),
             )
         }
     }
@@ -2000,19 +1988,14 @@ impl Debug for HsvColor {
 
 impl From<HsvColor> for Hsv {
     fn from(value: HsvColor) -> Self {
-        Self::new(
-            RgbHue::new(value.h.to_deg() as f64),
-            value.s,
-            value.v,
-            value.a,
-        )
+        Self::new(RgbHue::new(value.h.to_deg()), value.s, value.v, value.a)
     }
 }
 
 impl From<Hsv> for HsvColor {
     fn from(hsl: Hsv) -> Self {
         Self::new(
-            Angle::rad(hsl.hue.into_radians() as f64),
+            Angle::rad(hsl.hue.into_radians()),
             hsl.saturation,
             hsl.value,
             hsl.alpha,
@@ -2022,10 +2005,7 @@ impl From<Hsv> for HsvColor {
 
 impl HsvColor {
     pub fn new(h: Angle, s: f64, v: f64, a: f64) -> Self {
-        Self {
-            h: Angle::deg(h.to_deg()),
-            s, v, a
-        }
+        Self { h: Angle::deg(h.to_deg()), s, v, a }
     }
 }
 
@@ -2033,19 +2013,19 @@ impl ColorExt for HsvColor {
     const COMPONENTS: usize = 4;
 
     fn to_vec4(self) -> [f64; 4] {
-        [self.h.to_rad() as f64, self.s, self.v, self.a]
+        [self.h.to_rad(), self.s, self.v, self.a]
     }
 
     fn from_vec4(vec: [f64; 4]) -> Self {
-        Self::new(Angle::rad(vec[0] as f64), vec[1], vec[2], vec[3])
+        Self::new(Angle::rad(vec[0]), vec[1], vec[2], vec[3])
     }
 
     fn to_array(self) -> Array {
         array![
             self.h,
-            Ratio::new(self.s as f64),
-            Ratio::new(self.v as f64),
-            Ratio::new(self.a as f64),
+            Ratio::new(self.s),
+            Ratio::new(self.v),
+            Ratio::new(self.a),
         ]
     }
 

@@ -10,8 +10,8 @@ use xmlwriter::XmlWriter;
 use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Axes, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem,
-    Ratio, Shape, Size, Transform,
+    Abs, Axes, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Ratio, Shape,
+    Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
