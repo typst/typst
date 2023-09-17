@@ -10,8 +10,8 @@ use xmlwriter::XmlWriter;
 use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Axes, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Ratio, Shape,
-    Size, Transform,
+    Abs, Axes, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Ratio,
+    Shape, Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -299,13 +299,13 @@ impl SVGRenderer {
     /// Write a fill attribute.
     fn write_fill(&mut self, fill: &Paint) {
         let Paint::Solid(color) = fill;
-        self.xml.write_attribute("fill", &color.to_rgba().to_hex());
+        self.xml.write_attribute("fill", &color.encode());
     }
 
     /// Write a stroke attribute.
     fn write_stroke(&mut self, stroke: &FixedStroke) {
         let Paint::Solid(color) = stroke.paint;
-        self.xml.write_attribute("stroke", &color.to_rgba().to_hex());
+        self.xml.write_attribute("stroke", &color.encode());
         self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
         self.xml.write_attribute(
             "stroke-linecap",
@@ -652,5 +652,65 @@ impl ttf_parser::OutlineBuilder for SvgPathBuilder {
 
     fn close(&mut self) {
         write!(&mut self.0, "Z ").unwrap();
+    }
+}
+
+trait ColorSvgEncode {
+    /// Encode the color as an SVG color.
+    fn encode(&self) -> EcoString;
+}
+
+impl ColorSvgEncode for Color {
+    fn encode(&self) -> EcoString {
+        match self {
+            c @ Color::Rgba(_)
+            | c @ Color::Luma(_)
+            | c @ Color::Cmyk(_)
+            | c @ Color::Hsv(_) => c.to_hex(),
+            Color::LinearRgb(c) => {
+                if c.a != 1.0 {
+                    eco_format!(
+                        "color(srgb-linear {:.3} {:.3} {:.3} / {:.3})",
+                        c.r,
+                        c.g,
+                        c.b,
+                        c.a
+                    )
+                } else {
+                    eco_format!("color(srgb-linear {:.3} {:.3} {:.3})", c.r, c.g, c.b)
+                }
+            }
+            Color::Oklab(c) => {
+                if c.alpha != 1.0 {
+                    eco_format!(
+                        "oklab({:?} {:.3} {:.3} / {:.3})",
+                        Ratio::new(c.l),
+                        c.a,
+                        c.b,
+                        c.alpha
+                    )
+                } else {
+                    eco_format!("oklab({:?} {:.3} {:.3})", Ratio::new(c.l), c.a, c.b)
+                }
+            }
+            Color::Hsl(c) => {
+                if c.a != 1.0 {
+                    eco_format!(
+                        "hsla({:?} {:?} {:?} / {:.3})",
+                        c.h,
+                        Ratio::new(c.s),
+                        Ratio::new(c.l),
+                        c.a
+                    )
+                } else {
+                    eco_format!(
+                        "hsl({:?} {:?} {:?})",
+                        c.h,
+                        Ratio::new(c.s),
+                        Ratio::new(c.l)
+                    )
+                }
+            }
+        }
     }
 }
