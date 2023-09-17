@@ -293,6 +293,7 @@ impl PageContext<'_, '_> {
             match color {
                 Color::Luma(_) => {
                     self.parent.colors.d65_gray(&mut self.parent.alloc);
+                    self.set_fill_color_space(D65_GRAY);
 
                     let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
                     self.content.set_fill_color([l]);
@@ -329,7 +330,7 @@ impl PageContext<'_, '_> {
                     self.set_fill_color_space(HSL);
 
                     let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
-                    self.content.set_stroke_color([h, s, l]);
+                    self.content.set_fill_color([h, s, l]);
                 }
                 Color::Hsv(_) => {
                     self.parent.colors.hsv(&mut self.parent.alloc);

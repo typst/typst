@@ -1943,8 +1943,8 @@ impl Debug for HsvColor {
 }
 
 impl From<HsvColor> for Hsv {
-    fn from(value: HsvColor) -> Self {
-        Self::new(RgbHue::new(value.h.to_deg()), value.s, value.v, value.a)
+    fn from(hsv: HsvColor) -> Self {
+        Self::new(RgbHue::new(hsv.h.to_deg()), hsv.s, hsv.v, hsv.a)
     }
 }
 

@@ -14,12 +14,12 @@ use super::RefExt;
 /// The color spaces present in the PDF document
 #[derive(Default)]
 pub struct ColorSpaces {
-    pub oklab: Option<Ref>,
-    pub srgb: Option<Ref>,
-    pub d65_gray: Option<Ref>,
-    pub hsv: Option<Ref>,
-    pub hsl: Option<Ref>,
-    pub use_linear_rgb: bool,
+    oklab: Option<Ref>,
+    srgb: Option<Ref>,
+    d65_gray: Option<Ref>,
+    hsv: Option<Ref>,
+    hsl: Option<Ref>,
+    use_linear_rgb: bool,
 }
 
 impl ColorSpaces {
@@ -83,14 +83,14 @@ impl ColorSpaces {
             }
             ColorSpace::Hsl => {
                 let mut hsl = writer.device_n([HSL_H, HSL_S, HSL_L]);
-                self.write(ColorSpace::LinearRGB, hsl.alternate_color_space(), alloc);
+                self.write(ColorSpace::Srgb, hsl.alternate_color_space(), alloc);
                 hsl.tint_ref(self.hsl(alloc));
                 hsl.attrs().subtype(DeviceNSubtype::DeviceN);
                 hsl.finish();
             }
             ColorSpace::Hsv => {
                 let mut hsv = writer.device_n([HSV_H, HSV_S, HSV_V]);
-                self.write(ColorSpace::LinearRGB, hsv.alternate_color_space(), alloc);
+                self.write(ColorSpace::Srgb, hsv.alternate_color_space(), alloc);
                 hsv.tint_ref(self.hsv(alloc));
                 hsv.attrs().subtype(DeviceNSubtype::DeviceN);
                 hsv.finish();
@@ -319,11 +319,12 @@ impl ColorPdfEncode for ColorSpace {
         match self {
             ColorSpace::Oklab => {
                 let [l, a, b, _] = color.to_oklab().to_vec4();
+                eprintln!("{l} {a} {b}");
 
                 [
                     l as f32,
-                    (a as f32 + 0.4).clamp(-0.4, 0.4),
-                    (b as f32 + 0.4).clamp(-0.4, 0.4),
+                    (a as f32 + 0.4).clamp(0.0, 1.0),
+                    (b as f32 + 0.4).clamp(0.0, 1.0),
                     0.0,
                 ]
             }
