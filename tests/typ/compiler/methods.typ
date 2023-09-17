@@ -103,10 +103,16 @@
 #test(rgb(1, 2, 3, 4).kind() != luma, true)
 
 ---
-// Test color '.rgba()', '.cmyk()' and '.luma()' without conversions
+// Test color '.as-rgba()', '.as-cmyk()', '.as-luma()', '.as-oklab()',
+// '.as-linear-rgb()', '.as-hsv()', and '.as-hsl()' without conversions
 #test(rgb(1, 2, 3, 4).as-rgba(), (1, 2, 3, 4))
 #test(rgb(1, 2, 3).as-rgba(), (1, 2, 3, 255))
-#test(luma(40).as-luma(), 15.7%)
+#test(repr(luma(40).as-luma()), repr(15.69%))
+#test(repr(cmyk(4%, 5%, 6%, 7%).as-cmyk()), repr((4%, 5%, 6%, 7%)))
+#test(oklab(10%, 0.2, 0.3).as-oklab(), (10%, 0.2, 0.3, 100%))
+#test(linear-rgb(10%, 20%, 30%).as-linear-rgb(), (10%, 20%, 30%, 100%))
+#test(hsv(10deg, 20%, 30%).as-hsv(), (10deg, 20%, 30%, 100%))
+#test(hsl(10deg, 20%, 30%).as-hsl(), (10deg, 20%, 30%, 100%))
 
 ---
 // Test color conversions.
@@ -116,7 +122,17 @@
 #test(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
 #test(luma(40).as-rgba(), (40, 40, 40, 255))
 #test(luma(40).to-hex(), "#282828")
-#test(repr(luma(40).as-cmyk()), repr((11.8%, 10.7%, 10.5%, 14.1%)))
+#test(repr(luma(40).as-cmyk()), repr((11.76%, 10.67%, 10.51%, 14.12%)))
+#test(repr(luma(40).to-oklab()), repr(oklab(27.68%, 0.0000032303345849776788, 0.0000102648094826574)))
+#test(repr(luma(40).to-hsl()), repr(hsl(0deg, 0%, 15.69%)))
+#test(repr(luma(40).to-hsv()), repr(hsv(0deg, 0%, 15.69%)))
+#test(repr(luma(40).to-linear-rgb()), repr(linear-rgb(2.12%, 2.12%, 2.12%)))
+#test(repr(rgb(1, 2, 3).to-linear-rgb()), repr(linear-rgb(0.03%, 0.06%, 0.09%)))
+#test(repr(rgb(1, 2, 3).to-hsl()), repr(hsl(-150deg, 50%, 0.78%)))
+#test(repr(rgb(1, 2, 3).to-hsv()), repr(hsv(-150deg, 66.67%, 1.18%)))
+#test(repr(rgb(1, 2, 3).to-cmyk()), repr(cmyk(66.67%, 33.33%, 0%, 98.82%)))
+#test(repr(rgb(1, 2, 3).to-luma()), repr(luma(0.73%)))
+#test(repr(rgb(1, 2, 3).to-oklab()), repr(oklab(8.23%, -0.0039260636275852065, -0.007010752932764569)))
 
 ---
 // Test alignment methods.

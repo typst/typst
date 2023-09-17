@@ -300,35 +300,35 @@ impl PageContext<'_, '_> {
                     self.parent.colors.oklab(&mut self.parent.alloc);
                     self.set_fill_color_space(OKLAB);
                     let [l, a, b, _] = c.to_vec4();
-                    self.content.set_fill_color([l, a, b]);
+                    self.content.set_fill_color([l as f32, a as f32, b as f32]);
                 }
                 Color::LinearRgb(c) => {
                     self.parent.colors.linear_rgb();
                     self.set_fill_color_space(LINEAR_SRGB);
                     let [r, g, b, _] = c.to_vec4();
-                    self.content.set_fill_color([r, g, b]);
+                    self.content.set_fill_color([r as f32, g as f32, b as f32]);
                 }
                 Color::Rgba(c) => {
                     self.parent.colors.srgb(&mut self.parent.alloc);
                     self.set_fill_color_space(SRGB);
                     let [r, g, b, _] = c.to_vec4();
-                    self.content.set_fill_color([r, g, b]);
+                    self.content.set_fill_color([r as f32, g as f32, b as f32]);
                 }
                 Color::Cmyk(c) => {
                     self.reset_fill_color_space();
-                    self.content.set_fill_cmyk(c.c, c.m, c.y, c.k);
+                    self.content.set_fill_cmyk(c.c as f32, c.m as f32, c.y as f32, c.k as f32);
                 }
                 Color::Hsl(c) => {
                     self.parent.colors.hsl(&mut self.parent.alloc);
                     self.set_fill_color_space(HSL);
                     let [h, s, l, _] = c.to_vec4();
-                    self.content.set_fill_color([h, s, l]);
+                    self.content.set_fill_color([h as f32, s as f32, l as f32]);
                 }
                 Color::Hsv(hsv) => {
                     self.parent.colors.hsv(&mut self.parent.alloc);
                     self.set_fill_color_space(HSV);
                     let [h, s, v, _] = hsv.to_vec4();
-                    self.content.set_fill_color([h, s, v]);
+                    self.content.set_fill_color([h as f32, s as f32, v as f32]);
                 }
             }
             self.state.fill = Some(fill.clone());
@@ -368,35 +368,35 @@ impl PageContext<'_, '_> {
                     self.parent.colors.oklab(&mut self.parent.alloc);
                     self.set_stroke_color_space(OKLAB);
                     let [l, a, b, _] = c.to_vec4();
-                    self.content.set_stroke_color([l, a, b]);
+                    self.content.set_stroke_color([l as f32, a as f32, b as f32]);
                 }
                 Color::LinearRgb(c) => {
                     self.parent.colors.linear_rgb();
                     self.set_stroke_color_space(LINEAR_SRGB);
                     let [r, g, b, _] = c.to_vec4();
-                    self.content.set_stroke_color([r, g, b]);
+                    self.content.set_stroke_color([r as f32, g as f32, b as f32]);
                 }
                 Color::Rgba(c) => {
                     self.parent.colors.srgb(&mut self.parent.alloc);
                     self.set_stroke_color_space(SRGB);
                     let [r, g, b, _] = c.to_vec4();
-                    self.content.set_stroke_color([r, g, b]);
+                    self.content.set_stroke_color([r as f32, g as f32, b as f32]);
                 }
                 Color::Cmyk(c) => {
                     self.reset_stroke_color_space();
-                    self.content.set_stroke_cmyk(c.c, c.m, c.y, c.k);
+                    self.content.set_stroke_cmyk(c.c as f32, c.m as f32, c.y as f32, c.k as f32);
                 }
                 Color::Hsl(c) => {
                     self.parent.colors.hsl(&mut self.parent.alloc);
                     self.set_stroke_color_space(HSL);
                     let [h, s, l, _] = c.to_vec4();
-                    self.content.set_stroke_color([h, s, l]);
+                    self.content.set_stroke_color([h as f32, s as f32, l as f32]);
                 }
                 Color::Hsv(hsv) => {
                     self.parent.colors.hsv(&mut self.parent.alloc);
                     self.set_stroke_color_space(HSV);
                     let [h, s, v, _] = hsv.to_vec4();
-                    self.content.set_stroke_color([h, s, v]);
+                    self.content.set_stroke_color([h as f32, s as f32, v as f32]);
                 }
             }
 

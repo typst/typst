@@ -19,8 +19,38 @@
 }
 
 ---
+// The the different color spaces
+
+#let col = rgb(50%, 64%, 16%)
+#box(square(size: 9pt, fill: col))
+#box(square(size: 9pt, fill: col.to-rgba()))
+#box(square(size: 9pt, fill: col.to-oklab()))
+#box(square(size: 9pt, fill: col.to-luma()))
+#box(square(size: 9pt, fill: col.to-linear-rgb()))
+#box(square(size: 9pt, fill: col.to-cmyk()))
+#box(square(size: 9pt, fill: col.to-hsl()))
+#box(square(size: 9pt, fill: col.to-hsv()))
+
+---
+// Test hue rotation
+
+#let col = rgb(50%, 64%, 16%)
+
+#for x in range(0, 11) {
+  box(square(size: 9pt, fill: col.to-rgba().rotate(x * 36deg)))
+}
+
+#for x in range(0, 11) {
+  box(square(size: 9pt, fill: col.to-hsv().rotate(x * 36deg)))
+}
+
+#for x in range(0, 11) {
+  box(square(size: 9pt, fill: col.to-hsl().rotate(x * 36deg)))
+}
+
+---
 // Test gray color modification.
 // Ref: false
-#test(luma(20%).lighten(50%), luma(60%))
-#test(luma(80%).darken(20%), luma(64%))
-#test(luma(80%).negate(), luma(20%))
+#test(repr(luma(20%).lighten(50%)), repr(luma(60%)))
+#test(repr(luma(80%).darken(20%)), repr(luma(64%)))
+#test(repr(luma(80%).negate()), repr(luma(20%)))
