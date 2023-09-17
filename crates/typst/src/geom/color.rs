@@ -411,13 +411,7 @@ impl Color {
         #[default(RatioComponent(Ratio::one()))]
         alpha: RatioComponent,
     ) -> Color {
-        OklabColor::new(
-            lightness.0.get(),
-            a.0.get(),
-            b.0.get(),
-            alpha.0.get(),
-        )
-        .into()
+        OklabColor::new(lightness.0.get(), a.0.get(), b.0.get(), alpha.0.get()).into()
     }
 
     /// Create an RGB(A) color with linear luma.
@@ -444,13 +438,8 @@ impl Color {
         #[default(Component(Ratio::one()))]
         alpha: Component,
     ) -> Color {
-        LinearRgbColor::new(
-            red.0.get(),
-            green.0.get(),
-            blue.0.get(),
-            alpha.0.get(),
-        )
-        .into()
+        LinearRgbColor::new(red.0.get(), green.0.get(), blue.0.get(), alpha.0.get())
+            .into()
     }
 
     /// Create an RGB(A) color.
@@ -502,8 +491,7 @@ impl Color {
             let Component(g) = args.expect("green component")?;
             let Component(b) = args.expect("blue component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            RgbaColor::new(r.get(), g.get(), b.get(), a.get())
-                .into()
+            RgbaColor::new(r.get(), g.get(), b.get(), a.get()).into()
         })
     }
 
@@ -529,13 +517,7 @@ impl Color {
         /// The key component.
         key: RatioComponent,
     ) -> Color {
-        CmykColor::new(
-            cyan.0.get(),
-            magenta.0.get(),
-            yellow.0.get(),
-            key.0.get(),
-        )
-        .into()
+        CmykColor::new(cyan.0.get(), magenta.0.get(), yellow.0.get(), key.0.get()).into()
     }
 
     /// Create an HSL color.
@@ -561,13 +543,7 @@ impl Color {
         #[default(Component(Ratio::one()))]
         alpha: Component,
     ) -> Color {
-        HslColor::new(
-            hue,
-            saturation.0.get(),
-            lightness.0.get(),
-            alpha.0.get(),
-        )
-        .into()
+        HslColor::new(hue, saturation.0.get(), lightness.0.get(), alpha.0.get()).into()
     }
 
     /// Create an HSV color.
@@ -593,13 +569,7 @@ impl Color {
         #[default(Component(Ratio::one()))]
         alpha: Component,
     ) -> Color {
-        HsvColor::new(
-            hue,
-            saturation.0.get(),
-            value.0.get(),
-            alpha.0.get(),
-        )
-        .into()
+        HsvColor::new(hue, saturation.0.get(), value.0.get(), alpha.0.get()).into()
     }
 
     /// Gets the equivalent D65 Gray component of the color.
@@ -1111,12 +1081,7 @@ impl ColorExt for OklabColor {
     }
 
     fn to_array(self) -> Array {
-        array![
-            Ratio::new(self.l),
-            self.a,
-            self.b,
-            Ratio::new(self.alpha),
-        ]
+        array![Ratio::new(self.l), self.a, self.b, Ratio::new(self.alpha),]
     }
 
     fn alpha(self) -> Option<f64> {
@@ -1686,12 +1651,7 @@ impl ColorExt for CmykColor {
 
     fn to_array(self) -> Array {
         let [c, m, y, k] = self.to_vec4();
-        array![
-            Ratio::new(c),
-            Ratio::new(m),
-            Ratio::new(y),
-            Ratio::new(k),
-        ]
+        array![Ratio::new(c), Ratio::new(m), Ratio::new(y), Ratio::new(k),]
     }
 
     fn alpha(self) -> Option<f64> {
@@ -1872,12 +1832,7 @@ impl ColorExt for HslColor {
     }
 
     fn to_array(self) -> Array {
-        array![
-            self.h,
-            Ratio::new(self.s),
-            Ratio::new(self.l),
-            Ratio::new(self.a),
-        ]
+        array![self.h, Ratio::new(self.s), Ratio::new(self.l), Ratio::new(self.a),]
     }
 
     fn to_rgba(self) -> RgbaColor {
@@ -2021,12 +1976,7 @@ impl ColorExt for HsvColor {
     }
 
     fn to_array(self) -> Array {
-        array![
-            self.h,
-            Ratio::new(self.s),
-            Ratio::new(self.v),
-            Ratio::new(self.a),
-        ]
+        array![self.h, Ratio::new(self.s), Ratio::new(self.v), Ratio::new(self.a),]
     }
 
     fn to_rgba(self) -> RgbaColor {
