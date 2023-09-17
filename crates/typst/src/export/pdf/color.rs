@@ -319,8 +319,6 @@ impl ColorPdfEncode for ColorSpace {
         match self {
             ColorSpace::Oklab => {
                 let [l, a, b, _] = color.to_oklab().to_vec4();
-                eprintln!("{l} {a} {b}");
-
                 [
                     l as f32,
                     (a as f32 + 0.4).clamp(0.0, 1.0),
