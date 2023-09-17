@@ -22,9 +22,13 @@ type CodespanError = codespan_reporting::files::Error;
 impl CompileCommand {
     /// The output path.
     pub fn output(&self) -> PathBuf {
-        self.output
-            .clone()
-            .unwrap_or_else(|| self.common.input.with_extension("pdf"))
+        self.output.clone().unwrap_or_else(|| {
+            self.common.input.with_extension(match self.format {
+                Some(OutputFormat::Png) => "png",
+                Some(OutputFormat::Svg) => "svg",
+                _ => "pdf",
+            })
+        })
     }
 
     /// The format to use for generated output, either specified by the user or inferred from the extension.
