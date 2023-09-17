@@ -301,7 +301,11 @@ impl PageContext<'_, '_> {
                     self.parent.colors.oklab(&mut self.parent.alloc);
                     self.set_fill_color_space(OKLAB);
                     let [l, a, b, _] = c.to_vec4();
-                    self.content.set_fill_color([l as f32, a as f32 + 0.4, b as f32 + 0.4]);
+                    self.content.set_fill_color([
+                        l as f32,
+                        a as f32 + 0.4,
+                        b as f32 + 0.4,
+                    ]);
                 }
                 Color::LinearRgb(c) => {
                     self.parent.colors.linear_rgb();
@@ -370,7 +374,11 @@ impl PageContext<'_, '_> {
                     self.parent.colors.oklab(&mut self.parent.alloc);
                     self.set_stroke_color_space(OKLAB);
                     let [l, a, b, _] = c.to_vec4();
-                    self.content.set_stroke_color([l as f32, a as f32 + 0.4, b as f32 + 0.4]);
+                    self.content.set_stroke_color([
+                        l as f32,
+                        a as f32 + 0.4,
+                        b as f32 + 0.4,
+                    ]);
                 }
                 Color::LinearRgb(c) => {
                     self.parent.colors.linear_rgb();
