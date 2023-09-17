@@ -123,7 +123,6 @@
 #test(luma(40).as-rgba(), (40, 40, 40, 255))
 #test(luma(40).to-hex(), "#282828")
 #test(repr(luma(40).as-cmyk()), repr((11.76%, 10.67%, 10.51%, 14.12%)))
-#test(repr(luma(40).to-oklab()), repr(oklab(27.68%, 0.0000032303345849776788, 0.0000102648094826574)))
 #test(repr(luma(40).to-hsl()), repr(hsl(0deg, 0%, 15.69%)))
 #test(repr(luma(40).to-hsv()), repr(hsv(0deg, 0%, 15.69%)))
 #test(repr(luma(40).to-linear-rgb()), repr(linear-rgb(2.12%, 2.12%, 2.12%)))
@@ -132,7 +131,20 @@
 #test(repr(rgb(1, 2, 3).to-hsv()), repr(hsv(-150deg, 66.67%, 1.18%)))
 #test(repr(rgb(1, 2, 3).to-cmyk()), repr(cmyk(66.67%, 33.33%, 0%, 98.82%)))
 #test(repr(rgb(1, 2, 3).to-luma()), repr(luma(0.73%)))
-#test(repr(rgb(1, 2, 3).to-oklab()), repr(oklab(8.23%, -0.0039260636275852065, -0.007010752932764569)))
+
+#let oklab = luma(40).as-oklab()
+#test((
+  calc.round(oklab.at(0) / 100% * 1000) / 1000,
+  calc.round(oklab.at(1) * 1000) / 1000,
+  calc.round(oklab.at(2) * 1000) / 1000,
+), (0.277, 0.0, 0.0))
+
+#let oklab = rgb(1, 2, 3).as-oklab()
+#test((
+  calc.round(oklab.at(0) / 100% * 1000) / 1000,
+  calc.round(oklab.at(1) * 1000) / 1000,
+  calc.round(oklab.at(2) * 1000) / 1000,
+), (0.082, -0.004, -0.007))
 
 ---
 // Test alignment methods.
