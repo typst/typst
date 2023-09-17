@@ -455,10 +455,11 @@ fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
 }
 
 fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> RgbaColor {
-    RgbaColor { r, g, b, a }
+    RgbaColor::new_from_u8(r, g, b, a)
 }
 
-fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
+fn to_syn(color: RgbaColor) -> synt::Color {
+    let [r, g, b, a] = color.to_vec4_u8();
     synt::Color { r, g, b, a }
 }
 

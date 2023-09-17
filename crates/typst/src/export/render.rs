@@ -14,8 +14,8 @@ use usvg::{NodeExt, TreeParsing};
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
-    Size, Transform,
+    self, Abs, Color, ColorExt, FixedStroke, Geometry, LineCap, LineJoin, Paint,
+    PathItem, Shape, Size, Transform,
 };
 use crate::image::{DecodedImage, Image, RasterFormat};
 
@@ -362,7 +362,7 @@ fn render_outline_glyph(
         let mh = bitmap.height;
 
         let Paint::Solid(color) = text.fill;
-        let c = color.to_rgba();
+        let [r, g, b, _] = color.to_rgba().to_vec4();
 
         // Pad the pixmap with 1 pixel in each dimension so that we do
         // not get any problem with floating point errors along their border
@@ -370,7 +370,13 @@ fn render_outline_glyph(
         for x in 0..mw {
             for y in 0..mh {
                 let alpha = bitmap.coverage[(y * mw + x) as usize];
-                let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, alpha).premultiply();
+                let color = sk::ColorU8::from_rgba(
+                    (r * 255.0).round() as u8,
+                    (g * 255.0).round() as u8,
+                    (b * 255.0).round() as u8,
+                    alpha,
+                )
+                .premultiply();
                 pixmap.pixels_mut()[((y + 1) * (mw + 2) + (x + 1)) as usize] = color;
             }
         }
@@ -400,9 +406,16 @@ fn render_outline_glyph(
 
         // Premultiply the text color.
         let Paint::Solid(color) = text.fill;
-        let c = color.to_rgba();
-        let color =
-            bytemuck::cast(sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply());
+        let [r, g, b, _] = color.to_rgba().to_vec4();
+        let color = bytemuck::cast(
+            sk::ColorU8::from_rgba(
+                (r * 255.0).round() as u8,
+                (g * 255.0).round() as u8,
+                (b * 255.0).round() as u8,
+                255,
+            )
+            .premultiply(),
+        );
 
         // Blend the glyph bitmap with the existing pixels on the canvas.
         let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
@@ -629,8 +642,13 @@ impl From<&Paint> for sk::Paint<'static> {
 
 impl From<Color> for sk::Color {
     fn from(color: Color) -> Self {
-        let c = color.to_rgba();
-        sk::Color::from_rgba8(c.r, c.g, c.b, c.a)
+        let [r, g, b, a] = color.to_rgba().to_vec4();
+        sk::Color::from_rgba8(
+            (r * 255.0).round() as u8,
+            (g * 255.0).round() as u8,
+            (b * 255.0).round() as u8,
+            (a * 255.0).round() as u8,
+        )
     }
 }
 

@@ -1,0 +1,57 @@
+
+% Starting stack: H, S, L
+
+% First we do H = (H * 360.0) % 360
+3 2 roll 360 mul 360
+2 copy div cvi mul exch sub abs
+3 1 roll
+
+% Compute C = (1 - |2 * L - 1|) * S
+dup 1 exch 2 mul 1 sub abs sub 3 2 roll mul
+
+% P = (H / 60) % 2
+3 2 roll dup 60 div 2
+2 copy div cvi mul exch sub abs
+
+% X = C * (1 - |P - 1|)
+1 exch 1 sub abs sub 3 2 roll dup 3 1 roll mul
+
+% Compute m = L - C / 2
+exch dup 2 div 5 4 roll exch sub
+
+% Rotate so H is top
+4 3 roll exch 4 1 roll
+
+% Construct the RGB stack
+dup 60 lt {
+    % We need to build: (C, X, 0)
+    pop exch 0
+} {
+    dup 120 lt {
+        % We need to build: (X, C, 0)
+        pop 0
+    } {
+        dup 180 lt {
+            % We need to build: (0, C, X)
+            pop exch 0 3 1 roll
+        } {
+            dup 240 lt {
+                % We need to build: (0, X, C)
+                pop 0 3 1 roll
+            } {
+                300 lt {
+                    % We need to build: (X, 0, C)
+                    0 exch
+                } {
+                    % We need to build: (C, 0, X)
+                    0 3 2 roll
+                } ifelse
+            } ifelse
+        } ifelse
+    } ifelse
+} ifelse
+
+4 3 roll
+
+% Add m to each component
+dup dup 6 2 roll add 5 2 roll add exch 4 3 roll add exch

@@ -12,8 +12,8 @@ use crate::eval::{cast, dict, ty, Dict, Value};
 use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
-    self, rounded_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
-    Geometry, Length, Numeric, Paint, Point, Rel, RgbaColor, Shape, Sides, Size,
+    self, rounded_rect, Abs, Axes, Color, ColorExt, Corners, Dir, Em, FixedAlign,
+    FixedStroke, Geometry, Length, Numeric, Paint, Point, Rel, Shape, Sides, Size,
     Transform,
 };
 use crate::image::Image;
@@ -352,8 +352,7 @@ impl Frame {
             0,
             Point::zero(),
             FrameItem::Shape(
-                Geometry::Rect(self.size)
-                    .filled(RgbaColor { a: 100, ..Color::TEAL.to_rgba() }.into()),
+                Geometry::Rect(self.size).filled(Color::TEAL.with_alpha(0.5).into()),
                 Span::detached(),
             ),
         );

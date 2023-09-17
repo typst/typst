@@ -5,16 +5,16 @@ use pdf_writer::types::{
     ActionType, AnnotationType, ColorSpaceOperand, LineCapStyle, LineJoinStyle,
     NumberingStyle,
 };
-use pdf_writer::writers::ColorSpace;
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
+use super::color::{D65_GRAY, HSL, HSV, LINEAR_SRGB, OKLAB, SRGB};
 use super::extg::ExternalGraphicsState;
-use super::{deflate, AbsExt, EmExt, PdfContext, RefExt, D65_GRAY, SRGB};
+use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint,
-    Point, Ratio, Shape, Size, Transform,
+    self, Abs, Color, ColorExt, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric,
+    Paint, Point, Ratio, Shape, Size, Transform,
 };
 use crate::image::Image;
 
@@ -86,10 +86,8 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
         .kids(ctx.page_refs.iter().copied());
 
     let mut resources = pages.resources();
-    let mut spaces = resources.color_spaces();
-    spaces.insert(SRGB).start::<ColorSpace>().srgb();
-    spaces.insert(D65_GRAY).start::<ColorSpace>().d65_gray();
-    spaces.finish();
+    ctx.colors
+        .write_color_spaces(resources.color_spaces(), &mut ctx.alloc);
 
     let mut fonts = resources.fonts();
     for (font_ref, f) in ctx.font_map.pdf_indices(&ctx.font_refs) {
@@ -116,6 +114,9 @@ pub fn write_page_tree(ctx: &mut PdfContext) {
 
     resources.finish();
     pages.finish();
+
+    // Write all of the functions used by the document.
+    ctx.colors.write_functions(&mut ctx.writer);
 }
 
 /// Write a page tree node.
@@ -249,21 +250,13 @@ impl PageContext<'_, '_> {
         let stroke_opacity = stroke
             .map(|stroke| {
                 let Paint::Solid(color) = stroke.paint;
-                if let Color::Rgba(rgba_color) = color {
-                    rgba_color.a
-                } else {
-                    255
-                }
+                color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);
         let fill_opacity = fill
             .map(|paint| {
                 let Paint::Solid(color) = paint;
-                if let Color::Rgba(rgba_color) = color {
-                    rgba_color.a
-                } else {
-                    255
-                }
+                color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);
         self.set_external_graphics_state(&ExternalGraphicsState {
@@ -296,20 +289,46 @@ impl PageContext<'_, '_> {
 
     fn set_fill(&mut self, fill: &Paint) {
         if self.state.fill.as_ref() != Some(fill) {
-            let f = |c| c as f32 / 255.0;
             let Paint::Solid(color) = fill;
             match color {
                 Color::Luma(c) => {
+                    self.parent.colors.d65_gray(&mut self.parent.alloc);
                     self.set_fill_color_space(D65_GRAY);
-                    self.content.set_fill_gray(f(c.0));
+                    self.content.set_fill_color([c.0.get() as f32]);
+                }
+                Color::Oklab(c) => {
+                    self.parent.colors.oklab(&mut self.parent.alloc);
+                    self.set_fill_color_space(OKLAB);
+                    let [l, a, b, _] = c.to_vec4();
+                    self.content.set_fill_color([l, a, b]);
+                }
+                Color::LinearRgb(c) => {
+                    self.parent.colors.linear_rgb();
+                    self.set_fill_color_space(LINEAR_SRGB);
+                    let [r, g, b, _] = c.to_vec4();
+                    self.content.set_fill_color([r, g, b]);
                 }
                 Color::Rgba(c) => {
+                    self.parent.colors.srgb(&mut self.parent.alloc);
                     self.set_fill_color_space(SRGB);
-                    self.content.set_fill_color([f(c.r), f(c.g), f(c.b)]);
+                    let [r, g, b, _] = c.to_vec4();
+                    self.content.set_fill_color([r, g, b]);
                 }
                 Color::Cmyk(c) => {
                     self.reset_fill_color_space();
-                    self.content.set_fill_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
+                    self.content.set_fill_cmyk(c.c, c.m, c.y, c.k);
+                }
+                Color::Hsl(c) => {
+                    self.parent.colors.hsl(&mut self.parent.alloc);
+                    self.set_fill_color_space(HSL);
+                    let [h, s, l, _] = c.to_vec4();
+                    self.content.set_fill_color([h, s, l]);
+                }
+                Color::Hsv(hsv) => {
+                    self.parent.colors.hsv(&mut self.parent.alloc);
+                    self.set_fill_color_space(HSV);
+                    let [h, s, v, _] = hsv.to_vec4();
+                    self.content.set_fill_color([h, s, v]);
                 }
             }
             self.state.fill = Some(fill.clone());
@@ -338,20 +357,46 @@ impl PageContext<'_, '_> {
                 miter_limit,
             } = stroke;
 
-            let f = |c| c as f32 / 255.0;
             let Paint::Solid(color) = paint;
             match color {
                 Color::Luma(c) => {
+                    self.parent.colors.d65_gray(&mut self.parent.alloc);
                     self.set_stroke_color_space(D65_GRAY);
-                    self.content.set_stroke_gray(f(c.0));
+                    self.content.set_stroke_color([c.0.get() as f32]);
+                }
+                Color::Oklab(c) => {
+                    self.parent.colors.oklab(&mut self.parent.alloc);
+                    self.set_stroke_color_space(OKLAB);
+                    let [l, a, b, _] = c.to_vec4();
+                    self.content.set_stroke_color([l, a, b]);
+                }
+                Color::LinearRgb(c) => {
+                    self.parent.colors.linear_rgb();
+                    self.set_stroke_color_space(LINEAR_SRGB);
+                    let [r, g, b, _] = c.to_vec4();
+                    self.content.set_stroke_color([r, g, b]);
                 }
                 Color::Rgba(c) => {
+                    self.parent.colors.srgb(&mut self.parent.alloc);
                     self.set_stroke_color_space(SRGB);
-                    self.content.set_stroke_color([f(c.r), f(c.g), f(c.b)]);
+                    let [r, g, b, _] = c.to_vec4();
+                    self.content.set_stroke_color([r, g, b]);
                 }
                 Color::Cmyk(c) => {
                     self.reset_stroke_color_space();
-                    self.content.set_stroke_cmyk(f(c.c), f(c.m), f(c.y), f(c.k));
+                    self.content.set_stroke_cmyk(c.c, c.m, c.y, c.k);
+                }
+                Color::Hsl(c) => {
+                    self.parent.colors.hsl(&mut self.parent.alloc);
+                    self.set_stroke_color_space(HSL);
+                    let [h, s, l, _] = c.to_vec4();
+                    self.content.set_stroke_color([h, s, l]);
+                }
+                Color::Hsv(hsv) => {
+                    self.parent.colors.hsv(&mut self.parent.alloc);
+                    self.set_stroke_color_space(HSV);
+                    let [h, s, v, _] = hsv.to_vec4();
+                    self.content.set_stroke_color([h, s, v]);
                 }
             }
 
