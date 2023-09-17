@@ -4,7 +4,10 @@ use pdf_writer::{
     types::DeviceNSubtype, writers, Dict, Filter, Finish, Name, PdfWriter, Ref,
 };
 
-use crate::{export::pdf::deflate, geom::ColorSpace};
+use crate::{
+    export::pdf::deflate,
+    geom::{Color, ColorExt, ColorSpace},
+};
 
 use super::RefExt;
 
@@ -303,4 +306,57 @@ fn minify(source: &str) -> String {
         }
     }
     buf
+}
+
+pub trait ColorPdfEncode {
+    /// Encodes the color into four f32s, which can be used in a PDF file.
+    /// Ensures that the values are in the range [0.0, 1.0].
+    fn encode(&self, color: Color) -> [f32; 4];
+}
+
+impl ColorPdfEncode for ColorSpace {
+    fn encode(&self, color: Color) -> [f32; 4] {
+        match self {
+            ColorSpace::Oklab => {
+                let [l, a, b, _] = color.to_oklab().to_vec4();
+
+                [
+                    l as f32,
+                    (a as f32 + 0.4).clamp(-0.4, 0.4),
+                    (b as f32 + 0.4).clamp(-0.4, 0.4),
+                    0.0,
+                ]
+            }
+            ColorSpace::Srgb => {
+                let [r, g, b, _] = color.to_rgba().to_vec4();
+
+                [r as f32, g as f32, b as f32, 0.0]
+            }
+            ColorSpace::D65Gray => {
+                let [l, _, _, _] = color.to_luma().to_vec4();
+
+                [l as f32, 0.0, 0.0, 0.0]
+            }
+            ColorSpace::LinearRGB => {
+                let [r, g, b, _] = color.to_linear_rgb().to_vec4();
+
+                [r as f32, g as f32, b as f32, 0.0]
+            }
+            ColorSpace::Hsl => {
+                let [h, s, l, _] = color.to_hsl().to_vec4();
+
+                [h.to_degrees() as f32 / 360.0, s as f32, l as f32, 0.0]
+            }
+            ColorSpace::Hsv => {
+                let [h, s, v, _] = color.to_hsv().to_vec4();
+
+                [h.to_degrees() as f32 / 360.0, s as f32, v as f32, 0.0]
+            }
+            ColorSpace::Cmyk => {
+                let [c, m, y, k] = color.to_cmyk().to_vec4();
+
+                [c as f32, m as f32, y as f32, k as f32]
+            }
+        }
+    }
 }

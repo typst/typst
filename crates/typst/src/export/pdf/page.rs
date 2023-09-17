@@ -1,4 +1,3 @@
-use std::f32::consts::TAU;
 use std::num::NonZeroUsize;
 
 use ecow::{eco_format, EcoString};
@@ -10,12 +9,12 @@ use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
 use super::color::{D65_GRAY, HSL, HSV, LINEAR_SRGB, OKLAB, SRGB};
 use super::extg::ExternalGraphicsState;
-use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
+use super::{deflate, AbsExt, ColorPdfEncode, EmExt, PdfContext, RefExt};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, ColorExt, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric,
-    Paint, Point, Ratio, Shape, Size, Transform,
+    self, Abs, Color, ColorExt, ColorSpace, Em, FixedStroke, Geometry, LineCap, LineJoin,
+    Numeric, Paint, Point, Ratio, Shape, Size, Transform,
 };
 use crate::image::Image;
 
@@ -292,49 +291,52 @@ impl PageContext<'_, '_> {
         if self.state.fill.as_ref() != Some(fill) {
             let Paint::Solid(color) = fill;
             match color {
-                Color::Luma(c) => {
+                Color::Luma(_) => {
                     self.parent.colors.d65_gray(&mut self.parent.alloc);
-                    self.set_fill_color_space(D65_GRAY);
-                    self.content.set_fill_color([c.0.get() as f32]);
+
+                    let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
+                    self.content.set_fill_color([l]);
                 }
-                Color::Oklab(c) => {
+                Color::Oklab(_) => {
                     self.parent.colors.oklab(&mut self.parent.alloc);
                     self.set_fill_color_space(OKLAB);
-                    let [l, a, b, _] = c.to_vec4();
-                    self.content.set_fill_color([
-                        l as f32,
-                        a as f32 + 0.4,
-                        b as f32 + 0.4,
-                    ]);
+
+                    let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
+                    self.content.set_fill_color([l, a, b]);
                 }
-                Color::LinearRgb(c) => {
+                Color::LinearRgb(_) => {
                     self.parent.colors.linear_rgb();
                     self.set_fill_color_space(LINEAR_SRGB);
-                    let [r, g, b, _] = c.to_vec4();
-                    self.content.set_fill_color([r as f32, g as f32, b as f32]);
+
+                    let [r, g, b, _] = ColorSpace::LinearRGB.encode(*color);
+                    self.content.set_fill_color([r, g, b]);
                 }
-                Color::Rgba(c) => {
+                Color::Rgba(_) => {
                     self.parent.colors.srgb(&mut self.parent.alloc);
                     self.set_fill_color_space(SRGB);
-                    let [r, g, b, _] = c.to_vec4();
-                    self.content.set_fill_color([r as f32, g as f32, b as f32]);
+
+                    let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
+                    self.content.set_fill_color([r, g, b]);
                 }
-                Color::Cmyk(c) => {
+                Color::Cmyk(_) => {
                     self.reset_fill_color_space();
-                    self.content
-                        .set_fill_cmyk(c.c as f32, c.m as f32, c.y as f32, c.k as f32);
+
+                    let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
+                    self.content.set_fill_cmyk(c, m, y, k);
                 }
-                Color::Hsl(c) => {
+                Color::Hsl(_) => {
                     self.parent.colors.hsl(&mut self.parent.alloc);
                     self.set_fill_color_space(HSL);
-                    let [h, s, l, _] = c.to_vec4();
-                    self.content.set_fill_color([h as f32 / TAU, s as f32, l as f32]);
+
+                    let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
+                    self.content.set_stroke_color([h, s, l]);
                 }
-                Color::Hsv(hsv) => {
+                Color::Hsv(_) => {
                     self.parent.colors.hsv(&mut self.parent.alloc);
                     self.set_fill_color_space(HSV);
-                    let [h, s, v, _] = hsv.to_vec4();
-                    self.content.set_fill_color([h as f32 / TAU, s as f32, v as f32]);
+
+                    let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
+                    self.content.set_fill_color([h, s, v]);
                 }
             }
             self.state.fill = Some(fill.clone());
@@ -365,49 +367,53 @@ impl PageContext<'_, '_> {
 
             let Paint::Solid(color) = paint;
             match color {
-                Color::Luma(c) => {
+                Color::Luma(_) => {
                     self.parent.colors.d65_gray(&mut self.parent.alloc);
                     self.set_stroke_color_space(D65_GRAY);
-                    self.content.set_stroke_color([c.0.get() as f32]);
+
+                    let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
+                    self.content.set_stroke_color([l]);
                 }
-                Color::Oklab(c) => {
+                Color::Oklab(_) => {
                     self.parent.colors.oklab(&mut self.parent.alloc);
                     self.set_stroke_color_space(OKLAB);
-                    let [l, a, b, _] = c.to_vec4();
-                    self.content.set_stroke_color([
-                        l as f32,
-                        a as f32 + 0.4,
-                        b as f32 + 0.4,
-                    ]);
+
+                    let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
+                    self.content.set_stroke_color([l, a, b]);
                 }
-                Color::LinearRgb(c) => {
+                Color::LinearRgb(_) => {
                     self.parent.colors.linear_rgb();
                     self.set_stroke_color_space(LINEAR_SRGB);
-                    let [r, g, b, _] = c.to_vec4();
-                    self.content.set_stroke_color([r as f32, g as f32, b as f32]);
+
+                    let [r, g, b, _] = ColorSpace::LinearRGB.encode(*color);
+                    self.content.set_stroke_color([r, g, b]);
                 }
-                Color::Rgba(c) => {
+                Color::Rgba(_) => {
                     self.parent.colors.srgb(&mut self.parent.alloc);
                     self.set_stroke_color_space(SRGB);
-                    let [r, g, b, _] = c.to_vec4();
-                    self.content.set_stroke_color([r as f32, g as f32, b as f32]);
+
+                    let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
+                    self.content.set_stroke_color([r, g, b]);
                 }
-                Color::Cmyk(c) => {
+                Color::Cmyk(_) => {
                     self.reset_stroke_color_space();
-                    self.content
-                        .set_stroke_cmyk(c.c as f32, c.m as f32, c.y as f32, c.k as f32);
+
+                    let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
+                    self.content.set_stroke_cmyk(c, m, y, k);
                 }
-                Color::Hsl(c) => {
+                Color::Hsl(_) => {
                     self.parent.colors.hsl(&mut self.parent.alloc);
                     self.set_stroke_color_space(HSL);
-                    let [h, s, l, _] = c.to_vec4();
-                    self.content.set_stroke_color([h as f32 / TAU, s as f32, l as f32]);
+
+                    let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
+                    self.content.set_stroke_color([h, s, l]);
                 }
-                Color::Hsv(hsv) => {
+                Color::Hsv(_) => {
                     self.parent.colors.hsv(&mut self.parent.alloc);
                     self.set_stroke_color_space(HSV);
-                    let [h, s, v, _] = hsv.to_vec4();
-                    self.content.set_stroke_color([h as f32 / TAU, s as f32, v as f32]);
+
+                    let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
+                    self.content.set_stroke_color([h, s, v]);
                 }
             }
 

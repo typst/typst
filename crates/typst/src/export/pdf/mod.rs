@@ -7,7 +7,7 @@ mod image;
 mod outline;
 mod page;
 
-use self::color::ColorSpaces;
+pub use self::color::{ColorPdfEncode, ColorSpaces};
 pub use self::page::{PdfPageLabel, PdfPageLabelStyle};
 
 use std::cmp::Eq;
