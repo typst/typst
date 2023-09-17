@@ -1453,6 +1453,10 @@ impl ColorExt for RgbaColor {
         let [r, g, b, _] = self.to_vec4();
 
         let k = 1.0 - r.max(g).max(b);
+        if k == 1.0 {
+            return CmykColor::new(0.0, 0.0, 0.0, 1.0);
+        }
+
         let c = (1.0 - r - k) / (1.0 - k);
         let m = (1.0 - g - k) / (1.0 - k);
         let y = (1.0 - b - k) / (1.0 - k);
