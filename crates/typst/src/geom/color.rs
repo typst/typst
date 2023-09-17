@@ -1,6 +1,7 @@
 use ecow::{eco_format, EcoString};
 use palette::encoding::{self, Linear};
 use palette::{Darken, Desaturate, FromColor, Lighten, RgbHue, Saturate, ShiftHue};
+use std::f64::consts::TAU;
 use std::str::FromStr;
 use typst_syntax::Spanned;
 
@@ -1824,7 +1825,7 @@ impl ColorExt for HslColor {
     const COMPONENTS: usize = 4;
 
     fn to_vec4(self) -> [f64; 4] {
-        [self.h.to_rad(), self.s, self.l, self.a]
+        [self.h.to_rad().rem_euclid(TAU), self.s, self.l, self.a]
     }
 
     fn from_vec4(vec: [f64; 4]) -> Self {
@@ -1968,7 +1969,7 @@ impl ColorExt for HsvColor {
     const COMPONENTS: usize = 4;
 
     fn to_vec4(self) -> [f64; 4] {
-        [self.h.to_rad(), self.s, self.v, self.a]
+        [self.h.to_rad().rem_euclid(TAU), self.s, self.v, self.a]
     }
 
     fn from_vec4(vec: [f64; 4]) -> Self {
