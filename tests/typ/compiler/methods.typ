@@ -103,26 +103,25 @@
 #test(rgb(1, 2, 3, 4).kind() != luma, true)
 
 ---
-// Test color '.as-rgba()', '.as-cmyk()', '.as-luma()', '.as-oklab()',
-// '.as-linear-rgb()', '.as-hsv()', and '.as-hsl()' without conversions
-#test(rgb(1, 2, 3, 4).as-rgba(), (1, 2, 3, 4))
-#test(rgb(1, 2, 3).as-rgba(), (1, 2, 3, 255))
-#test(repr(luma(40).as-luma()), repr(15.69%))
-#test(repr(cmyk(4%, 5%, 6%, 7%).as-cmyk()), repr((4%, 5%, 6%, 7%)))
-#test(oklab(10%, 0.2, 0.3).as-oklab(), (10%, 0.2, 0.3, 100%))
-#test(linear-rgb(10%, 20%, 30%).as-linear-rgb(), (10%, 20%, 30%, 100%))
-#test(hsv(10deg, 20%, 30%).as-hsv(), (10deg, 20%, 30%, 100%))
-#test(hsl(10deg, 20%, 30%).as-hsl(), (10deg, 20%, 30%, 100%))
+// Test color '.components()' without conversions
+#test(repr(rgb(1, 2, 3, 4).components()), repr((1, 2, 3, 1.57%)))
+#test(rgb(1, 2, 3).components(), (1, 2, 3, 100%))
+#test(repr(luma(40).components()), repr((15.69%, )))
+#test(repr(cmyk(4%, 5%, 6%, 7%).components()), repr((4%, 5%, 6%, 7%)))
+#test(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
+#test(linear-rgb(10%, 20%, 30%).components(), (10%, 20%, 30%, 100%))
+#test(hsv(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
+#test(hsl(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
 
 ---
 // Test color conversions.
 #test(rgb(1, 2, 3).to-hex(), "#010203")
 #test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
-#test(cmyk(4%, 5%, 6%, 7%).as-rgba(), (228, 225, 223, 255))
+#test(cmyk(4%, 5%, 6%, 7%).to-rgba().components(), (228, 225, 223, 100%))
 #test(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
-#test(luma(40).as-rgba(), (40, 40, 40, 255))
+#test(luma(40).to-rgba().components(false), (40, 40, 40))
 #test(luma(40).to-hex(), "#282828")
-#test(repr(luma(40).as-cmyk()), repr((11.76%, 10.67%, 10.51%, 14.12%)))
+#test(repr(luma(40).to-cmyk().components()), repr((11.76%, 10.67%, 10.51%, 14.12%)))
 #test(repr(luma(40).to-hsl()), repr(hsl(0deg, 0%, 15.69%)))
 #test(repr(luma(40).to-hsv()), repr(hsv(0deg, 0%, 15.69%)))
 #test(repr(luma(40).to-linear-rgb()), repr(linear-rgb(2.12%, 2.12%, 2.12%)))
@@ -132,14 +131,14 @@
 #test(repr(rgb(1, 2, 3).to-cmyk()), repr(cmyk(66.67%, 33.33%, 0%, 98.82%)))
 #test(repr(rgb(1, 2, 3).to-luma()), repr(luma(0.73%)))
 
-#let oklab = luma(40).as-oklab()
+#let oklab = luma(40).to-oklab().components()
 #test((
   calc.round(oklab.at(0) / 100% * 1000) / 1000,
   calc.round(oklab.at(1) * 1000) / 1000,
   calc.round(oklab.at(2) * 1000) / 1000,
 ), (0.277, 0.0, 0.0))
 
-#let oklab = rgb(1, 2, 3).as-oklab()
+#let oklab = rgb(1, 2, 3).to-oklab().components()
 #test((
   calc.round(oklab.at(0) / 100% * 1000) / 1000,
   calc.round(oklab.at(1) * 1000) / 1000,

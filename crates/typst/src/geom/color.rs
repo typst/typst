@@ -87,7 +87,7 @@ pub trait ColorExt: Sized + Copy + Into<Color> {
     }
 
     /// Convert the color into a typst array.
-    fn to_array(self) -> Array;
+    fn to_array(self, alpha: bool) -> Array;
 }
 
 /// A color in a specific color space.
@@ -339,15 +339,15 @@ impl ColorExt for Color {
         }
     }
 
-    fn to_array(self) -> Array {
+    fn to_array(self, alpha: bool) -> Array {
         match self {
-            Color::Luma(color) => color.to_array(),
-            Color::Oklab(color) => color.to_array(),
-            Color::LinearRgb(color) => color.to_array(),
-            Color::Rgba(color) => color.to_array(),
-            Color::Cmyk(color) => color.to_array(),
-            Color::Hsl(color) => color.to_array(),
-            Color::Hsv(color) => color.to_array(),
+            Color::Luma(color) => color.to_array(alpha),
+            Color::Oklab(color) => color.to_array(alpha),
+            Color::LinearRgb(color) => color.to_array(alpha),
+            Color::Rgba(color) => color.to_array(alpha),
+            Color::Cmyk(color) => color.to_array(alpha),
+            Color::Hsl(color) => color.to_array(alpha),
+            Color::Hsv(color) => color.to_array(alpha),
         }
     }
 }
@@ -375,6 +375,12 @@ impl Color {
 
     /// Create a grayscale color.
     ///
+    /// A grayscale color is represented internally by an array of one components:
+    /// - lightness ([`ratio`]($ratio))
+    ///
+    /// These components are also available using the [`components`]($color.components)
+    /// method.
+    ///
     /// ```example
     /// #for x in range(250, step: 50) {
     ///   box(square(fill: luma(x)))
@@ -394,6 +400,15 @@ impl Color {
     /// - Color manipulation such as saturating while keeping perceived hue
     /// - Creating grayscale images with uniform perceived lightness
     /// - Creating smooth and uniform color transition and gradients
+    ///
+    /// A linear Oklab color is represented internally by an array of four components:
+    /// - lightness ([`ratio`]($ratio))
+    /// - a ([`ratio`]($ratio) in the range `[-0.4..0.4]`)
+    /// - b ([`ratio`]($ratio) in the range `[-0.4..0.4]`)
+    /// - alpha ([`ratio`]($ratio))
+    ///
+    /// These components are also available using the [`components`]($color.components)
+    /// method.
     ///
     /// ```example
     /// #square(
@@ -422,6 +437,15 @@ impl Color {
     /// perform color operations such as blending and interpolation. Although,
     /// you should prefer to use the [`oklab` function]($oklab) for these.
     ///
+    /// A linear RGB(A) color is represented internally by an array of four components:
+    /// - red ([`ratio`]($ratio))
+    /// - green ([`ratio`]($ratio))
+    /// - blue ([`ratio`]($ratio))
+    /// - alpha ([`ratio`]($ratio))
+    ///
+    /// These components are also available using the [`components`]($color.components)
+    /// method.
+    ///
     /// ```example
     /// #square(
     ///   fill: linear-rgb(30%, 50%, 10%)
@@ -446,6 +470,15 @@ impl Color {
     /// Create an RGB(A) color.
     ///
     /// The color is specified in the sRGB color space.
+    ///
+    /// An RGB(A) color is represented internally by an array of four components:
+    /// - red ([`int`]($int) in the range `[0..255]`)
+    /// - green ([`int`]($int) in the range `[0..255]`)
+    /// - blue ([`int`]($int) in the range `[0..255]`)
+    /// - alpha ([`ratio`]($ratio))
+    ///
+    /// These components are also available using the [`components`]($color.components)
+    /// method.
     ///
     /// ```example
     /// #square(fill: rgb("#b1f2eb"))
@@ -502,6 +535,15 @@ impl Color {
     /// to RGB for display preview might differ from how your printer reproduces
     /// the color.
     ///
+    /// An HSL color is represented internally by an array of four components:
+    /// - cyan ([`ratio`]($ratio))
+    /// - magenta ([`ratio`]($ratio))
+    /// - yellow ([`ratio`]($ratio))
+    /// - key ([`ratio`]($ratio))
+    ///
+    /// These components are also available using the [`components`]($color.components)
+    /// method.
+    ///
     /// ```example
     /// #square(
     ///   fill: cmyk(27%, 0%, 3%, 5%)
@@ -526,6 +568,15 @@ impl Color {
     /// This color space is useful for specifying colors by hue, saturation and
     /// lightness. It is also useful for color manipulation, such as saturating
     /// while keeping perceived hue.
+    ///
+    /// An HSL color is represented internally by an array of four components:
+    /// - hue ([`angle`]($angle))
+    /// - saturation ([`ratio`]($ratio))
+    /// - lightness ([`ratio`]($ratio))
+    /// - alpha ([`ratio`]($ratio))
+    ///
+    /// These components are also available using the [`components`]($color.components)
+    /// method.
     ///
     /// ```example
     /// #square(
@@ -553,6 +604,15 @@ impl Color {
     /// value. It is also useful for color manipulation, such as saturating
     /// while keeping perceived hue.
     ///
+    /// An HSV color is represented internally by an array of four components:
+    /// - hue ([`angle`]($angle))
+    /// - saturation ([`ratio`]($ratio))
+    /// - value ([`ratio`]($ratio))
+    /// - alpha ([`ratio`]($ratio))
+    ///
+    /// These components are also available using the [`components`]($color.components)
+    /// method.
+    ///
     /// ```example
     /// #square(
     ///   fill: hsv(30deg, 50%, 60%)
@@ -573,16 +633,6 @@ impl Color {
         HsvColor::new(hue, saturation.0.get(), value.0.get(), alpha.0.get()).into()
     }
 
-    /// Gets the equivalent D65 Gray component of the color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn as_luma(self) -> Ratio {
-        <Self as ColorExt>::to_luma(self).0
-    }
-
     /// Converts this color in a D65 Gray color.
     ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
@@ -591,16 +641,6 @@ impl Color {
     #[func]
     pub fn to_luma(self) -> Color {
         <Self as ColorExt>::to_luma(self).into()
-    }
-
-    /// Gets the equivalent Oklab color components of the color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn as_oklab(self) -> Array {
-        <Self as ColorExt>::to_oklab(self).to_array()
     }
 
     /// Converts this color in an Oklab color.
@@ -613,16 +653,6 @@ impl Color {
         <Self as ColorExt>::to_oklab(self).into()
     }
 
-    /// Gets the equivalent linear RGB color components of the color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn as_linear_rgb(self) -> Array {
-        <Self as ColorExt>::to_linear_rgb(self).to_array()
-    }
-
     /// Converts this color in a linear RGB color.
     ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
@@ -631,16 +661,6 @@ impl Color {
     #[func]
     pub fn to_linear_rgb(self) -> Color {
         <Self as ColorExt>::to_linear_rgb(self).into()
-    }
-
-    /// Gets the equivalent RGBA color components of the color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn as_rgba(self) -> Array {
-        <Self as ColorExt>::to_rgba(self).to_array()
     }
 
     /// Converts this color in an RGBA color.
@@ -653,16 +673,6 @@ impl Color {
         <Self as ColorExt>::to_rgba(self).into()
     }
 
-    /// Gets the equivalent CMYK color components of the color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn as_cmyk(self) -> Array {
-        <Self as ColorExt>::to_cmyk(self).to_array()
-    }
-
     /// Converts this color in a CMYK color.
     ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
@@ -671,16 +681,6 @@ impl Color {
     #[func]
     pub fn to_cmyk(self) -> Color {
         <Self as ColorExt>::to_cmyk(self).into()
-    }
-
-    /// Gets the equivalent HSL color components of the color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn as_hsl(self) -> Array {
-        <Self as ColorExt>::to_hsl(self).to_array()
     }
 
     /// Converts this color in an HSL color.
@@ -693,16 +693,6 @@ impl Color {
         <Self as ColorExt>::to_hsl(self).into()
     }
 
-    /// Gets the equivalent HSV color components of the color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn as_hsv(self) -> Array {
-        <Self as ColorExt>::to_hsv(self).to_array()
-    }
-
     /// Converts this color in an HSV color.
     ///
     /// *Note*: color conversions can be lossy, this means that transforming a color
@@ -713,8 +703,49 @@ impl Color {
         <Self as ColorExt>::to_hsv(self).into()
     }
 
-    /// Returns the constructor function for this color's kind
-    /// ([`rgb`]($color.rgb), [`cmyk`]($color.cmyk) or [`luma`]($color.luma)).
+    /// Converts this color into its components.
+    ///
+    /// The size and values of this array depends on the color space. You can
+    /// obtain the color space using [`kind`]($color.kind). Below is a table of
+    /// the color spaces and their components:
+    ///
+    /// |       Color space       |     C1    |     C2     |     C3    |   C4   |
+    /// |-------------------------|-----------|------------|-----------|--------|
+    /// | [`luma`]($color.luma)   | Lightness |            |           |        |
+    /// | [`oklab`]($color.oklab) | Lightness |    `a`     |    `b`    |  Alpha |
+    /// | [`linear-rgb`]($color.linear-rgb) | Red  |   Green |    Blue |  Alpha |
+    /// | [`rgb`]($color.rgb)     |    Red    |   Green    |    Blue   |  Alpha |
+    /// | [`cmyk`]($color.cmyk)   |    Cyan   |   Magenta  |   Yellow  |  Key   |
+    /// | [`hsl`]($color.hsl)     |     Hue   | Saturation | Lightness |  Alpha |
+    /// | [`hsv`]($color.hsv)     |     Hue   | Saturation |   Value   |  Alpha |
+    ///
+    /// For the meaning and type of each individual value, see the documentation of
+    /// the corresponding color space. The alpha component is optional and only
+    /// included if the `alpha` argument is `true`. The length of the returned array
+    /// depends on the number of components and whether the alpha component is
+    /// included.
+    ///
+    /// ```example
+    /// #(luma(40%).components() == (40%, ))
+    /// ```
+    #[func]
+    pub fn components(
+        self,
+        /// Whether to include the alpha component.
+        #[default(true)]
+        alpha: bool,
+    ) -> Array {
+        <Self as ColorExt>::to_array(self, alpha)
+    }
+
+    /// Returns the constructor function for this color's kind:
+    /// - [`oklab`]($color.oklab)
+    /// - [`luma`]($color.luma)
+    /// - [`linear-rgb`]($color.linear-rgb)
+    /// - [`rgb`]($color.rgb)
+    /// - [`cmyk`]($color.cmyk)
+    /// - [`hsl`]($color.hsl)
+    /// - [`hsv`]($color.hsv)
     ///
     /// ```example
     /// #let color = cmyk(1%, 2%, 3%, 4%)
@@ -967,7 +998,7 @@ impl ColorExt for LumaColor {
         Self::new(vec[0])
     }
 
-    fn to_array(self) -> Array {
+    fn to_array(self, _: bool) -> Array {
         array![self.0]
     }
 
@@ -1081,8 +1112,12 @@ impl ColorExt for OklabColor {
         Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
-    fn to_array(self) -> Array {
-        array![Ratio::new(self.l), self.a, self.b, Ratio::new(self.alpha),]
+    fn to_array(self, alpha: bool) -> Array {
+        if alpha {
+            array![Ratio::new(self.l), self.a, self.b, Ratio::new(self.alpha)]
+        } else {
+            array![Ratio::new(self.l), self.a, self.b]
+        }
     }
 
     fn alpha(self) -> Option<f64> {
@@ -1274,13 +1309,17 @@ impl ColorExt for LinearRgbColor {
         Self::new(1.0 - self.r, 1.0 - self.g, 1.0 - self.b, self.a)
     }
 
-    fn to_array(self) -> Array {
-        array![
-            Ratio::new(self.r),
-            Ratio::new(self.g),
-            Ratio::new(self.b),
-            Ratio::new(self.a),
-        ]
+    fn to_array(self, alpha: bool) -> Array {
+        if alpha {
+            array![
+                Ratio::new(self.r),
+                Ratio::new(self.g),
+                Ratio::new(self.b),
+                Ratio::new(self.a),
+            ]
+        } else {
+            array![Ratio::new(self.r), Ratio::new(self.g), Ratio::new(self.b),]
+        }
     }
 }
 
@@ -1408,14 +1447,14 @@ impl ColorExt for RgbaColor {
         Self::Floating { r: vec[0], g: vec[1], b: vec[2], a: vec[3] }
     }
 
-    fn to_array(self) -> Array {
+    fn to_array(self, alpha: bool) -> Array {
         let [r, g, b, a] = self.to_vec4();
-        if a <= 1.0 {
+        if alpha {
             array![
                 round_u8(r * 255.0),
                 round_u8(g * 255.0),
                 round_u8(b * 255.0),
-                round_u8(a * 255.0)
+                Ratio::new(a),
             ]
         } else {
             array![round_u8(r * 255.0), round_u8(g * 255.0), round_u8(b * 255.0)]
@@ -1654,7 +1693,7 @@ impl ColorExt for CmykColor {
         Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
-    fn to_array(self) -> Array {
+    fn to_array(self, _: bool) -> Array {
         let [c, m, y, k] = self.to_vec4();
         array![Ratio::new(c), Ratio::new(m), Ratio::new(y), Ratio::new(k),]
     }
@@ -1836,8 +1875,12 @@ impl ColorExt for HslColor {
         Self::new(Angle::rad(vec[0]), vec[1], vec[2], vec[3])
     }
 
-    fn to_array(self) -> Array {
-        array![self.h, Ratio::new(self.s), Ratio::new(self.l), Ratio::new(self.a),]
+    fn to_array(self, alpha: bool) -> Array {
+        if alpha {
+            array![self.h, Ratio::new(self.s), Ratio::new(self.l), Ratio::new(self.a),]
+        } else {
+            array![self.h, Ratio::new(self.s), Ratio::new(self.l),]
+        }
     }
 
     fn to_rgba(self) -> RgbaColor {
@@ -1980,8 +2023,12 @@ impl ColorExt for HsvColor {
         Self::new(Angle::rad(vec[0]), vec[1], vec[2], vec[3])
     }
 
-    fn to_array(self) -> Array {
-        array![self.h, Ratio::new(self.s), Ratio::new(self.v), Ratio::new(self.a),]
+    fn to_array(self, alpha: bool) -> Array {
+        if alpha {
+            array![self.h, Ratio::new(self.s), Ratio::new(self.v), Ratio::new(self.a),]
+        } else {
+            array![self.h, Ratio::new(self.s), Ratio::new(self.v),]
+        }
     }
 
     fn to_rgba(self) -> RgbaColor {
