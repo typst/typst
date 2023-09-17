@@ -33,7 +33,7 @@ miniz_oxide = "0.7"
 once_cell = "1"
 pdf-writer = "0.8.1"
 pixglyph = "0.2"
-palette = { version = "0.7.3", default-features = false, features = [ "std", "approx" ] }
+palette = { version = "0.7.3", default-features = false, features = [ "approx", "libm" ] }
 regex = "1"
 resvg = { version = "0.35.0", default-features = false, features = ["raster-images"] }
 roxmltree = "0.18"

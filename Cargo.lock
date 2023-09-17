@@ -1605,6 +1605,7 @@ checksum = "b2e2f34147767aa758aa649415b50a69eeb46a67f9dc7db8011eeb3d84b351dc"
 dependencies = [
  "approx",
  "fast-srgb8",
+ "libm",
  "palette_derive",
 ]
 
