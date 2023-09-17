@@ -1,5 +1,11 @@
 {
     % Starting stack: H, S, V
+    % /!\ WARNING: The hue component **MUST** be encoded
+    %     in the range [0, 1] before calling this function.
+    %     This is because the function assumes that the
+    %     hue component are divided by a factor of 360
+    %     in order to meet the range requirements of the
+    %     PDF specification.
 
     % First we do H = (H * 360.0) % 360
     3 2 roll 360 mul 360

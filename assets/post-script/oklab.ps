@@ -1,5 +1,11 @@
 {
     % Starting stack: L, A, B
+    % /!\ WARNING: The A and B components **MUST** be encoded
+    %     in the range [0, 1] before calling this function.
+    %     This is because the function assumes that the
+    %     A and B components are offset by a factor of 0.4
+    %     in order to meet the range requirements of the
+    %     PDF specification.
 
     exch 0.4 sub
     exch 0.4 sub

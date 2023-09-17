@@ -24,6 +24,10 @@ pub struct ColorSpaces {
 
 impl ColorSpaces {
     /// Get a reference to the oklab color space.
+    ///
+    /// # Warning
+    /// The A and B components of the color must be in degrees and must be
+    /// offset by +0.4 before being encoded into the PDF file.
     pub fn oklab(&mut self, alloc: &mut Ref) -> Ref {
         *self.oklab.get_or_insert_with(|| alloc.bump())
     }
@@ -39,11 +43,19 @@ impl ColorSpaces {
     }
 
     /// Get a reference to the hsv color space.
+    ///
+    /// # Warning
+    /// The Hue component of the color must be in degrees and must be divided
+    /// by 360.0 before being encoded into the PDF file.
     pub fn hsv(&mut self, alloc: &mut Ref) -> Ref {
         *self.hsv.get_or_insert_with(|| alloc.bump())
     }
 
     /// Get a reference to the hsl color space.
+    ///
+    /// # Warning
+    /// The Hue component of the color must be in degrees and must be devided
+    /// by 360.0 before being encoded into the PDF file.
     pub fn hsl(&mut self, alloc: &mut Ref) -> Ref {
         *self.hsl.get_or_insert_with(|| alloc.bump())
     }
@@ -311,6 +323,15 @@ fn minify(source: &str) -> String {
 pub trait ColorPdfEncode {
     /// Encodes the color into four f32s, which can be used in a PDF file.
     /// Ensures that the values are in the range [0.0, 1.0].
+    ///
+    /// # Why?
+    /// - Oklab: The a and b components are in the range [-0.4, 0.4] and the PDF
+    ///   specifies (and some readers enforce) that all color values be in the range
+    ///   [0.0, 1.0]. This means that the PostScript function and the encoded color
+    ///   must be offset by 0.4.
+    /// - HSV/HSL: The hue component is in the range [0.0, 360.0] and the PDF format
+    ///   specifies that it must be in the range [0.0, 1.0]. This means that the
+    ///   PostScript function and the encoded color must be divided by 360.0.
     fn encode(&self, color: Color) -> [f32; 4];
 }
 
