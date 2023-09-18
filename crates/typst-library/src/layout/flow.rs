@@ -617,6 +617,7 @@ impl FlowLayouter<'_> {
             }
 
             self.regions.size.y -= self.footnote_config.gap;
+            let checkpoint = vt.locator.clone();
             let frames = FootnoteEntry::new(notes[k].clone())
                 .pack()
                 .layout(vt, self.styles, self.regions.with_root(false))?
@@ -636,6 +637,9 @@ impl FlowLayouter<'_> {
                 for item in self.items.drain(items_len..) {
                     self.regions.size.y -= item.height();
                 }
+
+                // Undo Vt modifications.
+                *vt.locator = checkpoint;
 
                 return Ok(false);
             }
