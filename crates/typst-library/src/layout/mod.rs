@@ -503,11 +503,22 @@ impl<'a> DocBuilder<'a> {
         }
 
         if let Some(page) = content.to::<PageElem>() {
-            let elem = if let Some(clear_to) = self.clear_next.take() {
-                let mut page = page.clone();
-                page.push_clear_to(Some(clear_to));
-                page.pack()
+            let elem = if let Some(clear) = self.clear_next.take() {
+                if let Some(last_page) = self.pages.last_page_mut() {
+                    // We access a mutable reference of the previous page and notify it
+                    // that it needs to extend empty pages
+                    last_page.mut_to::<PageElem>().unwrap().push_clear_to(Some(clear));
+                    content.clone()
+                } else {
+                    // If it is the first page, then we need to inform it to create an empty page
+                    // before it.
+                    let mut page = page.clone();
+                    page.push_clear_before(Some(clear));
+                    page.pack()
+                }
             } else {
+                // if there is no clear_next flag, we just clone the content and push it into the
+                // builder.
                 content.clone()
             };
 

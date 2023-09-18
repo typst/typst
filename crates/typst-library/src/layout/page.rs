@@ -310,9 +310,13 @@ pub struct PageElem {
     pub body: Content,
 
     /// Whether the page should be aligned to an even or odd page.
+    /// clear_to and clear_before indicates the pages is inserted before or after
+    /// the current pages.
     /// Not part of the public API for now.
     #[internal]
     pub clear_to: Option<Parity>,
+    #[internal]
+    pub clear_before: Option<Parity>,
 }
 
 impl PageElem {
@@ -379,11 +383,21 @@ impl PageElem {
 
         // Align the child to the pagebreak's parity.
         if self
-            .clear_to(styles)
+            .clear_before(styles)
             .is_some_and(|p| !p.matches(page_counter.physical().get()))
         {
+            // insert empty page before the current pages
             let size = area.map(Abs::is_finite).select(area, Size::zero());
             frames.insert(0, Frame::new(size));
+        }
+
+        if self
+            .clear_to(styles)
+            .is_some_and(|p| p.matches(page_counter.physical().get()))
+        {
+            // insert empty page after the current pages
+            let size = area.map(Abs::is_finite).select(area, Size::zero());
+            frames.push(Frame::new(size));
         }
 
         let fill = self.fill(styles);
