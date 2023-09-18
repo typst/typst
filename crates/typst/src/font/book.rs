@@ -8,7 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::{Font, FontStretch, FontStyle, FontVariant, FontWeight};
 
 /// Metadata about a collection of fonts.
-#[derive(Default, Clone, Hash)]
+#[derive(Debug, Default, Clone, Hash)]
 pub struct FontBook {
     /// Maps from lowercased family names to font indices.
     families: BTreeMap<String, Vec<usize>>,
