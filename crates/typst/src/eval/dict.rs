@@ -140,17 +140,28 @@ impl Dict {
     /// specified.
     #[func]
     pub fn at(
-        &self,
+        &mut self,
         /// The key at which to retrieve the item.
         key: Str,
         /// A default value to return if the key is not part of the dictionary.
         #[named]
         default: Option<Value>,
+        /// If true, the default value is inserted into the dictionary if there isn't already a value.
+        #[named]
+        #[default(false)]
+        insert: bool,
     ) -> StrResult<Value> {
         self.0
             .get(&key)
             .cloned()
-            .or(default)
+            .or_else(|| {
+                if let Some(x) = &default {
+                    if insert {
+                        self.insert(key.clone(), x.clone());
+                    }
+                }
+                default
+            })
             .ok_or_else(|| missing_key_no_default(&key))
     }
 

@@ -6,7 +6,7 @@ use crate::syntax::Span;
 
 /// Whether a specific method is mutating.
 pub fn is_mutating(method: &str) -> bool {
-    matches!(method, "push" | "pop" | "insert" | "remove")
+    matches!(method, "push" | "pop" | "insert" | "remove" | "at")
 }
 
 /// Whether a specific method is an accessor.
@@ -56,6 +56,7 @@ pub fn call_mut(
         },
 
         Value::Dict(dict) => match method {
+            "at" => output = dict.at(args.expect::<Str>("key")?, args.named::<Value>("default")?, args.named::<bool>("insert")?.unwrap_or(false)).at(span)?,
             "insert" => dict.insert(args.expect::<Str>("key")?, args.expect("value")?),
             "remove" => output = dict.remove(args.expect::<Str>("key")?).at(span)?,
             _ => return missing(),

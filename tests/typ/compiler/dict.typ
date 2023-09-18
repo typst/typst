@@ -112,3 +112,17 @@
   // Error: 8-15 type dictionary has no method `nonfunc`
   dict.nonfunc()
 }
+
+---
+#{
+  let dict = (:)
+  test(dict.at("A", default: 1, insert: true), 1)
+  test(dict.at("A"), 1)
+}
+
+---
+#{
+  let dict = (:)
+  // Error: 3-29 dictionary does not contain key "b" and no default value was specified
+  dict.at("b", insert: true)
+}
