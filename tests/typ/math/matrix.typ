@@ -91,3 +91,15 @@ $ mat(1, 0, 0, 0; 0, 1, 0, 0; 0, 0, 1, 1) $
 ---
 // Error: 3-37 cannot draw a vertical line after column 3 of a matrix with 3 columns
 $ mat(1, 0, 0; 0, 1, 1; augment: #3) $,
+
+---
+#set math.mat(row-gap: 3em, col-gap: 3em)
+$ mat(1, 2; 3, 4) $
+
+---
+#set math.cases(gap: 3em)
+$ x = cases(1, 2) $
+
+---
+#set math.vec(gap: 3em)
+$ vec(1, 2) $

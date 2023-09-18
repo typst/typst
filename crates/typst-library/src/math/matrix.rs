@@ -2,8 +2,8 @@ use typst::model::Resolve;
 
 use super::*;
 
-const ROW_GAP: Em = Em::new(0.5);
-const COL_GAP: Em = Em::new(0.5);
+const DEFAULT_ROW_GAP: Em = Em::new(0.5);
+const DEFAULT_COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
@@ -31,13 +31,28 @@ pub struct VecElem {
     /// The elements of the vector.
     #[variadic]
     pub children: Vec<Content>,
+
+    /// The gap between elements.
+    ///
+    /// ```example
+    /// #set math.vec(gap: 3em)
+    /// $ vec(1, 2) $
+    /// ```
+    #[resolve]
+    #[fold]
+    pub gap: Option<Rel<Length>>,
 }
 
 impl LayoutMath for VecElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
-        let frame = layout_vec_body(ctx, &self.children(), FixedAlign::Center)?;
+        let frame = layout_vec_body(
+            ctx,
+            &self.children(),
+            FixedAlign::Center,
+            self.gap(ctx.styles()),
+        )?;
         layout_delimiters(
             ctx,
             frame,
@@ -110,6 +125,26 @@ pub struct MatElem {
     #[fold]
     pub augment: Option<Augment>,
 
+    /// The gap between rows.
+    ///
+    /// ```example
+    /// #set math.mat(row-gap: 3em)
+    /// $ mat(1, 2; 3, 4) $
+    /// ```
+    #[resolve]
+    #[fold]
+    pub row_gap: Option<Rel<Length>>,
+
+    /// The gap between columns.
+    ///
+    /// ```example
+    /// #set math.mat(col-gap: 3em)
+    /// $ mat(1, 2; 3, 4) $
+    /// ```
+    #[resolve]
+    #[fold]
+    pub col_gap: Option<Rel<Length>>,
+
     /// An array of arrays with the rows of the matrix.
     ///
     /// ```example
@@ -180,7 +215,14 @@ impl LayoutMath for MatElem {
 
         let delim = self.delim(ctx.styles());
 
-        let frame = layout_mat_body(ctx, &self.rows(), augment, self.span())?;
+        let frame = layout_mat_body(
+            ctx,
+            &self.rows(),
+            augment,
+            self.row_gap(ctx.styles()),
+            self.col_gap(ctx.styles()),
+            self.span(),
+        )?;
 
         layout_delimiters(
             ctx,
@@ -219,13 +261,28 @@ pub struct CasesElem {
     /// The branches of the case distinction.
     #[variadic]
     pub children: Vec<Content>,
+
+    /// The gap between branches.
+    ///
+    /// ```example
+    /// #set math.cases(gap: 3em)
+    /// $ x = cases(1, 2) $
+    /// ```
+    #[resolve]
+    #[fold]
+    pub gap: Option<Rel<Length>>,
 }
 
 impl LayoutMath for CasesElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
-        let frame = layout_vec_body(ctx, &self.children(), FixedAlign::Start)?;
+        let frame = layout_vec_body(
+            ctx,
+            &self.children(),
+            FixedAlign::Start,
+            self.gap(ctx.styles()),
+        )?;
         layout_delimiters(ctx, frame, Some(delim.open()), None, self.span())
     }
 }
@@ -279,8 +336,11 @@ fn layout_vec_body(
     ctx: &mut MathContext,
     column: &[Content],
     align: FixedAlign,
+    row_gap: Option<Rel<Abs>>,
 ) -> SourceResult<Frame> {
-    let gap = ROW_GAP.scaled(ctx);
+    let gap = row_gap
+        .unwrap_or(Rel::from(DEFAULT_ROW_GAP.scaled(ctx)))
+        .relative_to(ctx.regions.base().y);
     ctx.style(ctx.style.for_denominator());
     let mut flat = vec![];
     for child in column {
@@ -295,10 +355,16 @@ fn layout_mat_body(
     ctx: &mut MathContext,
     rows: &[Vec<Content>],
     augment: Option<Augment<Abs>>,
+    row_gap: Option<Rel<Abs>>,
+    col_gap: Option<Rel<Abs>>,
     span: Span,
 ) -> SourceResult<Frame> {
-    let row_gap = ROW_GAP.scaled(ctx);
-    let col_gap = COL_GAP.scaled(ctx);
+    let row_gap = row_gap
+        .unwrap_or(Rel::from(DEFAULT_ROW_GAP.scaled(ctx)))
+        .relative_to(ctx.regions.base().y);
+    let col_gap = col_gap
+        .unwrap_or(Rel::from(DEFAULT_COL_GAP.scaled(ctx)))
+        .relative_to(ctx.regions.base().x);
 
     let half_row_gap = row_gap * 0.5;
     let half_col_gap = col_gap * 0.5;
