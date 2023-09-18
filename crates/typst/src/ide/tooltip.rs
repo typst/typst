@@ -116,7 +116,8 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     visitor.visit(closure);
 
     let captures = visitor.finish();
-    let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();
+    let mut names: Vec<_> =
+        captures.iter().map(|(name, _)| eco_format!("`{name}`")).collect();
     if names.is_empty() {
         return None;
     }
@@ -124,7 +125,7 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     names.sort();
 
     let tooltip = separated_list(&names, "and");
-    Some(Tooltip::Code(eco_format!("This closure captures {tooltip}.")))
+    Some(Tooltip::Text(eco_format!("This closure captures {tooltip}.")))
 }
 
 /// Tooltip text for a hovered length.
