@@ -9,10 +9,8 @@ use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
 use crate::eval::{CapturesVisitor, CastInfo, Tracer, Value};
 use crate::geom::{round_2, Length, Numeric};
-use crate::syntax::{
-    ast::{self, AstNode},
-    LinkedNode, Source, SyntaxKind,
-};
+use crate::syntax::ast::{self, AstNode};
+use crate::syntax::{LinkedNode, Source, SyntaxKind};
 use crate::util::{pretty_comma_list, separated_list};
 use crate::World;
 
@@ -113,12 +111,12 @@ fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
     }
     let closure = ancestor.cast::<ast::Closure>()?.to_untyped();
 
-    // analyze the closure captures.
+    // Analyze the closure's captures.
     let mut visitor = CapturesVisitor::new(None);
     visitor.visit(closure);
+
     let captures = visitor.finish();
     let mut names: Vec<_> = captures.iter().map(|(k, _)| k).collect();
-
     if names.is_empty() {
         return None;
     }
