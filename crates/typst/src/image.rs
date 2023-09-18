@@ -19,7 +19,7 @@ use usvg::{NodeExt, TreeParsing, TreeTextToPath};
 
 use crate::diag::{bail, format_xml_like_error, StrResult};
 use crate::eval::Bytes;
-use crate::font::{Font, FontInfo, FontVariant, FontWeight};
+use crate::font::{Font, FontBook, FontInfo, FontVariant, FontWeight};
 use crate::geom::Axes;
 use crate::World;
 
@@ -450,7 +450,7 @@ trait SvgFontLoader {
     fn load(&self, family: &str) -> EcoVec<Font>;
 
     /// Prioritized sequence of fallback font families.
-    fn fallback_families(&self) -> EcoVec<String>;
+    fn fallback_families(&self) -> &[String];
 
     /// Find a last resort fallback for a given text and font variant.
     fn find_fallback(
@@ -465,7 +465,7 @@ trait SvgFontLoader {
 struct WorldLoader<'a> {
     world: Tracked<'a, dyn World + 'a>,
     seen: RefCell<BTreeMap<EcoString, EcoVec<Font>>>,
-    fallback_families: RefCell<EcoVec<String>>,
+    fallback_families: EcoVec<String>,
 }
 
 impl<'a> WorldLoader<'a> {
@@ -473,17 +473,15 @@ impl<'a> WorldLoader<'a> {
         world: Tracked<'a, dyn World + 'a>,
         fallback_families: EcoVec<String>,
     ) -> Self {
-        Self {
-            world,
-            fallback_families: RefCell::new(fallback_families),
-            seen: Default::default(),
-        }
+        Self { world, seen: Default::default(), fallback_families }
     }
 
     fn into_prepared(self) -> PreparedLoader {
+        let fonts = self.seen.into_inner().into_values().flatten().collect::<EcoVec<_>>();
         PreparedLoader {
-            families: self.seen.into_inner(),
-            fallback_families: self.fallback_families.into_inner(),
+            book: FontBook::from_fonts(fonts.iter()),
+            fonts,
+            fallback_families: self.fallback_families,
         }
     }
 }
@@ -503,8 +501,8 @@ impl SvgFontLoader for WorldLoader<'_> {
             .clone()
     }
 
-    fn fallback_families(&self) -> EcoVec<String> {
-        self.fallback_families.borrow().clone()
+    fn fallback_families(&self) -> &[String] {
+        self.fallback_families.as_slice()
     }
 
     fn find_fallback(
@@ -513,48 +511,45 @@ impl SvgFontLoader for WorldLoader<'_> {
         like: Option<FontInfo>,
         variant: FontVariant,
     ) -> Option<EcoString> {
-        let fallback: Option<EcoString> = self
-            .world
+        self.world
             .book()
             .select_fallback(like.as_ref(), variant, text)
             .and_then(|id| self.world.font(id))
-            .map(|font| font.info().family.to_lowercase().as_str().into());
-
-        if let Some(fallback) = &fallback {
-            // TODO: Prevent duplicates
-            self.fallback_families.borrow_mut().push(fallback.to_string());
-        }
-
-        fallback
+            .map(|font| font.info().family.to_lowercase().as_str().into())
     }
 }
 
 /// Loads fonts for an SVG from a prepared list.
 #[derive(Default, Hash)]
 struct PreparedLoader {
-    families: BTreeMap<EcoString, EcoVec<Font>>,
+    book: FontBook,
+    fonts: EcoVec<Font>,
     fallback_families: EcoVec<String>,
 }
 
 impl SvgFontLoader for PreparedLoader {
     fn load(&self, family: &str) -> EcoVec<Font> {
-        self.families.get(family).cloned().unwrap_or_default()
+        self.book
+            .select_family(family)
+            .filter_map(|id| self.fonts.get(id))
+            .cloned()
+            .collect()
     }
 
-    fn fallback_families(&self) -> EcoVec<String> {
-        self.fallback_families.clone()
+    fn fallback_families(&self) -> &[String] {
+        self.fallback_families.as_slice()
     }
 
     fn find_fallback(
         &self,
-        _: &str,
-        _: Option<FontInfo>,
-        _: FontVariant,
+        text: &str,
+        like: Option<FontInfo>,
+        variant: FontVariant,
     ) -> Option<EcoString> {
-        // All fallbacks font should be included in 'families' already, so we will
-        // let usvg find it. As "Linux Libertine" must have failed to cover all glyphs,
-        // we can be sure that it will not actually be used as a fallback.
-        Some("Linux Libertine".into())
+        self.book
+            .select_fallback(like.as_ref(), variant, text)
+            .and_then(|id| self.fonts.get(id))
+            .map(|font| font.info().family.to_lowercase().as_str().into())
     }
 }
 
