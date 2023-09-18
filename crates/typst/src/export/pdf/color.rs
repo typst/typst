@@ -188,7 +188,7 @@ impl ColorSpaces {
                 .n(1)
                 .range([0.0, 1.0])
                 .alternate()
-                .srgb();
+                .d65_gray();
         }
     }
 }
