@@ -7,14 +7,14 @@ use pdf_writer::types::{
 };
 use pdf_writer::{Content, Filter, Finish, Name, Rect, Ref, Str};
 
-use super::color::{D65_GRAY, HSL, HSV, LINEAR_SRGB, OKLAB, SRGB};
+use super::color::PaintEncode;
 use super::extg::ExternalGraphicsState;
-use super::{deflate, AbsExt, ColorPdfEncode, EmExt, PdfContext, RefExt};
+use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, ColorExt, ColorSpace, Em, FixedStroke, Geometry, LineCap, LineJoin,
-    Numeric, Paint, Point, Ratio, Shape, Size, Transform,
+    self, Abs, Colorful, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint,
+    Point, Ratio, Shape, Size, Transform,
 };
 use crate::image::Image;
 
@@ -197,11 +197,11 @@ pub struct Page {
 }
 
 /// An exporter for the contents of a single PDF page.
-struct PageContext<'a, 'b> {
-    parent: &'a mut PdfContext<'b>,
+pub struct PageContext<'a, 'b> {
+    pub parent: &'a mut PdfContext<'b>,
     page_ref: Ref,
     label: Option<PdfPageLabel>,
-    content: Content,
+    pub content: Content,
     state: State,
     saves: Vec<State>,
     bottom: f32,
@@ -289,69 +289,19 @@ impl PageContext<'_, '_> {
 
     fn set_fill(&mut self, fill: &Paint) {
         if self.state.fill.as_ref() != Some(fill) {
-            let Paint::Solid(color) = fill;
-            match color {
-                Color::Luma(_) => {
-                    self.parent.colors.d65_gray(&mut self.parent.alloc);
-                    self.set_fill_color_space(D65_GRAY);
-
-                    let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
-                    self.content.set_fill_color([l]);
-                }
-                Color::Oklab(_) => {
-                    self.parent.colors.oklab(&mut self.parent.alloc);
-                    self.set_fill_color_space(OKLAB);
-
-                    let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
-                    self.content.set_fill_color([l, a, b]);
-                }
-                Color::LinearRgb(_) => {
-                    self.parent.colors.linear_rgb();
-                    self.set_fill_color_space(LINEAR_SRGB);
-
-                    let [r, g, b, _] = ColorSpace::LinearRGB.encode(*color);
-                    self.content.set_fill_color([r, g, b]);
-                }
-                Color::Rgba(_) => {
-                    self.parent.colors.srgb(&mut self.parent.alloc);
-                    self.set_fill_color_space(SRGB);
-
-                    let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
-                    self.content.set_fill_color([r, g, b]);
-                }
-                Color::Cmyk(_) => {
-                    self.reset_fill_color_space();
-
-                    let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
-                    self.content.set_fill_cmyk(c, m, y, k);
-                }
-                Color::Hsl(_) => {
-                    self.parent.colors.hsl(&mut self.parent.alloc);
-                    self.set_fill_color_space(HSL);
-
-                    let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
-                    self.content.set_fill_color([h, s, l]);
-                }
-                Color::Hsv(_) => {
-                    self.parent.colors.hsv(&mut self.parent.alloc);
-                    self.set_fill_color_space(HSV);
-
-                    let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
-                    self.content.set_fill_color([h, s, v]);
-                }
-            }
+            fill.set_as_fill(self);
             self.state.fill = Some(fill.clone());
         }
     }
 
-    fn set_fill_color_space(&mut self, space: Name<'static>) {
+    pub fn set_fill_color_space(&mut self, space: Name<'static>) {
         if self.state.fill_space != Some(space) {
             self.content.set_fill_color_space(ColorSpaceOperand::Named(space));
             self.state.fill_space = Some(space);
         }
     }
 
-    fn reset_fill_color_space(&mut self) {
+    pub fn reset_fill_color_space(&mut self) {
         self.state.fill_space = None;
     }
 
@@ -366,57 +316,7 @@ impl PageContext<'_, '_> {
                 miter_limit,
             } = stroke;
 
-            let Paint::Solid(color) = paint;
-            match color {
-                Color::Luma(_) => {
-                    self.parent.colors.d65_gray(&mut self.parent.alloc);
-                    self.set_stroke_color_space(D65_GRAY);
-
-                    let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
-                    self.content.set_stroke_color([l]);
-                }
-                Color::Oklab(_) => {
-                    self.parent.colors.oklab(&mut self.parent.alloc);
-                    self.set_stroke_color_space(OKLAB);
-
-                    let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
-                    self.content.set_stroke_color([l, a, b]);
-                }
-                Color::LinearRgb(_) => {
-                    self.parent.colors.linear_rgb();
-                    self.set_stroke_color_space(LINEAR_SRGB);
-
-                    let [r, g, b, _] = ColorSpace::LinearRGB.encode(*color);
-                    self.content.set_stroke_color([r, g, b]);
-                }
-                Color::Rgba(_) => {
-                    self.parent.colors.srgb(&mut self.parent.alloc);
-                    self.set_stroke_color_space(SRGB);
-
-                    let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
-                    self.content.set_stroke_color([r, g, b]);
-                }
-                Color::Cmyk(_) => {
-                    self.reset_stroke_color_space();
-
-                    let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
-                    self.content.set_stroke_cmyk(c, m, y, k);
-                }
-                Color::Hsl(_) => {
-                    self.parent.colors.hsl(&mut self.parent.alloc);
-                    self.set_stroke_color_space(HSL);
-
-                    let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
-                    self.content.set_stroke_color([h, s, l]);
-                }
-                Color::Hsv(_) => {
-                    self.parent.colors.hsv(&mut self.parent.alloc);
-                    self.set_stroke_color_space(HSV);
-
-                    let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
-                    self.content.set_stroke_color([h, s, v]);
-                }
-            }
+            paint.set_as_stroke(self);
 
             self.content.set_line_width(thickness.to_f32());
             if self.state.stroke.as_ref().map(|s| &s.line_cap) != Some(line_cap) {
@@ -442,14 +342,14 @@ impl PageContext<'_, '_> {
         }
     }
 
-    fn set_stroke_color_space(&mut self, space: Name<'static>) {
+    pub fn set_stroke_color_space(&mut self, space: Name<'static>) {
         if self.state.stroke_space != Some(space) {
             self.content.set_stroke_color_space(ColorSpaceOperand::Named(space));
             self.state.stroke_space = Some(space);
         }
     }
 
-    fn reset_stroke_color_space(&mut self) {
+    pub fn reset_stroke_color_space(&mut self) {
         self.state.stroke_space = None;
     }
 }

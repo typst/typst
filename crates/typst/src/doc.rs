@@ -12,7 +12,7 @@ use crate::eval::{cast, dict, ty, Dict, Value};
 use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
-    self, rounded_rect, Abs, Axes, Color, ColorExt, Corners, Dir, Em, FixedAlign,
+    self, rounded_rect, Abs, Axes, Color, Colorful, Corners, Dir, Em, FixedAlign,
     FixedStroke, Geometry, Length, Numeric, Paint, Point, Rel, Shape, Sides, Size,
     Transform,
 };

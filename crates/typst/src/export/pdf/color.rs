@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
-use pdf_writer::{
-    types::DeviceNSubtype, writers, Dict, Filter, Finish, Name, PdfWriter, Ref,
-};
+use pdf_writer::types::DeviceNSubtype;
+use pdf_writer::{writers, Dict, Filter, Finish, Name, PdfWriter, Ref};
 
-use crate::{
-    export::pdf::deflate,
-    geom::{Color, ColorExt, ColorSpace},
-};
+use crate::export::pdf::deflate;
+use crate::geom::{Color, ColorSpace, Colorful, Paint};
 
+use super::page::PageContext;
 use super::RefExt;
 
 /// The color spaces present in the PDF document
@@ -75,14 +73,14 @@ impl ColorSpaces {
         match color_space {
             ColorSpace::Oklab => {
                 let mut oklab = writer.device_n([OKLAB_L, OKLAB_A, OKLAB_B]);
-                self.write(ColorSpace::LinearRGB, oklab.alternate_color_space(), alloc);
+                self.write(ColorSpace::LinearRgb, oklab.alternate_color_space(), alloc);
                 oklab.tint_ref(self.oklab(alloc));
                 oklab.attrs().subtype(DeviceNSubtype::DeviceN);
                 oklab.finish();
             }
             ColorSpace::Srgb => writer.icc_based(self.srgb(alloc)),
             ColorSpace::D65Gray => writer.icc_based(self.d65_gray(alloc)),
-            ColorSpace::LinearRGB => {
+            ColorSpace::LinearRgb => {
                 writer.cal_rgb(
                     [0.9505, 1.0, 1.0888],
                     None,
@@ -111,59 +109,6 @@ impl ColorSpaces {
         }
     }
 
-    /// Write the necessary color spaces to the PDF file.
-    pub fn write_functions(&self, writer: &mut PdfWriter) {
-        // Write the Oklab function & color space
-        if let Some(oklab) = self.oklab {
-            let code = oklab_function();
-            let mut color_function = writer.post_script_function(oklab, &code);
-            color_function.filter(Filter::FlateDecode);
-            color_function.domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-            color_function.range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-            color_function.finish();
-        }
-
-        // Write the HSV function & color space
-        if let Some(hsv) = self.hsv {
-            let code = hsv_function();
-            let mut color_function = writer.post_script_function(hsv, &code);
-            color_function.filter(Filter::FlateDecode);
-            color_function.domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-            color_function.range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-            color_function.finish();
-        }
-
-        // Write the HSL function & color space
-        if let Some(hsl) = self.hsl {
-            let code = hsl_function();
-            let mut color_function = writer.post_script_function(hsl, &code);
-            color_function.filter(Filter::FlateDecode);
-            color_function.domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-            color_function.range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-            color_function.finish();
-        }
-
-        // Write the sRGB color space
-        if let Some(srgb) = self.srgb {
-            let profile = srgb_icc();
-            let mut icc_profile = writer.icc_profile(srgb, &profile);
-            icc_profile.alternate().srgb();
-            icc_profile.n(3);
-            icc_profile.range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
-            icc_profile.finish();
-        }
-
-        // Write the gray color space
-        if let Some(gray) = self.d65_gray {
-            let profile = gray_icc();
-            let mut icc_profile = writer.icc_profile(gray, &profile);
-            icc_profile.alternate().d65_gray();
-            icc_profile.n(1);
-            icc_profile.range([0.0, 1.0]);
-            icc_profile.finish();
-        }
-    }
-
     // Write the color spaces to the PDF file.
     pub fn write_color_spaces(&mut self, mut spaces: Dict, alloc: &mut Ref) {
         if self.oklab.is_some() {
@@ -187,72 +132,94 @@ impl ColorSpaces {
         }
 
         if self.use_linear_rgb {
-            self.write(ColorSpace::LinearRGB, spaces.insert(LINEAR_SRGB).start(), alloc);
+            self.write(ColorSpace::LinearRgb, spaces.insert(LINEAR_SRGB).start(), alloc);
+        }
+    }
+
+    /// Write the necessary color spaces functions and ICC profiles to the
+    /// PDF file.
+    pub fn write_functions(&self, writer: &mut PdfWriter) {
+        // Write the Oklab function & color space
+        if let Some(oklab) = self.oklab {
+            let code = oklab_function();
+            writer
+                .post_script_function(oklab, &code)
+                .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .filter(Filter::FlateDecode);
         }
 
-        spaces.finish();
+        // Write the HSV function & color space
+        if let Some(hsv) = self.hsv {
+            let code = hsv_function();
+            writer
+                .post_script_function(hsv, &code)
+                .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .filter(Filter::FlateDecode);
+        }
+
+        // Write the HSL function & color space
+        if let Some(hsl) = self.hsl {
+            let code = hsl_function();
+            writer
+                .post_script_function(hsl, &code)
+                .domain([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .filter(Filter::FlateDecode);
+        }
+
+        // Write the sRGB color space
+        if let Some(srgb) = self.srgb {
+            let profile = srgb_icc();
+            writer
+                .icc_profile(srgb, &profile)
+                .n(3)
+                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
+                .alternate()
+                .srgb();
+        }
+
+        // Write the gray color space
+        if let Some(gray) = self.d65_gray {
+            let profile = gray_icc();
+            writer
+                .icc_profile(gray, &profile)
+                .n(1)
+                .range([0.0, 1.0])
+                .alternate()
+                .srgb();
+        }
     }
 }
 
-/// The ICC profile for sRGB colors
-const SRGB_ICC: &[u8] = include_bytes!("../../../../../assets/icc/sRGB-v4.icc");
+// The ICC profiles
+const SRGB_ICC: &[u8] = include_bytes!("../../../icc/sRGB-v4.icc");
+const GRAY_ICC: &[u8] = include_bytes!("../../../icc/sGrey-v4.icc");
 
-/// The ICC profile for gray colors
-const GRAY_ICC: &[u8] = include_bytes!("../../../../../assets/icc/sGrey-v4.icc");
+///The PostScript functions for color spaces
+const OKLAB_SOURCE: &str = include_str!("../../../post-script/oklab.ps");
+const HSL_SOURCE: &str = include_str!("../../../post-script/hsl.ps");
+const HSV_SOURCE: &str = include_str!("../../../post-script/hsv.ps");
 
-/// The PostScript function for Oklab colors
-const OKLAB_SOURCE: &str = include_str!("../../../../../assets/post-script/oklab.ps");
-
-/// The PostScript function for HSL colors
-const HSL_SOURCE: &str = include_str!("../../../../../assets/post-script/hsl.ps");
-
-/// The PostScript function for HSV colors
-const HSV_SOURCE: &str = include_str!("../../../../../assets/post-script/hsv.ps");
-
-/// The name of the sRGB color space
+// The name of the color spaces
 pub const SRGB: Name<'static> = Name(b"srgb");
-
-/// The name of the gray color space
 pub const D65_GRAY: Name<'static> = Name(b"d65gray");
-
-/// The name of the OkLab color space
 pub const OKLAB: Name<'static> = Name(b"oklab");
-
-/// The name of the HSV color space
 pub const HSV: Name<'static> = Name(b"hsv");
-
-/// The name of the HSL color space
 pub const HSL: Name<'static> = Name(b"hsl");
-
-/// The name of the linear RGB color space
 pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
 
-/// The name of the "lightness" component of the OkLab color space
-const OKLAB_L: Name<'static> = Name(b"OkLabL");
-
-/// The name of the "a" component of the OkLab color space
-const OKLAB_A: Name<'static> = Name(b"OkLabA");
-
-/// The name of the "b" component of the OkLab color space
-const OKLAB_B: Name<'static> = Name(b"OkLabB");
-
-/// The name of the "hue" component of the HSV color space
-const HSV_H: Name<'static> = Name(b"HsvH");
-
-/// The name of the "saturation" component of the HSV color space
-const HSV_S: Name<'static> = Name(b"HsvS");
-
-/// The name of the "value" component of the HSV color space
-const HSV_V: Name<'static> = Name(b"HsvV");
-
-/// The name of the "hue" component of the HSL color space
-const HSL_H: Name<'static> = Name(b"HsvH");
-
-/// The name of the "saturation" component of the HSL color space
-const HSL_S: Name<'static> = Name(b"HsvS");
-
-/// The name of the "lightness" component of the HSL color space
-const HSL_L: Name<'static> = Name(b"HsvL");
+// The name of the color components
+const OKLAB_L: Name<'static> = Name(b"L");
+const OKLAB_A: Name<'static> = Name(b"A");
+const OKLAB_B: Name<'static> = Name(b"B");
+const HSV_H: Name<'static> = Name(b"H");
+const HSV_S: Name<'static> = Name(b"S");
+const HSV_V: Name<'static> = Name(b"V");
+const HSL_H: Name<'static> = Name(b"H");
+const HSL_S: Name<'static> = Name(b"S");
+const HSL_L: Name<'static> = Name(b"L");
 
 /// Deflated sRGB ICC profile
 #[comemo::memoize]
@@ -269,27 +236,27 @@ fn gray_icc() -> Arc<Vec<u8>> {
 /// Deflated Oklab PostScript function
 #[comemo::memoize]
 fn oklab_function() -> Arc<Vec<u8>> {
-    let code = minify(OKLAB_SOURCE);
+    let code = unscanny(OKLAB_SOURCE);
     Arc::new(deflate(code.as_bytes()))
 }
 
 /// Deflated HSV PostScript function
 #[comemo::memoize]
 fn hsv_function() -> Arc<Vec<u8>> {
-    let code = minify(HSV_SOURCE);
+    let code = unscanny(HSV_SOURCE);
     Arc::new(deflate(code.as_bytes()))
 }
 
 /// Deflated HSL PostScript function
 #[comemo::memoize]
 fn hsl_function() -> Arc<Vec<u8>> {
-    let code = minify(HSL_SOURCE);
+    let code = unscanny(HSL_SOURCE);
     Arc::new(deflate(code.as_bytes()))
 }
 
 /// This function removes comments, line spaces and carriage returns from a
 /// PostScript program. This is necessary to optimize the size of the PDF file.
-fn minify(source: &str) -> String {
+fn unscanny(source: &str) -> String {
     let mut buf = String::with_capacity(source.len());
     let mut in_comment = false;
     let mut in_line_space = false;
@@ -320,18 +287,19 @@ fn minify(source: &str) -> String {
     buf
 }
 
+/// Encodes the color into four f32s, which can be used in a PDF file.
+/// Ensures that the values are in the range [0.0, 1.0].
+///
+/// # Why?
+/// - Oklab: The a and b components are in the range [-0.4, 0.4] and the PDF
+///   specifies (and some readers enforce) that all color values be in the range
+///   [0.0, 1.0]. This means that the PostScript function and the encoded color
+///   must be offset by 0.4.
+/// - HSV/HSL: The hue component is in the range [0.0, 360.0] and the PDF format
+///   specifies that it must be in the range [0.0, 1.0]. This means that the
+///   PostScript function and the encoded color must be divided by 360.0.
 pub trait ColorPdfEncode {
-    /// Encodes the color into four f32s, which can be used in a PDF file.
-    /// Ensures that the values are in the range [0.0, 1.0].
-    ///
-    /// # Why?
-    /// - Oklab: The a and b components are in the range [-0.4, 0.4] and the PDF
-    ///   specifies (and some readers enforce) that all color values be in the range
-    ///   [0.0, 1.0]. This means that the PostScript function and the encoded color
-    ///   must be offset by 0.4.
-    /// - HSV/HSL: The hue component is in the range [0.0, 360.0] and the PDF format
-    ///   specifies that it must be in the range [0.0, 1.0]. This means that the
-    ///   PostScript function and the encoded color must be divided by 360.0.
+    /// Performs the color to PDF f32 array conversion.
     fn encode(&self, color: Color) -> [f32; 4];
 }
 
@@ -339,7 +307,7 @@ impl ColorPdfEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
             ColorSpace::Oklab => {
-                let [l, a, b, _] = color.to_oklab().to_vec4();
+                let [l, a, b, _] = color.to_oklab().components();
                 [
                     l as f32,
                     (a as f32 + 0.4).clamp(0.0, 1.0),
@@ -348,34 +316,147 @@ impl ColorPdfEncode for ColorSpace {
                 ]
             }
             ColorSpace::Srgb => {
-                let [r, g, b, _] = color.to_rgba().to_vec4();
-
+                let [r, g, b, _] = color.to_rgba().components();
                 [r as f32, g as f32, b as f32, 0.0]
             }
             ColorSpace::D65Gray => {
-                let [l, _, _, _] = color.to_luma().to_vec4();
-
+                let [l, _, _, _] = color.to_luma().components();
                 [l as f32, 0.0, 0.0, 0.0]
             }
-            ColorSpace::LinearRGB => {
-                let [r, g, b, _] = color.to_linear_rgb().to_vec4();
-
+            ColorSpace::LinearRgb => {
+                let [r, g, b, _] = color.to_linear_rgb().components();
                 [r as f32, g as f32, b as f32, 0.0]
             }
             ColorSpace::Hsl => {
-                let [h, s, l, _] = color.to_hsl().to_vec4();
-
+                let [h, s, l, _] = color.to_hsl().components();
                 [h.to_degrees() as f32 / 360.0, s as f32, l as f32, 0.0]
             }
             ColorSpace::Hsv => {
-                let [h, s, v, _] = color.to_hsv().to_vec4();
-
+                let [h, s, v, _] = color.to_hsv().components();
                 [h.to_degrees() as f32 / 360.0, s as f32, v as f32, 0.0]
             }
             ColorSpace::Cmyk => {
-                let [c, m, y, k] = color.to_cmyk().to_vec4();
-
+                let [c, m, y, k] = color.to_cmyk().components();
                 [c as f32, m as f32, y as f32, k as f32]
+            }
+        }
+    }
+}
+
+/// Encodes a paint into either a fill or stroke color.
+pub trait PaintEncode {
+    /// Set the paint as the fill color.
+    fn set_as_fill(&self, page_context: &mut PageContext);
+
+    /// Set the paint as the stroke color.
+    fn set_as_stroke(&self, page_context: &mut PageContext);
+}
+
+impl PaintEncode for Paint {
+    fn set_as_fill(&self, page_context: &mut PageContext) {
+        let Paint::Solid(color) = self;
+        match color {
+            Color::Luma(_) => {
+                page_context.parent.colors.d65_gray(&mut page_context.parent.alloc);
+                page_context.set_fill_color_space(D65_GRAY);
+
+                let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
+                page_context.content.set_fill_color([l]);
+            }
+            Color::Oklab(_) => {
+                page_context.parent.colors.oklab(&mut page_context.parent.alloc);
+                page_context.set_fill_color_space(OKLAB);
+
+                let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
+                page_context.content.set_fill_color([l, a, b]);
+            }
+            Color::LinearRgb(_) => {
+                page_context.parent.colors.linear_rgb();
+                page_context.set_fill_color_space(LINEAR_SRGB);
+
+                let [r, g, b, _] = ColorSpace::LinearRgb.encode(*color);
+                page_context.content.set_fill_color([r, g, b]);
+            }
+            Color::Rgba(_) => {
+                page_context.parent.colors.srgb(&mut page_context.parent.alloc);
+                page_context.set_fill_color_space(SRGB);
+
+                let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
+                page_context.content.set_fill_color([r, g, b]);
+            }
+            Color::Cmyk(_) => {
+                page_context.reset_fill_color_space();
+
+                let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
+                page_context.content.set_fill_cmyk(c, m, y, k);
+            }
+            Color::Hsl(_) => {
+                page_context.parent.colors.hsl(&mut page_context.parent.alloc);
+                page_context.set_fill_color_space(HSL);
+
+                let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
+                page_context.content.set_fill_color([h, s, l]);
+            }
+            Color::Hsv(_) => {
+                page_context.parent.colors.hsv(&mut page_context.parent.alloc);
+                page_context.set_fill_color_space(HSV);
+
+                let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
+                page_context.content.set_fill_color([h, s, v]);
+            }
+        }
+    }
+
+    fn set_as_stroke(&self, page_context: &mut PageContext) {
+        let Paint::Solid(color) = self;
+        match color {
+            Color::Luma(_) => {
+                page_context.parent.colors.d65_gray(&mut page_context.parent.alloc);
+                page_context.set_stroke_color_space(D65_GRAY);
+
+                let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
+                page_context.content.set_stroke_color([l]);
+            }
+            Color::Oklab(_) => {
+                page_context.parent.colors.oklab(&mut page_context.parent.alloc);
+                page_context.set_stroke_color_space(OKLAB);
+
+                let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
+                page_context.content.set_stroke_color([l, a, b]);
+            }
+            Color::LinearRgb(_) => {
+                page_context.parent.colors.linear_rgb();
+                page_context.set_stroke_color_space(LINEAR_SRGB);
+
+                let [r, g, b, _] = ColorSpace::LinearRgb.encode(*color);
+                page_context.content.set_stroke_color([r, g, b]);
+            }
+            Color::Rgba(_) => {
+                page_context.parent.colors.srgb(&mut page_context.parent.alloc);
+                page_context.set_stroke_color_space(SRGB);
+
+                let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
+                page_context.content.set_stroke_color([r, g, b]);
+            }
+            Color::Cmyk(_) => {
+                page_context.reset_stroke_color_space();
+
+                let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
+                page_context.content.set_stroke_cmyk(c, m, y, k);
+            }
+            Color::Hsl(_) => {
+                page_context.parent.colors.hsl(&mut page_context.parent.alloc);
+                page_context.set_stroke_color_space(HSL);
+
+                let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
+                page_context.content.set_stroke_color([h, s, l]);
+            }
+            Color::Hsv(_) => {
+                page_context.parent.colors.hsv(&mut page_context.parent.alloc);
+                page_context.set_stroke_color_space(HSV);
+
+                let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
+                page_context.content.set_stroke_color([h, s, v]);
             }
         }
     }

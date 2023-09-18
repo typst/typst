@@ -191,10 +191,10 @@ fn library() -> Library {
     lib.global.scope_mut().define_func::<print>();
     lib.global
         .scope_mut()
-        .define("conifer", RgbaColor::new_from_u8(0x9f, 0xEB, 0x52, 0xFF));
+        .define("conifer", RgbaColor::from_u8(0x9f, 0xEB, 0x52, 0xFF));
     lib.global
         .scope_mut()
-        .define("forest", RgbaColor::new_from_u8(0x43, 0xA1, 0x27, 0xFF));
+        .define("forest", RgbaColor::from_u8(0x43, 0xA1, 0x27, 0xFF));
 
     lib
 }

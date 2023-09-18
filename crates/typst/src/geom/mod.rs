@@ -32,7 +32,7 @@ pub use self::align::{Align, FixedAlign, HAlign, VAlign};
 pub use self::angle::{Angle, AngleUnit};
 pub use self::axes::{Axes, Axis};
 pub use self::color::{
-    CmykColor, Color, ColorExt, ColorSpace, HslColor, HsvColor, LinearRgbColor,
+    CmykColor, Color, ColorSpace, Colorful, HslColor, HsvColor, LinearRgbColor,
     LumaColor, OklabColor, RgbaColor, WeightedColor,
 };
 pub use self::corners::{Corner, Corners};

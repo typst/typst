@@ -65,10 +65,7 @@ fn prelude(global: &mut Scope) {
     global.define("luma", Color::luma_data());
     global.define("oklab", Color::oklab_data());
     global.define("rgb", Color::rgb_data());
-    global.define("linear-rgb", Color::linear_rgb_data());
     global.define("cmyk", Color::cmyk_data());
-    global.define("hsl", Color::hsl_data());
-    global.define("hsv", Color::hsv_data());
     global.define("range", Array::range_data());
     global.define("ltr", Dir::LTR);
     global.define("rtl", Dir::RTL);

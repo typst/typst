@@ -240,7 +240,7 @@ pub struct HighlightElem {
     /// ```example
     /// This is #highlight(fill: blue)[with blue].
     /// ```
-    #[default(Color::Rgba(RgbaColor::new_from_u8(0xFF, 0xFF, 0x5F, 0xFF)).into())]
+    #[default(Color::Rgba(RgbaColor::from_u8(0xFF, 0xFF, 0x5F, 0xFF)).into())]
     pub fill: Paint,
 
     /// The top end of the background rectangle.

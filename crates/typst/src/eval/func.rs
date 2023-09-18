@@ -243,6 +243,14 @@ impl Func {
         }
     }
 
+    /// Extract the native function, if it is one.
+    pub fn native(&self) -> Option<Static<NativeFuncData>> {
+        match &self.repr {
+            Repr::Native(native) => Some(*native),
+            _ => None,
+        }
+    }
+
     /// Call the function with the given arguments.
     pub fn call_vm(&self, vm: &mut Vm, mut args: Args) -> SourceResult<Value> {
         let _span = tracing::info_span!(

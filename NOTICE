@@ -2,7 +2,7 @@ Licenses for third party components used by this project can be found below.
 
 ================================================================================
 The Creative Commons Zero v1.0 Universal License applies to:
-* The ICC profiles found in `assets/icc/*`
+* The ICC profiles found in `crates/typst/icc/*`
 
 CC0 1.0 Universal
 

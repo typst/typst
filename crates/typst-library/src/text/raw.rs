@@ -455,7 +455,7 @@ fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
 }
 
 fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> RgbaColor {
-    RgbaColor::new_from_u8(r, g, b, a)
+    RgbaColor::from_u8(r, g, b, a)
 }
 
 fn to_syn(color: RgbaColor) -> synt::Color {
