@@ -303,7 +303,7 @@ impl Color {
     pub const GREEN: Self =
         Self::Rgba(RgbaColor::new(0.18039215686, 0.8, 0.25098039215, 1.0));
     pub const LIME: Self =
-        Self::Rgba(RgbaColor::new(0.00392156862, 1.0, 0.43921568627, 1.0));
+        Self::Rgba(RgbaColor::new(0.00392156862, 1.0, 0.4392157, 1.0));
 
     /// Create a grayscale color.
     ///
@@ -1509,7 +1509,7 @@ impl From<LinearRgbColor> for Color {
 }
 
 /// An 32-bit RGBA color.
-#[derive(Copy, Clone, Eq, Hash)]
+#[derive(Copy, Clone, Eq)]
 pub struct RgbaColor {
     /// Red channel.
     r: F32Scalar,
@@ -1519,6 +1519,15 @@ pub struct RgbaColor {
     b: F32Scalar,
     /// Alpha channel.
     a: F32Scalar,
+}
+
+impl Hash for RgbaColor {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.r.hash(state);
+        self.g.hash(state);
+        self.b.hash(state);
+        self.a.hash(state);
+    }
 }
 
 impl PartialEq for RgbaColor {
@@ -1648,7 +1657,7 @@ impl Colorful for RgbaColor {
 impl RgbaColor {
     /// Construct a new RGBA color.
     pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
-        Self { 
+        Self {
             r: F32Scalar(r),
             g: F32Scalar(g),
             b: F32Scalar(b),

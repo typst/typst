@@ -15,9 +15,9 @@ use comemo::{Prehashed, Track};
 use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
-use typst_library::compute::repr;
 use std::cell::OnceCell;
 use tiny_skia as sk;
+use typst_library::compute::repr;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 

@@ -676,7 +676,10 @@ impl ColorSvgEncode for Color {
             }
             Color::Oklab(OklabColor { l, a, b, alpha }) => {
                 if alpha != 1.0 {
-                    eco_format!("oklab({:?} {a:.3} {b:.3} / {alpha:.3})", Ratio::new(l.get() as f64),)
+                    eco_format!(
+                        "oklab({:?} {a:.3} {b:.3} / {alpha:.3})",
+                        Ratio::new(l.get() as f64),
+                    )
                 } else {
                     eco_format!("oklab({:?} {a:.3} {b:.3})", Ratio::new(l.get() as f64))
                 }
