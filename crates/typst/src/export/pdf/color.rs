@@ -26,8 +26,8 @@ impl ColorSpaces {
     /// Get a reference to the oklab color space.
     ///
     /// # Warning
-    /// The A and B components of the color must be in degrees and must be
-    /// offset by +0.4 before being encoded into the PDF file.
+    /// The A and B components of the color must be offset by +0.4 before being
+    /// encoded into the PDF file.
     pub fn oklab(&mut self, alloc: &mut Ref) -> Ref {
         *self.oklab.get_or_insert_with(|| alloc.bump())
     }
@@ -54,7 +54,7 @@ impl ColorSpaces {
     /// Get a reference to the hsl color space.
     ///
     /// # Warning
-    /// The Hue component of the color must be in degrees and must be devided
+    /// The Hue component of the color must be in degrees and must be divided
     /// by 360.0 before being encoded into the PDF file.
     pub fn hsl(&mut self, alloc: &mut Ref) -> Ref {
         *self.hsl.get_or_insert_with(|| alloc.bump())
