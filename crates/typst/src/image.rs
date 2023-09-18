@@ -399,8 +399,14 @@ fn load_svg_fonts(
                         .and_then(|font_data| font_data.fonts.first())
                         .map(|font| font.info().clone());
 
+                    let variant = FontVariant {
+                        style: span.font.style.into(),
+                        weight: FontWeight::from_number(span.font.weight),
+                        stretch: span.font.stretch.into(),
+                    };
+
                     let fallback = loader
-                        .find_fallback(text, like, &span.font)
+                        .find_fallback(text, like, variant)
                         .and_then(|family| load(family.as_str()));
 
                     if let Some(font) = fallback {
@@ -451,7 +457,7 @@ trait SvgFontLoader {
         &self,
         text: &str,
         like: Option<FontInfo>,
-        font: &usvg::Font,
+        font: FontVariant,
     ) -> Option<EcoString>;
 }
 
@@ -505,14 +511,8 @@ impl SvgFontLoader for WorldLoader<'_> {
         &self,
         text: &str,
         like: Option<FontInfo>,
-        font: &usvg::Font,
+        variant: FontVariant,
     ) -> Option<EcoString> {
-        let variant = FontVariant {
-            style: font.style.into(),
-            weight: FontWeight::from_number(font.weight),
-            stretch: font.stretch.into(),
-        };
-
         let fallback: Option<EcoString> = self
             .world
             .book()
@@ -549,7 +549,7 @@ impl SvgFontLoader for PreparedLoader {
         &self,
         _: &str,
         _: Option<FontInfo>,
-        _: &usvg::Font,
+        _: FontVariant,
     ) -> Option<EcoString> {
         // All fallbacks font should be included in 'families' already, so we will
         // let usvg find it. As "Linux Libertine" must have failed to cover all glyphs,
