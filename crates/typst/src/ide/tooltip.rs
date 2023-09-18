@@ -7,10 +7,11 @@ use if_chain::if_chain;
 use super::analyze::analyze_labels;
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
 use crate::doc::Frame;
-use crate::eval::{CastInfo, Tracer, Value};
+use crate::eval::{CapturesVisitor, CastInfo, Tracer, Value};
 use crate::geom::{round_2, Length, Numeric};
-use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
-use crate::util::pretty_comma_list;
+use crate::syntax::ast::{self, AstNode};
+use crate::syntax::{LinkedNode, Source, SyntaxKind};
+use crate::util::{pretty_comma_list, separated_list};
 use crate::World;
 
 /// Describe the item under the cursor.
@@ -29,6 +30,7 @@ pub fn tooltip(
         .or_else(|| font_tooltip(world, &leaf))
         .or_else(|| ref_tooltip(world, frames, &leaf))
         .or_else(|| expr_tooltip(world, &leaf))
+        .or_else(|| closure_tooltip(&leaf))
 }
 
 /// A hover tooltip.
@@ -98,6 +100,32 @@ fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tool
 
     let tooltip = pretty_comma_list(&pieces, false);
     (!tooltip.is_empty()).then(|| Tooltip::Code(tooltip.into()))
+}
+
+/// Tooltip for a hovered closure.
+fn closure_tooltip(leaf: &LinkedNode) -> Option<Tooltip> {
+    // Find the closure to analyze.
+    let mut ancestor = leaf;
+    while !ancestor.is::<ast::Closure>() {
+        ancestor = ancestor.parent()?;
+    }
+    let closure = ancestor.cast::<ast::Closure>()?.to_untyped();
+
+    // Analyze the closure's captures.
+    let mut visitor = CapturesVisitor::new(None);
+    visitor.visit(closure);
+
+    let captures = visitor.finish();
+    let mut names: Vec<_> =
+        captures.iter().map(|(name, _)| eco_format!("`{name}`")).collect();
+    if names.is_empty() {
+        return None;
+    }
+
+    names.sort();
+
+    let tooltip = separated_list(&names, "and");
+    Some(Tooltip::Text(eco_format!("This closure captures {tooltip}.")))
 }
 
 /// Tooltip text for a hovered length.

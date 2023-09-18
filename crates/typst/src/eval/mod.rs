@@ -50,7 +50,9 @@ pub use self::cast::{
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
-pub use self::func::{func, Func, NativeFunc, NativeFuncData, ParamInfo};
+pub use self::func::{
+    func, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
+};
 pub use self::library::{set_lang_items, LangItems, Library};
 pub use self::module::Module;
 pub use self::none::NoneValue;
@@ -74,7 +76,7 @@ use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
 use unicode_segmentation::UnicodeSegmentation;
 
-use self::func::{CapturesVisitor, Closure};
+use self::func::Closure;
 use crate::diag::{
     bail, error, warning, At, FileError, Hint, SourceDiagnostic, SourceResult, StrResult,
     Trace, Tracepoint,
@@ -1340,7 +1342,7 @@ impl Eval for ast::Closure<'_> {
 
         // Collect captured variables.
         let captured = {
-            let mut visitor = CapturesVisitor::new(&vm.scopes);
+            let mut visitor = CapturesVisitor::new(Some(&vm.scopes));
             visitor.visit(self.to_untyped());
             visitor.finish()
         };

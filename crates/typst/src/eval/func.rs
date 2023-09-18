@@ -597,15 +597,15 @@ cast! {
 }
 
 /// A visitor that determines which variables to capture for a closure.
-pub(super) struct CapturesVisitor<'a> {
-    external: &'a Scopes<'a>,
+pub struct CapturesVisitor<'a> {
+    external: Option<&'a Scopes<'a>>,
     internal: Scopes<'a>,
     captures: Scope,
 }
 
 impl<'a> CapturesVisitor<'a> {
     /// Create a new visitor for the given external scopes.
-    pub fn new(external: &'a Scopes) -> Self {
+    pub fn new(external: Option<&'a Scopes<'a>>) -> Self {
         Self {
             external,
             internal: Scopes::new(None),
@@ -626,8 +626,10 @@ impl<'a> CapturesVisitor<'a> {
             // Identifiers that shouldn't count as captures because they
             // actually bind a new name are handled below (individually through
             // the expressions that contain them).
-            Some(ast::Expr::Ident(ident)) => self.capture(ident),
-            Some(ast::Expr::MathIdent(ident)) => self.capture_in_math(ident),
+            Some(ast::Expr::Ident(ident)) => self.capture(&ident, Scopes::get),
+            Some(ast::Expr::MathIdent(ident)) => {
+                self.capture(&ident, Scopes::get_in_math)
+            }
 
             // Code and content blocks create a scope.
             Some(ast::Expr::Code(_) | ast::Expr::Content(_)) => {
@@ -736,20 +738,22 @@ impl<'a> CapturesVisitor<'a> {
     }
 
     /// Capture a variable if it isn't internal.
-    fn capture(&mut self, ident: ast::Ident) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get(&ident) {
-                self.captures.define_captured(ident.get().clone(), value.clone());
-            }
-        }
-    }
+    #[inline]
+    fn capture(
+        &mut self,
+        ident: &str,
+        getter: impl FnOnce(&'a Scopes<'a>, &str) -> StrResult<&'a Value>,
+    ) {
+        if self.internal.get(ident).is_err() {
+            let Some(value) = self
+                .external
+                .map(|external| getter(external, ident).ok())
+                .unwrap_or(Some(&Value::None))
+            else {
+                return;
+            };
 
-    /// Capture a variable in math mode if it isn't internal.
-    fn capture_in_math(&mut self, ident: ast::MathIdent) {
-        if self.internal.get(&ident).is_err() {
-            if let Ok(value) = self.external.get_in_math(&ident) {
-                self.captures.define_captured(ident.get().clone(), value.clone());
-            }
+            self.captures.define_captured(ident, value.clone());
         }
     }
 }
@@ -767,7 +771,7 @@ mod tests {
         scopes.top.define("y", 0);
         scopes.top.define("z", 0);
 
-        let mut visitor = CapturesVisitor::new(&scopes);
+        let mut visitor = CapturesVisitor::new(Some(&scopes));
         let root = parse(text);
         visitor.visit(&root);
 
