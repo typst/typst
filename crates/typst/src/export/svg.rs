@@ -10,8 +10,8 @@ use xmlwriter::XmlWriter;
 use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Axes, Color, FixedStroke, Geometry, HslColor, LineCap, LineJoin, LinearRgbColor,
-    OklabColor, Paint, PathItem, Ratio, Shape, Size, Transform,
+    Abs, Angle, Axes, Color, FixedStroke, Geometry, HslColor, LineCap, LineJoin,
+    LinearRgbColor, OklabColor, Paint, PathItem, Ratio, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -676,20 +676,26 @@ impl ColorSvgEncode for Color {
             }
             Color::Oklab(OklabColor { l, a, b, alpha }) => {
                 if alpha != 1.0 {
-                    eco_format!("oklab({:?} {a:.3} {b:.3} / {alpha:.3})", Ratio::new(l),)
+                    eco_format!("oklab({:?} {a:.3} {b:.3} / {alpha:.3})", Ratio::new(l.get() as f64),)
                 } else {
-                    eco_format!("oklab({:?} {a:.3} {b:.3})", Ratio::new(l))
+                    eco_format!("oklab({:?} {a:.3} {b:.3})", Ratio::new(l.get() as f64))
                 }
             }
             Color::Hsl(HslColor { h, s, l, a }) => {
                 if a != 1.0 {
                     eco_format!(
-                        "hsla({h:?} {:?} {:?} / {a:.3})",
-                        Ratio::new(s),
-                        Ratio::new(l),
+                        "hsla({:?} {:?} {:?} / {a:.3})",
+                        Angle::deg(h.get() as f64),
+                        Ratio::new(s.get() as f64),
+                        Ratio::new(l.get() as f64),
                     )
                 } else {
-                    eco_format!("hsl({h:?} {:?} {:?})", Ratio::new(s), Ratio::new(l))
+                    eco_format!(
+                        "hsl({:?} {:?} {:?})",
+                        Angle::deg(h.get() as f64),
+                        Ratio::new(s.get() as f64),
+                        Ratio::new(l.get() as f64)
+                    )
                 }
             }
         }

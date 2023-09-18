@@ -1,4 +1,4 @@
-use std::f64::consts::TAU;
+use std::fmt::Display;
 use std::str::FromStr;
 
 use ecow::{eco_format, EcoString};
@@ -10,13 +10,13 @@ use crate::diag::{bail, At, SourceResult};
 use crate::eval::{cast, Args, Array, Func, Str};
 use crate::syntax::Spanned;
 
-// Type aliases for `palette` internal types in f64.
-type Oklab = palette::oklab::Oklaba<f64>;
-type LinearRgba = palette::rgb::Rgba<Linear<encoding::Srgb>, f64>;
-type Rgba = palette::rgb::Rgba<encoding::Srgb, f64>;
-type Hsl = palette::hsl::Hsla<encoding::Srgb, f64>;
-type Hsv = palette::hsv::Hsva<encoding::Srgb, f64>;
-type Luma = palette::luma::Luma<encoding::Srgb, f64>;
+// Type aliases for `palette` internal types in f32.
+type Oklab = palette::oklab::Oklaba<f32>;
+type LinearRgba = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
+type Rgba = palette::rgb::Rgba<encoding::Srgb, f32>;
+type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
+type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
+type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 
 /// A color in a specific color space.
 ///
@@ -63,7 +63,7 @@ pub enum Color {
 }
 
 impl Colorful for Color {
-    fn components(self) -> [f64; 4] {
+    fn components(self) -> [f32; 4] {
         match self {
             Self::Luma(color) => color.components(),
             Self::Oklab(color) => color.components(),
@@ -75,7 +75,7 @@ impl Colorful for Color {
         }
     }
 
-    fn from_vec4(_vec: [f64; 4]) -> Self {
+    fn from_vec4(_vec: [f32; 4]) -> Self {
         unimplemented!("cannot build a generic color from a vector")
     }
 
@@ -235,7 +235,7 @@ impl Colorful for Color {
         }
     }
 
-    fn alpha(self) -> Option<f64> {
+    fn alpha(self) -> Option<f32> {
         match self {
             Self::Luma(color) => color.alpha(),
             Self::Oklab(color) => color.alpha(),
@@ -247,7 +247,7 @@ impl Colorful for Color {
         }
     }
 
-    fn with_alpha(self, alpha: f64) -> Self {
+    fn with_alpha(self, alpha: f32) -> Self {
         match self {
             Self::Luma(color) => Self::Luma(color.with_alpha(alpha)),
             Self::Oklab(color) => Self::Oklab(color.with_alpha(alpha)),
@@ -274,10 +274,10 @@ impl Colorful for Color {
 
 #[scope]
 impl Color {
-    pub const BLACK: Self = Self::Luma(LumaColor(Ratio::zero()));
-    pub const GRAY: Self = Self::Luma(LumaColor(Ratio::new(0.6666666)));
-    pub const WHITE: Self = Self::Luma(LumaColor(Ratio::one()));
-    pub const SILVER: Self = Self::Luma(LumaColor(Ratio::new(0.86666666666)));
+    pub const BLACK: Self = Self::Luma(LumaColor(F32Scalar(0.0)));
+    pub const GRAY: Self = Self::Luma(LumaColor(F32Scalar(0.6666666)));
+    pub const WHITE: Self = Self::Luma(LumaColor(F32Scalar(1.0)));
+    pub const SILVER: Self = Self::Luma(LumaColor(F32Scalar(0.86666666666)));
     pub const NAVY: Self =
         Self::Rgba(RgbaColor::new(0.0, 0.12156862745, 0.24705882352, 1.0));
     pub const BLUE: Self =
@@ -336,7 +336,7 @@ impl Color {
         } else {
             let Component(gray) =
                 args.expect("gray component").unwrap_or(Component(Ratio::one()));
-            LumaColor(gray).into()
+            LumaColor(gray.get().into()).into()
         })
     }
 
@@ -349,8 +349,8 @@ impl Color {
     ///
     /// A linear Oklab color is represented internally by an array of four components:
     /// - lightness ([`ratio`]($ratio))
-    /// - a ([`ratio`]($ratio) in the range `[-0.4..0.4]`)
-    /// - b ([`ratio`]($ratio) in the range `[-0.4..0.4]`)
+    /// - a ([`float`]($float) in the range `[-0.4..0.4]`)
+    /// - b ([`float`]($float) in the range `[-0.4..0.4]`)
     /// - alpha ([`ratio`]($ratio))
     ///
     /// These components are also available using the [`components`]($color.components)
@@ -391,13 +391,19 @@ impl Color {
             let ABComponent(b) = args.expect("B component")?;
             let RatioComponent(alpha) =
                 args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
-            OklabColor::new(l.get(), a.get(), b.get(), alpha.get()).into()
+            OklabColor::new(
+                l.get() as f32,
+                a.get() as f32,
+                b.get() as f32,
+                alpha.get() as f32,
+            )
+            .into()
         })
     }
 
     /// Create an RGB(A) color with linear luma.
     ///
-    /// This color space is similar to Srgb<f64>, but with the distinction that
+    /// This color space is similar to Srgb<f32>, but with the distinction that
     /// the color component are not gamma corrected. This makes it easier to
     /// perform color operations such as blending and interpolation. Although,
     /// you should prefer to use the [`oklab` function]($oklab) for these.
@@ -445,7 +451,13 @@ impl Color {
             let Component(g) = args.expect("green component")?;
             let Component(b) = args.expect("blue component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            LinearRgbColor::new(r.get(), g.get(), b.get(), a.get()).into()
+            LinearRgbColor::new(
+                r.get() as f32,
+                g.get() as f32,
+                b.get() as f32,
+                a.get() as f32,
+            )
+            .into()
         })
     }
 
@@ -512,7 +524,8 @@ impl Color {
             let Component(g) = args.expect("green component")?;
             let Component(b) = args.expect("blue component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            RgbaColor::new(r.get(), g.get(), b.get(), a.get()).into()
+            RgbaColor::new(r.get() as f32, g.get() as f32, b.get() as f32, a.get() as f32)
+                .into()
         })
     }
 
@@ -565,7 +578,8 @@ impl Color {
             let RatioComponent(m) = args.expect("magenta component")?;
             let RatioComponent(y) = args.expect("yellow component")?;
             let RatioComponent(k) = args.expect("key/black component")?;
-            CmykColor::new(c.get(), m.get(), y.get(), k.get()).into()
+            CmykColor::new(c.get() as f32, m.get() as f32, y.get() as f32, k.get() as f32)
+                .into()
         })
     }
 
@@ -614,11 +628,17 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_hsl().into()
         } else {
-            let h = args.expect("hue component")?;
+            let h: Angle = args.expect("hue component")?;
             let Component(s) = args.expect("saturation component")?;
             let Component(l) = args.expect("lightness component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            HslColor::new(h, s.get(), l.get(), a.get()).into()
+            HslColor::new(
+                h.to_deg() as f32,
+                s.get() as f32,
+                l.get() as f32,
+                a.get() as f32,
+            )
+            .into()
         })
     }
 
@@ -667,11 +687,17 @@ impl Color {
         Ok(if let Some(color) = args.find::<Color>()? {
             color.to_hsv().into()
         } else {
-            let h = args.expect("hue component")?;
+            let h: Angle = args.expect("hue component")?;
             let Component(s) = args.expect("saturation component")?;
             let Component(v) = args.expect("value component")?;
             let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
-            HsvColor::new(h, s.get(), v.get(), a.get()).into()
+            HsvColor::new(
+                h.to_deg() as f32,
+                s.get() as f32,
+                v.get() as f32,
+                a.get() as f32,
+            )
+            .into()
         })
     }
 
@@ -825,6 +851,7 @@ impl Color {
         let mut acc = [0.0; 4];
 
         for WeightedColor(color, weight) in colors.into_iter() {
+            let weight = weight as f32;
             let v = Colorful::components(color.to_space(space));
             acc[0] += weight * v[0];
             acc[1] += weight * v[1];
@@ -867,10 +894,10 @@ impl Debug for Color {
 /// A trait containing all common functionality of colors.
 pub trait Colorful: Sized + Copy + Into<Color> {
     /// Convert the color to a four-component vector.
-    fn components(self) -> [f64; 4];
+    fn components(self) -> [f32; 4];
 
     /// Convert a four-component vector to a color.
-    fn from_vec4(vec: [f64; 4]) -> Self;
+    fn from_vec4(vec: [f32; 4]) -> Self;
 
     /// Convert the color to an RGBA color.
     fn to_rgba(self) -> RgbaColor;
@@ -912,7 +939,7 @@ pub trait Colorful: Sized + Copy + Into<Color> {
     fn negate(self) -> Self;
 
     /// Get the alpha component of the color, if any.
-    fn alpha(self) -> Option<f64>;
+    fn alpha(self) -> Option<f32>;
 
     /// Convert the color into a hexadecimal RGB(A) string.
     fn to_hex(self) -> EcoString {
@@ -920,7 +947,7 @@ pub trait Colorful: Sized + Copy + Into<Color> {
     }
 
     /// Override the alpha component of the color.
-    fn with_alpha(self, alpha: f64) -> Self {
+    fn with_alpha(self, alpha: f32) -> Self {
         let [x, y, z, _] = self.components();
 
         if self.alpha().is_some() {
@@ -1064,12 +1091,12 @@ cast! {
 }
 
 /// A grayscale color.
-#[derive(Copy, Clone, Hash, PartialEq, Eq)]
-pub struct LumaColor(pub Ratio);
+#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+pub struct LumaColor(pub F32Scalar);
 
 impl Debug for LumaColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "luma({:?})", self.0)
+        write!(f, "luma({:?})", Ratio::new(self.0.get() as f64))
     }
 }
 
@@ -1087,30 +1114,30 @@ impl From<Luma> for LumaColor {
 
 impl From<LumaColor> for Luma {
     fn from(luma: LumaColor) -> Self {
-        Self::new(luma.0.get())
+        Self::new(luma.0.into())
     }
 }
 
 impl LumaColor {
-    pub fn new(l: f64) -> Self {
-        Self(Ratio::new(l))
+    pub fn new(l: f32) -> Self {
+        Self(l.into())
     }
 }
 
 impl Colorful for LumaColor {
-    fn components(self) -> [f64; 4] {
+    fn components(self) -> [f32; 4] {
         [self.0.get(); 4]
     }
 
-    fn from_vec4(vec: [f64; 4]) -> Self {
+    fn from_vec4(vec: [f32; 4]) -> Self {
         Self::new(vec[0])
     }
 
     fn to_array(self, _: bool) -> Array {
-        array![self.0]
+        array![Ratio::new(self.0.get() as f64)]
     }
 
-    fn alpha(self) -> Option<f64> {
+    fn alpha(self) -> Option<f32> {
         None
     }
 
@@ -1145,13 +1172,13 @@ impl Colorful for LumaColor {
 
     fn lighten(self, factor: Ratio) -> Self {
         let l = self.0.get();
-        let inc = (1.0 - l) * factor.get();
+        let inc = (1.0 - l) * factor.get() as f32;
         Self::new(l.add(inc).clamp(0.0, 1.0))
     }
 
     fn darken(self, factor: Ratio) -> Self {
         let l = self.0.get();
-        let inc = l * factor.get();
+        let inc = l * factor.get() as f32;
         Self::new(l.sub(inc).clamp(0.0, 1.0))
     }
 
@@ -1172,28 +1199,28 @@ impl Colorful for LumaColor {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct OklabColor {
     /// The lightness of the color.
     /// In the range [0, 1].
-    pub l: f64,
+    pub l: F32Scalar,
 
     /// The `a` component of the color.
     /// In the range [-0.4, 0.4].
-    pub a: f64,
+    pub a: F32Scalar,
 
     /// The `b` component of the color.
     /// In the range [-0.4, 0.4].
-    pub b: f64,
+    pub b: F32Scalar,
 
     /// The alpha component of the color.
     /// In the range [0, 1].
-    pub alpha: f64,
+    pub alpha: F32Scalar,
 }
 
 impl From<OklabColor> for Oklab {
     fn from(color: OklabColor) -> Self {
-        Self::new(color.l, color.a, color.b, color.alpha)
+        Self::new(color.l.get(), color.a.get(), color.b.get(), color.alpha.get())
     }
 }
 
@@ -1204,30 +1231,45 @@ impl From<Oklab> for OklabColor {
 }
 
 impl OklabColor {
-    pub fn new(l: f64, a: f64, b: f64, alpha: f64) -> Self {
-        Self { l, a, b, alpha }
+    pub fn new(l: f32, a: f32, b: f32, alpha: f32) -> Self {
+        Self {
+            l: l.into(),
+            a: a.into(),
+            b: b.into(),
+            alpha: alpha.into(),
+        }
     }
 }
 
 impl Colorful for OklabColor {
-    fn components(self) -> [f64; 4] {
-        [self.l, self.a, self.b, self.alpha]
+    fn components(self) -> [f32; 4] {
+        [self.l.get(), self.a.get(), self.b.get(), self.alpha.get()]
     }
 
-    fn from_vec4(vec: [f64; 4]) -> Self {
+    fn from_vec4(vec: [f32; 4]) -> Self {
         Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
     fn to_array(self, alpha: bool) -> Array {
+        // Also perform some precision fix for f32 -> f64 conversion
         if alpha {
-            array![Ratio::new(self.l), self.a, self.b, Ratio::new(self.alpha)]
+            array![
+                Ratio::new(self.l.get() as f64),
+                (self.a.get() as f64 * 1000.0).round() / 1000.0,
+                (self.b.get() as f64 * 1000.0).round() / 1000.0,
+                Ratio::new(self.alpha.get() as f64)
+            ]
         } else {
-            array![Ratio::new(self.l), self.a, self.b]
+            array![
+                Ratio::new(self.l.get() as f64),
+                (self.a.get() as f64 * 1000.0).round() / 1000.0,
+                (self.b.get() as f64 * 1000.0).round() / 1000.0,
+            ]
         }
     }
 
-    fn alpha(self) -> Option<f64> {
-        Some(self.alpha)
+    fn alpha(self) -> Option<f32> {
+        Some(self.alpha.get())
     }
 
     fn to_rgba(self) -> RgbaColor {
@@ -1259,11 +1301,11 @@ impl Colorful for OklabColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        Oklab::from(self).lighten(factor.get()).into()
+        Oklab::from(self).lighten(factor.get() as f32).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        Oklab::from(self).darken(factor.get()).into()
+        Oklab::from(self).darken(factor.get() as f32).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
@@ -1283,29 +1325,24 @@ impl Colorful for OklabColor {
     }
 }
 
-impl Eq for OklabColor {}
-
-impl Hash for OklabColor {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.l.to_bits().hash(state);
-        self.a.to_bits().hash(state);
-        self.b.to_bits().hash(state);
-        self.alpha.to_bits().hash(state);
-    }
-}
-
 impl Debug for OklabColor {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if self.alpha == 1.0 {
-            write!(f, "oklab({:?}, {}, {})", Ratio::new(self.l), self.a, self.b)
+            write!(
+                f,
+                "oklab({:?}, {:.4}, {:.4})",
+                Ratio::new(self.l.get() as f64),
+                self.a,
+                self.b
+            )
         } else {
             write!(
                 f,
-                "oklab({:?}, {}, {}, {:?})",
-                Ratio::new(self.l),
+                "oklab({:?}, {:.4}, {:.4}, {:?})",
+                Ratio::new(self.l.get() as f64),
                 self.a,
                 self.b,
-                Ratio::new(self.alpha)
+                Ratio::new(self.alpha.get() as f64)
             )
         }
     }
@@ -1317,28 +1354,28 @@ impl From<OklabColor> for Color {
     }
 }
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct LinearRgbColor {
     /// The red component of the color.
     /// In the range [0, 1].
-    pub r: f64,
+    pub r: F32Scalar,
 
     /// The green component of the color.
     /// In the range [0, 1].
-    pub g: f64,
+    pub g: F32Scalar,
 
     /// The blue component of the color.
     /// In the range [0, 1].
-    pub b: f64,
+    pub b: F32Scalar,
 
     /// The alpha component of the color.
     /// In the range [0, 1].
-    pub a: f64,
+    pub a: F32Scalar,
 }
 
 impl From<LinearRgbColor> for LinearRgba {
     fn from(color: LinearRgbColor) -> Self {
-        Self::new(color.r, color.g, color.b, color.a)
+        Self::new(color.r.get(), color.g.get(), color.b.get(), color.a.get())
     }
 }
 
@@ -1349,16 +1386,16 @@ impl From<LinearRgba> for LinearRgbColor {
 }
 
 impl Colorful for LinearRgbColor {
-    fn components(self) -> [f64; 4] {
-        [self.r, self.g, self.b, self.a]
+    fn components(self) -> [f32; 4] {
+        [self.r.get(), self.g.get(), self.b.get(), self.a.get()]
     }
 
-    fn from_vec4(vec: [f64; 4]) -> Self {
+    fn from_vec4(vec: [f32; 4]) -> Self {
         Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
-    fn alpha(self) -> Option<f64> {
-        Some(self.a)
+    fn alpha(self) -> Option<f32> {
+        Some(self.a.get())
     }
 
     fn to_rgba(self) -> RgbaColor {
@@ -1390,11 +1427,11 @@ impl Colorful for LinearRgbColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        LinearRgba::from(self).lighten(factor.get()).into()
+        LinearRgba::from(self).lighten(factor.get() as f32).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        LinearRgba::from(self).darken(factor.get()).into()
+        LinearRgba::from(self).darken(factor.get() as f32).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
@@ -1410,37 +1447,35 @@ impl Colorful for LinearRgbColor {
     }
 
     fn negate(self) -> Self {
-        Self::new(1.0 - self.r, 1.0 - self.g, 1.0 - self.b, self.a)
+        Self::new(
+            1.0 - self.r.get(),
+            1.0 - self.g.get(),
+            1.0 - self.b.get(),
+            self.a.get(),
+        )
     }
 
     fn to_array(self, alpha: bool) -> Array {
         if alpha {
             array![
-                Ratio::new(self.r),
-                Ratio::new(self.g),
-                Ratio::new(self.b),
-                Ratio::new(self.a),
+                Ratio::new(self.r.get() as f64),
+                Ratio::new(self.g.get() as f64),
+                Ratio::new(self.b.get() as f64),
+                Ratio::new(self.a.get() as f64),
             ]
         } else {
-            array![Ratio::new(self.r), Ratio::new(self.g), Ratio::new(self.b),]
+            array![
+                Ratio::new(self.r.get() as f64),
+                Ratio::new(self.g.get() as f64),
+                Ratio::new(self.b.get() as f64),
+            ]
         }
     }
 }
 
 impl LinearRgbColor {
-    pub fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
-        Self { r, g, b, a }
-    }
-}
-
-impl Eq for LinearRgbColor {}
-
-impl Hash for LinearRgbColor {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.r.to_bits().hash(state);
-        self.g.to_bits().hash(state);
-        self.b.to_bits().hash(state);
-        self.a.to_bits().hash(state);
+    pub fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self { r: r.into(), g: g.into(), b: b.into(), a: a.into() }
     }
 }
 
@@ -1450,18 +1485,18 @@ impl Debug for LinearRgbColor {
             write!(
                 f,
                 "linear-rgb({:?}, {:?}, {:?})",
-                Ratio::new(self.r),
-                Ratio::new(self.g),
-                Ratio::new(self.b),
+                Ratio::new(self.r.get() as f64),
+                Ratio::new(self.g.get() as f64),
+                Ratio::new(self.b.get() as f64),
             )
         } else {
             write!(
                 f,
                 "linear-rgb({:?}, {:?}, {:?}, {:?})",
-                Ratio::new(self.r),
-                Ratio::new(self.g),
-                Ratio::new(self.b),
-                Ratio::new(self.a),
+                Ratio::new(self.r.get() as f64),
+                Ratio::new(self.g.get() as f64),
+                Ratio::new(self.b.get() as f64),
+                Ratio::new(self.a.get() as f64),
             )
         }
     }
@@ -1474,38 +1509,21 @@ impl From<LinearRgbColor> for Color {
 }
 
 /// An 32-bit RGBA color.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq, Hash)]
 pub struct RgbaColor {
     /// Red channel.
-    r: f64,
+    r: F32Scalar,
     /// Green channel.
-    g: f64,
+    g: F32Scalar,
     /// Blue channel.
-    b: f64,
+    b: F32Scalar,
     /// Alpha channel.
-    a: f64,
+    a: F32Scalar,
 }
-
-impl Hash for RgbaColor {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        let [r, g, b, a] = self.components();
-        r.to_bits().hash(state);
-        g.to_bits().hash(state);
-        b.to_bits().hash(state);
-        a.to_bits().hash(state);
-    }
-}
-
-impl Eq for RgbaColor {}
 
 impl PartialEq for RgbaColor {
     fn eq(&self, other: &Self) -> bool {
-        let [r1, g1, b1, a1] = self.components();
-        let [r2, g2, b2, a2] = other.components();
-        round_u8(r1 * 255.0) == round_u8(r2 * 255.0)
-            && round_u8(g1 * 255.0) == round_u8(g2 * 255.0)
-            && round_u8(b1 * 255.0) == round_u8(b2 * 255.0)
-            && round_u8(a1 * 255.0) == round_u8(a2 * 255.0)
+        self.to_vec4_u8() == other.to_vec4_u8()
     }
 }
 
@@ -1523,11 +1541,11 @@ impl From<Rgba> for RgbaColor {
 }
 
 impl Colorful for RgbaColor {
-    fn components(self) -> [f64; 4] {
-        [self.r, self.g, self.b, self.a]
+    fn components(self) -> [f32; 4] {
+        [self.r.get(), self.g.get(), self.b.get(), self.a.get()]
     }
 
-    fn from_vec4(vec: [f64; 4]) -> Self {
+    fn from_vec4(vec: [f32; 4]) -> Self {
         Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
@@ -1535,22 +1553,18 @@ impl Colorful for RgbaColor {
         let [r, g, b, a] = self.components();
         if alpha {
             array![
-                Ratio::new(r),
-                Ratio::new(g),
-                Ratio::new(b),
-                Ratio::new(a),
+                Ratio::new(r as f64),
+                Ratio::new(g as f64),
+                Ratio::new(b as f64),
+                Ratio::new(a as f64),
             ]
         } else {
-            array![
-                Ratio::new(r),
-                Ratio::new(g),
-                Ratio::new(b),
-            ]
+            array![Ratio::new(r as f64), Ratio::new(g as f64), Ratio::new(b as f64),]
         }
     }
 
-    fn alpha(self) -> Option<f64> {
-        Some(self.a)
+    fn alpha(self) -> Option<f32> {
+        Some(self.a.get())
     }
 
     fn to_rgba(self) -> RgbaColor {
@@ -1593,11 +1607,11 @@ impl Colorful for RgbaColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        Rgba::from(self).lighten(factor.get()).into()
+        Rgba::from(self).lighten(factor.get() as f32).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        Rgba::from(self).darken(factor.get()).into()
+        Rgba::from(self).darken(factor.get() as f32).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
@@ -1613,7 +1627,12 @@ impl Colorful for RgbaColor {
     }
 
     fn negate(self) -> Self {
-        Self::new(1.0 - self.r, 1.0 - self.g, 1.0 - self.b, self.a)
+        Self::new(
+            1.0 - self.r.get(),
+            1.0 - self.g.get(),
+            1.0 - self.b.get(),
+            self.a.get(),
+        )
     }
 
     fn to_hex(self) -> EcoString {
@@ -1628,13 +1647,18 @@ impl Colorful for RgbaColor {
 
 impl RgbaColor {
     /// Construct a new RGBA color.
-    pub const fn new(r: f64, g: f64, b: f64, a: f64) -> Self {
-        Self { r, g, b, a }
+    pub const fn new(r: f32, g: f32, b: f32, a: f32) -> Self {
+        Self { 
+            r: F32Scalar(r),
+            g: F32Scalar(g),
+            b: F32Scalar(b),
+            a: F32Scalar(a),
+        }
     }
 
     /// Construct a new RGBA color from 8-bit values.
     pub fn from_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::new(r as f64 / 255.0, g as f64 / 255.0, b as f64 / 255.0, a as f64 / 255.0)
+        Self::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0)
     }
 
     /// Converts a 32-bit integer to an RGBA color.
@@ -1651,7 +1675,7 @@ impl RgbaColor {
     /// Converts the color into four 8-bit values.
     #[inline]
     pub fn to_vec4_u8(self) -> [u8; 4] {
-        let f = |r: f64| (r * 255.0).round() as u8;
+        let f = |r: F32Scalar| (r.get() * 255.0).round() as u8;
         [f(self.r), f(self.g), f(self.b), f(self.a)]
     }
 }
@@ -1704,10 +1728,10 @@ impl Debug for RgbaColor {
             write!(
                 f,
                 "rgba({:?}, {:?}, {:?}, {:?})",
-                Ratio::new(r),
-                Ratio::new(g),
-                Ratio::new(b),
-                Ratio::new(a),
+                Ratio::new(r as f64),
+                Ratio::new(g as f64),
+                Ratio::new(b as f64),
+                Ratio::new(a as f64),
             )?;
         } else {
             write!(f, "rgb(\"{}\")", self.to_hex())?;
@@ -1728,51 +1752,45 @@ cast! {
 }
 
 /// An 8-bit CMYK color.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct CmykColor {
     /// The cyan component.
-    pub c: f64,
+    pub c: F32Scalar,
     /// The magenta component.
-    pub m: f64,
+    pub m: F32Scalar,
     /// The yellow component.
-    pub y: f64,
+    pub y: F32Scalar,
     /// The key (black) component.
-    pub k: f64,
+    pub k: F32Scalar,
 }
-
-impl Hash for CmykColor {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.c.to_bits().hash(state);
-        self.m.to_bits().hash(state);
-        self.y.to_bits().hash(state);
-        self.k.to_bits().hash(state);
-    }
-}
-
-impl Eq for CmykColor {}
 
 impl Colorful for CmykColor {
-    fn components(self) -> [f64; 4] {
-        [self.c, self.m, self.y, self.k]
+    fn components(self) -> [f32; 4] {
+        [self.c.get(), self.m.get(), self.y.get(), self.k.get()]
     }
 
-    fn from_vec4(vec: [f64; 4]) -> Self {
+    fn from_vec4(vec: [f32; 4]) -> Self {
         Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
     fn to_array(self, _: bool) -> Array {
         let [c, m, y, k] = self.components();
-        array![Ratio::new(c), Ratio::new(m), Ratio::new(y), Ratio::new(k),]
+        array![
+            Ratio::new(c as f64),
+            Ratio::new(m as f64),
+            Ratio::new(y as f64),
+            Ratio::new(k as f64),
+        ]
     }
 
-    fn alpha(self) -> Option<f64> {
+    fn alpha(self) -> Option<f32> {
         None
     }
 
     fn to_rgba(self) -> RgbaColor {
-        let r = (1.0 - self.c) * (1.0 - self.k);
-        let g = (1.0 - self.m) * (1.0 - self.k);
-        let b = (1.0 - self.y) * (1.0 - self.k);
+        let r = (1.0 - self.c.get()) * (1.0 - self.k.get());
+        let g = (1.0 - self.m.get()) * (1.0 - self.k.get());
+        let b = (1.0 - self.y.get()) * (1.0 - self.k.get());
 
         RgbaColor::new(r, g, b, 1.0)
     }
@@ -1802,12 +1820,15 @@ impl Colorful for CmykColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        let lighten = |u: f64| (u - u * factor.get()).clamp(0.0, 1.0);
+        let lighten =
+            |u: F32Scalar| (u.get() - u.get() * factor.get() as f32).clamp(0.0, 1.0);
         Self::new(lighten(self.c), lighten(self.m), lighten(self.y), lighten(self.k))
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        let darken = |u: f64| (u + (1.0 - u) * factor.get()).clamp(0.0, 1.0);
+        let darken = |u: F32Scalar| {
+            (u.get() + (1.0 - u.get()) * factor.get() as f32).clamp(0.0, 1.0)
+        };
         Self::new(darken(self.c), darken(self.m), darken(self.y), darken(self.k))
     }
 
@@ -1824,14 +1845,19 @@ impl Colorful for CmykColor {
     }
 
     fn negate(self) -> Self {
-        Self::new(1.0 - self.c, 1.0 - self.m, 1.0 - self.y, self.k)
+        Self::new(
+            1.0 - self.c.get(),
+            1.0 - self.m.get(),
+            1.0 - self.y.get(),
+            self.k.get(),
+        )
     }
 }
 
 impl CmykColor {
     /// Construct a new CMYK color.
-    pub fn new(c: f64, m: f64, y: f64, k: f64) -> Self {
-        Self { c, m, y, k }
+    pub fn new(c: f32, m: f32, y: f32, k: f32) -> Self {
+        Self { c: c.into(), m: m.into(), y: y.into(), k: k.into() }
     }
 }
 
@@ -1840,10 +1866,10 @@ impl Debug for CmykColor {
         write!(
             f,
             "cmyk({:?}, {:?}, {:?}, {:?})",
-            Ratio::new(self.c),
-            Ratio::new(self.m),
-            Ratio::new(self.y),
-            Ratio::new(self.k),
+            Ratio::new(self.c.get() as f64),
+            Ratio::new(self.m.get() as f64),
+            Ratio::new(self.y.get() as f64),
+            Ratio::new(self.k.get() as f64),
         )
     }
 }
@@ -1860,28 +1886,18 @@ cast! {
 }
 
 /// A 32-bit HslA color.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct HslColor {
-    pub h: Angle,
-    pub s: f64,
-    pub l: f64,
-    pub a: f64,
+    /// The hue angle in degrees.
+    pub h: F32Scalar,
+    pub s: F32Scalar,
+    pub l: F32Scalar,
+    pub a: F32Scalar,
 }
-
-impl Eq for HslColor {}
 
 impl From<HslColor> for Color {
     fn from(value: HslColor) -> Self {
         Self::Hsl(value)
-    }
-}
-
-impl Hash for HslColor {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.h.hash(state);
-        self.s.to_bits().hash(state);
-        self.l.to_bits().hash(state);
-        self.a.to_bits().hash(state);
     }
 }
 
@@ -1891,18 +1907,18 @@ impl Debug for HslColor {
             write!(
                 f,
                 "hsl({:?}, {:?}, {:?})",
-                self.h,
-                Ratio::new(self.s),
-                Ratio::new(self.l),
+                Angle::deg(self.h.get() as f64),
+                Ratio::new(self.s.get() as f64),
+                Ratio::new(self.l.get() as f64),
             )
         } else {
             write!(
                 f,
                 "hsl({:?}, {:?}, {:?}, {:?})",
-                self.h,
-                Ratio::new(self.s),
-                Ratio::new(self.l),
-                Ratio::new(self.a),
+                Angle::deg(self.h.get() as f64),
+                Ratio::new(self.s.get() as f64),
+                Ratio::new(self.l.get() as f64),
+                Ratio::new(self.a.get() as f64),
             )
         }
     }
@@ -1910,41 +1926,45 @@ impl Debug for HslColor {
 
 impl From<HslColor> for Hsl {
     fn from(hsl: HslColor) -> Self {
-        Self::new(RgbHue::new(hsl.h.to_deg()), hsl.s, hsl.l, hsl.a)
+        Self::new(RgbHue::new(hsl.h.get()), hsl.s.get(), hsl.l.get(), hsl.a.get())
     }
 }
 
 impl From<Hsl> for HslColor {
     fn from(hsl: Hsl) -> Self {
-        Self::new(
-            Angle::rad(hsl.hue.into_radians()),
-            hsl.saturation,
-            hsl.lightness,
-            hsl.alpha,
-        )
+        Self::new(hsl.hue.into_degrees(), hsl.saturation, hsl.lightness, hsl.alpha)
     }
 }
 
 impl HslColor {
-    pub fn new(h: Angle, s: f64, l: f64, a: f64) -> Self {
-        Self { h: Angle::deg(h.to_deg()), s, l, a }
+    pub fn new(h: f32, s: f32, l: f32, a: f32) -> Self {
+        Self { h: h.into(), s: s.into(), l: l.into(), a: a.into() }
     }
 }
 
 impl Colorful for HslColor {
-    fn components(self) -> [f64; 4] {
-        [self.h.to_rad().rem_euclid(TAU), self.s, self.l, self.a]
+    fn components(self) -> [f32; 4] {
+        [self.h.get().rem_euclid(360.0), self.s.get(), self.l.get(), self.a.get()]
     }
 
-    fn from_vec4(vec: [f64; 4]) -> Self {
-        Self::new(Angle::rad(vec[0]), vec[1], vec[2], vec[3])
+    fn from_vec4(vec: [f32; 4]) -> Self {
+        Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
     fn to_array(self, alpha: bool) -> Array {
         if alpha {
-            array![self.h, Ratio::new(self.s), Ratio::new(self.l), Ratio::new(self.a),]
+            array![
+                Angle::deg(self.h.get() as f64),
+                Ratio::new(self.s.get() as f64),
+                Ratio::new(self.l.get() as f64),
+                Ratio::new(self.a.get() as f64),
+            ]
         } else {
-            array![self.h, Ratio::new(self.s), Ratio::new(self.l),]
+            array![
+                Angle::deg(self.h.get() as f64),
+                Ratio::new(self.s.get() as f64),
+                Ratio::new(self.l.get() as f64),
+            ]
         }
     }
 
@@ -1977,57 +1997,46 @@ impl Colorful for HslColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        Hsl::from(self).lighten(factor.get()).into()
+        Hsl::from(self).lighten(factor.get() as f32).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        Hsl::from(self).darken(factor.get()).into()
+        Hsl::from(self).darken(factor.get() as f32).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
-        Hsl::from(self).saturate(factor.get()).into()
+        Hsl::from(self).saturate(factor.get() as f32).into()
     }
 
     fn desaturate(self, factor: Ratio) -> Self {
-        Hsl::from(self).desaturate(factor.get()).into()
+        Hsl::from(self).desaturate(factor.get() as f32).into()
     }
 
     fn hue_rotate(self, hue: Angle) -> Self {
-        Hsl::from(self).shift_hue(hue.to_deg()).into()
+        Hsl::from(self).shift_hue(hue.to_deg() as f32).into()
     }
 
     fn negate(self) -> Self {
-        Self::new(Angle::deg(180.0) - self.h, self.s, self.l, self.a)
+        Self::new(360.0 - self.h.get(), self.s.get(), self.l.get(), self.a.get())
     }
 
-    fn alpha(self) -> Option<f64> {
-        Some(self.a)
+    fn alpha(self) -> Option<f32> {
+        Some(self.a.get())
     }
 }
 
 /// A 32-bit HslA color.
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub struct HsvColor {
-    pub h: Angle,
-    pub s: f64,
-    pub v: f64,
-    pub a: f64,
+    pub h: F32Scalar,
+    pub s: F32Scalar,
+    pub v: F32Scalar,
+    pub a: F32Scalar,
 }
-
-impl Eq for HsvColor {}
 
 impl From<HsvColor> for Color {
     fn from(value: HsvColor) -> Self {
         Color::Hsv(value)
-    }
-}
-
-impl Hash for HsvColor {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.h.hash(state);
-        self.s.to_bits().hash(state);
-        self.v.to_bits().hash(state);
-        self.a.to_bits().hash(state);
     }
 }
 
@@ -2037,18 +2046,18 @@ impl Debug for HsvColor {
             write!(
                 f,
                 "hsv({:?}, {:?}, {:?})",
-                self.h,
-                Ratio::new(self.s),
-                Ratio::new(self.v),
+                Angle::deg(self.h.get() as f64),
+                Ratio::new(self.s.get() as f64),
+                Ratio::new(self.v.get() as f64),
             )
         } else {
             write!(
                 f,
                 "hsv({:?}, {:?}, {:?}, {:?})",
-                self.h,
-                Ratio::new(self.s),
-                Ratio::new(self.v),
-                Ratio::new(self.a),
+                Angle::deg(self.h.get() as f64),
+                Ratio::new(self.s.get() as f64),
+                Ratio::new(self.v.get() as f64),
+                Ratio::new(self.a.get() as f64),
             )
         }
     }
@@ -2056,41 +2065,45 @@ impl Debug for HsvColor {
 
 impl From<HsvColor> for Hsv {
     fn from(hsv: HsvColor) -> Self {
-        Self::new(RgbHue::new(hsv.h.to_deg()), hsv.s, hsv.v, hsv.a)
+        Self::new(hsv.h.get(), hsv.s.get(), hsv.v.get(), hsv.a.get())
     }
 }
 
 impl From<Hsv> for HsvColor {
     fn from(hsl: Hsv) -> Self {
-        Self::new(
-            Angle::rad(hsl.hue.into_radians()),
-            hsl.saturation,
-            hsl.value,
-            hsl.alpha,
-        )
+        Self::new(hsl.hue.into_degrees(), hsl.saturation, hsl.value, hsl.alpha)
     }
 }
 
 impl HsvColor {
-    pub fn new(h: Angle, s: f64, v: f64, a: f64) -> Self {
-        Self { h: Angle::deg(h.to_deg()), s, v, a }
+    pub fn new(h: f32, s: f32, v: f32, a: f32) -> Self {
+        Self { h: h.into(), s: s.into(), v: v.into(), a: a.into() }
     }
 }
 
 impl Colorful for HsvColor {
-    fn components(self) -> [f64; 4] {
-        [self.h.to_rad().rem_euclid(TAU), self.s, self.v, self.a]
+    fn components(self) -> [f32; 4] {
+        [self.h.get().rem_euclid(360.0), self.s.get(), self.v.get(), self.a.get()]
     }
 
-    fn from_vec4(vec: [f64; 4]) -> Self {
-        Self::new(Angle::rad(vec[0]), vec[1], vec[2], vec[3])
+    fn from_vec4(vec: [f32; 4]) -> Self {
+        Self::new(vec[0], vec[1], vec[2], vec[3])
     }
 
     fn to_array(self, alpha: bool) -> Array {
         if alpha {
-            array![self.h, Ratio::new(self.s), Ratio::new(self.v), Ratio::new(self.a),]
+            array![
+                Angle::deg(self.h.get() as f64),
+                Ratio::new(self.s.get() as f64),
+                Ratio::new(self.v.get() as f64),
+                Ratio::new(self.a.get() as f64),
+            ]
         } else {
-            array![self.h, Ratio::new(self.s), Ratio::new(self.v),]
+            array![
+                Angle::deg(self.h.get() as f64),
+                Ratio::new(self.s.get() as f64),
+                Ratio::new(self.v.get() as f64),
+            ]
         }
     }
 
@@ -2123,37 +2136,37 @@ impl Colorful for HsvColor {
     }
 
     fn lighten(self, factor: Ratio) -> Self {
-        Hsv::from(self).lighten(factor.get()).into()
+        Hsv::from(self).lighten(factor.get() as f32).into()
     }
 
     fn darken(self, factor: Ratio) -> Self {
-        Hsv::from(self).darken(factor.get()).into()
+        Hsv::from(self).darken(factor.get() as f32).into()
     }
 
     fn saturate(self, factor: Ratio) -> Self {
-        Hsv::from(self).saturate(factor.get()).into()
+        Hsv::from(self).saturate(factor.get() as f32).into()
     }
 
     fn desaturate(self, factor: Ratio) -> Self {
-        Hsv::from(self).desaturate(factor.get()).into()
+        Hsv::from(self).desaturate(factor.get() as f32).into()
     }
 
     fn hue_rotate(self, hue: Angle) -> Self {
-        Hsv::from(self).shift_hue(hue.to_deg()).into()
+        Hsv::from(self).shift_hue(hue.to_deg() as f32).into()
     }
 
     fn negate(self) -> Self {
-        Self::new(Angle::deg(180.0) - self.h, self.s, self.v, self.a)
+        Self::new(
+            360.0 - self.h.get(),
+            1.0 - self.s.get(),
+            1.0 - self.v.get(),
+            self.a.get(),
+        )
     }
 
-    fn alpha(self) -> Option<f64> {
-        Some(self.a)
+    fn alpha(self) -> Option<f32> {
+        Some(self.a.get())
     }
-}
-
-/// Convert to the closest u8.
-fn round_u8(value: f64) -> u8 {
-    value.round() as u8
 }
 
 /// A component that must be a ratio.
@@ -2182,7 +2195,7 @@ cast! {
     v: f64 => if (-0.4 ..= 0.4).contains(&v) {
         Self(Ratio::new(v))
     } else {
-        bail!("ratio must be between -40% and 40%");
+        bail!("ratio must be between -0.4 and 0.4");
     },
 }
 
@@ -2233,5 +2246,71 @@ mod tests {
         test("f075ff011", "color string has wrong length");
         test("hmmm", "color string contains non-hexadecimal letters");
         test("14B2AH", "color string contains non-hexadecimal letters");
+    }
+}
+
+/// A 32-bit float that implements `Eq`, `Ord` and `Hash`.
+///
+/// Panics if it's `NaN` during any of those operations.
+#[derive(Default, Copy, Clone)]
+pub struct F32Scalar(f32);
+
+impl F32Scalar {
+    /// Get the underlying float.
+    #[inline]
+    pub fn get(self) -> f32 {
+        self.0
+    }
+}
+
+impl From<f32> for F32Scalar {
+    fn from(float: f32) -> Self {
+        Self(float)
+    }
+}
+
+impl From<f64> for F32Scalar {
+    fn from(float: f64) -> Self {
+        Self(float as f32)
+    }
+}
+
+impl From<F32Scalar> for f32 {
+    fn from(scalar: F32Scalar) -> Self {
+        scalar.0
+    }
+}
+
+impl Debug for F32Scalar {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Debug::fmt(&self.0, f)
+    }
+}
+
+impl Display for F32Scalar {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        Display::fmt(&self.0, f)
+    }
+}
+
+impl Eq for F32Scalar {}
+
+impl PartialEq for F32Scalar {
+    fn eq(&self, other: &Self) -> bool {
+        assert!(!self.0.is_nan() && !other.0.is_nan(), "float is NaN");
+        self.0 == other.0
+    }
+}
+
+impl PartialEq<f32> for F32Scalar {
+    fn eq(&self, other: &f32) -> bool {
+        self == &Self(*other)
+    }
+}
+
+impl Hash for F32Scalar {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        debug_assert!(!self.0.is_nan(), "float is NaN");
+        self.0.to_bits().hash(state);
     }
 }

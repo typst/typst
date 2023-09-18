@@ -97,53 +97,40 @@
 
 ---
 // Test color kind method.
-#test(rgb(1, 2, 3, 4).kind(), rgb)
-#test(cmyk(4%, 5%, 6%, 7%).kind(), cmyk)
-#test(luma(40).kind(), luma)
-#test(rgb(1, 2, 3, 4).kind() != luma, true)
+#test(rgb(1, 2, 3, 4).space(), rgb)
+#test(cmyk(4%, 5%, 6%, 7%).space(), cmyk)
+#test(luma(40).space(), luma)
+#test(rgb(1, 2, 3, 4).space() != luma, true)
 
 ---
 // Test color '.components()' without conversions
-#test(repr(rgb(1, 2, 3, 4).components()), repr((1, 2, 3, 1.57%)))
-#test(rgb(1, 2, 3).components(), (1, 2, 3, 100%))
-#test(repr(luma(40).components()), repr((15.69%, )))
-#test(repr(cmyk(4%, 5%, 6%, 7%).components()), repr((4%, 5%, 6%, 7%)))
-#test(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
-#test(linear-rgb(10%, 20%, 30%).components(), (10%, 20%, 30%, 100%))
-#test(hsv(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
-#test(hsl(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
+#test-repr(rgb(1, 2, 3, 4).components(), (0.39%, 0.78%, 1.18%, 1.57%))
+#test-repr(luma(40).components(), (15.69%, ))
+#test-repr(cmyk(4%, 5%, 6%, 7%).components(), (4%, 5%, 6%, 7%))
+#test-repr(oklab(10%, 0.2, 0.3).components(), (10%, 0.2, 0.3, 100%))
+#test-repr(color.linear-rgb(10%, 20%, 30%).components(), (10%, 20%, 30%, 100%))
+#test-repr(color.hsv(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
+#test-repr(color.hsl(10deg, 20%, 30%).components(), (10deg, 20%, 30%, 100%))
 
 ---
 // Test color conversions.
 #test(rgb(1, 2, 3).to-hex(), "#010203")
 #test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
-#test(rgb(cmyk(4%, 5%, 6%, 7%)).components(), (228, 225, 223, 100%))
-#test(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
-#test(rgb(luma(40)).components(false), (40, 40, 40))
 #test(luma(40).to-hex(), "#282828")
-#test(repr(cmyk(luma(40)).components()), repr((11.76%, 10.67%, 10.51%, 14.12%)))
-#test(repr(hsl(luma(40))), repr(hsl(0deg, 0%, 15.69%)))
-#test(repr(hsv(luma(40))), repr(hsv(0deg, 0%, 15.69%)))
-#test(repr(linear-rgb(luma(40))), repr(linear-rgb(2.12%, 2.12%, 2.12%)))
-#test(repr(linear-rgb(rgb(1, 2, 3))), repr(linear-rgb(0.03%, 0.06%, 0.09%)))
-#test(repr(hsl(rgb(1, 2, 3))), repr(hsl(-150deg, 50%, 0.78%)))
-#test(repr(hsv(rgb(1, 2, 3))), repr(hsv(-150deg, 66.67%, 1.18%)))
-#test(repr(cmyk(rgb(1, 2, 3))), repr(cmyk(66.67%, 33.33%, 0%, 98.82%)))
-#test(repr(luma(rgb(1, 2, 3))), repr(luma(0.73%)))
-
-#let col = oklab(luma(40)).components()
-#test((
-  calc.round(col.at(0) / 100% * 1000) / 1000,
-  calc.round(col.at(1) * 1000) / 1000,
-  calc.round(col.at(2) * 1000) / 1000,
-), (0.277, 0.0, 0.0))
-
-#let col = oklab(rgb(1, 2, 3)).components()
-#test((
-  calc.round(col.at(0) / 100% * 1000) / 1000,
-  calc.round(col.at(1) * 1000) / 1000,
-  calc.round(col.at(2) * 1000) / 1000,
-), (0.082, -0.004, -0.007))
+#test-repr(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
+#test-repr(rgb(cmyk(4%, 5%, 6%, 7%)).components(), (89.28%, 88.35%, 87.42%, 100%))
+#test-repr(rgb(luma(40%)).components(false), (40%, 40%, 40%))
+#test-repr(cmyk(luma(40)).components(), (11.76%, 10.67%, 10.51%, 14.12%))
+#test-repr(cmyk(rgb(1, 2, 3)), cmyk(66.67%, 33.33%, 0%, 98.82%))
+#test-repr(luma(rgb(1, 2, 3)), luma(0.73%))
+#test-repr(color.hsl(luma(40)), color.hsl(0deg, 0%, 15.69%))
+#test-repr(color.hsv(luma(40)), color.hsv(0deg, 0%, 15.69%))
+#test-repr(color.linear-rgb(luma(40)), color.linear-rgb(2.12%, 2.12%, 2.12%))
+#test-repr(color.linear-rgb(rgb(1, 2, 3)), color.linear-rgb(0.03%, 0.06%, 0.09%))
+#test-repr(color.hsl(rgb(1, 2, 3)), color.hsl(-150deg, 50%, 0.78%))
+#test-repr(color.hsv(rgb(1, 2, 3)), color.hsv(-150deg, 66.67%, 1.18%))
+#test-repr(oklab(luma(40)).components(), (27.68%, 0.0, 0.0, 100%))
+#test-repr(oklab(rgb(1, 2, 3)).components(), (8.23%, -0.004, -0.007, 100%))
 
 ---
 // Test alignment methods.

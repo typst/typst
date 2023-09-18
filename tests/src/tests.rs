@@ -15,6 +15,7 @@ use comemo::{Prehashed, Track};
 use ecow::EcoString;
 use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
+use typst_library::compute::repr;
 use std::cell::OnceCell;
 use tiny_skia as sk;
 use unscanny::Scanner;
@@ -160,6 +161,14 @@ fn library() -> Library {
     }
 
     #[func]
+    fn test_repr(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
+        if repr(lhs.clone()) != repr(rhs.clone()) {
+            bail!("Assertion failed: {lhs:?} != {rhs:?}");
+        }
+        Ok(NoneValue)
+    }
+
+    #[func]
     fn print(#[variadic] values: Vec<Value>) -> NoneValue {
         let mut stdout = io::stdout().lock();
         write!(stdout, "> ").unwrap();
@@ -188,6 +197,7 @@ fn library() -> Library {
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define_func::<test>();
+    lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
     lib.global
         .scope_mut()
