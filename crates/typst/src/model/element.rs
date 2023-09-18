@@ -132,6 +132,8 @@ pub trait NativeElement: Construct + Set + Sized + 'static {
 
     /// Extract this element from type-erased content.
     fn unpack(content: &Content) -> Option<&Self>;
+
+    fn mut_unpack(content: &Content) -> Option<&mut Self>;
 }
 
 /// An element's constructor function.

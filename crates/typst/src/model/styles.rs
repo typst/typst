@@ -647,6 +647,10 @@ impl<'a, T> StyleVecBuilder<'a, T> {
         self.chains.push((styles, 1));
     }
 
+    pub fn last_page_mut(&mut self) -> Option<&mut T> {
+        self.items.last_mut()
+    }
+
     /// Iterate over the contained items.
     pub fn elems(&self) -> std::slice::Iter<'_, T> {
         self.items.iter()
