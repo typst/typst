@@ -307,38 +307,18 @@ impl ColorPdfEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
             ColorSpace::Oklab => {
-                let [l, a, b, _] = color.to_oklab().components();
-                [
-                    l as f32,
-                    (a as f32 + 0.4).clamp(0.0, 1.0),
-                    (b as f32 + 0.4).clamp(0.0, 1.0),
-                    0.0,
-                ]
-            }
-            ColorSpace::Srgb => {
-                let [r, g, b, _] = color.to_rgba().components();
-                [r as f32, g as f32, b as f32, 0.0]
-            }
-            ColorSpace::D65Gray => {
-                let [l, _, _, _] = color.to_luma().components();
-                [l as f32, 0.0, 0.0, 0.0]
-            }
-            ColorSpace::LinearRgb => {
-                let [r, g, b, _] = color.to_linear_rgb().components();
-                [r as f32, g as f32, b as f32, 0.0]
+                let [l, a, b, alpha] = color.to_oklab().components();
+                [l, (a + 0.4).clamp(0.0, 1.0), (b + 0.4).clamp(0.0, 1.0), alpha]
             }
             ColorSpace::Hsl => {
                 let [h, s, l, _] = color.to_hsl().components();
-                [h.to_degrees() as f32 / 360.0, s as f32, l as f32, 0.0]
+                [h.to_degrees() / 360.0, s, l, 0.0]
             }
             ColorSpace::Hsv => {
                 let [h, s, v, _] = color.to_hsv().components();
-                [h.to_degrees() as f32 / 360.0, s as f32, v as f32, 0.0]
+                [h.to_degrees() / 360.0, s, v, 0.0]
             }
-            ColorSpace::Cmyk => {
-                let [c, m, y, k] = color.to_cmyk().components();
-                [c as f32, m as f32, y as f32, k as f32]
-            }
+            _ => Colorful::components(color),
         }
     }
 }

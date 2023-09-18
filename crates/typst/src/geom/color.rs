@@ -277,33 +277,25 @@ impl Color {
     pub const BLACK: Self = Self::Luma(LumaColor(F32Scalar(0.0)));
     pub const GRAY: Self = Self::Luma(LumaColor(F32Scalar(0.6666666)));
     pub const WHITE: Self = Self::Luma(LumaColor(F32Scalar(1.0)));
-    pub const SILVER: Self = Self::Luma(LumaColor(F32Scalar(0.86666666666)));
-    pub const NAVY: Self =
-        Self::Rgba(RgbaColor::new(0.0, 0.12156862745, 0.24705882352, 1.0));
-    pub const BLUE: Self =
-        Self::Rgba(RgbaColor::new(0.0, 0.45490196078, 0.85098039215, 1.0));
-    pub const AQUA: Self =
-        Self::Rgba(RgbaColor::new(0.49803921568, 0.85882352941, 1.0, 1.0));
-    pub const TEAL: Self = Self::Rgba(RgbaColor::new(0.22352941176, 0.8, 0.8, 1.0));
+    pub const SILVER: Self = Self::Luma(LumaColor(F32Scalar(0.8666667)));
+    pub const NAVY: Self = Self::Rgba(RgbaColor::new(0.0, 0.121569, 0.247059, 1.0));
+    pub const BLUE: Self = Self::Rgba(RgbaColor::new(0.0, 0.454902, 0.85098, 1.0));
+    pub const AQUA: Self = Self::Rgba(RgbaColor::new(0.4980392, 0.858823, 1.0, 1.0));
+    pub const TEAL: Self = Self::Rgba(RgbaColor::new(0.223529, 0.8, 0.8, 1.0));
     pub const EASTERN: Self =
-        Self::Rgba(RgbaColor::new(0.13725490196, 0.61568627451, 0.67843137254, 1.0));
+        Self::Rgba(RgbaColor::new(0.13725, 0.615686, 0.678431, 1.0));
     pub const PURPLE: Self =
-        Self::Rgba(RgbaColor::new(0.69411764705, 0.05098039215, 0.78823529411, 1.0));
+        Self::Rgba(RgbaColor::new(0.694118, 0.050980, 0.788235, 1.0));
     pub const FUCHSIA: Self =
-        Self::Rgba(RgbaColor::new(0.94117647058, 0.07058823529, 0.74509803921, 1.0));
+        Self::Rgba(RgbaColor::new(0.941177, 0.070588, 0.745098, 1.0));
     pub const MAROON: Self =
-        Self::Rgba(RgbaColor::new(0.52156862745, 0.07843137254, 0.29411764705, 1.0));
-    pub const RED: Self =
-        Self::Rgba(RgbaColor::new(1.0, 0.25490196078, 0.21176470588, 1.0));
-    pub const ORANGE: Self =
-        Self::Rgba(RgbaColor::new(1.0, 0.52156862745, 0.10588235294, 1.0));
-    pub const YELLOW: Self = Self::Rgba(RgbaColor::new(1.0, 0.86274509803, 0.0, 1.0));
-    pub const OLIVE: Self =
-        Self::Rgba(RgbaColor::new(0.23921568627, 0.6, 0.43921568627, 1.0));
-    pub const GREEN: Self =
-        Self::Rgba(RgbaColor::new(0.18039215686, 0.8, 0.25098039215, 1.0));
-    pub const LIME: Self =
-        Self::Rgba(RgbaColor::new(0.00392156862, 1.0, 0.4392157, 1.0));
+        Self::Rgba(RgbaColor::new(0.521569, 0.078431, 0.294118, 1.0));
+    pub const RED: Self = Self::Rgba(RgbaColor::new(1.0, 0.254902, 0.211765, 1.0));
+    pub const ORANGE: Self = Self::Rgba(RgbaColor::new(1.0, 0.521569, 0.105882, 1.0));
+    pub const YELLOW: Self = Self::Rgba(RgbaColor::new(1.0, 0.8627451, 0.0, 1.0));
+    pub const OLIVE: Self = Self::Rgba(RgbaColor::new(0.239216, 0.6, 0.4392157, 1.0));
+    pub const GREEN: Self = Self::Rgba(RgbaColor::new(0.1803922, 0.8, 0.2509804, 1.0));
+    pub const LIME: Self = Self::Rgba(RgbaColor::new(0.0039216, 1.0, 0.4392157, 1.0));
 
     /// Create a grayscale color.
     ///
