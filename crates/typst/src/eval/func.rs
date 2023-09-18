@@ -640,6 +640,11 @@ impl<'a> CapturesVisitor<'a> {
                 self.internal.exit();
             }
 
+            // Don't capture the field of a field access.
+            Some(ast::Expr::FieldAccess(access)) => {
+                self.visit(access.target().to_untyped());
+            }
+
             // A closure contains parameter bindings, which are bound before the
             // body is evaluated. Care must be taken so that the default values
             // of named parameters cannot access previous parameter bindings.
@@ -712,8 +717,14 @@ impl<'a> CapturesVisitor<'a> {
                 }
             }
 
-            // Everything else is traversed from left to right.
             _ => {
+                // Never capture the name part of a named pair.
+                if let Some(named) = node.cast::<ast::Named>() {
+                    self.visit(named.expr().to_untyped());
+                    return;
+                }
+
+                // Everything else is traversed from left to right.
                 for child in node.children() {
                     self.visit(child);
                 }
@@ -804,5 +815,13 @@ mod tests {
         // Blocks.
         test("#{ let x = 1; { let y = 2; y }; x + y }", &["y"]);
         test("#[#let x = 1]#x", &["x"]);
+
+        // Field access.
+        test("#foo(body: 1)", &[]);
+        test("#(body: 1)", &[]);
+        test("#(body = 1)", &[]);
+        test("#(body += y)", &["y"]);
+        test("#{ (body, a) = (y, 1) }", &["y"]);
+        test("#(x.at(y) = 5)", &["x", "y"])
     }
 }

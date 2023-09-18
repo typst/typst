@@ -487,8 +487,8 @@ them. Typst will revert to the page settings from the set rule after the call.
 
   #table(
     columns: 5 * (1fr,),
-    ..for x in range(1, 6) {
-      for y in range(1, 10) {
+    ..for x in range(1, 10) {
+      for y in range(1, 6) {
         (str(x*y),)
       }
     }

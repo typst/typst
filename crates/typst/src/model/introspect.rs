@@ -111,7 +111,7 @@ cast! {
 /// [^1]: Well, we could with [`TrackedMut`](comemo::TrackedMut), but the
 /// overhead is quite high, especially since we need to save & undo the counting
 /// when only measuring.
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Locator<'a> {
     /// Maps from a hash to the maximum number we've seen for this hash. This
     /// number becomes the `disambiguator`.
