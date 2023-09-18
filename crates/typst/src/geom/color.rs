@@ -388,10 +388,24 @@ impl Color {
     /// ```
     #[func]
     pub fn luma(
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: Args,
         /// The gray component.
+        #[external]
         gray: Component,
-    ) -> Color {
-        LumaColor::new(gray.0.get()).into()
+        /// The color to convert to grayscale.
+        #[external]
+        color: Color,
+    ) -> SourceResult<Color> {
+        let mut args = args;
+        Ok(if let Some(color) = args.find::<Color>()? {
+            color.to_luma().into()
+        } else {
+            let Component(gray) =
+                args.expect("gray component").unwrap_or(Component(Ratio::one()));
+            LumaColor(gray).into()
+        })
     }
 
     /// Create an [Oklab](https://bottosson.github.io/posts/oklab/) color.
@@ -417,17 +431,36 @@ impl Color {
     /// ```
     #[func]
     pub fn oklab(
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: Args,
         /// The cyan component.
+        #[external]
         lightness: RatioComponent,
         /// The magenta component.
+        #[external]
         a: ABComponent,
         /// The yellow component.
+        #[external]
         b: ABComponent,
         /// The key component.
-        #[default(RatioComponent(Ratio::one()))]
+        #[external]
         alpha: RatioComponent,
-    ) -> Color {
-        OklabColor::new(lightness.0.get(), a.0.get(), b.0.get(), alpha.0.get()).into()
+        /// The color to convert to Oklab.
+        #[external]
+        color: Color,
+    ) -> SourceResult<Color> {
+        let mut args = args;
+        Ok(if let Some(color) = args.find::<Color>()? {
+            color.to_oklab().into()
+        } else {
+            let RatioComponent(l) = args.expect("lightness component")?;
+            let ABComponent(a) = args.expect("A component")?;
+            let ABComponent(b) = args.expect("B component")?;
+            let RatioComponent(alpha) =
+                args.eat()?.unwrap_or(RatioComponent(Ratio::one()));
+            OklabColor::new(l.get(), a.get(), b.get(), alpha.get()).into()
+        })
     }
 
     /// Create an RGB(A) color with linear luma.
@@ -453,18 +486,35 @@ impl Color {
     /// ```
     #[func(title = "Linear RGB")]
     pub fn linear_rgb(
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: Args,
         /// The red component.
+        #[external]
         red: Component,
         /// The green component.
+        #[external]
         green: Component,
         /// The blue component.
+        #[external]
         blue: Component,
         /// The alpha component.
-        #[default(Component(Ratio::one()))]
+        #[external]
         alpha: Component,
-    ) -> Color {
-        LinearRgbColor::new(red.0.get(), green.0.get(), blue.0.get(), alpha.0.get())
-            .into()
+        /// The color to convert to linear RGB(A).
+        #[external]
+        color: Color,
+    ) -> SourceResult<Color> {
+        let mut args = args;
+        Ok(if let Some(color) = args.find::<Color>()? {
+            color.to_linear_rgb().into()
+        } else {
+            let Component(r) = args.expect("red component")?;
+            let Component(g) = args.expect("green component")?;
+            let Component(b) = args.expect("blue component")?;
+            let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
+            LinearRgbColor::new(r.get(), g.get(), b.get(), a.get()).into()
+        })
     }
 
     /// Create an RGB(A) color.
@@ -516,10 +566,15 @@ impl Color {
         /// The alpha component.
         #[external]
         alpha: Component,
+        /// The color to convert to RGB(A).
+        #[external]
+        color: Color,
     ) -> SourceResult<Color> {
         let mut args = args;
         Ok(if let Some(string) = args.find::<Spanned<Str>>()? {
             RgbaColor::from_str(&string.v).at(string.span)?.into()
+        } else if let Some(color) = args.find::<Color>()? {
+            color.to_rgba().into()
         } else {
             let Component(r) = args.expect("red component")?;
             let Component(g) = args.expect("green component")?;
@@ -551,16 +606,35 @@ impl Color {
     /// ```
     #[func(title = "CMYK")]
     pub fn cmyk(
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: Args,
         /// The cyan component.
+        #[external]
         cyan: RatioComponent,
         /// The magenta component.
+        #[external]
         magenta: RatioComponent,
         /// The yellow component.
+        #[external]
         yellow: RatioComponent,
         /// The key component.
+        #[external]
         key: RatioComponent,
-    ) -> Color {
-        CmykColor::new(cyan.0.get(), magenta.0.get(), yellow.0.get(), key.0.get()).into()
+        /// The color to convert to CMYK.
+        #[external]
+        color: Color,
+    ) -> SourceResult<Color> {
+        let mut args = args;
+        Ok(if let Some(color) = args.find::<Color>()? {
+            color.to_cmyk().into()
+        } else {
+            let RatioComponent(c) = args.expect("cyan component")?;
+            let RatioComponent(m) = args.expect("magenta component")?;
+            let RatioComponent(y) = args.expect("yellow component")?;
+            let RatioComponent(k) = args.expect("key/black component")?;
+            CmykColor::new(c.get(), m.get(), y.get(), k.get()).into()
+        })
     }
 
     /// Create an HSL color.
@@ -585,17 +659,35 @@ impl Color {
     /// ```
     #[func(title = "HSL")]
     pub fn hsl(
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: Args,
         /// The hue angle.
+        #[external]
         hue: Angle,
         /// The saturation component.
+        #[external]
         saturation: Component,
         /// The lightness component.
+        #[external]
         lightness: Component,
         /// The alpha component.
-        #[default(Component(Ratio::one()))]
+        #[external]
         alpha: Component,
-    ) -> Color {
-        HslColor::new(hue, saturation.0.get(), lightness.0.get(), alpha.0.get()).into()
+        /// The color to convert to HSL.
+        #[external]
+        color: Color,
+    ) -> SourceResult<Color> {
+        let mut args = args;
+        Ok(if let Some(color) = args.find::<Color>()? {
+            color.to_hsl().into()
+        } else {
+            let h = args.expect("hue component")?;
+            let Component(s) = args.expect("saturation component")?;
+            let Component(l) = args.expect("lightness component")?;
+            let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
+            HslColor::new(h, s.get(), l.get(), a.get()).into()
+        })
     }
 
     /// Create an HSV color.
@@ -620,87 +712,35 @@ impl Color {
     /// ```
     #[func(title = "HSV")]
     pub fn hsv(
+        /// The real arguments (the other arguments are just for the docs, this
+        /// function is a bit involved, so we parse the arguments manually).
+        args: Args,
         /// The hue angle.
+        #[external]
         hue: Angle,
         /// The saturation component.
+        #[external]
         saturation: Component,
         /// The value component.
+        #[external]
         value: Component,
         /// The alpha component.
-        #[default(Component(Ratio::one()))]
+        #[external]
         alpha: Component,
-    ) -> Color {
-        HsvColor::new(hue, saturation.0.get(), value.0.get(), alpha.0.get()).into()
-    }
-
-    /// Converts this color in a D65 Gray color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn to_luma(self) -> Color {
-        <Self as ColorExt>::to_luma(self).into()
-    }
-
-    /// Converts this color in an Oklab color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn to_oklab(self) -> Color {
-        <Self as ColorExt>::to_oklab(self).into()
-    }
-
-    /// Converts this color in a linear RGB color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn to_linear_rgb(self) -> Color {
-        <Self as ColorExt>::to_linear_rgb(self).into()
-    }
-
-    /// Converts this color in an RGBA color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn to_rgba(self) -> Color {
-        <Self as ColorExt>::to_rgba(self).into()
-    }
-
-    /// Converts this color in a CMYK color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn to_cmyk(self) -> Color {
-        <Self as ColorExt>::to_cmyk(self).into()
-    }
-
-    /// Converts this color in an HSL color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn to_hsl(self) -> Color {
-        <Self as ColorExt>::to_hsl(self).into()
-    }
-
-    /// Converts this color in an HSV color.
-    ///
-    /// *Note*: color conversions can be lossy, this means that transforming a color
-    /// to a different color space and back to the original color space may not
-    /// yield the same color.
-    #[func]
-    pub fn to_hsv(self) -> Color {
-        <Self as ColorExt>::to_hsv(self).into()
+        /// The color to convert to HSL.
+        #[external]
+        color: Color,
+    ) -> SourceResult<Color> {
+        let mut args = args;
+        Ok(if let Some(color) = args.find::<Color>()? {
+            color.to_hsv().into()
+        } else {
+            let h = args.expect("hue component")?;
+            let Component(s) = args.expect("saturation component")?;
+            let Component(v) = args.expect("value component")?;
+            let Component(a) = args.eat()?.unwrap_or(Component(Ratio::one()));
+            HsvColor::new(h, s.get(), v.get(), a.get()).into()
+        })
     }
 
     /// Converts this color into its components.

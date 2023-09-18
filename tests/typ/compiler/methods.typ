@@ -117,32 +117,32 @@
 // Test color conversions.
 #test(rgb(1, 2, 3).to-hex(), "#010203")
 #test(rgb(1, 2, 3, 4).to-hex(), "#01020304")
-#test(cmyk(4%, 5%, 6%, 7%).to-rgba().components(), (228, 225, 223, 100%))
+#test(rgb(cmyk(4%, 5%, 6%, 7%)).components(), (228, 225, 223, 100%))
 #test(cmyk(4%, 5%, 6%, 7%).to-hex(), "#e4e1df")
-#test(luma(40).to-rgba().components(false), (40, 40, 40))
+#test(rgb(luma(40)).components(false), (40, 40, 40))
 #test(luma(40).to-hex(), "#282828")
-#test(repr(luma(40).to-cmyk().components()), repr((11.76%, 10.67%, 10.51%, 14.12%)))
-#test(repr(luma(40).to-hsl()), repr(hsl(0deg, 0%, 15.69%)))
-#test(repr(luma(40).to-hsv()), repr(hsv(0deg, 0%, 15.69%)))
-#test(repr(luma(40).to-linear-rgb()), repr(linear-rgb(2.12%, 2.12%, 2.12%)))
-#test(repr(rgb(1, 2, 3).to-linear-rgb()), repr(linear-rgb(0.03%, 0.06%, 0.09%)))
-#test(repr(rgb(1, 2, 3).to-hsl()), repr(hsl(-150deg, 50%, 0.78%)))
-#test(repr(rgb(1, 2, 3).to-hsv()), repr(hsv(-150deg, 66.67%, 1.18%)))
-#test(repr(rgb(1, 2, 3).to-cmyk()), repr(cmyk(66.67%, 33.33%, 0%, 98.82%)))
-#test(repr(rgb(1, 2, 3).to-luma()), repr(luma(0.73%)))
+#test(repr(cmyk(luma(40)).components()), repr((11.76%, 10.67%, 10.51%, 14.12%)))
+#test(repr(hsl(luma(40))), repr(hsl(0deg, 0%, 15.69%)))
+#test(repr(hsv(luma(40))), repr(hsv(0deg, 0%, 15.69%)))
+#test(repr(linear-rgb(luma(40))), repr(linear-rgb(2.12%, 2.12%, 2.12%)))
+#test(repr(linear-rgb(rgb(1, 2, 3))), repr(linear-rgb(0.03%, 0.06%, 0.09%)))
+#test(repr(hsl(rgb(1, 2, 3))), repr(hsl(-150deg, 50%, 0.78%)))
+#test(repr(hsv(rgb(1, 2, 3))), repr(hsv(-150deg, 66.67%, 1.18%)))
+#test(repr(cmyk(rgb(1, 2, 3))), repr(cmyk(66.67%, 33.33%, 0%, 98.82%)))
+#test(repr(luma(rgb(1, 2, 3))), repr(luma(0.73%)))
 
-#let oklab = luma(40).to-oklab().components()
+#let col = oklab(luma(40)).components()
 #test((
-  calc.round(oklab.at(0) / 100% * 1000) / 1000,
-  calc.round(oklab.at(1) * 1000) / 1000,
-  calc.round(oklab.at(2) * 1000) / 1000,
+  calc.round(col.at(0) / 100% * 1000) / 1000,
+  calc.round(col.at(1) * 1000) / 1000,
+  calc.round(col.at(2) * 1000) / 1000,
 ), (0.277, 0.0, 0.0))
 
-#let oklab = rgb(1, 2, 3).to-oklab().components()
+#let col = oklab(rgb(1, 2, 3)).components()
 #test((
-  calc.round(oklab.at(0) / 100% * 1000) / 1000,
-  calc.round(oklab.at(1) * 1000) / 1000,
-  calc.round(oklab.at(2) * 1000) / 1000,
+  calc.round(col.at(0) / 100% * 1000) / 1000,
+  calc.round(col.at(1) * 1000) / 1000,
+  calc.round(col.at(2) * 1000) / 1000,
 ), (0.082, -0.004, -0.007))
 
 ---

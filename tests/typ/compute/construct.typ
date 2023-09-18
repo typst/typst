@@ -15,22 +15,80 @@
 #test(white.lighten(100%), white)
 
 // Color mixing, in Oklab space by default.
-#test(color.mix(rgb("#ff0000"), rgb("#00ff00")).to-rgba(), rgb("#d0a800"))
-#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "oklab").to-rgba(), rgb("#d0a800"))
-#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "srgb").to-rgba(), rgb("#808000"))
+#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"))), rgb("#d0a800"))
+#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "oklab")), rgb("#d0a800"))
+#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "srgb")), rgb("#808000"))
 
-#test(color.mix(red, green, blue).to-rgba(), rgb("#909282"))
-#test(color.mix(red, blue, green).to-rgba(), rgb("#909282"))
-#test(color.mix(blue, red, green).to-rgba(), rgb("#909282"))
+#test(rgb(color.mix(red, green, blue)), rgb("#909282"))
+#test(rgb(color.mix(red, blue, green)), rgb("#909282"))
+#test(rgb(color.mix(blue, red, green)), rgb("#909282"))
 
 // Mix with weights.
-#test(color.mix((red, 50%), (green, 50%)).to-rgba(), rgb("#c0983b"))
-#test(color.mix((red, 0.5), (green, 0.5)).to-rgba(), rgb("#c0983b"))
-#test(color.mix((red, 5), (green, 5)).to-rgba(), rgb("#c0983b"))
-#test(color.mix((green, 5), (white, 0), (red, 5)).to-rgba(), rgb("#c0983b"))
+#test(rgb(color.mix((red, 50%), (green, 50%))), rgb("#c0983b"))
+#test(rgb(color.mix((red, 0.5), (green, 0.5))), rgb("#c0983b"))
+#test(rgb(color.mix((red, 5), (green, 5))), rgb("#c0983b"))
+#test(rgb(color.mix((green, 5), (white, 0), (red, 5))), rgb("#c0983b"))
 #test(color.mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: "srgb"), rgb("#aa40bf"))
 #test(color.mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: "srgb"), rgb("#aa8080"))
 #test(color.mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: "srgb"), rgb("#aabf40"))
+
+---
+// Test color conversion method kinds
+#test(rgb(rgb(10, 20, 30)).kind(), rgb)
+#test(linear-rgb(rgb(10, 20, 30)).kind(), linear-rgb)
+#test(oklab(rgb(10, 20, 30)).kind(), oklab)
+#test(hsl(rgb(10, 20, 30)).kind(), hsl)
+#test(hsv(rgb(10, 20, 30)).kind(), hsv)
+#test(cmyk(rgb(10, 20, 30)).kind(), cmyk)
+#test(luma(rgb(10, 20, 30)).kind(), luma)
+
+#test(rgb(linear-rgb(10, 20, 30)).kind(), rgb)
+#test(linear-rgb(linear-rgb(10, 20, 30)).kind(), linear-rgb)
+#test(oklab(linear-rgb(10, 20, 30)).kind(), oklab)
+#test(hsl(linear-rgb(10, 20, 30)).kind(), hsl)
+#test(hsv(linear-rgb(10, 20, 30)).kind(), hsv)
+#test(cmyk(linear-rgb(10, 20, 30)).kind(), cmyk)
+#test(luma(linear-rgb(10, 20, 30)).kind(), luma)
+
+#test(rgb(oklab(10%, 20%, 30%)).kind(), rgb)
+#test(linear-rgb(oklab(10%, 20%, 30%)).kind(), linear-rgb)
+#test(oklab(oklab(10%, 20%, 30%)).kind(), oklab)
+#test(hsl(oklab(10%, 20%, 30%)).kind(), hsl)
+#test(hsv(oklab(10%, 20%, 30%)).kind(), hsv)
+#test(cmyk(oklab(10%, 20%, 30%)).kind(), cmyk)
+#test(luma(oklab(10%, 20%, 30%)).kind(), luma)
+
+#test(rgb(hsl(10deg, 20%, 30%)).kind(), rgb)
+#test(linear-rgb(hsl(10deg, 20%, 30%)).kind(), linear-rgb)
+#test(oklab(hsl(10deg, 20%, 30%)).kind(), oklab)
+#test(hsl(hsl(10deg, 20%, 30%)).kind(), hsl)
+#test(hsv(hsl(10deg, 20%, 30%)).kind(), hsv)
+#test(cmyk(hsl(10deg, 20%, 30%)).kind(), cmyk)
+#test(luma(hsl(10deg, 20%, 30%)).kind(), luma)
+
+#test(rgb(hsv(10deg, 20%, 30%)).kind(), rgb)
+#test(linear-rgb(hsv(10deg, 20%, 30%)).kind(), linear-rgb)
+#test(oklab(hsv(10deg, 20%, 30%)).kind(), oklab)
+#test(hsl(hsv(10deg, 20%, 30%)).kind(), hsl)
+#test(hsv(hsv(10deg, 20%, 30%)).kind(), hsv)
+#test(cmyk(hsv(10deg, 20%, 30%)).kind(), cmyk)
+#test(luma(hsv(10deg, 20%, 30%)).kind(), luma)
+
+#test(rgb(cmyk(10%, 20%, 30%, 40%)).kind(), rgb)
+#test(linear-rgb(cmyk(10%, 20%, 30%, 40%)).kind(), linear-rgb)
+#test(oklab(cmyk(10%, 20%, 30%, 40%)).kind(), oklab)
+#test(hsl(cmyk(10%, 20%, 30%, 40%)).kind(), hsl)
+#test(hsv(cmyk(10%, 20%, 30%, 40%)).kind(), hsv)
+#test(cmyk(cmyk(10%, 20%, 30%, 40%)).kind(), cmyk)
+#test(luma(cmyk(10%, 20%, 30%, 40%)).kind(), luma)
+
+#test(rgb(luma(10%)).kind(), rgb)
+#test(linear-rgb(luma(10%)).kind(), linear-rgb)
+#test(oklab(luma(10%)).kind(), oklab)
+#test(hsl(luma(10%)).kind(), hsl)
+#test(hsv(luma(10%)).kind(), hsv)
+#test(cmyk(luma(10%)).kind(), cmyk)
+#test(luma(luma(10%)).kind(), luma)
 
 ---
 // Test gray color conversion.
