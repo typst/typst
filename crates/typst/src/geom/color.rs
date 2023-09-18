@@ -792,6 +792,26 @@ impl Color {
         <Self as ColorExt>::darken(self, factor)
     }
 
+    /// Increases the saturation of a color by a given factor.
+    #[func]
+    pub fn saturate(
+        self,
+        /// The factor to saturate the color by.
+        factor: Ratio,
+    ) -> Color {
+        <Self as ColorExt>::saturate(self, factor)
+    }
+
+    /// Decreases the saturation of a color by a given factor.
+    #[func]
+    pub fn desaturate(
+        self,
+        /// The factor to desaturate the color by.
+        factor: Ratio,
+    ) -> Color {
+        <Self as ColorExt>::desaturate(self, factor)
+    }
+
     /// Produces the negative of the color.
     #[func]
     pub fn negate(self) -> Color {

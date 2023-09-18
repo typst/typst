@@ -49,6 +49,29 @@
 }
 
 ---
+// Test saturation
+
+#let col = hsl(180deg, 0%, 50%)
+#for x in range(0, 11) {
+  box(square(size: 9pt, fill: col.saturate(x * 10%)))
+}
+
+#let col = hsl(180deg, 100%, 50%)
+#for x in range(0, 11) {
+  box(square(size: 9pt, fill: col.desaturate(x * 10%)))
+}
+
+#let col = hsv(180deg, 0%, 50%)
+#for x in range(0, 11) {
+  box(square(size: 9pt, fill: col.saturate(x * 10%)))
+}
+
+#let col = hsv(180deg, 100%, 50%)
+#for x in range(0, 11) {
+  box(square(size: 9pt, fill: col.desaturate(x * 10%)))
+}
+
+---
 // Test gray color modification.
 // Ref: false
 #test(repr(luma(20%).lighten(50%)), repr(luma(60%)))
