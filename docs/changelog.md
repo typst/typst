@@ -41,6 +41,8 @@ description: |
   - Fixed bug with destructuring in combination with break, continue, and return
   - Fixed argument types of [hyperbolic functions]($calc.cosh), they don't allow
     angles anymore (**Breaking change**)
+  - Renamed some color methods: `rgba` becomes `to-rgba`, `cmyk` becomes
+    `to-cmyk`, and `luma` becomes `to-luma` (**Breaking change**)
 
 - Export
   - Added SVG export
@@ -112,8 +114,8 @@ description: |
   - Packages can now specify a
     [minimum compiler version](https://github.com/typst/packages#package-format)
     they require to work
-  - Fixed parser bug where method calls could be moved onto their own line
-    for `[#let]` expressions in markup (continues to work in code)
+  - Fixed parser bug where method calls could be moved onto their own line for
+    `[#let]` expressions in markup (**Breaking change**)
   - Fixed bugs in sentence and title case conversion for bibliographies
   - Fixed supplements for alphanumeric and author-title bibliography styles
   - Fixed off-by-one error in APA bibliography style
