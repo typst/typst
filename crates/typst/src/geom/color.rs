@@ -1112,7 +1112,7 @@ impl Debug for Color {
                     write!(
                         f,
                         "color.hsl({:?}, {:?}, {:?})",
-                        Angle::deg(c.hue.into_degrees() as _),
+                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.lightness as _),
                     )
@@ -1120,7 +1120,7 @@ impl Debug for Color {
                     write!(
                         f,
                         "color.hsl({:?}, {:?}, {:?}, {:?})",
-                        Angle::deg(c.hue.into_degrees() as _),
+                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.lightness as _),
                         Ratio::new(c.alpha as _),
@@ -1132,7 +1132,7 @@ impl Debug for Color {
                     write!(
                         f,
                         "color.hsv({:?}, {:?}, {:?})",
-                        Angle::deg(c.hue.into_degrees() as _),
+                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.value as _),
                     )
@@ -1140,7 +1140,7 @@ impl Debug for Color {
                     write!(
                         f,
                         "color.hsv({:?}, {:?}, {:?}, {:?})",
-                        Angle::deg(c.hue.into_degrees() as _),
+                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _),
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.value as _),
                         Ratio::new(c.alpha as _),
