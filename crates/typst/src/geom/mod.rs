@@ -31,10 +31,7 @@ pub use self::abs::{Abs, AbsUnit};
 pub use self::align::{Align, FixedAlign, HAlign, VAlign};
 pub use self::angle::{Angle, AngleUnit};
 pub use self::axes::{Axes, Axis};
-pub use self::color::{
-    CmykColor, Color, ColorSpace, Colorful, HslColor, HsvColor, LinearRgbColor,
-    LumaColor, OklabColor, RgbaColor, WeightedColor,
-};
+pub use self::color::{Color, ColorSpace, WeightedColor};
 pub use self::corners::{Corner, Corners};
 pub use self::dir::Dir;
 pub use self::ellipse::ellipse;

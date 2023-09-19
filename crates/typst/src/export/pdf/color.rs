@@ -4,7 +4,7 @@ use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Dict, Filter, Name, PdfWriter, Ref};
 
 use crate::export::pdf::deflate;
-use crate::geom::{Color, ColorSpace, Colorful, Paint};
+use crate::geom::{Color, ColorSpace, Paint};
 
 use super::page::PageContext;
 use super::RefExt;
@@ -293,18 +293,18 @@ impl ColorPdfEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
             ColorSpace::Oklab => {
-                let [l, a, b, alpha] = color.to_oklab().components();
+                let [l, a, b, alpha] = color.to_oklab().to_vec4();
                 [l, (a + 0.4).clamp(0.0, 1.0), (b + 0.4).clamp(0.0, 1.0), alpha]
             }
             ColorSpace::Hsl => {
-                let [h, s, l, _] = color.to_hsl().components();
+                let [h, s, l, _] = color.to_hsl().to_vec4();
                 [h / 360.0, s, l, 0.0]
             }
             ColorSpace::Hsv => {
-                let [h, s, v, _] = color.to_hsv().components();
+                let [h, s, v, _] = color.to_hsv().to_vec4();
                 [h / 360.0, s, v, 0.0]
             }
-            _ => Colorful::components(color),
+            _ => color.to_vec4(),
         }
     }
 }

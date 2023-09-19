@@ -3,7 +3,7 @@
 
 ---
 // Compare both ways.
-#test(rgb(0%, 30%, 70%), rgb("004db3"))
+#test-repr(rgb(0%, 30.2%, 70.2%), rgb("004db3"))
 
 // Alpha channel.
 #test(rgb(255, 0, 0, 50%), rgb("ff000080"))

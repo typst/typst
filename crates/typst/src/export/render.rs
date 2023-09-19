@@ -14,8 +14,8 @@ use usvg::{NodeExt, TreeParsing};
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, Colorful, FixedStroke, Geometry, LineCap, LineJoin, Paint,
-    PathItem, Shape, Size, Transform,
+    self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
+    Size, Transform,
 };
 use crate::image::{DecodedImage, Image, RasterFormat};
 

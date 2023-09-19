@@ -10,8 +10,8 @@ use xmlwriter::XmlWriter;
 use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Angle, Axes, Color, FixedStroke, Geometry, HslColor, LineCap, LineJoin,
-    LinearRgbColor, OklabColor, Paint, PathItem, Ratio, Shape, Size, Transform,
+    Abs, Angle, Axes, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem,
+    Ratio, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -667,37 +667,57 @@ impl ColorSvgEncode for Color {
             | c @ Color::Luma(_)
             | c @ Color::Cmyk(_)
             | c @ Color::Hsv(_) => c.to_hex(),
-            Color::LinearRgb(LinearRgbColor { r, g, b, a }) => {
-                if a != 1.0 {
-                    eco_format!("color(srgb-linear {r:.3} {g:.3} {b:.3} / {a:.3})",)
-                } else {
-                    eco_format!("color(srgb-linear {r:.3} {g:.3} {b:.3})")
-                }
-            }
-            Color::Oklab(OklabColor { l, a, b, alpha }) => {
-                if alpha != 1.0 {
+            Color::LinearRgb(rgb) => {
+                if rgb.alpha != 1.0 {
                     eco_format!(
-                        "oklab({:?} {a:.3} {b:.3} / {alpha:.3})",
-                        Ratio::new(l.get() as f64),
+                        "color(srgb-linear {:.3} {:.3} {:.3} / {:.3})",
+                        rgb.red,
+                        rgb.green,
+                        rgb.blue,
+                        rgb.alpha
                     )
                 } else {
-                    eco_format!("oklab({:?} {a:.3} {b:.3})", Ratio::new(l.get() as f64))
+                    eco_format!(
+                        "color(srgb-linear {:.3} {:.3} {:.3})",
+                        rgb.red,
+                        rgb.green,
+                        rgb.blue,
+                    )
                 }
             }
-            Color::Hsl(HslColor { h, s, l, a }) => {
-                if a != 1.0 {
+            Color::Oklab(oklab) => {
+                if oklab.alpha != 1.0 {
                     eco_format!(
-                        "hsla({:?} {:?} {:?} / {a:.3})",
-                        Angle::deg(h.get() as f64),
-                        Ratio::new(s.get() as f64),
-                        Ratio::new(l.get() as f64),
+                        "oklab({:?} {:.3} {:.3} / {:.3})",
+                        Ratio::new(oklab.l as f64),
+                        oklab.a,
+                        oklab.b,
+                        oklab.alpha
+                    )
+                } else {
+                    eco_format!(
+                        "oklab({:?} {:.3} {:.3})",
+                        Ratio::new(oklab.l as f64),
+                        oklab.a,
+                        oklab.b,
+                    )
+                }
+            }
+            Color::Hsl(hsl) => {
+                if hsl.alpha != 1.0 {
+                    eco_format!(
+                        "hsla({:?} {:?} {:?} / {:.3})",
+                        Angle::deg(hsl.hue.into_degrees() as f64),
+                        Ratio::new(hsl.saturation as f64),
+                        Ratio::new(hsl.lightness as f64),
+                        hsl.alpha,
                     )
                 } else {
                     eco_format!(
                         "hsl({:?} {:?} {:?})",
-                        Angle::deg(h.get() as f64),
-                        Ratio::new(s.get() as f64),
-                        Ratio::new(l.get() as f64)
+                        Angle::deg(hsl.hue.into_degrees() as f64),
+                        Ratio::new(hsl.saturation as f64),
+                        Ratio::new(hsl.lightness as f64),
                     )
                 }
             }

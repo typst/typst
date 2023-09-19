@@ -13,8 +13,8 @@ use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Colorful, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint,
-    Point, Ratio, Shape, Size, Transform,
+    self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,
+    Ratio, Shape, Size, Transform,
 };
 use crate::image::Image;
 
