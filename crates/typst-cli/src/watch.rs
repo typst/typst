@@ -70,6 +70,9 @@ pub fn watch(mut command: CompileCommand) -> StrResult<()> {
                 .map(ToOwned::to_owned)
                 .collect();
 
+            // Reset all dependencies.
+            world.reset();
+
             // Recompile.
             compile_once(&mut world, &mut command, true)?;
             comemo::evict(10);

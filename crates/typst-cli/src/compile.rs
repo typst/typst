@@ -75,8 +75,7 @@ pub fn compile_once(
         Status::Compiling.print(command).unwrap();
     }
 
-    // Reset everything and ensure that the main file is present.
-    world.reset();
+    // Ensure that the main file is present.
     world.source(world.main()).map_err(|err| err.to_string())?;
 
     let mut tracer = Tracer::new();
