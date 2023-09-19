@@ -655,12 +655,13 @@ impl ttf_parser::OutlineBuilder for SvgPathBuilder {
     }
 }
 
-trait ColorSvgEncode {
-    /// Encode the color as an SVG color.
+/// Encode the color as an SVG color.
+trait ColorEncode {
+    /// Encode the color.
     fn encode(&self) -> EcoString;
 }
 
-impl ColorSvgEncode for Color {
+impl ColorEncode for Color {
     fn encode(&self) -> EcoString {
         match *self {
             c @ Color::Rgba(_)

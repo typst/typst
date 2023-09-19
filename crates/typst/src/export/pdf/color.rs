@@ -3,11 +3,38 @@ use std::sync::Arc;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Dict, Filter, Name, PdfWriter, Ref};
 
+use super::page::PageContext;
+use super::RefExt;
 use crate::export::pdf::deflate;
 use crate::geom::{Color, ColorSpace, Paint};
 
-use super::page::PageContext;
-use super::RefExt;
+// The names of the color spaces.
+pub const SRGB: Name<'static> = Name(b"srgb");
+pub const D65_GRAY: Name<'static> = Name(b"d65gray");
+pub const OKLAB: Name<'static> = Name(b"oklab");
+pub const HSV: Name<'static> = Name(b"hsv");
+pub const HSL: Name<'static> = Name(b"hsl");
+pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
+
+// The names of the color components.
+const OKLAB_L: Name<'static> = Name(b"L");
+const OKLAB_A: Name<'static> = Name(b"A");
+const OKLAB_B: Name<'static> = Name(b"B");
+const HSV_H: Name<'static> = Name(b"H");
+const HSV_S: Name<'static> = Name(b"S");
+const HSV_V: Name<'static> = Name(b"V");
+const HSL_H: Name<'static> = Name(b"H");
+const HSL_S: Name<'static> = Name(b"S");
+const HSL_L: Name<'static> = Name(b"L");
+
+// The ICC profiles.
+const SRGB_ICC: &[u8] = include_bytes!("./icc/sRGB-v4.icc");
+const GRAY_ICC: &[u8] = include_bytes!("./icc/sGrey-v4.icc");
+
+// The PostScript functions for color spaces.
+const OKLAB_SOURCE: &str = include_str!("./postscript/oklab.ps");
+const HSL_SOURCE: &str = include_str!("./postscript/hsl.ps");
+const HSV_SOURCE: &str = include_str!("./postscript/hsv.ps");
 
 /// The color spaces present in the PDF document
 #[derive(Default)]
@@ -190,34 +217,6 @@ impl ColorSpaces {
     }
 }
 
-// The ICC profiles
-const SRGB_ICC: &[u8] = include_bytes!("./icc/sRGB-v4.icc");
-const GRAY_ICC: &[u8] = include_bytes!("./icc/sGrey-v4.icc");
-
-// The PostScript functions for color spaces
-const OKLAB_SOURCE: &str = include_str!("./postscript/oklab.ps");
-const HSL_SOURCE: &str = include_str!("./postscript/hsl.ps");
-const HSV_SOURCE: &str = include_str!("./postscript/hsv.ps");
-
-// The name of the color spaces
-pub const SRGB: Name<'static> = Name(b"srgb");
-pub const D65_GRAY: Name<'static> = Name(b"d65gray");
-pub const OKLAB: Name<'static> = Name(b"oklab");
-pub const HSV: Name<'static> = Name(b"hsv");
-pub const HSL: Name<'static> = Name(b"hsl");
-pub const LINEAR_SRGB: Name<'static> = Name(b"linearrgb");
-
-// The name of the color components
-const OKLAB_L: Name<'static> = Name(b"L");
-const OKLAB_A: Name<'static> = Name(b"A");
-const OKLAB_B: Name<'static> = Name(b"B");
-const HSV_H: Name<'static> = Name(b"H");
-const HSV_S: Name<'static> = Name(b"S");
-const HSV_V: Name<'static> = Name(b"V");
-const HSL_H: Name<'static> = Name(b"H");
-const HSL_S: Name<'static> = Name(b"S");
-const HSL_L: Name<'static> = Name(b"L");
-
 /// Deflated sRGB ICC profile
 #[comemo::memoize]
 fn srgb_icc() -> Arc<Vec<u8>> {
@@ -284,12 +283,12 @@ fn minify(source: &str) -> String {
 /// - HSV/HSL: The hue component is in the range [0.0, 360.0] and the PDF format
 ///   specifies that it must be in the range [0.0, 1.0]. This means that the
 ///   PostScript function and the encoded color must be divided by 360.0.
-pub trait ColorPdfEncode {
+pub trait ColorEncode {
     /// Performs the color to PDF f32 array conversion.
     fn encode(&self, color: Color) -> [f32; 4];
 }
 
-impl ColorPdfEncode for ColorSpace {
+impl ColorEncode for ColorSpace {
     fn encode(&self, color: Color) -> [f32; 4] {
         match self {
             ColorSpace::Oklab => {
@@ -319,110 +318,110 @@ pub trait PaintEncode {
 }
 
 impl PaintEncode for Paint {
-    fn set_as_fill(&self, page_context: &mut PageContext) {
+    fn set_as_fill(&self, ctx: &mut PageContext) {
         let Paint::Solid(color) = self;
         match color {
             Color::Luma(_) => {
-                page_context.parent.colors.d65_gray(&mut page_context.parent.alloc);
-                page_context.set_fill_color_space(D65_GRAY);
+                ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
+                ctx.set_fill_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
-                page_context.content.set_fill_color([l]);
+                ctx.content.set_fill_color([l]);
             }
             Color::Oklab(_) => {
-                page_context.parent.colors.oklab(&mut page_context.parent.alloc);
-                page_context.set_fill_color_space(OKLAB);
+                ctx.parent.colors.oklab(&mut ctx.parent.alloc);
+                ctx.set_fill_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
-                page_context.content.set_fill_color([l, a, b]);
+                ctx.content.set_fill_color([l, a, b]);
             }
             Color::LinearRgb(_) => {
-                page_context.parent.colors.linear_rgb();
-                page_context.set_fill_color_space(LINEAR_SRGB);
+                ctx.parent.colors.linear_rgb();
+                ctx.set_fill_color_space(LINEAR_SRGB);
 
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*color);
-                page_context.content.set_fill_color([r, g, b]);
+                ctx.content.set_fill_color([r, g, b]);
             }
             Color::Rgba(_) => {
-                page_context.parent.colors.srgb(&mut page_context.parent.alloc);
-                page_context.set_fill_color_space(SRGB);
+                ctx.parent.colors.srgb(&mut ctx.parent.alloc);
+                ctx.set_fill_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
-                page_context.content.set_fill_color([r, g, b]);
+                ctx.content.set_fill_color([r, g, b]);
             }
             Color::Cmyk(_) => {
-                page_context.reset_fill_color_space();
+                ctx.reset_fill_color_space();
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
-                page_context.content.set_fill_cmyk(c, m, y, k);
+                ctx.content.set_fill_cmyk(c, m, y, k);
             }
             Color::Hsl(_) => {
-                page_context.parent.colors.hsl(&mut page_context.parent.alloc);
-                page_context.set_fill_color_space(HSL);
+                ctx.parent.colors.hsl(&mut ctx.parent.alloc);
+                ctx.set_fill_color_space(HSL);
 
                 let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
-                page_context.content.set_fill_color([h, s, l]);
+                ctx.content.set_fill_color([h, s, l]);
             }
             Color::Hsv(_) => {
-                page_context.parent.colors.hsv(&mut page_context.parent.alloc);
-                page_context.set_fill_color_space(HSV);
+                ctx.parent.colors.hsv(&mut ctx.parent.alloc);
+                ctx.set_fill_color_space(HSV);
 
                 let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
-                page_context.content.set_fill_color([h, s, v]);
+                ctx.content.set_fill_color([h, s, v]);
             }
         }
     }
 
-    fn set_as_stroke(&self, page_context: &mut PageContext) {
+    fn set_as_stroke(&self, ctx: &mut PageContext) {
         let Paint::Solid(color) = self;
         match color {
             Color::Luma(_) => {
-                page_context.parent.colors.d65_gray(&mut page_context.parent.alloc);
-                page_context.set_stroke_color_space(D65_GRAY);
+                ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
+                ctx.set_stroke_color_space(D65_GRAY);
 
                 let [l, _, _, _] = ColorSpace::D65Gray.encode(*color);
-                page_context.content.set_stroke_color([l]);
+                ctx.content.set_stroke_color([l]);
             }
             Color::Oklab(_) => {
-                page_context.parent.colors.oklab(&mut page_context.parent.alloc);
-                page_context.set_stroke_color_space(OKLAB);
+                ctx.parent.colors.oklab(&mut ctx.parent.alloc);
+                ctx.set_stroke_color_space(OKLAB);
 
                 let [l, a, b, _] = ColorSpace::Oklab.encode(*color);
-                page_context.content.set_stroke_color([l, a, b]);
+                ctx.content.set_stroke_color([l, a, b]);
             }
             Color::LinearRgb(_) => {
-                page_context.parent.colors.linear_rgb();
-                page_context.set_stroke_color_space(LINEAR_SRGB);
+                ctx.parent.colors.linear_rgb();
+                ctx.set_stroke_color_space(LINEAR_SRGB);
 
                 let [r, g, b, _] = ColorSpace::LinearRgb.encode(*color);
-                page_context.content.set_stroke_color([r, g, b]);
+                ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Rgba(_) => {
-                page_context.parent.colors.srgb(&mut page_context.parent.alloc);
-                page_context.set_stroke_color_space(SRGB);
+                ctx.parent.colors.srgb(&mut ctx.parent.alloc);
+                ctx.set_stroke_color_space(SRGB);
 
                 let [r, g, b, _] = ColorSpace::Srgb.encode(*color);
-                page_context.content.set_stroke_color([r, g, b]);
+                ctx.content.set_stroke_color([r, g, b]);
             }
             Color::Cmyk(_) => {
-                page_context.reset_stroke_color_space();
+                ctx.reset_stroke_color_space();
 
                 let [c, m, y, k] = ColorSpace::Cmyk.encode(*color);
-                page_context.content.set_stroke_cmyk(c, m, y, k);
+                ctx.content.set_stroke_cmyk(c, m, y, k);
             }
             Color::Hsl(_) => {
-                page_context.parent.colors.hsl(&mut page_context.parent.alloc);
-                page_context.set_stroke_color_space(HSL);
+                ctx.parent.colors.hsl(&mut ctx.parent.alloc);
+                ctx.set_stroke_color_space(HSL);
 
                 let [h, s, l, _] = ColorSpace::Hsl.encode(*color);
-                page_context.content.set_stroke_color([h, s, l]);
+                ctx.content.set_stroke_color([h, s, l]);
             }
             Color::Hsv(_) => {
-                page_context.parent.colors.hsv(&mut page_context.parent.alloc);
-                page_context.set_stroke_color_space(HSV);
+                ctx.parent.colors.hsv(&mut ctx.parent.alloc);
+                ctx.set_stroke_color_space(HSV);
 
                 let [h, s, v, _] = ColorSpace::Hsv.encode(*color);
-                page_context.content.set_stroke_color([h, s, v]);
+                ctx.content.set_stroke_color([h, s, v]);
             }
         }
     }

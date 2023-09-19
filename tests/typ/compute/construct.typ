@@ -133,7 +133,6 @@
 // Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: image)
 
-
 ---
 // Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
 #color.mix(red, green, space: calc.round)

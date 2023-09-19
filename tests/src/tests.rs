@@ -161,7 +161,7 @@ fn library() -> Library {
 
     #[func]
     fn test_repr(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
-        if lhs.clone().repr() != rhs.clone().repr() {
+        if lhs.repr() != rhs.repr() {
             bail!("Assertion failed: {lhs:?} != {rhs:?}");
         }
         Ok(NoneValue)

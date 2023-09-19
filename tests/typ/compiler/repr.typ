@@ -49,10 +49,11 @@
 #type((a: 1))
 
 ---
-#blue
-#color.linear-rgb(blue)
-#oklab(blue)
-#cmyk(blue)
-#color.hsl(blue)
-#color.hsv(blue)
+#set text(0.8em)
+#blue \
+#color.linear-rgb(blue) \
+#oklab(blue) \
+#cmyk(blue) \
+#color.hsl(blue) \
+#color.hsv(blue) \
 #luma(blue)

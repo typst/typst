@@ -20,7 +20,6 @@
 
 ---
 // The the different color spaces
-
 #let col = rgb(50%, 64%, 16%)
 #box(square(size: 9pt, fill: col))
 #box(square(size: 9pt, fill: rgb(col)))
@@ -33,7 +32,6 @@
 
 ---
 // Test hue rotation
-
 #let col = rgb(50%, 64%, 16%)
 
 #for x in range(0, 11) {
@@ -50,7 +48,6 @@
 
 ---
 // Test saturation
-
 #let col = color.hsl(180deg, 0%, 50%)
 #for x in range(0, 11) {
   box(square(size: 9pt, fill: col.saturate(x * 10%)))
