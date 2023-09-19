@@ -143,7 +143,7 @@ pub struct MatElem {
     #[default(Rel::from(Length::from(DEFAULT_ROW_GAP)))]
     #[parse(
         let gap = args.named("gap")?;
-        args.named("row-gap")?.or_else(|| gap.clone())
+        args.named("row-gap")?.or(gap)
     )]
     pub row_gap: Rel<Length>,
 
@@ -156,7 +156,7 @@ pub struct MatElem {
     #[default(Rel::from(Length::from(DEFAULT_COL_GAP)))]
     #[parse(
         let gap = args.named("gap")?;
-        args.named("col-gap")?.or_else(|| gap.clone())
+        args.named("col-gap")?.or(gap)
     )]
     pub col_gap: Rel<Length>,
 
@@ -372,12 +372,8 @@ fn layout_mat_body(
     col_gap: Rel<Length>,
     span: Span,
 ) -> SourceResult<Frame> {
-    let row_gap = row_gap
-        .relative_to(Length::from(ctx.regions.base().y))
-        .at(ctx.size);
-    let col_gap = col_gap
-        .relative_to(Length::from(ctx.regions.base().x))
-        .at(ctx.size);
+    let row_gap = row_gap.relative_to(Length::from(ctx.regions.base().y)).at(ctx.size);
+    let col_gap = col_gap.relative_to(Length::from(ctx.regions.base().x)).at(ctx.size);
 
     let half_row_gap = row_gap * 0.5;
     let half_col_gap = col_gap * 0.5;
