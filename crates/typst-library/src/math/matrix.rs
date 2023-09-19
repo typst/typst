@@ -35,12 +35,12 @@ pub struct VecElem {
     /// The gap between elements.
     ///
     /// ```example
-    /// #set math.vec(gap: 3em)
+    /// #set math.vec(gap: 1em)
     /// $ vec(1, 2) $
     /// ```
     #[resolve]
-    #[fold]
-    pub gap: Option<Rel<Length>>,
+    #[default(Rel::from(Length::from(DEFAULT_ROW_GAP)))]
+    pub gap: Rel<Length>,
 }
 
 impl LayoutMath for VecElem {
@@ -125,25 +125,40 @@ pub struct MatElem {
     #[fold]
     pub augment: Option<Augment>,
 
-    /// The gap between rows.
+    /// The gap between rows and columns.
     ///
     /// ```example
-    /// #set math.mat(row-gap: 3em)
+    /// #set math.mat(gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
-    #[fold]
-    pub row_gap: Option<Rel<Length>>,
+    #[external]
+    pub gap: Rel<Length>,
 
-    /// The gap between columns.
+    /// The gap between rows. Takes precedence over `gap`.
     ///
     /// ```example
-    /// #set math.mat(col-gap: 3em)
+    /// #set math.mat(row-gap: 1em)
     /// $ mat(1, 2; 3, 4) $
     /// ```
-    #[resolve]
-    #[fold]
-    pub col_gap: Option<Rel<Length>>,
+    #[default(Rel::from(Length::from(DEFAULT_ROW_GAP)))]
+    #[parse(
+        let gap = args.named("gap")?;
+        args.named("row-gap")?.or_else(|| gap.clone())
+    )]
+    pub row_gap: Rel<Length>,
+
+    /// The gap between columns. Takes precedence over `gap`.
+    ///
+    /// ```example
+    /// #set math.mat(col-gap: 1em)
+    /// $ mat(1, 2; 3, 4) $
+    /// ```
+    #[default(Rel::from(Length::from(DEFAULT_COL_GAP)))]
+    #[parse(
+        let gap = args.named("gap")?;
+        args.named("col-gap")?.or_else(|| gap.clone())
+    )]
+    pub col_gap: Rel<Length>,
 
     /// An array of arrays with the rows of the matrix.
     ///
@@ -265,12 +280,12 @@ pub struct CasesElem {
     /// The gap between branches.
     ///
     /// ```example
-    /// #set math.cases(gap: 3em)
+    /// #set math.cases(gap: 1em)
     /// $ x = cases(1, 2) $
     /// ```
     #[resolve]
-    #[fold]
-    pub gap: Option<Rel<Length>>,
+    #[default(Rel::from(Length::from(DEFAULT_ROW_GAP)))]
+    pub gap: Rel<Length>,
 }
 
 impl LayoutMath for CasesElem {
@@ -336,11 +351,9 @@ fn layout_vec_body(
     ctx: &mut MathContext,
     column: &[Content],
     align: FixedAlign,
-    row_gap: Option<Rel<Abs>>,
+    row_gap: Rel<Abs>,
 ) -> SourceResult<Frame> {
-    let gap = row_gap
-        .unwrap_or(Rel::from(DEFAULT_ROW_GAP.scaled(ctx)))
-        .relative_to(ctx.regions.base().y);
+    let gap = row_gap.relative_to(ctx.regions.base().y);
     ctx.style(ctx.style.for_denominator());
     let mut flat = vec![];
     for child in column {
@@ -355,16 +368,16 @@ fn layout_mat_body(
     ctx: &mut MathContext,
     rows: &[Vec<Content>],
     augment: Option<Augment<Abs>>,
-    row_gap: Option<Rel<Abs>>,
-    col_gap: Option<Rel<Abs>>,
+    row_gap: Rel<Length>,
+    col_gap: Rel<Length>,
     span: Span,
 ) -> SourceResult<Frame> {
     let row_gap = row_gap
-        .unwrap_or(Rel::from(DEFAULT_ROW_GAP.scaled(ctx)))
-        .relative_to(ctx.regions.base().y);
+        .relative_to(Length::from(ctx.regions.base().y))
+        .at(ctx.size);
     let col_gap = col_gap
-        .unwrap_or(Rel::from(DEFAULT_COL_GAP.scaled(ctx)))
-        .relative_to(ctx.regions.base().x);
+        .relative_to(Length::from(ctx.regions.base().x))
+        .at(ctx.size);
 
     let half_row_gap = row_gap * 0.5;
     let half_col_gap = col_gap * 0.5;
