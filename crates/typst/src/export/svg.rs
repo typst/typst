@@ -10,8 +10,8 @@ use xmlwriter::XmlWriter;
 use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Axes, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Ratio, Shape,
-    Size, Transform,
+    Abs, Angle, Axes, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem,
+    Ratio, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -299,13 +299,13 @@ impl SVGRenderer {
     /// Write a fill attribute.
     fn write_fill(&mut self, fill: &Paint) {
         let Paint::Solid(color) = fill;
-        self.xml.write_attribute("fill", &color.to_rgba().to_hex());
+        self.xml.write_attribute("fill", &color.encode());
     }
 
     /// Write a stroke attribute.
     fn write_stroke(&mut self, stroke: &FixedStroke) {
         let Paint::Solid(color) = stroke.paint;
-        self.xml.write_attribute("stroke", &color.to_rgba().to_hex());
+        self.xml.write_attribute("stroke", &color.encode());
         self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
         self.xml.write_attribute(
             "stroke-linecap",
@@ -652,5 +652,76 @@ impl ttf_parser::OutlineBuilder for SvgPathBuilder {
 
     fn close(&mut self) {
         write!(&mut self.0, "Z ").unwrap();
+    }
+}
+
+/// Encode the color as an SVG color.
+trait ColorEncode {
+    /// Encode the color.
+    fn encode(&self) -> EcoString;
+}
+
+impl ColorEncode for Color {
+    fn encode(&self) -> EcoString {
+        match *self {
+            c @ Color::Rgba(_)
+            | c @ Color::Luma(_)
+            | c @ Color::Cmyk(_)
+            | c @ Color::Hsv(_) => c.to_hex(),
+            Color::LinearRgb(rgb) => {
+                if rgb.alpha != 1.0 {
+                    eco_format!(
+                        "color(srgb-linear {:.3} {:.3} {:.3} / {:.3})",
+                        rgb.red,
+                        rgb.green,
+                        rgb.blue,
+                        rgb.alpha
+                    )
+                } else {
+                    eco_format!(
+                        "color(srgb-linear {:.3} {:.3} {:.3})",
+                        rgb.red,
+                        rgb.green,
+                        rgb.blue,
+                    )
+                }
+            }
+            Color::Oklab(oklab) => {
+                if oklab.alpha != 1.0 {
+                    eco_format!(
+                        "oklab({:?} {:.3} {:.3} / {:.3})",
+                        Ratio::new(oklab.l as f64),
+                        oklab.a,
+                        oklab.b,
+                        oklab.alpha
+                    )
+                } else {
+                    eco_format!(
+                        "oklab({:?} {:.3} {:.3})",
+                        Ratio::new(oklab.l as f64),
+                        oklab.a,
+                        oklab.b,
+                    )
+                }
+            }
+            Color::Hsl(hsl) => {
+                if hsl.alpha != 1.0 {
+                    eco_format!(
+                        "hsla({:?} {:?} {:?} / {:.3})",
+                        Angle::deg(hsl.hue.into_degrees() as f64),
+                        Ratio::new(hsl.saturation as f64),
+                        Ratio::new(hsl.lightness as f64),
+                        hsl.alpha,
+                    )
+                } else {
+                    eco_format!(
+                        "hsl({:?} {:?} {:?})",
+                        Angle::deg(hsl.hue.into_degrees() as f64),
+                        Ratio::new(hsl.saturation as f64),
+                        Ratio::new(hsl.lightness as f64),
+                    )
+                }
+            }
+        }
     }
 }

@@ -454,11 +454,12 @@ fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
     body
 }
 
-fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> RgbaColor {
-    RgbaColor { r, g, b, a }
+fn to_typst(synt::Color { r, g, b, a }: synt::Color) -> Color {
+    Color::from_u8(r, g, b, a)
 }
 
-fn to_syn(RgbaColor { r, g, b, a }: RgbaColor) -> synt::Color {
+fn to_syn(color: Color) -> synt::Color {
+    let [r, g, b, a] = color.to_vec4_u8();
     synt::Color { r, g, b, a }
 }
 
@@ -628,7 +629,7 @@ fn item(
     synt::ThemeItem {
         scope: scope.parse().unwrap(),
         style: synt::StyleModifier {
-            foreground: color.map(|s| to_syn(s.parse::<RgbaColor>().unwrap())),
+            foreground: color.map(|s| to_syn(s.parse::<Color>().unwrap())),
             background: None,
             font_style,
         },

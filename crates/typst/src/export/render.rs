@@ -362,7 +362,7 @@ fn render_outline_glyph(
         let mh = bitmap.height;
 
         let Paint::Solid(color) = text.fill;
-        let c = color.to_rgba();
+        let color = sk::ColorU8::from(color);
 
         // Pad the pixmap with 1 pixel in each dimension so that we do
         // not get any problem with floating point errors along their border
@@ -370,7 +370,14 @@ fn render_outline_glyph(
         for x in 0..mw {
             for y in 0..mh {
                 let alpha = bitmap.coverage[(y * mw + x) as usize];
-                let color = sk::ColorU8::from_rgba(c.r, c.g, c.b, alpha).premultiply();
+                let color = sk::ColorU8::from_rgba(
+                    color.red(),
+                    color.green(),
+                    color.blue(),
+                    alpha,
+                )
+                .premultiply();
+
                 pixmap.pixels_mut()[((y + 1) * (mw + 2) + (x + 1)) as usize] = color;
             }
         }
@@ -400,9 +407,7 @@ fn render_outline_glyph(
 
         // Premultiply the text color.
         let Paint::Solid(color) = text.fill;
-        let c = color.to_rgba();
-        let color =
-            bytemuck::cast(sk::ColorU8::from_rgba(c.r, c.g, c.b, 255).premultiply());
+        let color = bytemuck::cast(sk::ColorU8::from(color).premultiply());
 
         // Blend the glyph bitmap with the existing pixels on the canvas.
         let pixels = bytemuck::cast_slice_mut::<u8, u32>(canvas.data_mut());
@@ -629,8 +634,8 @@ impl From<&Paint> for sk::Paint<'static> {
 
 impl From<Color> for sk::Color {
     fn from(color: Color) -> Self {
-        let c = color.to_rgba();
-        sk::Color::from_rgba8(c.r, c.g, c.b, c.a)
+        let [r, g, b, a] = color.to_rgba().to_vec4_u8();
+        sk::Color::from_rgba8(r, g, b, a)
     }
 }
 
@@ -688,6 +693,13 @@ trait AbsExt {
 impl AbsExt for Abs {
     fn to_f32(self) -> f32 {
         self.to_pt() as f32
+    }
+}
+
+impl From<Color> for sk::ColorU8 {
+    fn from(value: Color) -> Self {
+        let [r, g, b, _] = value.to_rgba().to_vec4_u8();
+        sk::ColorU8::from_rgba(r, g, b, 255)
     }
 }
 

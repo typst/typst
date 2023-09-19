@@ -30,7 +30,7 @@ impl From<Scalar> for f64 {
 
 impl Debug for Scalar {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        self.0.fmt(f)
+        Debug::fmt(&self.0, f)
     }
 }
 

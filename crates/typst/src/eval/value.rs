@@ -604,7 +604,6 @@ primitive! { Plugin: "plugin", Plugin }
 mod tests {
     use super::*;
     use crate::eval::{array, dict};
-    use crate::geom::RgbaColor;
 
     #[track_caller]
     fn test(value: impl IntoValue, exp: &str) {
@@ -623,7 +622,6 @@ mod tests {
         test(Ratio::one() / 2.0, "50%");
         test(Ratio::new(0.3) + Length::from(Abs::cm(2.0)), "30% + 56.69pt");
         test(Fr::one() * 7.55, "7.55fr");
-        test(Color::Rgba(RgbaColor::new(1, 1, 1, 0xff)), "rgb(\"#010101\")");
 
         // Collections.
         test("hello", r#""hello""#);

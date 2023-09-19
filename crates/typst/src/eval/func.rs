@@ -378,6 +378,15 @@ impl PartialEq for Func {
     }
 }
 
+impl PartialEq<&NativeFuncData> for Func {
+    fn eq(&self, other: &&NativeFuncData) -> bool {
+        match &self.repr {
+            Repr::Native(native) => native.function == other.function,
+            _ => false,
+        }
+    }
+}
+
 impl From<Repr> for Func {
     fn from(repr: Repr) -> Self {
         Self { repr, span: Span::detached() }

@@ -1,11 +1,13 @@
 //! Exporting into PDF documents.
 
+mod color;
 mod extg;
 mod font;
 mod image;
 mod outline;
 mod page;
 
+pub use self::color::{ColorEncode, ColorSpaces};
 pub use self::page::{PdfPageLabel, PdfPageLabelStyle};
 
 use std::cmp::Eq;
@@ -43,15 +45,12 @@ pub fn pdf(document: &Document) -> Vec<u8> {
     ctx.writer.finish()
 }
 
-/// Identifies the color space definitions.
-const SRGB: Name<'static> = Name(b"srgb");
-const D65_GRAY: Name<'static> = Name(b"d65gray");
-
 /// Context for exporting a whole PDF document.
 pub struct PdfContext<'a> {
     document: &'a Document,
     introspector: Introspector,
     writer: PdfWriter,
+    colors: ColorSpaces,
     pages: Vec<Page>,
     page_heights: Vec<f32>,
     alloc: Ref,
@@ -81,6 +80,7 @@ impl<'a> PdfContext<'a> {
             document,
             introspector: Introspector::new(&document.pages),
             writer: PdfWriter::new(),
+            colors: ColorSpaces::default(),
             pages: vec![],
             page_heights: vec![],
             alloc,

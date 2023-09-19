@@ -24,7 +24,7 @@ use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
-use typst::geom::{Abs, Color, RgbaColor, Smart};
+use typst::geom::{Abs, Color, Smart};
 use typst::syntax::{FileId, PackageVersion, Source, Span, SyntaxNode, VirtualPath};
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
@@ -160,6 +160,14 @@ fn library() -> Library {
     }
 
     #[func]
+    fn test_repr(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
+        if lhs.repr() != rhs.repr() {
+            bail!("Assertion failed: {lhs:?} != {rhs:?}");
+        }
+        Ok(NoneValue)
+    }
+
+    #[func]
     fn print(#[variadic] values: Vec<Value>) -> NoneValue {
         let mut stdout = io::stdout().lock();
         write!(stdout, "> ").unwrap();
@@ -188,13 +196,14 @@ fn library() -> Library {
 
     // Hook up helpers into the global scope.
     lib.global.scope_mut().define_func::<test>();
+    lib.global.scope_mut().define_func::<test_repr>();
     lib.global.scope_mut().define_func::<print>();
     lib.global
         .scope_mut()
-        .define("conifer", RgbaColor::new(0x9f, 0xEB, 0x52, 0xFF));
+        .define("conifer", Color::from_u8(0x9f, 0xEB, 0x52, 0xFF));
     lib.global
         .scope_mut()
-        .define("forest", RgbaColor::new(0x43, 0xA1, 0x27, 0xFF));
+        .define("forest", Color::from_u8(0x43, 0xA1, 0x27, 0xFF));
 
     lib
 }

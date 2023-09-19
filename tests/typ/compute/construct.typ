@@ -3,7 +3,7 @@
 
 ---
 // Compare both ways.
-#test(rgb(0%, 30%, 70%), rgb("004db3"))
+#test-repr(rgb(0%, 30.2%, 70.2%), rgb("004db3"))
 
 // Alpha channel.
 #test(rgb(255, 0, 0, 50%), rgb("ff000080"))
@@ -15,24 +15,80 @@
 #test(white.lighten(100%), white)
 
 // Color mixing, in Oklab space by default.
-#test(color.mix(rgb("#ff0000"), rgb("#00ff00")), rgb("#d0a800"))
-#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "oklab"), rgb("#d0a800"))
-#test(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: "srgb"), rgb("#808000"))
+#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"))), rgb("#d0a800"))
+#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: oklab)), rgb("#d0a800"))
+#test(rgb(color.mix(rgb("#ff0000"), rgb("#00ff00"), space: rgb)), rgb("#808000"))
 
-#test(color.mix(red, green, blue), rgb("#909282"))
-#test(color.mix(red, blue, green), rgb("#909282"))
-#test(color.mix(blue, red, green), rgb("#909282"))
+#test(rgb(color.mix(red, green, blue)), rgb("#909282"))
+#test(rgb(color.mix(red, blue, green)), rgb("#909282"))
+#test(rgb(color.mix(blue, red, green)), rgb("#909282"))
 
 // Mix with weights.
-#test(color.mix((red, 50%), (green, 50%)), rgb("#c0983b"))
-#test(color.mix((red, 0.5), (green, 0.5)), rgb("#c0983b"))
-#test(color.mix((red, 5), (green, 5)), rgb("#c0983b"))
-#test(color.mix((green, 5), (white, 0), (red, 5)), rgb("#c0983b"))
-#test(color.mix((red, 100%), (green, 0%)), red)
-#test(color.mix((red, 0%), (green, 100%)), green)
-#test(color.mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: "srgb"), rgb("#aa40bf"))
-#test(color.mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: "srgb"), rgb("#aa8080"))
-#test(color.mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: "srgb"), rgb("#aabf40"))
+#test(rgb(color.mix((red, 50%), (green, 50%))), rgb("#c0983b"))
+#test(rgb(color.mix((red, 0.5), (green, 0.5))), rgb("#c0983b"))
+#test(rgb(color.mix((red, 5), (green, 5))), rgb("#c0983b"))
+#test(rgb(color.mix((green, 5), (white, 0), (red, 5))), rgb("#c0983b"))
+#test(color.mix((rgb("#aaff00"), 25%), (rgb("#aa00ff"), 75%), space: rgb), rgb("#aa40bf"))
+#test(color.mix((rgb("#aaff00"), 50%), (rgb("#aa00ff"), 50%), space: rgb), rgb("#aa8080"))
+#test(color.mix((rgb("#aaff00"), 75%), (rgb("#aa00ff"), 25%), space: rgb), rgb("#aabf40"))
+
+---
+// Test color conversion method kinds
+#test(rgb(rgb(10, 20, 30)).space(), rgb)
+#test(color.linear-rgb(rgb(10, 20, 30)).space(), color.linear-rgb)
+#test(oklab(rgb(10, 20, 30)).space(), oklab)
+#test(color.hsl(rgb(10, 20, 30)).space(), color.hsl)
+#test(color.hsv(rgb(10, 20, 30)).space(), color.hsv)
+#test(cmyk(rgb(10, 20, 30)).space(), cmyk)
+#test(luma(rgb(10, 20, 30)).space(), luma)
+
+#test(rgb(color.linear-rgb(10, 20, 30)).space(), rgb)
+#test(color.linear-rgb(color.linear-rgb(10, 20, 30)).space(), color.linear-rgb)
+#test(oklab(color.linear-rgb(10, 20, 30)).space(), oklab)
+#test(color.hsl(color.linear-rgb(10, 20, 30)).space(), color.hsl)
+#test(color.hsv(color.linear-rgb(10, 20, 30)).space(), color.hsv)
+#test(cmyk(color.linear-rgb(10, 20, 30)).space(), cmyk)
+#test(luma(color.linear-rgb(10, 20, 30)).space(), luma)
+
+#test(rgb(oklab(10%, 20%, 30%)).space(), rgb)
+#test(color.linear-rgb(oklab(10%, 20%, 30%)).space(), color.linear-rgb)
+#test(oklab(oklab(10%, 20%, 30%)).space(), oklab)
+#test(color.hsl(oklab(10%, 20%, 30%)).space(), color.hsl)
+#test(color.hsv(oklab(10%, 20%, 30%)).space(), color.hsv)
+#test(cmyk(oklab(10%, 20%, 30%)).space(), cmyk)
+#test(luma(oklab(10%, 20%, 30%)).space(), luma)
+
+#test(rgb(color.hsl(10deg, 20%, 30%)).space(), rgb)
+#test(color.linear-rgb(color.hsl(10deg, 20%, 30%)).space(), color.linear-rgb)
+#test(oklab(color.hsl(10deg, 20%, 30%)).space(), oklab)
+#test(color.hsl(color.hsl(10deg, 20%, 30%)).space(), color.hsl)
+#test(color.hsv(color.hsl(10deg, 20%, 30%)).space(), color.hsv)
+#test(cmyk(color.hsl(10deg, 20%, 30%)).space(), cmyk)
+#test(luma(color.hsl(10deg, 20%, 30%)).space(), luma)
+
+#test(rgb(color.hsv(10deg, 20%, 30%)).space(), rgb)
+#test(color.linear-rgb(color.hsv(10deg, 20%, 30%)).space(), color.linear-rgb)
+#test(oklab(color.hsv(10deg, 20%, 30%)).space(), oklab)
+#test(color.hsl(color.hsv(10deg, 20%, 30%)).space(), color.hsl)
+#test(color.hsv(color.hsv(10deg, 20%, 30%)).space(), color.hsv)
+#test(cmyk(color.hsv(10deg, 20%, 30%)).space(), cmyk)
+#test(luma(color.hsv(10deg, 20%, 30%)).space(), luma)
+
+#test(rgb(cmyk(10%, 20%, 30%, 40%)).space(), rgb)
+#test(color.linear-rgb(cmyk(10%, 20%, 30%, 40%)).space(), color.linear-rgb)
+#test(oklab(cmyk(10%, 20%, 30%, 40%)).space(), oklab)
+#test(color.hsl(cmyk(10%, 20%, 30%, 40%)).space(), color.hsl)
+#test(color.hsv(cmyk(10%, 20%, 30%, 40%)).space(), color.hsv)
+#test(cmyk(cmyk(10%, 20%, 30%, 40%)).space(), cmyk)
+#test(luma(cmyk(10%, 20%, 30%, 40%)).space(), luma)
+
+#test(rgb(luma(10%)).space(), rgb)
+#test(color.linear-rgb(luma(10%)).space(), color.linear-rgb)
+#test(oklab(luma(10%)).space(), oklab)
+#test(color.hsl(luma(10%)).space(), color.hsl)
+#test(color.hsv(luma(10%)).space(), color.hsv)
+#test(cmyk(luma(10%)).space(), cmyk)
+#test(luma(luma(10%)).space(), luma)
 
 ---
 // Test gray color conversion.
@@ -70,8 +126,16 @@
 #color.mix((red, 1, 2))
 
 ---
-// Error: 31-38 expected "oklab" or "srgb"
+// Error: 31-38 expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`, found string
 #color.mix(red, green, space: "cyber")
+
+---
+// Error: 31-36 expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
+#color.mix(red, green, space: image)
+
+---
+// Error: 31-41 expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`
+#color.mix(red, green, space: calc.round)
 
 ---
 // Ref: true

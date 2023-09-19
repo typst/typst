@@ -47,3 +47,13 @@
 #int \
 #type("hi") \
 #type((a: 1))
+
+---
+#set text(0.8em)
+#blue \
+#color.linear-rgb(blue) \
+#oklab(blue) \
+#cmyk(blue) \
+#color.hsl(blue) \
+#color.hsv(blue) \
+#luma(blue)
