@@ -25,7 +25,7 @@ use typst::doc::{Document, Frame, FrameItem, Meta};
 use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, Smart};
-use typst::syntax::{FileId, PackageVersion, Source, Span, SyntaxNode, VirtualPath};
+use typst::syntax::{FileId, PackageVersion, Source, SyntaxNode, VirtualPath};
 use typst::{World, WorldExt};
 use typst_library::layout::{Margin, PageElem};
 use typst_library::text::{TextElem, TextSize};
@@ -779,7 +779,6 @@ fn test_reparse(
     ];
 
     let mut ok = true;
-
     let mut apply = |replace: Range<usize>, with| {
         let mut incr_source = Source::detached(text);
         if incr_source.root().len() != text.len() {
@@ -795,18 +794,14 @@ fn test_reparse(
 
         let edited_src = incr_source.text();
         let ref_source = Source::detached(edited_src);
-        let mut ref_root = ref_source.root().clone();
-        let mut incr_root = incr_source.root().clone();
+        let ref_root = ref_source.root();
+        let incr_root = incr_source.root();
 
         // Ensures that the span numbering invariants hold.
-        let spans_ok = test_spans(output, &ref_root) && test_spans(output, &incr_root);
+        let spans_ok = test_spans(output, ref_root) && test_spans(output, incr_root);
 
-        // Remove all spans so that the comparison works out.
-        let tree_ok = {
-            ref_root.synthesize(Span::detached());
-            incr_root.synthesize(Span::detached());
-            ref_root == incr_root
-        };
+        // Ensure that the reference and incremental trees are the same.
+        let tree_ok = ref_root.spanless_eq(incr_root);
 
         if !tree_ok {
             writeln!(

@@ -164,6 +164,16 @@ impl SyntaxNode {
             Repr::Error(node) => Arc::make_mut(node).error.span = span,
         }
     }
+
+    /// Whether the two syntax nodes are the same apart from spans.
+    pub fn spanless_eq(&self, other: &Self) -> bool {
+        match (&self.0, &other.0) {
+            (Repr::Leaf(a), Repr::Leaf(b)) => a.spanless_eq(b),
+            (Repr::Inner(a), Repr::Inner(b)) => a.spanless_eq(b),
+            (Repr::Error(a), Repr::Error(b)) => a.spanless_eq(b),
+            _ => false,
+        }
+    }
 }
 
 impl SyntaxNode {
@@ -326,6 +336,11 @@ impl LeafNode {
     fn len(&self) -> usize {
         self.text.len()
     }
+
+    /// Whether the two leaf nodes are the same apart from spans.
+    fn spanless_eq(&self, other: &Self) -> bool {
+        self.kind == other.kind && self.text == other.text
+    }
 }
 
 impl Debug for LeafNode {
@@ -440,6 +455,20 @@ impl InnerNode {
         Ok(())
     }
 
+    /// Whether the two inner nodes are the same apart from spans.
+    fn spanless_eq(&self, other: &Self) -> bool {
+        self.kind == other.kind
+            && self.len == other.len
+            && self.descendants == other.descendants
+            && self.erroneous == other.erroneous
+            && self.children.len() == other.children.len()
+            && self
+                .children
+                .iter()
+                .zip(&other.children)
+                .all(|(a, b)| a.spanless_eq(b))
+    }
+
     /// Replaces a range of children with a replacement.
     ///
     /// May have mutated the children if it returns `Err(_)`.
@@ -449,6 +478,30 @@ impl InnerNode {
         replacement: Vec<SyntaxNode>,
     ) -> NumberingResult {
         let Some(id) = self.span.id() else { return Err(Unnumberable) };
+        let mut replacement_range = 0..replacement.len();
+
+        // Trim off common prefix.
+        while range.start < range.end
+            && replacement_range.start < replacement_range.end
+            && self.children[range.start]
+                .spanless_eq(&replacement[replacement_range.start])
+        {
+            range.start += 1;
+            replacement_range.start += 1;
+        }
+
+        // Trim off common suffix.
+        while range.start < range.end
+            && replacement_range.start < replacement_range.end
+            && self.children[range.end - 1]
+                .spanless_eq(&replacement[replacement_range.end - 1])
+        {
+            range.end -= 1;
+            replacement_range.end -= 1;
+        }
+
+        let mut replacement_vec = replacement;
+        let replacement = &replacement_vec[replacement_range.clone()];
         let superseded = &self.children[range.clone()];
 
         // Compute the new byte length.
@@ -470,9 +523,9 @@ impl InnerNode {
                 || self.children[range.end..].iter().any(SyntaxNode::erroneous));
 
         // Perform the replacement.
-        let replacement_count = replacement.len();
-        self.children.splice(range.clone(), replacement);
-        range.end = range.start + replacement_count;
+        self.children
+            .splice(range.clone(), replacement_vec.drain(replacement_range.clone()));
+        range.end = range.start + replacement_range.len();
 
         // Renumber the new children. Retries until it works, taking
         // exponentially more children into account.
@@ -577,6 +630,11 @@ impl ErrorNode {
     fn hint(&mut self, hint: impl Into<EcoString>) {
         self.error.hints.push(hint.into());
     }
+
+    /// Whether the two leaf nodes are the same apart from spans.
+    fn spanless_eq(&self, other: &Self) -> bool {
+        self.text == other.text && self.error.spanless_eq(&other.error)
+    }
 }
 
 impl Debug for ErrorNode {
@@ -595,6 +653,13 @@ pub struct SyntaxError {
     /// Additonal hints to the user, indicating how this error could be avoided
     /// or worked around.
     pub hints: Vec<EcoString>,
+}
+
+impl SyntaxError {
+    /// Whether the two errors are the same apart from spans.
+    fn spanless_eq(&self, other: &Self) -> bool {
+        self.message == other.message && self.hints == other.hints
+    }
 }
 
 /// A syntax node in a context.
