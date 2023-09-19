@@ -8,9 +8,7 @@
     %     PDF specification.
 
     % First we do H = (H * 360.0) % 360
-    3 2 roll 360 mul 360
-    2 copy div cvi mul exch sub abs
-    3 1 roll
+    3 2 roll 360 mul 3 1 roll
 
     % Compute C = V * S
     dup 3 1 roll mul

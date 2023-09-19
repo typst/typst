@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use pdf_writer::types::DeviceNSubtype;
-use pdf_writer::{writers, Dict, Filter, Finish, Name, PdfWriter, Ref};
+use pdf_writer::{writers, Dict, Filter, Name, PdfWriter, Ref};
 
 use crate::export::pdf::deflate;
 use crate::geom::{Color, ColorSpace, Colorful, Paint};
@@ -76,7 +76,6 @@ impl ColorSpaces {
                 self.write(ColorSpace::LinearRgb, oklab.alternate_color_space(), alloc);
                 oklab.tint_ref(self.oklab(alloc));
                 oklab.attrs().subtype(DeviceNSubtype::DeviceN);
-                oklab.finish();
             }
             ColorSpace::Srgb => writer.icc_based(self.srgb(alloc)),
             ColorSpace::D65Gray => writer.icc_based(self.d65_gray(alloc)),
@@ -96,14 +95,12 @@ impl ColorSpaces {
                 self.write(ColorSpace::Srgb, hsl.alternate_color_space(), alloc);
                 hsl.tint_ref(self.hsl(alloc));
                 hsl.attrs().subtype(DeviceNSubtype::DeviceN);
-                hsl.finish();
             }
             ColorSpace::Hsv => {
                 let mut hsv = writer.device_n([HSV_H, HSV_S, HSV_V]);
                 self.write(ColorSpace::Srgb, hsv.alternate_color_space(), alloc);
                 hsv.tint_ref(self.hsv(alloc));
                 hsv.attrs().subtype(DeviceNSubtype::DeviceN);
-                hsv.finish();
             }
             ColorSpace::Cmyk => writer.device_cmyk(),
         }
@@ -194,13 +191,13 @@ impl ColorSpaces {
 }
 
 // The ICC profiles
-const SRGB_ICC: &[u8] = include_bytes!("../../../icc/sRGB-v4.icc");
-const GRAY_ICC: &[u8] = include_bytes!("../../../icc/sGrey-v4.icc");
+const SRGB_ICC: &[u8] = include_bytes!("./icc/sRGB-v4.icc");
+const GRAY_ICC: &[u8] = include_bytes!("./icc/sGrey-v4.icc");
 
-///The PostScript functions for color spaces
-const OKLAB_SOURCE: &str = include_str!("../../../post-script/oklab.ps");
-const HSL_SOURCE: &str = include_str!("../../../post-script/hsl.ps");
-const HSV_SOURCE: &str = include_str!("../../../post-script/hsv.ps");
+// The PostScript functions for color spaces
+const OKLAB_SOURCE: &str = include_str!("./postscript/oklab.ps");
+const HSL_SOURCE: &str = include_str!("./postscript/hsl.ps");
+const HSV_SOURCE: &str = include_str!("./postscript/hsv.ps");
 
 // The name of the color spaces
 pub const SRGB: Name<'static> = Name(b"srgb");
@@ -236,27 +233,45 @@ fn gray_icc() -> Arc<Vec<u8>> {
 /// Deflated Oklab PostScript function
 #[comemo::memoize]
 fn oklab_function() -> Arc<Vec<u8>> {
-    let code = unscanny(OKLAB_SOURCE);
+    let code = minify(OKLAB_SOURCE);
     Arc::new(deflate(code.as_bytes()))
 }
 
 /// Deflated HSV PostScript function
 #[comemo::memoize]
 fn hsv_function() -> Arc<Vec<u8>> {
-    let code = unscanny(HSV_SOURCE);
+    let code = minify(HSV_SOURCE);
     Arc::new(deflate(code.as_bytes()))
 }
 
 /// Deflated HSL PostScript function
 #[comemo::memoize]
 fn hsl_function() -> Arc<Vec<u8>> {
-    let code = unscanny(HSL_SOURCE);
+    let code = minify(HSL_SOURCE);
     Arc::new(deflate(code.as_bytes()))
 }
 
 /// This function removes comments, line spaces and carriage returns from a
 /// PostScript program. This is necessary to optimize the size of the PDF file.
-fn unscanny(source: &str) -> String {
+fn minify(source: &str) -> String {
+    /*let mut buf = String::with_capacity(source.len());
+    let mut s = unscanny::Scanner::new(source);
+    while let Some(c) = s.eat() {
+        match c {
+            '%' => {
+                s.eat_until('\n');
+            }
+            c if c.is_whitespace() => {
+                s.eat_whitespace();
+                if buf.ends_with(|c: char| !c.is_whitespace()) {
+                    buf.push(' ');
+                }
+            }
+            _ => buf.push(c),
+        }
+    }
+    buf*/
+
     let mut buf = String::with_capacity(source.len());
     let mut in_comment = false;
     let mut in_line_space = false;
@@ -312,11 +327,11 @@ impl ColorPdfEncode for ColorSpace {
             }
             ColorSpace::Hsl => {
                 let [h, s, l, _] = color.to_hsl().components();
-                [h.to_degrees() / 360.0, s, l, 0.0]
+                [h / 360.0, s, l, 0.0]
             }
             ColorSpace::Hsv => {
                 let [h, s, v, _] = color.to_hsv().components();
-                [h.to_degrees() / 360.0, s, v, 0.0]
+                [h / 360.0, s, v, 0.0]
             }
             _ => Colorful::components(color),
         }

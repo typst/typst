@@ -1,13 +1,13 @@
-use std::fmt::Display;
 use std::str::FromStr;
 
 use ecow::{eco_format, EcoString};
 use palette::encoding::{self, Linear};
 use palette::{Darken, Desaturate, FromColor, Lighten, RgbHue, Saturate, ShiftHue};
 
+use super::scalar::F32Scalar;
 use super::*;
 use crate::diag::{bail, At, SourceResult};
-use crate::eval::{cast, Args, Array, Func, Str};
+use crate::eval::{cast, Args, Array, Str};
 use crate::syntax::Spanned;
 
 // Type aliases for `palette` internal types in f32.
@@ -46,19 +46,19 @@ type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 #[derive(Copy, Clone, Eq, PartialEq, Hash)]
 #[ty(scope)]
 pub enum Color {
-    /// A 64-bit luma color.
+    /// A 32-bit luma color.
     Luma(LumaColor),
-    /// A 64-bit L*a*b* color in the Oklab color space.
+    /// A 32-bit L*a*b* color in the Oklab color space.
     Oklab(OklabColor),
-    /// A 64-bit linear RGB color.
+    /// A 32-bit linear RGB color.
     LinearRgb(LinearRgbColor),
-    /// A 64-bit RGBA color.
+    /// A 32-bit RGBA color.
     Rgba(RgbaColor),
-    /// A 64-bit CMYK color.
+    /// A 32-bit CMYK color.
     Cmyk(CmykColor),
-    /// A 64-bit HSL color.
+    /// A 32-bit HSL color.
     Hsl(HslColor),
-    /// A 64-bit HSV color.
+    /// A 32-bit HSV color.
     Hsv(HsvColor),
 }
 
@@ -274,10 +274,10 @@ impl Colorful for Color {
 
 #[scope]
 impl Color {
-    pub const BLACK: Self = Self::Luma(LumaColor(F32Scalar(0.0)));
-    pub const GRAY: Self = Self::Luma(LumaColor(F32Scalar(0.6666666)));
-    pub const WHITE: Self = Self::Luma(LumaColor(F32Scalar(1.0)));
-    pub const SILVER: Self = Self::Luma(LumaColor(F32Scalar(0.8666667)));
+    pub const BLACK: Self = Self::Luma(LumaColor::new(0.0));
+    pub const GRAY: Self = Self::Luma(LumaColor::new(0.6666666));
+    pub const WHITE: Self = Self::Luma(LumaColor::new(1.0));
+    pub const SILVER: Self = Self::Luma(LumaColor::new(0.8666667));
     pub const NAVY: Self = Self::Rgba(RgbaColor::new(0.0, 0.121569, 0.247059, 1.0));
     pub const BLUE: Self = Self::Rgba(RgbaColor::new(0.0, 0.454902, 0.85098, 1.0));
     pub const AQUA: Self = Self::Rgba(RgbaColor::new(0.4980392, 0.858823, 1.0, 1.0));
@@ -299,8 +299,7 @@ impl Color {
 
     /// Create a grayscale color.
     ///
-    /// A grayscale color is represented internally by an array of one components:
-    /// - lightness ([`ratio`]($ratio))
+    /// A grayscale color is represented internally by a single `lightness` component.
     ///
     /// These components are also available using the [`components`]($color.components)
     /// method.
@@ -315,9 +314,9 @@ impl Color {
         /// The real arguments (the other arguments are just for the docs, this
         /// function is a bit involved, so we parse the arguments manually).
         args: Args,
-        /// The gray component.
+        /// The lightness component.
         #[external]
-        gray: Component,
+        lightness: Component,
         /// The color to convert to grayscale.
         #[external]
         color: Color,
@@ -1042,37 +1041,28 @@ cast! {
         Self::Cmyk => Color::cmyk_data(),
     }.into_value(),
     v: Value => {
-        if !matches!(v, Value::Func(_)) {
+        let Value::Func(func) = v else {
             bail!(
                 "expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`, found {}",
                 v.ty()
             );
-        }
-
-        let func = v
-            .cast::<Func>()
-            .unwrap()
-            .native()
-            .ok_or(
-                "expected `rgb`, `luma`, `cmyk`, `oklab`, `color.linear-rgb`, `color.hsl`, or `color.hsv`"
-            )?
-            .function;
+        };
 
         // Here comparing the function pointer since it's `Eq`
         // whereas the `NativeFuncData` is not.
-        if func == Color::oklab_data().function {
+        if func == Color::oklab_data() {
             Self::Oklab
-        } else if func == Color::rgb_data().function {
+        } else if func == Color::rgb_data() {
             Self::Srgb
-        } else if func == Color::luma_data().function {
+        } else if func == Color::luma_data() {
             Self::D65Gray
-        } else if func == Color::linear_rgb_data().function {
+        } else if func == Color::linear_rgb_data() {
             Self::LinearRgb
-        } else if func == Color::hsl_data().function {
+        } else if func == Color::hsl_data() {
             Self::Hsl
-        } else if func == Color::hsv_data().function {
+        } else if func == Color::hsv_data() {
             Self::Hsv
-        } else if func == Color::cmyk_data().function {
+        } else if func == Color::cmyk_data() {
             Self::Cmyk
         } else {
             bail!(
@@ -1111,8 +1101,8 @@ impl From<LumaColor> for Luma {
 }
 
 impl LumaColor {
-    pub fn new(l: f32) -> Self {
-        Self(l.into())
+    pub const fn new(l: f32) -> Self {
+        Self(F32Scalar(l))
     }
 }
 
@@ -2247,71 +2237,5 @@ mod tests {
         test("f075ff011", "color string has wrong length");
         test("hmmm", "color string contains non-hexadecimal letters");
         test("14B2AH", "color string contains non-hexadecimal letters");
-    }
-}
-
-/// A 32-bit float that implements `Eq`, `Ord` and `Hash`.
-///
-/// Panics if it's `NaN` during any of those operations.
-#[derive(Default, Copy, Clone)]
-pub struct F32Scalar(f32);
-
-impl F32Scalar {
-    /// Get the underlying float.
-    #[inline]
-    pub fn get(self) -> f32 {
-        self.0
-    }
-}
-
-impl From<f32> for F32Scalar {
-    fn from(float: f32) -> Self {
-        Self(float)
-    }
-}
-
-impl From<f64> for F32Scalar {
-    fn from(float: f64) -> Self {
-        Self(float as f32)
-    }
-}
-
-impl From<F32Scalar> for f32 {
-    fn from(scalar: F32Scalar) -> Self {
-        scalar.0
-    }
-}
-
-impl Debug for F32Scalar {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.0, f)
-    }
-}
-
-impl Display for F32Scalar {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Display::fmt(&self.0, f)
-    }
-}
-
-impl Eq for F32Scalar {}
-
-impl PartialEq for F32Scalar {
-    fn eq(&self, other: &Self) -> bool {
-        assert!(!self.0.is_nan() && !other.0.is_nan(), "float is NaN");
-        self.0 == other.0
-    }
-}
-
-impl PartialEq<f32> for F32Scalar {
-    fn eq(&self, other: &f32) -> bool {
-        self == &Self(*other)
-    }
-}
-
-impl Hash for F32Scalar {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        debug_assert!(!self.0.is_nan(), "float is NaN");
-        self.0.to_bits().hash(state);
     }
 }

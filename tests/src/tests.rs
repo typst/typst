@@ -17,7 +17,6 @@ use oxipng::{InFile, Options, OutFile};
 use rayon::iter::{ParallelBridge, ParallelIterator};
 use std::cell::OnceCell;
 use tiny_skia as sk;
-use typst_library::compute::repr;
 use unscanny::Scanner;
 use walkdir::WalkDir;
 
@@ -162,7 +161,7 @@ fn library() -> Library {
 
     #[func]
     fn test_repr(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
-        if repr(lhs.clone()) != repr(rhs.clone()) {
+        if lhs.clone().repr() != rhs.clone().repr() {
             bail!("Assertion failed: {lhs:?} != {rhs:?}");
         }
         Ok(NoneValue)
