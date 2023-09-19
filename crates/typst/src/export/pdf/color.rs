@@ -254,7 +254,7 @@ fn hsl_function() -> Arc<Vec<u8>> {
 /// This function removes comments, line spaces and carriage returns from a
 /// PostScript program. This is necessary to optimize the size of the PDF file.
 fn minify(source: &str) -> String {
-    /*let mut buf = String::with_capacity(source.len());
+    let mut buf = String::with_capacity(source.len());
     let mut s = unscanny::Scanner::new(source);
     while let Some(c) = s.eat() {
         match c {
@@ -268,35 +268,6 @@ fn minify(source: &str) -> String {
                 }
             }
             _ => buf.push(c),
-        }
-    }
-    buf*/
-
-    let mut buf = String::with_capacity(source.len());
-    let mut in_comment = false;
-    let mut in_line_space = false;
-    for c in source.chars() {
-        match c {
-            '%' => in_comment = true,
-            '\n' => {
-                if !in_line_space {
-                    buf.push(' ');
-                }
-
-                in_comment = false;
-                in_line_space = true;
-            }
-            '\r' => {}
-            _ if in_comment => {}
-            _ if in_line_space => {
-                if !c.is_whitespace() {
-                    in_line_space = false;
-                    buf.push(c);
-                }
-            }
-            _ => {
-                buf.push(c);
-            }
         }
     }
     buf
