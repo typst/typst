@@ -1,7 +1,7 @@
 // Test matrices, cases and vec gaps
 
 ---
-#set math.mat(row-gap: 1em, col-gap: 1em)
+#set math.mat(row-gap: 1em, column-gap: 2em)
 $ mat(1, 2; 3, 4) $
 
 ---
