@@ -2,8 +2,8 @@ use typst::model::Resolve;
 
 use super::*;
 
-const ROW_GAP: Em = Em::new(0.5);
-const COL_GAP: Em = Em::new(0.5);
+const DEFAULT_ROW_GAP: Em = Em::new(0.5);
+const DEFAULT_COL_GAP: Em = Em::new(0.5);
 const VERTICAL_PADDING: Ratio = Ratio::new(0.1);
 
 const DEFAULT_STROKE_THICKNESS: Em = Em::new(0.05);
@@ -28,6 +28,16 @@ pub struct VecElem {
     #[default(Some(Delimiter::Paren))]
     pub delim: Option<Delimiter>,
 
+    /// The gap between elements.
+    ///
+    /// ```example
+    /// #set math.vec(gap: 1em)
+    /// $ vec(1, 2) $
+    /// ```
+    #[resolve]
+    #[default(DEFAULT_ROW_GAP.into())]
+    pub gap: Rel<Length>,
+
     /// The elements of the vector.
     #[variadic]
     pub children: Vec<Content>,
@@ -37,7 +47,12 @@ impl LayoutMath for VecElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
-        let frame = layout_vec_body(ctx, &self.children(), FixedAlign::Center)?;
+        let frame = layout_vec_body(
+            ctx,
+            &self.children(),
+            FixedAlign::Center,
+            self.gap(ctx.styles()),
+        )?;
         layout_delimiters(
             ctx,
             frame,
@@ -110,6 +125,40 @@ pub struct MatElem {
     #[fold]
     pub augment: Option<Augment>,
 
+    /// The gap between rows and columns.
+    ///
+    /// ```example
+    /// #set math.mat(gap: 1em)
+    /// $ mat(1, 2; 3, 4) $
+    /// ```
+    #[external]
+    pub gap: Rel<Length>,
+
+    /// The gap between rows. Takes precedence over `gap`.
+    ///
+    /// ```example
+    /// #set math.mat(row-gap: 1em)
+    /// $ mat(1, 2; 3, 4) $
+    /// ```
+    #[resolve]
+    #[parse(
+        let gap = args.named("gap")?;
+        args.named("row-gap")?.or(gap)
+    )]
+    #[default(DEFAULT_ROW_GAP.into())]
+    pub row_gap: Rel<Length>,
+
+    /// The gap between columns. Takes precedence over `gap`.
+    ///
+    /// ```example
+    /// #set math.mat(column-gap: 1em)
+    /// $ mat(1, 2; 3, 4) $
+    /// ```
+    #[resolve]
+    #[parse(args.named("column-gap")?.or(gap))]
+    #[default(DEFAULT_COL_GAP.into())]
+    pub column_gap: Rel<Length>,
+
     /// An array of arrays with the rows of the matrix.
     ///
     /// ```example
@@ -179,8 +228,13 @@ impl LayoutMath for MatElem {
         }
 
         let delim = self.delim(ctx.styles());
-
-        let frame = layout_mat_body(ctx, &self.rows(), augment, self.span())?;
+        let frame = layout_mat_body(
+            ctx,
+            &self.rows(),
+            augment,
+            Axes::new(self.column_gap(ctx.styles()), self.row_gap(ctx.styles())),
+            self.span(),
+        )?;
 
         layout_delimiters(
             ctx,
@@ -216,6 +270,16 @@ pub struct CasesElem {
     #[default(Delimiter::Brace)]
     pub delim: Delimiter,
 
+    /// The gap between branches.
+    ///
+    /// ```example
+    /// #set math.cases(gap: 1em)
+    /// $ x = cases(1, 2) $
+    /// ```
+    #[resolve]
+    #[default(DEFAULT_ROW_GAP.into())]
+    pub gap: Rel<Length>,
+
     /// The branches of the case distinction.
     #[variadic]
     pub children: Vec<Content>,
@@ -225,7 +289,12 @@ impl LayoutMath for CasesElem {
     #[tracing::instrument(skip(ctx))]
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
         let delim = self.delim(ctx.styles());
-        let frame = layout_vec_body(ctx, &self.children(), FixedAlign::Start)?;
+        let frame = layout_vec_body(
+            ctx,
+            &self.children(),
+            FixedAlign::Start,
+            self.gap(ctx.styles()),
+        )?;
         layout_delimiters(ctx, frame, Some(delim.open()), None, self.span())
     }
 }
@@ -279,8 +348,9 @@ fn layout_vec_body(
     ctx: &mut MathContext,
     column: &[Content],
     align: FixedAlign,
+    row_gap: Rel<Abs>,
 ) -> SourceResult<Frame> {
-    let gap = ROW_GAP.scaled(ctx);
+    let gap = row_gap.relative_to(ctx.regions.base().y);
     ctx.style(ctx.style.for_denominator());
     let mut flat = vec![];
     for child in column {
@@ -295,13 +365,11 @@ fn layout_mat_body(
     ctx: &mut MathContext,
     rows: &[Vec<Content>],
     augment: Option<Augment<Abs>>,
+    gap: Axes<Rel<Abs>>,
     span: Span,
 ) -> SourceResult<Frame> {
-    let row_gap = ROW_GAP.scaled(ctx);
-    let col_gap = COL_GAP.scaled(ctx);
-
-    let half_row_gap = row_gap * 0.5;
-    let half_col_gap = col_gap * 0.5;
+    let gap = gap.zip_map(ctx.regions.base(), Rel::relative_to);
+    let half_gap = gap * 0.5;
 
     // We provide a default stroke thickness that scales
     // with font size to ensure that augmentation lines
@@ -359,7 +427,7 @@ fn layout_mat_body(
     // For each row, combine maximum ascent and descent into a row height.
     // Sum the row heights, then add the total height of the gaps between rows.
     let total_height =
-        heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + row_gap * (nrows - 1) as f64;
+        heights.iter().map(|&(a, b)| a + b).sum::<Abs>() + gap.y * (nrows - 1) as f64;
 
     // Width starts at zero because it can't be calculated until later
     let mut frame = Frame::new(Size::new(Abs::zero(), total_height));
@@ -380,7 +448,7 @@ fn layout_mat_body(
 
             frame.push_frame(pos, cell);
 
-            y += ascent + descent + row_gap;
+            y += ascent + descent + gap.y;
         }
 
         // Advance to the end of the column
@@ -389,23 +457,23 @@ fn layout_mat_body(
         // If a vertical line should be inserted after this column
         if vline.0.contains(&(index + 1)) {
             frame.push(
-                Point::with_x(x + half_col_gap),
+                Point::with_x(x + half_gap.x),
                 line_item(total_height, true, stroke.clone(), span),
             );
         }
 
         // Advance to the start of the next column
-        x += col_gap;
+        x += gap.x;
     }
 
     // Once all the columns are laid out, the total width can be calculated
-    let total_width = x - col_gap;
+    let total_width = x - gap.x;
 
     // This allows the horizontal lines to be laid out
     for line in hline.0 {
         let offset = (heights[0..line].iter().map(|&(a, b)| a + b).sum::<Abs>()
-            + row_gap * (line - 1) as f64)
-            + half_row_gap;
+            + gap.y * (line - 1) as f64)
+            + half_gap.y;
 
         frame.push(
             Point::with_y(offset),
