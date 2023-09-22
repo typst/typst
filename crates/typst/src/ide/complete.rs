@@ -457,10 +457,9 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(ast::Expr::Import(import)) = prev.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = prev.children().find(|child| child.is::<ast::Expr>());
-        if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.cursor;
-            import_item_completions(ctx, items, &value);
+            import_item_completions(ctx, items, &source);
             return true;
         }
     }
@@ -475,10 +474,9 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
         if let Some(ast::Expr::Import(import)) = grand.get().cast();
         if let Some(ast::Imports::Items(items)) = import.imports();
         if let Some(source) = grand.children().find(|child| child.is::<ast::Expr>());
-        if let Some(value) = analyze_expr(ctx.world, &source).into_iter().next();
         then {
             ctx.from = ctx.leaf.offset();
-            import_item_completions(ctx, items, &value);
+            import_item_completions(ctx, items, &source);
             return true;
         }
     }
@@ -490,22 +488,16 @@ fn complete_imports(ctx: &mut CompletionContext) -> bool {
 fn import_item_completions<'a>(
     ctx: &mut CompletionContext<'a>,
     existing: ast::ImportItems<'a>,
-    value: &Value,
+    source: &LinkedNode,
 ) {
-    let module = match value {
-        Value::Str(path) => match analyze_import(ctx.world, ctx.source, path) {
-            Some(module) => module,
-            None => return,
-        },
-        Value::Module(module) => module.clone(),
-        _ => return,
-    };
+    let Some(value) = analyze_import(ctx.world, source) else { return };
+    let Some(scope) = value.scope() else { return };
 
     if existing.iter().next().is_none() {
         ctx.snippet_completion("*", "*", "Import everything.");
     }
 
-    for (name, value) in module.scope().iter() {
+    for (name, value) in scope.iter() {
         if existing.iter().all(|item| item.original_name().as_str() != name) {
             ctx.value_completion(Some(name.clone()), value, false, None);
         }
@@ -955,7 +947,6 @@ struct CompletionContext<'a> {
     world: &'a (dyn World + 'static),
     frames: &'a [Frame],
     library: &'a Library,
-    source: &'a Source,
     global: &'a Scope,
     math: &'a Scope,
     text: &'a str,
@@ -985,7 +976,6 @@ impl<'a> CompletionContext<'a> {
             world,
             frames,
             library,
-            source,
             global: library.global.scope(),
             math: library.math.scope(),
             text,

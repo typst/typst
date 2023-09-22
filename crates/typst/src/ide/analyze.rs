@@ -2,9 +2,9 @@ use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
 
 use crate::doc::Frame;
-use crate::eval::{eval, Module, Route, Tracer, Value};
-use crate::model::{Introspector, Label};
-use crate::syntax::{ast, LinkedNode, Source, SyntaxKind};
+use crate::eval::{Route, Scopes, Tracer, Value, Vm};
+use crate::model::{DelayedErrors, Introspector, Label, Locator, Vt};
+use crate::syntax::{ast, LinkedNode, Span, SyntaxKind};
 use crate::World;
 
 /// Try to determine a set of possible values for an expression.
@@ -44,12 +44,30 @@ pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
 }
 
 /// Try to load a module from the current source file.
-pub fn analyze_import(world: &dyn World, source: &Source, path: &str) -> Option<Module> {
-    let route = Route::default();
+pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
+    let id = source.span().id()?;
+    let source = analyze_expr(world, source).into_iter().next()?;
+    if source.scope().is_some() {
+        return Some(source);
+    }
+
+    let mut locator = Locator::default();
+    let introspector = Introspector::default();
+    let mut delayed = DelayedErrors::new();
     let mut tracer = Tracer::new();
-    let id = source.id().join(path);
-    let source = world.source(id).ok()?;
-    eval(world.track(), route.track(), tracer.track_mut(), &source).ok()
+    let vt = Vt {
+        world: world.track(),
+        introspector: introspector.track(),
+        locator: &mut locator,
+        delayed: delayed.track_mut(),
+        tracer: tracer.track_mut(),
+    };
+
+    let route = Route::default();
+    let mut vm = Vm::new(vt, route.track(), Some(id), Scopes::new(Some(world.library())));
+    crate::eval::import(&mut vm, source, Span::detached(), true)
+        .ok()
+        .map(Value::Module)
 }
 
 /// Find all labels and details for them.
