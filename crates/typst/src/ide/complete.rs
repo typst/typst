@@ -1195,6 +1195,7 @@ impl<'a> CompletionContext<'a> {
     }
 
     /// Add completions for definitions that are available at the cursor.
+    ///
     /// Filters the global/math scope with the given filter.
     fn scope_completions(&mut self, parens: bool, filter: impl Fn(&Value) -> bool) {
         let mut defined = BTreeSet::new();
@@ -1203,20 +1204,47 @@ impl<'a> CompletionContext<'a> {
         while let Some(node) = &ancestor {
             let mut sibling = Some(node.clone());
             while let Some(node) = &sibling {
-                if let Some(v) = node.get().cast::<ast::LetBinding>() {
+                if let Some(v) = node.cast::<ast::LetBinding>() {
                     for ident in v.kind().idents() {
-                        defined.insert(ident.get());
+                        defined.insert(ident.get().clone());
                     }
                 }
+
+                if let Some(v) = node.cast::<ast::ModuleImport>() {
+                    let imports = v.imports();
+                    match imports {
+                        None | Some(ast::Imports::Wildcard) => {
+                            if let Some(value) = node
+                                .children()
+                                .find(|child| child.is::<ast::Expr>())
+                                .and_then(|source| analyze_import(self.world, &source))
+                            {
+                                if imports.is_none() {
+                                    defined.extend(value.name().map(Into::into));
+                                } else if let Some(scope) = value.scope() {
+                                    for (name, _) in scope.iter() {
+                                        defined.insert(name.clone());
+                                    }
+                                }
+                            }
+                        }
+                        Some(ast::Imports::Items(items)) => {
+                            for item in items.iter() {
+                                defined.insert(item.bound_name().get().clone());
+                            }
+                        }
+                    }
+                }
+
                 sibling = node.prev_sibling();
             }
 
             if let Some(parent) = node.parent() {
-                if let Some(v) = parent.get().cast::<ast::ForLoop>() {
+                if let Some(v) = parent.cast::<ast::ForLoop>() {
                     if node.prev_sibling_kind() != Some(SyntaxKind::In) {
                         let pattern = v.pattern();
                         for ident in pattern.idents() {
-                            defined.insert(ident.get());
+                            defined.insert(ident.get().clone());
                         }
                     }
                 }
@@ -1247,7 +1275,7 @@ impl<'a> CompletionContext<'a> {
             if !name.is_empty() {
                 self.completions.push(Completion {
                     kind: CompletionKind::Constant,
-                    label: name.clone(),
+                    label: name,
                     apply: None,
                     detail: None,
                 });

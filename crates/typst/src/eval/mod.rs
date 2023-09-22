@@ -1743,21 +1743,17 @@ impl Eval for ast::ModuleImport<'_> {
         let new_name = self.new_name();
         let imports = self.imports();
 
-        let name = match &source {
+        match &source {
             Value::Func(func) => {
-                func.scope()
-                    .ok_or("cannot import from user-defined functions")
-                    .at(source_span)?;
-                func.name().unwrap_or_default().into()
+                if func.scope().is_none() {
+                    bail!(source_span, "cannot import from user-defined functions");
+                }
             }
-            Value::Type(ty) => ty.short_name().into(),
+            Value::Type(_) => {}
             other => {
-                let module = import(vm, other.clone(), source_span, true)?;
-                let name = module.name().clone();
-                source = Value::Module(module);
-                name
+                source = Value::Module(import(vm, other.clone(), source_span, true)?);
             }
-        };
+        }
 
         if let Some(new_name) = &new_name {
             if let ast::Expr::Ident(ident) = self.source() {
@@ -1779,6 +1775,7 @@ impl Eval for ast::ModuleImport<'_> {
             None => {
                 // Only import here if there is no rename.
                 if new_name.is_none() {
+                    let name: EcoString = source.name().unwrap().into();
                     vm.scopes.top.define(name, source);
                 }
             }
