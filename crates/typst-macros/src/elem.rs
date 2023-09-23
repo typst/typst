@@ -406,13 +406,6 @@ fn create_pack_impl(element: &Elem) -> TokenStream {
                     ::std::mem::transmute(content)
                 })
             }
-
-            fn mut_unpack(content: &#model::Content) -> ::std::option::Option<&mut Self> {
-                // Safety: Elements are #[repr(transparent)].
-                content.is::<Self>().then(|| unsafe {
-                    ::std::mem::transmute(content)
-                })
-            }
         }
     }
 }

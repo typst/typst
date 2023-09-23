@@ -121,10 +121,6 @@ impl Content {
         T::unpack(self)
     }
 
-    pub fn mut_to<T: NativeElement>(&self) -> Option<&mut T> {
-        T::mut_unpack(self)
-    }
-
     /// Access the children if this is a sequence.
     pub fn to_sequence(&self) -> Option<impl Iterator<Item = &Self>> {
         if !self.is_sequence() {
