@@ -5,7 +5,7 @@
 #set smartquote(double-bikeshed: "«»")
 "Double and 'Single' Quotes"
 
-#set smartquote(double-bikeshed: ("<[", "]>"), single: "«»")
+#set smartquote(double-bikeshed: auto, single: "«»")
 "Double and 'Single' Quotes"
 
 ---
