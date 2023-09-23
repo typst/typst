@@ -311,11 +311,16 @@ cast! {
     },
     value: Str => {
         let mut iter = value.as_str().graphemes(true);
-        let open = iter.next().ok_or_else(|| eco_format!("missing opening quote"))?;
-        let close = iter.next().ok_or_else(|| eco_format!("missing closing quote"))?;
+        let open = iter
+            .next()
+            .ok_or_else(|| eco_format!("expected 2 characters, got 0 characters"))?;
+        let close = iter
+            .next()
+            .ok_or_else(|| eco_format!("expected 2 characters, got 1 character"))?;
 
-        if iter.next().is_some() {
-            bail!("expected only 2 characters, got unexpected additional character");
+        let count = iter.count();
+        if count > 0 {
+            bail!("expected 2 characters, got {count} character{}", if count > 1 {"s"} else {""});
         }
 
         Self {
@@ -325,10 +330,12 @@ cast! {
     },
     value: Array => {
         let value = value.as_slice();
-        match value.len() {
-            2 => {},
-            0 | 1 => bail!("array must contain an opening and closing quote"),
-            _ => bail!("expected only 2 quotes, got unexpected additional quote"),
+        if value.len() != 2 {
+            bail!(
+                "expected 2 quotes, got {} quote{}",
+                value.len(),
+                if value.len() > 1 {"s"} else {""}
+            );
         }
 
         let open: EcoString = value[0].clone().cast()?;

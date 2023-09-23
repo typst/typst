@@ -9,14 +9,14 @@
 "Double and 'Single' Quotes"
 
 ---
-// Error: 25-30 expected only 2 characters, got unexpected additional character
-#set smartquote(single: "'''")
-
----
 // Allow 2 graphemes
 #set smartquote(single: "a\u{0301}a\u{0301}")
 "Double and 'Single' Quotes"
 
 ---
-// Error: 25-40 expected only 2 quotes, got unexpected additional quote
-#set smartquote(single: ("'", "'", "'"))
+// Error: 25-28 expected 2 characters, got 1 character
+#set smartquote(single: "'")
+
+---
+// Error: 25-35 expected 2 quotes, got 4 quotes
+#set smartquote(single: ("'",) * 4)
