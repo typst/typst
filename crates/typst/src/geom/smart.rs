@@ -22,6 +22,14 @@ impl<T> Smart<T> {
         matches!(self, Self::Custom(_))
     }
 
+    /// Returns a `Smart<&T>` borrowing the inner `T`.
+    pub fn as_ref(&self) -> Smart<&T> {
+        match self {
+            Smart::Auto => Smart::Auto,
+            Smart::Custom(v) => Smart::Custom(v),
+        }
+    }
+
     /// Returns a reference the contained custom value.
     /// If the value is [`Smart::Auto`], `None` is returned.
     pub fn as_custom(self) -> Option<T> {
@@ -87,6 +95,16 @@ impl<T> Smart<T> {
         T: Default,
     {
         self.unwrap_or_else(T::default)
+    }
+}
+
+impl<T> Smart<Smart<T>> {
+    /// Removes a single level of nesting, returns `Auto` if the inner or outer value is `Auto`.
+    pub fn flatten(self) -> Smart<T> {
+        match self {
+            Smart::Custom(Smart::Auto) | Smart::Auto => Smart::Auto,
+            Smart::Custom(Smart::Custom(v)) => Smart::Custom(v),
+        }
     }
 }
 

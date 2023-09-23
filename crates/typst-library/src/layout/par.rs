@@ -589,13 +589,11 @@ fn collect<'a>(
         } else if let Some(elem) = child.to::<SmartquoteElem>() {
             let prev = full.len();
             if SmartquoteElem::enabled_in(styles) {
-                let single = SmartquoteElem::single_in(styles);
-                let double = SmartquoteElem::double_bikeshed_in(styles);
+                let quotes = SmartquoteElem::quotes_in(styles);
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
                 let quotes = Quotes::new(
-                    &single,
-                    &double,
+                    &quotes,
                     lang,
                     region,
                     SmartquoteElem::alternative_in(styles),

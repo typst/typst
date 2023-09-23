@@ -55,51 +55,29 @@ pub struct SmartquoteElem {
     #[default(false)]
     pub alternative: bool,
 
-    /// The single quotes to use.
+    /// The quotes to use.
     ///
     /// - When set to `{auto}`, the appropriate single quotes for the
     ///   [text language]($text.lang) will be used. This is the default.
-    /// - Custom quotes can be passed as a `{string}` or `{array}`
+    /// - Custom quotes can be passed as a, array or dictionary of either
     ///   - `{string}`: a string consiting of two characters containing the
-    ///     opening and closing single quotes
-    ///   - `{array}`: an array containing the opening and closing single
+    ///     opening and closing double quotes
+    ///   - `{array}`: an array containing the opening and closing double
     ///     quotes
+    ///   - `{dict}`: an array containing the double and single quotes
     ///
     /// ```example
     /// #set text(lang: "de")
     /// 'Das sind normale Anführungszeichen.'
     ///
-    /// #set smartquote(single: "()")
-    /// 'Das sind eigene Anführungszeichen.'
+    /// #set smartquote(quotes: "()")
+    /// "Das sind eigene Anführungszeichen."
     ///
-    /// #set smartquote(single: ("[[", "]]"))
+    /// #set smartquote(quotes: (single: ("[[", "]]"),  double: auto))
     /// 'Das sind eigene Anführungszeichen.'
     /// ```
     #[default(Smart::Auto)]
-    pub single: Smart<QuoteSet>,
-
-    /// The double quotes to use.
-    ///
-    /// - When set to `{auto}`, the appropriate double quotes for the
-    ///   [text language]($text.lang) will be used. This is the default.
-    /// - Custom quotes can be passed as a `{string}` or `{array}`
-    ///   - `{string}`: a string consiting of two characters containing the
-    ///     opening and closing double quotes
-    ///   - `{array}`: an array containing the opening and closing double
-    ///     quotes
-    ///
-    /// ```example
-    /// #set text(lang: "de")
-    /// "Das sind normale Anführungszeichen."
-    ///
-    /// #set smartquote(double-bikeshed: "()")
-    /// "Das sind eigene Anführungszeichen."
-    ///
-    /// #set smartquote(double-bikeshed: ("[[", "]]"))
-    /// "Das sind eigene Anführungszeichen."
-    /// ```
-    #[default(Smart::Auto)]
-    pub double_bikeshed: Smart<QuoteSet>,
+    pub quotes: Smart<QuoteDict>,
 }
 
 /// State machine for smart quote substitution.
@@ -208,8 +186,7 @@ impl<'s> Quotes<'s> {
     ///
     /// For unknown languages, the English quotes are used as fallback.
     pub fn new(
-        single: &'s Smart<QuoteSet>,
-        double: &'s Smart<QuoteSet>,
+        quotes: &'s Smart<QuoteDict>,
         lang: Lang,
         region: Option<Region>,
         alternative: bool,
@@ -238,12 +215,19 @@ impl<'s> Quotes<'s> {
             _ => default,
         };
 
-        let [single_open, single_close] = match single {
+        let quotes = quotes.as_ref();
+        let [single_open, single_close] = match quotes
+            .map(|q| q.single.as_ref())
+            .flatten()
+        {
             Smart::Auto => [single_open, single_close],
             Smart::Custom(QuoteSet { open, close }) => [open, close].map(|s| s.as_str()),
         };
 
-        let [double_open, double_close] = match double {
+        let [double_open, double_close] = match quotes
+            .map(|q| q.double.as_ref())
+            .flatten()
+        {
             Smart::Auto => [double_open, double_close],
             Smart::Custom(QuoteSet { open, close }) => [open, close].map(|s| s.as_str()),
         };
@@ -293,7 +277,7 @@ impl<'s> Quotes<'s> {
     }
 }
 
-/// A set of smart quotes.
+/// An opening and closing quote.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct QuoteSet {
     open: EcoString,
@@ -309,38 +293,101 @@ cast! {
             .collect::<Array>()
             .into_value()
     },
-    value: Str => {
-        let mut iter = value.as_str().graphemes(true);
-        let open = iter
-            .next()
-            .ok_or_else(|| eco_format!("expected 2 characters, got 0 characters"))?;
-        let close = iter
-            .next()
-            .ok_or_else(|| eco_format!("expected 2 characters, got 1 character"))?;
-
-        let count = iter.count();
-        if count > 0 {
-            bail!("expected 2 characters, got {count} character{}", if count > 1 {"s"} else {""});
-        }
-
-        Self {
-            open: open.into(),
-            close: close.into(),
-        }
-    },
     value: Array => {
-        let value = value.as_slice();
-        if value.len() != 2 {
-            bail!(
-                "expected 2 quotes, got {} quote{}",
-                value.len(),
-                if value.len() > 1 {"s"} else {""}
-            );
-        }
-
-        let open: EcoString = value[0].clone().cast()?;
-        let close: EcoString = value[1].clone().cast()?;
-
+        let [open, close] = array_to_set(value)?;
         Self { open, close }
+    },
+    value: Str => {
+        let [open, close] = str_to_set(value.as_str())?;
+        Self { open, close }
+    },
+}
+
+fn str_to_set(value: &str) -> StrResult<[EcoString; 2]> {
+    let mut iter = value.graphemes(true);
+    let open = iter
+        .next()
+        .ok_or_else(|| eco_format!("expected 2 characters, got 0 characters"))?;
+    let close = iter
+        .next()
+        .ok_or_else(|| eco_format!("expected 2 characters, got 1 character"))?;
+
+    let count = iter.count();
+    if count > 0 {
+        bail!(
+            "expected 2 characters, got {count} character{}",
+            if count > 1 { "s" } else { "" }
+        );
     }
+
+    Ok([open, close].map(EcoString::from))
+}
+
+fn array_to_set(value: Array) -> StrResult<[EcoString; 2]> {
+    let value = value.as_slice();
+    if value.len() != 2 {
+        bail!(
+            "expected 2 quotes, got {} quote{}",
+            value.len(),
+            if value.len() > 1 { "s" } else { "" }
+        );
+    }
+
+    let open: EcoString = value[0].clone().cast()?;
+    let close: EcoString = value[1].clone().cast()?;
+
+    Ok([open, close])
+}
+
+/// A dict of single and double quotes.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct QuoteDict {
+    double: Smart<QuoteSet>,
+    single: Smart<QuoteSet>,
+}
+
+fn map_smart(value: Value) -> StrResult<Smart<QuoteSet>> {
+    Ok(match value {
+        Value::Auto => Smart::Auto,
+        v => Smart::Custom(QuoteSet::from_value(v)?),
+    })
+}
+
+cast! {
+    QuoteDict,
+    self => {
+        [("double", self.double), ("single", self.single)]
+            .into_iter()
+            .map(|(k, v)| (k.into(), v.into_value()))
+            .collect::<Dict>()
+            .into_value()
+    },
+    mut value: Dict => {
+        let keys = ["double", "single"];
+
+        let double = value
+            .take("double")
+            .ok()
+            .map(map_smart)
+            .transpose()?
+            .unwrap_or(Smart::Auto);
+        let single = value
+            .take("single")
+            .ok()
+            .map(map_smart)
+            .transpose()?
+            .unwrap_or(Smart::Auto);
+
+        value.finish(&keys)?;
+
+        Self { single, double }
+    },
+    value: Str => Self {
+        double: Smart::Custom(QuoteSet::from_value(value.into_value())?),
+        single: Smart::Auto,
+    },
+    value: Array => Self {
+        double: Smart::Custom(QuoteSet::from_value(value.into_value())?),
+        single: Smart::Auto,
+    },
 }
