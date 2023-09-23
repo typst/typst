@@ -2,8 +2,8 @@
 
 ---
 // Use language quotes for missing keys
-#set smartquote(quotes: (double: "«»"))
+#set smartquote(double-bikeshed: "«»")
 "Double and 'Single' Quotes"
 
-#set smartquote(quotes: (double: ("<[", "]>"), single: "«»"))
+#set smartquote(double-bikeshed: ("<[", "]>"), single: "«»")
 "Double and 'Single' Quotes"

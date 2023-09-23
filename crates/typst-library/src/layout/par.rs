@@ -589,14 +589,16 @@ fn collect<'a>(
         } else if let Some(elem) = child.to::<SmartquoteElem>() {
             let prev = full.len();
             if SmartquoteElem::enabled_in(styles) {
+                let single = SmartquoteElem::single_in(styles);
+                let double = SmartquoteElem::double_bikeshed_in(styles);
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
-                let overriden = SmartquoteElem::quotes_in(styles);
-                let quotes = Quotes::from_lang(
+                let quotes = Quotes::new(
+                    &single,
+                    &double,
                     lang,
                     region,
                     SmartquoteElem::alternative_in(styles),
-                    &overriden,
                 );
                 let peeked = iter.peek().and_then(|child| {
                     let child = if let Some((child, _)) = child.to_styled() {
