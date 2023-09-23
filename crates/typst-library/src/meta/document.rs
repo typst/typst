@@ -42,13 +42,9 @@ impl Construct for DocumentElem {
 fn get_next_page(contents: &[Content], starting_idx: usize) -> Option<&PageElem> {
     // get the next content that is a PageElem given a starting idx.
     // returns None if `starting_idx` is already the last page
-    for (idx, mut content) in contents.iter().enumerate() {
-        if idx <= starting_idx {
-            continue;
-        }
-        if let Some((elem, _)) = content.to_styled() {
-            content = elem;
-        }
+    for content in contents.iter().skip(starting_idx + 1) {
+        let content =
+            if let Some((elem, _)) = content.to_styled() { elem } else { content };
         if let Some(page) = content.to::<PageElem>() {
             return Some(page);
         }
