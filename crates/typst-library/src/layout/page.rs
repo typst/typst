@@ -310,13 +310,14 @@ pub struct PageElem {
     pub body: Content,
 
     /// Whether the page should be aligned to an even or odd page.
-    /// clear_to and clear_before indicates the pages is inserted before or after
-    /// the current pages.
+    /// `clear` is the flag used during DocBuilder::accept which means that a pagebreak happens
+    /// before the page (denoted as n); meanwhile we will pass this clear from the page n's clear
+    /// flag to (n-1)'s clear_to flag
     /// Not part of the public API for now.
     #[internal]
     pub clear_to: Option<Parity>,
     #[internal]
-    pub clear_before: Option<Parity>,
+    pub clear: Option<Parity>,
 }
 
 impl PageElem {
@@ -382,15 +383,6 @@ impl PageElem {
         let mut frames = child.layout(vt, styles, regions)?.into_frames();
 
         // Align the child to the pagebreak's parity.
-        if self
-            .clear_before(styles)
-            .is_some_and(|p| !p.matches(page_counter.physical().get()))
-        {
-            // insert empty page before the current pages
-            let size = area.map(Abs::is_finite).select(area, Size::zero());
-            frames.insert(0, Frame::new(size));
-        }
-
         if self
             .clear_to(styles)
             .is_some_and(|p| p.matches(page_counter.physical().get()))
