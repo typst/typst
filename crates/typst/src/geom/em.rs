@@ -96,7 +96,11 @@ impl Mul<f64> for Em {
     type Output = Self;
 
     fn mul(self, other: f64) -> Self {
-        Self(self.0 * other)
+        Self(if self.0.is_zero() || other == 0.0 {
+            Scalar::zero()
+        } else {
+            self.0 * other
+        })
     }
 }
 

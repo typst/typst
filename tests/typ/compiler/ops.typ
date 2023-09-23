@@ -129,6 +129,12 @@
 #0x123z
 
 ---
+// Test that multiplying infinite numbers by certain units does not crash.
+#(float("inf") * 1pt)
+#(float("inf") * 1em)
+#(float("inf") * (1pt + 1em))
+
+---
 // Test boolean operators.
 
 // Test not.
