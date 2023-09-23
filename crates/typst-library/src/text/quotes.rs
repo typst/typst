@@ -1,4 +1,5 @@
 use typst::syntax::is_newline;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::prelude::*;
 
@@ -309,7 +310,7 @@ cast! {
             .into_value()
     },
     value: Str => {
-        let mut iter = value.as_str().chars();
+        let mut iter = value.as_str().graphemes(true);
         let open = iter.next().ok_or_else(|| eco_format!("missing opening quote"))?;
         let close = iter.next().ok_or_else(|| eco_format!("missing closing quote"))?;
 

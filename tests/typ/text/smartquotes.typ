@@ -13,5 +13,10 @@
 #set smartquote(single: "'''")
 
 ---
+// Allow 2 graphemes
+#set smartquote(single: "a\u{0301}a\u{0301}")
+"Double and 'Single' Quotes"
+
+---
 // Error: 25-40 expected only 2 quotes, got unexpected additional quote
 #set smartquote(single: ("'", "'", "'"))
