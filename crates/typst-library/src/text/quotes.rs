@@ -193,25 +193,25 @@ impl<'s> Quotes<'s> {
     ) -> Self {
         let region = region.as_ref().map(Region::as_str);
 
-        let default = ["‘", "’", "“", "”"];
-        let low_high = ["‚", "‘", "„", "“"];
+        let default = ("‘", "’", "“", "”");
+        let low_high = ("‚", "‘", "„", "“");
 
-        let [single_open, single_close, double_open, double_close] = match lang.as_str() {
+        let (single_open, single_close, double_open, double_close) = match lang.as_str() {
             "de" if matches!(region, Some("CH" | "LI")) => match alternative {
-                false => ["‹", "›", "«", "»"],
+                false => ("‹", "›", "«", "»"),
                 true => low_high,
             },
-            "cs" | "da" | "de" | "sk" | "sl" if alternative => ["›", "‹", "»", "«"],
+            "cs" | "da" | "de" | "sk" | "sl" if alternative => ("›", "‹", "»", "«"),
             "cs" | "da" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => low_high,
             "fr" | "ru" if alternative => default,
-            "fr" => ["‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"],
-            "fi" | "sv" if alternative => ["’", "’", "»", "»"],
-            "bs" | "fi" | "sv" => ["’", "’", "”", "”"],
-            "es" if matches!(region, Some("ES") | None) => ["“", "”", "«", "»"],
-            "hu" | "pl" | "ro" => ["’", "’", "„", "”"],
+            "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
+            "fi" | "sv" if alternative => ("’", "’", "»", "»"),
+            "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
+            "es" if matches!(region, Some("ES") | None) => ("“", "”", "«", "»"),
+            "hu" | "pl" | "ro" => ("’", "’", "„", "”"),
             "no" | "nb" | "nn" if alternative => low_high,
-            "ru" | "no" | "nb" | "nn" | "ua" => ["’", "’", "«", "»"],
-            _ if lang.dir() == Dir::RTL => ["’", "‘", "”", "“"],
+            "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
+            _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
             _ => default,
         };
 
