@@ -23,7 +23,6 @@ pub(crate) const SYM: &[(&str, Symbol)] = symbols! {
         nobreak: '\u{A0}',
         en: '\u{2002}',
         quad: '\u{2003}',
-        qquad: "\u{2003}\u{2003}",
         third: '\u{2004}',
         quarter: '\u{2005}',
         sixth: '\u{2006}',
