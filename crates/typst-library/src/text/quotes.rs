@@ -59,7 +59,7 @@ pub struct SmartquoteElem {
     ///
     /// - When set to `{auto}`, the appropriate single quotes for the
     ///   [text language]($text.lang) will be used. This is the default.
-    /// - Custom quotes can be passed as a, array or dictionary of either
+    /// - Custom quotes can be passed as a string, array or dictionary of either
     ///   - `{string}`: a string consiting of two characters containing the
     ///     opening and closing double quotes
     ///   - `{array}`: an array containing the opening and closing double
@@ -173,7 +173,7 @@ pub struct Quotes<'s> {
 
 impl<'s> Quotes<'s> {
     /// Create a new `Quotes` struct with the given quotes, optionally falling
-    /// back to the defaults for a language and  region.
+    /// back to the defaults for a language and region.
     ///
     /// The language should be specified as an all-lowercase ISO 639-1 code, the
     /// region as an all-uppercase ISO 3166-alpha2 code.
