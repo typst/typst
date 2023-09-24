@@ -17,7 +17,7 @@ use crate::prelude::*;
 ///
 /// # Mathematical Spacing { #math-spacing }
 /// In [mathematical formulas]($category/math), you can additionally use these
-/// constants to add spacing between elements: `thin`, `med`, `thick`, `quad`.
+/// constants to add spacing between elements: `thin`, `med`, `thick`, `quad`, `qquad`.
 #[elem(title = "Spacing (H)", Behave)]
 pub struct HElem {
     /// How much spacing to insert.
