@@ -60,6 +60,16 @@ pub struct UnderlineElem {
     #[default(true)]
     pub evade: bool,
 
+    /// Whether the line is placed behind the content it underlines.
+    ///
+    /// ```example
+    /// #set underline(stroke: (thickness: 1em, paint: maroon, cap: "round"))
+    /// #underline(background: true)[This is stylized.] \
+    /// #underline(background: false)[This is partially hidden.]
+    /// ```
+    #[default(false)]
+    pub background: bool,
+
     /// The content to underline.
     #[required]
     pub body: Content,
@@ -73,6 +83,7 @@ impl Show for UnderlineElem {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
                 evade: self.evade(styles),
+                background: self.background(styles),
             },
             extent: self.extent(styles),
         })))
@@ -141,6 +152,16 @@ pub struct OverlineElem {
     #[default(true)]
     pub evade: bool,
 
+    /// Whether the line is placed behind the content it overlines.
+    ///
+    /// ```example
+    /// #set overline(stroke: (thickness: 1em, paint: maroon, cap: "round"))
+    /// #overline(background: true)[This is stylized.] \
+    /// #overline(background: false)[This is partially hidden.]
+    /// ```
+    #[default(false)]
+    pub background: bool,
+
     /// The content to add a line over.
     #[required]
     pub body: Content,
@@ -154,6 +175,7 @@ impl Show for OverlineElem {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
                 evade: self.evade(styles),
+                background: self.background(styles),
             },
             extent: self.extent(styles),
         })))
@@ -320,9 +342,9 @@ cast! {
 /// A kind of decorative line.
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum DecoLine {
-    Underline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool },
+    Underline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
     Strikethrough { stroke: Stroke<Abs>, offset: Smart<Abs> },
-    Overline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool },
+    Overline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
     Highlight { fill: Paint, top_edge: TopEdge, bottom_edge: BottomEdge },
 }
 
@@ -346,15 +368,15 @@ pub(super) fn decorate(
         return;
     }
 
-    let (stroke, metrics, offset, evade) = match &deco.line {
+    let (stroke, metrics, offset, evade, background) = match &deco.line {
         DecoLine::Strikethrough { stroke, offset } => {
-            (stroke, font_metrics.strikethrough, offset, false)
+            (stroke, font_metrics.strikethrough, offset, false, false)
         }
-        DecoLine::Overline { stroke, offset, evade } => {
-            (stroke, font_metrics.overline, offset, *evade)
+        DecoLine::Overline { stroke, offset, evade, background } => {
+            (stroke, font_metrics.overline, offset, *evade, *background)
         }
-        DecoLine::Underline { stroke, offset, evade } => {
-            (stroke, font_metrics.underline, offset, *evade)
+        DecoLine::Underline { stroke, offset, evade, background } => {
+            (stroke, font_metrics.underline, offset, *evade, *background)
         }
         _ => return,
     };
@@ -372,18 +394,23 @@ pub(super) fn decorate(
     let start = pos.x - deco.extent;
     let end = pos.x + (width + 2.0 * deco.extent);
 
-    let mut push_segment = |from: Abs, to: Abs| {
+    let mut push_segment = |from: Abs, to: Abs, prepend: bool| {
         let origin = Point::new(from, pos.y + offset);
         let target = Point::new(to - from, Abs::zero());
 
         if target.x >= min_width || !evade {
             let shape = Geometry::Line(target).stroked(stroke.clone());
-            frame.push(origin, FrameItem::Shape(shape, Span::detached()));
+
+            if prepend {
+                frame.prepend(origin, FrameItem::Shape(shape, Span::detached()));
+            } else {
+                frame.push(origin, FrameItem::Shape(shape, Span::detached()));
+            }
         }
     };
 
     if !evade {
-        push_segment(start, end);
+        push_segment(start, end, background);
         return;
     }
 
@@ -438,7 +465,7 @@ pub(super) fn decorate(
         if r - l < gap_padding {
             continue;
         } else {
-            push_segment(l + gap_padding, r - gap_padding);
+            push_segment(l + gap_padding, r - gap_padding, background);
         }
     }
 }

@@ -57,3 +57,13 @@ We can also specify a customized value
 #set highlight(top-edge: "bounds", bottom-edge: "bounds")
 #highlight[abc]
 #highlight[abc #sym.integral]
+
+---
+// Test underline background
+#set underline(background: true, stroke: (thickness: 0.5em, paint: red, cap: "round"))
+#underline[This is in the background]
+
+---
+// Test overline background
+#set overline(background: true, stroke: (thickness: 0.5em, paint: red, cap: "round"))
+#overline[This is in the background]
