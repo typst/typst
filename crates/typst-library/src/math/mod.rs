@@ -326,6 +326,7 @@ impl LocalName for EquationElem {
             Lang::FINNISH => "Yhtälö",
             Lang::FRENCH => "Équation",
             Lang::GERMAN => "Gleichung",
+            Lang::HUNGARIAN => "Egyenlet",
             Lang::ITALIAN => "Equazione",
             Lang::NYNORSK => "Likning",
             Lang::POLISH => "Równanie",

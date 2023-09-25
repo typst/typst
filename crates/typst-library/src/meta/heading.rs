@@ -245,6 +245,7 @@ impl LocalName for HeadingElem {
             Lang::FINNISH => "Osio",
             Lang::FRENCH => "Chapitre",
             Lang::GERMAN => "Abschnitt",
+            Lang::HUNGARIAN => "Fejezet",
             Lang::ITALIAN => "Sezione",
             Lang::NYNORSK => "Kapittel",
             Lang::POLISH => "Sekcja",
