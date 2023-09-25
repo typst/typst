@@ -1,7 +1,6 @@
 # General
 .vscode
 .idea
-.*.swp
 _things
 desktop.ini
 .DS_Store
