@@ -227,6 +227,15 @@ pub struct StrikeElem {
     #[resolve]
     pub extent: Length,
 
+    /// Whether the line is placed behind the content.
+    ///
+    /// ```example
+    /// #set strike(stroke: red)
+    /// #strike(background: true)[This is behind.] \
+    /// #strike(background: false)[This is in front.]
+    /// ```
+    pub background: bool,
+
     /// The content to strike through.
     #[required]
     pub body: Content,
@@ -240,6 +249,7 @@ impl Show for StrikeElem {
             line: DecoLine::Strikethrough {
                 stroke: self.stroke(styles).unwrap_or_default(),
                 offset: self.offset(styles),
+                background: self.background(styles),
             },
             extent: self.extent(styles),
         })))
@@ -341,7 +351,7 @@ cast! {
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum DecoLine {
     Underline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
-    Strikethrough { stroke: Stroke<Abs>, offset: Smart<Abs> },
+    Strikethrough { stroke: Stroke<Abs>, offset: Smart<Abs>, background: bool },
     Overline { stroke: Stroke<Abs>, offset: Smart<Abs>, evade: bool, background: bool },
     Highlight { fill: Paint, top_edge: TopEdge, bottom_edge: BottomEdge },
 }
@@ -367,8 +377,8 @@ pub(super) fn decorate(
     }
 
     let (stroke, metrics, offset, evade, background) = match &deco.line {
-        DecoLine::Strikethrough { stroke, offset } => {
-            (stroke, font_metrics.strikethrough, offset, false, false)
+        DecoLine::Strikethrough { stroke, offset, background } => {
+            (stroke, font_metrics.strikethrough, offset, false, *background)
         }
         DecoLine::Overline { stroke, offset, evade, background } => {
             (stroke, font_metrics.overline, offset, *evade, *background)

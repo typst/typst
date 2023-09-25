@@ -67,3 +67,9 @@ We can also specify a customized value
 // Test overline background
 #set overline(background: true, stroke: (thickness: 0.5em, paint: red, cap: "round"))
 #overline[This is in the background]
+
+
+---
+// Test strike background
+#set strike(background: true, stroke: 5pt + red)
+#strike[This is in the background]
