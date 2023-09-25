@@ -70,6 +70,18 @@ impl<T> Smart<T> {
         }
     }
 
+    /// Retusn `Auto` if `self` is `Auto`, otherwise calls the provided function onthe contained
+    /// value and returns the result.
+    pub fn and_then<F, U>(self, f: F) -> Smart<U>
+    where
+        F: FnOnce(T) -> Smart<U>,
+    {
+        match self {
+            Smart::Auto => Smart::Auto,
+            Smart::Custom(x) => f(x),
+        }
+    }
+
     /// Returns the contained custom value or a provided default value.
     pub fn unwrap_or(self, default: T) -> T {
         match self {

@@ -77,7 +77,6 @@ pub struct SmartquoteElem {
     /// #set smartquote(quotes: (single: ("[[", "]]"),  double: auto))
     /// 'Das sind eigene Anführungszeichen.'
     /// ```
-    #[default(Smart::Auto)]
     pub quotes: Smart<QuoteDict>,
 }
 
@@ -216,22 +215,24 @@ impl<'s> Quotes<'s> {
             _ => default,
         };
 
-        let quotes = quotes.as_ref();
-        let [single_open, single_close] = match quotes
-            .map(|q| q.single.as_ref())
-            .flatten()
-        {
-            Smart::Auto => [single_open, single_close],
-            Smart::Custom(QuoteSet { open, close }) => [open, close].map(|s| s.as_str()),
-        };
+        fn inner_or_default<'s>(
+            quotes: Smart<&'s QuoteDict>,
+            f: impl FnOnce(&'s QuoteDict) -> Smart<&'s QuoteSet>,
+            default: [&'s str; 2],
+        ) -> [&'s str; 2] {
+            match quotes.and_then(f) {
+                Smart::Auto => default,
+                Smart::Custom(QuoteSet { open, close }) => {
+                    [open, close].map(|s| s.as_str())
+                }
+            }
+        }
 
-        let [double_open, double_close] = match quotes
-            .map(|q| q.double.as_ref())
-            .flatten()
-        {
-            Smart::Auto => [double_open, double_close],
-            Smart::Custom(QuoteSet { open, close }) => [open, close].map(|s| s.as_str()),
-        };
+        let quotes = quotes.as_ref();
+        let [single_open, single_close] =
+            inner_or_default(quotes, |q| q.single.as_ref(), [single_open, single_close]);
+        let [double_open, double_close] =
+            inner_or_default(quotes, |q| q.double.as_ref(), [double_open, double_close]);
 
         Self {
             single_open,
@@ -287,13 +288,7 @@ pub struct QuoteSet {
 
 cast! {
     QuoteSet,
-    self => {
-        [self.open, self.close]
-            .into_iter()
-            .map(IntoValue::into_value)
-            .collect::<Array>()
-            .into_value()
-    },
+    self => array![self.open, self.close].into_value(),
     value: Array => {
         let [open, close] = array_to_set(value)?;
         Self { open, close }
@@ -347,35 +342,22 @@ pub struct QuoteDict {
     single: Smart<QuoteSet>,
 }
 
-fn map_smart(value: Value) -> StrResult<Smart<QuoteSet>> {
-    Ok(match value {
-        Value::Auto => Smart::Auto,
-        v => Smart::Custom(QuoteSet::from_value(v)?),
-    })
-}
-
 cast! {
     QuoteDict,
-    self => {
-        [("double", self.double), ("single", self.single)]
-            .into_iter()
-            .map(|(k, v)| (k.into(), v.into_value()))
-            .collect::<Dict>()
-            .into_value()
-    },
+    self => dict! { "double" => self.double, "single" => self.single }.into_value(),
     mut value: Dict => {
         let keys = ["double", "single"];
 
         let double = value
             .take("double")
             .ok()
-            .map(map_smart)
+            .map(FromValue::from_value)
             .transpose()?
             .unwrap_or(Smart::Auto);
         let single = value
             .take("single")
             .ok()
-            .map(map_smart)
+            .map(FromValue::from_value)
             .transpose()?
             .unwrap_or(Smart::Auto);
 
@@ -383,12 +365,8 @@ cast! {
 
         Self { single, double }
     },
-    value: Str => Self {
-        double: Smart::Custom(QuoteSet::from_value(value.into_value())?),
-        single: Smart::Auto,
-    },
-    value: Array => Self {
-        double: Smart::Custom(QuoteSet::from_value(value.into_value())?),
+    value: QuoteSet => Self {
+        double: Smart::Custom(value),
         single: Smart::Auto,
     },
 }
