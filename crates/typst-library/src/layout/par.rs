@@ -589,9 +589,11 @@ fn collect<'a>(
         } else if let Some(elem) = child.to::<SmartquoteElem>() {
             let prev = full.len();
             if SmartquoteElem::enabled_in(styles) {
+                let quotes = SmartquoteElem::quotes_in(styles);
                 let lang = TextElem::lang_in(styles);
                 let region = TextElem::region_in(styles);
-                let quotes = Quotes::from_lang(
+                let quotes = Quotes::new(
+                    &quotes,
                     lang,
                     region,
                     SmartquoteElem::alternative_in(styles),
