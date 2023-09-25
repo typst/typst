@@ -310,14 +310,8 @@ pub struct PageElem {
     pub body: Content,
 
     /// Whether the page should be aligned to an even or odd page.
-    /// `clear` is the flag used during DocBuilder::accept which means that a pagebreak happens
-    /// before the page (denoted as n); meanwhile we will pass this clear from the page n's clear
-    /// flag to (n-1)'s clear_to flag
-    /// Not part of the public API for now.
     #[internal]
     pub clear_to: Option<Parity>,
-    #[internal]
-    pub clear: Option<Parity>,
 }
 
 impl PageElem {
@@ -333,6 +327,7 @@ impl PageElem {
         vt: &mut Vt,
         styles: StyleChain,
         page_counter: &mut ManualPageCounter,
+        extend_to: Option<Parity>,
     ) -> SourceResult<Fragment> {
         tracing::info!("Page layout");
 
@@ -383,11 +378,8 @@ impl PageElem {
         let mut frames = child.layout(vt, styles, regions)?.into_frames();
 
         // Align the child to the pagebreak's parity.
-        if self
-            .clear_to(styles)
-            .is_some_and(|p| p.matches(page_counter.physical().get()))
-        {
-            // insert empty page after the current pages
+        if extend_to.is_some_and(|p| p.matches(page_counter.physical().get())) {
+            // Insert empty page after the current pages.
             let size = area.map(Abs::is_finite).select(area, Size::zero());
             frames.push(Frame::new(size));
         }

@@ -39,19 +39,6 @@ impl Construct for DocumentElem {
     }
 }
 
-fn get_next_page(contents: &[Content], starting_idx: usize) -> Option<&PageElem> {
-    // get the next content that is a PageElem given a starting idx.
-    // returns None if `starting_idx` is already the last page
-    for content in contents.iter().skip(starting_idx + 1) {
-        let content =
-            if let Some((elem, _)) = content.to_styled() { elem } else { content };
-        if let Some(page) = content.to::<PageElem>() {
-            return Some(page);
-        }
-    }
-    None
-}
-
 impl LayoutRoot for DocumentElem {
     /// Layout the document into a sequence of frames, one per page.
     #[tracing::instrument(name = "DocumentElem::layout_root", skip_all)]
@@ -61,7 +48,10 @@ impl LayoutRoot for DocumentElem {
         let mut pages = vec![];
         let mut page_counter = ManualPageCounter::new();
 
-        for (current_idx, mut child) in self.children().iter().enumerate() {
+        let children = self.children();
+        let mut iter = children.iter().peekable();
+
+        while let Some(mut child) = iter.next() {
             let outer = styles;
             let mut styles = styles;
             if let Some((elem, local)) = child.to_styled() {
@@ -70,13 +60,13 @@ impl LayoutRoot for DocumentElem {
             }
 
             if let Some(page) = child.to::<PageElem>() {
-                let mut page = page.clone();
-                if let Some(next_page) = get_next_page(&self.children(), current_idx) {
-                    if let Some(clear) = next_page.clear(styles).take() {
-                        page.push_clear_to(Some(clear));
-                    };
-                };
-                let fragment = page.layout(vt, styles, &mut page_counter)?;
+                let extend_to = iter.peek().and_then(|&next| {
+                    next.to_styled()
+                        .map_or(next, |(elem, _)| elem)
+                        .to::<PageElem>()?
+                        .clear_to(styles)
+                });
+                let fragment = page.layout(vt, styles, &mut page_counter, extend_to)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");

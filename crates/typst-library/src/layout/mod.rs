@@ -505,7 +505,7 @@ impl<'a> DocBuilder<'a> {
         if let Some(page) = content.to::<PageElem>() {
             let elem = if let Some(clear_to) = self.clear_next.take() {
                 let mut page = page.clone();
-                page.push_clear(Some(clear_to));
+                page.push_clear_to(Some(clear_to));
                 page.pack()
             } else {
                 content.clone()
