@@ -135,9 +135,9 @@ fn write_catalog(ctx: &mut PdfContext) {
 
     let keywords = &ctx.document.keywords;
     if !keywords.is_empty() {
-        info.keywords(TextStr(&keywords.join(", ")));
-        let kw = keywords.join(", ");
-        xmp.pdf_keywords(&kw);
+        let joined = keywords.join(", ");
+        info.keywords(TextStr(&joined));
+        xmp.pdf_keywords(&joined);
     }
 
     info.creator(TextStr("Typst"));
