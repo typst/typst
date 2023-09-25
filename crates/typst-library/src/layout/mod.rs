@@ -547,6 +547,7 @@ impl<'a> FlowBuilder<'a> {
         if content.is::<VElem>()
             || content.is::<ColbreakElem>()
             || content.is::<MetaElem>()
+            || content.is::<PlaceElem>()
         {
             self.0.push(content.clone(), styles);
             return true;
