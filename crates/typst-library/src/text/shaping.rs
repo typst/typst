@@ -432,9 +432,10 @@ impl<'a> ShapedText<'a> {
     pub fn push_hyphen(&mut self, vt: &Vt) {
         families(self.styles).find_map(|family| {
             let world = vt.world;
-            let font = world
-                .book()
+            let book = world.book();
+            let font = book
                 .select(family.as_str(), self.variant)
+                .or(book.select_fallback(None, self.variant, "-"))
                 .and_then(|id| world.font(id))?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
