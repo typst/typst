@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use crate::prelude::*;
 
 /// Inserts horizontal spacing into a paragraph.
@@ -64,9 +62,19 @@ impl Behave for HElem {
         }
     }
 
-    fn larger(&self, prev: &Content) -> bool {
-        let Some(prev) = prev.to::<Self>() else { return false };
-        self.amount() > prev.amount()
+    fn larger(
+        &self,
+        prev: &(Content, Behaviour, StyleChain),
+        styles: StyleChain,
+    ) -> bool {
+        let Some(other) = prev.0.to::<Self>() else { return false };
+        match (self.amount(), other.amount()) {
+            (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
+            (Spacing::Rel(this), Spacing::Rel(other)) => {
+                this.resolve(styles) > other.resolve(prev.2)
+            }
+            _ => false,
+        }
     }
 }
 
@@ -156,9 +164,19 @@ impl Behave for VElem {
         }
     }
 
-    fn larger(&self, prev: &Content) -> bool {
-        let Some(prev) = prev.to::<Self>() else { return false };
-        self.amount() > prev.amount()
+    fn larger(
+        &self,
+        prev: &(Content, Behaviour, StyleChain),
+        styles: StyleChain,
+    ) -> bool {
+        let Some(other) = prev.0.to::<Self>() else { return false };
+        match (self.amount(), other.amount()) {
+            (Spacing::Fr(this), Spacing::Fr(other)) => this > other,
+            (Spacing::Rel(this), Spacing::Rel(other)) => {
+                this.resolve(styles) > other.resolve(prev.2)
+            }
+            _ => false,
+        }
     }
 }
 
@@ -213,16 +231,6 @@ impl From<Length> for Spacing {
 impl From<Fr> for Spacing {
     fn from(fr: Fr) -> Self {
         Self::Fr(fr)
-    }
-}
-
-impl PartialOrd for Spacing {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match (self, other) {
-            (Self::Rel(a), Self::Rel(b)) => a.partial_cmp(b),
-            (Self::Fr(a), Self::Fr(b)) => a.partial_cmp(b),
-            _ => None,
-        }
     }
 }
 
