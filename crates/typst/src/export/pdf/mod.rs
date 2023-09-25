@@ -132,9 +132,10 @@ fn write_catalog(ctx: &mut PdfContext) {
         info.author(TextStr(&authors.join(", ")));
         xmp.creator(authors.iter().map(|s| s.as_str()));
     }
-    info.creator(TextStr("Typst"));
+    let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
+    info.creator(TextStr(&creator));
     info.finish();
-    xmp.creator_tool("Typst");
+    xmp.creator_tool(&creator);
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
