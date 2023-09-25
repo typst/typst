@@ -48,7 +48,10 @@ impl LayoutRoot for DocumentElem {
         let mut pages = vec![];
         let mut page_counter = ManualPageCounter::new();
 
-        for mut child in &self.children() {
+        let children = self.children();
+        let mut iter = children.iter().peekable();
+
+        while let Some(mut child) = iter.next() {
             let outer = styles;
             let mut styles = styles;
             if let Some((elem, local)) = child.to_styled() {
@@ -57,7 +60,13 @@ impl LayoutRoot for DocumentElem {
             }
 
             if let Some(page) = child.to::<PageElem>() {
-                let fragment = page.layout(vt, styles, &mut page_counter)?;
+                let extend_to = iter.peek().and_then(|&next| {
+                    next.to_styled()
+                        .map_or(next, |(elem, _)| elem)
+                        .to::<PageElem>()?
+                        .clear_to(styles)
+                });
+                let fragment = page.layout(vt, styles, &mut page_counter, extend_to)?;
                 pages.extend(fragment);
             } else {
                 bail!(child.span(), "unexpected document child");
