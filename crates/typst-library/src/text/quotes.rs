@@ -61,7 +61,8 @@ pub struct SmartquoteElem {
     ///   [text language]($text.lang) will be used. This is the default.
     /// - Custom quotes can be passed as a string, array, or dictionary of either
     ///   - [string]($str): a string consisting of two characters containing the
-    ///     opening and closing double quotes
+    ///     opening and closing double quotes (characters here refer to Unicode
+    ///     grapheme clusters)
     ///   - [array]($array): an array containing the opening and closing double
     ///     quotes
     ///   - [dictionary]($dictionary): an array containing the double and single
