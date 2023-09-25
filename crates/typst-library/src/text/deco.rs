@@ -67,7 +67,6 @@ pub struct UnderlineElem {
     /// #underline(background: true)[This is stylized.] \
     /// #underline(background: false)[This is partially hidden.]
     /// ```
-    #[default(false)]
     pub background: bool,
 
     /// The content to underline.
@@ -159,7 +158,6 @@ pub struct OverlineElem {
     /// #overline(background: true)[This is stylized.] \
     /// #overline(background: false)[This is partially hidden.]
     /// ```
-    #[default(false)]
     pub background: bool,
 
     /// The content to add a line over.
