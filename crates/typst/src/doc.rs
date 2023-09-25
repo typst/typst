@@ -12,7 +12,7 @@ use crate::eval::{cast, dict, ty, Dict, Value};
 use crate::export::PdfPageLabel;
 use crate::font::Font;
 use crate::geom::{
-    self, rounded_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
+    self, styled_rect, Abs, Axes, Color, Corners, Dir, Em, FixedAlign, FixedStroke,
     Geometry, Length, Numeric, Paint, Point, Rel, Shape, Sides, Size, Transform,
 };
 use crate::image::Image;
@@ -301,9 +301,8 @@ impl Frame {
         let outset = outset.relative_to(self.size());
         let size = self.size() + outset.sum_by_axis();
         let pos = Point::new(-outset.left, -outset.top);
-        let radius = radius.map(|side| side.relative_to(size.x.min(size.y) / 2.0));
         self.prepend_multiple(
-            rounded_rect(size, radius, fill, stroke)
+            styled_rect(size, radius, fill, stroke)
                 .into_iter()
                 .map(|x| (pos, FrameItem::Shape(x, span))),
         )

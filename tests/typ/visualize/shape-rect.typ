@@ -32,7 +32,7 @@
 #stack(
   dir: ltr,
   spacing: 1fr,
-  rect(width: 2cm, radius: 60%),
+  rect(width: 2cm, radius: 30%),
   rect(width: 1cm, radius: (left: 10pt, right: 5pt)),
   rect(width: 1.25cm, radius: (
     top-left: 2pt,
