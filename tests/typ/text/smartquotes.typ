@@ -17,13 +17,13 @@
 "Double and 'Single' Quotes"
 
 ---
-// Error: 25-28 expected 2 characters, got 1 character
+// Error: 25-28 expected 2 characters, found 1 character
 #set smartquote(quotes: "'")
 
 ---
-// Error: 25-35 expected 2 quotes, got 4 quotes
+// Error: 25-35 expected 2 quotes, found 4 quotes
 #set smartquote(quotes: ("'",) * 4)
 
 ---
-// Error: 25-45 expected 2 quotes, got 4 quotes
+// Error: 25-45 expected 2 quotes, found 4 quotes
 #set smartquote(quotes: (single: ("'",) * 4))

@@ -301,29 +301,23 @@ cast! {
 
 fn str_to_set(value: &str) -> StrResult<[EcoString; 2]> {
     let mut iter = value.graphemes(true);
-    let open = iter
-        .next()
-        .ok_or_else(|| eco_format!("expected 2 characters, got 0 characters"))?;
-    let close = iter
-        .next()
-        .ok_or_else(|| eco_format!("expected 2 characters, got 1 character"))?;
-
-    let count = iter.count();
-    if count > 0 {
-        bail!(
-            "expected 2 characters, got {count} character{}",
-            if count > 1 { "s" } else { "" }
-        );
+    match (iter.next(), iter.next(), iter.next()) {
+        (Some(open), Some(close), None) => Ok([open.into(), close.into()]),
+        _ => {
+            let count = value.graphemes(true).count();
+            bail!(
+                "expected 2 characters, found {count} character{}",
+                if count > 1 { "s" } else { "" }
+            );
+        }
     }
-
-    Ok([open, close].map(EcoString::from))
 }
 
 fn array_to_set(value: Array) -> StrResult<[EcoString; 2]> {
     let value = value.as_slice();
     if value.len() != 2 {
         bail!(
-            "expected 2 quotes, got {} quote{}",
+            "expected 2 quotes, found {} quote{}",
             value.len(),
             if value.len() > 1 { "s" } else { "" }
         );
