@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 
 use memmap2::Mmap;
 use typst::diag::StrResult;
-use typst::eval::Bytes;
 use typst::font::{Font, FontBook, FontInfo, FontVariant};
 use walkdir::WalkDir;
 
@@ -82,7 +81,7 @@ impl FontSearcher {
     #[cfg(feature = "embed-fonts")]
     fn add_embedded(&mut self) {
         let mut process = |bytes: &'static [u8]| {
-            let buffer = Bytes::from_static(bytes);
+            let buffer = typst::eval::Bytes::from_static(bytes);
             for (i, font) in Font::iter(buffer).enumerate() {
                 self.book.push(font.info().clone());
                 self.fonts.push(FontSlot {
