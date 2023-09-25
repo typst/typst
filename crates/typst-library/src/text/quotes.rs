@@ -44,7 +44,7 @@ pub struct SmartquoteElem {
     /// Whether to use alternative quotes.
     ///
     /// Does nothing for languages that don't have alternative quotes, or if
-    /// explicit quotes where set.
+    /// explicit quotes were set.
     ///
     /// ```example
     /// #set text(lang: "de")
@@ -59,12 +59,13 @@ pub struct SmartquoteElem {
     ///
     /// - When set to `{auto}`, the appropriate single quotes for the
     ///   [text language]($text.lang) will be used. This is the default.
-    /// - Custom quotes can be passed as a string, array or dictionary of either
-    ///   - `{string}`: a string consiting of two characters containing the
+    /// - Custom quotes can be passed as a string, array, or dictionary of either
+    ///   - [string]($str): a string consisting of two characters containing the
     ///     opening and closing double quotes
-    ///   - `{array}`: an array containing the opening and closing double
+    ///   - [array]($array): an array containing the opening and closing double
     ///     quotes
-    ///   - `{dict}`: an array containing the double and single quotes
+    ///   - [dictionary]($dictionary): an array containing the double and single
+    ///     quotes, each specified as either `{auto}`, string, or array
     ///
     /// ```example
     /// #set text(lang: "de")
