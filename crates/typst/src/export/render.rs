@@ -496,7 +496,7 @@ fn render_shape(
                 line_cap: line_cap.into(),
                 line_join: line_join.into(),
                 dash,
-                miter_limit: miter_limit.0 as f32,
+                miter_limit: miter_limit.get() as f32,
             };
             canvas.stroke_path(&path, &paint, &stroke, ts, mask);
         }

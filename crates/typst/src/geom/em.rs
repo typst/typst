@@ -9,29 +9,29 @@ pub struct Em(Scalar);
 impl Em {
     /// The zero em length.
     pub const fn zero() -> Self {
-        Self(Scalar(0.0))
+        Self(Scalar::ZERO)
     }
 
     /// The font size.
     pub const fn one() -> Self {
-        Self(Scalar(1.0))
+        Self(Scalar::ONE)
     }
 
     /// Create a font-relative length.
     pub const fn new(em: f64) -> Self {
-        Self(Scalar(em))
+        Self(Scalar::new(em))
     }
 
     /// Create an em length from font units at the given units per em.
     pub fn from_units(units: impl Into<f64>, units_per_em: f64) -> Self {
-        Self(Scalar(units.into() / units_per_em))
+        Self(Scalar::new(units.into() / units_per_em))
     }
 
     /// Create an em length from a length at the given font size.
     pub fn from_length(length: Abs, font_size: Abs) -> Self {
         let result = length / font_size;
         if result.is_finite() {
-            Self(Scalar(result))
+            Self(Scalar::new(result))
         } else {
             Self::zero()
         }
@@ -39,7 +39,7 @@ impl Em {
 
     /// The number of em units.
     pub const fn get(self) -> f64 {
-        (self.0).0
+        (self.0).get()
     }
 
     /// The absolute value of this em length.

@@ -266,7 +266,7 @@ cast! {
             line_cap,
             line_join,
             dash_pattern,
-            miter_limit: miter_limit.map(Scalar),
+            miter_limit: miter_limit.map(Scalar::new),
         }
     },
 }
@@ -460,7 +460,7 @@ impl Default for FixedStroke {
             line_cap: LineCap::Butt,
             line_join: LineJoin::Miter,
             dash_pattern: None,
-            miter_limit: Scalar(4.0),
+            miter_limit: Scalar::new(4.0),
         }
     }
 }

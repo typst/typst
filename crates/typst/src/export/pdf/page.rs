@@ -336,7 +336,7 @@ impl PageContext<'_, '_> {
                 }
             }
             if self.state.stroke.as_ref().map(|s| &s.miter_limit) != Some(miter_limit) {
-                self.content.set_miter_limit(miter_limit.0 as f32);
+                self.content.set_miter_limit(miter_limit.get() as f32);
             }
             self.state.stroke = Some(stroke.clone());
         }

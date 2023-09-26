@@ -18,22 +18,22 @@ pub struct Ratio(Scalar);
 impl Ratio {
     /// A ratio of `0%` represented as `0.0`.
     pub const fn zero() -> Self {
-        Self(Scalar(0.0))
+        Self(Scalar::ZERO)
     }
 
     /// A ratio of `100%` represented as `1.0`.
     pub const fn one() -> Self {
-        Self(Scalar(1.0))
+        Self(Scalar::ONE)
     }
 
     /// Create a new ratio from a value, where `1.0` means `100%`.
     pub const fn new(ratio: f64) -> Self {
-        Self(Scalar(ratio))
+        Self(Scalar::new(ratio))
     }
 
     /// Get the underlying ratio.
     pub const fn get(self) -> f64 {
-        (self.0).0
+        (self.0).get()
     }
 
     /// Whether the ratio is zero.

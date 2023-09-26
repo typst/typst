@@ -7,22 +7,22 @@ pub struct Abs(Scalar);
 impl Abs {
     /// The zero length.
     pub const fn zero() -> Self {
-        Self(Scalar(0.0))
+        Self(Scalar::ZERO)
     }
 
     /// The infinite length.
     pub const fn inf() -> Self {
-        Self(Scalar(f64::INFINITY))
+        Self(Scalar::INFINITY)
     }
 
     /// Create an absolute length from a number of raw units.
     pub const fn raw(raw: f64) -> Self {
-        Self(Scalar(raw))
+        Self(Scalar::new(raw))
     }
 
     /// Create an absolute length from a value in a unit.
     pub fn with_unit(val: f64, unit: AbsUnit) -> Self {
-        Self(Scalar(val * unit.raw_scale()))
+        Self(Scalar::new(val * unit.raw_scale()))
     }
 
     /// Create an absolute length from a number of points.
@@ -47,7 +47,7 @@ impl Abs {
 
     /// Get the value of this absolute length in raw units.
     pub const fn to_raw(self) -> f64 {
-        (self.0).0
+        (self.0).get()
     }
 
     /// Get the value of this absolute length in a unit.

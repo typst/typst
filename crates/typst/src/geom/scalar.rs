@@ -4,12 +4,37 @@ use super::*;
 ///
 /// Panics if it's `NaN` during any of those operations.
 #[derive(Default, Copy, Clone)]
-pub struct Scalar(pub f64);
+pub struct Scalar(f64);
+
+// We have to detect NaNs this way since `f64::is_nan` isn’t const
+// on stable yet:
+// ([tracking issue](https://github.com/rust-lang/rust/issues/57241))
+#[allow(clippy::unusual_byte_groupings)]
+const fn is_nan_const(x: f64) -> bool {
+    let x_bits = unsafe { std::mem::transmute::<f64, u64>(x) };
+    (x_bits << 1 >> (64 - 12 + 1)) == 0b0_111_1111_1111 && (x_bits << 12) != 0
+}
 
 impl Scalar {
-    fn from_f64(x: f64) -> Self {
-        Self(if x.is_nan() { 0.0 } else { x })
+    /// Creates a [`Scalar`] with the given value.
+    ///
+    /// If the value is NaN, then it is set to `0.0` in the result.
+    pub const fn new(x: f64) -> Self {
+        Self(if is_nan_const(x) { 0.0 } else { x })
     }
+
+    /// Gets the value of this [`Scalar`].
+    #[inline]
+    pub const fn get(self) -> f64 {
+        self.0
+    }
+
+    /// The scalar containing `0.0`.
+    pub const ZERO: Self = Self(0.0);
+    /// The scalar containing `1.0`.
+    pub const ONE: Self = Self(1.0);
+    /// The scalar containing `f64::INFINITY`.
+    pub const INFINITY: Self = Self(f64::INFINITY);
 }
 
 impl Numeric for Scalar {
@@ -24,7 +49,7 @@ impl Numeric for Scalar {
 
 impl From<f64> for Scalar {
     fn from(float: f64) -> Self {
-        Self::from_f64(float)
+        Self::new(float)
     }
 }
 
@@ -94,7 +119,7 @@ impl Neg for Scalar {
     type Output = Self;
 
     fn neg(self) -> Self::Output {
-        Self::from_f64(-self.0)
+        Self::new(-self.0)
     }
 }
 
@@ -102,7 +127,7 @@ impl<T: Into<Self>> Add<T> for Scalar {
     type Output = Self;
 
     fn add(self, rhs: T) -> Self::Output {
-        Self::from_f64(self.0 + rhs.into().0)
+        Self::new(self.0 + rhs.into().0)
     }
 }
 
@@ -116,7 +141,7 @@ impl<T: Into<Self>> Sub<T> for Scalar {
     type Output = Self;
 
     fn sub(self, rhs: T) -> Self::Output {
-        Self::from_f64(self.0 - rhs.into().0)
+        Self::new(self.0 - rhs.into().0)
     }
 }
 
@@ -130,7 +155,7 @@ impl<T: Into<Self>> Mul<T> for Scalar {
     type Output = Self;
 
     fn mul(self, rhs: T) -> Self::Output {
-        Self::from_f64(self.0 * rhs.into().0)
+        Self::new(self.0 * rhs.into().0)
     }
 }
 
@@ -144,7 +169,7 @@ impl<T: Into<Self>> Div<T> for Scalar {
     type Output = Self;
 
     fn div(self, rhs: T) -> Self::Output {
-        Self::from_f64(self.0 / rhs.into().0)
+        Self::new(self.0 / rhs.into().0)
     }
 }
 
@@ -158,7 +183,7 @@ impl<T: Into<Self>> Rem<T> for Scalar {
     type Output = Self;
 
     fn rem(self, rhs: T) -> Self::Output {
-        Self::from_f64(self.0 % rhs.into().0)
+        Self::new(self.0 % rhs.into().0)
     }
 }
 
@@ -170,12 +195,12 @@ impl<T: Into<Self>> RemAssign<T> for Scalar {
 
 impl Sum for Scalar {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        Self::from_f64(iter.map(|s| s.0).sum())
+        Self::new(iter.map(|s| s.0).sum())
     }
 }
 
 impl<'a> Sum<&'a Self> for Scalar {
     fn sum<I: Iterator<Item = &'a Self>>(iter: I) -> Self {
-        Self::from_f64(iter.map(|s| s.0).sum())
+        Self::new(iter.map(|s| s.0).sum())
     }
 }

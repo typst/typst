@@ -34,7 +34,9 @@ pub(crate) fn field(value: &Value, field: &str) -> StrResult<Value> {
                     "cap" => stroke.line_cap.into_value(),
                     "join" => stroke.line_join.into_value(),
                     "dash" => stroke.dash_pattern.clone().into_value(),
-                    "miter-limit" => stroke.miter_limit.map(|limit| limit.0).into_value(),
+                    "miter-limit" => {
+                        stroke.miter_limit.map(|limit| limit.get()).into_value()
+                    }
                     _ => return missing(),
                 }
             } else if let Some(align) = dynamic.downcast::<Align>() {
