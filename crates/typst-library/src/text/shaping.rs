@@ -434,8 +434,7 @@ impl<'a> ShapedText<'a> {
         let book = world.book();
         families(self.styles)
             .find_map(|family| {
-                    book
-                    .select(family.as_str(), self.variant)
+                book.select(family.as_str(), self.variant)
                     .and_then(|id| world.font(id))
                     .filter(|font| {
                         font.info().coverage.contains('-' as u32)
