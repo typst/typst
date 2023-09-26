@@ -120,11 +120,19 @@ struct Repr {
 /// Owns all data associated with the WebAssembly module.
 type Store = wasmi::Store<StoreData>;
 
+/// If there was an error reading/writing memory, keep the offset + length to
+/// display an error message.
+struct MemoryError {
+    offset: u32,
+    length: u32,
+    write: bool,
+}
 /// The persistent store data used for communication between store and host.
 #[derive(Default)]
 struct StoreData {
     args: Vec<Bytes>,
     output: Vec<u8>,
+    memory_error: Option<MemoryError>,
 }
 
 #[scope]
@@ -245,6 +253,14 @@ impl Plugin {
         let mut code = wasmi::Value::I32(-1);
         func.call(store.as_context_mut(), &lengths, std::slice::from_mut(&mut code))
             .map_err(|err| eco_format!("plugin panicked: {err}"))?;
+        if let Some(MemoryError { offset, length, write }) =
+            store.data_mut().memory_error.take()
+        {
+            return Err(eco_format!(
+                "plugin tried to {kind} out of bounds: pointer {offset:#x} is out of bounds for {kind} of length {length}",
+                kind = if write { "write" } else { "read" }
+            ));
+        }
 
         // Extract the returned data.
         let output = std::mem::take(&mut store.data_mut().output);
@@ -294,7 +310,14 @@ fn wasm_minimal_protocol_write_args_to_buffer(mut caller: Caller<StoreData>, ptr
     let arguments = std::mem::take(&mut caller.data_mut().args);
     let mut offset = ptr as usize;
     for arg in arguments {
-        memory.write(&mut caller, offset, arg.as_slice()).unwrap();
+        if memory.write(&mut caller, offset, arg.as_slice()).is_err() {
+            caller.data_mut().memory_error = Some(MemoryError {
+                offset: offset as u32,
+                length: arg.len() as u32,
+                write: true,
+            });
+            return;
+        }
         offset += arg.len();
     }
 }
@@ -308,6 +331,10 @@ fn wasm_minimal_protocol_send_result_to_host(
     let memory = caller.get_export("memory").unwrap().into_memory().unwrap();
     let mut buffer = std::mem::take(&mut caller.data_mut().output);
     buffer.resize(len as usize, 0);
-    memory.read(&caller, ptr as _, &mut buffer).unwrap();
+    if memory.read(&caller, ptr as _, &mut buffer).is_err() {
+        caller.data_mut().memory_error =
+            Some(MemoryError { offset: ptr, length: len, write: false });
+        return;
+    }
     caller.data_mut().output = buffer;
 }
