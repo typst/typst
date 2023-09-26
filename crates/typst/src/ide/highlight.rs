@@ -48,6 +48,31 @@ pub enum Tag {
 }
 
 impl Tag {
+    /// The list of all tags.
+    pub const LIST: &'static [Tag] = &[
+        Self::Comment,
+        Self::Punctuation,
+        Self::Escape,
+        Self::Strong,
+        Self::Emph,
+        Self::Link,
+        Self::Raw,
+        Self::MathDelimiter,
+        Self::MathOperator,
+        Self::Heading,
+        Self::ListMarker,
+        Self::ListTerm,
+        Self::Label,
+        Self::Ref,
+        Self::Keyword,
+        Self::Operator,
+        Self::Number,
+        Self::String,
+        Self::Function,
+        Self::Interpolated,
+        Self::Error,
+    ];
+
     /// Return the recommended TextMate grammar scope for the given highlighting
     /// tag.
     pub fn tm_scope(&self) -> &'static str {

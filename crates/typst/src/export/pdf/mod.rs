@@ -15,7 +15,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
 use pdf_writer::{Finish, Name, PdfWriter, Ref, TextStr};
@@ -132,10 +132,19 @@ fn write_catalog(ctx: &mut PdfContext) {
         info.author(TextStr(&authors.join(", ")));
         xmp.creator(authors.iter().map(|s| s.as_str()));
     }
-    let creator = format!("Typst {}", env!("CARGO_PKG_VERSION"));
+
+    let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
     info.creator(TextStr(&creator));
-    info.finish();
     xmp.creator_tool(&creator);
+  
+    let keywords = &ctx.document.keywords;
+    if !keywords.is_empty() {
+        let joined = keywords.join(", ");
+        info.keywords(TextStr(&joined));
+        xmp.pdf_keywords(&joined);
+    }
+
+    info.finish();
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));

@@ -110,6 +110,48 @@ pub enum Corner {
     BottomLeft,
 }
 
+impl Corner {
+    /// The next corner, clockwise.
+    pub fn next_cw(self) -> Self {
+        match self {
+            Self::TopLeft => Self::TopRight,
+            Self::TopRight => Self::BottomRight,
+            Self::BottomRight => Self::BottomLeft,
+            Self::BottomLeft => Self::TopLeft,
+        }
+    }
+
+    /// The next corner, counter-clockwise.
+    pub fn next_ccw(self) -> Self {
+        match self {
+            Self::TopLeft => Self::BottomLeft,
+            Self::TopRight => Self::TopLeft,
+            Self::BottomRight => Self::TopRight,
+            Self::BottomLeft => Self::BottomRight,
+        }
+    }
+
+    /// The next side, clockwise.
+    pub fn side_cw(self) -> Side {
+        match self {
+            Self::TopLeft => Side::Top,
+            Self::TopRight => Side::Right,
+            Self::BottomRight => Side::Bottom,
+            Self::BottomLeft => Side::Left,
+        }
+    }
+
+    /// The next side, counter-clockwise.
+    pub fn side_ccw(self) -> Side {
+        match self {
+            Self::TopLeft => Side::Left,
+            Self::TopRight => Side::Top,
+            Self::BottomRight => Side::Right,
+            Self::BottomLeft => Side::Bottom,
+        }
+    }
+}
+
 impl<T: Reflect> Reflect for Corners<Option<T>> {
     fn input() -> CastInfo {
         T::input() + Dict::input()

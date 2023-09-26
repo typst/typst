@@ -1,4 +1,5 @@
 use typst::syntax::is_newline;
+use unicode_segmentation::UnicodeSegmentation;
 
 use crate::prelude::*;
 
@@ -42,7 +43,8 @@ pub struct SmartquoteElem {
 
     /// Whether to use alternative quotes.
     ///
-    /// Does nothing for languages that don't have alternative quotes.
+    /// Does nothing for languages that don't have alternative quotes, or if
+    /// explicit quotes were set.
     ///
     /// ```example
     /// #set text(lang: "de")
@@ -52,6 +54,31 @@ pub struct SmartquoteElem {
     /// ```
     #[default(false)]
     pub alternative: bool,
+
+    /// The quotes to use.
+    ///
+    /// - When set to `{auto}`, the appropriate single quotes for the
+    ///   [text language]($text.lang) will be used. This is the default.
+    /// - Custom quotes can be passed as a string, array, or dictionary of either
+    ///   - [string]($str): a string consisting of two characters containing the
+    ///     opening and closing double quotes (characters here refer to Unicode
+    ///     grapheme clusters)
+    ///   - [array]($array): an array containing the opening and closing double
+    ///     quotes
+    ///   - [dictionary]($dictionary): an array containing the double and single
+    ///     quotes, each specified as either `{auto}`, string, or array
+    ///
+    /// ```example
+    /// #set text(lang: "de")
+    /// 'Das sind normale Anführungszeichen.'
+    ///
+    /// #set smartquote(quotes: "()")
+    /// "Das sind eigene Anführungszeichen."
+    ///
+    /// #set smartquote(quotes: (single: ("[[", "]]"),  double: auto))
+    /// 'Das sind eigene Anführungszeichen.'
+    /// ```
+    pub quotes: Smart<QuoteDict>,
 }
 
 /// State machine for smart quote substitution.
@@ -146,8 +173,8 @@ pub struct Quotes<'s> {
 }
 
 impl<'s> Quotes<'s> {
-    /// Create a new `Quotes` struct with the defaults for a language and
-    /// region.
+    /// Create a new `Quotes` struct with the given quotes, optionally falling
+    /// back to the defaults for a language and region.
     ///
     /// The language should be specified as an all-lowercase ISO 639-1 code, the
     /// region as an all-uppercase ISO 3166-alpha2 code.
@@ -158,10 +185,16 @@ impl<'s> Quotes<'s> {
     /// Hungarian, Polish, Romanian, Japanese, Traditional Chinese, Russian, and
     /// Norwegian.
     ///
-    /// For unknown languages, the English quotes are used.
-    pub fn from_lang(lang: Lang, region: Option<Region>, alternative: bool) -> Self {
+    /// For unknown languages, the English quotes are used as fallback.
+    pub fn new(
+        quotes: &'s Smart<QuoteDict>,
+        lang: Lang,
+        region: Option<Region>,
+        alternative: bool,
+    ) -> Self {
         let region = region.as_ref().map(Region::as_str);
 
+        let default = ("‘", "’", "“", "”");
         let low_high = ("‚", "‘", "„", "“");
 
         let (single_open, single_close, double_open, double_close) = match lang.as_str() {
@@ -171,7 +204,7 @@ impl<'s> Quotes<'s> {
             },
             "cs" | "da" | "de" | "sk" | "sl" if alternative => ("›", "‹", "»", "«"),
             "cs" | "da" | "de" | "et" | "is" | "lt" | "lv" | "sk" | "sl" => low_high,
-            "fr" | "ru" if alternative => return Self::default(),
+            "fr" | "ru" if alternative => default,
             "fr" => ("‹\u{00A0}", "\u{00A0}›", "«\u{00A0}", "\u{00A0}»"),
             "fi" | "sv" if alternative => ("’", "’", "»", "»"),
             "bs" | "fi" | "sv" => ("’", "’", "”", "”"),
@@ -180,8 +213,27 @@ impl<'s> Quotes<'s> {
             "no" | "nb" | "nn" if alternative => low_high,
             "ru" | "no" | "nb" | "nn" | "ua" => ("’", "’", "«", "»"),
             _ if lang.dir() == Dir::RTL => ("’", "‘", "”", "“"),
-            _ => return Self::default(),
+            _ => default,
         };
+
+        fn inner_or_default<'s>(
+            quotes: Smart<&'s QuoteDict>,
+            f: impl FnOnce(&'s QuoteDict) -> Smart<&'s QuoteSet>,
+            default: [&'s str; 2],
+        ) -> [&'s str; 2] {
+            match quotes.and_then(f) {
+                Smart::Auto => default,
+                Smart::Custom(QuoteSet { open, close }) => {
+                    [open, close].map(|s| s.as_str())
+                }
+            }
+        }
+
+        let quotes = quotes.as_ref();
+        let [single_open, single_close] =
+            inner_or_default(quotes, |q| q.single.as_ref(), [single_open, single_close]);
+        let [double_open, double_close] =
+            inner_or_default(quotes, |q| q.double.as_ref(), [double_open, double_close]);
 
         Self {
             single_open,
@@ -228,14 +280,88 @@ impl<'s> Quotes<'s> {
     }
 }
 
-impl Default for Quotes<'_> {
-    /// Returns the english quotes as default.
-    fn default() -> Self {
-        Self {
-            single_open: "‘",
-            single_close: "’",
-            double_open: "“",
-            double_close: "”",
+/// An opening and closing quote.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct QuoteSet {
+    open: EcoString,
+    close: EcoString,
+}
+
+cast! {
+    QuoteSet,
+    self => array![self.open, self.close].into_value(),
+    value: Array => {
+        let [open, close] = array_to_set(value)?;
+        Self { open, close }
+    },
+    value: Str => {
+        let [open, close] = str_to_set(value.as_str())?;
+        Self { open, close }
+    },
+}
+
+fn str_to_set(value: &str) -> StrResult<[EcoString; 2]> {
+    let mut iter = value.graphemes(true);
+    match (iter.next(), iter.next(), iter.next()) {
+        (Some(open), Some(close), None) => Ok([open.into(), close.into()]),
+        _ => {
+            let count = value.graphemes(true).count();
+            bail!(
+                "expected 2 characters, found {count} character{}",
+                if count > 1 { "s" } else { "" }
+            );
         }
     }
+}
+
+fn array_to_set(value: Array) -> StrResult<[EcoString; 2]> {
+    let value = value.as_slice();
+    if value.len() != 2 {
+        bail!(
+            "expected 2 quotes, found {} quote{}",
+            value.len(),
+            if value.len() > 1 { "s" } else { "" }
+        );
+    }
+
+    let open: EcoString = value[0].clone().cast()?;
+    let close: EcoString = value[1].clone().cast()?;
+
+    Ok([open, close])
+}
+
+/// A dict of single and double quotes.
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct QuoteDict {
+    double: Smart<QuoteSet>,
+    single: Smart<QuoteSet>,
+}
+
+cast! {
+    QuoteDict,
+    self => dict! { "double" => self.double, "single" => self.single }.into_value(),
+    mut value: Dict => {
+        let keys = ["double", "single"];
+
+        let double = value
+            .take("double")
+            .ok()
+            .map(FromValue::from_value)
+            .transpose()?
+            .unwrap_or(Smart::Auto);
+        let single = value
+            .take("single")
+            .ok()
+            .map(FromValue::from_value)
+            .transpose()?
+            .unwrap_or(Smart::Auto);
+
+        value.finish(&keys)?;
+
+        Self { single, double }
+    },
+    value: QuoteSet => Self {
+        double: Smart::Custom(value),
+        single: Smart::Auto,
+    },
 }
