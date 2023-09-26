@@ -1,11 +1,10 @@
 use comemo::Track;
 use ecow::{eco_vec, EcoString, EcoVec};
-
-use crate::doc::Frame;
-use crate::eval::{Route, Scopes, Tracer, Value, Vm};
-use crate::model::{DelayedErrors, Introspector, Label, Locator, Vt};
-use crate::syntax::{ast, LinkedNode, Span, SyntaxKind};
-use crate::World;
+use typst::doc::Frame;
+use typst::eval::{Route, Scopes, Tracer, Value, Vm};
+use typst::model::{DelayedErrors, Introspector, Label, Locator, Vt};
+use typst::syntax::{ast, LinkedNode, Span, SyntaxKind};
+use typst::World;
 
 /// Try to determine a set of possible values for an expression.
 pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
@@ -35,7 +34,7 @@ pub fn analyze_expr(world: &dyn World, node: &LinkedNode) -> EcoVec<Value> {
 
             let mut tracer = Tracer::new();
             tracer.inspect(node.span());
-            crate::compile(world, &mut tracer).ok();
+            typst::compile(world, &mut tracer).ok();
             tracer.values()
         }
 
@@ -65,7 +64,7 @@ pub fn analyze_import(world: &dyn World, source: &LinkedNode) -> Option<Value> {
 
     let route = Route::default();
     let mut vm = Vm::new(vt, route.track(), Some(id), Scopes::new(Some(world.library())));
-    crate::eval::import(&mut vm, source, Span::detached(), true)
+    typst::eval::import(&mut vm, source, Span::detached(), true)
         .ok()
         .map(Value::Module)
 }

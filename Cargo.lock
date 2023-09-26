@@ -2739,7 +2739,6 @@ dependencies = [
  "ecow",
  "flate2",
  "fontdb",
- "if_chain",
  "image",
  "indexmap 2.0.0",
  "log",
@@ -2839,6 +2838,18 @@ dependencies = [
  "unicode_names2",
  "unscanny",
  "yaml-front-matter",
+]
+
+[[package]]
+name = "typst-ide"
+version = "0.8.0"
+dependencies = [
+ "comemo",
+ "ecow",
+ "if_chain",
+ "serde",
+ "typst",
+ "unscanny",
 ]
 
 [[package]]

@@ -4,20 +4,20 @@ use std::collections::{BTreeSet, HashSet};
 use ecow::{eco_format, EcoString};
 use if_chain::if_chain;
 use serde::{Deserialize, Serialize};
+use typst::doc::Frame;
+use typst::eval::{
+    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Scope, Type, Value,
+};
+use typst::geom::Color;
+use typst::syntax::{
+    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
+};
+use typst::util::separated_list;
+use typst::World;
 use unscanny::Scanner;
 
 use super::analyze::analyze_labels;
 use super::{analyze_expr, analyze_import, plain_docs_sentence, summarize_font_family};
-use crate::doc::Frame;
-use crate::eval::{
-    format_str, AutoValue, CastInfo, Func, Library, NoneValue, Scope, Type, Value,
-};
-use crate::geom::Color;
-use crate::syntax::{
-    ast, is_id_continue, is_id_start, is_ident, LinkedNode, Source, SyntaxKind,
-};
-use crate::util::separated_list;
-use crate::World;
 
 /// Autocomplete a cursor position in a source file.
 ///
@@ -365,7 +365,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         }
     }
 
-    for &(method, args) in crate::eval::mutable_methods_on(value.ty()) {
+    for &(method, args) in typst::eval::mutable_methods_on(value.ty()) {
         ctx.completions.push(Completion {
             kind: CompletionKind::Func,
             label: method.into(),
@@ -378,7 +378,7 @@ fn field_access_completions(ctx: &mut CompletionContext, value: &Value) {
         })
     }
 
-    for &field in crate::eval::fields_on(value.ty()) {
+    for &field in typst::eval::fields_on(value.ty()) {
         // Complete the field name along with its value. Notes:
         // 1. No parentheses since function fields cannot currently be called
         // with method syntax;
@@ -1136,7 +1136,7 @@ impl<'a> CompletionContext<'a> {
     /// Add completions for a castable.
     fn cast_completions(&mut self, cast: &'a CastInfo) {
         // Prevent duplicate completions from appearing.
-        if !self.seen_casts.insert(crate::util::hash128(cast)) {
+        if !self.seen_casts.insert(typst::util::hash128(cast)) {
             return;
         }
 

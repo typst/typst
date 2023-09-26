@@ -46,7 +46,6 @@ pub mod doc;
 pub mod export;
 pub mod font;
 pub mod geom;
-pub mod ide;
 pub mod image;
 pub mod model;
 

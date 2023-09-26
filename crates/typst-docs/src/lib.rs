@@ -382,7 +382,7 @@ fn param_model(resolver: &dyn Resolver, info: &ParamInfo) -> ParamModel {
         strings,
         default: info.default.map(|default| {
             let node = typst::syntax::parse_code(&default().repr());
-            Html::new(typst::ide::highlight_html(&node))
+            Html::new(typst::syntax::highlight_html(&node))
         }),
         positional: info.positional,
         named: info.named,

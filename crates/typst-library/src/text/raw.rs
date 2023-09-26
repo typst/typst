@@ -423,7 +423,7 @@ fn highlight_themed<F>(
 
     for child in node.children() {
         let mut scopes = scopes.clone();
-        if let Some(tag) = typst::ide::highlight(&child) {
+        if let Some(tag) = typst::syntax::highlight(&child) {
             scopes.push(syntect::parsing::Scope::new(tag.tm_scope()).unwrap())
         }
         highlight_themed(&child, scopes, highlighter, f);

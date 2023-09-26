@@ -1,12 +1,11 @@
 use std::num::NonZeroUsize;
 
 use ecow::EcoString;
-
-use crate::doc::{Destination, Frame, FrameItem, Meta, Position};
-use crate::geom::{Geometry, Point, Size};
-use crate::model::Introspector;
-use crate::syntax::{FileId, LinkedNode, Source, Span, SyntaxKind};
-use crate::World;
+use typst::doc::{Destination, Frame, FrameItem, Meta, Position};
+use typst::geom::{Geometry, Point, Size};
+use typst::model::Introspector;
+use typst::syntax::{FileId, LinkedNode, Source, Span, SyntaxKind};
+use typst::World;
 
 /// Where to [jump](jump_from_click) to.
 #[derive(Debug, Clone, Eq, PartialEq)]

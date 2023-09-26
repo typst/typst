@@ -1,4 +1,4 @@
-use crate::syntax::{ast, LinkedNode, SyntaxKind, SyntaxNode};
+use crate::{ast, LinkedNode, SyntaxKind, SyntaxNode};
 
 /// A syntax highlighting tag.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -405,7 +405,6 @@ mod tests {
     use std::ops::Range;
 
     use super::*;
-    use crate::syntax::parse;
 
     #[test]
     fn test_highlighting() {
@@ -414,7 +413,7 @@ mod tests {
         #[track_caller]
         fn test(text: &str, goal: &[(Range<usize>, Tag)]) {
             let mut vec = vec![];
-            let root = parse(text);
+            let root = crate::parse(text);
             highlight_tree(&mut vec, &LinkedNode::new(&root));
             assert_eq!(vec, goal);
         }

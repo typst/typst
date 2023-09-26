@@ -253,14 +253,12 @@ impl CastInfo {
             msg.push_str(", found ");
             write!(msg, "{}", found.ty()).unwrap();
         }
-        if_chain::if_chain! {
-            if let Value::Int(i) = found;
-            if parts.iter().any(|p| p == "length");
-            if !matching_type;
-            then {
+
+        if let Value::Int(i) = found {
+            if parts.iter().any(|p| p == "length") && !matching_type {
                 write!(msg, ": a length needs a unit - did you mean {i}pt?").unwrap();
             }
-        };
+        }
 
         msg.into()
     }

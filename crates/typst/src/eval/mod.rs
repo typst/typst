@@ -50,10 +50,12 @@ pub use self::cast::{
 pub use self::datetime::Datetime;
 pub use self::dict::{dict, Dict};
 pub use self::duration::Duration;
+pub use self::fields::fields_on;
 pub use self::func::{
     func, CapturesVisitor, Func, NativeFunc, NativeFuncData, ParamInfo,
 };
 pub use self::library::{set_lang_items, LangItems, Library};
+pub use self::methods::mutable_methods_on;
 pub use self::module::Module;
 pub use self::none::NoneValue;
 pub use self::plugin::Plugin;
@@ -63,9 +65,6 @@ pub use self::symbol::{symbols, Symbol};
 pub use self::tracer::Tracer;
 pub use self::ty::{scope, ty, NativeType, NativeTypeData, Type};
 pub use self::value::{Dynamic, Value};
-
-pub(crate) use self::fields::fields_on;
-pub(crate) use self::methods::mutable_methods_on;
 
 use std::collections::HashSet;
 use std::mem;
@@ -1829,7 +1828,7 @@ impl Eval for ast::ModuleInclude<'_> {
 }
 
 /// Process an import of a module relative to the current location.
-pub(crate) fn import(
+pub fn import(
     vm: &mut Vm,
     source: Value,
     span: Span,

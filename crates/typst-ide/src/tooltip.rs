@@ -1,18 +1,17 @@
 use std::fmt::Write;
 
 use ecow::{eco_format, EcoString};
-
 use if_chain::if_chain;
+use typst::doc::Frame;
+use typst::eval::{CapturesVisitor, CastInfo, Tracer, Value};
+use typst::geom::{round_2, Length, Numeric};
+use typst::syntax::ast::{self, AstNode};
+use typst::syntax::{LinkedNode, Source, SyntaxKind};
+use typst::util::{pretty_comma_list, separated_list};
+use typst::World;
 
 use super::analyze::analyze_labels;
 use super::{analyze_expr, plain_docs_sentence, summarize_font_family};
-use crate::doc::Frame;
-use crate::eval::{CapturesVisitor, CastInfo, Tracer, Value};
-use crate::geom::{round_2, Length, Numeric};
-use crate::syntax::ast::{self, AstNode};
-use crate::syntax::{LinkedNode, Source, SyntaxKind};
-use crate::util::{pretty_comma_list, separated_list};
-use crate::World;
 
 /// Describe the item under the cursor.
 pub fn tooltip(
