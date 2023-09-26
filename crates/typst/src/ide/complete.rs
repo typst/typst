@@ -27,7 +27,7 @@ use crate::World;
 /// When `explicit` is `true`, the user requested the completion by pressing
 /// control and space or something similar.
 pub fn autocomplete(
-    world: &(dyn World + 'static),
+    world: &dyn World,
     frames: &[Frame],
     source: &Source,
     cursor: usize,
@@ -944,7 +944,7 @@ fn code_completions(ctx: &mut CompletionContext, hashtag: bool) {
 
 /// Context for autocompletion.
 struct CompletionContext<'a> {
-    world: &'a (dyn World + 'static),
+    world: &'a (dyn World + 'a),
     frames: &'a [Frame],
     library: &'a Library,
     global: &'a Scope,
@@ -963,7 +963,7 @@ struct CompletionContext<'a> {
 impl<'a> CompletionContext<'a> {
     /// Create a new autocompletion context.
     fn new(
-        world: &'a (dyn World + 'static),
+        world: &'a (dyn World + 'a),
         frames: &'a [Frame],
         source: &'a Source,
         cursor: usize,

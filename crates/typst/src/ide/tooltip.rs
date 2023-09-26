@@ -16,7 +16,7 @@ use crate::World;
 
 /// Describe the item under the cursor.
 pub fn tooltip(
-    world: &(dyn World + 'static),
+    world: &dyn World,
     frames: &[Frame],
     source: &Source,
     cursor: usize,
@@ -43,7 +43,7 @@ pub enum Tooltip {
 }
 
 /// Tooltip for a hovered expression.
-fn expr_tooltip(world: &(dyn World + 'static), leaf: &LinkedNode) -> Option<Tooltip> {
+fn expr_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     let mut ancestor = leaf;
     while !ancestor.is::<ast::Expr>() {
         ancestor = ancestor.parent()?;
@@ -143,7 +143,7 @@ fn length_tooltip(length: Length) -> Option<Tooltip> {
 
 /// Tooltip for a hovered reference.
 fn ref_tooltip(
-    world: &(dyn World + 'static),
+    world: &dyn World,
     frames: &[Frame],
     leaf: &LinkedNode,
 ) -> Option<Tooltip> {
@@ -162,10 +162,7 @@ fn ref_tooltip(
 }
 
 /// Tooltips for components of a named parameter.
-fn named_param_tooltip(
-    world: &(dyn World + 'static),
-    leaf: &LinkedNode,
-) -> Option<Tooltip> {
+fn named_param_tooltip(world: &dyn World, leaf: &LinkedNode) -> Option<Tooltip> {
     let (func, named) = if_chain! {
         // Ensure that we are in a named pair in the arguments to a function
         // call or set rule.
