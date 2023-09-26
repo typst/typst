@@ -136,7 +136,7 @@ fn write_catalog(ctx: &mut PdfContext) {
     let creator = eco_format!("Typst {}", env!("CARGO_PKG_VERSION"));
     info.creator(TextStr(&creator));
     xmp.creator_tool(&creator);
-  
+
     let keywords = &ctx.document.keywords;
     if !keywords.is_empty() {
         let joined = keywords.join(", ");
