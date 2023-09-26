@@ -435,7 +435,7 @@ impl<'a> ShapedText<'a> {
             let book = world.book();
             let font = book
                 .select(family.as_str(), self.variant)
-                .or(book.select_fallback(None, self.variant, "-"))
+                .or_else(|| book.select_fallback(None, self.variant, "-"))
                 .and_then(|id| world.font(id))?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
