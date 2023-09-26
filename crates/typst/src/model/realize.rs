@@ -198,7 +198,11 @@ pub trait Behave {
     /// Whether this weak element is larger than a previous one and thus picked
     /// as the maximum when the levels are the same.
     #[allow(unused_variables)]
-    fn larger(&self, prev: &Content) -> bool {
+    fn larger(
+        &self,
+        prev: &(Content, Behaviour, StyleChain),
+        styles: StyleChain,
+    ) -> bool {
         false
     }
 }

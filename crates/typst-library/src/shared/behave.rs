@@ -53,7 +53,7 @@ impl<'a> BehavedBuilder<'a> {
                     let i = self.staged.iter().position(|prev| {
                         let Behaviour::Weak(prev_level) = prev.1 else { return false };
                         level < prev_level
-                            || (level == prev_level && item.larger(&prev.0))
+                            || (level == prev_level && item.larger(prev, styles))
                     });
                     let Some(i) = i else { return };
                     self.staged.remove(i);
