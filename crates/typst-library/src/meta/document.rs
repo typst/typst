@@ -27,6 +27,9 @@ pub struct DocumentElem {
     /// The document's authors.
     pub author: Author,
 
+    /// The document's keywords.
+    pub keywords: Keywords,
+
     /// The page runs.
     #[internal]
     #[variadic]
@@ -77,6 +80,7 @@ impl LayoutRoot for DocumentElem {
             pages,
             title: self.title(styles),
             author: self.author(styles).0,
+            keywords: self.keywords(styles).0,
         })
     }
 }
@@ -87,6 +91,17 @@ pub struct Author(Vec<EcoString>);
 
 cast! {
     Author,
+    self => self.0.into_value(),
+    v: EcoString => Self(vec![v]),
+    v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),
+}
+
+/// A list of keywords.
+#[derive(Debug, Default, Clone, Hash)]
+pub struct Keywords(Vec<EcoString>);
+
+cast! {
+    Keywords,
     self => self.0.into_value(),
     v: EcoString => Self(vec![v]),
     v: Array => Self(v.into_iter().map(Value::cast).collect::<StrResult<_>>()?),

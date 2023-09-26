@@ -28,6 +28,8 @@ pub struct Document {
     pub title: Option<EcoString>,
     /// The document's author.
     pub author: Vec<EcoString>,
+    /// The document's keywords.
+    pub keywords: Vec<EcoString>,
 }
 
 /// A finished layout with items at fixed positions.

@@ -132,6 +132,14 @@ fn write_catalog(ctx: &mut PdfContext) {
         info.author(TextStr(&authors.join(", ")));
         xmp.creator(authors.iter().map(|s| s.as_str()));
     }
+
+    let keywords = &ctx.document.keywords;
+    if !keywords.is_empty() {
+        let joined = keywords.join(", ");
+        info.keywords(TextStr(&joined));
+        xmp.pdf_keywords(&joined);
+    }
+
     info.creator(TextStr("Typst"));
     info.finish();
     xmp.creator_tool("Typst");
