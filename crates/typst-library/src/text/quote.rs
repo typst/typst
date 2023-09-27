@@ -34,12 +34,13 @@ pub struct QuoteElem {
     /// ```
     block: bool,
 
-    /// Whether quotes should be added around the quote.
+    /// Whether double quotes should be added around this quote.
     ///
-    /// - `{true}`: Wrap the quote in double quotes.
-    /// - `{false}`: Do not wrap the quote in double quotes.
-    /// - `{auto}`: Infer whether to wrap the quote in double quotes based on
-    ///   the `block` property. If `block` is `{true}` no quotes are used.
+    /// - `{true}`: Wrap this quote in double quotes.
+    /// - `{false}`: Do not wrap this quote in double quotes.
+    /// - `{auto}`: Infer whether to wrap this quote in double quotes based on
+    ///   the `block` property. If `block` is `{false}` double quotes are
+    ///   auomatically added.
     ///
     /// ```example
     /// #set text(lang: "de")
