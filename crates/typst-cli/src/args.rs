@@ -44,6 +44,9 @@ pub enum Command {
     /// Self update the Typst CLI
     #[cfg_attr(not(feature = "self-update"), doc = " (disabled)")]
     Update(UpdateCommand),
+
+    /// Formats an input file
+    Format(typst_format::Command),
 }
 
 /// Compiles an input file into a supported output format

@@ -1,0 +1,26 @@
+[package]
+name = "typst-format"
+version.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+edition.workspace = true
+publish = false
+
+[lib]
+doctest = false
+bench = false
+
+[[bin]]
+name = "typstformat"
+path = "src/main.rs"
+test = false
+doctest = false
+bench = false
+doc = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+ecow = { version = "0.1.1", features = ["serde"] }
+typst-syntax = { path = "../typst-syntax" }
+clap = { version = "4.2.4", features = ["derive", "env"] }
+toml = { version = "0.7.3", default-features = false, features = ["parse", "display"] }

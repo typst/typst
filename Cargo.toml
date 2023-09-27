@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/*", "tests"]
-default-members = ["crates/typst-cli"]
+default-members = ["crates/typst-cli", "crates/typst-format"]
 resolver = "2"
 
 [workspace.package]

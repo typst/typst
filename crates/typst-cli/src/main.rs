@@ -46,6 +46,7 @@ fn main() -> ExitCode {
         Command::Query(command) => crate::query::query(command),
         Command::Fonts(command) => crate::fonts::fonts(command),
         Command::Update(command) => crate::update::update(command),
+        Command::Format(command) => typst_format::format(command),
     };
 
     if let Err(msg) = res {
