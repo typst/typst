@@ -1,6 +1,6 @@
 use super::{Quotes, SmartquoteElem, SpaceElem, TextElem};
 use crate::{
-    layout::{AlignElem, BlockElem, PadElem},
+    layout::{BlockElem, PadElem},
     prelude::*,
 };
 
@@ -76,9 +76,7 @@ impl Show for QuoteElem {
         let dir = TextElem::dir_in(styles);
 
         if self.block(styles) {
-            let align = AlignElem::alignment_in(styles);
-
-            realized = BlockElem::new().with_body(Some(realized)).pack().aligned(align);
+            realized = BlockElem::new().with_body(Some(realized)).pack();
 
             if let Some(author) = author {
                 let mut new = Content::empty();
