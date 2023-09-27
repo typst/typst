@@ -2,21 +2,16 @@
 
 ---
 // Text direction affects author positioning
-And I quote: #quote(author: [René Descartes])[cogito, ergo sum].
+#let q = quote(author: [René Descartes])[cogito, ergo sum]
+And I quote: #q.
 
 #set text(dir: rtl)
-And I quote: #quote(author: [René Descartes])[cogito, ergo sum].
+And I quote: #q.
 
 ---
 // Text direction affects block alignment
 #set quote(block: true)
-#let q = quote[
-  #quote(author: [René Descartes])[
-    cogito, ergo sum
-  ]
-
-  A great quote.
-]
+#let q = quote(author: [René Descartes])[cogito, ergo sum]
 
 #q
 
