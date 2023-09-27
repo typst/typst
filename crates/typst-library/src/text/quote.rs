@@ -116,8 +116,8 @@ impl Show for QuoteElem {
                         + SpaceElem::new().pack()
                         + realized;
                 }
-            };
-        };
+            }
+        }
 
         if let Some(source) = self.source(styles) {
             realized = realized.linked(Destination::Url(source));
