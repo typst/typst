@@ -4,9 +4,34 @@ use crate::{
     prelude::*,
 };
 
+/// Displays a quote alongside it's author.
+///
+/// # Example
+/// ```example
+/// Plato is often misquoted as the author of #quote[I know that I know
+/// nothing], however, this is a derivation form his orginal quote:
+/// #quote(block: true, author: [Plato])[
+///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
+///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
+/// ]
+/// #quote(
+///  block: true,
+///  author: [from the Henry Cary literal translation of 1897]
+/// )[
+///   ... I seem, then, in just this little thing to be wiser than this man at
+///   any rate, that what I do not know I do not think I know either.
+/// ]
+/// ```
 #[elem(Show)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
+    ///
+    /// ```example
+    /// #quote(author: [René Descartes])[cogito, ergo sum]
+    ///
+    /// #set quote(block: true)
+    /// #quote(author: [JFK])[Ich bin ein Berliner.]
+    /// ```
     #[default(false)]
     block: bool,
 
@@ -16,13 +41,35 @@ pub struct QuoteElem {
     /// - `{false}`: Do not wrap the quote in double quotes.
     /// - `{auto}`: Infer whether to wrap the quote in double quotes based on
     ///   the `block` property. If `block` is `{true}` no quotes are used.
+    ///
+    /// ```example
+    /// #set text(lang: "de")
+    /// #quote[Ich bin ein Berliner.]
+    ///
+    /// #set smartquote(quotes: "«»")
+    /// #set quote(quotes: true)
+    /// #quote(block: true)[
+    ///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
+    ///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
+    /// ]
+    /// ```
     #[resolve]
     quotes: QuotesEnabled,
 
     /// The source url to this quote.
+    ///
+    /// ```example
+    /// #show link: set text(blue)
+    /// #quote(source: "https://google.com")[cogito, ergo sum]
+    /// ```
     source: Option<EcoString>,
 
     /// The author of this quote.
+    ///
+    /// ```example
+    /// #quote(author: [René Descartes])[cogito, ergo sum] is the author. \
+    /// #quote[cogito, ergo sum] --- _Unknown_
+    /// ```
     author: Option<Content>,
 
     /// The quote.
