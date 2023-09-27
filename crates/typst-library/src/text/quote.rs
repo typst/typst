@@ -1,4 +1,4 @@
-use super::{Quotes, SmartquoteElem, SpaceElem, TextElem};
+use super::{SmartquoteElem, SpaceElem, TextElem};
 use crate::{
     layout::{BlockElem, PadElem},
     prelude::*,
@@ -56,47 +56,39 @@ impl Show for QuoteElem {
         let author = self.author(styles);
 
         if self.quotes(styles) {
-            // TODO: should alternative be respected when we don't even check for smart quotes to be
-            // enabled?
-            let quotes = SmartquoteElem::quotes_in(styles);
-            let alternative = SmartquoteElem::alternative_in(styles);
-            let lang = TextElem::lang_in(styles);
-            let region = TextElem::region_in(styles);
-
-            let Quotes { double_open, double_close, .. } =
-                Quotes::new(&quotes, lang, region, alternative);
-
             realized = Content::sequence([
-                TextElem::packed(double_open),
+                SmartquoteElem::new().with_double(true).pack(),
                 realized,
-                TextElem::packed(double_close),
+                SmartquoteElem::new().with_double(true).pack(),
             ]);
         }
-
-        let dir = TextElem::dir_in(styles);
 
         if self.block(styles) {
             realized = BlockElem::new().with_body(Some(realized)).pack();
 
             if let Some(author) = author {
-                let mut new = Content::empty();
-                new += TextElem::packed('—');
-                new += SpaceElem::new().pack();
-                new += author;
-                realized += new.aligned(Align::END);
+                realized += Content::sequence([
+                    TextElem::packed('—'),
+                    SpaceElem::new().pack(),
+                    author,
+                ])
+                .aligned(Align::END);
             }
 
             let pad: Rel = Em::new(1.0).into();
             realized = PadElem::new(realized).with_left(pad).with_right(pad).pack();
         } else if let Some(author) = author {
-            let inline = |mut first: Content, second: Content| {
-                first += SpaceElem::new().pack();
-                first += TextElem::packed('—');
-                first += SpaceElem::new().pack();
-                first + second
+            let inline = |first: Content, second: Content| {
+                Content::sequence([
+                    first,
+                    SpaceElem::new().pack(),
+                    TextElem::packed('—'),
+                    SpaceElem::new().pack(),
+                    second,
+                ])
             };
 
-            if dir == Dir::LTR {
+            if TextElem::dir_in(styles) == Dir::LTR {
                 realized = inline(realized, author);
             } else {
                 realized = inline(author, realized);
