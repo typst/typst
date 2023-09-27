@@ -1,6 +1,6 @@
 use super::{SmartquoteElem, SpaceElem, TextElem};
 use crate::{
-    layout::{BlockElem, PadElem},
+    layout::{BlockElem, HElem, PadElem, Spacing},
     prelude::*,
 };
 
@@ -103,10 +103,15 @@ impl Show for QuoteElem {
         let author = self.author(styles);
 
         if self.quotes(styles) {
+            let quote = SmartquoteElem::new().with_double(true).pack();
+            let weak_h = HElem::new(Spacing::Rel(Rel::zero())).with_weak(true).pack();
+
             realized = Content::sequence([
-                SmartquoteElem::new().with_double(true).pack(),
+                quote.clone(),
+                weak_h.clone(),
                 realized,
-                SmartquoteElem::new().with_double(true).pack(),
+                weak_h,
+                quote,
             ]);
         }
 
