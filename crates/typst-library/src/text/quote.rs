@@ -32,7 +32,6 @@ pub struct QuoteElem {
     /// #set quote(block: true)
     /// #quote(author: [JFK])[Ich bin ein Berliner.]
     /// ```
-    #[default(false)]
     block: bool,
 
     /// Whether quotes should be added around the quote.
@@ -53,8 +52,7 @@ pub struct QuoteElem {
     ///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
     /// ]
     /// ```
-    #[resolve]
-    quotes: QuotesEnabled,
+    quotes: Smart<bool>,
 
     /// The source url to this quote.
     ///
@@ -77,32 +75,13 @@ pub struct QuoteElem {
     body: Content,
 }
 
-#[derive(Debug, Default)]
-pub struct QuotesEnabled(pub Smart<bool>);
-
-cast! {
-    QuotesEnabled,
-    self => self.0.into_value(),
-    value: Smart<bool> => Self(value),
-}
-
-impl Resolve for QuotesEnabled {
-    type Output = bool;
-
-    fn resolve(self, styles: StyleChain) -> Self::Output {
-        match self.0 {
-            Smart::Auto => !QuoteElem::block_in(styles),
-            Smart::Custom(quotes) => quotes,
-        }
-    }
-}
-
 impl Show for QuoteElem {
     fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         let author = self.author(styles);
+        let block = self.block(styles);
 
-        if self.quotes(styles) {
+        if self.quotes(styles).as_custom().is_some_and(|q| q) || !block {
             let quote = SmartquoteElem::new().with_double(true).pack();
             let weak_h = HElem::new(Spacing::Rel(Rel::zero())).with_weak(true).pack();
 
@@ -115,7 +94,7 @@ impl Show for QuoteElem {
             ]);
         }
 
-        if self.block(styles) {
+        if block {
             realized = BlockElem::new().with_body(Some(realized)).pack();
 
             if let Some(author) = author {
