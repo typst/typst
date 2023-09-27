@@ -45,7 +45,7 @@ impl Resolve for QuotesEnabled {
     fn resolve(self, styles: StyleChain) -> Self::Output {
         match self.0 {
             Smart::Auto => !QuoteElem::block_in(styles),
-            Smart::Custom(dir) => dir,
+            Smart::Custom(quotes) => quotes,
         }
     }
 }
