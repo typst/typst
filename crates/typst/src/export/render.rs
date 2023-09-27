@@ -17,7 +17,7 @@ use crate::geom::{
     self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
     Size, Transform,
 };
-use crate::image::{DecodedImage, Image, RasterFormat};
+use crate::image::{Image, ImageKind, RasterFormat};
 
 /// Export a frame into a raster image.
 ///
@@ -585,25 +585,29 @@ fn render_image(
 #[comemo::memoize]
 fn scaled_texture(image: &Image, w: u32, h: u32) -> Option<Arc<sk::Pixmap>> {
     let mut pixmap = sk::Pixmap::new(w, h)?;
-    match image.decoded().as_ref() {
-        DecodedImage::Raster(dynamic, _, _) => {
+    match image.kind() {
+        ImageKind::Raster(raster) => {
             let downscale = w < image.width();
             let filter =
                 if downscale { FilterType::Lanczos3 } else { FilterType::CatmullRom };
-            let buf = dynamic.resize(w, h, filter);
+            let buf = raster.dynamic().resize(w, h, filter);
             for ((_, _, src), dest) in buf.pixels().zip(pixmap.pixels_mut()) {
                 let Rgba([r, g, b, a]) = src;
                 *dest = sk::ColorU8::from_rgba(r, g, b, a).premultiply();
             }
         }
-        DecodedImage::Svg(tree) => {
-            let tree = resvg::Tree::from_usvg(tree);
-            let ts = tiny_skia::Transform::from_scale(
-                w as f32 / tree.size.width(),
-                h as f32 / tree.size.height(),
-            );
-            tree.render(ts, &mut pixmap.as_mut())
-        }
+        // Safety: We do not keep any references to tree nodes beyond the scope
+        // of `with`.
+        ImageKind::Svg(svg) => unsafe {
+            svg.with(|tree| {
+                let tree = resvg::Tree::from_usvg(tree);
+                let ts = tiny_skia::Transform::from_scale(
+                    w as f32 / tree.size.width(),
+                    h as f32 / tree.size.height(),
+                );
+                tree.render(ts, &mut pixmap.as_mut())
+            });
+        },
     }
     Some(Arc::new(pixmap))
 }

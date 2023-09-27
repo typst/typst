@@ -159,9 +159,9 @@ impl Layout for ImageElem {
         let image = Image::with_fonts(
             data.into(),
             format,
-            vt.world,
-            families(styles).map(|s| s.as_str().into()).collect(),
             self.alt(styles),
+            vt.world,
+            &families(styles).map(|s| s.as_str().into()).collect::<Vec<_>>(),
         )
         .at(self.span())?;
 

@@ -1,11 +1,11 @@
 use std::io::Cursor;
+use std::sync::Arc;
 
 use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Filter, Finish};
 
 use super::{deflate, PdfContext, RefExt};
-use crate::eval::Bytes;
-use crate::image::{DecodedImage, Image, RasterFormat};
+use crate::image::{ImageKind, RasterFormat, RasterImage};
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
@@ -19,11 +19,10 @@ pub fn write_images(ctx: &mut PdfContext) {
         let height = image.height();
 
         // Add the primary image.
-        // TODO: Error if image could not be encoded.
-        match image.decoded().as_ref() {
-            DecodedImage::Raster(dynamic, icc, _) => {
+        match image.kind() {
+            ImageKind::Raster(raster) => {
                 // TODO: Error if image could not be encoded.
-                let (data, filter, has_color) = encode_image(image);
+                let (data, filter, has_color) = encode_image(raster);
                 let mut image = ctx.writer.image_xobject(image_ref, &data);
                 image.filter(filter);
                 image.width(width as i32);
@@ -31,7 +30,7 @@ pub fn write_images(ctx: &mut PdfContext) {
                 image.bits_per_component(8);
 
                 let space = image.color_space();
-                if icc.is_some() {
+                if raster.icc().is_some() {
                     space.icc_based(icc_ref);
                 } else if has_color {
                     space.device_rgb();
@@ -41,8 +40,8 @@ pub fn write_images(ctx: &mut PdfContext) {
 
                 // Add a second gray-scale image containing the alpha values if
                 // this image has an alpha channel.
-                if dynamic.color().has_alpha() {
-                    let (alpha_data, alpha_filter) = encode_alpha(dynamic);
+                if raster.dynamic().color().has_alpha() {
+                    let (alpha_data, alpha_filter) = encode_alpha(raster);
                     let mask_ref = ctx.alloc.bump();
                     image.s_mask(mask_ref);
                     image.finish();
@@ -57,8 +56,8 @@ pub fn write_images(ctx: &mut PdfContext) {
                     image.finish();
                 }
 
-                if let Some(icc) = icc {
-                    let compressed = deflate(&icc.0);
+                if let Some(icc) = raster.icc() {
+                    let compressed = deflate(icc);
                     let mut stream = ctx.writer.icc_profile(icc_ref, &compressed);
                     stream.filter(Filter::FlateDecode);
                     if has_color {
@@ -70,15 +69,19 @@ pub fn write_images(ctx: &mut PdfContext) {
                     }
                 }
             }
-            DecodedImage::Svg(svg) => {
-                let next_ref = svg2pdf::convert_tree_into(
-                    svg,
-                    svg2pdf::Options::default(),
-                    &mut ctx.writer,
-                    image_ref,
-                );
-                ctx.alloc = next_ref;
-            }
+            // Safety: We do not keep any references to tree nodes beyond the
+            // scope of `with`.
+            ImageKind::Svg(svg) => unsafe {
+                svg.with(|tree| {
+                    let next_ref = svg2pdf::convert_tree_into(
+                        tree,
+                        svg2pdf::Options::default(),
+                        &mut ctx.writer,
+                        image_ref,
+                    );
+                    ctx.alloc = next_ref;
+                });
+            },
         }
     }
 }
@@ -89,14 +92,9 @@ pub fn write_images(ctx: &mut PdfContext) {
 /// Skips the alpha channel as that's encoded separately.
 #[comemo::memoize]
 #[tracing::instrument(skip_all)]
-fn encode_image(image: &Image) -> (Bytes, Filter, bool) {
-    let decoded = image.decoded();
-    let (dynamic, format) = match decoded.as_ref() {
-        DecodedImage::Raster(dynamic, _, format) => (dynamic, *format),
-        _ => panic!("can only encode raster image"),
-    };
-
-    match (format, dynamic) {
+fn encode_image(image: &RasterImage) -> (Arc<Vec<u8>>, Filter, bool) {
+    let dynamic = image.dynamic();
+    match (image.format(), dynamic) {
         // 8-bit gray JPEG.
         (RasterFormat::Jpg, DynamicImage::ImageLuma8(_)) => {
             let mut data = Cursor::new(vec![]);
@@ -136,8 +134,13 @@ fn encode_image(image: &Image) -> (Bytes, Filter, bool) {
 }
 
 /// Encode an image's alpha channel if present.
+#[comemo::memoize]
 #[tracing::instrument(skip_all)]
-fn encode_alpha(dynamic: &DynamicImage) -> (Vec<u8>, Filter) {
-    let pixels: Vec<_> = dynamic.pixels().map(|(_, _, Rgba([_, _, _, a]))| a).collect();
-    (deflate(&pixels), Filter::FlateDecode)
+fn encode_alpha(raster: &RasterImage) -> (Arc<Vec<u8>>, Filter) {
+    let pixels: Vec<_> = raster
+        .dynamic()
+        .pixels()
+        .map(|(_, _, Rgba([_, _, _, a]))| a)
+        .collect();
+    (Arc::new(deflate(&pixels)), Filter::FlateDecode)
 }
