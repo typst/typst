@@ -323,7 +323,8 @@ impl SVGRenderer {
                 LineJoin::Bevel => "bevel",
             },
         );
-        self.xml.write_attribute("stroke-miterlimit", &stroke.miter_limit.0);
+        self.xml
+            .write_attribute("stroke-miterlimit", &stroke.miter_limit.get());
         if let Some(pattern) = &stroke.dash_pattern {
             self.xml.write_attribute("stroke-dashoffset", &pattern.phase.to_pt());
             self.xml.write_attribute(

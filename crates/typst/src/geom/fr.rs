@@ -19,22 +19,22 @@ pub struct Fr(Scalar);
 impl Fr {
     /// Takes up zero space: `0fr`.
     pub const fn zero() -> Self {
-        Self(Scalar(0.0))
+        Self(Scalar::ZERO)
     }
 
     /// Takes up as much space as all other items with this fraction: `1fr`.
     pub const fn one() -> Self {
-        Self(Scalar(1.0))
+        Self(Scalar::ONE)
     }
 
     /// Create a new fraction.
     pub const fn new(ratio: f64) -> Self {
-        Self(Scalar(ratio))
+        Self(Scalar::new(ratio))
     }
 
     /// Get the underlying number.
     pub const fn get(self) -> f64 {
-        (self.0).0
+        (self.0).get()
     }
 
     /// The absolute value of this fraction.

@@ -738,12 +738,12 @@ pub struct Paper {
 impl Paper {
     /// The width of the paper.
     pub fn width(self) -> Abs {
-        Abs::mm(self.width.0)
+        Abs::mm(self.width.get())
     }
 
     /// The height of the paper.
     pub fn height(self) -> Abs {
-        Abs::mm(self.height.0)
+        Abs::mm(self.height.get())
     }
 }
 
@@ -756,8 +756,8 @@ macro_rules! papers {
         impl Paper {
             $(pub const $var: Self = Self {
                 name: $name,
-                width: Scalar($width),
-                height: Scalar($height),
+                width: Scalar::new($width),
+                height: Scalar::new($height),
             };)*
         }
 

@@ -18,17 +18,17 @@ pub struct Angle(Scalar);
 impl Angle {
     /// The zero angle.
     pub const fn zero() -> Self {
-        Self(Scalar(0.0))
+        Self(Scalar::ZERO)
     }
 
     /// Create an angle from a number of raw units.
     pub const fn raw(raw: f64) -> Self {
-        Self(Scalar(raw))
+        Self(Scalar::new(raw))
     }
 
     /// Create an angle from a value in a unit.
     pub fn with_unit(val: f64, unit: AngleUnit) -> Self {
-        Self(Scalar(val * unit.raw_scale()))
+        Self(Scalar::new(val * unit.raw_scale()))
     }
 
     /// Create an angle from a number of radians.
@@ -43,7 +43,7 @@ impl Angle {
 
     /// Get the value of this angle in raw units.
     pub const fn to_raw(self) -> f64 {
-        (self.0).0
+        (self.0).get()
     }
 
     /// Get the value of this angle in a unit.

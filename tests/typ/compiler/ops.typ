@@ -129,6 +129,20 @@
 #0x123z
 
 ---
+// Test that multiplying infinite numbers by certain units does not crash.
+#(float("inf") * 1pt)
+#(float("inf") * 1em)
+#(float("inf") * (1pt + 1em))
+
+---
+// Test that trying to produce a NaN scalar (such as in lengths) does not crash.
+#let infpt = float("inf") * 1pt
+#test(infpt - infpt, 0pt)
+#test(infpt + (-infpt), 0pt)
+// TODO: this result is surprising
+#test(infpt / float("inf"), 0pt)
+
+---
 // Test boolean operators.
 
 // Test not.
