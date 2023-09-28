@@ -432,49 +432,36 @@ impl<'a> ShapedText<'a> {
     pub fn push_hyphen(&mut self, vt: &Vt) {
         let world = vt.world;
         let book = world.book();
-        families(self.styles)
-            .find_map(|family| {
-                book.select(family.as_str(), self.variant)
-                    .and_then(|id| world.font(id))
-                    .filter(|font| {
-                        font.info().coverage.contains('-' as u32)
-                            && font
-                                .ttf()
-                                .glyph_index('-')
-                                .and_then(|glyph_id| {
-                                    font.ttf().glyph_hor_advance(glyph_id)
-                                })
-                                .is_some()
-                    })
-            })
-            .or_else(|| {
-                book.select_fallback(None, self.variant, "-")
-                    .and_then(|id| world.font(id))
-            })
-            .and_then(|font| {
-                let ttf = font.ttf();
-                let glyph_id = ttf.glyph_index('-')?;
-                let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
-                let range = self
-                    .glyphs
-                    .last()
-                    .map(|g| g.range.end..g.range.end)
-                    .unwrap_or_default();
-                self.width += x_advance.at(self.size);
-                self.glyphs.to_mut().push(ShapedGlyph {
-                    font,
-                    glyph_id: glyph_id.0,
-                    x_advance,
-                    x_offset: Em::zero(),
-                    y_offset: Em::zero(),
-                    adjustability: Adjustability::default(),
-                    range,
-                    safe_to_break: true,
-                    c: '-',
-                    span: (Span::detached(), 0),
-                });
-                Some(())
+        let mut chain = families(self.styles)
+            .map(|family| book.select(family.as_str(), self.variant))
+            .chain(std::iter::once_with(|| book.select_fallback(None, self.variant, "-")))
+            .flatten();
+
+        chain.find_map(|id| {
+            let font = world.font(id)?;
+            let ttf = font.ttf();
+            let glyph_id = ttf.glyph_index('-')?;
+            let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
+            let range = self
+                .glyphs
+                .last()
+                .map(|g| g.range.end..g.range.end)
+                .unwrap_or_default();
+            self.width += x_advance.at(self.size);
+            self.glyphs.to_mut().push(ShapedGlyph {
+                font,
+                glyph_id: glyph_id.0,
+                x_advance,
+                x_offset: Em::zero(),
+                y_offset: Em::zero(),
+                adjustability: Adjustability::default(),
+                range,
+                safe_to_break: true,
+                c: '-',
+                span: (Span::detached(), 0),
             });
+            Some(())
+        });
     }
 
     /// Find the subslice of glyphs that represent the given text range if both
