@@ -1,8 +1,7 @@
 use super::{SmartquoteElem, SpaceElem, TextElem};
-use crate::{
-    layout::{BlockElem, HElem, PadElem, Spacing},
-    prelude::*,
-};
+use crate::layout::{BlockElem, HElem, PadElem, Spacing};
+use crate::meta::CiteElem;
+use crate::prelude::*;
 
 /// Displays a quote alongside it's author.
 ///
