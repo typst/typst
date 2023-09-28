@@ -9,19 +9,31 @@ use crate::prelude::*;
 /// ```example
 /// Plato is often misquoted as the author of #quote[I know that I know
 /// nothing], however, this is a derivation form his orginal quote:
-/// #quote(block: true, author: [Plato])[
+/// #set quote(block: true)
+/// #quote(author: [Plato])[
 ///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
 ///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
 /// ]
-/// #quote(
-///  block: true,
-///  author: [from the Henry Cary literal translation of 1897]
-/// )[
+/// #quote(author: [from the Henry Cary literal translation of 1897])[
 ///   ... I seem, then, in just this little thing to be wiser than this man at
 ///   any rate, that what I do not know I do not think I know either.
 /// ]
 /// ```
-#[elem(Show)]
+///
+/// By default block quotes are padded left and right by `{1em}`, alignment and
+/// padding can be controlled with show rules:
+/// ```example
+/// #set quote(block: true)
+/// #show quote: set align(center)
+/// #show quote: set pad(x: 5em)
+///
+/// #quote[
+///   You cannot pass... I am a servant of the Secret Fire, wielder of the
+///   flame of Anor. You cannot pass. The dark fire will not avail you,
+///   flame of Udûn. Go back to the Shadow! You cannot pass.
+/// ]
+/// ```
+#[elem(Finalize, Show)]
 pub struct QuoteElem {
     /// Whether this is a block quote.
     ///
@@ -35,30 +47,38 @@ pub struct QuoteElem {
 
     /// Whether double quotes should be added around this quote.
     ///
+    /// The double quotes used are inferred from the `quotes` property on
+    /// [smartquote]($smartquote), which is affected by the `lang` property on
+    /// [text]($text).
+    ///
     /// - `{true}`: Wrap this quote in double quotes.
     /// - `{false}`: Do not wrap this quote in double quotes.
     /// - `{auto}`: Infer whether to wrap this quote in double quotes based on
-    ///   the `block` property. If `block` is `{false}` double quotes are
+    ///   the `block` property. If `block` is `{false}`, double quotes are
     ///   auomatically added.
     ///
     /// ```example
     /// #set text(lang: "de")
     /// #quote[Ich bin ein Berliner.]
     ///
-    /// #set smartquote(quotes: "«»")
+    /// #set text(lang: "en")
     /// #set quote(quotes: true)
-    /// #quote(block: true)[
-    ///   ... ἔοικα γοῦν τούτου γε σμικρῷ τινι αὐτῷ τούτῳ σοφώτερος εἶναι, ὅτι
-    ///   ἃ μὴ οἶδα οὐδὲ οἴομαι εἰδέναι.
-    /// ]
+    /// #quote(block: true)[I am a Berliner.]
     /// ```
     quotes: Smart<bool>,
 
-    /// The source url to this quote.
+    /// The source to this quote, can be a URL or bibliography key.
     ///
     /// ```example
     /// #show link: set text(blue)
-    /// #quote(source: "https://google.com")[cogito, ergo sum]
+    /// #quote(source: "https://typst.app/home")[Compose papers faster]
+    ///
+    /// #quote(source: "tolkien54")[
+    ///   You cannot pass... I am a servant of the Secret Fire, wielder of the
+    ///   flame of Anor. You cannot pass. The dark fire will not avail you,
+    ///   flame of Udûn. Go back to the Shadow! You cannot pass.
+    /// ]
+    /// #bibliography("works.bib")
     /// ```
     source: Option<EcoString>,
 
@@ -81,7 +101,18 @@ impl Show for QuoteElem {
         let author = self.author(styles);
         let block = self.block(styles);
 
-        if self.quotes(styles).as_custom().is_some_and(|q| q) || !block {
+        let (citation, url) = if let Some(source) = self.source(styles) {
+            if source.starts_with("http://") || source.starts_with("https://") {
+                (None, Some(source))
+            } else {
+                (Some(source), None)
+            }
+        } else {
+            (None, None)
+        };
+
+        if self.quotes(styles) == Smart::Custom(true) || !block {
+            // use h(0pt, weak: true) to make the quotes "sticky"
             let quote = SmartquoteElem::new().with_double(true).pack();
             let weak_h = HElem::new(Spacing::Rel(Rel::zero())).with_weak(true).pack();
 
@@ -94,42 +125,50 @@ impl Show for QuoteElem {
             ]);
         }
 
+        let author = if let Some(author) = author {
+            let mut seq = vec![];
+
+            let space = SpaceElem::new().pack();
+            if !block {
+                seq.push(space.clone());
+            }
+
+            seq.extend([TextElem::packed('—'), space, author]);
+
+            if let Some(source) = citation {
+                realized += CiteElem::new(vec![source]).pack();
+            }
+
+            Some(Content::sequence(seq))
+        } else {
+            None
+        };
+
         if block {
             realized = BlockElem::new().with_body(Some(realized)).pack();
 
             if let Some(author) = author {
-                realized += Content::sequence([
-                    TextElem::packed('—'),
-                    SpaceElem::new().pack(),
-                    author,
-                ])
-                .aligned(Align::END);
+                realized += author.aligned(Align::END);
             }
 
-            let pad: Rel = Em::new(1.0).into();
-            realized = PadElem::new(realized).with_left(pad).with_right(pad).pack();
+            realized = PadElem::new(realized).pack();
         } else if let Some(author) = author {
-            let inline = |first: Content, second: Content| {
-                Content::sequence([
-                    first,
-                    SpaceElem::new().pack(),
-                    TextElem::packed('—'),
-                    SpaceElem::new().pack(),
-                    second,
-                ])
-            };
-
-            if TextElem::dir_in(styles) == Dir::LTR {
-                realized = inline(realized, author);
-            } else {
-                realized = inline(author, realized);
-            }
+            realized += author;
         }
 
-        if let Some(source) = self.source(styles) {
-            realized = realized.linked(Destination::Url(source));
+        if let Some(url) = url {
+            realized = realized.linked(Destination::Url(url));
         }
 
         Ok(realized)
+    }
+}
+
+impl Finalize for QuoteElem {
+    fn finalize(&self, realized: Content, _: StyleChain) -> Content {
+        let pad: Rel = Em::new(1.0).into();
+        realized
+            .styled(PadElem::set_left(pad))
+            .styled(PadElem::set_right(pad))
     }
 }

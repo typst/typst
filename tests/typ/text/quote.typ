@@ -2,21 +2,18 @@
 
 ---
 // Text direction affects author positioning
-#let q = quote(author: [René Descartes])[cogito, ergo sum]
-And I quote: #q.
+And I quote: #quote(author: [René Descartes])[cogito, ergo sum].
 
-#set text(dir: rtl)
-And I quote: #q.
+#set text(lang: "ar")
+#quote(author: [عالم])[مرحبًا]
 
 ---
 // Text direction affects block alignment
 #set quote(block: true)
-#let q = quote(author: [René Descartes])[cogito, ergo sum]
+#quote(author: [René Descartes])[cogito, ergo sum]
 
-#q
-
-#set text(dir: rtl)
-#q
+#set text(lang: "ar")
+#quote(author: [عالم])[مرحبًا]
 
 ---
 // Indentation bar is aligned with text
