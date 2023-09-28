@@ -430,12 +430,15 @@ impl<'a> ShapedText<'a> {
 
     /// Push a hyphen to end of the text.
     pub fn push_hyphen(&mut self, vt: &Vt) {
-        families(self.styles).find_map(|family| {
-            let world = vt.world;
-            let font = world
-                .book()
-                .select(family.as_str(), self.variant)
-                .and_then(|id| world.font(id))?;
+        let world = vt.world;
+        let book = world.book();
+        let mut chain = families(self.styles)
+            .map(|family| book.select(family.as_str(), self.variant))
+            .chain(std::iter::once_with(|| book.select_fallback(None, self.variant, "-")))
+            .flatten();
+
+        chain.find_map(|id| {
+            let font = world.font(id)?;
             let ttf = font.ttf();
             let glyph_id = ttf.glyph_index('-')?;
             let x_advance = font.to_em(ttf.glyph_hor_advance(glyph_id)?);
