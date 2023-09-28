@@ -275,6 +275,7 @@ impl LocalName for OutlineElem {
             Lang::POLISH => "Spis treści",
             Lang::PORTUGUESE if option_eq(region, "PT") => "Índice",
             Lang::PORTUGUESE => "Sumário",
+            Lang::ROMANIAN => "Cuprins",
             Lang::RUSSIAN => "Содержание",
             Lang::SLOVENIAN => "Kazalo",
             Lang::SPANISH => "Índice",
