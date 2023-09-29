@@ -298,13 +298,13 @@ impl SVGRenderer {
 
     /// Write a fill attribute.
     fn write_fill(&mut self, fill: &Paint) {
-        let Paint::Solid(color) = fill;
+        let Paint::Solid(color) = fill else { todo!() };
         self.xml.write_attribute("fill", &color.encode());
     }
 
     /// Write a stroke attribute.
     fn write_stroke(&mut self, stroke: &FixedStroke) {
-        let Paint::Solid(color) = stroke.paint;
+        let Paint::Solid(color) = stroke.paint else { todo!() };
         self.xml.write_attribute("stroke", &color.encode());
         self.xml.write_attribute("stroke-width", &stroke.thickness.to_pt());
         self.xml.write_attribute(

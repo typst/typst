@@ -15,7 +15,7 @@ use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
-    Size, Transform,
+    Size, Transform, Gradient,
 };
 use crate::image::{Image, ImageKind, RasterFormat};
 
@@ -322,7 +322,13 @@ fn render_outline_glyph(
             builder.0.finish()?
         };
 
-        let paint = (&text.fill).into();
+        let paint = (&text.fill).into_sk_paint(
+            todo!(),
+            todo!(),
+            todo!(),
+            todo!(),
+        );
+
         let rule = sk::FillRule::default();
 
         // Flip vertically because font design coordinate
@@ -361,7 +367,7 @@ fn render_outline_glyph(
         let mw = bitmap.width;
         let mh = bitmap.height;
 
-        let Paint::Solid(color) = text.fill;
+        let Paint::Solid(color) = text.fill else { todo!() };
         let color = sk::ColorU8::from(color);
 
         // Pad the pixmap with 1 pixel in each dimension so that we do
@@ -406,7 +412,7 @@ fn render_outline_glyph(
         let bottom = top + mh;
 
         // Premultiply the text color.
-        let Paint::Solid(color) = text.fill;
+        let Paint::Solid(color) = text.fill else { todo!() };
         let color = bytemuck::cast(sk::ColorU8::from(color).premultiply());
 
         // Blend the glyph bitmap with the existing pixels on the canvas.
@@ -457,7 +463,12 @@ fn render_shape(
     };
 
     if let Some(fill) = &shape.fill {
-        let mut paint: sk::Paint = fill.into();
+        let mut paint: sk::Paint = fill.into_sk_paint(
+            todo!(),
+            todo!(),
+            todo!(),
+            todo!(),
+        );
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
         }
@@ -490,7 +501,13 @@ fn render_shape(
 
                 sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
             });
-            let paint = paint.into();
+            let paint = paint.into_sk_paint(
+                todo!(),
+                todo!(),
+                todo!(),
+                todo!(),
+            );
+            
             let stroke = sk::Stroke {
                 width,
                 line_cap: line_cap.into(),
@@ -626,12 +643,73 @@ impl From<Transform> for sk::Transform {
     }
 }
 
-impl From<&Paint> for sk::Paint<'static> {
-    fn from(paint: &Paint) -> Self {
-        let mut sk_paint = sk::Paint::default();
-        let Paint::Solid(color) = *paint;
-        sk_paint.set_color(color.into());
-        sk_paint.anti_alias = true;
+/// Transforms a [`Paint`] into a [`sk::Paint`].
+/// Applying the necessary transform, if the paint is a gradient.
+trait IntoSkPaint {
+    fn into_sk_paint<'a>(
+        &self,
+        size: Size,
+        fill_transform: Option<sk::Transform>,
+        pixel_per_pt: f32,
+        pixmap: &'a mut Option<Arc<sk::Pixmap>>,
+    ) -> sk::Paint<'a>;
+}
+
+impl IntoSkPaint for Paint {
+    fn into_sk_paint<'a>(
+        &self,
+        size: Size,
+        fill_transform: Option<sk::Transform>,
+        pixel_per_pt: f32,
+        pixmap: &'a mut Option<Arc<sk::Pixmap>>,
+    ) -> sk::Paint<'a> {
+        #[comemo::memoize]
+        fn cached(gradient: &Gradient, width: u32, height: u32) -> Arc<sk::Pixmap> {
+            let mut pixmap = sk::Pixmap::new(width.max(1), height.max(1)).unwrap();
+            for x in 0..width {
+                for y in 0..height {
+                    let color: sk::Color = gradient
+                        .sample_at((x as f32, y as f32), (width as f32, height as f32))
+                        .into();
+
+                    pixmap.pixels_mut()[(y * width + x) as usize] =
+                        color.premultiply().to_color_u8();
+                }
+            }
+
+            Arc::new(pixmap)
+        }
+
+        let mut sk_paint: sk::Paint<'_> = sk::Paint::default();
+        match self {
+            Paint::Solid(color) => {
+                sk_paint.set_color((*color).into());
+                sk_paint.anti_alias = true;
+            }
+            Paint::Gradient(gradient) => {
+                let width = (size.x.to_f32() * pixel_per_pt.abs())
+                    .ceil() as u32;
+                let height = (size.y.to_f32() * pixel_per_pt.abs())
+                    .ceil() as u32;
+
+                *pixmap = Some(cached(gradient, width, height));
+                sk_paint.shader = sk::Pattern::new(
+                    pixmap.as_ref().unwrap().as_ref().as_ref(),
+                    sk::SpreadMode::Pad,
+                    sk::FilterQuality::Bilinear,
+                    1.0,
+                    fill_transform
+                        .unwrap_or_else(sk::Transform::identity)
+                        .pre_scale(
+                            1.0 / pixel_per_pt,
+                            1.0 / pixel_per_pt,
+                        ),
+                );
+
+                sk_paint.anti_alias = gradient.anti_alias();
+            }
+        }
+
         sk_paint
     }
 }

@@ -109,7 +109,7 @@ fn layout(
     let line_pos = Point::new(radicand_x, radicand_y - gap - (thickness / 2.0));
     let radicand_pos = Point::new(radicand_x, radicand_y);
 
-    let mut frame = Frame::new(size);
+    let mut frame = Frame::soft(size);
     frame.set_baseline(ascent);
 
     if let Some(index) = index {

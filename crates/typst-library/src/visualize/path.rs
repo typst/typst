@@ -82,7 +82,7 @@ impl Layout for PathElem {
 
         let mut size = Size::zero();
         if points.is_empty() {
-            return Ok(Fragment::frame(Frame::new(size)));
+            return Ok(Fragment::frame(Frame::soft(size)));
         }
 
         // Only create a path if there are more than zero points.
@@ -138,7 +138,7 @@ impl Layout for PathElem {
             Smart::Custom(stroke) => stroke.map(Stroke::unwrap_or_default),
         };
 
-        let mut frame = Frame::new(size);
+        let mut frame = Frame::soft(size);
         let shape = Shape { geometry: Geometry::Path(path), stroke, fill };
         frame.push(Point::zero(), FrameItem::Shape(shape, self.span()));
 

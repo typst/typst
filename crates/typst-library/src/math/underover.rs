@@ -89,7 +89,7 @@ fn layout_underoverline(
     let size = Size::new(width, height);
 
     let content_class = content.class().unwrap_or(MathClass::Normal);
-    let mut frame = Frame::new(size);
+    let mut frame = Frame::soft(size);
     frame.set_baseline(baseline);
     frame.push_frame(content_pos, content.into_frame());
     frame.push(
@@ -295,7 +295,7 @@ pub(super) fn stack(
         .collect();
 
     let mut y = Abs::zero();
-    let mut frame = Frame::new(Size::new(
+    let mut frame = Frame::soft(Size::new(
         width,
         rows.iter().map(|row| row.height()).sum::<Abs>()
             + rows.len().saturating_sub(1) as f64 * gap,

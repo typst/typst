@@ -254,7 +254,7 @@ impl<'a> StackLayouter<'a> {
             size.set(self.axis, full);
         }
 
-        let mut output = Frame::new(size);
+        let mut output = Frame::hard(size);
         let mut cursor = Abs::zero();
         let mut ruler: FixedAlign = self.dir.start().into();
 

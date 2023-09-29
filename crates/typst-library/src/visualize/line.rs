@@ -75,7 +75,7 @@ impl Layout for LineElem {
         let size = start.max(start + delta).max(Size::zero());
         let target = regions.expand.select(regions.size, size);
 
-        let mut frame = Frame::new(target);
+        let mut frame = Frame::soft(target);
         let shape = Geometry::Line(delta.to_point()).stroked(stroke);
         frame.push(start.to_point(), FrameItem::Shape(shape, self.span()));
         Ok(Fragment::frame(frame))

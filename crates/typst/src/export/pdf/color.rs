@@ -312,7 +312,7 @@ pub trait PaintEncode {
 
 impl PaintEncode for Paint {
     fn set_as_fill(&self, ctx: &mut PageContext) {
-        let Paint::Solid(color) = self;
+        let Paint::Solid(color) = self else { todo!() };
         match color {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
@@ -366,7 +366,7 @@ impl PaintEncode for Paint {
     }
 
     fn set_as_stroke(&self, ctx: &mut PageContext) {
-        let Paint::Solid(color) = self;
+        let Paint::Solid(color) = self else { todo!() };
         match color {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);

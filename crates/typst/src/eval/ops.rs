@@ -120,6 +120,14 @@ pub fn add(lhs: Value, rhs: Value) -> StrResult<Value> {
         }
         .into_value(),
 
+        (Gradient(gradient), Length(thickness))
+        | (Length(thickness), Gradient(gradient)) => Stroke {
+            paint: Smart::Custom(gradient.into()),
+            thickness: Smart::Custom(thickness),
+            ..Stroke::default()
+        }
+        .into_value(),
+
         (Duration(a), Duration(b)) => Duration(a + b),
         (Datetime(a), Duration(b)) => Datetime(a + b),
         (Duration(a), Datetime(b)) => Datetime(b + a),

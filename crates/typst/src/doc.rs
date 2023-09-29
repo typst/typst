@@ -42,17 +42,38 @@ pub struct Frame {
     baseline: Option<Abs>,
     /// The items composing this layout.
     items: Arc<Vec<(Point, FrameItem)>>,
+    /// The hardness of this frame.
+    kind: FrameKind,
 }
 
 /// Constructor, accessors and setters.
 impl Frame {
-    /// Create a new, empty frame.
+    /// Create a new, empty soft frame.
     ///
     /// Panics the size is not finite.
     #[track_caller]
-    pub fn new(size: Size) -> Self {
+    pub fn soft(size: Size) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: None, items: Arc::new(vec![]) }
+        Self { size, baseline: None, items: Arc::new(vec![]), kind: FrameKind::Soft }
+    }
+
+    /// Create a new, empty hard frame.
+    ///
+    /// Panics the size is not finite.
+    #[track_caller]
+    pub fn hard(size: Size) -> Self {
+        assert!(size.is_finite());
+        Self { size, baseline: None, items: Arc::new(vec![]), kind: FrameKind::Hard }
+    }
+
+    /// Sets the frame's hardness
+    pub fn set_kind(&mut self, kind: FrameKind) {
+        self.kind = kind;
+    }
+
+    /// Whether the frame is hard or soft.
+    pub fn kind(&self) -> FrameKind {
+        self.kind
     }
 
     /// Whether the frame contains no items.
@@ -185,7 +206,8 @@ impl Frame {
 
     /// Whether the given frame should be inlined.
     fn should_inline(&self, frame: &Frame) -> bool {
-        self.items.is_empty() || frame.items.len() <= 5
+        // We do not inline big frames, or hard frames.
+        frame.kind().is_soft() && (self.items.is_empty() || frame.items.len() <= 5)
     }
 
     /// Inline a frame at the given layer.
@@ -329,7 +351,7 @@ impl Frame {
     where
         F: FnOnce(&mut GroupItem),
     {
-        let mut wrapper = Frame::new(self.size);
+        let mut wrapper = Frame::soft(self.size);
         wrapper.baseline = self.baseline;
         let mut group = GroupItem::new(std::mem::take(self));
         f(&mut group);
@@ -398,12 +420,50 @@ impl Frame {
     }
 }
 
+/// Tools for rendering.
+impl Frame {
+    /// The size the frame should be considered for scaling gradients.
+    pub fn render_size(&self, parent_size: Size) -> Size {
+        match self.kind {
+            FrameKind::Soft => parent_size,
+            FrameKind::Hard => self.size,
+        }
+    }
+}
+
 impl Debug for Frame {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.write_str("Frame ")?;
         f.debug_list()
             .entries(self.items.iter().map(|(_, item)| item))
             .finish()
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum FrameKind {
+    /// A container which follows its parent's size
+    Soft,
+
+    /// A container which uses its own size
+    Hard,
+}
+
+impl FrameKind {
+    /// Returns `true` if the frame is soft.
+    pub fn is_soft(self) -> bool {
+        matches!(self, Self::Soft)
+    }
+
+    /// Returns `true` if the frame is hard.
+    pub fn is_hard(self) -> bool {
+        matches!(self, Self::Hard)
+    }
+}
+
+impl Default for FrameKind {
+    fn default() -> Self {
+        Self::Soft
     }
 }
 

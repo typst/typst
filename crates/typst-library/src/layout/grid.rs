@@ -563,7 +563,7 @@ impl<'a> GridLayouter<'a> {
         height: Abs,
         y: usize,
     ) -> SourceResult<Frame> {
-        let mut output = Frame::new(Size::new(self.width, height));
+        let mut output = Frame::soft(Size::new(self.width, height));
         let mut pos = Point::zero();
 
         for (x, &rcol) in self.rcols.iter().enumerate() {
@@ -593,7 +593,7 @@ impl<'a> GridLayouter<'a> {
         // Prepare frames.
         let mut outputs: Vec<_> = heights
             .iter()
-            .map(|&h| Frame::new(Size::new(self.width, h)))
+            .map(|&h| Frame::soft(Size::new(self.width, h)))
             .collect();
 
         // Prepare regions.
@@ -647,7 +647,7 @@ impl<'a> GridLayouter<'a> {
         }
 
         // The frame for the region.
-        let mut output = Frame::new(size);
+        let mut output = Frame::soft(size);
         let mut pos = Point::zero();
         let mut rrows = vec![];
 

@@ -130,7 +130,7 @@ impl Layout for PolygonElem {
             .collect();
 
         let size = points.iter().fold(Point::zero(), |max, c| c.max(max)).to_size();
-        let mut frame = Frame::new(size);
+        let mut frame = Frame::hard(size);
 
         // Only create a path if there are more than zero points.
         if points.is_empty() {

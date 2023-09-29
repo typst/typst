@@ -13,8 +13,8 @@ use super::{deflate, AbsExt, EmExt, PdfContext, RefExt};
 use crate::doc::{Destination, Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint, Point,
-    Ratio, Shape, Size, Transform,
+    self, Abs, Color, Em, FixedStroke, Geometry, LineCap, LineJoin, Numeric, Paint,
+    Point, Ratio, Shape, Size, Transform,
 };
 use crate::image::Image;
 
@@ -249,13 +249,21 @@ impl PageContext<'_, '_> {
     fn set_opacities(&mut self, stroke: Option<&FixedStroke>, fill: Option<&Paint>) {
         let stroke_opacity = stroke
             .map(|stroke| {
-                let Paint::Solid(color) = stroke.paint;
+                let color = match &stroke.paint {
+                    Paint::Solid(color) => *color,
+                    Paint::Gradient(_) => Color::BLACK,
+                };
+
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);
         let fill_opacity = fill
             .map(|paint| {
-                let Paint::Solid(color) = paint;
+                let color = match paint {
+                    Paint::Solid(color) => *color,
+                    Paint::Gradient(_) => Color::BLACK,
+                };
+
                 color.alpha().map_or(255, |v| (v * 255.0).round() as u8)
             })
             .unwrap_or(255);

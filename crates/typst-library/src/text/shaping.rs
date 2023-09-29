@@ -228,7 +228,7 @@ impl<'a> ShapedText<'a> {
         let size = Size::new(self.width, top + bottom);
 
         let mut offset = Abs::zero();
-        let mut frame = Frame::new(size);
+        let mut frame = Frame::soft(size);
         frame.set_baseline(top);
 
         let shift = TextElem::baseline_in(self.styles);
