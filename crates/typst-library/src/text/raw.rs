@@ -433,7 +433,6 @@ fn highlight_themed<F>(
 
 /// Style a piece of text with a syntect style.
 fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
-    eprintln!("{piece} = {foreground:?} {style:?}");
     let mut body = TextElem::packed(piece);
 
     let paint = to_typst(style.foreground).into();
