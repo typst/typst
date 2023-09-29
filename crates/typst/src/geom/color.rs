@@ -1119,11 +1119,14 @@ impl Debug for Color {
 
 impl PartialEq for Color {
     fn eq(&self, other: &Self) -> bool {
+        eprintln!("{self:?} {other:?}");
         match (self, other) {
             // Lower precision for comparison to avoid rounding errors.
             // Keeps backward compatibility with previous versions of Typst.
             (Self::Rgba(_), Self::Rgba(_)) => self.to_vec4_u8() == other.to_vec4_u8(),
-            (Self::Luma(a), Self::Luma(b)) => a == b,
+            (Self::Luma(a), Self::Luma(b)) => {
+                (a.luma * 255.0).round() as u8 == (b.luma * 255.0).round() as u8
+            }
             (Self::Oklab(a), Self::Oklab(b)) => a == b,
             (Self::LinearRgb(a), Self::LinearRgb(b)) => a == b,
             (Self::Cmyk(a), Self::Cmyk(b)) => a == b,
