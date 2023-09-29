@@ -1119,7 +1119,6 @@ impl Debug for Color {
 
 impl PartialEq for Color {
     fn eq(&self, other: &Self) -> bool {
-        eprintln!("{self:?} {other:?}");
         match (self, other) {
             // Lower precision for comparison to avoid rounding errors.
             // Keeps backward compatibility with previous versions of Typst.
