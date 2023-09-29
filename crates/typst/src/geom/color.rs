@@ -907,8 +907,9 @@ impl Color {
         }
     }
 
+    /// Returns the color's RGB(A) representation as an array of 8-bit values.
     pub fn to_vec4_u8(&self) -> [u8; 4] {
-        self.to_vec4().map(|x| (x * 255.0).round() as u8)
+        self.to_rgba().to_vec4().map(|x| (x * 255.0).round() as u8)
     }
 
     pub fn to_space(self, space: ColorSpace) -> Self {
@@ -1113,7 +1114,9 @@ impl PartialEq for Color {
             // Lower precision for comparison to avoid rounding errors.
             // Keeps backward compatibility with previous versions of Typst.
             (Self::Rgba(_), Self::Rgba(_)) => self.to_vec4_u8() == other.to_vec4_u8(),
-            (Self::Luma(a), Self::Luma(b)) => a == b,
+            (Self::Luma(a), Self::Luma(b)) => {
+                (a.luma * 255.0).round() as u8 == (b.luma * 255.0).round() as u8
+            }
             (Self::Oklab(a), Self::Oklab(b)) => a == b,
             (Self::LinearRgb(a), Self::LinearRgb(b)) => a == b,
             (Self::Cmyk(a), Self::Cmyk(b)) => a == b,

@@ -290,11 +290,7 @@ impl Show for RawElem {
 
         let theme = theme.as_deref().unwrap_or(&THEME);
 
-        let foreground = theme
-            .settings
-            .foreground
-            .map(to_typst)
-            .map_or(Color::BLACK, Color::from);
+        let foreground = theme.settings.foreground.unwrap_or(synt::Color::BLACK);
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
@@ -309,7 +305,7 @@ impl Show for RawElem {
                 vec![],
                 &highlighter,
                 &mut |node, style| {
-                    seq.push(styled(&text[node.range()], foreground.into(), style));
+                    seq.push(styled(&text[node.range()], foreground, style));
                 },
             );
 
@@ -334,7 +330,7 @@ impl Show for RawElem {
                 for (style, piece) in
                     highlighter.highlight_line(line, syntax_set).into_iter().flatten()
                 {
-                    seq.push(styled(piece, foreground.into(), style));
+                    seq.push(styled(piece, foreground, style));
                 }
             }
 
@@ -432,12 +428,11 @@ fn highlight_themed<F>(
 }
 
 /// Style a piece of text with a syntect style.
-fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
+fn styled(piece: &str, foreground: synt::Color, style: synt::Style) -> Content {
     let mut body = TextElem::packed(piece);
 
-    let paint = to_typst(style.foreground).into();
-    if paint != foreground {
-        body = body.styled(TextElem::set_fill(paint));
+    if style.foreground != foreground {
+        body = body.styled(TextElem::set_fill(to_typst(style.foreground).into()));
     }
 
     if style.font_style.contains(synt::FontStyle::BOLD) {

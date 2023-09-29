@@ -5,7 +5,10 @@ use image::{DynamicImage, GenericImageView, Rgba};
 use pdf_writer::{Filter, Finish};
 
 use super::{deflate, PdfContext, RefExt};
-use crate::image::{ImageKind, RasterFormat, RasterImage};
+use crate::{
+    geom::ColorSpace,
+    image::{ImageKind, RasterFormat, RasterImage},
+};
 
 /// Embed all used images into the PDF.
 #[tracing::instrument(skip_all)]
@@ -33,9 +36,9 @@ pub fn write_images(ctx: &mut PdfContext) {
                 if raster.icc().is_some() {
                     space.icc_based(icc_ref);
                 } else if has_color {
-                    space.device_rgb();
+                    ctx.colors.write(ColorSpace::Srgb, space, &mut ctx.alloc);
                 } else {
-                    space.device_gray();
+                    ctx.colors.write(ColorSpace::D65Gray, space, &mut ctx.alloc);
                 }
 
                 // Add a second gray-scale image containing the alpha values if

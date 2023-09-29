@@ -199,20 +199,13 @@ impl ColorSpaces {
             writer
                 .icc_profile(srgb, &profile)
                 .n(3)
-                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
-                .alternate()
-                .srgb();
+                .range([0.0, 1.0, 0.0, 1.0, 0.0, 1.0]);
         }
 
         // Write the gray color space
         if let Some(gray) = self.d65_gray {
             let profile = gray_icc();
-            writer
-                .icc_profile(gray, &profile)
-                .n(1)
-                .range([0.0, 1.0])
-                .alternate()
-                .d65_gray();
+            writer.icc_profile(gray, &profile).n(1).range([0.0, 1.0]);
         }
     }
 }
