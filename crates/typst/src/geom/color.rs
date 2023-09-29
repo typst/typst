@@ -907,8 +907,9 @@ impl Color {
         }
     }
 
+    /// Returns the color's RGB(A) representation as an array of 8-bit values.
     pub fn to_vec4_u8(&self) -> [u8; 4] {
-        self.to_vec4().map(|x| (x * 255.0).round() as u8)
+        self.to_rgba().to_vec4().map(|x| (x * 255.0).round() as u8)
     }
 
     pub fn to_space(self, space: ColorSpace) -> Self {
