@@ -14,8 +14,8 @@ use usvg::{NodeExt, TreeParsing};
 use crate::doc::{Frame, FrameItem, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    self, Abs, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem, Shape,
-    Size, Transform, Gradient,
+    self, Abs, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
+    PathItem, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageKind, RasterFormat};
 
@@ -322,12 +322,7 @@ fn render_outline_glyph(
             builder.0.finish()?
         };
 
-        let paint = (&text.fill).into_sk_paint(
-            todo!(),
-            todo!(),
-            todo!(),
-            todo!(),
-        );
+        let paint = (&text.fill).into_sk_paint(todo!(), todo!(), todo!(), todo!());
 
         let rule = sk::FillRule::default();
 
@@ -463,12 +458,7 @@ fn render_shape(
     };
 
     if let Some(fill) = &shape.fill {
-        let mut paint: sk::Paint = fill.into_sk_paint(
-            todo!(),
-            todo!(),
-            todo!(),
-            todo!(),
-        );
+        let mut paint: sk::Paint = fill.into_sk_paint(todo!(), todo!(), todo!(), todo!());
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
         }
@@ -501,13 +491,8 @@ fn render_shape(
 
                 sk::StrokeDash::new(dash_array, pattern.phase.to_f32())
             });
-            let paint = paint.into_sk_paint(
-                todo!(),
-                todo!(),
-                todo!(),
-                todo!(),
-            );
-            
+            let paint = paint.into_sk_paint(todo!(), todo!(), todo!(), todo!());
+
             let stroke = sk::Stroke {
                 width,
                 line_cap: line_cap.into(),
@@ -687,10 +672,8 @@ impl IntoSkPaint for Paint {
                 sk_paint.anti_alias = true;
             }
             Paint::Gradient(gradient) => {
-                let width = (size.x.to_f32() * pixel_per_pt.abs())
-                    .ceil() as u32;
-                let height = (size.y.to_f32() * pixel_per_pt.abs())
-                    .ceil() as u32;
+                let width = (size.x.to_f32() * pixel_per_pt.abs()).ceil() as u32;
+                let height = (size.y.to_f32() * pixel_per_pt.abs()).ceil() as u32;
 
                 *pixmap = Some(cached(gradient, width, height));
                 sk_paint.shader = sk::Pattern::new(
@@ -700,10 +683,7 @@ impl IntoSkPaint for Paint {
                     1.0,
                     fill_transform
                         .unwrap_or_else(sk::Transform::identity)
-                        .pre_scale(
-                            1.0 / pixel_per_pt,
-                            1.0 / pixel_per_pt,
-                        ),
+                        .pre_scale(1.0 / pixel_per_pt, 1.0 / pixel_per_pt),
                 );
 
                 sk_paint.anti_alias = gradient.anti_alias();

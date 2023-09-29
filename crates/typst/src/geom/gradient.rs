@@ -309,7 +309,7 @@ impl Gradient {
 
     pub fn anti_alias(&self) -> bool {
         match self {
-            Self::Linear(linear) => linear.anti_alias
+            Self::Linear(linear) => linear.anti_alias,
         }
     }
 }

@@ -54,7 +54,12 @@ impl Frame {
     #[track_caller]
     pub fn soft(size: Size) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: None, items: Arc::new(vec![]), kind: FrameKind::Soft }
+        Self {
+            size,
+            baseline: None,
+            items: Arc::new(vec![]),
+            kind: FrameKind::Soft,
+        }
     }
 
     /// Create a new, empty hard frame.
@@ -63,7 +68,12 @@ impl Frame {
     #[track_caller]
     pub fn hard(size: Size) -> Self {
         assert!(size.is_finite());
-        Self { size, baseline: None, items: Arc::new(vec![]), kind: FrameKind::Hard }
+        Self {
+            size,
+            baseline: None,
+            items: Arc::new(vec![]),
+            kind: FrameKind::Hard,
+        }
     }
 
     /// Sets the frame's hardness
