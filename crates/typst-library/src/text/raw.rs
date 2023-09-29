@@ -294,7 +294,7 @@ impl Show for RawElem {
             .settings
             .foreground
             .map(to_typst)
-            .map_or(Color::BLACK, Color::from);
+            .unwrap_or(Color::BLACK);
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {
@@ -433,6 +433,7 @@ fn highlight_themed<F>(
 
 /// Style a piece of text with a syntect style.
 fn styled(piece: &str, foreground: Paint, style: synt::Style) -> Content {
+    eprintln!("{piece} = {foreground:?} {style:?}");
     let mut body = TextElem::packed(piece);
 
     let paint = to_typst(style.foreground).into();
