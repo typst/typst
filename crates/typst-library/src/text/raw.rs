@@ -290,11 +290,7 @@ impl Show for RawElem {
 
         let theme = theme.as_deref().unwrap_or(&THEME);
 
-        let foreground = theme
-            .settings
-            .foreground
-            .map(to_typst)
-            .unwrap_or(Color::BLACK);
+        let foreground = theme.settings.foreground.map(to_typst).unwrap_or(Color::BLACK);
 
         let mut realized = if matches!(lang.as_deref(), Some("typ" | "typst" | "typc")) {
             let root = match lang.as_deref() {

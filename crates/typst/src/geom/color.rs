@@ -912,6 +912,15 @@ impl Color {
         self.to_rgba().to_vec4().map(|x| (x * 255.0).round() as u8)
     }
 
+    /// Checks whether this color is equivalent to a grayscale color.
+    pub fn is_luma_equivalent(&self) -> bool {
+        if let Self::Rgba(rgba) = self {
+            rgba.red == rgba.green && rgba.green == rgba.blue && rgba.alpha == 1.0
+        } else {
+            false
+        }
+    }
+
     pub fn to_space(self, space: ColorSpace) -> Self {
         match space {
             ColorSpace::Oklab => self.to_oklab(),
@@ -1120,6 +1129,12 @@ impl PartialEq for Color {
             (Self::Cmyk(a), Self::Cmyk(b)) => a == b,
             (Self::Hsl(a), Self::Hsl(b)) => a == b,
             (Self::Hsv(a), Self::Hsv(b)) => a == b,
+            (a @ Self::Rgba(_), b @ Self::Luma(_)) if a.is_luma_equivalent() => {
+                self.to_luma() == *b
+            }
+            (Self::Luma(_), b @ Self::Rgba(_)) if b.is_luma_equivalent() => {
+                self == &b.to_luma()
+            }
             _ => false,
         }
     }
