@@ -16,15 +16,18 @@ use std::collections::{BTreeMap, HashMap};
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
+use base64::Engine;
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::Direction;
 use pdf_writer::writers::PageLabel;
-use pdf_writer::{Finish, Name, Pdf, Ref, TextStr};
-use xmp_writer::{LangId, RenditionClass, XmpWriter};
+use pdf_writer::{Date, Finish, Name, Pdf, Ref, TextStr};
+use siphasher::sip128::{Hasher128, SipHasher13};
+use xmp_writer::{DateTime, LangId, RenditionClass, Timezone, XmpWriter};
 
 use self::gradient::PdfGradient;
 use self::page::Page;
 use crate::doc::{Document, Lang};
+use crate::eval::Datetime;
 use crate::font::Font;
 use crate::geom::{Abs, Dir, Em};
 use crate::image::Image;
@@ -34,17 +37,24 @@ use extg::ExtGState;
 
 /// Export a document into a PDF file.
 ///
+/// The `ident` parameter shall be a string that uniquely identifies the
+/// document. It is used to write a PDF file identifier.
+/// The `timestamp` is expected to be the current UTC date.
 /// Returns the raw bytes making up the PDF file.
 #[tracing::instrument(skip_all)]
-pub fn pdf(document: &Document) -> Vec<u8> {
-    let mut ctx = PdfContext::new(document);
+pub fn pdf(
+    document: &Document,
+    ident: Option<&str>,
+    timestamp: Option<Datetime>,
+) -> Vec<u8> {
+    let mut ctx = PdfContext::new(document, ident);
     page::construct_pages(&mut ctx, &document.pages);
     font::write_fonts(&mut ctx);
     image::write_images(&mut ctx);
     gradient::write_gradients(&mut ctx);
     extg::write_external_graphics_states(&mut ctx);
     page::write_page_tree(&mut ctx);
-    write_catalog(&mut ctx);
+    write_catalog(&mut ctx, timestamp);
     ctx.pdf.finish()
 }
 
@@ -70,7 +80,6 @@ pub struct PdfContext<'a> {
     /// The number of glyphs for all referenced languages in the document.
     /// We keep track of this to determine the main document language.
     languages: HashMap<Lang, usize>,
-
     /// Allocator for indirect reference IDs.
     alloc: Ref,
     /// The ID of the page tree.
@@ -96,10 +105,23 @@ pub struct PdfContext<'a> {
     gradient_map: Remapper<PdfGradient>,
     /// Deduplicates external graphics states used across the document.
     extg_map: Remapper<ExtGState>,
+    /// ID for the document provided by the caller. Shall not change between
+    /// compilations.
+    doc_id: Option<String>,
 }
 
 impl<'a> PdfContext<'a> {
-    fn new(document: &'a Document) -> Self {
+    fn new(document: &'a Document, ident: Option<&str>) -> Self {
+        let doc_id = if let Some(ident) = ident {
+            let mut hasher = SipHasher13::new();
+            ident.hash(&mut hasher);
+            "PDF-1.7".hash(&mut hasher);
+            let hash = hasher.finish128();
+            Some(base64::engine::general_purpose::STANDARD.encode(hash.as_bytes()))
+        } else {
+            None
+        };
+
         let mut alloc = Ref::new(1);
         let page_tree_ref = alloc.bump();
         Self {
@@ -121,13 +143,23 @@ impl<'a> PdfContext<'a> {
             image_map: Remapper::new(),
             gradient_map: Remapper::new(),
             extg_map: Remapper::new(),
+            doc_id,
         }
     }
 }
 
 /// Write the document catalog.
 #[tracing::instrument(skip_all)]
-fn write_catalog(ctx: &mut PdfContext) {
+fn write_catalog(ctx: &mut PdfContext, timestamp: Option<Datetime>) {
+    let mut hasher = SipHasher13::new();
+    ctx.document.hash(&mut hasher);
+    if let Some(timestamp) = timestamp {
+        timestamp.hash(&mut hasher);
+    }
+    let hash = hasher.finish128();
+
+    let instance_id = base64::engine::general_purpose::STANDARD.encode(hash.as_bytes());
+
     let lang = ctx
         .languages
         .iter()
@@ -171,21 +203,52 @@ fn write_catalog(ctx: &mut PdfContext) {
         xmp.pdf_keywords(&joined);
     }
 
-    if let Some(date) = ctx.document.date {
+    if let Some(date) = ctx.document.date.or(timestamp) {
         if let Some(year) = date.year().filter(|&y| y >= 0) {
             let mut pdf_date = pdf_writer::Date::new(year as u16);
+            let xmp_date = DateTime {
+                year,
+                month: date.month(),
+                day: date.day(),
+                hour: date.hour(),
+                minute: date.minute(),
+                second: date.second(),
+                timezone: if ctx.document.date.is_some() {
+                    None
+                } else {
+                    Some(Timezone::Utc)
+                },
+            };
+
             if let Some(month) = date.month() {
                 pdf_date = pdf_date.month(month);
             }
             if let Some(day) = date.day() {
                 pdf_date = pdf_date.day(day);
             }
-            info.creation_date(pdf_date);
 
-            let mut xmp_date = xmp_writer::DateTime::year(year as u16);
-            xmp_date.month = date.month();
-            xmp_date.day = date.day();
+            if let Some(h) = date.hour() {
+                date = date.hour(h);
+            }
+
+            if let Some(m) = date.minute() {
+                date = date.minute(m);
+            }
+
+            if let Some(s) = date.second() {
+                date = date.second(s);
+            }
+
+            if ctx.document.date.is_none() {
+                date.utc_offset_hour(0);
+                date.utc_offset_minute(0);
+            }
+
+            info.creation_date(pdf_date);
+            info.modified_date(pdf_date);
+
             xmp.create_date(xmp_date);
+            xmp.modify_date(xmp_date);
         }
     }
 
@@ -193,6 +256,18 @@ fn write_catalog(ctx: &mut PdfContext) {
     xmp.num_pages(ctx.document.pages.len() as u32);
     xmp.format("application/pdf");
     xmp.language(ctx.languages.keys().map(|lang| LangId(lang.as_str())));
+
+    if let Some(doc_id) = &ctx.doc_id {
+        xmp.document_id(doc_id);
+        xmp.instance_id(&instance_id);
+        ctx.pdf
+            .set_file_id((doc_id.as_bytes().to_vec(), instance_id.into_bytes()));
+    } else {
+        // This is not spec-compliant, but some PDF readers really want an ID.
+        let bytes = instance_id.into_bytes();
+        ctx.pdf.set_file_id((bytes.clone(), bytes));
+    }
+
     xmp.rendition_class(RenditionClass::Proof);
     xmp.pdf_version("1.7");
 
@@ -207,7 +282,7 @@ fn write_catalog(ctx: &mut PdfContext) {
     let mut catalog = ctx.pdf.catalog(ctx.alloc.bump());
     catalog.pages(ctx.page_tree_ref);
     catalog.viewer_preferences().direction(dir);
-    catalog.pair(Name(b"Metadata"), meta_ref);
+    catalog.metadata(meta_ref);
 
     // Insert the page labels.
     if !page_labels.is_empty() {

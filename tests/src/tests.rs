@@ -420,7 +420,11 @@ fn test(
     let document = Document { pages: frames, ..Default::default() };
     if compare_ever {
         if let Some(pdf_path) = pdf_path {
-            let pdf_data = typst::export::pdf(&document);
+            let pdf_data = typst::export::pdf(
+                &document,
+                Some(&format!("typst-test: {}", name.display())),
+                world.today(Some(0)),
+            );
             fs::create_dir_all(pdf_path.parent().unwrap()).unwrap();
             fs::write(pdf_path, pdf_data).unwrap();
         }
