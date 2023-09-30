@@ -32,4 +32,13 @@ impl Geometry {
     pub fn stroked(self, stroke: FixedStroke) -> Shape {
         Shape { geometry: self, fill: None, stroke: Some(stroke) }
     }
+
+    /// The size of the geometry.
+    pub fn size(&self) -> Size {
+        match self {
+            Self::Line(_) => Size::zero(),
+            Self::Rect(s) => *s,
+            Self::Path(p) => p.size(),
+        }
+    }
 }

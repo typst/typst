@@ -117,6 +117,7 @@ impl Layout for RotateElem {
             .pre_concat(Transform::rotate(self.angle(styles)))
             .pre_concat(Transform::translate(-x, -y));
         frame.transform(ts);
+        frame.set_kind(FrameKind::Soft);
         Ok(Fragment::frame(frame))
     }
 }
@@ -182,6 +183,7 @@ impl Layout for ScaleElem {
             .pre_concat(Transform::scale(self.x(styles), self.y(styles)))
             .pre_concat(Transform::translate(-x, -y));
         frame.transform(transform);
+        frame.set_kind(FrameKind::Soft);
         Ok(Fragment::frame(frame))
     }
 }

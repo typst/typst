@@ -18,6 +18,7 @@ use crate::prelude::*;
 pub(super) fn define(global: &mut Scope) {
     global.category("visualize");
     global.define_type::<Color>();
+    global.define_type::<Gradient>();
     global.define_type::<Stroke>();
     global.define_elem::<ImageElem>();
     global.define_elem::<LineElem>();

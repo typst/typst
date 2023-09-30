@@ -183,6 +183,12 @@ impl<T: IntoValue> IntoResult for SourceResult<T> {
     }
 }
 
+impl<T: IntoValue> IntoValue for fn() -> T {
+    fn into_value(self) -> Value {
+        self().into_value()
+    }
+}
+
 /// Try to cast a Typst [`Value`] into a Rust type.
 ///
 /// See also: [`Reflect`].

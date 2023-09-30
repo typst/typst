@@ -51,4 +51,28 @@ impl Path {
     pub fn close_path(&mut self) {
         self.0.push(PathItem::ClosePath);
     }
+
+    /// Computes the size of the path.
+    pub fn size(&self) -> Size {
+        let mut min_x = Abs::inf();
+        let mut min_y = Abs::inf();
+        let mut max_x = -Abs::inf();
+        let mut max_y = -Abs::inf();
+
+        for pt in self.0.iter() {
+            match pt {
+                PathItem::MoveTo(pt)
+                | PathItem::LineTo(pt)
+                | PathItem::CubicTo(_, _, pt) => {
+                    min_x = min_x.min(pt.x);
+                    min_y = min_y.min(pt.y);
+                    max_x = max_x.max(pt.x);
+                    max_y = max_y.max(pt.y);
+                }
+                PathItem::ClosePath => (),
+            }
+        }
+
+        Size::new(max_x - min_x, max_y - min_y)
+    }
 }

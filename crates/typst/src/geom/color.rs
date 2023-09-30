@@ -10,12 +10,12 @@ use crate::eval::{cast, Args, Array, Str};
 use crate::syntax::{Span, Spanned};
 
 // Type aliases for `palette` internal types in f32.
-type Oklab = palette::oklab::Oklaba<f32>;
-type LinearRgba = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
-type Rgba = palette::rgb::Rgba<encoding::Srgb, f32>;
-type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
-type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
-type Luma = palette::luma::Luma<encoding::Srgb, f32>;
+pub type Oklab = palette::oklab::Oklaba<f32>;
+pub type LinearRgba = palette::rgb::Rgba<Linear<encoding::Srgb>, f32>;
+pub type Rgba = palette::rgb::Rgba<encoding::Srgb, f32>;
+pub type Hsl = palette::hsl::Hsla<encoding::Srgb, f32>;
+pub type Hsv = palette::hsv::Hsva<encoding::Srgb, f32>;
+pub type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 
 /// A color in a specific color space.
 ///
@@ -59,6 +59,48 @@ pub enum Color {
     Hsl(Hsl),
     /// A 32-bit HSV color.
     Hsv(Hsv),
+}
+
+impl From<Luma> for Color {
+    fn from(c: Luma) -> Self {
+        Self::Luma(c)
+    }
+}
+
+impl From<Oklab> for Color {
+    fn from(c: Oklab) -> Self {
+        Self::Oklab(c)
+    }
+}
+
+impl From<Rgba> for Color {
+    fn from(c: Rgba) -> Self {
+        Self::Rgba(c)
+    }
+}
+
+impl From<LinearRgba> for Color {
+    fn from(c: LinearRgba) -> Self {
+        Self::LinearRgb(c)
+    }
+}
+
+impl From<Cmyk> for Color {
+    fn from(c: Cmyk) -> Self {
+        Self::Cmyk(c)
+    }
+}
+
+impl From<Hsl> for Color {
+    fn from(c: Hsl) -> Self {
+        Self::Hsl(c)
+    }
+}
+
+impl From<Hsv> for Color {
+    fn from(c: Hsv) -> Self {
+        Self::Hsv(c)
+    }
 }
 
 #[scope]

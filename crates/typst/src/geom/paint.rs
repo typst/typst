@@ -10,6 +10,18 @@ pub enum Paint {
     Gradient(Gradient),
 }
 
+impl Paint {
+    // TODO: implement gradients on text.
+    /// Temporary method to unwrap a solid color used
+    /// for text rendering.
+    pub fn unwrap_solid(&self) -> Color {
+        match self {
+            Self::Solid(color) => *color,
+            Self::Gradient(_) => panic!("expected solid color"),
+        }
+    }
+}
+
 impl<T: Into<Color>> From<T> for Paint {
     fn from(t: T) -> Self {
         Self::Solid(t.into())
