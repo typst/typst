@@ -21,7 +21,7 @@ Of course, you are also very welcome to connect with us on social media
 [LinkedIn](https://linkedin.com/company/typst), and
 [GitHub](https://github.com/typst)).
 
-## What to share? { #want-to-share }
+## What to share? { #what-to-share }
 For our community, we want to foster versatility and inclusivity. You are
 welcome to post about any topic that you think would interest other community
 members, but if you need a little inspiration, here are a few ideas:
