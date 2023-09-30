@@ -1,13 +1,14 @@
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Display, Formatter};
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 use once_cell::sync::Lazy;
 
 use super::{cast, func, Func, NativeFuncData, Scope, Value};
 use crate::diag::StrResult;
 use crate::util::Static;
 
+use crate::eval::repr::Repr;
 #[doc(inline)]
 pub use typst_macros::{scope, ty};
 
@@ -142,6 +143,12 @@ impl Type {
 impl Debug for Type {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(self.long_name())
+    }
+}
+
+impl Repr for Type {
+    fn repr(&self) -> EcoString {
+        self.long_name().into()
     }
 }
 

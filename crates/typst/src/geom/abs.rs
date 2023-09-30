@@ -1,4 +1,7 @@
 use super::*;
+use crate::eval::repr::Repr;
+use crate::util::fmt::format_float;
+use ecow::EcoString;
 
 /// An absolute length.
 #[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -136,6 +139,12 @@ impl Numeric for Abs {
 impl Debug for Abs {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}pt", round_2(self.to_pt()))
+    }
+}
+
+impl Repr for Abs {
+    fn repr(&self) -> EcoString {
+        format_float(self.to_pt(), Some(2), "pt")
     }
 }
 

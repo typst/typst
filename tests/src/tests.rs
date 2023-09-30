@@ -22,6 +22,7 @@ use walkdir::WalkDir;
 
 use typst::diag::{bail, FileError, FileResult, Severity, StrResult};
 use typst::doc::{Document, Frame, FrameItem, Meta};
+use typst::eval::repr::Repr;
 use typst::eval::{eco_format, func, Bytes, Datetime, Library, NoneValue, Tracer, Value};
 use typst::font::{Font, FontBook};
 use typst::geom::{Abs, Color, Smart};
@@ -154,7 +155,7 @@ fn library() -> Library {
     #[func]
     fn test(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
         if lhs != rhs {
-            bail!("Assertion failed: {lhs:?} != {rhs:?}");
+            bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
         }
         Ok(NoneValue)
     }
@@ -162,7 +163,7 @@ fn library() -> Library {
     #[func]
     fn test_repr(lhs: Value, rhs: Value) -> StrResult<NoneValue> {
         if lhs.repr() != rhs.repr() {
-            bail!("Assertion failed: {lhs:?} != {rhs:?}");
+            bail!("Assertion failed: {} != {}", lhs.repr(), rhs.repr());
         }
         Ok(NoneValue)
     }

@@ -1,7 +1,8 @@
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 
 use super::*;
 use crate::diag::{At, Hint, SourceResult};
+use crate::eval::repr::Repr;
 use crate::syntax::Span;
 
 /// A size or distance, possibly expressed with contextual units.
@@ -133,6 +134,16 @@ impl Debug for Length {
             (false, false) => write!(f, "{:?} + {:?}", self.abs, self.em),
             (true, false) => self.em.fmt(f),
             (_, true) => self.abs.fmt(f),
+        }
+    }
+}
+
+impl Repr for Length {
+    fn repr(&self) -> EcoString {
+        match (self.abs.is_zero(), self.em.is_zero()) {
+            (false, false) => eco_format!("{} + {}", self.abs.repr(), self.em.repr()),
+            (true, false) => self.em.repr(),
+            (_, true) => self.abs.repr(),
         }
     }
 }

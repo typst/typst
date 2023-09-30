@@ -12,6 +12,7 @@ use super::{
 };
 use crate::diag::{At, SourceResult, StrResult};
 use crate::eval::ops::{add, mul};
+use crate::eval::repr::Repr;
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
 
@@ -815,6 +816,21 @@ impl Debug for Array {
             pieces.push(eco_format!(".. ({} items omitted)", self.len() - max));
         }
         f.write_str(&pretty_array_like(&pieces, self.len() == 1))
+    }
+}
+
+impl Repr for Array {
+    fn repr(&self) -> EcoString {
+        let max = 40;
+        let mut pieces: Vec<_> = self
+            .iter()
+            .take(max)
+            .map(|value| eco_format!("{}", value.repr()))
+            .collect();
+        if self.len() > max {
+            pieces.push(eco_format!(".. ({} items omitted)", self.len() - max));
+        }
+        pretty_array_like(&pieces, self.len() == 1).into()
     }
 }
 

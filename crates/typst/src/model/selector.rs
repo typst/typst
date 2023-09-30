@@ -6,6 +6,7 @@ use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{Content, Element, Label, Locatable, Location};
 use crate::diag::{bail, StrResult};
+use crate::eval::repr::Repr;
 use crate::eval::{
     cast, func, scope, ty, CastInfo, Dict, FromValue, Func, Reflect, Regex, Str, Symbol,
     Type, Value,
@@ -245,6 +246,42 @@ impl Debug for Selector {
                     f.write_str(", inclusive: false")?;
                 }
                 f.write_char(')')
+            }
+        }
+    }
+}
+
+impl Repr for Selector {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Elem(elem, dict) => {
+                if let Some(dict) = dict {
+                    eco_format!("{}.where{}", elem.name(), dict.repr())
+                } else {
+                    elem.name().into()
+                }
+            }
+            Self::Label(label) => label.repr(),
+            Self::Regex(regex) => regex.repr(),
+            Self::Can(cap) => eco_format!("{cap:?}"),
+            Self::Or(selectors) | Self::And(selectors) => {
+                let function = if matches!(self, Self::Or(_)) { "or" } else { "and" };
+                let pieces: Vec<_> = selectors.iter().map(Selector::repr).collect();
+                eco_format!("{}{}", function, pretty_array_like(&pieces, false))
+            }
+            Self::Location(loc) => loc.repr(),
+            Self::Before { selector, end: split, inclusive }
+            | Self::After { selector, start: split, inclusive } => {
+                let method =
+                    if matches!(self, Self::Before { .. }) { "before" } else { "after" };
+                let inclusive_arg = if !*inclusive { ", inclusive: false" } else { "" };
+                eco_format!(
+                    "{}.{}({}{})",
+                    selector.repr(),
+                    method,
+                    split.repr(),
+                    inclusive_arg
+                )
             }
         }
     }

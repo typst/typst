@@ -1,5 +1,6 @@
 use kurbo::{BezPath, Line, ParamCurve};
 use ttf_parser::{GlyphId, OutlineBuilder};
+use typst::eval::repr::Repr;
 
 use super::{BottomEdge, BottomEdgeMetric, TextElem, TopEdge, TopEdgeMetric};
 use crate::prelude::*;
@@ -343,6 +344,12 @@ impl Fold for Decoration {
     fn fold(self, mut outer: Self::Output) -> Self::Output {
         outer.insert(0, self);
         outer
+    }
+}
+
+impl Repr for Decoration {
+    fn repr(&self) -> EcoString {
+        eco_format!("{:?}", self)
     }
 }
 

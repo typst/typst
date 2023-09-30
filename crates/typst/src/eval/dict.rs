@@ -26,6 +26,7 @@ macro_rules! __dict {
 
 #[doc(inline)]
 pub use crate::__dict as dict;
+use crate::eval::repr::Repr;
 
 /// A map from string keys to values.
 ///
@@ -223,6 +224,33 @@ impl Debug for Dict {
         }
 
         f.write_str(&pretty_array_like(&pieces, false))
+    }
+}
+
+impl Repr for Dict {
+    fn repr(&self) -> EcoString {
+        if self.is_empty() {
+            return "(:)".into();
+        }
+
+        let max = 40;
+        let mut pieces: Vec<_> = self
+            .iter()
+            .take(max)
+            .map(|(key, value)| {
+                if is_ident(key) {
+                    eco_format!("{}: {}", key, value.repr())
+                } else {
+                    eco_format!("{}: {}", key.repr(), value.repr())
+                }
+            })
+            .collect();
+
+        if self.len() > max {
+            pieces.push(eco_format!(".. ({} pairs omitted)", self.len() - max));
+        }
+
+        pretty_array_like(&pieces, false).into()
     }
 }
 

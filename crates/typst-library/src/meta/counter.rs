@@ -3,6 +3,7 @@ use std::str::FromStr;
 
 use ecow::{eco_vec, EcoVec};
 use smallvec::{smallvec, SmallVec};
+use typst::eval::repr::Repr;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 
@@ -460,6 +461,12 @@ impl Debug for Counter {
     }
 }
 
+impl Repr for Counter {
+    fn repr(&self) -> EcoString {
+        eco_format!("counter({})", self.0.repr())
+    }
+}
+
 cast! {
     type Counter,
 }
@@ -505,6 +512,16 @@ impl Debug for CounterKey {
     }
 }
 
+impl Repr for CounterKey {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Page => "page".into(),
+            Self::Selector(selector) => selector.repr(),
+            Self::Str(str) => str.repr(),
+        }
+    }
+}
+
 /// An update to perform on a counter.
 #[ty]
 #[derive(Clone, PartialEq, Hash)]
@@ -520,6 +537,12 @@ pub enum CounterUpdate {
 impl Debug for CounterUpdate {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("..")
+    }
+}
+
+impl Repr for CounterUpdate {
+    fn repr(&self) -> EcoString {
+        "..".into()
     }
 }
 

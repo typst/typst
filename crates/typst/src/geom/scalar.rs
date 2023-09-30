@@ -1,4 +1,5 @@
 use super::*;
+use ecow::EcoString;
 
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///
@@ -31,6 +32,12 @@ impl From<Scalar> for f64 {
 impl Debug for Scalar {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         Debug::fmt(&self.0, f)
+    }
+}
+
+impl Repr for Scalar {
+    fn repr(&self) -> EcoString {
+        self.0.repr()
     }
 }
 

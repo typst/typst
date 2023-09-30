@@ -60,6 +60,7 @@ use std::iter::Sum;
 use std::ops::*;
 
 use crate::diag::{bail, StrResult};
+use crate::eval::repr::Repr;
 use crate::eval::{array, cast, func, scope, ty, Array, Dict, Value};
 use crate::model::{Fold, Resolve, StyleChain};
 

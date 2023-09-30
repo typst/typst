@@ -8,6 +8,7 @@ use super::*;
 use crate::diag::{bail, error, At, SourceResult};
 use crate::eval::{cast, Args, Array, Str};
 use crate::syntax::{Span, Spanned};
+use crate::util::fmt::format_float;
 
 // Type aliases for `palette` internal types in f32.
 type Oklab = palette::oklab::Oklaba<f32>;
@@ -1100,6 +1101,96 @@ impl Debug for Color {
                         Ratio::new(c.saturation as _),
                         Ratio::new(c.value as _),
                         Ratio::new(c.alpha as _),
+                    )
+                }
+            }
+        }
+    }
+}
+
+impl Repr for Color {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Luma(c) => eco_format!("luma({})", Ratio::new(c.luma as _).repr()),
+            Self::Rgba(_) => eco_format!("rgb({})", self.to_hex().repr()),
+            Self::LinearRgb(c) => {
+                if c.alpha == 1.0 {
+                    eco_format!(
+                        "color.linear-rgb({}, {}, {})",
+                        Ratio::new(c.red as _).repr(),
+                        Ratio::new(c.green as _).repr(),
+                        Ratio::new(c.blue as _).repr(),
+                    )
+                } else {
+                    eco_format!(
+                        "color.linear-rgb({}, {}, {}, {})",
+                        Ratio::new(c.red as _).repr(),
+                        Ratio::new(c.green as _).repr(),
+                        Ratio::new(c.blue as _).repr(),
+                        Ratio::new(c.alpha as _).repr(),
+                    )
+                }
+            }
+            Self::Cmyk(c) => {
+                eco_format!(
+                    "rgb({}, {}, {}, {})",
+                    Ratio::new(c.c as _).repr(),
+                    Ratio::new(c.m as _).repr(),
+                    Ratio::new(c.y as _).repr(),
+                    Ratio::new(c.k as _).repr(),
+                )
+            }
+            Self::Oklab(c) => {
+                if c.alpha == 1.0 {
+                    eco_format!(
+                        "oklab({}, {}, {})",
+                        Ratio::new(c.l as _).repr(),
+                        format_float(c.a as _, Some(3), ""),
+                        format_float(c.b as _, Some(3), ""),
+                    )
+                } else {
+                    eco_format!(
+                        "oklab({}, {}, {}, {})",
+                        Ratio::new(c.l as _).repr(),
+                        format_float(c.a as _, Some(3), ""),
+                        format_float(c.b as _, Some(3), ""),
+                        Ratio::new(c.alpha as _).repr(),
+                    )
+                }
+            }
+            Self::Hsl(c) => {
+                if c.alpha == 1.0 {
+                    eco_format!(
+                        "color.hsl({}, {}, {})",
+                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _).repr(),
+                        Ratio::new(c.saturation as _).repr(),
+                        Ratio::new(c.lightness as _).repr(),
+                    )
+                } else {
+                    eco_format!(
+                        "color.hsl({}, {}, {}, {})",
+                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _).repr(),
+                        Ratio::new(c.saturation as _).repr(),
+                        Ratio::new(c.lightness as _).repr(),
+                        Ratio::new(c.alpha as _).repr(),
+                    )
+                }
+            }
+            Self::Hsv(c) => {
+                if c.alpha == 1.0 {
+                    eco_format!(
+                        "color.hsv({}, {}, {})",
+                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _).repr(),
+                        Ratio::new(c.saturation as _).repr(),
+                        Ratio::new(c.value as _).repr(),
+                    )
+                } else {
+                    eco_format!(
+                        "color.hsv({}, {}, {}, {})",
+                        Angle::deg(c.hue.into_degrees().rem_euclid(360.0) as _).repr(),
+                        Ratio::new(c.saturation as _).repr(),
+                        Ratio::new(c.value as _).repr(),
+                        Ratio::new(c.alpha as _).repr(),
                     )
                 }
             }

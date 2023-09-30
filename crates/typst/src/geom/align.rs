@@ -1,4 +1,5 @@
 use super::*;
+use ecow::{eco_format, EcoString};
 
 /// Where to [align]($align) something along an axis.
 ///
@@ -159,6 +160,16 @@ impl Debug for Align {
     }
 }
 
+impl Repr for Align {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::H(x) => x.repr(),
+            Self::V(y) => y.repr(),
+            Self::Both(x, y) => eco_format!("{} + {}", x.repr(), y.repr()),
+        }
+    }
+}
+
 impl Fold for Align {
     type Output = Self;
 
@@ -241,6 +252,18 @@ impl Debug for HAlign {
     }
 }
 
+impl Repr for HAlign {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Start => "start".into(),
+            Self::Left => "left".into(),
+            Self::Center => "center".into(),
+            Self::Right => "right".into(),
+            Self::End => "end".into(),
+        }
+    }
+}
+
 impl Add<VAlign> for HAlign {
     type Output = Align;
 
@@ -308,6 +331,16 @@ impl Debug for VAlign {
             Self::Horizon => "horizon",
             Self::Bottom => "bottom",
         })
+    }
+}
+
+impl Repr for VAlign {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Top => "top".into(),
+            Self::Horizon => "horizon".into(),
+            Self::Bottom => "bottom".into(),
+        }
     }
 }
 

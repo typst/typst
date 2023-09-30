@@ -1,9 +1,11 @@
+use ecow::EcoString;
 use std::fmt::{self, Debug, Formatter};
 
 use serde::{Serialize, Serializer};
 
 use super::{cast, ty, CastInfo, FromValue, IntoValue, Reflect, Type, Value};
 use crate::diag::StrResult;
+use crate::eval::repr::Repr;
 
 /// A value that indicates the absence of any other value.
 ///
@@ -53,6 +55,12 @@ impl FromValue for NoneValue {
 impl Debug for NoneValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("none")
+    }
+}
+
+impl Repr for NoneValue {
+    fn repr(&self) -> EcoString {
+        "none".into()
     }
 }
 

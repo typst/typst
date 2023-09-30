@@ -1,7 +1,8 @@
 use std::fmt::{self, Debug, Formatter};
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 
+use crate::eval::repr::Repr;
 use crate::eval::{func, scope, ty};
 
 /// A label for an element.
@@ -41,6 +42,12 @@ impl Label {
 impl Debug for Label {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "<{}>", self.0)
+    }
+}
+
+impl Repr for Label {
+    fn repr(&self) -> EcoString {
+        eco_format!("<{}>", self.0)
     }
 }
 

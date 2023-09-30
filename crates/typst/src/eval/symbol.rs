@@ -3,14 +3,14 @@ use std::collections::BTreeSet;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::sync::Arc;
 
-use ecow::EcoString;
+use ecow::{eco_format, EcoString};
 use serde::{Serialize, Serializer};
 
 use super::{cast, func, scope, ty, Array};
 use crate::diag::{bail, SourceResult, StrResult};
 use crate::syntax::{Span, Spanned};
 
-use crate::eval::repr::Repr;
+use crate::eval::repr;
 #[doc(inline)]
 pub use typst_macros::symbols;
 
@@ -45,11 +45,11 @@ pub use typst_macros::symbols;
 /// ```
 #[ty(scope)]
 #[derive(Clone, Eq, PartialEq, Hash)]
-pub struct Symbol(SymbolRepr);
+pub struct Symbol(Repr);
 
 /// The internal representation.
 #[derive(Clone, Eq, PartialEq, Hash)]
-enum SymbolRepr {
+enum Repr {
     Single(char),
     Const(&'static [(&'static str, char)]),
     Multi(Arc<(List, EcoString)>),
@@ -65,39 +65,39 @@ enum List {
 impl Symbol {
     /// Create a new symbol from a single character.
     pub const fn single(c: char) -> Self {
-        Self(SymbolRepr::Single(c))
+        Self(Repr::Single(c))
     }
 
     /// Create a symbol with a static variant list.
     #[track_caller]
     pub const fn list(list: &'static [(&'static str, char)]) -> Self {
         debug_assert!(!list.is_empty());
-        Self(SymbolRepr::Const(list))
+        Self(Repr::Const(list))
     }
 
     /// Create a symbol with a runtime variant list.
     #[track_caller]
     pub fn runtime(list: Box<[(EcoString, char)]>) -> Self {
         debug_assert!(!list.is_empty());
-        Self(SymbolRepr::Multi(Arc::new((List::Runtime(list), EcoString::new()))))
+        Self(Repr::Multi(Arc::new((List::Runtime(list), EcoString::new()))))
     }
 
     /// Get the symbol's text.
     pub fn get(&self) -> char {
         match &self.0 {
-            SymbolRepr::Single(c) => *c,
-            SymbolRepr::Const(_) => find(self.variants(), "").unwrap(),
-            SymbolRepr::Multi(arc) => find(self.variants(), &arc.1).unwrap(),
+            Repr::Single(c) => *c,
+            Repr::Const(_) => find(self.variants(), "").unwrap(),
+            Repr::Multi(arc) => find(self.variants(), &arc.1).unwrap(),
         }
     }
 
     /// Apply a modifier to the symbol.
     pub fn modified(mut self, modifier: &str) -> StrResult<Self> {
-        if let SymbolRepr::Const(list) = self.0 {
-            self.0 = SymbolRepr::Multi(Arc::new((List::Static(list), EcoString::new())));
+        if let Repr::Const(list) = self.0 {
+            self.0 = Repr::Multi(Arc::new((List::Static(list), EcoString::new())));
         }
 
-        if let SymbolRepr::Multi(arc) = &mut self.0 {
+        if let Repr::Multi(arc) = &mut self.0 {
             let (list, modifiers) = Arc::make_mut(arc);
             if !modifiers.is_empty() {
                 modifiers.push('.');
@@ -114,9 +114,9 @@ impl Symbol {
     /// The characters that are covered by this symbol.
     pub fn variants(&self) -> impl Iterator<Item = (&str, char)> {
         match &self.0 {
-            SymbolRepr::Single(c) => Variants::Single(Some(*c).into_iter()),
-            SymbolRepr::Const(list) => Variants::Static(list.iter()),
-            SymbolRepr::Multi(arc) => arc.0.variants(),
+            Repr::Single(c) => Variants::Single(Some(*c).into_iter()),
+            Repr::Const(list) => Variants::Static(list.iter()),
+            Repr::Multi(arc) => arc.0.variants(),
         }
     }
 
@@ -124,7 +124,7 @@ impl Symbol {
     pub fn modifiers(&self) -> impl Iterator<Item = &str> + '_ {
         let mut set = BTreeSet::new();
         let modifiers = match &self.0 {
-            SymbolRepr::Multi(arc) => arc.1.as_str(),
+            Repr::Multi(arc) => arc.1.as_str(),
             _ => "",
         };
         for modifier in self.variants().flat_map(|(name, _)| name.split('.')) {
@@ -221,9 +221,9 @@ impl Display for Symbol {
     }
 }
 
-impl Repr for Symbol {
+impl repr::Repr for Symbol {
     fn repr(&self) -> EcoString {
-        self.get().into()
+        eco_format!("\"{}\"", self.get())
     }
 }
 

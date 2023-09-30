@@ -1,3 +1,4 @@
+use ecow::EcoString;
 use std::any::TypeId;
 use std::cmp::Ordering;
 use std::fmt::{self, Debug, Formatter};
@@ -6,6 +7,7 @@ use once_cell::sync::Lazy;
 
 use super::{Content, Selector, Styles};
 use crate::diag::SourceResult;
+use crate::eval::repr::Repr;
 use crate::eval::{cast, Args, Dict, Func, ParamInfo, Scope, Value, Vm};
 use crate::util::Static;
 
@@ -96,6 +98,12 @@ impl Element {
 impl Debug for Element {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad(self.name())
+    }
+}
+
+impl Repr for Element {
+    fn repr(&self) -> EcoString {
+        self.name().into()
     }
 }
 

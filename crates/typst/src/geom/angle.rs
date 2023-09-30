@@ -1,4 +1,7 @@
 use super::*;
+use crate::eval::repr::Repr;
+use crate::util::fmt::format_float;
+use ecow::EcoString;
 
 /// An angle describing a rotation.
 ///
@@ -100,6 +103,12 @@ impl Numeric for Angle {
 impl Debug for Angle {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}deg", round_2(self.to_deg()))
+    }
+}
+
+impl Repr for Angle {
+    fn repr(&self) -> EcoString {
+        format_float(self.to_deg(), Some(2), "deg")
     }
 }
 

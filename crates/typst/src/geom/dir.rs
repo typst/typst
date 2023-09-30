@@ -1,4 +1,5 @@
 use super::*;
+use ecow::EcoString;
 
 /// The four directions into which content can be laid out.
 ///
@@ -125,6 +126,17 @@ impl Debug for Dir {
             Self::TTB => "ttb",
             Self::BTT => "btt",
         })
+    }
+}
+
+impl Repr for Dir {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::LTR => "ltr".into(),
+            Self::RTL => "rtl".into(),
+            Self::TTB => "ttb".into(),
+            Self::BTT => "btt".into(),
+        }
     }
 }
 

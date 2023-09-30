@@ -1,4 +1,6 @@
 use super::*;
+use crate::util::fmt::format_float;
+use ecow::EcoString;
 
 /// Defines how the the remaining space in a layout is distributed.
 ///
@@ -66,6 +68,12 @@ impl Numeric for Fr {
 impl Debug for Fr {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}fr", round_2(self.get()))
+    }
+}
+
+impl Repr for Fr {
+    fn repr(&self) -> EcoString {
+        format_float(self.get(), Some(2), "fr")
     }
 }
 

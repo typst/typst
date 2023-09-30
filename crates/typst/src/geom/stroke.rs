@@ -1,4 +1,5 @@
 use crate::eval::{dict, Cast, FromValue, NoneValue};
+use ecow::EcoString;
 
 use super::*;
 
@@ -206,6 +207,80 @@ impl<T: Numeric + Debug> Debug for Stroke<T> {
     }
 }
 
+impl<T: Numeric + Debug + Repr> Repr for Stroke<T> {
+    fn repr(&self) -> EcoString {
+        let mut r = EcoString::new();
+        let Self {
+            paint,
+            thickness,
+            line_cap,
+            line_join,
+            dash_pattern,
+            miter_limit,
+        } = &self;
+        if line_cap.is_auto()
+            && line_join.is_auto()
+            && dash_pattern.is_auto()
+            && miter_limit.is_auto()
+        {
+            match (&self.paint, &self.thickness) {
+                (Smart::Custom(paint), Smart::Custom(thickness)) => {
+                    r.push_str(&thickness.repr());
+                    r.push_str(" + ");
+                    r.push_str(&paint.repr());
+                }
+                (Smart::Custom(paint), Smart::Auto) => r.push_str(&paint.repr()),
+                (Smart::Auto, Smart::Custom(thickness)) => r.push_str(&thickness.repr()),
+                (Smart::Auto, Smart::Auto) => r.push_str("1pt + black"),
+            }
+        } else {
+            r.push('(');
+            let mut sep = "";
+            if let Smart::Custom(paint) = &paint {
+                r.push_str(sep);
+                r.push_str("paint: ");
+                r.push_str(&paint.repr());
+                sep = ", ";
+            }
+            if let Smart::Custom(thickness) = &thickness {
+                r.push_str(sep);
+                r.push_str("thickness: ");
+                r.push_str(&thickness.repr());
+                sep = ", ";
+            }
+            if let Smart::Custom(cap) = &line_cap {
+                r.push_str(sep);
+                r.push_str("cap: ");
+                r.push_str(&cap.repr());
+                sep = ", ";
+            }
+            if let Smart::Custom(join) = &line_join {
+                r.push_str(sep);
+                r.push_str("join: ");
+                r.push_str(&join.repr());
+                sep = ", ";
+            }
+            if let Smart::Custom(dash) = &dash_pattern {
+                r.push_str(sep);
+                r.push_str("cap: ");
+                if let Some(dash) = dash {
+                    r.push_str(&dash.repr());
+                } else {
+                    r.push_str(&NoneValue.repr());
+                }
+                sep = ", ";
+            }
+            if let Smart::Custom(miter_limit) = &miter_limit {
+                r.push_str(sep);
+                r.push_str("miter-limit: ");
+                r.push_str(&miter_limit.repr());
+            }
+            r.push(')');
+        }
+        r
+    }
+}
+
 impl Resolve for Stroke {
     type Output = Stroke<Abs>;
 
@@ -294,6 +369,16 @@ impl Debug for LineCap {
     }
 }
 
+impl Repr for LineCap {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Butt => "butt".repr(),
+            Self::Round => "round".repr(),
+            Self::Square => "square".repr(),
+        }
+    }
+}
+
 /// The line join of a stroke
 #[derive(Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineJoin {
@@ -308,6 +393,16 @@ impl Debug for LineJoin {
             LineJoin::Miter => write!(f, "\"miter\""),
             LineJoin::Round => write!(f, "\"round\""),
             LineJoin::Bevel => write!(f, "\"bevel\""),
+        }
+    }
+}
+
+impl Repr for LineJoin {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Miter => "miter".repr(),
+            Self::Round => "round".repr(),
+            Self::Bevel => "bevel".repr(),
         }
     }
 }
@@ -333,6 +428,22 @@ impl<T: Numeric + Debug, DT: Debug> Debug for DashPattern<T, DT> {
         }
         write!(f, "), phase: {:?})", self.phase)?;
         Ok(())
+    }
+}
+
+impl<T: Numeric + Repr, DT: Repr> Repr for DashPattern<T, DT> {
+    fn repr(&self) -> EcoString {
+        let mut representation = EcoString::from("(array: (");
+        for (i, elem) in self.array.iter().enumerate() {
+            if i != 0 {
+                representation.push_str(", ")
+            }
+            representation.push_str(&elem.repr())
+        }
+        representation.push_str("), phase: ");
+        representation.push_str(&self.phase.repr());
+        representation.push(')');
+        representation
     }
 }
 
@@ -404,6 +515,15 @@ impl<T: Numeric + Debug> Debug for DashLength<T> {
         match self {
             Self::LineWidth => write!(f, "\"dot\""),
             Self::Length(v) => Debug::fmt(v, f),
+        }
+    }
+}
+
+impl<T: Numeric + Repr> Repr for DashLength<T> {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::LineWidth => "dot".repr(),
+            Self::Length(v) => v.repr(),
         }
     }
 }

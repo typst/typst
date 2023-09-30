@@ -1,4 +1,6 @@
 use super::*;
+use crate::eval::repr::Repr;
+use ecow::{eco_format, EcoString};
 
 /// A length in relation to some known length.
 ///
@@ -86,6 +88,16 @@ impl<T: Numeric> Debug for Rel<T> {
             (false, false) => write!(f, "{:?} + {:?}", self.rel, self.abs),
             (false, true) => self.rel.fmt(f),
             (true, _) => self.abs.fmt(f),
+        }
+    }
+}
+
+impl<T: Numeric + Repr> Repr for Rel<T> {
+    fn repr(&self) -> EcoString {
+        match (self.rel.is_zero(), self.abs.is_zero()) {
+            (false, false) => eco_format!("{} + {}", self.rel.repr(), self.abs.repr()),
+            (false, true) => self.rel.repr(),
+            (true, _) => self.abs.repr(),
         }
     }
 }

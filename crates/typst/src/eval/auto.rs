@@ -1,7 +1,9 @@
+use ecow::EcoString;
 use std::fmt::{self, Debug, Formatter};
 
 use super::{ty, CastInfo, FromValue, IntoValue, Reflect, Type, Value};
 use crate::diag::StrResult;
+use crate::eval::repr::Repr;
 
 /// A value that indicates a smart default.
 ///
@@ -47,5 +49,11 @@ impl Reflect for AutoValue {
 impl Debug for AutoValue {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("auto")
+    }
+}
+
+impl Repr for AutoValue {
+    fn repr(&self) -> EcoString {
+        "auto".into()
     }
 }

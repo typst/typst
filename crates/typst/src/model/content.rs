@@ -13,6 +13,7 @@ use super::{
 };
 use crate::diag::{SourceResult, StrResult};
 use crate::doc::Meta;
+use crate::eval::repr::Repr;
 use crate::eval::{func, scope, ty, Dict, FromValue, IntoValue, Str, Value, Vm};
 use crate::syntax::Span;
 use crate::util::pretty_array_like;
@@ -552,6 +553,29 @@ impl Debug for Content {
 
         f.write_str(name)?;
         f.write_str(&pretty_array_like(&pieces, false))
+    }
+}
+
+impl Repr for Content {
+    fn repr(&self) -> EcoString {
+        let name = self.elem.name();
+        if let Some(text) = item!(text_str)(self) {
+            return eco_format!("[{}]", text);
+        } else if name == "space" {
+            return ("[ ]").into();
+        }
+
+        let mut pieces: Vec<_> = self
+            .fields()
+            .into_iter()
+            .map(|(name, value)| eco_format!("{}: {}", name, value.repr()))
+            .collect();
+
+        if self.is::<StyledElem>() {
+            pieces.push(EcoString::from(".."));
+        }
+
+        eco_format!("{}{}", name, pretty_array_like(&pieces, false))
     }
 }
 

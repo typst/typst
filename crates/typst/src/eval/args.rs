@@ -1,9 +1,10 @@
 use std::fmt::{self, Debug, Formatter};
 
-use ecow::{eco_format, EcoVec};
+use ecow::{eco_format, EcoString, EcoVec};
 
 use super::{func, scope, ty, Array, Dict, FromValue, IntoValue, Str, Value};
 use crate::diag::{bail, At, SourceDiagnostic, SourceResult};
+use crate::eval::repr::Repr;
 use crate::syntax::{Span, Spanned};
 use crate::util::pretty_array_like;
 
@@ -258,6 +259,13 @@ impl Debug for Args {
     }
 }
 
+impl Repr for Args {
+    fn repr(&self) -> EcoString {
+        let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
+        pretty_array_like(&pieces, false).into()
+    }
+}
+
 impl Debug for Arg {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         if let Some(name) = &self.name {
@@ -265,5 +273,15 @@ impl Debug for Arg {
             f.write_str(": ")?;
         }
         Debug::fmt(&self.value.v, f)
+    }
+}
+
+impl Repr for Arg {
+    fn repr(&self) -> EcoString {
+        if let Some(name) = &self.name {
+            eco_format!("{}: {}", name, self.value.v.repr())
+        } else {
+            self.value.v.repr()
+        }
     }
 }

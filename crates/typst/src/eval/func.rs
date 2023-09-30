@@ -2,6 +2,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::sync::Arc;
 
 use comemo::{Prehashed, Tracked, TrackedMut};
+use ecow::EcoString;
 use once_cell::sync::Lazy;
 
 use super::{
@@ -17,6 +18,7 @@ use crate::syntax::{FileId, Span, SyntaxNode};
 use crate::util::Static;
 use crate::World;
 
+use crate::eval::repr;
 #[doc(inline)]
 pub use typst_macros::func;
 
@@ -368,6 +370,15 @@ impl Debug for Func {
         match self.name() {
             Some(name) => write!(f, "{name}"),
             None => f.write_str("(..) => .."),
+        }
+    }
+}
+
+impl repr::Repr for Func {
+    fn repr(&self) -> EcoString {
+        match self.name() {
+            Some(name) => name.into(),
+            None => "(..) => ..".into(),
         }
     }
 }

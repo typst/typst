@@ -7,6 +7,7 @@ use wasmi::{AsContext, AsContextMut, Caller, Engine, Linker, Module};
 
 use super::{func, scope, ty, Bytes, Vm};
 use crate::diag::{bail, At, SourceResult, StrResult};
+use crate::eval::repr;
 use crate::syntax::Spanned;
 use crate::World;
 
@@ -289,6 +290,12 @@ impl Plugin {
 impl Debug for Plugin {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("plugin(..)")
+    }
+}
+
+impl repr::Repr for Plugin {
+    fn repr(&self) -> EcoString {
+        "plugin(..)".into()
     }
 }
 

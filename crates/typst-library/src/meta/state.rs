@@ -1,6 +1,7 @@
 use std::fmt::{self, Debug, Formatter, Write};
 
 use ecow::{eco_vec, EcoVec};
+use typst::eval::repr::Repr;
 use typst::eval::Tracer;
 use typst::model::DelayedErrors;
 
@@ -345,6 +346,12 @@ impl Debug for State {
     }
 }
 
+impl Repr for State {
+    fn repr(&self) -> EcoString {
+        eco_format!("state({}, {})", self.key.repr(), self.init.repr())
+    }
+}
+
 cast! {
     type State,
 }
@@ -362,6 +369,12 @@ pub enum StateUpdate {
 impl Debug for StateUpdate {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         f.pad("..")
+    }
+}
+
+impl Repr for StateUpdate {
+    fn repr(&self) -> EcoString {
+        "..".into()
     }
 }
 

@@ -9,6 +9,7 @@ use serde::{Serialize, Serializer};
 
 use super::{cast, func, scope, ty, Array, Reflect, Str, Value};
 use crate::diag::{bail, StrResult};
+use crate::eval::repr::Repr;
 
 /// A sequence of bytes.
 ///
@@ -182,6 +183,12 @@ impl AsRef<[u8]> for Bytes {
 impl Debug for Bytes {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "bytes({})", self.len())
+    }
+}
+
+impl Repr for Bytes {
+    fn repr(&self) -> EcoString {
+        eco_format!("bytes({})", self.len())
     }
 }
 

@@ -11,6 +11,7 @@ use time::{format_description, Month, PrimitiveDateTime};
 
 use super::{cast, func, scope, ty, Dict, Duration, Str, Value, Vm};
 use crate::diag::{bail, StrResult};
+use crate::eval::repr::Repr;
 use crate::geom::Smart;
 use crate::util::pretty_array_like;
 use crate::World;
@@ -440,6 +441,23 @@ impl Debug for Datetime {
             .collect::<EcoVec<_>>();
 
         write!(f, "datetime{}", &pretty_array_like(&filtered, false))
+    }
+}
+
+impl Repr for Datetime {
+    fn repr(&self) -> EcoString {
+        let year = self.year().map(|y| eco_format!("year: {}", (y as i64).repr()));
+        let month = self.month().map(|m| eco_format!("month: {}", (m as i64).repr()));
+        let day = self.day().map(|d| eco_format!("day: {}", (d as i64).repr()));
+        let hour = self.hour().map(|h| eco_format!("hour: {}", (h as i64).repr()));
+        let minute = self.minute().map(|m| eco_format!("minute: {}", (m as i64).repr()));
+        let second = self.second().map(|s| eco_format!("second: {}", (s as i64).repr()));
+        let filtered = [year, month, day, hour, minute, second]
+            .into_iter()
+            .flatten()
+            .collect::<EcoVec<_>>();
+
+        eco_format!("datetime{}", &pretty_array_like(&filtered, false))
     }
 }
 

@@ -1,4 +1,5 @@
 use super::*;
+use ecow::EcoString;
 
 /// How a fill or stroke should be painted.
 #[derive(Clone, Eq, PartialEq, Hash)]
@@ -17,6 +18,14 @@ impl Debug for Paint {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         match self {
             Self::Solid(color) => color.fmt(f),
+        }
+    }
+}
+
+impl Repr for Paint {
+    fn repr(&self) -> EcoString {
+        match self {
+            Self::Solid(color) => color.repr(),
         }
     }
 }

@@ -1,4 +1,7 @@
 use super::*;
+use crate::eval::repr::Repr;
+use crate::util::fmt::format_float;
+use ecow::EcoString;
 
 /// A length that is relative to the font size.
 ///
@@ -71,6 +74,12 @@ impl Numeric for Em {
 impl Debug for Em {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}em", self.get())
+    }
+}
+
+impl Repr for Em {
+    fn repr(&self) -> EcoString {
+        format_float(self.get(), None, "em")
     }
 }
 

@@ -28,7 +28,8 @@ macro_rules! __format_str {
 #[doc(inline)]
 pub use crate::__format_str as format_str;
 
-use crate::eval::repr::{format_int_with_base, Repr};
+use crate::eval::repr::Repr;
+use crate::util::fmt::format_int_with_base;
 #[doc(hidden)]
 pub use ecow::eco_format;
 
@@ -605,7 +606,7 @@ pub enum ToStr {
 cast! {
     ToStr,
     v: i64 => Self::Int(v),
-    v: f64 => Self::Str(v.repr().into()),
+    v: f64 => Self::Str(format_str!("{}", v)),
     v: Bytes => Self::Str(
         std::str::from_utf8(&v)
             .map_err(|_| "bytes are not valid utf-8")?
@@ -695,7 +696,7 @@ impl Debug for Str {
 
 impl Repr for Str {
     fn repr(&self) -> EcoString {
-        self.clone().into()
+        self.as_ref().repr()
     }
 }
 
@@ -865,6 +866,12 @@ impl Deref for Regex {
 impl Debug for Regex {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "regex({:?})", self.0.as_str())
+    }
+}
+
+impl Repr for Regex {
+    fn repr(&self) -> EcoString {
+        eco_format!("regex({})", self.0.as_str().repr())
     }
 }
 

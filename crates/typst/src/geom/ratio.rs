@@ -1,4 +1,7 @@
 use super::*;
+use crate::eval::repr::Repr;
+use crate::util::fmt::format_float;
+use ecow::EcoString;
 
 /// A ratio of a whole.
 ///
@@ -65,6 +68,12 @@ impl Ratio {
 impl Debug for Ratio {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{}%", round_2(100.0 * self.get()))
+    }
+}
+
+impl Repr for Ratio {
+    fn repr(&self) -> EcoString {
+        format_float(self.get() * 100.0, Some(2), "%")
     }
 }
 

@@ -4,7 +4,7 @@ use std::fmt::{self, Debug, Formatter};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use ecow::eco_format;
+use ecow::{eco_format, EcoString};
 use serde::de::value::{MapAccessDeserializer, SeqAccessDeserializer};
 use serde::de::{Error, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -12,9 +12,8 @@ use siphasher::sip128::{Hasher128, SipHasher13};
 use typst::eval::Duration;
 
 use super::{
-    fields, format_str, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict,
-    FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Scope,
-    Str, Symbol, Type,
+    fields, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict, FromValue, Func,
+    IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Scope, Str, Symbol, Type,
 };
 use crate::diag::StrResult;
 use crate::eval::repr::Repr;
@@ -24,7 +23,7 @@ use crate::model::{Label, Styles};
 use crate::syntax::{ast, Span};
 
 /// A computational value.
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub enum Value {
     /// The value that indicates the absence of a meaningful value.
     #[default]
@@ -87,7 +86,7 @@ impl Value {
     /// Create a new dynamic value.
     pub fn dynamic<T>(any: T) -> Self
     where
-        T: Debug + NativeType + PartialEq + Hash + Sync + Send + 'static,
+        T: Debug + Repr + NativeType + PartialEq + Hash + Sync + Send + 'static,
     {
         Self::Dyn(Dynamic::new(any))
     }
@@ -188,22 +187,17 @@ impl Value {
         }
     }
 
-    /// Return the debug representation of the value.
-    pub fn repr(&self) -> Str {
-        format_str!("{self:?}")
-    }
-
     /// Return the display representation of the value.
     pub fn display(self) -> Content {
         match self {
             Self::None => Content::empty(),
-            Self::Int(v) => item!(text)(v.repr()),
-            Self::Float(v) => item!(text)(v.repr()),
-            Self::Str(v) => item!(text)(v.repr()),
-            Self::Symbol(v) => item!(text)(v.repr()),
+            Self::Int(v) => item!(text)(eco_format!("{v}")),
+            Self::Float(v) => item!(text)(eco_format!("{v}")),
+            Self::Str(v) => item!(text)(v.into()),
+            Self::Symbol(v) => item!(text)(v.get().into()),
             Self::Content(v) => v,
             Self::Module(module) => module.content(),
-            _ => item!(raw)(self.repr().into(), Some("typc".into()), false),
+            _ => item!(raw)(self.repr(), Some("typc".into()), false),
         }
     }
 
@@ -217,36 +211,36 @@ impl Value {
     }
 }
 
-impl Debug for Value {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+impl Repr for Value {
+    fn repr(&self) -> EcoString {
         match self {
-            Self::None => Debug::fmt(&NoneValue, f),
-            Self::Auto => Debug::fmt(&AutoValue, f),
-            Self::Bool(v) => Debug::fmt(v, f),
-            Self::Int(v) => Debug::fmt(v, f),
-            Self::Float(v) => Debug::fmt(v, f),
-            Self::Length(v) => Debug::fmt(v, f),
-            Self::Angle(v) => Debug::fmt(v, f),
-            Self::Ratio(v) => Debug::fmt(v, f),
-            Self::Relative(v) => Debug::fmt(v, f),
-            Self::Fraction(v) => Debug::fmt(v, f),
-            Self::Color(v) => Debug::fmt(v, f),
-            Self::Symbol(v) => Debug::fmt(v, f),
-            Self::Str(v) => Debug::fmt(v, f),
-            Self::Bytes(v) => Debug::fmt(v, f),
-            Self::Label(v) => Debug::fmt(v, f),
-            Self::Datetime(v) => Debug::fmt(v, f),
-            Self::Duration(v) => Debug::fmt(v, f),
-            Self::Content(v) => Debug::fmt(v, f),
-            Self::Styles(v) => Debug::fmt(v, f),
-            Self::Array(v) => Debug::fmt(v, f),
-            Self::Dict(v) => Debug::fmt(v, f),
-            Self::Func(v) => Debug::fmt(v, f),
-            Self::Args(v) => Debug::fmt(v, f),
-            Self::Type(v) => Debug::fmt(v, f),
-            Self::Module(v) => Debug::fmt(v, f),
-            Self::Plugin(v) => Debug::fmt(v, f),
-            Self::Dyn(v) => Debug::fmt(v, f),
+            Self::None => NoneValue.repr(),
+            Self::Auto => AutoValue.repr(),
+            Self::Bool(v) => v.repr(),
+            Self::Int(v) => v.repr(),
+            Self::Float(v) => v.repr(),
+            Self::Length(v) => v.repr(),
+            Self::Angle(v) => v.repr(),
+            Self::Ratio(v) => v.repr(),
+            Self::Relative(v) => v.repr(),
+            Self::Fraction(v) => v.repr(),
+            Self::Color(v) => v.repr(),
+            Self::Symbol(v) => v.repr(),
+            Self::Str(v) => v.repr(),
+            Self::Bytes(v) => v.repr(),
+            Self::Label(v) => v.repr(),
+            Self::Datetime(v) => v.repr(),
+            Self::Duration(v) => v.repr(),
+            Self::Content(v) => v.repr(),
+            Self::Styles(v) => v.repr(),
+            Self::Array(v) => v.repr(),
+            Self::Dict(v) => v.repr(),
+            Self::Func(v) => v.repr(),
+            Self::Args(v) => v.repr(),
+            Self::Type(v) => v.repr(),
+            Self::Module(v) => v.repr(),
+            Self::Plugin(v) => v.repr(),
+            Self::Dyn(v) => v.repr(),
         }
     }
 }
@@ -449,7 +443,7 @@ impl Dynamic {
     /// Create a new instance from any value that satisfies the required bounds.
     pub fn new<T>(any: T) -> Self
     where
-        T: Debug + NativeType + PartialEq + Hash + Sync + Send + 'static,
+        T: Debug + Repr + NativeType + PartialEq + Hash + Sync + Send + 'static,
     {
         Self(Arc::new(any))
     }
@@ -476,13 +470,19 @@ impl Debug for Dynamic {
     }
 }
 
+impl Repr for Dynamic {
+    fn repr(&self) -> EcoString {
+        self.0.repr()
+    }
+}
+
 impl PartialEq for Dynamic {
     fn eq(&self, other: &Self) -> bool {
         self.0.dyn_eq(other)
     }
 }
 
-trait Bounds: Debug + Sync + Send + 'static {
+trait Bounds: Debug + Repr + Sync + Send + 'static {
     fn as_any(&self) -> &dyn Any;
     fn dyn_eq(&self, other: &Dynamic) -> bool;
     fn dyn_ty(&self) -> Type;
@@ -491,7 +491,7 @@ trait Bounds: Debug + Sync + Send + 'static {
 
 impl<T> Bounds for T
 where
-    T: Debug + NativeType + PartialEq + Hash + Sync + Send + 'static,
+    T: Debug + Repr + NativeType + PartialEq + Hash + Sync + Send + 'static,
 {
     fn as_any(&self) -> &dyn Any {
         self
@@ -618,7 +618,7 @@ mod tests {
 
     #[track_caller]
     fn test(value: impl IntoValue, exp: &str) {
-        assert_eq!(format!("{:?}", value.into_value()), exp);
+        assert_eq!(value.into_value().repr(), exp);
     }
 
     #[test]
