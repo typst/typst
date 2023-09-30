@@ -20,10 +20,10 @@ type Luma = palette::luma::Luma<encoding::Srgb, f32>;
 /// A color in a specific color space.
 ///
 /// Typst supports:
-/// - sRGB through the [`rgb` function]($rgb)
-/// - Device CMYK through [`cmyk` function]($cmyk)
-/// - D65 Gray through the [`luma` function]($luma)
-/// - Oklab through the [`oklab` function]($oklab)
+/// - sRGB through the [`rgb` function]($color.rgb)
+/// - Device CMYK through [`cmyk` function]($color.cmyk)
+/// - D65 Gray through the [`luma` function]($color.luma)
+/// - Oklab through the [`oklab` function]($color.oklab)
 /// - Linear RGB through the [`color.linear-rgb` function]($color.linear-rgb)
 /// - HSL through the [`color.hsl` function]($color.hsl)
 /// - HSV through the [`color.hsv` function]($color.hsv)
@@ -181,7 +181,7 @@ impl Color {
     /// This color space is similar to Srgb<f32>, but with the distinction that
     /// the color component are not gamma corrected. This makes it easier to
     /// perform color operations such as blending and interpolation. Although,
-    /// you should prefer to use the [`oklab` function]($oklab) for these.
+    /// you should prefer to use the [`oklab` function]($color.oklab) for these.
     ///
     /// A linear RGB(A) color is represented internally by an array of four components:
     /// - red ([`ratio`]($ratio))

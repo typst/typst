@@ -109,6 +109,11 @@ impl Scope {
         self.category = Some(name);
     }
 
+    /// Reset the category.
+    pub fn reset_category(&mut self) {
+        self.category = None;
+    }
+
     /// Bind a value to a name.
     #[track_caller]
     pub fn define(&mut self, name: impl Into<EcoString>, value: impl IntoValue) {
