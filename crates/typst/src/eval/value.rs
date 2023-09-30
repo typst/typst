@@ -17,6 +17,7 @@ use super::{
     Str, Symbol, Type,
 };
 use crate::diag::StrResult;
+use crate::eval::repr::Repr;
 use crate::eval::Datetime;
 use crate::geom::{Abs, Angle, Color, Em, Fr, Length, Ratio, Rel};
 use crate::model::{Label, Styles};
@@ -196,10 +197,10 @@ impl Value {
     pub fn display(self) -> Content {
         match self {
             Self::None => Content::empty(),
-            Self::Int(v) => item!(text)(eco_format!("{v}")),
-            Self::Float(v) => item!(text)(eco_format!("{v}")),
-            Self::Str(v) => item!(text)(v.into()),
-            Self::Symbol(v) => item!(text)(v.get().into()),
+            Self::Int(v) => item!(text)(v.repr()),
+            Self::Float(v) => item!(text)(v.repr()),
+            Self::Str(v) => item!(text)(v.repr()),
+            Self::Symbol(v) => item!(text)(v.repr()),
             Self::Content(v) => v,
             Self::Module(module) => module.content(),
             _ => item!(raw)(self.repr().into(), Some("typc".into()), false),

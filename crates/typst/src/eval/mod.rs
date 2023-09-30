@@ -27,6 +27,7 @@ mod module;
 mod none;
 pub mod ops;
 mod plugin;
+mod repr;
 mod scope;
 mod symbol;
 mod tracer;
