@@ -1,6 +1,6 @@
 use super::{SmartquoteElem, SpaceElem, TextElem};
-use crate::layout::{BlockElem, HElem, PadElem, Spacing};
-use crate::meta::CiteElem;
+use crate::layout::{BlockElem, HElem, PadElem, Spacing, VElem};
+use crate::meta::{BibliographyElem, BibliographyStyle, CiteElem};
 use crate::prelude::*;
 
 /// Displays a quote alongside it's author.
@@ -73,20 +73,22 @@ pub struct QuoteElem {
     /// #show link: set text(blue)
     /// #quote(source: "https://typst.app/home")[Compose papers faster]
     ///
-    /// #quote(source: "tolkien54")[
+    /// #quote(source: <tolkien54>)[
     ///   You cannot pass... I am a servant of the Secret Fire, wielder of the
     ///   flame of Anor. You cannot pass. The dark fire will not avail you,
     ///   flame of Udûn. Go back to the Shadow! You cannot pass.
     /// ]
     /// #bibliography("works.bib")
     /// ```
-    source: Option<EcoString>,
+    source: Option<Source>,
 
-    /// The author of this quote.
+    /// The author of this quote. By default only displayed for block quotes.
     ///
     /// ```example
-    /// #quote(author: [René Descartes])[cogito, ergo sum] is the author. \
-    /// #quote[cogito, ergo sum] --- _Unknown_
+    /// #quote(author: [René Descartes])[cogito, ergo sum]
+    ///
+    /// #set quote(block: true)
+    /// #quote(author: [René Descartes])[cogito, ergo sum]
     /// ```
     author: Option<Content>,
 
@@ -95,17 +97,32 @@ pub struct QuoteElem {
     body: Content,
 }
 
+#[derive(Debug, Clone)]
+pub enum Source {
+    Url(EcoString),
+    Label(Label),
+}
+
+cast! {
+    Source,
+    self => match self {
+        Self::Url(url) => url.into_value(),
+        Self::Label(label) => label.into_value(),
+    },
+    url: EcoString => Self::Url(url),
+    label: Label => Self::Label(label),
+}
+
 impl Show for QuoteElem {
-    fn show(&self, _: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
+    fn show(&self, vt: &mut Vt, styles: StyleChain) -> SourceResult<Content> {
         let mut realized = self.body();
         let author = self.author(styles);
         let block = self.block(styles);
 
         let (citation, url) = if let Some(source) = self.source(styles) {
-            if source.starts_with("http://") || source.starts_with("https://") {
-                (None, Some(source))
-            } else {
-                (Some(source), None)
+            match source {
+                Source::Url(url) => (None, Some(url)),
+                Source::Label(label) => (Some(label.0), None),
             }
         } else {
             (None, None)
@@ -125,35 +142,58 @@ impl Show for QuoteElem {
             ]);
         }
 
-        let author = if let Some(author) = author {
-            let mut seq = vec![];
-
-            let space = SpaceElem::new().pack();
-            if !block {
-                seq.push(space.clone());
-            }
-
-            seq.extend([TextElem::packed('—'), space, author]);
-
-            if let Some(source) = citation {
-                realized += CiteElem::new(vec![source]).pack();
-            }
-
-            Some(Content::sequence(seq))
-        } else {
-            None
-        };
-
         if block {
             realized = BlockElem::new().with_body(Some(realized)).pack();
 
             if let Some(author) = author {
-                realized += author.aligned(Align::END);
+                let mut seq = vec![TextElem::packed('—'), SpaceElem::new().pack()];
+
+                if let Some(source) = citation {
+                    vt.delayed(|vt| {
+                        let bib =
+                            BibliographyElem::find(vt.introspector).at(self.span())?;
+
+                        // TODO: these should use the citation-format attribute once CSL is
+                        //       implemented
+                        match bib.style(styles) {
+                            // author-date and author
+                            BibliographyStyle::Apa
+                            | BibliographyStyle::Mla
+                            | BibliographyStyle::ChicagoAuthorDate => {
+                                seq.push(
+                                    CiteElem::new(vec![source])
+                                        .with_brackets(false)
+                                        .pack(),
+                                );
+                            }
+                            // notes
+                            BibliographyStyle::ChicagoNotes => {
+                                seq.extend([author, CiteElem::new(vec![source]).pack()]);
+                            }
+                            // label and numeric
+                            BibliographyStyle::Ieee => {
+                                seq.extend([
+                                    author,
+                                    TextElem::packed(", "),
+                                    CiteElem::new(vec![source]).pack(),
+                                ]);
+                            }
+                        }
+
+                        Ok(())
+                    });
+                } else {
+                    seq.push(author);
+                }
+
+                // use v(1em, weak: true) bring the attribution closer to the quote
+                let weak_v = VElem::weak(Spacing::Rel(Em::new(1.0).into())).pack();
+                realized += weak_v + Content::sequence(seq).aligned(Align::END);
+            } else if let Some(source) = citation {
+                realized += CiteElem::new(vec![source]).pack();
             }
 
             realized = PadElem::new(realized).pack();
-        } else if let Some(author) = author {
-            realized += author;
         }
 
         if let Some(url) = url {
@@ -166,9 +206,12 @@ impl Show for QuoteElem {
 
 impl Finalize for QuoteElem {
     fn finalize(&self, realized: Content, _: StyleChain) -> Content {
-        let pad: Rel = Em::new(1.0).into();
+        let x: Rel = Em::new(1.0).into();
+        let y: Rel = Em::new(0.5).into();
         realized
-            .styled(PadElem::set_left(pad))
-            .styled(PadElem::set_right(pad))
+            .styled(PadElem::set_left(x))
+            .styled(PadElem::set_right(x))
+            .styled(PadElem::set_top(y))
+            .styled(PadElem::set_bottom(y))
     }
 }
