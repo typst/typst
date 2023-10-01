@@ -848,12 +848,13 @@ impl Debug for LinearGradient {
     }
 }
 
-/// What is the gradient relative to:
-/// - Itself (its own bounding box)
-/// - Its parent (the parent's bounding box)
+/// What is the gradient relative to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Relative {
+    /// The gradient is relative to itself (its own bounding box).
     This,
+    
+    /// The gradient is relative to its parent (the parent's bounding box).
     Parent,
 }
 
