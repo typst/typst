@@ -377,7 +377,7 @@ impl SVGRenderer {
             self.write_fill(
                 paint,
                 self.shape_fill_size(state, paint, shape),
-                self.shape_fill_transform(state, paint, shape),
+                self.shape_paint_transform(state, paint, shape),
             );
         } else {
             self.xml.write_attribute("fill", "none");
@@ -387,7 +387,7 @@ impl SVGRenderer {
             self.write_stroke(
                 stroke,
                 self.shape_fill_size(state, &stroke.paint, shape),
-                self.shape_fill_transform(state, &stroke.paint, shape),
+                self.shape_paint_transform(state, &stroke.paint, shape),
             );
         }
 
@@ -396,7 +396,7 @@ impl SVGRenderer {
         self.xml.end_element();
     }
 
-    fn shape_fill_transform(
+    fn shape_paint_transform(
         &self,
         state: State,
         paint: &Paint,
@@ -418,6 +418,8 @@ impl SVGRenderer {
                     Transform::scale(shape_size.x.into(), shape_size.y.into())
                 }
                 Relative::Parent => {
+                    eprintln!("      {:?}", state.transform);
+                    eprintln!("inv = {:?}", state.transform.invert());
                     Transform::scale(state.size.x.into(), state.size.y.into())
                         .post_concat(state.transform.invert())
                 }

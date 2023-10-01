@@ -92,8 +92,8 @@ impl Transform {
                 ky: Ratio::zero(),
                 kx: Ratio::zero(),
                 sy: Ratio::new(inv_y),
-                tx: -self.tx,
-                ty: -self.ty,
+                tx: -self.tx * inv_x,
+                ty: -self.ty * inv_y,
             };
         }
 
