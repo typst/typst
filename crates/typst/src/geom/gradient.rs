@@ -38,7 +38,7 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// ## 🚧 Gradients on text
 ///
-/// Currently gradients are not supported on text. However, in an upcoming release
+/// Currently gradients are not supported on text. However, in an upcoming release,
 /// gradients will be supported on text.
 ///
 /// ## Relative-ness
@@ -64,11 +64,10 @@ use crate::geom::{ColorSpace, Smart};
 /// a uniform progression of colors. This is particularly useful for data
 /// visualization.
 ///
-/// However, you can chose to interpolate the gradient in any supported color
-/// space you want. However, you should be aware that some color spaces are not
-/// suitable for perceptually interpolating between colors. Below you can
-/// find a list of color spaces and whether they are suitable for perceptual
-/// interpolation.
+/// However, you can choose to interpolate the gradient in any supported color
+/// space you want, but beware that some color spaces are not suitable for
+/// perceptually interpolating between colors. Below you can find a list of
+/// color spaces and whether they are suitable for perceptual interpolation.
 ///
 /// |           Color space           | Perceptually uniform? |
 /// | ------------------------------- | --------------------- |
