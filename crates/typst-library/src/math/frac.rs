@@ -51,16 +51,21 @@ pub struct BinomElem {
     /// The binomial's lower index.
     #[required]
     #[variadic]
+    #[parse(
+        let values = args.all::<Spanned<Value>>()?;
+
+        // Prevents one element binomials
+        if values.is_empty() {
+            bail!(Span::detached(), "missing argument: lower");
+        }
+
+        values.into_iter().map(|spanned| spanned.v.display()).collect()
+    )]
     pub lower: Vec<Content>,
 }
 
 impl LayoutMath for BinomElem {
     fn layout_math(&self, ctx: &mut MathContext) -> SourceResult<()> {
-        // Prevents one element binomials
-        if self.lower().is_empty() {
-            bail!(self.span(), "missing argument: lower");
-        }
-
         layout(ctx, &self.upper(), &self.lower(), true, self.span())
     }
 }
@@ -69,7 +74,7 @@ impl LayoutMath for BinomElem {
 fn layout(
     ctx: &mut MathContext,
     num: &Content,
-    denom: &Vec<Content>,
+    denom: &[Content],
     binom: bool,
     span: Span,
 ) -> SourceResult<()> {
