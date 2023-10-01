@@ -108,6 +108,7 @@ impl State {
         }
     }
 
+    /// Pre translate the current item's transform.
     fn pre_translate(&self, pos: Point) -> Self {
         Self {
             transform: self.transform.pre_translate(pos.x.to_f32(), pos.y.to_f32()),
@@ -115,6 +116,7 @@ impl State {
         }
     }
 
+    /// Pre concat the current item's transform.
     fn pre_concat(&self, transform: sk::Transform) -> Self {
         Self {
             transform: self.transform.pre_concat(transform),
@@ -122,6 +124,7 @@ impl State {
         }
     }
 
+    /// Sets the current mask.
     fn with_mask(&self, mask: Option<Arc<sk::Mask>>) -> Self {
         // Ensure that we're using the parent's mask if we don't have one.
         if mask.is_some() {
@@ -131,10 +134,12 @@ impl State {
         }
     }
 
+    /// Sets the size of the first hard frame in the hierarchy.
     fn with_size(&self, size: Size) -> Self {
         Self { size, ..self.clone() }
     }
 
+    /// Pre concat the container's transform.
     fn pre_concat_container(&self, container_transform: sk::Transform) -> Self {
         Self { container_transform, ..self.clone() }
     }

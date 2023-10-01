@@ -87,10 +87,12 @@ impl State {
         Self { size, transform }
     }
 
+    /// Pre translate the current item's transform.
     fn pre_translate(self, pos: Point) -> Self {
         self.pre_concat(Transform::translate(pos.x, pos.y))
     }
 
+    /// Pre concat the current item's transform.
     fn pre_concat(self, transform: Transform) -> Self {
         Self {
             transform: self.transform.pre_concat(transform),
@@ -98,10 +100,12 @@ impl State {
         }
     }
 
+    /// Sets the size of the first hard frame in the hierarchy.
     fn with_size(self, size: Size) -> Self {
         Self { size, ..self }
     }
 
+    /// Sets the current item's transform.
     fn with_transform(self, transform: Transform) -> Self {
         Self { transform, ..self }
     }

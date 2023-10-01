@@ -250,6 +250,7 @@ impl State {
         }
     }
 
+    /// Creates the [`Transforms`] structure for the current item.
     pub fn transforms(&self, size: Size, pos: Point) -> Transforms {
         Transforms::new(
             self.size,
