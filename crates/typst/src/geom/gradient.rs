@@ -142,7 +142,7 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// The [`turbo`]($gradient.turbo) gradient is a rainbow-like gradient that is
 /// perceptually uniform. Turbo is a gradient that takes an optional number of
-/// stops, by default it is set to 20.
+/// stops, which is set to 20 by default.
 ///
 /// ✅ This gradient is suitable for data visualization.
 ///
