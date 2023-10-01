@@ -68,11 +68,11 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
     let mut bounds = vec![];
     let mut encode = vec![];
 
-    // Create the individual gradient functions for each pair of stops
+    // Create the individual gradient functions for each pair of stops.
     for window in gradient.stops().windows(2) {
         let (first, second) = (window[0], window[1]);
 
-        // Skip stops with the same position
+        // Skip stops with the same position.
         if first.offset.unwrap().get() == second.offset.unwrap().get() {
             continue;
         }
