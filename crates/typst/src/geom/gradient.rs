@@ -38,7 +38,7 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// ## 🚧 Gradients on text
 ///
-/// Currently gradients are not supported on text. However, in an upcoming release
+/// Currently gradients are not supported on text. However, in an upcoming release,
 /// gradients will be supported on text.
 ///
 /// ## Relative-ness
