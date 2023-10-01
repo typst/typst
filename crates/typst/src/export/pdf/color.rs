@@ -429,10 +429,10 @@ impl PaintEncode for Paint {
 }
 
 pub(super) trait CSFunctions {
-    /// Returns the range of the color space
+    /// Returns the range of the color space.
     fn range(self) -> [f32; 6];
 
-    /// Converts a color to the color space
+    /// Converts a color to the color space.
     fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3];
 }
 
