@@ -4,7 +4,7 @@ use pdf_writer::{types::ColorSpaceOperand, Name};
 use pdf_writer::{Finish, Ref};
 
 use crate::geom::{
-    Abs, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative, Size, Transform,
+    Abs, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative, Transform,
 };
 
 use super::color::{CSFunctions, PaintEncode};
@@ -16,16 +16,16 @@ pub(super) struct PdfGradient {
     /// The transform to apply to the gradient.
     pub transform: Transform,
 
-    /// The size of the gradient.
+    /// The aspect ratio of the gradient.
     /// Required for aspect ratio correction.
-    pub size: Size,
+    pub aspect_ratio: Ratio,
 
     /// The gradient.
     pub gradient: Gradient,
 }
 
 pub fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient { transform, size, gradient } in
+    for PdfGradient { transform, aspect_ratio, gradient } in
         ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
         let shading = ctx.alloc.bump();
@@ -41,7 +41,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 ctx.colors
                     .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
 
-                let angle = linear.angle.correct_aspect_ratio(size);
+                let angle = linear.angle.correct_aspect_ratio(aspect_ratio);
                 let (sin, cos) = angle.sin_cos();
                 let length = sin.abs() + cos.abs();
 
@@ -181,14 +181,16 @@ fn use_gradient(
     };
 
     let pdf_gradient = PdfGradient {
-        size,
+        aspect_ratio: size.aspect_ratio(),
         transform: transform
             .pre_concat(Transform::translate(offset_x, offset_y))
             .pre_concat(Transform::scale(
                 Ratio::new(size.x.to_pt()),
                 Ratio::new(size.y.to_pt()),
             ))
-            .pre_concat(Transform::rotate(gradient.dir().correct_aspect_ratio(size))),
+            .pre_concat(Transform::rotate(
+                gradient.dir().correct_aspect_ratio(size.aspect_ratio()),
+            )),
         gradient: gradient.clone(),
     };
 

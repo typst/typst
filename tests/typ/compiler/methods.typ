@@ -162,7 +162,7 @@
 )
 #test(
   gradient.linear(red, green, blue).repeat(2, mirror: true).stops(),
-  ((red, 0%), (green, 25%), (blue, 50%), (blue, 50%), (green, 75%), (red, 100%))
+  ((red, 0%), (green, 25%), (blue, 50%), (green, 75%), (red, 100%))
 )
 
 ---

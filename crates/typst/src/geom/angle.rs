@@ -79,12 +79,12 @@ impl Angle {
     }
 
     /// Corrects this angle for the aspect ratio of a gradient.
-    pub fn correct_aspect_ratio(self, size: Size) -> Self {
+    pub fn correct_aspect_ratio(self, aspect_ratio: Ratio) -> Self {
         // Handle the direction of the gradient
         let angle = self.to_rad().rem_euclid(TAU);
 
         // Aspect ratio correction
-        let angle = (angle.tan() * size.y.to_pt()).atan2(size.x.to_pt());
+        let angle = (angle.tan() / aspect_ratio.get()).atan();
         let angle = match self.quadrant() {
             Quadrant::First => angle,
             Quadrant::Second => angle + PI,

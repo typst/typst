@@ -767,7 +767,11 @@ impl IntoSkPaint for Paint {
                 let height =
                     (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32;
 
-                *pixmap = Some(cached(gradient, width, height));
+                *pixmap = Some(cached(
+                    gradient,
+                    width.max(state.pixel_per_pt.ceil() as u32),
+                    height.max(state.pixel_per_pt.ceil() as u32),
+                ));
                 sk_paint.shader = sk::Pattern::new(
                     pixmap.as_ref().unwrap().as_ref().as_ref(),
                     sk::SpreadMode::Pad,

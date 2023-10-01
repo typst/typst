@@ -70,7 +70,7 @@ struct SVGRenderer {
     /// These are the actual gradients being written in the SVG file.
     /// These gradients are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
-    gradients: Deduplicator<(Gradient, Size)>,
+    gradients: Deduplicator<(Gradient, Ratio)>,
 }
 
 #[derive(Clone, Copy)]
@@ -396,6 +396,7 @@ impl SVGRenderer {
         self.xml.end_element();
     }
 
+    /// Calculate the transform of the shape's fill or stroke.
     fn shape_paint_transform(
         &self,
         state: State,
@@ -418,8 +419,6 @@ impl SVGRenderer {
                     Transform::scale(shape_size.x.into(), shape_size.y.into())
                 }
                 Relative::Parent => {
-                    eprintln!("      {:?}", state.transform);
-                    eprintln!("inv = {:?}", state.transform.invert());
                     Transform::scale(state.size.x.into(), state.size.y.into())
                         .post_concat(state.transform.invert())
                 }
@@ -429,6 +428,7 @@ impl SVGRenderer {
         }
     }
 
+    /// Calculate the size of the shape's fill.
     fn shape_fill_size(&self, state: State, paint: &Paint, shape: &Shape) -> Size {
         let mut shape_size = shape.geometry.size();
         // Edge cases for strokes.
@@ -474,7 +474,9 @@ impl SVGRenderer {
     ) -> Id {
         let gradient_id = self
             .gradients
-            .insert_with(hash128(&(gradient, size)), || (gradient.clone(), size));
+            .insert_with(hash128(&(gradient, size.aspect_ratio())), || {
+                (gradient.clone(), size.aspect_ratio())
+            });
 
         if transform.is_identity() {
             return gradient_id;
@@ -625,7 +627,7 @@ impl SVGRenderer {
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "gradients");
 
-        for (id, (gradient, size)) in self.gradients.iter() {
+        for (id, (gradient, ratio)) in self.gradients.iter() {
             match &gradient {
                 Gradient::Linear(linear) => {
                     self.xml.start_element("linearGradient");
@@ -633,7 +635,7 @@ impl SVGRenderer {
                     self.xml.write_attribute("spreadMethod", "pad");
                     self.xml.write_attribute("gradientUnits", "userSpaceOnUse");
 
-                    let angle = linear.angle.correct_aspect_ratio(*size);
+                    let angle = linear.angle.correct_aspect_ratio(*ratio);
                     let (sin, cos) = angle.sin_cos();
                     let length = sin.abs() + cos.abs();
                     let (x1, y1, x2, y2) = match angle.quadrant() {

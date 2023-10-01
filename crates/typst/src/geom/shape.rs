@@ -36,7 +36,7 @@ impl Geometry {
     /// The size of the geometry.
     pub fn size(&self) -> Size {
         match self {
-            Self::Line(_) => Size::zero(),
+            Self::Line(line) => Size::new(line.x, line.y),
             Self::Rect(s) => *s,
             Self::Path(p) => p.size(),
         }
