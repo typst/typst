@@ -301,7 +301,7 @@ use crate::geom::{ColorSpace, Smart};
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.crest))
 /// ```
 ///
-/// ### What about presets like "jet" and "parula"
+/// ### Regarding presets like "jet" and "parula"
 ///
 /// - [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/)
 ///   is not a good color map, as it is not perceptually uniform. As such,
