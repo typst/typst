@@ -7,7 +7,6 @@
 #let presets = (
     gradient.turbo(),
     gradient.cividis(),
-    gradient.cubehelix(),
     gradient.rainbow(),
     gradient.spectral,
     gradient.viridis,

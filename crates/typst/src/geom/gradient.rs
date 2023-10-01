@@ -7,7 +7,7 @@ use ecow::EcoVec;
 use typst_macros::{cast, func, scope, ty};
 use typst_syntax::{Span, Spanned};
 
-use super::color::{Hsl, Rgba};
+use super::color::Rgba;
 use super::*;
 use crate::diag::{bail, error, SourceResult};
 use crate::eval::{array, Array, IntoValue};
@@ -370,35 +370,15 @@ impl Gradient {
         .into_value())
     }
 
-    /// Creates a warm [CubeHelix] list of color stops with the given parameters.
-    ///
-    /// You can control the number of stops in the gradient using the `stops` parameter, by default it is set to 20.
-    ///
-    /// This gradient is best used by setting the interpolation color space to [HSL]($color.hsl).
-    ///
-    /// ```example
-    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.cubehelix(10), space: color.hsl))
-    /// ````
-    #[func]
-    fn cubehelix(
-        #[default(Spanned::new(20, Span::detached()))] stops: Spanned<i64>,
-    ) -> SourceResult<Array> {
-        if stops.v < 2 {
-            bail!(stops.span, "number of stops must be bigger or equal to 2");
-        }
-
-        Ok(cubehelix(
-            Hsl::new(-100.0, 0.75, 0.35, 1.0).into(),
-            Hsl::new(80.0, 1.5, 0.8, 1.0).into(),
-            stops.v,
-        ))
-    }
-
     /// Creates a rainbow list of color stops with the given parameters.
     ///
-    /// You can control the number of stops in the gradient using the `stops` parameter, by default it is set to 20.
+    /// You can control the number of stops in the gradient using the `stops`
+    /// parameter, by default it is set to 20.
     ///
-    /// This color space is best used by setting the interpolation color space to [HSL]($color.hsl).
+    /// This gradient is best used by setting the interpolation color space to
+    /// [HSL]($color.hsl). It should also be noted that this is not a good
+    /// choice for a color scale, as it is not perceptually uniform. This preset
+    /// is more intended for decorative purposes than for data visualization.
     ///
     /// ```example
     /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.rainbow(2)))
@@ -476,19 +456,19 @@ impl Gradient {
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct LinearGradient {
     /// The color stops of this gradient
-    stops: EcoVec<(Color, Ratio)>,
+    pub stops: EcoVec<(Color, Ratio)>,
 
     /// The direction of this gradient
-    angle: Angle,
+    pub angle: Angle,
 
     /// The color space in which to interpolate the gradient
-    space: ColorSpace,
+    pub space: ColorSpace,
 
     /// The relative placement of the gradient
-    relative: Smart<Relative>,
+    pub relative: Smart<Relative>,
 
     /// Whether to anti-alias the gradient (used for sharp gradient)
-    anti_alias: bool,
+    pub anti_alias: bool,
 }
 
 impl Debug for LinearGradient {
@@ -719,25 +699,6 @@ fn cubehelix_to_rgb(h: f32, s: f32, l: f32) -> Color {
     let b = l + a * (1.97294 * cosh);
 
     Color::Rgba(Rgba::new(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0), 1.0))
-}
-
-fn cubehelix(start: Color, end: Color, stops: i64) -> Array {
-    let [h1, s1, l1, _] = start.to_hsl().to_vec4();
-    let [h2, s2, l2, _] = end.to_hsl().to_vec4();
-
-    Array::from(
-        (0..stops)
-            .map(|i| {
-                let t = i as f64 / (stops - 1) as f64;
-                let t = t.powf(3.0);
-                let h = h1 + t as f32 * (h2 - h1);
-                let s = s1 + t as f32 * (s2 - s1);
-                let l = l1 + t as f32 * (l2 - l1);
-
-                Stop::new(cubehelix_to_rgb(h, s, l), t).into_value()
-            })
-            .collect::<EcoVec<_>>(),
-    )
 }
 
 macro_rules! preset {

@@ -107,6 +107,7 @@ impl State {
             ..Default::default()
         }
     }
+
     pub fn pre_translate(&self, pos: Point) -> Self {
         Self {
             transform: self.transform.pre_translate(pos.x.to_f32(), pos.y.to_f32()),

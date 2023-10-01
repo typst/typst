@@ -1,3 +1,5 @@
+use std::f64::consts::{FRAC_PI_2, TAU};
+
 use super::*;
 
 /// An angle describing a rotation.
@@ -84,6 +86,27 @@ impl Angle {
     #[func(name = "deg", title = "Degrees")]
     pub fn to_deg(self) -> f64 {
         self.to_unit(AngleUnit::Deg)
+    }
+
+    /// Get the quadrant of the Cartesian plane that this angle lies in.
+    /// The angle is automatically normalized to the range `0deg..=360deg`.
+    /// The quadrants are defined as follows:
+    /// - First: `0deg..=90deg` (top-right)
+    /// - Second: `90deg..=180deg` (top-left)
+    /// - Third: `180deg..=270deg` (bottom-left)
+    /// - Fourth: `270deg..=360deg` (bottom-right)
+    #[func]
+    pub fn quadrant(self) -> Quadrant {
+        let rad = self.to_rad().rem_euclid(TAU);
+        if (0.0..=FRAC_PI_2).contains(&rad) {
+            Quadrant::First
+        } else if (FRAC_PI_2..=PI).contains(&rad) {
+            Quadrant::Second
+        } else if (PI..=(3.0 * FRAC_PI_2)).contains(&rad) {
+            Quadrant::Third
+        } else {
+            Quadrant::Fourth
+        }
     }
 }
 
@@ -190,6 +213,53 @@ impl Debug for AngleUnit {
             Self::Deg => "deg",
         })
     }
+}
+
+/// A quadrant of the Cartesian plane.
+pub enum Quadrant {
+    /// The first quadrant, containing positive x and y values.
+    First,
+
+    /// The second quadrant, containing negative x and positive y values.
+    Second,
+
+    /// The third quadrant, containing negative x and y values.
+    Third,
+
+    /// The fourth quadrant, containing positive x and negative y values.
+    Fourth,
+}
+
+impl Debug for Quadrant {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.pad(match self {
+            Quadrant::First => "1",
+            Quadrant::Second => "2",
+            Quadrant::Third => "3",
+            Quadrant::Fourth => "4",
+        })
+    }
+}
+
+cast! {
+    Quadrant,
+    self => match self {
+        Self::First => 1.into_value(),
+        Self::Second => 2.into_value(),
+        Self::Third => 3.into_value(),
+        Self::Fourth => 4.into_value(),
+    },
+    v: i64 => match v {
+        1 => Self::First,
+        2 => Self::Second,
+        3 => Self::Third,
+        4 => Self::Fourth,
+        _ => bail!("Invalid quadrant value: {}", v),
+    },
+    "first" => Self::First,
+    "second" => Self::Second,
+    "third" => Self::Third,
+    "fourth" => Self::Fourth,
 }
 
 #[cfg(test)]

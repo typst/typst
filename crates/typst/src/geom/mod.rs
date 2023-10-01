@@ -30,7 +30,7 @@ mod transform;
 
 pub use self::abs::{Abs, AbsUnit};
 pub use self::align::{Align, FixedAlign, HAlign, VAlign};
-pub use self::angle::{Angle, AngleUnit};
+pub use self::angle::{Angle, AngleUnit, Quadrant};
 pub use self::axes::{Axes, Axis};
 pub use self::color::{Color, ColorSpace, WeightedColor};
 pub use self::corners::{Corner, Corners};
