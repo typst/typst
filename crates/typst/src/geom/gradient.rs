@@ -51,7 +51,7 @@ use crate::geom::{ColorSpace, Smart};
 /// The way the parent is determined is as follows:
 /// - For shapes that are placed at the root/top level of the document, the parent
 ///   is the page itself.
-/// - For other shapes, the parent is the first [`block`]($block) or [`box`]($box)
+/// - For other shapes, the parent is the innermost [`block`]($block) or [`box`]($box)
 ///   that contains the shape. This includes the boxes and blocks that are implicitly
 ///   created by show rules. For example, a [`rotate`]($rotate) will not affect the
 ///   parent of a gradient, but a [`grid`]($grid) will.
