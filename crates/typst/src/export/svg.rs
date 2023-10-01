@@ -75,7 +75,7 @@ struct SVGRenderer {
 }
 
 #[derive(Clone, Copy)]
-pub struct State {
+struct State {
     /// The transform of the current item.
     transform: Transform,
 
@@ -84,26 +84,26 @@ pub struct State {
 }
 
 impl State {
-    pub fn new(size: Size, transform: Transform) -> Self {
+    fn new(size: Size, transform: Transform) -> Self {
         Self { size, transform }
     }
 
-    pub fn pre_translate(self, pos: Point) -> Self {
+    fn pre_translate(self, pos: Point) -> Self {
         self.pre_concat(Transform::translate(pos.x, pos.y))
     }
 
-    pub fn pre_concat(self, transform: Transform) -> Self {
+    fn pre_concat(self, transform: Transform) -> Self {
         Self {
             transform: self.transform.pre_concat(transform),
             ..self
         }
     }
 
-    pub fn with_size(self, size: Size) -> Self {
+    fn with_size(self, size: Size) -> Self {
         Self { size, ..self }
     }
 
-    pub fn with_transform(self, transform: Transform) -> Self {
+    fn with_transform(self, transform: Transform) -> Self {
         Self { transform, ..self }
     }
 }

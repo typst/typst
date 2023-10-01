@@ -98,7 +98,7 @@ struct State {
 }
 
 impl State {
-    pub fn new(size: Size, transform: sk::Transform, pixel_per_pt: f32) -> Self {
+    fn new(size: Size, transform: sk::Transform, pixel_per_pt: f32) -> Self {
         Self {
             size,
             transform,
@@ -108,21 +108,21 @@ impl State {
         }
     }
 
-    pub fn pre_translate(&self, pos: Point) -> Self {
+    fn pre_translate(&self, pos: Point) -> Self {
         Self {
             transform: self.transform.pre_translate(pos.x.to_f32(), pos.y.to_f32()),
             ..self.clone()
         }
     }
 
-    pub fn pre_concat(&self, transform: sk::Transform) -> Self {
+    fn pre_concat(&self, transform: sk::Transform) -> Self {
         Self {
             transform: self.transform.pre_concat(transform),
             ..self.clone()
         }
     }
 
-    pub fn with_mask(&self, mask: Option<Arc<sk::Mask>>) -> Self {
+    fn with_mask(&self, mask: Option<Arc<sk::Mask>>) -> Self {
         // Ensure that we're using the parent's mask if we don't have one.
         if mask.is_some() {
             Self { mask, ..self.clone() }
@@ -131,11 +131,11 @@ impl State {
         }
     }
 
-    pub fn with_size(&self, size: Size) -> Self {
+    fn with_size(&self, size: Size) -> Self {
         Self { size, ..self.clone() }
     }
 
-    pub fn pre_concat_container(&self, container_transform: sk::Transform) -> Self {
+    fn pre_concat_container(&self, container_transform: sk::Transform) -> Self {
         Self { container_transform, ..self.clone() }
     }
 }

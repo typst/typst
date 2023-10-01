@@ -118,6 +118,18 @@ impl Transform {
             ),
         }
     }
+
+    /// Convert to an array of floats.
+    pub fn as_array(self) -> [f32; 6] {
+        [
+            self.sx.get() as f32,
+            self.ky.get() as f32,
+            self.kx.get() as f32,
+            self.sy.get() as f32,
+            self.tx.to_pt() as f32,
+            self.ty.to_pt() as f32,
+        ]
+    }
 }
 
 impl Default for Transform {

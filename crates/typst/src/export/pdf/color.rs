@@ -3,7 +3,7 @@ use std::sync::Arc;
 use pdf_writer::types::DeviceNSubtype;
 use pdf_writer::{writers, Dict, Filter, Name, PdfWriter, Ref};
 
-use super::page::PageContext;
+use super::page::{PageContext, Transforms};
 use super::RefExt;
 use crate::export::pdf::deflate;
 use crate::geom::{Color, ColorSpace, Paint};
@@ -302,17 +302,21 @@ impl ColorEncode for ColorSpace {
 }
 
 /// Encodes a paint into either a fill or stroke color.
-pub trait PaintEncode {
+pub(super) trait PaintEncode {
     /// Set the paint as the fill color.
-    fn set_as_fill(&self, page_context: &mut PageContext);
+    fn set_as_fill(&self, ctx: &mut PageContext, transforms: Transforms);
 
     /// Set the paint as the stroke color.
-    fn set_as_stroke(&self, page_context: &mut PageContext);
+    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms);
 }
 
 impl PaintEncode for Paint {
-    fn set_as_fill(&self, ctx: &mut PageContext) {
-        let Paint::Solid(color) = self else { todo!() };
+    fn set_as_fill(&self, ctx: &mut PageContext, transforms: Transforms) {
+        let color = match self {
+            Self::Solid(c) => c,
+            Self::Gradient(gradient) => return gradient.set_as_fill(ctx, transforms),
+        };
+
         match color {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
@@ -365,8 +369,12 @@ impl PaintEncode for Paint {
         }
     }
 
-    fn set_as_stroke(&self, ctx: &mut PageContext) {
-        let Paint::Solid(color) = self else { todo!() };
+    fn set_as_stroke(&self, ctx: &mut PageContext, transforms: Transforms) {
+        let color = match self {
+            Self::Solid(c) => c,
+            Self::Gradient(gradient) => return gradient.set_as_stroke(ctx, transforms),
+        };
+
         match color {
             Color::Luma(_) => {
                 ctx.parent.colors.d65_gray(&mut ctx.parent.alloc);
@@ -417,5 +425,80 @@ impl PaintEncode for Paint {
                 ctx.content.set_stroke_color([h, s, v]);
             }
         }
+    }
+}
+
+pub(super) trait CSFunctions {
+    /// Returns the range of the color space
+    fn range(self) -> [f32; 6];
+
+    /// Converts a color to the color space
+    fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3];
+}
+
+impl CSFunctions for ColorSpace {
+    fn range(self) -> [f32; 6] {
+        [0.0, 1.0, 0.0, 1.0, 0.0, 1.0]
+    }
+
+    fn convert<U: QuantizedColor>(self, color: Color) -> [U; 3] {
+        let range = self.range();
+        let [x, y, z, _] = color.to_space(self).to_vec4();
+
+        // We need to add 0.4 to y and z for Oklab
+        // This is because DeviceN color spaces in PDF can **only** be in
+        // the range 0..1 and some readers enforce that.
+        // Also map the angle range of HSV to 0..1
+        let [x, y, z] = match self {
+            Self::Oklab => [x, y + 0.4, z + 0.4],
+            Self::Hsv | Self::Hsl => [x.to_degrees().rem_euclid(360.0) / 360.0, y, z],
+            _ => [x, y, z],
+        };
+
+        [
+            U::quantize(x, [range[0], range[1]]),
+            U::quantize(y, [range[2], range[3]]),
+            U::quantize(z, [range[4], range[5]]),
+        ]
+    }
+}
+
+pub(super) trait QuantizedColor {
+    fn quantize(color: f32, range: [f32; 2]) -> Self;
+}
+
+impl QuantizedColor for u8 {
+    fn quantize(color: f32, range: [f32; 2]) -> Self {
+        let value = (color - range[0]) / (range[1] - range[0]);
+        (value.max(0.0).min(1.0) * Self::MAX as f32)
+            .round()
+            .max(0.0)
+            .min(Self::MAX as f32) as Self
+    }
+}
+
+impl QuantizedColor for u16 {
+    fn quantize(color: f32, range: [f32; 2]) -> Self {
+        let value = (color - range[0]) / (range[1] - range[0]);
+        (value.max(0.0).min(1.0) * Self::MAX as f32)
+            .round()
+            .max(0.0)
+            .min(Self::MAX as f32) as Self
+    }
+}
+
+impl QuantizedColor for u32 {
+    fn quantize(color: f32, range: [f32; 2]) -> Self {
+        let value = (color - range[0]) / (range[1] - range[0]);
+        (value.max(0.0).min(1.0) * Self::MAX as f32)
+            .round()
+            .max(0.0)
+            .min(Self::MAX as f32) as Self
+    }
+}
+
+impl QuantizedColor for f32 {
+    fn quantize(color: f32, [min, max]: [f32; 2]) -> Self {
+        color.clamp(min, max)
     }
 }
