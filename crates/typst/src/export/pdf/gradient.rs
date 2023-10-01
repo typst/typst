@@ -1,12 +1,10 @@
-use std::f32::consts::TAU;
-
 use ecow::{eco_format, EcoString};
 use pdf_writer::types::FunctionShadingType;
 use pdf_writer::{types::ColorSpaceOperand, Name};
 use pdf_writer::{Finish, Ref};
 
 use crate::geom::{
-    Abs, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative, Transform,
+    Abs, Color, ColorSpace, Gradient, Numeric, Quadrant, Ratio, Relative, Size, Transform,
 };
 
 use super::color::{CSFunctions, PaintEncode};
@@ -18,19 +16,23 @@ pub(super) struct PdfGradient {
     /// The transform to apply to the gradient.
     pub transform: Transform,
 
+    /// The size of the gradient.
+    /// Required for aspect ratio correction.
+    pub size: Size,
+
     /// The gradient.
     pub gradient: Gradient,
 }
 
 pub fn write_gradients(ctx: &mut PdfContext) {
-    for PdfGradient { transform, gradient } in
+    for PdfGradient { transform, size, gradient } in
         ctx.gradient_map.items().cloned().collect::<Vec<_>>()
     {
         let shading = ctx.alloc.bump();
         ctx.gradient_refs.push(shading);
 
-        let mut shading_pattern = match gradient {
-            Gradient::Linear(_) => {
+        let mut shading_pattern = match &gradient {
+            Gradient::Linear(linear) => {
                 let shading_function = shading_function(ctx, &gradient);
                 let mut shading_pattern = ctx.writer.shading_pattern(shading);
                 let mut shading = shading_pattern.function_shading();
@@ -39,14 +41,14 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                 ctx.colors
                     .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
 
-                let angle = (gradient.dir().to_rad() as f32).rem_euclid(TAU);
+                let angle = linear.angle.correct_aspect_ratio(size);
                 let (sin, cos) = angle.sin_cos();
                 let length = sin.abs() + cos.abs();
 
                 shading
                     .anti_alias(gradient.anti_alias())
                     .function(shading_function)
-                    .coords([0.0, 0.0, length, 0.0])
+                    .coords([0.0, 0.0, length as f32, 0.0])
                     .extend([true; 2]);
 
                 shading.finish();
@@ -179,13 +181,14 @@ fn use_gradient(
     };
 
     let pdf_gradient = PdfGradient {
+        size,
         transform: transform
             .pre_concat(Transform::translate(offset_x, offset_y))
             .pre_concat(Transform::scale(
                 Ratio::new(size.x.to_pt()),
                 Ratio::new(size.y.to_pt()),
             ))
-            .pre_concat(Transform::rotate(gradient.dir())),
+            .pre_concat(Transform::rotate(gradient.dir().correct_aspect_ratio(size))),
         gradient: gradient.clone(),
     };
 

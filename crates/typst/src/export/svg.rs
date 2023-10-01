@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::f64::consts::TAU;
 use std::fmt::{self, Display, Formatter, Write};
 use std::io::Read;
 
@@ -71,7 +70,7 @@ struct SVGRenderer {
     /// These are the actual gradients being written in the SVG file.
     /// These gradients are deduplicated because they do not contain the transform
     /// matrix, allowing them to be reused across multiple invocations.
-    gradients: Deduplicator<Gradient>,
+    gradients: Deduplicator<(Gradient, Size)>,
 }
 
 #[derive(Clone, Copy)]
@@ -359,7 +358,7 @@ impl SVGRenderer {
         self.xml.write_attribute_fmt("xlink:href", format_args!("#{id}"));
         self.xml
             .write_attribute_fmt("x", format_args!("{}", x_offset * inv_scale));
-        self.write_fill(&text.fill, Transform::identity());
+        self.write_fill(&text.fill, Size::zero(), Transform::identity());
         self.xml.end_element();
 
         Some(())
@@ -371,7 +370,11 @@ impl SVGRenderer {
         self.xml.write_attribute("class", "typst-shape");
 
         if let Some(paint) = &shape.fill {
-            self.write_fill(paint, self.shape_fill_transform(state, paint, shape));
+            self.write_fill(
+                paint,
+                self.shape_fill_size(state, paint, shape),
+                self.shape_fill_transform(state, paint, shape),
+            );
         } else {
             self.xml.write_attribute("fill", "none");
         }
@@ -379,6 +382,7 @@ impl SVGRenderer {
         if let Some(stroke) = &shape.stroke {
             self.write_stroke(
                 stroke,
+                self.shape_fill_size(state, &stroke.paint, shape),
                 self.shape_fill_transform(state, &stroke.paint, shape),
             );
         }
@@ -419,12 +423,33 @@ impl SVGRenderer {
         }
     }
 
+    fn shape_fill_size(&self, state: State, paint: &Paint, shape: &Shape) -> Size {
+        let mut shape_size = shape.geometry.size();
+        // Edge cases for strokes.
+        if shape_size.x.to_pt() == 0.0 {
+            shape_size.x = Abs::pt(1.0);
+        }
+
+        if shape_size.y.to_pt() == 0.0 {
+            shape_size.y = Abs::pt(1.0);
+        }
+
+        if let Paint::Gradient(gradient) = paint {
+            match gradient.unwrap_relative(false) {
+                Relative::This => shape_size,
+                Relative::Parent => state.size,
+            }
+        } else {
+            shape_size
+        }
+    }
+
     /// Write a fill attribute.
-    fn write_fill(&mut self, fill: &Paint, transform: Transform) {
+    fn write_fill(&mut self, fill: &Paint, size: Size, transform: Transform) {
         match fill {
             Paint::Solid(color) => self.xml.write_attribute("fill", &color.encode()),
             Paint::Gradient(gradient) => {
-                let id = self.push_gradient(gradient, transform);
+                let id = self.push_gradient(gradient, size, transform);
                 self.xml.write_attribute_fmt("fill", format_args!("url(#{id})"));
             }
         }
@@ -435,9 +460,15 @@ impl SVGRenderer {
     /// and returns the id of the inserted gradient. If the transform of the gradient
     /// is the identify matrix, the returned ID will be the ID of the "source" gradient,
     /// this is a file size optimization.
-    fn push_gradient(&mut self, gradient: &Gradient, transform: Transform) -> Id {
-        let gradient_id =
-            self.gradients.insert_with(hash128(gradient), || gradient.clone());
+    fn push_gradient(
+        &mut self,
+        gradient: &Gradient,
+        size: Size,
+        transform: Transform,
+    ) -> Id {
+        let gradient_id = self
+            .gradients
+            .insert_with(hash128(&(gradient, size)), || (gradient.clone(), size));
 
         if transform.is_identity() {
             return gradient_id;
@@ -452,11 +483,16 @@ impl SVGRenderer {
     }
 
     /// Write a stroke attribute.
-    fn write_stroke(&mut self, stroke: &FixedStroke, fill_transform: Transform) {
+    fn write_stroke(
+        &mut self,
+        stroke: &FixedStroke,
+        size: Size,
+        fill_transform: Transform,
+    ) {
         match &stroke.paint {
             Paint::Solid(color) => self.xml.write_attribute("stroke", &color.encode()),
             Paint::Gradient(gradient) => {
-                let id = self.push_gradient(gradient, fill_transform);
+                let id = self.push_gradient(gradient, size, fill_transform);
                 self.xml.write_attribute_fmt("stroke", format_args!("url(#{id})"));
             }
         }
@@ -583,7 +619,7 @@ impl SVGRenderer {
         self.xml.start_element("defs");
         self.xml.write_attribute("id", "gradients");
 
-        for (id, gradient) in self.gradients.iter() {
+        for (id, (gradient, size)) in self.gradients.iter() {
             match &gradient {
                 Gradient::Linear(linear) => {
                     self.xml.start_element("linearGradient");
@@ -591,10 +627,10 @@ impl SVGRenderer {
                     self.xml.write_attribute("spreadMethod", "pad");
                     self.xml.write_attribute("gradientUnits", "userSpaceOnUse");
 
-                    let angle = linear.angle.to_rad().rem_euclid(TAU);
+                    let angle = linear.angle.correct_aspect_ratio(*size);
                     let (sin, cos) = angle.sin_cos();
                     let length = sin.abs() + cos.abs();
-                    let (x1, y1, x2, y2) = match linear.angle.quadrant() {
+                    let (x1, y1, x2, y2) = match angle.quadrant() {
                         Quadrant::First => (0.0, 0.0, cos * length, sin * length),
                         Quadrant::Second => (1.0, 0.0, cos * length + 1.0, sin * length),
                         Quadrant::Third => {

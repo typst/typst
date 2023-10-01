@@ -68,9 +68,31 @@ impl Angle {
         self.to_rad().cos()
     }
 
+    /// Get the sine and cosine of this angle in radians.
+    pub fn sin_cos(self) -> (f64, f64) {
+        self.to_rad().sin_cos()
+    }
+
     /// Get the tangent of this angle in radians.
     pub fn tan(self) -> f64 {
         self.to_rad().tan()
+    }
+
+    /// Corrects this angle for the aspect ratio of a gradient.
+    pub fn correct_aspect_ratio(self, size: Size) -> Self {
+        // Handle the direction of the gradient
+        let angle = self.to_rad().rem_euclid(TAU);
+
+        // Aspect ratio correction
+        let angle = (angle.tan() * size.y.to_pt()).atan2(size.x.to_pt());
+        let angle = match self.quadrant() {
+            Quadrant::First => angle,
+            Quadrant::Second => angle + PI,
+            Quadrant::Third => angle + PI,
+            Quadrant::Fourth => angle + TAU,
+        };
+
+        Self::rad(angle.rem_euclid(TAU))
     }
 }
 

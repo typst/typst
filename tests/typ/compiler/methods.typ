@@ -134,6 +134,7 @@
 
 ---
 // Test gradient functions.
+#test(gradient.linear(red, green, blue).kind(), gradient.linear)
 #test(gradient.linear(red, green, blue).stops(), ((red, 0%), (green, 50%), (blue, 100%)))
 #test(gradient.linear(red, green, blue, space: rgb).sample(0%), red)
 #test(gradient.linear(red, green, blue, space: rgb).sample(25%), rgb("#97873b"))
