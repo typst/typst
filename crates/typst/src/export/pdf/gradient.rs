@@ -88,15 +88,15 @@ fn shading_function(ctx: &mut PdfContext, gradient: &Gradient) -> Ref {
         encode.extend([0.0, 1.0]);
     }
 
-    // Special case for gradients with only two stops
+    // Special case for gradients with only two stops.
     if functions.len() == 1 {
         return functions[0];
     }
 
-    // Remove the last bound, since it's not needed for the stitching function
+    // Remove the last bound, since it's not needed for the stitching function.
     bounds.pop();
 
-    // Create the stitching function
+    // Create the stitching function.
     let mut stitching_function = ctx.writer.stitching_function(function);
     stitching_function.domain([0.0, 1.0]);
     stitching_function.range(gradient.space().range());
