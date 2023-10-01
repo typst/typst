@@ -742,6 +742,8 @@ impl Gradient {
 }
 
 impl Gradient {
+    /// Samples the gradient at a given position, in the given container.
+    /// Handles the aspect ratio and angle directly.
     pub fn sample_at(&self, (x, y): (f32, f32), (width, height): (f32, f32)) -> Color {
         let t = match self {
             Self::Linear(linear) => {
