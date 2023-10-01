@@ -19,6 +19,9 @@ use crate::geom::{ColorSpace, Smart};
 /// - Linear gradients through the [`gradient.linear` function]($gradient.linear)
 /// - 🚧 Radial gradient will soon™️ be available
 /// - 🚧 Conic gradient will soon™️ be available
+/// 
+/// See the [tracking issue](https://github.com/typst/typst/issues/2282) for more
+/// details on the progress of gradients.
 ///
 /// ## Stops
 ///
