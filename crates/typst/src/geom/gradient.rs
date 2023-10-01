@@ -41,7 +41,7 @@ use crate::geom::{ColorSpace, Smart};
 /// Currently gradients are not supported on text. However, in an upcoming release,
 /// gradients will be supported on text.
 ///
-/// ## Relative-ness
+/// ## Relativeness
 ///
 /// Gradients can be relative to either the shape they are painted on, or to the
 /// nearest parent containers. This is controlled by the `relative` argument of the
