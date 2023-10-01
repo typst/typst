@@ -64,7 +64,7 @@ struct SVGRenderer {
     clip_paths: Deduplicator<EcoString>,
     /// Deduplicated gradients with transform matrices. They use a reference
     /// (`href`) instead of being defined inline. This saves a lot of space
-    /// since gradients being reused but with different transforms can be
+    /// since gradients are being reused but with different transforms can be
     /// deduplicated.
     gradient_refs: Deduplicator<GradientRef>,
     /// These are the actual gradients being written in the SVG file.
