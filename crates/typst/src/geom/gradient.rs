@@ -97,7 +97,7 @@ use crate::geom::{ColorSpace, Smart};
 /// #for space in spaces {
 ///   block(
 ///     width: 100%,
-///     height: 10pt, 
+///     height: 10pt,
 ///     fill: gradient.linear(red, blue, space: space.at(1))
 ///   )[
 ///     #space.at(0)
