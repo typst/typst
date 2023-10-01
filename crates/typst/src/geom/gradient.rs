@@ -154,7 +154,7 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// The [`cividis`]($gradient.cividis) gradient is a blue to gray to
 /// yellow gradient that is perceptually uniform. Cividis is a gradient
-/// that takes an optional number of stops, by default it is set to 20.
+/// that takes an optional number of stops, which is set to 20 by default.
 ///
 /// ✅ This gradient is suitable for data visualization.
 ///
@@ -167,7 +167,7 @@ use crate::geom::{ColorSpace, Smart};
 /// The [`rainbow`]($gradient.rainbow) gradient is a rainbow gradient that is
 /// **not** perceptually uniform, therefore it should only be used for decorative
 /// purposes and not for data visualization. Rainbow is a gradient that takes an
-/// optional number of stops, by default it is set to 20. This gradient is best
+/// optional number of stops, which is set to 20 by default. This gradient is best
 /// used by setting the interpolation color space to [HSL]($color.hsl).
 ///
 /// ❌ This gradient is **not** suitable for data visualization.
@@ -301,14 +301,14 @@ use crate::geom::{ColorSpace, Smart};
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.crest))
 /// ```
 ///
-/// ### What about presets like "jet" and "parula"
+/// ### Regarding presets like "jet" and "parula"
 ///
 /// - [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/)
 ///   is not a good color map, as it is not perceptually uniform. As such,
 ///   it is not color blind friendly and should not be used for data visualization,
 ///   due to which it is not included in Typst.
 /// - [Parula](https://www.mathworks.com/help/matlab/ref/parula.html)
-///   is a good color map included in matlab, but it is not included as
+///   is a good color map included in MATLAB, but it is not included as
 ///   a preset in Typst. This is because it is owned by MathWorks and is not public.
 ///
 #[ty(scope)]
