@@ -64,7 +64,7 @@ impl Frame {
 
     /// Create a new, empty hard frame.
     ///
-    /// Panics the size is not finite.
+    /// Panics if the size is not finite.
     #[track_caller]
     pub fn hard(size: Size) -> Self {
         assert!(size.is_finite());
@@ -76,7 +76,7 @@ impl Frame {
         }
     }
 
-    /// Sets the frame's hardness
+    /// Sets the frame's hardness.
     pub fn set_kind(&mut self, kind: FrameKind) {
         self.kind = kind;
     }
@@ -452,10 +452,10 @@ impl Debug for Frame {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum FrameKind {
-    /// A container which follows its parent's size
+    /// A container which follows its parent's size.
     Soft,
 
-    /// A container which uses its own size
+    /// A container which uses its own size.
     Hard,
 }
 

@@ -269,7 +269,7 @@ pub(super) struct Transforms {
     pub container_transform: Transform,
     /// The size of the first hard frame in the hierarchy.
     pub container_size: Size,
-    /// The size of the item
+    /// The size of the item.
     pub size: Size,
 }
 

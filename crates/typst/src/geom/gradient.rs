@@ -701,10 +701,10 @@ impl Gradient {
         .into_value())
     }
 
-    /// Creates a rainbow list of color stops with the given parameters.
+    /// Creates a list of rainbow color stops with the given parameters.
     ///
     /// You can control the number of stops in the gradient using the `stops`
-    /// parameter, by default it is set to 20.
+    /// parameter, which is set to 20 by default.
     ///
     /// This gradient is best used by setting the interpolation color space to
     /// [HSL]($color.hsl). It should also be noted that this is not a good
@@ -741,13 +741,13 @@ impl Gradient {
     pub fn sample_at(&self, (x, y): (f32, f32), (width, height): (f32, f32)) -> Color {
         let t = match self {
             Self::Linear(linear) => {
-                // normalize the coordinates
+                // Normalize the coordinates.
                 let (mut x, mut y) = (x / width, y / height);
 
-                // Handle the direction of the gradient
+                // Handle the direction of the gradient.
                 let angle = linear.angle.to_rad().rem_euclid(TAU);
 
-                // Aspect ratio correction
+                // Aspect ratio correction.
                 let angle = (angle.tan() * height as f64).atan2(width as f64);
                 let angle = match linear.angle.quadrant() {
                     Quadrant::First => angle,
@@ -795,19 +795,19 @@ impl Gradient {
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct LinearGradient {
-    /// The color stops of this gradient
+    /// The color stops of this gradient.
     pub stops: Vec<(Color, Ratio)>,
 
-    /// The direction of this gradient
+    /// The direction of this gradient.
     pub angle: Angle,
 
-    /// The color space in which to interpolate the gradient
+    /// The color space in which to interpolate the gradient.
     pub space: ColorSpace,
 
-    /// The relative placement of the gradient
+    /// The relative placement of the gradient.
     pub relative: Smart<Relative>,
 
-    /// Whether to anti-alias the gradient (used for sharp gradient)
+    /// Whether to anti-alias the gradient (used for sharp gradients).
     pub anti_alias: bool,
 }
 
@@ -848,12 +848,13 @@ impl Debug for LinearGradient {
     }
 }
 
-/// What is the gradient relative to:
-/// - Itself (its own bounding box)
-/// - Its parent (the parent's bounding box)
+/// What is the gradient relative to.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Relative {
+    /// The gradient is relative to itself (its own bounding box).
     This,
+    
+    /// The gradient is relative to its parent (the parent's bounding box).
     Parent,
 }
 
