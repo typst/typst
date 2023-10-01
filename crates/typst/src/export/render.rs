@@ -377,7 +377,7 @@ fn render_outline_glyph(
 
         // TODO: implement gradients on text.
         let mut pixmap = None;
-        let paint = (&text.fill).into_sk_paint(&state, Size::zero(), None, &mut pixmap);
+        let paint = text.fill.as_sk_paint(state, Size::zero(), None, &mut pixmap);
 
         let rule = sk::FillRule::default();
 
@@ -511,7 +511,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
     if let Some(fill) = &shape.fill {
         let mut pixmap = None;
         let mut paint: sk::Paint =
-            fill.into_sk_paint(&state, shape.geometry.size(), None, &mut pixmap);
+            fill.as_sk_paint(&state, shape.geometry.size(), None, &mut pixmap);
 
         if matches!(shape.geometry, Geometry::Rect(_)) {
             paint.anti_alias = false;
@@ -548,7 +548,7 @@ fn render_shape(canvas: &mut sk::Pixmap, state: State, shape: &Shape) -> Option<
 
             let mut pixmap = None;
             let paint =
-                paint.into_sk_paint(&state, shape.geometry.size(), None, &mut pixmap);
+                paint.as_sk_paint(&state, shape.geometry.size(), None, &mut pixmap);
 
             let stroke = sk::Stroke {
                 width,
@@ -702,7 +702,7 @@ impl From<sk::Transform> for Transform {
 /// Transforms a [`Paint`] into a [`sk::Paint`].
 /// Applying the necessary transform, if the paint is a gradient.
 trait IntoSkPaint {
-    fn into_sk_paint<'a>(
+    fn as_sk_paint<'a>(
         &self,
         state: &State,
         item_size: Size,
@@ -712,7 +712,7 @@ trait IntoSkPaint {
 }
 
 impl IntoSkPaint for Paint {
-    fn into_sk_paint<'a>(
+    fn as_sk_paint<'a>(
         &self,
         state: &State,
         item_size: Size,

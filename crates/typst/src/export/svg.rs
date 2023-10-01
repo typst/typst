@@ -24,7 +24,7 @@ pub fn svg(frame: &Frame) -> String {
     renderer.write_header(frame.size());
 
     let state = State::new(frame.size(), Transform::identity());
-    renderer.render_frame(state, frame);
+    renderer.render_frame(state, Transform::identity(), frame);
     renderer.finalize()
 }
 
@@ -43,8 +43,9 @@ pub fn svg_merged(frames: &[Frame], padding: Abs) -> String {
 
     let [x, mut y] = [padding; 2];
     for frame in frames {
-        let state = State::new(frame.size(), Transform::translate(x, y));
-        renderer.render_frame(state, frame);
+        let ts = Transform::translate(x, y);
+        let state = State::new(frame.size(), ts);
+        renderer.render_frame(state, ts, frame);
         y += frame.height() + padding;
     }
 
@@ -169,10 +170,10 @@ impl SVGRenderer {
     }
 
     /// Render a frame with the given transform.
-    fn render_frame(&mut self, state: State, frame: &Frame) {
+    fn render_frame(&mut self, state: State, transform: Transform, frame: &Frame) {
         self.xml.start_element("g");
-        if !state.transform.is_identity() {
-            self.xml.write_attribute("transform", &SvgMatrix(state.transform));
+        if !transform.is_identity() {
+            self.xml.write_attribute("transform", &SvgMatrix(transform));
         }
 
         for (pos, item) in frame.items() {
@@ -233,7 +234,7 @@ impl SVGRenderer {
             self.xml.write_attribute_fmt("clip-path", format_args!("url(#{id})"));
         }
 
-        self.render_frame(state, &group.frame);
+        self.render_frame(state, group.transform, &group.frame);
         self.xml.end_element();
     }
 

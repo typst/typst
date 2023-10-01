@@ -397,8 +397,7 @@ impl Gradient {
                 let ts = (t - 0.5).abs();
 
                 Stop::new(
-                    cubehelix_to_rgb(360.0 * t - 100.0, 1.5 - 1.5 * ts, 0.8 - 0.8 * ts)
-                        .into(),
+                    cubehelix_to_rgb(360.0 * t - 100.0, 1.5 - 1.5 * ts, 0.8 - 0.8 * ts),
                     t as f64,
                 )
                 .into_value()
