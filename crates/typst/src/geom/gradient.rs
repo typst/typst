@@ -741,13 +741,13 @@ impl Gradient {
     pub fn sample_at(&self, (x, y): (f32, f32), (width, height): (f32, f32)) -> Color {
         let t = match self {
             Self::Linear(linear) => {
-                // normalize the coordinates
+                // Normalize the coordinates.
                 let (mut x, mut y) = (x / width, y / height);
 
-                // Handle the direction of the gradient
+                // Handle the direction of the gradient.
                 let angle = linear.angle.to_rad().rem_euclid(TAU);
 
-                // Aspect ratio correction
+                // Aspect ratio correction.
                 let angle = (angle.tan() * height as f64).atan2(width as f64);
                 let angle = match linear.angle.quadrant() {
                     Quadrant::First => angle,
