@@ -76,7 +76,7 @@ impl Frame {
         }
     }
 
-    /// Sets the frame's hardness
+    /// Sets the frame's hardness.
     pub fn set_kind(&mut self, kind: FrameKind) {
         self.kind = kind;
     }
