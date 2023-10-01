@@ -579,7 +579,7 @@ impl Gradient {
         }
 
         let n = repetitions.v;
-        let stops = std::iter::repeat(self.stops())
+        let mut stops = std::iter::repeat(self.stops())
             .take(n)
             .enumerate()
             .flat_map(|(i, stops)| {
@@ -603,6 +603,8 @@ impl Gradient {
                 stops
             })
             .collect::<Vec<_>>();
+
+        stops.dedup();
 
         Ok(match self {
             Self::Linear(grad) => Self::Linear(LinearGradient {

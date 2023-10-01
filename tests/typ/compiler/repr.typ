@@ -49,6 +49,7 @@
 #type((a: 1))
 
 ---
+// Colors
 #set text(0.8em)
 #blue \
 #color.linear-rgb(blue) \
@@ -57,3 +58,12 @@
 #color.hsl(blue) \
 #color.hsv(blue) \
 #luma(blue)
+
+---
+// Gradients
+#set page(width: 200pt)
+#set text(0.8em)
+#gradient.linear(blue, red) \
+#gradient.linear(blue, red, dir: 45deg) \
+#gradient.linear(blue, red, dir: 45deg, relative: "self") \
+#gradient.linear(blue, red, dir: 45deg, space: rgb)
