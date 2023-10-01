@@ -108,7 +108,7 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// Some gradients are sensitive to the direction of the gradient. For example, a
 /// linear gradient has an angle that determines the direction of the gradient. Instead
-/// of the traditional clockwise angle, Typst uses a anti-clockwise angle, with 0° being
+/// of the traditional clockwise angle, Typst uses an anti-clockwise angle, with 0° being
 /// from left-to-right, 90° from top-to-bottom, 180° from right-to-left, and 270° from
 /// bottom-to-top.
 ///
@@ -125,23 +125,24 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// ## Note on compatibility
 ///
-/// Typst's gradients were designed to be widely compatible, however, in
+/// Typst's gradients were designed to be widely compatible; however, in
 /// [PDF.js](https://mozilla.github.io/pdf.js/), the reader bundled with Firefox,
 /// gradients in `rotate` blocks may not be rendered correctly. This is a bug in
-/// PDF.js and not in Typst. Otherwise every type of gradient has been tested in
-/// every major PDF readers and browsers and should work as expected.
+/// PDF.js and not in Typst. Despite this, every type of gradient has been
+/// tested in every major PDF reader, and should work in most browsers as
+/// expected.
 ///
 /// ## Presets
 ///
-/// Typst also includes a number of preset color maps. In the following section the
-/// list of available presets is given, along with a sample of the gradient and
+/// Typst also includes a number of preset color maps. In the following section, the
+/// list of available presets is given, along with a sample of each gradient and
 /// relevant comments. Most of these color maps are chosen to be color blind friendly.
 ///
 /// ### Turbo
 ///
 /// The [`turbo`]($gradient.turbo) gradient is a rainbow-like gradient that is
 /// perceptually uniform. Turbo is a gradient that takes an optional number of
-/// stops, by default it is set to 20.
+/// stops, which is set to 20 by default.
 ///
 /// ✅ This gradient is suitable for data visualization.
 ///
@@ -304,8 +305,8 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// - [Jet](https://jakevdp.github.io/blog/2014/10/16/how-bad-is-your-colormap/)
 ///   is not a good color map, as it is not perceptually uniform. As such,
-///   it is not color blind friendly and should not be used for data visualization.
-///   And it is not included in Typst.
+///   it is not color blind friendly and should not be used for data visualization,
+///   due to which it is not included in Typst.
 /// - [Parula](https://www.mathworks.com/help/matlab/ref/parula.html)
 ///   is a good color map included in matlab, but it is not included as
 ///   a preset in Typst. This is because it is owned by MathWorks and is not public.
