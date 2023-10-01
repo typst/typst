@@ -494,46 +494,47 @@ impl Gradient {
         &self,
 
         /// The number of stops in the gradient.
-        n: Spanned<usize>,
+        steps: Spanned<usize>,
 
         /// How much to smooth the gradient.
         #[default(Spanned::new(Ratio::zero(), Span::detached()))]
         #[named]
         smoothness: Spanned<Ratio>,
     ) -> SourceResult<Gradient> {
-        if n.v < 2 {
-            bail!(n.span, "sharp gradients must have at least two stops");
+        if steps.v < 2 {
+            bail!(steps.span, "sharp gradients must have at least two stops");
         }
 
         if smoothness.v.get() < 0.0 || smoothness.v.get() > 1.0 {
             bail!(smoothness.span, "smoothness must be between 0 and 1");
         }
 
+        let n = steps.v;
         let smoothness = smoothness.v.get();
-        let colors = (0..n.v)
+        let colors = (0..n)
             .flat_map(|i| {
                 let c = self
-                    .sample(RatioOrAngle::Ratio(Ratio::new(i as f64 / (n.v - 1) as f64)));
+                    .sample(RatioOrAngle::Ratio(Ratio::new(i as f64 / (n - 1) as f64)));
 
                 [c, c]
             })
             .collect::<Vec<_>>();
 
-        let mut positions = Vec::with_capacity(n.v * 2);
-        let p = |i| i as f64 * 1.0 / n.v as f64;
+        let mut positions = Vec::with_capacity(n * 2);
+        let index_to_progress = |i| i as f64 * 1.0 / n as f64;
 
-        let t = smoothness * 1.0 / (4.0 * n.v as f64);
-        for i in 0..n.v {
+        let progress = smoothness * 1.0 / (4.0 * n as f64);
+        for i in 0..n {
             let mut j = 2 * i;
-            positions.push(p(i));
+            positions.push(index_to_progress(i));
             if j > 0 {
-                positions[j] += t;
+                positions[j] += progress;
             }
 
             j += 1;
-            positions.push(p(i + 1));
+            positions.push(index_to_progress(i + 1));
             if j < colors.len() - 1 {
-                positions[j] -= t;
+                positions[j] -= progress;
             }
         }
 
@@ -563,33 +564,31 @@ impl Gradient {
         &self,
 
         /// The number of times to repeat the gradient.
-        n: Spanned<usize>,
+        repetitions: Spanned<usize>,
 
         /// Whether to mirror the gradient at each repetition.
         #[named]
         #[default(false)]
         mirror: bool,
     ) -> SourceResult<Gradient> {
-        if n.v == 0 {
-            bail!(n.span, "must repeat at least once");
+        if repetitions.v == 0 {
+            bail!(repetitions.span, "must repeat at least once");
         }
 
+        let n = repetitions.v;
         let stops = std::iter::repeat(self.stops())
-            .take(n.v)
+            .take(n)
             .enumerate()
             .flat_map(|(i, stops)| {
                 let mut stops = stops
                     .iter()
                     .map(move |stop| {
-                        let offset = i as f64 / n.v as f64;
+                        let offset = i as f64 / n as f64;
                         let r = stop.offset.unwrap();
                         if i % 2 == 1 && mirror {
-                            (
-                                stop.color,
-                                Ratio::new(offset + (1.0 - r.get()) / n.v as f64),
-                            )
+                            (stop.color, Ratio::new(offset + (1.0 - r.get()) / n as f64))
                         } else {
-                            (stop.color, Ratio::new(offset + r.get() / n.v as f64))
+                            (stop.color, Ratio::new(offset + r.get() / n as f64))
                         }
                     })
                     .collect::<Vec<_>>();
