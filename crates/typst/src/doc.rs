@@ -64,7 +64,7 @@ impl Frame {
 
     /// Create a new, empty hard frame.
     ///
-    /// Panics the size is not finite.
+    /// Panics if the size is not finite.
     #[track_caller]
     pub fn hard(size: Size) -> Self {
         assert!(size.is_finite());
