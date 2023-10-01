@@ -780,6 +780,7 @@ impl Gradient {
         self.sample(RatioOrAngle::Ratio(Ratio::new(t)))
     }
 
+    /// Does this gradient need to be anti-aliased?
     pub fn anti_alias(&self) -> bool {
         match self {
             Self::Linear(linear) => linear.anti_alias,
