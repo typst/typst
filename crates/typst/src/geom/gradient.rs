@@ -968,6 +968,13 @@ impl From<RatioOrAngle> for f64 {
     }
 }
 
+/// Pre-processes the stops, checking that they are valid and computing the
+/// offsets if necessary.
+///
+/// Returns an error if the stops are invalid.
+///
+/// This is split into its own function because it is used by all of the
+/// different gradient types.
 fn process_stops(stops: &[Spanned<Stop>]) -> SourceResult<Vec<(Color, Ratio)>> {
     let has_offset = stops.iter().any(|stop| stop.v.offset.is_some());
     if has_offset {
@@ -1009,6 +1016,7 @@ fn process_stops(stops: &[Spanned<Stop>]) -> SourceResult<Vec<(Color, Ratio)>> {
         .collect())
 }
 
+/// Sample the stops at a given position.
 fn sample_stops(stops: &[(Color, Ratio)], mixing_space: ColorSpace, t: f64) -> Color {
     let t = t.clamp(0.0, 1.0);
     let mut low = 0;
