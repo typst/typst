@@ -72,11 +72,12 @@ impl Transform {
     pub fn apply(&self, point: Point) -> Point {
         if self.is_identity() {
             point
-        } else if self.sx.is_one() && self.ky.is_zero() && self.kx.is_zero() && self.sy.is_one() {
-            Point { 
-                x: point.x + self.tx,
-                y: point.y + self.ty,
-            }
+        } else if self.sx.is_one()
+            && self.ky.is_zero()
+            && self.kx.is_zero()
+            && self.sy.is_one()
+        {
+            Point { x: point.x + self.tx, y: point.y + self.ty }
         } else if self.kx.is_zero() && self.ky.is_zero() {
             Point {
                 x: point.x * self.sx.get() + self.tx,

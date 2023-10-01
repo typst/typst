@@ -310,7 +310,7 @@ impl Gradient {
                     - t * (15327.97 - t * (27814.0 - t * (22569.18 - t * 6838.66)))))
                 .round();
 
-            Rgba::new((r / 255.0).round(), (g / 255.0).round(), (b / 255.0).round(), 1.0)
+            Rgba::new(r / 255.0, g / 255.0, b / 255.0, 1.0)
         }
 
         if stops.v < 2 {
@@ -343,19 +343,16 @@ impl Gradient {
     ) -> SourceResult<Value> {
         fn at(t: f32) -> Rgba {
             let t = t.clamp(0.0, 1.0);
-            let r = (-4.54
+            let r = -4.54
                 - t * (35.34
-                    - t * (2381.73 - t * (6402.7 - t * (7024.72 - t * 2710.57)))))
-                .round();
-            let g = (32.49
-                + t * (170.73 + t * (52.82 - t * (131.46 - t * (176.58 - t * 67.37)))))
-                .round();
-            let b = (81.24
+                    - t * (2381.73 - t * (6402.7 - t * (7024.72 - t * 2710.57))));
+            let g = 32.49
+                + t * (170.73 + t * (52.82 - t * (131.46 - t * (176.58 - t * 67.37))));
+            let b = 81.24
                 + t * (442.36
-                    - t * (2482.43 - t * (6167.24 - t * (6614.94 - t * 2475.67)))))
-                .round();
+                    - t * (2482.43 - t * (6167.24 - t * (6614.94 - t * 2475.67))));
 
-            Rgba::new((r / 255.0).round(), (g / 255.0).round(), (b / 255.0).round(), 1.0)
+            Rgba::new(r / 255.0, g / 255.0, b / 255.0, 1.0)
         }
 
         if stops.v < 2 {
@@ -377,11 +374,13 @@ impl Gradient {
     ///
     /// You can control the number of stops in the gradient using the `stops` parameter, by default it is set to 20.
     ///
+    /// This gradient is best used by setting the interpolation color space to [HSL]($color.hsl).
+    ///
     /// ```example
-    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.cubehelix-warm(10)))
+    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.cubehelix(10), space: color.hsl))
     /// ````
     #[func]
-    fn cubehelix_warm(
+    fn cubehelix(
         #[default(Spanned::new(20, Span::detached()))] stops: Spanned<i64>,
     ) -> SourceResult<Array> {
         if stops.v < 2 {
@@ -395,30 +394,11 @@ impl Gradient {
         ))
     }
 
-    /// Creates a cool [CubeHelix] list of color stops with the given parameters.
-    ///
-    /// You can control the number of stops in the gradient using the `stops` parameter, by default it is set to 20.
-    ///
-    /// ```example
-    /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.cubehelix-cool(10)))
-    #[func]
-    fn cubehelix_cool(
-        #[default(Spanned::new(20, Span::detached()))] stops: Spanned<i64>,
-    ) -> SourceResult<Array> {
-        if stops.v < 2 {
-            bail!(stops.span, "number of stops must be bigger or equal to 2");
-        }
-
-        Ok(cubehelix(
-            Hsl::new(260.0, 0.75, 0.35, 1.0).into(),
-            Hsl::new(80.0, 1.5, 0.8, 1.0).into(),
-            stops.v,
-        ))
-    }
-
     /// Creates a rainbow list of color stops with the given parameters.
     ///
     /// You can control the number of stops in the gradient using the `stops` parameter, by default it is set to 20.
+    ///
+    /// This color space is best used by setting the interpolation color space to [HSL]($color.hsl).
     ///
     /// ```example
     /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.rainbow(2)))
@@ -622,8 +602,8 @@ impl From<DirOrAngle> for Angle {
         match value {
             DirOrAngle::Dir(dir) => match dir {
                 Dir::LTR => Angle::zero(),
-                Dir::RTL => Angle::rad(FRAC_PI_2),
-                Dir::TTB => Angle::rad(PI),
+                Dir::RTL => Angle::rad(PI),
+                Dir::TTB => Angle::rad(FRAC_PI_2),
                 Dir::BTT => Angle::rad(3.0 * FRAC_PI_2),
             },
             DirOrAngle::Angle(angle) => angle,

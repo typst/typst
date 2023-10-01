@@ -15,7 +15,7 @@ use crate::doc::{Frame, FrameItem, FrameKind, GroupItem, Meta, TextItem};
 use crate::font::Font;
 use crate::geom::{
     self, Abs, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
-    PathItem, Point, Relative, Scalar, Shape, Size, Transform, Ratio,
+    PathItem, Point, Ratio, Relative, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageKind, RasterFormat};
 
@@ -102,6 +102,7 @@ impl State {
         Self {
             size,
             transform,
+            container_transform: transform,
             pixel_per_pt,
             ..Default::default()
         }
@@ -719,26 +720,12 @@ impl IntoSkPaint for Paint {
     ) -> sk::Paint<'a> {
         /// Actual sampling of the gradient, cached for performance.
         #[comemo::memoize]
-        fn cached(
-            gradient: &Gradient,
-            transform: Transform,
-            scale: Scalar,
-            size: Size,
-            container_size: Size,
-        ) -> Arc<sk::Pixmap> {
-            eprintln!("{container_size:?}");
-            let width = (size.x.to_f32() * scale.get() as f32).ceil() as u32;
-            let height = (size.y.to_f32() * scale.get() as f32).ceil() as u32;
+        fn cached(gradient: &Gradient, width: u32, height: u32) -> Arc<sk::Pixmap> {
             let mut pixmap = sk::Pixmap::new(width.max(1), height.max(1)).unwrap();
-            for y in 0..width {
-                for x in 0..height {
-                    let (x1, y1) = (x as f64 / scale.get(), y as f64 / scale.get());
-                    let point = transform.apply(Point::new(Abs::pt(x1), Abs::pt(y1)));
-
+            for x in 0..width {
+                for y in 0..height {
                     let color: sk::Color = gradient
-                        .sample_at(
-                            (point.x.to_f32(), point.y.to_f32()),
-                            (container_size.x.to_f32(), container_size.y.to_f32()))
+                        .sample_at((x as f32, y as f32), (width as f32, height as f32))
                         .into();
 
                     pixmap.pixels_mut()[(y * width + x) as usize] =
@@ -765,30 +752,23 @@ impl IntoSkPaint for Paint {
                     match gradient.unwrap_relative(false) {
                         Relative::This => sk::Transform::identity(),
                         Relative::Parent => state
-                            .transform
-                            .post_concat(state.container_transform.invert().unwrap())
-                            .post_scale(
-                                item_size.x.to_f32() / state.size.x.to_f32(),
-                                item_size.y.to_f32() / state.size.y.to_f32(),
-                            ),
+                            .container_transform
+                            .post_concat(state.transform.invert().unwrap()),
                     }
                 });
+                let width =
+                    (container_size.x.to_f32() * state.pixel_per_pt).ceil() as u32;
+                let height =
+                    (container_size.y.to_f32() * state.pixel_per_pt).ceil() as u32;
 
-                eprintln!("{fill_transform:?}");
-
-                *pixmap = Some(cached(
-                    gradient, 
-                    fill_transform.into(),
-                    Scalar::new(state.pixel_per_pt as _),
-                    item_size,
-                    container_size,
-                ));
+                *pixmap = Some(cached(gradient, width, height));
                 sk_paint.shader = sk::Pattern::new(
                     pixmap.as_ref().unwrap().as_ref().as_ref(),
                     sk::SpreadMode::Pad,
-                    sk::FilterQuality::Bicubic,
+                    sk::FilterQuality::Nearest,
                     1.0,
-                    sk::Transform::from_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
+                    fill_transform
+                        .pre_scale(1.0 / state.pixel_per_pt, 1.0 / state.pixel_per_pt),
                 );
 
                 sk_paint.anti_alias = gradient.anti_alias();

@@ -10,8 +10,8 @@ use xmlwriter::XmlWriter;
 use crate::doc::{Frame, FrameItem, GroupItem, TextItem};
 use crate::font::Font;
 use crate::geom::{
-    Abs, Angle, Axes, Color, FixedStroke, Geometry, LineCap, LineJoin, Paint, PathItem,
-    Ratio, Shape, Size, Transform,
+    Abs, Angle, Axes, Color, FixedStroke, Geometry, Gradient, LineCap, LineJoin, Paint,
+    PathItem, Ratio, Shape, Size, Transform,
 };
 use crate::image::{Image, ImageFormat, RasterFormat, VectorFormat};
 use crate::util::hash128;
@@ -58,6 +58,36 @@ struct SVGRenderer {
     /// attribute of the group. The clip path is in the format of `M x y L x y C
     /// x1 y1 x2 y2 x y Z`.
     clip_paths: Deduplicator<EcoString>,
+    /// Deduplicated gradients with transform matrices. They use a reference
+    /// (`href`) instead of being defined inline. This saves a lot of space
+    /// since gradients being reused but with different transforms can be
+    /// deduplicated.
+    gradient_refs: Deduplicator<GradientRef>,
+
+    /// These are the actual gradients being written in the SVG file.
+    /// These gradients are deduplicated because they do not contain the transform
+    /// matrix, allowing them to be reused across multiple invocations.
+    gradients: Deduplicator<Gradient>,
+}
+
+#[derive(Hash)]
+struct GradientRef {
+    id: Id,
+    kind: GradientKind,
+    transform: Transform,
+}
+
+#[derive(Hash, Clone, Copy, PartialEq, Eq)]
+enum GradientKind {
+    Linear,
+}
+
+impl From<&Gradient> for GradientKind {
+    fn from(value: &Gradient) -> Self {
+        match value {
+            Gradient::Linear { .. } => GradientKind::Linear,
+        }
+    }
 }
 
 /// Represents a glyph to be rendered.
@@ -79,6 +109,8 @@ impl SVGRenderer {
             xml: XmlWriter::new(xmlwriter::Options::default()),
             glyphs: Deduplicator::new('g'),
             clip_paths: Deduplicator::new('c'),
+            gradient_refs: Deduplicator::new('g'),
+            gradients: Deduplicator::new('f'),
         }
     }
 
@@ -107,6 +139,11 @@ impl SVGRenderer {
         }
 
         for (pos, item) in frame.items() {
+            // File size optimization
+            if matches!(item, FrameItem::Meta(_, _)) {
+                continue;
+            }
+
             let x = pos.x.to_pt();
             let y = pos.y.to_pt();
             self.xml.start_element("g");
@@ -118,7 +155,7 @@ impl SVGRenderer {
                 FrameItem::Text(text) => self.render_text(text),
                 FrameItem::Shape(shape, _) => self.render_shape(shape),
                 FrameItem::Image(image, size, _) => self.render_image(image, size),
-                FrameItem::Meta(_, _) => {}
+                FrameItem::Meta(_, _) => unreachable!(),
             };
 
             self.xml.end_element();
