@@ -795,19 +795,19 @@ impl Gradient {
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct LinearGradient {
-    /// The color stops of this gradient
+    /// The color stops of this gradient.
     pub stops: Vec<(Color, Ratio)>,
 
-    /// The direction of this gradient
+    /// The direction of this gradient.
     pub angle: Angle,
 
-    /// The color space in which to interpolate the gradient
+    /// The color space in which to interpolate the gradient.
     pub space: ColorSpace,
 
-    /// The relative placement of the gradient
+    /// The relative placement of the gradient.
     pub relative: Smart<Relative>,
 
-    /// Whether to anti-alias the gradient (used for sharp gradient)
+    /// Whether to anti-alias the gradient (used for sharp gradients).
     pub anti_alias: bool,
 }
 
