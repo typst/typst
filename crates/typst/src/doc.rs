@@ -473,6 +473,8 @@ impl FrameKind {
 
 impl Default for FrameKind {
     fn default() -> Self {
+        // The default value is only ever used in [`std::mem::take`].
+        // Therefore its exact value is irrelevant.
         Self::Soft
     }
 }
