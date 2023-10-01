@@ -678,6 +678,8 @@ impl SVGRenderer {
                 }
             }
         }
+
+        self.xml.end_element()
     }
 
     fn write_gradient_refs(&mut self) {
