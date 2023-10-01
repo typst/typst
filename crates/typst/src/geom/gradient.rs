@@ -662,7 +662,8 @@ impl Gradient {
 
     /// Creates a [cividis] stop list.
     ///
-    /// You can control the number of stops in the gradient using the `stops` parameter, by default it is set to 20.
+    /// You can control the number of stops in the gradient using the `stops`
+    /// parameter, which is set to 20 by default.
     ///
     /// ```example
     /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.cividis(10)))
