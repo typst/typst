@@ -704,7 +704,7 @@ impl Gradient {
     /// Creates a rainbow list of color stops with the given parameters.
     ///
     /// You can control the number of stops in the gradient using the `stops`
-    /// parameter, by default it is set to 20.
+    /// parameter, which is set to 20 by default.
     ///
     /// This gradient is best used by setting the interpolation color space to
     /// [HSL]($color.hsl). It should also be noted that this is not a good
