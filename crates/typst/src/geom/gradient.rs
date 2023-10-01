@@ -370,8 +370,8 @@ impl Gradient {
         ///   parent that contains the element onto which the gradient is applied.
         ///
         /// For an element placed at the root/top level of the document, the parent
-        /// is the page itself. For other elements, the parent is the first block or
-        /// box that contains the element.
+        /// is the page itself. For other elements, the parent is the innermost block
+        /// or box that contains the element.
         #[named]
         #[default(Smart::Auto)]
         relative: Smart<Relative>,
@@ -392,7 +392,7 @@ impl Gradient {
         }))
     }
 
-    /// Return the stops of this gradient.
+    /// Returns the stops of this gradient.
     #[func]
     pub fn stops(&self) -> Vec<Stop> {
         match self {
