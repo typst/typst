@@ -701,7 +701,7 @@ impl Gradient {
         .into_value())
     }
 
-    /// Creates a rainbow list of color stops with the given parameters.
+    /// Creates a list of rainbow color stops with the given parameters.
     ///
     /// You can control the number of stops in the gradient using the `stops`
     /// parameter, which is set to 20 by default.
