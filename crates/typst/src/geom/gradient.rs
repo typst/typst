@@ -308,7 +308,7 @@ use crate::geom::{ColorSpace, Smart};
 ///   it is not color blind friendly and should not be used for data visualization,
 ///   due to which it is not included in Typst.
 /// - [Parula](https://www.mathworks.com/help/matlab/ref/parula.html)
-///   is a good color map included in matlab, but it is not included as
+///   is a good color map included in MATLAB, but it is not included as
 ///   a preset in Typst. This is because it is owned by MathWorks and is not public.
 ///
 #[ty(scope)]
