@@ -25,7 +25,7 @@ use crate::geom::{ColorSpace, Smart};
 /// A gradient is composed of a series of stops, each stop has a color and an offset.
 /// The offset is a [ratio]($ratio) between 0% and 100% that determines the position
 /// of the stop along the gradient. The color is the color of the gradient at that
-/// position. In Typst, you can chose to omit the offset, in which case it will be
+/// position. In Typst, you can choose to omit the offset, in which case it will be
 /// automatically computed for you, and all the stops will be evenly spaced.
 ///
 /// ## Usage
