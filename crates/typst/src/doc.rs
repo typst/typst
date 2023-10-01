@@ -452,10 +452,10 @@ impl Debug for Frame {
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum FrameKind {
-    /// A container which follows its parent's size
+    /// A container which follows its parent's size.
     Soft,
 
-    /// A container which uses its own size
+    /// A container which uses its own size.
     Hard,
 }
 
