@@ -134,8 +134,8 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// ## Presets
 ///
-/// Typst also includes a number of preset color maps. In the following section the
-/// list of available presets is given, along with a sample of the gradient and
+/// Typst also includes a number of preset color maps. In the following section, the
+/// list of available presets is given, along with a sample of each gradient and
 /// relevant comments. Most of these color maps are chosen to be color blind friendly.
 ///
 /// ### Turbo
