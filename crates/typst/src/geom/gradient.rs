@@ -853,7 +853,7 @@ impl Debug for LinearGradient {
 pub enum Relative {
     /// The gradient is relative to itself (its own bounding box).
     This,
-    
+
     /// The gradient is relative to its parent (the parent's bounding box).
     Parent,
 }
