@@ -154,7 +154,7 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// The [`cividis`]($gradient.cividis) gradient is a blue to gray to
 /// yellow gradient that is perceptually uniform. Cividis is a gradient
-/// that takes an optional number of stops, by default it is set to 20.
+/// that takes an optional number of stops, which is set to 20 by default.
 ///
 /// ✅ This gradient is suitable for data visualization.
 ///
