@@ -428,6 +428,7 @@ impl PaintEncode for Paint {
     }
 }
 
+/// Extra color space functions.
 pub(super) trait CSFunctions {
     /// Returns the range of the color space
     fn range(self) -> [f32; 6];
@@ -463,6 +464,7 @@ impl CSFunctions for ColorSpace {
     }
 }
 
+/// Quantizes a color component to a specific type.
 pub(super) trait QuantizedColor {
     fn quantize(color: f32, range: [f32; 2]) -> Self;
 }
