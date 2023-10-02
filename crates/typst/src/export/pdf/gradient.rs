@@ -43,7 +43,7 @@ pub fn write_gradients(ctx: &mut PdfContext) {
                     .write(gradient.space(), shading.color_space(), &mut ctx.alloc);
 
                 let angle = linear.angle.correct_aspect_ratio(aspect_ratio);
-                let (sin, cos) = angle.sin_cos();
+                let (sin, cos) = (angle.sin(), angle.cos());
                 let length = sin.abs() + cos.abs();
 
                 shading

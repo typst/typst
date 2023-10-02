@@ -648,7 +648,7 @@ impl SVGRenderer {
                     self.xml.write_attribute("gradientUnits", "userSpaceOnUse");
 
                     let angle = linear.angle.correct_aspect_ratio(*ratio);
-                    let (sin, cos) = angle.sin_cos();
+                    let (sin, cos) = (angle.sin(), angle.cos());
                     let length = sin.abs() + cos.abs();
                     let (x1, y1, x2, y2) = match angle.quadrant() {
                         Quadrant::First => (0.0, 0.0, cos * length, sin * length),

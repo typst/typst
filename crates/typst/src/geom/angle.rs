@@ -66,11 +66,6 @@ impl Angle {
         self.to_rad().cos()
     }
 
-    /// Get the sine and cosine of this angle in radians.
-    pub fn sin_cos(self) -> (f64, f64) {
-        self.to_rad().sin_cos()
-    }
-
     /// Get the tangent of this angle in radians.
     pub fn tan(self) -> f64 {
         self.to_rad().tan()
