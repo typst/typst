@@ -1,5 +1,5 @@
 use std::borrow::{Borrow, Cow};
-use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::hash::{Hash, Hasher};
 use std::ops::{Add, AddAssign, Deref, Range};
 
@@ -70,7 +70,18 @@ pub use ecow::eco_format;
 /// - `[\t]` for a tab
 /// - `[\u{1f600}]` for a hexadecimal Unicode escape sequence
 #[ty(scope, title = "String")]
-#[derive(Default, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Eq,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Hash,
+    Serialize,
+    Deserialize
+)]
 #[serde(transparent)]
 pub struct Str(EcoString);
 
@@ -679,21 +690,6 @@ impl Display for Str {
     }
 }
 
-impl Debug for Str {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char('"')?;
-        for c in self.chars() {
-            match c {
-                '\0' => f.write_str("\\u{0}")?,
-                '\'' => f.write_str("'")?,
-                '"' => f.write_str(r#"\""#)?,
-                _ => Display::fmt(&c.escape_debug(), f)?,
-            }
-        }
-        f.write_char('"')
-    }
-}
-
 impl Repr for Str {
     fn repr(&self) -> EcoString {
         self.as_ref().repr()
@@ -824,7 +820,7 @@ cast! {
 ///     .split(regex("[,;]")))
 /// ```
 #[ty(scope)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Regex(regex::Regex);
 
 impl Regex {
@@ -860,12 +856,6 @@ impl Deref for Regex {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl Debug for Regex {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "regex({:?})", self.0.as_str())
     }
 }
 

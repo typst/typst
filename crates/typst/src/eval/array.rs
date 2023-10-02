@@ -1,5 +1,5 @@
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{Debug, Formatter};
 use std::num::NonZeroI64;
 use std::ops::{Add, AddAssign};
 
@@ -808,14 +808,8 @@ cast! {
 }
 
 impl Debug for Array {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let max = 40;
-        let mut pieces: Vec<_> =
-            self.iter().take(max).map(|value| eco_format!("{value:?}")).collect();
-        if self.len() > max {
-            pieces.push(eco_format!(".. ({} items omitted)", self.len() - max));
-        }
-        f.write_str(&pretty_array_like(&pieces, self.len() == 1))
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.0.iter()).finish()
     }
 }
 

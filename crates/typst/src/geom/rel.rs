@@ -20,7 +20,7 @@ use ecow::{eco_format, EcoString};
 /// - `length`: Its length component.
 /// - `ratio`: Its ratio component.
 #[ty(name = "relative", title = "Relative Length")]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Rel<T: Numeric = Length> {
     /// The relative part.
     pub rel: Ratio,
@@ -78,16 +78,6 @@ impl Rel<Length> {
             Some(self.rel / other.rel)
         } else {
             None
-        }
-    }
-}
-
-impl<T: Numeric> Debug for Rel<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match (self.rel.is_zero(), self.abs.is_zero()) {
-            (false, false) => write!(f, "{:?} + {:?}", self.rel, self.abs),
-            (false, true) => self.rel.fmt(f),
-            (true, _) => self.abs.fmt(f),
         }
     }
 }

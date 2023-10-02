@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::{self, Debug, Formatter};
 use std::str::FromStr;
 
 use ecow::{eco_vec, EcoVec};
@@ -200,7 +200,7 @@ use crate::prelude::*;
 /// documentation for more details on state management in Typst and why it
 /// doesn't just use normal variables for counters.
 #[ty(scope)]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Counter(CounterKey);
 
 impl Counter {
@@ -450,14 +450,6 @@ impl Counter {
             state.step(NonZeroUsize::ONE, delta);
         }
         Ok(state)
-    }
-}
-
-impl Debug for Counter {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("counter(")?;
-        self.0.fmt(f)?;
-        f.write_char(')')
     }
 }
 

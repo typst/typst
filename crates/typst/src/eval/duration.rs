@@ -1,7 +1,7 @@
 use crate::eval::repr::Repr;
 use ecow::{eco_format, EcoString};
-use std::fmt;
-use std::fmt::{Debug, Formatter};
+
+use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Neg, Sub};
 use time::ext::NumericalDuration;
 
@@ -10,7 +10,7 @@ use crate::util::pretty_array_like;
 
 /// Represents a positive or negative span of time.
 #[ty(scope)]
-#[derive(Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Duration(time::Duration);
 
 impl Duration {
@@ -109,44 +109,6 @@ impl Duration {
     #[func]
     pub fn weeks(&self) -> f64 {
         self.seconds() / 604_800.0
-    }
-}
-
-impl Debug for Duration {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let mut tmp = self.0;
-        let mut vec = Vec::with_capacity(5);
-
-        let weeks = tmp.whole_seconds() / 604_800.0 as i64;
-        if weeks != 0 {
-            vec.push(eco_format!("weeks: {weeks}"));
-        }
-        tmp -= weeks.weeks();
-
-        let days = tmp.whole_days();
-        if days != 0 {
-            vec.push(eco_format!("days: {days}"));
-        }
-        tmp -= days.days();
-
-        let hours = tmp.whole_hours();
-        if hours != 0 {
-            vec.push(eco_format!("hours: {hours}"));
-        }
-        tmp -= hours.hours();
-
-        let minutes = tmp.whole_minutes();
-        if minutes != 0 {
-            vec.push(eco_format!("minutes: {minutes}"));
-        }
-        tmp -= minutes.minutes();
-
-        let seconds = tmp.whole_seconds();
-        if seconds != 0 {
-            vec.push(eco_format!("seconds: {seconds}"));
-        }
-
-        write!(f, "duration{}", &pretty_array_like(&vec, false))
     }
 }
 

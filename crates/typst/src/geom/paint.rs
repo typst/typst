@@ -2,7 +2,7 @@ use super::*;
 use ecow::EcoString;
 
 /// How a fill or stroke should be painted.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Paint {
     /// A solid color.
     Solid(Color),
@@ -11,14 +11,6 @@ pub enum Paint {
 impl<T: Into<Color>> From<T> for Paint {
     fn from(t: T) -> Self {
         Self::Solid(t.into())
-    }
-}
-
-impl Debug for Paint {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::Solid(color) => color.fmt(f),
-        }
     }
 }
 

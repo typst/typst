@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::num::NonZeroUsize;
 
@@ -25,7 +25,7 @@ use crate::util::NonZeroExt;
 /// or shown element with the [`location()`]($content.location) method on
 /// content.
 #[ty(scope)]
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Location {
     /// The hash of the element.
     hash: u128,
@@ -81,12 +81,6 @@ impl Location {
     #[func]
     pub fn page_numbering(self, vm: &mut Vm) -> Value {
         vm.vt.introspector.page_numbering(self)
-    }
-}
-
-impl Debug for Location {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("..")
     }
 }
 

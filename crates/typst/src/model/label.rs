@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 
 use ecow::{eco_format, EcoString};
 
@@ -24,7 +24,7 @@ use crate::eval::{func, scope, ty};
 /// This function also has dedicated syntax: You can create a label by enclosing
 /// its name in angle brackets. This works both in markup and code.
 #[ty(scope)]
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Label(pub EcoString);
 
 #[scope]
@@ -36,12 +36,6 @@ impl Label {
         name: EcoString,
     ) -> Label {
         Self(name)
-    }
-}
-
-impl Debug for Label {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "<{}>", self.0)
     }
 }
 

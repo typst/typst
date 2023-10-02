@@ -34,7 +34,7 @@ use crate::syntax::Span;
 ///   (that is, excluding the `em` component).
 /// - `em`: The amount of `em` units in this length, as a [float]($float).
 #[ty(scope)]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct Length {
     /// The absolute part.
     pub abs: Abs,
@@ -76,7 +76,8 @@ impl Length {
             return Ok(());
         }
         Err(eco_format!(
-            "cannot convert a length with non-zero em units (`{self:?}`) to {unit}"
+            "cannot convert a length with non-zero em units (`{}`) to {unit}",
+            self.repr()
         ))
         .hint(eco_format!("use `length.abs.{unit}()` instead to ignore its em component"))
         .at(span)
@@ -125,16 +126,6 @@ impl Length {
     pub fn to_inches(&self, span: Span) -> SourceResult<f64> {
         self.ensure_that_em_is_zero(span, "inches")?;
         Ok(self.abs.to_inches())
-    }
-}
-
-impl Debug for Length {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match (self.abs.is_zero(), self.em.is_zero()) {
-            (false, false) => write!(f, "{:?} + {:?}", self.abs, self.em),
-            (true, false) => self.em.fmt(f),
-            (_, true) => self.abs.fmt(f),
-        }
     }
 }
 

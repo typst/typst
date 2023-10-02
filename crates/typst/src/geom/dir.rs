@@ -17,7 +17,7 @@ use ecow::EcoString;
 /// #stack(dir: direction.rtl)[A][B][C]
 /// ```
 #[ty(scope, name = "direction")]
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Dir {
     /// Left to right.
     LTR,
@@ -115,17 +115,6 @@ impl Dir {
             Self::TTB => Self::BTT,
             Self::BTT => Self::TTB,
         }
-    }
-}
-
-impl Debug for Dir {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::LTR => "ltr",
-            Self::RTL => "rtl",
-            Self::TTB => "ttb",
-            Self::BTT => "btt",
-        })
     }
 }
 

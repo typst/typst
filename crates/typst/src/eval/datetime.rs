@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
-use std::fmt;
-use std::fmt::{Debug, Formatter};
+
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::ops::{Add, Sub};
 
@@ -114,7 +114,7 @@ use crate::World;
 /// components such as `hour` or `minute`, which would only work on datetimes
 /// that have a specified time.
 #[ty(scope)]
-#[derive(Clone, Copy, PartialEq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Hash)]
 pub enum Datetime {
     /// Representation as a date.
     Date(time::Date),
@@ -424,23 +424,6 @@ impl Datetime {
             Self::Date(date) => Some(date.ordinal()),
             Self::Time(_) => None,
         }
-    }
-}
-
-impl Debug for Datetime {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let year = self.year().map(|y| eco_format!("year: {y}"));
-        let month = self.month().map(|m| eco_format!("month: {m}"));
-        let day = self.day().map(|d| eco_format!("day: {d}"));
-        let hour = self.hour().map(|h| eco_format!("hour: {h}"));
-        let minute = self.minute().map(|m| eco_format!("minute: {m}"));
-        let second = self.second().map(|s| eco_format!("second: {s}"));
-        let filtered = [year, month, day, hour, minute, second]
-            .into_iter()
-            .flatten()
-            .collect::<EcoVec<_>>();
-
-        write!(f, "datetime{}", &pretty_array_like(&filtered, false))
     }
 }
 

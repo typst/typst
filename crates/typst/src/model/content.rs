@@ -1,5 +1,5 @@
 use std::any::TypeId;
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::Debug;
 use std::iter::{self, Sum};
 use std::ops::{Add, AddAssign};
 
@@ -62,7 +62,7 @@ use crate::util::pretty_array_like;
 /// elements the content is composed of and what fields they have.
 /// Alternatively, you can inspect the output of the [`repr`]($repr) function.
 #[ty(scope)]
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Content {
     elem: Element,
@@ -529,33 +529,6 @@ impl Content {
     }
 }
 
-impl Debug for Content {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let name = self.elem.name();
-        if let Some(text) = item!(text_str)(self) {
-            f.write_char('[')?;
-            f.write_str(&text)?;
-            f.write_char(']')?;
-            return Ok(());
-        } else if name == "space" {
-            return f.write_str("[ ]");
-        }
-
-        let mut pieces: Vec<_> = self
-            .fields()
-            .into_iter()
-            .map(|(name, value)| eco_format!("{name}: {value:?}"))
-            .collect();
-
-        if self.is::<StyledElem>() {
-            pieces.push(EcoString::from(".."));
-        }
-
-        f.write_str(name)?;
-        f.write_str(&pretty_array_like(&pieces, false))
-    }
-}
-
 impl Repr for Content {
     fn repr(&self) -> EcoString {
         let name = self.elem.name();
@@ -720,15 +693,15 @@ pub trait PlainText {
 /// The missing field access error message.
 #[cold]
 fn missing_field(field: &str) -> EcoString {
-    eco_format!("content does not contain field {:?}", Str::from(field))
+    eco_format!("content does not contain field {}", field.repr())
 }
 
 /// The missing field access error message when no default value was given.
 #[cold]
 fn missing_field_no_default(field: &str) -> EcoString {
     eco_format!(
-        "content does not contain field {:?} and \
+        "content does not contain field {} and \
          no default value was specified",
-        Str::from(field)
+        field.repr()
     )
 }

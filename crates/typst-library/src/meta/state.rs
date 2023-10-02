@@ -1,4 +1,4 @@
-use std::fmt::{self, Debug, Formatter, Write};
+use std::fmt::Debug;
 
 use ecow::{eco_vec, EcoVec};
 use typst::eval::repr::Repr;
@@ -182,7 +182,7 @@ use crate::prelude::*;
 /// function to `update` that determines the value of the state based on its
 /// previous value.
 #[ty(scope)]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct State {
     /// The key that identifies the state.
     key: Str,
@@ -336,16 +336,6 @@ impl State {
     }
 }
 
-impl Debug for State {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_str("state(")?;
-        self.key.fmt(f)?;
-        f.write_str(", ")?;
-        self.init.fmt(f)?;
-        f.write_char(')')
-    }
-}
-
 impl Repr for State {
     fn repr(&self) -> EcoString {
         eco_format!("state({}, {})", self.key.repr(), self.init.repr())
@@ -358,18 +348,12 @@ cast! {
 
 /// An update to perform on a state.
 #[ty]
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub enum StateUpdate {
     /// Set the state to the specified value.
     Set(Value),
     /// Apply the given function to the state.
     Func(Func),
-}
-
-impl Debug for StateUpdate {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("..")
-    }
 }
 
 impl Repr for StateUpdate {

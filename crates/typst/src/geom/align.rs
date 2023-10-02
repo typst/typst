@@ -43,7 +43,7 @@ use ecow::{eco_format, EcoString};
 /// #left.y (none)
 /// ```
 #[ty(scope, name = "alignment")]
-#[derive(Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum Align {
     H(HAlign),
     V(VAlign),
@@ -150,16 +150,6 @@ impl Add for Align {
     }
 }
 
-impl Debug for Align {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            Self::H(x) => x.fmt(f),
-            Self::V(y) => y.fmt(f),
-            Self::Both(x, y) => write!(f, "{x:?} + {y:?}"),
-        }
-    }
-}
-
 impl Repr for Align {
     fn repr(&self) -> EcoString {
         match self {
@@ -206,7 +196,7 @@ cast! {
 }
 
 /// Where to align something horizontally.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum HAlign {
     #[default]
     Start,
@@ -237,18 +227,6 @@ impl HAlign {
             (Self::Right, _) => FixedAlign::End,
             (Self::End, true) | (Self::Start, false) => FixedAlign::End,
         }
-    }
-}
-
-impl Debug for HAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Start => "start",
-            Self::Left => "left",
-            Self::Center => "center",
-            Self::Right => "right",
-            Self::End => "end",
-        })
     }
 }
 
@@ -291,12 +269,12 @@ cast! {
     self => Align::H(self).into_value(),
     align: Align => match align {
         Align::H(v) => v,
-        v => bail!("expected `start`, `left`, `center`, `right`, or `end`, found {v:?}"),
+        v => bail!("expected `start`, `left`, `center`, `right`, or `end`, found {}", v.repr()),
     }
 }
 
 /// Where to align something vertically.
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum VAlign {
     #[default]
     Top,
@@ -321,16 +299,6 @@ impl VAlign {
             Self::Horizon => FixedAlign::Center,
             Self::Bottom => FixedAlign::End,
         }
-    }
-}
-
-impl Debug for VAlign {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad(match self {
-            Self::Top => "top",
-            Self::Horizon => "horizon",
-            Self::Bottom => "bottom",
-        })
     }
 }
 
@@ -363,7 +331,7 @@ cast! {
     self => Align::V(self).into_value(),
     align: Align => match align {
         Align::V(v) => v,
-        v => bail!("expected `top`, `horizon`, or `bottom`, found {v:?}"),
+        v => bail!("expected `top`, `horizon`, or `bottom`, found {}", v.repr()),
     }
 }
 

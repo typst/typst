@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::Debug;
 use std::ops::{Add, AddAssign, Deref};
 use std::sync::Arc;
 
@@ -39,7 +39,7 @@ use crate::eval::repr::Repr;
 /// #str(data.slice(1, 4))
 /// ```
 #[ty(scope)]
-#[derive(Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Bytes(Arc<Prehashed<Cow<'static, [u8]>>>);
 
 impl Bytes {
@@ -177,12 +177,6 @@ impl Deref for Bytes {
 impl AsRef<[u8]> for Bytes {
     fn as_ref(&self) -> &[u8] {
         self
-    }
-}
-
-impl Debug for Bytes {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "bytes({})", self.len())
     }
 }
 

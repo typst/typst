@@ -44,11 +44,11 @@ pub use typst_macros::symbols;
 /// $arrow.t.quad$
 /// ```
 #[ty(scope)]
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Symbol(Repr);
 
 /// The internal representation.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum Repr {
     Single(char),
     Const(&'static [(&'static str, char)]),
@@ -56,7 +56,7 @@ enum Repr {
 }
 
 /// A collection of symbols.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum List {
     Static(&'static [(&'static str, char)]),
     Runtime(Box<[(EcoString, char)]>),
@@ -206,12 +206,6 @@ impl Symbol {
             list.push((v.0, v.1));
         }
         Ok(Symbol::runtime(list.into_boxed_slice()))
-    }
-}
-
-impl Debug for Symbol {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.write_char(self.get())
     }
 }
 

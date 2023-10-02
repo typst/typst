@@ -15,7 +15,7 @@ use ecow::EcoString;
 /// ]
 /// ```
 #[ty]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Ratio(Scalar);
 
 impl Ratio {
@@ -62,12 +62,6 @@ impl Ratio {
         } else {
             T::zero()
         }
-    }
-}
-
-impl Debug for Ratio {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}%", round_2(100.0 * self.get()))
     }
 }
 

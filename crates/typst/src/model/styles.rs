@@ -14,7 +14,7 @@ use crate::syntax::Span;
 
 /// A list of style properties.
 #[ty]
-#[derive(Default, PartialEq, Clone, Hash)]
+#[derive(Debug, Default, PartialEq, Clone, Hash)]
 pub struct Styles(EcoVec<Prehashed<Style>>);
 
 impl Styles {
@@ -84,12 +84,6 @@ impl Styles {
 impl From<Style> for Styles {
     fn from(entry: Style) -> Self {
         Self(eco_vec![Prehashed::new(entry)])
-    }
-}
-
-impl Debug for Styles {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        f.pad("..")
     }
 }
 

@@ -4,7 +4,7 @@ use ecow::EcoString;
 /// A 64-bit float that implements `Eq`, `Ord` and `Hash`.
 ///
 /// Panics if it's `NaN` during any of those operations.
-#[derive(Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct Scalar(pub f64);
 
 impl Numeric for Scalar {
@@ -26,12 +26,6 @@ impl From<f64> for Scalar {
 impl From<Scalar> for f64 {
     fn from(scalar: Scalar) -> Self {
         scalar.0
-    }
-}
-
-impl Debug for Scalar {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.0, f)
     }
 }
 

@@ -1,6 +1,6 @@
 use std::any::Any;
 use std::cmp::Ordering;
-use std::fmt::{self, Debug, Formatter};
+use std::fmt::{self, Debug};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -435,7 +435,7 @@ impl<'de> Visitor<'de> for ValueVisitor {
 }
 
 /// A value that is not part of the built-in enum.
-#[derive(Clone, Hash)]
+#[derive(Debug, Clone, Hash)]
 #[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Dynamic(Arc<dyn Bounds>);
 
@@ -461,12 +461,6 @@ impl Dynamic {
     /// The name of the stored value's type.
     pub fn ty(&self) -> Type {
         self.0.dyn_ty()
-    }
-}
-
-impl Debug for Dynamic {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        Debug::fmt(&self.0, f)
     }
 }
 

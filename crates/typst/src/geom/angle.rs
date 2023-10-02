@@ -15,7 +15,7 @@ use ecow::EcoString;
 /// #rotate(10deg)[Hello there!]
 /// ```
 #[ty(scope)]
-#[derive(Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Angle(Scalar);
 
 impl Angle {
@@ -97,12 +97,6 @@ impl Numeric for Angle {
 
     fn is_finite(self) -> bool {
         self.0.is_finite()
-    }
-}
-
-impl Debug for Angle {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        write!(f, "{}deg", round_2(self.to_deg()))
     }
 }
 

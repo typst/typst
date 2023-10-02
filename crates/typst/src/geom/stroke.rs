@@ -68,7 +68,7 @@ use super::*;
 /// dictionary format above. For example, `{(2pt + blue).thickness}` is `{2pt}`.
 /// Meanwhile, `{(2pt + blue).cap}` is `{auto}` because it's unspecified.
 #[ty]
-#[derive(Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct Stroke<T: Numeric = Length> {
     /// The stroke's paint.
     pub paint: Smart<Paint>,
@@ -147,67 +147,7 @@ impl Stroke<Abs> {
     }
 }
 
-impl<T: Numeric + Debug> Debug for Stroke<T> {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let Self {
-            paint,
-            thickness,
-            line_cap,
-            line_join,
-            dash_pattern,
-            miter_limit,
-        } = &self;
-        if line_cap.is_auto()
-            && line_join.is_auto()
-            && dash_pattern.is_auto()
-            && miter_limit.is_auto()
-        {
-            match (&self.paint, &self.thickness) {
-                (Smart::Custom(paint), Smart::Custom(thickness)) => {
-                    write!(f, "{thickness:?} + {paint:?}")
-                }
-                (Smart::Custom(paint), Smart::Auto) => paint.fmt(f),
-                (Smart::Auto, Smart::Custom(thickness)) => thickness.fmt(f),
-                (Smart::Auto, Smart::Auto) => f.pad("1pt + black"),
-            }
-        } else {
-            write!(f, "(")?;
-            let mut sep = "";
-            if let Smart::Custom(paint) = &paint {
-                write!(f, "{}paint: {:?}", sep, paint)?;
-                sep = ", ";
-            }
-            if let Smart::Custom(thickness) = &thickness {
-                write!(f, "{}thickness: {:?}", sep, thickness)?;
-                sep = ", ";
-            }
-            if let Smart::Custom(cap) = &line_cap {
-                write!(f, "{}cap: {:?}", sep, cap)?;
-                sep = ", ";
-            }
-            if let Smart::Custom(join) = &line_join {
-                write!(f, "{}join: {:?}", sep, join)?;
-                sep = ", ";
-            }
-            if let Smart::Custom(dash) = &dash_pattern {
-                write!(f, "{}dash: ", sep)?;
-                if let Some(dash) = dash {
-                    Debug::fmt(dash, f)?;
-                } else {
-                    Debug::fmt(&NoneValue, f)?;
-                }
-                sep = ", ";
-            }
-            if let Smart::Custom(miter_limit) = &miter_limit {
-                write!(f, "{}miter-limit: {:?}", sep, miter_limit)?;
-            }
-            write!(f, ")")?;
-            Ok(())
-        }
-    }
-}
-
-impl<T: Numeric + Debug + Repr> Repr for Stroke<T> {
+impl<T: Numeric + Repr> Repr for Stroke<T> {
     fn repr(&self) -> EcoString {
         let mut r = EcoString::new();
         let Self {
@@ -352,21 +292,11 @@ cast! {
 }
 
 /// The line cap of a stroke
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineCap {
     Butt,
     Round,
     Square,
-}
-
-impl Debug for LineCap {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            LineCap::Butt => write!(f, "\"butt\""),
-            LineCap::Round => write!(f, "\"round\""),
-            LineCap::Square => write!(f, "\"square\""),
-        }
-    }
 }
 
 impl Repr for LineCap {
@@ -380,21 +310,11 @@ impl Repr for LineCap {
 }
 
 /// The line join of a stroke
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Cast)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Cast)]
 pub enum LineJoin {
     Miter,
     Round,
     Bevel,
-}
-
-impl Debug for LineJoin {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        match self {
-            LineJoin::Miter => write!(f, "\"miter\""),
-            LineJoin::Round => write!(f, "\"round\""),
-            LineJoin::Bevel => write!(f, "\"bevel\""),
-        }
-    }
 }
 
 impl Repr for LineJoin {
@@ -495,7 +415,7 @@ cast! {
 }
 
 /// The length of a dash in a line dash pattern.
-#[derive(Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum DashLength<T: Numeric = Length> {
     LineWidth,
     Length(T),
@@ -506,15 +426,6 @@ impl<T: Numeric> DashLength<T> {
         match self {
             Self::LineWidth => line_width,
             Self::Length(l) => l,
-        }
-    }
-}
-
-impl<T: Numeric + Debug> Debug for DashLength<T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::LineWidth => write!(f, "\"dot\""),
-            Self::Length(v) => Debug::fmt(v, f),
         }
     }
 }

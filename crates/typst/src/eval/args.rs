@@ -48,7 +48,7 @@ pub struct Args {
 }
 
 /// An argument to a function call: `12` or `draw: false`.
-#[derive(Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct Arg {
     /// The span of the whole argument.
     pub span: Span,
@@ -263,16 +263,6 @@ impl Repr for Args {
     fn repr(&self) -> EcoString {
         let pieces = self.items.iter().map(Arg::repr).collect::<Vec<_>>();
         pretty_array_like(&pieces, false).into()
-    }
-}
-
-impl Debug for Arg {
-    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        if let Some(name) = &self.name {
-            f.write_str(name)?;
-            f.write_str(": ")?;
-        }
-        Debug::fmt(&self.value.v, f)
     }
 }
 
