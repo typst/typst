@@ -83,16 +83,12 @@ pub fn render_merged(
 struct State<'a> {
     /// The transform of the current item.
     transform: sk::Transform,
-
     /// The transform of the first hard frame in the hierarchy.
     container_transform: sk::Transform,
-
     /// The mask of the current item.
     mask: Option<&'a sk::Mask>,
-
     /// The pixel per point ratio.
     pixel_per_pt: f32,
-
     /// The size of the first hard frame in the hierarchy.
     size: Size,
 }

@@ -81,7 +81,6 @@ struct SVGRenderer {
 struct State {
     /// The transform of the current item.
     transform: Transform,
-
     /// The size of the first hard frame in the hierarchy.
     size: Size,
 }

@@ -2,6 +2,7 @@ use std::f64::consts::{FRAC_PI_2, PI, TAU};
 use std::f64::{EPSILON, NEG_INFINITY};
 use std::fmt::{self, Debug, Write};
 use std::hash::Hash;
+use std::sync::Arc;
 
 use ecow::EcoVec;
 use typst_macros::{cast, func, scope, ty, Cast};
@@ -269,7 +270,7 @@ use crate::geom::{ColorSpace, Smart};
 #[ty(scope)]
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub enum Gradient {
-    Linear(LinearGradient),
+    Linear(Arc<LinearGradient>),
 }
 
 impl Debug for Gradient {
@@ -333,13 +334,13 @@ impl Gradient {
 
         let stops = process_stops(&stops)?;
 
-        Ok(Self::Linear(LinearGradient {
+        Ok(Self::Linear(Arc::new(LinearGradient {
             stops,
             angle: dir.into(),
             space,
             relative,
             anti_alias: true,
-        }))
+        })))
     }
 
     /// Returns the stops of this gradient.
@@ -497,13 +498,13 @@ impl Gradient {
         stops.dedup();
 
         Ok(match self {
-            Self::Linear(linear) => Self::Linear(LinearGradient {
+            Self::Linear(linear) => Self::Linear(Arc::new(LinearGradient {
                 stops,
                 angle: linear.angle,
                 space: linear.space,
                 relative: linear.relative,
                 anti_alias: false,
-            }),
+            })),
         })
     }
 
@@ -554,13 +555,13 @@ impl Gradient {
         stops.dedup();
 
         Ok(match self {
-            Self::Linear(grad) => Self::Linear(LinearGradient {
+            Self::Linear(grad) => Self::Linear(Arc::new(LinearGradient {
                 stops,
                 angle: grad.angle,
                 space: grad.space,
                 relative: grad.relative,
                 anti_alias: true,
-            }),
+            })),
         })
     }
 
@@ -768,16 +769,12 @@ impl Gradient {
 pub struct LinearGradient {
     /// The color stops of this gradient.
     pub stops: Vec<(Color, Ratio)>,
-
     /// The direction of this gradient.
     pub angle: Angle,
-
     /// The color space in which to interpolate the gradient.
     pub space: ColorSpace,
-
     /// The relative placement of the gradient.
     pub relative: Smart<Relative>,
-
     /// Whether to anti-alias the gradient (used for sharp gradients).
     pub anti_alias: bool,
 }
@@ -825,7 +822,6 @@ pub enum Relative {
     /// The gradient is relative to itself (its own bounding box).
     #[string("self")]
     This,
-
     /// The gradient is relative to its parent (the parent's bounding box).
     Parent,
 }
