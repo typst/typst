@@ -73,7 +73,7 @@ fn missing_field(ty: Type, field: &str) -> EcoString {
 /// List the available fields for a type.
 pub fn fields_on(ty: Type) -> &'static [&'static str] {
     if ty == Type::of::<Version>() {
-        &Version::COMPONENT_NAMES
+        &Version::COMPONENTS
     } else if ty == Type::of::<Length>() {
         &["em", "abs"]
     } else if ty == Type::of::<Rel>() {

@@ -1,42 +1,35 @@
 use std::cmp::Ordering;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::Hash;
 use std::iter::repeat;
 
-use ecow::EcoVec;
+use ecow::{eco_format, EcoVec};
 
-use super::{cast, func, scope, ty, Array, Value};
+use super::{cast, func, scope, ty};
 use crate::diag::{bail, error, StrResult};
+use crate::util::pretty_array_like;
 
 /// A version, with any number of components.
 ///
-/// The list of components is semantically extended
-/// by an infinite list of zeros.
-/// This means that, for example, `0.8` is the same as `0.8.0`.
-/// As a special case, the empty version (that has no components at all)
-/// is the same as `0`, `0.0`, `0.0.0`, and so on.
+/// The list of components is semantically extended by an infinite list of
+/// zeros. This means that, for example, `0.8` is the same as `0.8.0`. As a
+/// special case, the empty version (that has no components at all) is the same
+/// as `0`, `0.0`, `0.0.0`, and so on.
 ///
-/// The first three components have names: `major`, `minor`, `patch`.
-/// All components after that do not have names.
-// reason: hash is for incremental compilation, so it needs to be different
-// for values that display differently.
-// It being different from `Eq` is consistent with many other typst types.
-#[allow(clippy::derived_hash_with_manual_eq)]
+/// The first three components have names: `major`, `minor`, `patch`. All
+/// components after that do not have names.
 #[ty(scope)]
 #[derive(Default, Clone, Hash)]
+#[allow(clippy::derived_hash_with_manual_eq)]
 pub struct Version(EcoVec<u32>);
 
 impl Version {
     /// The names for the first components of a version.
-    pub const COMPONENT_NAMES: [&'static str; 3] = ["major", "minor", "patch"];
+    pub const COMPONENTS: [&'static str; 3] = ["major", "minor", "patch"];
 
     /// Create a new (empty) version.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    fn get(&self, index: usize) -> Option<u32> {
-        self.0.get(index).copied()
     }
 
     /// Get a named component of a version.
@@ -46,19 +39,19 @@ impl Version {
     pub fn component(&self, name: &str) -> StrResult<i64> {
         self.0
             .iter()
-            .zip(Self::COMPONENT_NAMES)
+            .zip(Self::COMPONENTS)
             .find_map(|(&i, s)| (s == name).then_some(i as i64))
             .ok_or_else(|| error!("unknown version component"))
-    }
-
-    /// Convert a version into an array
-    pub fn into_array(self) -> Array {
-        self.0.into_iter().map(|i| Value::Int(i as i64)).collect()
     }
 
     /// Push a component to the end of this version.
     pub fn push(&mut self, component: u32) {
         self.0.push(component);
+    }
+
+    /// The values of the version
+    pub fn values(&self) -> &[u32] {
+        &self.0
     }
 }
 
@@ -81,20 +74,18 @@ impl Version {
         #[variadic]
         components: Vec<VersionComponents>,
     ) -> Version {
-        let mut res = Version::new();
-
+        let mut version = Version::new();
         for c in components {
             match c {
-                VersionComponents::Single(i) => res.push(i),
-                VersionComponents::Multiple(v) => {
-                    for i in v {
-                        res.push(i);
+                VersionComponents::Single(v) => version.push(v),
+                VersionComponents::Multiple(values) => {
+                    for v in values {
+                        version.push(v);
                     }
                 }
             }
         }
-
-        res
+        version
     }
 
     /// Get a component of a version.
@@ -104,8 +95,8 @@ impl Version {
     #[func]
     pub fn at(
         &self,
-        /// The index at which to retrieve the component.
-        /// If negative, indexes from the back of the explicitly given components.
+        /// The index at which to retrieve the component. If negative, indexes
+        /// from the back of the explicitly given components.
         index: i64,
     ) -> StrResult<i64> {
         let mut index = index;
@@ -113,14 +104,14 @@ impl Version {
             match (self.0.len() as i64).checked_add(index) {
                 Some(pos_index) if pos_index >= 0 => index = pos_index,
                 _ => bail!(
-                    "version component index out of bounds (index: {index}, len: {})",
+                    "component index out of bounds (index: {index}, len: {})",
                     self.0.len()
                 ),
             }
         }
         Ok(usize::try_from(index)
             .ok()
-            .and_then(|i| self.get(i))
+            .and_then(|i| self.0.get(i).copied())
             .unwrap_or_default() as i64)
     }
 }
@@ -128,6 +119,15 @@ impl Version {
 impl FromIterator<u32> for Version {
     fn from_iter<T: IntoIterator<Item = u32>>(iter: T) -> Self {
         Self(EcoVec::from_iter(iter))
+    }
+}
+
+impl IntoIterator for Version {
+    type Item = u32;
+    type IntoIter = ecow::vec::IntoIter<u32>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
 
@@ -145,6 +145,7 @@ impl Ord for Version {
                 ord => return ord,
             }
         }
+
         Ordering::Equal
     }
 }
@@ -166,25 +167,26 @@ impl PartialEq for Version {
 impl Display for Version {
     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
         let mut first = true;
-        for &i in &self.0 {
-            if first {
-                first = false;
-            } else {
-                write!(f, ".")?;
+        for &v in &self.0 {
+            if !first {
+                f.write_char('.')?;
             }
-            write!(f, "{i}")?;
+            write!(f, "{v}")?;
+            first = false;
         }
         Ok(())
     }
 }
 
 impl Debug for Version {
-    fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-        write!(f, "version({self})")
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        f.write_str("version")?;
+        let parts: Vec<_> = self.0.iter().map(|v| eco_format!("{v}")).collect();
+        f.write_str(&pretty_array_like(&parts, false))
     }
 }
 
-/// One or multiple version components
+/// One or multiple version components.
 pub enum VersionComponents {
     Single(u32),
     Multiple(Vec<u32>),
@@ -192,6 +194,6 @@ pub enum VersionComponents {
 
 cast! {
     VersionComponents,
-    i: u32 => Self::Single(i),
-    arr: Vec<u32> => Self::Multiple(arr)
+    v: u32 => Self::Single(v),
+    v: Vec<u32> => Self::Multiple(v)
 }

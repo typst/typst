@@ -804,7 +804,7 @@ cast! {
     ToArray,
     v: Bytes => Self(v.iter().map(|&b| Value::Int(b.into())).collect()),
     v: Array => Self(v),
-    v: Version => Self(v.clone().into_array())
+    v: Version => Self(v.values().iter().map(|&v| Value::Int(v as i64)).collect())
 }
 
 impl Debug for Array {

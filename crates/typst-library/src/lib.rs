@@ -11,7 +11,6 @@ pub mod meta;
 pub mod prelude;
 pub mod shared;
 pub mod symbols;
-pub mod sys;
 pub mod text;
 pub mod visualize;
 
@@ -34,7 +33,6 @@ fn global(math: Module) -> Module {
     let mut global = Scope::deduplicating();
     text::define(&mut global);
     global.define_module(math);
-    global.define_module(sys::module());
     layout::define(&mut global);
     visualize::define(&mut global);
     meta::define(&mut global);
