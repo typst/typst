@@ -65,7 +65,10 @@ use crate::geom::{ColorSpace, Smart};
 /// interpolated in the [Oklab]($color.oklab) color space, which is a perceptually
 /// uniform color space. This means that the gradient will be perceived as having
 /// a uniform progression of colors. This is particularly useful for data
-/// visualization.
+/// visualization. You can learn more with Thomas Bury's
+/// [blog post](https://towardsdatascience.com/your-colour-map-is-bad-heres-how-to-fix-it-lessons-learnt-from-the-event-horizon-telescope-b82523f09469)
+/// or in Björn Ottosson's [blog post](https://bottosson.github.io/posts/oklab/) or
+/// on matplotlib's [blog](https://matplotlib.org/stable/users/explain/colors/colormaps.html).
 ///
 /// However, you can choose to interpolate the gradient in any supported color
 /// space you want, but beware that some color spaces are not suitable for
@@ -147,8 +150,6 @@ use crate::geom::{ColorSpace, Smart};
 /// perceptually uniform. Turbo is a gradient that takes an optional number of
 /// stops, which is set to 20 by default.
 ///
-/// ✅ This color map is suitable for data visualization.
-///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.turbo(10)))
 /// ```
@@ -158,8 +159,6 @@ use crate::geom::{ColorSpace, Smart};
 /// The [`cividis`]($gradient.cividis) gradient is a blue to gray to
 /// yellow gradient that is perceptually uniform. Cividis is a gradient
 /// that takes an optional number of stops, which is set to 20 by default.
-///
-/// ✅ This color map is suitable for data visualization.
 ///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.cividis(10)))
@@ -189,8 +188,6 @@ use crate::geom::{ColorSpace, Smart};
 /// The [`spectral`]($gradient.spectral) gradient is a red to yellow to blue
 /// gradient that is perceptually uniform. Spectral does not take any parameters.
 ///
-/// ✅ This color map is suitable for data visualization.
-///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.spectral))
 /// ```
@@ -199,8 +196,6 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// The [`viridis`]($gradient.viridis) gradient is a purple to teal to yellow
 /// gradient that is perceptually uniform. Viridis does not take any parameters.
-///
-/// ✅ This color map is suitable for data visualization.
 ///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.viridis))
@@ -211,8 +206,6 @@ use crate::geom::{ColorSpace, Smart};
 /// The [`inferno`]($gradient.inferno) gradient is a black to red to yellow
 /// gradient that is perceptually uniform. Inferno does not take any parameters.
 ///
-/// ✅ This color map is suitable for data visualization.
-///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.inferno))
 /// ```
@@ -221,8 +214,6 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// The [`magma`]($gradient.magma) gradient is a black to purple to yellow
 /// gradient that is perceptually uniform. Magma does not take any parameters.
-///
-/// ✅ This color map is suitable for data visualization.
 ///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.magma))
@@ -233,8 +224,6 @@ use crate::geom::{ColorSpace, Smart};
 /// The [`plasma`]($gradient.plasma) gradient is a purple to pink to yellow
 /// gradient that is perceptually uniform. Plasma does not take any parameters.
 ///
-/// ✅ This color map is suitable for data visualization.
-///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.plasma))
 /// ```
@@ -243,8 +232,6 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// The [`rocket`]($gradient.rocket) gradient is a black to red to white
 /// gradient that is perceptually uniform. Rocket does not take any parameters.
-///
-/// ✅ This color map is suitable for data visualization.
 ///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.rocket))
@@ -255,8 +242,6 @@ use crate::geom::{ColorSpace, Smart};
 /// The [`mako`]($gradient.mako) gradient is a black to teal to yellow
 /// gradient that is perceptually uniform. Mako does not take any parameters.
 ///
-/// ✅ This color map is suitable for data visualization.
-///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.mako))
 /// ```
@@ -265,8 +250,6 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// The [`vlag`]($gradient.vlag) gradient is a light blue to white to red
 /// gradient that is perceptually uniform. Vlag does not take any parameters.
-///
-/// ✅ This color map is suitable for data visualization.
 ///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.vlag))
@@ -277,8 +260,6 @@ use crate::geom::{ColorSpace, Smart};
 /// The [`icefire`]($gradient.icefire) gradient is a light teal to black to yellow
 /// gradient that is perceptually uniform. Icefire does not take any parameters.
 ///
-/// ✅ This color map is suitable for data visualization.
-///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.icefire))
 /// ```
@@ -288,8 +269,6 @@ use crate::geom::{ColorSpace, Smart};
 /// The [`flare`]($gradient.flare) gradient is an orange to purple gradient
 /// that is perceptually uniform. Flare does not take any parameters.
 ///
-/// ✅ This color map is suitable for data visualization.
-///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.flare))
 /// ```
@@ -298,8 +277,6 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// The [`crest`]($gradient.crest) gradient is a blue to white to red gradient
 /// that is perceptually uniform. Crest does not take any parameters.
-///
-/// ✅ This color map is suitable for data visualization.
 ///
 /// ```example
 /// #rect(width: 100pt, height: 20pt, fill: gradient.linear(..gradient.crest))
