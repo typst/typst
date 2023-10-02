@@ -1176,7 +1176,7 @@ impl<'a> CompletionContext<'a> {
                     );
                     self.snippet_completion(
                         "color.linear-rgb()",
-                        "linear-rgb(${r}, ${g}, ${b}, ${a})",
+                        "color.linear-rgb(${r}, ${g}, ${b}, ${a})",
                         "A custom linear RGBA color.",
                     );
                     self.snippet_completion(

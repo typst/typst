@@ -174,7 +174,7 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// **Attention:** The rainbow gradient is **not** suitable for data visualization. It is
 /// **not** perceptually uniform, so the differences between values become unclear to your readers.
-/// It should only be used for decorative purposes. 
+/// It should only be used for decorative purposes.
 ///
 /// ```example
 /// #rect(
