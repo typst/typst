@@ -106,10 +106,10 @@ use crate::geom::{ColorSpace, Smart};
 /// ```
 ///
 /// ## Direction
-/// Some gradients are sensitive to the direction of the gradient. For example, a
-/// linear gradient has an angle that determines the direction of the gradient. Typst
-/// uses a clockwise angle, with 0° being from left-to-right, 90° from top-to-bottom,
-/// 180° from right-to-left, and 270° from bottom-to-top.
+/// Some gradients are sensitive to direction. For example, a linear gradient has an
+/// angle that determines the its direction. Typst uses a clockwise angle, with 0° being
+/// from left-to-right, 90° from top-to-bottom, 180° from right-to-left, and 270°
+/// from bottom-to-top.
 ///
 /// ```example
 /// #set block(spacing: 0pt)
