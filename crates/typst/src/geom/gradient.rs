@@ -167,13 +167,14 @@ use crate::geom::{ColorSpace, Smart};
 ///
 /// ### Rainbow
 ///
-/// The [`rainbow`]($gradient.rainbow) gradient is a rainbow gradient that is
-/// **not** perceptually uniform, therefore it should only be used for decorative
-/// purposes and not for data visualization. Rainbow is a gradient that takes an
+/// The [`rainbow`]($gradient.rainbow) gradient cycles through the full
+/// color spectrum. Rainbow is a gradient that takes an
 /// optional number of stops, which is set to 20 by default. This color map is best
 /// used by setting the interpolation color space to [HSL]($color.hsl).
 ///
-/// ❌ This color map is **not** suitable for data visualization.
+/// **Attention:** The rainbow gradient is **not** suitable for data visualization. It is
+/// **not** perceptually uniform, so the differences between values become unclear to your readers.
+/// It should only be used for decorative purposes. 
 ///
 /// ```example
 /// #rect(
