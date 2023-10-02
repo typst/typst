@@ -129,7 +129,7 @@ use crate::geom::{ColorSpace, Smart};
 /// ## Note on compatibility
 ///
 /// Typst's gradients were designed to be widely compatible; however, in
-/// [PDF.js](https://mozilla.github.io/pdf.js/), the reader bundled with Firefox,
+/// [PDF.js](https://mozilla.github.io/pdf.js/), the PDF reader bundled with Firefox,
 /// gradients in `rotate` blocks may not be rendered correctly. This is a bug in
 /// PDF.js and not in Typst. Despite this, every type of gradient has been
 /// tested in every major PDF reader, and should work in most browsers as
