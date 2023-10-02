@@ -378,6 +378,7 @@ fn layout_mat_body(
     let default_stroke_thickness = DEFAULT_STROKE_THICKNESS.scaled(ctx);
     let default_stroke = FixedStroke {
         thickness: default_stroke_thickness,
+        paint: TextElem::fill_in(ctx.styles()),
         line_cap: LineCap::Square,
         ..Default::default()
     };
