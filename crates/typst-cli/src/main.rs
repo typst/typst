@@ -11,7 +11,6 @@ mod watch;
 mod world;
 
 use std::cell::Cell;
-use std::env;
 use std::io::{self, IsTerminal, Write};
 use std::process::ExitCode;
 

@@ -28,5 +28,5 @@
 #bytes((a: 1))
 
 ---
-// Error: 8-15 expected bytes or array, found string
+// Error: 8-15 expected bytes, array, or version, found string
 #array("hello")

@@ -14,7 +14,7 @@ use typst::eval::Duration;
 use super::{
     fields, format_str, ops, Args, Array, AutoValue, Bytes, CastInfo, Content, Dict,
     FromValue, Func, IntoValue, Module, NativeType, NoneValue, Plugin, Reflect, Scope,
-    Str, Symbol, Type,
+    Str, Symbol, Type, Version,
 };
 use crate::diag::StrResult;
 use crate::eval::Datetime;
@@ -50,6 +50,8 @@ pub enum Value {
     Color(Color),
     /// A symbol: `arrow.l`.
     Symbol(Symbol),
+    /// A version.
+    Version(Version),
     /// A string: `"string"`.
     Str(Str),
     /// Raw bytes.
@@ -122,6 +124,7 @@ impl Value {
             Self::Fraction(_) => Type::of::<Fr>(),
             Self::Color(_) => Type::of::<Color>(),
             Self::Symbol(_) => Type::of::<Symbol>(),
+            Self::Version(_) => Type::of::<Version>(),
             Self::Str(_) => Type::of::<Str>(),
             Self::Bytes(_) => Type::of::<Bytes>(),
             Self::Label(_) => Type::of::<Label>(),
@@ -149,6 +152,7 @@ impl Value {
     pub fn field(&self, field: &str) -> StrResult<Value> {
         match self {
             Self::Symbol(symbol) => symbol.clone().modified(field).map(Self::Symbol),
+            Self::Version(version) => version.component(field).map(Self::Int),
             Self::Dict(dict) => dict.get(field).cloned(),
             Self::Content(content) => content.get(field),
             Self::Type(ty) => ty.field(field).cloned(),
@@ -199,6 +203,7 @@ impl Value {
             Self::Int(v) => item!(text)(eco_format!("{v}")),
             Self::Float(v) => item!(text)(eco_format!("{v}")),
             Self::Str(v) => item!(text)(v.into()),
+            Self::Version(v) => item!(text)(eco_format!("{v}")),
             Self::Symbol(v) => item!(text)(v.get().into()),
             Self::Content(v) => v,
             Self::Module(module) => module.content(),
@@ -231,6 +236,7 @@ impl Debug for Value {
             Self::Fraction(v) => Debug::fmt(v, f),
             Self::Color(v) => Debug::fmt(v, f),
             Self::Symbol(v) => Debug::fmt(v, f),
+            Self::Version(v) => Debug::fmt(v, f),
             Self::Str(v) => Debug::fmt(v, f),
             Self::Bytes(v) => Debug::fmt(v, f),
             Self::Label(v) => Debug::fmt(v, f),
@@ -278,6 +284,7 @@ impl Hash for Value {
             Self::Fraction(v) => v.hash(state),
             Self::Color(v) => v.hash(state),
             Self::Symbol(v) => v.hash(state),
+            Self::Version(v) => v.hash(state),
             Self::Str(v) => v.hash(state),
             Self::Bytes(v) => v.hash(state),
             Self::Label(v) => v.hash(state),
@@ -582,6 +589,7 @@ primitive! { Rel<Length>:  "relative length",
 primitive! { Fr: "fraction", Fraction }
 primitive! { Color: "color", Color }
 primitive! { Symbol: "symbol", Symbol }
+primitive! { Version: "version", Version }
 primitive! {
     Str: "string",
     Str,
